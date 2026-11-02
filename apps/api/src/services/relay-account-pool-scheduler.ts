@@ -566,6 +566,11 @@ export async function refreshOne(
     // 上游**明确拒收**凭据时才收敛到期列(结构化判定,不匹配错误文案);
     // 网络/5xx 等未判定失败绝不改写到期时刻。与失败计数、健康降级同一次写。
     const authRejected = adapter.isAuthError?.(e) === true
+    // 跃迁留痕(2026-11-03 立):只有 false→true 这一下才算「新摘除」。
+    // 摘除后该号对四档候选全部不可见,若不留台账+喊一次,就会像 checkin:24 那样
+    // 连续 108 次 expired 也无人知道(§0.3:没判不写成判过,静默不写成健康)。
+    const enteringRemove = shouldRemove && row.tempUnschedulable !== true
+    const failedAt = new Date()
     await db
       .update(aiRelayAccountPool)
       .set({
@@ -573,10 +578,50 @@ export async function refreshOne(
         tempUnschedulable: shouldRemove ? true : row.tempUnschedulable,
         healthStatus: shouldRemove ? 'down' : row.healthStatus,
         lastErrorMessage: note.slice(0, 500),
-        updatedAt: new Date(),
-        ...(authRejected ? { tokenExpiresAt: new Date() } : {}),
+        updatedAt: failedAt,
+        ...(authRejected ? { tokenExpiresAt: failedAt } : {}),
+        ...(enteringRemove
+          ? {
+              extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || jsonb_build_object(
+                'keepalive', jsonb_build_object(
+                  'lastFailureAt', ${failedAt.toISOString()}::text,
+                  'failureCount', ${failures}::int,
+                  'lastError', ${reason.slice(0, 200)}::text
+                )
+              )`,
+            }
+          : {}),
       })
       .where(eq(aiRelayAccountPool.id, row.id))
+    if (enteringRemove) {
+      try {
+        const { pushAlertWithResult } = await import('./alert-notification-service.js')
+        await pushAlertWithResult({
+          title: `号池保活摘除: ${row.providerCode}/${String(row.uid).slice(0, 8)}`,
+          message: [
+            `账号: ${row.name ?? '-'}`,
+            `provider/uid: ${row.providerCode}/${row.uid}`,
+            `连续刷新失败: ${failures}/${REFRESH_FAILURE_LIMIT}`,
+            `最近原因: ${reason.slice(0, 200)}`,
+            '',
+            '该号已自动摘除、不再参与选路;台账已写入 extraMetadata.keepalive。',
+            '复核: node scripts/relay-account-keepalive.mjs --status',
+          ].join('\n'),
+          severity: 'warning',
+          source: 'relay-account-pool-scheduler',
+          metadata: {
+            poolAccountId: row.id,
+            providerCode: row.providerCode,
+            failureCount: failures,
+          },
+        })
+      } catch (alertErr) {
+        logger.warn('[relay-account-pool] 保活摘除告警投递失败(台账已留痕)', {
+          accountId: row.id,
+          err: alertErr instanceof Error ? alertErr.message.slice(0, 200) : '未知错误',
+        })
+      }
+    }
     return false
   }
 }

@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, isNull, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { appVersions } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -20,24 +20,35 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // 对 CLI 结构上不可达（枚举就是可达面）。列名是 varchar(16),无需迁移即可写入。
 const platformSchema = z.enum(['ios', 'android', 'web', 'harmony', 'cli'])
 
+/**
+ * store = 分发渠道(google_play / huawei / xiaomi / yingyongbao / honor / website …)。
+ * 刻意**不做枚举校验**:渠道名单由商店侧决定且在变,硬枚举一落地就过期 ⇒ 新增渠道还得改代码。
+ * 只钉两条:列宽 32、空串折成 undefined(等价于"不带 store")。
+ */
+const storeSchema = z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional())
+
 const listQuerySchema = z.object({
   platform: z.string().optional().transform(emptyToUndefined).pipe(platformSchema.optional()),
+  store: storeSchema,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 const latestQuerySchema = z.object({
   platform: z.string().optional().transform(emptyToUndefined).pipe(platformSchema.optional()),
+  store: storeSchema,
 })
 
 const checkUpdateSchema = z.object({
   platform: platformSchema,
+  store: storeSchema,
   version: z.string().min(1).max(32),
 })
 
 const createVersionSchema = z.object({
   version: z.string().min(1).max(32),
   platform: platformSchema,
+  store: storeSchema,
   buildNumber: z.number().int().min(0),
   downloadUrl: z.string().max(512).optional(),
   forceUpdate: z.boolean().optional(),
@@ -47,6 +58,7 @@ const createVersionSchema = z.object({
 
 const updateVersionSchema = z.object({
   version: z.string().min(1).max(32).optional(),
+  store: storeSchema,
   buildNumber: z.number().int().min(0).optional(),
   downloadUrl: z.string().max(512).optional(),
   forceUpdate: z.boolean().optional(),
@@ -55,6 +67,15 @@ const updateVersionSchema = z.object({
 })
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+/**
+ * 写侧降级的作用域:一条 latest 只挤掉"同 platform 同渠道"的那条。
+ * store 缺省 ⇒ `store is null`,即加列前的那一格 ⇒ 现有发布腿(不带 store)行为逐字不变。
+ * 读侧(/latest、/check-update)不带 store 时**不加任何 store 谓词**,同样与加列前同形。
+ */
+export function storeScopeCondition(store: string | undefined) {
+  return store === undefined ? isNull(appVersions.store) : eq(appVersions.store, store)
+}
 
 // =============================================================================
 // CLI 最低版本闸门（服务端下发，2026-09-27 G-243）
@@ -257,7 +278,9 @@ export function resolveCliMinVersion(cwd?: string): CliMinVersionDecision {
 // =============================================================================
 
 const appVersionRoutes: FastifyPluginAsync = async (server) => {
-  // GET /latest — 获取最新版本（公开，按 platform 筛选）
+  // GET /latest — 获取最新版本（公开，按 platform / store 筛选）
+  // 不带 store 时**不加 store 谓词**：语义与加列前逐字一致（回归锁见
+  // apps/api/tests/app-version-store-dimension.test.ts）。
   server.get('/latest', async (request, reply) => {
     const parsed = latestQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -266,6 +289,9 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     const conditions = [eq(appVersions.status, 'latest')]
     if (parsed.data.platform) {
       conditions.push(eq(appVersions.platform, parsed.data.platform))
+    }
+    if (parsed.data.store) {
+      conditions.push(eq(appVersions.store, parsed.data.store))
     }
     const [latest] = await db
       .select()
@@ -282,15 +308,17 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ platform: 'cli', ...resolveCliMinVersion() }))
   })
 
-  // GET / — 版本列表（admin，分页 + platform 筛选）
+  // GET / — 版本列表（admin，分页 + platform / store 筛选）
   server.get('/', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = listQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { platform, page, pageSize } = parsed.data
+    const { platform, store, page, pageSize } = parsed.data
     const offset = (page - 1) * pageSize
-    const conditions = platform ? [eq(appVersions.platform, platform)] : []
+    const conditions: SQL[] = []
+    if (platform) conditions.push(eq(appVersions.platform, platform))
+    if (store) conditions.push(eq(appVersions.store, store))
 
     const list = await db
       .select()
@@ -309,13 +337,18 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // 若新版本标记为 latest，则将同平台旧 latest 降级为 history
+    // 若新版本标记为 latest，则将「同平台同渠道」旧 latest 降级为 history
+    // （store 缺省 ⇒ store is null 那一格 = 加列前的唯一 latest 语义）
     if (parsed.data.status === 'latest' || !parsed.data.status) {
       await db
         .update(appVersions)
         .set({ status: 'history' })
         .where(
-          and(eq(appVersions.platform, parsed.data.platform), eq(appVersions.status, 'latest')),
+          and(
+            eq(appVersions.platform, parsed.data.platform),
+            eq(appVersions.status, 'latest'),
+            storeScopeCondition(parsed.data.store),
+          ),
         )
     }
     const [version] = await db
@@ -342,7 +375,8 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     if (Object.keys(updates).length === 0) {
       return reply.status(400).send(error(400, '无更新字段'))
     }
-    // 若更新为 latest，则将同平台旧 latest 降级为 history
+    // 若更新为 latest，则将「同平台同渠道」旧 latest 降级为 history。
+    // 渠道格取本次改写后的那一格(updates.store 缺省时沿使用该行的原渠道 ⇒ 与加列前同形)。
     if (updates.status === 'latest') {
       const [existing] = await db
         .select()
@@ -353,7 +387,13 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
         await db
           .update(appVersions)
           .set({ status: 'history' })
-          .where(and(eq(appVersions.platform, existing.platform), eq(appVersions.status, 'latest')))
+          .where(
+            and(
+              eq(appVersions.platform, existing.platform),
+              eq(appVersions.status, 'latest'),
+              storeScopeCondition(updates.store ?? existing.store ?? undefined),
+            ),
+          )
       }
     }
     const [version] = await db
@@ -389,18 +429,20 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { platform, version } = parsed.data
-    // 查找当前版本记录以获取 buildNumber
+    const { platform, store, version } = parsed.data
+    // 查找当前版本记录以获取 buildNumber（不按 store 筛：装机版本号与渠道无关）
     const [current] = await db
       .select()
       .from(appVersions)
       .where(and(eq(appVersions.platform, platform), eq(appVersions.version, version)))
       .limit(1)
-    // 查找该平台最新版本（status=latest）
+    // 查找该平台最新版本（status=latest；带 store 才加谓词，不带 ⇒ 与加列前逐字同形）
+    const latestConditions = [eq(appVersions.platform, platform), eq(appVersions.status, 'latest')]
+    if (store) latestConditions.push(eq(appVersions.store, store))
     const [latest] = await db
       .select()
       .from(appVersions)
-      .where(and(eq(appVersions.platform, platform), eq(appVersions.status, 'latest')))
+      .where(and(...latestConditions))
       .orderBy(desc(appVersions.buildNumber))
       .limit(1)
 

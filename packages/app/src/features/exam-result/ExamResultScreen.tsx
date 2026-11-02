@@ -22,9 +22,10 @@ export function ExamResultScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
-}: ExamResultScreenProps) {
+}: ExamResultScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -42,7 +43,7 @@ export function ExamResultScreen({
     return (
       <ErrorState
         message={error || t('examResult.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

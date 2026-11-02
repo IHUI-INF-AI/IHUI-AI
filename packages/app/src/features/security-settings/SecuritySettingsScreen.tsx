@@ -21,8 +21,9 @@ export function SecuritySettingsScreen({
   onToggle,
   readOnly,
   onBack,
-  colorScheme = 'light',
-}: SecuritySettingsScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: SecuritySettingsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -45,7 +46,7 @@ export function SecuritySettingsScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('securitySettings.title')}</Text>
         </View>
-        <ErrorState message={error || t('common.empty')} colorScheme={colorScheme} />
+        <ErrorState message={error || t('common.empty')} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }

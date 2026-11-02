@@ -46,8 +46,9 @@ export function NoteScreen({
   onSave,
   onDelete,
   onCloseModal,
-  colorScheme = 'light',
-}: NoteScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: NoteScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -64,7 +65,7 @@ export function NoteScreen({
       <View style={styles.container}>
         <ErrorState
           message={error}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />

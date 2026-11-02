@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import {
   DEFAULTS,
   buildPlan,
+  normalizeStore,
   validateDesired,
   parseArgs,
   applyViaApi,
@@ -378,5 +379,327 @@ test('B 腿写后行数≠1 必须抛错(重复 latest 不许当成功)', async 
     () => applyViaDb({ sql: lying, platform: 'android', ...DESIRED, apply: true }),
     /行数为 2/,
   )
+})
+
+// ---------------------------------------------------------------------------
+// ⑤ store 渠道维度(2026-11-03 立):同 platform 多渠道各自一条 latest,渠道之间互不降级
+// ---------------------------------------------------------------------------
+
+test('normalizeStore:undefined/null/空串/纯空白 ⇒ null(= 加列前那一格);其余 trim', () => {
+  assert.equal(normalizeStore(undefined), null)
+  assert.equal(normalizeStore(null), null)
+  assert.equal(normalizeStore(''), null)
+  assert.equal(normalizeStore('   '), null)
+  assert.equal(normalizeStore(' huawei '), 'huawei')
+  assert.equal(normalizeStore('Google_Play'), 'Google_Play')
+})
+
+test('buildPlan:store 缺省只看 store 为空的行 ⇒ 与加列前判据逐字同形(带 store 的行不参与)', () => {
+  const rows = [
+    row({ id: 'generic' }),
+    { ...row({ id: 'hw', version: '0.0.9', buildNumber: 26102816 }), store: 'huawei' },
+  ]
+  // 通用格已唯一 latest 且全等 ⇒ noop;华为那条既不算"多条 latest 腐烂",也不改判据
+  const p = buildPlan(rows, DESIRED)
+  assert.equal(p.action, 'noop')
+  assert.equal(p.store, null)
+  assert.equal(p.targetId, 'generic')
+})
+
+test('buildPlan:带 store 时落点与降级都收在该渠道格内(发华为不许挤掉官网)', () => {
+  const rows = [
+    row({ id: 'generic', version: '0.0.8', buildNumber: 26102800, status: 'latest' }),
+    {
+      ...row({ id: 'hw', version: '0.0.8', buildNumber: 26102800, status: 'latest' }),
+      store: 'huawei',
+    },
+  ]
+  const p = buildPlan(rows, { ...DESIRED, store: 'huawei' })
+  assert.equal(p.action, 'create')
+  assert.equal(p.store, 'huawei')
+  assert.deepEqual(p.demoteIds, ['hw'], '只降级华为渠道自己的 latest')
+  assert.ok(!p.demoteIds.includes('generic'), '官网那条必须原样保留(否则端内更新卡取不到包)')
+})
+
+test('buildPlan:同 version 跨渠道 ≠ 数据腐烂(腐烂判定按渠道格算)', () => {
+  const rows = [row({ id: 'a' }), { ...row({ id: 'b' }), store: 'xiaomi' }]
+  assert.equal(buildPlan(rows, { ...DESIRED }).action, 'noop')
+  assert.equal(buildPlan(rows, { ...DESIRED, store: 'xiaomi' }).action, 'noop')
+  // 只有同一渠道格里出现两条 latest 才叫腐烂
+  const rotten = [row({ id: 'a' }), row({ id: 'a2' })]
+  const p = buildPlan(rotten, DESIRED)
+  assert.equal(p.action, 'update')
+  assert.match(p.reason, /该渠道 latest 有 2 条/)
+})
+
+test('validateDesired:store 只钉形状不钉枚举;未知渠道名放行,超长/大写/点号拦下', () => {
+  assert.deepEqual(validateDesired({ platform: 'android', ...DESIRED, store: 'oppo' }), [])
+  assert.deepEqual(
+    validateDesired({ platform: 'android', ...DESIRED, store: 'Google_Play-2' }).length > 0,
+    true,
+  )
+  assert.equal(
+    validateDesired({ platform: 'android', ...DESIRED }).length,
+    0,
+    '不带 store 必须照旧零红',
+  )
+  assert.equal(
+    validateDesired({ platform: 'android', ...DESIRED, store: '' }).length,
+    0,
+    '空串 = 不带',
+  )
+  assert.ok(
+    validateDesired({ platform: 'android', ...DESIRED, store: 'x'.repeat(33) }).length > 0,
+    '超过列宽 32 必须拦',
+  )
+})
+
+test('parseArgs:--store 可给可不给,不给 = null(旧发布腿一字不改仍成立)', () => {
+  assert.equal(parseArgs([], {}).store, null)
+  assert.equal(parseArgs(['--store', 'huawei'], {}).store, 'huawei')
+})
+
+/** 渠道感知的假库:按真实 SQL 的 coalesce 桶语义收敛。 */
+function makeStoreAwareDb(initial = []) {
+  const state = initial.map((r) => ({ store: null, downloadUrl: null, ...r }))
+  const log = []
+  const bucket = (rows, platform, store) =>
+    rows.filter((r) => r.platform === platform && (r.store ?? null) === (store ?? null))
+  const exec = async (q, ...vals) => {
+    const s = q.join('?').replace(/\s+/g, ' ').trim()
+    log.push(s)
+    if (s.startsWith('select id')) {
+      const platform = vals[0]
+      return state
+        .filter((r) => r.platform === platform)
+        .map((r) => ({
+          id: r.id,
+          version: r.version,
+          build_number: r.buildNumber,
+          status: r.status,
+          download_url: r.downloadUrl,
+          store: r.store,
+        }))
+    }
+    if (s.startsWith('select version')) {
+      const [platform, store] = vals
+      return bucket(state, platform, store)
+        .filter((r) => r.status === 'latest')
+        .map((r) => ({
+          version: r.version,
+          build_number: r.buildNumber,
+          status: r.status,
+          download_url: r.downloadUrl,
+          store: r.store,
+        }))
+    }
+    if (s.includes("set status = 'history'")) {
+      if (s.includes('id <>')) {
+        const [platform, targetId, store] = vals
+        for (const r of bucket(state, platform, store))
+          if (r.status === 'latest' && r.id !== targetId) r.status = 'history'
+      } else {
+        const [platform, store] = vals
+        for (const r of bucket(state, platform, store))
+          if (r.status === 'latest') r.status = 'history'
+      }
+      return []
+    }
+    if (s.includes("set status = 'latest'")) {
+      const [bn, url, id] = vals
+      const r = state.find((x) => x.id === id)
+      if (!r) throw new Error(`fake: 找不到 ${id}`)
+      r.buildNumber = bn
+      r.downloadUrl = url
+      r.status = 'latest'
+      return []
+    }
+    if (s.startsWith('insert')) {
+      const [v, platform, bn, url, store] = vals
+      state.push({
+        id: `n${state.length}`,
+        version: v,
+        platform,
+        buildNumber: bn,
+        downloadUrl: url,
+        store: store ?? null,
+        status: 'latest',
+      })
+      return []
+    }
+    throw new Error(`fake 未实现: ${s}`)
+  }
+  const sql = (q, ...v) => exec(q, ...v)
+  sql.begin = async (fn) => fn((q, ...v) => exec(q, ...v))
+  return { sql, state, log }
+}
+
+test('B 腿 store:发华为只降级华为格,官网那条 latest 原样在位;两条渠道各自唯一', async () => {
+  const { sql, state } = makeStoreAwareDb([
+    { id: 'g', version: '0.0.8', platform: 'android', buildNumber: 26102800, status: 'latest' },
+    {
+      id: 'h',
+      version: '0.0.8',
+      platform: 'android',
+      buildNumber: 26102800,
+      status: 'latest',
+      store: 'huawei',
+    },
+  ])
+  const r = await applyViaDb({
+    sql,
+    platform: 'android',
+    store: 'huawei',
+    ...DESIRED,
+    apply: true,
+  })
+  assert.equal(r.plan.action, 'create')
+  assert.equal(state.find((x) => x.id === 'g').status, 'latest', '官网渠道不得被跨渠道降级')
+  assert.equal(state.find((x) => x.id === 'h').status, 'history')
+  const latest = state.filter((x) => x.status === 'latest')
+  assert.equal(latest.length, 2, '两个渠道各留一条 latest = 这一格要表达的东西')
+  const inserted = state.at(-1)
+  assert.equal(inserted.store, 'huawei')
+  assert.equal(inserted.version, '0.0.9')
+})
+
+test('B 腿 store:INSERT 语句带 store 列,值在 download_url 之后(第 5 个参数)', async () => {
+  const { sql, log } = makeStoreAwareDb([])
+  await applyViaDb({ sql, platform: 'android', store: 'honor', ...DESIRED, apply: true })
+  const ins = log.find((s) => s.startsWith('insert'))
+  assert.match(
+    ins,
+    /\(version, platform, build_number, download_url, store, force_update, status, created_at, updated_at\)/,
+  )
+})
+
+test('B 腿 store:不带 store 时只收敛 store 为空的行(旧发布腿逐字不变,华为格一个字不动)', async () => {
+  const { sql, state } = makeStoreAwareDb([
+    { id: 'g', version: '0.0.8', platform: 'android', buildNumber: 26102800, status: 'latest' },
+    {
+      id: 'h',
+      version: '0.0.9',
+      platform: 'android',
+      buildNumber: 26102816,
+      status: 'latest',
+      store: 'huawei',
+    },
+  ])
+  const r = await applyViaDb({ sql, platform: 'android', ...DESIRED, apply: true })
+  assert.equal(r.plan.action, 'create', '通用格里没有 0.0.9 ⇒ 按既有判据 INSERT')
+  assert.deepEqual(r.plan.demoteIds, ['g'], '降级对象只有通用格那条 latest')
+  assert.equal(state.find((x) => x.id === 'g').status, 'history')
+  assert.equal(state.find((x) => x.id === 'h').status, 'latest', '华为格原样保留')
+  assert.equal(state.at(-1).store, null, '新行落在 store 为空那一格')
+})
+
+test('B 腿 store:写后自证必须落在同一渠道格;查回别的渠道的包 ⇒ 抛错不报成功', async () => {
+  const lying = async (q, ..._v) => {
+    const s = q.join('?').replace(/\s+/g, ' ').trim()
+    if (s.startsWith('select version')) {
+      return [
+        {
+          version: '0.0.9',
+          build_number: 26102816,
+          status: 'latest',
+          download_url: DESIRED.downloadUrl,
+          store: 'xiaomi', // 落点写到了别的渠道格
+        },
+      ]
+    }
+    return []
+  }
+  lying.begin = async (fn) => fn(lying)
+  await assert.rejects(
+    () => applyViaDb({ sql: lying, platform: 'android', store: 'huawei', ...DESIRED, apply: true }),
+    /store/,
+  )
+})
+
+test('A 腿 store:POST 带 store、自证 URL 带 &store=;store 不符必须抛错', async () => {
+  const calls = []
+  const bodies = []
+  const fetchImpl = async (url, init = {}) => {
+    const m = init.method ?? 'GET'
+    calls.push(`${m} ${url}`)
+    if (url.includes('/api/app-version?platform='))
+      return jsonRes(200, { code: 0, data: { list: [] } })
+    if (m === 'POST') {
+      bodies.push(JSON.parse(init.body))
+      return jsonRes(201, { code: 0, data: { version: { id: 'new' } } })
+    }
+    if (url.includes('/latest?platform='))
+      return jsonRes(200, {
+        code: 0,
+        data: {
+          latest: {
+            version: '0.0.9',
+            buildNumber: 26102816,
+            status: 'latest',
+            store: 'xiaomi',
+            downloadUrl: DESIRED.downloadUrl,
+          },
+        },
+      })
+    throw new Error(`未编排: ${m} ${url}`)
+  }
+  await assert.rejects(
+    () =>
+      applyViaApi({
+        baseUrl: DEFAULTS.baseUrl,
+        platform: 'android',
+        store: 'huawei',
+        ...DESIRED,
+        token: 't',
+        apply: true,
+        fetchImpl,
+      }),
+    /store/,
+  )
+  assert.equal(bodies[0].store, 'huawei', 'POST 必须把渠道交给服务端')
+  assert.ok(
+    calls.some((c) => c.includes('/latest?platform=android&store=huawei')),
+    `写后自证必须查同一渠道格:${calls.join(' | ')}`,
+  )
+})
+
+test('A 腿 store 缺省时请求形状一字不变(旧发布腿的复用出口没被改动)', async () => {
+  const calls = []
+  const bodies = []
+  const fetchImpl = async (url, init = {}) => {
+    const m = init.method ?? 'GET'
+    calls.push(`${m} ${url}`)
+    if (url.includes('/api/app-version?platform='))
+      return jsonRes(200, { code: 0, data: { list: [] } })
+    if (m === 'POST') {
+      bodies.push(JSON.parse(init.body))
+      return jsonRes(201, { code: 0, data: { version: { id: 'new' } } })
+    }
+    if (url.includes('/latest?platform='))
+      return jsonRes(200, {
+        code: 0,
+        data: {
+          latest: {
+            version: '0.0.9',
+            buildNumber: 26102816,
+            status: 'latest',
+            store: null,
+            downloadUrl: DESIRED.downloadUrl,
+          },
+        },
+      })
+    throw new Error(`未编排: ${m} ${url}`)
+  }
+  const r = await applyViaApi({
+    baseUrl: DEFAULTS.baseUrl,
+    platform: 'android',
+    ...DESIRED,
+    token: 't',
+    apply: true,
+    fetchImpl,
+  })
+  assert.equal(r.wrote, true)
+  assert.equal('store' in bodies[0], false, '不带 store ⇒ 请求体里不得出现 store 键')
+  assert.ok(calls.includes(`GET ${DEFAULTS.baseUrl}/api/app-version/latest?platform=android`))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

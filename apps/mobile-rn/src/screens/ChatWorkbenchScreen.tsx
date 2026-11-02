@@ -82,6 +82,7 @@ export function ChatWorkbenchScreen() {
   return (
     <SharedChatWorkbenchScreen
       t={t}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
       onBack={() => navigation.goBack()}
       conversations={conversations}

@@ -71,7 +71,7 @@ export function NewsCategoryScreen({
   onLoadMore,
   onSelect,
   colorScheme = 'light',
-}: NewsCategoryScreenProps) {
+}: NewsCategoryScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -110,7 +110,7 @@ export function NewsCategoryScreen({
         {header}
         <ErrorState
           message={error}
-          onRetry={onRetry ?? onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

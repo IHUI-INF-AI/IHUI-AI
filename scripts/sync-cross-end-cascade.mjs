@@ -15,9 +15,9 @@
  * 铁律(§0.6 单一真相源 / §22c 禁复算判据):
  *   ① 本层**零判据** —— 不读 token、不数分叉、不建基线;每段 argv 指向既有器物,
  *      旗标形态取自 git-guardian 各腿的派发点与器物自身头注(2026-11-01 逐枚实测)。
- *   ② 顺序即契约:派生同源 → RN 色档入表 → 三端落档(web→RN→小程序)→ 声明链 →
- *      门户收敛 → 造页 → 手写页转化 → dist 重建 —— 与 guardian 主轮次同序;
- *      下游判据要问的是上游写没写,倒过来只会拿到中间态。
+ *   ② 顺序即契约:非色档生成(TS 档表 → tokens.css 受管块)→ 派生同源 → RN 色档入表 →
+ *      三端落档(web→RN→小程序)→ 声明链 → 门户收敛 → 造页 → 手写页转化 → dist 重建 ——
+ *      与 guardian 主轮次同序;下游判据要问的是上游写没写,倒过来只会拿到中间态。
  *   ③ 三态如实(§0.3):器物不在位 / 跑前炸(用法错、超时、非 JSON)⇒ 该段 `unjudged`,
  *      **不记绿也不冒红**;verify 段 rc≠0 是"该维真有分叉"⇒ 如实报 `red`,不许洗白。
  *      整体退出码:全绿 0 / 任一段 red 或 failed 1 / 任一段 unjudged 2。"没判过"永不冒充"判过"。
@@ -49,6 +49,21 @@ const ROOT = join(HERE, '..')
  * base = 预演档 argv(可被只读消费);apply = 追加旗标(缺省档写盘段整段跳过)。
  */
 const STAGES = [
+  {
+    // 2026-11-01 由 verify 档就地升级为写腿:本器物 --check 与 --write 互斥(同给 exit 2),
+    // 故 base 留空、apply 档追加 --write(不带 --apply 时写腿整段跳过,缺省只读的 --check 校验
+    // 由压轴 verify-cross-end-tokens 腿承载 —— 门 93 的 R9–R11 判据 import 本器物同一实现)。
+    // 必须排在 derive-tokens 之前:heal-derived-in-checkout 的 tokens 族是拿 tokens.css
+    // 受管块当源往下派生(小程序/RN/extension 各副本),本腿不落盘它派生的就是旧面。
+    name: 'verify-css-tokens',
+    kind: 'derive',
+    desc: '非色档受管块生成:tokens.css 受管块 ← TS 档表(SPACING_STEPS/TYPE_STEPS/ELEVATION_CSS,门 93 R9-R11 同源判据的写档)',
+    script: 'sync-css-tokens.mjs',
+    base: [],
+    apply: ['--write'],
+    write: true,
+    timeoutMs: 10 * 60 * 1000,
+  },
   {
     name: 'derive-tokens',
     kind: 'derive',
@@ -157,16 +172,6 @@ const STAGES = [
     apply: ['--apply'],
     write: true,
     timeoutMs: 20 * 60 * 1000,
-  },
-  {
-    name: 'verify-css-tokens',
-    kind: 'verify',
-    desc: '校验:派生块 ↔ TS 源同源(门 93 R9-R11)',
-    script: 'sync-css-tokens.mjs',
-    base: ['--check'],
-    redOnFail: true,
-    redName: 'css-tokens',
-    timeoutMs: 10 * 60 * 1000,
   },
   {
     name: 'verify-miniapp-tokens',
@@ -315,6 +320,14 @@ export function chainExit(states) {
   return 0
 }
 
+/**
+ * 单段 argv 装配(唯一实现,runStage 与镜像测试同走这一格,§22c 禁测试复算):
+ * base 恒带;写腿在 --apply 档追加 apply 旗(缺省档写腿整段被 stageDisposition 跳过,走不到这里)。
+ */
+export function stageArgv(stage, opts) {
+  return [...stage.base, ...(stage.write && opts.apply ? (stage.apply ?? []) : [])]
+}
+
 function runStage(stage, opts, logger) {
   const disp = stageDisposition(stage, opts)
   if (disp) {
@@ -326,7 +339,7 @@ function runStage(stage, opts, logger) {
     logger(`❓ ${stage.name} —— 器物不在位(scripts/${stage.script})⇒ 本段未判定`)
     return { name: stage.name, kind: stage.kind, state: 'unjudged', detail: '器物不在位' }
   }
-  const argv = [...stage.base, ...(stage.write && opts.apply ? (stage.apply ?? []) : [])]
+  const argv = stageArgv(stage, opts)
   try {
     const out = execFileSync(process.execPath, [script, ...argv], {
       cwd: ROOT,
@@ -491,6 +504,7 @@ export const __test__ = {
   KINDS,
   parseArgs,
   selectStages,
+  stageArgv,
   stageDisposition,
   classifyStage,
   chainExit,
