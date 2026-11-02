@@ -234,13 +234,22 @@ export function buildLiveSource(
   }
 }
 
-async function fetchJson<T>(url: string, headers: Record<string, string>): Promise<T | null> {
+/**
+ * 上游 JSON 取数(超时 + ISR 窗口)。
+ * `revalidateSeconds` 默认 600:与本页窗口一致;调用方要更短的窗口必须显式给,
+ * 不允许在调用点复制一份 fetch 形状(两处实现同一件事必漂移)。
+ */
+export async function fetchJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  revalidateSeconds = 600,
+): Promise<T | null> {
   try {
     const res = await fetch(url, {
       headers,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       // ISR:同一窗口内并重复发起出口请求;10 分钟窗口对"发版后自动生效"足够快
-      next: { revalidate: 600 },
+      next: { revalidate: revalidateSeconds },
     })
     if (!res.ok) return null
     return (await res.json()) as T
@@ -248,6 +257,83 @@ async function fetchJson<T>(url: string, headers: Record<string, string>): Promi
     // 超时 / 断网 / 限流一律按"取不到"处理 —— 由调用方降级到快照,不在渲染路径上抛
     return null
   }
+}
+
+/**
+ * release 枚举的分页预算 —— 与 `scripts/resolve-desktop-download.mjs` 的
+ * `fetchReleasesPaged` 同形(per_page=100 / maxPages=10 / 短页即停)。
+ * 为什么两处各写一份:一份住 CI 的 .mjs、一份住站点的 .ts,跨语言无法共用实现;
+ * 形状由 `desktop-feed-live.test.ts` 的分页用例钉住(预算与停机条件必须一致)。
+ */
+const RELEASE_PAGE_PER_PAGE = 100
+const RELEASE_PAGE_MAX_PAGES = 10
+/**
+ * 枚举面(最坏 10 次请求)比单资产更贵:未认证 GitHub 上限 60 次/小时/IP,这条腿按 1 小时
+ * 窗口缓存 ⇒ 最坏 10 次/小时。桌面版发布节律是天级,1 小时滞后不改变用户看到的东西。
+ */
+const RELEASE_LIST_REVALIDATE_S = 3600
+
+export interface ReleasesScan {
+  releases: UpstreamRelease[]
+  /** 实际扫了几页(枚举面自证) */
+  pages: number
+  /** 中途某页失败 ⇒ 只拿到部分;首页失败不产生这个形态(直接 null) */
+  partial: boolean
+}
+
+/**
+ * 分页取全 release 列表。三条要求(逐字对齐 CI 侧那份的注释):
+ *  ① 翻到"短页"为止(有 maxPages 上限,防被无限分页拖死);
+ *  ② 把扫到多少条/几页带回去,静默少扫与扫全不是同一个颜色;
+ *  ③ 首页就失败返回 null 交给上层降级,中途失败则带着已拿到的部分继续
+ *     (比"整个源判死"更接近真相,且上层仍按 SemVer 取最高)。
+ *
+ * 为什么运行期也必须分页(2026-11-02 实测复发):`/releases` 按创建时间倒序返回,而
+ * Android 的 nightly 每次 CI 跑都新增一枚 release —— 现读第一页 100 条**全是 nightly**,
+ * 一个 `desktop-v*` 都没有 ⇒ 旧的单页写法挑不出候选,下载页与更新器一起退回
+ * `desktop-feed.generated.ts` 那枚 2026-10-18 的快照。这正是 CI 侧 2026-09 已写明
+ * "仓库里的 release 只会越来越多,这一格是必然恶化的"的那一条,当时只修了 CI 那份。
+ */
+export async function fetchReleasesPaged(
+  baseUrl: string,
+  headers: Record<string, string>,
+  opts: { perPage?: number; maxPages?: number } = {},
+): Promise<ReleasesScan | null> {
+  const perPage = opts.perPage ?? RELEASE_PAGE_PER_PAGE
+  const maxPages = opts.maxPages ?? RELEASE_PAGE_MAX_PAGES
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  const releases: UpstreamRelease[] = []
+  let pages = 0
+  let partial = false
+  for (let page = 1; page <= maxPages; page++) {
+    pages = page
+    let batch: unknown
+    try {
+      const res = await fetch(`${baseUrl}${sep}per_page=${perPage}&page=${page}`, {
+        headers,
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+        next: { revalidate: RELEASE_LIST_REVALIDATE_S },
+      })
+      if (!res.ok) {
+        if (page === 1) return null
+        partial = true
+        break
+      }
+      batch = await res.json()
+    } catch {
+      if (page === 1) return null
+      partial = true
+      break
+    }
+    if (!Array.isArray(batch)) {
+      if (page === 1) return null
+      partial = true
+      break
+    }
+    releases.push(...(batch as UpstreamRelease[]))
+    if (batch.length < perPage) break
+  }
+  return { releases, pages, partial }
 }
 
 /**
@@ -267,18 +353,21 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const releases = await fetchJson<UpstreamRelease[]>(
-    `https://api.github.com/repos/${repo}/releases?per_page=100`,
-    headers,
-  )
-  if (!releases || releases.length === 0) {
-    return { source: 'snapshot', reason: 'releases api unreachable', fallback: DESKTOP_FEED }
-  }
-  const pick = pickLatestDesktopRelease(releases)
-  if (!pick) {
+  const scan = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers)
+  if (scan === null || scan.releases.length === 0) {
     return {
       source: 'snapshot',
-      reason: `no published ${RELEASE_PREFIX}* release`,
+      reason: `releases api unreachable(pages=${scan?.pages ?? 0} scanned=${scan?.releases.length ?? 0})`,
+      fallback: DESKTOP_FEED,
+    }
+  }
+  const pick = pickLatestDesktopRelease(scan.releases)
+  if (!pick) {
+    // 扫了几页/几条写进原因:分页预算被 release 数量顶穿时,这一格会自己喊出来,
+    // 而不是安静地退回旧快照(那正是"页面躺旧号四天的那格"的复发形态)
+    return {
+      source: 'snapshot',
+      reason: `no published ${RELEASE_PREFIX}* release(pages=${scan.pages} scanned=${scan.releases.length}${scan.partial ? ' partial' : ''})`,
       fallback: DESKTOP_FEED,
     }
   }
@@ -485,14 +574,11 @@ export async function resolveLiveAndroid(
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const releases = await fetchJson<UpstreamRelease[]>(
-    `https://api.github.com/repos/${repo}/releases?per_page=100`,
-    headers,
-  )
-  if (!releases || releases.length === 0) {
+  const scan = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers)
+  if (scan === null || scan.releases.length === 0) {
     return { source: 'unavailable', reason: 'releases api unreachable' }
   }
-  const picked = pickLatestApkRelease(releases)
+  const picked = pickLatestApkRelease(scan.releases)
   if (!picked) {
     return { source: 'unavailable', reason: `找不到带 ${APK_ASSET_NAME} 的已发布 release` }
   }
