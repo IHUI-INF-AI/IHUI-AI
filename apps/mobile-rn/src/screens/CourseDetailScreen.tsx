@@ -96,12 +96,14 @@ export function CourseDetailScreen() {
     return ids
   }, [progress])
 
+  const { onNavigate, onToast } = useHostPorts()
+
   // 播放器要拿**小节**的视频地址:章节行本身没有视频,课程行也没有。
   // 上一版只带 courseId/lessonId ⇒ 播放器拿不到地址,点开只有一片黑。
   const onPlay = (lessonId: string) => {
     if (!course) return
     const section = sections.find((s) => s.id === lessonId)
-    navigation.navigate('VideoPlayer', {
+    onNavigate('VideoPlayer', {
       courseId: course.id,
       lessonId,
       title: section?.title ?? course.title,
@@ -134,8 +136,6 @@ export function CourseDetailScreen() {
     isCompleted: completedSectionIds.has(section.id),
   }))
 
-  const { onNavigate, onToast } = useHostPorts()
-
   return (
     <View style={{ flex: 1 }}>
       <NavChrome>
@@ -162,7 +162,7 @@ export function CourseDetailScreen() {
             的等分宽度,盒子的底色/圆角/内距下移到子 View 的数组形态上 —— 可见位置与尺寸一字不变。 */}
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('CourseCatalog', { courseId: id })}
+          onPress={() => onNavigate('CourseCatalog', { courseId: id })}
           accessibilityRole="button"
           accessibilityLabel={t('courseDetail.lessons')}
         >
@@ -174,7 +174,7 @@ export function CourseDetailScreen() {
         </Pressable>
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('CourseComment', { courseId: id })}
+          onPress={() => onNavigate('CourseComment', { courseId: id })}
           accessibilityRole="button"
           accessibilityLabel={t('courseComment.title')}
         >
@@ -186,7 +186,7 @@ export function CourseDetailScreen() {
         </Pressable>
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('TeacherList')}
+          onPress={() => onNavigate('TeacherDetail', { id })}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.list.title')}
         >
@@ -199,7 +199,7 @@ export function CourseDetailScreen() {
         {/* 课程作业入口(web /learn/[id]/homework;2026-10-28 起有原生屏,此前 RN 零承载) */}
         <Pressable
           style={styles.entryBtnHit}
-          onPress={() => navigation.navigate('CourseHomework', { id })}
+          onPress={() => onNavigate('CourseHomework', { id })}
           accessibilityRole="button"
           accessibilityLabel={t('learnHomework.title')}
         >

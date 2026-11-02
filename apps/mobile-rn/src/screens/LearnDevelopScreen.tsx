@@ -18,36 +18,39 @@ import { useHostPorts } from '../host/use-host-ports'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 // 学习功能导航入口由端侧注入真实跳转(替代原有的「开发中」占位)
-const ENTRIES = (navigation: NavigationProp, t: (k: string) => string): LearnDevelopEntry[] => [
+const ENTRIES = (
+  onNavigate: LearnDevelopScreenProps['onNavigate'],
+  t: (k: string) => string,
+): LearnDevelopEntry[] => [
   {
     icon: Rocket,
     title: t('learnDevelop.courseTitle'),
     desc: t('learnDevelop.courseDesc'),
-    onPress: () => navigation.navigate('CoursePlanet'),
+    onPress: () => onNavigate('CoursePlanet'),
   },
   {
     icon: BookOpen,
     title: t('studyPlan.title'),
     desc: t('learnDevelop.planDesc'),
-    onPress: () => navigation.navigate('StudyPlan'),
+    onPress: () => onNavigate('StudyPlan'),
   },
   {
     icon: Brain,
     title: t('learnDevelop.kTitle'),
     desc: t('learnDevelop.kDesc'),
-    onPress: () => navigation.navigate('KnowledgePlanet'),
+    onPress: () => onNavigate('KnowledgePlanet'),
   },
   {
     icon: Compass,
     title: t('learnDevelop.videoTitle'),
     desc: t('learnDevelop.videoDesc'),
-    onPress: () => navigation.navigate('StudyIndex'),
+    onPress: () => onNavigate('StudyIndex'),
   },
   {
     icon: GraduationCap,
     title: t('learnDevelop.centerTitle'),
     desc: t('learnDevelop.centerDesc'),
-    onPress: () => navigation.navigate('Learn'),
+    onPress: () => onNavigate('Learn'),
   },
 ]
 
@@ -55,19 +58,18 @@ export function LearnDevelopScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
+  const { onNavigate } = useHostPorts()
 
   // 直接联系李总 → 创客名片页(对齐原项目 learn_develop showDetails → /pages/carte/index)
   const onContact = () => {
-    navigation.navigate('Carte')
+    onNavigate('Carte')
   }
-
-  const { onNavigate } = useHostPorts()
 
   const props: LearnDevelopScreenProps = {
     t,
     onBack: () => navigation.goBack(),
     onContact,
-    entries: ENTRIES(navigation, t),
+    entries: ENTRIES(onNavigate, t),
     colorScheme: resolvedTheme,
     onNavigate,
   }
