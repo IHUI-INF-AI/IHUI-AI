@@ -85,7 +85,10 @@ const ICU_KEYS: readonly IcuKey[] = [
   { key: 'pay.couponSaved', placeholder: 'n' },
   { key: 'pay.balanceAmount', placeholder: 'n' },
   { key: 'pay.couponAvailable', placeholder: 'n' },
-  { key: 'news.readCount', placeholder: 'n' },
+  // `news.readCount` 已于 2026-11-02 摘除(本轮 miniapp 存量死键清理):
+  // pkg-content/news/detail.tsx 收为壳后由 packages/app 的 NewsArticleScreen 承载,端内零消费,
+  // 五语言同时删除。留在这里等于断言一个已删的键(结构上永远红),故按实收紧 ——
+  // 不是放宽判据:其余活键照旧全量判 ICU 占位符五语言 parity。
   { key: 'wallet.recharge.tokenRate', placeholder: 'n' },
   { key: 'ai.historyPage.msgCount', placeholder: 'n' },
 ] as const

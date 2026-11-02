@@ -267,13 +267,6 @@
   "live": {
     "replay": "다시보기",
     "liveNow": "진행 중",
-    "detail": {
-      "loadFailed": "라이브 로딩 실패",
-      "notStarted": "라이브 미시작",
-      "ended": "라이브 종료",
-      "connecting": "라이브룸 연결 중…",
-      "enter": "라이브룸 입장"
-    },
     "subscribe": {
       "subscribe": "알림 구독",
       "subscribeSuccess": "구독 완료",
@@ -1092,10 +1085,6 @@
     "detailEnter": "채팅 입장",
     "detailMembers": "멤버",
     "detailRecent": "최근",
-    "enterChat": {
-      "message": "이 그룹에 입장하시겠습니까?",
-      "title": "알림"
-    },
     "enterDiscover": "탐색",
     "enterMine": "내 그룹",
     "memberRole": "역할",
@@ -1358,37 +1347,11 @@
       "rulesTitle": "시험 규칙",
       "totalScore": "총점",
       "totalScoreValue": "{n}점"
-    },
-    "answer": {
-      "judgmentOptions": [
-        "맞음",
-        "틀림"
-      ],
-      "answerPlaceholder": "답 입력",
-      "prev": "이전 문제",
-      "next": "다음 문제",
-      "submit": "제출"
     }
   },
   "favorites": {
-    "cancel": "즐겨찾기 취소",
-    "loadFailed": "로딩 실패",
     "empty": "즐겨찾기 없음",
-    "loadMore": "더 보기",
-    "noMore": "더 이상 없음",
-    "batchCancel": "일괄 즐겨찾기 취소",
-    "items": "건",
-    "unsupported": "이동이 지원되지 않습니다",
-    "itemsUnit": "건",
-    "done": "완료",
     "manage": "관리",
-    "selectAll": "전체 선택",
-    "collectedAt": "즐겨찾기한 날짜",
-    "searchEmpty": "일치하는 콘텐츠를 찾을 수 없습니다",
-    "goDiscover": "탐색하러 가기",
-    "searchPlaceholder": "즐겨찾기한 콘텐츠 검색",
-    "selectFirst": "먼저 선택해 주세요",
-    "total": "즐겨찾기됨",
     "title": "내 즐겨찾기"
   },
   "userFans": {
@@ -1447,10 +1410,7 @@
       "rule2": "친구를 초대해 멤버로 만들면 멤버십 요금의 20%를 수수료로 받습니다",
       "rule3": "커미션은 친구의 결제 성공 후 24시간 이내에 자동으로 계정에 정산됩니다",
       "rule4": "잔액이 100위안 이상이면 위챗이나 알리페이로 출금 신청할 수 있습니다",
-      "introTitle": "친구 초대, 수수료 획득",
-      "totalEarnings": "누적 수익",
-      "inviteCount": "초대 수",
-      "rulesTitle": "수수료 규정"
+      "totalEarnings": "누적 수익"
     },
     "memberDetail": {
       "loading": "로딩 중…",
@@ -2367,14 +2327,6 @@
   "news": {
     "search": "뉴스 검색",
     "empty": "뉴스 없음",
-    "readCount": "{n} 읽음",
-    "detail": {
-      "like": "좋아요",
-      "comment": "댓글",
-      "share": "공유",
-      "related": "관련 추천",
-      "commentSoon": "댓글 기능 준비 중"
-    },
     "cat": {
       "announce": "공지",
       "activity": "이벤트",
@@ -2595,11 +2547,8 @@
     },
     "hello": "안녕하세요, {name}입니다",
     "justNow": "방금",
-    "search": "채팅 검색",
     "unnamedRoom": "이름 없는 대화",
     "empty": "메시지 없음",
-    "markedRead": "읽음 표시",
-    "pinned": "고정됨",
     "deleted": "삭제됨",
     "notFound": "대화를 찾을 수 없음",
     "settings": "설정",
@@ -2611,8 +2560,6 @@
     "noInteraction": "알림 없음",
     "noPrivate": "쪽지 없음",
     "noSystem": "시스템 알림 없음",
-    "markRead": "읽음 표시",
-    "deleteConv": "대화 삭제",
     "pin": "대화 고정",
     "unpin": "고정 해제"
   },
@@ -2648,7 +2595,6 @@
       "notOpened": "미개통",
       "openVip": "VIP 회원 개통",
       "opened": "개통됨",
-      "privileges": "회원 특권",
       "share": "공유하고 커미션 받기"
     },
     "benefits": {
@@ -2832,10 +2778,7 @@
   "subscriptions": {
     "cancel": "구독 취소",
     "loadFailed": "로딩 실패",
-    "empty": "구독 없음",
-    "delete": "삭제",
-    "loadMore": "더 보기",
-    "noMore": "더 이상 없음"
+    "empty": "구독 없음"
   },
   "teacher": {
     "list": {
@@ -2885,7 +2828,6 @@
       "followers": "팔로워 {n}명",
       "following": "팔로우 중",
       "loadFailed": "로딩 실패",
-      "loading": "로딩 중…",
       "loadingMore": "로딩 중…",
       "noMore": "더 이상 없습니다",
       "publish": "게시하기"
@@ -2908,8 +2850,7 @@
       "title": "내 토큰",
       "agentConsume": "에이전트 소비",
       "ordersConsume": "대형 모델 소비",
-      "costTime": "소비 시간:",
-      "noMore": "더 이상 없음"
+      "costTime": "소비 시간:"
     }
   },
   "user": {
@@ -5031,10 +4972,6 @@
     "rankEmpty": "이 랭킹에 데이터가 없습니다"
   },
   "aigcCover": {
-    "applied": {
-      "title": "표지 적용 완료",
-      "message": "「{title}」에 표지를 적용했습니다:{label}"
-    },
     "aiGen": {
       "title": "AI 표지 생성",
       "message": "기능 개발 중"

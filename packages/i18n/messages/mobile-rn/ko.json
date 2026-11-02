@@ -1219,10 +1219,6 @@
     "compactionToast": "컨텍스트가 자동 압축되었습니다({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "표지 적용 완료",
-      "message": "「{title}」에 표지를 적용했습니다:{label}"
-    },
     "aiGen": {
       "title": "AI 표지 생성",
       "message": "기능 개발 중"
@@ -1282,10 +1278,6 @@
     "detailMembers": "멤버",
     "detailRecent": "최근",
     "empty": "그룹이 없습니다",
-    "enterChat": {
-      "message": "이 그룹에 입장하시겠습니까?",
-      "title": "알림"
-    },
     "enterDiscover": "탐색",
     "enterMine": "내 그룹",
     "loadFailed": "그룹 불러오기 실패",
@@ -1458,15 +1450,6 @@
     "workflowTab": "워크플로"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "충전 확인",
-      "message": "패키지:{tokens} Token · ¥{price}",
-      "payBtn": "지금 결제",
-      "success": {
-        "title": "결제 성공",
-        "message": "{tokens} Token이 충전되었습니다"
-      }
-    },
     "balanceLabel": "토큰 잔액",
     "bonus": "보너스",
     "empty": "데이터 없음",
@@ -1486,9 +1469,7 @@
     "range7d": "7일",
     "range1m": "1개월",
     "range1y": "1년",
-    "rangeAll": "전체",
-    "unitYi": "{v}B",
-    "unitWan": "{v}K"
+    "rangeAll": "전체"
   },
   "messageInput": {
     "document": "문서",
@@ -2376,7 +2357,17 @@
     "deleteFailed": "삭제하지 못했습니다",
     "secretTitle": "키가 만들어졌습니다",
     "secretHint": "이 키는 한 번만 표시됩니다. 지금 복사해 보관하세요.",
-    "secretDone": "저장했습니다"
+    "secretDone": "저장했습니다",
+    "rotate": "로테이션",
+    "rotating": "로테이션 중...",
+    "rotateTitle": "키 로테이션",
+    "rotateConfirm": "'{name}' 키를 로테이션할까요? 기존 키는 즉시 중단됩니다.",
+    "rotateFailed": "로테이션하지 못했습니다",
+    "rotateSecretTitle": "키가 로테이션되었습니다",
+    "copySecret": "복사",
+    "secretCopied": "키를 클립보드에 복사했습니다",
+    "rateLimit": "속도 제한",
+    "rateLimitUnit": "회/분"
   },
   "devices": {
     "title": "기기 관리",
@@ -2652,7 +2643,11 @@
       "signing": "출석 중...",
       "signInSuccess": "출석했습니다. {points} 포인트 획득",
       "signInFailed": "출석에 실패했습니다",
-      "alreadySigned": "오늘은 이미 출석했습니다"
+      "alreadySigned": "오늘은 이미 출석했습니다",
+      "historyTitle": "출석 내역",
+      "historyEmpty": "출석 기록이 없습니다",
+      "historyLoadFailed": "출석 내역을 불러오지 못했습니다",
+      "historyConsecutive": "{days}일 연속"
     },
     "mallLink": "포인트 몰",
     "taskCenterLink": "작업 센터",
@@ -3490,8 +3485,7 @@
     "viewNow": "지금 보기"
   },
   "vipBenefit": {
-    "title": "멤버십 혜택",
-    "loadFailed": "회원 혜택 불러오기 실패"
+    "title": "멤버십 혜택"
   },
   "vipTrader": {
     "title": "VIP 트레이더",
@@ -3949,7 +3943,6 @@
     "today": "오늘",
     "withdrawBtn": "출금",
     "withdrawModal": {
-      "close": "취소",
       "confirm": "확인",
       "moreMethods": "더 많은 출금 방법",
       "subtitle": "출금 방법 선택",
@@ -4111,6 +4104,17 @@
     "deleteTitle": "문서 삭제",
     "deleteConfirm": "이 문서를 삭제할까요?",
     "deleteFailed": "삭제 실패",
+    "selectionStart": "선택",
+    "selectionDone": "완료",
+    "selectionAll": "전체 선택",
+    "selectionClearAll": "선택 해제",
+    "selectionCount": "{count}개 선택됨",
+    "batchDelete": "일괄 삭제",
+    "batchDeleting": "삭제 중...",
+    "batchDeleteTitle": "문서 일괄 삭제",
+    "batchDeleteConfirm": "선택한 {count}개의 문서를 삭제할까요?",
+    "batchDeletePartial": "{success}개 삭제, {failed}개 실패",
+    "batchDeleteFailed": "일괄 삭제 실패",
     "author": "작성자",
     "category": "카테고리",
     "nextEntry": "다음 글",

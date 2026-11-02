@@ -1219,10 +1219,6 @@
     "compactionToast": "上下文已自动压缩({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已应用",
-      "message": "已为「{title}」应用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能开发中"
@@ -1282,10 +1278,6 @@
     "detailMembers": "群成员",
     "detailRecent": "最近消息",
     "empty": "暂无群聊",
-    "enterChat": {
-      "message": "确定要进入该群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "发现",
     "enterMine": "我的",
     "loadFailed": "加载群聊失败",
@@ -1458,15 +1450,6 @@
     "workflowTab": "工作流"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "确认充值",
-      "message": "套餐:{tokens} Token · ¥{price}",
-      "payBtn": "立即支付",
-      "success": {
-        "title": "支付成功",
-        "message": "已到账 {tokens} Token"
-      }
-    },
     "balanceLabel": "智汇值余额",
     "bonus": "奖励",
     "empty": "暂无数据",
@@ -1486,9 +1469,7 @@
     "range7d": "7天",
     "range1m": "一个月",
     "range1y": "近一年",
-    "rangeAll": "全部",
-    "unitYi": "{v}亿",
-    "unitWan": "{v}万"
+    "rangeAll": "全部"
   },
   "messageInput": {
     "document": "文档",
@@ -2376,7 +2357,17 @@
     "deleteFailed": "删除失败",
     "secretTitle": "密钥已创建",
     "secretHint": "请立即复制保存，该密钥只显示这一次。",
-    "secretDone": "我已保存"
+    "secretDone": "我已保存",
+    "rotate": "轮换",
+    "rotating": "轮换中...",
+    "rotateTitle": "轮换密钥",
+    "rotateConfirm": "确定轮换「{name}」吗？旧密钥将立即失效。",
+    "rotateFailed": "轮换失败",
+    "rotateSecretTitle": "密钥已轮换",
+    "copySecret": "复制",
+    "secretCopied": "密钥已复制到剪贴板",
+    "rateLimit": "速率限制",
+    "rateLimitUnit": "次/分钟"
   },
   "devices": {
     "title": "设备管理",
@@ -2652,7 +2643,11 @@
       "signing": "签到中...",
       "signInSuccess": "签到成功,获得 {points} 积分",
       "signInFailed": "签到失败",
-      "alreadySigned": "今日已签到"
+      "alreadySigned": "今日已签到",
+      "historyTitle": "签到历史",
+      "historyEmpty": "暂无签到记录",
+      "historyLoadFailed": "签到历史加载失败",
+      "historyConsecutive": "连续 {days} 天"
     },
     "mallLink": "积分商城",
     "taskCenterLink": "任务中心",
@@ -3490,8 +3485,7 @@
     "viewNow": "立即查看"
   },
   "vipBenefit": {
-    "title": "会员权益",
-    "loadFailed": "加载会员权益失败"
+    "title": "会员权益"
   },
   "vipTrader": {
     "title": "VIP 操盘手",
@@ -3949,7 +3943,6 @@
     "today": "今日收入",
     "withdrawBtn": "提现",
     "withdrawModal": {
-      "close": "取消",
       "confirm": "确认提现",
       "moreMethods": "更多提现方式",
       "subtitle": "请选择提现方式",
@@ -4111,6 +4104,17 @@
     "deleteTitle": "删除文档",
     "deleteConfirm": "确定删除该文档吗?",
     "deleteFailed": "删除失败",
+    "selectionStart": "选择",
+    "selectionDone": "完成",
+    "selectionAll": "全选",
+    "selectionClearAll": "取消全选",
+    "selectionCount": "已选 {count} 项",
+    "batchDelete": "批量删除",
+    "batchDeleting": "删除中...",
+    "batchDeleteTitle": "批量删除文档",
+    "batchDeleteConfirm": "确定删除选中的 {count} 份文档吗?",
+    "batchDeletePartial": "已删除 {success} 份,{failed} 份失败",
+    "batchDeleteFailed": "批量删除失败",
     "author": "作者",
     "category": "分类",
     "nextEntry": "下一篇",
