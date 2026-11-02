@@ -1600,6 +1600,7 @@
     "empty": "暫無訊息,發送第一則訊息開始對話吧",
     "placeholder": "輸入訊息...",
     "send": "傳送",
+    "stop": "停止",
     "loadFailed": "載入聊天失敗",
     "sendFailed": "發送失敗"
   },

@@ -1600,6 +1600,7 @@
     "empty": "No messages yet. Send the first one to start",
     "placeholder": "Type a message...",
     "send": "Send",
+    "stop": "Stop",
     "loadFailed": "Failed to load chat",
     "sendFailed": "Failed to send"
   },
