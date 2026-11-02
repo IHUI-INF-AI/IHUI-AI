@@ -56,17 +56,30 @@
  *   node scripts/land-rn-style-tiers.mjs --self-test
  *
  * 退出码:0 正常(含"改 0 处");2 用法错/取不到档表/注入校验失败。
+ *
+ * 写盘凭据(2026-11-03 接线):--apply 每轮把本批产出逐路径**实测 oid** 后追写申报账本
+ *   .ihui-agent/state/cross-end-landing.jsonl(库 = scripts/lib/cross-end-landing-ledger.mjs,
+ *   收编侧按 blob 逐字节核验后才收);下一轮开始先把"在册 ∧ blob 相符"的路径整轮跳过(可续跑)。
+ *   dry-run / 预演档零登记。结论行机读键:landing=<登记枚数> landingPath=<账本相对路径>
+ *   skipLanded=<跳过数>[ledger=unjudged][landingError=<原因>]。
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
 import { parseTokenTables } from './sync-css-tokens.mjs'
+import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
+
+/**
+ * 腿短名 = 本脚本文件名。guardian 的 sweepRnStyleTiers 派发的正是 `land-rn-style-tiers.mjs`
+ * (git-guardian.mjs 现读:join(...,'land-rn-style-tiers.mjs')),账本复合主键用,三端逐字同构,不得改。
+ */
+export const LEG_NAME = 'land-rn-style-tiers'
 
 const argv = process.argv.slice(2)
 const apply = argv.includes('--apply')
@@ -580,6 +593,56 @@ function isCleanOwned(file) {
   return out.trim() === ''
 }
 
+// ─── 写盘凭据账本(cross-end-landing-ledger 接线,2026-11-03 立)──────────────────
+// 治两条根因:R1 无凭据(写盘没留"谁写的、写成什么 blob",收编器无从正当收编)、
+// R2 不可续跑(超时轮从头再来,永远跑不完永远 unjudged)。
+// 本层零复算判据:取 oid 与账本库 worktree 面同一把尺(gitRaw hash-object,face-reader 出口),
+// "已落集合"直接复用 collectiblePaths(quietMs=0),登记/读账本一律走库出口(§0.6)。
+
+/** 账本相对路径(正斜杠),结论行 landingPath= 键用;真相源 = 库的 ledgerPathFor。 */
+export const LEDGER_REL = relative(ROOT, ledgerPathFor(ROOT)).replace(/\\/g, '/')
+
+/** 路径在工作树面的当前 blob oid —— 与账本库 currentOidsForFace(worktree) 逐字同一把尺。 */
+export function blobOidOf(rel, { root = ROOT } = {}) {
+  return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+}
+
+/**
+ * 本 leg 已登记 ∧ 工作树 blob 仍相符的路径集合(⇒ 本轮跳过,即幂等续跑)。
+ * 账本读不到 ⇒ {ok:false}:调用方必须回落现行为(照旧全量尝试)并在结论行标
+ * ledger=unjudged —— 失效方向是"多做一遍",绝不是"少做一遍"或判死。
+ */
+export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date() } = {}) {
+  const r = collectiblePaths(now, { quietMs: 0, face: 'worktree', root })
+  if (!r.ok) return { ok: false, reason: r.reason, paths: new Set() }
+  return { ok: true, paths: new Set(r.collectible.filter((c) => c.leg === leg).map((c) => c.path)) }
+}
+
+/**
+ * 落盘成功后一次批量登记:逐路径**写完盘后实测** oid(绝不取 HEAD 旧值)→ appendLanding。
+ * 本体永不抛(账本不可写只如实报 landingError,§0.3);同轮共用一个 ISO 时刻。
+ */
+export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString() } = {}) {
+  if (!paths.length) return { ok: true, landing: 0, deduped: 0, rejected: [] }
+  try {
+    const list = paths.map((p) => ({ at, leg, path: p, blobOid: blobOidOf(p, { root }) }))
+    const r = appendLanding(list, { root })
+    return { ok: true, landing: r.appended, deduped: r.deduped, rejected: r.rejected }
+  } catch (e) {
+    return { ok: false, landing: 0, deduped: 0, rejected: [], error: String(e?.message ?? e).split('\n')[0] }
+  }
+}
+
+/** 结论行机读尾段(三枚 lander 逐字同形,同形锁见 scripts/tests/land-*.test.mjs)。 */
+export function landingKeys({ landing = 0, deduped = 0, rejected = 0, skipLanded = 0, ledgerUnjudged = false, landingErr = '' } = {}) {
+  const parts = [`landing=${landing}`, `landingPath=${LEDGER_REL}`, `skipLanded=${skipLanded}`]
+  if (deduped) parts.push(`landingDedup=${deduped}`)
+  if (rejected) parts.push(`landingRejected=${rejected}`)
+  if (ledgerUnjudged) parts.push('ledger=unjudged')
+  if (landingErr) parts.push(`landingError=${landingErr.replace(/\s+/g, '_').slice(0, 100)}`)
+  return ` ${parts.join(' ')}`
+}
+
 function listCandidates() {
   if (onlyFiles.length) return onlyFiles
   const out = []
@@ -637,6 +700,7 @@ function run() {
     noImportAnchor: [],
     verifyFailed: [],
     importFixes: [],
+    skipLanded: 0,
     totalChanges: 0,
     pairs: 0,
     byKind: { spacing: 0, fontSize: 0, lineHeight: 0, radius: 0 },
@@ -653,9 +717,23 @@ function run() {
   const absorbSkips = (s) => {
     for (const [k, v] of Object.entries(s ?? {})) report.skipped[k] = (report.skipped[k] ?? 0) + v
   }
+  // 续跑(R2):账本在册且工作树 blob 仍相符的路径 = 本 leg 早前已落,整轮跳过(只 --apply 档生效;
+  // 账本读不到 ⇒ 回落现行为 + ledger=unjudged,失效方向恒为"多做一遍",见 landedPathsOf 头注)。
+  let landedSet = new Set()
+  let ledgerUnjudged = false
+  if (apply) {
+    const lp = landedPathsOf()
+    if (lp.ok) landedSet = lp.paths
+    else ledgerUnjudged = true
+  }
+  const landedBatch = []
   let touched = 0
   for (const f of files) {
     if (touched >= limit) break
+    if (landedSet.has(f)) {
+      report.skipLanded += 1
+      continue
+    }
     if (!isCleanOwned(f)) {
       report.held.push(f)
       continue
@@ -692,6 +770,7 @@ function run() {
         const after = readFileSync(join(ROOT, f), 'utf8')
         for (const sym of missing) if (!hasSymbolImport(after, sym)) throw new Error(`补 ${sym} 后仍不在 import 语句里(回滚)`)
         report.importFixes.push(f)
+        landedBatch.push(f)
         touched += 1
       } catch (e) {
         writeFileSync(join(ROOT, f), original, 'utf8')
@@ -734,6 +813,7 @@ function run() {
       for (const sym of dirty) if (!hasSymbolImport(after, sym)) throw new Error(`注入后 ${sym} 仍不在 import 语句里(回滚)`)
       const k2 = kindCounts(t2.changes)
       report.changedFiles.push({ file: f, changes: t2.changes.length, kinds: k2, importAdded: withImport.added.length > 0 })
+      landedBatch.push(f)
       report.totalChanges += t2.changes.length
       report.pairs += pairCount(t2.changes)
       for (const [k, v] of Object.entries(k2)) report.byKind[k] += v
@@ -743,8 +823,36 @@ function run() {
       report.verifyFailed.push(`${f} —— ${e?.message ?? e}`)
     }
   }
+  // 本批产出一次登记(R1):写完盘后实测 oid;登记失败绝不冒充成功(landingError 如实带上)。
+  let landing = 0
+  let landingDedup = 0
+  let landingRejected = 0
+  let landingErr = ''
+  if (apply && landedBatch.length) {
+    const reg = registerLanding(landedBatch)
+    landing = reg.landing
+    landingDedup = reg.deduped
+    landingRejected = reg.rejected.length
+    if (!reg.ok) landingErr = reg.error
+    else if (landingRejected) landingErr = `rejected=${landingRejected}:${reg.rejected[0].reason}`
+  }
   if (jsonMode) {
-    console.log(JSON.stringify({ ...report, heldCount: report.held.length }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          ...report,
+          heldCount: report.held.length,
+          landing,
+          landingDedup,
+          landingRejected,
+          landingPath: LEDGER_REL,
+          ledger: ledgerUnjudged ? 'unjudged' : 'ok',
+          ...(landingErr ? { landingError: landingErr } : {}),
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     const legs = ['间距', ...(includeFontSize ? ['字号'] : []), ...(includeFontSizePair ? ['字号成对'] : []), ...(includeRadius ? ['圆角'] : [])].join(' + ')
     console.log(`\n🛠  RN 非色档落档器(${apply ? '落盘' : '只读预演'})`)
@@ -775,7 +883,8 @@ function run() {
     console.log(
       `\n结论:LAND-TIERS state=${report.verifyFailed.length ? 'rolled-back' : apply ? 'applied' : 'preview'}` +
         ` files=${report.changedFiles.length} changes=${report.totalChanges} pairs=${report.pairs} held=${report.held.length}` +
-        ` byKind=${report.byKind.spacing}/${report.byKind.fontSize}/${report.byKind.lineHeight}/${report.byKind.radius}`,
+        ` byKind=${report.byKind.spacing}/${report.byKind.fontSize}/${report.byKind.lineHeight}/${report.byKind.radius}` +
+        landingKeys({ landing, deduped: landingDedup, rejected: landingRejected, skipLanded: report.skipLanded, ledgerUnjudged, landingErr }),
     )
   }
   if (report.verifyFailed.length) process.exit(2)
@@ -972,5 +1081,11 @@ export const __test__ = {
   refOf,
   SPACING_PROPS,
   KIND_PROPS,
+  LEG_NAME,
+  LEDGER_REL,
+  blobOidOf,
+  landedPathsOf,
+  registerLanding,
+  landingKeys,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
