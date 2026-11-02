@@ -204,7 +204,10 @@ describe('app-version store 维度(R1 不带 store 的旧语义逐字不变)', (
     expect(demote.sql).toContain('is null')
     expect(demote.sql).not.toContain('"store" =')
     expect(demote.params).toEqual(['android', 'latest'])
-    expect(state.values[0].store).toBeUndefined()
+    const insertValues = state.values[0]
+    if (!insertValues)
+      throw new Error('POST 没捕获到 insert values,判据失效方向必须是显式报错而不是静默通过')
+    expect(insertValues.store).toBeUndefined()
   })
 
   it('R6b POST 带 store ⇒ 降级按该渠道收窄,INSERT 的 values 里带着 store', async () => {
@@ -223,7 +226,10 @@ describe('app-version store 维度(R1 不带 store 的旧语义逐字不变)', (
     const demote = queryOf(state.wheres[0])
     expect(demote.sql).toContain('"store"')
     expect(demote.params).toEqual(['android', 'latest', 'huawei'])
-    expect(state.values[0].store).toBe('huawei')
+    const insertValues = state.values[0]
+    if (!insertValues)
+      throw new Error('POST 没捕获到 insert values,判据失效方向必须是显式报错而不是静默通过')
+    expect(insertValues.store).toBe('huawei')
   })
 
   it('R7 PUT 升格为 latest ⇒ 沿用该行自己的渠道格,不跨渠道降级', async () => {
