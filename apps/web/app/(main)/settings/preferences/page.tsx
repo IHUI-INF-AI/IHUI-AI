@@ -81,7 +81,7 @@ export default function PreferencesPage() {
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-display font-bold tracking-tight">{t('preferencesTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('preferencesDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('preferencesDesc')}</p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
@@ -102,7 +102,7 @@ export default function PreferencesPage() {
                     key={item.key}
                     onClick={() => setTheme(item.key)}
                     className={cn(
-                      'flex flex-col items-center gap-2 rounded-sm border p-3 text-sm transition-colors',
+                      'flex flex-col items-center gap-2 rounded-sm border p-3 text-body transition-colors',
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-primary'
                         : 'hover:bg-accent hover:text-accent-foreground',
@@ -133,7 +133,7 @@ export default function PreferencesPage() {
                     key={item.key}
                     onClick={() => switchLocale(item.key)}
                     className={cn(
-                      'flex items-center justify-center gap-2 rounded-sm border p-3 text-sm transition-colors',
+                      'flex items-center justify-center gap-2 rounded-sm border p-3 text-body transition-colors',
                       active
                         ? 'border-brand-accent-deep bg-primary/5 text-primary'
                         : 'hover:bg-accent hover:text-accent-foreground',
@@ -158,7 +158,7 @@ export default function PreferencesPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+              <span className="min-w-0 flex-1 text-body text-muted-foreground">
                 {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
               </span>
               <Switch checked={collapsed} onCheckedChange={toggleCollapsed} className="shrink-0" />
@@ -191,7 +191,7 @@ export default function PreferencesPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between gap-4">
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                <span className="min-w-0 flex-1 text-body text-muted-foreground">
                   {t('cacheCleanDesc')}
                 </span>
                 <Button

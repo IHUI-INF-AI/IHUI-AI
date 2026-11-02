@@ -135,7 +135,7 @@ export function IntegrationsPanel() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             </div>
           ) : merged.length === 0 ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noChannels')}
             </p>
           ) : (
@@ -154,13 +154,13 @@ export function IntegrationsPanel() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-body font-medium">{c.name}</p>
-                      <p className="break-words text-xs text-muted-foreground">{c.type}</p>
+                      <p className="break-words text-label text-muted-foreground">{c.type}</p>
                     </div>
                     <span
                       className={
                         connected
-                          ? 'rounded-sm bg-primary/10 px-2 py-0.5 text-xs text-primary'
-                          : 'rounded-sm bg-muted px-2 py-0.5 text-xs text-muted-foreground'
+                          ? 'rounded-sm bg-primary/10 px-2 py-0.5 text-label text-primary'
+                          : 'rounded-sm bg-muted px-2 py-0.5 text-label text-muted-foreground'
                       }
                     >
                       {connected ? t('connected') : t('disconnected')}

@@ -144,7 +144,7 @@ function GradeDialog({
         </DialogHeader>
         {submission && (
           <div className="space-y-3 py-2">
-            <div className="rounded-md border p-3 text-sm space-y-1">
+            <div className="rounded-md border p-3 text-body space-y-1">
               <p>
                 <span className="text-muted-foreground">{t('studentLabel')}</span>
                 {submission.studentName}
@@ -312,7 +312,7 @@ export default function HomeworkPage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       {/* Class Selector */}
@@ -375,7 +375,7 @@ export default function HomeworkPage() {
                 <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-center gap-2">
                     <Icon className={cn('h-4 w-4', card.color)} />
-                    <span className="text-xs text-muted-foreground">{card.label}</span>
+                    <span className="text-label text-muted-foreground">{card.label}</span>
                   </div>
                   <p className="mt-1 text-display font-bold">
                     {statsLoading ? (
@@ -421,7 +421,7 @@ export default function HomeworkPage() {
           {!selectedClassId ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="mb-2 h-8 w-8" />
-              <p className="text-sm">{t('selectClassFirst')}</p>
+              <p className="text-body">{t('selectClassFirst')}</p>
             </div>
           ) : submissionsLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -429,12 +429,12 @@ export default function HomeworkPage() {
               {t('loadingSubmissions')}
             </div>
           ) : submissions.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
+            <div className="py-12 text-center text-body text-muted-foreground">
               {t('emptySubmissions')}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
                   <tr className="bg-muted/40">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -464,10 +464,10 @@ export default function HomeworkPage() {
                   {submissions.map((s) => (
                     <tr key={s.id} className="hover:bg-muted/30">
                       <td className="px-4 py-3 text-label font-medium">{s.studentName}</td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-4 py-3 text-label">
                         <TruncatedText value={s.content} className="max-w-[200px]" />
                       </td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-4 py-3 text-label">
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
                           {new Date(s.submittedAt).toLocaleString('zh-CN', {
@@ -498,7 +498,7 @@ export default function HomeworkPage() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <td className="px-4 py-3 text-label text-muted-foreground">
                         <TruncatedText value={s.comment ?? '-'} className="max-w-[120px]" />
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -506,7 +506,7 @@ export default function HomeworkPage() {
                           <Button
                             variant="outline"
                             size="xs"
-                            className="text-xs"
+                            className="text-label"
                             onClick={() => {
                               setGradingSubmission(s)
                               setGradeOpen(true)

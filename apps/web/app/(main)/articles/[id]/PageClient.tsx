@@ -86,12 +86,12 @@ export default function ArticleDetailPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
         <Link
           href="/articles"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -122,16 +122,18 @@ export default function ArticleDetailPage() {
       />
       <Link
         href="/articles"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{article.title}</h1>
-        {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {article.title}
+        </h1>
+        {article.summary && <p className="text-label text-muted-foreground">{article.summary}</p>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
           {article.categoryName && <span>{article.categoryName}</span>}
           <span>{t('publishedAt', { date: fmtDate(article.publishedAt) })}</span>
@@ -166,7 +168,7 @@ export default function ArticleDetailPage() {
 
       <div className="flex items-center justify-center pt-2 text-muted-foreground">
         <Newspaper className="mr-2 h-4 w-4" />
-        <span className="text-sm">{article.authorName ?? ''}</span>
+        <span className="text-body">{article.authorName ?? ''}</span>
       </div>
     </div>
   )

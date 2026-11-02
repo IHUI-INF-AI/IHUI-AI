@@ -115,7 +115,7 @@ export function MessageCommentPanel({
 
   return (
     <div
-      className="mt-2 rounded-xl border border-border bg-muted/30 p-3 text-sm"
+      className="mt-2 rounded-xl border border-border bg-muted/30 p-3 text-body"
       data-testid={`message-comment-panel-${messageId}`}
     >
       <CollabInvitationInbox />
@@ -143,7 +143,7 @@ export function MessageCommentPanel({
               <div className="min-w-0">
                 <span className="mr-2 font-medium">{c.authorName ?? c.userId}</span>
                 <span className="break-words">{c.body}</span>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-label text-muted-foreground">
                   {formatMessageTimestamp(Date.parse(c.createdAt))}
                 </div>
               </div>

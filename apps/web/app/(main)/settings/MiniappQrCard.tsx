@@ -30,7 +30,7 @@ export function MiniappQrCard({ t }: Props) {
             height={192}
             className="h-48 w-48 rounded-lg border"
           />
-          <p className="line-clamp-2 text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
+          <p className="line-clamp-2 text-body text-muted-foreground">{t('miniappQrDesc')}</p>
         </div>
       </CardContent>
     </Card>

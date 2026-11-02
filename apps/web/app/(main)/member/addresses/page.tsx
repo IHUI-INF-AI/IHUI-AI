@@ -91,7 +91,7 @@ export default function MemberAddressesPage() {
             <MapPin className="h-5 w-5 text-primary" />
             收货地址
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">管理下单时使用的收货地址</p>
+          <p className="mt-0.5 text-body text-muted-foreground">管理下单时使用的收货地址</p>
         </div>
         {!editing && (
           <Button size="sm" onClick={startCreate}>

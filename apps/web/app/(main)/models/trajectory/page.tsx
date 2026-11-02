@@ -131,10 +131,12 @@ function TraceCard({
             <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-body font-medium">{truncateSessionId(trace.session_id)}</span>
+                  <span className="text-body font-medium">
+                    {truncateSessionId(trace.session_id)}
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="font-mono text-xs">{trace.session_id}</p>
+                  <p className="font-mono text-label">{trace.session_id}</p>
                 </TooltipContent>
               </Tooltip>
               <Badge
@@ -146,7 +148,7 @@ function TraceCard({
                   : t('trajectory.statusError')}
               </Badge>
             </div>
-            <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="mt-0.5 flex items-center gap-3 text-label text-muted-foreground">
               <span className="truncate">{trace.goal}</span>
               <span className="shrink-0">
                 {t('trajectory.steps')}: {trace.steps}
@@ -154,7 +156,7 @@ function TraceCard({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden text-xs text-muted-foreground min-[480px]:inline">
+            <span className="hidden text-label text-muted-foreground min-[480px]:inline">
               {formatTimestamp(trace.timestamp)}
             </span>
             {expanded ? (
@@ -183,7 +185,7 @@ function TraceDetailCard({
       {detail.steps.map((step) => (
         <Card key={step.step}>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
+            <CardTitle className="flex items-center gap-2 text-body">
               <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-[10px] font-medium text-primary">
                 {step.step}
               </span>
@@ -196,13 +198,13 @@ function TraceDetailCard({
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-3 text-body">
             {/* 推理过程 */}
             <div>
               <span className="mb-1 block text-label font-medium text-muted-foreground">
                 {t('trajectory.reasoning')}
               </span>
-              <div className="rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+              <div className="rounded-md bg-muted/50 p-3 font-mono text-label leading-relaxed">
                 {step.reasoning}
               </div>
             </div>
@@ -217,7 +219,7 @@ function TraceDetailCard({
                   {step.tool_calls.map((tc, idx) => (
                     <div
                       key={idx}
-                      className="rounded-md bg-muted/30 p-2 font-mono text-xs leading-relaxed"
+                      className="rounded-md bg-muted/30 p-2 font-mono text-label leading-relaxed"
                     >
                       {tc}
                     </div>
@@ -231,7 +233,7 @@ function TraceDetailCard({
               <span className="mb-1 block text-label font-medium text-muted-foreground">
                 {t('trajectory.result')}
               </span>
-              <div className="rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed">
+              <div className="rounded-md bg-muted/50 p-3 font-mono text-label leading-relaxed">
                 {step.result}
               </div>
             </div>
@@ -294,7 +296,7 @@ function ErrorState({
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
         <p className="mb-1 text-body font-medium">{error}</p>
-        <p className="mb-4 text-xs text-muted-foreground">{t('trajectory.error')}</p>
+        <p className="mb-4 text-label text-muted-foreground">{t('trajectory.error')}</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           {t('trajectory.retry')}
@@ -316,7 +318,7 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations<'models'>> }) 
       </div>
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <Activity className="mb-3 h-10 w-10 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{t('trajectory.noData')}</p>
+        <p className="text-body text-muted-foreground">{t('trajectory.noData')}</p>
       </div>
     </div>
   )
@@ -383,7 +385,7 @@ export default function TrajectoryPage() {
             value={search}
             onChange={handleSearch}
             placeholder={t('trajectory.searchPlaceholder')}
-            className="h-9 w-full rounded-sm border border-border/60 bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
+            className="h-9 w-full rounded-sm border border-border/60 bg-background pl-9 pr-3 text-body outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
           />
         </div>
 
@@ -439,7 +441,7 @@ export default function TrajectoryPage() {
                         ) : (
                           <div className="flex flex-col items-center justify-center py-8 text-center">
                             <AlertCircle className="mb-2 h-6 w-6 text-destructive" />
-                            <p className="mb-2 text-xs text-muted-foreground">
+                            <p className="mb-2 text-label text-muted-foreground">
                               {t('trajectory.error')}
                             </p>
                             <Button variant="outline" size="sm" onClick={() => refetchDetail()}>

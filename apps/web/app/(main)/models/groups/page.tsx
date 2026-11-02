@@ -50,8 +50,8 @@ export default async function GroupsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground">{tPage(`group.${g.id}.desc`)}</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <p className="text-label text-muted-foreground">{tPage(`group.${g.id}.desc`)}</p>
+              <div className="grid grid-cols-2 gap-2 text-label">
                 <div className="rounded-md bg-muted/40 p-2">
                   <div className="text-muted-foreground">{t('groupsMgmt.members')}</div>
                   <div className="mt-0.5 text-base font-semibold">{g.members.toLocaleString()}</div>

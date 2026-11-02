@@ -136,7 +136,7 @@ export default function EditAgentPage() {
 
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('editTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('editSubtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('editSubtitle')}</p>
       </div>
 
       <AgentCreateForm

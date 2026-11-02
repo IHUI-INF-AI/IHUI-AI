@@ -163,7 +163,7 @@ export function ModelsPricingContent(): React.JSX.Element {
         <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           模型定价
         </h1>
-        <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto max-w-2xl text-label text-muted-foreground min-[768px]:text-base">
           对话模型按输入/输出 token 计价(元 / 百万
           token);生图按张、生视频按次或按秒、按次对话按上下文长度分档计价。按厂商分组,支持关键词搜索。
         </p>
@@ -186,11 +186,11 @@ export function ModelsPricingContent(): React.JSX.Element {
             加载中...
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(error as Error).message}
           </div>
         ) : grouped.length === 0 ? (
-          <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
             {keyword.trim() ? `未找到匹配 "${keyword.trim()}" 的模型` : '暂无定价数据'}
           </div>
         ) : (
@@ -235,7 +235,7 @@ export function ModelsPricingContent(): React.JSX.Element {
                       return (
                         <TableRow key={p.id}>
                           <TableCell
-                            className="max-w-[180px] truncate font-mono text-xs"
+                            className="max-w-[180px] truncate font-mono text-label"
                             title={p.modelId}
                           >
                             {p.modelId}
@@ -260,7 +260,7 @@ export function ModelsPricingContent(): React.JSX.Element {
                             </TableCell>
                           )}
                           <TableCell className="text-muted-foreground">{p.currency}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
+                          <TableCell className="text-label text-muted-foreground">
                             {regions || '—'}
                           </TableCell>
                         </TableRow>

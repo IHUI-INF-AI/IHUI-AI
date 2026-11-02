@@ -259,7 +259,7 @@ export default function ModelRecordPage() {
             <select
               value={kind}
               onChange={onKindChange}
-              className="h-9 rounded-sm border border-input bg-background px-3 text-sm outline-none"
+              className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none"
               aria-label={t('modelRecordAlgorithmType')}
             >
               <option value="">{t('modelRecordKindAll')}</option>
@@ -269,7 +269,7 @@ export default function ModelRecordPage() {
             <select
               value={batch}
               onChange={onBatchChange}
-              className="h-9 max-w-[200px] rounded-sm border border-input bg-background px-3 text-sm outline-none"
+              className="h-9 max-w-[200px] rounded-sm border border-input bg-background px-3 text-body outline-none"
               aria-label={t('modelRecordBatch')}
             >
               <option value="">{t('modelRecordFilterAllBatch')}</option>
@@ -279,22 +279,22 @@ export default function ModelRecordPage() {
                 </option>
               ))}
             </select>
-            <Button type="submit" size="default" className="px-3 text-xs">
+            <Button type="submit" size="default" className="px-3 text-label">
               <Search className="h-4 w-4" />
               {t('modelRecordSearch')}
             </Button>
           </form>
 
-          <p className="text-xs text-muted-foreground">{t('modelRecordCount', { total })}</p>
+          <p className="text-label text-muted-foreground">{t('modelRecordCount', { total })}</p>
 
           {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="py-8 text-center text-body text-muted-foreground">
               {t('modelRecordLoading')}
             </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-destructive">{error}</p>
+            <p className="py-8 text-center text-body text-destructive">{error}</p>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="py-8 text-center text-body text-muted-foreground">
               {t('modelRecordEmpty')}
             </p>
           ) : (
@@ -316,16 +316,20 @@ export default function ModelRecordPage() {
                     const copied = copiedNo === item.recordNo
                     return (
                       <TableRow key={item.id}>
-                        <TableCell className="whitespace-nowrap text-xs">{item.algName}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
+                          {item.algName}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-label">
                           {item.category ?? '-'}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{item.provider}</TableCell>
-                        <TableCell className="text-xs">{item.product ?? '-'}</TableCell>
-                        <TableCell className="max-w-[200px] truncate text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
+                          {item.provider}
+                        </TableCell>
+                        <TableCell className="text-label">{item.product ?? '-'}</TableCell>
+                        <TableCell className="max-w-[200px] truncate text-label">
                           {item.purpose ?? '-'}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
                           <span className="inline-flex items-center gap-1 font-mono">
                             {item.recordNo}
                             <button
@@ -358,7 +362,7 @@ export default function ModelRecordPage() {
                             )}
                           </span>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
                           {item.batch ?? '-'}
                         </TableCell>
                       </TableRow>
@@ -371,7 +375,7 @@ export default function ModelRecordPage() {
 
           {!loading && !error && total > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('modelRecordPageInfo', { page, totalPages })}
               </span>
               <div className="flex gap-2">
@@ -402,7 +406,9 @@ export default function ModelRecordPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('modelRecordNotice')}</p>
+          <p className="text-label leading-relaxed text-muted-foreground">
+            {t('modelRecordNotice')}
+          </p>
         </CardContent>
       </Card>
     </div>

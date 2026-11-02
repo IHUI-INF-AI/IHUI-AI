@@ -84,7 +84,7 @@ function SectionList({
   return (
     <ul className="space-y-1.5">
       {items.map((item, i) => (
-        <li key={`${i}-${item}`} className="flex items-start gap-2 text-sm">
+        <li key={`${i}-${item}`} className="flex items-start gap-2 text-body">
           <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconClass}`} />
           <span className="min-w-0">{item}</span>
         </li>
@@ -141,7 +141,7 @@ export default function EduAiMarkingPage() {
           <PenLine className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -153,7 +153,7 @@ export default function EduAiMarkingPage() {
                 id="mk-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">{t('subject')}</option>
                 {SUBJECT_OPTIONS.map((s) => (
@@ -184,7 +184,7 @@ export default function EduAiMarkingPage() {
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={t('questionPlaceholder')}
               rows={3}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
@@ -196,7 +196,7 @@ export default function EduAiMarkingPage() {
               onChange={(e) => setStudentAnswer(e.target.value)}
               placeholder={t('studentAnswerPlaceholder')}
               rows={5}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
@@ -208,7 +208,7 @@ export default function EduAiMarkingPage() {
               onChange={(e) => setReferenceAnswer(e.target.value)}
               placeholder={t('referenceAnswer')}
               rows={3}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
@@ -233,7 +233,7 @@ export default function EduAiMarkingPage() {
             <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
               <Sparkles className="h-8 w-8 shrink-0 text-primary" />
               <div>
-                <p className="text-xs text-muted-foreground">{t('score')}</p>
+                <p className="text-label text-muted-foreground">{t('score')}</p>
                 <p className="text-3xl font-bold tracking-tight">
                   {result.score}
                   <span className="ml-1 text-base font-normal text-muted-foreground">
@@ -248,7 +248,7 @@ export default function EduAiMarkingPage() {
             <CardContent className="min-[640px]:p-3 space-y-4 p-3">
               <div className="space-y-1">
                 <h3 className="text-body font-medium">{t('comment')}</h3>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                <p className="whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
                   {result.comment}
                 </p>
               </div>
@@ -297,7 +297,7 @@ export default function EduAiMarkingPage() {
         !error && (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
             <Sparkles className="h-8 w-8" />
-            <p className="text-sm">{t('empty')}</p>
+            <p className="text-body">{t('empty')}</p>
           </div>
         )
       )}

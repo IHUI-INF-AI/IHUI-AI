@@ -49,15 +49,17 @@ function HistoryRow({ entry }: { entry: SpecHistoryEntry }) {
         <CardContent className="min-[640px]:p-3 flex items-start justify-between gap-4 p-3">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground">
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-foreground">
                 {scopeLabel(entry.scope.type)}
               </span>
               {entry.scope.path && (
-                <span className="truncate text-xs text-muted-foreground">{entry.scope.path}</span>
+                <span className="truncate text-label text-muted-foreground">
+                  {entry.scope.path}
+                </span>
               )}
             </div>
-            <p className="truncate text-sm text-foreground">{entry.summary}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="truncate text-body text-foreground">{entry.summary}</p>
+            <p className="text-label text-muted-foreground">
               {formatDate(entry.generatedAt)} · 分析 {entry.filesAnalyzed} 个文件
             </p>
           </div>
@@ -84,7 +86,7 @@ export default function SpecListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">Spec 模式</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             代码规格文档生成 · 四阶段生命周期管理
           </p>
         </div>
@@ -107,7 +109,7 @@ export default function SpecListPage() {
               加载中…
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
               <AlertCircle className="h-4 w-4" />
               加载失败,请稍后重试
             </div>
@@ -120,7 +122,7 @@ export default function SpecListPage() {
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">暂无 Spec,点击右上角生成</p>
+              <p className="text-body text-muted-foreground">暂无 Spec,点击右上角生成</p>
             </div>
           )}
         </div>
@@ -136,7 +138,7 @@ export default function SpecListPage() {
                 <Link
                   key={tpl.id}
                   href="/spec/templates"
-                  className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="block rounded-md px-2 py-1.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   {tpl.name}
                 </Link>

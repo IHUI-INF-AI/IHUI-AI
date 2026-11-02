@@ -227,7 +227,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
               <label className="flex cursor-pointer flex-col items-center gap-2 ui-control rounded-sm border border-dashed border-input bg-muted/20 p-3 hover:bg-muted/40">
                 <Upload className="h-8 w-8 text-muted-foreground" />
                 <span className="text-body font-medium">{t('batchImport.selectFile')}</span>
-                <span className="text-xs text-muted-foreground">CSV 格式,支持 38 平台</span>
+                <span className="text-label text-muted-foreground">CSV 格式,支持 38 平台</span>
                 <input
                   type="file"
                   accept=".csv,text/csv"
@@ -240,12 +240,12 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
 
           {phase === 'preview' && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-body">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span>{t('batchImport.previewCount', { count: rows.length })}</span>
               </div>
               <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-muted/20 p-2">
-                <table className="w-full text-xs">
+                <table className="w-full text-label">
                   <thead>
                     <tr className="text-left text-muted-foreground">
                       <th className="pb-1 pr-2 font-medium">#</th>
@@ -268,7 +268,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
                   </tbody>
                 </table>
                 {rows.length > 20 && (
-                  <p className="mt-1 text-center text-xs text-muted-foreground">
+                  <p className="mt-1 text-center text-label text-muted-foreground">
                     {t('batchImport.moreRows', { count: rows.length - 20 })}
                   </p>
                 )}
@@ -279,7 +279,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
           {phase === 'importing' && (
             <div className="flex flex-col items-center gap-2 py-6">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">{t('batchImport.importing')}</p>
+              <p className="text-body text-muted-foreground">{t('batchImport.importing')}</p>
             </div>
           )}
 
@@ -287,7 +287,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
             <div className="space-y-2">
               <div className="flex items-center gap-3 rounded-md bg-muted/30 p-3">
                 <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                <div className="min-w-0 flex-1 text-sm">
+                <div className="min-w-0 flex-1 text-body">
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">
                     {t('batchImport.successCount', { count: result.success_count })}
                   </span>
@@ -302,7 +302,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
                   {result.errors.map((e, i) => (
                     <div
                       key={i}
-                      className="flex items-start gap-1.5 py-0.5 text-xs text-rose-600 dark:text-rose-400"
+                      className="flex items-start gap-1.5 py-0.5 text-label text-rose-600 dark:text-rose-400"
                     >
                       <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
                       <span>

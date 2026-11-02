@@ -54,7 +54,7 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -63,7 +63,7 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <Users className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -77,23 +77,23 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
             </CardTitle>
             <StatusBadge status={member.status} t={t} />
           </CardHeader>
-          <CardContent className="min-[640px]:p-3 grid grid-cols-2 gap-2 p-3 pt-0 text-sm min-[640px]:grid-cols-4">
+          <CardContent className="min-[640px]:p-3 grid grid-cols-2 gap-2 p-3 pt-0 text-body min-[640px]:grid-cols-4">
             <div>
-              <p className="text-xs text-muted-foreground">{t('username')}</p>
+              <p className="text-label text-muted-foreground">{t('username')}</p>
               <p className="break-words">{member.username ?? '-'}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{t('mobile')}</p>
+              <p className="text-label text-muted-foreground">{t('mobile')}</p>
               <p className="break-words">{member.mobile ?? '-'}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{t('level')}</p>
+              <p className="text-label text-muted-foreground">{t('level')}</p>
               <p className="break-words">
                 {member.levelId ? (levelMap.get(member.levelId) ?? '-') : '-'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{t('growthValue')}</p>
+              <p className="text-label text-muted-foreground">{t('growthValue')}</p>
               <p className="break-words">{member.growthValue}</p>
             </div>
           </CardContent>

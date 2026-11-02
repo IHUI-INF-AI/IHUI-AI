@@ -47,11 +47,7 @@ const PAGE_SIZE = 20
 type TabKey = 'all' | 'security' | 'abnormal'
 
 /** 本表已插桩写入口径（recordSecurityEvent）；abnormal 那一维等 IP 白名单拦截落地后才有行。 */
-const SECURITY_EVENTS = new Set([
-  'password_change',
-  'two_factor_enable',
-  'two_factor_disable',
-])
+const SECURITY_EVENTS = new Set(['password_change', 'two_factor_enable', 'two_factor_disable'])
 const ABNORMAL_EVENTS = new Set(['login_blocked_by_ip_allowlist'])
 
 export default function SecurityLogPage() {
@@ -137,7 +133,7 @@ export default function SecurityLogPage() {
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-display font-bold tracking-tight">{t('securityLogTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('securityLogDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('securityLogDesc')}</p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
@@ -165,13 +161,15 @@ export default function SecurityLogPage() {
             {!allow ? (
               <AuthGatePrompt message={tGate('loginRequired')} />
             ) : loading ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-body text-muted-foreground">
                 {t('activityLoading')}
               </p>
             ) : error ? (
-              <p className="py-8 text-center text-sm text-destructive">{error}</p>
+              <p className="py-8 text-center text-body text-destructive">{error}</p>
             ) : filteredLogs.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('activityEmpty')}</p>
+              <p className="py-8 text-center text-body text-muted-foreground">
+                {t('activityEmpty')}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -186,18 +184,18 @@ export default function SecurityLogPage() {
                   <TableBody>
                     {filteredLogs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
                           {fmtTime(log.createdAt)}
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-label">
                           <span className="inline-flex items-center gap-1.5">
                             <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
                             {/* 未插桩的 action 显原文，不替它编一个中文名 */}
                             {eventLabels[log.action] ?? log.action}
                           </span>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{log.ip ?? '-'}</TableCell>
-                        <TableCell className="max-w-[280px] truncate text-xs">
+                        <TableCell className="font-mono text-label">{log.ip ?? '-'}</TableCell>
+                        <TableCell className="max-w-[280px] truncate text-label">
                           {log.userAgent ?? '-'}
                         </TableCell>
                       </TableRow>
@@ -209,7 +207,7 @@ export default function SecurityLogPage() {
 
             {!loading && !error && logs.length > 0 && (
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t('activityPageInfo', { page, totalPages })}
                 </span>
                 <div className="flex gap-2">

@@ -305,7 +305,7 @@ export default function RepoWikiPage() {
     <div className="px-4 py-4 mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div>
         <h1 className="text-display font-semibold">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       {error && <Alert variant="danger" description={error} className="items-start" />}
@@ -346,7 +346,7 @@ export default function RepoWikiPage() {
           </div>
 
           {folderName && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {t('folderSelected', { name: folderName, count: collectedFiles.length })}
             </p>
           )}
@@ -396,10 +396,10 @@ export default function RepoWikiPage() {
           </CardHeader>
           <CardContent>
             {(!folderName || collectedFiles.length === 0) && (
-              <p className="mb-3 text-xs text-muted-foreground">{t('regenerateDisabledHint')}</p>
+              <p className="mb-3 text-label text-muted-foreground">{t('regenerateDisabledHint')}</p>
             )}
             {loadingDetail || detailContent === null ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 py-8 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 {t('loadingDetail')}
               </div>
@@ -428,12 +428,12 @@ export default function RepoWikiPage() {
         </CardHeader>
         <CardContent>
           {loadingDocs ? (
-            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 py-6 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {t('loadingDocs')}
             </div>
           ) : docs.length === 0 ? (
-            <p className="py-6 text-sm text-muted-foreground">{t('emptyList')}</p>
+            <p className="py-6 text-body text-muted-foreground">{t('emptyList')}</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {docs.map((doc) => (
@@ -448,7 +448,7 @@ export default function RepoWikiPage() {
                         {doc.kind === 'module' ? t('kindModule') : t('kindOverview')}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-label text-muted-foreground">
                       {t('generatedAt', { time: formatDate(doc.generatedAt) })}
                       {' · '}
                       {t('fileCount', { count: doc.fileCount })}

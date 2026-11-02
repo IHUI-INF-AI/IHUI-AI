@@ -24,8 +24,8 @@ const CONNECTOR_TYPE_KEYS = ['yuque', 'feishu', 'wecom', 'dingtalk'] as const
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3 py-1.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words text-right text-xs">{value}</span>
+      <span className="text-label text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-right text-label">{value}</span>
     </div>
   )
 }
@@ -44,14 +44,14 @@ export default function ConnectorAuthDetailPageClient() {
 
   if (status === 'pending') {
     return (
-      <p className="mx-auto w-full max-w-3xl px-4 py-10 text-xs text-muted-foreground">
+      <p className="mx-auto w-full max-w-3xl px-4 py-10 text-label text-muted-foreground">
         {tc('loading')}
       </p>
     )
   }
   if (status === 'failed') {
     return (
-      <p className="mx-auto w-full max-w-3xl px-4 py-10 text-xs text-muted-foreground">
+      <p className="mx-auto w-full max-w-3xl px-4 py-10 text-label text-muted-foreground">
         {tc('loadFailed')}
       </p>
     )
@@ -59,10 +59,10 @@ export default function ConnectorAuthDetailPageClient() {
   if (!entry) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-10 text-center">
-        <p className="text-sm text-muted-foreground">{t('connectorNotFound')}</p>
+        <p className="text-body text-muted-foreground">{t('connectorNotFound')}</p>
         <Link
           href={MARKETS.connectors.href}
-          className="mt-3 inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+          className="mt-3 inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-label transition-colors hover:bg-accent"
         >
           <span>{tc('title')}</span>
         </Link>
@@ -86,7 +86,7 @@ export default function ConnectorAuthDetailPageClient() {
           </span>
           <ViewMoreLink label={more('more')} href={ecosystemHubHref} className="ms-auto" />
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{t('connectorAuthReadonlyHint')}</p>
+        <p className="mt-1 text-label text-muted-foreground">{t('connectorAuthReadonlyHint')}</p>
       </header>
 
       <section
@@ -132,7 +132,7 @@ export default function ConnectorAuthDetailPageClient() {
           {t('connectorAuthScopeTitle')}
         </h2>
         <ul className="flex flex-col gap-1">
-          <li className="flex items-center gap-2 text-xs">
+          <li className="flex items-center gap-2 text-label">
             <span
               className={entry.capabilities.doc_list ? 'text-foreground' : 'text-muted-foreground'}
             >
@@ -142,7 +142,7 @@ export default function ConnectorAuthDetailPageClient() {
               {entry.capabilities.doc_list ? t('capSupported') : t('capUnsupported')}
             </span>
           </li>
-          <li className="flex items-center gap-2 text-xs">
+          <li className="flex items-center gap-2 text-label">
             <span
               className={entry.capabilities.fetch_doc ? 'text-foreground' : 'text-muted-foreground'}
             >
@@ -168,11 +168,11 @@ export default function ConnectorAuthDetailPageClient() {
           </span>
         </div>
         {docs.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('connectorNoDocs')}</p>
+          <p className="text-label text-muted-foreground">{t('connectorNoDocs')}</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {docs.map((doc) => (
-              <li key={doc.doc_id} className="truncate text-xs">
+              <li key={doc.doc_id} className="truncate text-label">
                 <span>{doc.title}</span>
               </li>
             ))}
@@ -183,7 +183,7 @@ export default function ConnectorAuthDetailPageClient() {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Link
           href={MARKETS.connectors.href}
-          className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+          className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-label transition-colors hover:bg-accent"
         >
           <span>{t('manageConnectors')}</span>
         </Link>

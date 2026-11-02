@@ -164,7 +164,7 @@ export function MessageErrorCard({
         <span className="text-label font-medium">{titleText ?? t('errorCardTitle')}</span>
       </div>
 
-      <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
+      <p className="whitespace-pre-wrap break-words px-3 py-2 text-body text-destructive/90">
         {content.replace(/^⚠\s*/, '')}
       </p>
 
@@ -185,7 +185,7 @@ export function MessageErrorCard({
           </p>
           {catalogEntry.actionKey ? (
             <p
-              className="mt-0.5 flex items-start gap-1 text-xs leading-relaxed text-muted-foreground"
+              className="mt-0.5 flex items-start gap-1 text-label leading-relaxed text-muted-foreground"
               data-testid="message-error-catalog-action"
             >
               <Lightbulb className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
@@ -200,7 +200,7 @@ export function MessageErrorCard({
       {showRetryBlock && (
         <div
           data-testid={`message-error-retry-${messageId}`}
-          className="flex flex-wrap items-center gap-2 px-3 pb-1 pt-0.5 text-xs text-muted-foreground"
+          className="flex flex-wrap items-center gap-2 px-3 pb-1 pt-0.5 text-label text-muted-foreground"
         >
           {view!.scheduleLabel !== null && view!.scheduleLabel !== undefined && (
             <span data-testid="error-retry-schedule">{view!.scheduleLabel}</span>
@@ -217,7 +217,7 @@ export function MessageErrorCard({
       {draftPreservedText ? (
         <p
           data-testid={`message-draft-preserved-${messageId}`}
-          className="px-3 pb-2 text-xs text-muted-foreground"
+          className="px-3 pb-2 text-label text-muted-foreground"
         >
           {draftPreservedText}
         </p>
