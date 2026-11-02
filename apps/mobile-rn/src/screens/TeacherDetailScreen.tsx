@@ -152,7 +152,7 @@ export function TeacherDetailScreen() {
       error={error}
       onToggleFollow={() => void onToggleFollow()}
       onContact={onContact}
-      onOpenCourse={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
+      onOpenCourse={(courseId) => onNavigate('CourseDetail', { id: courseId })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
