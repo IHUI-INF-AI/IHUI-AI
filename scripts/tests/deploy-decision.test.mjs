@@ -136,4 +136,20 @@ test('⑤ CLI:非法参数 rc=2、--dry-run 不落盘、正常 rc=0 且落盘', 
     rmScratch(dir, { bestEffort: true })
   }
 })
+
+test('⑥ 演练标记:--synthetic 落键,普通记录不增键,字符串不冒充', () => {
+  const dir = mkScratch('deploy-decision-synthetic-')
+  try {
+    const ledger = join(dir, 'decisions.jsonl')
+    assert.equal(buildDecision({ action: 'rollback', synthetic: true }, OPT).synthetic, true)
+    assert.ok(!('synthetic' in buildDecision({ action: 'rollback' }, OPT)), '普通记录不得凭空带 synthetic 键')
+    assert.ok(!('synthetic' in buildDecision({ action: 'rollback', synthetic: 'true' }, OPT)), '字符串 "true" 不得冒充')
+
+    const ok = spawnSync(process.execPath, [SCRIPT, '--action', 'rollback', '--synthetic', '--ledger', ledger], { encoding: 'utf8' })
+    assert.equal(ok.status, 0, ok.stderr)
+    assert.equal(readDecisions(ledger)[0].synthetic, true, 'CLI --synthetic 必须落账')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

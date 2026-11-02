@@ -11,7 +11,8 @@
 //  ④ 追加幂等(第二次跑 0 新行);
 //  ⑤ 输入缺失 exit 2 且末行点名「未判定」;
 //  ⑥ 契约新增 deploy_outcome 后既有校验器仍可校验;
-//  ⑦ 0 信号仍 exit 0 并打印机器行。
+//  ⑦ 0 信号仍 exit 0 并打印机器行;
+//  ⑧ 演练绝缘(B69):synthetic/旧 reason 前缀不产告警,同形真实回滚仍产 error,计数分离。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -24,7 +25,7 @@ import { loadContract, validateSignal } from '../lib/incident-cluster.mjs'
 
 const SRC = resolve(fileURLToPath(import.meta.url), '../../deploy-outcome-intake.mjs')
 const { __test__ } = await import(pathToFileURL(SRC).href)
-const { decisionToSignal, planIntake, DEFAULT_MINUTES, RESULT_PREFIX } = __test__
+const { decisionToSignal, planIntake, DEFAULT_MINUTES, RESULT_PREFIX, isSyntheticDecision, LEGACY_DRILL_REASON_PREFIX } = __test__
 
 const FULL_SHA = '0123456789abcdef0123456789abcdef01234567'
 
@@ -143,11 +144,11 @@ test('④ 追加幂等:同一份输入跑两次,第二次 0 新行且 --out 只�
 
     const first = runCli(['--in', input, '--out', out])
     assert.equal(first.status, 0, first.stderr)
-    assert.equal(lastLine(first.stdout), `${RESULT_PREFIX} signals=1 skipped=0 undetermined=0`)
+    assert.equal(lastLine(first.stdout), `${RESULT_PREFIX} signals=1 skipped=0 synthetic=0 undetermined=0`)
 
     const second = runCli(['--in', input, '--out', out])
     assert.equal(second.status, 0, second.stderr)
-    assert.equal(lastLine(second.stdout), `${RESULT_PREFIX} signals=0 skipped=1 undetermined=0`)
+    assert.equal(lastLine(second.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 undetermined=0`)
 
     const lines = readFileSync(out, 'utf8').trim().split(/\r?\n/)
     assert.equal(lines.length, 1, `幂等失败,台账被重复追加:${lines.length} 行`)
@@ -193,9 +194,46 @@ test('⑦ 0 信号(只有 pass)仍 exit 0 并打印机器行', () => {
     writeFileSync(input, `${JSON.stringify(decision({ action: 'pass' }))}\n`, 'utf8')
     const r = runCli(['--in', input, '--out', out])
     assert.equal(r.status, 0, r.stderr)
-    assert.equal(lastLine(r.stdout), `${RESULT_PREFIX} signals=0 skipped=1 undetermined=0`)
+    assert.equal(lastLine(r.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 undetermined=0`)
     assert.equal(existsSync(out), false, '0 信号不应落空文件')
   } finally {
     rmScratch(dir)
   }
+})
+
+test('⑧ 演练绝缘:synthetic 与旧 reason 前缀不产告警,同形真实回滚仍产 error,计数分离', () => {
+  const contract = loadContract()
+
+  // 显式 synthetic:true —— 联测/演练记录不得变成生产 error 告警。
+  const drill = decisionToSignal(decision({ synthetic: true, reason: '演练,不是事故' }), contract)
+  assert.equal(drill.produce, false, 'synthetic 记录不得产信号')
+  assert.equal(drill.synthetic, true)
+
+  // 旧形态(2026-10-31 那枚早于 --synthetic 字段):按 reason 显式前缀一次性归位。
+  const legacy = decisionToSignal(decision({ reason: `${LEGACY_DRILL_REASON_PREFIX}:以本仓 HEAD 模拟回滚` }), contract)
+  assert.equal(legacy.produce, false, '旧演练 reason 前缀不得产信号')
+  assert.equal(legacy.synthetic, true)
+  assert.equal(isSyntheticDecision({ reason: `${LEGACY_DRILL_REASON_PREFIX}:x` }), true)
+  assert.equal(isSyntheticDecision({ reason: '真实回滚:门禁失败' }), false)
+  // 字符串 "true" 不得冒充演练标记(只认显式布尔)。
+  assert.equal(isSyntheticDecision({ synthetic: 'true' }), false, '字符串 true 不得绝缘')
+
+  // 反向:同形但真实回滚(无演练标记/前缀)必须照旧产 alert_firing error。
+  const real = decisionToSignal(decision({ reason: '健康门禁未过' }), contract)
+  assert.equal(real.produce, true, '真实回滚必须产信号(绝缘不可过宽)')
+  assert.equal(real.signal.kind, 'alert_firing')
+  assert.equal(real.signal.severity, 'error')
+  assert.equal(real.signal.route, 'deploy/rollback')
+
+  // 计数分离:演练只进 synthetic,不与 skipped 混;真实信号照常产出。
+  const rows = [
+    { line: 1, object: decision({ ts: '2026-10-26T10:00:00.000Z', synthetic: true }) },
+    { line: 2, object: decision({ ts: '2026-10-26T10:30:00.000Z', reason: `${LEGACY_DRILL_REASON_PREFIX}:旧账` }) },
+    { line: 3, object: decision({ ts: '2026-10-26T11:00:00.000Z', reason: '健康门禁未过' }) },
+  ]
+  const plan = planIntake({ decisions: rows, contract, minutes: DEFAULT_MINUTES, existing: [] })
+  assert.equal(plan.signals.length, 1, '只有真实回滚产信号')
+  assert.equal(plan.synthetic, 2, '两条演练必须单列')
+  assert.equal(plan.skipped, 0, '演练不得混进 skipped')
+  assert.equal(plan.undetermined, 0)
 })
