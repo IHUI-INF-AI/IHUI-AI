@@ -43,6 +43,16 @@ describe('computeSafeAreaInsets', () => {
     ).toEqual({ top: 0, bottom: 34, left: 0, right: 0 })
   })
 
+  it('screen.height 优先于 screenHeight(支付宝 Android 的 screenHeight 取值有误)', () => {
+    expect(
+      computeSafeAreaInsets({
+        screenHeight: 640,
+        screen: { height: 812 },
+        safeArea: { bottom: 778 },
+      }).bottom,
+    ).toBe(34)
+  })
+
   it('无刘海屏(safeArea.bottom == screenHeight)⇒ 0', () => {
     expect(computeSafeAreaInsets({ screenHeight: 640, safeArea: { bottom: 640 } })).toEqual({
       top: 0,
