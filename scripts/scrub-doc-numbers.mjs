@@ -36,6 +36,12 @@
  *   分档判据**不在本器另造**:一律 import 门 173 的 `splitStagedRatchet` / `parseChangedLines`
  *   (同一个纯函数、同一份基线口径),本器只负责"要不要写、写成什么"。
  *   默认 dry-run 只打印分桶计数 + 样例 + manual 清单落 `.ihui-agent/tmp/scrub-doc-numbers/manual-list.jsonl`;
+ *   `--scope=archive|all`(2026-11-02 立)是**显式维护档**,只有人点名才进:
+ *     archive = 只处置最后一枚 `END RECENT UPDATES` 之后的旧版全文快照区;all = 全文。
+ *     立它的理由:门 173 的 `--strict`(问责档)无条件全判 HEAD 面,而区级/行级棘轮只报数不清账
+ *     ⇒ 全仓存量维护债在 strict 档里恒红(§12e 的镜像形态)。本档就是那笔债的清偿动作:
+ *     数字仍由生成器同源产出(`collectNumbers`,不手抄),框线行宽与叙述判据逐字不变,
+ *     manual 桶仍然一行不动;缺省(不传 scope)的默认档一个字都不改。
  *   `--apply` 才写盘,写盘前把每篇原文逐字节备份到 `.ihui-agent/state/doc-numbers-pre-apply-<时间戳>-<篇名>.md`,
  *   并做规划-写盘之间的回读 CAS(文件在规划后被别席改过 ⇒ 整轮拒绝,exit 2 未判定)。
  *   取材面恒为 worktree(人工逃生舱,§0.4 同面同轮:文档与现算值同取 worktree 面)。
@@ -46,8 +52,10 @@
  *   幂等:连跑两次第二轮必报"本轮零改动"。
  *
  * 手动:
- *   node scripts/scrub-doc-numbers.mjs              # dry-run(默认)
+ *   node scripts/scrub-doc-numbers.mjs              # dry-run(默认,只处置本轮新增/改写行)
  *   node scripts/scrub-doc-numbers.mjs --apply      # 备份 + 写回 + 自证
+ *   node scripts/scrub-doc-numbers.mjs --scope=archive --apply   # 维护档:清偿归档区存量
+ *   node scripts/scrub-doc-numbers.mjs --scope=all --apply       # 维护档:清偿全文存量
  *   node scripts/scrub-doc-numbers.mjs --self-test  # 构造面成对夹具(每桶摘掉判据即翻红)
  * 本器刻意不进提交链(§12e:它是清偿器不是判据;判红权仍归门 173)。
  */
@@ -94,6 +102,21 @@ export const UPDATES_HEADING_RE = /最近更新|更新日志|变更日志|Change
 /** 行尾豁免标记的唯一写法(必须带原因,门 173 的 S20 才认)。 */
 export function exemptMarker(features) {
   return `<!-- doc-num-exempt: 自动判定为历史叙述（${features.join('、')}），非当前总量声明 -->`
+}
+
+/**
+ * 维护档的行范围(显式 `--scope=archive|all` 才用;缺省返回 null = 走行级差值棘轮)。
+ * archive 的边界与门 173 的区级判据同源:**最后一枚** `END RECENT UPDATES`(门用 includes 扫全文,
+ * 这里逐字复用它,不另造标记识别)。
+ * @returns {Set<number>|null} 1-based 行号集合;null = 不启用维护档
+ */
+export function scopeLines(text, scope, violations) {
+  if (scope === 'all') return new Set(violations.map((v) => v.line))
+  if (scope !== 'archive') return null
+  const lines = text.split(/\r?\n/)
+  let last = -1
+  for (let i = 0; i < lines.length; i += 1) if (lines[i].includes(UPDATES_END)) last = i
+  return new Set(violations.filter((v) => v.line - 1 > last).map((v) => v.line))
 }
 
 /** 最近的上级标题是否点名"最近更新/Changelog"类区块。 */
@@ -410,6 +433,17 @@ function selfTest() {
   // L RECENT UPDATES 块由门整体屏蔽 ⇒ 块内数字根本不进本器射程(与门同面,零复算)
   const l1 = planDoc('README.md', `${UPDATES_BEGIN}\n- 补齐口径(176 llms)\n${UPDATES_END}\n`, numbers)
   ok('L 更新块内数字不被本器处置(屏蔽住在门里)', l1.total === 0)
+  // M 维护档范围:archive 只取最后一枚 END 之后;all 取全部;非法/缺省 = null(回落默认棘轮)
+  const mText = `542 张表\n${UPDATES_BEGIN}\nx\n${UPDATES_END}\n4393 API 路由\n`
+  const mVios = findStaleClaims(mText, numbers).violations
+  const mArchive = scopeLines(mText, 'archive', mVios)
+  const mAll = scopeLines(mText, 'all', mVios)
+  ok(
+    'M1 --scope=archive 只取 END RECENT UPDATES 之后的行(前段存量不在范围)',
+    mArchive !== null && [...mArchive].join(',') === '5',
+  )
+  ok('M2 --scope=all 取全部违规行', mAll !== null && mAll.size === 2)
+  ok('M3 缺省/未知 scope ⇒ null(不静默启用维护档)', scopeLines(mText, null, mVios) === null && scopeLines(mText, 'bogus', mVios) === null)
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -421,6 +455,13 @@ function stamp() {
 async function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
+  /** 维护档(显式):缺省 null = 行级差值棘轮;archive/all = 区级/全文存量清偿 */
+  const scopeArg = argv.find((a) => a.startsWith('--scope='))
+  const scope = scopeArg ? scopeArg.slice('--scope='.length) : null
+  if (scope !== null && scope !== 'archive' && scope !== 'all') {
+    console.error(`❌ 未判定:--scope 只认 archive|all(收到 "${scope}")`)
+    return 2
+  }
   const texts = new Map()
   const missing = []
   for (const rel of AUDITED_DOCS) {
@@ -473,32 +514,47 @@ async function main(argv) {
   const plans = []
   const stockRows = []
   for (const [rel, text] of texts) {
-    const split = splitStagedRatchet(findStaleClaims(text, derived.numbers).violations, {
-      text,
-      baselineText: headBaselines.get(rel) ?? null,
-      numbers: derived.numbers,
-      changedLines: worktreeChanged.get(rel) ?? null,
-    })
-    const p = planDoc(rel, text, derived.numbers, { onlyLines: new Set(split.actionable.map((v) => v.line)) })
+    const scan = findStaleClaims(text, derived.numbers)
+    let onlyLines = null
+    let stockN = 0
+    let stockWhy = null
+    if (scope) {
+      // 维护档:范围由 scope 决定,范围外只报数(与门 173 的核账口径同源,不另造)
+      onlyLines = scopeLines(text, scope, scan.violations)
+      stockN = scan.violations.filter((v) => !onlyLines.has(v.line)).length
+      stockWhy = scope === 'archive' ? '维护档 scope=archive:归档区之外只报数' : null
+    } else {
+      const split = splitStagedRatchet(scan.violations, {
+        text,
+        baselineText: headBaselines.get(rel) ?? null,
+        numbers: derived.numbers,
+        changedLines: worktreeChanged.get(rel) ?? null,
+      })
+      onlyLines = new Set(split.actionable.map((v) => v.line))
+      stockN = split.stock.length
+      stockWhy = split.why
+    }
+    const p = planDoc(rel, text, derived.numbers, { onlyLines })
     if (p.danglingBlock) {
       console.error(`❌ 未判定:${rel} 的生成块/更新块未闭合(有 begin 无 end)⇒ 屏蔽面会吞到文末,本轮拒绝处置任何一篇(既不记成功也不记失败)`)
       return 2
     }
     plans.push(p)
-    stockRows.push({ rel, n: split.stock.length, why: split.why })
+    stockRows.push({ rel, n: stockN, why: stockWhy })
   }
   const c = bucketCounts(plans)
   const inScopeTotal = plans.reduce((a, p) => a + p.inScope, 0)
   const stockTotal = stockRows.reduce((a, x) => a + x.n, 0)
   console.log(
-    `face=worktree · 门 173 违规共 ${c.total} 处(命中判据 ${plans.reduce((a, p) => a + p.checked, 0)} 处)· ` +
-      `本轮新增/改写 ${inScopeTotal} 处 · HEAD 面存量 ${stockTotal} 处只报数不写回 · 分桶:replace=${c.replace} exempt=${c.exempt} manual=${c.manual}`,
+    `face=worktree · ${scope ? `维护档 scope=${scope} · ` : ''}门 173 违规共 ${c.total} 处(命中判据 ${plans.reduce((a, p) => a + p.checked, 0)} 处)· ` +
+      `${scope ? '本次处置范围' : '本轮新增/改写'} ${inScopeTotal} 处 · ${scope ? '范围外' : 'HEAD 面'}存量 ${stockTotal} 处只报数不写回 · ` +
+      `分桶:replace=${c.replace} exempt=${c.exempt} manual=${c.manual}`,
   )
   for (const p of plans) {
-    console.log(`  ${p.rel}:违规 ${p.total}(本轮范围 ${p.inScope}) ⇒ replace=${p.buckets.replace.length} exempt=${p.buckets.exempt.length} manual=${p.buckets.manual.length}`)
+    console.log(`  ${p.rel}:违规 ${p.total}(范围 ${p.inScope}) ⇒ replace=${p.buckets.replace.length} exempt=${p.buckets.exempt.length} manual=${p.buckets.manual.length}`)
   }
   for (const s of stockRows) {
-    if (s.n > 0 || s.why) console.log(`  ${s.rel}:HEAD 面存量 ${s.n} 处只报数不写回${s.why ? `(原因:${s.why})` : ''}`)
+    if (s.n > 0 || s.why) console.log(`  ${s.rel}:${scope ? '范围外' : 'HEAD 面'}存量 ${s.n} 处只报数不写回${s.why ? `(原因:${s.why})` : ''}`)
   }
   for (const bucket of ['replace', 'exempt', 'manual']) {
     const all = plans.flatMap((p) => p.buckets[bucket])
@@ -518,8 +574,10 @@ async function main(argv) {
   }
   if (inScopeTotal === 0) {
     console.log(
-      `✅ 本轮零改动:本轮新增/改写的声明行零违规(HEAD 面存量 ${stockTotal} 处只报数、不写回 —— 门的新档也不要求清它;` +
-        `批量把历史快照改成今天的数字是反模式)。若门仍红,红源在 DN1 生成块或本轮改过的行,跑 node scripts/gen-doc-numbers.mjs --markdown`,
+      scope
+        ? `✅ 零改动:维护档 scope=${scope} 的处置范围内零违规(范围外 ${stockTotal} 处只报数、不写回)。`
+        : `✅ 本轮零改动:本轮新增/改写的声明行零违规(HEAD 面存量 ${stockTotal} 处只报数、不写回 —— 门的新档也不要求清它;` +
+            `批量把历史快照改成今天的数字是反模式)。若门仍红,红源在 DN1 生成块或本轮改过的行,跑 node scripts/gen-doc-numbers.mjs --markdown`,
     )
     return 0
   }
@@ -609,6 +667,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   planDoc,
+  scopeLines,
   applyPlan,
   applySpansToLine,
   detectNarrative,
