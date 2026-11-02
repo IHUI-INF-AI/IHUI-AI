@@ -84,7 +84,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 618 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4670 | `apiRoutes` |
+| API 路由 | 4672 | `apiRoutes` |
 | 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -93,19 +93,21 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
 | CLI 命令文件 | 69 | `cliCommandFiles` |
-| CLI 工具文件 | 72 | `cliToolFiles` |
+| CLI 工具文件 | 73 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3958 | `testFiles` |
-| CI 工作流 | 49 | `ciWorkflows` |
+| 测试文件 | 3985 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 314 | `guardianGates` |
-| — blocking | 285 | `guardianBlocking` |
+| 工程守门 | 315 | `guardianGates` |
+| — blocking | 286 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18734 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-01。
+| 跟踪文件 | 18802 | `trackedFiles` |
+
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5446,6 +5448,16 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7f9c0f84ca)
+- 🔧 工程/其他:收敛后按 HEAD 面重生成 3 件 i18n 派生产物 (cf4929783c)
+- 🚀 新功能/改进:全工作树未提交状态唯一口径(check-worktree-status + 门 281) (a708200410)
+- 🔧 工程/其他:收敛后重生成 web ui-routes 派生件——合并树新增路由共 911 条,sourceCommit 钉到 17398feed4,与输入 sha256 c03c0415 对齐 (c62d667f09)
+- 🔧 工程/其他:收敛后重生成 miniapp 离线包 b64 派生件——与已提交的 3 份 .gen.ts 同批产出(输入 sha256 789e9bbe、sourceCommit 4cf59c6ef8),补齐收敛引入的词包更新 (031c4d0933)
+- 🔧 工程/其他:收敛后按合并树重生成 ui-routes 派生件——union-converge 落地 e174123809 后按合并树重算,sourceCommit 钉到该合并,输入 sha256 不变(两侧改动路径除本生成物外无重叠) (4cf59c6ef8)
+- 🚀 新功能/改进:M4 B1 契约冻结——8 个共享 types 补必填 onNavigate/onToast,29 个共享屏加 assertRequiredPort,30 个 RN 壳经 useHostPorts 接线并挂全局轻提示层,小程序 about-shared 宿主补端口并同步重生成 ui-routes,新增端口接线契约测试(2 例);接手他人未提交工作、来源会话不明(76 条遗留已在前序 5 笔按域提交 b3d2f24247/90b700fb81/99c09c4938/cb39924428/3fe2499620),本笔为随后 M4 B1 自研施工;门禁:根 typecheck 绿(TS+mypy)、两端 typecheck 绿、miniapp test 99 文件/1239 例绿、mobile-rn test 152/153 文件 1385/1397(存量 tests/wallet.test.tsx worker OOM 12 例未跑,文件未改、与 B1 无 import 关系)、parity gap 0/residual 1、门128 判红 0、planner 30/21/15 未变 (408efad761)
+- 🐞 修复:get_session_extra_roots 空会话早退后显式收窄 session_id——消 mcp_server.py:715 存量 mypy 错(str | None 传给 str),根 pnpm typecheck 由红转绿;行为不变 (620f408c83)
+
 **2026-10-30**
 - 🐞 修复:registry-sync 批量失败时把真实错误写进 sync_log —— 门 47 现在只报得出条数 (a3d7f7f2bf)
 - 🔧 工程/其他:归档件补溯源水印 —— 销 10-29 归档留下的 HEAD 面欠账(门 47 复跑点名) (d05bdf123d)
