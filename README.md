@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3993 | `testFiles` |
+| 测试文件 | 3998 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 315 | `guardianGates` |
-| — blocking | 286 | `guardianBlocking` |
+| 工程守门 | 316 | `guardianGates` |
+| — blocking | 287 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18827 | `trackedFiles` |
+| 跟踪文件 | 18864 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5448,6 +5448,25 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🐞 修复:下载中心「尚未上线」态三键补齐五语言 (791b2bcf0e)
+- 📚 文档:补齐 ApkPure 与其余品牌的核实结论,并把 App 备案挂成法律级前置 (d333f3f82a)
+- 📚 文档:Y-70 就地改写为四格动手清单(备案号登记/四家接口凭据/迁移先于上线/三端 store 消费) (133f99596f)
+
+**2026-11-03**
+- 🚀 新功能/改进:各商店提交前的合规对账器 + 摘除一个全仓零引用的危险权限 (1c6aecb1a4)
+
+**2026-11-03**
+- 🚀 新功能/改进:app_versions 加 store 维度,多渠道各自一条 latest 才表达得出来 (33f26c2d18)
+
+**2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (8581b5c75f)
+- 🔧 工程/其他:补门 47 水源印：agent-chat-stream.ts（远端 SSE 消费出口带入 HEAD 时缺溯源水印） (5cb5e2fe35)
+- 🔧 工程/其他:合并前置：与 d16d78d008 兜底清扫冲突，按真实缺陷保留 Y-14（安卓 latest 行缺失导致更新卡无下载地址） (46197828d3)
+
+**2026-11-02**
+- 🔧 工程/其他:解合并卡点：README 自动块刷新 + 严格档数字重算 (1e71ef9b40)
+
 **2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9065d9cba8)
 - 🚀 新功能/改进:补齐跨端自愈链的最后一节「落库」,写盘件从此有凭据可入库 (4bbb261050)
@@ -15491,6 +15510,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 ## 守门脚本点名索引(内部参考)
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
+- 跨端 / RN 薄壳覆盖(2026-11-03 装车,blocking,runner id '283'): `check-rn-host-shell-coverage.mjs`(判每枚共享屏是否被**至少一枚 RN 壳直接 import**——值 import 才算,`import type` 型边不计;三桶 covered / needsManual / seedableMissing;挂账出口 `scripts/data/rn-host-shell-manual.json`,三要素 owner + expires + reason 齐备才生效,到期即判红,在册面不再命中按 §0.7 判清单腐烂;现读 272 枚 · covered 260 · 12 枚在册在期 ⇒ 判绿;修法出口 `gen-rn-host-shell.mjs`(已由守护腿 `sweepRnHostShells` 30 分钟派发);镜像 `check-rn-host-shell-coverage.test.mjs`;应急放行 `HUSKY_SKIP_RN_HOST_SHELL_COVERAGE=1`)
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
 - 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
 - 安全/回跳(2026-11-01 立,blocking,runner id '278'): `check-redirect-target-origin-pinned.mjs`(判 `apps/web` 每枚 `resolveSafeRedirectTarget(...)`/`isSafeNavigationTarget(...)` 的 options 实参必须是**字面量对象且含 `allowedOrigins`**——`isSafeNavigationTarget` 缺该键时走"只判协议"支,任意 http(s) 外站点照过,同日实测四处真命中含两枚授权码签发路径;options 为变量/展开 ⇒ 未判定按 §0.3 exit 2,豁免 = 具名台账且带到期)
