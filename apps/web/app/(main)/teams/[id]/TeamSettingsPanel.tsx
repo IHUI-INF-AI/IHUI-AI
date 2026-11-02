@@ -51,7 +51,7 @@ export function TeamSettingsPanel({
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
           {editErr && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {editErr}
             </div>
           )}
@@ -72,7 +72,7 @@ export function TeamSettingsPanel({
               onChange={(e) => setEditDesc(e.target.value)}
               rows={3}
               maxLength={500}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           <Button type="submit" disabled={updatePending}>
@@ -82,7 +82,7 @@ export function TeamSettingsPanel({
         </form>
         <div className="mt-8 mt-6 pt-6">
           <h3 className="text-body font-semibold text-destructive">{t('dangerZone')}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{t('deleteTeamDesc')}</p>
+          <p className="mt-1 text-label text-muted-foreground">{t('deleteTeamDesc')}</p>
           <Button
             variant="outline"
             className="mt-3 border-destructive/50 text-destructive hover:bg-destructive/10"

@@ -139,7 +139,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <MessageSquare className="h-8 w-8" />
-            <p className="text-sm">{t('empty')}</p>
+            <p className="text-body">{t('empty')}</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -173,14 +173,14 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
                 {isMine && deleteBtn}
                 <div
                   className={cn(
-                    'max-w-[70%] rounded-2xl px-3 py-2 text-sm',
+                    'max-w-[70%] rounded-2xl px-3 py-2 text-body',
                     isMine ? 'bg-cta text-cta-foreground' : 'bg-muted',
                   )}
                 >
                   <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   <p
                     className={cn(
-                      'mt-1 whitespace-nowrap text-right text-xs tabular-nums',
+                      'mt-1 whitespace-nowrap text-right text-label tabular-nums',
                       isMine ? 'text-primary-foreground/70' : 'text-muted-foreground',
                     )}
                   >

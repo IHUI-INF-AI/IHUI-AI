@@ -98,18 +98,18 @@ export function CompactionTab() {
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <div className="space-y-1">
-            <Label className="text-xs">{t('input')}</Label>
+            <Label className="text-label">{t('input')}</Label>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={12}
               placeholder={t('inputPlaceholder')}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
-              <Label className="text-xs">{t('strategy')}</Label>
+              <Label className="text-label">{t('strategy')}</Label>
               <Select value={strategy} onValueChange={(v) => setStrategy(v as CompactionStrategy)}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue />
@@ -124,7 +124,7 @@ export function CompactionTab() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('keepRecent')}</Label>
+              <Label className="text-label">{t('keepRecent')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -148,7 +148,7 @@ export function CompactionTab() {
           {error && <Alert variant="danger" title="Error" description={error} />}
 
           {!result && !error && !loading && (
-            <p className="py-8 text-center text-xs text-muted-foreground">{t('empty')}</p>
+            <p className="py-8 text-center text-label text-muted-foreground">{t('empty')}</p>
           )}
 
           {loading && (

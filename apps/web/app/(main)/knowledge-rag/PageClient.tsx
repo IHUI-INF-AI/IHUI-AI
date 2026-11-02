@@ -94,9 +94,11 @@ export default function KnowledgeRagPageClient() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <BookMarked className="h-6 w-6 text-primary" />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => setUploadOpen(true)}>
@@ -105,7 +107,7 @@ export default function KnowledgeRagPageClient() {
           </Button>
           <Link
             href="/knowledge-rag/manage"
-            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-body transition-colors hover:bg-accent"
           >
             <Settings className="h-4 w-4" />
             <span>{t('manage')}</span>
@@ -129,14 +131,14 @@ export default function KnowledgeRagPageClient() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : isSearchMode ? (
         hits.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Search className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{tSearch('empty')}</p>
+            <p className="text-body text-muted-foreground">{tSearch('empty')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -152,12 +154,12 @@ export default function KnowledgeRagPageClient() {
                       <CardTitle className="text-base">
                         {tChunks('chunkIndex', { index: h.chunkIndex + 1 })}
                       </CardTitle>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                         {(h.score * 100).toFixed(1)}%
                       </span>
                     </div>
                   </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
+                  <CardContent className="text-body text-muted-foreground">
                     <p className="line-clamp-3 whitespace-pre-wrap">{h.content}</p>
                   </CardContent>
                 </Card>
@@ -168,7 +170,7 @@ export default function KnowledgeRagPageClient() {
       ) : docs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
@@ -178,7 +180,7 @@ export default function KnowledgeRagPageClient() {
                 <CardHeader className="pb-2">
                   <CardTitle className="line-clamp-2 text-base">{d.title}</CardTitle>
                 </CardHeader>
-                <CardFooter className="justify-between gap-2 text-xs text-muted-foreground">
+                <CardFooter className="justify-between gap-2 text-label text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-muted px-1.5 py-0.5">
                       {sourceLabel(d.sourceType)}

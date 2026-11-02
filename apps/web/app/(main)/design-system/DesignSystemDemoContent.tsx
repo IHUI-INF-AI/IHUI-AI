@@ -85,7 +85,7 @@ function Section({
     <section className="space-y-3">
       <div className="space-y-0.5">
         <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        {description ? <p className="text-body text-muted-foreground">{description}</p> : null}
       </div>
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">{children}</CardContent>
@@ -103,7 +103,7 @@ export function DesignSystemDemoContent() {
           <Sparkles className="h-7 w-7 text-primary" />
           设计系统演示
         </h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           统一展示项目的颜色、字体、间距、按钮、卡片、表单、徽章、头像、标签页与 Toast 等 Design
           Token。
         </p>
@@ -121,7 +121,7 @@ export function DesignSystemDemoContent() {
                 className={`h-14 w-full rounded-md border border-border ${className}`}
                 aria-hidden
               />
-              <div className="text-xs">
+              <div className="text-label">
                 <div className="font-medium text-foreground">{name}</div>
                 <code className="text-muted-foreground">{token}</code>
               </div>
@@ -138,7 +138,7 @@ export function DesignSystemDemoContent() {
               <div className="flex h-12 items-end">
                 <div className={`rounded-sm bg-cta/80 ${className}`} />
               </div>
-              <div className="text-xs">
+              <div className="text-label">
                 <div className="font-medium text-foreground">{name}</div>
                 <code className="text-muted-foreground">{px}</code>
               </div>
@@ -180,7 +180,7 @@ export function DesignSystemDemoContent() {
               <CardTitle>卡片标题</CardTitle>
               <CardDescription>这是卡片描述，用于补充说明标题内容。</CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
+            <CardContent className="text-body text-muted-foreground">
               卡片正文区域，可放置任意内容。
             </CardContent>
             <CardFooter className="gap-2">
@@ -194,7 +194,7 @@ export function DesignSystemDemoContent() {
             <CardHeader>
               <CardTitle>简洁卡片</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
+            <CardContent className="text-body text-muted-foreground">
               仅包含标题与正文的简化版卡片。
             </CardContent>
           </Card>
@@ -236,12 +236,12 @@ export function DesignSystemDemoContent() {
           {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
             <div key={size} className="space-y-1.5 text-center">
               <Avatar name={`用户 ${size}`} size={size} />
-              <div className="text-xs text-muted-foreground">{size}</div>
+              <div className="text-label text-muted-foreground">{size}</div>
             </div>
           ))}
           <div className="space-y-1.5 text-center">
             <Avatar name="方形头像" shape="square" size="lg" />
-            <div className="text-xs text-muted-foreground">square</div>
+            <div className="text-label text-muted-foreground">square</div>
           </div>
         </div>
       </Section>
@@ -254,13 +254,13 @@ export function DesignSystemDemoContent() {
             <TabsTrigger value="password">密码</TabsTrigger>
             <TabsTrigger value="notify">通知</TabsTrigger>
           </TabsList>
-          <TabsContent value="account" className="text-sm text-muted-foreground">
+          <TabsContent value="account" className="text-body text-muted-foreground">
             账户设置：管理用户名、头像与基础信息。
           </TabsContent>
-          <TabsContent value="password" className="text-sm text-muted-foreground">
+          <TabsContent value="password" className="text-body text-muted-foreground">
             密码设置：定期更换密码以保障账户安全。
           </TabsContent>
-          <TabsContent value="notify" className="text-sm text-muted-foreground">
+          <TabsContent value="notify" className="text-body text-muted-foreground">
             通知设置：自定义消息、邮件与推送偏好。
           </TabsContent>
         </Tabs>

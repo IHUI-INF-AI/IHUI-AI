@@ -211,7 +211,7 @@ export default function AiEduPage() {
                 <div className="text-display font-bold text-primary min-[768px]:text-3xl">
                   {m.value}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                <div className="mt-1 text-label text-muted-foreground min-[768px]:text-body">
                   {m.label}
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default function AiEduPage() {
             {problems.map((p, i) => (
               <li
                 key={i}
-                className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+                className="flex items-start gap-3 text-body leading-relaxed text-muted-foreground min-[768px]:text-base"
               >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
@@ -252,7 +252,7 @@ export default function AiEduPage() {
                   {i + 1}
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">{c.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.desc}</p>
+                <p className="mt-2 text-body leading-relaxed text-muted-foreground">{c.desc}</p>
               </div>
             ))}
           </div>
@@ -267,7 +267,7 @@ export default function AiEduPage() {
             {cases.map((cs, i) => (
               <div key={i} className="rounded-lg border bg-card p-3">
                 <h3 className="text-base font-semibold">{cs.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{cs.desc}</p>
+                <p className="mt-2 text-body leading-relaxed text-muted-foreground">{cs.desc}</p>
               </div>
             ))}
           </div>
@@ -281,14 +281,14 @@ export default function AiEduPage() {
               技術棧與工具鏈
             </h2>
           </div>
-          <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mx-auto mt-3 max-w-3xl text-center text-body text-muted-foreground min-[768px]:text-base">
             基於 IHUI AI 全棧 AI 作業系統,8 端同源,核心元件全部開源,K12/高校/職業訓練全場景覆蓋。
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
               <div key={i} className="rounded-lg border bg-card p-3">
                 <h3 className="text-body font-semibold">{t.name}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t.purpose}</p>
+                <p className="mt-2 text-label leading-relaxed text-muted-foreground">{t.purpose}</p>
               </div>
             ))}
           </div>
@@ -300,7 +300,7 @@ export default function AiEduPage() {
           <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
             開始搭建你的 AI 智慧教育助手
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
             註冊即得 1000 積分,從智慧教育場景模板一鍵 fork,30 分鐘體驗個性化學習。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -317,7 +317,7 @@ export default function AiEduPage() {
               查看其他用例 <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-label text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" /> 教育諮詢 8801
             </span>

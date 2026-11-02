@@ -40,7 +40,7 @@ export function PlatformSelectorCard({
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
           <Label>{t('new.selectPlatforms')}</Label>
-          <div className="flex gap-2 text-xs">
+          <div className="flex gap-2 text-label">
             <button type="button" onClick={onSelectAll} className="text-primary hover:underline">
               {t('new.selectAll')}
             </button>
@@ -54,7 +54,7 @@ export function PlatformSelectorCard({
           </div>
         </div>
         {platformMap.size === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('accounts.noAccounts')}</p>
+          <p className="text-label text-muted-foreground">{t('accounts.noAccounts')}</p>
         ) : (
           <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
             {Array.from(platformMap.keys()).map((p) => {
@@ -63,7 +63,7 @@ export function PlatformSelectorCard({
                 <label
                   key={p}
                   className={cn(
-                    'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
+                    'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-body transition-colors',
                     checked
                       ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent',
@@ -71,7 +71,7 @@ export function PlatformSelectorCard({
                 >
                   <Checkbox checked={checked} onCheckedChange={() => onToggle(p)} />
                   <span>{t(PLATFORM_KEY[p] ?? 'platforms.unknown')}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="ml-auto text-label text-muted-foreground">
                     ×{platformMap.get(p)?.length}
                   </span>
                 </label>

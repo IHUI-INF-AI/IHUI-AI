@@ -130,7 +130,7 @@ export function UploadDialog({
             type="button"
             onClick={() => setMode('file')}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
               mode === 'file'
                 ? 'bg-background font-medium shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -143,7 +143,7 @@ export function UploadDialog({
             type="button"
             onClick={() => setMode('text')}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
               mode === 'text'
                 ? 'bg-background font-medium shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -172,14 +172,14 @@ export function UploadDialog({
                 type="file"
                 accept=".pdf,.docx,.md,.txt,.html,.htm"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-cta file:px-3 file:py-1.5 file:text-cta-foreground hover:file:bg-cta/90"
+                className="w-full text-body text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-cta file:px-3 file:py-1.5 file:text-cta-foreground hover:file:bg-cta/90"
               />
               {file && (
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 text-label text-muted-foreground">
                   {file.name} ({(file.size / 1024).toFixed(1)} KB)
                 </p>
               )}
-              <p className="mt-1.5 text-xs text-muted-foreground">{t('fileHint')}</p>
+              <p className="mt-1.5 text-label text-muted-foreground">{t('fileHint')}</p>
             </div>
           </div>
         ) : (
@@ -192,7 +192,7 @@ export function UploadDialog({
               rows={6}
               maxLength={32000}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('charCount', { count: text.length })}
             </p>
           </div>
@@ -201,7 +201,7 @@ export function UploadDialog({
         {feedback && (
           <div
             className={cn(
-              'flex items-center gap-2 rounded-md border px-3 py-2 text-sm',
+              'flex items-center gap-2 rounded-md border px-3 py-2 text-body',
               feedback.type === 'success'
                 ? 'border-primary/30 bg-primary/10 text-primary'
                 : 'border-destructive/50 bg-destructive/10 text-destructive',

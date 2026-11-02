@@ -37,9 +37,9 @@ export default function ManualBillingPage() {
     <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
-        <div className="text-xs font-mono text-muted-foreground">第 05 章 · 使用说明手册</div>
+        <div className="text-label font-mono text-muted-foreground">第 05 章 · 使用说明手册</div>
         <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">积分与订阅</h1>
-        <p className="text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="text-body text-muted-foreground min-[768px]:text-base">
           智汇 AI 用积分计费,一套积分全模型通用,无需每家厂商单独充值。
           本章教你查积分、充值、订阅套餐、开发票。
         </p>
@@ -48,7 +48,7 @@ export default function ManualBillingPage() {
       {/* 积分规则 */}
       <section id="credits-rule" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">5.1 积分消耗规则</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <p><strong>1 积分 ≈ 1000 Token</strong>(标准模型),贵模型消耗多,便宜模型消耗少:</p>
           <div className="space-y-2">
             {[
@@ -65,7 +65,7 @@ export default function ManualBillingPage() {
             ].map(([model, mult, cost, tag], i) => (
               <div
                 key={model}
-                className={`grid grid-cols-2 gap-2 rounded p-3 text-xs min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
+                className={`grid grid-cols-2 gap-2 rounded p-3 text-label min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
               >
                 <div className="font-medium">{model}</div>
                 <div className="font-mono">{mult}</div>
@@ -74,7 +74,7 @@ export default function ManualBillingPage() {
               </div>
             ))}
           </div>
-          <p className="rounded bg-muted/60 p-3 text-xs">
+          <p className="rounded bg-muted/60 p-3 text-label">
             💡 <strong>省积分技巧</strong>:日常对话用 DeepSeek(几乎免费),重要任务才用 GPT-4o / Claude。
             1000 积分用 DeepSeek 可对话 5000+ 轮,用 GPT-4o 只能 50 轮。
           </p>
@@ -84,11 +84,11 @@ export default function ManualBillingPage() {
       {/* 查积分 */}
       <section id="check-credits" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">5.2 查看积分余额与消耗</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>右上角</strong>:头像旁实时显示余额(如"1,234 积分")</li>
             <li><strong>设置 → 积分</strong>:详细记录
-              <ul className="ml-4 list-disc space-y-1 mt-1 text-xs">
+              <ul className="ml-4 list-disc space-y-1 mt-1 text-label">
                 <li>当前余额</li>
                 <li>本月消耗(按日折线图)</li>
                 <li>按模型 / Agent 维度的消耗分布</li>
@@ -107,8 +107,8 @@ export default function ManualBillingPage() {
           <div className="rounded-lg border bg-card p-3">
             <p className="text-body font-semibold">🆓 Free</p>
             <p className="mt-1 text-display font-bold">¥0</p>
-            <p className="text-xs text-muted-foreground">永久免费</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">永久免费</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>1,000 积分(注册赠送,用完可继续用免费模型)</li>
               <li>全模型可用(含 GPT-4o / Claude)</li>
               <li>3 个 Agent / 1 个知识库(1GB)</li>
@@ -119,8 +119,8 @@ export default function ManualBillingPage() {
           <div className="rounded-xl border bg-primary/5 p-3 ring-1 ring-primary/30">
             <p className="text-body font-semibold">⭐ Pro</p>
             <p className="mt-1 text-display font-bold">¥49/月</p>
-            <p className="text-xs text-muted-foreground">按月订阅,随时取消</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">按月订阅,随时取消</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>10,000 积分 / 月(用完可单独购买)</li>
               <li>优先队列(高峰期不排队)</li>
               <li>无限 Agent / 10 个知识库(各 5GB)</li>
@@ -136,8 +136,8 @@ export default function ManualBillingPage() {
               Team
             </p>
             <p className="mt-1 text-display font-bold">¥299/月</p>
-            <p className="text-xs text-muted-foreground">/ 5 人(每加 1 人 +¥49)</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">/ 5 人(每加 1 人 +¥49)</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>共享 50,000 积分 / 月</li>
               <li>5 个成员席位</li>
               <li>完整 RBAC(7 级角色)</li>
@@ -153,8 +153,8 @@ export default function ManualBillingPage() {
               Enterprise
             </p>
             <p className="mt-1 text-display font-bold">定制</p>
-            <p className="text-xs text-muted-foreground">联系销售</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">联系销售</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>不限席位 / 不限积分</li>
               <li>私有化部署(数据 100% 自有)</li>
               <li>SSO + LDAP / AD 同步</li>
@@ -170,11 +170,11 @@ export default function ManualBillingPage() {
       {/* 充值 */}
       <section id="recharge" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">5.4 充值积分</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-3 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 积分 → "充值"按钮</li>
             <li>选择充值档位:
-              <ul className="ml-4 list-disc space-y-1 mt-1 text-xs">
+              <ul className="ml-4 list-disc space-y-1 mt-1 text-label">
                 <li>1,000 积分 ¥9.9</li>
                 <li>5,000 积分 ¥45(95 折)</li>
                 <li>10,000 积分 ¥85(85 折)</li>
@@ -185,7 +185,7 @@ export default function ManualBillingPage() {
             <li>支付方式:支付宝 / 微信 / PayPal / USDT / 公对公转账</li>
             <li>支付成功后积分实时到账</li>
           </ol>
-          <p className="rounded bg-muted/60 p-3 text-xs">
+          <p className="rounded bg-muted/60 p-3 text-label">
             ⚠️ <strong>积分有效期</strong>:充值积分永久有效;套餐赠送积分月底清零(Pro / Team)。
           </p>
         </div>
@@ -194,12 +194,12 @@ export default function ManualBillingPage() {
       {/* 发票 */}
       <section id="invoice" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">5.5 申请发票</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 积分 → "账单与发票"</li>
             <li>选择要开票的订单(可合并多单)</li>
             <li>填写发票信息:
-              <ul className="ml-4 list-disc space-y-1 mt-1 text-xs">
+              <ul className="ml-4 list-disc space-y-1 mt-1 text-label">
                 <li><strong>个人</strong>:姓名 + 邮箱(电子普票)</li>
                 <li><strong>企业</strong>:公司名 + 税号 + 邮箱 + 开户行 + 账号(专票)</li>
               </ul>
@@ -213,7 +213,7 @@ export default function ManualBillingPage() {
       {/* 共享池 */}
       <section id="shared-pool" className="mt-10 space-y-3">
         <h2 className="text-heading font-bold">5.6 团队共享积分池(Team / Enterprise)</h2>
-        <div className="rounded-lg border bg-card p-3 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 space-y-2 text-body text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li>Admin 一次充值,全团队共享</li>
             <li>Admin 可设成员配额(月度上限)</li>

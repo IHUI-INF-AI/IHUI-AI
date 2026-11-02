@@ -177,7 +177,7 @@ export default function OutboundPage() {
           <Megaphone className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -220,7 +220,7 @@ export default function OutboundPage() {
                 rows={3}
                 placeholder={t('phoneNumbersHint')}
               />
-              <p className="text-xs text-muted-foreground">{t('phoneNumbersHint')}</p>
+              <p className="text-label text-muted-foreground">{t('phoneNumbersHint')}</p>
             </div>
             {createMutation.isError && (
               <Alert
@@ -254,7 +254,7 @@ export default function OutboundPage() {
         ) : campaigns.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
             <PhoneOutgoing className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noCampaigns')}</p>
+            <p className="text-body text-muted-foreground">{t('noCampaigns')}</p>
           </div>
         ) : (
           <div className="rounded-lg border">
@@ -278,12 +278,12 @@ export default function OutboundPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className="inline-flex items-center gap-1 text-xs">
+                      <span className="inline-flex items-center gap-1 text-label">
                         <Phone className="h-3.5 w-3.5" />
                         {c.phoneList.length}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-label text-muted-foreground">
                       {formatDateOnly(c.createdAt, locale)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -344,7 +344,7 @@ export default function OutboundPage() {
             <div className="grid grid-cols-2 gap-3">
               {statItems.map((s) => (
                 <div key={s.label} className="flex flex-col gap-1 rounded-lg border p-3">
-                  <span className="text-xs text-muted-foreground">{s.label}</span>
+                  <span className="text-label text-muted-foreground">{s.label}</span>
                   <span className="text-lg font-semibold">{s.value}</span>
                 </div>
               ))}

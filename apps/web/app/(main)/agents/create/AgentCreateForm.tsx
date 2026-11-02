@@ -68,7 +68,7 @@ export function AgentCreateForm({
           onChange={(e) => update('description', e.target.value)}
           placeholder={t('fieldDescriptionPlaceholder')}
           rows={4}
-          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
       </div>
 
@@ -169,7 +169,7 @@ export function AgentCreateForm({
           value={form.remark}
           onChange={(e) => update('remark', e.target.value)}
           rows={2}
-          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
       </div>
 
@@ -180,7 +180,9 @@ export function AgentCreateForm({
       </div>
 
       {err && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
+          {err}
+        </div>
       )}
 
       <div className="flex justify-end gap-2 mt-4 pt-4">
@@ -222,7 +224,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         {t('loading')}
       </div>
@@ -230,7 +232,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
   }
 
   if (skills.length === 0) {
-    return <p className="text-xs text-muted-foreground">{ta('recommendEmpty')}</p>
+    return <p className="text-label text-muted-foreground">{ta('recommendEmpty')}</p>
   }
 
   return (
@@ -240,7 +242,7 @@ function SkillCheckboxList({ selected, onChange }: SkillCheckboxListProps) {
         return (
           <label
             key={skill.id}
-            className="flex cursor-pointer items-start gap-2 ui-control rounded-sm border bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5"
+            className="flex cursor-pointer items-start gap-2 ui-control rounded-sm border bg-card px-3 py-2 text-body transition-colors hover:bg-accent/50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/5"
           >
             <input
               type="checkbox"

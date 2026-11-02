@@ -75,7 +75,7 @@ function QuotaBar({
   const barColor = pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-label">
         <span className="text-muted-foreground">{label}</span>
         <span className="tabular-nums">
           {used.toLocaleString()} / {total.toLocaleString()} {unit}
@@ -131,7 +131,7 @@ export default function SubagentDetailClient() {
   })
 
   if (!id) {
-    return <div className="py-10 text-center text-sm text-muted-foreground">缺少派单 ID 参数</div>
+    return <div className="py-10 text-center text-body text-muted-foreground">缺少派单 ID 参数</div>
   }
 
   return (
@@ -139,7 +139,7 @@ export default function SubagentDetailClient() {
       <button
         type="button"
         onClick={() => router.push('/subagents')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回列表
@@ -152,7 +152,7 @@ export default function SubagentDetailClient() {
               <CardTitle className="truncate text-base" title={dispatch?.goal ?? `派单 ${id}`}>
                 {dispatch?.goal ?? `派单 ${id}`}
               </CardTitle>
-              <p className="text-xs text-muted-foreground">ID: {id}</p>
+              <p className="text-label text-muted-foreground">ID: {id}</p>
             </div>
             {dispatch && (
               <div className="flex gap-2">
@@ -194,13 +194,13 @@ export default function SubagentDetailClient() {
         </CardHeader>
         <CardContent className="min-[640px]:p-3 p-3 pt-0">
           {!dispatch ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {activeQ.isLoading ? '加载中...' : '派单不存在或已结束(不在活跃列表)'}
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-4">
               <div>
-                <p className="text-xs text-muted-foreground">状态</p>
+                <p className="text-label text-muted-foreground">状态</p>
                 <span
                   className={`mt-1 inline-block rounded px-1.5 py-0.5 text-label font-medium ${STATUS_BADGE[dispatch.status]}`}
                 >
@@ -209,19 +209,19 @@ export default function SubagentDetailClient() {
               </div>
               {dispatch.agentRole && (
                 <div>
-                  <p className="text-xs text-muted-foreground">角色</p>
-                  <p className="mt-1 text-sm">{ROLE_LABEL[dispatch.agentRole]}</p>
+                  <p className="text-label text-muted-foreground">角色</p>
+                  <p className="mt-1 text-body">{ROLE_LABEL[dispatch.agentRole]}</p>
                 </div>
               )}
               {dispatch.priority && (
                 <div>
-                  <p className="text-xs text-muted-foreground">优先级</p>
-                  <p className="mt-1 text-sm">{PRIORITY_LABEL[dispatch.priority]}</p>
+                  <p className="text-label text-muted-foreground">优先级</p>
+                  <p className="mt-1 text-body">{PRIORITY_LABEL[dispatch.priority]}</p>
                 </div>
               )}
               <div>
-                <p className="text-xs text-muted-foreground">创建时间</p>
-                <p className="mt-1 text-sm tabular-nums">
+                <p className="text-label text-muted-foreground">创建时间</p>
+                <p className="mt-1 text-body tabular-nums">
                   {dateFmt.format(new Date(dispatch.createdAt))}
                 </p>
               </div>
@@ -233,7 +233,7 @@ export default function SubagentDetailClient() {
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="p-3">
-            <CardTitle className="text-sm">DAG 可视化</CardTitle>
+            <CardTitle className="text-body">DAG 可视化</CardTitle>
           </CardHeader>
           <CardContent className="min-[640px]:p-3 p-3 pt-0">
             {dagQ.isLoading ? (
@@ -249,11 +249,11 @@ export default function SubagentDetailClient() {
 
         <Card>
           <CardHeader className="p-3">
-            <CardTitle className="text-sm">资源配额</CardTitle>
+            <CardTitle className="text-body">资源配额</CardTitle>
           </CardHeader>
           <CardContent className="min-[640px]:p-3 p-3 pt-0">
             {quotasQ.isLoading || !quotasQ.data ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
+              <p className="py-6 text-center text-body text-muted-foreground">
                 {quotasQ.isLoading ? '加载中...' : '无配额数据'}
               </p>
             ) : (

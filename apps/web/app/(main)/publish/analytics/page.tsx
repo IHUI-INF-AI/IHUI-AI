@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
       <BackButton />
       <div>
         <h2 className="text-base font-semibold">{t('analytics.title')}</h2>
-        <p className="text-xs text-muted-foreground">{t('analytics.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('analytics.subtitle')}</p>
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-12">

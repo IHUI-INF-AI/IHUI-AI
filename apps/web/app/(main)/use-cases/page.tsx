@@ -115,7 +115,7 @@ export default function UseCasesIndexPage() {
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">{uc.desc}</p>
+                <p className="mt-3 text-body text-muted-foreground">{uc.desc}</p>
                 <div className="mt-4 text-label font-medium text-primary">{uc.metrics}</div>
               </Link>
             )

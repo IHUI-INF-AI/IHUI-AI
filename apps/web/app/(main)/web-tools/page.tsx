@@ -132,7 +132,7 @@ export default function WebToolsPage() {
           <Globe className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <section className="space-y-3 rounded-lg border border-border bg-card p-3">
@@ -169,7 +169,7 @@ export default function WebToolsPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('urlPlaceholder')}
-            className="h-9 flex-1 rounded-sm border border-input bg-background px-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 flex-1 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <Button size="default" disabled={running} onClick={() => void run()}>
             {running ? (
@@ -181,7 +181,7 @@ export default function WebToolsPage() {
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4 text-label text-muted-foreground">
           {tool !== 'map_site' && (
             <label className="flex items-center gap-1.5">
               {t('maxChars')}
@@ -189,7 +189,7 @@ export default function WebToolsPage() {
                 value={maxChars}
                 onChange={(e) => setMaxChars(e.target.value)}
                 inputMode="numeric"
-                className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-xs"
+                className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-label"
               />
             </label>
           )}
@@ -212,7 +212,7 @@ export default function WebToolsPage() {
                   value={maxLinks}
                   onChange={(e) => setMaxLinks(e.target.value)}
                   inputMode="numeric"
-                  className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-xs"
+                  className="h-7 w-20 rounded-sm border border-input bg-background px-2 text-label"
                 />
               </label>
               <label className="flex items-center gap-1.5">
@@ -230,13 +230,13 @@ export default function WebToolsPage() {
 
         {tool === 'extract_web' && (
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('fieldsLabel')}</label>
+            <label className="text-label text-muted-foreground">{t('fieldsLabel')}</label>
             <textarea
               value={fieldsText}
               onChange={(e) => setFieldsText(e.target.value)}
               rows={4}
               placeholder={t('fieldsPlaceholder')}
-              className="w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <p className="text-[10px] text-muted-foreground">{t('fieldsHint')}</p>
           </div>
@@ -244,7 +244,7 @@ export default function WebToolsPage() {
       </section>
 
       {error && (
-        <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-body text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
@@ -258,7 +258,7 @@ export default function WebToolsPage() {
                 href={result.url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-foreground"
+                className="flex items-center gap-1 truncate text-label text-muted-foreground hover:text-foreground"
               >
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 {result.url}
@@ -285,7 +285,7 @@ export default function WebToolsPage() {
           </p>
 
           {result.content && (
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed">
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-label leading-relaxed">
               {result.content}
             </pre>
           )}
@@ -293,7 +293,7 @@ export default function WebToolsPage() {
           {result.links && result.links.length > 0 && (
             <ul className="max-h-[420px] space-y-1 overflow-auto">
               {result.links.map((l, i) => (
-                <li key={`${l.url}-${i}`} className="flex items-baseline gap-2 text-xs">
+                <li key={`${l.url}-${i}`} className="flex items-baseline gap-2 text-label">
                   <a
                     href={l.url}
                     target="_blank"
@@ -310,7 +310,7 @@ export default function WebToolsPage() {
 
           {result.fields && Object.keys(result.fields).length > 0 && (
             <div className="overflow-hidden rounded-md border border-border">
-              <table className="w-full text-xs">
+              <table className="w-full text-label">
                 <thead className="bg-muted/50 text-left text-muted-foreground">
                   <tr>
                     <th className="px-3 py-1.5 font-medium">{t('field')}</th>

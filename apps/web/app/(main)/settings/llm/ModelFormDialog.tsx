@@ -256,7 +256,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-1.5 text-xs"
+                    className="h-6 px-1.5 text-label"
                     onClick={copyAsJson}
                   >
                     <Copy className="h-3 w-3" />
@@ -266,7 +266,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-1.5 text-xs"
+                  className="h-6 px-1.5 text-label"
                   onClick={() => setShowAdvanced((s) => !s)}
                 >
                   <Code2 className="mr-1 h-3 w-3" />
@@ -282,7 +282,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
 
             {/* 预设模板 */}
             <div className="flex flex-wrap gap-1.5">
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 text-label text-muted-foreground">
                 <Sparkles className="h-3 w-3" />
                 {tParams('presets')}
               </span>
@@ -290,7 +290,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                 <Tooltip key={p.key} content={tParams(p.descKey)}>
                   <Badge
                     variant="outline"
-                    className="cursor-pointer text-xs hover:bg-accent"
+                    className="cursor-pointer text-label hover:bg-accent"
                     onClick={() => applyPreset(p.params)}
                   >
                     {tParams(p.labelKey)}
@@ -352,7 +352,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                 onChange={(v) => updateParam('presencePenalty', v)}
               />
               <div className="space-y-1.5">
-                <Label htmlFor="respFmt" className="text-xs">
+                <Label htmlFor="respFmt" className="text-label">
                   {tParams('responseFormat')}
                 </Label>
                 <select
@@ -364,7 +364,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                       e.target.value === 'text' ? undefined : (e.target.value as 'json_object'),
                     )
                   }
-                  className="flex h-8 w-full rounded-sm border border-input bg-background px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-8 w-full rounded-sm border border-input bg-background px-2 text-label shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="text">text</option>
                   <option value="json_object">json_object</option>
@@ -374,7 +374,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
 
             {/* System Prompt */}
             <div className="space-y-1.5">
-              <Label htmlFor="systemPrompt" className="text-xs">
+              <Label htmlFor="systemPrompt" className="text-label">
                 {tParams('systemPrompt')}
               </Label>
               <textarea
@@ -383,14 +383,14 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                 onChange={(e) => updateParam('systemPrompt', e.target.value)}
                 rows={3}
                 placeholder={tParams('systemPromptPlaceholder')}
-                className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 text-xs font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 text-label font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
 
             {/* 高级 JSON 折叠区 */}
             {showAdvanced ? (
               <div className="space-y-1.5 mt-2 pt-2">
-                <Label htmlFor="advancedJson" className="text-xs">
+                <Label htmlFor="advancedJson" className="text-label">
                   {t('defaultParams')} (JSON)
                 </Label>
                 <textarea
@@ -399,9 +399,9 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                   onChange={(e) => setForm({ ...form, advancedJson: e.target.value })}
                   rows={6}
                   placeholder='{"temperature": 0.7, "max_tokens": 4096, "seed": 42}'
-                  className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex w-full rounded-sm border border-input bg-background px-2.5 py-1.5 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
-                <p className="text-xs text-muted-foreground">{tParams('advancedHint')}</p>
+                <p className="text-label text-muted-foreground">{tParams('advancedHint')}</p>
               </div>
             ) : null}
           </div>
@@ -409,10 +409,10 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
           {/* ============ 启用 / 默认 ============ */}
           <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
             <div className="min-w-0 flex-1 space-y-0.5">
-              <Label htmlFor="enabled" className="block truncate text-sm">
+              <Label htmlFor="enabled" className="block truncate text-body">
                 {t('enableModel')}
               </Label>
-              <p className="text-xs text-muted-foreground">{t('enableModelDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('enableModelDesc')}</p>
             </div>
             <Switch
               id="enabled"
@@ -424,10 +424,10 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
 
           <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
             <div className="min-w-0 flex-1 space-y-0.5">
-              <Label htmlFor="isDefault" className="block truncate text-sm">
+              <Label htmlFor="isDefault" className="block truncate text-body">
                 {t('setDefault')}
               </Label>
-              <p className="text-xs text-muted-foreground">{t('setDefaultDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('setDefaultDesc')}</p>
             </div>
             <Switch
               id="isDefault"
@@ -482,9 +482,9 @@ function ParamField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="flex items-center justify-between text-xs">
+      <Label htmlFor={id} className="flex items-center justify-between text-label">
         <span>{label}</span>
-        <span className="font-mono text-xs text-muted-foreground">{value}</span>
+        <span className="font-mono text-label text-muted-foreground">{value}</span>
       </Label>
       <Input
         id={id}
@@ -497,7 +497,7 @@ function ParamField({
           const n = Number(e.target.value)
           if (Number.isFinite(n)) onChange(n)
         }}
-        className="h-8 text-xs"
+        className="h-8 text-label"
       />
       <p className="text-[10px] leading-tight text-muted-foreground">{help}</p>
     </div>
