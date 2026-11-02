@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-02T08:47:47.446Z",
+  "sealedAt": "2026-11-02T10:16:10.078Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-11-02 合流后 AGENTS.md 铁律段经 13be9b6449 复核修订(新增逆向-复现-超越铁律与体积清偿注记),按在册出口重封;guardian-runner/judgement-libs 哈希未变,仅 agents-ironlaw 一处更新",
+  "reason": "2026-11-02 全工作树口径条款压缩至 96000 字节预算内(语义不变,细节留在脚本头注与门 281);按在册出口重封 guardian-runner/judgement-libs/agents-ironlaw 段哈希",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "6e49ae936556f7d4947fa99bae5135e3d3245df9da2cd630c1e21f84cd274afc"
+      "sha256": "cd554afe5d0945bc5447528ab3d6bc5a0002ce1e16ee8ef64bed8cdeef0a4b2b"
     },
     {
       "id": "judgement-libs",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "8829560208706482bc1feb6710590609a89cdfc21b75b3d6d3ab1fd8a9ca1b9b"
+      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
     }
   ]
 }

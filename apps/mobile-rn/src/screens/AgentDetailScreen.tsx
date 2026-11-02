@@ -11,6 +11,7 @@ import { apiFailureToText } from '@ihui/shared/utils'
 import { AgentDetailScreen as SharedAgentDetailScreen, type AgentDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'AgentDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -41,6 +42,8 @@ export function AgentDetailScreen() {
     }
   }, [id, t])
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <SharedAgentDetailScreen
       t={t}
@@ -51,6 +54,8 @@ export function AgentDetailScreen() {
       onStartChat={(agentId, name) => navigation.navigate('AgentChat', { agentId, name })}
       onEdit={() => navigation.navigate('AgentEdit', { id })}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
+      onToast={onToast}
     />
   )
 }

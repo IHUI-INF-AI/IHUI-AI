@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3984 | `testFiles` |
+| 测试文件 | 3985 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 314 | `guardianGates` |
-| — blocking | 285 | `guardianBlocking` |
+| 工程守门 | 315 | `guardianGates` |
+| — blocking | 286 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18796 | `trackedFiles` |
+| 跟踪文件 | 18802 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -120,6 +120,13 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🔧 Chore/Other:补 .gitignore 兜住本地优选 IP 凭据，避免令牌误入库 (213b7c038c)
 - 🔧 Chore/Other:重生成 ui-routes 生成物（911 条），对齐设置页新卡片 (d388266f28)
 - 🔧 Chore/Other:按新 HEAD 源重生成离线语言包（键 544→592，钉 2fb7af837e） (2f98eb1e6b)
+- 🔧 Chore/Other:收敛后按 HEAD 面重生成 3 件 i18n 派生产物 (cf4929783c)
+- 🚀 Feature/Improvement:全工作树未提交状态唯一口径(check-worktree-status + 门 281) (a708200410)
+- 🔧 Chore/Other:收敛后重生成 web ui-routes 派生件——合并树新增路由共 911 条,sourceCommit 钉到 17398feed4,与输入 sha256 c03c0415 对齐 (c62d667f09)
+- 🔧 Chore/Other:收敛后重生成 miniapp 离线包 b64 派生件——与已提交的 3 份 .gen.ts 同批产出(输入 sha256 789e9bbe、sourceCommit 4cf59c6ef8),补齐收敛引入的词包更新 (031c4d0933)
+- 🔧 Chore/Other:收敛后按合并树重生成 ui-routes 派生件——union-converge 落地 e174123809 后按合并树重算,sourceCommit 钉到该合并,输入 sha256 不变(两侧改动路径除本生成物外无重叠) (4cf59c6ef8)
+- 🚀 Feature/Improvement:M4 B1 契约冻结——8 个共享 types 补必填 onNavigate/onToast,29 个共享屏加 assertRequiredPort,30 个 RN 壳经 useHostPorts 接线并挂全局轻提示层,小程序 about-shared 宿主补端口并同步重生成 ui-routes,新增端口接线契约测试(2 例);接手他人未提交工作、来源会话不明(76 条遗留已在前序 5 笔按域提交 b3d2f24247/90b700fb81/99c09c4938/cb39924428/3fe2499620),本笔为随后 M4 B1 自研施工;门禁:根 typecheck 绿(TS+mypy)、两端 typecheck 绿、miniapp test 99 文件/1239 例绿、mobile-rn test 152/153 文件 1385/1397(存量 tests/wallet.test.tsx worker OOM 12 例未跑,文件未改、与 B1 无 import 关系)、parity gap 0/residual 1、门128 判红 0、planner 30/21/15 未变 (408efad761)
+- 🐞 Fix:get_session_extra_roots 空会话早退后显式收窄 session_id——消 mcp_server.py:715 存量 mypy 错(str | None 传给 str),根 pnpm typecheck 由红转绿;行为不变 (620f408c83)
 
 **2026-11-02**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c5a90766cf)

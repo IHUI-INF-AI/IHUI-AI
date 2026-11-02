@@ -10,6 +10,7 @@ import { StudyPlanScreen as SharedStudyPlanScreen, type StudyPlanItem } from '@i
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -82,6 +83,8 @@ export function StudyPlanScreen() {
     navigation.navigate('StudyProgress')
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedStudyPlanScreen
       t={t}
@@ -96,6 +99,7 @@ export function StudyPlanScreen() {
       onPressItem={onPressItem}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

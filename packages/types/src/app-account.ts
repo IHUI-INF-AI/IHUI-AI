@@ -13,6 +13,7 @@
 
 import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 账号信息(平台注入,字段对齐 mobile-rn SettingsAccountScreen Account) */
 export interface SettingsAccountItem {
@@ -292,6 +293,8 @@ export interface RegisterScreenProps {
   onOpenTerms?: () => void
   /** 隐私政策点击回调 */
   onOpenPrivacy?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 性别(0=保密,1=男,2=女) */
@@ -455,6 +458,10 @@ export interface ChangePwdScreenProps {
   onToggleConfirm: () => void
   onSubmit: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 账号注销 Screen Props */

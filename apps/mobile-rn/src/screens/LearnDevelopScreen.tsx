@@ -13,6 +13,7 @@ import { Rocket, BookOpen, Brain, Compass, GraduationCap } from 'lucide-react-na
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -60,12 +61,15 @@ export function LearnDevelopScreen() {
     navigation.navigate('Carte')
   }
 
+  const { onNavigate } = useHostPorts()
+
   const props: LearnDevelopScreenProps = {
     t,
     onBack: () => navigation.goBack(),
     onContact,
     entries: ENTRIES(navigation, t),
     colorScheme: resolvedTheme,
+    onNavigate,
   }
 
   return <SharedLearnDevelopScreen {...props} />

@@ -16,6 +16,7 @@ import {
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'ExamQuestion'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -202,6 +203,8 @@ export function ExamQuestionScreen() {
     return () => clearTimeout(timer)
   }, [leftSec, onSubmit])
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedExamQuestionScreen
       t={t}
@@ -219,6 +222,7 @@ export function ExamQuestionScreen() {
       onSubmit={() => void onSubmit()}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

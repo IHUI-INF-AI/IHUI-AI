@@ -12,6 +12,7 @@ import { PostDetailScreen as SharedPostDetailScreen, type PostDetailItem } from 
 import { useI18n } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'PostDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -26,7 +27,7 @@ export function PostDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-    const [reloadKey, setReloadKey] = useState(0)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -68,6 +69,8 @@ export function PostDetailScreen() {
   // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):bump reloadKey 让上面的 effect 重跑
   useRefreshOnFocus(() => setReloadKey((k) => k + 1))
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <SharedPostDetailScreen
       t={t}
@@ -76,6 +79,8 @@ export function PostDetailScreen() {
       error={error}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
+      onToast={onToast}
     />
   )
 }

@@ -2223,6 +2223,13 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-02**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (7f9c0f84ca)
+- 🔧 その他:收敛后按 HEAD 面重生成 3 件 i18n 派生产物 (cf4929783c)
+- 🚀 機能/改善:全工作树未提交状态唯一口径(check-worktree-status + 门 281) (a708200410)
+- 🔧 その他:收敛后重生成 web ui-routes 派生件——合并树新增路由共 911 条,sourceCommit 钉到 17398feed4,与输入 sha256 c03c0415 对齐 (c62d667f09)
+- 🔧 その他:收敛后重生成 miniapp 离线包 b64 派生件——与已提交的 3 份 .gen.ts 同批产出(输入 sha256 789e9bbe、sourceCommit 4cf59c6ef8),补齐收敛引入的词包更新 (031c4d0933)
+- 🔧 その他:收敛后按合并树重生成 ui-routes 派生件——union-converge 落地 e174123809 后按合并树重算,sourceCommit 钉到该合并,输入 sha256 不变(两侧改动路径除本生成物外无重叠) (4cf59c6ef8)
+- 🚀 機能/改善:M4 B1 契约冻结——8 个共享 types 补必填 onNavigate/onToast,29 个共享屏加 assertRequiredPort,30 个 RN 壳经 useHostPorts 接线并挂全局轻提示层,小程序 about-shared 宿主补端口并同步重生成 ui-routes,新增端口接线契约测试(2 例);接手他人未提交工作、来源会话不明(76 条遗留已在前序 5 笔按域提交 b3d2f24247/90b700fb81/99c09c4938/cb39924428/3fe2499620),本笔为随后 M4 B1 自研施工;门禁:根 typecheck 绿(TS+mypy)、两端 typecheck 绿、miniapp test 99 文件/1239 例绿、mobile-rn test 152/153 文件 1385/1397(存量 tests/wallet.test.tsx worker OOM 12 例未跑,文件未改、与 B1 无 import 关系)、parity gap 0/residual 1、门128 判红 0、planner 30/21/15 未变 (408efad761)
+- 🐞 修正:get_session_extra_roots 空会话早退后显式收窄 session_id——消 mcp_server.py:715 存量 mypy 错(str | None 传给 str),根 pnpm typecheck 由红转绿;行为不变 (620f408c83)
 
 **2026-11-02**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (ff3f0c5c5c)
@@ -2294,6 +2301,23 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🔧 その他:收编停留≥3分钟的未提交改动 (6b1529c652)
 - 🔧 その他:补齐 zcode 吸收矩阵 40 片(票 L33553 第 3 波覆盖面),unread 42→2 (5e7bbf1b02)
 - 🚀 機能/改善:给 E2E 缺口门补分档判据,并用数据否掉「存量归零」这个前置 (a83c8b1e91)
+
+**2026-11-01**
+- 🔧 その他:收编停留≥3分钟的未提交改动 (5daf7959bd)
+- 🐞 修正:清掉 4 处既有 lint 红(死导入 + 内联 import() 类型注解),unblock CI lint (3ee0c227bc)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f73214c5d4)
+- 🔧 その他:probe (676762d377)
+- 🐞 修正:消掉 fractional 族死规则 py-0.5,CI Build 转绿 (40f16ac711)
+- 🐞 修正:收 /subagents/active 的跨租户数据越权,活性谓词收成唯一出口 (06316cc12b)
+- 🐞 修正:解「一行双牌」卡死陈旧租约清扫的结构性死结 (5ad0f6596e)
+- 🚀 機能/改善:补齐 P85 改名检测的派生契约,并修好既有的 4 红(票 L33565) (de3f4354a6)
+- 🚀 機能/改善:给 /subagents/all 补口径与租户隔离,补齐 G-02① 的判据(票 L33591) (612356a939)
+- 🚀 機能/改善:补三处器物的牙并修「装了等于没装」那一格(票 O69/RP-90/P86/SCOPE) (75c7510851)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (b785eebd24)
+- 🚀 機能/改善:侧任务生命周期(D75)装上第一条生产腿——侧问队列第一次真的有状态、有过期、有界面 (e804694335)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (495c383294)
+- 🐞 修正:清 CI 的 lint/typecheck/test 三线红线(strict eqeqeq、hook 名误用、版本族字段与词条) (bd129dbd9b)
+- 🐞 修正:清 CI 的 lint/typecheck/test 三线红线(strict eqeqeq、hook 名误用、版本族字段与词条) (0255919353)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
