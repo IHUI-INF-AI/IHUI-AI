@@ -2219,6 +2219,11 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (9b60105652)
+- 🔧 기타:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
+- 🚀 기능/개선:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
+
+**2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (ae46cd2635)
 
 **2026-11-03**
@@ -2307,11 +2312,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:下载中心未上线平台改走显式「尚未上线」态,并收平平台清单多份真相 (097f73e73b)
 - 🔧 기타:补齐摘权限插件的水印覆盖(HEAD 面唯一缺口,落地后复跑点名的那条 blocking 就是它) (dd715319dc)
 - 🚀 기능/개선:新增 RN 薄壳直接 import 覆盖判据 check-rn-host-shell-coverage(P0-1) (01a900c030)
-
-**2026-11-03**
-- 🐞 수정:下载中心「尚未上线」态三键补齐五语言 (791b2bcf0e)
-- 📚 문서:补齐 ApkPure 与其余品牌的核实结论,并把 App 备案挂成法律级前置 (d333f3f82a)
-- 📚 문서:Y-70 就地改写为四格动手清单(备案号登记/四家接口凭据/迁移先于上线/三端 store 消费) (133f99596f)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
