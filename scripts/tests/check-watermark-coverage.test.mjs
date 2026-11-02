@@ -155,7 +155,7 @@ test('T1 装车证明(读 HEAD 面注册表与门体):id 47 确在提交链且 b
   assert.match(gate, /process\.env\.HUSKY_SKIP_WATERMARK_GUARD/, '文档承诺的应急变量必须在门体被读(假逃生舱禁令)')
 })
 
-test('T1b push 门装车(2026-11-03):pushGateChecks 必须真登记门 47 且收窄到 --push-scope', () => {
+test('T1b push 门装车(2026-11-03):pushGateChecks 必须真登记门 47p 且收窄到 --push-scope', () => {
   // 读工作树面:push 门注册与门体同批落地;HEAD 面那一份由 T1 的提交链断言兜底。
   const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
   const pushStart = runner.indexOf('const pushGateChecks = [')
@@ -163,10 +163,13 @@ test('T1b push 门装车(2026-11-03):pushGateChecks 必须真登记门 47 且收
   const pushEnd = runner.indexOf('\n]', pushStart)
   assert.ok(pushEnd > pushStart, 'pushGateChecks 注册块没有闭合锚点')
   const block = runner.slice(pushStart, pushEnd)
-  assert.match(block, /id: '47'/, 'pushGateChecks 里没有门 47 ⇒ 私有索引/绕过 pre-commit 的坏载荷仍可在 push 前进入远端')
+  // id 必须是 47p 而不是 47:pre-commit 档已占 47,复用会撞 check-gate-wiring R5
+  // (同 id 多道门 ⇒ skipEnv 与失败归属串线)。
+  assert.match(block, /id: '47p'/, 'pushGateChecks 里没有门 47p ⇒ 私有索引/绕过 pre-commit 的坏载荷仍可在 push 前进入远端')
+  assert.doesNotMatch(block, /id: '47'[,\s]/, 'push 档不得复用 pre-commit 的 47 号(接线门 R5 撞号)')
   assert.match(block, /args: \['--push-scope'\]/, 'push 档必须走 --push-scope,不得退回全量面或空扫')
-  const i = block.indexOf("id: '47'")
-  assert.match(block.slice(i, i + 400), /check-watermark-coverage\.mjs/, '门 47 push 档必须指向水印覆盖门体')
+  const i = block.indexOf("id: '47p'")
+  assert.match(block.slice(i, i + 400), /check-watermark-coverage\.mjs/, '门 47p push 档必须指向水印覆盖门体')
   assert.match(block.slice(i, i + 400), /mode: 'blocking'/, 'push 档必须是 blocking,降 warn 等于允许坏载荷上远端')
 })
 
