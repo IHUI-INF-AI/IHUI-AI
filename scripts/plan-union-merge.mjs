@@ -9,7 +9,13 @@
 //   C1 冲突面只有 PROJECT_PLAN.md 一个路径(多路径 ⇒ 不是这个形状,交人工);
 //   C2 并集结果必须**包含双方的每一行**(按整行文本比对,缺一即放弃)—— 这是"不静默丢别人登记行"的唯一硬证;
 //   C3 并集不得引入超长重复(同名长行重复数增量 > 0 ⇒ 放弃)。
+// A5(2026-11-03):以上两条默认档只罚"新增",于是"同号重复被两份各自合法化"能穿过、我方独有带号行
+// 可被当"合法解删"静默丢掉。严格档 --strict-ids 把两处补严:合并结果里同号/超长行重复一律判红;
+// 我方独有带号行未存活必须有 --attest-id-drop <登记键>=<理由> 显式声明(否则阻断)。
+// 默认不打开严格档是刻意取舍:本工具是人工解阻塞器,旧调用方(只有人工)不能被无声改行为;
+// guardian/git-sync 链并不调用本工具(已核实),故严格档目前只能由调用者显式加旗。
 // 用法: node scripts/plan-union-merge.mjs --base <sha> --ours <sha> --theirs <sha> [--apply]
+//       [--strict-ids] [--attest-id-drop <登记键>=<删除理由>]...
 // 不带 --apply 只出报告(零副作用)。
 import { execFileSync } from 'node:child_process'
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
@@ -17,10 +23,26 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { keyOfRow } from './lib/plan-task-index.mjs'
 
 const argv = process.argv.slice(2)
 const arg = (k) => argv[argv.indexOf(`--${k}`) + 1]
 const APPLY = argv.includes('--apply')
+const STRICT_IDS = argv.includes('--strict-ids')
+/** A5:`--attest-id-drop <登记键>=<理由>` 的显式删除声明(理由 ≥10 字,防"空理由"式放行)。 */
+const ATTEST_MIN_REASON = 10
+const attestedIdDrops = new Map()
+for (let i = 0; i < argv.length; i += 1) {
+  if (argv[i] !== '--attest-id-drop') continue
+  const spec = argv[i + 1]
+  const at = typeof spec === 'string' ? spec.indexOf('=') : -1
+  if (at <= 0 || spec.slice(at + 1).trim().length < ATTEST_MIN_REASON) {
+    console.error('用法错:--attest-id-drop 需要 <登记键>=<删除理由>(理由至少 10 字)')
+    process.exit(2)
+  }
+  attestedIdDrops.set(spec.slice(0, at).trim(), spec.slice(at + 1).trim())
+  i += 1
+}
 // 仓根**由脚本自身位置推导**(AGENTS §15:禁止硬编码盘符)。
 // 这里原先写死 `D:/IHUI-AI`,而同一份仓在 `G:/IHUI-AI` 也活着(`git-rebuild-local.mjs:38-39`
 // 记过同型事故)。后果不是"报错难看",是**这台机上整件工具失效**:12 处 `git -C D:/IHUI-AI`
@@ -167,7 +189,7 @@ try {
   for (const l of new Set(oursTxt.split('\n'))) {
     if (!l.trim() || mset.has(l)) continue
     if (tset.has(l)) lostReal.push(`我方+对方都有并丢: ${l.slice(0, 110)}`)
-    else archivedLike.push(l.slice(0, 110))
+    else archivedLike.push({ line: l.slice(0, 110), key: keyOfRow(l) })
   }
   for (const l of new Set(theirsTxt.split('\n'))) {
     if (!l.trim() || mset.has(l)) continue
@@ -183,7 +205,8 @@ try {
   const idRe = /(\[ \]\s*(?:[ODGPW]\d+[a-z]?)|G-\d+|守门\s*\d+)/
   const suspect = []
   const rewritten = []
-  for (const l of archivedLike) {
+  for (const e of archivedLike) {
+    const l = e.line
     // 键必须从**登记编号处**起取:直接 slice 行首会把 `- [ ] **D40 …` 截到 `]` 处,
     // 于是"远端明明有这行"却被判成查无(实测虚报 20 条,真丢失只有 3 条)。
     const m = l.match(idRe)
@@ -216,6 +239,39 @@ try {
     console.info(`  ❌ 有 ${lostReal.length} 行属"双方都在却被丢" ⇒ 真丢行,放弃并交人工:\n    ` + lostReal.slice(0, 12).join('\n    '))
     exitClean(1)
   }
+  /* ---- A5 严格编号档:同号重复一律红 + 我方独有带号行必须显式声明 ---- */
+  if (STRICT_IDS) {
+    const mergedKeyCounts = new Map()
+    for (const l of merged.split('\n')) {
+      const k = keyOfRow(l)
+      if (k) mergedKeyCounts.set(k, (mergedKeyCounts.get(k) || 0) + 1)
+    }
+    const dupKeys = [...mergedKeyCounts.entries()].filter(([, n]) => n > 1)
+    const droppedIdRows = archivedLike.filter((e) => e.key)
+    const credited = droppedIdRows.filter((e) => attestedIdDrops.has(e.key))
+    const unattested = droppedIdRows.filter((e) => !attestedIdDrops.has(e.key))
+    const stale = [...attestedIdDrops.keys()].filter((k) => !droppedIdRows.some((e) => e.key === k))
+    const problems = []
+    if (dupKeys.length)
+      problems.push(
+        `合并结果同号重复 ${dupKeys.length} 枚(${dupKeys.slice(0, 6).map(([k, n]) => `${k}×${n}`).join(', ')})`,
+      )
+    if (unattested.length)
+      problems.push(
+        `我方独有带号行未存活且未声明 --attest-id-drop(${unattested.slice(0, 6).map((e) => e.key).join(', ')})`,
+      )
+    if (stale.length)
+      problems.push(`--attest-id-drop 声明未命中任何丢失带号行(陈旧声明不记通过:${stale.slice(0, 6).join(', ')})`)
+    if (credited.length)
+      console.info(
+        `  · ${credited.length} 行我方独有带号行按 --attest-id-drop 显式声明删除:` +
+          credited.slice(0, 6).map((e) => `${e.key}「${attestedIdDrops.get(e.key)}」`).join('; '),
+      )
+    if (problems.length) {
+      console.info(`  ❌ [--strict-ids] ${problems.join(' / ')} ⇒ 阻断,不落地。`)
+      exitClean(1)
+    }
+  }
   /* ---- C3:防长行重复膨胀 ---- */
   const dupDelta = (src) => {
     const c = new Map()
@@ -224,10 +280,14 @@ try {
   }
   const d0 = dupDelta(oursTxt) + dupDelta(theirsTxt)
   const d1 = dupDelta(merged)
-  console.info(`C3 超长行重复数 合并前基线≈${d0} → 结果 ${d1}`)
-  if (d1 > d0) {
-    console.info('  ❌ 并集引入了新的长行重复 ⇒ 可能造出同义两行,放弃。')
-    process.exit(1)
+  console.info(`C3 超长行重复数 合并前基线≈${d0} → 结果 ${d1}${STRICT_IDS ? '(严格档 d1>0 即红)' : ''}`)
+  if (STRICT_IDS ? d1 > 0 : d1 > d0) {
+    console.info(
+      STRICT_IDS
+        ? '  ❌ [--strict-ids] 合并结果仍有超长行重复(d1>0)⇒ 同义重复不得落地,阻断。'
+        : '  ❌ 并集引入了新的长行重复 ⇒ 可能造出同义两行,放弃。',
+    )
+    exitClean(1)
   }
 
   if (!APPLY) {
