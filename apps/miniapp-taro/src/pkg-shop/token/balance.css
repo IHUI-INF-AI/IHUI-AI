@@ -30,7 +30,7 @@
 .balance-card {
   margin: var(--spacing-sm-loose);
   /* 对齐 RN padding 14 (dp→rpx 1:2);圆角按角色档 card→lg */
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   background: var(--color-cta);
   border-radius: var(--radius-lg);
 }
@@ -123,7 +123,7 @@
 }
 .record-item {
   /* 对齐 RN recordItem padding 14 / borderRadius 16 / border 1 (dp→rpx 1:2) */
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
