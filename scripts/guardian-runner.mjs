@@ -6768,6 +6768,29 @@ const checks = [
       '     取证:node --test scripts/tests/check-dev-db-rotation-window.test.mjs(9 例,含两条变异自证)',
     ].join('\n'),
   },
+  // 编号 281:注册前现读全仓门号 281 出现 0 次(上一枚 280;取号规则 = 注册前现读最大 + 1)。
+  // 立因(2026-11-02):多会话共享同一 gitdir 时,`git worktree add` 的附加工作树不出现在主树
+  // `git status` 里 —— 本会话多次把「未提交=0」建在主树单树上,漏掉 `.ihui-agent/tmp/wip-*`
+  // 里的 6 个待提交文件。本门是「是否还有未提交改动」的唯一口径(AGENTS §12 全工作树口径):
+  //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
+  //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
+  // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  {
+    id: '281',
+    label: '🌳 全工作树未提交状态(blocking;主树残量阻断,其他工作树脏只告警)',
+    script: 'check-worktree-status.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_WORKTREE_STATUS',
+    onFailHint: [
+      '  💡 主工作树还有本次提交之外的未提交内容(未暂存/未跟踪/冲突/stash)。',
+      '     ① 逐条查看:node scripts/check-worktree-status.mjs(--json 供程序消费)',
+      '     ② 按 §12 全部提交(禁止 stash、禁止 checkout -- 丢弃);确实不能提交的,先停下说明。',
+      '     ③ 其他工作树脏只告警不阻断:请在该树内自行提交后 git worktree remove。',
+      '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===

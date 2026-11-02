@@ -69,6 +69,8 @@
     "check:plan-age": "node scripts/lib/plan-line-age.mjs",
     "check:plan-undisposed": "node scripts/plan-tasks.mjs --undisposed",
     "check:plan-sha": "node scripts/check-plan-sha-resolvable.mjs",
+    "check:worktree-status": "node scripts/check-worktree-status.mjs",
+    "check:worktree-status:gate": "node scripts/check-worktree-status.mjs --gate",
     "check:service-paths": "node scripts/check-service-binary-paths.mjs",
     "check:service-inventory": "node scripts/check-service-inventory.mjs",
     "check:service-inventory:self-test": "node scripts/check-service-inventory.mjs --self-test",
