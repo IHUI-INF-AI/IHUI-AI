@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-02T02:13:42.160Z",
+  "sealedAt": "2026-11-01T16:11:57.976Z",
   "sealedBy": "root-guard --seal",
-  "reason": "75c7510851 新增门 280(check-dev-db-rotation-window,mode=warn,恒 exit 0,默认零 spawn)改了 scripts/guardian-runner.mjs 却未随提交重封;部署环 root-guard 对 HEAD 面 fail-closed 623 分钟,线上停在 f7960b510。已复核该枚 diff 仅新增门 280 注册(+31 行、无删除),据此按流程重封三目标。",
+  "reason": "守门 267 现读 stale-manifest:guardian-runner 自上次封印后被多枚已入库提交改动(注册条目新增/改号),清单哈希 3e2e42815537 落后被审面 6e49ae936556 ⇒ 部署环将 fail-closed;本次按在册出口重封,清单与被改规则文件同枚提交",
   "targets": [
     {
       "id": "guardian-runner",
