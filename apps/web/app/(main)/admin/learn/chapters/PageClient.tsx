@@ -149,7 +149,7 @@ function ChaptersContent() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('chaptersTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('chaptersSubtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('chaptersSubtitle')}</p>
       </div>
 
       <ChapterFilter

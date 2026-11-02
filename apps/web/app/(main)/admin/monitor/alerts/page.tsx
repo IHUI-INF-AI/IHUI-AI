@@ -70,7 +70,7 @@ export default function AdminMonitorAlertsPage() {
           <AlertTriangle className="h-6 w-6 text-primary" />
           告警管理
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">监控告警处理与规则管理</p>
+        <p className="mt-1 text-body text-muted-foreground">监控告警处理与规则管理</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">

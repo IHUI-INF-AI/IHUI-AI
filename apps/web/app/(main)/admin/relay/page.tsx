@@ -191,7 +191,7 @@ export default function AdminRelayOverviewPage() {
           <Server className="h-6 w-6 text-primary" />
           模型中转站
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           统一管理上游厂商模型上架、Key 池调度、动态发现审批与调用日志
         </p>
       </div>
@@ -221,7 +221,7 @@ export default function AdminRelayOverviewPage() {
       <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
+            <CardTitle className="flex items-center gap-2 text-body">
               <Coins className="h-4 w-4 text-amber-600" />近 30 天 Token 用量
             </CardTitle>
           </CardHeader>
@@ -233,23 +233,23 @@ export default function AdminRelayOverviewPage() {
                 {numFmt.format(stats.last30dTokens)}
               </div>
             )}
-            <p className="mt-1 text-xs text-muted-foreground">累计 prompt + completion tokens</p>
+            <p className="mt-1 text-label text-muted-foreground">累计 prompt + completion tokens</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">厂商分布(已上架)</CardTitle>
+            <CardTitle className="text-body">厂商分布(已上架)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {isLoading ? (
               <Skeleton variant="list" rows={3} />
             ) : stats.providerDistribution.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">暂无数据</p>
+              <p className="py-4 text-center text-body text-muted-foreground">暂无数据</p>
             ) : (
               stats.providerDistribution.map((p) => (
                 <div key={p.providerCode} className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                  <span className="w-20 shrink-0 text-label text-muted-foreground">
                     {p.providerCode}
                   </span>
                   <div className="h-2 flex-1 overflow-hidden rounded-xs bg-muted">
@@ -258,7 +258,7 @@ export default function AdminRelayOverviewPage() {
                       style={{ width: `${(p.count / maxProviderCount) * 100}%` }}
                     />
                   </div>
-                  <span className="w-8 shrink-0 text-right text-xs tabular-nums">{p.count}</span>
+                  <span className="w-8 shrink-0 text-right text-label tabular-nums">{p.count}</span>
                 </div>
               ))
             )}
@@ -268,11 +268,11 @@ export default function AdminRelayOverviewPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             <Percent className="h-4 w-4 text-primary" />
             BYOK 平台抽成配置
           </CardTitle>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-label">
             用户自带 Key 调用时平台收取的服务费比例(免费 provider 不收费)
           </CardDescription>
         </CardHeader>
@@ -280,12 +280,14 @@ export default function AdminRelayOverviewPage() {
           {commissionQ.isLoading ? (
             <Skeleton className="h-20 w-full" />
           ) : commissionList.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">暂无全局 provider 配置</p>
+            <p className="py-6 text-center text-body text-muted-foreground">
+              暂无全局 provider 配置
+            </p>
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                <table className="w-full text-body">
+                  <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-left">Provider</th>
                       <th className="px-3 py-2 text-right">抽成率</th>
@@ -296,7 +298,7 @@ export default function AdminRelayOverviewPage() {
                   <tbody>
                     {commissionList.map((p) => (
                       <tr key={p.providerCode}>
-                        <td className="px-3 py-2 font-mono text-xs">{p.providerCode}</td>
+                        <td className="px-3 py-2 font-mono text-label">{p.providerCode}</td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {(p.byokCommissionRate * 100).toFixed(1)}%
                         </td>
@@ -314,7 +316,7 @@ export default function AdminRelayOverviewPage() {
                             type="button"
                             variant="outline"
                             size="xs"
-                            className="px-2 text-xs"
+                            className="px-2 text-label"
                             onClick={() => openCommissionEdit(p)}
                           >
                             <Pencil className="mr-1 h-3 w-3" />
@@ -367,7 +369,7 @@ export default function AdminRelayOverviewPage() {
               <entry.icon className="h-5 w-5 text-primary" />
               <div>
                 <div className="text-body font-medium">{entry.label}</div>
-                <div className="text-xs text-muted-foreground">{entry.desc}</div>
+                <div className="text-label text-muted-foreground">{entry.desc}</div>
               </div>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -387,7 +389,7 @@ export default function AdminRelayOverviewPage() {
           </DialogHeader>
           <form onSubmit={submitCommissionEdit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="commission-rate" className="text-xs">
+              <Label htmlFor="commission-rate" className="text-label">
                 抽成率(%)
               </Label>
               <Input
@@ -401,7 +403,7 @@ export default function AdminRelayOverviewPage() {
                 onChange={(e) => setRateInput(e.target.value)}
                 className="h-9"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 范围 0~100,支持 1 位小数(如 10.5 表示 10.5%)
               </p>
             </div>

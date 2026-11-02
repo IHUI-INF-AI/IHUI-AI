@@ -207,7 +207,7 @@ export default function AccountProxyPage() {
             <ShieldCheck className="h-6 w-6 text-primary" />
             账号代理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             给单个账号绑定专属代理，固定它的出口 IP；仅对该账号生效，不进入共享代理池
           </p>
         </div>
@@ -217,7 +217,7 @@ export default function AccountProxyPage() {
         </Button>
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-label text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
         <span>
           生效顺序：账号代理 &gt; 共享代理池 &gt;
@@ -274,8 +274,8 @@ export default function AccountProxyPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">账号</th>
                 <th className="px-3 py-2 text-left">平台</th>
@@ -314,20 +314,20 @@ export default function AccountProxyPage() {
                       <div className="font-medium">{k.name}</div>
                       {k.uid ? (
                         <div
-                          className="max-w-[14rem] truncate font-mono text-xs text-muted-foreground"
+                          className="max-w-[14rem] truncate font-mono text-label text-muted-foreground"
                           title={k.uid}
                         >
                           {k.uid}
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 text-xs">{k.providerCode}</td>
+                    <td className="px-3 py-2 text-label">{k.providerCode}</td>
                     <td className="px-3 py-2">
                       <span
                         className={
                           k.isEnabled
-                            ? 'whitespace-nowrap rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400'
-                            : 'whitespace-nowrap rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground'
+                            ? 'whitespace-nowrap rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600 dark:text-emerald-400'
+                            : 'whitespace-nowrap rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground'
                         }
                       >
                         {k.isEnabled ? '启用' : '停用'}
@@ -335,7 +335,7 @@ export default function AccountProxyPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
+                        className={`whitespace-nowrap rounded-md px-2 py-0.5 text-label ${
                           HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
                         }`}
                       >
@@ -345,16 +345,16 @@ export default function AccountProxyPage() {
                     <td className="px-3 py-2">
                       {k.hasProxy ? (
                         <code
-                          className="inline-block max-w-[16rem] truncate rounded-md border border-border bg-background px-2 py-0.5 font-mono text-xs"
+                          className="inline-block max-w-[16rem] truncate rounded-md border border-border bg-background px-2 py-0.5 font-mono text-label"
                           title={k.proxyUrlMasked ?? '已配置（脱敏）'}
                         >
                           {k.proxyUrlMasked ?? '已配置（脱敏）'}
                         </code>
                       ) : (
-                        <span className="text-xs text-muted-foreground">直连</span>
+                        <span className="text-label text-muted-foreground">直连</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
                     </td>
                     <td className="px-3 py-2">
@@ -384,7 +384,7 @@ export default function AccountProxyPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 个账号</span>
+        <span className="text-body text-muted-foreground">共 {total} 个账号</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -395,7 +395,7 @@ export default function AccountProxyPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -422,8 +422,8 @@ export default function AccountProxyPage() {
 
             {editing?.hasProxy ? (
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">当前代理（脱敏）</Label>
-                <code className="block truncate rounded-md border border-border bg-muted/30 px-2 py-1.5 font-mono text-xs">
+                <Label className="text-label text-muted-foreground">当前代理（脱敏）</Label>
+                <code className="block truncate rounded-md border border-border bg-muted/30 px-2 py-1.5 font-mono text-label">
                   {editing.proxyUrlMasked ?? '已配置（脱敏）'}
                 </code>
               </div>
@@ -440,7 +440,7 @@ export default function AccountProxyPage() {
                   placeholder="http://user:pass@host:port 或 socks5://host:port"
                   autoComplete="off"
                   spellCheck={false}
-                  className="pr-9 font-mono text-xs"
+                  className="pr-9 font-mono text-label"
                 />
                 <button
                   type="button"

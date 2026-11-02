@@ -183,7 +183,7 @@ export default function AdminRelayModelsPage() {
           <Package className="h-6 w-6 text-primary" />
           模型管理
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">中转站模型上下架、定价倍率与展示排序</p>
+        <p className="mt-1 text-body text-muted-foreground">中转站模型上下架、定价倍率与展示排序</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -219,14 +219,14 @@ export default function AdminRelayModelsPage() {
             setProvider(e.target.value)
           }}
           placeholder="provider 编码"
-          className="h-8 w-36 text-xs"
+          className="h-8 w-36 text-label"
         />
       </div>
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">模型</th>
                 <th className="px-3 py-2 text-left">厂商</th>
@@ -261,7 +261,9 @@ export default function AdminRelayModelsPage() {
                         {m.relayDisplayName || m.displayName || m.modelId}
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="truncate text-xs text-muted-foreground">{m.modelId}</span>
+                        <span className="truncate text-label text-muted-foreground">
+                          {m.modelId}
+                        </span>
                         <Tooltip content="复制模型名">
                           <span className="inline-flex">
                             <Button
@@ -276,7 +278,7 @@ export default function AdminRelayModelsPage() {
                         </Tooltip>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-xs">{m.providerCode}</td>
+                    <td className="px-3 py-2 text-label">{m.providerCode}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {m.contextLength ? (m.contextLength / 1000).toFixed(0) + 'K' : '-'}
                     </td>
@@ -286,7 +288,7 @@ export default function AdminRelayModelsPage() {
                     <td className="px-3 py-2 text-right tabular-nums">{m.relaySortOrder ?? 0}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${
+                        className={`rounded-md px-2 py-0.5 text-label ${
                           m.isRelayPublic
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : 'bg-muted text-muted-foreground'
@@ -295,7 +297,7 @@ export default function AdminRelayModelsPage() {
                         {m.isRelayPublic ? '已上架' : '未上架'}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {fmt.format(new Date(m.updatedAt))}
                     </td>
                     <td className="px-3 py-2">
@@ -328,7 +330,7 @@ export default function AdminRelayModelsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -339,7 +341,7 @@ export default function AdminRelayModelsPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -361,7 +363,7 @@ export default function AdminRelayModelsPage() {
               <DialogTitle>编辑中转站模型</DialogTitle>
             </DialogHeader>
             {editTarget && (
-              <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-label text-muted-foreground">
                 {editTarget.modelId} · {editTarget.providerCode}
               </div>
             )}

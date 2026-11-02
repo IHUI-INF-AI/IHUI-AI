@@ -63,7 +63,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <Label className="text-xs">用户名</Label>
+          <Label className="text-label">用户名</Label>
           <Input
             value={search.username}
             onChange={(e) => setSearch({ ...search, username: e.target.value })}
@@ -72,7 +72,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">手机号</Label>
+          <Label className="text-label">手机号</Label>
           <Input
             value={search.phone}
             onChange={(e) => setSearch({ ...search, phone: e.target.value })}
@@ -94,7 +94,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
 
       <div className="max-h-64 overflow-auto rounded-md border">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead className="sticky top-0 z-10 bg-muted/50">
               <tr>
                 <th className="w-10 px-3 py-2">
@@ -142,7 +142,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
                     </td>
                     <td className="px-3 py-2 font-medium">{u.username}</td>
                     <td className="px-3 py-2 text-muted-foreground">{u.nickname}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{u.phone || '-'}</td>
+                    <td className="px-3 py-2 text-label text-muted-foreground">{u.phone || '-'}</td>
                   </tr>
                 ))
               )}
@@ -152,7 +152,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-label text-muted-foreground">
           共 {total} 条 · {page}/{totalPages}
         </span>
         <div className="flex shrink-0 gap-1">

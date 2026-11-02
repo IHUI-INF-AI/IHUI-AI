@@ -75,7 +75,7 @@ export function LevelTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{l.name}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">
+                <TableCell className="px-4 py-2.5 text-label">
                   {l.minScore} ~ {l.maxScore}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">

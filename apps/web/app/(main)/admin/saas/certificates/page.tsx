@@ -108,7 +108,7 @@ export default function CertificatesPage() {
     return (
       <div className="space-y-4 px-4 py-4">
         <BackBar />
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-body text-rose-600 dark:text-rose-500">
           {error.message}
         </div>
       </div>
@@ -147,7 +147,7 @@ export default function CertificatesPage() {
             <Lock className="h-6 w-6 text-primary" />
             <CenteredText>{t('title')}</CenteredText>
           </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-label text-muted-foreground">
             <CenteredText>{t('subtitle')}</CenteredText>
           </p>
         </div>
@@ -192,7 +192,7 @@ export default function CertificatesPage() {
 
       {/* acme 状态提示 */}
       {!acmeExists ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-body text-amber-700 dark:text-amber-400">
           <CenteredText>{t('acmeMissing', { path: acmePath })}</CenteredText>
         </div>
       ) : null}
@@ -200,7 +200,7 @@ export default function CertificatesPage() {
       {/* 证书列表 */}
       {certificates.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-body text-muted-foreground">
             <CenteredText>{t('empty')}</CenteredText>
           </CardContent>
         </Card>
@@ -213,7 +213,7 @@ export default function CertificatesPage() {
       )}
 
       {/* 底部扫描元信息 */}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-label text-muted-foreground">
         <Clock className="mr-1 inline h-3 w-3" />
         {t('generatedAt', { time: dateFmt.format(new Date(generatedAt)) })}
       </p>
@@ -239,7 +239,7 @@ function CertCard({ cert, dateFmt }: { cert: Certificate; dateFmt: Intl.DateTime
           <div className="min-w-0 flex-1">
             <CardTitle className="break-all font-mono text-base">{cert.domain}</CardTitle>
             {cert.sans.length > 0 ? (
-              <p className="mt-1 break-all text-xs text-muted-foreground">
+              <p className="mt-1 break-all text-label text-muted-foreground">
                 {t('sans', { sans: cert.sans.join(', ') })}
               </p>
             ) : null}
@@ -251,7 +251,7 @@ function CertCard({ cert, dateFmt }: { cert: Certificate; dateFmt: Intl.DateTime
         </div>
       </CardHeader>
       <CardContent>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-label min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
           <Item label={t('issuer')} value={cert.issuer} mono />
           <Item label={t('subject')} value={cert.subject} mono />
           <Item label={t('notBefore')} value={dateFmt.format(new Date(cert.notBefore))} mono />

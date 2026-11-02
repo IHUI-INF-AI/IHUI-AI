@@ -105,7 +105,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
         {/* 筛选行 */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">平台</Label>
+            <Label className="text-label text-muted-foreground">平台</Label>
             <Select value={filter.platform} onValueChange={(v) => updateFilter({ platform: v })}>
               <SelectTrigger className="h-8 w-40">
                 <SelectValue />
@@ -121,7 +121,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">方向</Label>
+            <Label className="text-label text-muted-foreground">方向</Label>
             <Select
               value={filter.direction}
               onValueChange={(v) =>
@@ -138,15 +138,15 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="ml-auto text-xs text-muted-foreground">
+          <div className="ml-auto text-label text-muted-foreground">
             共 <span className="tabular-nums">{total}</span> 条
           </div>
         </div>
 
         {/* 表格(容器完整描边,无分割线) */}
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/40 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">时间</th>
                 <th className="px-3 py-2 text-left">平台</th>
@@ -176,7 +176,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
                     m.direction === 'outbound' ? extractOutboundStatus(m.rawPayload) : undefined
                   return (
                     <tr key={m.id} className="hover:bg-muted/40">
-                      <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                      <td className="px-3 py-2 whitespace-nowrap tabular-nums text-label text-muted-foreground">
                         {TIME_FMT.format(new Date(m.createdAt))}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -184,7 +184,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
                       </td>
                       <td className="px-3 py-2">
                         <span
-                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs ${dir.className}`}
+                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-label ${dir.className}`}
                         >
                           {dir.label}
                         </span>
@@ -192,7 +192,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
                       <td className="px-3 py-2">
                         {outStatus ? (
                           <span
-                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs ${
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-label ${
                               outStatus === 'sent'
                                 ? 'bg-green-500/10 text-green-700 dark:text-green-400'
                                 : 'bg-red-500/10 text-red-700 dark:text-red-400'
@@ -201,11 +201,11 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
                             {outStatus === 'sent' ? '已发送' : '失败'}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-label text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <span className="line-clamp-2 max-w-md text-xs">{m.content}</span>
+                        <span className="line-clamp-2 max-w-md text-label">{m.content}</span>
                       </td>
                     </tr>
                   )
@@ -217,7 +217,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
 
         {/* 分页 */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             第 <span className="tabular-nums">{currentPage}</span> /{' '}
             <span className="tabular-nums">{totalPages}</span> 页
           </span>

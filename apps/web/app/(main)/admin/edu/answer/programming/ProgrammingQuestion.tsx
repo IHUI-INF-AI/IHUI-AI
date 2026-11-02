@@ -41,7 +41,7 @@ export function ProgrammingQuestion({
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('questionInfo', {
                   current: qIdx + 1,
                   total: questions.length,
@@ -62,8 +62,8 @@ export function ProgrammingQuestion({
                 </Button>
               </div>
             </div>
-            <div className="rounded-md bg-muted/40 p-3 text-sm">{current.title}</div>
-            <pre className="max-h-40 overflow-auto rounded-md border bg-muted/30 p-3 text-xs">
+            <div className="rounded-md bg-muted/40 p-3 text-body">{current.title}</div>
+            <pre className="max-h-40 overflow-auto rounded-md border bg-muted/30 p-3 text-label">
               {current.options ? JSON.stringify(current.options, null, 2) : t('noExamples')}
             </pre>
           </div>

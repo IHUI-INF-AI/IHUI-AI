@@ -72,7 +72,7 @@ export function AsksTable({
           <div className="max-w-xs">
             <TruncatedText value={row.original.title} className="font-medium" />
             {row.original.categoryName && (
-              <div className="text-xs text-muted-foreground">{row.original.categoryName}</div>
+              <div className="text-label text-muted-foreground">{row.original.categoryName}</div>
             )}
           </div>
         ),
@@ -104,12 +104,12 @@ export function AsksTable({
         },
         cell: ({ row }) =>
           row.original.isResolved ? (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
+            <span className="inline-flex items-center gap-1 text-label text-emerald-600 dark:text-emerald-500">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {t('resolved')}
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground">{t('unresolved')}</span>
+            <span className="text-label text-muted-foreground">{t('unresolved')}</span>
           ),
       },
       {
@@ -218,7 +218,7 @@ export function AsksTable({
       enableRowExpansion
       expandOnRowClick
       renderExpandedRow={(row) => (
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-body">
           <div>
             <div className="text-label font-medium text-muted-foreground">内容</div>
             <div className="mt-1 whitespace-pre-wrap">{row.original.content || '-'}</div>
@@ -230,7 +230,7 @@ export function AsksTable({
                 {row.original.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                    className="rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground"
                   >
                     {tag}
                   </span>
@@ -238,7 +238,7 @@ export function AsksTable({
               </div>
             </div>
           )}
-          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-4 text-label text-muted-foreground">
             <span>浏览 {row.original.viewCount}</span>
             <span>点赞 {row.original.likeCount}</span>
             <span>回答 {row.original.answerCount}</span>

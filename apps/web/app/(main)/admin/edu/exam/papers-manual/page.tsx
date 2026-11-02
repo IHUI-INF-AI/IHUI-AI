@@ -89,7 +89,7 @@ export default function EduExamPapersManualPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -179,7 +179,7 @@ export default function EduExamPapersManualPage() {
                     />
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{q.type}</span>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-label">{q.type}</span>
                   </TableCell>
                   <TableCell className="max-w-md break-words px-4 py-2.5">{q.title}</TableCell>
                   <TableCell className="px-4 py-2.5">{Number(q.score)}</TableCell>
@@ -189,7 +189,7 @@ export default function EduExamPapersManualPage() {
           </TableBody>
         </Table>
       </div>
-      <div className="text-sm text-muted-foreground">
+      <div className="text-body text-muted-foreground">
         {t('tipPrefix')}
         <Link href="/admin/edu/exam/questions" className="ml-1 text-primary hover:underline">
           {t('questionsManage')}

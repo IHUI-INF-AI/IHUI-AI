@@ -72,7 +72,7 @@ export default function VisitTrendPage() {
             <TrendingUp className="h-6 w-6 text-primary" />
             访问趋势
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">PV / UV 趋势、来源与热门页面</p>
+          <p className="mt-1 text-body text-muted-foreground">PV / UV 趋势、来源与热门页面</p>
         </div>
         <div className="flex items-center gap-1 rounded-md border bg-muted/30 p-0.5">
           <ArrowDownUp className="h-3.5 w-3.5 text-muted-foreground" />
@@ -139,7 +139,7 @@ export default function VisitTrendPage() {
             ))}
           </div>
         ) : stats.trend.length === 0 ? (
-          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed py-10 text-center text-body text-muted-foreground">
             暂无数据
           </div>
         ) : (
@@ -157,7 +157,7 @@ export default function VisitTrendPage() {
                     />
                   </Tooltip>
                 </div>
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="text-label text-muted-foreground tabular-nums">
                   {p.date.slice(5)}
                 </span>
                 <span className="text-label font-semibold tabular-nums">{numFmt.format(p.pv)}</span>
@@ -174,14 +174,14 @@ export default function VisitTrendPage() {
             来源占比
           </h2>
           {stats.bySource.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
               暂无数据
             </div>
           ) : (
             <div className="space-y-2">
               {stats.bySource.map((s) => (
                 <div key={s.source} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm tabular-nums">
+                  <div className="flex items-center justify-between text-body tabular-nums">
                     <span>{s.source}</span>
                     <span className="text-muted-foreground">
                       {numFmt.format(s.pv)} PV · {numFmt.format(s.uv)} UV
@@ -205,7 +205,7 @@ export default function VisitTrendPage() {
             热门页面
           </h2>
           {stats.topPages.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
               暂无数据
             </div>
           ) : (
@@ -213,15 +213,15 @@ export default function VisitTrendPage() {
               {stats.topPages.slice(0, 8).map((p, i) => (
                 <div
                   key={p.path}
-                  className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-body"
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-label font-semibold text-primary">
                       {i + 1}
                     </span>
-                    <span className="truncate font-mono text-xs">{p.path}</span>
+                    <span className="truncate font-mono text-label">{p.path}</span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                  <div className="flex shrink-0 items-center gap-3 text-label text-muted-foreground tabular-nums">
                     <span>{numFmt.format(p.pv)} PV</span>
                     <span>{numFmt.format(p.uv)} UV</span>
                   </div>

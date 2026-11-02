@@ -115,9 +115,9 @@ export default function AdminSystemTasksPage() {
             <ListChecks className="h-6 w-6 text-primary" />
             {t('tasks.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('tasks.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-3 text-label">
           <span className="inline-flex items-center gap-1 text-emerald-600">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             {t('tasks.status.running')} {runningCount}
@@ -149,14 +149,16 @@ export default function AdminSystemTasksPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">{t('tasks.table.name')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('tasks.table.type')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('tasks.table.schedule')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('tasks.table.status')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('tasks.table.lastRun')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('tasks.table.nextRun')}</TableHead>
-              <TableHead className="text-xs uppercase">{t('tasks.table.costTime')}</TableHead>
-              <TableHead className="text-right text-xs uppercase">{t('common.actions')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.name')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.type')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.schedule')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.status')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.lastRun')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.nextRun')}</TableHead>
+              <TableHead className="text-label uppercase">{t('tasks.table.costTime')}</TableHead>
+              <TableHead className="text-right text-label uppercase">
+                {t('common.actions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -187,17 +189,17 @@ export default function AdminSystemTasksPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs">
+                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-label">
                       {TYPE_LABEL[task.type]}
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableCell className="font-mono text-label text-muted-foreground">
                     {task.schedule}
                   </TableCell>
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         STATUS_STYLE[task.status],
                       )}
                     >
@@ -205,7 +207,7 @@ export default function AdminSystemTasksPage() {
                       {STATUS_LABEL[task.status]}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {task.lastRunAt ? (
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
@@ -215,10 +217,10 @@ export default function AdminSystemTasksPage() {
                       '-'
                     )}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {task.nextRunAt ? formatDate(task.nextRunAt) : '-'}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {task.lastDuration !== null && task.lastDuration !== undefined
                       ? `${task.lastDuration}ms`
                       : '-'}
