@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyError } from 'fastify'
+import type * as BroadcastEmailService from '../src/services/broadcast-email-service.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -42,8 +43,7 @@ vi.mock('../src/services/email-service.js', () => ({
   sendEmail: sendEmailMock,
 }))
 vi.mock('../src/services/broadcast-email-service.js', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../src/services/broadcast-email-service.js')>()
+  const actual = await importOriginal<typeof BroadcastEmailService>()
   return {
     ...actual,
     listEmailRecipients: listEmailRecipientsMock,
