@@ -11032,6 +11032,25 @@ export function sweepRnColorLiteralLeg(opts = {}) {
 }
 
 /**
+ * 小程序 RN 兼容层派生产物落档(图标全集 + RN 路由名→小程序页映射)。
+ * 立因:守门 251 是**提交链上的 blocking 门**,而它头注给出的两条修法出口
+ * (`gen-rn-compat.mjs --write`)此前全仓零调度点 ⇒ 门红了只能靠人当场手敲,
+ * 而"上游发新图标名 / 登记表新增一条 rn↔miniapp"都不触发提交(同门 260 的 CVE 型)。
+ * 前置已就位才挂这一腿:本器 2026-11-03 补齐归属闸(脏集取不到 ⇒ 两份都不写)、
+ * 未知旗拒绝(不接受被静默当成默认档)、落点账本申报与 `landing=/held=/ledger=` 结论行。
+ * 只写工作树,落库交末后的 sweepCrossEndLandingLeg 收。
+ */
+export function sweepRnCompatLeg(opts = {}) {
+  return runCrossEndApplyLeg({
+    scriptName: 'gen-rn-compat.mjs',
+    args: ['--write'],
+    defaultTickFile: join(dirname(LOG), 'rn-compat-last.json'),
+    label: '小程序 RN 兼容层派生产物落档',
+    opts,
+  })
+}
+
+/**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
  * → 逐份复量"新钉 == 面上现算输入哈希" → 只把复量过的 blob 落 HEAD(主工作树一字节不动)。
@@ -11901,6 +11920,8 @@ async function main() {
     // 归属闸与落点账本都已就位 ⇒ 这里才是它们第一次真正上链。落库腿排在最后收。
     if (!CHECK_ONLY) sweepUiMirrorLeg()
     if (!CHECK_ONLY) sweepRnColorLiteralLeg()
+    // 门 251 的修法出口此前全仓零调度点 ⇒ 挂在这里:图标全集/路由映射一漂,提交链那道 blocking 就等人手敲。
+    if (!CHECK_ONLY) sweepRnCompatLeg()
     if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
