@@ -17,7 +17,8 @@
  *  ① 跨租户:A 的 stats 不含 B 的计数与 token;往 store 里塞 B 的数据后 A 的读数**一位不变**;
  *  ② by-agent:A 读 B 的**未上架** agent ⇒ 404,且任务查询根本没被摸到(闸在 SQL 之前);
  *  ③ 正例:A 看自己的数据正常(总数/活跃/完成/token/平均时长都跟着长);
- *  ④ 无归属记录(ownerUserId 缺失)⇒ 与 /all 同判「未标注可见」,明确断言它对每个调用方都计入;
+ *  ④ 无归属记录(ownerUserId 缺失)⇒ 2026-11-02 起 fail-closed:普通用户不计入,
+ *     仅管理员多一档 orphan(且管理员仍不跨租户读已归属记录);
  *  ⑤ 已上架 agent 是公开资源 ⇒ 可读(如实断言,不硬造隔离);
  *  ⑥ 反向例(实测,读数见 .ihui-agent/seats/S-STATS.md):把 stats 的 owner 谓词删掉 ⇒ ① 立刻变红。
  *
@@ -54,11 +55,20 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
   stopLockHeartbeat: vi.fn(),
 }))
 
-// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a)
+// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a);
+// x-probe-role=1 时同时注入 jwtPayload.roleId,用于钉住 admin 的 orphan 档。
 vi.mock('../src/plugins/auth.js', () => ({
-  authenticate: async (request: { userId?: string; headers: Record<string, unknown> }) => {
+  authenticate: async (request: {
+    userId?: string
+    jwtPayload?: { roleId?: number }
+    headers: Record<string, unknown>
+  }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
+    const role = request.headers['x-probe-role']
+    if (typeof role === 'string' && role.length > 0) {
+      request.jwtPayload = { roleId: Number(role) }
+    }
   },
   checkAuth: async () => true,
 }))
@@ -271,20 +281,25 @@ describe('S-STATS ③ 正例:A 看自己的数据正常', () => {
   })
 })
 
-describe('S-STATS ④ 无归属记录(ownerUserId 缺失)', () => {
-  it('与 /all 同判:未标注记录对每个登录用户都计入(不隐藏历史,也是已知残余)', async () => {
+describe('S-STATS ④ 无归属记录(ownerUserId 缺失,fail-closed 后)', () => {
+  it('普通用户不计入未标注记录;管理员只多 orphan 一档,不跨租户读已归属记录', async () => {
     seedDispatch('legacy-1', { status: 'completed', tokens: 7 })
     seedDispatch('a-1', { owner: 'tenant-a', status: 'completed', tokens: 100 })
 
     const a = await getStats(asA)
-    // A:自己的 1 条 + 未标注的 1 条
-    expect(a.data.total).toBe(2)
-    expect(a.data.totalTokens).toBe(107)
+    // A 只看到自己的 1 条;未标注记录不再公开(2026-11-02 fail-closed)
+    expect(a.data.total).toBe(1)
+    expect(a.data.totalTokens).toBe(100)
 
     const b = await getStats(asB)
-    // B:只有未标注的 1 条 —— 说明未标注不是「算进某个默认租户」,而是按可见性规则公开
-    expect(b.data.total).toBe(1)
-    expect(b.data.totalTokens).toBe(7)
+    // B 一条都看不到(既无自己的,也未标注公开档已取消)
+    expect(b.data.total).toBe(0)
+    expect(b.data.totalTokens).toBe(0)
+
+    // 管理面:admin 只看到 orphan,看不到 tenant-a 的已归属记录
+    const admin = await getStats({ 'x-probe-user': 'admin', 'x-probe-role': '1' })
+    expect(admin.data.total).toBe(1)
+    expect(admin.data.totalTokens).toBe(7)
   })
 })
 
@@ -326,7 +341,12 @@ describe('S-STATS ② /subagents/by-agent/:agentId/summary 归属闸', () => {
     })
 
     expect(res.statusCode).toBe(200)
-    expect(mockFindAgentTasks).toHaveBeenCalledWith(AGENT_DRAFT_B, 50, 'tenant-b')
+    // 2026-11-02:签名带上 viewer(归属回填与 fail-open 收敛),第三参仍是 limit
+    expect(mockFindAgentTasks).toHaveBeenCalledWith(
+      AGENT_DRAFT_B,
+      { userId: 'tenant-b', isAdmin: false },
+      50,
+    )
     expect(JSON.stringify(res.json())).toContain('B 的草稿运行记录')
   })
 
