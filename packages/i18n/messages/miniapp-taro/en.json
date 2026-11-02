@@ -267,13 +267,6 @@
   "live": {
     "replay": "Replay",
     "liveNow": "Live",
-    "detail": {
-      "loadFailed": "Live load failed",
-      "notStarted": "Live not started yet",
-      "ended": "Live ended",
-      "connecting": "Connecting to live room…",
-      "enter": "Enter live room"
-    },
     "subscribe": {
       "subscribe": "Subscribe",
       "subscribeSuccess": "Subscribed",
@@ -1092,10 +1085,6 @@
     "detailEnter": "Enter chat",
     "detailMembers": "Members",
     "detailRecent": "Recent",
-    "enterChat": {
-      "message": "Are you sure you want to enter?",
-      "title": "Notice"
-    },
     "enterDiscover": "Discover",
     "enterMine": "Mine",
     "memberRole": "Role",
@@ -1358,37 +1347,11 @@
       "rulesTitle": "Exam Rules",
       "totalScore": "Total Score",
       "totalScoreValue": "{n} points"
-    },
-    "answer": {
-      "judgmentOptions": [
-        "True",
-        "False"
-      ],
-      "answerPlaceholder": "Type your answer",
-      "prev": "Previous",
-      "next": "Next",
-      "submit": "Submit"
     }
   },
   "favorites": {
-    "cancel": "Unfavorite",
-    "loadFailed": "Load failed",
     "empty": "No favorites",
-    "loadMore": "Load more",
-    "noMore": "No more",
-    "batchCancel": "Batch unfavorite",
-    "items": "items",
-    "unsupported": "Navigation not supported",
-    "itemsUnit": "items",
-    "done": "Done",
     "manage": "Manage",
-    "selectAll": "Select all",
-    "collectedAt": "Collected at",
-    "searchEmpty": "No matching content found",
-    "goDiscover": "Discover",
-    "searchPlaceholder": "Search favorited content",
-    "selectFirst": "Please select first",
-    "total": "Favorited",
     "title": "My Favorites"
   },
   "userFans": {
@@ -1447,10 +1410,7 @@
       "rule2": "Invite friends to become members and you will earn 20% commission of their membership fee",
       "rule3": "Commission is automatically settled to your account within 24 hours after your friend's payment succeeds",
       "rule4": "Withdraw to WeChat or Alipay when balance reaches 100 CNY",
-      "introTitle": "Invite friends, earn commission",
-      "totalEarnings": "Total earnings",
-      "inviteCount": "Invites",
-      "rulesTitle": "Commission rules"
+      "totalEarnings": "Total earnings"
     },
     "memberDetail": {
       "loading": "Loading…",
@@ -2365,14 +2325,6 @@
   "news": {
     "search": "Search news",
     "empty": "No news",
-    "readCount": "{n} reads",
-    "detail": {
-      "like": "Like",
-      "comment": "Comment",
-      "share": "Share",
-      "related": "Related",
-      "commentSoon": "Comments coming soon"
-    },
     "cat": {
       "announce": "Announcements",
       "activity": "Activities",
@@ -2593,11 +2545,8 @@
     },
     "hello": "Hi, I am {name}",
     "justNow": "Just now",
-    "search": "Search chats",
     "unnamedRoom": "Unnamed conversation",
     "empty": "No messages",
-    "markedRead": "Marked as read",
-    "pinned": "Pinned",
     "deleted": "Deleted",
     "notFound": "No conversations found",
     "settings": "Settings",
@@ -2609,8 +2558,6 @@
     "noInteraction": "No Messages",
     "noPrivate": "No Private Messages",
     "noSystem": "No System Notices",
-    "markRead": "Mark Read",
-    "deleteConv": "Delete Conversation",
     "pin": "Pin Chat",
     "unpin": "Unpin"
   },
@@ -2646,7 +2593,6 @@
       "notOpened": "Not Activated",
       "openVip": "Activate VIP Membership",
       "opened": "Activated",
-      "privileges": "Member Privileges",
       "share": "Share and Earn Commission"
     },
     "benefits": {
@@ -2830,10 +2776,7 @@
   "subscriptions": {
     "cancel": "Cancel subscription",
     "loadFailed": "Load failed",
-    "empty": "No subscriptions",
-    "delete": "Delete",
-    "loadMore": "Load more",
-    "noMore": "No more"
+    "empty": "No subscriptions"
   },
   "teacher": {
     "list": {
@@ -2883,7 +2826,6 @@
       "followers": "{n} followers",
       "following": "Following",
       "loadFailed": "Failed to load",
-      "loading": "Loading...",
       "loadingMore": "Loading...",
       "noMore": "No more",
       "publish": "Post"
@@ -2906,8 +2848,7 @@
       "title": "My tokens",
       "agentConsume": "Agent consumption",
       "ordersConsume": "Model consumption",
-      "costTime": "Time spent:",
-      "noMore": "No more"
+      "costTime": "Time spent:"
     }
   },
   "user": {
@@ -5028,10 +4969,6 @@
     "rankEmpty": "No data for this leaderboard"
   },
   "aigcCover": {
-    "applied": {
-      "title": "Cover Applied",
-      "message": "Cover applied for \"{title}\": {label}"
-    },
     "aiGen": {
       "title": "AI Cover Generation",
       "message": "Feature under development"

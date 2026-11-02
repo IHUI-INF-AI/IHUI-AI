@@ -1219,10 +1219,6 @@
     "compactionToast": "上下文已自动压缩({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已应用",
-      "message": "已为「{title}」应用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能开发中"
@@ -1282,10 +1278,6 @@
     "detailMembers": "群成员",
     "detailRecent": "最近消息",
     "empty": "暂无群聊",
-    "enterChat": {
-      "message": "确定要进入该群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "发现",
     "enterMine": "我的",
     "loadFailed": "加载群聊失败",
@@ -1458,15 +1450,6 @@
     "workflowTab": "工作流"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "确认充值",
-      "message": "套餐:{tokens} Token · ¥{price}",
-      "payBtn": "立即支付",
-      "success": {
-        "title": "支付成功",
-        "message": "已到账 {tokens} Token"
-      }
-    },
     "balanceLabel": "智汇值余额",
     "bonus": "奖励",
     "empty": "暂无数据",
@@ -1486,9 +1469,7 @@
     "range7d": "7天",
     "range1m": "一个月",
     "range1y": "近一年",
-    "rangeAll": "全部",
-    "unitYi": "{v}亿",
-    "unitWan": "{v}万"
+    "rangeAll": "全部"
   },
   "messageInput": {
     "document": "文档",
@@ -3490,8 +3471,7 @@
     "viewNow": "立即查看"
   },
   "vipBenefit": {
-    "title": "会员权益",
-    "loadFailed": "加载会员权益失败"
+    "title": "会员权益"
   },
   "vipTrader": {
     "title": "VIP 操盘手",
@@ -3949,7 +3929,6 @@
     "today": "今日收入",
     "withdrawBtn": "提现",
     "withdrawModal": {
-      "close": "取消",
       "confirm": "确认提现",
       "moreMethods": "更多提现方式",
       "subtitle": "请选择提现方式",
