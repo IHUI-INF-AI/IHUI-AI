@@ -2,12 +2,13 @@
 /android
 /ios
 
-# Android 正式签名密钥(绝不入库)
+# Android 签名件与 Play 提交凭据槽位 —— 整目录绝不入库(§5d 密钥不入仓)。
+# 原来这里的两行 `!credentials/…` 白名单是**静默死规则**:git 规定父目录被排除后 negation
+# 无法 re-include,实测 `git check-ignore -v apps/mobile-rn/credentials/google-play-service-account.json`
+# 命中的是 `/credentials` 那一行。留着它只向下一个读代码的人暗示"这两枚密钥可以提交",
+# 与 §5d 相反 ⇒ 删除。凭据落位由 scripts/release-mobile-rn.mjs --stage-credentials 负责,
+# 它落件前必须实测该路径仍被忽略,忽略不生效就拒绝落。
 /credentials
-# EAS Build 需要上传 service account key 用于 Play 提交
-!credentials/google-play-service-account.json
-# EAS 本地签名需读取 release.keystore
-!credentials/release.keystore
 # credentials.json 含密码，不入库(由 CI base64 注入或本地生成)
 /credentials.json
 # Expo
