@@ -15,7 +15,8 @@
  * 两条判据(都只用仓库内信息,不需要知道 CI 传的 context):
  *   A. 「根上下文识别」:凡 COPY 行里出现 `pnpm-workspace.yaml`(根 monorepo 独有标记)的 Dockerfile,
  *      其依赖安装会触发**根** package.json 的 preinstall/postinstall/prepare 钩子 ⇒
- *      这些钩子用 `node <file>` 引用的每个脚本,**必须**也出现在该文件的某条 COPY 源里。
+ *      这些钩子用 `node <file>` 引用的每个脚本,**必须**出现在该文件**第一条 `RUN pnpm install` 之前**
+ *      的某条 COPY 源里(install 之后才 COPY 的文件,对那次 install 无效,镜像里照样 MODULE_NOT_FOUND)。
  *   B. 「COPY 源存在性」:每条**不带 `--from=`**、不含通配符/变量的 COPY 源路径,
  *      必须能从构建上下文取到(按 Dockerfile 自身目录或仓库根两种基准各试一次,命中其一即通过 ——
  *      上下文究竟是哪个目录只有 workflow 知道,故判据刻意取并集,宁可漏不误报)。
@@ -171,9 +172,17 @@ export function checkLifecycleCopies({ content, refs, rel }) {
     .split(/\r?\n/)
     .some((l) => /^\s*COPY\b/i.test(l) && ROOT_CTX_MARKER.test(l))
   if (!isRootCtx) return violations
+  // 只认第一条 `RUN pnpm install` **之前**的 COPY:postinstall 是那一刻执行的,
+  // install 之后再 COPY 进镜像的文件救不了这一次 install(2026-11-03 build-api/web 双红即此形态:
+  // postinstall 新增 scripts/lib/patch-lint-staged-stdio.mjs,镜像只补了同目录的另一个脚本)。
+  // 找不到 install 行时退回"全文 COPY"(该文件根本不跑 install,钩子不会被触发)。
+  const installLine = logicalLines(content).find(
+    ({ text }) => /^\s*RUN\b/i.test(text) && /\bpnpm\s+install\b/.test(text),
+  )?.line
   const copied = new Set()
   for (const c of parseCopies(content)) {
     if (c.hasFrom) continue
+    if (installLine !== undefined && c.line >= installLine) continue
     for (const s of c.srcs) {
       copied.add(s.replace(/^\.\//, ''))
       // `COPY scripts/foo.mjs scripts/` 与 `COPY scripts scripts/` 两种写法都算覆盖 scripts/foo.mjs
@@ -189,7 +198,7 @@ export function checkLifecycleCopies({ content, refs, rel }) {
     violations.push({
       file: rel,
       kind: 'lifecycle-script-not-copied',
-      detail: `钩子引用的 ${ref} 未被任何 COPY 源覆盖`,
+      detail: `钩子引用的 ${ref} 未被 \`RUN pnpm install\` 之前的任何 COPY 源覆盖`,
       hint: `在 ${rel} 的 \`RUN pnpm install\` 之前加一行:COPY ${ref} ${dirname(ref)}/`,
     })
   }
@@ -450,6 +459,20 @@ export const SELFTEST_CASES = [
       'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts scripts/\nRUN pnpm install\n',
     refs: ['scripts/x.mjs'],
     want: 'pass',
+  },
+  {
+    name: '本轮真故障形态:postinstall 引用两个脚本,只 COPY 第一个 → 仍违规',
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts/fix-expo-metro-junction.mjs scripts/\nRUN pnpm install --frozen-lockfile\n',
+    refs: ['scripts/fix-expo-metro-junction.mjs', 'scripts/lib/patch-lint-staged-stdio.mjs'],
+    want: 'violation',
+  },
+  {
+    name: '反例:COPY 落在 RUN pnpm install 之后 → 不算覆盖(那次 install 仍找不到模块)',
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nRUN pnpm install --frozen-lockfile\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\n',
+    refs: ['scripts/lib/patch-lint-staged-stdio.mjs'],
+    want: 'violation',
   },
   {
     name: 'lifecycleScriptRefs 只认 node 直接执行的文件,忽略 pnpm/内联 -e',

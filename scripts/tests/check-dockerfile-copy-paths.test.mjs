@@ -96,6 +96,49 @@ test('A 判据:缺 COPY 时报出的文件名与修法可执行', () => {
   )
 })
 
+test('A 判据:COPY 必须落在 `RUN pnpm install` 之前 —— 旧 Dockerfile 红、补后绿、事后补 COPY 仍红', () => {
+  const refs = [
+    'scripts/fix-expo-metro-junction.mjs',
+    'scripts/lib/patch-lint-staged-stdio.mjs',
+  ]
+  // 2026-11-03 build-api / build-web 双红的原样:postinstall 引用两个脚本,镜像只 COPY 了第一个
+  const oldDockerfile =
+    'FROM node:22-alpine\nWORKDIR /app\n' +
+    'COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./\n' +
+    'COPY scripts/fix-expo-metro-junction.mjs scripts/\n' +
+    'RUN pnpm install --frozen-lockfile\n'
+  const oldViolations = G.checkLifecycleCopies({
+    content: oldDockerfile,
+    refs,
+    rel: 'deploy/docker/Dockerfile.api',
+  })
+  assert.equal(oldViolations.length, 1, '旧 Dockerfile 必须红 —— 这正是 CI 双镜像失败现场')
+  assert.match(oldViolations[0].detail, /scripts\/lib\/patch-lint-staged-stdio\.mjs/)
+  assert.match(oldViolations[0].detail, /RUN pnpm install.*之前/)
+
+  // 修法:在 install 前补一行 → 归绿
+  const fixed = oldDockerfile.replace(
+    'RUN pnpm install',
+    'COPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\nRUN pnpm install',
+  )
+  assert.equal(
+    G.checkLifecycleCopies({ content: fixed, refs, rel: 'deploy/docker/Dockerfile.api' }).length,
+    0,
+    'install 前补齐 COPY 必须归绿',
+  )
+
+  // 反向例:补在 install 之后不算覆盖(那次 install 仍会 MODULE_NOT_FOUND)
+  const afterInstall = oldDockerfile.replace(
+    'RUN pnpm install --frozen-lockfile\n',
+    'RUN pnpm install --frozen-lockfile\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\n',
+  )
+  assert.equal(
+    G.checkLifecycleCopies({ content: afterInstall, refs, rel: 'x' }).length,
+    1,
+    'install 之后才 COPY 不算覆盖,判据不得放宽',
+  )
+})
+
 test('B 判据:按已提交内容判存在,`COPY . .` 与通配符源不误伤', () => {
   const committed = G.committedPaths(ROOT)
   assert.ok(committed.size > 5000, `提交内容清单异常(${committed.size} 条),不得静默判绿`)

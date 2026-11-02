@@ -18,6 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # 2026-11-03:postinstall 新增 scripts/lib/patch-lint-staged-stdio.mjs 而镜像未 COPY,
+      # build-api/build-web 双双 MODULE_NOT_FOUND。此门(gate 72)在本地 pre-commit 与
+      # guardian-full(手动触发)都不跑,故必须在真正构建镜像的 workflow 里先跑一次。
+      - name: Check Dockerfile build context
+        run: node scripts/check-dockerfile-copy-paths.mjs
       - name: Build API image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -30,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check Dockerfile build context
+        run: node scripts/check-dockerfile-copy-paths.mjs
       - name: Build Web image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
