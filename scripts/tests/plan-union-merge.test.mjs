@@ -289,4 +289,42 @@ test('T6 严格档:我方独有带号行不得被静默解删 —— 无声明�
     rmScratch(root)
   }
 })
+
+/**
+ * A5b:严格判据必须在**写路径默认生效** —— 事故的教训就是"默认档放行",写盘这一步不能再靠
+ * 调用方记得加 `--strict-ids`。T7 只给 `--apply`(不带任何编号档旗)即须拒绝同号重复;
+ * T8 给逃生阀 `--legacy-lenient` 才回到旧行为,且 stderr 必须有一行醒目告警。
+ */
+test('T7 写路径默认严格:只带 --apply、不加任何编号旗,同号重复也必须阻断', () => {
+  const root = mkScratch('pum-t7-')
+  try {
+    const { base, ours, theirs } = makeSameIdRepo(root)
+    const tool = installTool(root)
+    const applied = runTool(tool, ['--base', base, '--ours', ours, '--theirs', theirs, '--apply'], root)
+    assert.equal(applied.rc, 1, `写路径默认档不得放行同号重复,实得 ${applied.rc}:\n${applied.out}`)
+    assert.match(applied.out, /合并结果同号重复 1 枚\(Y-12×2\)/, '必须点名同号重复的键')
+    assert.match(applied.out, /阻断,不落地/, '写路径必须明说阻断')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T8 逃生阀:--apply --legacy-lenient 放行旧行为,但 stderr 必须打醒目告警', () => {
+  const root = mkScratch('pum-t8-')
+  try {
+    const { base, ours, theirs } = makeSameIdRepo(root)
+    const tool = installTool(root)
+    const legacy = runTool(
+      tool,
+      ['--base', base, '--ours', ours, '--theirs', theirs, '--apply', '--legacy-lenient'],
+      root,
+    )
+    assert.equal(legacy.rc, 0, `逃生阀下应回到旧行为放行,实得 ${legacy.rc}:\n${legacy.out}`)
+    assert.match(legacy.out, /--legacy-lenient/, '告警必须点名是哪枚旗开的')
+    assert.match(legacy.out, /严格编号判据已关闭/, '告警必须说清关掉了什么')
+    assert.doesNotMatch(legacy.out, /阻断,不落地/, '逃生阀下不得阻断')
+  } finally {
+    rmScratch(root)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

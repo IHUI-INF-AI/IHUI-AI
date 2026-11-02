@@ -121,8 +121,8 @@ function docTakeoverFixture({ theirsDropsDoc = false, numberedOurs = false, thei
  * `get` ⇒ 静默 no-op,五条断言全读成空数组。T-Doc-f 的位序对齐锁给这类"插形参"装了牙:
  * 形状漂了当场红,不允许再以"空数组"的形态安静通过。
  */
-const planWithDoc = (ours, theirs, dir, docs) =>
-  U.plan(ours, theirs, dir, new Set(), new Map(), new Set(), null, null, null, null, null, docs)
+const planWithDoc = (ours, theirs, dir, docs, lenient = false) =>
+  U.plan(ours, theirs, dir, new Set(), new Map(), new Set(), null, null, null, null, null, docs, lenient)
 
 test('T-Doc-a 声明 --take-theirs-doc ⇒ 该活文档整 blob 取对侧、行级 union 不跑(滞后基线不再回灌),且逐条点名', () => {
   const { dir, ours, theirs } = docTakeoverFixture()
@@ -301,6 +301,22 @@ test('T-Doc-h takeTheirsDocLoss 单元:带号键/空行/非空行三项各自独
   assert.equal(nonBlank.ok, false)
   assert.match(nonBlank.losses.join(' '), /非空行少 1 行\(3→2\)/)
   assert.equal(U.takeTheirsDocLoss('a\nb\n', 'a\nb\n').ok, true, '三项都不减少才是零丢失')
+})
+
+/**
+ * A6b 逃生阀:`--legacy-lenient` 的 API 面等价物是 plan(..., true)。它必须回到旧行为
+ * (整份取对侧不再量三项差),但也不得伪报 credits —— 逃生阀是"账面看得见的少带",不是"零丢失"。
+ */
+test('T-Doc-i 逃生阀:lenient=true 退回旧行为,三项差不再阻断且不记 credits', () => {
+  const { dir, ours, theirs } = docTakeoverFixture({ numberedOurs: true, theirsThin: true })
+  try {
+    const p = planWithDoc(ours, theirs, dir, new Set(['PROJECT_PLAN.md']), true)
+    assert.equal(p.bad.length, 0, `逃生阀下不得阻断:${JSON.stringify(p.bad)}`)
+    assert.equal(p.takeTheirsDocCredits.length, 0, '旧口径不产生 credits,不得伪报放行')
+    assert.ok(p.keptTheirsDocs.includes('PROJECT_PLAN.md'), '逃生阀只关检测,不关"整份取对侧"本身')
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('T-Doc-f 装车锁(源码级):CLI 旗标必须真被解析并传到 plan(),判据存在而永不接线 = 没有', () => {
