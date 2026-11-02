@@ -42,6 +42,13 @@ const SEVERITIES: readonly Severity[] = ['info', 'warning', 'critical']
 const DEFAULT_SOURCE = 'github-actions/blue-green-deploy'
 const DEFAULT_RESEND_FROM = '智汇AI官方 <IHUI-AI@aizhs.top>'
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+/**
+ * 处置标记(2026-11-02):stdout 上的一行机器可读令牌。
+ * 「被 --alert-id 窗口压住」与「真投递」的退出码同为 0(退出码不能改:bridge / monitor /
+ * credential-health 三条调用方共用本出口),调用方只能靠这两个值区分它们。
+ */
+const DISPOSITION_DELIVERED = '__DISPOSITION__=delivered'
+const DISPOSITION_SUPPRESSED = '__DISPOSITION__=suppressed'
 
 /** env-file 只允许补齐这些键:通知链路所需的最小集,避免把整份 .env 灌进进程 */
 const ENV_FILL_KEYS: readonly string[] = [
@@ -1326,6 +1333,10 @@ async function main(
     if (outcome.suppressed) {
       // 压下必须喊出来:静默跳过与"发成功了"在日志上长得一样,而前者会让人以为已到人
       console.log(`[alert-mail] 已按标识去重,本轮未寄 —— ${outcome.dedupeWhy}`)
+      // 机器可读处置标记(2026-11-02):退出码不能动(bridge/monitor/credential-health 三条
+      // 调用方共用这个出口),调用方只能靠 stdout 区分「压住」与「寄出」;不输出它,
+      // 守护就会把一次没寄出的尝试记成已寄出,并拿它给族窗口重新起算。
+      console.log(DISPOSITION_SUPPRESSED)
       return 0
     }
     if (outcome.sent) {
@@ -1334,6 +1345,7 @@ async function main(
           outcome.dedupeWhy ? `[${outcome.dedupeWhy}]` : ''
         }`,
       )
+      console.log(DISPOSITION_DELIVERED)
       return computeExitCode(outcome)
     }
     for (const r of outcome.reasons) announceFailure(r)
