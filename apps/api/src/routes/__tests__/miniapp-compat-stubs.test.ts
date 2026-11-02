@@ -30,7 +30,7 @@ vi.mock('../../config/index.js', () => ({
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
@@ -175,12 +175,20 @@ describe('小程序兼容路由空桩真实化(2026-08-31)', () => {
       { method: 'POST', url: '/api/agent/creation/share', payload: { agentId: 'a1' } },
       // 2026-10-12 P0 安全修复阳性对照:课程/视频管理写端点曾漏挂 checkAuth(匿名可上下架/删课程)
       { method: 'POST', url: '/api/learn/group', payload: { title: 't' } },
-      { method: 'PUT', url: '/api/learn/course/00000000-0000-4000-8000-000000000001', payload: { title: 't' } },
+      {
+        method: 'PUT',
+        url: '/api/learn/course/00000000-0000-4000-8000-000000000001',
+        payload: { title: 't' },
+      },
       { method: 'DELETE', url: '/api/learn/course/00000000-0000-4000-8000-000000000001' },
       { method: 'POST', url: '/api/learn/course/00000000-0000-4000-8000-000000000001/issue' },
       { method: 'POST', url: '/api/learn/course/00000000-0000-4000-8000-000000000001/delist' },
       { method: 'POST', url: '/api/learn/video', payload: { title: 't' } },
-      { method: 'PUT', url: '/api/learn/video/00000000-0000-4000-8000-000000000001', payload: { title: 't' } },
+      {
+        method: 'PUT',
+        url: '/api/learn/video/00000000-0000-4000-8000-000000000001',
+        payload: { title: 't' },
+      },
       { method: 'DELETE', url: '/api/learn/video/00000000-0000-4000-8000-000000000001' },
     ]
 

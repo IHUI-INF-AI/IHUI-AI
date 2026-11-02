@@ -33,23 +33,28 @@ vi.mock('../src/config/index.js', () => ({
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
 
-const { mockDbRows, mockDbCalls, mockFindFileById, mockFindFileByIdIncludeTrashed, mockFindProjectById } =
-  vi.hoisted(() => ({
-    /** 每次链式 await 的解析值 = "库确认命中的行",由每个用例现设 */
-    mockDbRows: vi.fn((): { id: string }[] => []),
-    /** 记录链上每一步(entry=delete/update/select…,method=where/set/returning…),供 returning 断言 */
-    mockDbCalls: [] as Array<{ entry: string; method: string }>,
-    mockFindFileById: vi.fn(),
-    mockFindFileByIdIncludeTrashed: vi.fn(),
-    mockFindProjectById: vi.fn(),
-  }))
+const {
+  mockDbRows,
+  mockDbCalls,
+  mockFindFileById,
+  mockFindFileByIdIncludeTrashed,
+  mockFindProjectById,
+} = vi.hoisted(() => ({
+  /** 每次链式 await 的解析值 = "库确认命中的行",由每个用例现设 */
+  mockDbRows: vi.fn((): { id: string }[] => []),
+  /** 记录链上每一步(entry=delete/update/select…,method=where/set/returning…),供 returning 断言 */
+  mockDbCalls: [] as Array<{ entry: string; method: string }>,
+  mockFindFileById: vi.fn(),
+  mockFindFileByIdIncludeTrashed: vi.fn(),
+  mockFindProjectById: vi.fn(),
+}))
 
 vi.mock('../src/plugins/auth.js', () => ({
   // workspace.ts 的 requireAuth 走 authenticate,messageRoutes 的 preHandler 走 checkAuth;
@@ -138,9 +143,7 @@ async function buildMessageApp(): Promise<FastifyInstance> {
   // 不经此 handler 会被路由 400 响应 schema 的 code:number 强转打崩成 500。
   app.setErrorHandler((error: FastifyError, _request, reply) => {
     const statusCode =
-      error.statusCode && error.statusCode >= 400 && error.statusCode < 600
-        ? error.statusCode
-        : 500
+      error.statusCode && error.statusCode >= 400 && error.statusCode < 600 ? error.statusCode : 500
     reply.status(statusCode).send({
       code: statusCode,
       message: statusCode >= 500 ? '服务器错误' : error.message,
