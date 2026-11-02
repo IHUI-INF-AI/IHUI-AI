@@ -134,7 +134,7 @@ export default function PendingDecisionsScreen() {
             <Text style={styles.cardTitle}>{t('pendingDecisions.sectionTitle')}</Text>
             {items.length > 0 ? (
               <View style={styles.countBadge}>
-                <Text style={styles.countText}>{items.length}</Text>
+                <Text style={styles.countBadgeText}>{items.length}</Text>
               </View>
             ) : null}
           </View>
@@ -216,7 +216,7 @@ function makeStyles() {
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
     },
-    countText: {
+    countBadgeText: {
       fontSize: rnType.badge.size,
       fontWeight: '700',
       color: tokens.brand.ctaForeground,

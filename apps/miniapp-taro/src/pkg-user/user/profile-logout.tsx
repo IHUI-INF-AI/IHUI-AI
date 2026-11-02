@@ -46,13 +46,11 @@ export default function ProfileLogoutButton() {
 
   return (
     <View
-      className="flex h-[100rpx] items-center justify-center rounded-lg bg-card dark:bg-muted"
+      className="flex h-[100rpx] items-center justify-center rounded-sm bg-card dark:bg-muted"
       hoverClass="opacity-60"
       onClick={handleLogout}
     >
-      <Text className="text-title font-semibold text-destructive">
-        {t('profile.logout')}
-      </Text>
+      <Text className="text-title font-semibold text-destructive">{t('profile.logout')}</Text>
     </View>
   )
 }
