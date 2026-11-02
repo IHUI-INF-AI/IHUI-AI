@@ -84,7 +84,9 @@ function rnAppValueImports(text) {
 /** 该 RN 壳是否在值导入里直接取用了 sharedName(命名空间成员取用也算直接取用)。 */
 function directlyImports(imports, sharedName) {
   if (imports.names.has(sharedName)) return true
-  return imports.namespaces.some((ns) => new RegExp(`\\b${ns}\\.${sharedName}\\b`).test(imports.namespacesText ?? ''))
+  return imports.namespaces.some((ns) =>
+    new RegExp(`\\b${ns}\\.${sharedName}\\b`).test(imports.namespacesText ?? ''),
+  )
 }
 
 /**
@@ -151,7 +153,14 @@ export function judgeCoverage({
         manualExpired.push({ shared: s.name, expires })
       }
       if (issues.length > 0) {
-        failures.push({ type: 'manual-invalid', shared: s.name, spec: s.spec, owner: owner || null, expires: expires || null, issues })
+        failures.push({
+          type: 'manual-invalid',
+          shared: s.name,
+          spec: s.spec,
+          owner: owner || null,
+          expires: expires || null,
+          issues,
+        })
       }
       needsManual.push({
         shared: s.name,
@@ -197,9 +206,10 @@ export function judgeCoverage({
   // 账本腐烂:登记了但被审面已无此屏 / 已被覆盖却不摘牌 —— 与仓库既有「登记了而没命中」同型,判红。
   const sharedKeys = new Set(shared.flatMap((s) => [s.name, s.spec]))
   const staleManual = []
-  for (const [key, e] of manual.entries()) {
+  for (const key of manual.keys()) {
     if (!sharedKeys.has(key)) staleManual.push({ shared: key, why: '共享屏已不存在' })
-    else if (!usedManualKeys.has(key)) staleManual.push({ shared: key, why: '已被 RN 壳覆盖,登记未摘牌' })
+    else if (!usedManualKeys.has(key))
+      staleManual.push({ shared: key, why: '已被 RN 壳覆盖,登记未摘牌' })
   }
   for (const s of staleManual) failures.push({ type: 'manual-stale', shared: s.shared, why: s.why })
 
@@ -220,7 +230,8 @@ function loadManual(path = MANUAL_PATH) {
   if (!existsSync(path)) return { entries: [], problem: null }
   try {
     const doc = JSON.parse(readFileSync(path, 'utf8'))
-    if (!Array.isArray(doc?.entries)) return { entries: [], problem: `${MANUAL_REL} 缺 entries 数组` }
+    if (!Array.isArray(doc?.entries))
+      return { entries: [], problem: `${MANUAL_REL} 缺 entries 数组` }
     return { entries: doc.entries, problem: null }
   } catch (e) {
     return { entries: [], problem: `${MANUAL_REL} 不是合法 JSON:${e.message}` }
@@ -230,11 +241,17 @@ function loadManual(path = MANUAL_PATH) {
 function collect() {
   const shared = cov.collectShared()
   const rnShells = cov.collectRn()
-  if (shared.length === 0) throw new Error(`${cov.SHARED_DIR} 枚举到 0 枚共享屏 ⇒ 判死,不记绿(§0.3)`)
+  if (shared.length === 0)
+    throw new Error(`${cov.SHARED_DIR} 枚举到 0 枚共享屏 ⇒ 判死,不记绿(§0.3)`)
   if (rnShells.length === 0) throw new Error('RN 壳枚举到 0 枚 ⇒ 判死,不记绿(§0.3)')
   const unreadable = rnShells.filter((s) => typeof s.text !== 'string')
   if (unreadable.length > 0)
-    throw new Error(`RN 壳正文取不到 ${unreadable.length} 枚(${unreadable.slice(0, 5).map((s) => s.file).join(', ')}…)⇒ 未判定(§0.3)`)
+    throw new Error(
+      `RN 壳正文取不到 ${unreadable.length} 枚(${unreadable
+        .slice(0, 5)
+        .map((s) => s.file)
+        .join(', ')}…)⇒ 未判定(§0.3)`,
+    )
   const manual = loadManual()
   if (manual.problem) throw new Error(manual.problem)
   return { shared, rnShells, manualEntries: manual.entries }
@@ -251,7 +268,9 @@ function report(face, r) {
   if (r.needsManual.length > 0) {
     console.log('\n【needsManual】')
     for (const x of r.needsManual)
-      console.log(`  ${x.owner ? '·' : '✗'} ${x.shared}  owner=${x.owner ?? '(未指派)'} expires=${x.expires ?? '(缺)'}  ${x.reason ?? ''}`)
+      console.log(
+        `  ${x.owner ? '·' : '✗'} ${x.shared}  owner=${x.owner ?? '(未指派)'} expires=${x.expires ?? '(缺)'}  ${x.reason ?? ''}`,
+      )
   }
   if (r.seedableMissing.length > 0) {
     console.log('\n【seedableMissing(自动造壳队列)】')
@@ -264,7 +283,9 @@ function report(face, r) {
     for (const x of r.staleManual) console.log(`  ✗ ${x.shared}: ${x.why}`)
   }
   if (r.failures.length > 0) {
-    console.log(`\n❌ 共 ${r.failures.length} 条判红:每个共享屏至少要被一个 RN 壳直接 import,或由 owner/expires 挂账`)
+    console.log(
+      `\n❌ 共 ${r.failures.length} 条判红:每个共享屏至少要被一个 RN 壳直接 import,或由 owner/expires 挂账`,
+    )
   } else {
     console.log('\n✅ 全部共享屏已直接 import,或挂账在期')
   }

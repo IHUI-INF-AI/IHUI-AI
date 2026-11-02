@@ -70,7 +70,13 @@ test('prefixHits 超基线:424 > 423 ⇒ 判红;基线写入两次字节一致(�
 
 test('aligned 缺 data.kind:任一条无合法 kind ⇒ 判红并列行', () => {
   const v = judgeRatchet(
-    { ...green, alignedRows: [{ web: 'pages/a', data: { kind: 'direct' } }, { web: 'pages/b', data: {} }] },
+    {
+      ...green,
+      alignedRows: [
+        { web: 'pages/a', data: { kind: 'direct' } },
+        { web: 'pages/b', data: {} },
+      ],
+    },
     { prefixCap: PREFIX_HITS_CAP },
   )
   assert.equal(v.ok, false)

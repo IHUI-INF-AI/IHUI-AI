@@ -24,7 +24,11 @@ const seedable = () => ({ kind: 'seedable', hard: [], legs: [] })
 
 test('覆盖达标:每个共享屏都被至少一个 RN 壳值导入 ⇒ 无判红', () => {
   const shared = [
-    { name: 'AboutScreen', spec: 'packages/app/src/features/about/AboutScreen.tsx', domain: 'about' },
+    {
+      name: 'AboutScreen',
+      spec: 'packages/app/src/features/about/AboutScreen.tsx',
+      domain: 'about',
+    },
     { name: 'HomeScreen', spec: 'packages/app/src/features/home/HomeScreen.tsx', domain: 'home' },
   ]
   const rnShells = [
@@ -45,7 +49,13 @@ test('覆盖达标:每个共享屏都被至少一个 RN 壳值导入 ⇒ 无判�
       "import type { AboutScreen } from '@ihui/rn-app'\n",
     ),
   ]
-  const r = judgeCoverage({ shared, rnShells, manualEntries: [], classify: seedable, today: '2026-11-03' })
+  const r = judgeCoverage({
+    shared,
+    rnShells,
+    manualEntries: [],
+    classify: seedable,
+    today: '2026-11-03',
+  })
   assert.equal(r.total, 2)
   assert.equal(r.covered, 2)
   assert.deepEqual(r.failures, [])
@@ -57,9 +67,27 @@ test('覆盖达标:每个共享屏都被至少一个 RN 壳值导入 ⇒ 无判�
 })
 
 test('有 needsManual 未登记:未覆盖且账本无条目 ⇒ 判红并点名未指派', () => {
-  const shared = [{ name: 'CameraScreen', spec: 'packages/app/src/features/camera/CameraScreen.tsx', domain: 'camera' }]
-  const rnShells = [shell('apps/mobile-rn/src/screens/CameraScreen.tsx', 'CameraScreen', '// 空壳,未 import 共享屏\n')]
-  const r = judgeCoverage({ shared, rnShells, manualEntries: [], classify: needsManual, today: '2026-11-03' })
+  const shared = [
+    {
+      name: 'CameraScreen',
+      spec: 'packages/app/src/features/camera/CameraScreen.tsx',
+      domain: 'camera',
+    },
+  ]
+  const rnShells = [
+    shell(
+      'apps/mobile-rn/src/screens/CameraScreen.tsx',
+      'CameraScreen',
+      '// 空壳,未 import 共享屏\n',
+    ),
+  ]
+  const r = judgeCoverage({
+    shared,
+    rnShells,
+    manualEntries: [],
+    classify: needsManual,
+    today: '2026-11-03',
+  })
   assert.equal(r.covered, 0)
   assert.equal(r.needsManual.length, 1)
   assert.equal(r.needsManual[0].owner, null)
@@ -69,17 +97,33 @@ test('有 needsManual 未登记:未覆盖且账本无条目 ⇒ 判红并点名�
 })
 
 test('登记到期:needsManual 的 expires 早于今天 ⇒ manualExpired=1 且判红', () => {
-  const shared = [{ name: 'PdfScreen', spec: 'packages/app/src/features/pdf/PdfScreen.tsx', domain: 'pdf' }]
+  const shared = [
+    { name: 'PdfScreen', spec: 'packages/app/src/features/pdf/PdfScreen.tsx', domain: 'pdf' },
+  ]
   const rnShells = [shell('apps/mobile-rn/src/screens/PdfScreen.tsx', 'PdfScreen', '// 空壳\n')]
-  const manualEntries = [{ shared: 'PdfScreen', owner: 'alice', expires: '2026-10-01', reason: '等 PDF 原生依赖' }]
-  const r = judgeCoverage({ shared, rnShells, manualEntries, classify: needsManual, today: '2026-11-03' })
+  const manualEntries = [
+    { shared: 'PdfScreen', owner: 'alice', expires: '2026-10-01', reason: '等 PDF 原生依赖' },
+  ]
+  const r = judgeCoverage({
+    shared,
+    rnShells,
+    manualEntries,
+    classify: needsManual,
+    today: '2026-11-03',
+  })
   assert.equal(r.needsManual.length, 1)
   assert.equal(r.manualExpired, 1)
   const hit = r.failures.find((f) => f.type === 'manual-invalid' && f.shared === 'PdfScreen')
   assert.ok(hit, '到期条目必须进 failures')
   assert.ok(hit.issues.some((x) => x.includes('已到期')))
   // 到期日当天仍算在期(与仓库既有 until 语义一致)
-  const onDeadline = judgeCoverage({ shared, rnShells, manualEntries, classify: needsManual, today: '2026-10-01' })
+  const onDeadline = judgeCoverage({
+    shared,
+    rnShells,
+    manualEntries,
+    classify: needsManual,
+    today: '2026-10-01',
+  })
   assert.equal(onDeadline.manualExpired, 0)
   assert.equal(onDeadline.failures.length, 0)
 })
