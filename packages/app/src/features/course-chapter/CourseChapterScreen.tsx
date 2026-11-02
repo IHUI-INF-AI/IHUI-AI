@@ -26,8 +26,9 @@ export function CourseChapterScreen({
   error,
   onPressItem,
   onBack,
-  colorScheme = 'light',
-}: CourseChapterScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: CourseChapterScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -39,7 +40,7 @@ export function CourseChapterScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

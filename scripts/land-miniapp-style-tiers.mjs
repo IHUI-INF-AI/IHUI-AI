@@ -23,6 +23,8 @@
  *   ④ **不碰 line-height**:多个档可能共享同一行高,反查档名不是单值 ⇒ 有歧义。只改 font-size。
  *
  * 归属避让(多会话共享工作区):`git status --porcelain` 对该文件非空 ⇒ 跳过并点名(held)。
+ *   判据单源 = `scripts/lib/git-paths.mjs` 的 `ownershipDirtyPaths`(2026-11-03 提库;整树取一次,
+ *   逐路径派生 git 在候选数百枚时会把命令行顶爆 —— 实测 800+ 路径直接失败)。
  *
  * 水印(§5c 强制):逐文件 `watermark clean` → 改写 → `watermark inject`,inject 后 verify 复核。
  * 幂等:已是 `var(--spacing-*)` / `var(--text-*)` 的位置不会再命中 ⇒ 重跑改 0 处。
@@ -51,6 +53,8 @@ import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { parseTokenTables } from './sync-css-tokens.mjs'
 import { maskComments, scanSpans } from './lib/code-mask.mjs'
 import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 归属避让判据的唯一实现(2026-11-03 提库,§0.6 / 门 191):三枚 lander + 两枚落档器共用这一份。
+import { ownershipDirtyPaths } from './lib/git-paths.mjs'
 
 /**
  * **等长**的注释遮罩(只抹注释、保留字符串)。
@@ -230,23 +234,6 @@ export function rewriteClassNameTokens(text, rev, opts = {}) {
   return { out, changes, samples }
 }
 
-/** 工作树脏 ⇒ 归属未知 ⇒ 跳过(与 land-rn-style-tiers 同一条避让)。
- *  **全量取一次 status**:候选可达数百个路径,`status -- <paths>` 会把命令行撑爆(实测 800+ 路径直接失败);
- *  全量取回后在内存里比对,语义不变。 */
-function dirtySet() {
-  const out = new Set()
-  try {
-    const text = String(gitRaw(['status', '--porcelain'], ROOT))
-    for (const l of text.split('\n')) {
-      const p = l.slice(3).trim().replace(/^"|"$/g, '')
-      if (p) out.add(p)
-    }
-  } catch {
-    return null
-  }
-  return out
-}
-
 function watermark(mode, file) {
   execFileSync(process.execPath, [WATERMARK, mode, file], {
     cwd: ROOT,
@@ -412,7 +399,7 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
     console.error('❌ 未判定:字号面候选枚举到 0 个')
     process.exit(2)
   }
-  const dirty = dirtySet(files)
+  const dirty = ownershipDirtyPaths({ root: ROOT })
   if (dirty === null) {
     console.error('❌ 未判定:git status 取不到,归属未知不猜')
     process.exit(2)
@@ -524,7 +511,7 @@ function main() {
     console.error('❌ 未判定:CSS 候选枚举到 0 个')
     process.exit(2)
   }
-  const dirty = dirtySet(files)
+  const dirty = ownershipDirtyPaths({ root: ROOT })
   if (dirty === null) {
     console.error('❌ 未判定:git status 取不到,归属未知不猜')
     process.exit(2)

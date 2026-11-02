@@ -33,8 +33,9 @@ export function CheckInScreen({
   onSign,
   onRefresh,
   onBack,
-  colorScheme = 'light',
-}: CheckInScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: CheckInScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function CheckInScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('checkIn.retry')}
         colorScheme={colorScheme}
       />

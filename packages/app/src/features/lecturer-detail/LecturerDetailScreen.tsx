@@ -60,10 +60,11 @@ export function LecturerDetailScreen({
   onContact,
   onOpenCourse,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onViewCourses,
   onNavigate,
-}: LecturerDetailScreenProps) {
+}: LecturerDetailScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -112,7 +113,7 @@ export function LecturerDetailScreen({
           colorScheme={colorScheme}
           styles={styles}
         />
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }
