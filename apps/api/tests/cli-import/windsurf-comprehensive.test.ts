@@ -454,7 +454,7 @@ describe('windsurf parser — meta + name 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.category).toBe('Windsurf')
+    expect(res.providers[0]!.meta!.category).toBe('Windsurf')
   })
 
   it('meta.websiteUrl = https://codeium.com', async () => {
@@ -466,7 +466,7 @@ describe('windsurf parser — meta + name 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.websiteUrl).toBe('https://codeium.com')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://codeium.com')
   })
 
   it('有 model 时 meta.models = [model]', async () => {
@@ -479,7 +479,7 @@ describe('windsurf parser — meta + name 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toEqual(['claude-3-opus'])
+    expect(res.providers[0]!.meta!.models).toEqual(['claude-3-opus'])
   })
 
   it('sourceId = windsurf-default', async () => {
