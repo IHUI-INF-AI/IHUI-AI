@@ -16,6 +16,10 @@
 // 去重模型(2026-09-24 起): **只按身份去重,无任何总量封顶。**
 //   - 同一条告警(alertname + instance 指纹)在 BRIDGE_DEDUP_MIN 窗口(默认 240 分钟)内
 //     只寄一封;不同告警一律照寄。批次内多条告警合并成一封。
+//   - 窗口从**上一次真正投递**起算:被抑制的重复推送只读旧时间戳、**不续期**窗口
+//     (2026-11-02 修)。此前每次推送都刷新时间戳 ⇒ 持续 firing 的告警窗口永远推不远,
+//     只在第一次响、之后永不再报(PostgresDown 实测被压住的正是这一格)。
+//     语义仍是"同一身份在两次投递之间至少隔 BRIDGE_DEDUP_MIN",不是"最后一次推送后再等"。
 //   - 为什么第三方推送时代需要"每日预算":免费额度是**第三方配额**(5 条/天),不自保就会
 //     撞墙并被静默丢投递。SMTP 是我们自己的服务,自设总量上限等于把"告警静默"再复制一遍
 //     —— 第 11 封恰好是唯一那封真故障时,预算闸门就是事故本身。故寄几封完全由
@@ -193,23 +197,25 @@ function formatAlert(alert) {
 // 去重状态**必须跨进程重启延续**:此前 3s 防抖 + NSSM 硬杀(不走 SIGINT/SIGTERM)让突发
 // 窗口内的去重决定随内存一起丢,重启后同一条告警被再寄一次(实测 skipped:0)。现在改为
 // 每一次会改变去重状态的 webhook 都在**回响应之前**同步落盘(文件极小,代价可忽略)。
-const dedup = new Map() // key=`alertname|instance` -> lastPushTs
+const dedup = new Map() // key=`alertname|instance` -> lastDeliveredTs(最近一次**真正投递**时刻;被抑制的推送不写)
 const MAX_DEDUP_AGE_MS = DEDUP_WINDOW_MIN * 60 * 1000
 
-/** 去重判据(纯函数,注入 store ⇒ 只有一个状态源,不造第二份) */
+/** 去重判据(纯读,注入 store ⇒ 只有一个状态源,不造第二份;**判定本身绝不写状态**) */
 function decideDedup(store, key, nowMs, windowMs) {
   const last = store.get(key)
-  store.set(key, nowMs) // 不断刷新该 key 的最后时间(窗口内重复告警仅重置计时)
   return !!(last && nowMs - last < windowMs)
 }
-/** 一批告警 → 待投递子集 */
+/** 一批告警 → 待投递子集(只有判定**可投递**的条目才落状态;被抑制的只读旧值、
+ *  不得写回时间戳 —— 写回就是给窗口续期,持续 firing 的告警会被永远压住) */
 function partitionAlerts(alerts, store, nowMs, windowMs) {
   let dedupedCount = 0
   const toPush = (Array.isArray(alerts) ? alerts : []).filter((a) => {
     const labels = a.labels || {}
-    const isDup = decideDedup(store, `${labels.alertname || ''}|${labels.instance || ''}`, nowMs, windowMs)
-    if (isDup) dedupedCount++
-    return !isDup
+    const key = `${labels.alertname || ''}|${labels.instance || ''}`
+    const isDup = decideDedup(store, key, nowMs, windowMs)
+    if (isDup) { dedupedCount++; return false }
+    store.set(key, nowMs) // 仅"可投递"这一刻建档/刷新 —— 窗口锚在最近一次真正投递
+    return true
   })
   return { toPush, dedupedCount }
 }
@@ -771,7 +777,7 @@ async function handleAlert(reqBody) {
       writeLog(`[alert][selfscope] 只报不炸(来源分区 ${anchor.ok ? `${anchor.label}=${(a.labels || {})[anchor.label]}` : '未判定'}): ${formatAlert(a).replace(/\n/g, ' / ')} ${statusDimOf(toPush.length)}`)
     }
   }
-  // 回响应前同步落盘(含 decideDedup 刚刷新过的时间戳)⇒ 跨重启延续,杜绝重启后重寄。
+  // 回响应前同步落盘(含 partitionAlerts 刚为**可投递**条目写入的时间戳;被抑制的不写也不动旧值)⇒ 跨重启延续,杜绝重启后重寄。
   if (!persistState(STATE_FILE, dedup, now, writeLog)) counters.statePersistFailures += 1
 
   if (!toPush.length) {
@@ -928,6 +934,14 @@ async function runSelfTest() {
   eq('首批两条告警全部待投递', partitionAlerts(alerts, store, 1000, HOUR).toPush.length, 2)
   const second = partitionAlerts(alerts, store, 1000 + 60000, HOUR)
   eq('同批再推一次 ⇒ 全部命中去重', [second.toPush.length, second.dedupedCount], [0, 2])
+  eq('被抑制的重复推送不得续期窗口(该键时间戳保持首次投递时刻)', [store.get('HighCPU|a:9100'), store.get('DiskFull|b:9100')], [1000, 1000])
+  // 回归锁(2026-11-02 修):持续 firing 每 10 分钟推一次,旧实现每次推送都写 ts ⇒ 窗口被无限
+  // 续期 ⇒ 只在第一次响、之后永不再报。新语义:只有真正投递才刷新,窗口锚在最近一次投递。
+  const renewalStore = new Map()
+  partitionAlerts(alerts, renewalStore, 1000, HOUR) // 首次投递建档
+  for (let i = 1; i <= 5; i += 1) partitionAlerts(alerts, renewalStore, 1000 + i * 10 * 60 * 1000, HOUR) // 50 分钟内 5 次重复推送,全被压
+  eq('持续重复推送 5 次后仍在原窗口内 ⇒ 判重(窗口位置没被推后)', partitionAlerts(alerts, renewalStore, 1000 + 59 * 60 * 1000, HOUR).toPush.length, 0)
+  eq('越过首次投递 + 窗口即重新放行(持续故障必须按期重报)', partitionAlerts(alerts, renewalStore, 1000 + 61 * 60 * 1000, HOUR).toPush.length, 2)
   eq('超出窗口后重新放行(去重不得把持续故障压成永久静默)', partitionAlerts(alerts, store, 1000 + 3 * HOUR, HOUR).toPush.length, 2)
   eq('空/非数组输入不炸', partitionAlerts(undefined, store, 1, HOUR).toPush.length, 0)
 
@@ -936,15 +950,15 @@ async function runSelfTest() {
   cleanup.push(stateFile)
   const storeA = new Map()
   partitionAlerts(alerts, storeA, 1000, HOUR)
-  partitionAlerts(alerts, storeA, 1000 + 60000, HOUR) // 窗口内的重复推送只刷新时间戳(与线上行为同形)
+  partitionAlerts(alerts, storeA, 1000 + 60000, HOUR) // 窗口内的重复推送只读、不写 ts(与线上行为同形)
   // 反向对照:一条已超出窗口的陈旧条目不得被持久化/读回
   storeA.set('Old|gone:9100', 1000 - 2 * HOUR)
-  const savedOk = persistState(stateFile, storeA, 1000 + HOUR, () => {}, HOUR)
+  const savedOk = persistState(stateFile, storeA, 1000 + 60000, () => {}, HOUR)
   eq('去重状态真实落盘(persistState 返回成功且文件存在)', [savedOk, fs.existsSync(stateFile)], [true, true])
   const storeB = new Map() // 模拟重启后的空进程
-  const loaded = loadDedupState(stateFile, storeB, 1000 + HOUR, HOUR)
+  const loaded = loadDedupState(stateFile, storeB, 1000 + 60000, HOUR)
   eq('重启后按文件读回去重条目(陈旧那条不复活)', loaded, 2)
-  const afterRestart = partitionAlerts(alerts, storeB, 1000 + HOUR, HOUR)
+  const afterRestart = partitionAlerts(alerts, storeB, 1000 + 2 * 60000, HOUR)
   eq('重启后收到同一告警 ⇒ 仍判重复(修前实测 skipped:0 的那个洞)', [afterRestart.toPush.length, afterRestart.dedupedCount], [0, 2])
   eq('重启后不同身份告警照寄(去重态不得顺手压掉新告警)', partitionAlerts([{ labels: { alertname: 'NewIssue', instance: 'c:9100' } }], storeB, 1000 + HOUR, HOUR).toPush.length, 1)
   eq('状态文件形态只有 dedup(无预算/计数字段 ⇒ 结构上不存在总量封顶)', Object.keys(JSON.parse(fs.readFileSync(stateFile, 'utf8'))), ['dedup'])
