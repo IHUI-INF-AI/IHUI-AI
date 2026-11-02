@@ -25,6 +25,11 @@
  *   node scripts/upgrade-miniapp-shell-pages.mjs --apply --cap=5
  *   node scripts/upgrade-miniapp-shell-pages.mjs --land --cap=2  # 自动落地(页面 + 声明件两批;守护轮用)
  *   node scripts/upgrade-miniapp-shell-pages.mjs --json
+ *
+ * 写盘申报(2026-11-03 立):--land 走 object-space-land 直落 HEAD = 已闭环,不登记;
+ * 只有悬挂形态(--apply 人肉档 / 落 HEAD 失败且回退失败 / 声明件未落 HEAD)批末进
+ * scripts/lib/cross-end-landing-ledger.mjs 账本(leg 逐字取守护自称名 CROSS_END_LEG)。
+ * 只读预演零登记;账本读不到 ⇒ 照旧全量尝试 + ledger=unjudged。
  */
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
@@ -36,6 +41,11 @@ import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { buildShellPage } from './gen-miniapp-mirror.mjs'
 import { pickCarrierShell } from './lib/rn-shell-refs.mjs'
 import { maskComments } from './lib/code-mask.mjs'
+// 写盘申报账本(2026-11-03 立):落点判据/幂等/形状校验全在库内,本文件只调它(§0.6)。
+import { appendLanding, isRowComplete, readLanding } from './lib/cross-end-landing-ledger.mjs'
+// 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',p], root),
+// 这里必须问同一把尺(两侧算法不一致的后果是"永远 contested")。
+import { gitRaw } from './lib/face-reader.mjs'
 import {
   navTitleExpr,
   needsAuthGate,
@@ -47,6 +57,93 @@ import {
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const MP_DIR = 'apps/miniapp-taro/src'
 const SHELL_DECL = 'apps/miniapp-taro/types/rn-shells.generated.d.ts'
+
+/**
+ * 本腿在 git-guardian 的自称名,逐字取用,不自立新名:守护 sweepHandMirrorUpgrades 的
+ * 节流戳与 env 旋钮都以这个名字自称(tickFile 'hand-mirror-upgrade-last.json'、
+ * IHUI_HAND_UPGRADE_INTERVAL_MS / IHUI_HAND_UPGRADE_TIMEOUT_MS)。
+ * 对照证据由 scripts/tests/cross-end-landing-legs.test.mjs 钉(名字必须逐字出现在守护源里)。
+ */
+export const CROSS_END_LEG = 'hand-mirror-upgrade'
+
+// ─── 写盘申报账本层(2026-11-03 立,四枚跨端写盘腿同形)───────────────────────
+// 本器 --land 走 object-space-land 直落 HEAD,页面批落成功即**已闭环,不登记**;
+// 只有三种"写了工作树而 HEAD 没推进"的悬挂形态进账本:
+//   ① --apply(人肉档)写完页面等人工提交;② --land 落 HEAD 失败且工作区回退也失败;
+//   ③ --land 页面落了、壳声明件再生成后落 HEAD 未推进。
+// 既有续跑判据(HEAD 面 plan 判 hosted ⇒ 不再 convertible;worktreeClean held 闸)原样保留,
+// 登记只是追加凭据。失效方向:账本读不到 ⇒ 照旧全量尝试 + ledger=unjudged(§0.3)。
+/** 与 collectiblePaths(worktree 面)同一把尺取当前 blob oid;取不到 ⇒ null(点名不猜)。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 本 leg 在册且行完整的 path→oid 映射;账本取不到 ⇒ {ok:false, reason}(不冒充空集)。 */
+export function landedOidMap({ root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = readLanding({ root })
+  if (!rd.ok) return { ok: false, reason: rd.reason, map: new Map() }
+  const map = new Map()
+  for (const row of rd.lines) {
+    if (String(row?.leg ?? '') !== leg || !isRowComplete(row)) continue
+    map.set(String(row.path), String(row.blobOid).trim().toLowerCase())
+  }
+  return { ok: true, reason: null, map }
+}
+
+/** 「本 leg 已登记 ∧ 工作树 blob 仍等于登记 oid」的路径 ⇒ 本轮视为已完成。 */
+export function landedSkips(paths, { root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = landedOidMap({ root, leg })
+  if (!rd.ok) return { skip: [], ledger: 'unjudged', reason: rd.reason }
+  const skip = []
+  for (const p of paths || []) {
+    const oid = rd.map.get(p)
+    if (oid && worktreeBlobOid(p, root) === oid) skip.push(p)
+  }
+  return { skip, ledger: null, reason: null }
+}
+
+/** 批末申报:写了盘的文件逐枚实测 oid 进账本。写了盘没登记上 ⇒ landingError 点名,不冒成功。 */
+export function registerLandings(paths, { root = ROOT, leg = CROSS_END_LEG, at = new Date().toISOString() } = {}) {
+  const list = [...new Set(paths || [])]
+  if (list.length === 0) return { landing: 0, appended: 0, deduped: 0, rejected: [] }
+  const entries = []
+  const unhashable = []
+  for (const p of list) {
+    const oid = worktreeBlobOid(p, root)
+    if (!oid) {
+      unhashable.push(p)
+      continue
+    }
+    entries.push({ at, leg, path: p, blobOid: oid })
+  }
+  try {
+    const ap = appendLanding(entries, { root })
+    const out = {
+      landing: ap.appended + ap.deduped,
+      appended: ap.appended,
+      deduped: ap.deduped,
+      rejected: ap.rejected,
+    }
+    const errs = []
+    if (ap.rejected.length)
+      errs.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (unhashable.length) errs.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    if (errs.length) out.landingError = errs.join(' | ')
+    return out
+  } catch (e) {
+    return {
+      landing: 0,
+      appended: 0,
+      deduped: 0,
+      rejected: [],
+      landingError: `账本写盘失败:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+}
 
 const git = (args) =>
   execFileSync('git', args, {
@@ -90,6 +187,9 @@ const worktreeClean = (rel) => {
     return false
   }
 }
+
+/** 工作树副本相对 HEAD 是否仍脏(只读判断;文件不在盘上按不脏处理)。 */
+const dirtyAgainstHead = (rel) => !worktreeClean(rel)
 
 /** 页面级分享钩子(转壳后必须由宿主页重新注册的那三句;端内 showShareMenu() 是 Taro.showShareMenu 的单一出口) */
 export const PAGE_LEVEL_SHARE_TOKENS = ['useShareAppMessage', 'useShareTimeline', 'showShareMenu']
@@ -211,10 +311,22 @@ function main() {
   const batch = res.upgradable.slice(0, cap)
   const saved = batch.reduce((n, x) => n + (x.beforeLines - x.afterLines), 0)
 
+  // 轮首读账本:本 leg 在册、工作树 blob 未动、且相对 HEAD 仍脏的路径 = 本腿自己待收编的
+  // 悬挂产出(报 skipLanded 读数;续跑的正判据仍是既有的 HEAD 面 hosted/worktreeClean 闸,
+  // 账本只是追加凭据,不替换它)。账本读不到 ⇒ 照常全量尝试,只补 ledger=unjudged。
+  const landedRead = landedOidMap()
+  let skipLanded = 0
+  for (const [p, oid] of landedRead.map) {
+    if (worktreeBlobOid(p) === oid && dirtyAgainstHead(p)) skipLanded++
+  }
+  const writtenPaths = new Set()
+  let landingInfo = { landing: 0 }
+
   if (apply || land) {
     for (const x of batch) {
       const abs = join(ROOT, x.pageRel)
       writeFileSync(abs, x.pageText, 'utf8')
+      if (apply && !land) writtenPaths.add(x.pageRel) // 人肉档:写完等工作树收编 ⇒ 申报
       try {
         execFileSync(process.execPath, [join(ROOT, 'scripts', 'watermark.mjs'), 'inject', abs], {
           cwd: ROOT,
@@ -226,6 +338,8 @@ function main() {
       }
     }
   }
+  // 水印在写盘后追加了字节 ⇒ 登记的 oid 必须按"最终落盘形态"实测(registerLandings 批末
+  // 现算 hash-object,天然后置),这里只登记路径。
 
   // --land:页面 → 对象空间落地 → 按新 HEAD 重生成壳声明件 → 声明件再落一批。
   // 凭据是 **HEAD 有没有被推进**,不是落地器退出码(实测它落完还会复跑别的门而退非零)。
@@ -254,6 +368,8 @@ function main() {
         git(['checkout', 'HEAD', '--', ...batch.map((x) => x.pageRel)])
       } catch (e) {
         landed.rollbackErr = String(e?.stderr ?? e?.message ?? e).slice(0, 300)
+        // 回退也失败 ⇒ 本批工作树副本是真悬挂件(既没落 HEAD 也回不去),申报进账本交收编侧
+        for (const x of batch) writtenPaths.add(x.pageRel)
       }
     }
     if (landed.ok) {
@@ -283,16 +399,24 @@ function main() {
           landed.declErr = String(e?.stderr ?? e?.message ?? e).slice(0, 400)
         }
         landed.declLanded = git(['rev-parse', 'HEAD']).trim() !== b2
+        // 声明件写了工作树但没落 HEAD ⇒ 悬挂件申报(页面批本身已闭环,不登记)
+        if (!landed.declLanded) writtenPaths.add(SHELL_DECL)
       } else {
         landed.declLanded = false
       }
     }
   }
 
+  // 批末申报:只登记"写了工作树而 HEAD 未推进"的悬挂路径(--land 成功批不在其中,已闭环)。
+  if (writtenPaths.size > 0) landingInfo = registerLandings([...writtenPaths])
+
   if (json) {
+    const tail = {}
+    if (landingInfo.landingError) tail.landingError = landingInfo.landingError
+    if (!landedRead.ok) tail.ledger = 'unjudged'
     console.log(
       JSON.stringify({
-        ok: true,
+        ok: true, // 判定面成功与否(规划器出了结论);申报成败看 landingError,不借这个字段
         applied: apply,
         land,
         landed,
@@ -300,9 +424,12 @@ function main() {
         batch: batch.map((x) => ({ route: x.route, shell: x.shell, saved: x.beforeLines - x.afterLines })),
         refused: res.refused.length,
         savedLines: saved,
+        landing: landingInfo.landing,
+        skipLanded,
+        ...tail,
       }),
     )
-    return apply || land || batch.length === 0 ? 0 : 1
+    return apply || land || batch.length === 0 ? (landingInfo.landingError ? 1 : 0) : 1
   }
 
   // 0 落地 ≠ 落地失败(2026-11-01 现读:batch=0 时落地器根本没被调用,旧三目却报 land-failed,
@@ -310,7 +437,7 @@ function main() {
   console.log(
     `UPGRADE-SHELL state=${
       land ? (batch.length === 0 ? 'land-empty' : landed?.ok ? 'landed' : 'land-failed') : apply ? 'applied' : 'preview'
-    } 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved}`,
+    } 可落地=${res.upgradable.length} 本批=${batch.length} 拒=${res.refused.length} 本批可删行=${saved} landing=${landingInfo.landing} skipLanded=${skipLanded}${landingInfo.landingError ? ` landingError=${landingInfo.landingError}` : ''}${landedRead.ok ? '' : ' ledger=unjudged'}`,
   )
   for (const x of batch) console.log(`  ${x.route} | ${x.shell} | ${x.beforeLines}→${x.afterLines} 行`)
   for (const x of res.refused) console.log(`  拒 ${x.route} | ${x.why}`)
@@ -320,7 +447,7 @@ function main() {
     )
   if (apply && !land && batch.length > 0)
     console.log('ℹ️ 下一步:提交页面 → node scripts/gen-rn-shell-types.mjs --write → 提交派生声明件')
-  return apply || land || batch.length === 0 ? 0 : 1
+  return apply || land || batch.length === 0 ? (landingInfo.landingError ? 1 : 0) : 1
 }
 
 /* §22d:直执行才跑主流程;测试 import __test__ 不得触发 CLI */
@@ -334,5 +461,15 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { planUpgrades, worktreeClean, landMessage, missingPageLevelHooks }
+export const __test__ = {
+  planUpgrades,
+  worktreeClean,
+  landMessage,
+  missingPageLevelHooks,
+  // 写盘申报账本层(§22c:测试 import 生产出口,不复制判据)
+  registerLandings,
+  landedSkips,
+  landedOidMap,
+  worktreeBlobOid,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
