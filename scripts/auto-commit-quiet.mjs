@@ -14,7 +14,9 @@
  *   1. `git status` 有改动;
  *   2. 所有改动文件的 mtime 都早于 QUIET_MIN 分钟(默认 3,2026-10-22 提速)—— 还在写的一律放过;
  *   3. 无未解决冲突(UU/AA/DD)、无 .git/index.lock、无进行中的守门批;
- *   4. 只收编源码/配置/文档,排除 .env*、node_modules、.next、tmp、日志、二进制。
+ *   4. **路径白名单**(2026-11-02 收紧,立因见 COLLECT_WHITELIST):只收编文档与派生产物,
+ *      `apps/**`、`packages/**` 下的业务代码与测试、`AGENTS.md`/`PROJECT_PLAN.md` 等规则文件
+ *      一律不收编;无法判定归属的路径按"不收编"处理(fail-safe,宁可留给人清)。
  *
  * 落地走 safe-commit(全门冻结索引),失败只记日志不重试轰炸;调度器下一轮自然重来。
  * 用法: node scripts/auto-commit-quiet.mjs [--dry-run]
@@ -56,6 +58,57 @@ const EXCLUDE = [
 function isExcluded(path) {
   return EXCLUDE.some((re) => re.test(path))
 }
+
+/**
+ * 收编路径白名单(2026-11-02 收紧;立因 = 当日 ef1c716616「收编停留≥3分钟」把 7 件实质回退
+ * 与 3 个半成品测试自动送进主干)。
+ *
+ * 旧实现只排除 `.env`/二进制一类,其余**全部**收编 —— 收编器因此能替任何席位提交业务代码与
+ * 测试,而它唯一的判据只是"停笔 3 分钟";半成品、回退、未跑过测试的改动都会被当成成品入库。
+ * 现在改成**白名单**:只有下面这些明确属于文档/派生产物的路径才收编,其余一律留在工作树交人。
+ *
+ * 判据刻意是"逐条列出的具体形态",不是"猜什么像生成物"的宽正则;新增形态必须在这里显式登记
+ * 并补测试,不做模糊匹配。fail-safe:任何不在名单里的路径(含无法判定的)⇒ 不收编。
+ */
+const COLLECT_WHITELIST = [
+  // 根级 README 及其语言变体(README.md / README.en.md / README.ja.md / README.ko.md)
+  /^README(?:[.-][A-Za-z]{2,})?\.md$/,
+  // 自动更新基线(由钩子/脚本写入)
+  /^\.doc-autoupdate\//,
+  // 显式生成物后缀
+  /\.generated\.ts$/,
+  /\.b64\.txt$/,
+  // 根护栏清单(生成物,重钉走脚本)
+  /^scripts\/data\/root-guard-manifest\.json$/,
+  // 各端 i18n 生成目录(apps/<端>/src/i18n/generated/*.gen.ts)
+  /^apps\/[^/]+\/src\/i18n\/generated\//,
+]
+
+/**
+ * 该路径是否允许自动收编(白名单唯一判据)。
+ *
+ * fail-safe:未命中白名单一律 false —— 宁可留给人清,也不再自动送进主干。
+ * 路径先归一成 `/` 分隔,Windows 反斜杠形态同判。
+ */
+function isCollectible(path) {
+  const p = String(path).replace(/\\/g, '/')
+  return COLLECT_WHITELIST.some((re) => re.test(p))
+}
+
+/**
+ * 把候选路径分成"可收编/留下"两摞(pure;镜像测试直接调用,支持注入 predicate 做反向例)。
+ * 默认判据 = isCollectible;注入 `() => true` 应能让"只收编白名单"的断言失败。
+ */
+function partitionCollectible(paths, predicate = isCollectible) {
+  const collected = []
+  const held = []
+  for (const p of paths) {
+    if (predicate(p)) collected.push(p)
+    else held.push(p)
+  }
+  return { collected, held }
+}
+
 
 /** 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。 */
 const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
@@ -548,7 +601,19 @@ function main() {
   const busy = guardBusy()
   if (busy) return log(`跳过:${busy}`)
 
-  const changes = listChanges().filter((c) => !isExcluded(c.path))
+  const rawChanges = listChanges().filter((c) => !isExcluded(c.path))
+  // 路径白名单(2026-11-02,fail-safe):白名单外的改动一律不收编,只记日志留给人清;
+  // 无法判定归属的路径同样落进 held —— 宁可悬挂,也不再替别的席位提交业务代码/测试。
+  const changes = rawChanges.filter((c) => isCollectible(c.path))
+  const held = rawChanges.filter((c) => !isCollectible(c.path))
+  if (held.length) {
+    log(
+      `白名单外 ${held.length} 个路径不收编(留给人清):${held
+        .slice(0, 8)
+        .map((c) => c.path)
+        .join(', ')}${held.length > 8 ? ' …' : ''}`,
+    )
+  }
   if (changes.length === 0) return
 
   const conflicted = changes.filter((c) => /^(UU|AA|DD|AU|UA|DU|UD)$/.test(c.xy))
@@ -798,6 +863,9 @@ if (isDirectRun) {
 
 export const __test__ = {
   isExcluded,
+  isCollectible,
+  partitionCollectible,
+  COLLECT_WHITELIST,
   listChanges,
   guardBusy,
   mergeLiveDoc,
