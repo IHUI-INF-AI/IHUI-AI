@@ -334,6 +334,63 @@ $script:LastDeploySha = ''
 #     本层不写第二个数字。这一段有没有真接上,由只读尺子
 #     deploy/win/ihui-canary-wiring.mjs --check 判(镜像 deploy/tests/ihui-canary-wiring.test.mjs)。
 # =============================================================================
+# ── 子进程输出落文件 + 墙钟(2026-11-02 根治)──────────────────────────────────
+# 病灶:灰度 start 会新起长驻 next 实例。旧写法 `& $PwshExe … 2>&1 | Out-String` 走管道,
+# 新实例把管道的写端一并继承 ⇒ 即使脚本自身已退出,Out-String 也永远等不到 EOF。
+# 实测:2026-11-02 两轮都停在 `gray-artifact` 之后(10:32:21 / 11:25:43);手工杀掉新起的
+# 灰度实例后,同一轮立刻放出全部 `[gray]` 行并打出「CANARY 观察窗开始」(11:45:55)
+# ⇒ 管道/句柄型故障坐实。根治法与 ihui-deploy.ps1:552、本文件 2026-09-24 那两处同形:
+# 文件重定向(不依赖存活写者)+ WaitForExit 墙钟 + 超时 taskkill /T 整树。
+# 超时/起不来只记 FAIL 并交非 0 rc 给调用方判「未判定」,不 return、不 throw,
+# 保证环在任何分支都能回到下一拍 poll。
+function Invoke-CapturedChild {
+    param(
+        [Parameter(Mandatory = $true)][string]$Exe,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [int]$TimeoutSec = 120,
+        [string]$Tag = 'child'
+    )
+    # 落点不得用 $env:TEMP:服务身份是 LocalSystem,其 TEMP 是 C:\Windows\Temp(§26 第四类真因)。
+    $dir = Join-Path $Root '.ihui-agent\tmp\deploy-loop'
+    New-Item -ItemType Directory -Path $dir -Force -ErrorAction SilentlyContinue | Out-Null
+    $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss-fff')
+    $outFile = Join-Path $dir ("{0}-{1}.out.log" -f $Tag, $stamp)
+    $errFile = Join-Path $dir ("{0}-{1}.err.log" -f $Tag, $stamp)
+    $proc = $null
+    $timedOut = $false
+    try {
+        $proc = Start-Process -FilePath $Exe -ArgumentList $Arguments -NoNewWindow -PassThru `
+            -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        $timedOut = -not $proc.WaitForExit($TimeoutSec * 1000)
+        if ($timedOut) {
+            Log ("FAIL  {0} 超墙钟 {1}s ⇒ taskkill /T 整树(pid={2});本轮按未判定继续,环回到下一拍" -f $Tag, $TimeoutSec, $proc.Id)
+            & taskkill /PID $proc.Id /T /F 2>&1 | Out-Null
+            try { $proc.WaitForExit(5000) | Out-Null } catch { }
+        }
+    } catch {
+        Log ("FAIL  {0} 起不来({1})⇒ 本轮按未判定继续" -f $Tag, $_.Exception.Message)
+        $proc = $null
+    }
+    $text = ''
+    foreach ($f in @($outFile, $errFile)) {
+        if (Test-Path -LiteralPath $f) {
+            try { $text += (Get-Content -LiteralPath $f -Raw -Encoding utf8 -ErrorAction Stop) } catch { }
+        }
+    }
+    $rc = 2
+    if ($timedOut) {
+        $rc = 124
+    } elseif ($null -ne $proc) {
+        try { $rc = [int]$proc.ExitCode } catch { $rc = 2 }
+    }
+    return [pscustomobject]@{
+        Text = $text
+        Rc = $rc
+        TimedOut = $timedOut
+        Pid = $(if ($null -ne $proc) { $proc.Id } else { 0 })
+    }
+}
+
 function Invoke-CanaryGate {
     param([Parameter(Mandatory = $true)][string]$Node)
     if ("$($env:IHUI_DEPLOY_CANARY)".Trim() -eq '0') {
@@ -417,12 +474,20 @@ function Invoke-CanaryGate {
         } else {
             Log "GRAY 未判定:灰度产物来源判据不在位($artifactCli)⇒ 不猜它绿,照常走后面的灰度编排"
         }
-        $gpOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File $grayPs1 -Action start -SplitOnly -Sha ([string]$script:LastDeploySha) -StateDir $stateDir 2>&1 | Out-String)
+        # 2026-11-02 根治:灰度 start 会新起长驻实例,**不得经管道捕获** —— 新实例会继承
+        # 管道的写端,脚本自身退出了 Out-String 也等不到 EOF(两轮实测吊死点即此处)。
+        # 改文件重定向 + 120s 墙钟;超时由 helper taskkill /T 整树并交 rc=124 判未判定。
+        $gp = Invoke-CapturedChild -Exe $PwshExe -Arguments @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $grayPs1,
+            '-Action', 'start', '-SplitOnly', '-Sha', ([string]$script:LastDeploySha),
+            '-StateDir', $stateDir
+        ) -TimeoutSec 120 -Tag 'canary-gray-start'
+        $gpOut = $gp.Text
         foreach ($ln in ($gpOut -split "`r?`n")) { if ($ln.Trim()) { Log ("  [gray] {0}" -f $ln.Trim()) } }
-        $splitUp = ($LASTEXITCODE -eq 0)
+        $splitUp = ($gp.Rc -eq 0)
         $canaryUp = ($gpOut -match 'GRAY-CANARY\s+up')
         if (-not $splitUp) {
-            Log "GRAY 未判定:分流器起不来(rc=$LASTEXITCODE)⇒ 本轮不分流,观察窗仍按现网端点判"
+            Log "GRAY 未判定:分流器起不来(rc=$($gp.Rc))⇒ 本轮不分流,观察窗仍按现网端点判"
         } elseif ($canaryUp -and ($grayStage -ne 'off')) {
             # 3) 灰度实例真在位 ⇒ 采样目标改指灰度槽位,观察窗量的就是候选本身
             $dgpOut = (& $Node $grayTrafficCli --gray-policy --stage $grayStage --out $grayPolicyPath 2>&1 | Out-String)
