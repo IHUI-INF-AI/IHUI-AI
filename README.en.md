@@ -101,6 +101,15 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (63f9ac4a14)
+- 🐞 Fix:小程序词包补 career 命名空间七键,消掉"整屏文案取不到"的产物级回归 (909ce225b5)
+- 🔧 Chore/Other:分叉决策账本 24 条 owner/到期/证据认领(pending 146→0) (820f29156e)
+- 🐞 Fix:补齐 web 间距采集边向前缀与 -px/负向,遮罩注释噪声 (27e755d9b5)
+- 🔧 Chore/Other:销 plan-write-invariants 两枚的 HEAD 面水印欠账(假横幅 → 可解码载荷) (47263ad17c)
+- 📚 Docs:补 282 与 283 两道已接线门的 R4 点名行,消掉接线层一枚真红 (f56d51306f)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7367e5a195)
+
+**2026-11-03**
 - 🚀 Feature/Improvement:把 RN 薄壳覆盖判据装上提交链(守门 283,blocking) (e8c610eadb)
 - 🔧 Chore/Other:收编守护落档产出(4 件,凭落点账本) (5355177bb8)
 - 🐞 Fix:落库器每条早退路径都必须出机读结论行(治"器物在跑但说不出话") (6178c8bdf7)
@@ -224,9 +233,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🔧 Chore/Other:收敛后按合并树重生成 ui-routes 派生件——union-converge 落地 e174123809 后按合并树重算,sourceCommit 钉到该合并,输入 sha256 不变(两侧改动路径除本生成物外无重叠) (4cf59c6ef8)
 - 🚀 Feature/Improvement:M4 B1 契约冻结——8 个共享 types 补必填 onNavigate/onToast,29 个共享屏加 assertRequiredPort,30 个 RN 壳经 useHostPorts 接线并挂全局轻提示层,小程序 about-shared 宿主补端口并同步重生成 ui-routes,新增端口接线契约测试(2 例);接手他人未提交工作、来源会话不明(76 条遗留已在前序 5 笔按域提交 b3d2f24247/90b700fb81/99c09c4938/cb39924428/3fe2499620),本笔为随后 M4 B1 自研施工;门禁:根 typecheck 绿(TS+mypy)、两端 typecheck 绿、miniapp test 99 文件/1239 例绿、mobile-rn test 152/153 文件 1385/1397(存量 tests/wallet.test.tsx worker OOM 12 例未跑,文件未改、与 B1 无 import 关系)、parity gap 0/residual 1、门128 判红 0、planner 30/21/15 未变 (408efad761)
 - 🐞 Fix:get_session_extra_roots 空会话早退后显式收窄 session_id——消 mcp_server.py:715 存量 mypy 错(str | None 传给 str),根 pnpm typecheck 由红转绿;行为不变 (620f408c83)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (a3bf177b50)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
