@@ -6373,6 +6373,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] B40 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=B31~B40(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
@@ -33623,3 +33624,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] B88 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T07:58:38.989Z last=2026-10-29T07:58:38.989Z route=/deploy/build-fail code=TS2339 sample="deploy_outcome action=build-fail sha=[hex:40] d…"）
 - [ ] B91 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T08:29:24.187Z last=2026-10-29T08:29:24.187Z route=/deploy/build-fail code=TS2554 sample="deploy_outcome action=build-fail sha=[hex:40] d…"） 〔第三次 build-fail 告警:错误码 TS2554,与 B88 的 TS2339 不同;保留本行以避免丢失该错误码证据〕
 - [ ] O69 (2026-11-01) 本机 dev 库口令轮换器已入库但**没挂调度** ⇒ 窗口只能靠人盯，补进 guardian 巡检轮:器物现读 `scripts/rotate-local-dev-db-password.mjs`(自检 7/7;换前逐文件备份、换后强制"旧口令被 PG 拒收 ∧ 新口令全消费面 PING_OK";留痕 `.ihui-agent/state/dev-db-credential-rotation.jsonl` 90 天老化)，但 `grep -rn rotate-local-dev-db-password scripts/git-guardian.mjs scripts/guardian-runner.mjs` 现读 0 命中 ⇒ 它只在有人敲命令时才动，而它自己又要求"8801/8802/8803 全空"才肯 `--apply`(活服务在场时正确 exit 2 = 窗口未到，不是等拍板)。出路 = 照 `git-guardian.mjs` 里 `sweepExposedCredentialRotation()` 的既有形态挂一轮巡检:只在登记面有未结清条目时才派生、`--check` 先行、`--apply` 只在无活服务窗口内动、失败只冷却不硬试、结论行写"未判定"不写"成功"、节流戳落 `.ihui-agent/state/`。验证 = 镜像用例钉"活服务在场 ⇒ 整轮让路且不记绿"与"窗口空闲 ⇒ 派生一次并回读旧口令被拒收"，`node scripts/git-guardian.mjs --check` 末行。
+
+- [ ] B31 [auto-triage] 邮件投递通道故障排查(24h 内连续失败 ≥2 封,查 SMTP 出口/进程/配额)(登记@2026-11-02/auto-triage;来源:mail-failure 哨兵;证据:failed=4 why=SMTP 发送失败,回落 Resend: connect ECONNREFUSED 127.0.0.1:1 / Resend HTTP 401: {"message":"API key is invalid","name":"validat)
