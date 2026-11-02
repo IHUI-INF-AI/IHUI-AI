@@ -2652,7 +2652,11 @@
       "signing": "チェックイン中...",
       "signInSuccess": "チェックインしました。{points} ポイント獲得",
       "signInFailed": "チェックインに失敗しました",
-      "alreadySigned": "本日はチェックイン済みです"
+      "alreadySigned": "本日はチェックイン済みです",
+      "historyTitle": "チェックイン履歴",
+      "historyEmpty": "チェックイン記録がありません",
+      "historyLoadFailed": "チェックイン履歴の読み込みに失敗しました",
+      "historyConsecutive": "{days} 日連続"
     },
     "mallLink": "ポイントモール",
     "taskCenterLink": "タスクセンター",

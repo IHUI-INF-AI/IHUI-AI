@@ -2652,7 +2652,11 @@
       "signing": "簽到中...",
       "signInSuccess": "簽到成功,獲得 {points} 積分",
       "signInFailed": "簽到失敗",
-      "alreadySigned": "今日已簽到"
+      "alreadySigned": "今日已簽到",
+      "historyTitle": "簽到歷史",
+      "historyEmpty": "尚無簽到紀錄",
+      "historyLoadFailed": "簽到歷史載入失敗",
+      "historyConsecutive": "連續 {days} 天"
     },
     "mallLink": "積分商城",
     "taskCenterLink": "任務中心",

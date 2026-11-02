@@ -2652,7 +2652,11 @@
       "signing": "출석 중...",
       "signInSuccess": "출석했습니다. {points} 포인트 획득",
       "signInFailed": "출석에 실패했습니다",
-      "alreadySigned": "오늘은 이미 출석했습니다"
+      "alreadySigned": "오늘은 이미 출석했습니다",
+      "historyTitle": "출석 내역",
+      "historyEmpty": "출석 기록이 없습니다",
+      "historyLoadFailed": "출석 내역을 불러오지 못했습니다",
+      "historyConsecutive": "{days}일 연속"
     },
     "mallLink": "포인트 몰",
     "taskCenterLink": "작업 센터",
