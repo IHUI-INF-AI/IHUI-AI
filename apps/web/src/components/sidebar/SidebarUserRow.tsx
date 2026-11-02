@@ -30,6 +30,8 @@ import { useNotificationStore } from '@/stores/notification'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { useDownloadTrack } from '@ihui/shared/hooks'
 import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
+import { liveEntryView } from '@/config/downloads-live-meta'
+import { useLiveDownloads } from '@/hooks/use-live-downloads'
 import { Avatar } from '@/components/data/Avatar'
 import { Dropdown, Modal, type DropdownItem } from '@/components/feedback'
 import {
@@ -78,6 +80,8 @@ export function SidebarUserRow({
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
   const { trackClick } = useAnalytics()
   const trackDownload = useDownloadTrack()
+  // 下载栏的版本号/落点改由运行期真值投影(/downloads.json);取不到时保持构建期底稿
+  const liveDownloads = useLiveDownloads()
   // hydration-safe: 首屏按"未登录"渲染,挂载后才显示真实态,避免 SSR/CSR 不一致
   const mounted = useMounted()
   const showAuthed = mounted && isAuthenticated
@@ -200,8 +204,13 @@ export function SidebarUserRow({
       label: t('downloadClient'),
       icon: Download,
       children: DOWNLOADS.map((dl) => {
-        const available = isDownloadAvailable(dl.platform)
-        const isExternal = isExternalDownloadHref(dl.href)
+        // 运行期真值优先,判据单源 = downloads-live-meta 的 liveEntryView(与详情页 mergeLiveMeta 同规则);
+        // 取不到时照旧用构建期底稿 —— 这条腿挂掉的可见表现必须是"版本号旧一格",不是"整栏点不动"
+        const liveView = liveEntryView(liveDownloads?.[dl.platform], dl.href)
+        const href = liveView.href
+        const version = liveView.version ?? dl.version
+        const available = isDownloadAvailable(dl.platform) || liveView.hasLiveAsset
+        const isExternal = isExternalDownloadHref(href)
         return {
           key: `download-${dl.platform}`,
           icon: dl.icon,
@@ -212,9 +221,9 @@ export function SidebarUserRow({
                 <span className={cn('truncate', !available && 'text-muted-foreground')}>
                   {t(dl.labelKey)}
                 </span>
-                {dl.version && available && (
+                {version && available && (
                   <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
-                    v{dl.version}
+                    v{version}
                   </span>
                 )}
                 {!available && (
@@ -235,9 +244,9 @@ export function SidebarUserRow({
             trackClick(`download_${dl.platform}`, 'user_menu')
             trackDownload(dl.platform, 'sidebar')
             if (isExternal) {
-              window.open(dl.href, '_blank', 'noopener,noreferrer')
+              window.open(href, '_blank', 'noopener,noreferrer')
             } else {
-              navigate(dl.href)
+              navigate(href)
               onCloseMobile()
             }
           },

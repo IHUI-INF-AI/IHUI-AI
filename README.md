@@ -1443,6 +1443,7 @@ cd IHUI-AI && docker compose up -d
 - **`download_events` 数据库表**:`packages/database` 新增表(uuid + userId + platform + assetHref + source + ip + userAgent + createdAt + 3 索引),Drizzle migration 幂等落地
 - **共享层跨端复用**:`packages/types/src/download.ts`(类型)+ `packages/api-client/src/endpoints/downloads.ts`(SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook),8 端统计调用统一契约
 - **自动化构建同步**:`scripts/sync-downloads.mjs` 一键构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json`(版本 + 大小 + sha256)
+- **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 取 `ios-nightly` 固定 tag 资产、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
 **npm scripts**(根 `package.json`):
 | 命令                          | 用途                                                    |
 | ----------------------------- | ------------------------------------------------------- |
