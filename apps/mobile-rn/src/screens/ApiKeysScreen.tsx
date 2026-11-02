@@ -13,8 +13,9 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import Clipboard from '@react-native-clipboard/clipboard'
 import { KeyRound, Plus, Trash2 } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, rotateDeveloperApiKey } from '@ihui/api-client'
 import {
   API_KEY_PERMISSIONS,
   DEFAULT_API_KEY_PERMISSIONS,
@@ -46,6 +47,8 @@ interface ApiKeyInfo {
   key: string
   permissions: string[]
   status: 'active' | 'revoked'
+  /** 每分钟调用上限(后端 SafeApiKey 字段) */
+  rateLimit?: number
   lastUsedAt: string | null
   createdAt: string
 }
@@ -84,6 +87,8 @@ export default function ApiKeysScreen() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [secret, setSecret] = useState<string | null>(null)
+  const [secretSource, setSecretSource] = useState<'create' | 'rotate'>('create')
+  const [rotating, setRotating] = useState<string | null>(null)
   const [usageOf, setUsageOf] = useState<string | null>(null)
   const [usage, setUsage] = useState<Record<string, KeyUsage>>({})
   const [usageLoading, setUsageLoading] = useState<string | null>(null)
@@ -129,6 +134,7 @@ export default function ApiKeysScreen() {
         return
       }
       setSecret(res.data.secret)
+      setSecretSource('create')
       setName('')
       setPermissions([...DEFAULT_API_KEY_PERMISSIONS])
       setPermsOpen(false)
@@ -160,6 +166,33 @@ export default function ApiKeysScreen() {
     } finally {
       setUsageLoading(null)
     }
+  }
+  const onRotate = (key: ApiKeyInfo) => {
+    appAlert(t('apiKeys.rotateTitle'), t('apiKeys.rotateConfirm', { name: key.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('apiKeys.rotate'),
+        style: 'destructive',
+        onPress: () => {
+          setRotating(key.id)
+          void (async () => {
+            try {
+              const res = await rotateDeveloperApiKey(key.id)
+              if (!res.success) {
+                appAlert(t('common.error'), res.error || t('apiKeys.rotateFailed'))
+                return
+              }
+              setSecret(res.data.secret)
+              setSecretSource('rotate')
+            } catch {
+              appAlert(t('common.error'), t('apiKeys.rotateFailed'))
+            } finally {
+              setRotating(null)
+            }
+          })()
+        },
+      },
+    ])
   }
   const onDelete = (key: ApiKeyInfo) => {
     appAlert(t('apiKeys.deleteTitle'), t('apiKeys.deleteConfirm', { name: key.name }), [
@@ -194,18 +227,34 @@ export default function ApiKeysScreen() {
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {secret ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('apiKeys.secretTitle')}</Text>
+            <Text style={styles.cardTitle}>
+              {secretSource === 'rotate'
+                ? t('apiKeys.rotateSecretTitle')
+                : t('apiKeys.secretTitle')}
+            </Text>
             <Text style={styles.muted}>{t('apiKeys.secretHint')}</Text>
             <Text selectable style={styles.secret}>
               {secret}
             </Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => setSecret(null)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.buttonText}>{t('apiKeys.secretDone')}</Text>
-            </TouchableOpacity>
+            <View style={styles.secretRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.secretBtn]}
+                onPress={() => {
+                  Clipboard.setString(secret)
+                  appAlert(t('common.hint'), t('apiKeys.secretCopied'))
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.buttonText}>{t('apiKeys.copySecret')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.secretBtn]}
+                onPress={() => setSecret(null)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.buttonText}>{t('apiKeys.secretDone')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : null}
         <View style={styles.card}>
@@ -330,10 +379,22 @@ export default function ApiKeysScreen() {
                     {t('apiKeys.createdAt')}: {fmt(key.createdAt, locale)} ·{' '}
                     {t('apiKeys.lastUsedAt')}:{' '}
                     {key.lastUsedAt ? fmt(key.lastUsedAt, locale) : t('apiKeys.lastUsedNever')}
+                    {typeof key.rateLimit === 'number'
+                      ? ` · ${t('apiKeys.rateLimit')}: ${key.rateLimit} ${t('apiKeys.rateLimitUnit')}`
+                      : ''}
                   </Text>
                   <View style={styles.actions}>
                     <TouchableOpacity onPress={() => void onUsage(key)} activeOpacity={0.7}>
                       <Text style={styles.link}>{t('apiKeys.usage')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => onRotate(key)}
+                      disabled={rotating === key.id}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.link}>
+                        {rotating === key.id ? t('apiKeys.rotating') : t('apiKeys.rotate')}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => onDelete(key)}
@@ -535,6 +596,8 @@ function makeStyles() {
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.bg,
     },
+    secretRow: { flexDirection: 'row', gap: rnSpacing.sm },
+    secretBtn: { flex: 1 },
     endpointRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
   })
 }
