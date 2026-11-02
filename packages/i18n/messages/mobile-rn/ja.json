@@ -1219,10 +1219,6 @@
     "compactionToast": "コンテキストを自動圧縮しました({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "カバーを適用しました",
-      "message": "「{title}」にカバーを適用しました:{label}"
-    },
     "aiGen": {
       "title": "AI カバー生成",
       "message": "機能開発中"
@@ -1282,10 +1278,6 @@
     "detailMembers": "メンバー",
     "detailRecent": "最近",
     "empty": "グループがありません",
-    "enterChat": {
-      "message": "このグループに参加しますか?",
-      "title": "お知らせ"
-    },
     "enterDiscover": "発見",
     "enterMine": "マイ",
     "loadFailed": "グループの読み込みに失敗",
@@ -1458,15 +1450,6 @@
     "workflowTab": "ワークフロー"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "チャージ確認",
-      "message": "パッケージ:{tokens} Token · ¥{price}",
-      "payBtn": "今すぐ支払う",
-      "success": {
-        "title": "支払い成功",
-        "message": "{tokens} Token がチャージされました"
-      }
-    },
     "balanceLabel": "トークン残高",
     "bonus": "ボーナス",
     "empty": "データなし",
@@ -1486,9 +1469,7 @@
     "range7d": "7日間",
     "range1m": "1ヶ月",
     "range1y": "1年間",
-    "rangeAll": "すべて",
-    "unitYi": "{v}億",
-    "unitWan": "{v}万"
+    "rangeAll": "すべて"
   },
   "messageInput": {
     "document": "ドキュメント",
@@ -2376,7 +2357,17 @@
     "deleteFailed": "削除に失敗しました",
     "secretTitle": "キーを作成しました",
     "secretHint": "このキーは一度しか表示されません。すぐにコピーして保存してください。",
-    "secretDone": "保存しました"
+    "secretDone": "保存しました",
+    "rotate": "ローテーション",
+    "rotating": "ローテーション中...",
+    "rotateTitle": "キーをローテーション",
+    "rotateConfirm": "「{name}」をローテーションしますか？旧キーは即座に失効します。",
+    "rotateFailed": "ローテーションに失敗しました",
+    "rotateSecretTitle": "キーをローテーションしました",
+    "copySecret": "コピー",
+    "secretCopied": "キーをクリップボードにコピーしました",
+    "rateLimit": "レート制限",
+    "rateLimitUnit": "回/分"
   },
   "devices": {
     "title": "デバイス管理",
@@ -2652,7 +2643,11 @@
       "signing": "チェックイン中...",
       "signInSuccess": "チェックインしました。{points} ポイント獲得",
       "signInFailed": "チェックインに失敗しました",
-      "alreadySigned": "本日はチェックイン済みです"
+      "alreadySigned": "本日はチェックイン済みです",
+      "historyTitle": "チェックイン履歴",
+      "historyEmpty": "チェックイン記録がありません",
+      "historyLoadFailed": "チェックイン履歴の読み込みに失敗しました",
+      "historyConsecutive": "{days} 日連続"
     },
     "mallLink": "ポイントモール",
     "taskCenterLink": "タスクセンター",
@@ -3490,8 +3485,7 @@
     "viewNow": "今すぐ見る"
   },
   "vipBenefit": {
-    "title": "会員権益",
-    "loadFailed": "会員特典の読み込みに失敗"
+    "title": "会員権益"
   },
   "vipTrader": {
     "title": "VIP トレーダー",
@@ -3949,7 +3943,6 @@
     "today": "本日",
     "withdrawBtn": "出金",
     "withdrawModal": {
-      "close": "キャンセル",
       "confirm": "確認",
       "moreMethods": "他の出金方法",
       "subtitle": "出金方法を選択",
@@ -4111,6 +4104,17 @@
     "deleteTitle": "文書を削除",
     "deleteConfirm": "この文書を削除しますか?",
     "deleteFailed": "削除に失敗",
+    "selectionStart": "選択",
+    "selectionDone": "完了",
+    "selectionAll": "すべて選択",
+    "selectionClearAll": "選択を解除",
+    "selectionCount": "{count} 件選択中",
+    "batchDelete": "一括削除",
+    "batchDeleting": "削除中...",
+    "batchDeleteTitle": "文書を一括削除",
+    "batchDeleteConfirm": "選択した {count} 件の文書を削除しますか?",
+    "batchDeletePartial": "{success} 件削除、{failed} 件失敗",
+    "batchDeleteFailed": "一括削除に失敗",
     "author": "作者",
     "category": "カテゴリ",
     "nextEntry": "次の記事",
