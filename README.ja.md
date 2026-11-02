@@ -2219,6 +2219,15 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 その他:收编停留≥3分钟的未提交改动 (2a56005f6c)
+- 🚀 機能/改善:把守门 251 的修法出口首次上守护周期腿(前置=归属闸与未知旗拒绝) (72650fe783)
+- 🔧 その他:覆盖写路径默认严格与 --legacy-lenient 逃生阀 (9a821daebd)
+- 🐞 修正:严格编号判据改为写路径默认生效，并留 --legacy-lenient 逃生阀 (90fcbe7029)
+- 🔧 その他:覆盖同号重复/带号行解删/空行被吞/无 attestation 四场景 (b30700c44f)
+- 🐞 修正:合并器补严同号重复与我方带号行解删 (e4f24acbb2)
+- 🔧 その他:Revert "fix(i18n): 小程序词包补 career 命名空间七键" —— 撤回,根因是承载关系不在 (92bd78493b)
+
+**2026-11-03**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (63f9ac4a14)
 - 🐞 修正:小程序词包补 career 命名空间七键,消掉"整屏文案取不到"的产物级回归 (909ce225b5)
 - 🔧 その他:分叉决策账本 24 条 owner/到期/证据认领(pending 146→0) (820f29156e)
@@ -2347,9 +2356,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🔧 その他:收敛后按合并树重生成 ui-routes 派生件——union-converge 落地 e174123809 后按合并树重算,sourceCommit 钉到该合并,输入 sha256 不变(两侧改动路径除本生成物外无重叠) (4cf59c6ef8)
 - 🚀 機能/改善:M4 B1 契约冻结——8 个共享 types 补必填 onNavigate/onToast,29 个共享屏加 assertRequiredPort,30 个 RN 壳经 useHostPorts 接线并挂全局轻提示层,小程序 about-shared 宿主补端口并同步重生成 ui-routes,新增端口接线契约测试(2 例);接手他人未提交工作、来源会话不明(76 条遗留已在前序 5 笔按域提交 b3d2f24247/90b700fb81/99c09c4938/cb39924428/3fe2499620),本笔为随后 M4 B1 自研施工;门禁:根 typecheck 绿(TS+mypy)、两端 typecheck 绿、miniapp test 99 文件/1239 例绿、mobile-rn test 152/153 文件 1385/1397(存量 tests/wallet.test.tsx worker OOM 12 例未跑,文件未改、与 B1 无 import 关系)、parity gap 0/residual 1、门128 判红 0、planner 30/21/15 未变 (408efad761)
 - 🐞 修正:get_session_extra_roots 空会话早退后显式收窄 session_id——消 mcp_server.py:715 存量 mypy 错(str | None 传给 str),根 pnpm typecheck 由红转绿;行为不变 (620f408c83)
-
-**2026-11-02**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (a3bf177b50)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
