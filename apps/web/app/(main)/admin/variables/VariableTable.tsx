@@ -29,14 +29,14 @@ export function VariableTable({ list, isLoading, deletePending, onEdit, onDelete
   if (list.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
-        <p className="text-sm text-muted-foreground">暂无变量,点击右上角创建</p>
+        <p className="text-body text-muted-foreground">暂无变量,点击右上角创建</p>
       </div>
     )
   }
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-xs text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/40 text-label text-muted-foreground">
           <tr>
             <th className={thCls}>Bot ID</th>
             <th className={thCls}>变量名</th>
@@ -49,13 +49,13 @@ export function VariableTable({ list, isLoading, deletePending, onEdit, onDelete
         <tbody>
           {list.map((v) => (
             <tr key={v.id} className="transition-colors hover:bg-accent/50">
-              <td className="px-4 py-2.5 font-mono text-xs">{v.botId}</td>
+              <td className="px-4 py-2.5 font-mono text-label">{v.botId}</td>
               <td className="px-4 py-2.5 font-medium">{v.variableName}</td>
               <td className="max-w-[200px] truncate px-4 py-2.5 text-muted-foreground">
                 {v.variableValue ?? '-'}
               </td>
               <td className="px-4 py-2.5">
-                <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                <span className="rounded bg-muted px-1.5 py-0.5 text-label">
                   {v.dataType ?? 'string'}
                 </span>
               </td>

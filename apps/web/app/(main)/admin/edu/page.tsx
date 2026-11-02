@@ -103,7 +103,7 @@ export default function EduHubPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {MODULES.map((m) => {
@@ -122,7 +122,7 @@ export default function EduHubPage() {
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold">{t(m.title)}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{t(m.desc)}</p>
+                    <p className="mt-1 text-body text-muted-foreground">{t(m.desc)}</p>
                   </div>
                 </CardContent>
               </Card>

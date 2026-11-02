@@ -162,7 +162,7 @@ export function RoleAssignDialog({
             RBAC 细粒度角色(参考)
           </p>
           {rbacQ.isLoading ? (
-            <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="mt-1.5 flex items-center gap-1 text-label text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               加载中…
             </div>
@@ -172,12 +172,12 @@ export function RoleAssignDialog({
                 <TruncatedText
                   key={r.id}
                   value={r.displayName}
-                  className="inline-flex max-w-[200px] items-center rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border/60"
+                  className="inline-flex max-w-[200px] items-center rounded-md bg-background px-2 py-0.5 text-label text-muted-foreground ring-1 ring-border/60"
                 />
               ))}
             </div>
           ) : (
-            <p className="mt-1.5 text-xs text-muted-foreground/80">暂无 RBAC 角色</p>
+            <p className="mt-1.5 text-label text-muted-foreground/80">暂无 RBAC 角色</p>
           )}
         </div>
       </div>

@@ -342,7 +342,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
   return (
     <div className="space-y-4">
       {marketingOff && (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-body text-amber-700 dark:text-amber-400">
           {t('send.marketingOffBanner')}
         </p>
       )}
@@ -395,7 +395,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                   onChange={(e) => setForm({ ...form, fallbackContent: e.target.value })}
                   placeholder={t('send.fallbackPlaceholder')}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {t('send.fallbackCounter', { n: form.fallbackContent.trim().length })}
                 </p>
               </div>
@@ -430,7 +430,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
             </form>
 
             {sendResult && (
-              <div className="mt-3 rounded-md border p-3 text-sm">
+              <div className="mt-3 rounded-md border p-3 text-body">
                 {dryRunView ? (
                   <p>
                     {t.rich('send.dryRunPassed', {
@@ -524,7 +524,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                       setBcast({ ...bcast, excludeRecentDays: e.target.value })
                     }}
                   />
-                  <p className="text-xs text-muted-foreground">{t('send.excludeZeroHint')}</p>
+                  <p className="text-label text-muted-foreground">{t('send.excludeZeroHint')}</p>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="bcast-fallback">{t('field.fallbackContent')}</Label>
@@ -539,7 +539,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
               </div>
 
               {bcast.category === 'marketing' && (
-                <p className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+                <p className="rounded-md bg-muted/50 p-2 text-label text-muted-foreground">
                   {t('send.marketingConstraint', {
                     cap: status.compliance.marketingGlobalDailyCap,
                     window: status.compliance.marketingSendWindow,
@@ -575,7 +575,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                   />
                   <button
                     type="button"
-                    className="text-xs text-primary hover:underline"
+                    className="text-label text-primary hover:underline"
                     onClick={() => setBcast({ ...bcast, confirm: requiredConfirm() })}
                   >
                     {t('send.fillConfirmWord')}
@@ -594,7 +594,7 @@ export function SendPanel({ status }: { status: SmsStatus }) {
             </form>
 
             {bcastResult && (
-              <div className="mt-3 space-y-2 rounded-md border p-3 text-sm">
+              <div className="mt-3 space-y-2 rounded-md border p-3 text-body">
                 {bcastResult.dryRun ? (
                   <>
                     <p>
@@ -604,13 +604,13 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                         template: bcastResult.templateId ?? '-',
                       })}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {scopeSummary(bcastResult)}
                       {(bcastResult.targetOffset ?? 0) > 0
                         ? ` · ${t('send.scopeOffset', { offset: bcastResult.targetOffset ?? 0 })}`
                         : ''}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {t('send.samplePhones', {
                         phones: bcastResult.samplePhones?.join('、') || '-',
                       })}
@@ -632,19 +632,19 @@ export function SendPanel({ status }: { status: SmsStatus }) {
                         ),
                       })}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {scopeSummary(bcastResult)}
                       {(bcastResult.targetOffset ?? 0) > 0
                         ? ` · ${t('send.scopeOffset', { offset: bcastResult.targetOffset ?? 0 })}`
                         : ''}
                     </p>
                     {bcastResult.idempotentHint && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                      <p className="text-label text-amber-600 dark:text-amber-400">
                         {bcastResult.idempotentHint}
                       </p>
                     )}
                     {bcastResult.failures && bcastResult.failures.length > 0 && (
-                      <div className="max-h-40 overflow-y-auto text-xs">
+                      <div className="max-h-40 overflow-y-auto text-label">
                         {bcastResult.failures.map((f, i) => (
                           <div
                             key={`${f.userId ?? i}`}

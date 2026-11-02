@@ -127,7 +127,7 @@ export default function AdminLearnSignupBatchLessonPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">批量课程报名</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理课程批量报名,支持导入与重试</p>
+        <p className="mt-1 text-body text-muted-foreground">管理课程批量报名,支持导入与重试</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -216,7 +216,7 @@ export default function AdminLearnSignupBatchLessonPage() {
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-medium">{r.lessonTitle}</TableCell>
-                    <TableCell className="px-4 py-2.5 font-mono text-xs">{r.batchNo}</TableCell>
+                    <TableCell className="px-4 py-2.5 font-mono text-label">{r.batchNo}</TableCell>
                     <TableCell className="px-4 py-2.5">{r.count}</TableCell>
                     <TableCell className="px-4 py-2.5 text-emerald-600">{r.successCount}</TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -229,7 +229,7 @@ export default function AdminLearnSignupBatchLessonPage() {
                         {sc.label}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {dateFmt.format(new Date(r.createdAt))}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
@@ -243,7 +243,7 @@ export default function AdminLearnSignupBatchLessonPage() {
                           重试
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-label text-muted-foreground">—</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -255,7 +255,7 @@ export default function AdminLearnSignupBatchLessonPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -265,7 +265,7 @@ export default function AdminLearnSignupBatchLessonPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

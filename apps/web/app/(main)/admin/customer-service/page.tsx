@@ -130,7 +130,7 @@ export default function AdminCustomerServicePage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {sessions.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-body text-muted-foreground">
                 暂无会话
               </div>
             ) : (
@@ -160,16 +160,16 @@ export default function AdminCustomerServicePage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-body font-medium">{s.userName}</p>
-                      <span className="shrink-0 text-xs text-muted-foreground">
+                      <span className="shrink-0 text-label text-muted-foreground">
                         {s.lastTime ? timeFmt.format(new Date(s.lastTime)) : ''}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate text-label text-muted-foreground">
                         {s.lastMessage || '暂无消息'}
                       </p>
                       {s.unread > 0 && (
-                        <span className="shrink-0 rounded-md bg-red-500 px-1.5 text-xs text-white">
+                        <span className="shrink-0 rounded-md bg-red-500 px-1.5 text-label text-white">
                           {s.unread}
                         </span>
                       )}
@@ -190,7 +190,7 @@ export default function AdminCustomerServicePage() {
               </div>
               <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
                 {(selected.messages ?? []).length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  <div className="flex h-full items-center justify-center text-body text-muted-foreground">
                     暂无消息
                   </div>
                 ) : (
@@ -223,7 +223,7 @@ export default function AdminCustomerServicePage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center text-body text-muted-foreground">
               选择左侧会话查看详情
             </div>
           )}

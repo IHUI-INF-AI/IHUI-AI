@@ -126,7 +126,7 @@ export function DeveloperCards({
           </CardHeader>
           <CardContent>
             {keysList.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-body text-muted-foreground">
                 {t('developer.noData')}
               </p>
             ) : (
@@ -136,10 +136,10 @@ export function DeveloperCards({
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="font-medium">{k.name}</div>
-                        <code className="mt-1 block rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                        <code className="mt-1 block rounded bg-muted/50 px-2 py-1 font-mono text-label text-muted-foreground">
                           {k.key}
                         </code>
-                        <div className="mt-1 text-xs text-muted-foreground">
+                        <div className="mt-1 text-label text-muted-foreground">
                           {t('developer.createdAt')}: {k.createdAt}
                           {k.lastUsedAt && ` · ${t('developer.lastUsed')}: ${k.lastUsedAt}`}
                         </div>
@@ -199,7 +199,7 @@ export function DeveloperCards({
           </CardHeader>
           <CardContent>
             {webhooksList.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-body text-muted-foreground">
                 {t('developer.noData')}
               </p>
             ) : (
@@ -207,7 +207,7 @@ export function DeveloperCards({
                 {webhooksList.map((w) => (
                   <div key={w.id} className="rounded-md border p-3">
                     <div className="flex items-center justify-between">
-                      <code className="break-all font-mono text-xs">{w.url}</code>
+                      <code className="break-all font-mono text-label">{w.url}</code>
                       <span
                         className={cn(
                           'ml-2 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
@@ -229,7 +229,7 @@ export function DeveloperCards({
                       {w.events.map((e) => (
                         <span
                           key={e}
-                          className="inline-flex rounded bg-primary/10 px-2 py-0.5 text-xs text-primary"
+                          className="inline-flex rounded bg-primary/10 px-2 py-0.5 text-label text-primary"
                         >
                           {e}
                         </span>
@@ -260,7 +260,7 @@ export function DeveloperCards({
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-medium">{s.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
+                      <div className="mt-1 text-label text-muted-foreground">
                         {s.language} · {s.version}
                       </div>
                     </div>
@@ -290,7 +290,7 @@ export function DeveloperCards({
           <DialogHeader>
             <DialogTitle>重置密钥</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             确定要重置「{resetTarget?.name}
             」的密钥吗？重置后旧密钥立即失效，需更新所有接入方，确认？
           </p>
@@ -312,11 +312,11 @@ export function DeveloperCards({
             <DialogTitle>新密钥已生成</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-amber-600 dark:text-amber-400">
+            <p className="text-body text-amber-600 dark:text-amber-400">
               ⚠ 此密钥仅显示一次，请立即保存，关闭后无法找回。旧密钥已失效。
             </p>
             <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-3">
-              <code className="flex-1 break-all font-mono text-sm">{resetSecret}</code>
+              <code className="flex-1 break-all font-mono text-body">{resetSecret}</code>
               <Button
                 size="sm"
                 variant="ghost"

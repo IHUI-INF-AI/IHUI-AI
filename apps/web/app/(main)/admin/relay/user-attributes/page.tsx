@@ -139,7 +139,7 @@ export default function UserAttributesPage() {
           <Tags className="h-5 w-5" aria-hidden />
           用户自定义属性
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           给中转站用户挂 KV 标签,供分组 / 风控 /
           运营筛选使用。同一用户同键只保留一个值,重复保存即覆盖。
         </p>
@@ -166,7 +166,7 @@ export default function UserAttributesPage() {
         {queryUserId !== '' && (
           <>
             <div className="mt-4 overflow-x-auto rounded-lg border">
-              <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+              <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
                 <thead className="bg-muted/50 text-left text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">属性键</th>
@@ -259,7 +259,7 @@ export default function UserAttributesPage() {
 
       <div className="rounded-lg border p-3">
         <h2 className="text-body font-medium">按属性反查用户(运营筛选)</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-label text-muted-foreground">
           例:key = tier、value = vip,查出所有 VIP 用户 id(上限 1000,结果按 id 返回)。
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -297,10 +297,10 @@ export default function UserAttributesPage() {
         </div>
         {findResult !== null && (
           <div className="mt-3 space-y-2">
-            <div className="text-xs text-muted-foreground">命中 {findResult.length} 个用户</div>
+            <div className="text-label text-muted-foreground">命中 {findResult.length} 个用户</div>
             <div className="flex flex-wrap gap-1.5">
               {findResult.length === 0 ? (
-                <span className="text-xs text-muted-foreground">无匹配用户</span>
+                <span className="text-label text-muted-foreground">无匹配用户</span>
               ) : (
                 findResult.map((id) => (
                   <Badge key={id} variant="outline">

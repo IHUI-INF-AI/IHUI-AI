@@ -99,7 +99,7 @@ export default function AdminLivePage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
@@ -167,7 +167,7 @@ export default function AdminLivePage() {
       <ChannelsTable channels={channels} isLoading={isLoading} error={error} onEdit={openEdit} />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -178,7 +178,7 @@ export default function AdminLivePage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

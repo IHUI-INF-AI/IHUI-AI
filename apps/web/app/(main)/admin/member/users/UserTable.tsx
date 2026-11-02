@@ -29,8 +29,8 @@ export function UserTable({
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">用户</th>
             <th className="px-4 py-2.5 font-medium">联系方式</th>
@@ -64,14 +64,14 @@ export function UserTable({
                   <td className="px-4 py-2.5 font-medium">
                     {u.nickname || u.phone || u.email || u.id}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     <div>{u.phone || '-'}</div>
                     <div className="text-muted-foreground/80">{u.email || '-'}</div>
                   </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label',
                         u.level >= 2
                           ? 'bg-amber-500/10 text-amber-600'
                           : 'bg-muted text-muted-foreground',
@@ -83,7 +83,7 @@ export function UserTable({
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         isCancelled
                           ? 'bg-muted text-muted-foreground'
                           : isActive
@@ -104,7 +104,7 @@ export function UserTable({
                       {isCancelled ? '已注销' : isActive ? '正常' : '禁用'}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {u.createdAt ? formatDateOnly(u.createdAt) : '-'}
                   </td>
                   <td className="px-4 py-2.5 text-right">

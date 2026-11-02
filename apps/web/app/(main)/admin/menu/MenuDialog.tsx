@@ -105,7 +105,7 @@ export function MenuDialog({
               onChange={(v) => setForm({ ...form, parentId: (v as string) || null })}
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <label className="flex cursor-pointer items-center gap-2 text-body">
             <input
               type="checkbox"
               checked={form.visible}

@@ -76,7 +76,7 @@ export default function ProvidersHealthPage() {
             <Activity className="h-6 w-6 text-primary" />
             Provider 余额与健康状态
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             实时检测各 LLM Provider 的可用性、余额和错误状态,账户没钱的 Provider
             自动隐藏不显示给用户。
           </p>
@@ -118,8 +118,8 @@ export default function ProvidersHealthPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Provider</th>
                   <th className="px-4 py-2.5 font-medium">状态</th>

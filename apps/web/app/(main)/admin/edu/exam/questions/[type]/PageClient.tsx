@@ -144,8 +144,10 @@ function TypeQuestionsContent() {
     <div className="space-y-4 px-4 py-6">
       <BackButton />
       <div>
-        <h1 className="text-display font-bold tracking-tight">{t('titleWithType', { type: label })}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-display font-bold tracking-tight">
+          {t('titleWithType', { type: label })}
+        </h1>
+        <p className="mt-1 text-body text-muted-foreground">
           {t('subtitleWithType', { type: label })}
         </p>
       </div>

@@ -79,7 +79,7 @@ export function HomeworkTable({ rows, isLoading, error, onEdit, onDelete, delete
                 <TableRow key={h.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{h.title}</TableCell>
                   <TableCell className="px-4 py-2.5">{h.lessonTitle ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs">{h.dueDate ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-label">{h.dueDate ?? '-'}</TableCell>
                   <TableCell className="px-4 py-2.5">{h.submitCount}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span

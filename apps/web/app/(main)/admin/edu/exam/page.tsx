@@ -44,7 +44,7 @@ function StatCard({
           <Icon className="h-7 w-7" />
         </div>
         <div className="min-w-0">
-          <div className="text-sm text-muted-foreground">{label}</div>
+          <div className="text-body text-muted-foreground">{label}</div>
           <div className="mt-1 text-display font-semibold tracking-tight">{value}</div>
         </div>
       </CardContent>
@@ -171,7 +171,7 @@ export default function EduExamPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -213,7 +213,7 @@ export default function EduExamPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -224,7 +224,7 @@ export default function EduExamPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

@@ -132,7 +132,7 @@ export default function AdminResourceProductPage() {
             <Package className="h-6 w-6 text-primary" />
             资源产品
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理可售卖资源产品及价格</p>
+          <p className="mt-1 text-body text-muted-foreground">管理可售卖资源产品及价格</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -155,7 +155,7 @@ export default function AdminResourceProductPage() {
       {creating ? (
         <form onSubmit={submit} className="rounded-lg border border-border bg-card p-3 space-y-3">
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
-            <label htmlFor="rp-resource-id" className="space-y-1 text-sm">
+            <label htmlFor="rp-resource-id" className="space-y-1 text-body">
               <span className="text-muted-foreground">资源 ID</span>
               <Input
                 id="rp-resource-id"
@@ -164,7 +164,7 @@ export default function AdminResourceProductPage() {
                 required
               />
             </label>
-            <label htmlFor="rp-name" className="space-y-1 text-sm">
+            <label htmlFor="rp-name" className="space-y-1 text-body">
               <span className="text-muted-foreground">产品名称</span>
               <Input
                 id="rp-name"
@@ -173,7 +173,7 @@ export default function AdminResourceProductPage() {
                 required
               />
             </label>
-            <label htmlFor="rp-price" className="space-y-1 text-sm">
+            <label htmlFor="rp-price" className="space-y-1 text-body">
               <span className="text-muted-foreground">价格</span>
               <Input
                 id="rp-price"
@@ -182,7 +182,7 @@ export default function AdminResourceProductPage() {
                 className="tabular-nums"
               />
             </label>
-            <label htmlFor="rp-original-price" className="space-y-1 text-sm">
+            <label htmlFor="rp-original-price" className="space-y-1 text-body">
               <span className="text-muted-foreground">原价</span>
               <Input
                 id="rp-original-price"
@@ -191,7 +191,7 @@ export default function AdminResourceProductPage() {
                 className="tabular-nums"
               />
             </label>
-            <label htmlFor="rp-description" className="space-y-1 text-sm min-[768px]:col-span-2">
+            <label htmlFor="rp-description" className="space-y-1 text-body min-[768px]:col-span-2">
               <span className="text-muted-foreground">描述</span>
               <Input
                 id="rp-description"
@@ -199,7 +199,7 @@ export default function AdminResourceProductPage() {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </label>
-            <label htmlFor="rp-sort" className="space-y-1 text-sm">
+            <label htmlFor="rp-sort" className="space-y-1 text-body">
               <span className="text-muted-foreground">排序</span>
               <Input
                 id="rp-sort"
@@ -209,7 +209,7 @@ export default function AdminResourceProductPage() {
                 className="tabular-nums"
               />
             </label>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-body">
               <input
                 type="checkbox"
                 checked={form.isPublished}
@@ -218,7 +218,7 @@ export default function AdminResourceProductPage() {
               上架
             </label>
           </div>
-          {err ? <p className="text-xs text-destructive">{err}</p> : null}
+          {err ? <p className="text-label text-destructive">{err}</p> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" size="sm" onClick={closeForm}>
               <X className="h-4 w-4" />
@@ -234,8 +234,8 @@ export default function AdminResourceProductPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">产品名称</th>
                 <th className="px-3 py-2 text-left">资源 ID</th>
@@ -271,7 +271,7 @@ export default function AdminResourceProductPage() {
                     <td className="px-3 py-2 text-right tabular-nums">{p.sort}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${
+                        className={`rounded-md px-2 py-0.5 text-label ${
                           p.isPublished
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : 'bg-muted text-muted-foreground'
@@ -310,7 +310,7 @@ export default function AdminResourceProductPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 个产品</span>
+        <span className="text-body text-muted-foreground">共 {total} 个产品</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -321,7 +321,7 @@ export default function AdminResourceProductPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

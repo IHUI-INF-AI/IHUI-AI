@@ -106,14 +106,14 @@ export default function AdminDocsPage() {
           <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <FileText className="h-6 w-6 text-primary" />{t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />{t('create')}</Button>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className={th}>{t('colTitle')}</th>
               <th className={th}>{t('colCategory')}</th>
@@ -138,7 +138,7 @@ export default function AdminDocsPage() {
                   <td className="px-4 py-2.5">
                     <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">{t(DOC_CATEGORY_KEY[d.category as keyof typeof DOC_CATEGORY_KEY] ?? 'categories.unknown')}</span>
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.slug}</td>
+                  <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">{d.slug}</td>
                   <td className="px-4 py-2.5">
                     <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium', d.status === 'published' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
                       <span className={cn('h-1.5 w-1.5 rounded-sm', d.status === 'published' ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
@@ -169,7 +169,7 @@ export default function AdminDocsPage() {
               <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
               <DialogDescription>{t('createDesc')}</DialogDescription>
             </DialogHeader>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">{err}</div>}
             <div className="space-y-2">
               <Label htmlFor="d-title">{t('fieldTitle')}</Label>
               <Input id="d-title" value={form.title} onChange={(e) => { const title = e.target.value; setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) }) }} placeholder={t('titlePlaceholder')} />
@@ -177,7 +177,7 @@ export default function AdminDocsPage() {
             <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="d-slug">{t('fieldSlug')}</Label>
-                <Input id="d-slug" value={form.slug} onChange={(e) => { setSlugTouched(true); setForm({ ...form, slug: e.target.value }) }} placeholder={t('slugPlaceholder')} className="font-mono text-xs" />
+                <Input id="d-slug" value={form.slug} onChange={(e) => { setSlugTouched(true); setForm({ ...form, slug: e.target.value }) }} placeholder={t('slugPlaceholder')} className="font-mono text-label" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="d-category">{t('fieldCategory')}</Label>
@@ -208,7 +208,7 @@ export default function AdminDocsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="d-content">{t('fieldContent')}</Label>
-              <textarea id="d-content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder={t('contentPlaceholder')} rows={6} className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+              <textarea id="d-content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder={t('contentPlaceholder')} rows={6} className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>{tc('cancel')}</Button>

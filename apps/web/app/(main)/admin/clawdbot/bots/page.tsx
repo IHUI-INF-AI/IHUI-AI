@@ -163,7 +163,7 @@ export default function ClawdbotBotsPage() {
       <div className="rounded-lg border bg-card">
         <div className="space-y-2">
           {bots.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               暂无 Bot
             </div>
           ) : (
@@ -174,7 +174,7 @@ export default function ClawdbotBotsPage() {
                     <p className="min-w-0 flex-1 truncate text-body font-medium">{b.name}</p>
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 text-xs',
+                        'rounded px-1.5 py-0.5 text-label',
                         b.isActive
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
@@ -183,7 +183,7 @@ export default function ClawdbotBotsPage() {
                       {b.isActive ? '运行中' : '已停止'}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 truncate text-label text-muted-foreground">
                     {b.model} · {timeFmt.format(new Date(b.createdAt))}
                   </p>
                 </div>

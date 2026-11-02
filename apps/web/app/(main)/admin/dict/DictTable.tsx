@@ -81,10 +81,10 @@ export function DictTable({
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
                 <span className="font-medium">{d.name}</span>
-                <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                <code className="rounded bg-muted px-2 py-0.5 font-mono text-label text-muted-foreground">
                   {d.code}
                 </code>
-                <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                <span className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                   {d.itemCount}
                 </span>
               </button>
@@ -122,12 +122,12 @@ export function DictTable({
               </div>
             </div>
             {d.description && (
-              <div className="px-4 py-2 text-xs text-muted-foreground">{d.description}</div>
+              <div className="px-4 py-2 text-label text-muted-foreground">{d.description}</div>
             )}
             {isOpen && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                <table className="w-full text-body">
+                  <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                     <tr>
                       <th className={th}>{t('dict.colLabel')}</th>
                       <th className={th}>{t('dict.colValue')}</th>
@@ -154,7 +154,7 @@ export function DictTable({
                           <td className="px-4 py-2.5">
                             <span
                               className={cn(
-                                'inline-flex items-center gap-1 text-xs',
+                                'inline-flex items-center gap-1 text-label',
                                 it.status === 1
                                   ? 'text-emerald-600 dark:text-emerald-500'
                                   : 'text-muted-foreground',

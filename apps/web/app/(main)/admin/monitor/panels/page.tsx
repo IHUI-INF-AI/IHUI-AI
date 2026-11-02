@@ -392,7 +392,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                             type="button"
                             onClick={() => switchDashboard(d.uid)}
                             className={cn(
-                              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
+                              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label transition-colors',
                               active
                                 ? 'bg-info/15 font-medium text-info-text'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -501,11 +501,11 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         {/* 面板网格:pn-panels 是网格列的容器查询宿主,列数跟面板区实际宽度走(不跟视口) */}
         <div className="pn-panels flex-1 overflow-y-auto p-3">
           {!dashboard ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-label text-muted-foreground">
               配置加载中…
             </div>
           ) : panels.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-label text-muted-foreground">
               无匹配「{filter}」的面板
             </div>
           ) : (

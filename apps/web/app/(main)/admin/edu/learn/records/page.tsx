@@ -83,7 +83,7 @@ export default function EduLearnRecordsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -165,13 +165,13 @@ export default function EduLearnRecordsPage() {
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{r.title}</div>
                     {r.description && (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
+                      <div className="max-w-xs break-words text-label text-muted-foreground">
                         {r.description}
                       </div>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">{t('hours', { count: r.hours })}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {r.occurredAt}
                   </TableCell>
                 </TableRow>
@@ -181,7 +181,7 @@ export default function EduLearnRecordsPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -192,7 +192,7 @@ export default function EduLearnRecordsPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

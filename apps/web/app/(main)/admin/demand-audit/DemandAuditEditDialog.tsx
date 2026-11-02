@@ -55,7 +55,7 @@ export function DemandAuditEditDialog({
           <div className="grid grid-cols-2 gap-3">
             {EDIT_FIELDS.map((f) => (
               <div key={f.key} className={f.type === 'textarea' ? 'col-span-2' : ''}>
-                <Label className="text-xs">{f.label}</Label>
+                <Label className="text-label">{f.label}</Label>
                 {f.type === 'textarea' ? (
                   <textarea
                     className={`${textareaClass} mt-1`}
@@ -65,7 +65,7 @@ export function DemandAuditEditDialog({
                   />
                 ) : (
                   <Input
-                    className="mt-1 h-8 text-sm"
+                    className="mt-1 h-8 text-body"
                     type={f.type === 'date' ? 'date' : 'text'}
                     value={form[f.key] ?? ''}
                     onChange={(e) => onFormChange({ ...form, [f.key]: e.target.value })}

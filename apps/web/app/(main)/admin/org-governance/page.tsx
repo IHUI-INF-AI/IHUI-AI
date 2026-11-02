@@ -164,9 +164,9 @@ function formatTs(value: string): string {
 function UsageCells({ cost, tokens, calls }: { cost: string; tokens: number; calls: number }) {
   return (
     <>
-      <TableCell className="text-xs">{cost}</TableCell>
-      <TableCell className="text-xs">{tokens}</TableCell>
-      <TableCell className="text-xs">{calls}</TableCell>
+      <TableCell className="text-label">{cost}</TableCell>
+      <TableCell className="text-label">{tokens}</TableCell>
+      <TableCell className="text-label">{calls}</TableCell>
     </>
   )
 }
@@ -227,7 +227,10 @@ function PolicyEditor({
   const flagsInvalid = flagLines.some((line) => {
     const eq = line.indexOf('=')
     if (eq <= 0) return true
-    const v = line.slice(eq + 1).trim().toLowerCase()
+    const v = line
+      .slice(eq + 1)
+      .trim()
+      .toLowerCase()
     return v !== 'true' && v !== 'false'
   })
 
@@ -246,7 +249,11 @@ function PolicyEditor({
       for (const line of flagLines) {
         const eq = line.indexOf('=')
         if (eq <= 0) continue
-        flags[line.slice(0, eq).trim()] = line.slice(eq + 1).trim().toLowerCase() === 'true'
+        flags[line.slice(0, eq).trim()] =
+          line
+            .slice(eq + 1)
+            .trim()
+            .toLowerCase() === 'true'
       }
       policyValue = flags
     } else if (policyKey === 'spend_budget_daily') {
@@ -260,17 +267,14 @@ function PolicyEditor({
   }
 
   return (
-    <div
-      data-testid={`org-policy-${policyKey}`}
-      className="space-y-2 rounded-lg border p-3"
-    >
+    <div data-testid={`org-policy-${policyKey}`} className="space-y-2 rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-body font-medium">{t(POLICY_TITLE_KEY[policyKey])}</span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-label text-muted-foreground">
           {t('version')}: v{row?.version ?? '—'}
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-3 text-label text-muted-foreground">
         <span data-testid={`policy-${policyKey}-version`}>
           {t('version')}: {row?.version ?? '—'}
         </span>
@@ -284,21 +288,21 @@ function PolicyEditor({
 
       {policyKey === 'model_allowlist' ? (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{t('allowlistHint')}</p>
+          <p className="text-label text-muted-foreground">{t('allowlistHint')}</p>
           <textarea
             data-testid={`policy-${policyKey}-input`}
             value={modelIdsText}
             onChange={(e) => setModelIdsText(e.target.value)}
             rows={4}
-            className="w-full rounded-sm border border-input bg-transparent p-2 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none"
+            className="w-full rounded-sm border border-input bg-transparent p-2 text-body shadow-sm focus-visible:border-primary focus-visible:outline-none"
           />
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{t('allowlistMode')}</span>
+            <span className="text-label text-muted-foreground">{t('allowlistMode')}</span>
             <select
               data-testid={`policy-${policyKey}-mode`}
               value={mode}
               onChange={(e) => setMode(e.target.value === 'block' ? 'block' : 'allow')}
-              className="rounded-sm border border-input bg-transparent px-2 py-1 text-xs"
+              className="rounded-sm border border-input bg-transparent px-2 py-1 text-label"
             >
               <option value="allow">{t('modeAllow')}</option>
               <option value="block">{t('modeBlock')}</option>
@@ -309,16 +313,16 @@ function PolicyEditor({
 
       {policyKey === 'feature_flags' ? (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{t('flagsHint')}</p>
+          <p className="text-label text-muted-foreground">{t('flagsHint')}</p>
           <textarea
             data-testid={`policy-${policyKey}-input`}
             value={flagsText}
             onChange={(e) => setFlagsText(e.target.value)}
             rows={4}
-            className="w-full rounded-sm border border-input bg-transparent p-2 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none"
+            className="w-full rounded-sm border border-input bg-transparent p-2 text-body shadow-sm focus-visible:border-primary focus-visible:outline-none"
           />
           {flagsInvalid ? (
-            <p data-testid={`policy-${policyKey}-invalid`} className="text-xs text-destructive">
+            <p data-testid={`policy-${policyKey}-invalid`} className="text-label text-destructive">
               {t('flagsInvalid')}
             </p>
           ) : null}
@@ -327,7 +331,7 @@ function PolicyEditor({
 
       {policyKey === 'spend_budget_daily' ? (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{t('spendBudgetHint')}</p>
+          <p className="text-label text-muted-foreground">{t('spendBudgetHint')}</p>
           <Input
             data-testid={`policy-${policyKey}-input`}
             type="number"
@@ -341,7 +345,7 @@ function PolicyEditor({
 
       {policyKey === 'data_retention_days' ? (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{t('retentionHint')}</p>
+          <p className="text-label text-muted-foreground">{t('retentionHint')}</p>
           <Input
             data-testid={`policy-${policyKey}-input`}
             type="number"
@@ -447,8 +451,7 @@ export default function OrgGovernancePage() {
   )
 
   const pendingKey = saveMutation.isPending ? saveMutation.variables?.key : undefined
-  const forbidden =
-    isForbiddenError(summaryQuery.error) || isForbiddenError(policiesQuery.error)
+  const forbidden = isForbiddenError(summaryQuery.error) || isForbiddenError(policiesQuery.error)
 
   if (!allow) return <AuthGatePrompt message={t('loginRequired')} />
 
@@ -461,7 +464,7 @@ export default function OrgGovernancePage() {
         >
           <ShieldCheck className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
           <p className="text-body font-medium">{t('forbidden')}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t('forbiddenHint')}</p>
+          <p className="mt-1 text-label text-muted-foreground">{t('forbiddenHint')}</p>
         </div>
       </div>
     )
@@ -471,11 +474,11 @@ export default function OrgGovernancePage() {
     <div className="space-y-4 px-4 py-4">
       <div>
         <h1 className="text-heading font-semibold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {summaryQuery.error || policiesQuery.error ? (
-        <p data-testid="org-load-failed" className="text-xs text-destructive">
+        <p data-testid="org-load-failed" className="text-label text-destructive">
           {t('loadFailed')}
         </p>
       ) : null}
@@ -490,14 +493,14 @@ export default function OrgGovernancePage() {
         </CardHeader>
         <CardContent>
           <div data-testid="org-overview" className="space-y-3">
-            <p className="text-sm">
+            <p className="text-body">
               {t('orgId')}:{' '}
               <span data-testid="org-overview-org-id" className="font-medium">
                 {summary?.orgId ?? (summaryQuery.isLoading ? t('loading') : '—')}
               </span>
             </p>
             <div className="flex flex-wrap items-end gap-3">
-              <label className="space-y-1 text-xs text-muted-foreground">
+              <label className="space-y-1 text-label text-muted-foreground">
                 <span className="block">{t('periodFrom')}</span>
                 <Input
                   data-testid="org-period-from"
@@ -507,7 +510,7 @@ export default function OrgGovernancePage() {
                   className="w-[160px]"
                 />
               </label>
-              <label className="space-y-1 text-xs text-muted-foreground">
+              <label className="space-y-1 text-label text-muted-foreground">
                 <span className="block">{t('periodTo')}</span>
                 <Input
                   data-testid="org-period-to"
@@ -541,11 +544,11 @@ export default function OrgGovernancePage() {
         <CardContent>
           <div data-testid="org-members" className="space-y-2">
             {summaryQuery.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">{t('loading')}</p>
+              <p className="py-4 text-center text-body text-muted-foreground">{t('loading')}</p>
             ) : byMember.length === 0 ? (
               <p
                 data-testid="org-members-empty"
-                className="py-4 text-center text-sm text-muted-foreground"
+                className="py-4 text-center text-body text-muted-foreground"
               >
                 {t('emptyMembers')}
               </p>
@@ -563,7 +566,7 @@ export default function OrgGovernancePage() {
                   <TableBody>
                     {byMember.map((m) => (
                       <TableRow key={m.userId} data-testid={`org-member-row-${m.userId}`}>
-                        <TableCell className="text-xs">{m.userId}</TableCell>
+                        <TableCell className="text-label">{m.userId}</TableCell>
                         <UsageCells cost={m.cost} tokens={m.tokens} calls={m.calls} />
                       </TableRow>
                     ))}
@@ -586,11 +589,11 @@ export default function OrgGovernancePage() {
         <CardContent>
           <div data-testid="org-models" className="space-y-4">
             {summaryQuery.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">{t('loading')}</p>
+              <p className="py-4 text-center text-body text-muted-foreground">{t('loading')}</p>
             ) : byModel.length === 0 ? (
               <p
                 data-testid="org-models-empty"
-                className="py-4 text-center text-sm text-muted-foreground"
+                className="py-4 text-center text-body text-muted-foreground"
               >
                 {t('emptyModels')}
               </p>
@@ -608,7 +611,9 @@ export default function OrgGovernancePage() {
                   <TableBody>
                     {byModel.map((m) => (
                       <TableRow key={m.model} data-testid={`org-model-row-${m.model}`}>
-                        <TableCell className="max-w-[220px] truncate text-xs">{m.model}</TableCell>
+                        <TableCell className="max-w-[220px] truncate text-label">
+                          {m.model}
+                        </TableCell>
                         <UsageCells cost={m.cost} tokens={m.tokens} calls={m.calls} />
                       </TableRow>
                     ))}
@@ -621,7 +626,7 @@ export default function OrgGovernancePage() {
             <div className="space-y-2">
               <p className="text-body font-medium">{t('agentBillings')}</p>
               {agentNote ? (
-                <p data-testid="org-agent-note" className="text-xs text-muted-foreground">
+                <p data-testid="org-agent-note" className="text-label text-muted-foreground">
                   {agentNote}
                 </p>
               ) : null}
@@ -639,7 +644,7 @@ export default function OrgGovernancePage() {
                     <TableBody>
                       {agentModels.map((a) => (
                         <TableRow key={a.modelId} data-testid={`org-agent-row-${a.modelId}`}>
-                          <TableCell className="max-w-[220px] truncate text-xs">
+                          <TableCell className="max-w-[220px] truncate text-label">
                             {a.modelId}
                           </TableCell>
                           <UsageCells cost={a.balance} tokens={a.tokens} calls={a.calls} />
@@ -655,7 +660,7 @@ export default function OrgGovernancePage() {
             <details data-testid="org-byday">
               <summary className="cursor-pointer text-body font-medium">{t('byDay')}</summary>
               {byDay.length === 0 ? (
-                <p className="py-2 text-xs text-muted-foreground">{t('emptyModels')}</p>
+                <p className="py-2 text-label text-muted-foreground">{t('emptyModels')}</p>
               ) : (
                 <div className="mt-2 overflow-x-auto rounded-lg border">
                   <Table>
@@ -670,7 +675,7 @@ export default function OrgGovernancePage() {
                     <TableBody>
                       {byDay.map((d) => (
                         <TableRow key={d.date} data-testid={`org-day-row-${d.date}`}>
-                          <TableCell className="text-xs">{d.date}</TableCell>
+                          <TableCell className="text-label">{d.date}</TableCell>
                           <UsageCells cost={d.cost} tokens={d.tokens} calls={d.calls} />
                         </TableRow>
                       ))}
@@ -723,15 +728,15 @@ export default function OrgGovernancePage() {
         <CardContent>
           <div data-testid="org-policy-trail" className="space-y-2">
             {/* 诚实说明:后端无独立审计查询端点,本表来源是 org_policies 行自身 */}
-            <p data-testid="org-trail-note" className="text-xs text-muted-foreground">
+            <p data-testid="org-trail-note" className="text-label text-muted-foreground">
               {t('trailNote')}
             </p>
             {policiesQuery.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">{t('loading')}</p>
+              <p className="py-4 text-center text-body text-muted-foreground">{t('loading')}</p>
             ) : trail.length === 0 ? (
               <p
                 data-testid="org-trail-empty"
-                className="py-4 text-center text-sm text-muted-foreground"
+                className="py-4 text-center text-body text-muted-foreground"
               >
                 {t('emptyTrail')}
               </p>
@@ -752,12 +757,12 @@ export default function OrgGovernancePage() {
                         key={row.id}
                         data-testid={`trail-row-${row.policyKey}-${row.version}`}
                       >
-                        <TableCell className="text-xs">{row.policyKey}</TableCell>
-                        <TableCell className="text-xs">{row.version}</TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-label">{row.policyKey}</TableCell>
+                        <TableCell className="text-label">{row.version}</TableCell>
+                        <TableCell className="text-label">
                           {row.enabled ? t('enabled') : t('disabled')}
                         </TableCell>
-                        <TableCell className="text-xs">{formatTs(row.updatedAt)}</TableCell>
+                        <TableCell className="text-label">{formatTs(row.updatedAt)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

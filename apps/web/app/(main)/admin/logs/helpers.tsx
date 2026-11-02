@@ -60,7 +60,7 @@ export function MetricCard({
 }) {
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>

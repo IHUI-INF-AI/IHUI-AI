@@ -70,7 +70,7 @@ export default function AdminDistributionOrdersPage() {
     <div className="space-y-4 px-4 py-4">
       <Link
         href="/admin/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回分销中心
@@ -78,7 +78,7 @@ export default function AdminDistributionOrdersPage() {
 
       <div>
         <h1 className="text-display font-bold tracking-tight">分销订单</h1>
-        <p className="mt-1 text-sm text-muted-foreground">查看佣金订单明细与状态</p>
+        <p className="mt-1 text-body text-muted-foreground">查看佣金订单明细与状态</p>
       </div>
 
       {listQ.isError && (

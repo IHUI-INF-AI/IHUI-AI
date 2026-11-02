@@ -76,7 +76,7 @@ export default function MobileAdapterPage() {
           <Smartphone className="h-6 w-6 text-primary" />
           {t('mobile.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('mobile.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('mobile.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-3">
@@ -94,8 +94,8 @@ export default function MobileAdapterPage() {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+              <table className="w-full text-body">
+                <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                   <tr>
                     <th className={th}>{t('mobile.colModel')}</th>
                     <th className={th}>{t('mobile.colResolution')}</th>
@@ -109,7 +109,7 @@ export default function MobileAdapterPage() {
                     return (
                       <tr key={d.id} className="transition-colors hover:bg-muted/30">
                         <td className="px-4 py-2.5 font-medium">{d.model}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                        <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                           {d.resolution}
                         </td>
                         <td className="px-4 py-2.5">{d.dpr}x</td>
@@ -146,7 +146,7 @@ export default function MobileAdapterPage() {
                     setModeMut.mutate(m.id)
                   }}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-sm transition-colors',
+                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-body transition-colors',
                     previewMode === m.id
                       ? 'border-brand-accent-deep bg-primary/5 text-primary'
                       : 'hover:bg-muted/30',
@@ -155,7 +155,7 @@ export default function MobileAdapterPage() {
                   <div className="flex items-center gap-2">
                     <Smartphone className="h-4 w-4" />
                     <span className="font-medium">{m.label}</span>
-                    <span className="text-xs text-muted-foreground">{m.width}px</span>
+                    <span className="text-label text-muted-foreground">{m.width}px</span>
                   </div>
                   {previewMode === m.id && <Check className="h-4 w-4 text-primary" />}
                 </button>
@@ -165,7 +165,7 @@ export default function MobileAdapterPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t('mobile.preview')}</CardTitle>
+              <CardTitle className="text-body">{t('mobile.preview')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex justify-center rounded-md border bg-muted/30 p-3">
@@ -179,7 +179,7 @@ export default function MobileAdapterPage() {
                     height: 200,
                   }}
                 >
-                  <div className="border-b border-primary/20 px-2 py-1 text-xs text-muted-foreground">
+                  <div className="border-b border-primary/20 px-2 py-1 text-label text-muted-foreground">
                     {PREVIEW_MODES.find((m) => m.id === previewMode)?.label} ·{' '}
                     {PREVIEW_MODES.find((m) => m.id === previewMode)?.width}px
                   </div>
