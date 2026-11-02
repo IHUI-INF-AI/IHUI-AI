@@ -6,7 +6,7 @@ import { Fragment, useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
-import type { AppIcon } from '@ihui/types'
+import type { AppIcon, OnToast } from '@ihui/types'
 import {
   Award,
   BarChart3,
@@ -29,6 +29,7 @@ import {
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** VIP 操盘手统计项(由 wrapper 从 CommissionOverview 构建) */
 export interface VipTraderStat {
@@ -56,6 +57,8 @@ export interface VipTraderScreenProps {
   onOpen: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 const TRADER_PRICE = 9980
@@ -100,7 +103,10 @@ export function VipTraderScreen({
   onOpen,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: VipTraderScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

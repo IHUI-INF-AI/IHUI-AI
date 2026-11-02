@@ -29,6 +29,7 @@ import { rpx } from '../utils/rpx'
 import { type LucideIcon, FileText, Film, Image, Music, Sparkles } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -261,6 +262,8 @@ export default function AigcListScreen() {
     [items],
   )
 
+  const { onToast } = useHostPorts()
+
   /** SharedAigcListScreen 注入 props;onLoadMore 已由共享屏 FlatList 的 onEndReached 消费触发上拉分页 */
   const sharedListProps: AigcListScreenProps = {
     t,
@@ -277,6 +280,7 @@ export default function AigcListScreen() {
     onBack: () => navigation.goBack(),
     onLoadMore: loadMore,
     colorScheme: resolvedTheme,
+    onToast,
   }
 
   return (

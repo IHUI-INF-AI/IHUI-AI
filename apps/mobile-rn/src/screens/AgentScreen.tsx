@@ -70,6 +70,7 @@ import { rnRadius, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
 import { useRefreshOnFocus } from '../hooks'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -161,6 +162,7 @@ const AGENT_FETCH_LIMIT = 200
 const AGENT_PAGE_STEP = 24
 
 export function AgentScreen() {
+  const { onNavigate } = useHostPorts()
   const { t } = useI18n()
   const { token, user } = useAuth()
   const { resolvedTheme } = useTheme()
@@ -758,6 +760,7 @@ export function AgentScreen() {
               onPressItem={(id) => handleItemClick(id)}
               onBack={() => navigation.goBack()}
               nestedInScrollView
+              onNavigate={onNavigate}
             />
           ) : (
             <>

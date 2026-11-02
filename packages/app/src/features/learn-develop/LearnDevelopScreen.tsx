@@ -17,6 +17,7 @@ import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { assertRequiredPort } from '../../host/ports'
 
 export type { LearnDevelopEntry, LearnDevelopScreenProps }
 
@@ -32,7 +33,10 @@ export function LearnDevelopScreen({
   onContact,
   entries = [],
   colorScheme = 'light',
+  onNavigate,
 }: LearnDevelopScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

@@ -14,6 +14,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { VerifyCodeModal } from '../components/VerifyCodeModal'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -128,6 +129,8 @@ export function RegisterScreen() {
     navigation.navigate('Privacy')
   }, [navigation])
 
+  const { onToast } = useHostPorts()
+
   return (
     <>
       <SharedRegisterScreen
@@ -152,6 +155,7 @@ export function RegisterScreen() {
         showAgreeErr={showAgreeErr}
         onOpenTerms={onOpenTerms}
         onOpenPrivacy={onOpenPrivacy}
+        onToast={onToast}
       />
       <VerifyCodeModal
         visible={verifyVisible}

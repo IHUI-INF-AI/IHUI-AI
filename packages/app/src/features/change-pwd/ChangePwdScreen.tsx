@@ -10,6 +10,7 @@ import type { ChangePwdScreenProps, TFunction } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 修改密码/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ChangePwdScreenProps }
@@ -38,7 +39,12 @@ export function ChangePwdScreen({
   onToggleConfirm,
   onSubmit,
   colorScheme = 'light',
+  onNavigate,
+  onToast,
 }: ChangePwdScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

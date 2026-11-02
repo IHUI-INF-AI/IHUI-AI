@@ -28,6 +28,7 @@ import type {
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -61,7 +62,10 @@ export function LecturerDetailScreen({
   onBack,
   colorScheme = 'light',
   onViewCourses,
+  onNavigate,
 }: LecturerDetailScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

@@ -11,6 +11,7 @@ import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamResultScreen as SharedExamResultScreen, type ExamResultItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'ExamResult'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -41,6 +42,8 @@ export function ExamResultScreen() {
     }
   }, [id, t])
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedExamResultScreen
       t={t}
@@ -49,6 +52,7 @@ export function ExamResultScreen() {
       error={error}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

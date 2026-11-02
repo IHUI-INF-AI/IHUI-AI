@@ -11,6 +11,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipCompareScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** VIP 对比共享屏 — props 注入式跨端组件 */
 export type { VipCompareScreenProps }
@@ -22,7 +23,10 @@ export function VipCompareScreen({
   error,
   onBack,
   colorScheme = 'light',
+  onNavigate,
 }: VipCompareScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

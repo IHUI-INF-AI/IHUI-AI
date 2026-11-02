@@ -24,6 +24,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 直播列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
@@ -57,7 +58,10 @@ export function LiveListScreen({
   onEndReached,
   loadingMore = false,
   colorScheme = 'light',
+  onNavigate,
 }: LiveListScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 列表页分享的是"这一屏":原页两张卡用应用级两枚文案(转发卡 appTitle / 朋友圈卡 timelineTitle),

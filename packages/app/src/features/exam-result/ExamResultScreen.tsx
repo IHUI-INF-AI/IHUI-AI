@@ -11,6 +11,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** ExamResult 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamResultItem, ExamResultScreenProps }
@@ -22,7 +23,10 @@ export function ExamResultScreen({
   error,
   onBack,
   colorScheme = 'light',
+  onNavigate,
 }: ExamResultScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 分享正文交给宿主。path 是**列表页**而非本页 ⇒ 必须显式发布,交宿主兜底会把落点改成成绩页自己。

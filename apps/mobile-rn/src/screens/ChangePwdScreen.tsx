@@ -13,6 +13,7 @@ import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { ChangePwdScreen as SharedChangePwdScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -61,6 +62,8 @@ function ChangePwdScreen() {
     }
   }
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <View style={{ flex: 1 }}>
       <SharedChangePwdScreen
@@ -81,6 +84,8 @@ function ChangePwdScreen() {
         onToggleConfirm={() => setShowConfirm((v) => !v)}
         onSubmit={onSubmit}
         colorScheme={resolvedTheme}
+        onNavigate={onNavigate}
+        onToast={onToast}
       />
     </View>
   )

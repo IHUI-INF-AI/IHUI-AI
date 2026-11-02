@@ -14,6 +14,7 @@
 import type { ReactNode } from 'react'
 import type { AppIcon, ListPaginationProps, TFunction } from './app-shared.js'
 import type { PromotionCoupon } from './app-commerce.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 // ============================================================
 // 第三批共享屏类型(2026-07-29):PointHistory/NoteList/ArticleList/
@@ -100,6 +101,8 @@ export interface VipCompareScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 分享生成结果(平台注入,字段对齐 mobile-rn ShareScreen ShareResp) */
@@ -262,6 +265,10 @@ export interface VipScreenProps {
    * 无则保持原有等级列表结构不变 —— 全部可选是为 RN 现有调用点零回归。
    */
   benefitItems?: VipBenefitCardItem[]
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
@@ -344,6 +351,10 @@ export interface FollowScreenProps {
   onUnfollow: (item: FollowUserItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 // ============ 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) ============

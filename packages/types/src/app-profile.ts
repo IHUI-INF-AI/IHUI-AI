@@ -23,12 +23,17 @@ import type {
   TFunction,
 } from './app-shared.js'
 import type { Gender } from './app-account.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** About 屏 props */
 export interface AboutScreenProps {
   t: TFunction
   appInfo?: SharedAppInfo
   onBack: () => void
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** Profile 屏 props */
@@ -161,6 +166,8 @@ export interface HelpScreenProps {
   onFeedbackContactChange?: (value: string) => void
   onFeedbackContentChange?: (value: string) => void
   onSubmitFeedback?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */

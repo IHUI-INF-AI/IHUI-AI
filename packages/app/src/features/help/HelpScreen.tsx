@@ -19,6 +19,7 @@ import type { HelpListItem, HelpScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { filterHelpItems } from './filter-help-items'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 帮助列表共享屏 — props 注入式跨端组件 */
 export type { HelpListItem, HelpScreenProps }
@@ -47,7 +48,10 @@ export function HelpScreen({
   onFeedbackContactChange,
   onFeedbackContentChange,
   onSubmitFeedback,
+  onToast,
 }: HelpScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const [searchFocused, setSearchFocused] = useState(false)

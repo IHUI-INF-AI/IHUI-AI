@@ -16,6 +16,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 主播端共享屏 — props 注入式跨端组件(纯 UI,推流/SRS API 由 wrapper 注入) */
 export type { LiveHostProduct, LiveHostStatus, LiveHostStreamData, LiveHostScreenProps }
@@ -65,7 +66,10 @@ export function LiveHostScreen({
   onCopyText,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: LiveHostScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

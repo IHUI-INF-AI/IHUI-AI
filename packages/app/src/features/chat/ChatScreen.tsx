@@ -17,6 +17,7 @@ import { ContextUsagePanel } from './ContextUsagePanel'
 
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
@@ -75,7 +76,12 @@ export function ChatScreen({
   containerStyle,
   flatListStyle,
   onListRef,
+  onNavigate,
+  onToast,
 }: ChatScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const listRef = useRef<FlatList<ChatScreenMessage> | null>(null)
   const styles = useMemo(() => createStyles(tk), [tk])
