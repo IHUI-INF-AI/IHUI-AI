@@ -53,7 +53,7 @@ export function MemoryEditPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">{editing.id ? t('editBtn') : t('newBtn')}</CardTitle>
+        <CardTitle className="text-body">{editing.id ? t('editBtn') : t('newBtn')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -62,7 +62,7 @@ export function MemoryEditPanel({
               key={k}
               type="button"
               onClick={() => onChange({ ...editing, kind: k })}
-              className={`rounded-sm px-2 py-1 text-xs ${
+              className={`rounded-sm px-2 py-1 text-label ${
                 editing.kind === k ? KIND_BADGE[k] : 'bg-muted text-muted-foreground'
               }`}
             >

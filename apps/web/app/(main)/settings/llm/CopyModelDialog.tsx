@@ -139,7 +139,7 @@ export function CopyModelDialog({
 
         <div className="space-y-3">
           {/* 源信息 */}
-          <div className="space-y-1 rounded-md border bg-muted/20 p-2 text-xs">
+          <div className="space-y-1 rounded-md border bg-muted/20 p-2 text-label">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">{t('sourceProvider')}</span>
               <span className="font-medium">{sourceProvider.name}</span>
@@ -152,9 +152,9 @@ export function CopyModelDialog({
 
           {/* 目标选择 */}
           <div className="space-y-1.5">
-            <Label className="text-xs">{t('targetProvider')}</Label>
+            <Label className="text-label">{t('targetProvider')}</Label>
             {targetProviders.length === 0 ? (
-              <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+              <p className="rounded-md border border-dashed p-2 text-label text-muted-foreground">
                 {t('noTargets')}
               </p>
             ) : (
@@ -162,7 +162,7 @@ export function CopyModelDialog({
                 {targetProviders.map((p) => (
                   <label
                     key={p.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-xs hover:bg-accent ${
+                    className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-label hover:bg-accent ${
                       targetId === p.id ? 'bg-primary/10' : ''
                     }`}
                   >
@@ -183,7 +183,7 @@ export function CopyModelDialog({
 
           {/* 字段勾选 */}
           <div className="space-y-1.5">
-            <Label className="text-xs">{t('fields')}</Label>
+            <Label className="text-label">{t('fields')}</Label>
             <div className="grid grid-cols-2 gap-1.5 rounded-md border p-2">
               <FieldCheckbox
                 id="f-display"
@@ -262,7 +262,7 @@ function FieldCheckbox({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label htmlFor={id} className="flex cursor-pointer items-center gap-1.5 text-xs">
+    <label htmlFor={id} className="flex cursor-pointer items-center gap-1.5 text-label">
       <Checkbox id={id} checked={checked} onCheckedChange={(v) => onChange(!!v)} />
       <span>{label}</span>
     </label>

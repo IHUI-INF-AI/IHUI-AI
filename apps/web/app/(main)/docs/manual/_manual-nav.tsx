@@ -23,13 +23,13 @@ export function ManualNav({ prev, next }: ManualNavProps) {
           href={prev.href}
           className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
         >
-          <div className="text-xs font-mono text-muted-foreground">← 第 {prev.num} 章</div>
+          <div className="text-label font-mono text-muted-foreground">← 第 {prev.num} 章</div>
           <div className="mt-1 text-body font-medium">{prev.title}</div>
         </Link>
       ) : (
         <div className="rounded-xl border bg-muted/20 p-3 opacity-50">
-          <div className="text-xs font-mono text-muted-foreground">← 已是第一章</div>
-          <div className="mt-1 text-sm">无</div>
+          <div className="text-label font-mono text-muted-foreground">← 已是第一章</div>
+          <div className="mt-1 text-body">无</div>
         </div>
       )}
       {next ? (
@@ -37,13 +37,13 @@ export function ManualNav({ prev, next }: ManualNavProps) {
           href={next.href}
           className="group rounded-lg border bg-card p-3 text-right transition-colors hover:bg-accent"
         >
-          <div className="text-xs font-mono text-muted-foreground">第 {next.num} 章 →</div>
+          <div className="text-label font-mono text-muted-foreground">第 {next.num} 章 →</div>
           <div className="mt-1 text-body font-medium">{next.title}</div>
         </Link>
       ) : (
         <div className="rounded-xl border bg-muted/20 p-3 text-right opacity-50">
-          <div className="text-xs font-mono text-muted-foreground">已是最后一章 →</div>
-          <div className="mt-1 text-sm">无</div>
+          <div className="text-label font-mono text-muted-foreground">已是最后一章 →</div>
+          <div className="mt-1 text-body">无</div>
         </div>
       )}
     </nav>

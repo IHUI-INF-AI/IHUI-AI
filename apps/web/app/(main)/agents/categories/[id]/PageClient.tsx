@@ -96,12 +96,12 @@ export default function AgentCategoryDetailPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
         <Link
           href="/agents"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function AgentCategoryDetailPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/agents"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -123,14 +123,14 @@ export default function AgentCategoryDetailPage() {
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               {category.icon ? (
-                <span className="text-xl">{category.icon}</span>
+                <span className="text-heading font-normal">{category.icon}</span>
               ) : (
                 <Tag className="h-6 w-6 text-primary" />
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <h1 className="text-heading font-bold tracking-tight">{category.name}</h1>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
                 <span
                   className={cn(
                     'inline-flex items-center gap-1 rounded-md px-2 py-0.5',
@@ -156,7 +156,7 @@ export default function AgentCategoryDetailPage() {
           </div>
 
           {category.description && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            <p className="whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
               {category.description}
             </p>
           )}
@@ -166,7 +166,7 @@ export default function AgentCategoryDetailPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('agentsTitle')}</h2>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('total', { count: agentsData?.total ?? 0 })}
           </span>
         </div>
@@ -175,7 +175,7 @@ export default function AgentCategoryDetailPage() {
           agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
               <Sparkles className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">{t('emptyAgents')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyAgents')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -203,7 +203,7 @@ export default function AgentCategoryDetailPage() {
                       <h3 className="line-clamp-2 text-body font-medium group-hover:text-primary">
                         {agent.name}
                       </h3>
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                      <p className="line-clamp-2 text-label text-muted-foreground">
                         {agent.description ?? t('noDescription')}
                       </p>
                       <div className="flex items-center gap-2 pt-1">

@@ -99,7 +99,7 @@ export default function DramaPage() {
           <Sparkles className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -136,22 +136,22 @@ export default function DramaPage() {
           </form>
           {enhanceErr && <Alert variant="danger" description={enhanceErr} />}
           {enhanceResult && (
-            <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
+            <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-body">
               <div>
                 <span className="font-medium">{t('enhance.consistency')}</span>
-                <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs">
+                <pre className="mt-1 overflow-auto whitespace-pre-wrap text-label">
                   {JSON.stringify(enhanceResult.consistency, null, 2)}
                 </pre>
               </div>
               <div>
                 <span className="font-medium">{t('enhance.pacing')}</span>
-                <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs">
+                <pre className="mt-1 overflow-auto whitespace-pre-wrap text-label">
                   {JSON.stringify(enhanceResult.pacing, null, 2)}
                 </pre>
               </div>
               <div>
                 <span className="font-medium">{t('enhance.outline')}</span>
-                <pre className="mt-1 overflow-auto whitespace-pre-wrap text-xs">
+                <pre className="mt-1 overflow-auto whitespace-pre-wrap text-label">
                   {JSON.stringify(enhanceResult.outline, null, 2)}
                 </pre>
               </div>
@@ -194,7 +194,7 @@ export default function DramaPage() {
               />
             </div>
             <textarea
-              className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
+              className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
               placeholder={t('lineRewrite.contentPlaceholder')}
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -216,7 +216,7 @@ export default function DramaPage() {
           </form>
           {lineErr && <Alert variant="danger" description={lineErr} />}
           {lineResult && (
-            <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
+            <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-body">
               <div>
                 <span className="font-medium text-muted-foreground">
                   {t('lineRewrite.original')}

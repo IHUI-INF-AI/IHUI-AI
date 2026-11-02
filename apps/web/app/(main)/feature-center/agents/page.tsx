@@ -84,7 +84,7 @@ export default function AgentsPage() {
               type="button"
               onClick={() => setCategory(c.value)}
               className={
-                'rounded-sm border px-3 py-1 text-sm transition-colors ' +
+                'rounded-sm border px-3 py-1 text-body transition-colors ' +
                 (category === c.value
                   ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
@@ -103,7 +103,7 @@ export default function AgentsPage() {
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-body text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
@@ -119,7 +119,7 @@ export default function AgentsPage() {
                   {item.capabilities.map((cap) => (
                     <span
                       key={cap}
-                      className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                      className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                     >
                       {cap}
                     </span>

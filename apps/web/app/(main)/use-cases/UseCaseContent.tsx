@@ -358,8 +358,10 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
           {uc.metrics.map((m) => (
             <div key={m.label} className="text-center">
-              <div className="text-display font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
-              <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+              <div className="text-display font-bold text-primary min-[768px]:text-3xl">
+                {m.value}
+              </div>
+              <div className="mt-1 text-label text-muted-foreground min-[768px]:text-body">
                 {m.label}
               </div>
             </div>
@@ -369,12 +371,14 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
 
       {/* 痛点 */}
       <section className="mt-16 rounded-lg border bg-card p-3">
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{uc.problemTitle}</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {uc.problemTitle}
+        </h2>
         <ul className="mt-6 space-y-3">
           {uc.problems.map((p, i) => (
             <li
               key={i}
-              className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base"
+              className="flex items-start gap-3 text-body leading-relaxed text-muted-foreground min-[768px]:text-base"
             >
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
               {p}
@@ -395,7 +399,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
                 {i + 1}
               </div>
               <h3 className="mt-4 text-lg font-semibold">{sp.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{sp.desc}</p>
+              <p className="mt-2 text-body leading-relaxed text-muted-foreground">{sp.desc}</p>
             </div>
           ))}
         </div>
@@ -413,7 +417,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
                 {hw.step}
               </div>
               <h3 className="mt-4 text-base font-semibold">{hw.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{hw.desc}</p>
+              <p className="mt-2 text-body leading-relaxed text-muted-foreground">{hw.desc}</p>
             </div>
           ))}
         </div>
@@ -433,7 +437,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
                   <BIcon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="mt-3 text-base font-semibold">{b.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{b.desc}</p>
+                <p className="mt-1 text-body text-muted-foreground">{b.desc}</p>
               </div>
             )
           })}
@@ -446,7 +450,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           开始你的 AI 用例
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           注册即得 1000 积分,从用例模板一键 fork,5 分钟体验。
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

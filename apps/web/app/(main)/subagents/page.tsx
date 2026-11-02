@@ -76,7 +76,7 @@ export default function SubagentsListPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">Subagent 派单</h1>
-          <p className="mt-1 text-sm text-muted-foreground">多智能体团队调度 · 对标 AI 工作台</p>
+          <p className="mt-1 text-body text-muted-foreground">多智能体团队调度 · 对标 AI 工作台</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push('/subagents/topology')}>
@@ -95,7 +95,7 @@ export default function SubagentsListPage() {
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_320px]">
         <Card>
           <CardHeader className="p-3">
-            <CardTitle className="text-sm">活跃派单({dispatches.length})</CardTitle>
+            <CardTitle className="text-body">活跃派单({dispatches.length})</CardTitle>
           </CardHeader>
           <CardContent className="min-[640px]:p-3 p-3 pt-0">
             {activeQ.isLoading ? (
@@ -104,7 +104,7 @@ export default function SubagentsListPage() {
                 加载中...
               </div>
             ) : dispatches.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">无活跃派单</p>
+              <p className="py-10 text-center text-body text-muted-foreground">无活跃派单</p>
             ) : (
               <ul className="space-y-1.5">
                 {dispatches.map((d) => (
@@ -131,8 +131,8 @@ export default function SubagentsListPage() {
                         {ROLE_LABEL[d.agentRole]}
                       </span>
                     )}
-                    <span className="flex-1 truncate text-sm">{d.goal}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="flex-1 truncate text-body">{d.goal}</span>
+                    <span className="shrink-0 text-label text-muted-foreground">
                       {dateFmt.format(new Date(d.createdAt))}
                     </span>
                     <Button

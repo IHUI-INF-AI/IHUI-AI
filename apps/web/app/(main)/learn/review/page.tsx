@@ -67,9 +67,9 @@ function StatCard({
           <Icon className="h-5 w-5 text-foreground" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground">{label}</div>
+          <div className="text-label text-muted-foreground">{label}</div>
           <div className="mt-0.5 text-heading font-semibold leading-none">{value}</div>
-          {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+          {hint && <div className="mt-1 text-label text-muted-foreground">{hint}</div>}
         </div>
       </CardContent>
     </Card>
@@ -137,7 +137,7 @@ export default function ReviewPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="mx-auto max-w-3xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error}
       </div>
     )
@@ -153,7 +153,7 @@ export default function ReviewPage() {
           <Brain className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
@@ -175,7 +175,7 @@ export default function ReviewPage() {
               <CheckCircle2 className="h-8 w-8 text-emerald-600" />
             </div>
             <h2 className="text-lg font-semibold">{t('finishedTitle')}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {t('finishedHint', { count: reviewedCount })}
             </p>
           </CardContent>
@@ -183,16 +183,18 @@ export default function ReviewPage() {
       ) : (
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between text-label text-muted-foreground">
               <span>{t('questionProgress', { current: index + 1, total: reviews.length })}</span>
               {current.subject && (
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{current.subject}</span>
+                <span className="rounded-md bg-muted px-2 py-0.5 text-label">
+                  {current.subject}
+                </span>
               )}
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">{t('questionLabel')}</div>
-              <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed">
+              <div className="text-label text-muted-foreground">{t('questionLabel')}</div>
+              <div className="rounded-lg bg-muted/50 p-3 text-body leading-relaxed">
                 {current.question}
               </div>
             </div>
@@ -200,7 +202,7 @@ export default function ReviewPage() {
             {!revealed ? (
               <>
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">{t('selfAssess')}</div>
+                  <div className="text-label text-muted-foreground">{t('selfAssess')}</div>
                   <div className="flex flex-wrap gap-2">
                     {QUALITY_OPTIONS.map((opt) => (
                       <Button
@@ -217,7 +219,7 @@ export default function ReviewPage() {
                   </div>
                 </div>
                 {submitting && (
-                  <div className="flex items-center text-xs text-muted-foreground">
+                  <div className="flex items-center text-label text-muted-foreground">
                     <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                     {t('submitting')}
                   </div>
@@ -226,21 +228,21 @@ export default function ReviewPage() {
             ) : (
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">{t('answerLabel')}</div>
-                  <div className="rounded-lg bg-emerald-500/5 p-3 text-sm leading-relaxed">
+                  <div className="text-label text-muted-foreground">{t('answerLabel')}</div>
+                  <div className="rounded-lg bg-emerald-500/5 p-3 text-body leading-relaxed">
                     {current.answer}
                   </div>
                 </div>
                 {current.explanation && (
                   <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground">{t('explanationLabel')}</div>
-                    <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed">
+                    <div className="text-label text-muted-foreground">{t('explanationLabel')}</div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-body leading-relaxed">
                       {current.explanation}
                     </div>
                   </div>
                 )}
                 {result && (
-                  <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 text-center text-xs">
+                  <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 text-center text-label">
                     <div className="rounded-md bg-muted/50 p-2">
                       <div className="text-muted-foreground">{t('nextReview')}</div>
                       <div className="mt-1 font-medium">
@@ -271,7 +273,7 @@ export default function ReviewPage() {
         </Card>
       )}
 
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-label text-muted-foreground">
         <Calendar className="h-3.5 w-3.5" />
         {t('progressLine', {
           done: Math.min(index + (revealed ? 1 : 0), reviews.length),

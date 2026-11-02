@@ -52,7 +52,7 @@ export default function RecruitmentPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-2xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -62,7 +62,7 @@ export default function RecruitmentPage() {
     return (
       <div className="px-4 flex flex-col items-center justify-center gap-2 ui-card rounded-lg border border-dashed py-8">
         <Users className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -78,14 +78,14 @@ export default function RecruitmentPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-3 text-center">
-        <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
+        <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-body text-primary">
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
         <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {data.title}
         </h1>
-        <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto max-w-2xl text-label text-muted-foreground min-[768px]:text-base">
           {data.description}
         </p>
       </header>
@@ -108,7 +108,7 @@ export default function RecruitmentPage() {
                   </div>
                   <div>
                     <div className="text-heading font-bold">{s.value}</div>
-                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                    <div className="text-label text-muted-foreground">{s.label}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -129,7 +129,7 @@ export default function RecruitmentPage() {
             {requirements.length > 0 ? (
               <ul className="space-y-3">
                 {requirements.map((r, i) => (
-                  <li key={r.title} className="flex items-start gap-2 text-sm">
+                  <li key={r.title} className="flex items-start gap-2 text-body">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-label font-medium text-primary">
                       {i + 1}
                     </span>
@@ -141,7 +141,7 @@ export default function RecruitmentPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('emptyRequirements')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyRequirements')}</p>
             )}
           </CardContent>
         </Card>
@@ -157,7 +157,7 @@ export default function RecruitmentPage() {
             {benefits.length > 0 ? (
               <ul className="space-y-3">
                 {benefits.map((b) => (
-                  <li key={b.title} className="flex items-start gap-2 text-sm">
+                  <li key={b.title} className="flex items-start gap-2 text-body">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                     <div>
                       <div className="font-medium">{b.title}</div>
@@ -167,7 +167,7 @@ export default function RecruitmentPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('emptyBenefits')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyBenefits')}</p>
             )}
           </CardContent>
         </Card>
@@ -175,7 +175,7 @@ export default function RecruitmentPage() {
 
       <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-3 text-center">
         <h2 className="text-heading font-bold">{t('cta.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('cta.subtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('cta.subtitle')}</p>
         <Button asChild size="lg">
           <Link href="/vip/trader">
             {t('cta.button')}

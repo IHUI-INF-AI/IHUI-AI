@@ -116,10 +116,10 @@ export default function DeepResearchPage() {
           onChange={(e) => setQuery(e.target.value)}
           rows={3}
           placeholder={t('queryPlaceholder')}
-          className="w-full resize-y rounded-sm border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="w-full resize-y rounded-sm border bg-background p-3 text-body outline-none focus:ring-2 focus:ring-ring"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex items-center gap-2 text-body text-muted-foreground">
             {t('maxIterations')}
             <input
               type="number"
@@ -129,7 +129,7 @@ export default function DeepResearchPage() {
               onChange={(e) =>
                 setIterations(Math.max(1, Math.min(10, Number(e.target.value) || 4)))
               }
-              className="w-20 rounded-sm border bg-background px-2 py-1 text-sm"
+              className="w-20 rounded-sm border bg-background px-2 py-1 text-body"
             />
           </label>
           <button
@@ -152,7 +152,7 @@ export default function DeepResearchPage() {
           <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('subquestionsTitle')}
           </h2>
-          <ul className="list-disc space-y-1 pl-5 text-sm">
+          <ul className="list-disc space-y-1 pl-5 text-body">
             {state.subquestions.map((sq, i) => (
               <li key={i}>{sq}</li>
             ))}
@@ -166,7 +166,7 @@ export default function DeepResearchPage() {
           <h2 className="mb-2 text-body font-semibold">
             {t('evidenceTitle', { count: state.evidence.length })}
           </h2>
-          <ul className="space-y-2 text-xs text-muted-foreground">
+          <ul className="space-y-2 text-label text-muted-foreground">
             {state.evidence.slice(0, 20).map((e, i) => (
               <li key={i}>
                 <span className="font-semibold text-foreground">[{e.question}]</span>
@@ -184,7 +184,7 @@ export default function DeepResearchPage() {
         <div className="mb-6 rounded-xl border bg-background">
           <div className="flex items-center justify-between bg-muted/40 px-4 py-3">
             <h2 className="text-body font-semibold">{t('reportTitle')}</h2>
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-label text-muted-foreground">
               {t('sourceCount', { count: state.sources?.length ?? 0 })}
             </span>
           </div>
@@ -193,7 +193,7 @@ export default function DeepResearchPage() {
           </div>
         </div>
       ) : state?.running ? (
-        <div className="mb-6 flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <div className="mb-6 flex items-center justify-center gap-2 py-12 text-body text-muted-foreground">
           <RefreshCw className="h-4 w-4 animate-spin" /> {t('generating')}
         </div>
       ) : null}
