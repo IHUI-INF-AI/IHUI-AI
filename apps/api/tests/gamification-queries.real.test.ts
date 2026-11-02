@@ -28,6 +28,7 @@ import { shiftDate } from '../src/utils/checkin-helpers.js'
 
 async function createTestUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('gamification-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -143,8 +144,8 @@ describe('gamification-queries — 真实 DB 集成测试', () => {
       const txs = await findPointTransactions({ userId: user.id, page: 1, pageSize: 10 })
       expect(txs.total).toBe(3)
       // 按时间倒序,最新 balanceAfter=60
-      expect(Number(txs.list[0].balanceAfter)).toBe(60)
-      expect(Number(txs.list[2].balanceAfter)).toBe(10)
+      expect(Number(txs.list[0]!.balanceAfter)).toBe(60)
+      expect(Number(txs.list[2]!.balanceAfter)).toBe(10)
     })
   })
 
@@ -283,8 +284,8 @@ describe('gamification-queries — 真实 DB 集成测试', () => {
       const records = await findRecentSignInRecords(user.id, '2026-07-13', '2026-07-16')
       expect(records).toHaveLength(3)
       // 升序
-      expect(records[0].signInDate).toBe('2026-07-13')
-      expect(records[2].signInDate).toBe('2026-07-15')
+      expect(records[0]!.signInDate).toBe('2026-07-13')
+      expect(records[2]!.signInDate).toBe('2026-07-15')
     })
   })
 
@@ -292,8 +293,8 @@ describe('gamification-queries — 真实 DB 集成测试', () => {
     it('findLevels — DB 无数据时使用默认 5 级', async () => {
       const all = await findLevels()
       expect(all).toHaveLength(5)
-      expect(all[0].name).toBe('新手')
-      expect(all[4].name).toBe('大师')
+      expect(all[0]!.name).toBe('新手')
+      expect(all[4]!.name).toBe('大师')
     })
 
     it('findLevels — DB 有数据时返回 DB 数据', async () => {
@@ -304,7 +305,7 @@ describe('gamification-queries — 真实 DB 集成测试', () => {
 
       const all = await findLevels()
       expect(all).toHaveLength(2)
-      expect(all[0].name).toBe('自定义新手')
+      expect(all[0]!.name).toBe('自定义新手')
     })
 
     it('findLevelByExperience — 返回对应经验值的等级', async () => {
@@ -357,10 +358,10 @@ describe('gamification-queries — 真实 DB 集成测试', () => {
       const leaderboard = await findLeaderboard(10)
       expect(leaderboard).toHaveLength(3)
       // 按积分降序:user2(300) > user3(200) > user1(100)
-      expect(leaderboard[0].nickname).toBe('用户B')
-      expect(leaderboard[0].points).toBe(300)
-      expect(leaderboard[1].nickname).toBe('用户C')
-      expect(leaderboard[2].nickname).toBe('用户A')
+      expect(leaderboard[0]!.nickname).toBe('用户B')
+      expect(leaderboard[0]!.points).toBe(300)
+      expect(leaderboard[1]!.nickname).toBe('用户C')
+      expect(leaderboard[2]!.nickname).toBe('用户A')
     })
   })
 

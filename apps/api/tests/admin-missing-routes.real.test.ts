@@ -21,6 +21,7 @@ async function createUser(phone: string, level: number = 0) {
     .insert(users)
     .values({ phone, nickname: `U-${phone}`, level })
     .returning()
+  if (!row) throw new Error('admin-missing-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
