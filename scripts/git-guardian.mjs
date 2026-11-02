@@ -10817,6 +10817,134 @@ export function sweepRnHostShells(opts = {}) {
 }
 
 /**
+ * 跨端自愈腿的**落库**一节(2026-11-02 立)。
+ *
+ * 立因:healCrossEndMirror / convergeCrossEndPortalVerdicts / autoRegisterRnTokenPairs /
+ * sweepRnHostShells / sweep{Web,Rn,Miniapp}StyleTiers / sweepHandMirrorUpgrades 每 30 分钟真跑、
+ * 真写工作树,注释统一写着「落库交给 auto-commit-quiet」—— 而该器全仓**零派生调用点**(git-guardian
+ * 里七处命中逐条核过都是注释行,pre-commit 注册表与 CI 也无它),于是写盘件长期悬挂:实测一轮
+ * `land-web-style-tiers --apply` 写下 1747 个 apps/web 档名替换后无人收,守护每轮从头再来。
+ * 按 §0.9「造好没装车 = 没有」——这七条腿此前事实上都只写到了工作树。
+ *
+ * 凭据面:各腿写盘后向 `.ihui-agent/state/cross-end-landing.jsonl` 登记 (leg,path,blobOid),
+ * 收编侧只认「账本在册 ∧ 工作树 blob 逐字节 == 登记 oid ∧ 超静默期 ∧ 非 ignored」;取不到账本
+ * ⇒ `ledger=unjudged` 且**一条也不收**(§0.3)。白名单一族不因本腿放宽:f6e0ba44a9 那次收窄的
+ * 现场就是无差别收编把 7 件实质回退 + 3 个半成品测试送进主干。
+ *
+ * 失效方向:无待收 ⇒ 一声不出(15 分钟一行"没问题"只会淹日志);结论行取不到 ⇒ 记未判定,绝不折成
+ * "无待收编";提交仍只有 safe-commit 一条出口,推送仍由 post-commit `git-push-guard` 负责(本腿不带
+ * push 腿)。判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+const CROSS_END_LANDING_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_LANDING_INTERVAL_MS || 15 * 60 * 1000,
+)
+
+export function sweepCrossEndLandingLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_LANDING_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-commit-quiet.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 跨端落库:器物不在位(scripts/auto-commit-quiet.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const timeoutMs = Number(process.env.IHUI_CROSS_END_LANDING_TIMEOUT_MS || 20 * 60 * 1000)
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(script, [], timeoutMs)
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  // 结论行是该器物的既有形态,本腿只解析不改它:
+  // COLLECT-RESULT ledger=… collected=N whitelistCollected=N ledgerCollected=N quiet=N …
+  const m = /COLLECT-RESULT (.*)/.exec(`${String(r.stdout ?? '')}\n${String(r.stderr ?? '')}`)
+  if (!m) {
+    logger(
+      `⚠️ 跨端落库:结论取不到 ⇒ 本轮未判定(${
+        r.signal
+          ? `子进程被 ${r.signal} 掐死(上限 ${Math.round(timeoutMs / 60000)} 分钟)`
+          : `status=${r.status ?? '?'}`
+      })—— 这不等于"无待收编"`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+  }
+  const line = m[1]
+  const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
+  const ledger = /ledger=(\w+)/.exec(line)?.[1] ?? 'unknown'
+  const landed = num('collected')
+  const out = {
+    ran: true,
+    ok: true,
+    state: ledger,
+    collected: landed,
+    ledgerCollected: num('ledgerCollected'),
+    quiet: num('quiet'),
+    contested: num('contested'),
+    incomplete: num('incomplete'),
+    held: num('held'),
+  }
+  if (landed === 0 && out.contested === 0 && out.incomplete === 0) return out
+  logger(`📦 跨端落库:${line.slice(0, 220)}`)
+  return out
+}
+
+/**
+ * 非色档**源头**派生腿:`packages/design-tokens` 的 TS 档表(SPACING_STEPS/TYPE_STEPS/FONT_WEIGHTS/
+ * ELEVATION_CSS)→ tokens.css 的 `css-tokens:managed` 受管块。
+ *
+ * 立因:机主要的是「Web 改样式,RN 自动跟」。色值那一族早就是源头派生(tokens.css → 各端副本由
+ * pre-commit 的 TOKEN_SYNC_TARGETS 写回),但非色档的源头这一格此前**只能人工敲**:cascade 里
+ * `sync-css-tokens.mjs` 只登记了 `--check`(只读校验),`package.json` 那两个脚本位都要人动手,
+ * 于是改了 TS 档表 → 受管块不新鲜 → 门 93 R9/R10/R11 红 → 三端副本集体滞后。源头不动,下游全是债。
+ *
+ * 器物自身幂等(等值 ⇒ 零字节写回),受管块是**派生态禁止手改**,其正确性由门 93 在提交链兜底
+ * ⇒ 收编侧把该路径列为派生态白名单(不是业务代码族,与 f6e0ba44a9 防的那一型不同性质)。
+ * 判机器状态 ⇒ 不进提交链(§12e);结论取不到记未判定,不记绿(§0.3)。
+ */
+const CSS_TOKENS_SOURCE_INTERVAL_MS = Number(
+  process.env.IHUI_CSS_TOKENS_SOURCE_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function sweepCssTokensSourceLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CSS_TOKENS_SOURCE_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'css-tokens-source-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'sync-css-tokens.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 非色档源头:器物不在位(scripts/sync-css-tokens.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(script, ['--write'], Number(process.env.IHUI_CSS_TOKENS_SOURCE_TIMEOUT_MS || 5 * 60 * 1000))
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  const out = String(r.stdout ?? '') + String(r.stderr ?? '')
+  // 该器两条既有结论文案:一致 ⇒「零字节写回」;写回 ⇒「已写回 tokens.css(插入|更新受管块…)」
+  if (/零字节写回/.test(out)) return { ran: true, ok: true, state: 'clean' }
+  const w = /已写回 tokens\.css\(([^)]*)\)/.exec(out)
+  if (w) {
+    logger(`🎨 非色档源头:tokens.css 受管块已与 TS 档表同源(${w[1].slice(0, 120)})⇒ 交落库腿收编`)
+    return { ran: true, ok: true, state: 'written' }
+  }
+  logger(
+    `⚠️ 非色档源头:结论取不到 ⇒ 本轮未判定(${
+      r.signal ? `子进程被 ${r.signal} 掐死` : `status=${r.status ?? '?'}`
+    })—— 这不等于"源头已同源"`,
+  )
+  return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+}
+
+/**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
  * → 逐份复量"新钉 == 面上现算输入哈希" → 只把复量过的 blob 落 HEAD(主工作树一字节不动)。
@@ -11679,6 +11807,10 @@ async function main() {
     // 小程序那一侧同一条腿:三端里只要有一端停在"没人调度",同源门就每天新长一笔分叉。
     if (!CHECK_ONLY) sweepMiniappStyleTiers()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
+    // 源头先补(TS 档表→tokens.css 受管块),再把本轮七条腿的写盘产出按落点账本收编入库 ——
+    // 这两行是整条跨端链的**最后一节**;此前它们不存在,所以七条腿写得动盘却永远落不了库。
+    if (!CHECK_ONLY) sweepCssTokensSourceLeg()
+    if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
     // 只读对账尺:不进提交链,靠这一腿被自动跑起来(§0.9 造好没装车 = 没有)。
