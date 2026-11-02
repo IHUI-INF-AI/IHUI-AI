@@ -43,8 +43,9 @@ export function ActivityScreen({
   onRefresh,
   onBack,
   onItemPress,
-  colorScheme = 'light',
-}: ActivityScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: ActivityScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -58,7 +59,7 @@ export function ActivityScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

@@ -723,6 +723,18 @@ async def clear_open_cooldowns_conn(conn: asyncpg.Connection, account_id: int) -
     return status
 
 
+def pool_conflict_alias(name: str, identity_key: str) -> str | None:
+    """号池同步账号撞 (owner,name) 唯一约束时的确定性别名。
+
+    取 identity_key 尾 8 位:同一真实账号每次重推得到同一个名字 ⇒ 幂等;
+    取不到身份键时返回 None(调用方按旧语义抛「账号名已存在」)。
+    """
+    tail = identity_key.strip()[-8:]
+    if not tail:
+        return None
+    return f"{name} · {tail}"
+
+
 async def create_account(
     owner_user_id: str,
     name: str,
@@ -857,9 +869,43 @@ async def create_account(
             )
         except Exception as e:
             # asyncpg 唯一约束冲突 → 23505(名字约束;身份键冲突在上面已合并,走不到这)
-            if getattr(e, "sqlstate", None) == "23505" or "duplicate key" in str(e).lower():
+            if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
+                raise
+            # 号池同步账号与既有行(手工录入/旧同步遗留)同名时,用确定性后缀另起一行:
+            # 否则每轮 pool-sync 都被 (owner,name) 唯一约束拒收,该号永远进不了签到表,
+            # 而 api 侧只看到"同步失败"(2026-11-03 实测 attempts=494 的静默连败)。
+            # 后缀取 identity_key 尾 8 位 ⇒ 同一真实账号重推命中同一名字,保持幂等。
+            alias = pool_conflict_alias(name, identity_key) if account_group == "pool" else None
+            if alias is None:
                 raise ValueError(f"账号名已存在: {name}") from e
-            raise
+            try:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO checkin_accounts
+                        (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform, identity_key)
+                    VALUES ($1, $2, $3, $4::jsonb, true, $5, $6, $7)
+                    RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                              created_at, updated_at
+                    """,
+                    owner_user_id,
+                    alias,
+                    jwt_enc,
+                    json.dumps(device_map, ensure_ascii=False),
+                    account_group,
+                    platform,
+                    identity_key,
+                )
+            except Exception as e2:
+                if getattr(e2, "sqlstate", None) == "23505" or "duplicate key" in str(e2).lower():
+                    raise ValueError(f"账号名已存在: {name}(含别名 {alias})") from e2
+                raise
+            logger.warning(
+                "[checkin_store] 号池同名冲突,改用确定性别名建行 id=%s name=%s alias=%s identity=%s",
+                row["id"],
+                name,
+                alias,
+                identity_key,
+            )
     return _account_row(row)
 
 

@@ -41,10 +41,11 @@ export function VipScreen({
   onPurchase,
   onBack,
   benefitItems,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
   onToast,
-}: VipScreenProps) {
+}: VipScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
@@ -59,7 +60,7 @@ export function VipScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('vip.retry')}
         colorScheme={colorScheme}
       />

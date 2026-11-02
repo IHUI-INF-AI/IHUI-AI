@@ -251,6 +251,7 @@ export function OrderDetailScreen() {
           loading={loading}
           error={error}
           onBack={() => navigation.goBack()}
+          onRetry={() => { void load(); }}
           colorScheme={resolvedTheme}
         />
       </View>
