@@ -105,18 +105,17 @@ export function ApprovedRulesPanel() {
         .map((g) => g.kind),
     ),
   )
-  const sections: ReadonlyArray<{ key: string; titleKey: string | null; rows: ApprovalGrant[] }> =
-    [
-      { key: 'commands', titleKey: 'sectionCommands', rows: commandGrants },
-      { key: 'network', titleKey: 'sectionNetwork', rows: networkGrants },
-      // 服务端将来多返回一档时各自成节、标题用 kind 原文 —— 并进旧节就等于
-      // 让新规则穿着旧规则的标签出现在面板上(清单腐烂的同一种形状)。
-      ...otherKinds.map((kind) => ({
-        key: kind,
-        titleKey: null,
-        rows: (grants ?? []).filter((g) => g.kind === kind),
-      })),
-    ]
+  const sections: ReadonlyArray<{ key: string; titleKey: string | null; rows: ApprovalGrant[] }> = [
+    { key: 'commands', titleKey: 'sectionCommands', rows: commandGrants },
+    { key: 'network', titleKey: 'sectionNetwork', rows: networkGrants },
+    // 服务端将来多返回一档时各自成节、标题用 kind 原文 —— 并进旧节就等于
+    // 让新规则穿着旧规则的标签出现在面板上(清单腐烂的同一种形状)。
+    ...otherKinds.map((kind) => ({
+      key: kind,
+      titleKey: null,
+      rows: (grants ?? []).filter((g) => g.kind === kind),
+    })),
+  ]
 
   return (
     <div className="space-y-2" data-testid="approved-rules-panel">
@@ -140,11 +139,11 @@ export function ApprovedRulesPanel() {
           {t('refresh')}
         </button>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{t('description')}</p>
+      <p className="text-label leading-relaxed text-muted-foreground">{t('description')}</p>
 
       {loadError && (
         <div
-          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-label text-destructive"
           data-testid="approved-rules-error"
         >
           {t('loadFailed')}
@@ -153,7 +152,7 @@ export function ApprovedRulesPanel() {
 
       {grants !== null && grants.length === 0 && !loadError && (
         <div
-          className="rounded-md border border-border bg-muted/30 px-3 py-6 text-center text-xs text-muted-foreground"
+          className="rounded-md border border-border bg-muted/30 px-3 py-6 text-center text-label text-muted-foreground"
           data-testid="approved-rules-empty"
         >
           {t('empty')}
@@ -165,10 +164,7 @@ export function ApprovedRulesPanel() {
           {sections
             .filter((section) => section.rows.length > 0)
             .map((section) => (
-              <section
-                key={section.key}
-                data-testid={`approved-rules-section-${section.key}`}
-              >
+              <section key={section.key} data-testid={`approved-rules-section-${section.key}`}>
                 <h4 className="mb-1 text-label font-medium text-muted-foreground">
                   {section.titleKey ? t(section.titleKey) : section.key}
                 </h4>

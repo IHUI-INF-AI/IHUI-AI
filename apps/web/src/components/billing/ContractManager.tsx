@@ -79,7 +79,7 @@ export function ContractManager() {
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-3 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border p-3 text-center text-body text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -94,7 +94,7 @@ export function ContractManager() {
                       {t(STATUS_KEY[c.status ?? 'unknown'] ?? 'status.unknown')}
                     </Badge>
                   </div>
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-label text-muted-foreground">
                     <dt>{t('fields.nextCharge')}</dt>
                     <dd className="text-foreground">{fmt(c.nextChargeTime)}</dd>
                     <dt>{t('fields.lastCharge')}</dt>
@@ -120,7 +120,7 @@ export function ContractManager() {
       <ConfirmDialog
         open={cancelTarget !== null}
         title={t('cancelDialog.title')}
-        content={<p className="text-sm text-muted-foreground">{t('cancelDialog.content')}</p>}
+        content={<p className="text-body text-muted-foreground">{t('cancelDialog.content')}</p>}
         confirmText={t('cancelDialog.confirmText')}
         cancelText={t('cancelDialog.cancelText')}
         variant="danger"

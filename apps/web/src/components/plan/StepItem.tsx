@@ -109,7 +109,7 @@ export function StepItem({
           </div>
         </div>
         {step.description && (
-          <p className="line-clamp-2 text-xs text-muted-foreground">{step.description}</p>
+          <p className="line-clamp-2 text-label text-muted-foreground">{step.description}</p>
         )}
         <div className="flex flex-wrap items-center gap-1.5">
           <select
@@ -143,7 +143,9 @@ export function StepItem({
             ))}
           </select>
           {step.estimatedMinutes !== undefined && step.estimatedMinutes > 0 && (
-            <span className="text-xs text-muted-foreground">约 {step.estimatedMinutes} 分钟</span>
+            <span className="text-label text-muted-foreground">
+              约 {step.estimatedMinutes} 分钟
+            </span>
           )}
         </div>
       </div>

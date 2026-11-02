@@ -71,13 +71,13 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
   return (
     <Card className={cn('w-full', className)}>
       <CardHeader className="flex-row items-center justify-between space-y-0 p-3 pb-2">
-        <CardTitle className="flex items-center gap-1.5 text-sm">
+        <CardTitle className="flex items-center gap-1.5 text-body">
           <Flame className="h-4 w-4 text-orange-500" />
           {t('title')}
         </CardTitle>
         <Link
           href="/news"
-          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="text-label text-muted-foreground transition-colors hover:text-foreground"
         >
           {t('more')}
         </Link>
@@ -111,14 +111,14 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
                     >
                       {rank}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm leading-snug text-foreground/90 transition-colors group-hover:text-foreground">
+                    <span className="min-w-0 flex-1 truncate text-body leading-snug text-foreground/90 transition-colors group-hover:text-foreground">
                       {item.title}
                     </span>
-                    <span className="flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground">
+                    <span className="flex shrink-0 items-center gap-0.5 text-label text-muted-foreground">
                       <Eye className="h-3 w-3" />
                       {formatViews(item.viewCount, t('tenK'))}
                     </span>
-                    <time className="hidden shrink-0 text-xs text-muted-foreground/70 min-[640px]:block">
+                    <time className="hidden shrink-0 text-label text-muted-foreground/70 min-[640px]:block">
                       {dateFmt.format(new Date(item.publishedAt))}
                     </time>
                   </Link>

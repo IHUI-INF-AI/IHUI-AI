@@ -70,7 +70,7 @@ export function MusicGenElevenlabs() {
     <Card>
       <CardHeader>
         <CardTitle>{t('elevenlabsMusicTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('elevenlabsMusicSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('elevenlabsMusicSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -122,7 +122,7 @@ export function MusicGenElevenlabs() {
         </Button>
 
         {mutation.isError ? (
-          <p className="text-sm text-destructive">{(mutation.error as Error).message}</p>
+          <p className="text-body text-destructive">{(mutation.error as Error).message}</p>
         ) : null}
         {audio ? (
           <audio src={toMediaStreamUrl(audio)} controls className="w-full">

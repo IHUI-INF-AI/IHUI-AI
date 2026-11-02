@@ -261,7 +261,7 @@ function HooksHeader({ count, onCreate }: { count: number; onCreate: () => void 
     <div className="flex items-center justify-between gap-3">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold leading-none">{t('manageTitle')}</h2>
-        <p className="text-xs text-muted-foreground">{t('manageSubtitle', { count })}</p>
+        <p className="text-label text-muted-foreground">{t('manageSubtitle', { count })}</p>
       </div>
       <Button onClick={onCreate} size="sm">
         <Plus className="h-4 w-4" />
@@ -298,7 +298,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
             )}
           </div>
           {hook.description && (
-            <span className="truncate text-xs text-muted-foreground">{hook.description}</span>
+            <span className="truncate text-label text-muted-foreground">{hook.description}</span>
           )}
         </div>
 
@@ -410,7 +410,7 @@ function HookEditor({
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex flex-col gap-0.5">
             <h3 className="text-base font-semibold leading-none">{editorTitle}</h3>
-            <p className="text-xs text-muted-foreground">{t('editorSubtitle')}</p>
+            <p className="text-label text-muted-foreground">{t('editorSubtitle')}</p>
           </div>
           <CloseButton aria-label={tc('close')} onClick={onClose} />
         </div>
@@ -450,7 +450,7 @@ function HookEditor({
             {/* 条件表达式 */}
             <Field label={t('fieldCondition')} hint={t.raw('conditionHint') as string}>
               <textarea
-                className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={draft.condition}
                 onChange={(e) => onChange({ condition: e.target.value })}
                 placeholder='{"and":[{"==":["tool","write_file"]},{"contains":["args.path",".env"]}]}'
@@ -494,7 +494,7 @@ function HookEditor({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">{t('testNoLogs')}</p>
+                <p className="text-label text-muted-foreground">{t('testNoLogs')}</p>
               )}
             </div>
           )}
@@ -569,7 +569,7 @@ function HookActionConfigForm({
         </Field>
         <Field label={t('fieldHeaders')}>
           <textarea
-            className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.webhookHeaders}
             onChange={(e) => onChange({ webhookHeaders: e.target.value })}
             spellCheck={false}
@@ -577,7 +577,7 @@ function HookActionConfigForm({
         </Field>
         <Field label={t('fieldBodyTemplate')} hint={t.raw('bodyTemplateHint') as string}>
           <textarea
-            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.webhookBody}
             onChange={(e) => onChange({ webhookBody: e.target.value })}
             spellCheck={false}
@@ -591,7 +591,7 @@ function HookActionConfigForm({
       <div className="flex flex-col gap-3 rounded-md border border-border p-3">
         <Field label={t('fieldShellCommand')} required hint={t('shellCommandHint')}>
           <textarea
-            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.scriptCommand}
             onChange={(e) => onChange({ scriptCommand: e.target.value })}
             placeholder={`echo "event=$HOOK_EVENT" >> hooks.log`}
@@ -644,7 +644,7 @@ function HookActionConfigForm({
             </Field>
             <Field label={t('fieldHeaders')}>
               <textarea
-                className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex min-h-[60px] w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={draft.webhookHeaders}
                 onChange={(e) => onChange({ webhookHeaders: e.target.value })}
                 spellCheck={false}
@@ -692,7 +692,7 @@ function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => vo
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex flex-col gap-0.5">
             <h3 className="text-base font-semibold leading-none">{t('logsTitle')}</h3>
-            <p className="text-xs text-muted-foreground">{t('logsSubtitle')}</p>
+            <p className="text-label text-muted-foreground">{t('logsSubtitle')}</p>
           </div>
           <CloseButton aria-label={tc('close')} onClick={onClose} />
         </div>
@@ -724,7 +724,7 @@ function LogRow({ log, showHookId = true }: { log: HookLog; showHookId?: boolean
   return (
     <div
       className={cn(
-        'rounded-md border bg-card px-3 py-2 text-xs',
+        'rounded-md border bg-card px-3 py-2 text-label',
         log.success
           ? 'border-border'
           : 'border-red-200 bg-red-50/40 dark:border-red-900 dark:bg-red-950/30',
@@ -794,7 +794,7 @@ function NativeSelect<T extends string>({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

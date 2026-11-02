@@ -40,7 +40,7 @@ export function TerminalContextMenu({
     >
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
         onClick={onCopy}
         disabled={!state.hasSelection}
       >
@@ -50,7 +50,7 @@ export function TerminalContextMenu({
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors hover:bg-accent hover:text-accent-foreground"
         onClick={onPaste}
       >
         <ClipboardPaste className="h-3 w-3" />
@@ -59,7 +59,7 @@ export function TerminalContextMenu({
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors hover:bg-accent hover:text-accent-foreground"
         onClick={onSearch}
       >
         <SearchIcon className="h-3 w-3" />
@@ -68,7 +68,7 @@ export function TerminalContextMenu({
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors hover:bg-accent hover:text-accent-foreground"
         onClick={() => onSplit('vertical')}
       >
         <Columns2 className="h-3 w-3" />
@@ -77,7 +77,7 @@ export function TerminalContextMenu({
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors hover:bg-accent hover:text-accent-foreground"
         onClick={() => onSplit('horizontal')}
       >
         <Rows2 className="h-3 w-3" />
@@ -86,7 +86,7 @@ export function TerminalContextMenu({
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors hover:bg-accent hover:text-accent-foreground"
         onClick={onClear}
       >
         <Eraser className="h-3 w-3" />

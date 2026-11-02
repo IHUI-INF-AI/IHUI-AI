@@ -120,7 +120,7 @@ export function ReviewTargetSelector({
       className={cn('flex flex-col gap-1.5 rounded-md bg-muted/40 p-1.5', className)}
     >
       <div className="flex flex-wrap items-center gap-1">
-        <span className="px-1 text-xs text-muted-foreground">{t('reviewTargetLabel')}</span>
+        <span className="px-1 text-label text-muted-foreground">{t('reviewTargetLabel')}</span>
         {KIND_OPTIONS.map(({ kind, labelKey, Icon }) => (
           <Button
             key={kind}
@@ -155,7 +155,7 @@ export function ReviewTargetSelector({
           placeholder={t(activeRefInput.placeholderKey)}
           aria-label={t(activeRefInput.labelKey)}
           data-testid={activeRefInput.testId}
-          className="h-7 rounded-sm px-2 text-xs"
+          className="h-7 rounded-sm px-2 text-label"
         />
       )}
       {selection?.kind === 'snippet' && (
@@ -166,7 +166,7 @@ export function ReviewTargetSelector({
           aria-label={t('reviewTargetSnippetLabel')}
           data-testid="review-target-snippet-input"
           rows={3}
-          className="w-full resize-y rounded-sm border border-input bg-transparent px-2 py-1 font-mono text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none"
+          className="w-full resize-y rounded-sm border border-input bg-transparent px-2 py-1 font-mono text-label shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none"
         />
       )}
     </div>

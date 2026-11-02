@@ -57,9 +57,7 @@ export function ModelLoadBar({
     loadLevel: frame.loadLevel ?? null,
     position: frame.queuePosition ?? null,
     waitMs:
-      typeof frame.estimatedWaitSeconds === 'number'
-        ? frame.estimatedWaitSeconds * 1000
-        : null,
+      typeof frame.estimatedWaitSeconds === 'number' ? frame.estimatedWaitSeconds * 1000 : null,
     freeTierAvailable,
   })
   if (!view) return null
@@ -67,7 +65,9 @@ export function ModelLoadBar({
   const label =
     view.state === 'slowLane' && view.position !== null
       ? t(view.labelKey, { position: view.position })
-      : view.state === 'waitingEstimate' && view.waitBucketKey === 'wait.aboutNmin' && view.minutes !== null
+      : view.state === 'waitingEstimate' &&
+          view.waitBucketKey === 'wait.aboutNmin' &&
+          view.minutes !== null
         ? t(view.labelKey, { minutes: view.minutes })
         : t(view.labelKey)
 
@@ -80,7 +80,7 @@ export function ModelLoadBar({
       data-model-load-state={view.state}
       data-model-load-inducement-risk={view.inducementRisk ? 'true' : 'false'}
     >
-      <span className="text-xs text-muted-foreground" data-model-load-label={view.labelKey}>
+      <span className="text-label text-muted-foreground" data-model-load-label={view.labelKey}>
         {label}
       </span>
     </div>

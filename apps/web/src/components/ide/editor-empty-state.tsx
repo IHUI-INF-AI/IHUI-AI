@@ -154,13 +154,15 @@ export function EditorEmptyState() {
             </div>
             <div className="text-center">
               <p className="text-base font-semibold text-foreground">{t('editorEmpty.title')}</p>
-              <p className="mt-1 text-xs text-muted-foreground/80">{t('editorEmpty.subtitle')}</p>
+              <p className="mt-1 text-label text-muted-foreground/80">
+                {t('editorEmpty.subtitle')}
+              </p>
             </div>
             <div className="flex gap-2">
               {!workspacePath && (
                 <button
                   onClick={handleOpenFolder}
-                  className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/40"
+                  className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label text-foreground transition-colors hover:bg-muted/40"
                 >
                   <FolderOpen className="h-3.5 w-3.5" />
                   <span>{t('editorEmpty.browseFiles')}</span>
@@ -170,7 +172,7 @@ export function EditorEmptyState() {
                 <button
                   key={item.labelKey}
                   onClick={() => setActiveView(item.view)}
-                  className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-3 py-1.5 text-label text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
                 >
                   <item.icon className="h-3.5 w-3.5" />
                   <span>{t(item.labelKey)}</span>
@@ -198,7 +200,7 @@ export function EditorEmptyState() {
                       <button
                         key={file.id}
                         onClick={() => handleOpen(file.id)}
-                        className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                        className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
                       >
                         <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.name))} />
                         <span className="min-w-0 flex-1 truncate">{file.name}</span>
@@ -216,7 +218,7 @@ export function EditorEmptyState() {
               </p>
               <div className="flex flex-col gap-1.5">
                 {SHORTCUTS.map((s) => (
-                  <div key={s.labelKey} className="flex items-center justify-between text-xs">
+                  <div key={s.labelKey} className="flex items-center justify-between text-label">
                     <span className="text-muted-foreground/80">{t(s.labelKey)}</span>
                     <div className="flex items-center gap-0.5">
                       {s.keys.map((k, i) => (

@@ -452,7 +452,7 @@ export function InlineDiffViewer({
           <span className="text-label font-medium text-muted-foreground">{filename}</span>
         </div>
       )}
-      <div className="overflow-x-auto font-mono text-xs">
+      <div className="overflow-x-auto font-mono text-label">
         <UnifiedDiffBody
           entries={entries}
           renderHunkHeader={renderHunkHeader}
@@ -698,7 +698,7 @@ export function ThreeWayMergeView({
   }, [merged, clipboard, toastSuccess, toastError, t])
 
   return (
-    <div className="flex flex-col gap-1 p-2 font-mono text-xs" data-testid="diff-3way-view">
+    <div className="flex flex-col gap-1 p-2 font-mono text-label" data-testid="diff-3way-view">
       <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
         <span data-testid="diff-3way-conflict-count">
           {t('diffViewer.conflictCount', { count: conflictTotal })}

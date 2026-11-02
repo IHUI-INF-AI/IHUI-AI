@@ -105,11 +105,11 @@ export function PermissionConfirmDialog({
                 {getToolIcon(toolCall.name)}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-xs text-muted-foreground">{t('tool')}</div>
+                <div className="text-label text-muted-foreground">{t('tool')}</div>
                 <div className="break-words font-medium">{toolCall.name}</div>
               </div>
               {toolCall.iteration !== null && toolCall.iteration !== undefined && (
-                <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                <span className="rounded bg-muted px-2 py-0.5 text-label text-muted-foreground">
                   {t('iteration', { n: toolCall.iteration })}
                 </span>
               )}
@@ -120,7 +120,7 @@ export function PermissionConfirmDialog({
                 {t('inputParams')}
               </div>
               {preview.hasContent ? (
-                <div className="max-h-48 space-y-1 overflow-auto rounded-md border bg-zinc-950 p-3 text-xs text-zinc-100">
+                <div className="max-h-48 space-y-1 overflow-auto rounded-md border bg-zinc-950 p-3 text-label text-zinc-100">
                   {preview.command !== null && (
                     <div className="font-mono">
                       <span className="text-zinc-400">$ </span>
@@ -160,7 +160,7 @@ export function PermissionConfirmDialog({
                 </div>
               ) : (
                 // 反例验收:全维空 ⇒ 明确"无可预览内容"(复用既有 common.noData),而不是渲染空白标题。
-                <p className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                <p className="rounded-md bg-muted/40 p-2 text-label text-muted-foreground">
                   {tCommon('noData')}
                 </p>
               )}
@@ -171,11 +171,11 @@ export function PermissionConfirmDialog({
                 <div className="mb-1 text-label font-medium text-muted-foreground">
                   {t('confirmReason')}
                 </div>
-                <p className="rounded-md bg-muted/40 p-2 text-sm">{toolCall.reason}</p>
+                <p className="rounded-md bg-muted/40 p-2 text-body">{toolCall.reason}</p>
               </div>
             )}
 
-            <span className="flex items-center gap-2 text-sm">
+            <span className="flex items-center gap-2 text-body">
               <Checkbox checked={allowAll} onCheckedChange={(v) => setAllowAll(v === true)} />
               <span>{t('allowAllSession')}</span>
             </span>

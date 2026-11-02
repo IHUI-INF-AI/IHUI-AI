@@ -95,7 +95,7 @@ export function QrCodeLogin({ platform, refreshKey, embed = false }: QrCodeLogin
         <div className={`${QR_PANEL_STATE_BOX} gap-2`}>
           {declined ? (
             <>
-              <p className="text-sm text-muted-foreground">{t('auth.agreeRequired')}</p>
+              <p className="text-body text-muted-foreground">{t('auth.agreeRequired')}</p>
               <button
                 type="button"
                 onClick={reopenNotice}

@@ -108,7 +108,7 @@ export function EnvironmentCommitDialog() {
             type="button"
             onClick={() => closeCommitDialog()}
             disabled={busy !== null}
-            className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-8 items-center justify-center rounded-md border border-border px-3 text-label text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
             data-testid="env-commit-cancel"
           >
             {tcommon('cancel')}
@@ -158,7 +158,7 @@ export function EnvironmentCommitDialog() {
           }}
           placeholder={t('commitPlaceholder')}
           rows={3}
-          className="h-auto min-h-[64px] w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-brand-accent-deep"
+          className="h-auto min-h-[64px] w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-label text-foreground outline-none focus:border-brand-accent-deep"
           data-testid="env-commit-textarea"
         />
         {hasRemote && (

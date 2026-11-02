@@ -1111,7 +1111,7 @@ const MessageItem = React.memo(function MessageItem({
   if (isSystem) {
     return (
       <div
-        className="mx-auto my-1 max-w-[80%] rounded-md bg-muted/60 px-3 py-1.5 text-center text-xs text-muted-foreground"
+        className="mx-auto my-1 max-w-[80%] rounded-md bg-muted/60 px-3 py-1.5 text-center text-label text-muted-foreground"
         data-message-id={m.id}
         data-role="system"
         data-testid={`message-system-${m.id}`}
@@ -1163,7 +1163,7 @@ const MessageItem = React.memo(function MessageItem({
         fallback={
           <pre
             data-testid={`message-markdown-fallback-${m.id}`}
-            className="whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed"
+            className="whitespace-pre-wrap break-words px-3 py-2 text-body leading-relaxed"
           >
             {m.content}
           </pre>
@@ -1263,7 +1263,7 @@ const MessageItem = React.memo(function MessageItem({
                   </div>
                 )}
                 <p
-                  className="px-3 pb-1 text-xs leading-relaxed text-muted-foreground"
+                  className="px-3 pb-1 text-label leading-relaxed text-muted-foreground"
                   data-testid={`message-error-action-${m.id}`}
                 >
                   {tFailure(errorViewFailure.entry.actionKey)}
@@ -1350,7 +1350,7 @@ const MessageItem = React.memo(function MessageItem({
                       className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5"
                       data-testid={`batch-diff-bar-${m.id}`}
                     >
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {diffStats.applying
                           ? t('batchDiff.applying')
                           : diffStats.pending === 0
@@ -1367,7 +1367,7 @@ const MessageItem = React.memo(function MessageItem({
                         {onApplyAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
                           <Button
                             size="xs"
-                            className="px-2 text-xs"
+                            className="px-2 text-label"
                             onClick={() => void onApplyAllDiffs(m.id)}
                             data-testid={`batch-diff-accept-all-${m.id}`}
                           >
@@ -1379,7 +1379,7 @@ const MessageItem = React.memo(function MessageItem({
                           <Button
                             size="xs"
                             variant="outline"
-                            className="px-2 text-xs"
+                            className="px-2 text-label"
                             onClick={() => onRejectAllDiffs(m.id)}
                             data-testid={`batch-diff-reject-all-${m.id}`}
                           >
@@ -1395,7 +1395,7 @@ const MessageItem = React.memo(function MessageItem({
                       流式中不出(此刻组头已经在说"正在做什么",再叠一句会打架)。 */}
                   {!streamingThis && foldSummaryLine !== '' && (
                     <p
-                      className="text-xs text-muted-foreground/80"
+                      className="text-label text-muted-foreground/80"
                       data-testid={`message-fold-summary-${m.id}`}
                     >
                       {foldSummaryLine}
@@ -1530,7 +1530,7 @@ const MessageItem = React.memo(function MessageItem({
                       type="button"
                       size="xs"
                       variant="ghost"
-                      className="px-2 text-xs text-muted-foreground"
+                      className="px-2 text-label text-muted-foreground"
                       onClick={() => setActivityExpanded(true)}
                       data-testid={`activity-expand-more-${m.id}`}
                     >
@@ -1545,7 +1545,7 @@ const MessageItem = React.memo(function MessageItem({
                       type="button"
                       size="xs"
                       variant="ghost"
-                      className="px-2 text-xs text-muted-foreground"
+                      className="px-2 text-label text-muted-foreground"
                       onClick={() => setFoldedView((prev) => !prev)}
                       aria-expanded={foldedView}
                       data-testid={`activity-fold-toggle-${m.id}`}
@@ -1610,7 +1610,7 @@ const MessageItem = React.memo(function MessageItem({
             {!isUser && m.fallback && (
               <p
                 data-testid={`message-fallback-${m.id}`}
-                className="px-3 pb-1 text-xs text-muted-foreground"
+                className="px-3 pb-1 text-label text-muted-foreground"
               >
                 {m.fallback.reason === FALLBACK_REASON_QUOTA_EQUIVALENT
                   ? t('fallbackNoticeQuota', {
@@ -1630,7 +1630,7 @@ const MessageItem = React.memo(function MessageItem({
             {!isUser && m.interrupted && (
               <p
                 data-testid={`message-interrupted-${m.id}`}
-                className="flex items-center gap-1 px-3 pb-1 text-xs text-muted-foreground"
+                className="flex items-center gap-1 px-3 pb-1 text-label text-muted-foreground"
               >
                 <Ban className="h-3 w-3 shrink-0" aria-hidden="true" />
                 {m.interruptReason === 'user_cancelled'
@@ -1734,7 +1734,7 @@ const MessageItem = React.memo(function MessageItem({
             const toolCallCount = m.meta?.toolCallCount as number | undefined
             return (
               <span
-                className="text-xs text-muted-foreground shrink-0 mr-auto flex items-center gap-1"
+                className="text-label text-muted-foreground shrink-0 mr-auto flex items-center gap-1"
                 data-testid={`message-timestamp-${m.id}`}
               >
                 <span>{label}</span>
@@ -2080,7 +2080,7 @@ const MessageItem = React.memo(function MessageItem({
             懒取失败只降级为一行占位(不抛、不白屏),下次展开可重试。 */}
       {!isUser && hasMetadata && metadataExpanded && (
         <div
-          className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-xs"
+          className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-label"
           data-testid={`message-metadata-panel-${m.id}`}
         >
           <UsageBreakdown usage={m.meta?.usage} model={m.model} />
@@ -2168,7 +2168,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleQuoteSelection}
             data-testid={`message-quote-selection-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Quote className="h-3 w-3" aria-hidden />
             <span>{t('quoteSelection')}</span>
@@ -2177,7 +2177,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleAddSelectionAttachment}
             data-testid={`message-selection-attachment-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Paperclip className="h-3 w-3" aria-hidden />
             <span>{t('selectionActions.addAsAttachment')}</span>
@@ -2186,7 +2186,7 @@ const MessageItem = React.memo(function MessageItem({
             type="button"
             onClick={handleAnnotateSelection}
             data-testid={`message-selection-annotate-${m.id}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <PenLine className="h-3 w-3" aria-hidden />
             <span>{t('selectionAnnotations.add')}</span>
@@ -2249,7 +2249,7 @@ const MessageItem = React.memo(function MessageItem({
               rows={5}
               data-testid={`message-edit-textarea-${m.id}`}
               className={cn(
-                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm',
+                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-body',
                 'text-foreground placeholder:text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               )}
@@ -2259,7 +2259,7 @@ const MessageItem = React.memo(function MessageItem({
                 仅当该消息之后存在已成功的文件修改工具调用时展示,默认勾选。 */}
             {hasFileChangesAfter && (
               <label
-                className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                className="flex cursor-pointer items-center gap-2 text-body text-foreground"
                 data-testid={`message-edit-rollback-${m.id}`}
               >
                 <input
@@ -2321,7 +2321,7 @@ const MessageItem = React.memo(function MessageItem({
               rows={8}
               data-testid={`message-ai-edit-textarea-${m.id}`}
               className={cn(
-                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-sm',
+                'w-full resize-y rounded-sm border border-border bg-background px-3 py-2 text-body',
                 'text-foreground placeholder:text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               )}

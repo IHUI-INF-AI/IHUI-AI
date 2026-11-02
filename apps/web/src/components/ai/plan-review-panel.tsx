@@ -150,7 +150,7 @@ export function PlanReviewPanel({
             href={pullRequestUrl}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
             data-testid="plan-review-pr-link"
           >
             <ExternalLink className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ export function PlanReviewPanel({
       <div className="space-y-3 p-3">
         {plan.steps.length === 0 && !plan.summary ? (
           <p
-            className="py-6 text-center text-sm text-muted-foreground"
+            className="py-6 text-center text-body text-muted-foreground"
             data-testid="plan-review-empty"
           >
             {t('empty')}
@@ -195,7 +195,7 @@ export function PlanReviewPanel({
         ) : (
           <>
             {plan.summary && (
-              <p className="rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              <p className="rounded-md bg-muted/40 px-3 py-2 text-body text-muted-foreground">
                 {plan.summary}
               </p>
             )}
@@ -207,7 +207,7 @@ export function PlanReviewPanel({
                       {idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm">{step.description}</p>
+                      <p className="text-body">{step.description}</p>
                       {step.tools && step.tools.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {step.tools.map((tool) => (

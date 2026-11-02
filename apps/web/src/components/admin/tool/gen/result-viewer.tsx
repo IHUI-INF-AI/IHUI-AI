@@ -84,8 +84,10 @@ export function GenResultViewer({ result }: GenResultViewerProps) {
           </Button>
         </div>
         <div className="overflow-hidden rounded-md border bg-muted/50">
-          <div className="bg-muted/80 px-3 py-1 text-xs text-muted-foreground">{active.path}</div>
-          <pre className="max-h-[480px] overflow-auto p-3 text-xs leading-relaxed">
+          <div className="bg-muted/80 px-3 py-1 text-label text-muted-foreground">
+            {active.path}
+          </div>
+          <pre className="max-h-[480px] overflow-auto p-3 text-label leading-relaxed">
             <code>{active.content}</code>
           </pre>
         </div>

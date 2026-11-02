@@ -58,7 +58,7 @@ export function AudioGenerator({ onGenerate }: AudioGeneratorProps) {
             <a
               href={result.data}
               download="generated-audio"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-label text-primary hover:underline"
             >
               <Download className="h-3 w-3" />
               {t('download')}

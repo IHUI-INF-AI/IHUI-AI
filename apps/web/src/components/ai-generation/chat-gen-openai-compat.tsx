@@ -416,7 +416,7 @@ export const ChatGenOpenAICompat = React.memo(function ChatGenOpenAICompat() {
     <Card>
       <CardHeader>
         <CardTitle>{t('openaiCompatTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('openaiCompatSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('openaiCompatSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -461,7 +461,7 @@ export const ChatGenOpenAICompat = React.memo(function ChatGenOpenAICompat() {
         {answer ? (
           <div className="space-y-1">
             <div className="text-body font-medium">{t('result')}</div>
-            <div className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+            <div className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-body">
               {answer}
             </div>
           </div>

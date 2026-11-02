@@ -105,7 +105,7 @@ export function VideoGenOneClick() {
     <Card>
       <CardHeader>
         <CardTitle>{t('oneClickVideoTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('oneClickVideoSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('oneClickVideoSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -141,17 +141,17 @@ export function VideoGenOneClick() {
 
         {taskId && (
           <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {t('taskId')}: {taskId} · {t('status')}: {statusLabel(task?.status)}
             </div>
             {task?.status === 'pending' || task?.status === 'running' ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('polling')}
               </div>
             ) : null}
             {task?.status === 'failed' && task.error ? (
-              <p className="text-sm text-destructive">{task.error}</p>
+              <p className="text-body text-destructive">{task.error}</p>
             ) : null}
             {videos.map((url) => (
               <video
