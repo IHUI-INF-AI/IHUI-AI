@@ -16,6 +16,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  HelpCircle,
   Loader2,
 } from 'lucide-react'
 
@@ -23,13 +24,8 @@ import { fetchApi, apiOrThrow } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
-
-interface ServiceStatus {
-  name: string
-  status: 'healthy' | 'unhealthy'
-  latency: number
-  message?: string
-}
+// RP-35：/api/health 实际返回裸单对象，入口类型保留联合形状，取值前必须归一化。
+import { normalizeHealthPayload, type HealthPayload } from '@/lib/health-payload'
 
 interface HealthEvent {
   id: string
@@ -53,7 +49,8 @@ export default function BackendHealthPage() {
   const { data: services, isLoading } = useQuery({
     queryKey: ['admin', 'backend-health'],
     queryFn: async () => {
-      return await apiOrThrow<ServiceStatus[]>('/api/health')
+      // 单对象与数组都从 normalizeHealthPayload 出口，页面内部只认数组。
+      return normalizeHealthPayload(await apiOrThrow<HealthPayload>('/api/health'))
     },
   })
   const { data: events } = useQuery({
@@ -102,33 +99,41 @@ export default function BackendHealthPage() {
             {servicesList.map((s) => {
               const Icon = ICONS[s.name] ?? Server
               const ok = s.status === 'healthy'
+              const unknown = s.status === 'unknown'
+              const tone = ok
+                ? 'text-emerald-600'
+                : unknown
+                  ? 'text-muted-foreground'
+                  : 'text-red-600'
               return (
                 <Card key={s.name}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-body font-medium text-muted-foreground">
                       {s.name}
                     </CardTitle>
-                    <Icon className={cn('h-4 w-4', ok ? 'text-emerald-600' : 'text-red-600')} />
+                    <Icon className={cn('h-4 w-4', tone)} />
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-2">
                       {ok ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                        <CheckCircle2 className={cn('h-5 w-5', tone)} />
+                      ) : unknown ? (
+                        <HelpCircle className={cn('h-5 w-5', tone)} />
                       ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
+                        <XCircle className={cn('h-5 w-5', tone)} />
                       )}
-                      <span
-                        className={cn(
-                          'text-lg font-bold',
-                          ok ? 'text-emerald-600' : 'text-red-600',
-                        )}
-                      >
-                        {ok ? t('backendHealth.healthy') : t('backendHealth.unhealthy')}
+                      {/* unknown 显示中性占位符：缺字段不等于正常，不落绿。 */}
+                      <span className={cn('text-lg font-bold', tone)}>
+                        {ok
+                          ? t('backendHealth.healthy')
+                          : unknown
+                            ? '—'
+                            : t('backendHealth.unhealthy')}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-1 text-label text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      {s.latency}ms
+                      {s.latency === null ? '—' : `${s.latency}ms`}
                     </div>
                     {s.message && <div className="mt-1 text-label text-red-600">{s.message}</div>}
                   </CardContent>
@@ -151,18 +156,25 @@ export default function BackendHealthPage() {
               {servicesList.map((s) => (
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-label text-muted-foreground">{s.name}</div>
-                  <div className="mt-1 text-heading font-bold">{s.latency}ms</div>
+                  {/* 未测得延迟显示占位符，不把 null 渲染成 0ms。 */}
+                  <div className="mt-1 text-heading font-bold">
+                    {s.latency === null ? '—' : `${s.latency}ms`}
+                  </div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-xs bg-muted">
                     <div
                       className={cn(
                         'h-full rounded-md',
-                        s.latency < 100
-                          ? 'bg-emerald-500'
-                          : s.latency < 500
-                            ? 'bg-amber-500'
-                            : 'bg-red-500',
+                        s.latency === null
+                          ? 'bg-muted-foreground/30'
+                          : s.latency < 100
+                            ? 'bg-emerald-500'
+                            : s.latency < 500
+                              ? 'bg-amber-500'
+                              : 'bg-red-500',
                       )}
-                      style={{ width: `${Math.min(100, (s.latency / 1500) * 100)}%` }}
+                      style={{
+                        width: `${s.latency === null ? 0 : Math.min(100, (s.latency / 1500) * 100)}%`,
+                      }}
                     />
                   </div>
                 </div>
