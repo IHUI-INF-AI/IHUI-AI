@@ -180,7 +180,7 @@ export default function AdminRelayKeyPoolPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             Key 池管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             上游 API Key 调度、健康检查与余额监控
           </p>
         </div>
@@ -207,7 +207,7 @@ export default function AdminRelayKeyPoolPage() {
             setProvider(e.target.value)
           }}
           placeholder="provider 编码"
-          className="h-8 w-36 text-xs"
+          className="h-8 w-36 text-label"
         />
         <Select
           value={enabled}
@@ -229,8 +229,8 @@ export default function AdminRelayKeyPoolPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">名称</th>
                 <th className="px-3 py-2 text-left">Provider</th>
@@ -264,15 +264,17 @@ export default function AdminRelayKeyPoolPage() {
                   <tr key={k.id}>
                     <td className="px-3 py-2">
                       <div className="font-medium">{k.name}</div>
-                      {k.remark && <div className="text-xs text-muted-foreground">{k.remark}</div>}
+                      {k.remark && (
+                        <div className="text-label text-muted-foreground">{k.remark}</div>
+                      )}
                     </td>
-                    <td className="px-3 py-2 text-xs">{k.providerCode}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{k.keyPrefix}</td>
+                    <td className="px-3 py-2 text-label">{k.providerCode}</td>
+                    <td className="px-3 py-2 font-mono text-label">{k.keyPrefix}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{k.priority}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{k.weight}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${
+                        className={`rounded-md px-2 py-0.5 text-label ${
                           k.isEnabled
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : 'bg-muted text-muted-foreground'
@@ -283,7 +285,7 @@ export default function AdminRelayKeyPoolPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${
+                        className={`rounded-md px-2 py-0.5 text-label ${
                           HEALTH_CLASS[k.healthStatus ?? 'unknown'] ??
                           'bg-muted text-muted-foreground'
                         }`}
@@ -296,7 +298,7 @@ export default function AdminRelayKeyPoolPage() {
                         ? (k.balanceCents / 100).toFixed(2)
                         : '-'}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {k.updatedAt ? fmt.format(new Date(k.updatedAt)) : '-'}
                     </td>
                     <td className="px-3 py-2">
@@ -370,7 +372,7 @@ export default function AdminRelayKeyPoolPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -381,7 +383,7 @@ export default function AdminRelayKeyPoolPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -462,7 +464,7 @@ export default function AdminRelayKeyPoolPage() {
                 checked={form.isEnabled}
                 onCheckedChange={(v) => setForm({ ...form, isEnabled: v })}
               />
-              <Label htmlFor="k-enabled" className="text-sm text-muted-foreground">
+              <Label htmlFor="k-enabled" className="text-body text-muted-foreground">
                 {form.isEnabled ? '启用' : '禁用'}
               </Label>
             </div>

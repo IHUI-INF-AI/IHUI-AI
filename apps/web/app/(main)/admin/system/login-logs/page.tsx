@@ -174,7 +174,7 @@ export default function LoginLogsPage() {
       />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">
             {t('common.total', { total, page, totalPages })}
           </span>

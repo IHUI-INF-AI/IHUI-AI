@@ -99,7 +99,7 @@ export function CategoryFormDialog({
               maxLength={64}
               aria-invalid={!!nameErr}
             />
-            {nameErr ? <p className="text-xs text-destructive">{nameErr}</p> : null}
+            {nameErr ? <p className="text-label text-destructive">{nameErr}</p> : null}
           </div>
           {!editing && (
             <div className="space-y-1.5">

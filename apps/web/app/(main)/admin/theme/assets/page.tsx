@@ -69,7 +69,7 @@ export default function AssetsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">品牌资产</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理 Logo / Favicon / 品牌图片</p>
+        <p className="mt-1 text-body text-muted-foreground">管理 Logo / Favicon / 品牌图片</p>
       </div>
 
       {loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
@@ -149,7 +149,7 @@ export default function AssetsPage() {
             />
           </div>
           {images.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">暂无图片</p>
+            <p className="py-6 text-center text-label text-muted-foreground">暂无图片</p>
           ) : (
             <div className="grid grid-cols-3 gap-2 min-[640px]:grid-cols-4 min-[768px]:grid-cols-6">
               {images.map((a) => (

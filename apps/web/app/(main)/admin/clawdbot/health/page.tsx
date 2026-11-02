@@ -123,7 +123,7 @@ export default function ClawdbotHealthPage() {
         </div>
         <div>
           <p className="text-lg font-semibold">{STATUS_CONFIG[report.status].label}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             运行时长 {formatUptime(report.uptime)} · 检查于{' '}
             {timeFmt.format(new Date(report.timestamp))}
           </p>
@@ -136,7 +136,7 @@ export default function ClawdbotHealthPage() {
         </div>
         <div className="space-y-2">
           {report.dependencies.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               暂无依赖检查项
             </div>
           ) : (
@@ -150,11 +150,11 @@ export default function ClawdbotHealthPage() {
                     <div>
                       <p className="text-body font-medium">{dep.name}</p>
                       {dep.message && (
-                        <p className="text-xs text-muted-foreground">{dep.message}</p>
+                        <p className="text-label text-muted-foreground">{dep.message}</p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 text-label text-muted-foreground">
                     <span>{dep.latencyMs}ms</span>
                     <span className={cn('rounded px-1.5 py-0.5', cfg.bg, cfg.cls)}>
                       {cfg.label}

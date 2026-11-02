@@ -114,7 +114,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
           <Label>{t('nd.fieldRoleFilter')}</Label>
           <div className="flex flex-wrap gap-4">
             {ROLES.map((role) => (
-              <label key={role} className="flex cursor-pointer items-center gap-2 text-sm">
+              <label key={role} className="flex cursor-pointer items-center gap-2 text-body">
                 <Checkbox
                   checked={form.roleFilter.includes(role)}
                   onCheckedChange={() => toggleRole(role)}
@@ -130,7 +130,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
         <Label>{t('nd.fieldChannels')}</Label>
         <div className="flex flex-wrap gap-4">
           {CHANNELS.map((ch) => (
-            <label key={ch} className="flex cursor-pointer items-center gap-2 text-sm">
+            <label key={ch} className="flex cursor-pointer items-center gap-2 text-body">
               <Checkbox
                 checked={form.channels.includes(ch)}
                 onCheckedChange={() => toggleChannel(ch)}

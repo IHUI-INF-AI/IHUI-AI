@@ -73,7 +73,7 @@ export default function GithubAppAdminPage() {
             <GitBranch className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
@@ -82,7 +82,7 @@ export default function GithubAppAdminPage() {
       </div>
 
       {isError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-red-600">
           {errorMessage}
         </div>
       )}
@@ -126,8 +126,8 @@ export default function GithubAppAdminPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">{t('colInstallation')}</th>
                   <th className="px-4 py-2.5 font-medium">{t('colAccount')}</th>
@@ -223,7 +223,7 @@ function ConfigCard({
           <TooltipContent>{hint}</TooltipContent>
         </Tooltip>
       </CardHeader>
-      <CardContent className="text-xs text-muted-foreground">{hint}</CardContent>
+      <CardContent className="text-label text-muted-foreground">{hint}</CardContent>
     </Card>
   )
 }

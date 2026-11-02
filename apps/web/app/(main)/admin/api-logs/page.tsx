@@ -79,7 +79,7 @@ export default function ApiLogsPage() {
           <ScrollText className="h-6 w-6 text-primary" />
           {t('apiLogs.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('apiLogs.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('apiLogs.subtitle')}</p>
       </div>
 
       <ApiLogFilter
@@ -92,7 +92,7 @@ export default function ApiLogsPage() {
       <ApiLogTable paged={paged} isLoading={isLoading} />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">
             {t('apiLogs.total', { count: total })} · {curPage}/{totalPages}
           </span>
