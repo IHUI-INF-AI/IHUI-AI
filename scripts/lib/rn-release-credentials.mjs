@@ -18,7 +18,7 @@
  *   3. **按内容识别而非文件名**:GCP SA key 文件名是随机串(`spherical-door-….json`),
  *      按名字找下次改名就瞎;改为扫密钥根、认 `type === 'service_account'`。
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
@@ -118,5 +118,89 @@ export function easEntry({ dir = join(process.cwd(), 'apps', 'mobile-rn') } = {}
   return outcome(STATUS.MISSING, 'eas-cli 入口找不到(未 pnpm install?)')
 }
 
-export const __test__ = { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, outcome }
+/**
+ * 商店凭据槽位识别 —— 按厂商名与字段形态找,不硬编码文件名。
+ *
+ * 立因(2026-11-02):发布面要覆盖国内各商店,第一件事不是写上传器,而是**量出每一家到底有没有凭据、
+ * 有的是哪一类**。华为那枚实测就是"有但不是那一枚":`应用ID/密钥` 过 HMS OAuth 端点换得到 token
+ * (len=104),过 AGC Connect API 端点则回 `203890688 client id or secret error` ⇒ 它是 HMS 客户端凭据,
+ * 而自动化上架要的是 Connect API 客户端(client_id/client_secret,在 AGC「用户与权限→Connect API」创建)。
+ * 把"有凭据"和"能上架"混为一谈,就是这条链路最可能的失效形态。
+ */
+export const STORE_VENDORS = Object.freeze([
+  { id: 'huawei', label: '华为 AppGallery', match: /华为|huawei|appgallery/i, fieldsNeeded: ['Connect API 客户端 client_id', 'client_secret'], note: '现有枚是 HMS OAuth 客户端(能换 token),不是 Connect API 客户端 ⇒ 自动化上架缺后者' },
+  { id: 'xiaomi', label: '小米应用商店', match: /小米|xiaomi|mi-store/i, fieldsNeeded: ['pac_name', 'username', 'password 或 LUD 侧凭据'], note: '小米无公开 API 客户端凭据在目录内' },
+  { id: 'oppo', label: 'OPPO 软件商店', match: /oppo|coloros/i, fieldsNeeded: ['appkey', 'apisecret'], note: '' },
+  { id: 'vivo', label: 'vivo 应用商店', match: /vivo/i, fieldsNeeded: ['developer account + apk 签名一致性'], note: '' },
+  { id: 'yyb', label: '腾讯应用宝', match: /应用宝|yyb|tencent.*open/i, fieldsNeeded: ['qqs 开发者凭据'], note: '' },
+  { id: 'honor', label: '荣耀应用市场', match: /荣耀|honor/i, fieldsNeeded: ['client_id/client_secret(荣耀独立 AGC)'], note: '' },
+  { id: 'harmony', label: '鸿蒙 HarmonyOS NEXT', match: /鸿蒙|harmony|ohos/i, fieldsNeeded: ['AGC 鸿蒙应用 appId + 发布证书(.cer)+ Profile(.p7b)+ 私钥(.keystore)'], note: '本仓当前无 RN 鸿蒙产物能力(零 .ets/oh-package.json5/react-native-harmony)⇒ 先解决产物,再谈发布' },
+])
+
+/** 在密钥根(含其子目录,深 2 层)里按厂商匹配凭据件;返回脱敏摘要(路径/大小/字段名/指纹)。 */
+export function storeCredential(vendor, { root = resolveSecretsRoot() } = {}) {
+  if (!root) return outcome(STATUS.UNJUDGED, '密钥根解析不出 ⇒ 不能判该厂商无凭据')
+  const hits = []
+  const walk = (dir, depth) => {
+    if (depth > 2) return
+    let entries = []
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const d of entries) {
+      const p = join(dir, d.name)
+      if (d.isDirectory()) {
+        if (!/模型|db-backup/.test(d.name)) walk(p, depth + 1)
+        continue
+      }
+      if (vendor.match.test(d.name)) hits.push(p)
+    }
+  }
+  walk(root, 0)
+  if (!hits.length) return outcome(STATUS.MISSING, `${root} 内无匹配「${vendor.label}」的凭据件`)
+  const digest = hits.map((p) => {
+    const buf = readFileSync(p)
+    let fields = []
+    try {
+      const j = JSON.parse(buf.toString('utf8'))
+      fields = Object.keys(j)
+    } catch {
+      fields = buf
+        .toString('utf8')
+        .split(/\r?\n/)
+        .map((l) => (l.split(/[:：]/)[0] || '').trim())
+        .filter(Boolean)
+    }
+    return { path: p.replace(/\\/g, '/'), bytes: buf.length, sha8: createHash('sha256').update(buf).digest('hex').slice(0, 8), fields }
+  })
+  return outcome(STATUS.FOUND, `${vendor.label}:${digest.map((d) => `${d.path.split('/').pop()}(${d.bytes}B,字段=${d.fields.join('/')})`).join(' | ')}`, digest)
+}
+
+/** 本机是否已产出可提交的 Android 包(AAB 优先;各商店基本都收 APK,华为/Google 收 AAB)。 */
+export function androidArtifacts({ dir = join(process.cwd(), 'apps', 'mobile-rn', 'android', 'app', 'build', 'outputs') } = {}) {
+  const found = []
+  for (const [kind, rel] of [
+    ['aab', 'bundle/release/app-release.aab'],
+    ['apk', 'apk/release/app-release.apk'],
+  ]) {
+    const p = join(dir, rel).replace(/\\/g, '/')
+    if (existsSync(p)) {
+      found.push({ kind, path: p, bytes: statSyncSize(p) })
+    }
+  }
+  if (!found.length) return outcome(STATUS.MISSING, `${dir.replace(/\\/g, '/')} 下无 release aab/apk ⇒ 各商店腿都还拿不出提交物`, found)
+  return outcome(STATUS.FOUND, found.map((f) => `${f.kind}=${f.bytes}B`).join(' '), found)
+}
+
+function statSyncSize(p) {
+  try {
+    return statSync(p).size
+  } catch {
+    return 0
+  }
+}
+
+export const __test__ = { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, outcome, STORE_VENDORS, storeCredential, statSyncSize }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
