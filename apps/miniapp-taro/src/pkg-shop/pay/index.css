@@ -31,7 +31,7 @@
   background: var(--color-danger-tint);
 }
 .py-countdown-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
   font-weight: 600;
 }
@@ -48,7 +48,7 @@
 }
 .py-amount-label {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .py-amount-value {
@@ -80,11 +80,11 @@
   padding: var(--spacing-xs-loose) 0;
 }
 .py-order-label {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .py-order-value {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   max-width: 360rpx;
   overflow: hidden;
@@ -206,7 +206,7 @@
   font-weight: 600;
 }
 .py-coupon-placeholder {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .py-coupon-arrow {

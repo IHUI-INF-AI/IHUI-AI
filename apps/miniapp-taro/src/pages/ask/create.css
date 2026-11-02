@@ -253,7 +253,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28rpx 32rpx;
+  padding: var(--spacing-md-loose) 32rpx;
   margin-bottom: var(--spacing-xs);
 }
 
@@ -273,7 +273,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28rpx 32rpx;
+  padding: var(--spacing-md-loose) 32rpx;
   font-size: var(--text-body);
   color: var(--color-foreground);
 }

@@ -2112,8 +2112,7 @@
       "selectAigc": "AI 작품 선택(선택)",
       "noAigc": "연결할 AI 작품이 없습니다",
       "allowComments": "댓글 허용",
-      "visibility": "공개 범위",
-      "publishFailed": "게시 실패, 다시 시도해 주세요"
+      "visibility": "공개 범위"
     },
     "index": {
       "goPublish": "게시하러 가기",
@@ -2193,7 +2192,8 @@
       "submit": "에이전트 생성",
       "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다",
       "n8nFilePlaceholder": "n8n 백업 JSON 파일을 클릭하여 업로드",
-      "typeJson": "JSON"
+      "typeJson": "JSON",
+      "mockSuccess": "API가 아직 열리지 않았습니다. 모의 생성 완료"
     },
     "modelEdit": {
       "title": "모델 편집",
@@ -2216,7 +2216,7 @@
       "discountNone": "참여 안 함",
       "discountPartial": "부분 참여",
       "discountFull": "전체 참여",
-      "mockSuccess": "아직 지원되지 않는 기능입니다. 제출되지 않았습니다"
+      "submitSuccess": "제출 완료"
     }
   },
   "devSpace": {
@@ -2694,8 +2694,7 @@
     "payFailed": "결제 실패, 다시 시도하세요",
     "paying": "결제 중...",
     "purchaseContent": "구매 내용",
-    "userAgreement": "《사용자 약관》",
-    "activateDelayed": "혜택 지급이 지연되고 있습니다. 고객센터에 문의해 주세요"
+    "userAgreement": "《사용자 약관》"
   },
   "study": {
     "todayMinutes": "오늘 {n}분",
@@ -4080,7 +4079,8 @@
     "q3": "운영부",
     "q4": "마케팅부",
     "q5": "영업부",
-    "q6": "에이전트 로드"
+    "q6": "에이전트 로드",
+    "q7": "유료 설정 제출"
   },
   "StudyStats": {
     "y1": "h, 완료"
