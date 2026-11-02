@@ -41,11 +41,15 @@ from app.services.keepalive.models import (
     describe_exc,
 )
 from app.services.keepalive.policy import (
+    REAUTH_CREDENTIAL_EXPIRED,
+    REAUTH_INVALID_COOKIE_DECRYPT,
     backoff_seconds,
     classify_message,
     decide,
     health_of,
     is_expiring,
+    reauth_action,
+    resolve_reauth,
 )
 from app.services.keepalive.probes import as_utc, parse_expiry, run_bounded
 
@@ -808,5 +812,40 @@ async def test_batch_failure_falls_back_to_individual(
     assert probe.calls == ["publish_cookie:1"]
     assert summary.ok == 1
     assert summary.failed == 0
+
+
+# ---------------------------------------------------------------------------
+# needs_reauth 机读分类(2026-11-03 立)
+# ---------------------------------------------------------------------------
+def test_reauth_invalid_cookie_decrypt_only_for_publish_cookie() -> None:
+    """publish_cookie 的 InvalidTag 是独立原因;同样的解密文案在 checkin 面不算 cookie。"""
+    ok, reason = resolve_reauth(
+        SOURCE_PUBLISH_COOKIE, KIND_EXPIRED, "凭证无法解密(InvalidTag),需重新扫码录入该账号"
+    )
+    assert (ok, reason) == (True, REAUTH_INVALID_COOKIE_DECRYPT)
+    ok, reason = resolve_reauth(
+        "checkin", KIND_EXPIRED, "签到凭证无法解密(ValueError: JWT 密文解密失败)"
+    )
+    assert (ok, reason) == (True, REAUTH_CREDENTIAL_EXPIRED)
+
+
+def test_reauth_credential_expired_for_real_expiry_and_publish_token() -> None:
+    for source in ("publish_cookie", "publish_token", "checkin"):
+        ok, reason = resolve_reauth(source, KIND_EXPIRED, "cookie 已过期(平台返回未登录)")
+        assert (ok, reason) == (True, REAUTH_CREDENTIAL_EXPIRED)
+
+
+def test_reauth_never_marks_normal_skip_or_transient_failures() -> None:
+    """正常 skip / 无需保活 / 网络抖动 / 未归类异常都不喊人 —— 反向例。"""
+    for kind in (None, KIND_OK, KIND_SKIPPED, KIND_UNSUPPORTED, KIND_NETWORK, KIND_ERROR):
+        assert resolve_reauth(SOURCE_PUBLISH_COOKIE, kind, "退避中,下一轮再试") == (False, None)
+        assert resolve_reauth("checkin", kind, "今日已签到(skip_already)") == (False, None)
+
+
+def test_reauth_action_covers_both_reasons_and_unknown_is_none() -> None:
+    assert reauth_action(REAUTH_INVALID_COOKIE_DECRYPT)
+    assert reauth_action(REAUTH_CREDENTIAL_EXPIRED)
+    assert reauth_action(None) is None
+    assert reauth_action("not_a_reason") is None
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
