@@ -397,14 +397,30 @@ sha256sum ihui-windows-x64.zip
 | 发布 | Chrome Web Store Developer Dashboard 手动上传 zip |
 | 审核 | Google 审核(1-7 天),首次审核较严 |
 
-### mobile-rn(EAS + App Store + Play Store)
+### mobile-rn(EAS 四条腿;唯一出口 = `scripts/release-mobile-rn.mjs`)
 
-| 平台 | 工具 | 命令 | 审核 |
-| --- | --- | --- | --- |
-| iOS + Android 构建 | EAS Build | `eas build --platform all` | — |
-| iOS 提交 | EAS Submit | `eas submit -p ios` | Apple 审核(1-3 天) |
-| Android 提交 | EAS Submit | `eas submit -p android` | Google 审核(1-4 小时) |
-| 配置 | `apps/mobile-rn/eas.json` | build / submit profile | — |
+**2026-11-02 实测现状**(读数全部来自当次 `eas channel:list` / `eas build:list` / androidpublisher v3 / `expo config --type public`,不是文档推断):
+
+| 腿 | 前置 | 现读状态 |
+| --- | --- | --- |
+| `site-apk` Android 官网包 | 正式 keystore + 站点落点 + `app_versions` 登记 | 签名件在位、线上 `android latest=0.0.9/26102816` 且 302 直链活着;**站点落点不在位**(生产签出副本 `ihui-prod` 在本机任何候选根都不存在)⇒ 下次出包会失败,先恢复落点 |
+| `play-aab` Google Play | 正式 keystore + SA + `eas.json` submit 段 | **应用与授权都成立**:`edits:begin` 回 200,`internal` 挂 `26101712 (0.0.5)[completed]`、`alpha` 挂 `0.0.6 (26101921)[completed]`,`production/beta` 空;listing 已有 zh-CN(标题"智汇AI",短 34B/全 411B) |
+| `app-store` iOS | Expo 身份 + Apple 凭据 | Expo 身份通、bundleId `ai.ihui.mobile` 在位;**Apple 凭据取不到**(密钥目录深 2 层无 `.p8`/`.mobileprovision`,本机无 Xcode)⇒ 只能走 EAS 云端构建,而 ASC 提交无凭据 |
+| `ota-*` EAS Update | Expo 身份 + 渠道 + runtimeVersion | **两条渠道都通**(`preview` 已发 1 条,`production` 于本轮创建并回读在位);runtimeVersion 已解耦(见下) |
+
+```bash
+node scripts/release-mobile-rn.mjs                      # 体检五腿(只读;现读凭据在不在位,取不到落 unjudged 不冒绿)
+node scripts/release-mobile-rn.mjs --ensure-channels    # 建缺失的 EAS 渠道
+node scripts/release-mobile-rn.mjs --stage-credentials  # SA key 落进 gitignored 槽位(先实测被忽略才落)
+node scripts/release-mobile-rn.mjs --diagnose-play      # 经本地代理读 Play 轨道/listing/授权(只读,edit 用完必删)
+node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明>"
+```
+
+> **runtimeVersion 曾是 OTA 腿的隐性断点(2026-11-02 修)**:旧形态 `app.json` 里 `runtimeVersion.policy = "appVersion"`,读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被 CI 每次构建注入成 `<base>.<UTC YYYYMMDD>` ⇒ 桶随构建漂移。实测后果:10-27 那条 OTA 落在 runtime `0.0.8`,而线上最新包是 `0.0.9` ⇒ **发出去的更新对任何已装用户永久不可达**,而账面 `eas update` 是成功的。现在桶锚在 `package.json` 基座版本(只在真正重打原生包时抬),判据与反例锁在 `scripts/tests/release-mobile-rn.test.mjs` M6。
+>
+> **签名一致性是 Play 腿未收口的一格**:官网包用 `ihui-release.keystore`(证书 SHA256 `62:B0:FF:0E…`),EAS 云端 10-19 那枚 production AAB 用 EAS 自动生成的 keystore(`62:0C:C9:58…`)—— 二者不同源,而 alpha 轨上那枚 `26101921` 正是 EAS 的号。Play 现网签名身份没能量到(`appSigningInfo` 对本应用回 HTML 404)⇒ **以本机 keystore 提交会不会被 Play 拒绝,属未判定,提交前必须先量一次**,不得凭"应该可以"下结论。
+>
+> **`eas.json` 的 `submit.production.android` 不得写 `packageName`**:eas-cli schema 回 `"submit.production.android.packageName" is not allowed`,而它一拒就顶掉**所有** eas 命令(连 `channel:list` 都退 1)。包名只从 `app.json` 的 `android.package` 读。回归锁 M4。
 
 > **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。
 >
@@ -421,21 +437,21 @@ sha256sum ihui-windows-x64.zip
 | `ios.associatedDomains`(applinks) | ✅ | `app.json` `applinks:aizhs.top` + `applinks:file.aizhs.top` |
 | `app.config.js` `buildNumber` 号段 | ✅ | UTC `YYMMDDHH` 8 位号段 `[26010100, 2100000000]`,`IHUI_VERSION_CODE` 覆盖口越界抛错 |
 | `eas.json` `build.production` | ✅ | `autoIncrement:true` + `android.buildType:apk`(iOS 不锁 apk) |
-| `eas.json` `submit.production` | ✅ | 空配置(全量平台) |
+| `eas.json` `submit.production` | ✅ | android 段已填(`track=alpha` + `serviceAccountKeyPath`,不得写 `packageName`);ios 段刻意留空——Apple 凭据未取到,不写跑不通的配置 |
 | 4 个 Expo config plugin | ✅ | `withWechat.cjs`(CFBundleURLTypes + AppDelegate WXApi 钩子)+ `withCarrier.cjs` + `withExpoImportFix.cjs` + `withSplash.cjs` |
 | `expo-notifications ~57.0.0` 已装 | ✅ | 推送能力就绪;`use-push.ts` 已注册到后端 `/push/devices/register` |
 | `assets/icon.png` / `splash-icon.png` / `adaptive-icon.png` | ✅ | `apps/mobile-rn/assets/` 就绪 |
-| Apple AASA 源文件 | ✅ | `apps/mobile-rn/public/.well-known/apple-app-site-association`(含 `TEAMID.ai.ihui.mobile` 占位) |
+| Apple AASA 源文件 | ✅ | `apps/mobile-rn/public/.well-known/apple-app-site-association` 已是**真 Team ID** `TKF3V7GG6T.ai.ihui.mobile`(2026-11-02 现读);线上 `https://file.aizhs.top/.well-known/…` 实测 200 + `application/json`(合规)。注意根域 `https://aizhs.top/.well-known/…` 回 308 ⇒ 苹果要求不允许 3xx,UL 只能走 `file.aizhs.top` 那条腿 |
 | 本地 `ios/` 原生目录 | ⚠️ 无 | 走 EAS 云端构建路径,**无需**本地 Xcode 工程;本地 debug 走 `eas build -p ios --profile development`(simulator) |
 
 **用户侧前置条件(全部在 agent 之外,需用户完成)**:
 
 | 项 | 说明 |
 | --- | --- |
-| ① Apple Developer 账号 | $99/年;[developer.apple.com](https://developer.apple.com/) 注册 |
-| ② EAS 登录 | `cd apps/mobile-rn && npx eas login`(Expo 账号 + Apple 开发者团队绑定) |
-| ③ Apple Team ID | Apple Developer 会员页 → Membership Details;用于替换 AASA 中的 `TEAMID` 占位 |
-| ④ AASA 文件部署 | ① 把 `apps/mobile-rn/public/.well-known/apple-app-site-association` 中的 `TEAMID.ai.ihui.mobile` 替换为 `<TeamID>.ai.ihui.mobile`;② 部署到 `https://file.aizhs.top/.well-known/apple-app-site-association`(HTTPS、Content-Type: application/json、<128KB、不允许 3xx) |
+| ① Apple Developer 账号 | 会员关系**已由证据侧证**:AASA 里落地的是真 Team ID `TKF3V7GG6T`(占位符不可能长这样),故不再是"待注册" |
+| ② EAS 登录 | **已通**(2026-11-02 实测):token 在 §5d 密钥目录,`eas whoami` = `ihui-ai`;CI 侧用 repository secret `EXPO_TOKEN`,不需交互 login |
+| ③ Apple Team ID | **已取到** = `TKF3V7GG6T`(已烘进 AASA 与线上部署,无需再动) |
+| ④ AASA 文件部署 | **已在位**:`https://file.aizhs.top/.well-known/apple-app-site-association` 实测 200 + `application/json`。仅剩一条已知不合规:根域 `aizhs.top` 那条腿回 308(苹果不允许 3xx)⇒ 微信 UL 与苹果 UL 都只认 `file.aizhs.top` |
 | ⑤ App Store 元数据 | App Store Connect 创建 App record(本地化、截图 6.7"/6.5"、描述、隐私政策 URL、关键词、类目、年龄分级);图标 1024×1024 |
 | ⑥ 推送证书(APNs) | 若启用 `expo-notifications`:App Store Connect → App → App Services → Push Notifications → 注册 APNs 证书;或 EAS 走 `eas build -p ios` 时上传 cert 到 EAS |
 | ⑦ 微信 Universal Link 域名 | `aizhs.top` / `file.aizhs.top` 域名 ICP 备案 + HTTPS 证书有效;微信开放平台移动应用注册时填 `https://aizhs.top`(与 `WX_UNIVERSAL_LINK` 一致) |
@@ -449,7 +465,14 @@ npx eas build --platform ios --profile production
 npx eas submit -p ios                     # 走 App Store Connect
 ```
 
-**可行性结论**:工程侧全就绪,EAS 云端构建路径无阻塞;上架路径仅卡在用户侧 Apple Developer 账号 + EAS 登录 + AASA 占位替换 + 元数据补齐。**iOS 端无工程侧阻塞,可立即启动上架。**
+**可行性结论(2026-11-02 更正)**:工程侧就绪这一条成立,但**"可立即启动上架"当时是过度声明**——它把三件没量过的事写成了已备好:① EAS 登录(现已实测通:`eas whoami` = `ihui-ai`,token 走 §5d 密钥目录,无需交互 `eas login`);② Apple 凭据(**仍未取到** —— 密钥目录深 2 层无 `.p8`/`.mobileprovision`,Team ID `TKF3V7GG6T` 只能证明会员关系存在过,不能替代 ASC API key);③ Play 提交(现已实测通,且发现 alpha/internal 轨上早有 release)。所以 iOS 的真前置只剩 Apple 侧凭据一项,取到即可跑下面两条命令;取不到就停在"未判定",不得据此宣称就绪。
+
+```bash
+cd apps/mobile-rn
+EXPO_TOKEN=<密钥目录里的 expo key.txt 个人key> eas build -p ios --profile production --non-interactive
+EXPO_TOKEN=… eas submit -p ios -e production --auto-testflight-setup --non-interactive
+# 或者一律走唯一出口:node scripts/release-mobile-rn.mjs --leg app-store --execute
+```
 
 ### miniapp-taro(微信小程序审核)
 
