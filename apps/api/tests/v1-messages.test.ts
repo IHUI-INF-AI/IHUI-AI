@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyError } from 'fastify'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 
@@ -202,9 +203,9 @@ describe('anthropicRequestToOpenAI', () => {
     expect(out.messages[0]).toEqual({ role: 'user', content: '北京天气' })
     // assistant: text + tool_calls
     const assistant = out.messages[1]
-    expect(assistant.role).toBe('assistant')
-    expect(assistant.content).toBe('我来查一下')
-    expect(assistant.tool_calls).toEqual([
+    expect(assistant!.role).toBe('assistant')
+    expect(assistant!.content).toBe('我来查一下')
+    expect(assistant!.tool_calls).toEqual([
       {
         id: 'toolu_01',
         type: 'function',
@@ -213,9 +214,9 @@ describe('anthropicRequestToOpenAI', () => {
     ])
     // user tool_result → OpenAI tool 消息
     const toolMsg = out.messages[2]
-    expect(toolMsg.role).toBe('tool')
-    expect(toolMsg.content).toBe('晴天 25 度')
-    expect(toolMsg.tool_call_id).toBe('toolu_01')
+    expect(toolMsg!.role).toBe('tool')
+    expect(toolMsg!.content).toBe('晴天 25 度')
+    expect(toolMsg!.tool_call_id).toBe('toolu_01')
   })
 })
 
@@ -313,7 +314,7 @@ describe('openAIStreamChunkToAnthropicEvents', () => {
       'content_block_start',
       'content_block_delta',
     ])
-    expect(events[0].type).toBe('message_start')
+    expect(events[0]!.type).toBe('message_start')
     expect(state.messageStarted).toBe(true)
     expect(state.contentBlockStarted).toBe(true)
   })
@@ -331,9 +332,9 @@ describe('openAIStreamChunkToAnthropicEvents', () => {
       state,
     )
     expect(events).toHaveLength(1)
-    expect(events[0].type).toBe('content_block_delta')
-    if (events[0].type === 'content_block_delta') {
-      expect(events[0].delta).toEqual({ type: 'text_delta', text: 'b' })
+    expect(events[0]!.type).toBe('content_block_delta')
+    if (events[0]!.type === 'content_block_delta') {
+      expect(events[0]!.delta).toEqual({ type: 'text_delta', text: 'b' })
     }
   })
 
@@ -433,7 +434,7 @@ describe('parseUpstreamLineToOpenAIChunk', () => {
   it('Vercel AI SDK 0:"text" 格式', () => {
     const chunk = parseUpstreamLineToOpenAIChunk('0:"hello"', 'claude-3-5-sonnet')
     expect(chunk).not.toBeNull()
-    expect(chunk?.choices[0].delta.content).toBe('hello')
+    expect(chunk!?.choices[0]!.delta.content).toBe('hello')
   })
 
   it('SSE data: {choices:[{delta:{content}}]} 格式 + [DONE] 返回 null', () => {
@@ -442,7 +443,7 @@ describe('parseUpstreamLineToOpenAIChunk', () => {
       'claude-3-5-sonnet',
     )
     expect(chunk).not.toBeNull()
-    expect(chunk?.choices[0].delta.content).toBe('world')
+    expect(chunk!?.choices[0]!.delta.content).toBe('world')
     expect(parseUpstreamLineToOpenAIChunk('data: [DONE]', 'claude-3-5-sonnet')).toBeNull()
     expect(parseUpstreamLineToOpenAIChunk('', 'claude-3-5-sonnet')).toBeNull()
   })
@@ -471,7 +472,7 @@ describe('serializeAnthropicSSEEvent', () => {
 // =============================================================================
 
 describe('路由归属:POST /v1/messages 不属于本文件测的 Anthropic 适配层', () => {
-  let server: ReturnType<typeof Fastify>
+  let server: FastifyInstance
 
   beforeEach(async () => {
     server = Fastify({ logger: false })
@@ -527,14 +528,14 @@ describe('路由归属:POST /v1/messages 不属于本文件测的 Anthropic 适�
 // =============================================================================
 
 describe('POST /v1/anthropic/messages 路由集成(Anthropic 适配层,生产前缀见 §6)', () => {
-  let server: ReturnType<typeof Fastify>
+  let server: FastifyInstance
   const originalFetch = globalThis.fetch
 
   beforeEach(() => {
     server = Fastify({ logger: false })
     // 统一错误格式为 {code, message},匹配 errorResponseSchema(避免 Fastify 默认
     // 校验错误格式 {statusCode,error,message} 与 response schema 不匹配导致 500)
-    server.setErrorHandler((err, _req, reply) => {
+    server.setErrorHandler((err: FastifyError, _req: FastifyRequest, reply: FastifyReply) => {
       const statusCode = (err as Error & { statusCode?: number }).statusCode ?? 500
       reply.status(statusCode).send({ code: statusCode, message: err.message })
     })

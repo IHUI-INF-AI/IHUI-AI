@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -19,9 +19,12 @@ const listEmailRecipientsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: vi
-    .fn()
-    .mockResolvedValue({ userId: '00000000-0000-4000-8000-000000000ad1', roleId: 1 }),
+  verifyAccessToken: vi.fn().mockResolvedValue({
+    userId: '00000000-0000-4000-8000-000000000ad1',
+    phone: '13800000001',
+    familyId: '00000000-0000-4000-8000-00000000000f',
+    roleId: 1,
+  }),
 }))
 vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn().mockResolvedValue(1),
@@ -39,7 +42,8 @@ vi.mock('../src/services/email-service.js', () => ({
   sendEmail: sendEmailMock,
 }))
 vi.mock('../src/services/broadcast-email-service.js', async (importOriginal) => {
-  const actual = await importOriginal<BroadcastServiceModule>()
+  const actual =
+    await importOriginal<typeof import('../src/services/broadcast-email-service.js')>()
   return {
     ...actual,
     listEmailRecipients: listEmailRecipientsMock,
@@ -49,7 +53,6 @@ vi.mock('../src/services/broadcast-email-service.js', async (importOriginal) => 
 import { adminMaintenanceNoticeRoutes } from '../src/routes/admin-maintenance-notice'
 import { verifyAccessToken } from '@ihui/auth'
 import type { EmailRecipient } from '../src/services/broadcast-email-service.js'
-import type * as BroadcastServiceModule from '../src/services/broadcast-email-service.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
 
@@ -71,7 +74,7 @@ describe('admin-maintenance-notice routes', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((error, _request, reply) => {
+    server.setErrorHandler((error: FastifyError, _request, reply) => {
       const statusCode =
         error.statusCode && error.statusCode >= 400 && error.statusCode < 600
           ? error.statusCode
@@ -96,6 +99,8 @@ describe('admin-maintenance-notice routes', () => {
     listEmailRecipientsMock.mockResolvedValue(makeRecipients(5))
     vi.mocked(verifyAccessToken).mockResolvedValue({
       userId: '00000000-0000-4000-8000-000000000ad1',
+      phone: '13800000001',
+      familyId: '00000000-0000-4000-8000-00000000000f',
       roleId: 1,
     })
   })
@@ -114,6 +119,8 @@ describe('admin-maintenance-notice routes', () => {
     it('普通用户(roleId=0)→ 403 且不发送', async () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: '00000000-0000-4000-8000-000000000fee',
+        phone: '13800000002',
+        familyId: '00000000-0000-4000-8000-00000000000f',
         roleId: 0,
       })
       const res = await server.inject({

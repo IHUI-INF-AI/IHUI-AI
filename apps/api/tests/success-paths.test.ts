@@ -4,7 +4,7 @@
 
 import { describe, it, expect, afterAll, beforeAll, vi, beforeEach } from 'vitest'
 import cookie from '@fastify/cookie'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
 
 // =============================================================================
 // Mock config 避免 env 校验触发 process.exit(1)
@@ -211,6 +211,8 @@ import {
   findDocBySlug,
 } from '../src/db/content-queries'
 import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store'
+import type { User, Announcement } from '@ihui/database'
+import type { PlanRow } from '../src/db/billing-queries'
 
 /** G-876:register 只认 register 场景发出的短信码;夹具按发送端同口径备一枚。 */
 async function seedRegisterCode(phone: string, code = '123456'): Promise<void> {
@@ -228,21 +230,36 @@ async function seedRegisterCode(phone: string, code = '123456'): Promise<void> {
 // =============================================================================
 const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
 
-const mockUser = {
+const mockUser: User = {
   id: SAMPLE_UUID,
   phone: '13800000001',
   email: null,
+  username: null,
   passwordHash: '$2a$10$mockedhashvalue',
   nickname: '用户0001',
   avatar: null,
+  bio: null,
   familyId: '00000000-0000-4000-8000-000000000002',
   roleId: 0,
+  deptId: null,
   status: 1,
+  gender: 0,
+  isVip: 0,
+  identityType: 'normal',
+  level: 0,
+  isSystemAdmin: false,
+  inviteCode: null,
+  parentId: null,
+  birthday: null,
+  twoFactorSecret: null,
+  twoFactorEnabled: false,
+  twoFactorBackupCodes: [],
+  twoFactorEnabledAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
 
-const mockPlan = {
+const mockPlan: PlanRow = {
   id: SAMPLE_UUID,
   name: 'Pro',
   description: '专业版方案',
@@ -251,11 +268,15 @@ const mockPlan = {
   features: ['feature1', 'feature2'],
   isActive: true,
   sortOrder: 1,
+  isRecurring: true,
+  billingPeriod: 'month',
+  trialDays: 0,
+  wechatPlanId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
 
-const mockAnnouncement = {
+const mockAnnouncement: Announcement = {
   id: SAMPLE_UUID,
   title: '系统公告',
   content: '欢迎使用 IHUI AI',
@@ -264,6 +285,7 @@ const mockAnnouncement = {
   isPublished: true,
   publishedAt: new Date(),
   expiresAt: null,
+  platforms: [],
   createdBy: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -304,7 +326,7 @@ describe('success paths', () => {
 
   beforeAll(async () => {
     // 与 server.ts 保持一致的错误处理器：将验证错误格式化为 { code, message }
-    server.setErrorHandler((error, _request, reply) => {
+    server.setErrorHandler((error: FastifyError, _request, reply) => {
       const statusCode =
         error.statusCode && error.statusCode >= 400 && error.statusCode < 600
           ? error.statusCode
@@ -316,8 +338,8 @@ describe('success paths', () => {
     })
     // 风控引擎 mock：测试环境默认放行
     server.decorate('riskEngine', {
-      evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], score: 0 }),
-    })
+      evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], totalScore: 0, score: 0 }),
+    } as unknown as FastifyInstance['riskEngine'])
     // 注册埋点由 business-metrics 插件在生产 app 上装饰;本测试只挂 authRoutes,
     // 用 no-op 保持与生产同形(注册路由会同步调它,缺装饰器即 TypeError 500)。
     server.decorate('recordFunnel', () => {})
