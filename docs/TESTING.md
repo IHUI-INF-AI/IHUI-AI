@@ -76,13 +76,14 @@
 1. 加载 `.env.test`(指向 `ihui_test` 库,与开发/生产 `.env` 隔离)。
 2. 兜底注入测试专用环境变量:
    ```typescript
-   process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
+   process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@127.0.0.1:5399/ihui_test'  // 不可用哨兵:缺省即连不上,绝不兜底生产 8810
    process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-characters-long!!'
    process.env.CREDENTIALS_ENCRYPTION_KEY ??= 'a'.repeat(32)  // 测试允许弱密钥
    process.env.REDIS_URL ??= 'redis://127.0.0.1:6399/1'        // 不可用哨兵:缺省即连不上,绝不兜底生产 8811
    process.env.NODE_ENV = 'test'
    ```
-   `REDIS_URL` 若显式指向 8811(生产 Redis 宿主映射端口),`setup-env.ts` 会直接抛错中止,不会静默连生产。
+   `REDIS_URL` 若显式指向 8811(生产 Redis 宿主映射端口)、`DATABASE_URL` 若显式指向 8810(生产 PG 宿主映射端口),
+   `setup-env.ts` 都会直接抛错中止,不会静默连生产;空串/非法 URL 同样抛错,不落任何默认值。
 3. 兼容两种 cwd(`cd apps/api` 或仓库根目录)。
 
 ### 2.4 Fastify inject 模式
@@ -565,8 +566,8 @@ vi.mock('../src/db/index.js', () => ({
 // 2. Mock config(避免 env 验证失败)
 vi.mock('../src/config/index.js', () => ({
   config: {
-    DATABASE_URL: 'postgres://mock:mock@localhost:8810/mock',
-    REDIS_URL: 'redis://localhost:8811/0',
+    DATABASE_URL: 'postgres://mock:mock@127.0.0.1:5399/mock',
+    REDIS_URL: 'redis://127.0.0.1:6399/0',
     JWT_SECRET: 'test-secret-at-least-32-characters-long!!',
   },
 }))
