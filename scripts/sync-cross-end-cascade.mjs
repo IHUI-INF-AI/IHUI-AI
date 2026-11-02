@@ -144,6 +144,17 @@ const STAGES = [
     note: '器物自身 --write 即落档档形,预演档跳过',
   },
   {
+    name: 'rn-host-shell',
+    kind: 'create',
+    desc: '共享屏→RN 宿主薄壳生成(仅 seedable 落盘;needs-manual 只点名)',
+    script: 'gen-rn-host-shell.mjs',
+    base: ['--all', '--cap=5'],
+    apply: ['--write'],
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
+    note: '--cap=5 逐批推进;落盘后由 check-rn-host-shell-coverage 判「至少一枚 RN 壳直接 import」',
+  },
+  {
     name: 'miniapp-pages',
     kind: 'create',
     desc: '小程序缺页造页闭环',
