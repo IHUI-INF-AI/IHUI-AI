@@ -2342,6 +2342,16 @@
       ],
       "reason": "同 zh-CN:50 枚逐键核验零消费:exam.answer.* 已改用 examQuestion.*(answer.tsx:47-49,63-64,200,331,342,352);message.* 已改用 messageCenter.*(message/index.tsx:302,428,481-482,测试反向锁钉死);favorites/live.detail/news.detail/subscriptions/distribution.plan 等页面已收为壳,由共享屏承载;member.index.privileges、token.balance.noMore、topic.detail.loading 全仓零命中。回潮判据:端内页面恢复自渲染时须按当次实现重新接线,不得只补回键。",
       "until": "2027-11-02"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/ko.json",
+      "keys": [
+        "devEnter.n8nModel.mockSuccess",
+        "devEnter.modelEdit.submitSuccess",
+        "deventerModeledit.q7"
+      ],
+      "reason": "ko 独有三枚旧词条,逐键核验全仓零引用,其余四语言本就没有:① devEnter.n8nModel.mockSuccess 是错命名空间的旧键 —— n8n 页实际消费 devEnter.n8nModel.create/defaultName/empty 等(list-view.tsx:49,71,79),无 mockSuccess;② devEnter.modelEdit.submitSuccess 已被新键 devEnter.modelEdit.mockSuccess 取代 —— model-edit/index.tsx:197 只读新键,旧键零命中;③ deventerModeledit.q7 源码只用 q1-q6(model-edit/index.tsx:28-32 与 :99),q7 零命中,且 README:16626 记载 8e030dea7b 已按五语言清偿,ko 为残留。已检索反引号模板与动态拼接(deventerModeledit.${、devEnter.modelEdit.${、devEnter.n8nModel.${),无命中。回潮判据:若页面恢复“已模拟提交”语义,应新建专用键并接线,不得只补回旧键。",
+      "until": "2027-11-02"
     }
   ]
 }
