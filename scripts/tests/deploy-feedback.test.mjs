@@ -13,7 +13,8 @@
  *  ⑤ 每轮 --max-per-run 配额上限;
  *  ⑥ 输入缺失 / 契约坏 ⇒ exit 2;登记行短 sha 被清洗;--status 只读不写盘;
  *  ⑦ 取号族现读可行、绝不使用满员的 G 族;
- *  ⑨ 门槛只问契约(dispatch.minCountBySource.deploy_outcome 现读,缺门槛即未判定)。
+ *  ⑨ 门槛只问契约(dispatch.minCountBySource.deploy_outcome 现读,缺门槛即未判定);
+ *  ⑩ 窗口外旧证据(B69)不复活成新票;窗口内同形信号照常派单(反向例)。
  *
  * 全程只用 scripts/lib/scratch-dir.mjs 的夹具,并注入假 spawn:
  * 绝不碰真实 `.ihui-agent/state/deploy-feedback-ledger.jsonl`,也不真跑 live-doc-edit。
@@ -331,6 +332,35 @@ test('⑨ 门槛只问契约:minCountBySource.deploy_outcome 现读,契约收紧
   const realContract = JSON.parse(readFileSync(new URL('../data/incident-signal-contract.json', import.meta.url), 'utf8'))
   const realGate = realContract?.dispatch?.minCountBySource?.deploy_outcome
   assert.ok(Number.isInteger(realGate) && realGate >= 1, `真契约缺 dispatch.minCountBySource.deploy_outcome(实得 ${JSON.stringify(realGate)})`)
+})
+
+test('⑩ 窗口外旧证据不复活成新票;窗口内同形信号照常派单(反向例)', () => {
+  // 旧证据(2000min 前,远超 1440min 窗口):判 judged、0 候选、0 结果,不写台账。
+  // 修复前 `clusterSignals` 以批次最新时刻自锚,单条旧信号每天都会重新登记(B53→B67→B69)。
+  const agedPath = signalFile('aged.jsonl', [signal({ at: at(2000) })])
+  const agedLedger = join(SCRATCH, 'aged-ledger.jsonl')
+  const aged = quietRound({ inputPath: agedPath, ledgerPath: agedLedger, tmpDir: join(SCRATCH, 'aged-tmp') })
+  assert.equal(aged.res.code, 0, aged.res.why ?? '')
+  assert.equal(aged.res.status, 'judged')
+  assert.equal(aged.res.input.agedRows, 1)
+  assert.equal(aged.res.candidates.length, 0)
+  assert.equal(aged.res.results.length, 0)
+  assert.ok(aged.logs.some((l) => l.includes('窗口外')), aged.logs.join('\n'))
+  assert.equal(existsSync(agedLedger), false, '窗口外旧证据不得触发台账写盘')
+
+  // 反向:窗口内同形信号必须照常派单(绝缘不得误伤新鲜事故)。
+  const freshPath = signalFile('aged-fresh.jsonl', [signal({ at: at(60) })])
+  const fresh = quietRound({ inputPath: freshPath, ledgerPath: join(SCRATCH, 'aged-fresh-ledger.jsonl'), tmpDir: join(SCRATCH, 'aged-fresh-tmp') })
+  assert.equal(fresh.res.code, 0, fresh.res.why ?? '')
+  assert.equal(fresh.res.input.agedRows, 0)
+  assert.equal(fresh.res.candidates.length, 1, '窗口内信号必须照常派单')
+  assert.equal(fresh.res.results[0].result, 'dry-run')
+
+  // 边界:恰在窗口起点(1440min)的算窗内(`>=`),不得因边界误判成旧证据。
+  const edgePath = signalFile('aged-edge.jsonl', [signal({ at: at(df.DEFAULT_MINUTES) })])
+  const edge = quietRound({ inputPath: edgePath, ledgerPath: join(SCRATCH, 'aged-edge-ledger.jsonl'), tmpDir: join(SCRATCH, 'aged-edge-tmp') })
+  assert.equal(edge.res.input.agedRows, 0)
+  assert.equal(edge.res.candidates.length, 1)
 })
 
 test('⑦ 取号族现读:O65 落成字母族 O、下一号现读;绝不选 G', () => {
