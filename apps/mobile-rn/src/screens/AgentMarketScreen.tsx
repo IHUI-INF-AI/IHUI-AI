@@ -76,6 +76,7 @@ export function AgentMarketScreen() {
       error={error}
       onKeywordChange={setKeyword}
       onSearch={() => load(keyword)}
+      onRetry={() => { void load(keyword); }}
       onPressItem={(id) => navigation.navigate('AgentDetail', { id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

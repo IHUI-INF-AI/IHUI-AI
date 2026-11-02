@@ -32,8 +32,9 @@ export function BusinessCardScreen({
   onCustomize,
   onShareWechat,
   onShareMoments,
-  colorScheme = 'light',
-}: BusinessCardScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: BusinessCardScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -56,7 +57,7 @@ export function BusinessCardScreen({
       {loading ? (
         <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       ) : error ? (
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       ) : card ? (
         <View style={styles.card}>
           <View style={styles.cardHeader}>

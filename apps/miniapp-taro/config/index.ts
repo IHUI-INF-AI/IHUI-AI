@@ -40,7 +40,12 @@ export default defineConfig(async (merge) => {
     sourceRoot: 'src',
     outputRoot,
     plugins: [],
-    defineConstants: {},
+    // 2026-11-03:RN 宿主层(host-toast / use-host-ports)沿用 RN 约定裸读 `__DEV__`,
+    // 经 @rn-shells 端口层编进小程序后,裸标识符在薄壳里会 ReferenceError。
+    // 必须在构建期定义(不是运行时 polyfill),否则 `if (__DEV__)` 仍会先炸。
+    defineConstants: {
+      __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
+    },
     // 2026-09-11 主包体积治理:关闭 Terser 的 ascii_only。
     // Taro webpack5-runner 在 MiniBaseConfig.js 里硬编码了 `output.ascii_only: true`
     // (见 @tarojs/webpack5-runner/dist/webpack/MiniBaseConfig.js:44),它会把所有

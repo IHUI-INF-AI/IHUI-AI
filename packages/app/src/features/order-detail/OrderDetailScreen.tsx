@@ -28,8 +28,9 @@ export function OrderDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: OrderDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: OrderDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -41,7 +42,7 @@ export function OrderDetailScreen({
     return (
       <ErrorState
         message={error || t('orderDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

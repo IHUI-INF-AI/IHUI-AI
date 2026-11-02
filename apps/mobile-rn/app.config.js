@@ -155,6 +155,9 @@ module.exports = ({ config }) => {
       // 签名统一:debug 变体也用正式 keystore(IHUI_RELEASE_* 存在时),让一个应用身份只有一把 key ——
       // 否则 dev client 与 release 各持一把 key,互装不上,每次换包必须先卸载(2026-10-30 实测)
       './plugins/withAndroidSigning.cjs',
+      // 危险权限摘除:SYSTEM_ALERT_WINDOW 在 manifest 里而全仓零引用(2026-11-03 实测),
+      // 国内商店与工信部通报都按"声明即需说明"处理 ⇒ 摘掉,并以 tools:node=remove 防依赖库再带回
+      './plugins/withPermissionPruning.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

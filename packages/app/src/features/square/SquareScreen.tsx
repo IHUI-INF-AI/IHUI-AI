@@ -55,7 +55,8 @@ export interface SquareScreenProps {
 
 export function SquareScreen({
   t,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   items,
   loading,
   refreshing,
@@ -72,7 +73,7 @@ export function SquareScreen({
   onBack,
   hideHeader = false,
   contentBottomPadding = 12,
-}: SquareScreenProps) {
+}: SquareScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   /** 返回顶部按钮可见性:滚动超过阈值显示(对齐 Uniapp share/index.vue showToodown scrollTop>200) */
@@ -182,7 +183,7 @@ export function SquareScreen({
       ) : error && items.length === 0 ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

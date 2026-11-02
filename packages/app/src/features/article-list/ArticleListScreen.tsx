@@ -47,9 +47,10 @@ export function ArticleListScreen({
   onBack,
   onEndReached,
   loadingMore = false,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onToast,
-}: ArticleListScreenProps) {
+}: ArticleListScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)
@@ -76,7 +77,7 @@ export function ArticleListScreen({
         /* P3 修复:错误态居中显示图标 + 错误文字 + 重试按钮 */
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

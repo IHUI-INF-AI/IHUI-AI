@@ -140,6 +140,7 @@ export function PromoteScreen() {
       onCopy={handleCopy}
       onShare={handleShare}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

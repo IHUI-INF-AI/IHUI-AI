@@ -49,8 +49,9 @@ export function FavoriteScreen({
   onDelete,
   onBack,
   onGoDiscover,
-  colorScheme = 'light',
-}: FavoriteScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: FavoriteScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -102,7 +103,7 @@ export function FavoriteScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

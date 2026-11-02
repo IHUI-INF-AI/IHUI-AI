@@ -52,7 +52,7 @@ const UNIAPP_TEXT: Record<string, string> = {
 }
 
 /** 共享屏 FavoriteScreen 的完整 props(含 colorScheme);Favorite / Favorites 两条路由共用。 */
-export function useFavoriteScreenModel(): FavoriteScreenProps {
+export function useFavoriteScreenModel(): FavoriteScreenProps & { onRetry: () => void } {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -138,6 +138,7 @@ export function useFavoriteScreenModel(): FavoriteScreenProps {
     loadingMore,
     error,
     onRefresh: refresh,
+    onRetry: () => void refresh(),
     onLoadMore: loadMore,
     onDelete,
     onBack: () => navigation.goBack(),
@@ -149,6 +150,6 @@ export function useFavoriteScreenModel(): FavoriteScreenProps {
 
 export function FavoriteScreen() {
   const model = useFavoriteScreenModel()
-  return <SharedFavoriteScreen {...model} />
+  return <SharedFavoriteScreen {...model} onRetry={model.onRetry} />
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

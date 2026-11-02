@@ -24,6 +24,8 @@ export function NoteDetailScreen() {
   const [note, setNote] = useState<NoteDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +41,7 @@ export function NoteDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   return (
     <SharedNoteDetailScreen
@@ -48,6 +50,7 @@ export function NoteDetailScreen() {
       loading={loading}
       error={error}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

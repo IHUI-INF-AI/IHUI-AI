@@ -89,6 +89,7 @@ export default function CategoryDetailScreen() {
       onLoadMore={onLoadMore}
       onAgentPress={onAgentPress}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

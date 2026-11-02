@@ -28,8 +28,6 @@ import {
   resolveOptionalPort,
 } from '../ports'
 
-const noop = () => {}
-
 describe('宿主端口类型契约', () => {
   it('导航参数只收标量,OnNavigate 参数/返回形态固定', () => {
     expectTypeOf<NavParams>().toEqualTypeOf<
@@ -92,10 +90,19 @@ describe('assertRequiredPort 运行时闸', () => {
   })
 
   it('有值时原样返回,不因 falsy 误判', () => {
-    const nav = noop
+    const nav = (target: string) => target
     expect(assertRequiredPort('onNavigate', nav)).toBe(nav)
     expect(assertRequiredPort('kv', 0)).toBe(0)
     expect(assertRequiredPort('flag', false)).toBe(false)
+  })
+
+  it('已知空实现黑名单:noop 不得冒充必填端口', () => {
+    expect(() => assertRequiredPort('onNavigate', () => {})).toThrowError(
+      '[host-port] empty implementation onNavigate',
+    )
+    expect(() => assertRequiredPort('onBack', () => undefined)).toThrowError(
+      '[host-port] empty implementation onBack',
+    )
   })
 
   it('prod 缺必填端口返回错误态标记,同名只 console.error 一次', () => {

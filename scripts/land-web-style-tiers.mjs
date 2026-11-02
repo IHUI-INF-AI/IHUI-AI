@@ -69,6 +69,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { maskComments, scanSpans } from './lib/code-mask.mjs'
 import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 归属避让判据的唯一实现(2026-11-03 提库,§0.6 / 门 191):帧解析 + "取不到 ⇒ null" 都住在库里,
+// 三枚 lander 与两枚落档器(gen-ui-mirror / fix-rn-color-literals)一起 import 这一份。
+import { ownershipDirtyPaths } from './lib/git-paths.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
@@ -274,25 +277,6 @@ function listSourceFiles() {
     .filter((p) => p && inScope(p))
 }
 
-/** 归属未知集合:一次读全 apps/web 的 porcelain,按路径判定(3700 路径塞不进命令行)。 */
-function dirtySet() {
-  const out = new Set()
-  try {
-    const text = String(gitRaw(['status', '--porcelain', '--', SRC_DIR], ROOT))
-    for (const line of text.split('\n')) {
-      if (!line.trim()) continue
-      let p = line.slice(3).trim()
-      const arrow = p.lastIndexOf(' -> ')
-      if (arrow >= 0) p = p.slice(arrow + 4)
-      p = p.replace(/^"|"$/g, '')
-      if (p) out.add(p)
-    }
-  } catch {
-    return null
-  }
-  return out
-}
-
 function watermark(mode, file) {
   execFileSync(process.execPath, [WATERMARK, mode, file], {
     cwd: ROOT,
@@ -389,7 +373,7 @@ function main() {
     console.error('❌ 未判定:候选源码枚举到 0 个')
     process.exit(2)
   }
-  const dirty = dirtySet()
+  const dirty = ownershipDirtyPaths({ root: ROOT, pathspec: [SRC_DIR] })
   if (dirty === null) {
     console.error('❌ 未判定:git status 取不到,归属未知不猜')
     process.exit(2)

@@ -58,6 +58,8 @@ export default function BusinessCardScreen() {
   const [card, setCard] = useState<BusinessCardItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export default function BusinessCardScreen() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, reloadKey])
 
   /** 拼接名片分享文案(微信/朋友圈共用,对齐原项目 business-card-sharing 分享内容) */
   const buildShareMessage = (): string =>
@@ -239,6 +241,7 @@ export default function BusinessCardScreen() {
       onCustomize={onCustomize}
       onShareWechat={onShareWechat}
       onShareMoments={onShareMoments}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

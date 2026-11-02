@@ -24,10 +24,11 @@ export function AgentDetailScreen({
   onBack,
   onStartChat,
   onEdit,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
   onToast,
-}: AgentDetailScreenProps) {
+}: AgentDetailScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
@@ -41,7 +42,7 @@ export function AgentDetailScreen({
     return (
       <ErrorState
         message={error || t('agentDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

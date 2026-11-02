@@ -76,6 +76,7 @@ export function ArticleDetailScreen() {
   const [commentError, setCommentError] = useState('')
 
   const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((k) => k + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -169,6 +170,7 @@ export function ArticleDetailScreen() {
           item={article}
           loading={loading}
           error={error}
+          onRetry={reload}
           onBack={() => navigation.goBack()}
           colorScheme={resolvedTheme}
         />

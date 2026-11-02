@@ -662,6 +662,7 @@ export function VipScreen() {
         onRefresh={() => load(true)}
         onPurchase={onPurchase}
         onBack={() => navigation.goBack()}
+        onRetry={() => { void load(); }}
         colorScheme={resolvedTheme}
         onNavigate={onNavigate}
         onToast={onToast}

@@ -69,6 +69,7 @@ export function AgentStatScreen() {
       loading={loading}
       error={error}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

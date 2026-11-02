@@ -218,3 +218,118 @@ export function buildRenameIndex(pairs) {
     },
   }
 }
+
+/**
+ * `git status --porcelain -z` 帧流 → **归属脏路径集合**(纯函数,零 IO —— 判据只此一份,§0.6)。
+ *
+ * 立因(2026-11-03 提库):同一条"工作树脏 ⇒ 归属未知 ⇒ 不许写"的避让判据,仓内已有**三份**
+ * 就地实现 —— `land-rn-style-tiers.mjs` 的 `isCleanOwned`(逐路径 `status -- <file>`)、
+ * `land-web-style-tiers.mjs` 与 `land-miniapp-style-tiers.mjs` 的 `dirtySet()`(整树一次取回)。
+ * 两枚落档器(`gen-ui-mirror.mjs` / `fix-rn-color-literals.mjs`)即将挂守护周期腿,若再各写一份
+ * 就是第四份(§22c 镜像判据 / 门 191)。四枚一起 import 本出口。
+ *
+ * 帧形(本机 2026-11-03 实测,不是从文档抄的):
+ *  · 普通条目 = `XY␠<path>` 一帧一 NUL;未跟踪同形(`??␠<path>`)⇒ **未跟踪也算"有主"之外**;
+ *  · 改名/复制条目 = `R␠␠<新路径>NUL<旧路径>NUL` —— 旧路径**单独占一帧且不带状态前缀**,
+ *    与非 -z 的 `R  old -> new` 不同形;把第二帧按"XY␠path"切会啃掉真路径头三个字符;
+ *  · `-z` 下 git 不做 core.quotePath 八进制转写(实测中文带空格路径逐字为真路径)——
+ *    这正是本票沿用文件头注 D171 那条纪律的原因。
+ * 改名/复制的**两帧都进集合**:避让判据的失效方向恒为"少写一次",多包一条只可能多跳一枚,
+ * 绝不会把"别人在飞的"读成"干净的"。
+ */
+export function parseOwnershipDirtyPaths(raw) {
+  const out = new Set()
+  const frames = String(raw ?? '').split('\0')
+  for (let i = 0; i < frames.length; i += 1) {
+    const frame = frames[i]
+    if (frame === '') continue
+    const status = frame.slice(0, 2)
+    if (/^[ MARCD?!UT][ MARCD?!UT]$/.test(status) && frame.charAt(2) === ' ') {
+      const p = frame.slice(3)
+      if (p) out.add(p)
+      // R/C:下一帧是**旧路径**,原样入集(不剥前缀、不当状态行)
+      if (/^[RC]/.test(status) && i + 1 < frames.length) {
+        const old = frames[i + 1]
+        if (old) out.add(old)
+        i += 1
+      }
+      continue
+    }
+    // 认不得的帧形:整帧当路径收下(过拦不过放),并保留原文可被调用方逐字复现
+    out.add(frame)
+  }
+  return out
+}
+
+/** 相对路径归一(反斜杠 → 正斜杠、去掉 `./` 前缀):git 面恒用正斜杠,调用方不一定。 */
+export function normalizeRelPath(p) {
+  return String(p ?? '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '')
+}
+
+/**
+ * 工作树**归属脏集**的带原因出口(唯一实现):一次 `git status --porcelain -z`(可带 pathspec 收窄)。
+ *
+ * @returns {{ok:boolean, paths:Set<string>, reason:string|null}}
+ *  · `ok:true` ∧ 空集 = 全干净(可以写);
+ *  · `ok:false` = **取不到输入** ⇒ 调用方必须按"未判定"处理:一条都不写、逐条点名(§0.3),
+ *    绝不把取不到当成空集冒绿。
+ */
+export function ownershipDirtyPathsDetailed({ root, pathspec = null } = {}) {
+  if (!root) throw new Error('ownershipDirtyPathsDetailed() 必须显式传 root(不猜调用方位置)')
+  const args = ['status', '--porcelain', '-z']
+  const spec = (Array.isArray(pathspec) ? pathspec : pathspec ? [pathspec] : []).map(normalizeRelPath).filter(Boolean)
+  if (spec.length) args.push('--', ...spec)
+  let raw
+  try {
+    raw = gitRawOutput(args, { root, allowFail: false })
+  } catch (e) {
+    return { ok: false, paths: new Set(), reason: `git status 取不到:${String(e?.message ?? e).split('\n')[0].slice(0, 120)}` }
+  }
+  return { ok: true, paths: parseOwnershipDirtyPaths(raw), reason: null }
+}
+
+/** 三枚 lander 沿用的既有形态(Set | null,null = 未判定):上面那一份的薄适配,不另立判据。 */
+export function ownershipDirtyPaths(opts = {}) {
+  const r = ownershipDirtyPathsDetailed(opts)
+  return r.ok ? r.paths : null
+}
+
+/**
+ * 单路径归属闸:`file` 在脏集里 ⇒ 归属未知 ⇒ 不许写。
+ *
+ * `dirty` 传 null / 非 Set(取不到输入)时**一律判未通过** —— 失效方向必须是"少写一次",
+ * 绝不能是"多写一次"(§0.3 / §12)。调用方若要区分"真脏"与"取不到",必须先问
+ * `ownershipDirtyPathsDetailed` 的 `ok`,并像两枚落档器那样把整轮 held 逐条点名。
+ */
+export function isCleanOwned(file, dirty) {
+  if (!(dirty instanceof Set)) return false
+  const rel = normalizeRelPath(file)
+  if (!rel) return false
+  return !dirty.has(rel)
+}
+
+/**
+ * 落档器写盘前的**归属闸**(带逐条点名文案;判据仍只有上面那一份,本出口只加"怎么点名")。
+ *
+ * 为什么挂周期腿前必须有它:多会话共享工作区里,自动腿写他席正在编辑的文件 = 覆盖别人的未提交
+ * 工作(AGENTS.md §12 / §16 的明令事故型)。`gen-ui-mirror` 与 `fix-rn-color-literals` 是同一条闸
+ * 的两个消费方 —— 闸住在本库,两枚只 import(§0.6:第二份实现必然漂移)。
+ *
+ * 失效方向恒为"少写一次":`ok:false`(脏集取不到 —— 根不存在 / 不在仓内 / git 问不动)时
+ * `blocked()` 对**每一条**都返回点名文案 ⇒ 调用方一条都不写,并把 `ownership=unjudged` 如实报出。
+ *
+ * @returns {{ok:boolean, reason:string|null, dirty:Set<string>|null, blocked:(file:string)=>string|null}}
+ *   `blocked(file)`:`null` = 归属干净可写;字符串 = 不写并点名(取不到时把原因一并带上)。
+ */
+export function ownershipGate({ root } = {}) {
+  const g = ownershipDirtyPathsDetailed({ root })
+  const dirty = g.ok ? g.paths : null
+  const blocked = (file) => {
+    if (isCleanOwned(file, dirty)) return null
+    return g.ok ? normalizeRelPath(file) : `${normalizeRelPath(file)}(归属集取不到:${String(g.reason ?? '未知').slice(0, 60)})`
+  }
+  return { ok: g.ok, reason: g.reason, dirty, blocked }
+}

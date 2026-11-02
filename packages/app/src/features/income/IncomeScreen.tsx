@@ -40,12 +40,15 @@ export function IncomeScreen({
   error,
   onWithdraw,
   onBack,
+  onRetry,
   colorScheme = 'light',
   // 复制订单号(可选注入:平台注入 Clipboard 行为,对齐 Uniapp copyOrderId → setClipboardData)
   onCopyOrder,
 }: IncomeScreenProps & {
   /** 复制订单号回调(平台注入剪贴板实现 + 成功提示) */
   onCopyOrder?: (orderId: string) => void
+  /** 真重试:壳侧重新发起同一 loader */
+  onRetry?: () => void
 }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -98,7 +101,7 @@ export function IncomeScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('income.title')}</Text>
         </View>
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }

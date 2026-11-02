@@ -62,6 +62,8 @@ export function LiveDetailScreen() {
   const [live, setLive] = useState<Live | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [subscribed, setSubscribed] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -88,7 +90,7 @@ export function LiveDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   // 建立聊天 WebSocket 连接
   useEffect(() => {
@@ -182,6 +184,7 @@ export function LiveDetailScreen() {
       </View>
       <SharedLiveDetailScreen
         t={t}
+        onRetry={reload}
         colorScheme={resolvedTheme}
         live={sharedLive}
         loading={loading}

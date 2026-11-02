@@ -83,9 +83,9 @@ export function LiveDetailScreen({
   onInputChange,
   onSend,
   onSubscribe,
-  onBack,
-  colorScheme = 'light',
-}: LiveDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LiveDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)
@@ -109,7 +109,7 @@ export function LiveDetailScreen({
     return (
       <ErrorState
         message={error || t('liveDetail.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

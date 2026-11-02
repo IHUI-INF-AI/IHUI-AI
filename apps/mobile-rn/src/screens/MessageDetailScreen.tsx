@@ -102,6 +102,7 @@ export function MessageDetailScreen() {
       error={error}
       onReply={handleReply}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

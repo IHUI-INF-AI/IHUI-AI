@@ -28,8 +28,9 @@ export function ExamHistoryScreen({
   onRefresh,
   onPressItem,
   onBack,
-  colorScheme = 'light',
-}: ExamHistoryScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: ExamHistoryScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -47,7 +48,7 @@ export function ExamHistoryScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

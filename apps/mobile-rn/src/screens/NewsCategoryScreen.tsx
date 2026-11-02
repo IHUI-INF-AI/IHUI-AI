@@ -182,7 +182,7 @@ export function NewsCategoryScreen() {
       hasMore={hasMore}
       error={error}
       onRefresh={onRefresh}
-      onRetry={onRefresh}
+      onRetry={() => { void load(1, 'first'); }}
       onLoadMore={onLoadMore}
       onSelect={onSelect}
     />

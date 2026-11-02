@@ -26,8 +26,9 @@ export function HelpDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: HelpDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: HelpDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -44,7 +45,7 @@ export function HelpDetailScreen({
         {error ? (
           <ErrorState
             message={error}
-            onRetry={onBack}
+            onRetry={onRetry}
             retryLabel={t('common.back')}
             colorScheme={colorScheme}
           />

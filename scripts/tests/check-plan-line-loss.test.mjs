@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -2424,3 +2424,107 @@ test('单源形状锁:闸门只 import 复洁器那一份解析,门内不得长�
   assert.doesNotMatch(body, /JSON\.parse/, '闸门内不得另长一份 jsonl 解析器(§22c)')
   assert.doesNotMatch(body, /等条件|等环境|待拍板/, '闸门内不得长出桶正则(定罪尺只有一把)')
 })
+
+/**
+ * 同号多候选刹车(2026-11-03 立):旧 `healContent` 只问"目标面上还有没有同号",不问本批待回捞
+ * 集合内部同号 ⇒ 一次能把两行 `Z-1` 同时插回(`05af7e8c5d` / `9ae4f3bd0a` 实测)。这里钉四件:
+ *  ① 两条同号待回捞 ⇒ 拒绝自动回捞、逐变体点名、返回 refusedGroups;
+ *  ② 不给 --pick ⇒ 文件一个字节不动、CLI 非零退出;
+ *  ③ 越界 / 形态错的 --pick ⇒ 同样拒绝且非零,不静默回落;
+ *  ④ 给 --pick ⇒ 只插选定那一行,另一枚保持缺席。
+ */
+test('同号多候选:拒绝一次插两行;--pick 只插选定变体(--heal 端到端)', () => {
+  const VAR_A =
+    '- [ ] Z-1 变体甲:同一条登记的第一种写法,正文足够长以免被最短长度判据挡在射程之外。'
+  const VAR_B =
+    '- [ ] Z-1 变体乙:同一条登记的第二种写法,与甲只差题面后半句,正文同样足够长。'
+  // 规模安全闸取"缺失/扫描"比值 ⇒ 补足无关登记行,让 2 条缺失不占四成。
+  const FILLER = Array.from(
+    { length: 10 },
+    (_, i) =>
+      `- [ ] G-90${String(i).padStart(2, '0')} 无关登记行 ${i}:用来把缺失占比压到规模闸阈值以下,内容足够长。`,
+  )
+  const plan = ['# 计划', '', VAR_A, VAR_B, '', ...FILLER, ''].join('\n')
+  const stripped = plan
+    .split('\n')
+    .filter((l) => l !== VAR_A && l !== VAR_B)
+    .join('\n')
+  const dir = tempPlanRepo(plan)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), stripped, 'utf8')
+
+    // ①② 不给 --pick:拒绝该组、点名两个变体、文件不动、非零退出
+    const refused = runGate(dir, ['--heal'])
+    assert.equal(refused.status, 1, `同号多候选必须非零退出,实际 ${refused.status}\n${refused.stderr}`)
+    const out1 = `${refused.stdout}\n${refused.stderr}`
+    assert.match(out1, /同号多候选/, '必须点名"拒绝自动回捞"这一结论,不得静默跳过')
+    assert.match(out1, /Z-1/, '必须点名冲突编号')
+    assert.match(out1, /\[0\]/, '必须逐个变体给 variantIndex(0 基)')
+    assert.match(out1, /\[1\]/, '必须逐个变体给 variantIndex(0 基)')
+    assert.match(out1, /差异:/, '必须给差异摘要,否则人无从选')
+    assert.equal(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), stripped, '拒绝组一行都不许插')
+
+    // ④ 越界与形态错:拒绝 + 非零(2 是用法/未判定档),不得回落成"两枚都插"
+    const outOfRange = runGate(dir, ['--heal', '--pick', 'Z-1=9'])
+    assert.equal(outOfRange.status, 1)
+    assert.match(`${outOfRange.stdout}\n${outOfRange.stderr}`, /越界/)
+    const malformed = runGate(dir, ['--heal', '--pick', 'Z-1'])
+    assert.equal(malformed.status, 2)
+    assert.match(`${malformed.stdout}\n${malformed.stderr}`, /--pick 形态错/)
+    assert.ok(!readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8').includes(VAR_A), '同名两条都不得插回')
+
+    // ③ 显式 --pick 选第二枚:只插乙,甲保持缺席
+    const picked = runGate(dir, ['--heal', '--pick', 'Z-1=1'])
+    assert.equal(picked.status, 0, `--pick 选定后应 exit 0,实际 ${picked.status}\n${picked.stderr}`)
+    const healed = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(healed.includes(VAR_B), '选定的变体必须插回')
+    assert.ok(!healed.includes(VAR_A), '未选定的同号变体必须保持缺席')
+    assert.equal(healed.split('\n').filter((l) => l.startsWith('- [ ] Z-1 ')).length, 1, '同号只许一行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('同号多候选(纯函数):refusedGroups 带行号与差异摘要;--pick Map 选一枚', () => {
+  const target = ['# 计划', '', '- [ ] Z-9 邻居行:锚点用途,正文足够长。', ''].join('\n')
+  const a = {
+    id: 'Z-1',
+    marker: 'Z-1 变体甲',
+    line: '- [ ] Z-1 变体甲:正文足够长以免被最短长度判据挡在射程之外。',
+    prev: '- [ ] Z-9 邻居行:锚点用途,正文足够长。',
+  }
+  const b = {
+    id: 'Z-1',
+    marker: 'Z-1 变体乙',
+    line: '- [ ] Z-1 变体乙:正文足够长,与甲只差题面后半句。',
+    prev: '- [ ] Z-9 邻居行:锚点用途,正文足够长。',
+  }
+  const refused = G.healContent(target, [a, b])
+  assert.equal(refused.inserted + refused.appended, 0)
+  assert.equal(refused.refusedGroups.length, 1)
+  assert.equal(refused.refusedRows, 2)
+  assert.equal(refused.refusedGroups[0].id, 'Z-1')
+  assert.deepEqual(
+    refused.refusedGroups[0].variants.map((v) => v.index),
+    [0, 1],
+  )
+  assert.equal(refused.refusedGroups[0].variants[0].anchorLine, 4, '锚点行号必须是目标面里的真实行号')
+  assert.match(refused.refusedGroups[0].variants[1].diffSummary, /分岔 A=/)
+  const picked = G.healContent(target, [a, b], null, { pick: new Map([['Z-1', 1]]) })
+  assert.equal(picked.inserted, 1)
+  assert.ok(picked.out.includes(a.line) === false && picked.out.includes(b.line))
+  assert.deepEqual(picked.picked.map((p) => `${p.id}=${p.index}`), ['Z-1=1'])
+  const bad = G.healContent(target, [a, b], null, { pick: new Map([['Z-1', 7]]) })
+  assert.equal(bad.inserted + bad.appended, 0)
+  assert.match(bad.refusedGroups[0].reason, /越界/)
+  // --pick 解析:支持空格与等号两种写法;重复/畸形一律报错,不猜"最后一个赢"。
+  const good = G.parseHealPicks(['--pick', 'Z-1=0', '--pick=G-2=1'])
+  assert.equal(good.errors.length, 0)
+  assert.equal(good.picks.get('Z-1'), 0)
+  assert.equal(good.picks.get('G-2'), 1)
+  const badArgs = G.parseHealPicks(['--pick', 'Z-1=0', '--pick', 'Z-1=1', '--pick', 'X-1'])
+  assert.ok(badArgs.errors.length >= 2)
+  assert.equal(badArgs.picks.get('Z-1'), 0, '重复给出同一编号必须报错且不覆盖首值')
+  assert.match(G.variantDiffSummary('abcX', 'abcY'), /共同前缀 3 字/)
+})
+

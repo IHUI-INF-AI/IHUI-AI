@@ -91,8 +91,9 @@ export function TeamScreen({
   treeTotalLevels,
   onRetryTree,
   onPressTreeMember,
-  colorScheme = 'light',
-}: TeamScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: TeamScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const tabItems = useMemo(() => TAB_KEYS.map((k) => ({ id: k, label: t(TAB_LABELS[k]) })), [t])
@@ -112,7 +113,7 @@ export function TeamScreen({
       <View style={styles.container}>
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('team.retry')}
           colorScheme={colorScheme}
         />

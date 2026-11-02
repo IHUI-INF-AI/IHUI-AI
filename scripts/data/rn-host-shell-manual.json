@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "note": "RN 薄壳 needsManual 挂账账本:每条必须有 shared(屏名或 packages/app/src/features/... 相对路径)、owner、expires(YYYY-MM-DD,当天仍算在期)、reason。本账本由人认领,禁止为消红批量伪造;check-rn-host-shell-coverage.mjs 只读不写。",
+  "entries": []
+}

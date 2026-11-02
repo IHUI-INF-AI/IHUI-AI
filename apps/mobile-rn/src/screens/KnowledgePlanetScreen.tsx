@@ -110,6 +110,7 @@ export function KnowledgePlanetScreen() {
         onRefresh={onRefresh}
         onItemClick={onItemClick}
         onBack={() => navigation.goBack()}
+        onRetry={() => { void load(); }}
         colorScheme={resolvedTheme}
       />
       {/* 加载遮罩(对齐原项目 common/Loading 全屏 loading-mask 语义) */}

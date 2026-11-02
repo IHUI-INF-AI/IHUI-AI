@@ -19,8 +19,9 @@ export function AgentStatScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: AgentStatScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AgentStatScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -37,7 +38,7 @@ export function AgentStatScreen({
         {/* 原错误/空态只有「返回」一个动作,这里如实沿用该动作(不新增键) */}
         <ErrorState
           message={error || t('common.empty')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />

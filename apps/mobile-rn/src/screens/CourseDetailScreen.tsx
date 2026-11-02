@@ -42,6 +42,8 @@ export function CourseDetailScreen() {
   const [progress, setProgress] = useState<LessonProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [enrolling, setEnrolling] = useState(false)
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export function CourseDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   const onEnroll = async () => {
     if (!course) return
@@ -143,6 +145,7 @@ export function CourseDetailScreen() {
       </NavChrome>
       <SharedCourseDetailScreen
         t={t}
+        onRetry={reload}
         colorScheme={resolvedTheme}
         item={detailItem}
         lessons={detailLessons}

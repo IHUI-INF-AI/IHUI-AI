@@ -57,9 +57,10 @@ export function LiveListScreen({
   onBack,
   onEndReached,
   loadingMore = false,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
-}: LiveListScreenProps) {
+}: LiveListScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -111,7 +112,7 @@ export function LiveListScreen({
       {showError ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('liveList.retry')}
           colorScheme={colorScheme}
         />

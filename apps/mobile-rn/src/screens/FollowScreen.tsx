@@ -108,6 +108,7 @@ export function FollowScreen() {
       onLoadMore={loadMore}
       onUnfollow={onUnfollow}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void refresh(); }}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
       onToast={onToast}

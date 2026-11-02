@@ -34,8 +34,9 @@ export function AigcCoverScreen({
   onConfirm,
   onGenerateAi,
   onBack,
-  colorScheme = 'light',
-}: AigcCoverScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AigcCoverScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -50,7 +51,7 @@ export function AigcCoverScreen({
   if (error) {
     return (
       <View style={styles.container}>
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }

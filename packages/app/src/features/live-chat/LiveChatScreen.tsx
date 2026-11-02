@@ -51,8 +51,9 @@ export function LiveChatScreen({
   onInputChange,
   onSend,
   onBack,
-  colorScheme = 'light',
-}: LiveChatScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LiveChatScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const listRef = useRef<FlatList<LiveChatMessage> | null>(null)
@@ -73,7 +74,7 @@ export function LiveChatScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

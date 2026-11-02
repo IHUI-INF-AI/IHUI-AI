@@ -52,10 +52,11 @@ export function FollowScreen({
   onLoadMore,
   onUnfollow,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
   onToast,
-}: FollowScreenProps) {
+}: FollowScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
@@ -92,7 +93,7 @@ export function FollowScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

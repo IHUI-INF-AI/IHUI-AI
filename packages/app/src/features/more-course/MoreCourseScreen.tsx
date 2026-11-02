@@ -42,8 +42,9 @@ export function MoreCourseScreen({
   onEndReached,
   onPressItem,
   onBack,
-  colorScheme = 'light',
-}: MoreCourseScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: MoreCourseScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -114,7 +115,7 @@ export function MoreCourseScreen({
             error ? (
               <ErrorState
                 message={error}
-                onRetry={onRefresh}
+                onRetry={onRetry}
                 retryLabel={t('common.retry')}
                 colorScheme={colorScheme}
               />
