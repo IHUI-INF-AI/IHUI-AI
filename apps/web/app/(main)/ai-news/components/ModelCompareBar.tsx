@@ -30,7 +30,7 @@ export function ModelCompareBar({ entries, onRemove, onClear, onCompare }: Props
         {entries.map((e) => (
           <span
             key={e.id}
-            className="inline-flex items-center gap-1 ui-chip rounded-md bg-card px-2 py-0.5 text-xs shadow-sm"
+            className="inline-flex items-center gap-1 ui-chip rounded-md bg-card px-2 py-0.5 text-label shadow-sm"
           >
             <span className="min-w-0 max-w-[120px] truncate">{e.modelName}</span>
             <button
@@ -46,7 +46,7 @@ export function ModelCompareBar({ entries, onRemove, onClear, onCompare }: Props
       <button
         type="button"
         onClick={onClear}
-        className="inline-flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="inline-flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <Trash2 className="h-3 w-3" />
         {t('compare.clear')}

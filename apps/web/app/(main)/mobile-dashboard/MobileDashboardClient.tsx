@@ -83,7 +83,7 @@ export function MobileDashboardClient() {
           <Smartphone className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           监控移动端核心运营指标（真实数据，来源数据库聚合）
         </p>
       </header>
@@ -97,14 +97,14 @@ export function MobileDashboardClient() {
         </div>
       ) : isError || !data ? (
         <div className="space-y-4">
-          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-body text-rose-600 dark:text-rose-500">
             加载失败：无法获取移动端统计数据
           </div>
           <div>
             <button
               type="button"
               onClick={() => void refetch()}
-              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm hover:bg-muted"
+              className="inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-body hover:bg-muted"
             >
               <RefreshCw className="h-4 w-4" />
               重试
@@ -154,7 +154,7 @@ export function MobileDashboardClient() {
             <Card className="min-[1024px]:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{t('dauTrend.title')}</CardTitle>
-                <p className="text-xs text-muted-foreground">{t('dauTrend.subtitle')}</p>
+                <p className="text-label text-muted-foreground">{t('dauTrend.subtitle')}</p>
               </CardHeader>
               <CardContent>
                 {data.dauTrend.length > 0 ? (
@@ -165,7 +165,7 @@ export function MobileDashboardClient() {
                     color="var(--primary)"
                   />
                 ) : (
-                  <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
+                  <div className="flex h-[240px] items-center justify-center text-body text-muted-foreground">
                     {t('noData')}
                   </div>
                 )}
@@ -176,14 +176,14 @@ export function MobileDashboardClient() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">{t('devices.title')}</CardTitle>
-                <p className="text-xs text-muted-foreground">{t('devices.subtitle')}</p>
+                <p className="text-label text-muted-foreground">{t('devices.subtitle')}</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 {data.deviceDistribution.length > 0 ? (
                   <>
                     {data.deviceDistribution.map((d) => (
                       <div key={d.name} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center justify-between text-body">
                           <span className="font-medium">
                             {d.name === 'others' ? t('devices.others') : d.name}
                           </span>
@@ -197,7 +197,7 @@ export function MobileDashboardClient() {
                         </div>
                       </div>
                     ))}
-                    <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4 pt-2 text-label text-muted-foreground">
                       {data.deviceDistribution.map((d) => (
                         <div key={d.name} className="flex items-center gap-1.5">
                           <span
@@ -209,7 +209,7 @@ export function MobileDashboardClient() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">
+                  <div className="flex h-[180px] items-center justify-center text-body text-muted-foreground">
                     {t('noData')}
                   </div>
                 )}
@@ -221,14 +221,14 @@ export function MobileDashboardClient() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{t('topPages.title')}</CardTitle>
-              <p className="text-xs text-muted-foreground">{t('topPages.subtitle')}</p>
+              <p className="text-label text-muted-foreground">{t('topPages.subtitle')}</p>
             </CardHeader>
             <CardContent className="p-0">
               {data.topPages.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
-                      <tr className="text-left text-xs text-muted-foreground">
+                      <tr className="text-left text-label text-muted-foreground">
                         <th className="w-12 px-5 py-2 font-medium">{t('topPages.rankHeader')}</th>
                         <th className="px-5 py-2 font-medium">{t('topPages.pathHeader')}</th>
                         <th className="px-5 py-2 text-right font-medium">
@@ -268,7 +268,7 @@ export function MobileDashboardClient() {
                   </table>
                 </div>
               ) : (
-                <div className="flex h-[120px] items-center justify-center text-sm text-muted-foreground">
+                <div className="flex h-[120px] items-center justify-center text-body text-muted-foreground">
                   {t('noData')}
                 </div>
               )}
@@ -278,7 +278,7 @@ export function MobileDashboardClient() {
       )}
 
       {isFetching && !isLoading ? (
-        <p className="px-1 text-xs text-muted-foreground">更新中…</p>
+        <p className="px-1 text-label text-muted-foreground">更新中…</p>
       ) : null}
     </Container>
   )
@@ -301,10 +301,10 @@ function StatCard({ labelKey, value, sub, trendUp, Icon }: StatCardProps) {
           <Icon className="h-5 w-5" />
         </div>
         <div className="space-y-0.5">
-          <div className="text-sm text-muted-foreground">{t(labelKey)}</div>
+          <div className="text-body text-muted-foreground">{t(labelKey)}</div>
           <div className="text-display font-bold tracking-tight">{value}</div>
           <div
-            className={`text-xs ${sub === '—' || sub === t('noData') ? 'text-muted-foreground' : trendUp ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-600 dark:text-rose-500'}`}
+            className={`text-label ${sub === '—' || sub === t('noData') ? 'text-muted-foreground' : trendUp ? 'text-emerald-600 dark:text-emerald-500' : 'text-rose-600 dark:text-rose-500'}`}
           >
             {sub}
           </div>

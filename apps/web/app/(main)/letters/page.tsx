@@ -71,7 +71,7 @@ export default function LettersPage() {
           <Mail className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card className="h-[70vh] overflow-hidden">
@@ -104,7 +104,7 @@ export default function LettersPage() {
               ) : members.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground">
                   <MessageSquare className="h-8 w-8" />
-                  <p className="text-sm">{t('empty')}</p>
+                  <p className="text-body">{t('empty')}</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -133,7 +133,7 @@ export default function LettersPage() {
                               {formatLetterTime(m.letter.createdAt)}
                             </span>
                           </div>
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="truncate text-label text-muted-foreground">
                             {m.letter.content}
                           </p>
                         </div>
@@ -156,7 +156,7 @@ export default function LettersPage() {
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                 <MessageSquare className="h-10 w-10" />
-                <p className="text-sm">{t('noConversation')}</p>
+                <p className="text-body">{t('noConversation')}</p>
               </div>
             )}
           </div>

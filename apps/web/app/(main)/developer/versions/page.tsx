@@ -78,7 +78,7 @@ export default function VersionsPage() {
           <GitBranch className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -92,7 +92,7 @@ export default function VersionsPage() {
           {t('loading')}
         </div>
       ) : list.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
       ) : (
         <div className="space-y-3">
           {list.map((v) => {
@@ -116,17 +116,17 @@ export default function VersionsPage() {
                         {t(API_VERSION_STATUS_KEYS[v.status]!)}
                       </span>
                     </div>
-                    <span className="ml-auto text-xs text-muted-foreground">
+                    <span className="ml-auto text-label text-muted-foreground">
                       {t('releasedAt', { date: dateFmt.format(new Date(v.releaseDate)) })}
                     </span>
                   </div>
 
                   {v.changelog && (
-                    <p className="mt-2 text-sm text-muted-foreground">{v.changelog}</p>
+                    <p className="mt-2 text-body text-muted-foreground">{v.changelog}</p>
                   )}
 
                   {(v.deprecateDate || v.sunsetDate) && (
-                    <div className="mt-3 flex flex-wrap gap-4 pt-2 text-xs">
+                    <div className="mt-3 flex flex-wrap gap-4 pt-2 text-label">
                       {v.deprecateDate && (
                         <div>
                           <span className="text-muted-foreground">{t('deprecateTime')}</span>{' '}

@@ -157,11 +157,13 @@ export default function AuthorizationsPage() {
           {!allow ? (
             <AuthGatePrompt message={tGate('loginRequired')} />
           ) : loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">
+              {t('activityLoading')}
+            </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-destructive">{error}</p>
+            <p className="py-8 text-center text-body text-destructive">{error}</p>
           ) : sessions.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="py-8 text-center text-body text-muted-foreground">
               {t('noAuthorizations')}
             </p>
           ) : (
@@ -180,10 +182,10 @@ export default function AuthorizationsPage() {
                     const isCurrent = s.id === currentSessionId
                     return (
                       <TableRow key={s.id}>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
                           {formatTime(s.createdAt)}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell className="whitespace-nowrap text-label">
                           {formatTime(s.expiresAt)}
                         </TableCell>
                         <TableCell>
@@ -193,7 +195,7 @@ export default function AuthorizationsPage() {
                               {t('sessionCurrent')}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center text-xs text-muted-foreground">
+                            <span className="inline-flex items-center text-label text-muted-foreground">
                               <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
                             </span>
                           )}
@@ -213,7 +215,7 @@ export default function AuthorizationsPage() {
 
           {!loading && !error && sessions.length > 0 && (
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('activityPageInfo', { page, totalPages })}
               </span>
               <div className="flex gap-2">
@@ -251,7 +253,7 @@ export default function AuthorizationsPage() {
           <DialogHeader>
             <DialogTitle>{t('revokeAuth')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{t('sessionRevokeConfirm')}</p>
+          <p className="text-body text-muted-foreground">{t('sessionRevokeConfirm')}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmId(null)} disabled={revoking}>
               {tc('cancel')}
@@ -265,7 +267,7 @@ export default function AuthorizationsPage() {
 
       {toast && (
         <div
-          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
         >
           {toast.msg}
         </div>

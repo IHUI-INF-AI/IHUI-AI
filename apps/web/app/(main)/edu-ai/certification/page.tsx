@@ -174,7 +174,7 @@ export default function EduAiCertificationPage() {
           <BadgeCheck className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -235,11 +235,11 @@ export default function EduAiCertificationPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="line-clamp-1 font-medium">{item.certName}</p>
-                  <p className="line-clamp-1 text-xs text-muted-foreground">
+                  <p className="line-clamp-1 text-label text-muted-foreground">
                     {item.issuingAuthority}
                   </p>
                 </div>
-                <div className="mt-auto space-y-1 pt-2 text-xs text-muted-foreground">
+                <div className="mt-auto space-y-1 pt-2 text-label text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5 shrink-0" />
                     <span className="min-w-0 truncate">{item.targetTeachers || '-'}</span>
@@ -261,7 +261,7 @@ export default function EduAiCertificationPage() {
 
       {!isLoading && !isError && list.length > 0 && (
         <div className="flex items-center justify-between gap-3">
-          <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <div className="flex shrink-0 items-center gap-2">
@@ -310,7 +310,7 @@ export default function EduAiCertificationPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {metaItems(detail).map((m) => (
-                  <div key={m.label} className="flex items-center gap-2 text-sm">
+                  <div key={m.label} className="flex items-center gap-2 text-body">
                     <m.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="shrink-0 text-muted-foreground">{m.label}</span>
                     <span className="min-w-0 truncate">{m.value}</span>
@@ -321,7 +321,7 @@ export default function EduAiCertificationPage() {
               {contentSections.map((s) => (
                 <section key={s.label} className="space-y-1">
                   <h3 className="text-body font-semibold">{s.label}</h3>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                  <p className="whitespace-pre-line text-body leading-relaxed text-muted-foreground">
                     {s.value}
                   </p>
                 </section>

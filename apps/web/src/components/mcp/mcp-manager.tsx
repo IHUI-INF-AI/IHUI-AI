@@ -226,7 +226,7 @@ export function McpManager() {
         // undefined,直接落进下面的 empty 态 —— 把故障误报成"暂无 MCP 服务器"。
         <McpViewFailure error={error} onReload={() => void refetch()} reloading={isFetching} />
       ) : !servers || servers.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-12 text-center text-body text-muted-foreground">
           <Server className="mx-auto mb-2 h-8 w-8 opacity-50" />
           {t('empty')}
         </div>
@@ -241,7 +241,9 @@ export function McpManager() {
                   <div className="mb-2 flex items-start justify-between">
                     <div className="min-w-0">
                       <div className="break-words font-medium">{server.name}</div>
-                      <div className="break-words text-xs text-muted-foreground">{server.url}</div>
+                      <div className="break-words text-label text-muted-foreground">
+                        {server.url}
+                      </div>
                     </div>
                     <span
                       className={cn(
@@ -254,7 +256,7 @@ export function McpManager() {
                       {connected ? t('connected') : t('disconnected')}
                     </span>
                   </div>
-                  <div className="mb-3 text-xs text-muted-foreground">
+                  <div className="mb-3 text-label text-muted-foreground">
                     {t('transport')}: {server.transport}
                   </div>
                   <div className="flex gap-2">

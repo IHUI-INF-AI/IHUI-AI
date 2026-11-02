@@ -75,9 +75,9 @@ export default async function KeysPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('keys.table.name')}</th>
                   <th className="px-4 py-2 font-medium">{t('keys.table.key')}</th>
                   <th className="px-4 py-2 font-medium">{t('keys.table.usage')}</th>
@@ -121,12 +121,12 @@ export default async function KeysPage() {
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-label text-muted-foreground">
                             ¥{k.used.toFixed(1)} / ¥{k.total}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{k.createdAt}</td>
+                      <td className="px-4 py-3 text-label text-muted-foreground">{k.createdAt}</td>
                       <td className="px-4 py-3">
                         <span
                           className={

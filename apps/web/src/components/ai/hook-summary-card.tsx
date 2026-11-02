@@ -57,21 +57,21 @@ export function HookSummaryCard({ running = false }: { running?: boolean }) {
     >
       <Glyph className={cn('h-3.5 w-3.5 shrink-0', glyphCls)} aria-hidden />
       <span className="shrink-0 text-label font-medium text-foreground">{stateLabel}</span>
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+      <span className="shrink-0 text-label tabular-nums text-muted-foreground">
         {t('hookSummary.runs', { n: view.runs })}
       </span>
       {view.failed > 0 ? (
-        <span className="shrink-0 text-xs tabular-nums text-amber-600 dark:text-amber-400">
+        <span className="shrink-0 text-label tabular-nums text-amber-600 dark:text-amber-400">
           {t('hookSummary.failedCount', { n: view.failed })}
         </span>
       ) : null}
       {view.blocked > 0 ? (
-        <span className="shrink-0 text-xs tabular-nums text-red-600 dark:text-red-400">
+        <span className="shrink-0 text-label tabular-nums text-red-600 dark:text-red-400">
           {t('hookSummary.blockedCount', { n: view.blocked })}
         </span>
       ) : null}
       {view.hasSourceData ? (
-        <span className="ml-auto flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
+        <span className="ml-auto flex min-w-0 items-center gap-1 truncate text-label text-muted-foreground">
           <Webhook className="h-3 w-3 shrink-0" aria-hidden />
           <span className="shrink-0">{t('hookSummary.sourceLabel')}</span>
           <span className="min-w-0 truncate">

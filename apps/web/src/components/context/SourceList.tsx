@@ -49,11 +49,11 @@ export function SourceList({ sources, onToggle, onBudgetChange, className }: Sou
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate text-body font-medium">{s.label}</p>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-label tabular-nums text-muted-foreground">
                   {s.budgetPercent}%
                 </span>
               </div>
-              <p className="truncate text-xs text-muted-foreground">{s.description}</p>
+              <p className="truncate text-label text-muted-foreground">{s.description}</p>
               <input
                 type="range"
                 min={0}
@@ -74,7 +74,7 @@ export function SourceList({ sources, onToggle, onBudgetChange, className }: Sou
           </div>
         )
       })}
-      <p className="px-1 text-xs text-muted-foreground">
+      <p className="px-1 text-label text-muted-foreground">
         已启用源合计预算:
         <span className="ml-1 font-medium tabular-nums">{enabledTotal}%</span>
       </p>

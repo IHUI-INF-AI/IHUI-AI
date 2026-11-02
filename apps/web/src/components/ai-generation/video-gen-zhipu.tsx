@@ -116,7 +116,7 @@ export function VideoGenZhipu() {
     <Card>
       <CardHeader>
         <CardTitle>{t('zhipuVideoTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('zhipuVideoSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('zhipuVideoSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -178,20 +178,20 @@ export function VideoGenZhipu() {
 
         {upstreamId && (
           <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {t('taskId')}: {upstreamId} · {t('status')}: {statusLabel(taskStatus)}
             </div>
             {taskStatus !== 'SUCCESS' && taskStatus !== 'FAIL' ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('polling')}
               </div>
             ) : null}
             {taskStatus === 'FAIL' ? (
-              <p className="text-sm text-destructive">{t('statusFailed')}</p>
+              <p className="text-body text-destructive">{t('statusFailed')}</p>
             ) : null}
             {taskStatus === 'SUCCESS' && videos.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noResult')}</p>
+              <p className="text-body text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {videos.map((url) => (
               <video

@@ -143,7 +143,7 @@ function AuthorizeContent() {
         <Card className="w-full max-w-md">
           <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-3 p-3 text-center">
             <ShieldAlert className="h-10 w-10 text-destructive" />
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-body text-destructive">{error}</p>
           </CardContent>
         </Card>
       </div>
@@ -164,9 +164,9 @@ function AuthorizeContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           {info && (
-            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-body">
               <span className="font-medium">{info.app.name}</span>
-              <span className="ml-2 text-xs text-muted-foreground">{info.app.clientId}</span>
+              <span className="ml-2 text-label text-muted-foreground">{info.app.clientId}</span>
             </div>
           )}
 
@@ -179,7 +179,7 @@ function AuthorizeContent() {
                   <div className="min-w-0">
                     <div className="text-body font-medium">{s.name}</div>
                     {s.description && (
-                      <div className="text-xs text-muted-foreground">{s.description}</div>
+                      <div className="text-label text-muted-foreground">{s.description}</div>
                     )}
                   </div>
                 </li>
@@ -188,7 +188,7 @@ function AuthorizeContent() {
           </div>
 
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {error}
             </div>
           )}

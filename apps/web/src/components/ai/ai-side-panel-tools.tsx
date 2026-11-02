@@ -538,7 +538,7 @@ export function AiSidePanelTools() {
   }, [])
 
   // ---- tab 内容渲染 ----
-  const emptyHint = <p className="py-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
+  const emptyHint = <p className="py-6 text-center text-body text-muted-foreground">{t('empty')}</p>
 
   const renderTab = (key: ToolTabKey) => {
     switch (key) {
@@ -810,7 +810,7 @@ export function AiSidePanelTools() {
                     data-testid={`ai-panel-tab-${key}`}
                     onClick={() => setActiveTab(key)}
                     className={cn(
-                      'shrink-0 rounded-sm px-2.5 py-1 text-xs transition-colors',
+                      'shrink-0 rounded-sm px-2.5 py-1 text-label transition-colors',
                       activeTab === key
                         ? 'bg-accent font-medium text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',

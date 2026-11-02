@@ -289,7 +289,7 @@ function ModelOptionRow({
     <DropdownMenu.Item
       onSelect={onSelect}
       className={cn(
-        'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+        'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
         'focus:bg-accent focus:text-accent-foreground',
       )}
     >
@@ -562,7 +562,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
             <Crown className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
             <div className="min-w-0 flex-1">
               <p className="text-body font-semibold">{t('modelPopoverMemberTitle')}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-1 text-label leading-relaxed text-muted-foreground">
                 {t('modelPopoverMemberDesc', {
                   from: opt.pointsMultiplier.toFixed(2),
                   to: (opt.pointsMultiplier * 0.25).toFixed(2),
@@ -899,7 +899,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
             <DropdownMenu.Item
               onSelect={() => router.push('/settings/llm')}
               className={cn(
-                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
                 'focus:bg-accent focus:text-accent-foreground',
                 '[&>span]:translate-y-[var(--text-vcenter-offset)]',
               )}
@@ -917,7 +917,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
             <DropdownMenu.Item
               onSelect={() => onChange(AUTO_OPTION.value)}
               className={cn(
-                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
                 'focus:bg-accent focus:text-accent-foreground',
                 '[&>span]:translate-y-[var(--text-vcenter-offset)]',
               )}
@@ -979,7 +979,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
                   setHistoryQuery('')
                 }}
                 className={cn(
-                  'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+                  'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
                   'focus:bg-accent focus:text-accent-foreground',
                   '[&>span]:translate-y-[var(--text-vcenter-offset)]',
                 )}
@@ -1039,7 +1039,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
                     })}
                   </div>
                   {archivedGroups.length === 0 ? (
-                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                    <div className="px-2 py-3 text-center text-label text-muted-foreground">
                       {t('modelHistoryEmpty')}
                     </div>
                   ) : (

@@ -28,8 +28,8 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
   return (
     <div className="overflow-hidden rounded-lg border">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/40 text-label text-muted-foreground">
             <tr>
               <th className="px-4 py-2 text-left font-medium">{t('rank')}</th>
               <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
@@ -62,7 +62,7 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
                     <Avatar src={u.avatar ?? undefined} name={u.nickname ?? 'U'} size="xs" />
                     <TruncatedText value={u.nickname} className="max-w-[140px] font-medium" />
                     {u.isMe && (
-                      <span className="shrink-0 whitespace-nowrap text-xs text-primary">
+                      <span className="shrink-0 whitespace-nowrap text-label text-primary">
                         ({t('you')})
                       </span>
                     )}

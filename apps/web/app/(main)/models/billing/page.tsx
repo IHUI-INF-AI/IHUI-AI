@@ -144,21 +144,21 @@ export default async function BillingPage() {
         <BackButton />
         <header className="space-y-1">
           <h1 className="text-display font-bold tracking-tight">{t('billing.title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('billing.subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('billing.subtitle')}</p>
         </header>
 
         {/* 余额卡片 */}
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           <Card className="min-[640px]:col-span-1">
             <CardContent className="min-[640px]:p-3 p-3">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-label text-muted-foreground">
                 <Wallet className="h-3.5 w-3.5" />
                 {t('billing.currentBalance')}
               </div>
               <div className="mt-2 text-heading font-bold tracking-tight min-[768px]:text-display">
                 ¥ 128.50
               </div>
-              <Button size="sm" className="mt-3 w-full gap-1.5 text-xs px-4">
+              <Button size="sm" className="mt-3 w-full gap-1.5 text-label px-4">
                 <DollarSign className="h-3.5 w-3.5" />
                 {t('billing.recharge')}
               </Button>
@@ -166,9 +166,9 @@ export default async function BillingPage() {
           </Card>
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
-              <div className="text-xs text-muted-foreground">{t('billing.monthConsume')}</div>
+              <div className="text-label text-muted-foreground">{t('billing.monthConsume')}</div>
               <div className="mt-2 text-display font-bold">¥ 285.40</div>
-              <div className="mt-1 flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
+              <div className="mt-1 flex items-center gap-1 text-label text-rose-600 dark:text-rose-400">
                 <ArrowUpRight className="h-3 w-3" />
                 {tp('consumeTrend', { n: 8.7 })}
               </div>
@@ -176,9 +176,9 @@ export default async function BillingPage() {
           </Card>
           <Card>
             <CardContent className="min-[640px]:p-3 p-3">
-              <div className="text-xs text-muted-foreground">{t('billing.totalRecharge')}</div>
+              <div className="text-label text-muted-foreground">{t('billing.totalRecharge')}</div>
               <div className="mt-2 text-display font-bold">¥ 1,500.00</div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-label text-muted-foreground">
                 {tp('rechargeCount', { n: 6 })}
               </div>
             </CardContent>
@@ -207,14 +207,14 @@ export default async function BillingPage() {
                     <span className="text-heading font-bold tracking-tight min-[768px]:text-display">
                       {p.price}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-label text-muted-foreground">
                       {t('billing.packages.once')}
                     </span>
                   </div>
-                  <div className="mt-1 text-xs text-primary">{p.bonus}</div>
+                  <div className="mt-1 text-label text-primary">{p.bonus}</div>
                   <ul className="mt-4 space-y-1.5">
                     {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-1.5 text-xs">
+                      <li key={f} className="flex items-start gap-1.5 text-label">
                         <Check className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
                         <span className="text-muted-foreground">{f}</span>
                       </li>
@@ -222,7 +222,7 @@ export default async function BillingPage() {
                   </ul>
                   <Button
                     size="sm"
-                    className="mt-4 w-full text-xs px-4"
+                    className="mt-4 w-full text-label px-4"
                     variant={p.highlighted ? 'default' : 'outline'}
                   >
                     {p.cta}
@@ -240,9 +240,9 @@ export default async function BillingPage() {
           </CardHeader>
           <CardContent className="px-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
+                  <tr className="text-left text-label text-muted-foreground">
                     <th className="px-4 py-2 font-medium">{t('billing.transactions.id')}</th>
                     <th className="px-4 py-2 font-medium">{t('billing.transactions.type')}</th>
                     <th className="px-4 py-2 font-medium">{t('billing.transactions.amount')}</th>
@@ -253,7 +253,7 @@ export default async function BillingPage() {
                 </thead>
                 <tbody>
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="text-xs hover:bg-muted/30">
+                    <tr key={tx.id} className="text-label hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-mono text-muted-foreground">{tx.id}</td>
                       <td className="px-4 py-2.5">
                         <span

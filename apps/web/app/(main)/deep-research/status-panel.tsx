@@ -49,7 +49,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
   return (
     <div className="mb-6 rounded-xl border p-3">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-body text-muted-foreground">
           Research ID:{' '}
           <code className="rounded bg-muted px-1">
             {(state.research_id || activeId || '').slice(0, 18)}
@@ -69,7 +69,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
         </span>
       </div>
       {currentPhase && (
-        <div className="mb-3 text-sm">
+        <div className="mb-3 text-body">
           {t('currentPhase')}:
           <span className="font-medium">{PHASE_LABEL[currentPhase] || currentPhase}</span>
           {typeof state.iteration === 'number' && state.iteration > 0 && (
@@ -83,7 +83,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
         </div>
       )}
       {/* 阶段条 */}
-      <ol className="flex flex-wrap gap-2 text-xs">
+      <ol className="flex flex-wrap gap-2 text-label">
         {PHASES.slice(0, 5).map((p) => {
           const active = state.stages?.some((s) => s.phase === p && s.status === 'running')
           const done = state.stages?.some((s) => s.phase === p && s.status === 'done')
@@ -110,7 +110,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
           )
         })}
       </ol>
-      {state.error && <p className="mt-3 text-sm text-destructive">{state.error}</p>}
+      {state.error && <p className="mt-3 text-body text-destructive">{state.error}</p>}
     </div>
   )
 }

@@ -243,7 +243,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           <ListChecks className="h-4 w-4 text-primary" />
           {t('taskPanelTitle')}
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">{t('taskPanelNoAccount')}</p>
+        <p className="mt-1 text-label text-muted-foreground">{t('taskPanelNoAccount')}</p>
       </section>
     )
   }
@@ -265,7 +265,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
 
       {open && (
         <div className="border-t border-border px-4 py-3">
-          <p className="text-xs text-muted-foreground">{t('taskPanelDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('taskPanelDesc')}</p>
 
           {/* 自动巡检态:让「有没有在自动跑、为什么没跑」在界面上直接可读,
               而不是让用户去翻 .env。档位判定来自共享判据;unknown 档明确说「状态未知」,
@@ -309,12 +309,12 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
 
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <div className="min-w-[12rem]">
-              <Label htmlFor="wb-task-account" className="text-xs text-muted-foreground">
+              <Label htmlFor="wb-task-account" className="text-label text-muted-foreground">
                 {t('taskPanelPick')}
               </Label>
               <select
                 id="wb-task-account"
-                className="mt-1 h-8 w-full rounded-sm border border-border bg-background px-2 text-xs"
+                className="mt-1 h-8 w-full rounded-sm border border-border bg-background px-2 text-label"
                 value={accountId ?? ''}
                 onChange={(e) => {
                   setAccountId(Number(e.target.value))
@@ -365,7 +365,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           {error && (
             <p
               data-testid="wb-task-error"
-              className="mt-3 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+              className="mt-3 rounded-md bg-destructive/10 px-2 py-1.5 text-label text-destructive"
             >
               {error}
             </p>
@@ -374,13 +374,13 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           {tasks !== null && (
             <div className="mt-3">
               {tasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{t('taskPanelEmpty')}</p>
+                <p className="text-label text-muted-foreground">{t('taskPanelEmpty')}</p>
               ) : (
                 <ul className="divide-y divide-border rounded-md border border-border">
                   {tasks.map((task) => (
                     <li
                       key={task.task_code}
-                      className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5 text-xs"
+                      className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5 text-label"
                     >
                       <span className="min-w-0">
                         <span className="font-medium">{task.title ?? task.task_code}</span>
@@ -412,7 +412,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
           )}
 
           {result && (
-            <div className="mt-3 rounded-md border border-border px-2 py-1.5 text-xs">
+            <div className="mt-3 rounded-md border border-border px-2 py-1.5 text-label">
               <p className="font-semibold">{t('taskPanelResult')}</p>
               <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
                 <span>ok={String(result.ok)}</span>

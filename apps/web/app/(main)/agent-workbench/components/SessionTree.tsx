@@ -66,7 +66,7 @@ function TreeNode({ node, depth }: { node: AgentSession; depth: number }) {
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <span className="min-w-0 flex-1 truncate font-mono text-xs">{truncate(node.id)}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-label">{truncate(node.id)}</span>
         <Badge variant="outline" className={cn('ml-auto px-1.5 py-0 text-[10px]', style.className)}>
           {style.label}
         </Badge>
@@ -91,11 +91,11 @@ export function SessionTree({ nodes, loading }: Props) {
       </div>
       <div className="flex-1 overflow-auto px-2 py-1">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-label text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中...
           </div>
         ) : nodes.length === 0 ? (
-          <div className="py-8 text-center text-xs text-muted-foreground">暂无 Session</div>
+          <div className="py-8 text-center text-label text-muted-foreground">暂无 Session</div>
         ) : (
           <div className="space-y-0.5">
             {nodes.map((n) => (

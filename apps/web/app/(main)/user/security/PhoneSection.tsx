@@ -46,11 +46,11 @@ export function PhoneSection({
         <h2 className="text-body font-semibold">{t('phone')}</h2>
       </div>
       {phone ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {t('phoneBound', { phone: maskPhone(phone) })}
         </p>
       ) : (
-        <p className="text-sm text-muted-foreground">{t('changePhoneDesc')}</p>
+        <p className="text-body text-muted-foreground">{t('changePhoneDesc')}</p>
       )}
       <div className="space-y-3">
         <div className="space-y-1.5">
@@ -88,7 +88,7 @@ export function PhoneSection({
         {phoneMsg && (
           <p
             className={cn(
-              'text-xs',
+              'text-label',
               phoneMsg.type === 'ok'
                 ? 'text-emerald-600 dark:text-emerald-500'
                 : 'text-destructive',

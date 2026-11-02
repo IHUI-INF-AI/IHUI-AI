@@ -43,7 +43,7 @@ export default function McpProjectsPageClient() {
           <Boxes className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs defaultValue="servers">
@@ -117,7 +117,7 @@ function McpResourceBrowser() {
 
   if (resources.length === 0) {
     return (
-      <p className="ui-card rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+      <p className="ui-card rounded-lg border border-dashed p-12 text-center text-body text-muted-foreground">
         {tm('noContent')}
       </p>
     )

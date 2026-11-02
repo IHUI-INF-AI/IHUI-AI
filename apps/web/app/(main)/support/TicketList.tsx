@@ -47,13 +47,13 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Ticket className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">暂无工单</p>
+          <p className="text-body text-muted-foreground">暂无工单</p>
           <Button size="sm" variant="outline" onClick={onSwitchToNew} className="mt-1">
             提交第一个工单
           </Button>
@@ -71,7 +71,7 @@ export function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="break-words text-body font-medium">{t.title}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-label text-muted-foreground">
                   {t.ticketNo} · {formatDate(t.createdAt)}
                 </p>
               </div>

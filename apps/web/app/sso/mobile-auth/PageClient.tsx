@@ -92,12 +92,12 @@ export default function SsoMobileAuthPage() {
       {state === 'processing' ? (
         <>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">{t('processing')}</p>
+          <p className="text-body text-muted-foreground">{t('processing')}</p>
         </>
       ) : (
         <>
           <ShieldAlert className="h-8 w-8 text-destructive" />
-          <p className="max-w-md text-center text-sm text-muted-foreground">{errorMsg}</p>
+          <p className="max-w-md text-center text-body text-muted-foreground">{errorMsg}</p>
           <Link
             href="/login"
             className="text-body font-medium text-primary underline underline-offset-4"

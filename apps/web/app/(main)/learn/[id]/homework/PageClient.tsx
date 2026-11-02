@@ -91,7 +91,7 @@ export default function CourseHomeworkPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Link
           href={`/learn/${id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToCourse')}
@@ -114,12 +114,12 @@ export default function CourseHomeworkPage() {
         <button
           type="button"
           onClick={() => router.push(`/learn/${id}`)}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToCourse')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('errorFallback')}
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function CourseHomeworkPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/learn/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToCourse')}
@@ -143,7 +143,7 @@ export default function CourseHomeworkPage() {
       {list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <ClipboardList className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -155,7 +155,7 @@ export default function CourseHomeworkPage() {
                 <CardContent className="min-[640px]:p-3 flex flex-col gap-3 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
                   <div className="space-y-1.5">
                     <h3 className="text-base font-medium">{item.title}</h3>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-3 text-label text-muted-foreground">
                       {deadline && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />

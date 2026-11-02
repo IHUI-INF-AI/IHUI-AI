@@ -88,7 +88,7 @@ export default function MemberExamRecordPage() {
           <Award className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -101,12 +101,12 @@ export default function MemberExamRecordPage() {
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Award className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-left text-label text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">{t('table.examName')}</th>
                 <th className="px-3 py-2 font-medium">{t('table.examTime')}</th>
@@ -121,7 +121,7 @@ export default function MemberExamRecordPage() {
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-3 py-2 font-medium">{r.examTitle ?? r.examId.slice(0, 8)}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {r.submittedAt ? dateFmt.format(new Date(r.submittedAt)) : '-'}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold">
@@ -163,7 +163,7 @@ export default function MemberExamRecordPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{t('total', { n: total })}</span>
+          <span className="text-label text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -173,7 +173,7 @@ export default function MemberExamRecordPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button
@@ -207,7 +207,7 @@ export default function MemberExamRecordPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-4 gap-3">
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">{t('detail.score')}</div>
+                  <div className="text-label text-muted-foreground">{t('detail.score')}</div>
                   <div className="mt-0.5 text-lg font-semibold">
                     {detail.score}
                     <span className="text-label font-normal text-muted-foreground">
@@ -217,25 +217,25 @@ export default function MemberExamRecordPage() {
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">{t('detail.correct')}</div>
+                  <div className="text-label text-muted-foreground">{t('detail.correct')}</div>
                   <div className="mt-0.5 text-lg font-semibold text-emerald-600">
                     {detail.correctCount}
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">{t('detail.wrong')}</div>
+                  <div className="text-label text-muted-foreground">{t('detail.wrong')}</div>
                   <div className="mt-0.5 text-lg font-semibold text-red-600">
                     {detail.wrongCount}
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">{t('detail.unanswered')}</div>
+                  <div className="text-label text-muted-foreground">{t('detail.unanswered')}</div>
                   <div className="mt-0.5 text-lg font-semibold">{detail.unansweredCount}</div>
                 </div>
               </div>
               <div className="max-h-[40vh] overflow-y-auto rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs text-muted-foreground">
+                <table className="w-full text-body">
+                  <thead className="sticky top-0 z-10 bg-muted/50 text-left text-label text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">{t('detail.question')}</th>
                       <th className="px-3 py-2 font-medium">{t('detail.score')}</th>

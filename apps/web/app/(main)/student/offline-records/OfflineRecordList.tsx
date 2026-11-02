@@ -35,7 +35,7 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -44,7 +44,7 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <CalendarClock className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -64,7 +64,7 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
                   {record.type}
                 </span>
                 {record.hours !== null && record.hours !== undefined && (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-label text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {record.hours}h
                   </span>
@@ -89,10 +89,12 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
             </div>
             <h3 className="font-medium">{record.title}</h3>
             {record.description && (
-              <p className="text-sm text-muted-foreground">{record.description}</p>
+              <p className="text-body text-muted-foreground">{record.description}</p>
             )}
             {record.occurredAt && (
-              <p className="text-xs text-muted-foreground">{formatDateOnly(record.occurredAt)}</p>
+              <p className="text-label text-muted-foreground">
+                {formatDateOnly(record.occurredAt)}
+              </p>
             )}
           </CardContent>
         </Card>

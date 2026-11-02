@@ -36,7 +36,7 @@ export function ModelsPanel() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             </div>
           ) : models.length === 0 ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noModels')}
             </p>
           ) : (
@@ -50,11 +50,11 @@ export function ModelsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-body font-medium">{m.name}</p>
                     {m.provider && (
-                      <p className="break-words text-xs text-muted-foreground">{m.provider}</p>
+                      <p className="break-words text-label text-muted-foreground">{m.provider}</p>
                     )}
                   </div>
                   {m.context_length !== undefined && (
-                    <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                    <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-label text-primary">
                       {m.context_length}
                     </span>
                   )}

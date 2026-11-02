@@ -16,7 +16,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
   const { t } = p
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground">范围</span>
+      <span className="text-label text-muted-foreground">范围</span>
       <div
         role="group"
         aria-label="spec 生成范围"
@@ -56,7 +56,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
               ? '相对路径,如 apps/api/src/server.ts'
               : '相对路径,如 apps/api/src'
           }
-          className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+          className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
         />
       )}
       <button
@@ -83,7 +83,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
 export function SpecResultHeader({ p }: { p: SpecPanelApi }) {
   const { t } = p
   return (
-    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="mt-2 flex items-center gap-2 text-label text-muted-foreground">
       <span>文件 {p.result!.stats.files}</span>
       <span>符号 {p.result!.stats.symbols}</span>
       <span>API {p.result!.stats.endpoints}</span>
@@ -97,7 +97,7 @@ export function SpecResultHeader({ p }: { p: SpecPanelApi }) {
             <select
               value={p.selectedVersion}
               onChange={(e) => void p.handleLoadVersion(e.target.value)}
-              className="h-6 rounded-sm border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+              className="h-6 rounded-sm border border-border bg-background px-1 text-label text-foreground focus:outline-none"
             >
               <option value="latest">最新</option>
               {p.history.map((h) => (
@@ -116,7 +116,7 @@ export function SpecResultHeader({ p }: { p: SpecPanelApi }) {
           onClick={p.handleDiff}
           disabled={p.diffLoading}
           className={cn(
-            'flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/60',
+            'flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-label text-foreground hover:bg-muted/60',
             p.diffLoading && 'cursor-not-allowed opacity-60',
           )}
         >
@@ -132,7 +132,7 @@ export function SpecResultHeader({ p }: { p: SpecPanelApi }) {
       <button
         type="button"
         onClick={p.handleDownload}
-        className="ml-auto flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/60"
+        className="ml-auto flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-1 text-label text-foreground hover:bg-muted/60"
       >
         <Download className="h-3 w-3" />
         <span>导出</span>
@@ -211,13 +211,13 @@ export function SpecWatchControl({ p }: { p: SpecPanelApi }) {
   return (
     <div className="mt-3 flex items-center gap-2 pt-2">
       <Eye className="h-3 w-3 text-muted-foreground" />
-      <span className="text-xs text-muted-foreground">文件监听</span>
+      <span className="text-label text-muted-foreground">文件监听</span>
       <button
         type="button"
         onClick={p.handleStartWatch}
         disabled={p.watchLoading || !p.activeWorkspacePath}
         className={cn(
-          'flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60',
+          'flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label text-foreground hover:bg-muted/60',
           (p.watchLoading || !p.activeWorkspacePath) && 'cursor-not-allowed opacity-60',
         )}
       >
@@ -228,7 +228,7 @@ export function SpecWatchControl({ p }: { p: SpecPanelApi }) {
         type="button"
         onClick={p.refreshWatchStatus}
         disabled={p.watchLoading}
-        className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60 disabled:opacity-60"
+        className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label text-foreground hover:bg-muted/60 disabled:opacity-60"
       >
         <EyeOff className="h-3 w-3" />
         <span>刷新</span>

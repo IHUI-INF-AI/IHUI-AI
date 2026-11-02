@@ -130,7 +130,7 @@ export default function AiWorldEditPage() {
 
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
@@ -167,7 +167,7 @@ export default function AiWorldEditPage() {
                 id="aw-cat"
                 value={form.categoryId}
                 onChange={(e) => update('categoryId', e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">{t('noCategory')}</option>
                 {categories.map((c: Category) => (

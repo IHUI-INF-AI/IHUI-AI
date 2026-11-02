@@ -70,7 +70,7 @@ export default function ReferrerPage() {
         </div>
       ) : q.isError ? (
         <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
+          <p className="mb-3 text-body text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
             {t('retry')}
@@ -82,7 +82,7 @@ export default function ReferrerPage() {
             <CardContent className="min-[640px]:p-3 p-3">
               <h3 className="mb-2 text-body font-medium">{t('myReferrer')}</h3>
               {info.referrerName ? (
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-body">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   <span>
                     {info.referrerName}
@@ -90,9 +90,9 @@ export default function ReferrerPage() {
                   </span>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">{t('noReferrer')}</p>
+                <p className="text-body text-muted-foreground">{t('noReferrer')}</p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-label text-muted-foreground">
                 {t('myInviteCode')}: {info.code}
               </p>
             </CardContent>

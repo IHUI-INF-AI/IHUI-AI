@@ -65,7 +65,7 @@ export default function SharedPilotPage() {
     <main className="mx-auto w-full max-w-3xl space-y-4 px-6 py-8">
       <div className="space-y-1">
         <h1 className="text-lg font-semibold text-foreground">Shared screen · web pilot</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           Rendered directly from packages/app through react-native-web.
         </p>
       </div>
@@ -76,7 +76,7 @@ export default function SharedPilotPage() {
             type="button"
             onClick={select(tab.key)}
             aria-pressed={active === tab.key}
-            className={`rounded-sm border px-3 py-1.5 text-sm transition-colors ${
+            className={`rounded-sm border px-3 py-1.5 text-body transition-colors ${
               active === tab.key
                 ? 'border-primary/40 bg-muted text-foreground'
                 : 'border-border text-muted-foreground hover:bg-muted/60'

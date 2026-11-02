@@ -246,7 +246,7 @@ export function TaskDetailDialog({
               data-testid={`task-detail-tab-${key}`}
               onClick={() => setActiveTab(key)}
               className={cn(
-                'rounded-sm px-2.5 py-1 text-xs transition-colors',
+                'rounded-sm px-2.5 py-1 text-label transition-colors',
                 activeTab === key
                   ? 'bg-accent font-medium text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -264,9 +264,9 @@ export function TaskDetailDialog({
           id="task-detail-panel"
           aria-labelledby={`task-detail-tab-${activeTab}`}
           data-testid="task-detail-panel-overview"
-          className={cn('space-y-3 text-sm', activeTab !== 'overview' && 'hidden')}
+          className={cn('space-y-3 text-body', activeTab !== 'overview' && 'hidden')}
         >
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-body">
             {/* 状态 + 优先级 */}
             <div className="flex flex-wrap items-center gap-2">
               <span
@@ -277,21 +277,21 @@ export function TaskDetailDialog({
               >
                 {t(task.status)}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('priority')}: {t(level)}
               </span>
-              <span className="text-xs text-muted-foreground">P{task.priority}</span>
+              <span className="text-label text-muted-foreground">P{task.priority}</span>
             </div>
 
             {/* 描述 */}
             {task.description && (
-              <div className="rounded-md bg-muted/50 p-2.5 text-xs leading-relaxed text-muted-foreground">
+              <div className="rounded-md bg-muted/50 p-2.5 text-label leading-relaxed text-muted-foreground">
                 {task.description}
               </div>
             )}
 
             {/* 元信息 */}
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-label">
               <div>
                 <dt className="text-muted-foreground">{t('created')}</dt>
                 <dd>{formatRelativeTime(task.createdAt, locale)}</dd>
@@ -301,7 +301,7 @@ export function TaskDetailDialog({
                 <div>
                   <dt className="text-muted-foreground">{t('workspace')}</dt>
                   <dd>
-                    <TruncatedText value={task.workspacePath} className="text-xs" mono />
+                    <TruncatedText value={task.workspacePath} className="text-label" mono />
                   </dd>
                 </div>
               )}
@@ -407,7 +407,7 @@ export function TaskDetailDialog({
                 </div>
                 {reasonRequired && (
                   <div className="space-y-1">
-                    <Label htmlFor="transition-reason" className="text-xs">
+                    <Label htmlFor="transition-reason" className="text-label">
                       {t('reason')} <span className="text-destructive">*</span>
                     </Label>
                     <Input
@@ -438,15 +438,15 @@ export function TaskDetailDialog({
         {/* D27:代码变更 tab — 条件渲染(不出空 DOM);跨会话回溯合并(本地+端点,
             generatedAt 新在前 + 同路径去重),复用 DeliveryFileChangeList 保证视觉一致 */}
         {activeTab === 'changes' && (
-          <div data-testid="task-detail-panel-changes" className="space-y-2 text-sm">
-            <div className="flex items-center justify-between text-xs">
+          <div data-testid="task-detail-panel-changes" className="space-y-2 text-body">
+            <div className="flex items-center justify-between text-label">
               <span className="font-medium text-muted-foreground/80">{td('filesChanged')}</span>
               <span className="tabular-nums text-muted-foreground/70">
                 ({mergedChanges.length})
               </span>
             </div>
             {mergedChanges.length === 0 ? (
-              <div className="rounded-md border border-dashed py-3 text-center text-xs text-muted-foreground">
+              <div className="rounded-md border border-dashed py-3 text-center text-label text-muted-foreground">
                 {deliverablesLoading ? td('loading') : td('filesEmpty')}
               </div>
             ) : (

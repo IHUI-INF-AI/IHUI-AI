@@ -66,7 +66,7 @@ export default function BiDashboardPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区 */}
@@ -74,43 +74,43 @@ export default function BiDashboardPage() {
         <AuthGatePrompt message="请先登录后查看 BI 运营数据" />
       ) : (
         <>
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
-          {cards.map(({ label, value, Icon }) => (
-            <Card key={label}>
-              <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="space-y-0.5">
-                  <div className="text-sm text-muted-foreground">{label}</div>
-                  <div className="text-display font-bold tracking-tight">{value}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {t('loading')}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+              {cards.map(({ label, value, Icon }) => (
+                <Card key={label}>
+                  <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="text-body text-muted-foreground">{label}</div>
+                      <div className="text-display font-bold tracking-tight">{value}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">{t('coreMetricsTitle')}</CardTitle>
-          <p className="text-xs text-muted-foreground">{t('coreMetricsHint')}</p>
-        </CardHeader>
-        <CardContent>
-          <BarChart
-            data={[stats.totalUsers, stats.totalOrders, stats.totalRevenue, stats.activeUsers]}
-            xAxis={[t('axisUsers'), t('axisOrders'), t('axisRevenue'), t('axisActive')]}
-            horizontal
-            color="var(--primary)"
-          />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{t('coreMetricsTitle')}</CardTitle>
+              <p className="text-label text-muted-foreground">{t('coreMetricsHint')}</p>
+            </CardHeader>
+            <CardContent>
+              <BarChart
+                data={[stats.totalUsers, stats.totalOrders, stats.totalRevenue, stats.activeUsers]}
+                xAxis={[t('axisUsers'), t('axisOrders'), t('axisRevenue'), t('axisActive')]}
+                horizontal
+                color="var(--primary)"
+              />
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

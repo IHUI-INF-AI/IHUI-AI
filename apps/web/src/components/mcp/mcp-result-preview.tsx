@@ -58,7 +58,7 @@ export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
       return <McpDataStructure data={parsed} />
     } catch {
       return (
-        <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+        <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-label whitespace-pre-wrap">
           {result}
         </pre>
       )

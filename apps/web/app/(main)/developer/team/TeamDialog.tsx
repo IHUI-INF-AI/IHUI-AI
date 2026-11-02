@@ -44,7 +44,7 @@ export function TeamDialog({
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="space-y-1">
-            <Label className="text-sm">邮箱</Label>
+            <Label className="text-body">邮箱</Label>
             <Input
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
@@ -53,7 +53,7 @@ export function TeamDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-sm">角色</Label>
+            <Label className="text-body">角色</Label>
             <div className="flex flex-wrap gap-2">
               {ROLE_OPTIONS.map((r) => (
                 <button
@@ -61,7 +61,7 @@ export function TeamDialog({
                   type="button"
                   onClick={() => onRoleChange(r)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-xs transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-label transition-colors',
                     role === r
                       ? 'border-brand-accent-deep bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent',

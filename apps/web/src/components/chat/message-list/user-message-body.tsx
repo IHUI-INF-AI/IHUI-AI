@@ -65,7 +65,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
         // 左边框是**语义强调**(§4 允许的 border-l 情形),不是分割线;不新增文案,角色标签由发送侧本地化后带过来。
         <blockquote
           data-testid="user-message-quote"
-          className="border-l-2 border-brand-accent-deep pl-3 text-sm leading-relaxed text-muted-foreground"
+          className="border-l-2 border-brand-accent-deep pl-3 text-body leading-relaxed text-muted-foreground"
         >
           <div className="mb-0.5 text-label font-medium">{parts.quote.label}</div>
           {parts.quote.lines.map((l, i) => (
@@ -121,7 +121,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
         <span
           key={`file-${label}-${i}`}
           data-testid="user-message-file"
-          className="inline-flex max-w-full items-center rounded-md bg-muted px-2 py-1 text-xs leading-none tabular-nums"
+          className="inline-flex max-w-full items-center rounded-md bg-muted px-2 py-1 text-label leading-none tabular-nums"
         >
           {label}
         </span>

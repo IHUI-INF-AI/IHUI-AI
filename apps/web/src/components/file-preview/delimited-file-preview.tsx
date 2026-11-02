@@ -137,10 +137,7 @@ export function DelimitedFilePreview({
   const all = rows ?? []
   const header = all[0] ?? []
   const bodyAll = all.slice(1)
-  const bodyView = clipPreviewRows(
-    bodyAll,
-    expanded ? Number.MAX_SAFE_INTEGER : maxRows,
-  )
+  const bodyView = clipPreviewRows(bodyAll, expanded ? Number.MAX_SAFE_INTEGER : maxRows)
   const bodyRows = bodyView.rows
   const widths = columnWidthsInCh([header, ...bodyRows])
   const sourceAvailability: PreviewSourceAvailability =
@@ -166,9 +163,7 @@ export function DelimitedFilePreview({
           </span>
           <span className="truncate text-[10px] font-medium text-muted-foreground">
             {t('csvPreviewMeta', { rows: bodyView.total, cols: header.length })}
-            {bodyView.truncated
-              ? ` · ${t('officeRowsTruncated', { rows: bodyView.shown })}`
-              : ''}
+            {bodyView.truncated ? ` · ${t('officeRowsTruncated', { rows: bodyView.shown })}` : ''}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
@@ -195,11 +190,11 @@ export function DelimitedFilePreview({
           testId="delimited-source-text"
         />
       ) : rows === null ? (
-        <p className="p-3 text-xs text-muted-foreground">{t('csvLoading')}</p>
+        <p className="p-3 text-label text-muted-foreground">{t('csvLoading')}</p>
       ) : (
         <div className="max-h-[360px] overflow-auto">
           <table
-            className="min-w-full border-collapse text-xs"
+            className="min-w-full border-collapse text-label"
             data-testid="delimited-table"
             style={{ tableLayout: 'fixed' }}
           >

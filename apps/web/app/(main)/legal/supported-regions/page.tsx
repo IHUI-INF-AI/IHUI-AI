@@ -53,13 +53,13 @@ export default function SupportedRegionsPage() {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">{t('title')}</CardTitle>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+        <p className="flex items-center gap-1 text-label text-muted-foreground">
           <Calendar className="h-3.5 w-3.5" />
           <span>{t('lastUpdated')}</span>
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        <p className="text-sm leading-relaxed text-muted-foreground">{t('intro')}</p>
+        <p className="text-body leading-relaxed text-muted-foreground">{t('intro')}</p>
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold">{t('supportedTitle')}</h2>
@@ -67,7 +67,7 @@ export default function SupportedRegionsPage() {
             {SUPPORTED_REGIONS.map((key) => (
               <div
                 key={key}
-                className="ui-card rounded-lg border bg-card px-3 py-2 text-sm text-foreground"
+                className="ui-card rounded-lg border bg-card px-3 py-2 text-body text-foreground"
               >
                 {t(key)}
               </div>
@@ -77,12 +77,12 @@ export default function SupportedRegionsPage() {
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold">{t('restrictedTitle')}</h2>
-          <p className="text-sm text-muted-foreground">{t('restrictedIntro')}</p>
+          <p className="text-body text-muted-foreground">{t('restrictedIntro')}</p>
           <div className="flex flex-wrap gap-2">
             {RESTRICTED_REGIONS.map((key) => (
               <div
                 key={key}
-                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-sm text-destructive"
+                className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-body text-destructive"
               >
                 {t(key)}
               </div>
@@ -92,12 +92,12 @@ export default function SupportedRegionsPage() {
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold">{t('paymentTitle')}</h2>
-          <p className="text-sm text-muted-foreground">{t('paymentIntro')}</p>
+          <p className="text-body text-muted-foreground">{t('paymentIntro')}</p>
           <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
             {PAYMENTS.map((key) => (
               <div
                 key={key}
-                className="ui-card rounded-lg border bg-card px-3 py-2 text-sm text-foreground"
+                className="ui-card rounded-lg border bg-card px-3 py-2 text-body text-foreground"
               >
                 {t(key)}
               </div>
@@ -107,12 +107,12 @@ export default function SupportedRegionsPage() {
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold">{t('languageTitle')}</h2>
-          <p className="text-sm text-muted-foreground">{t('languageIntro')}</p>
+          <p className="text-body text-muted-foreground">{t('languageIntro')}</p>
           <div className="flex flex-wrap gap-2">
             {LANGUAGES.map((key) => (
               <div
                 key={key}
-                className="ui-card rounded-lg border bg-card px-3 py-1.5 text-sm text-foreground"
+                className="ui-card rounded-lg border bg-card px-3 py-1.5 text-body text-foreground"
               >
                 {t(key)}
               </div>

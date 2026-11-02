@@ -28,7 +28,7 @@ function Section({ label, action, children }: SectionProps) {
   return (
     <div role="group" aria-label={label}>
       <div className="flex items-center justify-between px-2 py-1">
-        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-label text-muted-foreground">{label}</span>
         {action}
       </div>
       {children}
@@ -51,7 +51,7 @@ export function HistorySection({ items, onItemClick, onClear }: HistorySectionPr
       <button
         type="button"
         onClick={onClear}
-        className="text-xs text-muted-foreground hover:text-foreground"
+        className="text-label text-muted-foreground hover:text-foreground"
       >
         {t('clear')}
       </button>
@@ -63,7 +63,7 @@ export function HistorySection({ items, onItemClick, onClear }: HistorySectionPr
           key={item}
           type="button"
           onClick={() => onItemClick(item)}
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent"
         >
           <Clock className="h-3 w-3 text-muted-foreground" />
           <span className="truncate">{item}</span>
@@ -93,7 +93,7 @@ export function PopularSection({ items, onItemClick }: PopularSectionProps) {
           key={item}
           type="button"
           onClick={() => onItemClick(item)}
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent"
         >
           <Flame className="h-3 w-3 text-orange-500" />
           <span className="truncate">{item}</span>
@@ -118,7 +118,7 @@ export function SuggestionsSection({ items, onItemClick }: SuggestionsSectionPro
           key={item}
           type="button"
           onClick={() => onItemClick(item)}
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent"
         >
           <Search className="h-3 w-3 text-muted-foreground" />
           <span className="truncate">{item}</span>

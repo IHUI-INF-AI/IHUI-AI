@@ -60,7 +60,7 @@ export default function SubagentTopologyPage() {
       <button
         type="button"
         onClick={() => router.push('/subagents')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回列表
@@ -72,13 +72,13 @@ export default function SubagentTopologyPage() {
             <Network className="h-6 w-6 text-primary" />
             Swarm 拓扑
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             多智能体网络可视化 · 节点按角色着色 · 边显示条件
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-label">
         {roles.map((r) => (
           <span key={r} className="inline-flex items-center gap-1.5">
             <span className={`h-2 w-2 rounded ${ROLE_DOT[r]}`} />
@@ -96,7 +96,7 @@ export default function SubagentTopologyPage() {
 
       <Card>
         <CardHeader className="p-3">
-          <CardTitle className="text-sm">
+          <CardTitle className="text-body">
             拓扑图({topology?.nodes.length ?? 0} 节点 / {topology?.edges.length ?? 0} 边)
           </CardTitle>
         </CardHeader>

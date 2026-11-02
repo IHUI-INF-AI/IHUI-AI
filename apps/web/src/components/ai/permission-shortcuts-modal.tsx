@@ -132,7 +132,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
                         {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
                         {row.labelKey ? t(row.labelKey) : row.key}
                       </kbd>
-                      <span className="text-xs text-muted-foreground">{t(row.descKey)}</span>
+                      <span className="text-label text-muted-foreground">{t(row.descKey)}</span>
                     </li>
                   )
                 })}
@@ -145,7 +145,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
             className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5"
             data-testid="permission-shortcuts-see-all"
           >
-            <span className="text-xs text-muted-foreground">{t('shortcutsSeeAllKbd')}</span>
+            <span className="text-label text-muted-foreground">{t('shortcutsSeeAllKbd')}</span>
             <kbd
               className={cn(
                 'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',

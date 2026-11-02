@@ -69,8 +69,8 @@ export default function AgentDocsPage() {
       <section id="structure" className="space-y-6">
         <h2 className="text-display font-bold tracking-tight">Agent 的核心结构</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">一个完整的 Agent 由 6 部分组成:</p>
-          <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">一个完整的 Agent 由 6 部分组成:</p>
+          <ol className="ml-4 list-decimal space-y-2 text-body text-muted-foreground">
             <li><strong>System Prompt(系统提示词)</strong>:定义 Agent 的人格、能力边界、输出格式</li>
             <li><strong>Model(模型)</strong>:选择 LLM(GPT-4o / Claude / Qwen 等),可配置 fallback</li>
             <li><strong>Knowledge(知识库)</strong>:挂载 RAG 知识库,Agent 自动检索</li>
@@ -85,10 +85,10 @@ export default function AgentDocsPage() {
       <section id="visual" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">可视化编排(零代码)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             适合非开发者:产品经理、运营、客服、教师都能搭建 Agent。
           </p>
-          <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+          <ol className="ml-4 list-decimal space-y-2 text-body text-muted-foreground">
             <li>进入 <a href="https://aizhs.top/agent-workbench" className="text-primary underline">Agent 工作台</a>,点击「新建 Agent」</li>
             <li>填写基本信息:名称、头像、描述、分类</li>
             <li>编写 System Prompt(可从 200+ 模板选择)</li>
@@ -106,7 +106,7 @@ export default function AgentDocsPage() {
         <h2 className="text-display font-bold tracking-tight">提示词工程最佳实践</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">CRISPE 框架</h3>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li><strong>C</strong>apacity(能力):明确 Agent 能做什么、不能做什么</li>
             <li><strong>R</strong>ole(角色):设定身份("你是一位资深数据分析师")</li>
             <li><strong>I</strong>nstruction(指令):具体任务步骤</li>
@@ -116,7 +116,7 @@ export default function AgentDocsPage() {
           </ul>
 
           <h3 className="text-lg font-semibold pt-4">示例:客服 Agent</h3>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`# System Prompt
 你是一位专业的客服 Agent,服务于智汇 AI 平台。
 
@@ -149,10 +149,10 @@ export default function AgentDocsPage() {
       <section id="templates" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">模板开发(高级)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             模板 = 可复用的 Agent 配置(Prompt + 工具 + 知识库 + 工作流),用户一键 fork 后自定义。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`// templates/my-agent.template.ts
 import { defineAgentTemplate } from '@ihui/agent-sdk'
 
@@ -203,7 +203,7 @@ export default defineAgentTemplate({
               <Smartphone className="mr-1.5 inline h-5 w-5" />
               六端发布
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>Web(主入口,PWA 离线)</li>
               <li>桌面(Windows/macOS/Linux)</li>
               <li>小程序(微信/支付宝/抖音)</li>
@@ -217,7 +217,7 @@ export default defineAgentTemplate({
               <Coins className="mr-1.5 inline h-5 w-5" />
               变现模式
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li><strong>免费</strong>:引流,积累用户</li>
               <li><strong>按次付费</strong>:¥0.1-1/次,用户买积分</li>
               <li><strong>订阅制</strong>:¥29/月,无限使用</li>

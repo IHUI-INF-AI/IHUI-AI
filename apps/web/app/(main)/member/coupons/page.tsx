@@ -78,7 +78,7 @@ export default function MemberCouponsPage() {
           <Ticket className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-nowrap gap-1 rounded-lg border bg-muted/30 p-1">
@@ -110,7 +110,7 @@ export default function MemberCouponsPage() {
       ) : coupons.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Ticket className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
@@ -123,18 +123,20 @@ export default function MemberCouponsPage() {
                 <span className="text-lg font-bold">
                   {c.amount > 0 ? currencyFmt.format(c.amount) : t('discount')}
                 </span>
-                <span className="text-xs">{t('yuan')}</span>
+                <span className="text-label">{t('yuan')}</span>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-medium">{c.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate text-label text-muted-foreground">
                   {t('minSpend', { amount: currencyFmt.format(c.minSpend) })}
                 </p>
-                <p className="mt-1 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <p className="mt-1 whitespace-nowrap tabular-nums text-label text-muted-foreground">
                   {t('validUntil', { date: dateFmt.format(new Date(c.expiresAt)) })}
                 </p>
                 <Tooltip content={c.code}>
-                  <p className="truncate font-mono text-xs text-muted-foreground">CODE: {c.code}</p>
+                  <p className="truncate font-mono text-label text-muted-foreground">
+                    CODE: {c.code}
+                  </p>
                 </Tooltip>
               </div>
             </div>

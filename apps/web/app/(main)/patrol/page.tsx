@@ -165,7 +165,7 @@ export default function PatrolPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -186,16 +186,16 @@ export default function PatrolPage() {
       </div>
 
       {loading && items.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : loadError ? (
-        <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-md bg-destructive/10 px-4 py-3 text-body text-destructive">
           {loadError}
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-md bg-muted/40 px-4 py-16 text-center text-sm text-muted-foreground">
+        <div className="rounded-md bg-muted/40 px-4 py-16 text-center text-body text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -221,9 +221,11 @@ export default function PatrolPage() {
                         {t('statusPaused')}
                       </Badge>
                     )}
-                    <span className="text-xs text-muted-foreground">{describeSchedule(task)}</span>
+                    <span className="text-label text-muted-foreground">
+                      {describeSchedule(task)}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-label text-muted-foreground">
                     {t('nextRunAt')}: {formatDateTime(task.nextRunAt)}
                   </div>
                   {task.lastResult && (
@@ -235,7 +237,7 @@ export default function PatrolPage() {
                       >
                         {t(RESULT_KEYS[task.lastResult.status] ?? 'resultOk')}
                       </Badge>
-                      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      <span className="min-w-0 flex-1 truncate text-label text-muted-foreground">
                         {task.lastResult.summary}
                       </span>
                       {task.lastResult.conversationId && (

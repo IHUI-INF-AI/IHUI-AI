@@ -64,7 +64,7 @@ export default function LiveDetailPage() {
   const backLink = (
     <Link
       href="/live"
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
     >
       <ArrowLeft className="h-4 w-4" />
       {t('detailBack')}
@@ -92,10 +92,10 @@ export default function LiveDetailPage() {
         {isNotFound ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <Radio className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('notFound')}</p>
+            <p className="text-body text-muted-foreground">{t('notFound')}</p>
           </div>
         ) : (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {errMsg}
           </div>
         )}
@@ -169,7 +169,7 @@ export default function LiveDetailPage() {
         )}
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <h1 className="text-display font-bold tracking-tight">{channel.title}</h1>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body text-muted-foreground">
             <span>{channel.lecturerName ?? t('unknownLecturer')}</span>
             <span className="flex items-center gap-1">
               <Eye className="h-3.5 w-3.5" />
@@ -185,7 +185,7 @@ export default function LiveDetailPage() {
             </span>
           </div>
           {channel.intro ? (
-            <p className="whitespace-pre-line text-sm leading-6 text-foreground/90">
+            <p className="whitespace-pre-line text-body leading-6 text-foreground/90">
               {channel.intro}
             </p>
           ) : null}

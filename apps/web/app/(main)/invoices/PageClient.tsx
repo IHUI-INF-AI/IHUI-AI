@@ -60,7 +60,7 @@ export default function InvoicesPage() {
       <BackButton fallbackHref="/settings/billing" />
       <header className="space-y-1">
         <h1 className="text-heading font-semibold">{ti('title')}</h1>
-        <p className="text-sm text-muted-foreground">{ti('subtitle')}</p>
+        <p className="text-body text-muted-foreground">{ti('subtitle')}</p>
       </header>
       {allow ? (
         <InvoicesTab
@@ -78,7 +78,7 @@ export default function InvoicesPage() {
       ) : (
         <AuthGatePrompt message="请先登录后查看发票申请" />
       )}
-      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+      <div className="flex items-center gap-1 text-body text-muted-foreground">
         <Link
           href="/settings/billing"
           className="inline-flex items-center gap-1 text-primary hover:underline"

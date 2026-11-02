@@ -105,7 +105,7 @@ export function EditResendRollbackConfirm({
           {failure && (
             <p
               data-edit-resend-failure={phase}
-              className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+              className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-label text-destructive"
             >
               {t(`failure.${phase}`)}
             </p>
@@ -113,7 +113,7 @@ export function EditResendRollbackConfirm({
           {!failure && phase === 'executing' && (
             <p
               data-edit-resend-progress="executing"
-              className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"
+              className="mt-2 flex items-center gap-2 text-label text-muted-foreground"
             >
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
               <span>{t(editResendPhaseKey(phase))}</span>
@@ -122,7 +122,7 @@ export function EditResendRollbackConfirm({
           {!failure && phase === 'completed' && (
             <p
               data-edit-resend-progress="completed"
-              className="mt-2 flex items-center gap-2 text-xs text-emerald-600"
+              className="mt-2 flex items-center gap-2 text-label text-emerald-600"
             >
               <Check className="h-3 w-3" aria-hidden />
               <span>{t(editResendPhaseKey(phase))}</span>
@@ -133,7 +133,7 @@ export function EditResendRollbackConfirm({
           {warning && (
             <p
               data-edit-resend-warning="partialRollback"
-              className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600"
+              className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-label text-amber-600"
             >
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
               <span className="min-w-0 break-words">{t('warning.partialRollback')}</span>
@@ -152,7 +152,7 @@ export function EditResendRollbackConfirm({
                 data-edit-resend-recorded={f.recorded ? 'true' : 'false'}
                 className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-2"
               >
-                <span className="min-w-0 flex-1 truncate font-mono text-xs">{f.path}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-label">{f.path}</span>
                 <Badge
                   className={
                     f.recorded
@@ -165,14 +165,14 @@ export function EditResendRollbackConfirm({
               </div>
             ))}
             {prepared?.truncated && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('previewFilesMore', { count: prepared.remaining })}
               </p>
             )}
             <Button
               variant="ghost"
               size="xs"
-              className="px-2 text-xs text-muted-foreground hover:text-primary"
+              className="px-2 text-label text-muted-foreground hover:text-primary"
               onClick={() => setDetailOpen(true)}
               data-action="viewDiff"
             >
@@ -185,7 +185,7 @@ export function EditResendRollbackConfirm({
             <p className="text-label font-medium text-muted-foreground">{t('previewEditTitle')}</p>
             <div
               data-edit-resend-draft
-              className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-xs"
+              className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-label"
             >
               {preview?.editDraft ?? ''}
             </div>

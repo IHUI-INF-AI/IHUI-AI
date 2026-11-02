@@ -169,7 +169,7 @@ export function VideoGenJimeng() {
     <Card>
       <CardHeader>
         <CardTitle>{t('jimengVideoTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('jimengVideoSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('jimengVideoSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -195,17 +195,17 @@ export function VideoGenJimeng() {
 
         {taskId && (
           <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {t('taskId')}: {taskId} · {t('status')}: {statusLabel(task?.status)}
             </div>
             {task?.status === 'accepted' || task?.status === 'running' ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('polling')}
               </div>
             ) : null}
             {task?.status === 'failed' && task.message ? (
-              <p className="text-sm text-destructive">{task.message}</p>
+              <p className="text-body text-destructive">{task.message}</p>
             ) : null}
             {videos.map((url) => (
               <video

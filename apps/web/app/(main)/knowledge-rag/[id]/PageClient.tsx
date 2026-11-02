@@ -97,12 +97,12 @@ export default function KnowledgeRagDetailPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Link
           href="/knowledge-rag"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {error ? (error as Error).message : t('notFound')}
         </div>
       </div>
@@ -113,15 +113,17 @@ export default function KnowledgeRagDetailPage() {
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <Link
         href="/knowledge-rag"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{data.title}</h1>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {data.title}
+        </h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <FileText className="h-4 w-4" />
             {t('sourceType')}: {sourceLabel(data.sourceType)}
@@ -156,27 +158,27 @@ export default function KnowledgeRagDetailPage() {
               <Link
                 key={h.id}
                 href={`/knowledge-rag/${h.docId}`}
-                className="block rounded-lg border bg-card p-3 text-sm transition-colors hover:bg-accent/50"
+                className="block rounded-lg border bg-card p-3 text-body transition-colors hover:bg-accent/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">
                     {tList('chunkCount', { count: h.chunkIndex + 1 })}
                   </span>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                     {(h.score * 100).toFixed(1)}%
                   </span>
                 </div>
                 <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-muted-foreground">
                   {h.content}
                 </p>
-                <div className="mt-1 inline-flex items-center text-xs text-primary">
+                <div className="mt-1 inline-flex items-center text-label text-primary">
                   <ChevronRight className="h-3.5 w-3.5" />
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <div className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed p-3 text-center text-body text-muted-foreground">
             {t('relatedEmpty')}
           </div>
         )}

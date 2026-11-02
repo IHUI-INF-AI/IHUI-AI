@@ -83,7 +83,7 @@ export function SponsorContent(): React.JSX.Element {
                 <Icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="mt-4 text-body font-semibold">{t(`${key}Title`)}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-label leading-relaxed text-muted-foreground">
                 {t(`${key}Desc`)}
               </p>
             </div>
@@ -102,14 +102,16 @@ export function SponsorContent(): React.JSX.Element {
               key={id}
               className={`flex flex-col p-3 ${accent ? 'border-brand-accent-deep shadow-md' : ''}`}
             >
-              <div className="text-2xl min-[768px]:text-3xl">
+              <div className="text-display font-normal min-[768px]:text-3xl">
                 <Icon className="h-8 w-8" />
               </div>
               <h3 className="mt-3 text-lg font-semibold">{t(`tiers.${id}.name`)}</h3>
-              <div className="mt-2 text-display font-bold text-primary">{t(`tiers.${id}.price`)}</div>
+              <div className="mt-2 text-display font-bold text-primary">
+                {t(`tiers.${id}.price`)}
+              </div>
               <ul className="mt-4 space-y-2">
                 {[1, 2, 3].map((n) => (
-                  <li key={n} className="flex items-start gap-2 text-sm">
+                  <li key={n} className="flex items-start gap-2 text-body">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <span>{t(`tiers.${id}.feature${n}`)}</span>
                   </li>
@@ -132,7 +134,7 @@ export function SponsorContent(): React.JSX.Element {
         <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('sponsorsTitle')}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('sponsorsDesc')}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
@@ -145,7 +147,7 @@ export function SponsorContent(): React.JSX.Element {
             </div>
           ))}
         </div>
-        <p className="mt-6 text-xs text-muted-foreground">{t('sponsorsEmpty')}</p>
+        <p className="mt-6 text-label text-muted-foreground">{t('sponsorsEmpty')}</p>
       </section>
 
       {/* Online donations: PayPal + Ko-fi */}
@@ -153,7 +155,7 @@ export function SponsorContent(): React.JSX.Element {
         <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('onlineTitle')}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('onlineDesc')}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">

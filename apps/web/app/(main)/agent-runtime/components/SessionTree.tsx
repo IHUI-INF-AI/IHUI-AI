@@ -78,7 +78,7 @@ function SessionRow({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="flex items-center gap-1.5 px-1 py-1 font-mono text-xs hover:bg-muted/40 rounded-sm">
+      <div className="flex items-center gap-1.5 px-1 py-1 font-mono text-label hover:bg-muted/40 rounded-sm">
         <span className="select-none whitespace-pre text-muted-foreground">{prefix + branch}</span>
         <CollapsibleTrigger className="flex flex-1 min-w-0 items-center gap-1.5 text-left">
           {open ? (
@@ -99,7 +99,7 @@ function SessionRow({
         {msgs.length > 0 ? (
           <div className={`mb-1 ml-8 space-y-1 rounded bg-muted/40 p-2`}>
             {msgs.slice(0, 6).map((m, i) => (
-              <div key={i} className="flex gap-2 text-xs">
+              <div key={i} className="flex gap-2 text-label">
                 <span className="shrink-0 font-medium text-primary">{m.role}</span>
                 <span className="text-muted-foreground">{m.content.slice(0, 80)}</span>
               </div>
@@ -109,7 +109,7 @@ function SessionRow({
             )}
           </div>
         ) : (
-          <p className="mb-1 ml-8 py-1 text-xs text-muted-foreground">暂无消息记录</p>
+          <p className="mb-1 ml-8 py-1 text-label text-muted-foreground">暂无消息记录</p>
         )}
       </CollapsibleContent>
       {hasChildren &&
@@ -173,7 +173,7 @@ export function SessionTree({ agentId, timeRange, refreshKey }: SessionTreeProps
             加载中...
           </div>
         ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-body text-muted-foreground">
             {error ? '接口暂不可用,暂无数据' : '暂无会话记录'}
           </p>
         ) : (

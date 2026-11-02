@@ -41,7 +41,7 @@ export function ConversionFunnel({ data, loading }: Props) {
       <CardContent className="min-[640px]:p-3 p-3">
         <div>
           <p className="text-body font-semibold">{t('conversionFunnel')}</p>
-          <p className="text-xs text-muted-foreground">{t('conversionFunnelDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('conversionFunnelDesc')}</p>
         </div>
 
         <div className="mt-4 space-y-2.5">
@@ -56,7 +56,7 @@ export function ConversionFunnel({ data, loading }: Props) {
                 const pct = (s.count / first) * 100
                 return (
                   <div key={s.stage} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="text-muted-foreground">{t(labelKey[s.stage])}</span>
                       <span className="font-medium">
                         {s.count}

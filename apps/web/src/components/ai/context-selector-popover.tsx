@@ -64,7 +64,7 @@ export function ContextSelectorPopover({
     >
       <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
         <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-xs text-muted-foreground">{t('title')}</span>
+        <span className="truncate text-label text-muted-foreground">{t('title')}</span>
         {query && (
           <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {query}
@@ -74,7 +74,7 @@ export function ContextSelectorPopover({
       <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1">
         {filtered.length === 0 ? (
           <li
-            className="px-3 py-6 text-center text-sm text-muted-foreground"
+            className="px-3 py-6 text-center text-body text-muted-foreground"
             data-testid="context-selector-no-match"
           >
             {t('noMatch')}
@@ -91,7 +91,7 @@ export function ContextSelectorPopover({
                   onClick={() => onSelect(category)}
                   onMouseEnter={() => onHover(idx)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors',
                     idx === activeIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
                   )}
                 >
@@ -99,11 +99,11 @@ export function ContextSelectorPopover({
                   <div className="min-w-0 flex-1">
                     <p className="break-words font-medium">
                       {tm(category.labelNs, category.labelKey)}{' '}
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="font-mono text-label text-muted-foreground">
                         {category.token}
                       </span>
                     </p>
-                    <p className="break-words text-xs text-muted-foreground">
+                    <p className="break-words text-label text-muted-foreground">
                       {tm(category.labelNs, category.descKey)}
                     </p>
                   </div>
@@ -152,7 +152,7 @@ export function ContextSelectorChips({ rows, onRemove }: ContextSelectorChipsPro
         return (
           <span
             key={selection.id}
-            className="inline-flex h-6 max-w-full items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground"
+            className="inline-flex h-6 max-w-full items-center gap-1 rounded-md bg-muted px-2 text-label text-muted-foreground"
             data-testid={`mention-chip-${selection.id}`}
           >
             <Icon className={cn('h-3 w-3 shrink-0', view.colorClass)} />

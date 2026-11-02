@@ -179,7 +179,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
       </div>
 
       {currentTool?.description && (
-        <p className="text-sm text-muted-foreground">{currentTool.description}</p>
+        <p className="text-body text-muted-foreground">{currentTool.description}</p>
       )}
 
       {serverId && toolsLoading && (
@@ -191,7 +191,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
       {currentTool && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">{t('parameters')}</CardTitle>
+            <CardTitle className="text-body">{t('parameters')}</CardTitle>
           </CardHeader>
           <CardContent>
             <McpToolParameterForm
@@ -204,7 +204,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
       )}
 
       {callMutation.isPending && (
-        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-4 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t('executing')}
         </div>

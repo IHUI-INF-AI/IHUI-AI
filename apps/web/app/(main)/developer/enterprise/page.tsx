@@ -192,7 +192,7 @@ export default function DeveloperEnterprisePage() {
           <Building2 className="h-5 w-5" aria-hidden />
           企业服务
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           企业认证、发票申请、对公结算与合同签署;认证通过后可签署企业合同。
         </p>
         <AuthGatePrompt message="请先登录后使用企业服务" />
@@ -209,10 +209,10 @@ export default function DeveloperEnterprisePage() {
         <Building2 className="h-5 w-5" aria-hidden />
         企业服务
       </h1>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         企业认证、发票申请、对公结算与合同签署;认证通过后可签署企业合同。
       </p>
-      {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+      {msg && <p className="text-body text-muted-foreground">{msg}</p>}
 
       {/* 企业认证 */}
       <Card>
@@ -224,10 +224,10 @@ export default function DeveloperEnterprisePage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {p?.status === 'rejected' && p.rejectReason && (
-            <p className="text-xs text-destructive">驳回原因:{p.rejectReason}</p>
+            <p className="text-label text-destructive">驳回原因:{p.rejectReason}</p>
           )}
           {p?.status === 'approved' ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {p.companyName} 已通过认证,可签署企业合同与申请开票。
             </p>
           ) : (
@@ -288,12 +288,12 @@ export default function DeveloperEnterprisePage() {
           <CardTitle className="text-base">发票申请</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             对已支付订单申请开票;同一订单同时仅一条申请。
           </p>
           <div className="grid gap-2 min-[640px]:grid-cols-2">
             <select
-              className="rounded-sm border bg-background px-3 py-2 text-sm"
+              className="rounded-sm border bg-background px-3 py-2 text-body"
               value={invoice.orderId}
               onChange={(e) => setInvoice({ ...invoice, orderId: e.target.value })}
               aria-label="选择已支付订单"
@@ -306,7 +306,7 @@ export default function DeveloperEnterprisePage() {
               ))}
             </select>
             <select
-              className="rounded-sm border bg-background px-3 py-2 text-sm"
+              className="rounded-sm border bg-background px-3 py-2 text-body"
               value={invoice.invoiceType}
               onChange={(e) => setInvoice({ ...invoice, invoiceType: e.target.value })}
               aria-label="发票类型"
@@ -344,7 +344,7 @@ export default function DeveloperEnterprisePage() {
             {(listsQ.data?.invoices ?? []).map((v) => (
               <div
                 key={v.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-label"
               >
                 <Badge status={v.status} />
                 <span className="font-medium">{v.title}</span>
@@ -363,12 +363,12 @@ export default function DeveloperEnterprisePage() {
           <CardTitle className="text-base">对公结算</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             对公转账后登记回单;管理员确认到账后订单自动完成并激活订阅。
           </p>
           <div className="grid gap-2 min-[640px]:grid-cols-2">
             <select
-              className="rounded-sm border bg-background px-3 py-2 text-sm"
+              className="rounded-sm border bg-background px-3 py-2 text-body"
               value={voucher.orderNo}
               onChange={(e) => setVoucher({ ...voucher, orderNo: e.target.value })}
               aria-label="选择待支付订单"
@@ -403,7 +403,7 @@ export default function DeveloperEnterprisePage() {
             {(listsQ.data?.vouchers ?? []).map((v) => (
               <div
                 key={v.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-label"
               >
                 <Badge status={v.status} />
                 <span className="font-medium">{v.payerCompany}</span>
@@ -427,14 +427,14 @@ export default function DeveloperEnterprisePage() {
               加载中...
             </div>
           ) : (listsQ.data?.contracts ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               暂无合同;认证通过后可联系我们签署企业合同。
             </p>
           ) : (
             (listsQ.data?.contracts ?? []).map((c) => (
               <div
                 key={c.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                className="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-label"
               >
                 <Badge status={c.status} />
                 <span className="font-medium">{c.title}</span>

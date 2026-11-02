@@ -143,21 +143,21 @@ export function UpdatePrompt() {
                       : t('available')}
               </p>
               {version && status !== 'error' && (
-                <p className="text-xs text-muted-foreground leading-tight mt-0.5">v{version}</p>
+                <p className="text-label text-muted-foreground leading-tight mt-0.5">v{version}</p>
               )}
             </div>
           </div>
 
           {/* 更新说明(release notes,最多 3 行) */}
           {notes && status !== 'error' && status !== 'done' && (
-            <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground line-clamp-3">
+            <p className="mt-2.5 text-label leading-relaxed text-muted-foreground line-clamp-3">
               {notes}
             </p>
           )}
 
           {/* 错误信息(D194:按 classifyUpdateError 分型取词,撤回态不并显通用失败) */}
           {status === 'error' && (
-            <p className="mt-2.5 text-xs leading-relaxed text-red-500/80">{errorText}</p>
+            <p className="mt-2.5 text-label leading-relaxed text-red-500/80">{errorText}</p>
           )}
 
           {/* 状态展示区(强制更新:无按钮,纯展示进度) */}
@@ -203,7 +203,7 @@ export function UpdatePrompt() {
                 </svg>
                 <span className="text-body font-medium text-primary tabular-nums">{percent}%</span>
                 {total > 0 && (
-                  <span className="text-xs text-muted-foreground tabular-nums">
+                  <span className="text-label text-muted-foreground tabular-nums">
                     {formatFileSize(downloaded)} / {formatFileSize(total)}
                   </span>
                 )}

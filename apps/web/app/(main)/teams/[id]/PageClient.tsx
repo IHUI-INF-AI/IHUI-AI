@@ -165,7 +165,7 @@ export default function TeamDetailPage() {
     )
   if (teamQ.error || !team)
     return (
-      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(teamQ.error as Error)?.message ?? t('notFound')}
       </div>
     )
@@ -181,7 +181,7 @@ export default function TeamDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/teams')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}

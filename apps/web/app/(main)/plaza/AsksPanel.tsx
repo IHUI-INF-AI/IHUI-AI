@@ -33,13 +33,13 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
         // 身份必须走到文案这一层:helpers.api() 交出的 Error 带着 status/errorCode,
         // 而这里若直读 `error.message` 就把服务端原文(如 "Invalid or expired token")直接摊给用户。
         // 判序唯一出口 = toUserFriendlyMessage(与 RN 端 PlazaScreen 同一份)。
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {toUserFriendlyMessage(error)}
         </div>
       ) : asks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{ta('empty')}</p>
+          <p className="text-body text-muted-foreground">{ta('empty')}</p>
         </div>
       ) : (
         <>
@@ -67,7 +67,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
                         {a.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                           >
                             {tag}
                           </span>
@@ -75,7 +75,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
                       </div>
                     )}
                   </CardHeader>
-                  <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3 pt-0 text-xs text-muted-foreground">
+                  <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3 pt-0 text-label text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <MessageSquare className="h-3.5 w-3.5" />
                       {ta('answerCount', { count: a.answerCount })}
@@ -92,7 +92,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
           <div className="flex justify-end">
             <Link
               href="/asks"
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
+              className="flex items-center gap-1 text-body text-primary hover:underline"
             >
               {t('viewAllAsks')}
               <ArrowRight className="h-3.5 w-3.5" />

@@ -131,7 +131,7 @@ export default function KnowledgeRagManagePage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/knowledge-rag"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tCommon('back')}
@@ -139,14 +139,16 @@ export default function KnowledgeRagManagePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Settings className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
       {feedback && (
         <div
           className={cn(
-            'flex items-center gap-2 rounded-md border px-3 py-2 text-sm',
+            'flex items-center gap-2 rounded-md border px-3 py-2 text-body',
             feedback.type === 'success'
               ? 'border-primary/30 bg-primary/10 text-primary'
               : 'border-destructive/50 bg-destructive/10 text-destructive',
@@ -161,7 +163,7 @@ export default function KnowledgeRagManagePage() {
       ) : (
         <>
           <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-body">
               <Checkbox
                 checked={allSelected}
                 onCheckedChange={toggleAll}
@@ -192,11 +194,11 @@ export default function KnowledgeRagManagePage() {
               {t('loading')}
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {(error as Error).message}
             </div>
           ) : docs.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border border-dashed p-12 text-center text-body text-muted-foreground">
               {t('empty')}
             </div>
           ) : (

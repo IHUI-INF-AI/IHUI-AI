@@ -83,7 +83,7 @@ export default function FollowPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <UserPlus className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
+          <p className="text-body">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -99,10 +99,10 @@ export default function FollowPage() {
                     {follow.nickname ?? t('anonymous')}
                   </p>
                   {follow.bio ? (
-                    <p className="truncate text-xs text-muted-foreground">{follow.bio}</p>
+                    <p className="truncate text-label text-muted-foreground">{follow.bio}</p>
                   ) : null}
                   {follow.createdAt ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {dateFmt.format(new Date(follow.createdAt))}
                     </p>
                   ) : null}
