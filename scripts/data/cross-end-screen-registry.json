@@ -82,11 +82,6 @@
       "miniapp": "pkg-ai/ai-assistant/index"
     },
     {
-      "shared": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AiCareerScreen.tsx",
-      "miniapp": "pkg-ai/ai-career/index"
-    },
-    {
       "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AiGroupScreen.tsx",
       "miniapp": "pkg-mirror/ai-group/index"
