@@ -92,9 +92,39 @@ import extensionPkg from '../../../extension/package.json'
 import mobileRnPkg from '../../../mobile-rn/package.json'
 import { DESKTOP_FEED } from './desktop-feed.generated'
 
-/** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
-export type DownloadPlatform =
-  'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
+/**
+ * 下载中心「已上线」平台的唯一运行时清单(2026-11-03 收口)。
+ *
+ * 此前这里是一份**类型**、`DownloadDetailContent.tsx` 里另抄了一份同义的
+ * `validPlatforms` **数组** —— 两份真相各自演化,而那份数组把未知平台静默折成 desktop,
+ * 于是 `/download/harmony`(harmony 已在 `apps/api/src/routes/app-version.ts` 的 platform
+ * 枚举里,只是下载中心还没上)渲染成桌面版详情页,用户以为那就是鸿蒙版。
+ * 现在 `DownloadPlatform` 类型由本数组派生:新增一端只改这一处,
+ * `PLATFORM_META: Record<DownloadPlatform, PlatformMeta>` 与 `generateStaticParams`
+ * 会跟着编译器一起要求补齐 —— 漏改是编译错误,不是静默错配。
+ *
+ * 注意:本清单只登记**下载中心已上线**的端,与 API 侧 `app-version` 的 platform 枚举
+ * (ios/android/web/harmony/cli,那是「版本检查」的另一根轴)不必等值;
+ * 未登记的端在详情页走显式「尚未上线」态,不再回落任何平台。
+ */
+export const DOWNLOAD_PLATFORMS = [
+  'web',
+  'desktop',
+  'ios',
+  'android-apk',
+  'mobile',
+  'wechat-miniapp',
+  'extension',
+  'cli',
+] as const
+
+/** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应;取值即上面的清单 */
+export type DownloadPlatform = (typeof DOWNLOAD_PLATFORMS)[number]
+
+/** URL 平台段 / 外部入参是否为下载中心已登记的端(类型收窄,供详情页与静态参数共用) */
+export function isDownloadPlatform(value: string | undefined | null): value is DownloadPlatform {
+  return typeof value === 'string' && (DOWNLOAD_PLATFORMS as readonly string[]).includes(value)
+}
 
 /** 单个下载资源文件元数据(一个端可能有多种格式/架构,如 desktop 同时提供 .exe 和 .msi) */
 export interface DownloadAsset {
@@ -493,6 +523,25 @@ export const PLATFORM_META: Record<DownloadPlatform, PlatformMeta> = getPlatform
 /** 获取指定端的元数据(PLATFORM_META 类型安全访问) */
 export function getPlatformMeta(platform: DownloadPlatform): PlatformMeta {
   return PLATFORM_META[platform]
+}
+
+/**
+ * 一端的元数据是否构成「已上线」——详情页头部的「已发布」徽章与「尚未上线」态的
+ * 可选平台清单**共用这一个判据**(2026-11-03 收口,此前判据长在页面里,别处想问只能重抄)。
+ *  - assets 非空 → 有可直接下载的资源;
+ *  - 或 version + installGuideKey 齐全 → 走 npm / 源码构建这类「没有独立安装包但能装」的端
+ *    (CLI / Mobile 属这一型,只看 assets 会把它们误判成未上线,详情页却已给出安装入口)。
+ */
+export function isPlatformLaunched(meta: PlatformMeta): boolean {
+  return meta.assets.length > 0 || Boolean(meta.version && meta.installGuideKey)
+}
+
+/**
+ * 下载中心当前已上线的端(顺序沿用 `DOWNLOAD_PLATFORMS`)。
+ * 供「尚未上线」态列出可点走的平台入口 —— 清单本身仍只有一个来源。
+ */
+export function getLaunchedPlatforms(): DownloadPlatform[] {
+  return DOWNLOAD_PLATFORMS.filter((platform) => isPlatformLaunched(PLATFORM_META[platform]))
 }
 
 /** 单端配置状态(运营接入自检用,2026-08-06 新增)。 */

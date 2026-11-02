@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { DownloadDetailContent } from './DownloadDetailContent'
+import { DOWNLOAD_PLATFORMS } from '@/config/downloads.config'
 import {
   liveToDesktopFeed,
   resolveLiveAndroid,
@@ -32,17 +33,10 @@ export const metadata: Metadata = {
 // 2026-08-17 修复:generateStaticParams 原仅返回 desktop,导致静态导出(out/)
 // 缺 android-apk 等平台下载页(线上 /download/android-apk 会 404 或走占位)。
 // 现返回全部 8 端,静态导出将生成各平台独立 HTML,客户端运行时再按 env 渲染。
+// 2026-11-03:清单不再在此手抄第二份 —— 直接 map DOWNLOAD_PLATFORMS 唯一来源;
+// 未登记的端(如 /download/harmony)渲染成显式「尚未上线」态,不回落 desktop。
 export function generateStaticParams() {
-  return [
-    { platform: 'web' },
-    { platform: 'desktop' },
-    { platform: 'ios' },
-    { platform: 'android-apk' },
-    { platform: 'mobile' },
-    { platform: 'wechat-miniapp' },
-    { platform: 'extension' },
-    { platform: 'cli' },
-  ]
+  return DOWNLOAD_PLATFORMS.map((platform) => ({ platform }))
 }
 
 // 与 desktop-feed.json 同一 ISR 窗口:新桌面版的版本号/安装包在 10 分钟内自动反映到详情页,
