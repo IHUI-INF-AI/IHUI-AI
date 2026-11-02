@@ -98,7 +98,7 @@ export function AskDialog({ open, editing, defaultValues, savePending, onValid, 
               </Select>
             </div>
             <div className="flex items-end gap-2 pb-1">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <label className="flex cursor-pointer items-center gap-2 text-body">
                 <input
                   type="checkbox"
                   checked={form.watch('isResolved')}

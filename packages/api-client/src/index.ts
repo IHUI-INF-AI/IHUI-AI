@@ -24,6 +24,7 @@ export {
   setDeviceFingerprintProvider,
   getDeviceFingerprintProvider,
   setBaseUrl,
+  getBaseUrl,
   // 2026-10-12:ai-service 专用基址注入(根治桌面端 dev 签到页 404,见 client.ts 注释)
   setAiServiceBase,
   setUserAgent,
@@ -286,6 +287,7 @@ export * from './endpoints/admin-system.js'
 export * from './endpoints/admin-tenants.js'
 export * from './endpoints/agent.js'
 export * from './endpoints/agent-runtime.js'
+export * from './endpoints/agent-chat-stream.js'
 // Agent 会话 Token 用量(2026-09-07 工作线 A)
 export * from './endpoints/agent-usage.js'
 // AI 模型定价查询(W4 成本真网计价,2026-09-12)

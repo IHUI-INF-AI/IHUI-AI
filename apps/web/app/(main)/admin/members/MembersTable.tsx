@@ -123,7 +123,7 @@ export function MembersTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{member.username ?? '—'}</div>
                     {member.mobile ? (
-                      <div className="text-xs text-muted-foreground">{member.mobile}</div>
+                      <div className="text-label text-muted-foreground">{member.mobile}</div>
                     ) : null}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">{member.nickname ?? '—'}</TableCell>

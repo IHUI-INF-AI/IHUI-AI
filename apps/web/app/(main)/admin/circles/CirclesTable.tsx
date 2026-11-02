@@ -91,13 +91,13 @@ export function CirclesTable({
                       <span className="max-w-xs truncate">{item.name}</span>
                     </div>
                     {item.description && (
-                      <div className="max-w-xs truncate text-xs text-muted-foreground">
+                      <div className="max-w-xs truncate text-label text-muted-foreground">
                         {item.description}
                       </div>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{item.slug}</code>
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-label">{item.slug}</code>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">{creator}</TableCell>
                   <TableCell className="px-4 py-2.5">{item.memberCount}</TableCell>

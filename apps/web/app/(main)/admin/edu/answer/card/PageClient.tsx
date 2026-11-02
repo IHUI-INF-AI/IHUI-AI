@@ -82,7 +82,7 @@ function CardContent2() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu">
@@ -94,23 +94,23 @@ function CardContent2() {
 
       <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         <div className="rounded-lg border p-3">
-          <div className="text-xs text-muted-foreground">{t('statTotal')}</div>
+          <div className="text-label text-muted-foreground">{t('statTotal')}</div>
           <div className="mt-1 text-display font-semibold">{total}</div>
         </div>
         <div className="rounded-lg border p-3">
-          <div className="text-xs text-muted-foreground">{t('statSubmitted')}</div>
+          <div className="text-label text-muted-foreground">{t('statSubmitted')}</div>
           <div className="mt-1 text-display font-semibold text-primary">
             {records.filter((r: AnswerRecord) => r.status !== 'pending').length}
           </div>
         </div>
         <div className="rounded-lg border p-3">
-          <div className="text-xs text-muted-foreground">{t('statGraded')}</div>
+          <div className="text-label text-muted-foreground">{t('statGraded')}</div>
           <div className="mt-1 text-display font-semibold text-emerald-600">
             {records.filter((r) => r.status === 'graded').length}
           </div>
         </div>
         <div className="rounded-lg border p-3">
-          <div className="text-xs text-muted-foreground">{t('statPassed')}</div>
+          <div className="text-label text-muted-foreground">{t('statPassed')}</div>
           <div className="mt-1 text-display font-semibold text-emerald-600">
             {records.filter((r) => r.isPassed).length}
           </div>
@@ -160,7 +160,7 @@ function CardContent2() {
                 const submitted = r.status !== 'pending'
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">
-                    <TableCell className="px-4 py-2.5 font-mono text-xs">
+                    <TableCell className="px-4 py-2.5 font-mono text-label">
                       {r.id.slice(0, 8)}…
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -180,13 +180,13 @@ function CardContent2() {
                     </TableCell>
                     <TableCell className="px-4 py-2.5 font-medium">{Number(r.score)}</TableCell>
                     <TableCell className="px-4 py-2.5">{r.isPassed ? t('passed') : '-'}</TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {r.startedAt}
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {r.submittedAt ?? '-'}
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs">
+                    <TableCell className="px-4 py-2.5 text-label">
                       {t('durationFormat', {
                         minutes: Math.floor(r.duration / 60),
                         seconds: r.duration % 60,
@@ -201,7 +201,7 @@ function CardContent2() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <SearchInput
             value={search}
@@ -220,7 +220,7 @@ function CardContent2() {
           >
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

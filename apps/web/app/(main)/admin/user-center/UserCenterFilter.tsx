@@ -22,7 +22,7 @@ export function UserCenterFilter({ search, onSearchChange, onSearch, onReset }: 
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">昵称</Label>
+        <Label className="text-label">昵称</Label>
         <SearchInput
           value={search.nickname}
           onChange={(e) => onSearchChange({ nickname: e.target.value })}
@@ -32,7 +32,7 @@ export function UserCenterFilter({ search, onSearchChange, onSearch, onReset }: 
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">父级ID</Label>
+        <Label className="text-label">父级ID</Label>
         <SearchInput
           value={search.parentId}
           onChange={(e) => onSearchChange({ parentId: e.target.value })}

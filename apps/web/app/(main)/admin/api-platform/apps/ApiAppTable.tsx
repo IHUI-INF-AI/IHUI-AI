@@ -34,12 +34,12 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">{t('colName')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colAppId')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colPermissions')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colStatus')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colCreatedAt')}</TableHead>
-            <TableHead className="text-right text-xs uppercase">{t('colActions')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colName')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colAppId')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colPermissions')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colStatus')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colCreatedAt')}</TableHead>
+            <TableHead className="text-right text-label uppercase">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -61,7 +61,7 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
                 <TableCell className="font-medium">{a.name}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <span className="font-mono text-xs">{a.appId}</span>
+                    <span className="font-mono text-label">{a.appId}</span>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -75,7 +75,7 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
                 <TableCell className="max-w-[220px]">
                   <div className="flex flex-wrap gap-1">
                     {(a.permissions ?? []).map((p) => (
-                      <span key={p} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      <span key={p} className="rounded bg-muted px-1.5 py-0.5 text-label">
                         {p}
                       </span>
                     ))}
@@ -83,16 +83,16 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
                 </TableCell>
                 <TableCell>
                   {a.status === 1 ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-label text-emerald-600">
                       {t('statusOn')}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {t('statusOff')}
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-label text-muted-foreground">
                   {new Intl.DateTimeFormat(locale).format(new Date(a.createdAt))}
                 </TableCell>
                 <TableCell className="text-right">

@@ -25,7 +25,7 @@ export function AboutUsFilter({ search, setSearch, onSearch, onReset }: Props) {
         const label = t(FIELDS.find((f) => f.key === k)!.label)
         return (
           <div key={k} className="space-y-1">
-            <Label className="text-xs">{label}</Label>
+            <Label className="text-label">{label}</Label>
             <SearchInput
               value={search[k]}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>

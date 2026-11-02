@@ -21,8 +21,8 @@ export function LogTable({ list, isLoading, error, dateFmt, onSelect }: Props) {
   const t = useTranslations('admin.logs')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             {[t('time'), t('method'), t('path'), t('statusCode'), t('duration'), t('user')].map(
               (h) => (
@@ -61,23 +61,23 @@ export function LogTable({ list, isLoading, error, dateFmt, onSelect }: Props) {
                 onClick={() => onSelect(log)}
                 className="cursor-pointer transition-colors hover:bg-muted/30"
               >
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                   {dateFmt.format(new Date(log.createdAt))}
                 </td>
                 <td className="px-4 py-2.5">
                   <Badge cls={methodClass(log.method)}>{log.method}</Badge>
                 </td>
-                <td className="max-w-[280px] break-words px-4 py-2.5 font-mono text-xs">
+                <td className="max-w-[280px] break-words px-4 py-2.5 font-mono text-label">
                   {log.path}
                 </td>
                 <td className="px-4 py-2.5">
                   <Badge cls={statusClass(log.statusCode)}>{log.statusCode}</Badge>
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                   {log.duration}
                   {t('ms')}
                 </td>
-                <td className="max-w-[120px] break-words px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="max-w-[120px] break-words px-4 py-2.5 text-label text-muted-foreground">
                   {log.userId ? (
                     <span className="font-mono">{log.userId.slice(0, 8)}</span>
                   ) : (

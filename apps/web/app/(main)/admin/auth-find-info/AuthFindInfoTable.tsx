@@ -21,8 +21,8 @@ export function AuthFindInfoTable({ list, isLoading, onEdit, onDelete }: Props) 
   const t = useTranslations('adminAuthFindInfo')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={TABLE_TH_CLASS}>ID</th>
             <th className={TABLE_TH_CLASS}>{t('colUserUuid')}</th>
@@ -54,7 +54,7 @@ export function AuthFindInfoTable({ list, isLoading, onEdit, onDelete }: Props) 
               <tr key={item.id} className="hover:bg-muted/30">
                 <td className="px-4 py-2.5">{item.id}</td>
                 <td className="px-4 py-2.5 font-medium">{item.userUuid}</td>
-                <td className="px-4 py-2.5 text-xs">{item.card}</td>
+                <td className="px-4 py-2.5 text-label">{item.card}</td>
                 <td className="px-4 py-2.5">{item.belong ?? '-'}</td>
                 <td className="px-4 py-2.5">{item.title ?? '-'}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{item.message ?? '-'}</td>

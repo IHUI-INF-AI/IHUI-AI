@@ -41,7 +41,7 @@ export function TenantTable({
 
   if (tenants.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
         {t('empty')}
       </div>
     )
@@ -49,8 +49,8 @@ export function TenantTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
-        <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body" dir={isRtl ? 'rtl' : 'ltr'}>
+        <thead className="bg-muted/40 text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">{t('table.slug')}</th>
             <th className="px-4 py-2.5 font-medium">{t('table.domain')}</th>

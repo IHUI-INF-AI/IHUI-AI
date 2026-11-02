@@ -202,7 +202,7 @@ export default function AdminRelayDiscoveryPage() {
             <Activity className="h-6 w-6 text-primary" />
             动态发现审批
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">扫描上游模型清单并审批上架</p>
+          <p className="mt-1 text-body text-muted-foreground">扫描上游模型清单并审批上架</p>
         </div>
         <Button onClick={() => setScanOpen(true)}>
           <ScanLine className="h-4 w-4" />
@@ -227,7 +227,7 @@ export default function AdminRelayDiscoveryPage() {
             setProvider(e.target.value)
           }}
           placeholder="provider 编码"
-          className="h-8 w-36 text-xs"
+          className="h-8 w-36 text-label"
         />
         <Select
           value={status}
@@ -251,8 +251,8 @@ export default function AdminRelayDiscoveryPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">模型</th>
                 <th className="px-3 py-2 text-left">厂商</th>
@@ -283,9 +283,9 @@ export default function AdminRelayDiscoveryPage() {
                   <tr key={d.id}>
                     <td className="px-3 py-2">
                       <div className="font-medium">{d.modelName ?? d.modelId}</div>
-                      <div className="text-xs text-muted-foreground">{d.modelId}</div>
+                      <div className="text-label text-muted-foreground">{d.modelId}</div>
                     </td>
-                    <td className="px-3 py-2 text-xs">{d.providerCode}</td>
+                    <td className="px-3 py-2 text-label">{d.providerCode}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {d.contextLength ? (d.contextLength / 1000).toFixed(0) + 'K' : '-'}
                     </td>
@@ -307,11 +307,13 @@ export default function AdminRelayDiscoveryPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`rounded-md px-2 py-0.5 text-xs ${STATUS_CLASS[d.status]}`}>
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-label ${STATUS_CLASS[d.status]}`}
+                      >
                         {STATUS_LABEL[d.status]}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {fmt.format(new Date(d.discoveredAt))}
                     </td>
                     <td className="px-3 py-2">
@@ -362,7 +364,7 @@ export default function AdminRelayDiscoveryPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -373,7 +375,7 @@ export default function AdminRelayDiscoveryPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -420,7 +422,7 @@ export default function AdminRelayDiscoveryPage() {
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               将从 ai-service 拉取上游模型清单,写入 ai_relay_discovery 表(已存在的不会重复)。
             </p>
             <DialogFooter>
@@ -443,7 +445,7 @@ export default function AdminRelayDiscoveryPage() {
               <DialogTitle>驳回发现模型</DialogTitle>
             </DialogHeader>
             {rejectTarget && (
-              <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-label text-muted-foreground">
                 {rejectTarget.modelId} · {rejectTarget.providerCode}
               </div>
             )}
@@ -456,7 +458,7 @@ export default function AdminRelayDiscoveryPage() {
                 placeholder="请填写驳回原因"
                 rows={3}
                 required
-                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <DialogFooter>

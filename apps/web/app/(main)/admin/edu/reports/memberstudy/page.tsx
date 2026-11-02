@@ -86,7 +86,7 @@ export default function EduReportsMemberStudyPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">会员学习报表</h1>
-        <p className="mt-1 text-sm text-muted-foreground">统计各会员的学习进度与时长</p>
+        <p className="mt-1 text-body text-muted-foreground">统计各会员的学习进度与时长</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
@@ -96,7 +96,7 @@ export default function EduReportsMemberStudyPage() {
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">本页学习课程</div>
+              <div className="text-body text-muted-foreground">本页学习课程</div>
               <div className="mt-0.5 text-heading font-semibold">{totalCourses}</div>
             </div>
           </CardContent>
@@ -107,7 +107,7 @@ export default function EduReportsMemberStudyPage() {
               <CheckCircle className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">已完成</div>
+              <div className="text-body text-muted-foreground">已完成</div>
               <div className="mt-0.5 text-heading font-semibold">{totalCompleted}</div>
             </div>
           </CardContent>
@@ -118,7 +118,7 @@ export default function EduReportsMemberStudyPage() {
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">本页学习时长</div>
+              <div className="text-body text-muted-foreground">本页学习时长</div>
               <div className="mt-0.5 text-heading font-semibold">{totalHours.toFixed(1)}h</div>
             </div>
           </CardContent>
@@ -189,7 +189,7 @@ export default function EduReportsMemberStudyPage() {
                   <TableCell className="px-4 py-2.5">{r.courseCount}</TableCell>
                   <TableCell className="px-4 py-2.5 text-emerald-600">{r.completedCount}</TableCell>
                   <TableCell className="px-4 py-2.5">{r.studyHours.toFixed(1)}h</TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {r.lastStudyAt ? dateFmt.format(new Date(r.lastStudyAt)) : '-'}
                   </TableCell>
                 </TableRow>
@@ -200,7 +200,7 @@ export default function EduReportsMemberStudyPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -210,7 +210,7 @@ export default function EduReportsMemberStudyPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

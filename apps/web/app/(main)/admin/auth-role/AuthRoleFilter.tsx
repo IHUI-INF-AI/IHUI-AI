@@ -20,7 +20,7 @@ export function AuthRoleFilter({ userId, onUserIdChange, onSearch, onReset }: Pr
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelUserId')}</Label>
+        <Label className="text-label">{t('labelUserId')}</Label>
         <Input
           className="h-9 w-48"
           value={userId}

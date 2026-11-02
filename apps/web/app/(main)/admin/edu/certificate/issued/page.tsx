@@ -84,30 +84,30 @@ export default function EduCertificateIssuedPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('issuedTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('issuedSubtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('issuedSubtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-4">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('issuedTotal')}</div>
+            <div className="text-body text-muted-foreground">{t('issuedTotal')}</div>
             <div className="mt-1 text-display font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('sourceExam')}</div>
+            <div className="text-body text-muted-foreground">{t('sourceExam')}</div>
             <div className="mt-1 text-display font-semibold text-sky-600">{bySource.exam}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('sourceLearn')}</div>
+            <div className="text-body text-muted-foreground">{t('sourceLearn')}</div>
             <div className="mt-1 text-display font-semibold text-emerald-600">{bySource.learn}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('sourceManual')}</div>
+            <div className="text-body text-muted-foreground">{t('sourceManual')}</div>
             <div className="mt-1 text-display font-semibold text-amber-600">{bySource.manual}</div>
           </CardContent>
         </Card>
@@ -176,7 +176,9 @@ export default function EduCertificateIssuedPage() {
             ) : (
               rows.map((c) => (
                 <TableRow key={c.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{c.certificateNo}</TableCell>
+                  <TableCell className="px-4 py-2.5 font-mono text-label">
+                    {c.certificateNo}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{c.title}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     {c.recipientName ?? c.nickname ?? '-'}
@@ -201,10 +203,10 @@ export default function EduCertificateIssuedPage() {
                             : (c.source ?? '-')}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {c.templateName ?? '-'}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {c.issuedAt ? formatDateOnly(c.issuedAt) : '-'}
                   </TableCell>
                 </TableRow>
@@ -214,7 +216,7 @@ export default function EduCertificateIssuedPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -225,7 +227,9 @@ export default function EduCertificateIssuedPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"

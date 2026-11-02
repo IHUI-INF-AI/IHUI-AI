@@ -114,7 +114,7 @@ export default function ClawdbotToolsPage() {
       <div className="rounded-lg border bg-card">
         <div className="space-y-2">
           {tools.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               暂无工具
             </div>
           ) : (
@@ -123,12 +123,12 @@ export default function ClawdbotToolsPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="min-w-0 flex-1 truncate text-body font-medium">{t.name}</p>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {t.category}
                     </span>
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 text-xs',
+                        'rounded px-1.5 py-0.5 text-label',
                         t.enabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
@@ -137,11 +137,11 @@ export default function ClawdbotToolsPage() {
                       {t.enabled ? '启用' : '禁用'}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 truncate text-label text-muted-foreground">
                     {t.description} · 超时 {t.timeout}ms
                   </p>
                   {t.requiredPermissions.length > 0 && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-label text-muted-foreground">
                       权限: {t.requiredPermissions.join(', ')}
                     </p>
                   )}
@@ -193,11 +193,11 @@ export default function ClawdbotToolsPage() {
               <p className="text-body font-medium">执行结果</p>
               <CloseButton aria-label="关闭" onClick={() => setResult(null)} />
             </div>
-            <div className="space-y-3 p-3 text-sm">
+            <div className="space-y-3 p-3 text-body">
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    'rounded px-2 py-0.5 text-xs',
+                    'rounded px-2 py-0.5 text-label',
                     result.success
                       ? 'bg-emerald-500/10 text-emerald-600'
                       : 'bg-red-500/10 text-red-600',
@@ -205,14 +205,14 @@ export default function ClawdbotToolsPage() {
                 >
                   {result.success ? '成功' : '失败'}
                 </span>
-                <span className="text-xs text-muted-foreground">{result.durationMs}ms</span>
-                {result.timedOut && <span className="text-xs text-amber-600">超时</span>}
+                <span className="text-label text-muted-foreground">{result.durationMs}ms</span>
+                {result.timedOut && <span className="text-label text-amber-600">超时</span>}
               </div>
               {result.error && <div className="text-red-600">{result.error}</div>}
               {result.output !== undefined && (
                 <div>
                   <span className="text-muted-foreground">输出:</span>
-                  <pre className="mt-1 max-h-60 overflow-auto rounded bg-muted/50 p-2 text-xs">
+                  <pre className="mt-1 max-h-60 overflow-auto rounded bg-muted/50 p-2 text-label">
                     {typeof result.output === 'string'
                       ? result.output
                       : JSON.stringify(result.output, null, 2)}

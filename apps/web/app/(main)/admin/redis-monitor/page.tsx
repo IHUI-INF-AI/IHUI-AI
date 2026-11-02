@@ -40,7 +40,7 @@ const TB: Record<RedisMonitorResponse['topKeys'][number]['type'], string> = {
   stream: 'bg-indigo-500/10 text-indigo-600',
 }
 const Empty = () => (
-  <div className="mt-3 ui-card rounded-lg border border-dashed py-6 text-center text-sm text-muted-foreground">
+  <div className="mt-3 ui-card rounded-lg border border-dashed py-6 text-center text-body text-muted-foreground">
     暂无数据
   </div>
 )
@@ -94,7 +94,7 @@ export default function RedisMonitorPage() {
         <StatCard title="OPS" value={nf.format(o.opsPerSec)} icon={Zap} loading={isLoading} />
       </div>
       <section className="rounded-lg border p-3">
-        <div className="flex items-center justify-between text-sm tabular-nums">
+        <div className="flex items-center justify-between text-body tabular-nums">
           <span className="text-muted-foreground">
             {nf.format(o.usedMemory)} / {nf.format(o.maxMemory)} MB · 命中 {nf.format(o.hits)}
           </span>
@@ -112,7 +112,7 @@ export default function RedisMonitorPage() {
           <div className="mt-3 space-y-2">
             {p.map((x) => (
               <div key={x.prefix}>
-                <div className="flex items-center justify-between text-sm tabular-nums">
+                <div className="flex items-center justify-between text-body tabular-nums">
                   <span className="font-mono text-muted-foreground">{x.prefix}</span>
                   <span>
                     {nf.format(x.count)} 键 · {nf.format(x.size)} KB
@@ -141,9 +141,9 @@ export default function RedisMonitorPage() {
           <Empty />
         ) : (
           <div className="overflow-x-auto">
-            <table className="mt-3 w-full text-sm">
+            <table className="mt-3 w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-3 py-2 font-medium">键</th>
                   <th className="px-3 py-2 font-medium">类型</th>
                   <th className="px-3 py-2 font-medium text-right">大小</th>
@@ -155,9 +155,9 @@ export default function RedisMonitorPage() {
               <tbody>
                 {k.map((it) => (
                   <tr key={it.key}>
-                    <td className="px-3 py-2 font-mono text-xs">{it.key}</td>
+                    <td className="px-3 py-2 font-mono text-label">{it.key}</td>
                     <td className="px-3 py-2">
-                      <span className={`rounded px-2 py-0.5 text-xs ${TB[it.type]}`}>
+                      <span className={`rounded px-2 py-0.5 text-label ${TB[it.type]}`}>
                         {it.type}
                       </span>
                     </td>
