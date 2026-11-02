@@ -1444,6 +1444,8 @@ cd IHUI-AI && docker compose up -d
 - **共享层跨端复用**:`packages/types/src/download.ts`(类型)+ `packages/api-client/src/endpoints/downloads.ts`(SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook),8 端统计调用统一契约
 - **自动化构建同步**:`scripts/sync-downloads.mjs` 一键构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json`(版本 + 大小 + sha256)
 - **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 取 `ios-nightly` 固定 tag 资产、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
+- **发现射程哨兵**:`scripts/check-desktop-release-discovery-budget.mjs`(只读、**不进提交链** —— 判的是公网端点与运行期数据,挂成提交门即 §12e 恒红门;唯一调度器 = `git-guardian.mjs` 的 `sweepDesktopDiscoveryBudget`,6h 节流)。桌面版靠分页翻 GitHub releases 找最新版,而 Android nightly 会把桌面版挤出射程(2026-11-03 实测:第一页 100 条全是 nightly,桌面版在第 3 页);顶穿那一刻不报错、只安静退回入库快照 ⇒ 这一格把「以后还会翻不到」变成会喊的东西
+- **iOS 站点腿**:`https://www.aizhs.top/remote-images/download/ihui-ai-latest.ipa` 是恒定地址,由 `deploy/cdn-server.js` 读旁边的 `ihui-ai-latest.ipa.redirect.json` 转成 no-cache 302;真正被边缘长缓存(7 天)的是带版本号那份。上腿动作 = `scripts/publish-mobile-ipa.mjs --from-release`(唯一调度器 = `git-guardian.mjs` 的 `sweepIosIpaRelay`,60 分钟一台中继)。版本号只认 release 自带的 `ios-version.json`(由构建从真进包的 Info.plist 取);两者都缺 ⇒ 发布器 exit 2 **不猜号**,下载页回落 GitHub 固定 tag
 **npm scripts**(根 `package.json`):
 | 命令                          | 用途                                                    |
 | ----------------------------- | ------------------------------------------------------- |
