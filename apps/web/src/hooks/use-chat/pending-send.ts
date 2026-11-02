@@ -126,7 +126,7 @@ function fnv1a(text: string, seed: number): string {
  * - **不含 messageId**:每次点击都会新造消息 id,拿它当身份等于永远不撞;
  * - **含会话**:不同会话里说同一句话互不相干。
  */
-export function commandIdOf(conversationId: string, text: string): string {
+function commandIdOf(conversationId: string, text: string): string {
   const body = normalizeInstruction(text)
   const digest = `${fnv1a(body, 0x811c9dc5)}${fnv1a(body, 0x050c5d1f)}${body.length.toString(16)}`
   return `${conversationId}#${digest}`
@@ -138,7 +138,7 @@ export function commandIdOf(conversationId: string, text: string): string {
  * 只看"最后一条"是有意的 —— 同一句话可以合法地发过多次,关心的是最近那一次有没有答出来。
  * 失败行(`error === true`)不算收据:它的 content 是错误文案,不是答案。
  */
-export function hasProjectedAnswer(rows: readonly ProjectionRow[], text: string): boolean {
+function hasProjectedAnswer(rows: readonly ProjectionRow[], text: string): boolean {
   const target = normalizeInstruction(text)
   if (!target) return false
   let lastUser = -1

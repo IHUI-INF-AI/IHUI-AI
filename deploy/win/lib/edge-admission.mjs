@@ -191,7 +191,7 @@ export function resolveRouterMaxConnections(raw) {
  * 留着只是多一个伪造面。Python 侧 conn_guard 优先读 cf-connecting-ip、其次 XFF ——
  * 删掉前者后它自然落到归一后的 XFF 上,无需改 Python。
  */
-export const IP_HEADERS_TO_DROP = Object.freeze([
+const IP_HEADERS_TO_DROP = Object.freeze([
   'x-real-ip',
   'true-client-ip',
   'x-client-ip',

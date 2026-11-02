@@ -30,7 +30,7 @@ import { logger } from '../utils/logger.js'
 // =============================================================================
 
 /** 首批策略键枚举(表里 policy_key 是 varchar,合法键以本清单为准) */
-export const ORG_POLICY_KEYS = [
+const ORG_POLICY_KEYS = [
   'model_allowlist',
   'feature_flags',
   'spend_budget_daily',

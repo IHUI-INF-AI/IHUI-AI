@@ -9,12 +9,6 @@ import type { Agent } from '@ihui/api-client'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
 import type { ChatMessage } from '@/api'
 
-interface MaterialItem {
-  id: string
-  title: string
-  coverUrl?: string
-  content?: string
-}
 /**
  * 本地视图模型(非 api-client Agent 直投):
  * - id 由 @/api 的 getAgentDetail 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id)
@@ -68,54 +62,6 @@ export function ModelDrawer({
         <Text className="drawer-title">{t('ai.chatDrawers.selectModel')}</Text>
       </View>
       <ModelList models={models} selectedId={selectedId} onSelect={onSelect} loading={loading} />
-    </DrawerComponent>
-  )
-}
-
-export function MaterialDrawer({
-  visible,
-  onClose,
-  materials,
-  loading,
-  onSelect,
-}: {
-  visible: boolean
-  onClose: () => void
-  materials: MaterialItem[]
-  loading: boolean
-  onSelect: (m: MaterialItem) => void
-}) {
-  const { t } = useI18n()
-  return (
-    <DrawerComponent visible={visible} onClose={onClose} height="60vh">
-      <View className="drawer-header">
-        <Text className="drawer-title">{t('ai.chatDrawers.materialLibrary')}</Text>
-      </View>
-      {loading ? (
-        <View className="drawer-empty">
-          <Text>{t('common.loading')}</Text>
-        </View>
-      ) : materials.length ? (
-        <View className="material-list">
-          {materials.map((m) => (
-            <View
-              key={m.id}
-              className="material-item"
-              onClick={() => onSelect(m)}
-              hoverClass="opacity-60"
-            >
-              {m.coverUrl ? (
-                <Image className="material-cover" src={m.coverUrl} mode="aspectFill" />
-              ) : null}
-              <Text className="material-title">{m.title}</Text>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <View className="drawer-empty">
-          <Text>{t('ai.chatDrawers.emptyMaterial')}</Text>
-        </View>
-      )}
     </DrawerComponent>
   )
 }

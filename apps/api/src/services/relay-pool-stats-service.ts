@@ -77,7 +77,7 @@ export interface RelayPoolRefreshResult {
 export const RELAY_POOL_ABNORMAL_MIN_VALUE = RELAY_POOL_HEALTH_STATE_VALUE.degraded
 
 /** 一行可调度性判定:启用且未被临时摘除。**全仓唯一一份**(gauge 与实时快照共用)。 */
-export function isRelayPoolRowSchedulable(row: {
+function isRelayPoolRowSchedulable(row: {
   isEnabled: boolean | null
   tempUnschedulable: boolean | null
 }): boolean {
@@ -185,7 +185,7 @@ export function zeroCapacityProviders(
 }
 
 /** 整池归零(一条 enabled 号都没有)—— 与"provider 全停用"同型,单独点名不并入上一档。 */
-export function poolHasNoEnabledRows(capacity: readonly RelayPoolProviderCapacity[]): boolean {
+function poolHasNoEnabledRows(capacity: readonly RelayPoolProviderCapacity[]): boolean {
   return capacity.reduce((acc, c) => acc + c.enabledRows, 0) === 0
 }
 

@@ -136,7 +136,7 @@ export interface ChatSyncStreamFrameEmitter {
   flush(): Promise<void>
 }
 
-export function createChatSyncStreamFrameEmitter(input: {
+function createChatSyncStreamFrameEmitter(input: {
   conversationId: string
   messageId: string
   memberUserIds: readonly string[]

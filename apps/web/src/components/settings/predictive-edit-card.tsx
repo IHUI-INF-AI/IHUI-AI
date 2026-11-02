@@ -53,5 +53,3 @@ export function PredictiveEditCard() {
     </Card>
   )
 }
-
-export default PredictiveEditCard
