@@ -43,8 +43,8 @@ import { ticketKeyOf } from './lib/ticket-key.mjs'
 export { ticketKeyOf }
 // 发起腿的「执行体存续」判据单源(2026-11-01 立):盘符归一 + 派发前核验 + 失败分型。
 // 本层零复算判据(§0.6),只做接线。
-import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure, gateTicketByHumanValve, VALVE_MODES } from './lib/autonomy-runner.mjs'
-export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure, gateTicketByHumanValve }
+import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
+export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
 import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
