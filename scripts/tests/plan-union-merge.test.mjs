@@ -188,4 +188,105 @@ test('T4 护栏:推导不到该仓时显式"无法判定"(rc=2),绝不回退写�
     rmScratch(root)
   }
 })
+
+/**
+ * A5 夹具①:两侧在同一处各追加**同一个登记键**的不同写法 —— 各自看都合法,
+ * 但并集里同号重复;旧判据(d1>d0 只看超长行)放行,严格档必须红。
+ */
+function makeSameIdRepo(root) {
+  mkdirSync(join(root, 'scripts'), { recursive: true })
+  g(root, ['init', '-b', 'main'])
+  g(root, ['config', 'user.email', 't@example.com'])
+  g(root, ['config', 'user.name', 'fixture'])
+  const PLAN = join(root, 'PROJECT_PLAN.md')
+  writeFileSync(PLAN, '# 计划\n\n- [ ] 共同基底行\n', 'utf8')
+  g(root, ['add', '-A'])
+  g(root, ['commit', '-qm', 'base'])
+  const base = g(root, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(PLAN, '# 计划\n\n- [ ] 共同基底行\n- [ ] Y-12 本侧写法\n', 'utf8')
+  g(root, ['commit', '-aqm', 'ours'])
+  const ours = g(root, ['rev-parse', 'HEAD']).trim()
+  g(root, ['checkout', '-q', base])
+  writeFileSync(PLAN, '# 计划\n\n- [ ] 共同基底行\n- [ ] Y-12 对侧写法\n', 'utf8')
+  g(root, ['commit', '-aqm', 'theirs'])
+  const theirs = g(root, ['rev-parse', 'HEAD']).trim()
+  g(root, ['checkout', '-q', 'main'])
+  return { base, ours, theirs }
+}
+
+/**
+ * A5 夹具②:base 有一行带号待办,我方原样保留(只在文件尾追加自己的新行),
+ * 对侧把这行删掉(也在文件尾追加自己的行)。并集会执行该删除 ⇒ 我方独有带号行消失。
+ */
+function makeDroppedIdRepo(root) {
+  mkdirSync(join(root, 'scripts'), { recursive: true })
+  g(root, ['init', '-b', 'main'])
+  g(root, ['config', 'user.email', 't@example.com'])
+  g(root, ['config', 'user.name', 'fixture'])
+  const PLAN = join(root, 'PROJECT_PLAN.md')
+  const baseText = '# 计划\n\n- [ ] B76 旧登记待办\n- [ ] 共同基底行\n'
+  writeFileSync(PLAN, baseText, 'utf8')
+  g(root, ['add', '-A'])
+  g(root, ['commit', '-qm', 'base'])
+  const base = g(root, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(PLAN, `${baseText}- [ ] 本侧新登记 O01\n`, 'utf8')
+  g(root, ['commit', '-aqm', 'ours'])
+  const ours = g(root, ['rev-parse', 'HEAD']).trim()
+  g(root, ['checkout', '-q', base])
+  writeFileSync(PLAN, '# 计划\n\n- [ ] 共同基底行\n- [ ] 对侧新登记 T02\n', 'utf8')
+  g(root, ['commit', '-aqm', 'theirs'])
+  const theirs = g(root, ['rev-parse', 'HEAD']).trim()
+  g(root, ['checkout', '-q', 'main'])
+  return { base, ours, theirs }
+}
+
+test('T5 严格档:同号重复被两份各自合法化也必须红(d1 长行判据看不见它)', () => {
+  const root = mkScratch('pum-t5-')
+  try {
+    const { base, ours, theirs } = makeSameIdRepo(root)
+    const tool = installTool(root)
+    const args = ['--base', base, '--ours', ours, '--theirs', theirs]
+    const legacy = runTool(tool, args, root)
+    assert.equal(legacy.rc, 0, `默认档保持旧行为(只罚新增超长重复),实得 ${legacy.rc}:\n${legacy.out}`)
+    assert.doesNotMatch(legacy.out, /同号重复/, '默认档不得悄悄新增判据')
+    const strict = runTool(tool, [...args, '--strict-ids'], root)
+    assert.equal(strict.rc, 1, `严格档遇同号重复必须阻断,实得 ${strict.rc}:\n${strict.out}`)
+    assert.match(strict.out, /合并结果同号重复 1 枚\(Y-12×2\)/, '必须点名重复的键与重数')
+    assert.match(strict.out, /--strict-ids/, '必须点名触发的是严格档')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T6 严格档:我方独有带号行不得被静默解删 —— 无声明阻断,有理由放行', () => {
+  const root = mkScratch('pum-t6-')
+  try {
+    const { base, ours, theirs } = makeDroppedIdRepo(root)
+    const tool = installTool(root)
+    const args = ['--base', base, '--ours', ours, '--theirs', theirs]
+    const legacy = runTool(tool, args, root)
+    assert.equal(legacy.rc, 0, `默认档仍把这次解删读成可收编的改写,实得 ${legacy.rc}:\n${legacy.out}`)
+    assert.doesNotMatch(legacy.out, /阻断,不落地/, '默认档不得阻断 —— 这正是 A5 要补的洞')
+    const strict = runTool(tool, [...args, '--strict-ids'], root)
+    assert.equal(strict.rc, 1, `严格档遇未声明解删必须阻断,实得 ${strict.rc}:\n${strict.out}`)
+    assert.match(strict.out, /我方独有带号行未存活且未声明 --attest-id-drop\(B76\)/, '必须点名被解删的键')
+    assert.match(strict.out, /阻断,不落地/, '必须明说阻断')
+    const attested = runTool(
+      tool,
+      [...args, '--strict-ids', '--attest-id-drop', 'B76=该旧票已由票主确认作废,对侧整行删除'],
+      root,
+    )
+    assert.equal(attested.rc, 0, `有理由声明应放行,实得 ${attested.rc}:\n${attested.out}`)
+    assert.match(attested.out, /B76「该旧票已由票主确认作废/, '放行必须把声明理由印出来')
+    const stale = runTool(
+      tool,
+      [...args, '--strict-ids', '--attest-id-drop', 'B77=这条声明并不对应任何丢失行'],
+      root,
+    )
+    assert.equal(stale.rc, 1, '陈旧声明不得被当作放行凭证')
+    assert.match(stale.out, /陈旧声明不记通过|未命中任何丢失带号行/)
+  } finally {
+    rmScratch(root)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -120,8 +120,8 @@ test('U7 自证面与产出面同形:被扣的行不在期望重数表里 ⇒ ve
 
 test('U8 形状锁(§0.6 单一真相源):配对判据只有一份,接线点就在期望表函数体内', () => {
   assert.ok(
-    /import\s*\{\s*classifyMarkerTriples\s*\}\s*from\s*'\.\/lib\/conflict-marker-triples\.mjs'/.test(
-      UNION_SRC,
+    /import\s*\{\s*classifyMarkerTriples\s*\}\s*from\s*'\.\/(?:lib\/)?conflict-marker-triples\.mjs'/.test(
+      UNION_SRC + '\n' + sourceOf('scripts/lib/union-converge-judgments.mjs'),
     ),
     'union-converge 必须 import lib 的那份配对判据,不得自己再扫一遍行',
   )
