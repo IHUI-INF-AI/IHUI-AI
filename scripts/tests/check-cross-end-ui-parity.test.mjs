@@ -2292,4 +2292,107 @@ test('T67 引用写法不得把 web↔RN 覆盖数读塌(与字面量夹具同�
   assert.equal(ref.oneSided.length, lit.oneSided.length, '引用不得把"已对齐"读成 one-sided')
   assert.equal(ref.findings.length, 0, '同值时引用写法不得报分叉')
 })
+
+/**
+ * T68 —— 间距档引用必须**按紧邻键名归维**(2026-11-02 修 `rnSpacing.*` 无条件记 spacing)。
+ * 立因:间距档最常坐的键恰是 `padding` / `paddingHorizontal` / `paddingVertical`,旧口径把它们
+ * 全记进 spacing ⇒ padding 维整族读成 0,web↔RN 报出的是"RN 侧没读数"(假 one-sided),不是两端不同。
+ * 钉法:同一档表下,引用写法与字面量写法在**每一维**读出同一集合;无几何键语境维持旧口径 spacing
+ * (不丢档值、也不猜某维)。
+ */
+test('T68 间距档引用与字面量逐维同读数(padding / spacing)', () => {
+  const tiers = { 'rnSpacing.md': 16, 'rnSpacing.sm-loose': 12, 'rnSpacingFor.gap': 8 }
+  const dims = (code, d) => [...src.readGeometry(code, 'rn', tiers).dims[d]]
+  assert.deepEqual(
+    dims('const s = { padding: rnSpacing.md }', 'padding'),
+    dims('const s = { padding: 16 }', 'padding'),
+    'padding 键上的档引用必须与字面量同读进 padding 维',
+  )
+  assert.deepEqual(
+    dims("const s = { paddingHorizontal: rnSpacing['sm-loose'] }", 'padding'),
+    dims('const s = { paddingHorizontal: 12 }', 'padding'),
+    'paddingHorizontal 的方括号取档与字面量同口径',
+  )
+  assert.deepEqual(
+    dims('const s = { paddingVertical: rnSpacing.md }', 'padding'),
+    dims('const s = { paddingVertical: 16 }', 'padding'),
+  )
+  assert.deepEqual(
+    dims('const s = { gap: rnSpacing.md }', 'spacing'),
+    dims('const s = { gap: 16 }', 'spacing'),
+    'gap/margin 语境仍归 spacing',
+  )
+  assert.deepEqual(
+    dims('const s = { gap: rnSpacingFor.gap }', 'spacing'),
+    dims('const s = { gap: 8 }', 'spacing'),
+    'rnSpacingFor 与 rnSpacing 同一归维口径',
+  )
+  assert.deepEqual(
+    dims('const s = { padding: rnSpacing.md }', 'spacing'),
+    dims('const s = { padding: 16 }', 'spacing'),
+    'padding 档不得同时记进 spacing(否则一档双计)',
+  )
+  assert.deepEqual(
+    dims('const s = { color: rnSpacing.md }', 'spacing'),
+    [16],
+    '无几何键语境维持旧口径 spacing:档值不丢,也不猜某一维',
+  )
+})
+
+/**
+ * T69 —— `data.webEvidence` 锚(2026-11-02):只认 `<web 路径>:<行>` 且路径在 web 取证件面内的;
+ * 读数按 `page.tsx ∪ 取证件` 并集(屏壳读数不得被取证件顶掉)。锚上之后,原先 web 零读数的维度
+ * 从 one-sided 变成可判 —— 这条锁的正是"补锚不是换锚,更不是把缺口涂成同值"。
+ */
+test('T69 webEvidence 锚:形态/面内校验 + 读数并集', () => {
+  const rn = 'packages/app/src/features/x/XScreen.tsx'
+  const comp = 'apps/web/src/components/x/XCard.tsx'
+  const pages = ['x', 'y', 'z'].map((r) => `apps/web/app/(main)/${r}/page.tsx`)
+  const row = (route, data) =>
+    JSON.stringify({ web: route, rn, status: 'aligned', data: { evidence: `${rn}:1`, ...data } })
+  const ledger = [
+    row('x', { webEvidence: `${comp}:9` }),
+    row('y', { webEvidence: 'no-line' }),
+    row('z', { webEvidence: 'apps/web/nowhere.tsx:3' }),
+  ].join('\n')
+  const built = src.buildWebRnPairs(ledger, pages, [rn], [comp])
+  assert.equal(built.pairs.length, 1, '只有形态合法且路径在取证件面内的行才配对')
+  assert.equal(built.pairs[0].webEvidence, comp, '配对行携带取证件路径(行号只作人读证据)')
+  const why = built.pending.map((p) => p.why).join(' | ')
+  assert.match(why, /不是 <web 路径>:<行> 形态/, '缺行号 ⇒ 待确认,不猜')
+  assert.match(why, /不在 web 取证件面/, '面外文件 ⇒ 待确认,不猜')
+
+  const rnSrc = 'const s = { padding: 16 }'
+  const plainPage = 'const s = { color: 1 }'
+  const anchorPage = 'const s = { padding: 8 }'
+  const compSrc = 'const s = { paddingHorizontal: 16 }'
+  const run = (webEvidence, pageSrc) =>
+    src.webRnGeometryAudit(
+      [{ name: 'x', web: pages[0], rn, evidence: `${rn}:1`, webEvidence }],
+      { [pages[0]]: pageSrc, [comp]: compSrc, [rn]: rnSrc },
+      null,
+      {},
+      null,
+    )
+  const bare = run(null, plainPage)
+  assert.equal(bare.oneSided.length, 1, '无锚且 page 该维零读数 ⇒ one-sided(数据缺口如实报)')
+  assert.equal(bare.oneSided[0].dim, 'padding')
+  const anchored = run(comp, plainPage)
+  assert.equal(anchored.oneSided.length, 0, '补锚后同一维必须变成可判(而不是继续报缺口)')
+  assert.equal(anchored.findings.length, 0, '两侧同档 ⇒ 零分叉')
+  assert.equal(anchored.dimCoverage.padding, 1, 'padding 维可判对数 +1')
+  assert.deepEqual(
+    [...bare.findings, ...anchored.findings].length,
+    0,
+    '没有新增分叉(并集口径下同档不造假分叉)',
+  )
+  const union = run(comp, anchorPage)
+  assert.deepEqual(
+    union.findings[0].dims.padding.rnOnly,
+    [],
+    '并集:page 的 padding 8 与取证件 16 都在 web 侧 ⇒ 只报 RN 独有的档',
+  )
+  assert.deepEqual(union.findings[0].dims.padding.webOnly, [8], '屏壳读数不得被取证件顶掉')
+  assert.equal(union.findings[0].webEvidence, comp, '分叉明细必须点名取证件')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
