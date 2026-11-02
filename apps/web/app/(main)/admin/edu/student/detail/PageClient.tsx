@@ -116,7 +116,7 @@ export default function EduStudentDetailPage() {
             {t('backToList')}
           </Link>
         </Button>
-        <p className="text-sm text-muted-foreground">{t('enterFromList')}</p>
+        <p className="text-body text-muted-foreground">{t('enterFromList')}</p>
       </div>
     )
   }
@@ -137,7 +137,7 @@ export default function EduStudentDetailPage() {
             {t('backToList')}
           </Link>
         </Button>
-        <p className="text-sm text-destructive">{(error as Error)?.message ?? t('loadFailed')}</p>
+        <p className="text-body text-destructive">{(error as Error)?.message ?? t('loadFailed')}</p>
       </div>
     )
 
@@ -187,11 +187,11 @@ export default function EduStudentDetailPage() {
           <Avatar name={data.nickname} size="xl" />
           <div>
             <h1 className="text-display font-bold">{data.nickname}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-body text-muted-foreground">
               {data.phone ?? t('noPhone')} · {data.email ?? t('noEmail')} ·{' '}
               <span
                 className={cn(
-                  'rounded-md px-2 py-0.5 text-xs',
+                  'rounded-md px-2 py-0.5 text-label',
                   data.status === 1
                     ? 'bg-emerald-500/10 text-emerald-600'
                     : 'bg-muted text-muted-foreground',
@@ -200,7 +200,7 @@ export default function EduStudentDetailPage() {
                 {data.status === 1 ? t('statusActive') : t('statusDisabled')}
               </span>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-label text-muted-foreground">
               {t('levelLabel', { level: levelLabel })} ·{' '}
               {t('registeredAt', {
                 date: formatDateOnly(data.createdAt),
@@ -214,7 +214,7 @@ export default function EduStudentDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('signupCourses')}</div>
+              <div className="text-label text-muted-foreground">{t('signupCourses')}</div>
               <div className="text-heading font-semibold">{data.signupCount}</div>
             </div>
           </CardContent>
@@ -223,7 +223,7 @@ export default function EduStudentDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <TrendingUp className="h-8 w-8 text-emerald-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('learnHours')}</div>
+              <div className="text-label text-muted-foreground">{t('learnHours')}</div>
               <div className="text-heading font-semibold">{data.learnHours}h</div>
             </div>
           </CardContent>
@@ -232,7 +232,7 @@ export default function EduStudentDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Award className="h-8 w-8 text-amber-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('examCount')}</div>
+              <div className="text-label text-muted-foreground">{t('examCount')}</div>
               <div className="text-heading font-semibold">{data.examCount}</div>
             </div>
           </CardContent>
@@ -241,7 +241,7 @@ export default function EduStudentDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Award className="h-8 w-8 text-purple-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('certCount')}</div>
+              <div className="text-label text-muted-foreground">{t('certCount')}</div>
               <div className="text-heading font-semibold">{data.certCount}</div>
             </div>
           </CardContent>
@@ -279,7 +279,7 @@ export default function EduStudentDetailPage() {
                             style={{ width: `${l.progress}%` }}
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground">{l.progress}%</span>
+                        <span className="text-label text-muted-foreground">{l.progress}%</span>
                       </div>
                     </TableCell>
                   </TableRow>
