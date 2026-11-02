@@ -8067,6 +8067,125 @@ export function sweepDesktopDiscoveryBudget(opts = {}) {
   }
 }
 
+/**
+ * iOS `.ipa` 中继到自有站点腿(2026-11-03 立;执行器 = `scripts/publish-mobile-ipa.mjs --from-release`)。
+ *
+ * 为什么必须由守护来跑:iOS 的包在 macOS runner 上构建,这台机器过去**从不需要**它的字节,
+ * 所以站点腿上永远不会有 `.ipa` —— 下载栏里 iOS 是唯一还挂 GitHub 资产域名(2026-11-02 实测
+ * API 0.9s 而资产下载 12s 超时 2/3 次)的实物包。没有调度器,这条链就是"器物造好了没人开车"(§0.9)。
+ *
+ * 三档语义(与 §0.3/§5e-1 对齐):
+ *   rc 0 ⇒ 上腿成功,清持续台账;
+ *   rc 1 ⇒ 真失败(包已落腿但登记不成 / 自证不过)⇒ 当场喊人(可整改动作在执行器打印的命令里);
+ *   rc 2 ⇒ 未判定(还没可自证的版本号 / 跨境段取不到包 / 落点不在)⇒ 平时只写日志,
+ *          **持续 72h+ 才升格喊人**(alertHeldTier 的 tierEscalated)——版本号自证那一步要靠
+ *          iOS 构建链产出 ios-version.json,那枚资产要等下一次 iOS 构建才有,天天喊就是噪声;
+ *          但也不能永远不喊:那样"腿一直空着"与"刚切完正常"长得一样。
+ */
+const IOS_RELAY_TICK = join(WORKTREE, '.ihui-agent', 'state', 'ios-ipa-relay-tick.ts')
+const IOS_RELAY_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'ios-ipa-relay-first.json')
+const IOS_RELAY_INTERVAL_MS = Number(process.env.IHUI_IOS_RELAY_INTERVAL_MS || 60 * 60 * 1000)
+const IOS_RELAY_TIMEOUT_MS = Number(process.env.IHUI_IOS_RELAY_TIMEOUT_MS || 20 * 60 * 1000)
+
+export function sweepIosIpaRelay(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = IOS_RELAY_INTERVAL_MS,
+    tickFile = IOS_RELAY_TICK,
+    firstFile = IOS_RELAY_FIRST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'publish-mobile-ipa.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ iOS 站点腿中继:执行器不在位(scripts/publish-mobile-ipa.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '执行器不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--from-release'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b
+                timeout: IOS_RELAY_TIMEOUT_MS,
+                maxBuffer: 1 << 24,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    const tail = ([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(-600)
+    if (call.status === 0) {
+      clearUndeterminedStreak(firstFile)
+      logger('✅ iOS 站点腿中继:版本副本已落地、指针已翻、登记腿已写(详见执行器输出)')
+      return { ran: true, judged: true, state: 'published' }
+    }
+    if (call.status === 1) {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        'iOS 包已发到站点腿但没收口:登记或自证失败',
+        [
+          '执行器 `scripts/publish-mobile-ipa.mjs --from-release` 以 1 退出 —— 这一档是"包已经在腿上,',
+          '但账没收平"(app_versions 没写上 / 本地源站自证不过),不是网络抖动:',
+          tail,
+          '',
+          '可整改的那一步在执行器打印的整改命令里(register-app-version-latest,幂等,只补登记不重发包)。',
+          '若失败的是自证:先 `nssm status IHUI-IMAGE-CDN` 与 `curl -sSI -H "Host: www.aizhs.top" ' +
+            'http://127.0.0.1:80/remote-images/download/ihui-ai-latest.ipa` 看指针有没有转 302。',
+        ].join('\n'),
+        { severity: 'warning', dedupKey: `verdict=fail;held=${held.tier}` },
+      )
+      logger('❌ iOS 站点腿中继:执行器以 1 退出(已发信)')
+      return { ran: true, judged: true, state: 'fail' }
+    }
+    // rc 2 = 未判定
+    const { firstMs } = noteUndeterminedStreak(firstFile, now)
+    const held = alertHeldTier(firstMs, now)
+    if (held.tierEscalated) {
+      notify(
+        `iOS 站点腿已持续 ${String(held.hours)} 小时拿不到可自证的包`,
+        [
+          '执行器一直返回"未判定"(rc 2)。最常见成因:release `ios-nightly` 里还没有 `ios-version.json`',
+          '—— 那枚资产要等 iOS 构建链跑一次才会有(2026-11-03 加的步骤);其次是跨境段取不到包、',
+          '或站点腿落点不在(生产签出根取不到 ⇒ 执行器 exit 2 点名已试路径)。',
+          tail,
+          '',
+          '要么让下一次 iOS 构建产出该资产,要么显式补一次:',
+          '  node scripts/publish-mobile-ipa.mjs --ipa <path> --version X.Y.Z --build-number <纯数字>',
+        ].join('\n'),
+        { severity: 'warning', dedupKey: 'verdict=undetermined;escalated=72h+' },
+      )
+      logger(`❌ iOS 站点腿中继:未判定已持续 ${String(held.hours)}h ⇒ 升格喊人(§0.10 不许静默)`)
+      return { ran: true, judged: false, state: 'undetermined-escalated', held: held.tier }
+    }
+    logger(`ℹ️ iOS 站点腿中继:未判定(${held.tier})—— 平时不喊人,持续 72h+ 才升格`)
+    return { ran: true, judged: false, state: 'undetermined', held: held.tier }
+  } catch (e) {
+    logger('⚠️ iOS 站点腿中继派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -10956,6 +11075,134 @@ export function sweepRnHostShells(opts = {}) {
 }
 
 /**
+ * 跨端自愈腿的**落库**一节(2026-11-02 立)。
+ *
+ * 立因:healCrossEndMirror / convergeCrossEndPortalVerdicts / autoRegisterRnTokenPairs /
+ * sweepRnHostShells / sweep{Web,Rn,Miniapp}StyleTiers / sweepHandMirrorUpgrades 每 30 分钟真跑、
+ * 真写工作树,注释统一写着「落库交给 auto-commit-quiet」—— 而该器全仓**零派生调用点**(git-guardian
+ * 里七处命中逐条核过都是注释行,pre-commit 注册表与 CI 也无它),于是写盘件长期悬挂:实测一轮
+ * `land-web-style-tiers --apply` 写下 1747 个 apps/web 档名替换后无人收,守护每轮从头再来。
+ * 按 §0.9「造好没装车 = 没有」——这七条腿此前事实上都只写到了工作树。
+ *
+ * 凭据面:各腿写盘后向 `.ihui-agent/state/cross-end-landing.jsonl` 登记 (leg,path,blobOid),
+ * 收编侧只认「账本在册 ∧ 工作树 blob 逐字节 == 登记 oid ∧ 超静默期 ∧ 非 ignored」;取不到账本
+ * ⇒ `ledger=unjudged` 且**一条也不收**(§0.3)。白名单一族不因本腿放宽:f6e0ba44a9 那次收窄的
+ * 现场就是无差别收编把 7 件实质回退 + 3 个半成品测试送进主干。
+ *
+ * 失效方向:无待收 ⇒ 一声不出(15 分钟一行"没问题"只会淹日志);结论行取不到 ⇒ 记未判定,绝不折成
+ * "无待收编";提交仍只有 safe-commit 一条出口,推送仍由 post-commit `git-push-guard` 负责(本腿不带
+ * push 腿)。判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+const CROSS_END_LANDING_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_LANDING_INTERVAL_MS || 15 * 60 * 1000,
+)
+
+export function sweepCrossEndLandingLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_LANDING_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'auto-commit-quiet.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 跨端落库:器物不在位(scripts/auto-commit-quiet.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const timeoutMs = Number(process.env.IHUI_CROSS_END_LANDING_TIMEOUT_MS || 20 * 60 * 1000)
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(script, [], timeoutMs)
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  // 结论行是该器物的既有形态,本腿只解析不改它:
+  // COLLECT-RESULT ledger=… collected=N whitelistCollected=N ledgerCollected=N quiet=N …
+  const m = /COLLECT-RESULT (.*)/.exec(`${String(r.stdout ?? '')}\n${String(r.stderr ?? '')}`)
+  if (!m) {
+    logger(
+      `⚠️ 跨端落库:结论取不到 ⇒ 本轮未判定(${
+        r.signal
+          ? `子进程被 ${r.signal} 掐死(上限 ${Math.round(timeoutMs / 60000)} 分钟)`
+          : `status=${r.status ?? '?'}`
+      })—— 这不等于"无待收编"`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+  }
+  const line = m[1]
+  const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
+  const ledger = /ledger=(\w+)/.exec(line)?.[1] ?? 'unknown'
+  const landed = num('collected')
+  const out = {
+    ran: true,
+    ok: true,
+    state: ledger,
+    collected: landed,
+    ledgerCollected: num('ledgerCollected'),
+    quiet: num('quiet'),
+    contested: num('contested'),
+    incomplete: num('incomplete'),
+    held: num('held'),
+  }
+  if (landed === 0 && out.contested === 0 && out.incomplete === 0) return out
+  logger(`📦 跨端落库:${line.slice(0, 220)}`)
+  return out
+}
+
+/**
+ * 非色档**源头**派生腿:`packages/design-tokens` 的 TS 档表(SPACING_STEPS/TYPE_STEPS/FONT_WEIGHTS/
+ * ELEVATION_CSS)→ tokens.css 的 `css-tokens:managed` 受管块。
+ *
+ * 立因:机主要的是「Web 改样式,RN 自动跟」。色值那一族早就是源头派生(tokens.css → 各端副本由
+ * pre-commit 的 TOKEN_SYNC_TARGETS 写回),但非色档的源头这一格此前**只能人工敲**:cascade 里
+ * `sync-css-tokens.mjs` 只登记了 `--check`(只读校验),`package.json` 那两个脚本位都要人动手,
+ * 于是改了 TS 档表 → 受管块不新鲜 → 门 93 R9/R10/R11 红 → 三端副本集体滞后。源头不动,下游全是债。
+ *
+ * 器物自身幂等(等值 ⇒ 零字节写回),受管块是**派生态禁止手改**,其正确性由门 93 在提交链兜底
+ * ⇒ 收编侧把该路径列为派生态白名单(不是业务代码族,与 f6e0ba44a9 防的那一型不同性质)。
+ * 判机器状态 ⇒ 不进提交链(§12e);结论取不到记未判定,不记绿(§0.3)。
+ */
+const CSS_TOKENS_SOURCE_INTERVAL_MS = Number(
+  process.env.IHUI_CSS_TOKENS_SOURCE_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+export function sweepCssTokensSourceLeg(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CSS_TOKENS_SOURCE_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'css-tokens-source-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'sync-css-tokens.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 非色档源头:器物不在位(scripts/sync-css-tokens.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(script, ['--write'], Number(process.env.IHUI_CSS_TOKENS_SOURCE_TIMEOUT_MS || 5 * 60 * 1000))
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  const out = String(r.stdout ?? '') + String(r.stderr ?? '')
+  // 该器两条既有结论文案:一致 ⇒「零字节写回」;写回 ⇒「已写回 tokens.css(插入|更新受管块…)」
+  if (/零字节写回/.test(out)) return { ran: true, ok: true, state: 'clean' }
+  const w = /已写回 tokens\.css\(([^)]*)\)/.exec(out)
+  if (w) {
+    logger(`🎨 非色档源头:tokens.css 受管块已与 TS 档表同源(${w[1].slice(0, 120)})⇒ 交落库腿收编`)
+    return { ran: true, ok: true, state: 'written' }
+  }
+  logger(
+    `⚠️ 非色档源头:结论取不到 ⇒ 本轮未判定(${
+      r.signal ? `子进程被 ${r.signal} 掐死` : `status=${r.status ?? '?'}`
+    })—— 这不等于"源头已同源"`,
+  )
+  return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+}
+
+/**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
  * → 逐份复量"新钉 == 面上现算输入哈希" → 只把复量过的 blob 落 HEAD(主工作树一字节不动)。
@@ -11728,6 +11975,7 @@ async function main() {
     // 判公网与线上数据 ⇒ 不进提交链(§12e),唯一调度器就是这里;红项正文直接给登记器物那一步(OWNER-ONLY)。
     if (!CHECK_ONLY) auditAppVersionLatest()
     if (!CHECK_ONLY) sweepDesktopDiscoveryBudget()
+    if (!CHECK_ONLY) sweepIosIpaRelay()
     // 逐字回潮巡检(2026-10-29 立,尺子 = scripts/check-verbatim-resurrection.mjs,6h 节流):立因 =
     // 同日的嫁接枚 1fe3a2b42d 把 9 枚已声明删除的路径带回主线,而 168 要 ≥2 个父、旁路落地不跑钩子、
     // 238 只管文档面 —— 这型在提交链上结构上无人能看见,只能由常驻班次在"一切面"上判。
@@ -11819,6 +12067,10 @@ async function main() {
     // 小程序那一侧同一条腿:三端里只要有一端停在"没人调度",同源门就每天新长一笔分叉。
     if (!CHECK_ONLY) sweepMiniappStyleTiers()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
+    // 源头先补(TS 档表→tokens.css 受管块),再把本轮七条腿的写盘产出按落点账本收编入库 ——
+    // 这两行是整条跨端链的**最后一节**;此前它们不存在,所以七条腿写得动盘却永远落不了库。
+    if (!CHECK_ONLY) sweepCssTokensSourceLeg()
+    if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
     // 只读对账尺:不进提交链,靠这一腿被自动跑起来(§0.9 造好没装车 = 没有)。
@@ -13023,6 +13275,7 @@ export const __test__ = {
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
   auditAppVersionLatest,
   sweepDesktopDiscoveryBudget,
+  sweepIosIpaRelay,
   // git filter 残留巡检(2026-10-31 立):解析判据与派发腿本体导出,镜像测试只 import 这一份(§22c)。
   auditGitFilterResidue,
   parseGitFilterKeys,
