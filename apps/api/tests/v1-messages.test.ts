@@ -434,7 +434,7 @@ describe('parseUpstreamLineToOpenAIChunk', () => {
   it('Vercel AI SDK 0:"text" 格式', () => {
     const chunk = parseUpstreamLineToOpenAIChunk('0:"hello"', 'claude-3-5-sonnet')
     expect(chunk).not.toBeNull()
-    expect(chunk!?.choices[0]!.delta.content).toBe('hello')
+    expect(chunk?.choices[0]!.delta.content).toBe('hello')
   })
 
   it('SSE data: {choices:[{delta:{content}}]} 格式 + [DONE] 返回 null', () => {
@@ -443,7 +443,7 @@ describe('parseUpstreamLineToOpenAIChunk', () => {
       'claude-3-5-sonnet',
     )
     expect(chunk).not.toBeNull()
-    expect(chunk!?.choices[0]!.delta.content).toBe('world')
+    expect(chunk?.choices[0]!.delta.content).toBe('world')
     expect(parseUpstreamLineToOpenAIChunk('data: [DONE]', 'claude-3-5-sonnet')).toBeNull()
     expect(parseUpstreamLineToOpenAIChunk('', 'claude-3-5-sonnet')).toBeNull()
   })
