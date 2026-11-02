@@ -7091,5 +7091,14 @@
   },
   "studyIndex": {
     "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
+  },
+  "career": {
+    "fillField": "입력: {name}",
+    "submitFail": "제출 실패, 잠시 후 재시도",
+    "doneTitle": "제출 완료",
+    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능",
+    "exportingReport": "내보내는 중...",
+    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다",
+    "exportLoginRequired": "내보내려면 로그인하세요"
   }
 }
