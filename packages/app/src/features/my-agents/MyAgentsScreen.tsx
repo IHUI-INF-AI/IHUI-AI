@@ -46,14 +46,15 @@ export function MyAgentsScreen({
   onRefresh,
   onPressItem,
   onBack,
-  colorScheme = 'light',
-}: MyAgentsScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: MyAgentsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading && items.length === 0) return <ScreenSkeleton colorScheme={colorScheme} />
   if (error && items.length === 0)
-    return <ErrorState message={error} onRetry={onRefresh} colorScheme={colorScheme} />
+    return <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
 
   return (
     <View style={styles.container}>

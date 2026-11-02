@@ -96,10 +96,11 @@ export function AgentScreen({
   onRefresh,
   onPressItem,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   nestedInScrollView = false,
   onNavigate,
-}: AgentScreenProps) {
+}: AgentScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -160,7 +161,7 @@ export function AgentScreen({
         />
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />

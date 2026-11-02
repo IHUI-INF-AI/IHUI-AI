@@ -32,8 +32,9 @@ export function DistributionScreen({
   onWithdraw,
   onBack,
   rates = [],
-  colorScheme = 'light',
-}: DistributionScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: DistributionScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -45,7 +46,7 @@ export function DistributionScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('distribution.retry')}
         colorScheme={colorScheme}
       />
