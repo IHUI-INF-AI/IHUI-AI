@@ -40,6 +40,7 @@
  *
  * 用法:
  *   node scripts/check-watermark-coverage.mjs            # 自愈模式,判 HEAD 面(push-gate 走这档)
+ *   node scripts/check-watermark-coverage.mjs --push-scope # push-gate 收窄档:只判本次 push 涉及文件(读 PUSH_SCOPE_FILES)
  *   node scripts/check-watermark-coverage.mjs --staged   # 自愈 + add 回索引(pre-commit 由 runner 下发)
  *   node scripts/check-watermark-coverage.mjs --no-fix   # 纯判定, 不修改(CI / 审计用)
  *   node scripts/check-watermark-coverage.mjs --worktree # 人工逃生舱:判磁盘面(不得作提交门禁)
@@ -48,6 +49,8 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -74,6 +77,14 @@ const NO_FIX = process.argv.includes('--no-fix')
  */
 const STAGED = process.argv.includes('--staged')
 const WORKTREE = process.argv.includes('--worktree')
+/**
+ * push-gate 的收窄档(2026-11-03):只判**本次 push 涉及的文件**,不跑全量 1.6 万+ 文件。
+ * push scope 的**唯一来源**是 `.husky/pre-push` 在调用 `guardian-runner --push-gate` 前导出的
+ * `PUSH_SCOPE_FILES`(由 `remote_sha..local_sha` 的 `git diff --name-only` 派生;与 `check-typecheck.mjs`
+ * 消费的是同一份,本门不另造第二套推导)。取不到 ⇒ 如实退回 HEAD 全量面并打印告警,**绝不伪造空 scope**。
+ */
+const PUSH_SCOPE = process.argv.includes('--push-scope')
+const PUSH_SCOPE_RAW = process.env.PUSH_SCOPE_FILES
 // 安全闸: 一次性自动回写的文件数上限。超过则拒绝自愈并直接报错,
 // 避免"某个批量改写脚本把半个仓库打回未水印态"时被静默整体重写。
 const MAX_AUTOFIX = 200
@@ -529,6 +540,28 @@ function sweepDupBanners({ face, scope, isExcluded }) {
   return { dupBanner, dupSamples, swept: sweepFiles.length }
 }
 
+/**
+ * 解析 `.husky/pre-push` 导出的 PUSH_SCOPE_FILES(本次 push 的变更文件清单)。
+ *  - 返回数组 = 取到了 push scope(去重 + 反斜杠归一;可能为空数组,表示变更文件全是删除/非可判类型);
+ *  - 返回 null = 环境变量缺失或空串 ⇒ **push scope 不可得**(pre-push 在变更 >300 文件时会主动清空,
+ *    非标准调用也可能没有)。此时如实退回 HEAD 全量面,绝不把"没取到"写成"scope 为空所以全绿"。
+ */
+function readPushScope() {
+  if (typeof PUSH_SCOPE_RAW !== 'string' || PUSH_SCOPE_RAW.trim() === '') return null
+  const paths = [
+    ...new Set(PUSH_SCOPE_RAW.split(/\r?\n/).map((s) => s.trim().replaceAll('\\', '/')).filter(Boolean)),
+  ]
+  return paths.length > 0 ? paths : null
+}
+
+/** 把收窄后的 HEAD 路径写成 watermark.mjs `--files-from` 能吃的临时清单(>300 文件也不撑命令行)。 */
+function writePushScopeManifest(paths) {
+  const dir = mkdtempSync(join(tmpdir(), 'ihui-push-scope-'))
+  const file = join(dir, 'files.txt')
+  writeFileSync(file, paths.join('\n') + '\n', 'utf8')
+  return { file, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+}
+
 // ---------- 主流程(§22d 守卫;判据本体是纯函数 decideCoverage,镜像测试直接 import) ----------
 async function main() {
   if (process.argv.includes('--self-test')) return selfTest()
@@ -536,6 +569,12 @@ async function main() {
   if (process.env.HUSKY_SKIP_WATERMARK_GUARD === '1') {
     console.log('[skip] HUSKY_SKIP_WATERMARK_GUARD=1, 跳过溯源水印覆盖守门')
     return 0
+  }
+
+  // --push-scope 只收窄批量 HEAD 面的分母;与 --staged/--worktree 换面旗互斥(两个面混判 = 未判定)。
+  if (PUSH_SCOPE && (STAGED || WORKTREE)) {
+    console.error('[watermark-coverage] ❌ 无法判定:--push-scope 只能判 HEAD 面,不得与 --staged/--worktree 同用')
+    return 2
   }
 
   // 面选择:全量档判 HEAD、--staged 判索引、--worktree 读磁盘(仅人工);两面旗同给 ⇒ 未判定 exit 2。
@@ -570,9 +609,59 @@ async function main() {
   //   全量档与 `--no-fix` 判据一字未动(只是面从磁盘换成 HEAD blob —— 那才是提交真正带走的东西)。
   //   索引里别人 add 过而我这次不带的缺口 ⇒ 降为**只报数**;既不 git add 别人的文件,
   //   也不让一道与本次提交无关的门替当前提交者挡路(§12e/§12f)。
-  const scope = trackedFiles(face)
-  const uncovered = listUncovered(faceArgs)
-  const faceInfo = face === 'head' ? '' : `(判定面=${face})`
+  //
+  // push-gate(2026-11-03):判面仍是 HEAD blob(被推送的提交内容),但分母收窄到
+  //   PUSH_SCOPE_FILES ∩ HEAD 树;单文件判据、排除面、自愈策略全部复用下面同一条 decideCoverage。
+  let scope
+  let uncovered
+  let faceInfo
+  let sweepScope
+  let pushScopeNote = ''
+  if (PUSH_SCOPE) {
+    const headScope = trackedFiles('head')
+    const pushPaths = readPushScope()
+    if (pushPaths === null) {
+      console.warn(
+        '[watermark-coverage] ⚠️ 未取到 PUSH_SCOPE_FILES(非标准 .husky/pre-push 调用或变更 >300 文件) ⇒ 退回 HEAD 全量面;不伪造空 scope。',
+      )
+      scope = headScope
+      uncovered = listUncovered([])
+      sweepScope = headScope
+      faceInfo = '(push scope 不可得 ⇒ HEAD 全量面)'
+      pushScopeNote = 'push scope 不可得 ⇒ 按 HEAD 全量面判'
+    } else {
+      const pushSet = new Set(pushPaths)
+      const narrowed = (headScope.files ?? []).filter((f) => pushSet.has(f))
+      let manifest = null
+      try {
+        if (narrowed.length > 0) {
+          manifest = writePushScopeManifest(narrowed)
+          uncovered = listUncovered(['--files-from', manifest.file])
+        } else {
+          // scope 已取到,只是本次 push 没碰任何 HEAD 面文件(纯删除/非可判类型):这不是"判不了"。
+          uncovered = { paths: [], error: null }
+        }
+      } finally {
+        if (manifest) manifest.cleanup()
+      }
+      // indexFiles 仍取 HEAD 全树:decideCoverage 的"分母为空 ⇒ 未判定"闸门需要它;
+      // files 才是本次分母 —— 两者同面(HEAD),只是后者收窄。
+      scope = {
+        indexFiles: headScope.indexFiles,
+        files: narrowed,
+        untrackedFiles: [],
+        error: headScope.error,
+      }
+      sweepScope = { indexFiles: narrowed, files: narrowed }
+      faceInfo = `(push scope:本次推送 ${pushPaths.length} 个变更文件 → HEAD 面交集 ${narrowed.length} 个)`
+      pushScopeNote = `push scope 面(变更 ${pushPaths.length} 个 → HEAD 交集 ${narrowed.length} 个)`
+    }
+  } else {
+    scope = trackedFiles(face)
+    uncovered = listUncovered(faceArgs)
+    faceInfo = face === 'head' ? '' : `(判定面=${face})`
+    sweepScope = scope
+  }
   // 携带面**只量一次**(paths 与 error 必须来自同一轮派生;两次派生 = 两个时刻的索引)
   const carried = face === 'staged' ? carriedFiles() : { paths: null, error: null }
   const decision = decideCoverage({
@@ -609,7 +698,7 @@ async function main() {
     )
   }
 
-  const sweep = sweepDupBanners({ face, scope, isExcluded: exclusion.isExcluded })
+  const sweep = sweepDupBanners({ face, scope: sweepScope, isExcluded: exclusion.isExcluded })
   if (sweep.dupBanner > 0) {
     console.log(
       `[watermark-coverage] ⚠️ 双横幅文件 ${sweep.dupBanner} 个(warn,不阻塞;修复:node scripts/watermark.mjs clean <f> && inject <f>)`,
@@ -652,13 +741,15 @@ async function main() {
     // 措辞必须与**判过的面**一致:提交档只判了本次携带的文件,不能声称"已跟踪文件水印完整"
     // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型),也正好掩盖 untouchedGaps 那一档。
     console.log(
-      face === 'staged'
-        ? `[watermark-coverage] ✅ 本次提交携带的 ${carried.paths ? carried.paths.length : 0} 个文件水印完整` +
-            `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)` +
-            (untouchedGaps.length === 0 && carried.paths && carried.paths.length === 0
-              ? ' —— 暂存面为空,本次不携带任何文件'
-              : '')
-        : `[watermark-coverage] ✅ ${face === 'head' ? 'HEAD 面' : '工作树面(人工逃生舱)'}已枚举文件水印完整${face === 'worktree' ? '(未跟踪产物另列,不计入)' : ''}`,
+      PUSH_SCOPE
+        ? `[watermark-coverage] ✅ ${pushScopeNote},已判文件水印完整`
+        : face === 'staged'
+          ? `[watermark-coverage] ✅ 本次提交携带的 ${carried.paths ? carried.paths.length : 0} 个文件水印完整` +
+              `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)` +
+              (untouchedGaps.length === 0 && carried.paths && carried.paths.length === 0
+                ? ' —— 暂存面为空,本次不携带任何文件'
+                : '')
+          : `[watermark-coverage] ✅ ${face === 'head' ? 'HEAD 面' : '工作树面(人工逃生舱)'}已枚举文件水印完整${face === 'worktree' ? '(未跟踪产物另列,不计入)' : ''}`,
     )
     return 0
   }
