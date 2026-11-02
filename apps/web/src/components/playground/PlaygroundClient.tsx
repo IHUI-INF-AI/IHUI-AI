@@ -128,7 +128,7 @@ export function PlaygroundClient() {
           <Eraser className="h-4 w-4" />
           {tc('clear')}
         </Button>
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ml-auto text-label text-muted-foreground">
           POST /v1/chat/completions {params.stream ? t('modeSse') : t('modeNonStream')}
         </span>
       </div>

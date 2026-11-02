@@ -80,7 +80,7 @@ export default function EduDashboardPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -111,12 +111,12 @@ export default function EduDashboardPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
+                <CardTitle className="flex items-center gap-2 text-body">
                   <BookOpen className="h-4 w-4 text-primary" />
                   {t('coursesCard.title')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-1 text-body">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t('coursesCard.total')}</span>
                   <span className="font-medium">{data?.totalCourses ?? 0}</span>
@@ -131,12 +131,12 @@ export default function EduDashboardPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
+                <CardTitle className="flex items-center gap-2 text-body">
                   <Award className="h-4 w-4 text-primary" />
                   {t('examsCard.title')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-1 text-body">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t('examsCard.totalExams')}</span>
                   <span className="font-medium">{data?.totalExams ?? 0}</span>
@@ -149,7 +149,7 @@ export default function EduDashboardPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
+                <CardTitle className="flex items-center gap-2 text-body">
                   <BarChart3 className="h-4 w-4 text-primary" />
                   {t('progressCard.title')}
                 </CardTitle>
@@ -171,7 +171,7 @@ export default function EduDashboardPage() {
               <h2 className="text-lg font-semibold">{t('recentSection.title')}</h2>
               <Link
                 href="/edu/courses"
-                className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
               >
                 {t('recentSection.viewAll')}
                 <ArrowRight className="h-4 w-4" />
@@ -180,7 +180,7 @@ export default function EduDashboardPage() {
             {(data?.recentCourses ?? []).length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
                 <PlayCircle className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">{t('recentSection.empty')}</p>
+                <p className="text-body text-muted-foreground">{t('recentSection.empty')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -195,7 +195,7 @@ export default function EduDashboardPage() {
                             style={{ width: `${c.progress}%` }}
                           />
                         </div>
-                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="mt-2 flex items-center justify-between text-label text-muted-foreground">
                           <span>{t('recentSection.progressLabel', { n: c.progress })}</span>
                           <span>{fmt(c.lastLearnAt)}</span>
                         </div>

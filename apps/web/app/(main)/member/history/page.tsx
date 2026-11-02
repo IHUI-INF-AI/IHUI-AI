@@ -64,7 +64,7 @@ export default function MemberHistoryPage() {
             <History className="h-5 w-5 shrink-0 text-primary" />
             <span className="whitespace-nowrap">浏览历史</span>
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">最近浏览过的内容</p>
+          <p className="mt-0.5 text-body text-muted-foreground">最近浏览过的内容</p>
         </div>
         {items.length > 0 && (
           <Button
@@ -96,7 +96,7 @@ export default function MemberHistoryPage() {
       ) : !isAuthenticated ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <LogIn className="h-8 w-8 opacity-40" />
-          <p className="text-sm">请先登录后查看浏览历史</p>
+          <p className="text-body">请先登录后查看浏览历史</p>
         </div>
       ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -106,7 +106,7 @@ export default function MemberHistoryPage() {
       ) : items.length === 0 ? (
         <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <History className="h-8 w-8 shrink-0 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无浏览记录</p>
+          <p className="text-body text-muted-foreground">暂无浏览记录</p>
         </div>
       ) : (
         <ul className="space-y-2 rounded-lg border p-2">
@@ -118,13 +118,13 @@ export default function MemberHistoryPage() {
                 className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30"
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                   {item.targetType}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-body font-medium">
                   {item.title ?? item.targetId}
                 </span>
-                <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <span className="shrink-0 whitespace-nowrap tabular-nums text-label text-muted-foreground">
                   {dateFmt.format(new Date(item.visitedAt))}
                 </span>
               </li>

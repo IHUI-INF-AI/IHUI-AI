@@ -152,7 +152,7 @@ export function BatchAttentionSummaryLine({
   const t = useTranslations('chatHistory')
   if (waitingCount <= 0 && unreadCount <= 0) return null
   return (
-    <span data-testid="batch-attention-summary" className="text-xs text-muted-foreground">
+    <span data-testid="batch-attention-summary" className="text-label text-muted-foreground">
       {t('batchAttentionSummary', { waiting: waitingCount, unread: unreadCount })}
     </span>
   )
@@ -513,7 +513,7 @@ export function ConversationList({
                 className="min-w-0 flex-1 text-left"
               >
                 <p className="truncate text-body font-medium">{item.title}</p>
-                <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                <p className="flex min-w-0 items-center gap-2 text-label text-muted-foreground">
                   <span className="min-w-0 truncate">{item.model}</span>
                   <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
                     <Clock className="h-3 w-3" />

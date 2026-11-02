@@ -101,7 +101,7 @@ function RecordsContent() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -156,7 +156,7 @@ function RecordsContent() {
                 const cls = STATUS_CLS[r.status] ?? 'bg-muted text-muted-foreground'
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">
-                    <TableCell className="px-4 py-2.5 font-mono text-xs">
+                    <TableCell className="px-4 py-2.5 font-mono text-label">
                       {r.userId.slice(0, 8)}…
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -190,7 +190,7 @@ function RecordsContent() {
                         {t(STATUS_KEY[r.status] ?? 'status.unknown')}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {r.submittedAt ?? '-'}
                     </TableCell>
                   </TableRow>
@@ -202,7 +202,7 @@ function RecordsContent() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <SearchInput
             value={search}
@@ -220,7 +220,7 @@ function RecordsContent() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

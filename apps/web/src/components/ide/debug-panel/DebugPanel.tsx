@@ -336,7 +336,7 @@ export function DebugPanel() {
 
       <div className="flex-1 overflow-auto">
         {debugState === 'stopped' ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">{t('debug.noSession')}</div>
+          <div className="px-3 py-2 text-label text-muted-foreground">{t('debug.noSession')}</div>
         ) : (
           <>
             <div className="mb-2">
@@ -344,7 +344,9 @@ export function DebugPanel() {
                 {t('debug.variables')}
               </div>
               {scopes.length === 0 ? (
-                <div className="px-3 py-1 text-xs text-muted-foreground">{loading ? '…' : '—'}</div>
+                <div className="px-3 py-1 text-label text-muted-foreground">
+                  {loading ? '…' : '—'}
+                </div>
               ) : (
                 scopes.map((sc) => <ScopeGroup key={sc.name} scope={sc} />)
               )}

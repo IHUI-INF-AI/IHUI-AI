@@ -26,7 +26,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
           <LayoutGrid className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
@@ -42,7 +42,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
           <Circle className="h-4 w-4" />
           {t('circlesTab')}
           {circlesTotal !== undefined && (
-            <span className="text-xs text-muted-foreground">{circlesTotal}</span>
+            <span className="text-label text-muted-foreground">{circlesTotal}</span>
           )}
         </button>
         <button
@@ -57,7 +57,7 @@ export function PlazaHeader({ tab, setTab, circlesTotal, asksTotal }: Props) {
           <HelpCircle className="h-4 w-4" />
           {t('asksTab')}
           {asksTotal !== undefined && (
-            <span className="text-xs text-muted-foreground">{asksTotal}</span>
+            <span className="text-label text-muted-foreground">{asksTotal}</span>
           )}
         </button>
       </div>

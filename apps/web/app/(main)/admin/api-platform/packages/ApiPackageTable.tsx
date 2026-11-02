@@ -35,12 +35,12 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">{t('colName')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colPrice')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colQuota')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colPeriod')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colStatus')}</TableHead>
-            <TableHead className="text-right text-xs uppercase">{t('colActions')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colName')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colPrice')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colQuota')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colPeriod')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colStatus')}</TableHead>
+            <TableHead className="text-right text-label uppercase">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -62,7 +62,7 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="font-medium">
                   {p.name}
                   {p.description && (
-                    <div className="text-xs text-muted-foreground">{p.description}</div>
+                    <div className="text-label text-muted-foreground">{p.description}</div>
                   )}
                 </TableCell>
                 <TableCell>¥{p.price}</TableCell>
@@ -70,11 +70,11 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell>{t(PERIOD_LABEL_KEY[p.period])}</TableCell>
                 <TableCell>
                   {p.status === 1 ? (
-                    <span className="inline-flex rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                    <span className="inline-flex rounded bg-emerald-500/10 px-1.5 py-0.5 text-label text-emerald-600">
                       {t('statusOn')}
                     </span>
                   ) : (
-                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {t('statusOff')}
                     </span>
                   )}

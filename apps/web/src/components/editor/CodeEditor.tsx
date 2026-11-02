@@ -506,7 +506,7 @@ async function loadMonacoEditor(): Promise<React.ComponentType<MonacoEditorProps
 
 const MonacoEditor = dynamic(loadMonacoEditor, {
   ssr: false,
-  loading: () => <div className="p-2 text-xs text-muted-foreground">Loading editor...</div>,
+  loading: () => <div className="p-2 text-label text-muted-foreground">Loading editor...</div>,
 })
 
 export function CodeEditor({
@@ -1184,7 +1184,7 @@ export function CodeEditor({
         theme={theme}
         onChange={(v) => onChange?.(v ?? '')}
         onMount={handleMount}
-        loading={<div className="p-2 text-xs text-muted-foreground">Loading editor...</div>}
+        loading={<div className="p-2 text-label text-muted-foreground">Loading editor...</div>}
         options={{
           fontSize,
           readOnly,
@@ -1222,7 +1222,7 @@ export function CodeEditor({
         />
       )}
       {placeholder && !value && (
-        <div className="pointer-events-none absolute left-3 top-2 z-10 text-sm text-muted-foreground/60">
+        <div className="pointer-events-none absolute left-3 top-2 z-10 text-body text-muted-foreground/60">
           {placeholder}
         </div>
       )}

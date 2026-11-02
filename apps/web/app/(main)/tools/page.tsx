@@ -46,7 +46,7 @@ export default function ToolsPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
@@ -64,7 +64,7 @@ export default function ToolsPage() {
                 {t(label)}
               </h2>
               {items.length === 0 ? (
-                <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+                <p className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
                   {t('empty')}
                 </p>
               ) : (
@@ -77,8 +77,8 @@ export default function ToolsPage() {
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <CardTitle className="text-sm">{tool.name}</CardTitle>
-                            <CardDescription className="text-xs">
+                            <CardTitle className="text-body">{tool.name}</CardTitle>
+                            <CardDescription className="text-label">
                               {tool.description}
                             </CardDescription>
                           </div>

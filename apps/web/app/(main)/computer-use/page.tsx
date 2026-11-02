@@ -201,7 +201,7 @@ export default function ComputerUsePage() {
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && openPage()}
             placeholder={t('urlPlaceholder')}
-            className="flex-1 rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
           />
           <button
             onClick={openPage}
@@ -218,7 +218,7 @@ export default function ComputerUsePage() {
         </div>
 
         {/* 状态 / 工具行 */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-body">
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
             <span
               className={
@@ -237,7 +237,7 @@ export default function ComputerUsePage() {
             >
               <Camera className="h-3.5 w-3.5" /> {t('screenshot')}
             </button>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1 text-label text-muted-foreground">
               <input
                 type="checkbox"
                 checked={fullPage}
@@ -269,12 +269,12 @@ export default function ComputerUsePage() {
           </span>
         </div>
         {openInfo && (
-          <p className="mt-2 truncate text-xs text-muted-foreground">
+          <p className="mt-2 truncate text-label text-muted-foreground">
             <code>{openInfo.url}</code>
           </p>
         )}
         {error && (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-destructive">
+          <p className="mt-2 flex items-center gap-1.5 text-body text-destructive">
             <XCircle className="h-4 w-4" /> {error}
           </p>
         )}
@@ -294,7 +294,7 @@ export default function ComputerUsePage() {
               className="w-full rounded-lg border bg-muted"
             />
           ) : (
-            <div className="flex h-52 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+            <div className="flex h-52 items-center justify-center rounded-lg border border-dashed text-body text-muted-foreground">
               {t('screenshotHint')}
             </div>
           )}
@@ -305,7 +305,7 @@ export default function ComputerUsePage() {
           <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
             <Keyboard className="h-4 w-4" /> {t('inputTextTitle')}
           </h2>
-          <p className="mb-3 text-xs text-muted-foreground">
+          <p className="mb-3 text-label text-muted-foreground">
             {t('targetElement')}
             {selectedRef === null ? (
               <span className="text-muted-foreground"> {t('notSelected')}</span>
@@ -320,10 +320,10 @@ export default function ComputerUsePage() {
             onChange={(e) => setTypeText(e.target.value)}
             rows={3}
             placeholder={t('typePlaceholder')}
-            className="w-full resize-y rounded-sm border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full resize-y rounded-sm border bg-background p-3 text-body outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1.5 text-label text-muted-foreground">
               <input
                 type="checkbox"
                 checked={typeClear}
@@ -348,7 +348,7 @@ export default function ComputerUsePage() {
           <MousePointerClick className="h-4 w-4" /> {t('snapshotTitle', { count: elements.length })}
         </h2>
         {elements.length === 0 ? (
-          <div className="flex h-28 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+          <div className="flex h-28 items-center justify-center rounded-lg border border-dashed text-body text-muted-foreground">
             {openInfo ? t('snapshotEmptyOpen') : t('snapshotEmptyClosed')}
           </div>
         ) : (
@@ -356,7 +356,7 @@ export default function ComputerUsePage() {
             {elements.map((el) => (
               <li
                 key={el.ref}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-body transition ${
                   selectedRef === el.ref
                     ? 'border-brand-accent-deep bg-primary/10'
                     : 'hover:bg-accent/60'
@@ -373,12 +373,14 @@ export default function ComputerUsePage() {
                   }}
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                 >
-                  <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">{el.ref}</code>
-                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs uppercase">
+                  <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label">
+                    {el.ref}
+                  </code>
+                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label uppercase">
                     {el.tag || 'element'}
                   </span>
                   {el.role && (
-                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {el.role}
                     </span>
                   )}
@@ -386,13 +388,15 @@ export default function ComputerUsePage() {
                     {el.name || t('noTextElement')}
                   </span>
                   {el.checked && (
-                    <span className="shrink-0 text-xs text-emerald-600">
+                    <span className="shrink-0 text-label text-emerald-600">
                       <Check className="mr-0.5 inline-block h-3 w-3" />
                       {t('checked')}
                     </span>
                   )}
                   {el.disabled && (
-                    <span className="shrink-0 text-xs text-muted-foreground">{t('disabled')}</span>
+                    <span className="shrink-0 text-label text-muted-foreground">
+                      {t('disabled')}
+                    </span>
                   )}
                 </button>
                 <button
@@ -417,7 +421,7 @@ export default function ComputerUsePage() {
           <h2 className="mb-2 flex items-center gap-2 text-body font-semibold">
             <FileText className="h-4 w-4" /> {t('extractedTextTitle')}
           </h2>
-          <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-xs leading-relaxed">
+          <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-label leading-relaxed">
             {textResult}
           </pre>
         </div>

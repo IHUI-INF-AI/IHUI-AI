@@ -75,7 +75,7 @@ export default function AgreementTypePage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -86,7 +86,7 @@ export default function AgreementTypePage() {
           <FileText className="h-7 w-7 text-primary" />
           {displayTitle}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
@@ -100,7 +100,7 @@ export default function AgreementTypePage() {
             <CardTitle className="text-lg">{displayTitle}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-body text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Tag className="h-4 w-4" />
                 {t('version')}: v1.0.0
@@ -110,7 +110,7 @@ export default function AgreementTypePage() {
                 {t('effectiveDate')}: {fmt(new Date().toISOString())}
               </span>
             </div>
-            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="space-y-3 text-body leading-relaxed text-muted-foreground">
               <p>{t('staticContent1')}</p>
               <p>{t('staticContent2')}</p>
               <p>{t('staticContent3')}</p>
@@ -123,7 +123,7 @@ export default function AgreementTypePage() {
             <CardTitle className="text-lg">{data.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-body text-muted-foreground">
               {data.version && (
                 <span className="inline-flex items-center gap-1">
                   <Tag className="h-4 w-4" />

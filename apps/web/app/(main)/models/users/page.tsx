@@ -64,7 +64,7 @@ export default async function UsersPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t('users.searchPlaceholder')} className="h-9 flex-1 text-xs" />
+          <Input placeholder={t('users.searchPlaceholder')} className="h-9 flex-1 text-label" />
         </CardContent>
       </Card>
 
@@ -77,9 +77,9 @@ export default async function UsersPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('users.table.email')}</th>
                   <th className="px-4 py-2 font-medium">{t('users.table.group')}</th>
                   <th className="px-4 py-2 font-medium">{t('users.table.role')}</th>
@@ -91,7 +91,7 @@ export default async function UsersPage() {
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.id} className="text-xs hover:bg-muted/30">
+                  <tr key={u.id} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{u.email}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{u.group}</td>
                     <td className="px-4 py-2.5">

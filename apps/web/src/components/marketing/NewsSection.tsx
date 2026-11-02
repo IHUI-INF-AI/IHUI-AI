@@ -55,7 +55,7 @@ export function NewsSection() {
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
       ) : items.length === 0 ? (
-        <Card className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+        <Card className="flex h-40 items-center justify-center text-body text-muted-foreground">
           {t('empty')}
         </Card>
       ) : (
@@ -85,7 +85,7 @@ export function NewsSection() {
               <div className="space-y-1 p-3">
                 <h3 className="line-clamp-2 text-body font-medium leading-snug">{n.title}</h3>
                 {(n.authorName || n.createdAt) && (
-                  <p className="line-clamp-1 text-xs text-muted-foreground">
+                  <p className="line-clamp-1 text-label text-muted-foreground">
                     {[n.authorName, n.createdAt].filter(Boolean).join(' · ')}
                   </p>
                 )}

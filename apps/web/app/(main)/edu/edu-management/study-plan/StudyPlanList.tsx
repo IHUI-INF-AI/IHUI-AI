@@ -43,7 +43,7 @@ export function StudyPlanList({
         <CardTitle className="text-body font-medium">
           {t('planListTitle')}
           {parentPlans.length > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground">({parentPlans.length})</span>
+            <span className="ml-2 text-label text-muted-foreground">({parentPlans.length})</span>
           )}
         </CardTitle>
       </CardHeader>
@@ -56,7 +56,7 @@ export function StudyPlanList({
         ) : parentPlans.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <AlertCircle className="mb-2 h-8 w-8" />
-            <p className="text-sm">{t('noStudyPlans')}</p>
+            <p className="text-body">{t('noStudyPlans')}</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -85,7 +85,7 @@ export function StudyPlanList({
                             {plan.title}
                           </p>
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-muted-foreground">
                           <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[plan.status])}>
                             {t(PLAN_STATUS_KEYS[plan.status])}
                           </Badge>
@@ -96,7 +96,7 @@ export function StudyPlanList({
                             </Badge>
                           )}
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 text-label text-muted-foreground">
                           {formatDateDisplay(plan.startDate)} ~ {formatDateDisplay(plan.endDate)}
                         </p>
                       </div>
@@ -113,7 +113,7 @@ export function StudyPlanList({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-6 text-xs"
+                          className="h-6 text-label"
                           onClick={(e) => {
                             e.stopPropagation()
                             onAutoSplit(plan.id)
@@ -126,7 +126,7 @@ export function StudyPlanList({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-6 text-xs"
+                        className="h-6 text-label"
                         onClick={(e) => {
                           e.stopPropagation()
                           onEditPlan(plan)
@@ -144,7 +144,7 @@ export function StudyPlanList({
                           key={child.id}
                           type="button"
                           className={cn(
-                            'w-full flex items-center gap-2 px-6 py-2 text-left text-xs transition-colors hover:bg-accent/50',
+                            'w-full flex items-center gap-2 px-6 py-2 text-left text-label transition-colors hover:bg-accent/50',
                             selectedPlan?.id === child.id && 'bg-accent',
                           )}
                           onClick={() => onSelectPlan(child)}

@@ -121,12 +121,12 @@ export function TopUsersSection({ startDate, endDate }: { startDate: string; end
             {t('loading')}
           </div>
         ) : !data || data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('noUserData')}</p>
+          <p className="py-8 text-center text-body text-muted-foreground">{t('noUserData')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">#</th>
                   <th className="py-2 pr-3 font-medium">{t('userLabel')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('totalTokens')}</th>
@@ -137,8 +137,8 @@ export function TopUsersSection({ startDate, endDate }: { startDate: string; end
               <tbody>
                 {data.map((u, i) => (
                   <tr key={u.userId ?? i}>
-                    <td className="py-2 pr-3 text-xs text-muted-foreground">{i + 1}</td>
-                    <td className="py-2 pr-3 truncate text-xs">{displayName(u)}</td>
+                    <td className="py-2 pr-3 text-label text-muted-foreground">{i + 1}</td>
+                    <td className="py-2 pr-3 truncate text-label">{displayName(u)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(u.totalTokens)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(u.totalCalls)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums font-medium">
@@ -187,13 +187,13 @@ export function BudgetAlertsSection() {
             {t('loading')}
           </div>
         ) : !data || data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('noAlerts')}</p>
+          <p className="py-8 text-center text-body text-muted-foreground">{t('noAlerts')}</p>
         ) : (
           <div className="space-y-3">
             {data.map((a) => (
               <div key={a.userId} className="space-y-1.5 rounded-md border border-border p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                <div className="flex items-center justify-between text-body">
+                  <span className="min-w-0 flex-1 truncate font-mono text-label">
                     {displayName({ nickname: null, email: null, username: a.scopeKey })}
                   </span>
                   <span
@@ -208,7 +208,7 @@ export function BudgetAlertsSection() {
                   </span>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span>{t('dailyToken')}</span>
                     <span className="tabular-nums">
                       {fmtNum(a.dailyTokenUsed)} / {fmtNum(a.dailyTokenLimit)} (
@@ -221,7 +221,7 @@ export function BudgetAlertsSection() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span>{t('monthlyCost')}</span>
                     <span className="tabular-nums">
                       {curFmt.format(a.monthlyCostUsed / 100)} /{' '}
@@ -272,12 +272,12 @@ export function VipQuotasSection() {
             {t('loading')}
           </div>
         ) : !data || data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('noVipData')}</p>
+          <p className="py-8 text-center text-body text-muted-foreground">{t('noVipData')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">{t('vipLevel')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('vipActiveUsers')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('vipDailyToken')}</th>
@@ -291,10 +291,10 @@ export function VipQuotasSection() {
                   <tr key={v.id}>
                     <td className="py-2 pr-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-label">
                           L{v.levelValue}
                         </span>
-                        <span className="text-xs">{v.levelName}</span>
+                        <span className="text-label">{v.levelName}</span>
                       </div>
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(v.activeUsers)}</td>

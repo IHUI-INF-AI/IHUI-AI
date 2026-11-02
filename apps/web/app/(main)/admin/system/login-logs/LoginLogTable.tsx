@@ -35,7 +35,7 @@ export function LoginLogTable({
   const t = useTranslations('admin.system')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="w-full text-body">
         <thead className="bg-muted/50">
           <tr>
             <th className="w-10 px-4 py-2.5">
@@ -83,19 +83,19 @@ export function LoginLogTable({
                     onCheckedChange={() => onToggleOne(l.id)}
                   />
                 </td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
+                <td className="px-4 py-2.5 text-label text-muted-foreground">{l.id}</td>
                 <td className="px-4 py-2.5 font-medium">{l.userUuid}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{l.loginType}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{l.platform}</td>
-                <td className="px-4 py-2.5 font-mono text-xs">{l.ip}</td>
+                <td className="px-4 py-2.5 font-mono text-label">{l.ip}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{l.location}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="px-4 py-2.5 text-label text-muted-foreground">
                   <TruncatedText value={l.userAgent} className="max-w-[200px]" />
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                   {l.loginTime ? formatDate(l.loginTime) : '-'}
                 </td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="px-4 py-2.5 text-label text-muted-foreground">
                   <TruncatedText value={l.message} className="max-w-[200px]" />
                 </td>
               </tr>

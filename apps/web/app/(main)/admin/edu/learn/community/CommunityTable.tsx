@@ -93,7 +93,7 @@ export function CommunityTable({
                       <span className="font-medium">{topic.title}</span>
                     </div>
                     {topic.lessonTitle && (
-                      <div className="text-xs text-muted-foreground">{topic.lessonTitle}</div>
+                      <div className="text-label text-muted-foreground">{topic.lessonTitle}</div>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">

@@ -95,7 +95,7 @@ export function MemberTable({ rows, isLoading, error, classId, onRemove, removeP
                   {m.role === 'teacher' ? t('roleTeacher') : t('roleStudent')}
                 </span>
               </TableCell>
-              <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+              <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                 {m.joinedAt}
               </TableCell>
               <TableCell className="px-4 py-2.5">

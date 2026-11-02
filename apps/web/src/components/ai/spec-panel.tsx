@@ -78,9 +78,9 @@ export function SpecPanel({ className }: { className?: string }) {
             {p.tabMode === 'diff' && (
               <div className="max-h-[55vh] overflow-auto rounded-md border border-border bg-background p-2">
                 {p.diffResult?.diff ? (
-                  <DiffView diff={p.diffResult.diff} className="text-xs leading-5" />
+                  <DiffView diff={p.diffResult.diff} className="text-label leading-5" />
                 ) : (
-                  <p className="text-xs text-muted-foreground p-2">点击「对比当前」生成 diff</p>
+                  <p className="text-label text-muted-foreground p-2">点击「对比当前」生成 diff</p>
                 )}
               </div>
             )}

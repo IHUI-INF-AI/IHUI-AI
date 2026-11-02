@@ -54,7 +54,7 @@ export default function EduExamPage() {
           <FileCheck className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -69,7 +69,7 @@ export default function EduExamPage() {
       ) : exams.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <FileCheck className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -81,7 +81,7 @@ export default function EduExamPage() {
                   {exam.attempted && (
                     <span
                       className={cn(
-                        'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                        'shrink-0 rounded-md px-2 py-0.5 text-label',
                         (exam.bestScore ?? 0) >= exam.passScore
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
@@ -92,11 +92,11 @@ export default function EduExamPage() {
                   )}
                 </div>
                 {exam.description && (
-                  <p className="text-xs text-muted-foreground">{exam.description}</p>
+                  <p className="text-label text-muted-foreground">{exam.description}</p>
                 )}
               </CardHeader>
               <CardContent className="min-[640px]:p-3 flex-1 min-w-0 space-y-3 p-3 pt-0">
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div className="grid grid-cols-2 gap-2 text-label text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <ListChecks className="h-3.5 w-3.5" />
                     {t('questionCount', { n: exam.questionCount })}
@@ -115,7 +115,7 @@ export default function EduExamPage() {
                   </span>
                 </div>
                 {exam.bestScore !== undefined && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('bestScore', { n: exam.bestScore })}
                   </p>
                 )}

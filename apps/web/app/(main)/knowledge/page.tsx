@@ -52,12 +52,12 @@ export default function KnowledgePage() {
         <Brain className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold">{t('title')}</h1>
       </div>
-      <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="text-body text-muted-foreground">{t('subtitle')}</p>
 
       {!searched ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <Brain className="h-12 w-12 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">{t('searchHint')}</p>
+          <p className="text-body text-muted-foreground">{t('searchHint')}</p>
         </div>
       ) : (
         <KnowledgeList items={items} onSearch={handleSearch} loading={loading} />

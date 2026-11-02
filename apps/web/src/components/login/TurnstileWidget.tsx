@@ -119,7 +119,7 @@ export function TurnstileWidget({
       />
       {loadError ? (
         <div
-          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700"
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-label leading-relaxed text-amber-700"
           role="alert"
         >
           人机验证组件加载失败(多为网络无法访问验证服务)。请检查网络后刷新页面重试;若仍失败,可改用登录弹窗中的「在浏览器中登录」按钮(走系统浏览器,不依赖本窗口的验证环境)。

@@ -61,9 +61,9 @@ function UserCardImpl({
       <Avatar src={avatar} name={name} size="lg" />
       <div className="min-w-0 flex-1">
         <h3 className="break-words font-medium">{name}</h3>
-        {bio && <p className="text-sm text-muted-foreground">{bio}</p>}
+        {bio && <p className="text-body text-muted-foreground">{bio}</p>}
         {stats && stats.length > 0 && (
-          <div className="mt-1 flex gap-4 text-xs">
+          <div className="mt-1 flex gap-4 text-label">
             {stats.map((s) => (
               <span key={s.label}>
                 <span className="font-medium">{s.value}</span>{' '}

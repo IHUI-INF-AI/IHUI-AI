@@ -41,7 +41,7 @@ export function PromptPolishNotice({ state, onRetry }: PromptPolishNoticeProps) 
     <div
       data-testid="prompt-polish-notice"
       data-polish-phase={state.phase}
-      className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
+      className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-label text-amber-700 dark:text-amber-300"
     >
       {rejection ? (
         <span data-testid="prompt-polish-empty" data-polish-reject={rejection}>

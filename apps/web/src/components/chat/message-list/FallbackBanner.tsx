@@ -104,7 +104,7 @@ export function FallbackBanner({
   const showResume = resumePrompt?.visible === true
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+      <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-body text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
         <span>{noticeText}</span>
         {onClearFallbackNotice && (
           <button
@@ -120,18 +120,18 @@ export function FallbackBanner({
       {showResume && (
         <div
           data-testid="fallback-resume-prompt"
-          className="flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200"
+          className="flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-body text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200"
         >
           <span className="flex min-w-0 items-center gap-2">
             <RotateCcw className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="min-w-0">
               <span className="block truncate">{resumeTitle}</span>
               {resumePrompt?.taskLabel ? (
-                <span className="block truncate text-xs opacity-80">
+                <span className="block truncate text-label opacity-80">
                   <span>{resumePrompt.taskLabel}</span>
                 </span>
               ) : null}
-              <span data-testid="fallback-resume-free-hint" className="block text-xs opacity-80">
+              <span data-testid="fallback-resume-free-hint" className="block text-label opacity-80">
                 <span>{resumeFreeHint}</span>
               </span>
             </span>
@@ -155,7 +155,7 @@ export function FallbackBanner({
       {showRetryRow && (
         <div
           data-testid="fallback-retry-row"
-          className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+          className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-label text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
         >
           {retryView!.scheduleLabel !== null && retryView!.scheduleLabel !== undefined && (
             <span data-testid="fallback-retry-schedule">{retryView!.scheduleLabel}</span>

@@ -153,7 +153,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
   return (
     <div className="flex flex-col items-center gap-3">
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-xs text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-label text-destructive">
           {error}
         </div>
       )}
@@ -172,7 +172,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
                 isPaused ? 'bg-amber-500' : 'animate-pulse bg-red-500',
               )}
             />
-            <span className="font-mono text-sm tabular-nums">{formatTime(duration)}</span>
+            <span className="font-mono text-body tabular-nums">{formatTime(duration)}</span>
             <Button
               variant="outline"
               size="sm"
@@ -200,7 +200,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
           <Button variant="ghost" size="icon-sm" onClick={togglePlay}>
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
-          <span className="font-mono text-xs tabular-nums">{formatTime(duration)}</span>
+          <span className="font-mono text-label tabular-nums">{formatTime(duration)}</span>
           <audio
             ref={audioRef}
             src={toMediaStreamUrl(audioUrl)}

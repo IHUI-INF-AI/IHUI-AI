@@ -189,7 +189,7 @@ export function UnifiedSuggestionPanel({
       <p
         data-testid="unified-suggestion-degradation"
         data-degradation-kind={degradation.kind}
-        className="bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground"
+        className="bg-muted/40 px-3 py-1.5 text-label text-muted-foreground"
       >
         {text}
       </p>
@@ -222,7 +222,7 @@ export function UnifiedSuggestionPanel({
       {capRejected && (
         <p
           data-testid="unified-suggestion-cap-notice"
-          className="bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground"
+          className="bg-muted/40 px-3 py-1.5 text-label text-muted-foreground"
         >
           {t('referenceCapFull', { max: MAX_PANEL_REFERENCES })}
         </p>
@@ -231,7 +231,7 @@ export function UnifiedSuggestionPanel({
           容器不接 onKeyDown 以免触发 jsx-a11y 非原生交互元素告警) */}
       <div ref={listRef} className="thin-scroll max-h-72 min-h-0 flex-1 overflow-y-auto p-1.5">
         {flatItems.length === 0 && (
-          <div className="flex flex-col items-center gap-1 py-8 text-center text-sm text-muted-foreground">
+          <div className="flex flex-col items-center gap-1 py-8 text-center text-body text-muted-foreground">
             {t('noMatch')}
           </div>
         )}
@@ -446,7 +446,7 @@ export function UnifiedPasteReferencePreview({
           onChange={(e) => setDraft(e.target.value)}
           placeholder={tc('referencePreview.placeholder')}
           rows={2}
-          className="mt-1.5 w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 text-xs focus:outline-none"
+          className="mt-1.5 w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 text-label focus:outline-none"
         />
         {/* 「原始输入正文」分区:固定回显未编辑的粘贴原文,与草稿编辑态对照 */}
         <div className="mt-1 flex min-w-0 items-center gap-2">

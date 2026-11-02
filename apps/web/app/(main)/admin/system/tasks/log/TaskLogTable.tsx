@@ -39,7 +39,7 @@ export function TaskLogTable({
   const sortIcon = (col: string) => (sort.col === col ? (sort.dir === 'desc' ? '↓' : '↑') : '')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="w-full text-body">
         <thead className="bg-muted/50">
           <tr>
             <th className="w-10 px-4 py-2.5">
@@ -88,29 +88,29 @@ export function TaskLogTable({
                       onCheckedChange={() => onToggleOne(l.id)}
                     />
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">{l.id}</td>
                   <td className="px-4 py-2.5 font-medium">{l.jobName}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{l.jobGroup}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     <TruncatedText value={l.invokeTarget} className="max-w-[180px]" mono />
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     <TruncatedText value={l.jobMessage || '-'} className="max-w-[180px]" />
                   </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex rounded-md px-2 py-0.5 text-label',
                         st?.cls ?? 'bg-muted text-muted-foreground',
                       )}
                     >
                       {st ? t(st.label) : '-'}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                     {l.startTime ? formatDate(l.startTime) : '-'}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.costTime}ms</td>
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">{l.costTime}ms</td>
                   <td className="px-4 py-2.5">
                     <HasPermi code="monitor:job:query">
                       <Button size="sm" variant="ghost" onClick={() => onDetail(l)}>

@@ -41,7 +41,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { gitBinary } from './lib/face-reader.mjs'
 import { sanitizeHexRuns } from './lib/triage-doc-line.mjs'
-import { clusterSignals, identityOf, loadContract, minCountForSource, validateSignal } from './lib/incident-cluster.mjs'
+import { clusterSignals, identityOf, loadContract, minCountForSource, sameIncidentIdentity, validateSignal } from './lib/incident-cluster.mjs'
 import { keyOfRow, nextTaskIdLabel, usedIdsOfPrefix } from './lib/plan-task-index.mjs'
 import { ticketKeyOf } from './lib/ticket-key.mjs'
 // 取号族「可发性」判据与第一发号出口同一份(§0.6):auto-triage 已把它收口成
@@ -214,6 +214,24 @@ export function dimsTextOf(raw) {
   return ''
 }
 
+/**
+ * 从信号 message 的 `reason="…"` 里取**可定位的失败原因**(B87/B88/B91 立因,2026-11-02)。
+ *
+ * 旧证据只落 `sample=`(message 前 80 字):而 message 前 ~90 字恒为
+ * `deploy_outcome action=<a> sha=<40hex> dims=… reason="…`,样本永远截在 sha 上,
+ * 真实报错一个字都看不到 —— 票面能读到的只有"部署失败",查不出为什么。intake 已把
+ * reason 放在 message 末尾(且已压空白/折短 sha),所以这里从 `reason="` 起整段取到结尾,
+ * 优先切到「末次报错」之后(那一段才是 next build 的首条错误指纹),取不到再退回整段 reason。
+ */
+export function causeTextOf(raw, max = 150) {
+  const m = /\breason="([\s\S]*)$/.exec(String(raw?.message ?? ''))
+  if (!m) return ''
+  const reason = m[1].replace(/"\s*$/, '').trim()
+  if (!reason) return ''
+  const i = reason.search(/末次报错|末轮报错行不可读/)
+  return clip(i >= 0 ? reason.slice(i) : reason, max)
+}
+
 /** 稳定定位面:归一 route 优先,其次错误码,最后才退归一消息首行(与 identityOf 同序)。 */
 export function locatorOf(cluster) {
   if (cluster?.route) return String(cluster.route)
@@ -228,7 +246,9 @@ export function buildTitle({ cluster, raw }) {
   return clip(sanitizeHexRuns(title), TITLE_MAX)
 }
 
-/** 证据必须含 dims / action / 时间窗(窗口长度 + first/last),另带计数与样本。 */
+/** 证据必须含 dims / action / 时间窗(窗口长度 + first/last),另带计数与样本。
+ *  可诊断补充(B87/B88/B91):同族多码时落 `codes=`(逐码保留),`cause=` 取真实失败原因,
+ *  取代此前恒被 message 前缀(sha)吃掉的 `sample=`。cause 按剩余预算裁剪,其余字段不挤掉。 */
 export function buildEvidence({ cluster, raw, minutes }) {
   const bits = []
   const dims = dimsTextOf(raw)
@@ -239,10 +259,20 @@ export function buildEvidence({ cluster, raw, minutes }) {
   bits.push(`first=${cluster.firstAt}`)
   bits.push(`last=${cluster.lastAt}`)
   if (cluster.route) bits.push(`route=${cluster.route}`)
-  if (cluster.code) bits.push(`code=${cluster.code}`)
-  const sample = String(cluster.sample ?? '').trim()
-  if (sample) bits.push(`sample=${JSON.stringify(clip(sample, 80))}`)
-  return clip(sanitizeHexRuns(bits.join(' ')), EVIDENCE_MAX)
+  const codes = Array.isArray(cluster.codes) ? cluster.codes : []
+  if (codes.length > 1) bits.push(`codes=${codes.join('+')}`)
+  else if (cluster.code) bits.push(`code=${cluster.code}`)
+  let text = bits.join(' ')
+  const cause = causeTextOf(raw, 400)
+  if (cause) {
+    // 预留 ` cause="…"` 的 8 个字符;余量不足时给 cause 保底 20 字,不让它整个消失。
+    const room = EVIDENCE_MAX - text.length - 8
+    text += ` cause=${JSON.stringify(clip(cause, Math.max(20, room)))}`
+  } else {
+    const sample = String(cluster.sample ?? '').trim()
+    if (sample) text += ` sample=${JSON.stringify(clip(sample, 80))}`
+  }
+  return clip(sanitizeHexRuns(text), EVIDENCE_MAX)
 }
 
 /**
@@ -428,10 +458,14 @@ export function appendLedger(entry, path = LEDGER_PATH) {
   }
 }
 
-/** 同身份 24h 内已有 registered ⇒ 不重复登记(只认 registered;dry-run/skip 不拦)。 */
+/**
+ * 同身份 24h 内已有 registered ⇒ 不重复登记(只认 registered;dry-run/skip 不拦)。
+ * 身份比较走 `sameIncidentIdentity`:TS 码族/部署 route 改造前落账的旧键(带 `|code:TS2339`)
+ * 必须与新键互认,否则改造当天旧台账认不出新键,同一件事立刻多登记一张票。
+ */
 export function recentlyRegistered(ledger, identity, nowMs = Date.now()) {
   return (ledger ?? []).some((e) => {
-    if (e?.result !== 'registered' || e?.identity !== identity) return false
+    if (e?.result !== 'registered' || !sameIncidentIdentity(e?.identity, identity)) return false
     const ts = Date.parse(String(e.ts ?? ''))
     return Number.isFinite(ts) && nowMs - ts < DEDUPE_MS
   })
@@ -567,6 +601,7 @@ function candidateOf(cluster, pairs, minutes = DEFAULT_MINUTES) {
     lastAt: cluster.lastAt,
     route: cluster.route,
     code: cluster.code,
+    codes: Array.isArray(cluster.codes) ? cluster.codes : [],
     kind: cluster.kind,
     severity: cluster.severity,
     dispatchable: cluster.dispatchable,
@@ -604,7 +639,7 @@ export function runRound({
     code: 0,
     status: 'undetermined',
     why: null,
-    input: { path: inputPath, total: 0, deployRows: 0, badRows: 0, invalidRows: 0 },
+    input: { path: inputPath, total: 0, deployRows: 0, badRows: 0, invalidRows: 0, agedRows: 0 },
     family: null,
     candidates: [],
     clusters: [],
@@ -651,13 +686,30 @@ export function runRound({
   }
   out.input.invalidRows = invalid.length
 
+  // 窗口外旧信号绝缘(B69,2026-11-02):`clusterSignals` 的窗口锚点是批次内最新时刻
+  // (纯函数为离线复算而设),只含一条历史信号时它会永远自锚 ⇒ 24h 去重过期后同一枚旧证据
+  // 每天重登记一次(实测 B53→B67→B69 三天三牌)。生产轮以真墙钟 `now` 先剔窗口外行:
+  // 不改变纯函数语义,也不让旧证据复活成新票;新发生的同形信号(新 at)照常进窗。
+  const windowStartMs = now.getTime() - minutes * 60_000
+  const fresh = []
+  const aged = []
+  for (const x of valid) {
+    const t = Date.parse(x.signal.at)
+    if (t >= windowStartMs) fresh.push(x)
+    else aged.push(x)
+  }
+  out.input.agedRows = aged.length
+  if (aged.length > 0) {
+    log(`ℹ 窗口外 ${aged.length} 条 ${DEPLOY_SOURCE} 信号早于 ${new Date(windowStartMs).toISOString()} ⇒ 不纳入本轮(旧证据不得复活成新票)`)
+  }
+
   log(
     `分诊轮:输入=${inputPath}(总行 ${out.input.total},deploy_outcome ${deployRows.length},坏行 ${parsed.bad.length},形状坏 ${invalid.length}) 窗口=${minutes}min 门槛=${gate.minCount}(${gate.basis})`,
   )
   for (const b of parsed.bad) warn(`BAD-LINE line=${b.line} ${b.reason}`)
   for (const b of invalid) warn(`BAD-SIGNAL line=${b.line} ${b.reason}`)
 
-  if (valid.length === 0) {
+  if (fresh.length === 0) {
     if (deployRows.length === 0 && parsed.bad.length === 0) {
       out.status = 'judged'
       log(`✅ 判定:输入里没有 source=${DEPLOY_SOURCE} 的行 ⇒ 无可派单候选`)
@@ -671,7 +723,13 @@ export function runRound({
       }
       return out
     }
-    out.why = `没有一条通过契约校验的 ${DEPLOY_SOURCE} 信号(坏行 ${parsed.bad.length},形状坏 ${invalid.length})`
+    if (aged.length > 0 && invalid.length === 0 && parsed.bad.length === 0) {
+      // 全是窗口外旧证据:这是「已判定、无可派单候选」,不是「读不懂」。
+      out.status = 'judged'
+      log(`✅ 判定:${aged.length} 条 ${DEPLOY_SOURCE} 信号均在 ${minutes}min 窗口外 ⇒ 无可派单候选(不重登记旧票)`)
+      return out
+    }
+    out.why = `没有一条通过契约校验的 ${DEPLOY_SOURCE} 信号(坏行 ${parsed.bad.length},形状坏 ${invalid.length},窗口外 ${aged.length})`
     warn(`未判定:${out.why}`)
     out.code = 2
     return out
@@ -680,7 +738,7 @@ export function runRound({
   let clusters
   try {
     clusters = clusterSignals(
-      valid.map((x) => x.signal),
+      fresh.map((x) => x.signal),
       { windowMinutes: minutes, contract: c },
     )
   } catch (e) {
@@ -692,7 +750,7 @@ export function runRound({
   out.clusters = clusters
 
   const byIdentity = new Map()
-  for (const x of valid) {
+  for (const x of fresh) {
     const id = identityOf(x.signal)
     const arr = byIdentity.get(id) ?? []
     arr.push(x)
@@ -1056,7 +1114,7 @@ export async function runSelfTest({ log = console.log, readFile = readFileDefaul
       familyProbe: PROBE_O,
       spawn: fakeSpawn,
       // 密闭夹具:self-test 绝不触真 git;给一棵「已落地」假 HEAD 面,同时钉 ticketLine 带回链。
-      readPlanHead: () => `- [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] rollback post /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-26/deploy-feedback;来源:deploy_outcome;证据:dims=web action=rollback route=post /api/deploy/release sample="x"）\n`,
+      readPlanHead: () => `- [ ] O67 [deploy-feedback] [deploy_outcome/alert_firing] rollback POST /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-26/deploy-feedback;来源:deploy_outcome;证据:dims=web action=rollback route=POST /api/deploy/release sample="x"）\n`,
       log: () => {},
       warn: () => {},
     })
@@ -1280,6 +1338,7 @@ export const __test__ = {
   identityOfSignal,
   actionOf,
   dimsTextOf,
+  causeTextOf,
   locatorOf,
   buildTitle,
   buildEvidence,

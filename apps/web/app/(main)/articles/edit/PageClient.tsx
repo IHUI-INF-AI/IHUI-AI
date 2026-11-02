@@ -112,12 +112,12 @@ export default function ArticleEditPage() {
             {isEdit ? t('editTitle', { default: '编辑文章' }) : t('editTitle')}
           </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('editSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('editSubtitle')}</p>
       </header>
 
       <Link
         href={isEdit && editId ? `/articles/${editId}` : '/articles'}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}

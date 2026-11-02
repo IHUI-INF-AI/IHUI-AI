@@ -21,8 +21,8 @@ export function AuthVeriCodeTable({ list, isLoading, onEdit, onDelete }: Props) 
   const t = useTranslations('adminAuthVeriCode')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>ID</th>
             <th className={th}>{t('colUserId')}</th>
@@ -57,10 +57,10 @@ export function AuthVeriCodeTable({ list, isLoading, onEdit, onDelete }: Props) 
                 <td className="px-4 py-2.5">{item.id}</td>
                 <td className="px-4 py-2.5 font-medium">{item.userId}</td>
                 <td className="px-4 py-2.5">{item.phone}</td>
-                <td className="px-4 py-2.5 font-mono text-xs">{item.code}</td>
+                <td className="px-4 py-2.5 font-mono text-label">{item.code}</td>
                 <td className="px-4 py-2.5">{item.type ?? '-'}</td>
                 <td className="px-4 py-2.5">{item.platform ?? '-'}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">{item.ip ?? '-'}</td>
+                <td className="px-4 py-2.5 text-label text-muted-foreground">{item.ip ?? '-'}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{item.expiresAt ?? '-'}</td>
                 <td className="px-4 py-2.5">
                   {String(item.used ?? '0') === '1' ? (

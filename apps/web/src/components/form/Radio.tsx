@@ -70,7 +70,7 @@ export function Radio({ options, value, onChange, inline = false, className }: R
             >
               {isChecked && <span className="h-2 w-2 rounded-full bg-primary" />}
             </span>
-            <span className="text-sm">{opt.label}</span>
+            <span className="text-body">{opt.label}</span>
           </label>
         )
       })}

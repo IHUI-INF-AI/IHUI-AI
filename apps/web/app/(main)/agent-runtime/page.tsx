@@ -84,7 +84,7 @@ export default function AgentRuntimePage() {
           <Zap className="h-6 w-6 text-primary" />
           运行时可视化中心
         </h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           实时监控 Agent 运行状态、工具调用、记忆和会话
         </p>
       </header>
@@ -92,7 +92,7 @@ export default function AgentRuntimePage() {
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
-            <label htmlFor="rt-agent" className="text-sm text-muted-foreground">
+            <label htmlFor="rt-agent" className="text-body text-muted-foreground">
               Agent
             </label>
             <Select value={agentId} onValueChange={setAgentId}>
@@ -110,7 +110,7 @@ export default function AgentRuntimePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label htmlFor="rt-time" className="text-sm text-muted-foreground">
+            <label htmlFor="rt-time" className="text-body text-muted-foreground">
               时间范围
             </label>
             <Select value={timeRange} onValueChange={setTimeRange}>
@@ -133,7 +133,7 @@ export default function AgentRuntimePage() {
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
-            <label htmlFor="rt-auto" className="text-sm text-muted-foreground">
+            <label htmlFor="rt-auto" className="text-body text-muted-foreground">
               自动刷新(5s)
             </label>
             <Switch id="rt-auto" checked={autoRefresh} onCheckedChange={setAutoRefresh} />

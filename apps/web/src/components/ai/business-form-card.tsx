@@ -181,7 +181,7 @@ export function BusinessFormCard({
       <div className="flex flex-col gap-2">
         {fields.map((field) => (
           <div key={field.key} className="flex flex-col gap-1" data-form-field={field.key}>
-            <Label className="text-xs text-muted-foreground">
+            <Label className="text-label text-muted-foreground">
               {t(formFieldLabelKey(kind, field.key))}
             </Label>
             {field.type === 'multiline' ? (

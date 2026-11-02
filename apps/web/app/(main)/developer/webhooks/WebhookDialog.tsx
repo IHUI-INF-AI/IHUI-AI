@@ -59,7 +59,7 @@ export function WebhookDialog({
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="space-y-1">
-            <Label className="text-sm">回调 URL</Label>
+            <Label className="text-body">回调 URL</Label>
             <Input
               value={url}
               onChange={(e) => onUrlChange(e.target.value)}
@@ -67,7 +67,7 @@ export function WebhookDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-sm">订阅事件</Label>
+            <Label className="text-body">订阅事件</Label>
             <div className="flex flex-wrap gap-2">
               {ALL_EVENTS.map((ev) => (
                 <button
@@ -75,7 +75,7 @@ export function WebhookDialog({
                   type="button"
                   onClick={() => onToggleEvent(ev)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-xs transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-label transition-colors',
                     events.includes(ev)
                       ? 'border-brand-accent-deep bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent',

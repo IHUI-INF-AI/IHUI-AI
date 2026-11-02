@@ -99,7 +99,7 @@ export default function BillingPage() {
           <Receipt className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -125,7 +125,7 @@ export default function BillingPage() {
                 </Button>
               </div>
               {paymentMethods.length === 0 ? (
-                <p className="py-3 text-center text-xs text-muted-foreground">
+                <p className="py-3 text-center text-label text-muted-foreground">
                   {t('noPaymentMethods')}
                 </p>
               ) : (
@@ -134,7 +134,7 @@ export default function BillingPage() {
                     <div
                       key={p.id}
                       className={cn(
-                        'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs',
+                        'flex items-center gap-2 rounded-md border px-3 py-1.5 text-label',
                         p.isDefault && 'border-brand-accent-deep bg-primary/5',
                       )}
                     >
@@ -143,7 +143,7 @@ export default function BillingPage() {
                       </span>
                       {p.last4 && <span className="text-muted-foreground">**** {p.last4}</span>}
                       {p.isDefault && (
-                        <span className="rounded bg-primary/10 px-1 py-0.5 text-xs text-primary">
+                        <span className="rounded bg-primary/10 px-1 py-0.5 text-label text-primary">
                           {t('default')}
                         </span>
                       )}
@@ -163,7 +163,7 @@ export default function BillingPage() {
                   {t('loading')}
                 </div>
               ) : bills.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
+                <p className="py-8 text-center text-body text-muted-foreground">{t('noBills')}</p>
               ) : (
                 <div className="space-y-2">
                   {bills.map((b) => {
@@ -173,11 +173,13 @@ export default function BillingPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <p className="truncate text-body font-medium">{b.invoiceNo}</p>
-                            <span className={cn('rounded px-1.5 py-0.5 text-label font-medium', cls)}>
+                            <span
+                              className={cn('rounded px-1.5 py-0.5 text-label font-medium', cls)}
+                            >
                               {t(BILL_STATUS_KEYS[b.status]!)}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-label text-muted-foreground">
                             {b.period} · {dateFmt.format(new Date(b.createdAt))}
                           </p>
                         </div>

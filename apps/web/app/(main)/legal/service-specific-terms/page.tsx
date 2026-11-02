@@ -23,7 +23,7 @@ export default function ServiceSpecificTermsPage() {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">{t('title')}</CardTitle>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+        <p className="flex items-center gap-1 text-label text-muted-foreground">
           <Calendar className="h-3.5 w-3.5" />
           <span>{t('lastUpdated')}</span>
         </p>
@@ -32,7 +32,7 @@ export default function ServiceSpecificTermsPage() {
         {SECTIONS.map((s) => (
           <section key={s.titleKey} className="space-y-1">
             <h2 className="text-base font-semibold">{t(s.titleKey)}</h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">{t(s.bodyKey)}</p>
+            <p className="text-body leading-relaxed text-muted-foreground">{t(s.bodyKey)}</p>
           </section>
         ))}
       </CardContent>

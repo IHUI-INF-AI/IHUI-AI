@@ -70,7 +70,7 @@ export function RoleDialog({
               <DialogDescription>{t('subtitle')}</DialogDescription>
             </DialogHeader>
             {formErr && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {formErr}
               </div>
             )}
@@ -147,13 +147,13 @@ export function RoleDialog({
             <DialogDescription>{t('deleteDesc')}</DialogDescription>
           </DialogHeader>
           {formErr && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {formErr}
             </div>
           )}
-          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-body">
             <span className="font-medium">{delTarget?.displayName}</span>
-            <span className="ml-2 text-xs text-muted-foreground">{delTarget?.name}</span>
+            <span className="ml-2 text-label text-muted-foreground">{delTarget?.name}</span>
           </div>
           <DialogFooter>
             <Button

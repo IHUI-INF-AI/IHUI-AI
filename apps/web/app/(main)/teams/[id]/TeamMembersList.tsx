@@ -60,7 +60,7 @@ export function TeamMembersList({
   }
   if (!members?.length) {
     return (
-      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
         {t('noMembers')}
       </div>
     )
@@ -77,7 +77,7 @@ export function TeamMembersList({
                 <span className="break-words text-body font-medium">{m.nickname}</span>
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
+                    'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label',
                     ROLE_BADGE[m.role],
                   )}
                 >
@@ -85,7 +85,7 @@ export function TeamMembersList({
                   {t(ROLE_LABEL_KEY[m.role] ?? 'roles.member')}
                 </span>
               </div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="mt-0.5 text-label text-muted-foreground">
                 {t('joinedAt')}: {fmt(m.joinedAt)}
               </div>
             </div>

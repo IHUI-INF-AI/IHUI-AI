@@ -63,14 +63,14 @@ export function FeedbackEditDialog({
             <DialogDescription>{t('editDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
           {editing && (
-            <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+            <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
               <div className="font-medium">{editing.title}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="mt-0.5 text-label text-muted-foreground">
                 {editing.user ?? '-'} · {tf(`type_${editing.type}`)}
               </div>
             </div>
@@ -168,7 +168,7 @@ export function FeedbackCreateDialog({
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}

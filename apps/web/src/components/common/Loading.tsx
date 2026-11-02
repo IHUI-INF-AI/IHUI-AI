@@ -45,7 +45,7 @@ export function Loading({ variant = 'spinner', size = 'md', className, text }: L
             />
           ))}
         </div>
-        {text && <span className="text-sm text-muted-foreground">{text}</span>}
+        {text && <span className="text-body text-muted-foreground">{text}</span>}
       </div>
     )
   }
@@ -53,7 +53,7 @@ export function Loading({ variant = 'spinner', size = 'md', className, text }: L
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <Loader2 className={cn('animate-spin text-muted-foreground', sizeMap[size])} />
-      {text && <span className="text-sm text-muted-foreground">{text}</span>}
+      {text && <span className="text-body text-muted-foreground">{text}</span>}
     </div>
   )
 }

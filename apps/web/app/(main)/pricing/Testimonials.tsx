@@ -35,7 +35,7 @@ export function Testimonials(): React.JSX.Element {
         <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('testimonials.title')}
         </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           {t('testimonials.subtitle')}
         </p>
       </div>
@@ -48,14 +48,14 @@ export function Testimonials(): React.JSX.Element {
                   <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                 ))}
               </div>
-              <p className="text-sm leading-relaxed text-foreground">{item.text}</p>
+              <p className="text-body leading-relaxed text-foreground">{item.text}</p>
               <div className="mt-1 flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-label font-semibold text-primary">
                   {getInitials(item.name)}
                 </span>
                 <div className="flex flex-col">
                   <span className="text-body font-medium text-foreground">{item.name}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {item.role} @ {item.company}
                   </span>
                 </div>

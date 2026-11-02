@@ -113,7 +113,7 @@ export function ImageGenFreepik() {
     <Card>
       <CardHeader>
         <CardTitle>{t('freepikImageTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('freepikImageSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('freepikImageSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -149,20 +149,20 @@ export function ImageGenFreepik() {
 
         {poll && (
           <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {t('taskId')}: {poll.taskId} · {t('status')}: {statusLabel(status)}
             </div>
             {status !== 'COMPLETED' && status !== 'FAILED' ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('polling')}
               </div>
             ) : null}
             {status === 'FAILED' ? (
-              <p className="text-sm text-destructive">{t('statusFailed')}</p>
+              <p className="text-body text-destructive">{t('statusFailed')}</p>
             ) : null}
             {status === 'COMPLETED' && images.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noResult')}</p>
+              <p className="text-body text-muted-foreground">{t('noResult')}</p>
             ) : null}
             <div className="grid grid-cols-2 gap-3">
               {images.map((url) => (
@@ -180,7 +180,7 @@ export function ImageGenFreepik() {
                     download
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    className="inline-flex items-center gap-1 text-label text-primary hover:underline"
                   >
                     <Download className="h-3 w-3" />
                     {t('download')}

@@ -173,7 +173,7 @@ export default function ItOpsPage() {
                 <div className="text-display font-bold text-primary min-[768px]:text-3xl">
                   {m.value}
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">
+                <div className="mt-1 text-label text-muted-foreground min-[768px]:text-body">
                   {m.label}
                 </div>
               </div>
@@ -192,7 +192,7 @@ export default function ItOpsPage() {
                   {i + 1}
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">{c.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.desc}</p>
+                <p className="mt-2 text-body leading-relaxed text-muted-foreground">{c.desc}</p>
               </div>
             ))}
           </div>
@@ -209,7 +209,7 @@ export default function ItOpsPage() {
                   {s.step}
                 </div>
                 <h3 className="mt-4 text-base font-semibold">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
+                <p className="mt-2 text-body leading-relaxed text-muted-foreground">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -220,7 +220,7 @@ export default function ItOpsPage() {
           <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
             开始构建你的 AI IT 运维助手
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
             注册即得 1000 积分,从 IT 运维场景模板一键 fork,30 分钟体验。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

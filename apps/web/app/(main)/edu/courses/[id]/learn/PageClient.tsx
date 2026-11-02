@@ -126,7 +126,7 @@ export default function EduCourseLearnPage() {
       <div className="space-y-4">
         <Link
           href={`/edu/courses/${id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToDetail')}
@@ -149,7 +149,7 @@ export default function EduCourseLearnPage() {
         <button
           type="button"
           onClick={() => router.push(`/edu/courses/${id}`)}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToDetail')}
@@ -167,7 +167,7 @@ export default function EduCourseLearnPage() {
     <div className="space-y-4">
       <Link
         href={`/edu/courses/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToDetail')}
@@ -191,12 +191,12 @@ export default function EduCourseLearnPage() {
             )}
           </div>
           {active?.videoUrl && playError && (
-            <p className="text-xs text-destructive">{t('loadFailed')}</p>
+            <p className="text-label text-destructive">{t('loadFailed')}</p>
           )}
           <div className="space-y-1">
             <h1 className="text-lg font-semibold">{active?.title ?? courseTitle}</h1>
             {active?.duration && (
-              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <p className="flex items-center gap-1 text-label text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {active.duration}
               </p>
@@ -205,14 +205,14 @@ export default function EduCourseLearnPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
+              <CardTitle className="flex items-center gap-2 text-body">
                 <NotebookPen className="h-4 w-4 text-primary" />
                 {t('notes')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="note" className="text-xs">
+                <Label htmlFor="note" className="text-label">
                   {t('noteLabel')}
                 </Label>
                 <textarea
@@ -220,7 +220,7 @@ export default function EduCourseLearnPage() {
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
                   rows={3}
-                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   placeholder={t('notePlaceholder')}
                 />
               </div>
@@ -233,7 +233,7 @@ export default function EduCourseLearnPage() {
                 {t('saveNote')}
               </Button>
               {noteMut.isError && (
-                <p className="text-xs text-destructive">{(noteMut.error as Error)?.message}</p>
+                <p className="text-label text-destructive">{(noteMut.error as Error)?.message}</p>
               )}
             </CardContent>
           </Card>
@@ -242,7 +242,7 @@ export default function EduCourseLearnPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t('sections')}</CardTitle>
+              <CardTitle className="text-body">{t('sections')}</CardTitle>
             </CardHeader>
             <CardContent className="min-[640px]:p-2 space-y-0.5 p-2">
               {sections.map((s, i) => (
@@ -254,14 +254,14 @@ export default function EduCourseLearnPage() {
                     setPlayError(false)
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors',
                     active?.id === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent',
                   )}
                 >
                   {s.completed ? (
                     <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                   ) : (
-                    <span className="w-3.5 shrink-0 text-center text-xs text-muted-foreground">
+                    <span className="w-3.5 shrink-0 text-center text-label text-muted-foreground">
                       {i + 1}
                     </span>
                   )}
@@ -285,7 +285,7 @@ export default function EduCourseLearnPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
+              <CardTitle className="flex items-center gap-2 text-body">
                 <HelpCircle className="h-4 w-4 text-primary" />
                 {t('qa')}
               </CardTitle>
@@ -296,7 +296,7 @@ export default function EduCourseLearnPage() {
                   value={qaText}
                   onChange={(e) => setQaText(e.target.value)}
                   placeholder={t('qaPlaceholder')}
-                  className="h-8 text-xs"
+                  className="h-8 text-label"
                 />
                 <Button
                   size="sm"
@@ -309,15 +309,17 @@ export default function EduCourseLearnPage() {
               </div>
               <div className="max-h-64 space-y-2 overflow-y-auto">
                 {(qaList ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-xs text-muted-foreground">{t('qaEmpty')}</p>
+                  <p className="py-4 text-center text-label text-muted-foreground">
+                    {t('qaEmpty')}
+                  </p>
                 ) : (
                   (qaList ?? []).map((qa) => (
                     <div key={qa.id} className="rounded-md border p-2">
                       <p className="text-label font-medium">{qa.question}</p>
                       {qa.answer && (
-                        <p className="mt-1 text-xs text-muted-foreground">{qa.answer}</p>
+                        <p className="mt-1 text-label text-muted-foreground">{qa.answer}</p>
                       )}
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-label text-muted-foreground">
                         {qa.author} · {fmt(qa.createdAt)}
                       </p>
                     </div>

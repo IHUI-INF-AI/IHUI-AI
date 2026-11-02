@@ -138,19 +138,19 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             <h2 id="app-version-gate-title" className="text-base font-semibold">
               {t('gateTitle')}
             </h2>
-            <p id="app-version-gate-body" className="mt-1 text-sm text-muted-foreground">
+            <p id="app-version-gate-body" className="mt-1 text-body text-muted-foreground">
               {bodyText}
             </p>
             {releaseNotes ? (
               <div className="mt-3 rounded-lg bg-muted p-3">
                 <p className="text-label font-medium">{t('gateReleaseNotes')}</p>
-                <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                <p className="mt-1 whitespace-pre-wrap text-label text-muted-foreground">
                   {releaseNotes}
                 </p>
               </div>
             ) : null}
             {confirmQuit ? (
-              <p className="mt-3 text-xs text-warning-text">{t('gateQuitConfirm')}</p>
+              <p className="mt-3 text-label text-warning-text">{t('gateQuitConfirm')}</p>
             ) : null}
           </div>
         </div>
@@ -166,7 +166,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
             <button
               type="button"
               onClick={() => setConfirmQuit(false)}
-              className="rounded-sm px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+              className="rounded-sm px-3 py-1.5 text-body text-muted-foreground hover:bg-muted"
             >
               {t('close')}
             </button>
@@ -174,7 +174,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
           <button
             type="button"
             onClick={handleQuit}
-            className="rounded-sm px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+            className="rounded-sm px-3 py-1.5 text-body text-muted-foreground hover:bg-muted"
           >
             {t('gateQuit')}
           </button>

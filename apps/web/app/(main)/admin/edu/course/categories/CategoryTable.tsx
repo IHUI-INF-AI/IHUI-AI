@@ -99,7 +99,9 @@ export function CategoryTable({
                     onCheckedChange={() => onToggleOne(r.id)}
                   />
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">{r.id}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
+                  {r.id}
+                </TableCell>
                 <TableCell className="px-4 py-2.5">{r.code}</TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{r.name}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.prentId ?? '-'}</TableCell>

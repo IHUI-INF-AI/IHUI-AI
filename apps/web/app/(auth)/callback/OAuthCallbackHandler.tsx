@@ -166,7 +166,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
     return (
       <div className="space-y-4 p-3 text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {t('loading', { provider: providerLabel(provider, t) })}
         </p>
       </div>
@@ -187,7 +187,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
       <XCircle className="mx-auto h-10 w-10 text-destructive" />
       <div className="space-y-1">
         <p className="text-body font-medium">{t('failedTitle')}</p>
-        <p className="text-xs text-muted-foreground">{errorMsg}</p>
+        <p className="text-label text-muted-foreground">{errorMsg}</p>
       </div>
       <Link
         href="/login"

@@ -112,9 +112,9 @@ export default async function LogsPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('logs.table.time')}</th>
                   <th className="px-4 py-2 font-medium">{t('logs.table.model')}</th>
                   <th className="px-4 py-2 font-medium">{t('logs.table.key')}</th>
@@ -126,7 +126,7 @@ export default async function LogsPage() {
               </thead>
               <tbody>
                 {logs.map((l) => (
-                  <tr key={l.id} className="text-xs hover:bg-muted/30">
+                  <tr key={l.id} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{l.time}</td>
                     <td className="px-4 py-2.5 font-medium">{l.model}</td>
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{l.key}</td>

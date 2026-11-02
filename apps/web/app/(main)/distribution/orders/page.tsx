@@ -113,7 +113,7 @@ export default function CommissionOrdersPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -133,7 +133,7 @@ export default function CommissionOrdersPage() {
         <>
           <Card>
             <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
-              <span className="text-sm text-muted-foreground">{t('colStatus')}</span>
+              <span className="text-body text-muted-foreground">{t('colStatus')}</span>
               <Select value={status} onValueChange={onStatusChange}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
@@ -214,7 +214,7 @@ export default function CommissionOrdersPage() {
 
           {total > PAGE_SIZE && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+              <span className="text-body text-muted-foreground">{t('totalOf', { total })}</span>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -224,7 +224,7 @@ export default function CommissionOrdersPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {page} / {totalPages}
                 </span>
                 <Button

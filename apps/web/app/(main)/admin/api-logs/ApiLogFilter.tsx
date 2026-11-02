@@ -29,7 +29,7 @@ export function ApiLogFilter({
       <CardContent className="pt-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
-            <Label className="text-xs">{t('apiLogs.filterStatus')}</Label>
+            <Label className="text-label">{t('apiLogs.filterStatus')}</Label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -42,7 +42,7 @@ export function ApiLogFilter({
             </select>
           </div>
           <div className="flex-1 min-w-0 space-y-1.5">
-            <Label className="text-xs">{t('apiLogs.filterEndpoint')}</Label>
+            <Label className="text-label">{t('apiLogs.filterEndpoint')}</Label>
             {/* G-962 D组#108 同判据假影(提取式按引号紧邻误采 placeholder 假路径串,台账按 method|path 去重后与 api-debug 同条),已删 */}
             <Input
               value={endpointFilter}

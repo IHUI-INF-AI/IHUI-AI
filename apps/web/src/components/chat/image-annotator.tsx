@@ -498,13 +498,13 @@ export function ImageAnnotator({ open, imageUrl, onClose, onApply }: ImageAnnota
           className="flex min-h-40 items-center justify-center overflow-auto rounded-lg border bg-muted/40 p-2"
         >
           {status === 'loading' && (
-            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {t('contextUsage.annotator.loading')}
             </span>
           )}
           {status === 'error' && (
-            <span role="alert" className="text-sm text-destructive">
+            <span role="alert" className="text-body text-destructive">
               {t('contextUsage.annotator.loadFailed')}
             </span>
           )}

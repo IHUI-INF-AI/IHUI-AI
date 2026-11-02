@@ -28,10 +28,12 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-4">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('title')}
+        </h1>
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>{t('backToHome')}</span>

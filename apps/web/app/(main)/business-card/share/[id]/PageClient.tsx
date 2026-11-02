@@ -120,12 +120,12 @@ export default function CardSharePage() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Link
           href="/business-card"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function CardSharePage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href="/business-card"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -160,12 +160,12 @@ export default function CardSharePage() {
           )}
           <div className="min-w-0 flex-1 space-y-1">
             <h2 className="text-heading font-bold">{card.name}</h2>
-            {card.title && <p className="text-sm opacity-80">{card.title}</p>}
-            {card.company && <p className="text-sm opacity-80">{card.company}</p>}
-            {card.bio && <p className="pt-1 text-sm opacity-70">{card.bio}</p>}
+            {card.title && <p className="text-body opacity-80">{card.title}</p>}
+            {card.company && <p className="text-body opacity-80">{card.company}</p>}
+            {card.bio && <p className="pt-1 text-body opacity-70">{card.bio}</p>}
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        <div className="mt-4 grid grid-cols-2 gap-2 text-body">
           {card.phone && (
             <a
               href={`tel:${card.phone}`}
@@ -212,7 +212,7 @@ export default function CardSharePage() {
                 unoptimized
               />
             </div>
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-label text-muted-foreground">
               <QrCode className="h-3 w-3" />
               {t('scanTip')}
             </span>

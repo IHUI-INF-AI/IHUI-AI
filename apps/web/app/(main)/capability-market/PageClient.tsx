@@ -119,7 +119,7 @@ export default function CapabilityMarketPageClient() {
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           {!isLoading && !error && <Badge variant="primary">{t('count', { count: total })}</Badge>}
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 过滤栏:关键词搜索 + 分类下拉 */}
@@ -135,7 +135,7 @@ export default function CapabilityMarketPageClient() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="rounded-sm border bg-card px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border bg-card px-3 py-2 text-body text-foreground"
           aria-label={t('category')}
         >
           <option value="">{t('allCategories')}</option>
@@ -148,13 +148,13 @@ export default function CapabilityMarketPageClient() {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
       )}
       {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('loadFailed')}
         </div>
       )}
@@ -236,7 +236,7 @@ function CapabilityCard({
           </div>
         </div>
       </div>
-      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-label leading-relaxed text-muted-foreground">
         {cap.description}
       </p>
       <div className="text-[11px] text-muted-foreground">

@@ -41,7 +41,7 @@ export default function AdminNewsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('articlesTitle')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('articlesSubtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('articlesSubtitle')}</p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href="/admin/news/categories">

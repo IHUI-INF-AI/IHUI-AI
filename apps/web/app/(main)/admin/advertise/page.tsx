@@ -149,7 +149,7 @@ export default function AdvertisePage() {
       <AdvertiseTable list={list} isLoading={isLoading} onEdit={openEdit} onDelete={handleDelete} />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -160,7 +160,7 @@ export default function AdvertisePage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

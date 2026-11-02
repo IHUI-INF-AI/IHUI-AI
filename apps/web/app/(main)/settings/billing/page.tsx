@@ -219,7 +219,7 @@ export default function BillingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">{t('billing.rulesDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('billing.rulesDesc')}</p>
           {/* 透明性公式:每笔扣费的三个乘数一律可在下方规则里找到出处 */}
           <p
             data-testid="billing-formula"
@@ -231,15 +231,17 @@ export default function BillingPage() {
             <Alert variant="danger" title={t('billing.loadFailed')} closable />
           ) : null}
           {rulesQuery.isLoading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t('billingLoading')}</p>
+            <p className="py-6 text-center text-body text-muted-foreground">
+              {t('billingLoading')}
+            </p>
           ) : (rulesQuery.data?.length ?? 0) === 0 ? (
             /* 空态 = 存量默认口径提示(没有自定义规则不代表不计费) */
             <div
               data-testid="billing-rules-empty"
-              className="py-6 text-center text-sm text-muted-foreground"
+              className="py-6 text-center text-body text-muted-foreground"
             >
               <p>{t('billing.emptyTitle')}</p>
-              <p className="mt-1 text-xs">{t('billing.emptyHint')}</p>
+              <p className="mt-1 text-label">{t('billing.emptyHint')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -254,11 +256,11 @@ export default function BillingPage() {
                     <Badge variant="outline" data-testid={`pricing-rule-mode-${rule.id}`}>
                       {t(`billing.mode_${rule.mode}`)}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-label text-muted-foreground">
                       {t('billing.versionLabel')} v{rule.version}
                     </span>
                   </div>
-                  <p className="text-xs">
+                  <p className="text-label">
                     {t('billing.basePriceLabel')}:{' '}
                     <span className="font-medium">
                       {rule.currency} {priceFmt.format(rule.basePrice)}{' '}
@@ -270,7 +272,7 @@ export default function BillingPage() {
                   <div>
                     <p className="mb-1 text-label font-medium">{t('billing.tierTitle')}</p>
                     {Object.keys(rule.tierMultipliers ?? {}).length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('billing.tierNone')}</p>
+                      <p className="text-label text-muted-foreground">{t('billing.tierNone')}</p>
                     ) : (
                       <Table>
                         <TableHeader>
@@ -282,8 +284,8 @@ export default function BillingPage() {
                         <TableBody>
                           {Object.entries(rule.tierMultipliers).map(([tier, factor]) => (
                             <TableRow key={`${rule.id}-${tier}`}>
-                              <TableCell className="text-xs">{tier}</TableCell>
-                              <TableCell className="text-xs" data-testid="pricing-tier-factor">
+                              <TableCell className="text-label">{tier}</TableCell>
+                              <TableCell className="text-label" data-testid="pricing-tier-factor">
                                 {formatFactor(factor)}
                               </TableCell>
                             </TableRow>
@@ -299,18 +301,18 @@ export default function BillingPage() {
                     {rule.timeOfDayDescriptions.length > 0 ? (
                       <ul
                         data-testid={`pricing-rule-offpeak-${rule.id}`}
-                        className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground"
+                        className="list-disc space-y-0.5 pl-4 text-label text-muted-foreground"
                       >
                         {rule.timeOfDayDescriptions.map((desc) => (
                           <li key={desc}>{desc}</li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-xs text-muted-foreground">{t('billing.offPeakNone')}</p>
+                      <p className="text-label text-muted-foreground">{t('billing.offPeakNone')}</p>
                     )}
                   </div>
 
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('billing.effectiveLabel')}:{' '}
                     {Number.isNaN(Date.parse(rule.effectiveFrom))
                       ? '—'
@@ -327,7 +329,7 @@ export default function BillingPage() {
             </div>
           )}
           {/* 版本可追溯表述:结算历史里的 ruleId 永远可回查(后端软下线纪律) */}
-          <p data-testid="billing-version-trace" className="text-xs text-muted-foreground">
+          <p data-testid="billing-version-trace" className="text-label text-muted-foreground">
             {t('billing.versionTrace')}
           </p>
         </CardContent>
@@ -342,7 +344,7 @@ export default function BillingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t('billing.usageDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('billing.usageDesc')}</p>
           {aiUsageQuery.error ? (
             <Alert variant="danger" title={t('billing.usageLoadFailed')} closable />
           ) : null}
@@ -351,11 +353,11 @@ export default function BillingPage() {
           <div>
             <p className="mb-2 text-body font-medium">{t('billing.dailyTitle')}</p>
             {dailyUsageQuery.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-4 text-center text-body text-muted-foreground">
                 {t('billingLoading')}
               </p>
             ) : last30Buckets.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-4 text-center text-body text-muted-foreground">
                 {t('billing.usageEmpty')}
               </p>
             ) : (
@@ -371,9 +373,9 @@ export default function BillingPage() {
                   <TableBody>
                     {last30Buckets.map((b) => (
                       <TableRow key={b.date} data-testid={`usage-daily-row-${b.date}`}>
-                        <TableCell className="text-xs">{b.date}</TableCell>
-                        <TableCell className="text-xs">{b.count}</TableCell>
-                        <TableCell className="text-xs">{b.points}</TableCell>
+                        <TableCell className="text-label">{b.date}</TableCell>
+                        <TableCell className="text-label">{b.count}</TableCell>
+                        <TableCell className="text-label">{b.points}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -381,7 +383,10 @@ export default function BillingPage() {
               </div>
             )}
             {last30Buckets.length > 0 ? (
-              <p data-testid="billing-credits-total" className="mt-2 text-xs text-muted-foreground">
+              <p
+                data-testid="billing-credits-total"
+                className="mt-2 text-label text-muted-foreground"
+              >
                 {t('billing.dailyTotal', { points: last30Points })}
               </p>
             ) : null}
@@ -391,11 +396,11 @@ export default function BillingPage() {
           <div>
             <p className="mb-2 text-body font-medium">{t('billing.modelTitle')}</p>
             {aiUsageQuery.isLoading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-4 text-center text-body text-muted-foreground">
                 {t('billingLoading')}
               </p>
             ) : modelEntries.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-4 text-center text-body text-muted-foreground">
                 {t('billing.usageEmpty')}
               </p>
             ) : (
@@ -412,10 +417,10 @@ export default function BillingPage() {
                   <TableBody>
                     {modelEntries.map(([model, m]) => (
                       <TableRow key={model} data-testid={`usage-model-row-${model}`}>
-                        <TableCell className="max-w-[220px] truncate text-xs">{model}</TableCell>
-                        <TableCell className="text-xs">{m.total_tokens}</TableCell>
-                        <TableCell className="text-xs">{m.calls ?? '—'}</TableCell>
-                        <TableCell className="text-xs">${m.cost.toFixed(4)}</TableCell>
+                        <TableCell className="max-w-[220px] truncate text-label">{model}</TableCell>
+                        <TableCell className="text-label">{m.total_tokens}</TableCell>
+                        <TableCell className="text-label">{m.calls ?? '—'}</TableCell>
+                        <TableCell className="text-label">${m.cost.toFixed(4)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

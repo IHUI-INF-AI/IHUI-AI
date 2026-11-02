@@ -324,7 +324,7 @@ export function SlashCommandPalette({
           // 参数补全模式:候选列表(无分组)
           argSuggestions.length === 0 ? (
             <div className="flex flex-col items-center gap-1 py-8 text-center">
-              <p className="text-sm text-muted-foreground">{t('noMatchArgs')}</p>
+              <p className="text-body text-muted-foreground">{t('noMatchArgs')}</p>
               <p className="text-[10px] text-muted-foreground/60">{t('noMatchArgsHint')}</p>
             </div>
           ) : (
@@ -361,7 +361,7 @@ export function SlashCommandPalette({
                       {suggestion.label}
                     </span>
                     {suggestion.description && (
-                      <span className="whitespace-pre-line break-words text-xs leading-snug text-muted-foreground">
+                      <span className="whitespace-pre-line break-words text-label leading-snug text-muted-foreground">
                         {suggestion.description}
                       </span>
                     )}
@@ -373,7 +373,7 @@ export function SlashCommandPalette({
         ) : // 普通模式:分组命令列表
         flatItems.length === 0 ? (
           <div className="flex flex-col items-center gap-1 py-8 text-center">
-            <p className="text-sm text-muted-foreground">{t('noMatchCommands')}</p>
+            <p className="text-body text-muted-foreground">{t('noMatchCommands')}</p>
             <p className="text-[10px] text-muted-foreground/60">{t('noMatchCommandsHint')}</p>
           </div>
         ) : (
@@ -455,7 +455,7 @@ export function SlashCommandPalette({
                         )}
                       </div>
                       {cmd.description && (
-                        <span className="whitespace-pre-line break-words text-xs leading-snug text-muted-foreground">
+                        <span className="whitespace-pre-line break-words text-label leading-snug text-muted-foreground">
                           {cmd.description}
                         </span>
                       )}
@@ -548,5 +548,4 @@ export function SlashCommandPalette({
     </div>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

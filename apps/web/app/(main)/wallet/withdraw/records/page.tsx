@@ -173,11 +173,11 @@ export default function WithdrawRecordsPage() {
             {stats.map((s) => (
               <Card key={s.label}>
                 <CardContent className="min-[640px]:p-3 space-y-1 p-3">
-                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                  <div className="text-label text-muted-foreground">{s.label}</div>
                   {summaryQ.isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : summaryQ.error ? (
-                    <div className="text-sm text-destructive">
+                    <div className="text-body text-destructive">
                       {(summaryQ.error as Error).message}
                     </div>
                   ) : (
@@ -229,7 +229,7 @@ export default function WithdrawRecordsPage() {
                       </TableCell>
                       <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
                         <div className="font-medium text-foreground">¥{formatPrice(it.amount)}</div>
-                        <div className="text-xs">-¥{formatPrice(it.fee)}</div>
+                        <div className="text-label">-¥{formatPrice(it.fee)}</div>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">
                         {t(METHOD_KEY[it.method] ?? 'methodWechat')}
@@ -256,7 +256,7 @@ export default function WithdrawRecordsPage() {
 
           {total > PAGE_SIZE && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {total} / {totalPages}
               </span>
               <div className="flex items-center gap-2">
@@ -268,7 +268,7 @@ export default function WithdrawRecordsPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {page} / {totalPages}
                 </span>
                 <Button

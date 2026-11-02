@@ -191,7 +191,7 @@ export function BackgroundAgentsPanel({
           <Cpu className="h-4 w-4 text-muted-foreground" />
           <span className="text-body font-medium">{t('title')}</span>
           {stats.running > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-label text-amber-600">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
               {t('runningCount', { count: stats.running })}
             </span>
@@ -219,8 +219,8 @@ export function BackgroundAgentsPanel({
       {agents.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1 py-8 text-center">
           <Cpu className="h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
-          <p className="text-xs text-muted-foreground/70">{t('emptyHint')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
+          <p className="text-label text-muted-foreground/70">{t('emptyHint')}</p>
         </div>
       ) : (
         <ul className="space-y-1">
@@ -239,7 +239,7 @@ export function BackgroundAgentsPanel({
                   <span className="mt-0.5 shrink-0">{TASK_STATE_ICON[taskState]}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="break-words font-mono text-xs text-muted-foreground">
+                      <span className="break-words font-mono text-label text-muted-foreground">
                         {agent.agent_id}
                       </span>
                       <span
@@ -254,20 +254,20 @@ export function BackgroundAgentsPanel({
                       </span>
                       {agent.progress?.tool_calls !== null &&
                         agent.progress?.tool_calls !== undefined && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-label text-muted-foreground">
                             {t('calls', { count: agent.progress.tool_calls })}
                           </span>
                         )}
                     </div>
 
                     <Tooltip content={agent.prompt} side="bottom">
-                      <p className="mt-0.5 break-words text-sm">
+                      <p className="mt-0.5 break-words text-body">
                         {truncate(agent.prompt, 80, (n) => t('omittedChars', { count: n }))}
                       </p>
                     </Tooltip>
 
                     {agent.status === 'running' && agent.progress?.text_preview && (
-                      <p className="mt-0.5 break-words text-xs text-muted-foreground">
+                      <p className="mt-0.5 break-words text-label text-muted-foreground">
                         {truncate(agent.progress.text_preview, 100, (n) =>
                           t('omittedChars', { count: n }),
                         )}
@@ -275,33 +275,33 @@ export function BackgroundAgentsPanel({
                     )}
 
                     {agent.result?.output && agent.status === 'completed' && (
-                      <p className="mt-0.5 break-words text-xs text-emerald-600">
+                      <p className="mt-0.5 break-words text-label text-emerald-600">
                         {truncate(agent.result.output, 100, (n) => t('omittedChars', { count: n }))}
                       </p>
                     )}
 
                     {agent.error && (
-                      <p className="mt-0.5 break-words text-xs text-red-600">{agent.error}</p>
+                      <p className="mt-0.5 break-words text-label text-red-600">{agent.error}</p>
                     )}
 
                     {view.hintKey && (
                       <p
                         data-testid={`bg-task-hint-${agent.agent_id}`}
-                        className={cn('mt-0.5 break-words text-xs', TONE_HINT_CLASS[view.tone])}
+                        className={cn('mt-0.5 break-words text-label', TONE_HINT_CLASS[view.tone])}
                       >
                         {tb(view.hintKey)}
                       </p>
                     )}
 
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {formatTimeOnly(agent.updated_at || agent.created_at)}
                       </span>
                       {/* D08 ③:Fleet 跨会话行的逐 agent token;字段缺席=未判定,不渲染、不拿 0 顶替 */}
                       {agent.tokens !== undefined && (
                         <span
                           data-testid={`bg-task-tokens-${agent.agent_id}`}
-                          className="text-xs text-muted-foreground tabular-nums"
+                          className="text-label text-muted-foreground tabular-nums"
                         >
                           {t('tokens')} {agent.tokens}
                         </span>
@@ -313,7 +313,7 @@ export function BackgroundAgentsPanel({
                           <Link
                             href={agent.takeoverHref}
                             data-testid={`bg-task-takeover-${agent.agent_id}`}
-                            className="rounded-sm px-2 py-0.5 text-xs text-primary transition-colors hover:underline"
+                            className="rounded-sm px-2 py-0.5 text-label text-primary transition-colors hover:underline"
                           >
                             {t('takeover')}
                           </Link>
@@ -325,7 +325,7 @@ export function BackgroundAgentsPanel({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-xs text-red-600 hover:text-red-600"
+                            className="h-6 px-2 text-label text-red-600 hover:text-red-600"
                             onClick={() => void handleStop(agent.agent_id)}
                           >
                             {t('cancel')}
@@ -336,7 +336,7 @@ export function BackgroundAgentsPanel({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 px-2 text-xs text-red-600 hover:text-red-600"
+                              className="h-6 px-2 text-label text-red-600 hover:text-red-600"
                               onClick={() => void handleStop(agent.agent_id)}
                             >
                               {tb('action.retryStop')}
@@ -344,7 +344,7 @@ export function BackgroundAgentsPanel({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 px-2 text-xs"
+                              className="h-6 px-2 text-label"
                               onClick={() => ignoreStopFailure(agent.agent_id)}
                             >
                               {tb('action.ignore')}
@@ -355,7 +355,7 @@ export function BackgroundAgentsPanel({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-xs"
+                            className="h-6 px-2 text-label"
                             onClick={() => onViewResult?.(agent.agent_id)}
                           >
                             {t('viewResult')}
@@ -365,7 +365,7 @@ export function BackgroundAgentsPanel({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-xs"
+                            className="h-6 px-2 text-label"
                             onClick={() => onPurge?.(agent.agent_id)}
                           >
                             {t('delete')}
@@ -382,7 +382,7 @@ export function BackgroundAgentsPanel({
       )}
 
       {agents.length > 0 && (
-        <div className="flex items-center gap-3 px-3 py-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 px-3 py-1.5 text-label text-muted-foreground">
           <span>{t('total', { count: agents.length })}</span>
           {stats.completed > 0 && <span>{t('completedCount', { count: stats.completed })}</span>}
           {stats.failed > 0 && <span>{t('failedCount', { count: stats.failed })}</span>}

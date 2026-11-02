@@ -110,7 +110,7 @@ export default function RelayTasksPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">号池任务中心</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="text-muted-foreground mt-1 text-body">
             四类载体的周期任务一张表:上次执行/下次执行/成败。调度仍由各载体自己承载,此处只观测与手动触发。
           </p>
         </div>
@@ -133,12 +133,12 @@ export default function RelayTasksPage() {
       </div>
 
       {query.isLoading ? (
-        <div className="text-muted-foreground flex items-center gap-2 p-8 text-sm">
+        <div className="text-muted-foreground flex items-center gap-2 p-8 text-body">
           <Loader2 className="size-4 animate-spin" /> 加载中…
         </div>
       ) : (
         <div className="rounded-lg border">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
               <tr className="text-muted-foreground border-b text-left">
                 <th className="px-3 py-2 font-medium">任务</th>
@@ -155,49 +155,51 @@ export default function RelayTasksPage() {
                   <td className="px-3 py-2">
                     <div className="font-medium">{t.name}</div>
                     {t.indeterminateReason && (
-                      <div className="mt-1 text-xs text-amber-600">
+                      <div className="mt-1 text-label text-amber-600">
                         ⚠ 未判定:{t.indeterminateReason}
                       </div>
                     )}
                     {/* 门关 ≠ 未判定:判过了就点名是哪道闸、该怎么开(可整改,§5e-1) */}
                     {t.disabledReason && !t.indeterminateReason && (
-                      <div className="mt-1 text-xs text-red-600">已停用:{t.disabledReason}</div>
+                      <div className="mt-1 text-label text-red-600">已停用:{t.disabledReason}</div>
                     )}
                     {!t.indeterminateReason && !t.disabledReason && t.lastRunDetail && (
-                      <div className="text-muted-foreground mt-1 text-xs">{t.lastRunDetail}</div>
+                      <div className="text-muted-foreground mt-1 text-label">{t.lastRunDetail}</div>
                     )}
                     {t.note && (
-                      <div className="text-muted-foreground mt-1 text-xs">出路:{t.note}</div>
+                      <div className="text-muted-foreground mt-1 text-label">出路:{t.note}</div>
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
+                    <span className="bg-muted rounded px-1.5 py-0.5 text-label">
                       {CARRIER_LABEL[t.carrier]}
                     </span>
                   </td>
-                  <td className="text-muted-foreground px-3 py-2 text-xs">{t.schedule}</td>
+                  <td className="text-muted-foreground px-3 py-2 text-label">{t.schedule}</td>
                   <td className="px-3 py-2">
                     <div>{fmtTime(t.lastRunAt)}</div>
                     {t.lastRunOk === false && (
-                      <div className="text-xs text-red-600">失败:{t.lastRunDetail}</div>
+                      <div className="text-label text-red-600">失败:{t.lastRunDetail}</div>
                     )}
                     {t.lastRunOk === true && !t.indeterminateReason && (
-                      <div className="text-xs text-emerald-600">正常</div>
+                      <div className="text-label text-emerald-600">正常</div>
                     )}
                     {/* 分栏诚实(2026-11-01):tick 载体的"心跳在位"绝不冒"执行成功"——
                         器物没自述结果 = 未判定(琥珀),不是绿也不是红(§0.3) */}
                     {t.lastRunOk === null &&
                       t.sourceOk &&
                       (t.carrier === 'guardian' || t.carrier === 'schtasks') && (
-                        <div className="text-xs text-amber-600">
+                        <div className="text-label text-amber-600">
                           执行结果未判定(心跳在位≠跑成功)
                         </div>
                       )}
                     {t.lastRunStale && (
-                      <div className="text-xs text-amber-600">心跳疑似停摆(超 3 个节律周期无新心跳)</div>
+                      <div className="text-label text-amber-600">
+                        心跳疑似停摆(超 3 个节律周期无新心跳)
+                      </div>
                     )}
                   </td>
-                  <td className="text-muted-foreground px-3 py-2 text-xs">
+                  <td className="text-muted-foreground px-3 py-2 text-label">
                     {fmtTime(t.nextRunAt)}
                   </td>
                   <td className="px-3 py-2">
@@ -216,7 +218,7 @@ export default function RelayTasksPage() {
                         触发
                       </Button>
                     ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
+                      <span className="text-muted-foreground text-label">—</span>
                     )}
                   </td>
                 </tr>
@@ -293,7 +295,7 @@ function WorkbuddyAutomation() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-muted-foreground text-sm">{t('wbAccount')}</span>
+          <span className="text-muted-foreground text-body">{t('wbAccount')}</span>
           <Select value={accountId} onValueChange={setAccountId} disabled={accounts.isPending}>
             <SelectTrigger className="w-56">
               <SelectValue placeholder={t('wbAccountEmpty')} />
@@ -306,7 +308,7 @@ function WorkbuddyAutomation() {
               ))}
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <Switch checked={dryRun} onCheckedChange={(v) => setDryRun(v === true)} />
             {t('wbDryRun')}
           </label>
@@ -327,14 +329,14 @@ function WorkbuddyAutomation() {
 
         {/* 清单三态:未判定(琥珀)/失败读取(红)/判过(绿底数据,空表如实说空) */}
         {!accountId ? (
-          <p className="text-muted-foreground text-sm">{t('wbNoAccount')}</p>
+          <p className="text-muted-foreground text-body">{t('wbNoAccount')}</p>
         ) : tasks.isPending ? (
-          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+          <p className="text-muted-foreground flex items-center gap-2 text-body">
             <Loader2 className="size-4 animate-spin" />
             {t('wbLoading')}
           </p>
         ) : tasks.isError ? (
-          <p className="text-sm text-red-600">
+          <p className="text-body text-red-600">
             {t('wbReadFailed')}:{tasks.error.message}
           </p>
         ) : view?.unjudged ? (
@@ -342,13 +344,13 @@ function WorkbuddyAutomation() {
             <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-amber-500/15 px-1 text-[10px] font-semibold leading-none text-amber-600 tabular-nums">
               {t('wbUnjudged')}
             </span>
-            <span className="text-muted-foreground text-xs">{view.reason ?? ''}</span>
+            <span className="text-muted-foreground text-label">{view.reason ?? ''}</span>
           </div>
         ) : taskRows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t('wbNoTasks')}</p>
+          <p className="text-muted-foreground text-body">{t('wbNoTasks')}</p>
         ) : (
           <div className="rounded-lg border">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
                 <tr className="text-muted-foreground border-b text-left">
                   <th className="px-3 py-2 font-medium">{t('wbColTask')}</th>
@@ -362,17 +364,17 @@ function WorkbuddyAutomation() {
                   <tr key={tk.taskCode} className="border-b last:border-b-0">
                     <td className="px-3 py-2">
                       <span className="font-medium">{tk.title}</span>
-                      <span className="text-muted-foreground ml-2 text-xs">{tk.taskCode}</span>
+                      <span className="text-muted-foreground ml-2 text-label">{tk.taskCode}</span>
                     </td>
                     <td className="px-3 py-2 tabular-nums">
                       {tk.progress !== null && tk.target !== null
                         ? `${tk.progress}/${tk.target}`
                         : t('wbUnjudged')}
                     </td>
-                    <td className="text-muted-foreground px-3 py-2 text-xs">
+                    <td className="text-muted-foreground px-3 py-2 text-label">
                       {[tk.status, tk.acceptStatus].filter(Boolean).join(' · ') || '—'}
                     </td>
-                    <td className="px-3 py-2 text-xs tabular-nums">
+                    <td className="px-3 py-2 text-label tabular-nums">
                       <span
                         className={
                           tk.rewardCredit !== null && tk.rewardCredit > 0
@@ -415,7 +417,7 @@ function WorkbuddyAutomation() {
             </Button>
           ))}
         </div>
-        <div className="text-sm">
+        <div className="text-body">
           {!lastRun ? (
             <span className="text-muted-foreground">{t('wbNeverRun')}</span>
           ) : (
@@ -434,11 +436,11 @@ function WorkbuddyAutomation() {
                   {t('wbRunFailed')}
                 </span>
               )}
-              <span className="text-muted-foreground text-xs">
+              <span className="text-muted-foreground text-label">
                 {t('wbAccepted')} {lastRun.accepted.length} · {t('wbClaimed')}{' '}
                 {lastRun.claimed.length}
               </span>
-              <span className="text-xs tabular-nums">
+              <span className="text-label tabular-nums">
                 {t('wbCreditDelta')}:{' '}
                 <span
                   className={
@@ -452,7 +454,7 @@ function WorkbuddyAutomation() {
                   {lastRun.creditDelta === null ? t('wbUnjudged') : lastRun.creditDelta}
                 </span>
               </span>
-              <span className="text-xs tabular-nums">
+              <span className="text-label tabular-nums">
                 {t('wbEnergyDelta')}:{' '}
                 <span
                   className={lastRun.energyDelta === null ? 'text-amber-600' : 'text-emerald-600'}
@@ -461,7 +463,7 @@ function WorkbuddyAutomation() {
                 </span>
               </span>
               {lastRun.reason && (
-                <span className="text-muted-foreground text-xs">{lastRun.reason}</span>
+                <span className="text-muted-foreground text-label">{lastRun.reason}</span>
               )}
             </div>
           )}

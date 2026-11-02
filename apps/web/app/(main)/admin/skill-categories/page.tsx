@@ -92,7 +92,7 @@ export default function AdminSkillCategoriesPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />

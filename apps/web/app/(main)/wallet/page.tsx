@@ -103,14 +103,14 @@ export default function WalletPage() {
       {!allow ? (
         <AuthGatePrompt message="请先登录后查看钱包" />
       ) : balanceQ.error ? (
-        <div className="rounded-lg border bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border bg-destructive/10 p-3 text-body text-destructive">
           {(balanceQ.error as Error).message}
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-[160px] min-[640px]:min-w-[200px] flex-1 rounded-lg border bg-card p-3 text-card-foreground shadow">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('balance')}</span>
+              <span className="text-body text-muted-foreground">{t('balance')}</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <Image
                   src="/images/common/wallet.svg"
@@ -227,7 +227,7 @@ export default function WalletPage() {
 
           {total > PAGE_SIZE && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {total} / {totalPages}
               </span>
               <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export default function WalletPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {page} / {totalPages}
                 </span>
                 <Button

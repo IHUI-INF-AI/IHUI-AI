@@ -66,7 +66,7 @@ export function Modal({
                 </DialogPrimitive.Title>
               )}
               {description && (
-                <DialogPrimitive.Description className="text-sm text-muted-foreground">
+                <DialogPrimitive.Description className="text-body text-muted-foreground">
                   {description}
                 </DialogPrimitive.Description>
               )}

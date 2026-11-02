@@ -48,7 +48,7 @@ export default async function ApiDocsPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('apiDocs.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('apiDocs.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('apiDocs.subtitle')}</p>
       </header>
 
       {/* 鉴权 */}
@@ -59,9 +59,9 @@ export default async function ApiDocsPage() {
             {t('apiDocs.auth.title')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="space-y-2 text-body">
           <p className="text-muted-foreground">{t('apiDocs.auth.desc')}</p>
-          <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs">
+          <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-label">
             <code className="font-mono">
               <span className="text-muted-foreground">{t('apiDocs.auth.headerFormat')}</span>
               {'\n'}
@@ -81,9 +81,9 @@ export default async function ApiDocsPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('apiDocs.endpoints.method')}</th>
                   <th className="px-4 py-2 font-medium">{t('apiDocs.endpoints.path')}</th>
                   <th className="px-4 py-2 font-medium">{t('apiDocs.endpoints.desc')}</th>
@@ -91,7 +91,7 @@ export default async function ApiDocsPage() {
               </thead>
               <tbody>
                 {endpoints.map((e) => (
-                  <tr key={e.path} className="text-xs hover:bg-muted/30">
+                  <tr key={e.path} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5">
                       <span
                         className={
@@ -127,7 +127,7 @@ export default async function ApiDocsPage() {
               <div className="mb-2 text-label font-semibold text-muted-foreground">
                 {t('apiDocs.example.curl')}
               </div>
-              <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
+              <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-label leading-relaxed">
                 <code className="font-mono text-foreground">{CURL_EXAMPLE}</code>
               </pre>
             </div>
@@ -135,7 +135,7 @@ export default async function ApiDocsPage() {
               <div className="mb-2 text-label font-semibold text-muted-foreground">
                 {t('apiDocs.example.python')}
               </div>
-              <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
+              <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-label leading-relaxed">
                 <code className="font-mono text-foreground">{PYTHON_EXAMPLE}</code>
               </pre>
             </div>

@@ -119,7 +119,7 @@ export function AgentsTable({
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">{a.sort}</TableCell>
-                <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                   {dateFmt.format(new Date(a.createdAt))}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

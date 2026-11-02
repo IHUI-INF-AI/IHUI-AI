@@ -180,7 +180,7 @@ export default function AdminAsksPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <AsksFilter search={search} setSearch={setSearch} onCreate={openCreate} mockMode={mockMode} />
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-body">
         <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
         <span className="text-muted-foreground">默认排序</span>
         <select

@@ -64,7 +64,7 @@ export function AskEditForm({
           onChange={(e) => setTagsText(e.target.value)}
           placeholder={t('tagsPlaceholder')}
         />
-        {formError && <p className="text-sm text-destructive">{formError}</p>}
+        {formError && <p className="text-body text-destructive">{formError}</p>}
         <div className="flex items-center gap-3 pt-2">
           <Button onClick={onSubmit} disabled={pending}>
             {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}

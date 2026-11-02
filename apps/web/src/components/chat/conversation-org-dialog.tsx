@@ -21,7 +21,15 @@ import {
 
 import { cn } from '@/lib/utils'
 import { ConversationFolderAdmin } from '@/components/chat/conversation-folder-admin'
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@ihui/ui-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from '@ihui/ui-react'
 
 export interface ConversationOrgSubmitValue {
   folder: string | null
@@ -87,7 +95,7 @@ export function ConversationOrgDialog({
           <DialogTitle>{t('title')}</DialogTitle>
         </DialogHeader>
         {conversationTitle && (
-          <p className="truncate text-xs text-muted-foreground" data-testid="org-dialog-title">
+          <p className="truncate text-label text-muted-foreground" data-testid="org-dialog-title">
             {conversationTitle}
           </p>
         )}

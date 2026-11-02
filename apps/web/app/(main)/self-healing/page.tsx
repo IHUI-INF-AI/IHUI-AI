@@ -71,7 +71,7 @@ export default function SelfHealingPage() {
         <FlaskConical className="h-5 w-5 text-primary" />
         <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       {/* 输入表单 */}
       <div className="mb-4 space-y-3 rounded-xl border p-4">
@@ -85,7 +85,7 @@ export default function SelfHealingPage() {
             onChange={(e) => setTask(e.target.value)}
             placeholder={t('taskPlaceholder')}
             rows={3}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div>
@@ -97,11 +97,11 @@ export default function SelfHealingPage() {
             value={targetPath}
             onChange={(e) => setTargetPath(e.target.value)}
             placeholder={t('targetPlaceholder')}
-            className="w-full rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{t('durationHint')}</p>
+          <p className="text-label text-muted-foreground">{t('durationHint')}</p>
           <button
             onClick={() => void run()}
             disabled={loading || !task.trim() || !targetPath.trim()}
@@ -114,18 +114,18 @@ export default function SelfHealingPage() {
       </div>
 
       {needLogin && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {disabled && (
-        <div className="mb-4 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-3 text-sm text-amber-700">
+        <div className="mb-4 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-3 text-body text-amber-700">
           <ShieldOff className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{t('disabledHint')}</span>
         </div>
       )}
       {error && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <XCircle className="h-4 w-4" /> {error}
         </p>
       )}
@@ -135,11 +135,11 @@ export default function SelfHealingPage() {
           {/* 结果概览 */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('attempts')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('attempts')}</div>
               <div className="text-heading font-bold">{outcome.attempts}</div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('status')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('status')}</div>
               <div
                 className={cn(
                   'text-lg font-bold',
@@ -150,7 +150,7 @@ export default function SelfHealingPage() {
               </div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('lastRun')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('lastRun')}</div>
               <div className="text-heading font-bold">
                 <span className="text-emerald-600">{outcome.run_history.at(-1)?.passed ?? 0}</span>
                 {' / '}
@@ -163,7 +163,7 @@ export default function SelfHealingPage() {
           <div className="mt-4 rounded-xl border p-3">
             <p className="mb-2 text-body font-semibold">{t('history')}</p>
             {outcome.run_history.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">{t('noHistory')}</p>
+              <p className="py-4 text-center text-body text-muted-foreground">{t('noHistory')}</p>
             ) : (
               <ul className="space-y-2">
                 {outcome.run_history.map((rec: SelfHealingAttemptRecord) => (
@@ -172,11 +172,11 @@ export default function SelfHealingPage() {
                       <span className="rounded bg-cta/10 px-1.5 py-0.5 text-label font-medium text-primary">
                         #{rec.attempt}
                       </span>
-                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-label text-emerald-600">
                         {t('passedCount', { count: rec.passed })}
                       </span>
                       {rec.failed > 0 && (
-                        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-label text-destructive">
                           {t('failedCount', { count: rec.failed })}
                         </span>
                       )}
@@ -188,16 +188,16 @@ export default function SelfHealingPage() {
                     </div>
                     {rec.patch_applied !== null && rec.patch_applied !== undefined ? (
                       <details className="mt-2">
-                        <summary className="cursor-pointer text-xs text-muted-foreground">
+                        <summary className="cursor-pointer text-label text-muted-foreground">
                           <Wrench className="mr-1 inline h-3 w-3" />
                           {t('patchApplied')}
                         </summary>
-                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
+                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-label">
                           {JSON.stringify(rec.patch_applied, null, 2)}
                         </pre>
                       </details>
                     ) : (
-                      <p className="mt-1 text-xs text-muted-foreground">{t('noPatch')}</p>
+                      <p className="mt-1 text-label text-muted-foreground">{t('noPatch')}</p>
                     )}
                   </li>
                 ))}
@@ -211,7 +211,7 @@ export default function SelfHealingPage() {
               <p className="mb-2 flex items-center gap-1.5 text-body font-semibold">
                 <Sparkles className="h-4 w-4 text-amber-500" /> {t('suggestions')}
               </p>
-              <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+              <ul className="list-inside list-disc space-y-1 text-body text-muted-foreground">
                 {outcome.suggestions.map((s, i) => (
                   <li key={i}>{s}</li>
                 ))}

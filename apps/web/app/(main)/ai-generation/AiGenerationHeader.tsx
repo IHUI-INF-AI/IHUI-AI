@@ -31,7 +31,7 @@ export function AiGenerationHeader({ type, setType, currentMode, onSubTabClick }
         <Sparkles className="h-5 w-5 shrink-0 text-primary" />
         <div>
           <h1 className="text-heading font-bold tracking-tight">{t('pageTitle')}</h1>
-          <p className="text-sm text-muted-foreground">{t('pageSubtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('pageSubtitle')}</p>
         </div>
       </div>
 

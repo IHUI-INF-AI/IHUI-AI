@@ -113,7 +113,7 @@ export default function AdminDemandSquarePage() {
           <LayoutGrid className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
@@ -122,7 +122,7 @@ export default function AdminDemandSquarePage() {
           return (
             <div key={s.key} className="rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t(STAT_KEY[s.key] ?? 'stat_unknown')}
                 </span>
                 <Icon className={cn('h-4 w-4', s.cls)} />
@@ -153,7 +153,7 @@ export default function AdminDemandSquarePage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -163,7 +163,7 @@ export default function AdminDemandSquarePage() {
           >
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

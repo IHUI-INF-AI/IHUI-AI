@@ -93,7 +93,7 @@ function Readout({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="min-w-0">
       <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className="whitespace-nowrap text-xs tabular-nums">{value}</div>
+      <div className="whitespace-nowrap text-label tabular-nums">{value}</div>
     </div>
   )
 }
@@ -142,11 +142,11 @@ function RawTextBlock({ title, readout }: { title: string; readout: RawTextReado
         </p>
       )}
       {readout.text !== null ? (
-        <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 font-mono text-xs">
+        <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 font-mono text-label">
           {readout.text}
         </pre>
       ) : (
-        <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-md bg-muted/50 px-3 py-2 text-label text-muted-foreground">
           无可显示正文
         </p>
       )}
@@ -180,19 +180,19 @@ export function LogDetailDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>单条请求详情</DialogTitle>
-          <DialogDescription className="truncate font-mono text-xs">
+          <DialogDescription className="truncate font-mono text-label">
             {logId ?? ''}
           </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 py-6 text-label text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             正在读取详情…
           </div>
         ) : isError ? (
           // 取不到输入就明说"未判定",不渲染一份看起来完整的空详情
-          <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+          <div className="rounded-md bg-red-500/10 px-3 py-2 text-label text-red-600 dark:text-red-400">
             详情未判定:读取失败 —— {error instanceof Error ? error.message : '未知错误'}
           </div>
         ) : data ? (
@@ -257,7 +257,7 @@ export function LogDetailDialog({
             </div>
 
             {data.errorMessage && (
-              <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+              <div className="rounded-md bg-red-500/10 px-3 py-2 text-label text-red-600 dark:text-red-400">
                 <span className="font-medium">错误信息:</span>
                 <span className="break-words">{data.errorMessage}</span>
               </div>
@@ -278,7 +278,7 @@ export function LogDetailDialog({
                   凭据类键已整值剥除
                 </span>
               </div>
-              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 font-mono text-xs">
+              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 font-mono text-label">
                 {data.metadata === null ? '(无 metadata)' : JSON.stringify(data.metadata, null, 2)}
               </pre>
             </div>

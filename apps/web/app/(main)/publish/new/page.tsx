@@ -220,7 +220,7 @@ function NewPublishPage() {
     <form onSubmit={submit} className="space-y-4">
       <div>
         <h2 className="text-base font-semibold">{t('new.title')}</h2>
-        <p className="text-xs text-muted-foreground">{t('new.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('new.subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
         <div className="space-y-4 min-[1024px]:col-span-2">

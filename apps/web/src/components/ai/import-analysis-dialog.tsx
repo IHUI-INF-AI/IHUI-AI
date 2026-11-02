@@ -161,7 +161,7 @@ export function ImportAnalysisDialog({
 
         {catalog.phase === 'loading' && (
           <div
-            className="flex items-center py-6 text-xs text-muted-foreground"
+            className="flex items-center py-6 text-label text-muted-foreground"
             data-testid="import-analysis-loading"
           >
             <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -183,7 +183,9 @@ export function ImportAnalysisDialog({
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pt-1">
             {/* ① 选场景:推荐区(按来源给默认)+ 全库浏览 */}
             <section className="space-y-1.5">
-              <p className="text-label font-medium text-foreground/80">{t('analysisScenarioLabel')}</p>
+              <p className="text-label font-medium text-foreground/80">
+                {t('analysisScenarioLabel')}
+              </p>
               {catalog.recommended.length > 0 && (
                 <>
                   <p className="text-[11px] text-muted-foreground">{t('analysisRecommended')}</p>

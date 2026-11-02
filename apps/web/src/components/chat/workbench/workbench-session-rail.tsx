@@ -119,7 +119,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
       </div>
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-1" aria-label={t('workbenchSessions')}>
         {totalShown === 0 ? (
-          <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+          <div className="px-3 py-6 text-center text-label text-muted-foreground">
             {keyword ? t('searchNoResult') : t('empty')}
           </div>
         ) : null}
@@ -147,7 +147,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
                         setMenuOpenId(item.id)
                       }}
                       className={cn(
-                        'group flex w-full items-center gap-2 rounded-sm border-l-2 py-2 pl-2.5 pr-1 text-left text-sm transition-colors',
+                        'group flex w-full items-center gap-2 rounded-sm border-l-2 py-2 pl-2.5 pr-1 text-left text-body transition-colors',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         'motion-reduce:transition-none',
                         selected
@@ -206,7 +206,7 @@ export function WorkbenchSessionRail({ items, selectedId, onSelect }: WorkbenchS
             <DialogTitle>{tg('renameDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <label className="text-sm text-muted-foreground" htmlFor="wb-rename-input">
+            <label className="text-body text-muted-foreground" htmlFor="wb-rename-input">
               {tg('renameDialog.label')}
             </label>
             <Input

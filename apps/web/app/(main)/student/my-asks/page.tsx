@@ -90,7 +90,7 @@ export default function MyAsksPage() {
           <HelpCircle className="h-7 w-7 text-primary" />
           {ta('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{ta('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{ta('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -101,13 +101,13 @@ export default function MyAsksPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
@@ -137,8 +137,10 @@ export default function MyAsksPage() {
                         {ta('delete')}
                       </Button>
                     </div>
-                    {ask.content && <p className="text-sm text-muted-foreground">{ask.content}</p>}
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    {ask.content && (
+                      <p className="text-body text-muted-foreground">{ask.content}</p>
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-label text-muted-foreground">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1">
                           <Eye className="h-3.5 w-3.5" />
@@ -175,7 +177,7 @@ export default function MyAsksPage() {
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {t('page', { page, total: totalPages })}
               </span>
               <Button

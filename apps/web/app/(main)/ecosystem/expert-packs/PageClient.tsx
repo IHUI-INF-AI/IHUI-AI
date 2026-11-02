@@ -30,7 +30,7 @@ export default function ExpertPacksPageClient() {
           <h1 className="text-lg font-semibold">{t('bundlesSection')}</h1>
           <ViewMoreLink label={more('more')} href={ecosystemHubHref} className="ms-auto" />
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{t('bundlesHint')}</p>
+        <p className="mt-1 text-label text-muted-foreground">{t('bundlesHint')}</p>
       </header>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -47,7 +47,7 @@ export default function ExpertPacksPageClient() {
                 <span className="block text-body font-medium">
                   {t(`bundles.${pack.titleKey}.title`)}
                 </span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                <span className="mt-0.5 block text-label leading-relaxed text-muted-foreground">
                   {t(`bundles.${pack.titleKey}.desc`)}
                 </span>
                 <span className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -57,7 +57,7 @@ export default function ExpertPacksPageClient() {
                   {pack.members.map((key) => (
                     <span
                       key={key}
-                      className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+                      className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-label text-muted-foreground"
                     >
                       <span>{t(`cards.${key}.title`)}</span>
                       <CountBadge count={counts[key]} />
@@ -70,7 +70,7 @@ export default function ExpertPacksPageClient() {
         })}
       </div>
 
-      <p className="mt-4 text-xs text-muted-foreground">{t('expertPackFooterHint')}</p>
+      <p className="mt-4 text-label text-muted-foreground">{t('expertPackFooterHint')}</p>
     </div>
   )
 }

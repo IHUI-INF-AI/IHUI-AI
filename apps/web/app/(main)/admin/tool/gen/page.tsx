@@ -104,7 +104,7 @@ export default function ToolGenPage() {
           <Wand2 className="h-6 w-6 text-primary" />
           <span>{t('title')}</span>
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       <Card className="max-w-3xl">

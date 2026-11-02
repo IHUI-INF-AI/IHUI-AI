@@ -104,8 +104,10 @@ export default function WorkspacePage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
@@ -123,7 +125,7 @@ export default function WorkspacePage() {
                 </DialogHeader>
 
                 {formError && (
-                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                     {formError}
                   </div>
                 )}
@@ -148,7 +150,7 @@ export default function WorkspacePage() {
                     placeholder={t('descriptionPlaceholder')}
                     maxLength={2000}
                     rows={3}
-                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
 
@@ -187,7 +189,7 @@ export default function WorkspacePage() {
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="text-body font-medium text-destructive">{t('loadErrorTitle')}</p>
-            <p className="text-xs text-destructive/80">{t('loadErrorDesc')}</p>
+            <p className="text-label text-destructive/80">{t('loadErrorDesc')}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Button
@@ -200,7 +202,7 @@ export default function WorkspacePage() {
                 }
                 void refetch()
               }}
-              className="gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="gap-1 px-2 text-label text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {t('retry')}
@@ -222,7 +224,7 @@ export default function WorkspacePage() {
         // 错误条被手动关掉(dismissed)不等于"加载成功且没有项目":这一分支必须仍说"加载失败",
         // 否则用户关掉横幅后看到的是"还没有项目" —— 把取不到谎报成没有数据。
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
-          <p className="text-sm text-destructive">{t('loadErrorTitle')}</p>
+          <p className="text-body text-destructive">{t('loadErrorTitle')}</p>
           <Button variant="ghost" size="xs" className="gap-1" onClick={() => void refetch()}>
             <RefreshCw className="h-3.5 w-3.5" />
             {t('retry')}
@@ -230,7 +232,7 @@ export default function WorkspacePage() {
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
-          <p className="text-sm text-muted-foreground">{t('noProjects')}</p>
+          <p className="text-body text-muted-foreground">{t('noProjects')}</p>
         </div>
       )}
     </div>

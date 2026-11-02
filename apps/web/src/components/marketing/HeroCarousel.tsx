@@ -102,7 +102,7 @@ export function HeroCarousel({
           <h2 className="line-clamp-2 max-w-2xl text-display font-bold text-white drop-shadow-lg min-[768px]:text-3xl min-[1024px]:text-5xl">
             {t(slide.titleKey)}
           </h2>
-          <p className="mt-3 line-clamp-2 max-w-xl text-sm text-white/85 min-[768px]:text-lg">
+          <p className="mt-3 line-clamp-2 max-w-xl text-body text-white/85 min-[768px]:text-lg">
             {t(slide.subtitleKey)}
           </p>
           <Link href={slide.href} className="mt-6 inline-block w-fit">

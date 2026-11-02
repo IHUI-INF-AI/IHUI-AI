@@ -110,7 +110,7 @@ export function ResourcesTable({
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{res.title}</div>
                     {res.intro ? (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
+                      <div className="max-w-xs break-words text-label text-muted-foreground">
                         {res.intro}
                       </div>
                     ) : null}
@@ -120,7 +120,7 @@ export function ResourcesTable({
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     {res.fileType ? (
-                      <span className="text-xs text-muted-foreground">{res.fileType}</span>
+                      <span className="text-label text-muted-foreground">{res.fileType}</span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

@@ -131,7 +131,7 @@ function MemberPanel({ group }: { group: Group }) {
         <Alert variant="danger" description={error} closable onClose={() => setError('')} />
       )}
 
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
         <Shield className="h-3.5 w-3.5 shrink-0 text-primary/70" />
         <span className="truncate">
           {t('owner')}: {group.ownerId ?? '-'}
@@ -282,7 +282,7 @@ function GroupCard({
           <CardTitle className="line-clamp-1 text-base">{group.name}</CardTitle>
           <span
             className={cn(
-              'shrink-0 rounded-md px-2 py-0.5 text-xs',
+              'shrink-0 rounded-md px-2 py-0.5 text-label',
               isCustomType ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary',
             )}
           >
@@ -290,12 +290,12 @@ function GroupCard({
           </span>
         </div>
         {group.description && (
-          <CardDescription className="line-clamp-2 text-xs">{group.description}</CardDescription>
+          <CardDescription className="line-clamp-2 text-label">{group.description}</CardDescription>
         )}
       </CardHeader>
 
       <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2 p-3 pt-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-label text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 shrink-0" />
             {t('members')}: {group.memberCount}
@@ -421,7 +421,7 @@ export default function GroupsPage() {
           <UsersRound className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {feedback && (
@@ -436,7 +436,7 @@ export default function GroupsPage() {
       {/* 创建区 */}
       <Card>
         <CardHeader className="p-3 pb-0">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             <Plus className="h-4 w-4 text-primary" />
             {t('createGroup')}
           </CardTitle>
@@ -488,7 +488,7 @@ export default function GroupsPage() {
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <UsersRound className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{tc('empty')}</p>
+          <p className="text-body text-muted-foreground">{tc('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">

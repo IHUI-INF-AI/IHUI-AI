@@ -33,14 +33,14 @@ export default function BusinessLicensePage() {
             <Building2 className="h-7 w-7" />
           </div>
           <h2 className="text-base font-medium">{t('companyName')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           {FACTS.map((fact) => (
-            <div key={fact} className="flex items-start gap-2.5 text-sm">
+            <div key={fact} className="flex items-start gap-2.5 text-body">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
               <span>{fact}</span>
             </div>

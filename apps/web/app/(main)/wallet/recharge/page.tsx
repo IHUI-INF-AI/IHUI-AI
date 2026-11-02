@@ -108,7 +108,7 @@ export default function RechargePage() {
     <div className="px-4 py-4 mx-auto w-full max-w-md space-y-4">
       <Link
         href="/wallet"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToWallet')}
@@ -123,7 +123,7 @@ export default function RechargePage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {serverError && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {serverError}
               </div>
             )}
@@ -138,7 +138,9 @@ export default function RechargePage() {
                 placeholder={t('rechargeAmount')}
                 {...register('amount')}
               />
-              {errors.amount && <p className="text-xs text-destructive">{t('rechargeAmount')}</p>}
+              {errors.amount && (
+                <p className="text-label text-destructive">{t('rechargeAmount')}</p>
+              )}
             </div>
 
             <div className="space-y-2">

@@ -69,14 +69,14 @@ export default function McpDocsPage() {
       <section id="what-is-mcp" className="space-y-6">
         <h2 className="text-display font-bold tracking-tight">什么是 MCP?</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             <strong>Model Context Protocol(MCP)</strong>是 Anthropic 主导的 AI 工具连接开放标准,
             让 AI 模型能够安全地调用外部工具、读取外部数据、执行外部操作。
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             类比:USB-C 让硬件设备即插即用,MCP 让 AI 工具即插即用。
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li><strong>标准化</strong>:统一协议,任何 MCP Server 可接入任何 MCP Client</li>
             <li><strong>安全</strong>:权限粒度可控,用户显式授权</li>
             <li><strong>可组合</strong>:多个 Server 可同时挂载,Agent 按需调用</li>
@@ -91,7 +91,7 @@ export default function McpDocsPage() {
         <div className="grid gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">📁 文件与存储</h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>本地文件系统(读/写/搜索)</li>
               <li>S3 / OSS / MinIO 对象存储</li>
               <li>Google Drive / OneDrive / Dropbox</li>
@@ -100,7 +100,7 @@ export default function McpDocsPage() {
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">💻 开发工具</h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>GitHub(GitLab/Bitbucket)— PR/Issue/代码搜索</li>
               <li>GitLab CI / GitHub Actions</li>
               <li>Linear / Jira / Asana — 项目管理</li>
@@ -112,7 +112,7 @@ export default function McpDocsPage() {
               <MessageCircle className="mr-1.5 inline h-5 w-5" />
               通讯协作
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>Slack / Discord / Telegram</li>
               <li>飞书 / 钉钉 / 企业微信</li>
               <li>Email(IMAP/SMTP)</li>
@@ -121,7 +121,7 @@ export default function McpDocsPage() {
           </div>
           <div className="rounded-2xl border bg-card p-3">
             <h3 className="text-lg font-semibold">🗄️ 数据库</h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>PostgreSQL / MySQL / SQLite</li>
               <li>MongoDB / Redis / Elasticsearch</li>
               <li>ClickHouse / DuckDB(分析型)</li>
@@ -135,10 +135,10 @@ export default function McpDocsPage() {
       <section id="use-preset" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">接入预置 Server</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             在 Agent 编排页面 → 工具 → 添加 MCP Server,选择预置项,填入凭据即可。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`# 以 GitHub MCP Server 为例
 # 1. 在 GitHub 创建 Personal Access Token
 #    Settings → Developer settings → PAT (classic) → 勾选 repo, read:org
@@ -163,10 +163,10 @@ Agent: [调用 GitHub MCP] 找到 23 个 bug 标签的 Issue...`}</code>
       <section id="custom-server" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">开发自定义 MCP Server</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             企业内部系统(ERP/OA/CRM)可封装为 MCP Server,让 Agent 安全调用。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`# TypeScript SDK
 npm create mcp-server@latest my-server
 
@@ -176,7 +176,7 @@ mcp create my-server`}</code>
           </pre>
 
           <p className="text-body font-semibold pt-2">示例:查询订单的 MCP Server(TypeScript)</p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`import { McpServer } from '@modelcontextprotocol/sdk'
 import { z } from 'zod'
 
@@ -207,7 +207,7 @@ server.tool(
 await server.connect()`}</code>
           </pre>
 
-          <div className="rounded-lg border bg-background p-3 text-sm">
+          <div className="rounded-lg border bg-background p-3 text-body">
             <p className="font-semibold">部署方式</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
               <li><strong>stdio</strong>:本地运行,Agent 通过子进程调用(开发期)</li>
@@ -222,7 +222,7 @@ await server.connect()`}</code>
       <section id="security" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">安全与权限</h2>
         <div className="rounded-2xl border bg-card p-3">
-          <ul className="ml-4 list-disc space-y-2 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-2 text-body text-muted-foreground">
             <li><strong>用户显式授权</strong>:Agent 调用工具前,用户必须在 UI 点击允许(除非标记为 trusted)</li>
             <li><strong>权限粒度</strong>:可限制 Server 只读 / 只写 / 特定资源</li>
             <li><strong>审计日志</strong>:所有工具调用记录到 audit_logs,可追溯</li>

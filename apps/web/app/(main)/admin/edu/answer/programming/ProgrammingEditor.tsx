@@ -48,7 +48,7 @@ export function ProgrammingEditor({
           value={code}
           onChange={(e) => onCodeChange(e.target.value)}
           rows={14}
-          className={cn(textareaClass, 'text-xs')}
+          className={cn(textareaClass, 'text-label')}
           placeholder={t('codePlaceholder', { lang })}
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -77,7 +77,7 @@ export function ProgrammingEditor({
         {runResult && (
           <div
             className={cn(
-              'rounded-md border p-3 text-sm',
+              'rounded-md border p-3 text-body',
               runResult.pass
                 ? 'border-emerald-500/30 bg-emerald-500/5'
                 : 'border-rose-500/30 bg-rose-500/5',
@@ -91,7 +91,7 @@ export function ProgrammingEditor({
               )}
               {runResult.pass ? t('passed') : t('notPassed')}
             </div>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs">
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-label">
               {runResult.output}
             </pre>
           </div>

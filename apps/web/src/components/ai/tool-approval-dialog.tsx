@@ -218,9 +218,11 @@ export function deriveWhyNow(
  * whyYou(为什么找我):审批请求经**你自己的**通道送达(全局任务流 / 本地回调),
  * 归属靠会话 id 说清;chat-stream 通道的 sessionId 可缺席 ⇒ 缺席即无值(不猜归属)。
  */
-export function deriveWhyYou(req: Pick<ApprovalRequestView, 'sessionId'>): {
-  sessionId: string
-} | undefined {
+export function deriveWhyYou(req: Pick<ApprovalRequestView, 'sessionId'>):
+  | {
+      sessionId: string
+    }
+  | undefined {
   const sessionId = typeof req.sessionId === 'string' ? req.sessionId.trim() : ''
   return sessionId === '' ? undefined : { sessionId }
 }
@@ -229,9 +231,11 @@ export function deriveWhyYou(req: Pick<ApprovalRequestView, 'sessionId'>): {
  * afterDecision(决定后):批准 ⇒ 工具立即执行;拒绝 ⇒ 不执行、结果以 error 回填 LLM
  * (引擎侧既有语义,弹窗头注即此口径)。工具名缺席 ⇒ 无法点名将执行什么 ⇒ 无值。
  */
-export function deriveAfterDecision(req: Pick<ApprovalRequestView, 'toolName'>): {
-  toolName: string
-} | undefined {
+export function deriveAfterDecision(req: Pick<ApprovalRequestView, 'toolName'>):
+  | {
+      toolName: string
+    }
+  | undefined {
   const toolName = typeof req.toolName === 'string' ? req.toolName.trim() : ''
   return toolName === '' ? undefined : { toolName }
 }
@@ -519,8 +523,7 @@ export function ToolApprovalDialog() {
       .then((m) => m.listCheckpoints(reversibilitySessionId))
       .then((r) => {
         if (cancelled) return
-        const count =
-          typeof r.total === 'number' ? r.total : (r.checkpoints?.length ?? 0)
+        const count = typeof r.total === 'number' ? r.total : (r.checkpoints?.length ?? 0)
         setReversibility({ kind: 'value', checkpointCount: count })
       })
       .catch(() => {
@@ -622,8 +625,10 @@ export function ToolApprovalDialog() {
             </span>
           </div>
           <div>
-            <div className="mb-1 text-label font-medium text-muted-foreground">{t('argsPreview')}</div>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 p-2.5 font-mono text-xs leading-relaxed">
+            <div className="mb-1 text-label font-medium text-muted-foreground">
+              {t('argsPreview')}
+            </div>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 p-2.5 font-mono text-label leading-relaxed">
               {current.argsPreview || '{}'}
             </pre>
           </div>
@@ -647,16 +652,19 @@ export function ToolApprovalDialog() {
                   {t(DECISION_STATE_LABEL_KEYS[approvalState])}
                 </span>
               </div>
-              <p className="mb-1.5 text-xs leading-relaxed text-muted-foreground/80">
+              <p className="mb-1.5 text-label leading-relaxed text-muted-foreground/80">
                 {t('decisionAdmission')}
               </p>
               {decisionRowCount === 0 ? (
-                <div className="text-xs leading-relaxed" data-testid="tool-approval-decision-empty">
+                <div
+                  className="text-label leading-relaxed"
+                  data-testid="tool-approval-decision-empty"
+                >
                   <p className="font-medium">{t('decisionEmptyTitle')}</p>
                   <p className="text-muted-foreground">{t('decisionEmptyDescription')}</p>
                 </div>
               ) : (
-                <div className="space-y-1 text-xs leading-relaxed">
+                <div className="space-y-1 text-label leading-relaxed">
                   {whyNow && (
                     <div className="flex gap-1.5" data-testid="tool-approval-why-now">
                       <span className="shrink-0 font-medium text-muted-foreground">
@@ -701,20 +709,26 @@ export function ToolApprovalDialog() {
               "这次在哪儿跑 / 网络通不通 / 哪个目标被拦",读不到就明写"未上报"。
               整块缺席(三个字段都没有)= 服务端回退开关关档 ⇒ 一行都不渲染。 */}
           {envReportPresent && (
-            <div className="rounded-md border border-border bg-muted/30 p-2.5" data-testid="tool-approval-environment">
+            <div
+              className="rounded-md border border-border bg-muted/30 p-2.5"
+              data-testid="tool-approval-environment"
+            >
               <div className="mb-1 text-label font-medium text-muted-foreground">
                 {t('envLabel')}
               </div>
               {!execEnv || execEnv.available === false ? (
                 <p
-                  className="text-xs leading-relaxed text-amber-700 dark:text-amber-400"
+                  className="text-label leading-relaxed text-amber-700 dark:text-amber-400"
                   data-testid="tool-approval-env-unknown"
                 >
                   {t('envUnknown')}
                 </p>
               ) : (
-                <div className="space-y-1 text-xs leading-relaxed">
-                  <div className="flex items-center gap-1.5" data-testid="tool-approval-env-sandbox">
+                <div className="space-y-1 text-label leading-relaxed">
+                  <div
+                    className="flex items-center gap-1.5"
+                    data-testid="tool-approval-env-sandbox"
+                  >
                     {/* degraded ⇒ **不得**再宣称"在沙箱中运行":降级链意味着隔离实际没生效,
                         此时喊沙箱就是把用户往"放行"那一侧推(票第 8 栏爆炸半径)。 */}
                     {execEnv.inSandbox === true && execEnv.degraded !== true ? (
@@ -726,9 +740,7 @@ export function ToolApprovalDialog() {
                       {execEnv.inSandbox === true && execEnv.degraded !== true
                         ? t('envInSandbox')
                         : t('envOutsideSandbox')}
-                      {execEnv.backend
-                        ? ` · ${t('envBackend', { backend: execEnv.backend })}`
-                        : ''}
+                      {execEnv.backend ? ` · ${t('envBackend', { backend: execEnv.backend })}` : ''}
                     </span>
                   </div>
                   {execEnv.degraded === true && (
@@ -759,7 +771,7 @@ export function ToolApprovalDialog() {
                     {t('envNetworkSection')}
                   </div>
                   <code
-                    className="mt-0.5 block truncate font-mono text-xs"
+                    className="mt-0.5 block truncate font-mono text-label"
                     data-testid="tool-approval-network-target-display"
                   >
                     {networkTarget.display}
@@ -775,7 +787,7 @@ export function ToolApprovalDialog() {
                     {current.blockedNetworkTargets.map((target) => (
                       <li
                         key={`${target.host}:${target.port}:${target.protocol}`}
-                        className="truncate font-mono text-xs text-amber-700 dark:text-amber-400"
+                        className="truncate font-mono text-label text-amber-700 dark:text-amber-400"
                         data-testid={`tool-approval-network-blocked-${target.host}`}
                       >
                         {t('envNetworkBlockedOne', {
@@ -792,7 +804,9 @@ export function ToolApprovalDialog() {
           )}
           {/* D84:审批作用域(批准时生效;授权按 工具+参数 精确匹配,不放大到全局) */}
           <div>
-            <div className="mb-1 text-label font-medium text-muted-foreground">{t('scopeLabel')}</div>
+            <div className="mb-1 text-label font-medium text-muted-foreground">
+              {t('scopeLabel')}
+            </div>
             <div
               className="flex gap-1"
               role="radiogroup"
@@ -837,7 +851,7 @@ export function ToolApprovalDialog() {
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {t('grantRuleToggle')}
               </button>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-1 text-label leading-relaxed text-muted-foreground">
                 {t('grantRuleDesc', { prefix: grantPrefix })}
               </p>
             </div>
@@ -858,11 +872,11 @@ export function ToolApprovalDialog() {
               maxLength={500}
               rows={2}
               data-testid="tool-approval-reason"
-              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
+              className="w-full resize-none rounded-sm border border-border bg-background px-2.5 py-1.5 text-body placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
             />
           </div>
           {pendingCount > 0 && (
-            <div className="text-xs text-muted-foreground" data-testid="tool-approval-pending">
+            <div className="text-label text-muted-foreground" data-testid="tool-approval-pending">
               {t('pendingCount', { count: pendingCount })}
             </div>
           )}

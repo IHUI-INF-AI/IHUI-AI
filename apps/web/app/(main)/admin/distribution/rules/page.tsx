@@ -109,7 +109,7 @@ export default function AdminDistributionRulesPage() {
     <div className="space-y-4 px-4 py-4">
       <Link
         href="/admin/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回分销中心
@@ -118,7 +118,7 @@ export default function AdminDistributionRulesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">佣金规则</h1>
-          <p className="mt-1 text-sm text-muted-foreground">配置分级佣金比例</p>
+          <p className="mt-1 text-body text-muted-foreground">配置分级佣金比例</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -216,7 +216,7 @@ export default function AdminDistributionRulesPage() {
               onChange={(e) => setForm((f) => ({ ...f, rate: Number(e.target.value) * 100 }))}
               placeholder="如:10"
             />
-            <p className="text-xs text-muted-foreground">输入百分比数值,如 10 表示 10%</p>
+            <p className="text-label text-muted-foreground">输入百分比数值,如 10 表示 10%</p>
           </div>
           <div className="space-y-1.5">
             <Label>说明</Label>

@@ -47,15 +47,15 @@ export function WithdrawalReviewDialog(props: Props) {
           <DialogDescription>{t('withdrawals.review.description')}</DialogDescription>
         </DialogHeader>
         {reviewErr && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
             {reviewErr}
           </div>
         )}
         {reviewForm && (
           <div className="space-y-3">
-            <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+            <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
               <div className="font-medium">{reviewForm.user ?? reviewForm.userName ?? '-'}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="mt-0.5 text-label text-muted-foreground">
                 ¥{(reviewForm.amount / 100).toFixed(2)} ·{' '}
                 {t(CHANNEL_LABEL[reviewForm.channel] ?? '')}
               </div>

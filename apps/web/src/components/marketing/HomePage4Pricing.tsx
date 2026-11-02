@@ -91,11 +91,15 @@ export function HomePage4Pricing() {
     // 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
     <section className="w-full px-4 py-4 min-[640px]:py-6">
       <RevealOnView as="div" className="mb-4 text-center min-[640px]:mb-5">
-        <h2 className="text-heading font-bold tracking-tight min-[640px]:text-display">{t('title')}</h2>
+        <h2 className="text-heading font-bold tracking-tight min-[640px]:text-display">
+          {t('title')}
+        </h2>
         <h3 className="font-edix mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground min-[640px]:text-sm">{t('subtitle')}</p>
+        <p className="mt-1 text-label text-muted-foreground min-[640px]:text-body">
+          {t('subtitle')}
+        </p>
       </RevealOnView>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4 min-[1024px]:gap-3">
@@ -146,12 +150,12 @@ export function HomePage4Pricing() {
                   >
                     {plan.price}
                   </span>
-                  <span className="text-xs text-muted-foreground">{t('period')}</span>
+                  <span className="text-label text-muted-foreground">{t('period')}</span>
                 </div>
 
                 <ul className="mb-3 flex-1 min-w-0 space-y-1.5">
                   {plan.featureKeys.map((featureKey) => (
-                    <li key={featureKey} className="flex items-start gap-1.5 text-xs">
+                    <li key={featureKey} className="flex items-start gap-1.5 text-label">
                       <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
                       <span className="text-muted-foreground">{t(featureKey)}</span>
                     </li>

@@ -31,7 +31,7 @@ export function JobLogsFilter({ search, onSearchChange, onReset, onQuery }: Prop
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelJobName')}</Label>
+        <Label className="text-label">{t('labelJobName')}</Label>
         <Input
           className="h-9 w-40"
           value={search.jobName}
@@ -40,7 +40,7 @@ export function JobLogsFilter({ search, onSearchChange, onReset, onQuery }: Prop
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelJobGroup')}</Label>
+        <Label className="text-label">{t('labelJobGroup')}</Label>
         <Input
           className="h-9 w-40"
           value={search.jobGroup}
@@ -49,7 +49,7 @@ export function JobLogsFilter({ search, onSearchChange, onReset, onQuery }: Prop
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelStatus')}</Label>
+        <Label className="text-label">{t('labelStatus')}</Label>
         <Select
           value={search.status}
           onValueChange={(v) => onSearchChange({ status: v as JobLogSearch['status'] })}

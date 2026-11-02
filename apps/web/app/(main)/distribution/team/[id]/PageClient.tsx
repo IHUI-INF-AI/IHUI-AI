@@ -81,7 +81,7 @@ export default function DistributionTeamDetailPage() {
       <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
         <Link
           href="/distribution/team"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
@@ -123,12 +123,12 @@ export default function DistributionTeamDetailPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <Link
           href="/distribution/team"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notExist')}
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function DistributionTeamDetailPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/distribution/team"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -164,9 +164,9 @@ export default function DistributionTeamDetailPage() {
             <div className="min-w-0 flex-1 space-y-1">
               <h1 className="text-heading font-bold tracking-tight">{displayName}</h1>
               {member.username && (
-                <p className="font-mono text-sm text-muted-foreground">@{member.username}</p>
+                <p className="font-mono text-body text-muted-foreground">@{member.username}</p>
               )}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
                   {t('joinedAt', { time: fmt(member.createdAt) })}
@@ -177,14 +177,14 @@ export default function DistributionTeamDetailPage() {
 
           <div className="grid grid-cols-1 gap-3 mt-4 pt-4 min-[768px]:grid-cols-2">
             <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">{t('subordinateCount')}</div>
+              <div className="text-label text-muted-foreground">{t('subordinateCount')}</div>
               <div className="flex items-center gap-1 text-lg font-bold">
                 <Users className="h-4 w-4 text-primary" />
                 {subordinates.length}
               </div>
             </div>
             <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">{t('teamLevel')}</div>
+              <div className="text-label text-muted-foreground">{t('teamLevel')}</div>
               <div className="flex items-center gap-1 text-lg font-bold">
                 <Crown className="h-4 w-4 text-amber-500" />L{(treeNode?.level ?? 1) + 1}
               </div>
@@ -196,7 +196,7 @@ export default function DistributionTeamDetailPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('directSubordinates')}</h2>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('totalCount', { count: subordinates.length })}
           </span>
         </div>
@@ -204,7 +204,7 @@ export default function DistributionTeamDetailPage() {
         {subordinates.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <Users className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">{t('noSubordinates')}</p>
+            <p className="text-body text-muted-foreground">{t('noSubordinates')}</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border">
@@ -231,7 +231,7 @@ export default function DistributionTeamDetailPage() {
                   <div className="truncate text-body font-medium">
                     {sub.nickname || sub.username || '-'}
                   </div>
-                  <div className="text-xs text-muted-foreground">{fmt(sub.createdAt)}</div>
+                  <div className="text-label text-muted-foreground">{fmt(sub.createdAt)}</div>
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </Link>

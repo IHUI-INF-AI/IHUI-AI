@@ -101,10 +101,10 @@ export default function NewsCategoryPageClient() {
     return (
       <div className="mx-auto w-full max-w-6xl space-y-4 py-12 text-center">
         <FolderOpen className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('notFound')}</p>
+        <p className="text-body text-muted-foreground">{t('notFound')}</p>
         <Link
           href="/news"
-          className="inline-flex items-center gap-1 text-sm text-primary transition-colors hover:underline"
+          className="inline-flex items-center gap-1 text-body text-primary transition-colors hover:underline"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -117,7 +117,7 @@ export default function NewsCategoryPageClient() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/news"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -126,9 +126,11 @@ export default function NewsCategoryPageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <FolderOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{category.name}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {category.name}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {articlesQuery.isLoading ? (
@@ -138,7 +140,7 @@ export default function NewsCategoryPageClient() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -173,9 +175,9 @@ export default function NewsCategoryPageClient() {
                       </h2>
                     </div>
                     {item.summary && (
-                      <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
+                      <p className="mt-1 text-body text-muted-foreground">{item.summary}</p>
                     )}
-                    <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
+                    <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-label text-muted-foreground">
                       {item.authorName && <span>{item.authorName}</span>}
                       <span>{t('publishedAt', { date: fmtDate(item.publishedAt) })}</span>
                       <span className="inline-flex items-center gap-1">
@@ -193,34 +195,34 @@ export default function NewsCategoryPageClient() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+          <span className="text-body text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
             {page <= 1 ? (
-              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm opacity-50">
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-sm border border-input bg-background px-3 text-body opacity-50">
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </span>
             ) : (
               <Link
                 href={`/news/category/${id}?page=${page - 1}`}
-                className="inline-flex h-9 items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
+                className="inline-flex h-9 items-center gap-1 rounded-sm border border-input bg-background px-3 text-body transition-colors hover:bg-accent"
               >
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </Link>
             )}
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             {page >= totalPages ? (
-              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm opacity-50">
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-sm border border-input bg-background px-3 text-body opacity-50">
                 {t('next')}
                 <ChevronRight className="h-4 w-4" />
               </span>
             ) : (
               <Link
                 href={`/news/category/${id}?page=${page + 1}`}
-                className="inline-flex h-9 items-center gap-1 rounded-sm border border-input bg-background px-3 text-sm transition-colors hover:bg-accent"
+                className="inline-flex h-9 items-center gap-1 rounded-sm border border-input bg-background px-3 text-body transition-colors hover:bg-accent"
               >
                 {t('next')}
                 <ChevronRight className="h-4 w-4" />

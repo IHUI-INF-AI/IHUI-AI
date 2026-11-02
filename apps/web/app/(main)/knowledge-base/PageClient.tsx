@@ -96,9 +96,11 @@ export default function KnowledgeBasePageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-col gap-6 min-[1024px]:flex-row">
@@ -111,14 +113,14 @@ export default function KnowledgeBasePageClient() {
                 setPage(1)
               }}
               className={cn(
-                'flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm transition-colors',
+                'flex w-full items-center justify-between rounded-sm px-3 py-2 text-body transition-colors',
                 categoryId === 'all'
                   ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >
               <span>{t('allCategories')}</span>
-              <span className="text-xs opacity-70">{total}</span>
+              <span className="text-label opacity-70">{total}</span>
             </button>
             {categories.map((c) => (
               <button
@@ -129,7 +131,7 @@ export default function KnowledgeBasePageClient() {
                   setPage(1)
                 }}
                 className={cn(
-                  'flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm transition-colors',
+                  'flex w-full items-center justify-between rounded-sm px-3 py-2 text-body transition-colors',
                   categoryId === c.id
                     ? 'bg-primary/10 font-medium text-primary'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -137,7 +139,7 @@ export default function KnowledgeBasePageClient() {
               >
                 <span className="truncate">{c.name}</span>
                 {typeof c.count === 'number' && (
-                  <span className="text-xs opacity-70">{c.count}</span>
+                  <span className="text-label opacity-70">{c.count}</span>
                 )}
               </button>
             ))}
@@ -170,13 +172,13 @@ export default function KnowledgeBasePageClient() {
               {tCommon('loading')}
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {(error as Error).message}
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="text-body text-muted-foreground">{t('empty')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -189,7 +191,7 @@ export default function KnowledgeBasePageClient() {
                         <CardDescription className="line-clamp-2">{item.summary}</CardDescription>
                       )}
                     </CardHeader>
-                    <CardFooter className="justify-between text-xs text-muted-foreground">
+                    <CardFooter className="justify-between text-label text-muted-foreground">
                       <div className="flex items-center gap-3">
                         {item.categoryName && (
                           <span className="rounded bg-muted px-1.5 py-0.5">
@@ -212,18 +214,18 @@ export default function KnowledgeBasePageClient() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-40"
+                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-body transition-colors hover:bg-accent disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {page} / {totalPages}
               </span>
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-40"
+                className="inline-flex items-center rounded-sm border px-2.5 py-1 text-body transition-colors hover:bg-accent disabled:opacity-40"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>

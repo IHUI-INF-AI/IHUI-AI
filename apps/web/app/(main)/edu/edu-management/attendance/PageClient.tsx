@@ -501,7 +501,7 @@ function ApproveDialog({
         </DialogHeader>
         {leave && (
           <div className="space-y-3 py-2">
-            <div className="rounded-md border p-3 text-sm space-y-1">
+            <div className="rounded-md border p-3 text-body space-y-1">
               <p>
                 <span className="text-muted-foreground">{t('typeLabel')}</span>
                 {leaveTypeLabel(leave.leaveType)}
@@ -739,7 +739,7 @@ export default function AttendancePage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -789,7 +789,7 @@ export default function AttendancePage() {
                 {t('checkIn')}
               </Button>
               {attendanceQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading')}
                 </div>
@@ -808,7 +808,7 @@ export default function AttendancePage() {
             </Card>
           ) : records.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('emptyRecords')}
               </CardContent>
             </Card>
@@ -816,7 +816,7 @@ export default function AttendancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -845,12 +845,12 @@ export default function AttendancePage() {
                     <tbody>
                       {records.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-mono">
+                          <td className="px-4 py-3 text-label font-mono">
                             {r.studentId.slice(0, 8)}...
                           </td>
                           <td className="px-4 py-3">
                             {r.checkInTime ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="inline-flex items-center gap-1 text-label">
                                 <Clock className="h-3 w-3 text-green-500" />
                                 {new Date(r.checkInTime).toLocaleTimeString('zh-CN', {
                                   hour: '2-digit',
@@ -858,12 +858,12 @@ export default function AttendancePage() {
                                 })}
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
                             {r.checkOutTime ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="inline-flex items-center gap-1 text-label">
                                 <Clock className="h-3 w-3 text-orange-500" />
                                 {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', {
                                   hour: '2-digit',
@@ -871,7 +871,7 @@ export default function AttendancePage() {
                                 })}
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -885,10 +885,10 @@ export default function AttendancePage() {
                               {attendanceStatusLabel(r.status)}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {checkInMethodLabel(r.checkInMethod)}
                           </td>
-                          <td className="max-w-[120px] truncate px-4 py-3 text-xs text-muted-foreground">
+                          <td className="max-w-[120px] truncate px-4 py-3 text-label text-muted-foreground">
                             {r.remark ?? '-'}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -897,7 +897,7 @@ export default function AttendancePage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() => handleCheckOut(r)}
                                   disabled={checkOutMutation.isPending}
                                 >
@@ -909,7 +909,7 @@ export default function AttendancePage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() => {
                                     setCheckInOpen(true)
                                   }}
@@ -921,7 +921,7 @@ export default function AttendancePage() {
                               <Button
                                 variant="ghost"
                                 size="xs"
-                                className="text-xs text-red-500"
+                                className="text-label text-red-500"
                                 onClick={() => deleteAttendanceMutation.mutate(r.id)}
                                 disabled={deleteAttendanceMutation.isPending}
                               >
@@ -963,7 +963,7 @@ export default function AttendancePage() {
                   onChange={(e) => setStatsStartDate(e.target.value)}
                   className="w-36"
                 />
-                <span className="text-xs text-muted-foreground">~</span>
+                <span className="text-label text-muted-foreground">~</span>
                 <Input
                   type="date"
                   value={statsEndDate}
@@ -1033,7 +1033,7 @@ export default function AttendancePage() {
                       const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0
                       return (
                         <div key={s.value} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center justify-between text-label">
                             <span className="flex items-center gap-1.5">
                               <span className={cn('inline-block h-2 w-2 rounded-sm', s.color)} />
                               {t(s.labelKey)}
@@ -1062,7 +1062,7 @@ export default function AttendancePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-body">
                         <thead>
                           <tr className="bg-muted/40">
                             <th className="px-3 py-2 text-left font-medium text-muted-foreground">
@@ -1097,7 +1097,7 @@ export default function AttendancePage() {
                               <tr key={group.period} className="hover:bg-muted/30">
                                 <td className="px-3 py-2 text-label font-medium">{group.period}</td>
                                 {ATTENDANCE_STATUS.map((s) => (
-                                  <td key={s.value} className="px-3 py-2 text-right text-xs">
+                                  <td key={s.value} className="px-3 py-2 text-right text-label">
                                     {group.breakdown[s.value] ?? 0}
                                   </td>
                                 ))}
@@ -1107,7 +1107,7 @@ export default function AttendancePage() {
                             <tr>
                               <td
                                 colSpan={6}
-                                className="py-4 text-center text-xs text-muted-foreground"
+                                className="py-4 text-center text-label text-muted-foreground"
                               >
                                 {t('emptyTrend')}
                               </td>
@@ -1151,7 +1151,7 @@ export default function AttendancePage() {
                   onChange={(e) => setLeaveStartDate(e.target.value)}
                   className="w-36"
                 />
-                <span className="text-xs text-muted-foreground">~</span>
+                <span className="text-label text-muted-foreground">~</span>
                 <Input
                   type="date"
                   value={leaveEndDate}
@@ -1164,7 +1164,7 @@ export default function AttendancePage() {
                 {t('submitLeave')}
               </Button>
               {leaveQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading')}
                 </div>
@@ -1183,7 +1183,7 @@ export default function AttendancePage() {
             </Card>
           ) : leaves.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('emptyLeaves')}
               </CardContent>
             </Card>
@@ -1191,7 +1191,7 @@ export default function AttendancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1220,17 +1220,17 @@ export default function AttendancePage() {
                     <tbody>
                       {leaves.map((l) => (
                         <tr key={l.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-mono">
+                          <td className="px-4 py-3 text-label font-mono">
                             {l.studentId.slice(0, 8)}...
                           </td>
-                          <td className="px-4 py-3 text-xs">{leaveTypeLabel(l.leaveType)}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">{leaveTypeLabel(l.leaveType)}</td>
+                          <td className="px-4 py-3 text-label">
                             {l.startDate} ~ {l.endDate}
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {t('daysWithUnit', { count: l.totalDays })}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             <TruncatedText value={l.reason} className="max-w-[150px]" />
                           </td>
                           <td className="px-4 py-3">
@@ -1250,7 +1250,7 @@ export default function AttendancePage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() => {
                                     setApprovingLeave(l)
                                     setApproveOpen(true)
@@ -1263,7 +1263,7 @@ export default function AttendancePage() {
                               <Button
                                 variant="ghost"
                                 size="xs"
-                                className="text-xs text-red-500"
+                                className="text-label text-red-500"
                                 onClick={() => handleDeleteLeave(l.id)}
                                 disabled={deleteLeaveMutation.isPending}
                               >

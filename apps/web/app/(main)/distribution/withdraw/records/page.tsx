@@ -104,7 +104,7 @@ export default function WithdrawRecordsPage() {
       <div className="flex items-center justify-between">
         <Link
           href="/distribution/withdraw"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {tc('back')}
@@ -195,7 +195,7 @@ export default function WithdrawRecordsPage() {
 
           {total > PAGE_SIZE && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+              <span className="text-body text-muted-foreground">{t('totalOf', { total })}</span>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -205,7 +205,7 @@ export default function WithdrawRecordsPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {page} / {totalPages}
                 </span>
                 <Button

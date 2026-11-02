@@ -199,7 +199,7 @@ export default function ExamMarkingPage() {
                   </TableCell>
                   <TableCell className="px-3 py-2.5">{r.score}</TableCell>
                   <TableCell className="px-3 py-2.5">{r.passScore ?? '-'}</TableCell>
-                  <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-3 py-2.5 text-label text-muted-foreground">
                     {r.submittedAt ?? '-'}
                   </TableCell>
                   <TableCell className="px-3 py-2.5">
@@ -220,7 +220,7 @@ export default function ExamMarkingPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -230,7 +230,7 @@ export default function ExamMarkingPage() {
           >
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -251,7 +251,7 @@ export default function ExamMarkingPage() {
           </DialogHeader>
           {current && (
             <div className="space-y-4">
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1 text-body">
                 {(
                   [
                     ['学生', current.nickname ?? current.userId.slice(0, 8)],
@@ -271,17 +271,17 @@ export default function ExamMarkingPage() {
                     <div key={a.questionId} className="rounded-md border p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-body font-medium">题目 {idx + 1}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-label text-muted-foreground">
                           {a.questionId.slice(0, 8)}
                         </span>
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-body text-muted-foreground">
                         学生作答：
                         {typeof a.answer === 'string' ? a.answer : JSON.stringify(a.answer)}
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <Label htmlFor={`score-${a.questionId}`} className="text-xs">
+                          <Label htmlFor={`score-${a.questionId}`} className="text-label">
                             得分
                           </Label>
                           <Input
@@ -302,7 +302,7 @@ export default function ExamMarkingPage() {
                             className="h-8 w-24"
                           />
                         </div>
-                        <label className="flex items-center gap-1 text-xs cursor-pointer">
+                        <label className="flex items-center gap-1 text-label cursor-pointer">
                           <input
                             type="checkbox"
                             checked={grades[a.questionId]?.isCorrect ?? false}
@@ -323,9 +323,9 @@ export default function ExamMarkingPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">无答题数据</p>
+                <p className="text-body text-muted-foreground">无答题数据</p>
               )}
-              <div className="flex items-center gap-2 text-sm mt-3 pt-3">
+              <div className="flex items-center gap-2 text-body mt-3 pt-3">
                 <span className="text-muted-foreground">总得分：</span>
                 <span className="font-bold">{totalInputScore}</span>
                 <span className="ml-4 text-muted-foreground">判定：</span>

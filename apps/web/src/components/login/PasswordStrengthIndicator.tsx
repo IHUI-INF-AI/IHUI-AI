@@ -66,7 +66,7 @@ export function PasswordStrengthIndicator({ password }: { password: string }) {
           style={{ width: `${width}%` }}
         />
       </div>
-      <span className={`text-xs whitespace-nowrap ${color.split(' ')[1]}`}>{label}</span>
+      <span className={`text-label whitespace-nowrap ${color.split(' ')[1]}`}>{label}</span>
     </div>
   )
 }

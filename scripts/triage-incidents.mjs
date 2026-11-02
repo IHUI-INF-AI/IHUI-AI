@@ -119,6 +119,8 @@ export function buildCandidate(cluster, contract) {
     `severity=${cluster.severity}`,
   ]
   if (cluster.route) bits.push(`route=${cluster.route}`)
+  // 同族多码(TS2339/TS2554…)逐码保留:身份按族聚合,证据不丢具体编号(B87/B88/B91)。
+  if (Array.isArray(cluster.codes) && cluster.codes.length > 1) bits.push(`codes=${cluster.codes.join('+')}`)
   if (cluster.code) bits.push(`code=${cluster.code}`)
   bits.push(`sample=${JSON.stringify(String(cluster.sample ?? '').slice(0, 120))}`)
   return {

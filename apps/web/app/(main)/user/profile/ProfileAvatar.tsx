@@ -55,7 +55,7 @@ export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onCro
   return (
     <div className="flex items-center gap-4">
       <div className="relative h-20 w-20 shrink-0">
-        <Avatar src={avatar} name={nickname || 'U'} size="xl" className="h-20 w-20 text-2xl" />
+        <Avatar src={avatar} name={nickname || 'U'} size="xl" className="h-20 w-20 text-display" />
         <input
           ref={fileInputRef}
           type="file"
@@ -78,7 +78,7 @@ export function ProfileAvatar({ avatar, nickname, uploading, fileInputRef, onCro
           </button>
         </Tooltip>
       </div>
-      <p className="text-xs text-muted-foreground">{t('avatarHint')}</p>
+      <p className="text-label text-muted-foreground">{t('avatarHint')}</p>
       <AvatarCropper
         open={cropOpen}
         src={cropSrc}

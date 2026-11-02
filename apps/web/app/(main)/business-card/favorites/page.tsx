@@ -74,7 +74,7 @@ export default function CardFavoritesPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/business-card"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回列表
@@ -83,9 +83,11 @@ export default function CardFavoritesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Star className="h-6 w-6 text-amber-500" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">收藏的名片</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            收藏的名片
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">共收藏 {items.length} 张名片</p>
+        <p className="text-label text-muted-foreground">共收藏 {items.length} 张名片</p>
       </header>
 
       {!allow ? (
@@ -96,13 +98,13 @@ export default function CardFavoritesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Star className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无收藏名片</p>
+          <p className="text-body text-muted-foreground">暂无收藏名片</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
@@ -135,12 +137,12 @@ export default function CardFavoritesPage() {
                         </span>
                       </Link>
                       {card.title && (
-                        <p className="truncate text-sm text-muted-foreground">{card.title}</p>
+                        <p className="truncate text-body text-muted-foreground">{card.title}</p>
                       )}
                       {card.company && (
-                        <p className="truncate text-sm text-muted-foreground">{card.company}</p>
+                        <p className="truncate text-body text-muted-foreground">{card.company}</p>
                       )}
-                      <div className="flex items-center gap-2 pt-1.5 text-xs">
+                      <div className="flex items-center gap-2 pt-1.5 text-label">
                         <span className="text-muted-foreground">收藏于 {fmt(entry.createdAt)}</span>
                         <div className="flex flex-1 justify-end gap-1">
                           <Link
