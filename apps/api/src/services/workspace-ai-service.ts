@@ -18,9 +18,11 @@ import { normalizePermissionMode, permissionModeWire } from '@ihui/types/permiss
 import type { PermissionModeId } from '@ihui/types/permission-mode'
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -254,84 +256,139 @@ export interface SubagentConfig {
 }
 
 /**
- * 子代理配置注册表。
+ * 子代理工作区授权失败(未配置权限 / 跨用户越权 / 登记根外)。
  *
- * 2026-11-02 越权收口(两处):
- * ① `workspacePath` 此前是客户端自报串,直接 join('.claude/agents') 后 readdir ⇒ 传 `C:\`
- *    就等于让服务端枚举任意目录下的 agent 定义(名称/prompt/绝对路径随响应回吐)。现改为先
- *    过 utils/workspace-roots 的登记根闸(realpath + relative 包含判定),且闸早于**任何**
- *    fs 调用 —— 越界路径不产生 readdir/stat 副作用,也不会从 ENOENT 变成 500。
- * ② `configs` 此前是**进程级单桶**,任一用户 discover 之后所有人的 `list()` 都能读到别人的
- *    `name`/`systemPrompt`/`filePath`。现按 ownerUserId 分桶,`list()`/`get()` 只回本人。
+ * 路由层统一映射 404:沿用本仓「未授权与不存在同形」的防枚举约定,不引 403 ——
+ * 否则 403/404 的差异本身就是一枚存在性探针,攻击者可据此枚举服务器上哪些路径
+ * 已被他人登记为工作区。message 刻意不含任何服务器路径。
  */
+export class SubagentWorkspaceAccessError extends Error {
+  readonly statusCode = 404
+  constructor(message = '工作区不存在或无权访问') {
+    super(message)
+    this.name = 'SubagentWorkspaceAccessError'
+  }
+}
+
+/**
+ * 子代理脚手架符号链接失效(悬空 / 越界 / 不可解析)。
+ *
+ * 为什么单独一类:Windows 端创建 symlink/junction 后,`readFileSync` 对悬空链接会抛
+ * 裸 ENOENT、对目录链接抛 EISDIR —— 那是「崩溃」不是「拒绝」。这里把两类都收成
+ * 明确的中文错误,路由层映射 400;越界链接则按「拒绝」处理,绝不跟随到工作区外。
+ */
+export class SubagentLinkError extends Error {
+  readonly statusCode = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'SubagentLinkError'
+  }
+}
+
+/**
+ * 调用者在该用户级 `workspace_permissions` 表里真正有权的工作区根。
+ *
+ * 单一判据来源是 `listPermissionsByUser`(SQL 自带 userId 谓词,不会读到别人的行),
+ * 这里只做两道收窄:
+ *   ① 行里的 workspacePath 必须仍在服务端 `IHUI_WORKSPACE_ROOTS` 登记根内 ——
+ *      白名单启用(2026-10-27)之前落库的历史行不能成为绕过口;
+ *   ② 统一 realpath 归一,消解客户端字符串里的符号链接/相对形态。
+ * 这与「无归属的登记根」相反:登记根只有在**有归属行**时才可能被使用。
+ */
+async function listAuthorizedWorkspaceRoots(userId: string): Promise<string[]> {
+  const { listPermissionsByUser } = await import('../db/workspace-permission-queries.js')
+  const rows = await listPermissionsByUser(userId)
+  const registered = getRegisteredWorkspaceRoots()
+  const roots: string[] = []
+  for (const row of rows) {
+    const real = realpathOrResolve(row.workspacePath)
+    if (registered.some((r) => isInsideRoot(real, r) && roots.every((x) => x !== real))) {
+      roots.push(real)
+    }
+  }
+  return roots
+}
+
+/**
+ * 子代理工作区授权闸(唯一出口,discover/list/delegate 三处共用)。
+ *
+ * 两级判据,缺一不可:
+ *   ① 路径先过服务端登记根(assertWithinRegisteredRoots)—— 拦住未登记路径;
+ *   ② 归一后的根必须落在调用者自己的 permission 行内 —— 拦住「登录了但没有这个工作区」。
+ * 任一级失败都抛 404 语义错误,不区分「未登记」「不是你的」两种原因(防枚举)。
+ */
+async function assertSubagentWorkspaceAccess(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  let root: string
+  try {
+    root = assertWithinRegisteredRoots(workspacePath, '工作区')
+  } catch {
+    throw new SubagentWorkspaceAccessError()
+  }
+  const allowed = await listAuthorizedWorkspaceRoots(userId)
+  if (!allowed.some((r) => isInsideRoot(root, r))) {
+    throw new SubagentWorkspaceAccessError()
+  }
+  return root
+}
+
 class SubagentManager {
-  private configsByOwner = new Map<string, Map<string, SubagentConfig>>()
+  /**
+   * 按**归一后的工作区根**分桶,而不是全服一个 name→config 映射。
+   *
+   * 旧实现把每次 discover 的结果塞进同一个 Map,`list()` 返回的是全局并集:
+   * 用户 A 在 A 工作区发现的子代理,用户 B 调 `/subagents`(不带 workspacePath)
+   * 就能读到;delegate 也只按 name 取,传任意 workspacePath 都能用别人的配置。
+   * 分桶后,读取面必须同时命中「调用者有权」与「该根自己的桶」两个条件。
+   */
+  private buckets = new Map<string, Map<string, SubagentConfig>>()
 
-  private bucket(ownerUserId: string): Map<string, SubagentConfig> {
-    let bucket = this.configsByOwner.get(ownerUserId)
-    if (!bucket) {
-      bucket = new Map<string, SubagentConfig>()
-      this.configsByOwner.set(ownerUserId, bucket)
+  /** 发现并登记某个工作区(**先授权,后落盘扫描**),返回该桶的配置 */
+  async discover(workspacePath: string, userId: string): Promise<SubagentConfig[]> {
+    const root = await assertSubagentWorkspaceAccess(userId, workspacePath)
+    const found = this.scanWorkspace(root)
+    const bucket = new Map<string, SubagentConfig>()
+    for (const cfg of found) {
+      if (!bucket.has(cfg.name)) bucket.set(cfg.name, cfg)
     }
-    return bucket
+    // 整桶替换而非合并:删除掉的 .md 不能在下一次 discover 后继续被 delegate 命中
+    this.buckets.set(root, bucket)
+    return Array.from(bucket.values())
   }
 
-  discover(ownerUserId: string, workspacePath: string): SubagentConfig[] {
-    // 归一后的登记根才是比较基准;越界在这里抛,调用方(路由)翻译成 404
-    const root = assertWithinRegisteredRoots(workspacePath, '工作区')
-    const found: SubagentConfig[] = []
-    const seen = new Set<string>()
-    const bucket = this.bucket(ownerUserId)
-
-    const agentsDir = join(root, '.claude', 'agents')
-    if (existsSync(agentsDir)) {
-      // 只闸 workspacePath 挡不住 `.claude/agents` 本身是指向根外的符号链接
-      const realDir = realpathOrResolve(agentsDir)
-      if (!isInsideRoot(realDir, root)) throw new Error('路径越界：子代理目录不在工作区内')
-      this.scan(realDir, bucket, found, seen)
+  /**
+   * 列出调用者有权的工作区里已发现过的子代理。
+   * 显式给 workspacePath 时等价于一次 discover;未给时只并集**本人有权根**的桶,
+   * 不再回退到「全局已发现」(那正是跨用户泄漏面)。
+   */
+  async list(workspacePath: string | undefined, userId: string): Promise<SubagentConfig[]> {
+    if (workspacePath) return this.discover(workspacePath, userId)
+    const roots = await listAuthorizedWorkspaceRoots(userId)
+    const out: SubagentConfig[] = []
+    for (const root of roots) {
+      const bucket = this.buckets.get(root)
+      if (bucket) out.push(...bucket.values())
     }
-    // 服务端自有的全局目录(不来自客户端串),按当前调用者归属
-    const globalDir = join(homedir(), '.ihui', 'agents')
-    if (existsSync(globalDir)) this.scan(globalDir, bucket, found, seen)
-    return found
+    return out
   }
 
-  private scan(
-    dir: string,
-    bucket: Map<string, SubagentConfig>,
-    found: SubagentConfig[],
-    seen: Set<string>,
-  ): void {
-    for (const file of readdirSync(dir)) {
-      if (!file.endsWith('.md')) continue
-      const cfg = this.parseFile(join(dir, file))
-      if (cfg && !seen.has(cfg.name)) {
-        found.push(cfg)
-        seen.add(cfg.name)
-        bucket.set(cfg.name, cfg)
-      }
-    }
-  }
-
-  /** 只回调用者本人的配置(跨租户不可见) */
-  list(ownerUserId: string): SubagentConfig[] {
-    return Array.from(this.bucket(ownerUserId).values())
-  }
-
-  get(ownerUserId: string, name: string): SubagentConfig | null {
-    return this.bucket(ownerUserId).get(name) ?? null
-  }
-
-  /** 委派任务给子代理（独立上下文） */
+  /**
+   * 委派任务给子代理(独立上下文)。
+   * 只查**本次 workspacePath 对应桶**,不跨桶兜底 —— 否则「有权进入 B 工作区」
+   * 就能调用只存在于 A 工作区(他人)的子代理配置。
+   */
   async delegate(params: {
-    ownerUserId: string
     name: string
     prompt: string
     workspacePath: string
     model?: string
+    userId: string
   }): Promise<{ agentName: string; result: string }> {
-    const cfg = this.get(params.ownerUserId, params.name)
-    if (!cfg) throw new Error(`子代理不存在: ${params.name}`)
+    const root = await assertSubagentWorkspaceAccess(params.userId, params.workspacePath)
+    const cfg = this.buckets.get(root)?.get(params.name)
+    if (!cfg) throw new SubagentWorkspaceAccessError('子代理不存在或无权访问')
     // 简化：返回子代理执行结果（实际应调用 AgentLoopRuntime）
     return {
       agentName: cfg.name,
@@ -339,11 +396,97 @@ class SubagentManager {
     }
   }
 
-  private parseFile(filePath: string): SubagentConfig | null {
-    const content = readFileSync(filePath, 'utf-8')
+  /**
+   * 扫描 `<root>/.claude/agents`。
+   *
+   * 与旧实现的差别:
+   *   ① 只扫工作区内的这一处;`~/.ihui/agents` 是**服务器主目录**下的全局目录,
+   *      不归任何用户所有,按「configs 分桶必须落在调用者有权根内」的口径不再暴露
+   *      (需要全局内置代理时应落到某个用户已登记的根里)。
+   *   ② 每一级(目录自身 / 每个 .md)都先 realpath 消解再判 isInsideRoot:
+   *      目录级 junction 指向根外 → 拒绝;文件级 symlink 指向根外 → 拒绝;
+   *      链接目标不存在 → SubagentLinkError(明确错误),而不是 readFileSync 的裸 ENOENT。
+   *   ③ 同一目录里同名配置按先到先得去重(与旧实现 seen 集合同语义)。
+   */
+  private scanWorkspace(root: string): SubagentConfig[] {
+    const agentsDir = join(root, '.claude', 'agents')
+    // lstat 而不是 existsSync:悬空链接在 existsSync 下会被当成「不存在」而静默跳过,
+    // 那样「目标不存在」就永远走不到明确报错分支。
+    try {
+      lstatSync(agentsDir)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code === 'ENOENT') return []
+      throw new SubagentLinkError(`子代理目录 .claude/agents 无法读取(${code ?? '未知错误'})`)
+    }
+    const realDir = this.resolveInsideRoot(root, agentsDir, '子代理目录 .claude/agents')
+    let dirStat
+    try {
+      dirStat = statSync(realDir)
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理目录 .claude/agents 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+    if (!dirStat.isDirectory()) return []
+
+    let names: string[]
+    try {
+      names = readdirSync(realDir)
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理目录 .claude/agents 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+
+    const found: SubagentConfig[] = []
+    for (const name of names) {
+      if (!name.endsWith('.md')) continue
+      // 目录项可能是 symlink:realpath 消解后仍须在工作区内,否则拒绝该文件
+      const realFile = this.resolveInsideRoot(root, join(realDir, name), `子代理文件 ${name}`)
+      let fileStat
+      try {
+        fileStat = statSync(realFile)
+      } catch {
+        throw new SubagentLinkError(`子代理文件 ${name} 的符号链接目标不存在`)
+      }
+      if (!fileStat.isFile()) continue
+      const cfg = this.parseFile(realFile, basename(name, '.md'))
+      if (cfg) found.push(cfg)
+    }
+    return found
+  }
+
+  /** realpath 消解 → 必须仍在工作区根内;悬空/不可解析统一抛明确错误 */
+  private resolveInsideRoot(root: string, p: string, label: string): string {
+    let real: string
+    try {
+      real = realpathSync(p)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        throw new SubagentLinkError(`${label} 的符号链接目标不存在`)
+      }
+      throw new SubagentLinkError(`${label} 无法解析(${code ?? '未知错误'})`)
+    }
+    if (!isInsideRoot(real, root)) {
+      throw new SubagentLinkError(`${label} 指向工作区外的路径`)
+    }
+    return real
+  }
+
+  private parseFile(filePath: string, fallbackName: string): SubagentConfig | null {
+    let content: string
+    try {
+      content = readFileSync(filePath, 'utf-8')
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理文件 ${fallbackName} 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
     if (!content.startsWith('---')) {
       return {
-        name: basename(filePath, '.md'),
+        name: fallbackName,
         description: '',
         systemPrompt: content.trim(),
         tools: [],
@@ -364,7 +507,7 @@ class SubagentManager {
       meta[key] = key === 'tools' && val ? val.split(',').map((t) => t.trim()) : val
     }
     return {
-      name: (meta['name'] as string) ?? basename(filePath, '.md'),
+      name: (meta['name'] as string) ?? fallbackName,
       description: (meta['description'] as string) ?? '',
       systemPrompt: body,
       tools: (meta['tools'] as string[]) ?? [],
@@ -984,7 +1127,15 @@ class SandboxExecutor {
         }
         if (!candidate) continue
         // 路径形态:盘符(C:/ 或 C:\)、绝对(/ 或 \)、相对(./ 或 ../)。用 RegExp 构造避开字面量转义在评审工具链里的二次解释。
-        const looksLikePath = new RegExp('^([A-Za-z]:[/' + String.fromCharCode(92) + '/]|[/' + String.fromCharCode(92) + ']|\.\.?[/' + String.fromCharCode(92) + '/])').test(candidate)
+        const looksLikePath = new RegExp(
+          '^([A-Za-z]:[/' +
+            String.fromCharCode(92) +
+            '/]|[/' +
+            String.fromCharCode(92) +
+            ']|\.\.?[/' +
+            String.fromCharCode(92) +
+            '/])',
+        ).test(candidate)
         if (!looksLikePath) continue
         let abs: string
         try {

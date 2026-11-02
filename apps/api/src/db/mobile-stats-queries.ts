@@ -18,6 +18,7 @@
  */
 import { sql } from 'drizzle-orm'
 import { dbRead } from './index.js'
+import { bizDayStartUtc, bizDayKey } from '../utils/biz-day.js'
 
 /** 安全提取 db.execute 结果为数组(兼容 postgres.js 数组 / {rows} 两种形态)。 */
 function toRows(raw: unknown): Record<string, unknown>[] {
@@ -38,26 +39,14 @@ function num(v: unknown): number {
 }
 
 // ===== 时区工具:Asia/Shanghai 日界(UTC 表示)=====
-// Shanghai = UTC+8。Shanghai 当天 00:00 对应的 UTC 时间 = Date.UTC(y,m,d) - 8h。
+// 日界算法唯一出口 = utils/biz-day.ts(守门 246);此处只留名字转发,不再复算。
 function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
+  return bizDayStartUtc(daysAgo)
 }
 
 /** 把 Date 转成 Shanghai 本地 YYYY-MM-DD(供趋势填充使用)。 */
 function shanghaiDateKey(d: Date): string {
-  const local = new Date(d.getTime() + 8 * 3600 * 1000)
-  const y = local.getUTCFullYear()
-  const m = String(local.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(local.getUTCDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return bizDayKey(d)
 }
 
 export interface DauPoint {
