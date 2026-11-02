@@ -1901,7 +1901,13 @@
     "sales": "{count} sold",
     "loadFailed": "Failed to load distribution",
     "withdrawFailed": "Withdrawal failed",
-    "withdrawSuccess": "Withdrawal successful"
+    "withdrawSuccess": "Withdrawal successful",
+    "treeTitle": "Distribution tree",
+    "treeEmpty": "No downline members yet",
+    "treeLoadFailed": "Failed to load tree",
+    "treeRetry": "Retry",
+    "treeLevelLabel": "Level {level}",
+    "treeCollapseHint": "Tap a node for details"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -3534,7 +3540,22 @@
     "title": "My Wallet",
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
-    "withdraw": "Withdraw"
+    "withdraw": "Withdraw",
+    "flowsTitle": "Fund flows",
+    "flowsEmpty": "No transactions yet",
+    "flowsLoadFailed": "Failed to load flows",
+    "flowsRetry": "Retry",
+    "flowsLoadMore": "Load more",
+    "flowsLoading": "Loading...",
+    "flowBalanceAfter": "Balance",
+    "flowRemarkEmpty": "No remark",
+    "opType1": "Top-up",
+    "opType2": "Deduction",
+    "opType3": "Expired",
+    "opType4": "Refund",
+    "opType5": "Commission",
+    "loginRequiredHint": "Sign in to view fund flows",
+    "goLogin": "Sign in"
   },
   "activity": {
     "empty": "No activities",
@@ -4177,14 +4198,38 @@
     "loadFailed": "Failed to load skills",
     "retry": "Retry",
     "empty": "No skills",
-    "detail": "Details"
+    "detail": "Details",
+    "importTitle": "Import skill",
+    "importHint": "Paste skill JSON to import. Missing name or invalid JSON is rejected.",
+    "importButton": "Import",
+    "importing": "Importing...",
+    "importInvalidJson": "Invalid JSON",
+    "importMissingName": "Skill is missing the name field",
+    "importFailed": "Failed to import",
+    "importSuccess": "Imported"
   },
   "aiSkillDetail": {
     "loadFailed": "Failed to load skill",
     "retry": "Retry",
     "prompt": "Prompt template",
     "noPrompt": "No template",
-    "source": "Source"
+    "source": "Source",
+    "invoke": "Run",
+    "invoking": "Running...",
+    "invokeVariables": "Variables",
+    "invokeRequired": "Fill in the required variables",
+    "invokeFailed": "Run failed",
+    "invokeResult": "Result",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "exportFailed": "Failed to export",
+    "exportBlocked": "Saved to cache; direct sharing is not supported on Android",
+    "rateTitle": "Rating",
+    "rateSubmit": "Submit rating",
+    "ratingSubmitted": "Rating submitted",
+    "ratingFailed": "Failed to submit rating",
+    "commentPlaceholder": "Leave a comment (optional)",
+    "ratingLoginHint": "Sign in to rate"
   },
   "memory": {
     "detail": "Details",
@@ -5691,7 +5736,10 @@
     "fillField": "Please fill: {name}",
     "submitFail": "Submit failed. Retry later.",
     "doneTitle": "Submitted",
-    "doneBody": "Survey submitted. Your AI study plan will appear here."
+    "doneBody": "Survey submitted. Your AI study plan will appear here.",
+    "exportingReport": "Exporting...",
+    "exportEmptyHint": "Generate a report to export",
+    "exportLoginRequired": "Sign in to export"
   },
   "pwd": {
     "oldRequired": "Enter old password",
