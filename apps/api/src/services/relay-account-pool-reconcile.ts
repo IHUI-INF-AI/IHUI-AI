@@ -55,6 +55,34 @@ export interface PoolSideRow {
   credVersion: number
 }
 
+/** 最近一条签到记录的脱敏投影(与 ai-service pool_status.lastRecord 同构) */
+export interface CheckinLastRecord {
+  ok: boolean | null
+  action: string | null
+  message: string | null
+  code: string | null
+  httpStatus: number | null
+  /** 错误分类名(Unknown/SessionDead/BusinessError...),只给类型不给原文 */
+  classifiedErrorType: string | null
+  createdAt: string | null
+}
+
+/** 把 ai-service 的 lastRecord 收敛成可判形态;形状读不出回 null,不冒判。 */
+export function parseCheckinLastRecord(raw: unknown): CheckinLastRecord | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  return {
+    ok: typeof r.ok === 'boolean' ? r.ok : null,
+    action: typeof r.action === 'string' ? r.action : null,
+    message: typeof r.message === 'string' ? r.message.slice(0, 200) : null,
+    code:
+      typeof r.code === 'string' || typeof r.code === 'number' ? String(r.code).slice(0, 32) : null,
+    httpStatus: typeof r.httpStatus === 'number' ? r.httpStatus : null,
+    classifiedErrorType: typeof r.classifiedErrorType === 'string' ? r.classifiedErrorType : null,
+    createdAt: typeof r.createdAt === 'string' ? r.createdAt : null,
+  }
+}
+
 /** 签到侧单账号对账投影(ai-service list_pool_accounts 的同构回显) */
 export interface CheckinSideRow {
   accountId: number
@@ -67,6 +95,8 @@ export interface CheckinSideRow {
   poolCredVersion: number | null
   /** device_map.pool_pending_cred 摘要(上次回写号池失败留的待重试标记) */
   poolPendingCred: { attempts: number; at: string | null } | null
+  /** 最近一次签到结论(claim 失败归因用);无记录/旧版 ai-service 回 null */
+  lastRecord: CheckinLastRecord | null
 }
 
 type ReconcileAction =
@@ -272,6 +302,7 @@ export async function fetchPoolAccounts(
                 at: typeof pending.at === 'string' ? pending.at : null,
               }
             : null,
+        lastRecord: parseCheckinLastRecord(r.lastRecord),
       })
     }
     return { ok: true, accounts, error: null }

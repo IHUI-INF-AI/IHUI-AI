@@ -10,11 +10,14 @@
 import { describe, it, expect } from 'vitest'
 
 import {
+  RELAY_ACCOUNT_REAUTH_ACTION,
   RELAY_ACCOUNT_VERDICT_ACTION,
   RELAY_ACCOUNT_VERDICT_KINDS,
   relayAccountIdleDays,
   relayAccountRemainingDays,
+  resolveRelayAccountReauth,
   resolveRelayAccountVerdict,
+  summarizeRelayAccountReauth,
 } from '../src/relay-account-verdict.js'
 
 const DAY = 86_400_000
@@ -83,6 +86,229 @@ describe('relayAccountIdleDays（展示面时钟，等价调度 SQL 那把 great
     expect(relayAccountIdleDays({}, NOW)).toBeNull()
     const t = relayAccountIdleDays({ lastUsedAt: new Date(NOW - 2 * DAY) }, NOW)
     expect(typeof t).toBe('number')
+  })
+})
+
+describe('resolveRelayAccountReauth（必须人工处理的五类原因）', () => {
+  const AUTH_REJECTED = {
+    ok: false,
+    action: 'claim',
+    code: '1001',
+    message: 'not able to authenticate you',
+    classifiedErrorType: 'BusinessError',
+  }
+
+  it('account_down：down 或 tempUnschedulable 都算，且不受健康文案掩盖', () => {
+    expect(
+      resolveRelayAccountReauth(
+        { providerCode: 'opencode', tokenExpiryMs: null, healthStatus: 'down' },
+        NOW,
+      ),
+    ).toMatchObject({ needsReauth: true, reason: 'account_down' })
+    expect(
+      resolveRelayAccountReauth(
+        { providerCode: 'trae', tokenExpiryMs: null, tempUnschedulable: true },
+        NOW,
+      ),
+    ).toMatchObject({ needsReauth: true, reason: 'account_down' })
+  })
+
+  it('expired_no_refresh：minimax 到期且适配器无 refresh；healthStatus=healthy 也不能掩盖', () => {
+    const r = resolveRelayAccountReauth(
+      {
+        providerCode: 'minimax',
+        tokenExpiryMs: NOW - DAY,
+        hasRefreshToken: true,
+        refreshSupported: false,
+        healthStatus: 'healthy',
+      },
+      NOW,
+    )
+    expect(r).toMatchObject({ needsReauth: true, reason: 'expired_no_refresh' })
+    expect(r.reasons).toEqual(['expired_no_refresh'])
+  })
+
+  it('claim_failed：trae 1001/BusinessError 认证拒绝', () => {
+    expect(
+      resolveRelayAccountReauth(
+        { providerCode: 'trae', tokenExpiryMs: NOW + DAY, lastCheckin: AUTH_REJECTED },
+        NOW,
+      ),
+    ).toMatchObject({ needsReauth: true, reason: 'claim_failed' })
+  })
+
+  it('invalid_cookie_decrypt 与 credential_expired 不混：publish_cookie 才叫 cookie 解密失败', () => {
+    expect(
+      resolveRelayAccountReauth(
+        {
+          providerCode: 'wechat',
+          tokenExpiryMs: null,
+          source: 'publish_cookie',
+          lastErrorKind: 'expired',
+          lastError: '凭证无法解密(InvalidTag),需重新扫码录入该账号',
+        },
+        NOW,
+      ),
+    ).toMatchObject({ needsReauth: true, reason: 'invalid_cookie_decrypt' })
+
+    expect(
+      resolveRelayAccountReauth(
+        {
+          providerCode: 'checkin',
+          tokenExpiryMs: null,
+          source: 'checkin',
+          lastErrorKind: 'expired',
+          lastError: '签到凭证无法解密(ValueError: JWT 密文解密失败),需重新录入',
+        },
+        NOW,
+      ),
+    ).toMatchObject({ needsReauth: true, reason: 'credential_expired' })
+  })
+
+  it('反向：正常 skip / 9095 幂等 / qoder 无活动 / 网络限流风控 / 健康无引擎账号，一律不标', () => {
+    const negatives = [
+      {
+        providerCode: 'qoder',
+        tokenExpiryMs: NOW + DAY,
+        lastCheckin: { ok: true, action: 'skip_already' },
+      },
+      {
+        providerCode: 'trae',
+        tokenExpiryMs: NOW + DAY,
+        lastCheckin: { ok: false, action: 'claim', code: '9095', message: '当前设备今日已经签到' },
+      },
+      {
+        providerCode: 'qoder',
+        tokenExpiryMs: NOW + DAY,
+        lastCheckin: {
+          ok: false,
+          action: 'claim',
+          code: '1005',
+          message: '活动未下发或已结束(等下一轮)',
+        },
+      },
+      {
+        providerCode: 'trae',
+        tokenExpiryMs: NOW + DAY,
+        lastCheckin: {
+          ok: false,
+          action: 'claim',
+          message: 'fetch failed',
+          classifiedErrorType: 'Unknown',
+        },
+      },
+      {
+        providerCode: 'trae',
+        tokenExpiryMs: NOW + DAY,
+        lastCheckin: {
+          ok: false,
+          action: 'claim',
+          message: '429',
+          classifiedErrorType: 'SoftRate',
+        },
+      },
+      {
+        providerCode: 'trae',
+        tokenExpiryMs: NOW + DAY,
+        lastCheckin: {
+          ok: false,
+          action: 'claim',
+          message: '403',
+          classifiedErrorType: 'Challenge',
+        },
+      },
+      { providerCode: 'doubao', tokenExpiryMs: null, healthStatus: 'healthy', lastCheckin: null },
+      {
+        providerCode: 'publish_token',
+        tokenExpiryMs: null,
+        source: 'publish_token',
+        lastErrorKind: 'unsupported',
+      },
+      {
+        providerCode: 'publish_cookie',
+        tokenExpiryMs: null,
+        source: 'publish_cookie',
+        lastErrorKind: 'skipped',
+      },
+    ]
+    for (const input of negatives) {
+      expect(resolveRelayAccountReauth(input, NOW)).toEqual({
+        needsReauth: false,
+        reason: null,
+        reasons: [],
+        detail: null,
+        nextAction: null,
+      })
+    }
+  })
+
+  it('down 覆盖 claim_failed：主原因 account_down，证据 reasons 不丢', () => {
+    const r = resolveRelayAccountReauth(
+      {
+        providerCode: 'trae',
+        tokenExpiryMs: NOW - DAY,
+        hasRefreshToken: true,
+        refreshSupported: true,
+        healthStatus: 'down',
+        tempUnschedulable: true,
+        lastCheckin: AUTH_REJECTED,
+      },
+      NOW,
+    )
+    expect(r.needsReauth).toBe(true)
+    expect(r.reason).toBe('account_down')
+    expect(r.reasons).toEqual(['account_down', 'claim_failed'])
+  })
+
+  it('多原因按优先级折叠：非 down 的到期无续期压过 claim_failed', () => {
+    const r = resolveRelayAccountReauth(
+      {
+        providerCode: 'minimax',
+        tokenExpiryMs: NOW - DAY,
+        hasRefreshToken: true,
+        refreshSupported: false,
+        lastCheckin: AUTH_REJECTED,
+      },
+      NOW,
+    )
+    expect(r.reason).toBe('expired_no_refresh')
+    expect(r.reasons).toEqual(['expired_no_refresh', 'claim_failed'])
+  })
+
+  it('五类枚举与下一步文案表同源，且文案非空', () => {
+    expect(Object.keys(RELAY_ACCOUNT_REAUTH_ACTION).sort()).toEqual(
+      [
+        'account_down',
+        'claim_failed',
+        'credential_expired',
+        'expired_no_refresh',
+        'invalid_cookie_decrypt',
+      ].sort(),
+    )
+    for (const action of Object.values(RELAY_ACCOUNT_REAUTH_ACTION)) {
+      expect(action.trim().length).toBeGreaterThan(4)
+    }
+  })
+})
+
+describe('summarizeRelayAccountReauth（provider × reason 计数）', () => {
+  it('只统计 needsReauth=true，每账号按主原因计一次', () => {
+    const counts = summarizeRelayAccountReauth([
+      { providerCode: 'trae', needsReauth: true, reason: 'claim_failed' },
+      { providerCode: 'trae', needsReauth: true, reason: 'account_down' },
+      { providerCode: 'minimax', needsReauth: true, reason: 'expired_no_refresh' },
+      { providerCode: 'minimax', needsReauth: false, reason: null },
+      { providerCode: 'doubao', needsReauth: false, reason: null },
+    ])
+    expect(counts).toEqual({
+      total: 3,
+      byProvider: { trae: 2, minimax: 1 },
+      byReason: { claim_failed: 1, account_down: 1, expired_no_refresh: 1 },
+      byProviderReason: {
+        trae: { claim_failed: 1, account_down: 1 },
+        minimax: { expired_no_refresh: 1 },
+      },
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

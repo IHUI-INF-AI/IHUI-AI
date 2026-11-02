@@ -110,6 +110,7 @@ function checkinRow(over: Partial<CheckinSideRow> = {}): CheckinSideRow {
     enabled: true,
     poolCredVersion: 7,
     poolPendingCred: null,
+    lastRecord: null,
     ...over,
   }
 }
