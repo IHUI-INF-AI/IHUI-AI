@@ -1219,10 +1219,6 @@
     "compactionToast": "Context auto-compacted ({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "Cover Applied",
-      "message": "Cover applied for \"{title}\": {label}"
-    },
     "aiGen": {
       "title": "AI Cover Generation",
       "message": "Feature under development"
@@ -1282,10 +1278,6 @@
     "detailMembers": "Members",
     "detailRecent": "Recent",
     "empty": "No groups",
-    "enterChat": {
-      "message": "Are you sure you want to enter?",
-      "title": "Notice"
-    },
     "enterDiscover": "Discover",
     "enterMine": "Mine",
     "loadFailed": "Failed to load groups",
@@ -1458,15 +1450,6 @@
     "workflowTab": "Workflows"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "Confirm Recharge",
-      "message": "Package: {tokens} Token · ¥{price}",
-      "payBtn": "Pay Now",
-      "success": {
-        "title": "Payment Successful",
-        "message": "{tokens} Token credited"
-      }
-    },
     "balanceLabel": "Token balance",
     "bonus": "Bonus",
     "empty": "No data",
@@ -1486,9 +1469,7 @@
     "range7d": "7 days",
     "range1m": "1 month",
     "range1y": "1 year",
-    "rangeAll": "All",
-    "unitYi": "{v}B",
-    "unitWan": "{v}K"
+    "rangeAll": "All"
   },
   "messageInput": {
     "document": "Document",
@@ -1901,7 +1882,13 @@
     "sales": "{count} sold",
     "loadFailed": "Failed to load distribution",
     "withdrawFailed": "Withdrawal failed",
-    "withdrawSuccess": "Withdrawal successful"
+    "withdrawSuccess": "Withdrawal successful",
+    "treeTitle": "Distribution tree",
+    "treeEmpty": "No downline members yet",
+    "treeLoadFailed": "Failed to load tree",
+    "treeRetry": "Retry",
+    "treeLevelLabel": "Level {level}",
+    "treeCollapseHint": "Tap a node for details"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -2376,7 +2363,17 @@
     "deleteFailed": "Failed to delete",
     "secretTitle": "Key created",
     "secretHint": "Copy and save it now. This secret is shown only once.",
-    "secretDone": "I saved it"
+    "secretDone": "I saved it",
+    "rotate": "Rotate",
+    "rotating": "Rotating...",
+    "rotateTitle": "Rotate key",
+    "rotateConfirm": "Rotate \"{name}\"? The old secret will stop working immediately.",
+    "rotateFailed": "Failed to rotate",
+    "rotateSecretTitle": "Key rotated",
+    "copySecret": "Copy",
+    "secretCopied": "Secret copied to clipboard",
+    "rateLimit": "Rate limit",
+    "rateLimitUnit": "req/min"
   },
   "devices": {
     "title": "Devices",
@@ -2652,7 +2649,11 @@
       "signing": "Checking in...",
       "signInSuccess": "Checked in and earned {points} points",
       "signInFailed": "Check-in failed",
-      "alreadySigned": "Already checked in today"
+      "alreadySigned": "Already checked in today",
+      "historyTitle": "Check-in history",
+      "historyEmpty": "No check-in records",
+      "historyLoadFailed": "Failed to load check-in history",
+      "historyConsecutive": "{days}-day streak"
     },
     "mallLink": "Points mall",
     "taskCenterLink": "Task center",
@@ -3490,8 +3491,7 @@
     "viewNow": "View now"
   },
   "vipBenefit": {
-    "title": "Membership Benefits",
-    "loadFailed": "Failed to load benefits"
+    "title": "Membership Benefits"
   },
   "vipTrader": {
     "title": "VIP Trader",
@@ -3520,7 +3520,22 @@
     "title": "My Wallet",
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
-    "withdraw": "Withdraw"
+    "withdraw": "Withdraw",
+    "flowsTitle": "Fund flows",
+    "flowsEmpty": "No transactions yet",
+    "flowsLoadFailed": "Failed to load flows",
+    "flowsRetry": "Retry",
+    "flowsLoadMore": "Load more",
+    "flowsLoading": "Loading...",
+    "flowBalanceAfter": "Balance",
+    "flowRemarkEmpty": "No remark",
+    "opType1": "Top-up",
+    "opType2": "Deduction",
+    "opType3": "Expired",
+    "opType4": "Refund",
+    "opType5": "Commission",
+    "loginRequiredHint": "Sign in to view fund flows",
+    "goLogin": "Sign in"
   },
   "activity": {
     "empty": "No activities",
@@ -3949,7 +3964,6 @@
     "today": "Today",
     "withdrawBtn": "Withdraw",
     "withdrawModal": {
-      "close": "Cancel",
       "confirm": "Confirm",
       "moreMethods": "More methods",
       "subtitle": "Choose withdrawal method",
@@ -4111,6 +4125,17 @@
     "deleteTitle": "Delete document",
     "deleteConfirm": "Delete this document?",
     "deleteFailed": "Delete failed",
+    "selectionStart": "Select",
+    "selectionDone": "Done",
+    "selectionAll": "Select all",
+    "selectionClearAll": "Clear selection",
+    "selectionCount": "{count} selected",
+    "batchDelete": "Delete selected",
+    "batchDeleting": "Deleting...",
+    "batchDeleteTitle": "Delete documents",
+    "batchDeleteConfirm": "Delete {count} selected document(s)?",
+    "batchDeletePartial": "Deleted {success}, {failed} failed",
+    "batchDeleteFailed": "Batch delete failed",
     "author": "Author",
     "category": "Category",
     "nextEntry": "Next",
@@ -4152,14 +4177,38 @@
     "loadFailed": "Failed to load skills",
     "retry": "Retry",
     "empty": "No skills",
-    "detail": "Details"
+    "detail": "Details",
+    "importTitle": "Import skill",
+    "importHint": "Paste skill JSON to import. Missing name or invalid JSON is rejected.",
+    "importButton": "Import",
+    "importing": "Importing...",
+    "importInvalidJson": "Invalid JSON",
+    "importMissingName": "Skill is missing the name field",
+    "importFailed": "Failed to import",
+    "importSuccess": "Imported"
   },
   "aiSkillDetail": {
     "loadFailed": "Failed to load skill",
     "retry": "Retry",
     "prompt": "Prompt template",
     "noPrompt": "No template",
-    "source": "Source"
+    "source": "Source",
+    "invoke": "Run",
+    "invoking": "Running...",
+    "invokeVariables": "Variables",
+    "invokeRequired": "Fill in the required variables",
+    "invokeFailed": "Run failed",
+    "invokeResult": "Result",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "exportFailed": "Failed to export",
+    "exportBlocked": "Saved to cache; direct sharing is not supported on Android",
+    "rateTitle": "Rating",
+    "rateSubmit": "Submit rating",
+    "ratingSubmitted": "Rating submitted",
+    "ratingFailed": "Failed to submit rating",
+    "commentPlaceholder": "Leave a comment (optional)",
+    "ratingLoginHint": "Sign in to rate"
   },
   "memory": {
     "detail": "Details",
@@ -5666,7 +5715,10 @@
     "fillField": "Please fill: {name}",
     "submitFail": "Submit failed. Retry later.",
     "doneTitle": "Submitted",
-    "doneBody": "Survey submitted. Your AI study plan will appear here."
+    "doneBody": "Survey submitted. Your AI study plan will appear here.",
+    "exportingReport": "Exporting...",
+    "exportEmptyHint": "Generate a report to export",
+    "exportLoginRequired": "Sign in to export"
   },
   "pwd": {
     "oldRequired": "Enter old password",

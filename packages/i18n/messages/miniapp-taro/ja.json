@@ -267,13 +267,6 @@
   "live": {
     "replay": "リプレイ",
     "liveNow": "配信中",
-    "detail": {
-      "loadFailed": "ライブの読み込みに失敗",
-      "notStarted": "ライブ未開始",
-      "ended": "ライブ終了",
-      "connecting": "ライブルームに接続中…",
-      "enter": "ライブルームに入る"
-    },
     "subscribe": {
       "subscribe": "通知を購読",
       "subscribeSuccess": "購読しました",
@@ -1086,16 +1079,12 @@
     "useCount": "{n}人使用",
     "join": {
       "title": "グループに参加",
-      "message": "「{name}」への参加を申請しました"
+      "message": "「{name}」に参加しました"
     },
     "cardMembers": "メンバー",
     "detailEnter": "チャットに入る",
     "detailMembers": "メンバー",
     "detailRecent": "最近",
-    "enterChat": {
-      "message": "このグループに参加しますか?",
-      "title": "お知らせ"
-    },
     "enterDiscover": "発見",
     "enterMine": "マイ",
     "memberRole": "役割",
@@ -1358,37 +1347,11 @@
       "rulesTitle": "試験規則",
       "totalScore": "合計点",
       "totalScoreValue": "{n} 点"
-    },
-    "answer": {
-      "judgmentOptions": [
-        "正しい",
-        "間違い"
-      ],
-      "answerPlaceholder": "答えを入力",
-      "prev": "前の問題",
-      "next": "次の問題",
-      "submit": "提出"
     }
   },
   "favorites": {
-    "cancel": "お気に入り解除",
-    "loadFailed": "読み込み失敗",
     "empty": "お気に入りなし",
-    "loadMore": "もっと読み込む",
-    "noMore": "これ以上なし",
-    "batchCancel": "一括でお気に入り解除",
-    "items": "件",
-    "unsupported": "ジャンプは未対応です",
-    "itemsUnit": "件",
-    "done": "完了",
     "manage": "管理",
-    "selectAll": "すべて選択",
-    "collectedAt": "お気に入り追加日:",
-    "searchEmpty": "一致する内容が見つかりません",
-    "goDiscover": "発見へ",
-    "searchPlaceholder": "コレクションしたコンテンツを検索",
-    "selectFirst": "先に選択してください",
-    "total": "コレクション済み",
     "title": "マイお気に入り"
   },
   "userFans": {
@@ -1447,10 +1410,7 @@
       "rule2": "友達を招待して会員にすると、会員費の20%をコミッションとして獲得できます",
       "rule3": "コミッションは友達の支払い成功後24時間以内に自動的にアカウントへ精算されます",
       "rule4": "残高が100元に達するとWeChatまたはAlipayに引き出し申請できます",
-      "introTitle": "友達を招待してコミッションを獲得",
-      "totalEarnings": "累計収益",
-      "inviteCount": "招待数",
-      "rulesTitle": "コミッション規則"
+      "totalEarnings": "累計収益"
     },
     "memberDetail": {
       "loading": "読み込み中…",
@@ -2365,14 +2325,6 @@
   "news": {
     "search": "ニュース検索",
     "empty": "ニュースなし",
-    "readCount": "{n} 閲覧",
-    "detail": {
-      "like": "いいね",
-      "comment": "コメント",
-      "share": "共有",
-      "related": "関連おすすめ",
-      "commentSoon": "コメント機能準備中"
-    },
     "cat": {
       "announce": "お知らせ",
       "activity": "イベント",
@@ -2593,11 +2545,8 @@
     },
     "hello": "こんにちは、{name}です",
     "justNow": "たった今",
-    "search": "チャットを検索",
     "unnamedRoom": "名無し会話",
     "empty": "メッセージなし",
-    "markedRead": "既読にしました",
-    "pinned": "ピン留め",
     "deleted": "削除済み",
     "notFound": "会話が見つかりません",
     "settings": "設定",
@@ -2609,8 +2558,6 @@
     "noInteraction": "メッセージなし",
     "noPrivate": "DMなし",
     "noSystem": "通知なし",
-    "markRead": "既読にする",
-    "deleteConv": "会話削除",
     "pin": "会話を固定",
     "unpin": "固定を解除"
   },
@@ -2646,7 +2593,6 @@
       "notOpened": "未開通",
       "openVip": "VIP会員を開通",
       "opened": "開通済み",
-      "privileges": "会員特典",
       "share": "シェアして報酬を獲得"
     },
     "benefits": {
@@ -2830,10 +2776,7 @@
   "subscriptions": {
     "cancel": "サブスク解除",
     "loadFailed": "読み込み失敗",
-    "empty": "サブスクなし",
-    "delete": "削除",
-    "loadMore": "もっと読み込む",
-    "noMore": "これ以上なし"
+    "empty": "サブスクなし"
   },
   "teacher": {
     "list": {
@@ -2883,7 +2826,6 @@
       "followers": "{n} 人がフォロー中",
       "following": "フォロー中",
       "loadFailed": "読み込み失敗",
-      "loading": "読み込み中…",
       "loadingMore": "読み込み中…",
       "noMore": "これ以上はありません",
       "publish": "投稿する"
@@ -2906,8 +2848,7 @@
       "title": "マイトークン",
       "agentConsume": "エージェント消費",
       "ordersConsume": "大規模モデル消費",
-      "costTime": "消費時間:",
-      "noMore": "これ以上ありません"
+      "costTime": "消費時間:"
     }
   },
   "user": {
@@ -4771,7 +4712,7 @@
     "taskRunning": "実行中…",
     "taskEmpty": "タスクなし、または未取得",
     "taskResult": "実行結果",
-    "taskUnjudged": "未判定：上流の応答を解釈できません。今回の結果は成功として扱えません。"
+    "taskUnjudged": "上流の応答を解釈できず、今回の結果は未判定です（成功ではありません）"
   },
   "developerInfo": {
     "title": "開発者情報",
@@ -5028,10 +4969,6 @@
     "rankEmpty": "このランキングにはデータがありません"
   },
   "aigcCover": {
-    "applied": {
-      "title": "カバーを適用しました",
-      "message": "「{title}」にカバーを適用しました:{label}"
-    },
     "aiGen": {
       "title": "AI カバー生成",
       "message": "機能開発中"

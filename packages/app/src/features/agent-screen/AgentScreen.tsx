@@ -268,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.warning.DEFAULT,
     },
-    vipText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
+    vipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.surface.light },
     desc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

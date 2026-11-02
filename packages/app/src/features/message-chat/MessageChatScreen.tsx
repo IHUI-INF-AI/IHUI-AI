@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius, rnCssLight, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -148,14 +148,19 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: rnSpacing.lg,
     },
-    error: { fontSize: 14, color: tk.error.text, marginBottom: rnSpacing.sm, textAlign: 'center' },
+    error: {
+      fontSize: rnType.body.size,
+      color: tk.error.text,
+      marginBottom: rnSpacing.sm,
+      textAlign: 'center',
+    },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.md,
       marginBottom: rnSpacing.sm,
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
     msg: {
       padding: rnSpacing['sm-loose'],
@@ -165,8 +170,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     msgMine: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgPeer: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
-    content: { fontSize: 16, color: tk.surface.light },
-    meta: { marginTop: rnSpacing.sm, fontSize: 10, color: rnCssLight.white70 },
+    content: { fontSize: rnType.title.size, color: tk.surface.light },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: rnCssLight.white70 },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -179,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.lg,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     sendBtn: {
@@ -191,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     sendDisabled: { backgroundColor: tk.text.tertiary },
-    sendText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     btn: {
       marginTop: rnSpacing.md,
       paddingHorizontal: rnSpacing.lg,

@@ -20,6 +20,7 @@
  */
 import { and, eq, inArray, sql, gte, lte } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
+import { bizDayStartUtc } from '../utils/biz-day.js'
 import {
   aiRelayChannelGroups,
   aiRelayChannelGroupMembers,
@@ -114,16 +115,9 @@ export interface RelayOpsSnapshot {
 }
 
 // ===== 时区工具:Asia/Shanghai 日界(UTC 表示)——与 relay-stats.ts 同语义 =====
+// 日界算法唯一出口 = utils/biz-day.ts(守门 246);此处只留名字转发,不再复算。
 function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
+  return bizDayStartUtc(daysAgo)
 }
 
 function deltaRate(curr: number, prev: number): number {

@@ -175,10 +175,10 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     statsCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -198,7 +198,7 @@ function createStyles(tk: AppThemeTokens) {
       textAlign: 'center',
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -224,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
     statusCompleted: { backgroundColor: tk.success.light },
     statusPaused: { backgroundColor: tk.surface.card },
     statusInProgress: { backgroundColor: tk.warning.light },
-    statusText: { fontSize: 10, fontWeight: '600' },
+    statusText: { fontSize: rnType.badge.size, fontWeight: '600' },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

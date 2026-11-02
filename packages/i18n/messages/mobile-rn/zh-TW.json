@@ -1219,10 +1219,6 @@
     "compactionToast": "上下文已自動壓縮({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已套用",
-      "message": "已為「{title}」套用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能開發中"
@@ -1282,10 +1278,6 @@
     "detailMembers": "群組成員",
     "detailRecent": "最近訊息",
     "empty": "暫無群聊",
-    "enterChat": {
-      "message": "確定要進入該群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "發現",
     "enterMine": "我的",
     "loadFailed": "載入群聊失敗",
@@ -1458,15 +1450,6 @@
     "workflowTab": "工作流"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "確認充值",
-      "message": "套餐:{tokens} Token · ¥{price}",
-      "payBtn": "立即支付",
-      "success": {
-        "title": "支付成功",
-        "message": "已到賬 {tokens} Token"
-      }
-    },
     "balanceLabel": "智匯值餘額",
     "bonus": "獎勵",
     "empty": "暫無資料",
@@ -1486,9 +1469,7 @@
     "range7d": "7天",
     "range1m": "一個月",
     "range1y": "近一年",
-    "rangeAll": "全部",
-    "unitYi": "{v}億",
-    "unitWan": "{v}萬"
+    "rangeAll": "全部"
   },
   "messageInput": {
     "document": "文件",
@@ -1877,7 +1858,7 @@
   "distribution": {
     "plan": {
       "openVipTitle": "開通VIP會員",
-      "openVipContent": "是否前往開通VIP會員,參與分佣計劃?",
+      "openVipContent": "是否前往開通VIP會員,參與分傭計劃?",
       "confirm": "確認",
       "cancel": "取消"
     },
@@ -1901,7 +1882,13 @@
     "sales": "已售 {count} 件",
     "loadFailed": "載入分銷失敗",
     "withdrawFailed": "提現失敗",
-    "withdrawSuccess": "提現成功"
+    "withdrawSuccess": "提現成功",
+    "treeTitle": "分銷層級樹",
+    "treeEmpty": "暫無下級成員",
+    "treeLoadFailed": "層級樹載入失敗",
+    "treeRetry": "重試",
+    "treeLevelLabel": "第 {level} 層",
+    "treeCollapseHint": "點擊節點查看詳情"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -2376,7 +2363,17 @@
     "deleteFailed": "刪除失敗",
     "secretTitle": "金鑰已建立",
     "secretHint": "請立即複製並儲存，該金鑰只會顯示這一次。",
-    "secretDone": "我已儲存"
+    "secretDone": "我已儲存",
+    "rotate": "輪換",
+    "rotating": "輪換中...",
+    "rotateTitle": "輪換金鑰",
+    "rotateConfirm": "確定要輪換「{name}」嗎？舊金鑰將立即失效。",
+    "rotateFailed": "輪換失敗",
+    "rotateSecretTitle": "金鑰已輪換",
+    "copySecret": "複製",
+    "secretCopied": "金鑰已複製到剪貼簿",
+    "rateLimit": "速率限制",
+    "rateLimitUnit": "次/分鐘"
   },
   "devices": {
     "title": "裝置管理",
@@ -2652,7 +2649,11 @@
       "signing": "簽到中...",
       "signInSuccess": "簽到成功,獲得 {points} 積分",
       "signInFailed": "簽到失敗",
-      "alreadySigned": "今日已簽到"
+      "alreadySigned": "今日已簽到",
+      "historyTitle": "簽到歷史",
+      "historyEmpty": "尚無簽到紀錄",
+      "historyLoadFailed": "簽到歷史載入失敗",
+      "historyConsecutive": "連續 {days} 天"
     },
     "mallLink": "積分商城",
     "taskCenterLink": "任務中心",
@@ -3490,8 +3491,7 @@
     "viewNow": "立即查看"
   },
   "vipBenefit": {
-    "title": "會員權益",
-    "loadFailed": "載入會員權益失敗"
+    "title": "會員權益"
   },
   "vipTrader": {
     "title": "VIP 操盤手",
@@ -3520,7 +3520,22 @@
     "title": "我的錢包",
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
-    "withdraw": "提現"
+    "withdraw": "提現",
+    "flowsTitle": "資金流水",
+    "flowsEmpty": "暫無流水紀錄",
+    "flowsLoadFailed": "流水載入失敗",
+    "flowsRetry": "重試",
+    "flowsLoadMore": "載入更多",
+    "flowsLoading": "載入中...",
+    "flowBalanceAfter": "餘額",
+    "flowRemarkEmpty": "無備註",
+    "opType1": "儲值",
+    "opType2": "扣減",
+    "opType3": "過期",
+    "opType4": "退款",
+    "opType5": "佣金",
+    "loginRequiredHint": "登入後查看資金流水",
+    "goLogin": "前往登入"
   },
   "activity": {
     "empty": "暫無活動",
@@ -3949,7 +3964,6 @@
     "today": "今日收入",
     "withdrawBtn": "提現",
     "withdrawModal": {
-      "close": "取消",
       "confirm": "確認提現",
       "moreMethods": "更多提現方式",
       "subtitle": "請選擇提現方式",
@@ -4111,6 +4125,17 @@
     "deleteTitle": "刪除文件",
     "deleteConfirm": "確定刪除該文件嗎?",
     "deleteFailed": "刪除失敗",
+    "selectionStart": "選擇",
+    "selectionDone": "完成",
+    "selectionAll": "全選",
+    "selectionClearAll": "取消全選",
+    "selectionCount": "已選 {count} 項",
+    "batchDelete": "批次刪除",
+    "batchDeleting": "刪除中...",
+    "batchDeleteTitle": "批次刪除文件",
+    "batchDeleteConfirm": "確定刪除選中的 {count} 份文件嗎?",
+    "batchDeletePartial": "已刪除 {success} 份,{failed} 份失敗",
+    "batchDeleteFailed": "批次刪除失敗",
     "author": "作者",
     "category": "分類",
     "nextEntry": "下一篇",
@@ -4152,14 +4177,38 @@
     "loadFailed": "技能清單載入失敗",
     "retry": "重試",
     "empty": "暫無技能",
-    "detail": "檢視詳情"
+    "detail": "檢視詳情",
+    "importTitle": "匯入技能",
+    "importHint": "貼上技能 JSON 後匯入；缺少 name 或格式錯誤會被拒絕。",
+    "importButton": "匯入",
+    "importing": "匯入中...",
+    "importInvalidJson": "JSON 格式不正確",
+    "importMissingName": "技能缺少 name 欄位",
+    "importFailed": "匯入失敗",
+    "importSuccess": "匯入成功"
   },
   "aiSkillDetail": {
     "loadFailed": "技能詳情載入失敗",
     "retry": "重試",
     "prompt": "Prompt 模板",
     "noPrompt": "無模板",
-    "source": "來源"
+    "source": "來源",
+    "invoke": "執行",
+    "invoking": "執行中...",
+    "invokeVariables": "變數",
+    "invokeRequired": "請填寫必填變數",
+    "invokeFailed": "執行失敗",
+    "invokeResult": "執行結果",
+    "export": "匯出",
+    "exporting": "匯出中...",
+    "exportFailed": "匯出失敗",
+    "exportBlocked": "檔案已儲存到快取，Android 暫不支援直接分享",
+    "rateTitle": "評分",
+    "rateSubmit": "提交評分",
+    "ratingSubmitted": "評分已提交",
+    "ratingFailed": "評分提交失敗",
+    "commentPlaceholder": "寫下你的評價（選填）",
+    "ratingLoginHint": "登入後可評分"
   },
   "memory": {
     "detail": "詳情",
@@ -5666,7 +5715,10 @@
     "fillField": "請填寫：{name}",
     "submitFail": "提交失敗，請稍後重試",
     "doneTitle": "提交成功",
-    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。"
+    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。",
+    "exportingReport": "匯出中...",
+    "exportEmptyHint": "產生報告後可匯出",
+    "exportLoginRequired": "請先登入後再匯出"
   },
   "pwd": {
     "oldRequired": "請輸入舊密碼",

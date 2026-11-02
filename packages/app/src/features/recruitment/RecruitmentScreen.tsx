@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       left: 15,
       right: 15,
       bottom: 30,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brandAccent.light,
     },
@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     buyBtn: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

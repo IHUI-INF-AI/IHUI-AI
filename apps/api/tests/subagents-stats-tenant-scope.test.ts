@@ -326,7 +326,7 @@ describe('S-STATS ② /subagents/by-agent/:agentId/summary 归属闸', () => {
     })
 
     expect(res.statusCode).toBe(200)
-    expect(mockFindAgentTasks).toHaveBeenCalledWith(AGENT_DRAFT_B, 50)
+    expect(mockFindAgentTasks).toHaveBeenCalledWith(AGENT_DRAFT_B, 50, 'tenant-b')
     expect(JSON.stringify(res.json())).toContain('B 的草稿运行记录')
   })
 

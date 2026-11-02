@@ -12,9 +12,11 @@
  *  expo-blur → 小程序无原生高斯模糊:BlurTargetView 透传容器,BlurView 用 opacity 承载「变淡」这一可见语义。
  */
 import Taro from '@tarojs/taro'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { View } from './primitives'
+import { flattenStyle } from './style'
 
 export const Clipboard = {
   getString: async (): Promise<string> => {
@@ -75,15 +77,113 @@ export const MediaLibrary = {
   deleteAssetsAsync: async (_ids: string[]): Promise<void> => {},
 }
 
+export interface SafeAreaInsets {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
+export type SafeAreaEdge = 'top' | 'right' | 'bottom' | 'left'
+
+interface SafeAreaSystemInfo {
+  screenHeight?: number
+  safeArea?: { top?: number; bottom?: number; left?: number; right?: number }
+}
+
+/**
+ * 系统信息 → 安全区。
+ * 只把 **bottom** 当真实缺口:小程序页内容区从原生导航栏下方开始,顶部/左右再补一次就是双份
+ * (顶距唯一挂点仍是端内 ThemeRoot/自定义导航,AGENTS §4)。`safeArea.bottom` 是「安全区下沿到
+ * 屏幕顶」的距离,缺口 = screenHeight - safeArea.bottom。
+ * 取不到系统安全区(旧基础库)时回落 0 —— 与迁移前完全一致,不猜一个固定值。
+ * 这条边界登记为允许差异(top/left/right 恒 0)。
+ */
+export function computeSafeAreaInsets(info: SafeAreaSystemInfo | null | undefined): SafeAreaInsets {
+  const screenHeight = typeof info?.screenHeight === 'number' ? info.screenHeight : 0
+  const safeBottom = info?.safeArea?.bottom
+  const bottom =
+    screenHeight > 0 && typeof safeBottom === 'number' && Number.isFinite(safeBottom)
+      ? Math.max(0, screenHeight - safeBottom)
+      : 0
+  return { top: 0, bottom, left: 0, right: 0 }
+}
+
+let cachedInsets: SafeAreaInsets | null = null
+
+function readSafeAreaInsets(): SafeAreaInsets {
+  if (cachedInsets) return cachedInsets
+  let info: SafeAreaSystemInfo | null = null
+  try {
+    info = Taro.getSystemInfoSync() as SafeAreaSystemInfo
+  } catch {
+    info = null
+  }
+  cachedInsets = computeSafeAreaInsets(info)
+  return cachedInsets
+}
+
+const insetsListeners = new Set<() => void>()
+let windowResizeBound = false
+
+function handleWindowResize(): void {
+  // 旋转/分屏会改 screenHeight:丢掉快照再重算,值没变就不惊动订阅者
+  const previous = cachedInsets
+  cachedInsets = null
+  const next = readSafeAreaInsets()
+  if (previous && previous.bottom === next.bottom && previous.top === next.top) return
+  insetsListeners.forEach((listener) => listener())
+}
+
+const PADDING_BLOCKERS: Record<SafeAreaEdge, readonly string[]> = {
+  top: ['paddingTop', 'paddingVertical', 'padding'],
+  right: ['paddingRight', 'paddingHorizontal', 'padding'],
+  bottom: ['paddingBottom', 'paddingVertical', 'padding'],
+  left: ['paddingLeft', 'paddingHorizontal', 'padding'],
+}
+
+const PADDING_KEYS: Record<SafeAreaEdge, string> = {
+  top: 'paddingTop',
+  right: 'paddingRight',
+  bottom: 'paddingBottom',
+  left: 'paddingLeft',
+}
+
+/**
+ * 给样式补安全区 padding:调用方**显式**给过该方向的 padding 就不动它(否则双份留白)。
+ * 值为 0 的边不落键,避免把 `paddingBottom: 0` 写进内联样式盖掉调用方的 class。
+ */
+export function applySafeAreaPadding(
+  style: unknown,
+  edges: readonly SafeAreaEdge[],
+  insets: SafeAreaInsets,
+): Record<string, unknown> {
+  const flat = flattenStyle(style)
+  const out: Record<string, unknown> = { ...flat }
+  for (const edge of edges) {
+    const value = insets[edge]
+    if (!value || value <= 0) continue
+    const blocked = PADDING_BLOCKERS[edge].some(
+      (key) => flat[key] !== undefined && flat[key] !== null,
+    )
+    if (blocked) continue
+    out[PADDING_KEYS[edge]] = value
+  }
+  return out
+}
+
 export function SafeAreaView({
   children,
   style,
+  edges = ['bottom'],
 }: {
   children?: ReactNode
   style?: Record<string, unknown>
+  /** 默认只补 bottom:小程序页内容区已避开状态栏,补 top 会双份 */
+  edges?: readonly SafeAreaEdge[]
 }) {
-  // 顶距唯一挂点仍是端内 ThemeRoot/自定义导航(AGENTS §4 状态栏避让单一源头),这里只做容器透传
-  return <View style={style}>{children}</View>
+  const insets = useSafeAreaInsets()
+  return <View style={applySafeAreaPadding(style, edges, insets)}>{children}</View>
 }
 
 export function KeyboardAvoidingViewCompat({ children }: { children?: ReactNode }) {
@@ -131,7 +231,27 @@ export function BlurView({
   return <View style={{ ...style, opacity: alpha }}>{children}</View>
 }
 
-export const useSafeAreaInsets = () => ({ top: 0, bottom: 0, left: 0, right: 0 })
+export function useSafeAreaInsets(): SafeAreaInsets {
+  const [insets, setInsets] = useState<SafeAreaInsets>(readSafeAreaInsets)
+
+  useEffect(() => {
+    const listener = () => setInsets(readSafeAreaInsets())
+    insetsListeners.add(listener)
+    if (!windowResizeBound && typeof Taro.onWindowResize === 'function') {
+      windowResizeBound = true
+      Taro.onWindowResize(handleWindowResize)
+    }
+    return () => {
+      insetsListeners.delete(listener)
+      if (insetsListeners.size === 0 && windowResizeBound) {
+        windowResizeBound = false
+        if (typeof Taro.offWindowResize === 'function') Taro.offWindowResize(handleWindowResize)
+      }
+    }
+  }, [])
+
+  return insets
+}
 export const SafeAreaProvider = ({ children }: { children?: ReactNode }) => <>{children}</>
 export const useSafeAreaFrame = () => {
   const info = Taro.getSystemInfoSync()

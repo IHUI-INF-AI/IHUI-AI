@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
       // 同名元素在 apps/mobile-rn 那一份里本就是 lg(8)、小程序端根容器是 rounded-lg(8),
       // 这一份写 2xl(16) 会让同一个 UserInfoCard 在两个屏上长成两张脸。
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -192,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       // 角色档 control(按钮)→ sm(4),与 apps/mobile-rn 那一份的登录/充值钮同档
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
     },
     followBtnOutline: {
@@ -201,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       // 角色档 control(按钮)→ sm(4),与实底态 followBtn 同档(两态必须同形)
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
     },
     followBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },

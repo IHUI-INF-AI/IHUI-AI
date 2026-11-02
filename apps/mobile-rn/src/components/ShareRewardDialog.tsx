@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     textAlign: 'center',
     marginTop: rnSpacing['2xs'],
-    marginBottom: 14,
+    marginBottom: rnSpacing['md-loose'],
   } as TextStyle,
   benefits: {
     alignSelf: 'stretch',

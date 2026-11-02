@@ -27280,7 +27280,6 @@
     "rateLabel": "분배 비율",
     "withdrawModal": {
       "title": "출금 방법 선택",
-      "close": "닫기",
       "subtitle": "출금 가능 금액",
       "wechat": "위챗",
       "moreMethods": "추가 출금 방법은 순차적으로 오픈됩니다",

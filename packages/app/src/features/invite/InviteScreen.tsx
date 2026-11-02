@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { InviteInfo, InviteRecordItem, InviteScreenProps } from '@ihui/types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -132,12 +132,16 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     infoCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -148,16 +152,16 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    codeLabel: { fontSize: 14, color: tk.text.secondary },
-    codeValue: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    codeLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
+    codeValue: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     statsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       marginTop: rnSpacing.md,
     },
     statItem: { flex: 1, alignItems: 'center', minWidth: 96 },
-    statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
-    statLabel: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    statLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     shareBtn: {
       marginTop: rnSpacing.md,
       height: 50,
@@ -166,16 +170,16 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
-    shareBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    shareBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     sectionTitle: {
       marginTop: rnSpacing.lg,
       marginBottom: rnSpacing.sm,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -188,12 +192,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardName: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginRight: rnSpacing.sm,
     },
-    cardStatus: { fontSize: 11, fontWeight: '600' },
+    cardStatus: { fontSize: rnType.caption.size, fontWeight: '600' },
     statusDone: { color: tk.success.DEFAULT },
     statusPending: { color: tk.warning.DEFAULT },
     metaRow: {
@@ -202,8 +206,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
-    cardReward: { fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardReward: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

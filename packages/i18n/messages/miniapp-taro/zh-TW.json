@@ -267,13 +267,6 @@
   "live": {
     "replay": "回放",
     "liveNow": "直播中",
-    "detail": {
-      "loadFailed": "直播載入失敗",
-      "notStarted": "直播尚未開始",
-      "ended": "直播已結束",
-      "connecting": "正在連線直播間…",
-      "enter": "進入直播間"
-    },
     "subscribe": {
       "subscribe": "訂閱提醒",
       "subscribeSuccess": "訂閱成功",
@@ -1086,16 +1079,12 @@
     "useCount": "{n}人使用",
     "join": {
       "title": "加入群組",
-      "message": "已申請加入「{name}」"
+      "message": "已加入「{name}」"
     },
     "cardMembers": "成員",
     "detailEnter": "進入群聊",
     "detailMembers": "群組成員",
     "detailRecent": "最近訊息",
-    "enterChat": {
-      "message": "確定要進入該群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "發現",
     "enterMine": "我的",
     "memberRole": "角色",
@@ -1358,37 +1347,11 @@
       "rulesTitle": "考試規則",
       "totalScore": "總分",
       "totalScoreValue": "{n} 分"
-    },
-    "answer": {
-      "judgmentOptions": [
-        "正確",
-        "錯誤"
-      ],
-      "answerPlaceholder": "輸入你的答案",
-      "prev": "上一題",
-      "next": "下一題",
-      "submit": "交卷"
     }
   },
   "favorites": {
-    "cancel": "取消收藏",
-    "loadFailed": "載入失敗",
     "empty": "暫無收藏",
-    "loadMore": "載入更多",
-    "noMore": "沒有更多了",
-    "batchCancel": "批次取消收藏",
-    "items": "項",
-    "unsupported": "暫未支援跳轉",
-    "itemsUnit": "項",
-    "done": "完成",
     "manage": "管理",
-    "selectAll": "全選",
-    "collectedAt": "收藏於",
-    "searchEmpty": "未找到匹配內容",
-    "goDiscover": "去發現",
-    "searchPlaceholder": "搜尋收藏的內容",
-    "selectFirst": "請先選擇",
-    "total": "已收藏",
     "title": "我的收藏"
   },
   "userFans": {
@@ -1447,10 +1410,7 @@
       "rule2": "邀請好友成為會員,您將獲得會員費20%的佣金",
       "rule3": "佣金將在好友支付成功後24小時內自動結算到您的帳戶",
       "rule4": "帳戶餘額滿100元可申請提現到微信或支付寶",
-      "introTitle": "邀請好友,賺取佣金",
-      "totalEarnings": "累計收益",
-      "inviteCount": "邀請人數",
-      "rulesTitle": "分傭規則"
+      "totalEarnings": "累計收益"
     },
     "memberDetail": {
       "loading": "載入中…",
@@ -2365,14 +2325,6 @@
   "news": {
     "search": "搜尋資訊",
     "empty": "暫無資訊",
-    "readCount": "{n}閱讀",
-    "detail": {
-      "like": "點讚",
-      "comment": "評論",
-      "share": "分享",
-      "related": "相關推薦",
-      "commentSoon": "評論功能即將開放"
-    },
     "cat": {
       "announce": "公告",
       "activity": "活動",
@@ -2593,11 +2545,8 @@
     },
     "hello": "你好,我是 {name}",
     "justNow": "剛剛",
-    "search": "搜尋聊天",
     "unnamedRoom": "未命名會話",
     "empty": "暫無訊息",
-    "markedRead": "已標記為已讀",
-    "pinned": "已置頂",
     "deleted": "已刪除",
     "notFound": "未找到相關會話",
     "settings": "設定",
@@ -2609,8 +2558,6 @@
     "noInteraction": "暫無互動消息",
     "noPrivate": "暫無私信",
     "noSystem": "暫無系統通知",
-    "markRead": "標記已讀",
-    "deleteConv": "刪除會話",
     "pin": "置頂會話",
     "unpin": "取消置頂"
   },
@@ -2646,7 +2593,6 @@
       "notOpened": "未開通",
       "openVip": "開通 VIP 會員",
       "opened": "已開通",
-      "privileges": "會員特權",
       "share": "分享賺佣金"
     },
     "benefits": {
@@ -2830,10 +2776,7 @@
   "subscriptions": {
     "cancel": "取消訂閱",
     "loadFailed": "載入失敗",
-    "empty": "暫無訂閱",
-    "delete": "刪除",
-    "loadMore": "載入更多",
-    "noMore": "沒有更多了"
+    "empty": "暫無訂閱"
   },
   "teacher": {
     "list": {
@@ -2883,7 +2826,6 @@
       "followers": "{n} 人關注",
       "following": "已關注",
       "loadFailed": "載入失敗",
-      "loading": "載入中…",
       "loadingMore": "載入中…",
       "noMore": "沒有更多了",
       "publish": "發帖"
@@ -2906,8 +2848,7 @@
       "title": "我的智匯值",
       "agentConsume": "智能體消耗",
       "ordersConsume": "大模型消耗",
-      "costTime": "花費時間:",
-      "noMore": "沒有更多了"
+      "costTime": "花費時間:"
     }
   },
   "user": {
@@ -4771,7 +4712,7 @@
     "taskRunning": "執行中…",
     "taskEmpty": "暫無任務，或尚未讀取",
     "taskResult": "執行結果",
-    "taskUnjudged": "未判定：上游回應無法解讀，本輪不能當作成功。"
+    "taskUnjudged": "上游回應無法判讀，本輪未判定（不構成成功）"
   },
   "developerInfo": {
     "title": "開發者資訊",
@@ -5028,10 +4969,6 @@
     "rankEmpty": "該榜單暫無資料"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已套用",
-      "message": "已為「{title}」套用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能開發中"

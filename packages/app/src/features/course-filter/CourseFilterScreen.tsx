@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: rnSpacing['3xl'] },
     emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

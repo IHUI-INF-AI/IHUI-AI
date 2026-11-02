@@ -275,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
     tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -325,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1.5,
       borderColor: tk.surface.light,
     },
-    miniAvatarText: { fontSize: 10, fontWeight: '600', color: tk.text.secondary },
+    miniAvatarText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.text.secondary },
     moreText: { marginLeft: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     footMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     enterMiniBtn: {

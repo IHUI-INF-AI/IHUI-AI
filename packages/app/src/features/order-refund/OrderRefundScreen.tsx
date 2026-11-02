@@ -288,13 +288,13 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    reasonChipActive: { borderColor: tk.brand.DEFAULT },
+    reasonChipActive: { borderColor: tk.brandAccent.deep },
     reasonText: { fontSize: rnType.body.size, color: tk.text.medium },
     reasonTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     formInput: {
       marginTop: rnSpacing.sm,
       paddingVertical: rnSpacing.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -312,7 +312,11 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     formPrimaryBtn: { backgroundColor: tk.brand.cta, height: 50 },
-    formPrimaryBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+    formPrimaryBtnText: {
+      color: tk.brand.ctaForeground,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
     formOutlineBtn: {
       borderWidth: 1,
       borderColor: tk.border.light,

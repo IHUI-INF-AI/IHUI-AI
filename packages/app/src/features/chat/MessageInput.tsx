@@ -469,7 +469,7 @@ function createStyles(tk: AppThemeTokens) {
     voiceBarLine: { width: 1, borderRadius: rnRadius.xs },
     rightActions: { flexDirection: 'row', alignItems: 'flex-end', gap: rnSpacing.xs },
     sendBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: primary,

@@ -6,14 +6,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getTeamMembers, getTeamStats } from '@ihui/api-client'
+import { getDistributionTree, getTeamMembers, getTeamStats } from '@ihui/api-client'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import {
   TeamScreen as SharedTeamScreen,
   type TeamStats,
   type TeamMember,
+  type TeamTreeNode,
   type TeamTab,
 } from '@ihui/rn-app'
+import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -22,6 +24,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 export function TeamScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
+  const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [stats, setStats] = useState<TeamStats | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -31,6 +34,11 @@ export function TeamScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  // 分销层级树(未登录保持 undefined ⇒ 共享屏不渲染树区块)
+  const [tree, setTree] = useState<TeamTreeNode[] | undefined>(undefined)
+  const [treeLoading, setTreeLoading] = useState(false)
+  const [treeFailed, setTreeFailed] = useState(false)
+  const [treeTotalLevels, setTreeTotalLevels] = useState(0)
 
   const load = useCallback(
     async (refresh = false) => {
@@ -85,6 +93,37 @@ export function TeamScreen() {
     void load()
   }, [load])
 
+  // 层级树独立请求:失败只置树区块错误态,不影响统计区/成员列表
+  const loadTree = useCallback(async () => {
+    setTreeLoading(true)
+    setTreeFailed(false)
+    try {
+      const res = await getDistributionTree()
+      if (!res.success) {
+        setTreeFailed(true)
+        return
+      }
+      setTree(res.data?.tree ?? [])
+      setTreeTotalLevels(res.data?.totalLevels ?? 0)
+    } catch {
+      setTreeFailed(true)
+    } finally {
+      setTreeLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // 未登录:清零所有树状态且不发注定 401 的请求(共享屏据此不渲染树区块)
+    if (!user) {
+      setTree(undefined)
+      setTreeTotalLevels(0)
+      setTreeFailed(false)
+      setTreeLoading(false)
+      return
+    }
+    void loadTree()
+  }, [user, loadTree])
+
   return (
     <SharedTeamScreen
       t={t}
@@ -97,10 +136,20 @@ export function TeamScreen() {
       refreshing={refreshing}
       error={error}
       onSelectTab={setActiveTab}
-      onRefresh={() => void load(true)}
+      onRefresh={() => {
+        void load(true)
+        if (user) void loadTree()
+      }}
       onBack={() => navigation.goBack()}
       onPressMember={(memberId) => navigation.navigate('TeamDetail', { memberId })}
-     colorScheme={resolvedTheme}/>
+      tree={user ? tree : undefined}
+      treeLoading={user ? treeLoading : false}
+      treeFailed={user ? treeFailed : false}
+      treeTotalLevels={user ? treeTotalLevels : undefined}
+      onRetryTree={user ? () => void loadTree() : undefined}
+      onPressTreeMember={(memberId) => navigation.navigate('TeamDetail', { memberId })}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

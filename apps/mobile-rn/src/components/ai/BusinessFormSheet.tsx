@@ -431,7 +431,7 @@ function createStyles() {
       alignItems: 'center',
       justifyContent: 'center',
       gap: rnSpacing['xs-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,

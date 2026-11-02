@@ -19,6 +19,8 @@ import type * as BottomPopsModule from '../src/components/BottomPops'
 const { apiMocks, alertCallbacks } = vi.hoisted(() => ({
   apiMocks: {
     getBalance: vi.fn(),
+    // 壳内流水取数(T8):未登录(user 缺省)不会调用,但 ESM mock 必须补导出,否则 import 报缺失
+    getMarginFlows: vi.fn(),
     fetchApi: vi.fn(),
   },
   alertCallbacks: [] as Array<() => void>,
@@ -26,6 +28,7 @@ const { apiMocks, alertCallbacks } = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client', () => ({
   getBalance: apiMocks.getBalance,
+  getMarginFlows: apiMocks.getMarginFlows,
   fetchApi: apiMocks.fetchApi,
 }))
 

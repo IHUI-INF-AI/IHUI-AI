@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, ListChecks, ScrollText } from 'lucide-react-native'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -322,7 +322,12 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     card: {
       backgroundColor: tk.surface.light,
@@ -333,15 +338,15 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       gap: rnSpacing['sm-loose'],
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    wfName: { flex: 1, fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-    metaText: { fontSize: 11, color: tk.text.secondary },
+    wfName: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['md-loose'] },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 11, fontWeight: '600' },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     errorText: { fontSize: 12, color: tk.danger.DEFAULT, lineHeight: 17 },
     errorBox: {
       flex: 1,
@@ -362,8 +367,8 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     secondaryBtnText: { fontSize: 13, color: tk.text.medium },
     skeletonRow: { height: 44, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
     sectionHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
-    sectionTitle: { fontSize: 14, fontWeight: '700', color: tk.text.primary },
-    emptyText: { fontSize: 12, color: tk.text.secondary },
+    sectionTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.text.primary },
+    emptyText: { fontSize: rnType.label.size, color: tk.text.secondary },
     taskBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
@@ -377,7 +382,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: 9,
     },
-    taskStep: { fontSize: 11, color: tk.text.tertiary, width: 28 },
+    taskStep: { fontSize: rnType.caption.size, color: tk.text.tertiary, width: 28 },
     taskName: { flex: 1, fontSize: 13, fontWeight: '600', color: tk.text.primary },
     typeTag: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -385,20 +390,25 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    typeTagText: { fontSize: 10, color: tk.text.secondary },
+    typeTagText: { fontSize: rnType.badge.size, color: tk.text.secondary },
     taskBody: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['sm-loose'],
       gap: rnSpacing['xs-loose'],
     },
     taskErrBox: { gap: rnSpacing['2xs'] },
-    jsonLabel: { fontSize: 11, fontWeight: '600', color: tk.text.secondary },
+    jsonLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
     jsonBox: {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       padding: rnSpacing.sm,
     },
-    jsonText: { fontSize: 11, color: tk.text.medium, fontFamily: 'monospace', lineHeight: 16 },
+    jsonText: {
+      fontSize: rnType.caption.size,
+      color: tk.text.medium,
+      fontFamily: 'monospace',
+      lineHeight: rnType.caption.lineHeight,
+    },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -409,12 +419,17 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.surface.inputBg,
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    chipText: { fontSize: 11, color: tk.text.secondary },
+    chipText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
-    logTime: { fontSize: 10, color: tk.text.tertiary, fontFamily: 'monospace' },
-    logLevel: { fontSize: 10, fontWeight: '700', width: 44 },
-    logMsg: { flex: 1, fontSize: 11, color: tk.text.primary, lineHeight: 16 },
+    logTime: { fontSize: rnType.badge.size, color: tk.text.tertiary, fontFamily: 'monospace' },
+    logLevel: { fontSize: rnType.badge.size, fontWeight: '700', width: 44 },
+    logMsg: {
+      flex: 1,
+      fontSize: rnType.caption.size,
+      color: tk.text.primary,
+      lineHeight: rnType.caption.lineHeight,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -15,9 +15,9 @@
  * 不另立租户表达);没有同租户候选 ⇒ 不抢他人,记录落 queued 等槽位(F2 起不再返回 429)。
  *
  * 本文件钉住(真跑,不 mock service —— 走 `dispatch()` 真路径):
- *  ① 跨租户:并发已满、B 有 normal 在跑, A 发 urgent ⇒ 自己的单落 queued;
+ *  ① 跨租户:全局 6 槽已满、B 有 normal 在跑, A 发 urgent ⇒ 自己的单落 queued;
  *     B 的记录 status 不变、completedAt 未写、logs 里没有 dispatch_preempted;
- *  ② 同租户:并发已满、A 自己的 low 在跑,A 发 urgent ⇒ 仍能抢占(证明没把功能改死);
+ *  ② 同租户:全局 6 槽已满、A 自己的 low 在跑,A 发 urgent ⇒ 仍能抢占(证明没把功能改死);
  *     同批 B 的记录一个都不动;
  *  ③ 无归属旧记录(未标注)不会被带 owner 的 urgent 跨租户抢(不做跨租户写入)。
  *  ④ 反向例(实测,见交付报告):删掉 owner 过滤 ⇒ ①② 立刻变红(① 变成 ok + B 被 preempted,
@@ -158,9 +158,13 @@ afterEach(() => {
 
 describe('P0-1 ① 跨租户:urgent 不得抢占他人任务', () => {
   it('并发已满且全是 B 的任务,A 发 urgent ⇒ 自己的单落 queued,B 保持 running 且无 dispatch_preempted', async () => {
+    // 全局 6 槽先被 tenant-b 占满(直接注入,不经过派单准入)
     seedDispatch('b-normal', { owner: 'tenant-b', status: 'running', priority: 'normal' })
     seedDispatch('b-low-1', { owner: 'tenant-b', status: 'running', priority: 'low' })
     seedDispatch('b-low-2', { owner: 'tenant-b', status: 'pending', priority: 'low' })
+    seedDispatch('b-normal-2', { owner: 'tenant-b', status: 'running', priority: 'normal' })
+    seedDispatch('b-high', { owner: 'tenant-b', status: 'running', priority: 'high' })
+    seedDispatch('b-normal-3', { owner: 'tenant-b', status: 'running', priority: 'normal' })
 
     const result = await service.dispatch({ ...baseInput, priority: 'urgent', ownerUserId: 'tenant-a' })
 
@@ -169,20 +173,27 @@ describe('P0-1 ① 跨租户:urgent 不得抢占他人任务', () => {
     expect(result.dispatch).toBeDefined()
     expect(runtime(result.dispatch!.id)!.dispatch.status).toBe('queued')
 
-    // B 的三条一条都没被写
+    // B 的六条一条都没被写
     expectUntouched('b-normal')
     expectUntouched('b-low-1')
     expectUntouched('b-low-2', 'pending')
+    expectUntouched('b-normal-2')
+    expectUntouched('b-high')
+    expectUntouched('b-normal-3')
     // 新派单只是排队,没有抢占他人
-    expect(runtimes.size).toBe(4)
+    expect(runtimes.size).toBe(7)
   })
 })
 
 describe('P0-1 ② 同租户:urgent 仍能抢占自己的低优先级任务', () => {
   it('并发已满,A 的 low 在跑,A 发 urgent ⇒ 抢 A 自己那条,B 的一条不动', async () => {
+    // 全局 6 槽占满:tenant-b 5 条 + tenant-a 自己的 1 条 low
     seedDispatch('b-low', { owner: 'tenant-b', status: 'running', priority: 'low' })
     seedDispatch('a-low', { owner: 'tenant-a', status: 'running', priority: 'low' })
     seedDispatch('b-normal', { owner: 'tenant-b', status: 'running', priority: 'normal' })
+    seedDispatch('b-normal-2', { owner: 'tenant-b', status: 'running', priority: 'normal' })
+    seedDispatch('b-high', { owner: 'tenant-b', status: 'running', priority: 'high' })
+    seedDispatch('b-normal-3', { owner: 'tenant-b', status: 'running', priority: 'normal' })
 
     const result = await service.dispatch({ ...baseInput, priority: 'urgent', ownerUserId: 'tenant-a' })
     expect(result.outcome).toBe('ok')
@@ -200,9 +211,13 @@ describe('P0-1 ② 同租户:urgent 仍能抢占自己的低优先级任务', ()
 
 describe('P0-1 ③ 无归属旧记录(未标注)', () => {
   it('带 owner 的 urgent 不会把未标注记录当成可抢候选(不做跨租户写入)', async () => {
+    // 全局 6 槽占满:1 条未标注 + tenant-b 5 条
     seedDispatch('legacy-1', { status: 'running', priority: 'low' })
     seedDispatch('b-1', { owner: 'tenant-b', status: 'running', priority: 'normal' })
     seedDispatch('b-2', { owner: 'tenant-b', status: 'running', priority: 'normal' })
+    seedDispatch('b-3', { owner: 'tenant-b', status: 'running', priority: 'normal' })
+    seedDispatch('b-4', { owner: 'tenant-b', status: 'running', priority: 'normal' })
+    seedDispatch('b-5', { owner: 'tenant-b', status: 'running', priority: 'normal' })
 
     const result = await service.dispatch({ ...baseInput, priority: 'urgent', ownerUserId: 'tenant-a' })
     expect(result.outcome).toBe('ok')

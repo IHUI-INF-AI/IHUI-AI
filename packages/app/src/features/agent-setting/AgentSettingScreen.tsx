@@ -107,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     label: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     input: {

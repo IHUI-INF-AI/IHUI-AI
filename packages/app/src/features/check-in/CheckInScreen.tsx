@@ -8,7 +8,7 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -137,20 +137,20 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     statsCard: {
       marginHorizontal: rnSpacing['sm-loose'],
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statsCol: { flex: 1, alignItems: 'center', minWidth: 72 },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
-    statsLabel: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.brand.DEFAULT },
+    statsLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
     signBtn: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
@@ -158,13 +158,13 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     signBtnDisabled: { backgroundColor: tk.surface.muted },
-    signBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    signBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     signBtnTextDisabled: { color: tk.text.secondary },
     calendarTitle: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.lg,
       paddingBottom: rnSpacing.sm,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -190,18 +190,18 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
-    calendarDate: { fontSize: 14 },
+    calendarDate: { fontSize: rnType.body.size },
     calendarDateSigned: { color: tk.surface.light },
     calendarDateUnsigned: { color: tk.text.primary },
     calendarMarkReward: {
       marginTop: rnSpacing.sm,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
     },
     errorInline: {
       marginTop: rnSpacing.sm,
       textAlign: 'center',
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
   })

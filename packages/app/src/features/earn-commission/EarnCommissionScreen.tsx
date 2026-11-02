@@ -134,11 +134,15 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
-    scrollContent: { padding: 14, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
+    scrollContent: {
+      padding: rnSpacing['md-loose'],
+      gap: rnSpacing.md,
+      paddingBottom: rnSpacing['3xl'],
+    },
     introCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.md,
       alignItems: 'center',
     },
@@ -166,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.md,
     },
     sectionTitle: {

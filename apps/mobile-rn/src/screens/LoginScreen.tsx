@@ -1545,7 +1545,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(20),
     fontSize: rpx(30),
     color: tokens.gray.black,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.inputBg,
   },
   twoFactorErr: {
     marginTop: rpx(12),

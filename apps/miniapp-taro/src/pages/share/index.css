@@ -64,7 +64,7 @@
   border-radius: var(--radius-lg);
 }
 .share-rank-enter-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-cta-foreground);
   font-weight: 600;
 }
@@ -196,7 +196,7 @@
   box-shadow: 0 8rpx 32rpx var(--color-black-40);
 }
 .share-tag-panel-header {
-  padding: 28rpx 28rpx 16rpx;
+  padding: var(--spacing-md-loose) 28rpx 16rpx;
 }
 .share-tag-panel-title {
   font-size: var(--text-body);

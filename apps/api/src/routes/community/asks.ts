@@ -1134,9 +1134,12 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       })
       .returning()
     if (!created) return reply.status(500).send(error(500, '评论发表失败'))
+    // 评论行已由上方 returning 确认落库 ⇒ replyCount +1 是真变化(非空写);
+    // 守门 198 出口形态,展开名固定 changed。
+    const changed = { replyCount: sql`${circlePosts.replyCount} + 1` }
     await db
       .update(circlePosts)
-      .set({ replyCount: sql`${circlePosts.replyCount} + 1`, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(circlePosts.id, dynamicId))
 
     const [me] = await dbRead

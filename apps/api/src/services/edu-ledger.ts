@@ -37,6 +37,7 @@ import { and, asc, count, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { eduEnrollment, eduFeeSchedule, eduPaymentRecord, eduRefundRecord } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
+import { bizDayKey } from '../utils/biz-day.js'
 
 /** 计入"已收"的流水状态。pending/refunded/cancelled 一律不算已缴。 */
 export const PAYMENT_CREDIT_STATUSES: readonly string[] = ['paid']
@@ -345,7 +346,8 @@ export function buildSchedulePlan(
 
 function todayIso(): string {
   // 用北京日界,与催费定时任务的"当日幂等"口径一致(那边按北京时间 0 点算)
-  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+  // 日界算法唯一出口 = utils/biz-day.ts(守门 246);此处只留名字转发,不再复算。
+  return bizDayKey()
 }
 
 /**

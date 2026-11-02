@@ -216,8 +216,11 @@ test('C6 反向锁:两支真接进 readGeometry,判据住在共享 lib 且门体
   assert.ok(body.includes('geometryItemsInSrc'), '采集支被摘线 ⇒ 门退回对 toRpx 族失明')
   assert.ok(body.includes('lengthConstsOf'), '取源表没走共享出口 ⇒ 门内自建第二张常量表')
   // 返回形状含 cssVar 覆盖面格(少这一格,"解值一条都没跑"与"本轮没有变量取用"就同形)
+  // 2026-11-02 Phase 4 顺带修:Phase 3 票4 给 readGeometry 加了 `dims` 覆盖面格(五维读数),
+  // 旧锁按 `{ ..., cssVar }` 精确结尾 ⇒ 该票落地当天就红在 HEAD 上。锁改为要求两格都在,
+  // 判据强度不变(仍禁"少格"),只是不再把"多一格"当成"少格"。
   assert.ok(
-    /return \{ values, named, unreadable, cssVar \}/.test(body),
+    /return \{ values, named, unreadable, cssVar, dims \}/.test(body),
     '未判定/解值覆盖面没接进返回形状',
   )
   assert.ok(
@@ -452,11 +455,13 @@ test('C17 装车锁:CSS 变量解值的三条腿都在位(建表 / 消费 / 失�
     txt.includes("import { collectVars } from './lib/design-token-blocks.mjs'"),
     '取值不走 tokens.css 的唯一取源出口 ⇒ 门内自建第二份块解析',
   )
-  // 两条腿(audit 与 webRadiusAudit)都必须把解值表传下去:漏一条 = 那一腿重新失明
+  // 三条腿(audit / webRadiusAudit / webRnGeometryAudit)都必须把解值表传下去:漏一条 = 那一腿重新失明
+  // 2026-11-02 Phase 4 顺带修:Phase 2 的 web↔RN 五维腿是第三条消费腿,旧锁钉死 2 ⇒ 该腿落地当天
+  // 就红在 HEAD 上。锁改钉**消费腿总数**(不是"某两条"),新腿必须跟着传解值表,判据强度不变。
   assert.equal(
     (txt.match(/collected\.cssVars \?\? null/g) || []).length,
-    2,
-    '解值表没同时传给主腿与 web 腿(判据在、没装车 = 没有)',
+    3,
+    '解值表没同时传给主腿、web 腿与 web↔RN 腿(判据在、没装车 = 没有)',
   )
   assert.ok(
     /TOKENS_CSS_PATH = 'packages\/design-tokens\/src\/styles\/tokens\.css'/.test(txt),

@@ -606,13 +606,14 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     // 原实现拿到 uploadId 直接 join + rmSync(recursive) —— 任何登录用户传 `../../..`
     // 即可递归删除任意可达目录,也能取消他人的上传。归属校验同时把 IDOR 一起堵上。
     const ownerRows = await db
-      .select({ id: uploadSessions.id })
+      .select({ id: uploadSessions.id, status: uploadSessions.status })
       .from(uploadSessions)
       .where(
         and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
       )
       .limit(1)
-    if (ownerRows.length === 0) {
+    const owner = ownerRows[0]
+    if (!owner) {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
@@ -624,13 +625,20 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       request.log.error({ err: e }, '清理分片目录失败')
     }
 
-    // 更新 status=cancelled
-    await db
-      .update(uploadSessions)
-      .set({ status: UPLOAD_SESSION_STATUS.cancelled, updatedAt: new Date() })
-      .where(
-        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
-      )
+    // 更新 status=cancelled —— 先取现值比较(守门 198/G-998153 纪律):
+    // 会话已是 cancelled 的二次取消 ⇒ 真变化不存在,不发 UPDATE、不盖 updatedAt。
+    if (owner.status !== UPLOAD_SESSION_STATUS.cancelled) {
+      const changed = { status: UPLOAD_SESSION_STATUS.cancelled }
+      await db
+        .update(uploadSessions)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(
+          and(
+            eq(uploadSessions.uploadId, uploadId),
+            eq(uploadSessions.userId, request.userId ?? ''),
+          ),
+        )
+    }
 
     return reply.send(success({ uploadId, cancelled: true }))
   })

@@ -101,7 +101,7 @@
   text-align: center;
   /* 对齐 RN tabItem paddingH 14 / paddingV 6 / radius 8 (dp→rpx 1:2) */
   padding: var(--spacing-xs-loose) 28rpx;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   border-radius: var(--radius-lg);
 }
@@ -151,7 +151,7 @@
   width: calc(50% - 10rpx);
   display: flex;
   align-items: center;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   background: var(--color-card);
   border-radius: var(--radius-xl);
   margin-bottom: var(--spacing-sm-loose);
@@ -279,7 +279,7 @@
 .dist-qrpop-link {
   display: block;
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
   margin-top: var(--spacing-md);
 }

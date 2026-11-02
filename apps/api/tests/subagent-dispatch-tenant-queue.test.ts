@@ -9,15 +9,21 @@
  *  - 计数读 `listActive()`(全量),没有租户维度 ⇒ 一个租户打满,其他人全部被拒;
  *  - Redis zset 只写不读,`getQueue` 读的是内存视图 ⇒ 队列顺序与真实出队脱钩。
  *
+ * 配额(2026-11-02 拍板):全局 6 / 每租户 3 / 每租户每优先级 low 1·normal 2·high 3·urgent 3。
+ * 拍板前的 normal=1 会让同租户第二条普通任务先撞优先级层(租户层还有余量)——
+ * 优先级层比租户层更早成为瓶颈,等于把优先级设计反用了。抬到 2/3/3 后,三层判据
+ * 的先后才有意义:先全局 6,再每租户 3,最后优先级层只负责防低优任务灌满。
+ *
  * 本文件覆盖(真跑,不 mock service):
- *  ① 单租户打满只影响自己:同租户第 3 单落 queued,另一租户照常开跑(无 429);
- *  ② 全局硬上限只保护不拒绝:三租户各占 1 槽,第四单落 queued;
- *  ③ queued 真可调度:释放槽位后按 zset 顺序出队执行;
+ *  ① 全局 6 槽由两租户各 3 条用满:互不排队、无人 429;
+ *  ② 第 7 条落 queued(不是 429),释放槽位后按真 zset 顺序补位;
+ *  ③ 单租户第 4 条落 queued 时,另一租户新增仍立即拿到槽位(单租户打满只影响自己);
  *  ④ 出队顺序 = 真队列顺序:urgent 先于先到的 normal;同优先级先来后到;
  *  ⑤ getQueue 读真队列:只返回 queued 成员,幽灵成员被清出 zset,取消即出队。
  *
- * 反向例(实测,见交付报告):把 `_capacityBlocked` 改成恒 null ⇒ ①②③ 红;
- * 去掉 `_persistDispatch` 里的终态出队触发 ⇒ ③④ 红。恢复后源文件 sha256 一致。
+ * 反向例(实测,见交付报告):把 `DEFAULT_TENANT_MAX_CONCURRENT` 改回 2 ⇒ ① 红
+ * (两租户各第 3 条会被租户层拦下);把 `_capacityBlocked` 改成恒 null ⇒ ②③④ 红;
+ * 去掉 `_persistDispatch` 里的终态出队触发 ⇒ ②④ 红。恢复后源文件 sha256 一致。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { Redis } from 'ioredis'
@@ -213,6 +219,32 @@ function queueMembers(): string[] {
   return Array.from(fake.zsets.get(KEY_QUEUE)?.keys() ?? [])
 }
 
+/**
+ * 用满全局 6 槽:两个租户各 3 条,每条占用后返回句柄供用例释放。
+ * 每个租户的组合是 normal×2 + high×1:既卡在「每租户 3」的租户层上限内,
+ * 也不提前撞 normal 2 / high 3 的优先级档位 ⇒ 任何一条被 queued 都说明
+ * 判据比预期更早生效(用例直接红,不用等释放才暴露)。
+ */
+async function fillGlobalSlots() {
+  const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
+  const a2 = await service.dispatch({ ...baseInput, goal: 'a2', ownerUserId: 'tenant-a' })
+  const a3 = await service.dispatch({
+    ...baseInput,
+    goal: 'a3',
+    ownerUserId: 'tenant-a',
+    priority: 'high',
+  })
+  const b1 = await service.dispatch({ ...baseInput, goal: 'b1', ownerUserId: 'tenant-b' })
+  const b2 = await service.dispatch({ ...baseInput, goal: 'b2', ownerUserId: 'tenant-b' })
+  const b3 = await service.dispatch({
+    ...baseInput,
+    goal: 'b3',
+    ownerUserId: 'tenant-b',
+    priority: 'high',
+  })
+  return { a1, a2, a3, b1, b2, b3 }
+}
+
 beforeEach(async () => {
   vi.clearAllMocks()
   pendingFetches = []
@@ -235,60 +267,98 @@ afterEach(async () => {
 })
 
 describe('F2 租户化槽位 + 真排队', () => {
-  it('单租户打满只影响自己:同租户第 3 单落 queued,另一租户照常开跑(无 429)', async () => {
-    const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
-    const a2 = await service.dispatch({
-      ...baseInput,
-      goal: 'a2',
-      ownerUserId: 'tenant-a',
-      priority: 'high',
-    })
-    const a3 = await service.dispatch({ ...baseInput, goal: 'a3', ownerUserId: 'tenant-a' })
-    const b1 = await service.dispatch({ ...baseInput, goal: 'b1', ownerUserId: 'tenant-b' })
+  it('两个租户各跑 3 条(全局 6 用满):互不排队、无人 429', async () => {
+    const { a1, a2, a3, b1, b2, b3 } = await fillGlobalSlots()
 
-    // 满额不拒绝:三单都是成功受理(没有 concurrent_limit)
-    expect(a1.outcome).toBe('ok')
-    expect(a2.outcome).toBe('ok')
-    expect(a3.outcome).toBe('ok')
-    expect(b1.outcome).toBe('ok')
-
-    // A 的第 3 单排队(租户上限 2),B 不受影响直接占槽
-    expect(statusOf(a3.dispatch?.id)).toBe('queued')
-    expect(statusOf(b1.dispatch?.id)).not.toBe('queued')
-
-    // 真队列里只有 A 的排队单;B 的运行单不在 zset
-    expect(queueMembers()).toEqual([a3.dispatch!.id])
-    expect(fake.hashes.get(`${KEY_DISPATCH}${b1.dispatch!.id}`)?.status).not.toBe('queued')
-  })
-
-  it('全局硬上限只保护不拒绝:三租户各占 1 槽,第四单落 queued;释放槽位后自动出队', async () => {
-    const a = await service.dispatch({ ...baseInput, goal: 'ga', ownerUserId: 'tenant-a' })
-    const b = await service.dispatch({ ...baseInput, goal: 'gb', ownerUserId: 'tenant-b' })
-    const c = await service.dispatch({ ...baseInput, goal: 'gc', ownerUserId: 'tenant-c' })
-    const d = await service.dispatch({ ...baseInput, goal: 'gd', ownerUserId: 'tenant-d' })
-
-    expect(d.outcome).toBe('ok')
-    expect(statusOf(d.dispatch?.id)).toBe('queued')
-    expect(service.listActive()).toHaveLength(3)
-
-    // 释放一个槽位(第一单完成)⇒ 排队单自动出队执行
-    releaseNextFetch()
-    await waitFor(() => statusOf(d.dispatch?.id) !== 'queued')
-    expect(statusOf(d.dispatch?.id)).toBe('running')
+    // 满额前全部成功受理(没有 concurrent_limit / 429),也没有一条进队列
+    for (const r of [a1, a2, a3, b1, b2, b3]) {
+      expect(r.outcome).toBe('ok')
+      expect(statusOf(r.dispatch?.id)).not.toBe('queued')
+    }
+    expect(service.listActive()).toHaveLength(6)
     expect(queueMembers()).toEqual([])
   })
 
-  it('出队顺序 = 真队列顺序:urgent 先于先到的 normal,同优先级先来后到', async () => {
-    const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
-    const b1 = await service.dispatch({ ...baseInput, goal: 'b1', ownerUserId: 'tenant-b' })
-    const c1 = await service.dispatch({ ...baseInput, goal: 'c1', ownerUserId: 'tenant-c' })
-    expect(service.listActive()).toHaveLength(3)
+  it('第 7 条落 queued(不是 429),租户释放后按真 zset 顺序补位', async () => {
+    const { a1, a2 } = await fillGlobalSlots()
+    // 全局已满:第 7 条(tenant-c)成功受理但落 queued,不是拒绝
+    const seventh = await service.dispatch({ ...baseInput, goal: 's7', ownerUserId: 'tenant-c' })
+    expect(seventh.outcome).toBe('ok')
+    expect(statusOf(seventh.dispatch?.id)).toBe('queued')
 
-    // 先到的是 normal(P),后到的是 urgent(U);全局已满 ⇒ 两单都排队。
+    // 第 8 条是 high:真 zset 里 high 排在先到的 normal 之前(顺序在 score 里,不是插入序)
+    const eighth = await service.dispatch({
+      ...baseInput,
+      goal: 's8',
+      ownerUserId: 'tenant-d',
+      priority: 'high',
+    })
+    expect(statusOf(eighth.dispatch?.id)).toBe('queued')
+    const queueBefore = await service.getQueue()
+    expect(queueBefore.map((q) => q.dispatchId)).toEqual([eighth.dispatch!.id, seventh.dispatch!.id])
+    expect(service.listActive()).toHaveLength(6)
+
+    // 释放 a1 ⇒ 按 zset 顺序补位的高优单先上,第 7 条仍等槽
+    releaseNextFetch()
+    await waitFor(() => statusOf(eighth.dispatch?.id) !== 'queued')
+    expect(statusOf(eighth.dispatch?.id)).toBe('running')
+    expect(statusOf(seventh.dispatch?.id)).toBe('queued')
+
+    // 再释放 a2 ⇒ 第 7 条(只剩它)补位,running 后队列清空
+    releaseNextFetch()
+    await waitFor(() => statusOf(seventh.dispatch?.id) !== 'queued')
+    expect(statusOf(seventh.dispatch?.id)).toBe('running')
+    expect(queueMembers()).toEqual([])
+    expect(statusOf(a1.dispatch?.id)).toBe('completed')
+    expect(statusOf(a2.dispatch?.id)).toBe('completed')
+  })
+
+  it('单租户第 4 条落 queued 时,另一租户新增仍能立即拿到槽位', async () => {
+    // A 的前 3 条:normal×2 + high×1 —— 第二条 normal 不再被优先级层拦下
+    // (拍板前 normal=1 会让 a2 在这里就落 queued,优先级层先于租户层成为瓶颈)。
+    const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
+    const a2 = await service.dispatch({ ...baseInput, goal: 'a2', ownerUserId: 'tenant-a' })
+    const a3 = await service.dispatch({
+      ...baseInput,
+      goal: 'a3',
+      ownerUserId: 'tenant-a',
+      priority: 'high',
+    })
+    expect(a1.outcome).toBe('ok')
+    expect(a2.outcome).toBe('ok')
+    expect(statusOf(a1.dispatch?.id)).not.toBe('queued')
+    expect(statusOf(a2.dispatch?.id)).not.toBe('queued')
+    expect(statusOf(a3.dispatch?.id)).not.toBe('queued')
+
+    // 第 4 条(high):high 档位还有余量,被「每租户 3」的租户层挡下 ⇒ queued
+    const a4 = await service.dispatch({
+      ...baseInput,
+      goal: 'a4',
+      ownerUserId: 'tenant-a',
+      priority: 'high',
+    })
+    expect(a4.outcome).toBe('ok')
+    expect(statusOf(a4.dispatch?.id)).toBe('queued')
+
+    // 另一租户新增不受 A 打满影响:全局还有 3 槽,立即占槽
+    const b1 = await service.dispatch({ ...baseInput, goal: 'b1', ownerUserId: 'tenant-b' })
+    expect(b1.outcome).toBe('ok')
+    expect(statusOf(b1.dispatch?.id)).not.toBe('queued')
+
+    // 真队列里只有 A 的排队单;B 的运行单不在 zset
+    expect(queueMembers()).toEqual([a4.dispatch!.id])
+    expect(fake.hashes.get(`${KEY_DISPATCH}${b1.dispatch!.id}`)?.status).not.toBe('queued')
+  })
+
+  it('出队顺序 = 真队列顺序:urgent 先于先到的 normal,同优先级先来后到', async () => {
+    const { a1, a2, b1 } = await fillGlobalSlots()
+    expect(service.listActive()).toHaveLength(6)
+
+    // 先到的是 normal(P),后到的是 urgent(U);全局 6 槽已满 ⇒ 两单都排队。
     // U 特意放到没有在跑任务的 tenant-d:同租户 urgent 抢占(low/normal)是另一条已锁行为
-    // (见 subagents-preempt-tenant-scope.test.ts),放 tenant-b 会先抢掉 b1 而不进队列,
+    // (见 subagents-preempt-tenant-scope.test.ts),放有本租户任务的地方会先抢掉再进队列,
     // 本用例要钉的是「队列内部的出队顺序」,必须让 U 走排队路径。
-    const p = await service.dispatch({ ...baseInput, goal: 'p', ownerUserId: 'tenant-a' })
+    const p = await service.dispatch({ ...baseInput, goal: 'p', ownerUserId: 'tenant-c' })
     const u = await service.dispatch({
       ...baseInput,
       goal: 'u',
@@ -297,6 +367,11 @@ describe('F2 租户化槽位 + 真排队', () => {
     })
     expect(statusOf(p.dispatch?.id)).toBe('queued')
     expect(statusOf(u.dispatch?.id)).toBe('queued')
+    // 真 zset 顺序:urgent 越过先到的 normal(zrevrange 的 score 序,不是插入序)
+    expect((await service.getQueue()).map((q) => q.dispatchId)).toEqual([
+      u.dispatch!.id,
+      p.dispatch!.id,
+    ])
 
     // 释放 a1 ⇒ 出队按 priority:U 越过先到的 P
     releaseNextFetch()
@@ -304,7 +379,7 @@ describe('F2 租户化槽位 + 真排队', () => {
     expect(statusOf(u.dispatch?.id)).toBe('running')
     expect(statusOf(p.dispatch?.id)).toBe('queued')
 
-    // 再释放 b1 ⇒ 同优先级(只剩 P)按先来后到出队
+    // 再释放 a2 ⇒ 同优先级(只剩 P)按先来后到出队
     releaseNextFetch()
     await waitFor(() => statusOf(p.dispatch?.id) !== 'queued')
     expect(statusOf(p.dispatch?.id)).toBe('running')
@@ -312,19 +387,17 @@ describe('F2 租户化槽位 + 真排队', () => {
     // 全流程只保留了真实排队过的成员,没有把 running/终态塞回 zset
     expect(queueMembers()).toEqual([])
     expect(statusOf(a1.dispatch?.id)).toBe('completed')
-    expect(statusOf(b1.dispatch?.id)).toBe('completed')
-    // c1 仍在跑(未被误伤)
-    expect(statusOf(c1.dispatch?.id)).toBe('running')
+    expect(statusOf(a2.dispatch?.id)).toBe('completed')
+    // b1 仍在跑(未被误伤)
+    expect(statusOf(b1.dispatch?.id)).toBe('running')
   })
 
   it('同优先级严格先来后到:早创建的 normal 先于晚创建的 normal 出队', async () => {
-    const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
-    await service.dispatch({ ...baseInput, goal: 'b1', ownerUserId: 'tenant-b' })
-    await service.dispatch({ ...baseInput, goal: 'c1', ownerUserId: 'tenant-c' })
+    await fillGlobalSlots()
 
-    const first = await service.dispatch({ ...baseInput, goal: 'first', ownerUserId: 'tenant-a' })
+    const first = await service.dispatch({ ...baseInput, goal: 'first', ownerUserId: 'tenant-c' })
     await flush(5) // 让两条记录的 createdAt 有可分辨的先后(毫秒级)
-    const second = await service.dispatch({ ...baseInput, goal: 'second', ownerUserId: 'tenant-b' })
+    const second = await service.dispatch({ ...baseInput, goal: 'second', ownerUserId: 'tenant-d' })
     expect(statusOf(first.dispatch?.id)).toBe('queued')
     expect(statusOf(second.dispatch?.id)).toBe('queued')
     expect(queueMembers()).toEqual([first.dispatch!.id, second.dispatch!.id])
@@ -341,18 +414,25 @@ describe('F2 租户化槽位 + 真排队', () => {
 
   it('getQueue 读真队列:幽灵成员清出 zset,取消排队即出队', async () => {
     const a1 = await service.dispatch({ ...baseInput, goal: 'a1', ownerUserId: 'tenant-a' })
-    await service.dispatch({
+    const a2 = await service.dispatch({ ...baseInput, goal: 'a2', ownerUserId: 'tenant-a' })
+    const a3 = await service.dispatch({
       ...baseInput,
-      goal: 'a2',
+      goal: 'a3',
       ownerUserId: 'tenant-a',
       priority: 'high',
     })
-    const a3 = await service.dispatch({ ...baseInput, goal: 'a3', ownerUserId: 'tenant-a' })
-    expect(statusOf(a3.dispatch?.id)).toBe('queued')
+    // 前 3 条占满租户层(每租户 3);第 4 条 high 档位还有余量,被租户层挡下 ⇒ queued
+    const a4 = await service.dispatch({
+      ...baseInput,
+      goal: 'a4',
+      ownerUserId: 'tenant-a',
+      priority: 'high',
+    })
+    expect(statusOf(a4.dispatch?.id)).toBe('queued')
 
     const queue = await service.getQueue()
     expect(queue).toHaveLength(1)
-    expect(queue[0]!.dispatchId).toBe(a3.dispatch!.id)
+    expect(queue[0]!.dispatchId).toBe(a4.dispatch!.id)
     expect(String(queue[0]!.status)).toBe('queued')
     expect(queue[0]!.position).toBe(1)
 
@@ -363,11 +443,13 @@ describe('F2 租户化槽位 + 真排队', () => {
     expect(fake.zsets.get(KEY_QUEUE)!.has('ghost-dispatch')).toBe(false)
 
     // 取消排队单 ⇒ 记录终态 + zset 出队,队列视图不再含它
-    expect(service.cancel(a3.dispatch!.id)).toBe(true)
-    await waitFor(() => !fake.zsets.get(KEY_QUEUE)!.has(a3.dispatch!.id))
+    expect(service.cancel(a4.dispatch!.id)).toBe(true)
+    await waitFor(() => !fake.zsets.get(KEY_QUEUE)!.has(a4.dispatch!.id))
     expect(await service.getQueue()).toHaveLength(0)
-    expect(statusOf(a3.dispatch?.id)).toBe('cancelled')
+    expect(statusOf(a4.dispatch?.id)).toBe('cancelled')
     // a1 未受影响
     expect(statusOf(a1.dispatch?.id)).toBe('running')
+    expect(statusOf(a2.dispatch?.id)).not.toBe('queued')
+    expect(statusOf(a3.dispatch?.id)).not.toBe('queued')
   })
 })
