@@ -187,7 +187,7 @@ function postWithKey(
   app: FastifyInstance,
   idempotencyKey: string,
   apiKeyId: string = OWNER,
-  payload: unknown = {},
+  payload: object = {},
 ) {
   return app.inject({
     method: 'POST',
