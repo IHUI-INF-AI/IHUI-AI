@@ -108,6 +108,9 @@ function docNumbers(md) {
  *   mirror-chain-broken / mirror-declaration-mismatch —— 引壳而链断 / 声明与承载不是同一屏(绝对值出声:
  *       这两维现读存量都是 0,出现即"新增的产物级缺陷",不是把存量判成人人红(§12e))
  *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
+ *   style-tier-tierRnMissingN/tierRnForkN/tierWebOffN/tierPending/mpTierDefaulted/mpTierLiteral-increase
+ *       —— 三端"同源档位"用量净增(2026-11-03 接;兑现 check-web-rn-style-tiers 头注那句
+ *       "净增经 §5e 到人",并补上小程序档位尺此前只有驾驶舱只读档、无人轮间比较那一格)
  * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
  */
 /**
@@ -159,6 +162,7 @@ function judge({
   prev,
   verdictRows = null,
   styleTiers,
+  miniappTiers,
 }) {
   const cur = {
     mirrored: coverage?.json?.stats?.mirroredShared ?? null,
@@ -201,6 +205,17 @@ function judge({
             return (a ?? 0) + (b ?? 0)
           })(),
           tierPending: finiteOrNull(styleTiers?.json?.forkAllowance?.pending),
+        }),
+    /**
+     * 小程序档位两维(同一条纪律:未交该器就不建键,建了读不到才记 null)。
+     * defaulted = 用 Tailwind 默认档而非项目档表的位置数;literal = 裸字面量(含 rpx/任意值)位置数。
+     * 这两桶每加一枚,小程序与 RN/web 的同源关系就多一处"改源头不跟随",所以只比轮间变坏。
+     */
+    ...(miniappTiers === undefined
+      ? {}
+      : {
+          mpTierDefaulted: finiteOrNull(miniappTiers?.json?.defaulted),
+          mpTierLiteral: finiteOrNull(miniappTiers?.json?.literal),
         }),
     // 键级撤除台账三维(2026-10-30 立):免掉多少 / 台账里有多少行不成立 / 有多少行已不免除任何东西。
     // 立因:还原度尺判"键在不在页面正文里",判不出可达性 ⇒ 「按后端出处撤掉死分支假绿键」这个正确
@@ -449,21 +464,36 @@ function judge({
    * 再喊"净增 N"—— 那条坑本文件头注已记过一次:0 → 28 假净增)。
    * 存量 445 处不作绝对判:升 blocking 的前置是存量归零(§12e),这里只出声"本轮比上轮坏了"。
    */
-  const tierWorse = (key, label, way) => {
+  const tierWorse = (key, label, exit) => {
     if (!(prev && Number.isFinite(prev[key]) && Number.isFinite(cur[key]))) return
-    if (way === 'up' && cur[key] <= prev[key]) return
+    if (cur[key] <= prev[key]) return
     reasons.push({
       dim: `style-tier-${key}-increase`,
       detail:
-        `${label} ${prev[key]} → ${cur[key]}(净增 ${cur[key] - prev[key]} 处)⇒ 三端同源档位表又多了一批"值在档表里却写成裸数字/异档"的用法,` +
-        `落档腿只改等值位置、不会主动动这些,所以它们不会自己消失 ⇒ 出路:node scripts/check-web-rn-style-tiers.mjs --json ` +
-        `看 rnMissingValues / rnForkValues / forkAllowance.pendingTop,再按维度跑 node scripts/land-web-style-tiers.mjs 与 land-rn-style-tiers.mjs 预演`,
+        `${label} ${prev[key]} → ${cur[key]}(净增 ${cur[key] - prev[key]} 处)⇒ 同源档位表又多了一批"值在档表里却写成裸数字/异档"的用法,` +
+        `落档腿只改等值位置、不会主动动这些,所以它们不会自己消失 ⇒ 出路:${exit}`,
     })
   }
-  tierWorse('tierRnMissingN', 'RN 端非档值用量', 'up')
-  tierWorse('tierRnForkN', 'RN↔web 同元素取异档的用量', 'up')
-  tierWorse('tierWebOffN', 'web 端自身非档/异档用量', 'up')
-  tierWorse('tierPending', '待裁分叉允许差异行数', 'up')
+  const webRnExit =
+    'node scripts/check-web-rn-style-tiers.mjs --json 看 rnMissingValues / rnForkValues / forkAllowance.pendingTop,再按维度跑 node scripts/land-web-style-tiers.mjs 与 node scripts/land-rn-style-tiers.mjs 预演'
+  tierWorse('tierRnMissingN', 'RN 端非档值用量', webRnExit)
+  tierWorse('tierRnForkN', 'RN↔web 同元素取异档的用量', webRnExit)
+  tierWorse('tierWebOffN', 'web 端自身非档/异档用量', webRnExit)
+  tierWorse(
+    'tierPending',
+    '待裁分叉允许差异行数',
+    'node scripts/check-web-rn-style-tiers.mjs --json 的 forkAllowance.pendingTop(逐族给 n/allowed),裁决出口 node scripts/apply-cross-end-verdicts.mjs --proposals=<裁决件>(该器当前零调度,需按 §11 派单产裁决)',
+  )
+  tierWorse(
+    'mpTierDefaulted',
+    '小程序端用 Tailwind 默认档而非项目档表的位置数',
+    'node scripts/check-miniapp-style-tiers.mjs --json(defaulted/literal/projectPct)+ node scripts/land-miniapp-style-tiers.mjs 预演',
+  )
+  tierWorse(
+    'mpTierLiteral',
+    '小程序端裸字面量(含 rpx/任意值)位置数',
+    'node scripts/check-miniapp-style-tiers.mjs --json 的 samples + node scripts/land-miniapp-style-tiers.mjs 预演(hittable 是其中可自动改的子集)',
+  )
 
   const docCur = docNumbers(doc)
   const docMismatch =
@@ -1005,6 +1035,13 @@ function main() {
    * 档位差是**存量 445 处**的现实:绝对值一进来就恒红(§12e),所以这里只比"本轮有没有变坏"。
    */
   const styleTiers = runRuler('check-web-rn-style-tiers.mjs')
+  /**
+   * 小程序档位维(同日接):`check-miniapp-style-tiers.mjs` 此前**只出现在驾驶舱的只读档**
+   * (parity-auto:258),既不在 runner 也无任何轮间比较 ⇒ 小程序偏离共享档位源
+   * (defaulted / literal 两桶)同样静默增长。它自己已经把可比读数交出来
+   * (defaulted / literal / projectPct / spaceLiteralHittable),这里只包成涨跌维(§0.6 零复算)。
+   */
+  const miniappTiers = runRuler('check-miniapp-style-tiers.mjs')
   const doc = (() => {
     try {
       return execFileSync('git', ['show', `HEAD:${DOC_PATH}`], {
@@ -1037,6 +1074,7 @@ function main() {
     prev,
     verdictRows,
     styleTiers,
+    miniappTiers,
   })
   result.at = new Date().toISOString()
   if (recordMode) {
