@@ -1169,6 +1169,26 @@ export function pointerFormVerdict({
 }
 
 /**
+ * 指针腿四态到人事件的**稳定身份**(2026-11-02 补,§5e-1)。
+ * 为什么按标题查表而不在调用点拼:`writeGitdirPointer` 的 notify 回调面是**两参**
+ * (`git-guardian-pointer-stray.test.mjs` 的夹具自证钉死了该接线文本),第三参到不了出口;
+ * 出口侧按同一张表兜底 ⇒ 身份只在这一处定义,两处不会漂。
+ * 未登记的标题返回 `''` ⇒ 身份退回 name+detail 指纹,与补之前逐字相同(fail-open,不多压一封)。
+ */
+const GITDIR_POINTER_ALERT_KEYS = new Map([
+  ['.git 形态无法判定(指针腿未判定)', 'gitdir-pointer;state=unreadable'],
+  // 「落点取不到」与「落点与指针同目录」是同一个结论(拒绝覆盖),状态名相同即同一件事
+  ['.git 异形现场未能归档(已拒绝覆盖)', 'gitdir-pointer;state=refused-no-archive'],
+  ['.git 是指针位上的异形文件(现场已归档并落指针)', 'gitdir-pointer;state=stray-archived'],
+  ['.git 异形现场归档失败(已拒绝覆盖)', 'gitdir-pointer;state=refused-no-archive;why=copy-failed'],
+])
+
+/** 标题 → 稳定身份;查不到给空串(调用方据此退回旧口径) */
+export function gitdirPointerDedupKey(name) {
+  return GITDIR_POINTER_ALERT_KEYS.get(String(name ?? '')) || ''
+}
+
+/**
  * 现问形态(§5b「gitdir 形态是七类必须每次实测的机器事实」的修复面一侧)。只读不写。
  * @param {string} pointerPath 工作区 `.git`
  * @returns 同 `pointerFormVerdict`
@@ -1251,7 +1271,8 @@ export function writeGitdirPointer({
   }
   const callNotify = (title, detail) => {
     try {
-      notify(title, detail)
+      // 身份随标题查表(与出口侧兜底同一张表):why/路径只作正文,不进指纹
+      notify(title, detail, { dedupKey: gitdirPointerDedupKey(title) })
     } catch (e) {
       say(`通知层异常(不影响自愈判定): ${String((e && e.message) || e)}`)
     }
@@ -2548,6 +2569,10 @@ export function auditDispatchSites(src) {
     // 注释里提到的 `notifyGuardRed()` 不是派发点(§0.3:判据要落在真调用的那一行)
     const t = raw.trim()
     if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue
+    // 回调接线不是派发点:`notify: (t, d) => notifyGuardRed(t, d)` 只是把出口函数接进执行单元,
+    // 真正那一次派发在执行单元内的 `callNotify` 侧 —— 同一物理调用计两次,会把"补一处"变成"补两处"。
+    if (/^(?:notify|notifyGuardRed)\s*:\s*\([^)]*\)\s*=>\s*(?:notify|notifyGuardRed)\(/.test(t))
+      continue
     // 调用点:标识符前不得是 `= , : ( ! . & |`(赋值/默认参数/引用都不是派发)
     if (!/(?:^|[^\w.$=,:(!&|?])(?:notify|notifyGuardRed)\(/.test(raw)) continue
     // 选项块 = 本次调用自身:直到出现"整行只有一个右括号"那行为止(多行调用即闭合行)
@@ -2642,7 +2667,9 @@ export function notifyGuardRed(name, detail, opts = {}) {
         }
       }
     }
-    const fp = dedupKey ? stableAlertFingerprint(name, dedupKey) : alertFingerprint(name, detail)
+    // 指针腿四态的回调面是两参(夹具钉死),第三参到不了这里 ⇒ 按标题查同一张稳定身份表兜底
+    const stableKey = dedupKey || gitdirPointerDedupKey(name)
+    const fp = stableKey ? stableAlertFingerprint(name, stableKey) : alertFingerprint(name, detail)
     const state = parseNotifyState(readNotifyText(stateFile))
     const prevEntry = state[name]
     // 族级窗口(2026-11-02):策略命中的告警按「族前缀」冷却,而不是按指纹 —— 同一段外部线路
@@ -2710,7 +2737,7 @@ export function notifyGuardRed(name, detail, opts = {}) {
       `来源:git-guardian 周期守护(计划任务 "${TASK_NAME}",每 2 分钟一趟)@ ${hostname()}。\n` +
       `去重:同指纹 ${Math.round(windowMs / 60000)} 分钟窗口内只寄一封(按身份去重、无总量封顶);` +
       `内容变化视为新故障立即重报。投递失败按 ${Math.round(failCooldownMs / 60000)} 分钟退避重试并留 UNDELIVERED 标记。\n` +
-      (dedupKey
+      (stableKey
         ? `本告警按稳定身份去重(判据:违规类别与计数),明细行不进指纹 —— 清单里多一个条目/路径变化不算新故障,` +
           `否则多会话并发建删 worktree 会把窗口绕成虚设。真变化(违规类别或计数变了)仍立即重报。\n`
         : '') +
@@ -4063,12 +4090,6 @@ export function healUnresponsiveServices(opts = {}) {
       const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
       const desp =
         `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
-      const dedupKey = `service-heal;svcs=${
-        [...acted, ...failed]
-          .map((x) => x.name)
-          .sort()
-          .join('+') || 'fail'
-      };acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}`
       // §噪声治理:全部拉起成功是自愈的"预期结果",只记日志不占人通道;
       // 只有出现 restart-failed(收信人能处置的真异常)才发信到人。
       if (failed.length > 0) {
@@ -4079,7 +4100,14 @@ export function healUnresponsiveServices(opts = {}) {
           desp,
           // 2026-10-04 复核补(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):原传 alertName 被
           // notifyGuardRed 静默丢弃 ⇒ 改传 dedupKey(真正被消费的字段),身份取「哪些服务」集合、有序无关。
-          { dedupKey },
+          {
+            dedupKey: `service-heal;svcs=${
+              [...acted, ...failed]
+                .map((x) => x.name)
+                .sort()
+                .join('+') || 'fail'
+            };acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}`,
+          },
         )
       } else {
         logger(`✅ 服务自愈动作:本轮拉起 ${acted.length} 台全部成功(无失败),只记日志不寄信:\n${body}`)
@@ -4507,9 +4535,8 @@ export function auditOpsPatrol(opts = {}) {
     } else {
       // 零红 ⇒ 这一段结束:摘掉起点件,下一场故障从新起点算(不摘会把上一段的时长算到下一头上,
       // 而那是"刚冒头就直接进高档"的成因 —— 与"愈合半格就重寄"是同一枚硬币的两面)。
-      clearUndeterminedStreak(
-        join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-episode-first.json'),
-      )
+      // prettier-ignore
+      clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-episode-first.json'))
       logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
     }
     return { ran: true, ok: true, findings: findings.length, undetermined: undet.length }
@@ -7562,10 +7589,12 @@ export function auditFeedbackLoopClosure(opts = {}) {
   const hours = Math.round(windowMs / 3600_000)
   const keys = stuck.map((s) => `${s.identity}@${s.stage}`)
   notify(
-    `反馈闭环卡住超 ${hours}h:${stuck.length} 条`,
-    `以下事故在处置窗口(${hours} 小时)之后仍卡在同一段,链路没有推进:\n` +
+    // 名字不带条数(条数进正文):每多一条卡点就是新身份 ⇒ 30 分钟一轮会把窗口绕成虚设;
+    // 身份取稳定族名,降噪交给族策略(feedback-loop-backlog)。
+    `反馈闭环卡住超 ${hours}h`,
+    `本次 ${stuck.length} 条事故在处置窗口(${hours} 小时)之后仍卡在同一段,链路没有推进:\n` +
       stuck.map((s) => `· ${s.identity} ⇒ ${s.why || `断在 ${s.stage}`}`).join('\n'),
-    { severity: 'warning', now },
+    { severity: 'warning', now, dedupKey: 'feedback-loop-backlog' },
   )
   logger(
     `⚠️ 反馈闭环巡检:${stuck.length} 条超窗卡点(${keys.slice(0, 3).join(' / ')}${keys.length > 3 ? ' …' : ''})`,
@@ -7668,19 +7697,21 @@ export function auditVerbatimResurrection(opts = {}) {
     const und = parsed.undetermined
     if (hits.length > 0) {
       const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      // 明细先算好再进正文:嵌套 .map 的独立 `)` 会让 §E 派发点审计把选项块截断(identity 被读成缺失)
+      const hitLines = hits
+        .slice(0, 10)
+        .map(
+          (h) =>
+            `· ${h.path} —— ${String(h.why || '').slice(0, 60)}(删于 ${(h.deletedBy || '').slice(0, 11)},加回于 ${(h.addedBy || '').slice(0, 11)})`,
+        )
+        .join('\n')
       notify(
         `逐字回潮:${hits.length} 枚"祖先已声明删除"的路径仍在面上`,
         `尺子 = scripts/check-verbatim-resurrection.mjs(被审面 ${parsed.ref},窗口 ${parsed.window})。\n` +
           '每条给出"加回于哪枚 ← 删除于哪枚";逐条读过两侧内容后二选一:\n' +
           '  ① 就地再摘一次:LAND_REMOVE_PATHS="<路径>" LAND_MSG="chore(retire): …" node scripts/object-space-land.mjs\n' +
           '  ② 确应保留:在 scripts/data/deletion-survival-allowlist.json 登记 path+reason+reviewBy(会到期)\n' +
-          hits
-            .slice(0, 10)
-            .map(
-              (h) =>
-                `· ${h.path} —— ${String(h.why || '').slice(0, 60)}(删于 ${(h.deletedBy || '').slice(0, 11)},加回于 ${(h.addedBy || '').slice(0, 11)})`,
-            )
-            .join('\n') +
+          hitLines +
           (hits.length > 10 ? `\n… 其余 ${hits.length - 10} 条见 ${lastFile}` : ''),
         {
           severity: 'warning',
@@ -9886,7 +9917,9 @@ export function auditPushChannel(opts = {}) {
       `现读结论(判据自己的话,本器不复述判据):\n${stdout.slice(-500)}\n` +
       `出路:node scripts/git-sync-converge.mjs --rounds 1(索引层合并,零触碰他人未提交文件);` +
       `本仓规约禁止手工 fetch/merge/push 循环与强推。`,
-    { logger, severity: 'warning' },
+    // 身份 = 腿名(§5e-1):原先只靠 name+detail,而 detail 尾部是判据原话(stdout 末 500 字),
+    // 同一故障的措辞/读数一变就是新身份 ⇒ 10 分钟一轮会绕成窗口外连发。
+    { logger, severity: 'warning', dedupKey: 'push-channel' },
   )
   return { ran: true, ok: false, state: 'blocked' }
 }
