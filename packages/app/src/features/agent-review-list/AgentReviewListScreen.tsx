@@ -86,10 +86,10 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    listContent: { padding: 14 },
+    listContent: { padding: rnSpacing['md-loose'] },
     separator: { height: 8 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

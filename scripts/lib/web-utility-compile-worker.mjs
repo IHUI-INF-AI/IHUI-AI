@@ -14,7 +14,6 @@
  * 解析 —— 它们是工具链版本,不属于被审面的像素材料。
  * 输出(stdout JSON):`{ css }` 或 `{ error }`(父进程按"模型不可用 ⇒ 未判定"处理,不猜)。
  */
-import { compile } from 'tailwindcss'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -34,7 +33,11 @@ const main = async () => {
   if (typeof entryText !== 'string') throw new Error(`入口样式表不在输入面:${entry}`)
   // 插件(tailwindcss 自身 / @tailwindcss/typography / tailwindcss-animate)按 **web 包**解析:
   // 它们装在 workspace 的依赖树里,从仓库根解析会 MODULE_NOT_FOUND(实测)。
+  // 2026-11-02:`compile` 也必须走这条口径 —— publicHoistPattern 把 miniapp-taro/mobile-rn 的
+  // tailwindcss v3 hoist 到根 node_modules,静态 import 拿到的是 v3(无 `compile` 导出)⇒
+  // 本维整腿退化成"未判定"(T47 在本机实测红;换机重装后版本谁被 hoist 不确定,判据不得随安装漂移)。
   const req = createRequire(path.join(repoRoot, 'apps/web/package.json'))
+  const { compile } = req('tailwindcss')
   const compiler = await compile(entryText, {
     base: path.join(repoRoot, posixDir(entry)),
     loadStylesheet: async (id, base) => {

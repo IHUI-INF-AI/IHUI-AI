@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
     tagText: { fontSize: rnType.label.size, color: tk.text.medium },
     body: { paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -211,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     lessonItem: {
       marginBottom: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,

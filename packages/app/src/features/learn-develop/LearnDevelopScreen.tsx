@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing['xs-loose'],
       alignItems: 'center',
     } as ViewStyle,

@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

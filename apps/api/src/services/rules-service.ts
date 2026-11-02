@@ -398,35 +398,122 @@ const RULE_TEMPLATES_FALLBACK: RuleTemplateDto[] = [
 ]
 
 /**
- * ReDoS 静态检测(R8 复评 F2):嵌套量词(量词化的组内再含量词)是灾难性
- * 回溯的最常见形态 —— `(a+)+b` 仅 7 字符即可对 10KB 输入指数级回溯,长度闸
- * 拦不住。检测形如 `(…[*+]{…})[*+{]` 的模式;误杀面:正常业务正则极少嵌套
- * 量词,命中者本就该改写为占有量词或分解。与长度闸互补,均在**匹配前**拒绝。
+ * ReDoS 静态判据(**唯一出口**,所有主线程同步正则的调用点都问这里,不得各写一份)。
+ *
+ * 只判**结构**,不做超时 —— `regex.test` 是同步的、无法中断,长度闸也拦不住
+ * "短而病态"的模式(`(a+)+$`、`(a|aa)+$` 都不到 10 字符)。两类结构一律拒:
+ *
+ *  1. 量词化的组,组内**再含量词** —— `(a+)+`、`(.*)*`、`(\d+|\w+)+`
+ *  2. 量词化的组,组内**含 `|`** —— `(a|aa)+`、`(?:x|y)*`
+ *     (交替分支宽度不一时,量词化即指数回溯;这类模式组内并没有第二枚量词,
+ *      旧判据只看"组内量词",于是 `(a|aa)+$` 被整条放行)
+ *
+ * 判定用的两个事实:
+ *  - **组被量词化** = 组闭合后紧跟 `+` / `*` / 无上界 `{m,}`。`?` 与 `{m}`/`{m,n}`
+ *    属**有界**重复(0..1 次、固定次数),不产生指数放大,计入会误杀 `(https?)?`、
+ *    以及 IPv4 那种 `(?:25[0-5]|2[0-4]\d|1\d\d){4}` 的常见写法。
+ *  - **组内有量词** = 组内出现 `+` / `*` / `?` / 无上界 `{m,}`(星高度≥2)。
+ *
+ * 放行边界(与上面一一对应,改动时按此表核对):
+ *  - 无分组:`^abc$`、`\d{4}-\d{2}`
+ *  - 组存在但未被量词化:`(foo|bar)`、`(key|value):\s*\S+`、`(a|b)?`
+ *  - 顶层交替(不在任何组内):`^foo|bar$`
+ *  - 字符类内的 `|`/`+`/`*` 与转义字符:`[+*|]`、`\|`、`\(a\+\)\+`
+ *
+ * 与长度闸互补,两者都在 `new RegExp(...)` **之前**执行。
  */
 export function hasNestedQuantifier(pattern: string): boolean {
-  let groupQuantified = false
-  const groupStack: boolean[] = []
+  // 每层组在关闭时要知道:组内是否出现量词、组内是否出现顶层交替
+  const frames: Array<{ quantified: boolean; alternation: boolean }> = []
+  let quantified = false
+  let alternation = false
+
   for (let i = 0; i < pattern.length; i++) {
     const ch = pattern[i]
+
+    // 转义:下一个字符是字面量
     if (ch === String.fromCharCode(92)) {
       i++
       continue
     }
+
+    // 字符类:[...] 内的 () | + * ? 全部是字面量,整段跳过
+    if (ch === '[') {
+      let j = i + 1
+      if (pattern[j] === '^') j++
+      // 首字符 ] 是字面量,不是闭合
+      if (pattern[j] === ']') j++
+      while (j < pattern.length) {
+        if (pattern[j] === String.fromCharCode(92)) {
+          j += 2
+          continue
+        }
+        if (pattern[j] === ']') break
+        j++
+      }
+      // 未闭合时 j 越界,循环自然结束(等价于把剩余部分都当类内)
+      i = j
+      continue
+    }
+
     if (ch === '(') {
-      groupStack.push(groupQuantified)
-      groupQuantified = false
+      frames.push({ quantified, alternation })
+      quantified = false
+      alternation = false
+      // 组修饰符 (?:(?: (?= (?! (?<= (?<! (?<name> 不是量词/交替
+      if (pattern[i + 1] === '?') {
+        i++
+        if (pattern[i + 1] === '<') {
+          const after = pattern[i + 2]
+          if (after === '=' || after === '!') {
+            i += 2
+          } else {
+            const close = pattern.indexOf('>', i)
+            i = close === -1 ? pattern.length : close
+          }
+        } else {
+          i++
+        }
+      }
       continue
     }
+
     if (ch === ')') {
-      const wasInnerQuantified = groupQuantified
-      groupQuantified = groupStack.pop() ?? false
-      // 组关闭后看下一个字符是否量词化该组
+      const frame = frames.pop()
+      const innerIsRisky = quantified || alternation
+      quantified = frame?.quantified ?? false
+      alternation = frame?.alternation ?? false
+
+      // 该组是否被量词化:紧跟 + / * / 无上界 {m,
       const next = pattern[i + 1]
-      if (wasInnerQuantified && next && /[+*{]/.test(next)) return true
-      if (next && /[+*]/.test(next)) groupQuantified = true
+      const brace = next === '{' ? /^\{(\d+),\}/.exec(pattern.slice(i + 1)) : null
+      const groupQuantified = next === '+' || next === '*' || brace !== null
+      if (groupQuantified && innerIsRisky) return true
+      // 组本身是外层的一个量词化元素(供更外一层判断)
+      if (groupQuantified) quantified = true
       continue
     }
-    if (ch === '+' || ch === '*') groupQuantified = true
+
+    if (ch === '|') {
+      // 只有落在某个组内才有意义;顶层交替在关闭组时才被读取,这里置位无害
+      alternation = true
+      continue
+    }
+
+    if (ch === '+' || ch === '*' || ch === '?') {
+      quantified = true
+      continue
+    }
+
+    if (ch === '{') {
+      const brace = /^\{(\d+),(\d*)\}/.exec(pattern.slice(i))
+      if (brace) {
+        // {m,} 无上界才算量词化;{m} / {m,n} 是有界重复
+        if (brace[2] === '') quantified = true
+        i += brace[0].length - 1
+      }
+      continue
+    }
   }
   return false
 }

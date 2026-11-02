@@ -8,7 +8,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "postinstall": "node scripts/fix-expo-metro-junction.mjs",
+    "postinstall": "node scripts/fix-expo-metro-junction.mjs && node scripts/lib/patch-lint-staged-stdio.mjs --soft",
     "dev": "turbo run dev",
     "rea": "npx -y rea-agents@6.4.0",
     "dev:safe": "node scripts/run-start-dev.mjs",

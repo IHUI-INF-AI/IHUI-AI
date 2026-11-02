@@ -229,6 +229,46 @@ test('M17 跨端通用能力按类别销账:壳侧确有该类实现才销,平�
   assert.equal(t4.size, 4)
 })
 
+test('M17b 精确核对判负的族不得被整族销账(导航目标/取数端点不重合即真差异)', () => {
+  // 2026-11-01 立:此前"壳里有 navigation.navigate( ⇒ 整族导航销账"会放过
+  // 「页面跳三个壳里根本没有的入口」这一型(pkg-learn/live/list 的开播/日历/我的订阅),
+  // 「壳里有 fetchApi( ⇒ 整族取数销账」会放过「页面取 /live/channels、壳取 /live/list」。
+  const shell =
+    "import { fetchApi } from '@ihui/api-client'\nnavigation.navigate('X')\nappAlert('保存失败')"
+  const t1 = new Set(['Taro.navigateTo', '@/api', 'Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t1, shell, '', ['导航']), ['取数', '用户提示'])
+  assert.ok(t1.has('Taro.navigateTo'), '导航族已判负 ⇒ 不许被整族销账')
+  const t2 = new Set(['Taro.navigateTo', '@/api', 'Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t2, shell, '', ['取数']), ['导航', '用户提示'])
+  assert.ok(t2.has('@/api'), '取数族已判负 ⇒ 不许被整族销账')
+  // 反面:不传 gaps(精确谓词判不了)⇒ 维持旧口径,两族照旧销
+  const t3 = new Set(['Taro.navigateTo', '@/api', 'Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t3, shell), ['取数', '导航', '用户提示'])
+})
+
+test('M17c 提示族精确判负同样不得被整族销账(壳有 appAlert 不等于页面的成功提示也能承接)', () => {
+  // 2026-11-01 补:与 M17b 同型。页面有一条壳/屏都没有的成功提示,两条精确路径都判负;
+  // 此时壳里出现过任意 appAlert( 也不许整族销账,否则转壳后这条提示静默消失。
+  const shell = "appAlert(t('common.loadFailed'))"
+  const t1 = new Set(['Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t1, shell, '', ['用户提示']), [])
+  assert.ok(t1.has('Taro.showToast'), '提示族已判负 ⇒ 不许被整族销账')
+  // 反面:精确判据放行时照旧销(不传 gap 的旧口径不变)
+  const t2 = new Set(['Taro.showToast'])
+  assert.deepEqual(conv.shellCapabilityCovered(t2, "appAlert(t('follow.done'))"), ['用户提示'])
+  // 接线锁:判据体内两条精确路径都判负 ⇒ 该 token 必须留在 extras 里(不是只由 shellCapabilityCovered 保证)
+  const r = conv.judgeConversion({
+    spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+    pageText: "Taro.showToast({ title: t('follow.done') })",
+    shellText:
+      "import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){ return null }\nconst a = () => appAlert(t('common.loadFailed'))",
+    sharedText: "export function DemoScreen(){ return t('demo.body') }",
+    messagesText: '{"follow":{"done":"ok"},"common":{"loadFailed":"fail"}}',
+  })
+  assert.equal(r.kind, 'page-only-capability')
+  assert.ok(r.extras.includes('Taro.showToast'), '判据体内应把提示族记成 gap,extras 必须点名')
+})
+
 test('M18 提示能力认"error 交给共享屏渲染"这一形:共享屏不渲染就不销(本票重构引入过的回归)', () => {
   const mk = () => new Set(['Taro.showToast'])
   // 2026-10-29 把 wrapper 重构成 usePaginatedList 后,壳里不再有 setError 字面量,

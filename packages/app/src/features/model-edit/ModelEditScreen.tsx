@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     chip: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 36,
       borderRadius: rnRadius.md,
       borderWidth: 1,
@@ -337,7 +337,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     priceInput: {
       flex: 1,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
       color: tk.text.primary,
     },

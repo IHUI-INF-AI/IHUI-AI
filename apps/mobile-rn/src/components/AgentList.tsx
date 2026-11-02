@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconFallbackText: {
-    fontSize: 10,
+    fontSize: rnType.badge.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },

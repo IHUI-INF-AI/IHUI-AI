@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnRadius, rnTokens, rnSpacing } from '@ihui/design-tokens'
+import { rnHue, rnRadius, rnTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -40,7 +40,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.xs,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     tabStrip: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
     tab: {
       flexDirection: 'row',
@@ -57,13 +57,13 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
       borderColor: tk.brand.cta,
     },
-    tabText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    tabText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     // 配对前景键必须与底键同前缀(tabActive × tabActiveText),门 83 R3 才认得到兄弟对
     tabActiveText: { color: tk.brand.ctaForeground },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
-    heroTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: { fontSize: 12, color: tk.text.secondary },
+    heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     searchBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -74,7 +74,12 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
-    searchInput: { flex: 1, paddingVertical: 9, fontSize: 14, color: tk.text.primary },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 9,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+    },
     chipStrip: { gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -85,7 +90,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    chipText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    chipText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     // 同上:底键与前景键同前缀才成对(chipActive × chipActiveText)
     chipActiveText: { color: tk.brand.ctaForeground },
     card: {
@@ -102,12 +107,12 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    cardSub: { fontSize: 12, color: tk.text.secondary },
+    cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    cardSub: { fontSize: rnType.label.size, color: tk.text.secondary },
     cardBody: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     row: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    rowSub: { fontSize: 11, color: tk.text.tertiary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -126,15 +131,15 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       alignSelf: 'flex-start',
     },
-    badgeText: { fontSize: 11, fontWeight: '600' },
-    stars: { fontSize: 12, letterSpacing: 1 },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
+    stars: { fontSize: rnType.label.size, letterSpacing: 1 },
     pager: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    pagerText: { fontSize: 12, color: tk.text.secondary },
+    pagerText: { fontSize: rnType.label.size, color: tk.text.secondary },
     pagerBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
@@ -142,7 +147,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    pagerBtnText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    pagerBtnText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     pagerBtnDisabled: { opacity: 0.4 },
     emptyBox: {
       alignItems: 'center',
@@ -172,10 +177,15 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     },
     skeletonRow: { height: 72, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
     detailHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
-    detailTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary, flex: 1 },
-    detailSub: { fontSize: 12, color: tk.text.secondary },
+    detailTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      flex: 1,
+    },
+    detailSub: { fontSize: rnType.label.size, color: tk.text.secondary },
     section: { gap: rnSpacing['xs-loose'] },
-    sectionTitle: { fontSize: 14, fontWeight: '700', color: tk.text.primary },
+    sectionTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.text.primary },
     sectionItem: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
     sectionItemText: { flex: 1, fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     marker: { fontSize: 13, fontWeight: '700' },
@@ -185,10 +195,10 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing.xs,
     },
-    fieldLabel: { fontSize: 11, fontWeight: '600', color: tk.text.tertiary },
+    fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
     fieldValue: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     linkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
-    linkText: { flex: 1, fontSize: 12, color: tk.brandAccent.DEFAULT },
+    linkText: { flex: 1, fontSize: rnType.label.size, color: tk.brandAccent.DEFAULT },
     textarea: {
       minHeight: 96,
       textAlignVertical: 'top',
@@ -197,10 +207,10 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.inputBg,
       borderRadius: rnRadius.sm,
       padding: rnSpacing['sm-loose'],
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
-    counter: { alignSelf: 'flex-end', fontSize: 11, color: tk.text.tertiary },
+    counter: { alignSelf: 'flex-end', fontSize: rnType.caption.size, color: tk.text.tertiary },
     input: {
       flex: 1,
       borderWidth: StyleSheet.hairlineWidth,
@@ -209,7 +219,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: 9,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     ctaBtn: {
@@ -223,7 +233,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     ctaBtnDisabled: { opacity: 0.5 },
-    ctaText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    ctaText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     outlineBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -235,7 +245,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    outlineBtnText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    outlineBtnText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     stepRow: { flexDirection: 'row', gap: rnSpacing['sm-loose'] },
     stepNodeWrap: { width: 34, alignItems: 'center' },
     stepNode: {
@@ -246,14 +256,14 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    stepMain: { flex: 1, gap: rnSpacing.xs, paddingBottom: 14 },
+    stepMain: { flex: 1, gap: rnSpacing.xs, paddingBottom: rnSpacing['md-loose'] },
     stepHead: {
       flexDirection: 'row',
       alignItems: 'center',
       flexWrap: 'wrap',
       gap: rnSpacing['xs-loose'],
     },
-    stepLabel: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    stepLabel: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     stepError: { fontSize: 12, color: EDU_AI_PALETTE.rose.fg, lineHeight: 18 },
     resultBox: {
       backgroundColor: tk.surface.muted,

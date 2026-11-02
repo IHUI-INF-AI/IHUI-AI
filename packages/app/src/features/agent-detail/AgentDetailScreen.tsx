@@ -117,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
     name: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     category: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

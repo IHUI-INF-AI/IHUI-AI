@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   statCell: { flex: 1, alignItems: 'center', gap: rnSpacing['2xs'] },
-  statLabel: { fontSize: 10, color: tokens.text.tertiary, textAlign: 'center' },
+  statLabel: { fontSize: rnType.badge.size, color: tokens.text.tertiary, textAlign: 'center' },
   statValue: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tokens.text.primary },
   finishedCard: {
     alignItems: 'center',
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   finishedTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -439,7 +439,11 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.bg,
   },
-  resultCellLabel: { fontSize: 10, color: tokens.text.tertiary, textAlign: 'center' },
+  resultCellLabel: {
+    fontSize: rnType.badge.size,
+    color: tokens.text.tertiary,
+    textAlign: 'center',
+  },
   resultCellValue: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
   primaryBtn: {
     height: 42,

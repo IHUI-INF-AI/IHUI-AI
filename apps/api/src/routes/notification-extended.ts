@@ -8,6 +8,77 @@ import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
+
+// =============================================================================
+// 渠道 config 脱敏 + 掩码更新语义
+// =============================================================================
+
+/** 掩码占位符:GET/POST/PUT 响应里敏感字段统一显示为该值 */
+const MASKED_CONFIG_VALUE = '***'
+/** 命中即掩码的键名(SMTP 口令 / 短信 API Key / Webhook secret 等) */
+const SENSITIVE_CONFIG_KEY = /(password|pass|secret|token|api[_-]?key)/i
+
+function maskConfigValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(maskConfigValue)
+  if (value !== null && typeof value === 'object') {
+    return maskConfigObject(value as Record<string, unknown>)
+  }
+  return value
+}
+
+function maskConfigObject(config: Record<string, unknown>): Record<string, unknown> {
+  const masked: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(config)) {
+    if (SENSITIVE_CONFIG_KEY.test(key) && value !== null && value !== undefined) {
+      masked[key] = MASKED_CONFIG_VALUE
+    } else {
+      masked[key] = maskConfigValue(value)
+    }
+  }
+  return masked
+}
+
+function parseChannelConfig(config: unknown): Record<string, unknown> | null {
+  if (config === null || config === undefined) return null
+  if (typeof config === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(config)
+      return parsed !== null && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  return typeof config === 'object' ? (config as Record<string, unknown>) : null
+}
+
+/** 响应侧脱敏:保留键名,敏感值替换为 '***' */
+function maskChannelRow(row: Record<string, unknown>): Record<string, unknown> {
+  const config = parseChannelConfig(row.config)
+  if (!config) return row
+  return { ...row, config: maskConfigObject(config) }
+}
+
+/**
+ * 写入侧掩码语义:PUT 提交的 config 中值为 '***' 的键表示"保持原值不变"。
+ * 原配置里没有该键时丢掉落位符,绝不把 '***' 写进库。
+ */
+function mergeMaskedConfig(
+  next: Record<string, unknown>,
+  existing: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(next)) {
+    if (value === MASKED_CONFIG_VALUE) {
+      if (existing && key in existing) merged[key] = existing[key]
+      continue
+    }
+    merged[key] = value
+  }
+  return merged
+}
 
 // =============================================================================
 // Zod schemas
@@ -82,8 +153,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
   // -------------------------------------------------------------------------
   // GET /notifications/channels - 通知渠道列表
   // -------------------------------------------------------------------------
-  server.get('/notifications/channels', async (request, reply) => {
-    await authenticate(request)
+  server.get('/notifications/channels', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -114,7 +184,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
       const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
       return reply.send(
         success({
-          list: rows as Record<string, unknown>[],
+          list: (rows as Record<string, unknown>[]).map(maskChannelRow),
           total,
           page,
           pageSize,
@@ -129,8 +199,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
   // -------------------------------------------------------------------------
   // POST /notifications/channels - 新增渠道
   // -------------------------------------------------------------------------
-  server.post('/notifications/channels', async (request, reply) => {
-    await authenticate(request)
+  server.post('/notifications/channels', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const parsed = createChannelSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -144,7 +213,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
             RETURNING id, name, type, config, is_active, remark, created_at, updated_at`,
       )
       const row = (rows as Record<string, unknown>[])[0]
-      return reply.status(201).send(success(row))
+      return reply.status(201).send(success(row ? maskChannelRow(row) : row))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '创建通知渠道失败'))
@@ -154,8 +223,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
   // -------------------------------------------------------------------------
   // PUT /notifications/channels/:id - 修改渠道
   // -------------------------------------------------------------------------
-  server.put('/notifications/channels/:id', async (request, reply) => {
-    await authenticate(request)
+  server.put('/notifications/channels/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const paramParsed = idParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))
@@ -169,14 +237,26 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
     const sets: SQL[] = []
     if (body.name !== undefined) sets.push(sql`"name" = ${body.name}`)
     if (body.type !== undefined) sets.push(sql`"type" = ${body.type}`)
-    if (body.config !== undefined) sets.push(sql`"config" = ${JSON.stringify(body.config)}`)
     if (body.isActive !== undefined) sets.push(sql`"is_active" = ${body.isActive}`)
     if (body.remark !== undefined) sets.push(sql`"remark" = ${body.remark}`)
-    if (sets.length === 0) {
+    if (sets.length === 0 && body.config === undefined) {
       return reply.status(400).send(error(400, '无更新字段'))
     }
     sets.push(sql`"updated_at" = NOW()`)
     try {
+      if (body.config !== undefined) {
+        // 掩码更新语义:config 中值为 '***' 的键保持库中原值不变
+        const existingRows = await db.execute(
+          sql`SELECT config FROM notification_channels WHERE id = ${id} LIMIT 1`,
+        )
+        const existingRow = (existingRows as Record<string, unknown>[])[0]
+        if (!existingRow) return reply.status(404).send(error(404, '通知渠道不存在'))
+        const mergedConfig = mergeMaskedConfig(
+          body.config,
+          parseChannelConfig(existingRow.config),
+        )
+        sets.push(sql`"config" = ${JSON.stringify(mergedConfig)}`)
+      }
       const rows = await db.execute(
         sql`UPDATE notification_channels
             SET ${sql.join(sets, sql`, `)}
@@ -185,7 +265,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '通知渠道不存在'))
-      return reply.send(success(row))
+      return reply.send(success(maskChannelRow(row)))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '更新通知渠道失败'))
@@ -195,8 +275,7 @@ export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => 
   // -------------------------------------------------------------------------
   // DELETE /notifications/channels/:id - 删除渠道
   // -------------------------------------------------------------------------
-  server.delete('/notifications/channels/:id', async (request, reply) => {
-    await authenticate(request)
+  server.delete('/notifications/channels/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))

@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     marginBottom: rnSpacing.sm,
   },
   typeBadge: {
-    fontSize: 10,
+    fontSize: rnType.badge.size,
     color: tokens.success.deepText,
     backgroundColor: tokens.success.light,
     paddingHorizontal: rnSpacing['xs-loose'],

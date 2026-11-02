@@ -27,8 +27,22 @@ import { auditLog } from '../audit.js'
 /** 是哪一道闸拒的(三态,判据 ①)。 */
 export type ToolDenialGate = 'permission-rule' | 'dangerous-gate' | 'lease-digest-drift'
 
-/** 是谁说的"不":静态规则 / 无确认出口(无头) / 真人当面拒绝。 */
-export type ToolDenialDecider = 'rule-deny' | 'no-confirmation-channel' | 'user-declined'
+/** 是谁说的"不":静态规则 / 无确认出口(无头) / 真人当面拒绝 / 本会话无审批人。 */
+export type ToolDenialDecider =
+  | 'rule-deny'
+  | 'no-confirmation-channel'
+  | 'user-declined'
+  /**
+   * 本会话**没有审批人**(无头执行 / 无人可问)。
+   *
+   * 与 `user-declined` 的区别是事实区别,不是措辞区别:前者"有人当场说了不",后者
+   * "根本没有人被问过"。混成一档会让审计流水写下"用户主动拒绝"这种假事实,把排障
+   * 直接带偏到"谁拒的"而不是"该补一个审批人 / 该走显式授权"。
+   * 与 `no-confirmation-channel` 的区别是接线层次:那一档是"宿主压根没接确认通道",
+   * 这一档是"接了通道也响过,但本会话结构上没有能应答的人"(当前唯一生产来源:
+   * runAgent 的危险闸门没有 prompt 通道,见 `ToolContext.approverAvailable`)。
+   */
+  | 'no-approver'
 
 /**
  * 本次调用参数的可公开摘要:结构指纹(`args-sha256-v1-<64hex>`,由共享层唯一出口产出的
@@ -96,9 +110,24 @@ const GUIDANCE_USER_DECLINED =
   'The user actively declined this call at the confirmation prompt. Only way out: adjust the request or ask again ' +
   'interactively; there is no non-interactive override.'
 
+/**
+ * `no-approver`:本会话没有审批人(无头执行) ⇒ 需确认的调用一律不执行。
+ *
+ * 这一句必须**明确否掉**"有人拒绝"的读法:排障见过的最贵一次误判就是把无头空转读成
+ * "用户拒了",于是去翻根本不存在的确认交互。
+ */
+const GUIDANCE_NO_APPROVER =
+  'This session has no approver (headless / nobody could be asked): every call that requires confirmation is ' +
+  'refused and NOT executed. Nobody rejected this call - do not read it as "the user said no". ' +
+  'Only ways out: (a) run in an interactive terminal where a confirmation prompt exists, or (b) pass explicit ' +
+  'authorization at launch (--allow-dangerous for the danger gate, --tools / --permission-lease for the rest). ' +
+  'There is no environment-variable bypass.'
+
 /** 出路文案的唯一映射(判据 ②)。每个 (gate, decider) 组合都点名至少一条真实出口。 */
 export function toolDenialGuidance(gate: ToolDenialGate, decider: ToolDenialDecider): string {
   if (decider === 'user-declined') return GUIDANCE_USER_DECLINED
+  // 无审批人先于闸种类:同一个闸在"有人可问"与"无人可问"两种会话里,出路完全不同。
+  if (decider === 'no-approver') return GUIDANCE_NO_APPROVER
   if (gate === 'permission-rule') return GUIDANCE_PERMISSION_RULE_DENY
   if (gate === 'lease-digest-drift') return GUIDANCE_LEASE_DRIFT
   return GUIDANCE_DANGEROUS_NO_CHANNEL
@@ -130,7 +159,7 @@ export function denialErrorSuffix(denial: ToolCallDenial): string {
 export const TOOL_DENIAL_AUDIT_EVENT = 'tool_call_denied'
 
 /**
- * 无头拒绝的审计出口:只记"没人能应答"的两态(rule-deny / no-confirmation-channel);
+ * 无头拒绝的审计出口:只记"没人能应答"的三态(rule-deny / no-confirmation-channel / no-approver);
  * user-declined 时人就在场、提示已完整展示,不再多落一行。记录含闸种类与工具名(判据 ③),
  * 参数面只有指纹与键名。
  */

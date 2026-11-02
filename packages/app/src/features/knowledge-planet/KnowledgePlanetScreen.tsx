@@ -16,7 +16,7 @@ import { Newspaper } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { KnowledgePlanetScreenProps } from '@ihui/types'
 export type { KnowledgePlanetScreenProps }
 
@@ -102,7 +102,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    title: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
     flex: { flex: 1 } as ViewStyle,
     list: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -134,9 +138,13 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
       justifyContent: 'space-between',
     } as ViewStyle,
-    itemTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary } as TextStyle,
-    itemSummary: { fontSize: 14, color: tk.text.secondary } as TextStyle,
-    itemDate: { fontSize: 11, color: tk.text.tertiary } as TextStyle,
+    itemTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
+    itemSummary: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
+    itemDate: { fontSize: rnType.caption.size, color: tk.text.tertiary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
