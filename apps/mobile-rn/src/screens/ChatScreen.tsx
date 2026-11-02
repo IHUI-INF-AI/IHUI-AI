@@ -472,6 +472,7 @@ export function ChatScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const { onNavigate, onToast } = useHostPorts()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, token: authToken } = useAuth()
@@ -902,7 +903,7 @@ export function ChatScreen() {
       appAlert(t('common.hint'), t('chat.vipOnlyModel'), [
         {
           text: t('chat.openVipBtn'),
-          onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }),
+          onPress: () => onNavigate('Vip', { type: 'IntroducePopup' }),
         },
         { text: t('common.cancel'), style: 'cancel' },
       ])
@@ -2245,7 +2246,7 @@ export function ChatScreen() {
           <View style={styles.tishiCardWrap}>
             <IntelligentAssistant
               tokenQuantity={tokenQuantity}
-              onRecharge={() => navigation.navigate('AppTopup')}
+              onRecharge={() => onNavigate('AppTopup')}
             />
           </View>
         ) : null}
@@ -2836,9 +2837,8 @@ export function ChatScreen() {
     // 对齐 Uniapp:Agent 选中后跳 AiAssistant 传 agentId 参数
     // (AiAssistant 路由 params 已更新为 { agentId?: string; title?: string })
     // 对齐 Uniapp ai_index.vue handleAgentPitch → /pages/tools/ai_assistant(智能体对话页)
-    navigation.navigate('AiAssistantN8n', { agentId: id })
+    onNavigate('AiAssistantN8n', { agentId: id })
   }
-
   // BottomActionBar 已切换到 prompt 模式(模型条 + 开关 + 输入 + 发送 + 辅助行 + 图标组)
   // bottomActions 旧 API 已移除,所有交互通过 prompt 模式 props 传入
 
@@ -2859,8 +2859,6 @@ export function ChatScreen() {
   const sharedMessages: ChatScreenMessageWithReasoning[] = messages
     .filter((m) => m.role !== 'system')
     .map(toChatScreenMessage)
-
-  const { onNavigate, onToast } = useHostPorts()
 
   return (
     <View style={styles.root}>
