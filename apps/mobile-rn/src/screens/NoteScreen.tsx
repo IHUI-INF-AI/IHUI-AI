@@ -136,6 +136,7 @@ export function NoteScreen() {
       onSave={handleSave}
       onDelete={handleDelete}
       onCloseModal={() => setModalVisible(false)}
+     onRetry={() => { void load(); }}
      colorScheme={resolvedTheme}/>
   )
 }

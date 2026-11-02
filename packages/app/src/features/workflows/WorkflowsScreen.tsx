@@ -64,7 +64,8 @@ export function WorkflowsScreen({
   error,
   onOpen,
   onRefresh,
-}: WorkflowsScreenProps) {
+  onRetry,
+}: WorkflowsScreenProps & { onRetry?: () => void }) {
   const styles = useMemo(() => createStyles(tk), [tk])
   /**
    * 状态四件套 / 入口卡是主题驱动组件(`colorScheme` 形参默认 'light')。本屏不另建主题来源:
@@ -82,7 +83,7 @@ export function WorkflowsScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('common.retry')}
         colorScheme={colorScheme}
       />

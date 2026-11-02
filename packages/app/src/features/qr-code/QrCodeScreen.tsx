@@ -21,8 +21,9 @@ export function QrCodeScreen({
   error,
   onShare,
   onBack,
-  colorScheme = 'light',
-}: QrCodeScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: QrCodeScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function QrCodeScreen({
           <Text style={styles.title}>{t('qrCode.title')}</Text>
         </View>
         {error ? (
-          <ErrorState message={error} colorScheme={colorScheme} />
+          <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
         ) : (
           <EmptyState title={t('common.empty')} colorScheme={colorScheme} />
         )}

@@ -28,8 +28,9 @@ export function NoteDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: NoteDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: NoteDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function NoteDetailScreen({
       <View style={styles.container}>
         <ErrorState
           message={error || t('noteDetail.loadFailed')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />

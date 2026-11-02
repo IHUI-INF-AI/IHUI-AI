@@ -59,8 +59,9 @@ export function LiveLecturerListScreen({
   onRefresh,
   onSelect,
   onBack,
-  colorScheme = 'light',
-}: LiveLecturerListScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LiveLecturerListScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -101,7 +102,7 @@ export function LiveLecturerListScreen({
       ) : showError ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
