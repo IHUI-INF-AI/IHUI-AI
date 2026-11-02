@@ -97,7 +97,7 @@ class TestWatermarkOnTheWire:
         assert all(w[1] == session and w[2] == PROCESS_LOG_EPOCH for w in wms)
         # 首帧 snapshot:fromSeq 恒 0、toSeq=1;其后 delta 连续推进
         assert wms[0][3] == 0 and wms[0][4] == 1
-        for prev, nxt in zip(wms, wms[1:], strict=False):
+        for prev, nxt in zip(wms, wms[1:]):
             assert nxt[3] == prev[4], f"{nxt[0]} 帧 fromSeq 不接续(消费侧会判 gap)"
             assert nxt[4] == prev[4] + 1
         # 主流内容帧与收尾计量帧都在水位序列内
@@ -143,8 +143,9 @@ class TestWatermarkOnTheWire:
 
 class TestSSEUnitInjection:
     def test_snapshot_then_delta_and_end_clears(self):
-        from app.core.sse_frames import begin_stream_watermark, end_stream_watermark
         from app.routers.llm import _sse
+
+        from app.core.sse_frames import begin_stream_watermark, end_stream_watermark
 
         begin_stream_watermark("s-unit")
         try:

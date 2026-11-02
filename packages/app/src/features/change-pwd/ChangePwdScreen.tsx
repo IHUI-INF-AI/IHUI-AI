@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14, gap: rnSpacing.md },
+    body: { padding: rnSpacing['md-loose'], gap: rnSpacing.md },
     field: { gap: rnSpacing['xs-loose'] },
     label: { fontSize: rnType.title.size, color: tk.text.secondary },
     inputBox: {

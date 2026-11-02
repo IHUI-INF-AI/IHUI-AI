@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(6),
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: rnType.badge.size,
     fontWeight: '600',
     color: tokens.brandAccent.foreground,
   },

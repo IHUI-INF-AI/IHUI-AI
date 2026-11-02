@@ -263,12 +263,16 @@ function createStyles(tk: AppThemeTokens) {
     },
     dot: { width: 8, height: 8, borderRadius: rnRadius.xs },
     rowLabel: { fontSize: rnType.caption.size, color: tk.text.primary },
-    topDetail: { flex: 1, fontSize: 10 },
+    topDetail: { flex: 1, fontSize: rnType.badge.size },
     num: { fontSize: rnType.caption.size, color: tk.text.primary, fontVariant: ['tabular-nums'] },
     dim: { color: tk.text.secondary },
-    note: { fontSize: 10, paddingLeft: 14, paddingVertical: rnSpacing['2xs'] },
+    note: {
+      fontSize: rnType.badge.size,
+      paddingLeft: rnSpacing['md-loose'],
+      paddingVertical: rnSpacing['2xs'],
+    },
     details: {
-      marginLeft: 14,
+      marginLeft: rnSpacing['md-loose'],
       marginBottom: rnSpacing.xs,
       padding: rnSpacing['xs-loose'],
       borderRadius: rnRadius.md,
@@ -280,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
       paddingVertical: 1,
     },
-    detailText: { flex: 1, fontSize: 10 },
+    detailText: { flex: 1, fontSize: rnType.badge.size },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

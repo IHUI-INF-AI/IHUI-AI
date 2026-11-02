@@ -242,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -304,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
     stateBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     // 按压卡片
     pressCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -1086,7 +1086,7 @@
     "useCount": "{n}人使用",
     "join": {
       "title": "加入群组",
-      "message": "已申请加入「{name}」"
+      "message": "已加入「{name}」"
     },
     "cardMembers": "成员",
     "detailEnter": "进入群聊",
@@ -4771,7 +4771,7 @@
     "taskRunning": "执行中…",
     "taskEmpty": "暂无任务，或尚未读取",
     "taskResult": "执行结果",
-    "taskUnjudged": "未判定：上游响应读不懂，本轮不能当作成功。"
+    "taskUnjudged": "上游响应读不懂，本轮未判定（不构成成功）"
   },
   "developerInfo": {
     "title": "开发者信息",

@@ -151,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     noUrlText: { fontSize: rnType.subtitle.size, color: tk.gray[400] },
     playerHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.gray[500] },
-    body: { flex: 1, backgroundColor: tk.surface.light, padding: 14 },
+    body: { flex: 1, backgroundColor: tk.surface.light, padding: rnSpacing['md-loose'] },
     progressTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     progressWrap: { marginTop: rnSpacing.sm },
     progressTrack: {

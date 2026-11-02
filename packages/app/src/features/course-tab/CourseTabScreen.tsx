@@ -379,7 +379,7 @@ function createStyles(tk: AppThemeTokens) {
 
     // 区块
     section: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
@@ -477,7 +477,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
     } as ViewStyle,
     vipBadgeText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       color: tk.brand.foreground,
     } as TextStyle,

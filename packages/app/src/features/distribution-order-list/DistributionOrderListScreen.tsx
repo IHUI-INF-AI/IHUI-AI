@@ -174,7 +174,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    searchWrap: { padding: 14, paddingBottom: rnSpacing.sm },
+    searchWrap: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing.sm },
     searchInputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     orderCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
     },
     orderHeader: {

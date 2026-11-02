@@ -519,8 +519,8 @@ const styles = StyleSheet.create({
     color: tokens.success.DEFAULT,
   } as TextStyle,
   purchaseOriginal: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: rnType.bodySm.size,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.tertiary,
     textDecorationLine: 'line-through',
   } as TextStyle,

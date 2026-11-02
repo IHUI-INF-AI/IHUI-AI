@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -11,7 +11,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing.lg, paddingTop: rnSpacing.sm, gap: rnSpacing['2xs'] },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     subtitle: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     body: { padding: rnSpacing.lg, gap: rnSpacing.md, paddingBottom: rnSpacing['4xl'] },
     card: {
@@ -19,7 +19,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.sm,
     },
     rowHead: {
@@ -28,11 +28,16 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: rnSpacing.sm,
     },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary, flexShrink: 1 },
+    cardTitle: {
+      fontSize: rnType.strong.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      flexShrink: 1,
+    },
     muted: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     badges: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     badge: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.md,
@@ -42,7 +47,12 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
     },
     badgeOn: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
     badgePending: { color: tk.warning.DEFAULT, backgroundColor: tk.warning.light },
-    summary: { fontSize: 14, fontWeight: '600', color: tk.text.primary, flexShrink: 1 },
+    summary: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      flexShrink: 1,
+    },
     linkBtn: { marginTop: rnSpacing.sm, alignItems: 'center', paddingVertical: rnSpacing.sm },
     linkText: { fontSize: 13, color: tk.brand.DEFAULT ?? tk.text.primary },
     actions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing['2xs'] },
@@ -55,7 +65,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    actionText: { fontSize: 12, color: tk.text.primary },
+    actionText: { fontSize: rnType.label.size, color: tk.text.primary },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -64,9 +74,9 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     chipOn: { backgroundColor: tk.brand.cta },
-    chipText: { fontSize: 12, color: tk.text.secondary },
+    chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipOnText: { color: tk.brand.ctaForeground },
-    label: { fontSize: 12, color: tk.text.secondary, marginTop: rnSpacing.xs },
+    label: { fontSize: rnType.label.size, color: tk.text.secondary, marginTop: rnSpacing.xs },
     tokenInput: { textAlignVertical: 'top', minHeight: 64 },
     submit: {
       marginTop: rnSpacing.sm,
@@ -76,7 +86,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     submitOff: { opacity: 0.5 },
-    submitText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

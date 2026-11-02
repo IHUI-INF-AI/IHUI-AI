@@ -461,7 +461,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     followBtn: {
-      paddingHorizontal: 14, // rpx(28)
+      paddingHorizontal: rnSpacing['md-loose'], // rpx(28)
       paddingVertical: rnSpacing['xs-loose'], // rpx(12)
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,

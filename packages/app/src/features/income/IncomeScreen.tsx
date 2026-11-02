@@ -269,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
     // 状态 Tab 栏(对齐 Uniapp tab-list)
     tabs: { paddingVertical: rnSpacing.sm, gap: rnSpacing.sm },
     tab: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,

@@ -8,7 +8,7 @@ import { ChevronLeft, Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseCommentScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -84,7 +84,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     error: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
@@ -105,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     empty: { paddingVertical: rnSpacing['4xl'], alignItems: 'center' },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -113,10 +113,14 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    user: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    rating: { fontSize: 12, color: tk.success.DEFAULT },
-    content: { marginTop: rnSpacing['xs-loose'], fontSize: 14, color: tk.text.medium },
-    meta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    user: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    rating: { fontSize: rnType.label.size, color: tk.success.DEFAULT },
+    content: {
+      marginTop: rnSpacing['xs-loose'],
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+    },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

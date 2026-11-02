@@ -515,8 +515,10 @@ def _get_workspace_roots() -> list[str]:
 # 移除即失效)。
 #
 # 进程级白名单 MCP_WORKSPACE_ROOTS 是启动期一次性设定;本节补**会话级覆盖层**:
-# 键 = 会话 ID(llm.py 主对话链 = conversationId,engine 链 = EngineThread.session_id),
-# 值 = 该会话追加的绝对目录元组。
+# 键 = (已验证主体, 会话 ID)(llm.py 主对话链 主体 = JWT 主体、会话 = conversationId;
+# engine 链 = thread.user_id / EngineThread.session_id),值 = 该会话追加的绝对目录元组。
+# 2026-11-01 安全强化(严重):键此前只有会话 ID,而 conversationId 是客户端自报的
+# metadata 字段 ⇒ 一次未鉴权的登记就能把任意目录挂到**别人**的同名会话上。
 #
 # 注入方式:call_tool 在派发 handler 前把当前会话的附加目录写进 ContextVar,
 # _validate_path_in_workspace 在进程级白名单之外兜底查它(handler 与其 await 链
@@ -539,8 +541,90 @@ _ACTIVE_SESSION_EXTRA_ROOTS: contextvars.ContextVar[tuple[str, ...]] = (
 )
 
 
-def _validate_extra_directory(path: str) -> tuple[bool, str]:
-    """附加目录准入校验:非空、绝对路径、真实存在且是目录、resolve 归一。"""
+# 2026-11-01 安全强化(严重):附加目录**必须是服务端已登记的根之内**。
+#
+# 原准入只判"绝对路径 + 存在 + 是目录"(见下方历史注释),于是 `POST /llm/conversations/
+# {id}/directories` 传 `{"paths":["/"]}` 就把该会话的工具根扩到整盘;`read_file` 用
+# `relative_to(root)` 判包含性 ⇒ `/proc/self/environ`、其他租户目录全部放行。
+# 而 conversation_id 在对话链里就是客户端自报的 metadata 字段 —— 可整写。
+#
+# 现在的判据是两层:
+#   ① 该目录必须落在**本服务的允许根**内(MCP_WORKSPACE_ROOTS ∪ IHUI_WORKSPACE_ROOTS
+#      ∪ 该用户自己的 workspace 目录,见 `_extra_directory_allowed_roots`);
+#   ② 系统根/伪文件系统(/、C:\、/proc、/etc、/sys …)即使被配成白名单也一律拒 ——
+#      "整盘"不是工作区,把根配进来只会把 ① 变成恒真。
+# 符号链接先 `resolve(strict=False)` 再判:判定对象是链接的目标,不是链接自身。
+_SYSTEM_ROOT_SEGMENTS: Final[frozenset[str]] = frozenset(
+    {"proc", "sys", "dev", "etc", "boot", "bin", "sbin", "lib", "lib32", "lib64", "usr"}
+)
+_WINDOWS_SYSTEM_ROOTS: Final[tuple[str, ...]] = (
+    "c:\\windows",
+    "c:\\program files",
+    "c:\\program files (x86)",
+    "c:\\programdata",
+)
+
+
+def _is_system_root(resolved: Path) -> bool:
+    """路径本身是文件系统根 / 系统目录 / 伪文件系统(逐段判,故 /proc/self 也算)。"""
+    if resolved.parent == resolved:  # 文件系统根("/"、C:\ 与 UNC 根)
+        return True
+    text = str(resolved).replace("/", "\\").casefold()
+    if any(text == root or text.startswith(root + "\\") for root in _WINDOWS_SYSTEM_ROOTS):
+        return True
+    parts = [p.casefold() for p in resolved.parts[1:]]
+    return bool(parts) and parts[0] in _SYSTEM_ROOT_SEGMENTS
+
+
+def _extra_directory_allowed_roots(user_id: str | None) -> list[str]:
+    """附加目录的允许根集合(服务端登记值,客户端不可整写)。
+
+    三源合并:
+      · ``MCP_WORKSPACE_ROOTS`` —— 工具侧既有的白名单根(空值按既有契约回落 cwd,
+        与 ``_get_workspace_roots`` 同源,不另造一份解析);
+      · ``IHUI_WORKSPACE_ROOTS`` —— 工作区登记根(``services/workspace_roots.py`` 的
+        唯一出口,LSP/knowledge 面同吃这一份);
+      · 该用户自己的 workspace 目录 —— 仅在部署显式配置
+        ``IHUI_USER_WORKSPACE_ROOT`` 时参与(未配置即不参与,不凭空造一个目录出来)。
+    去重保序;判定用 resolve(strict=False) 归一后的字符串。
+    """
+    roots: list[str] = []
+
+    def _add(candidate: str) -> None:
+        if not candidate:
+            return
+        normalized = str(Path(candidate).resolve(strict=False))
+        if normalized not in roots:
+            roots.append(normalized)
+
+    for root in _get_workspace_roots():
+        _add(root)
+    try:
+        from .workspace_roots import registered_workspace_roots
+
+        for root in registered_workspace_roots():
+            _add(root)
+    except Exception:  # noqa: BLE001 - 登记根读不出来时按"只剩 MCP 根"降级(更严,不是更松)
+        logger.warning("[mcp] 读取 IHUI_WORKSPACE_ROOTS 失败,附加目录仅按 MCP 根判定")
+    if user_id:
+        base = (os.environ.get("IHUI_USER_WORKSPACE_ROOT", "") or "").strip()
+        safe_user = "".join(c for c in str(user_id) if c.isalnum() or c in "-_")[:64]
+        if base and safe_user:
+            _add(str(Path(base).resolve(strict=False) / safe_user))
+    return roots
+
+
+def _validate_extra_directory(
+    path: str,
+    *,
+    allowed_roots: list[str] | tuple[str, ...] | None = None,
+    user_id: str | None = None,
+) -> tuple[bool, str]:
+    """附加目录准入校验:非空、绝对路径、真实存在且是目录、**落在允许根内**、resolve 归一。
+
+    ``allowed_roots`` 缺省 ⇒ 由 ``user_id`` 推导(``_extra_directory_allowed_roots``)。
+    显式传值时按传入集合判(内部调用点/测试自备)。
+    """
     if not path or not path.strip():
         return False, "附加目录路径为空"
     p = Path(path)
@@ -551,24 +635,60 @@ def _validate_extra_directory(path: str) -> tuple[bool, str]:
         return False, f"附加目录不存在: {path}"
     if not resolved.is_dir():
         return False, f"附加目录不是目录: {path}"
-    return True, str(resolved)
+    if _is_system_root(resolved):
+        return False, f"附加目录是系统根/伪文件系统,禁止登记: {path}"
+    roots = (
+        [str(Path(r).resolve(strict=False)) for r in allowed_roots]
+        if allowed_roots is not None
+        else _extra_directory_allowed_roots(user_id)
+    )
+    for root in roots:
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        return True, str(resolved)
+    return False, (
+        f"附加目录不在允许根内: {path}"
+        "(仅允许 MCP_WORKSPACE_ROOTS / IHUI_WORKSPACE_ROOTS / 本人 workspace 目录之内)"
+    )
 
 
-def set_session_extra_roots(session_id: str, dirs: list[str]) -> tuple[str, ...]:
-    """**整表替换**某会话的附加目录集(空列表 = 清空)。返回生效集(resolve 归一后)。
+def _session_extra_root_key(user_id: str | None, session_id: str) -> str:
+    """登记表键 = ``(主体, 会话)`` 的复合串(``\\x00`` 分隔,两段都不可含它)。
+
+    2026-11-01 安全强化(严重):键此前只有 session_id,而 session_id
+    (= conversationId)是客户端可整写的 metadata 字段 ⇒ A 用户给会话 X 登记的目录,
+    B 用户跑会话 X 时同样生效("谁先说谁定根")。主体取承载层已验签的 user_id
+    (HTTP 链 = JWT 主体,engine 链 = thread.user_id);空主体归到独立的 unowned
+    命名空间 —— 只由内部链路使用,HTTP 侧永远带主体。
+    """
+    owner = (user_id or "").strip().replace("\x00", "")
+    session = (session_id or "").strip().replace("\x00", "")
+    return f"{owner}\x00{session}"
+
+
+def set_session_extra_roots(
+    session_id: str,
+    dirs: list[str],
+    *,
+    user_id: str | None = None,
+    allowed_roots: list[str] | tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    """**整表替换**某 (主体, 会话) 的附加目录集(空列表 = 清空)。返回生效集。
 
     逐个过准入校验,任一非法整表拒绝(ValueError)—— 不做"合法的留下、非法的丢弃"
     的部分生效(那会把"少追加了"伪装成成功)。移除语义 = 用不含该目录的新表替换。
     """
     resolved: list[str] = []
     for d in dirs:
-        ok, info = _validate_extra_directory(d)
+        ok, info = _validate_extra_directory(d, allowed_roots=allowed_roots, user_id=user_id)
         if not ok:
             raise ValueError(f"附加目录准入被拒: {info}")
         if info not in resolved:
             resolved.append(info)
-    key = (session_id or "").strip()
-    if not key:
+    key = _session_extra_root_key(user_id, session_id)
+    if not (session_id or "").strip():
         raise ValueError("session_id 为空,无法登记附加目录")
     if resolved:
         _SESSION_EXTRA_ROOTS.set(key, tuple(resolved))
@@ -577,14 +697,22 @@ def set_session_extra_roots(session_id: str, dirs: list[str]) -> tuple[str, ...]
     return tuple(resolved)
 
 
-def clear_session_extra_roots(session_id: str) -> None:
-    """移除会话的全部附加目录(移除即失效,不留残根)。"""
-    _SESSION_EXTRA_ROOTS.pop((session_id or "").strip(), None)
+def clear_session_extra_roots(session_id: str, *, user_id: str | None = None) -> None:
+    """移除某 (主体, 会话) 的全部附加目录(移除即失效,不留残根)。"""
+    _SESSION_EXTRA_ROOTS.pop(_session_extra_root_key(user_id, session_id), None)
 
 
-def get_session_extra_roots(session_id: str | None) -> tuple[str, ...]:
-    """读某会话的附加目录集(未登记或已过期返回空元组 ⇒ 扩权不会跨会话永生)。"""
-    return _SESSION_EXTRA_ROOTS.get((session_id or "").strip(), ()) or ()
+def get_session_extra_roots(
+    session_id: str | None, *, user_id: str | None = None
+) -> tuple[str, ...]:
+    """读某 (主体, 会话) 的附加目录集(未登记/已过期/主体不符 ⇒ 空元组)。
+
+    deny-by-default:主体没给或与登记时的主体不一致,一律读不到 —— 扩权不跨用户、
+    不跨会话、不永生。
+    """
+    if not (session_id or "").strip():
+        return ()
+    return _SESSION_EXTRA_ROOTS.get(_session_extra_root_key(user_id, session_id), ()) or ()
 
 
 def _active_extra_roots() -> tuple[str, ...]:
@@ -784,7 +912,21 @@ def _validate_write_path_in_workspace(
 
 
 # 2026-07-24 安全加固:敏感文件读取黑名单(防 MCP read_file 泄露凭证)
-# 匹配文件名(basename)或路径片段,命中即拒绝读取。
+# 2026-11-01 安全强化(严重):黑名单从"按扩展名/文件名"升级为"**目录级** + 形态补全"。
+#
+# 漏的是什么:此前只按 basename 判,而真实落盘的密钥/库根本不带那些后缀 ——
+# `data/credentials_key`、`data/checkin_fernet_key`(无扩展名)、`data/sessions.db`
+# (`.db` 不在表里)、`.uploads/publish/<他人>/*`(只有图片后缀)全部不命中。
+# `read_file` 又不在 `_ADMIN_ONLY_TOOLS` 里 ⇒ 任意登录用户
+# `POST /api/mcp/tools/call {"name":"read_file","arguments":{"path":"data/sessions.db"}}`
+# 即可整库拉走(会话令牌、凭据密文)。
+#
+# 判据分两层,顺序固定:
+#   ① 目录级:相对**命中根**的第一段命中 `_SENSITIVE_DIR_SEGMENTS` 即拒。
+#      先 resolve(strict=False) 再判 ⇒ `a/../data/x`、symlink 指进 data/ 同样命中;
+#      按"相对根的第一段"而不是"路径里任一段",是因为工作区里另有一层同名目录
+#      (如 `src/data/fixture.json`)不该被整目录封死。
+#   ② 文件级:basename 形态(`_SENSITIVE_FILE_PATTERNS` / `_SENSITIVE_FILE_EXTENSIONS`)。
 _SENSITIVE_FILE_PATTERNS = (
     ".env",                # .env / .env.production / .env.local
     ".npmrc",              # npm token
@@ -798,22 +940,47 @@ _SENSITIVE_FILE_EXTENSIONS = (
     ".key", ".pem", ".crt", ".pfx", ".p12",  # 私钥/证书
     ".keystore", ".jks",  # Java 密钥库
     ".kdbx",  # KeePass 数据库
+    ".db", ".sqlite", ".sqlite3",  # 会话库/凭据库(2026-11-01 补:data/sessions.db 曾全放行)
+)
+# 目录级 denylist:相对根的第一段命中即整目录拒(不猜文件名,新文件天然覆盖)
+_SENSITIVE_DIR_SEGMENTS: Final[frozenset[str]] = frozenset(
+    {"data", ".uploads", "logs", ".ihui-agent", ".git"}
 )
 
 
-def _is_sensitive_file(path: str) -> bool:
-    """检查路径是否为敏感文件(可能含 API key/私钥/凭证)。
+def _is_sensitive_file(path: str, *, roots: list[str] | tuple[str, ...] | None = None) -> bool:
+    """检查路径是否为敏感文件/敏感目录内文件(可能含 API key/私钥/凭证/会话库)。
 
-    匹配规则:
-      1. 文件名 basename 命中 _SENSITIVE_FILE_PATTERNS(含前缀匹配,如 .env.production)
-      2. 扩展名命中 _SENSITIVE_FILE_EXTENSIONS
+    判定对象是**已 resolve 的路径**(调用方 `_validate_path_in_workspace` 已归一);
+    ``roots`` 缺省 = 进程白名单根 ⊕ 当前会话附加根(与实际可读面同源)。
+
+    Returns:
+        True = 拒绝读取。
     """
-    import os
-    basename = os.path.basename(path).lower()
-    # 精确匹配 + 前缀匹配(如 .env 匹配 .env / .env.local / .env.production)
+    resolved = Path(path)
+    candidate_roots = list(
+        roots if roots is not None else (_get_workspace_roots() + list(_active_extra_roots()))
+    )
+    for root in candidate_roots:
+        try:
+            relative = resolved.relative_to(Path(root).resolve(strict=False))
+        except (ValueError, OSError):
+            continue
+        if relative.parts and relative.parts[0].casefold() in _SENSITIVE_DIR_SEGMENTS:
+            return True
+
+    basename = resolved.name.casefold()
+    # 精确匹配 + 前缀匹配(如 .env 匹配 .env / .env.local / .env.production / .envrc)
     for pat in _SENSITIVE_FILE_PATTERNS:
         if basename == pat or basename.startswith(pat + ".") or basename.startswith(pat + "_"):
             return True
+        if pat == ".env" and basename.startswith(".env"):
+            return True  # `.env*` 全族(.envrc / .env.bak / .env_prod)
+        if pat.startswith("id_") and basename.startswith(pat):
+            return True  # id_rsa.pub / id_rsa_backup / id_rsa2 同族
+    # 无扩展名密钥:`credentials_key` / `checkin_fernet_key` / `signing_key`
+    if basename.endswith("_key"):
+        return True
     # 扩展名匹配
     return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
 
@@ -13858,8 +14025,10 @@ class MCPServer:
             # D201:会话级附加目录注入 —— handler 与其 await 链同处一个 asyncio task,
             # ContextVar 对整个 handler 执行期生效;finally 复位防异常路径泄漏到复用
             # 该 task 的后续协程(漏复位 = A 会话的附加根污染 B 会话的校验)。
+            # 2026-11-01:键含已验证主体 —— 只取本次调用主体的登记,不取"会话 id 相同
+            # 的任意用户登记"(conversationId 是客户端自报字段)。
             _extra_roots_token = _ACTIVE_SESSION_EXTRA_ROOTS.set(
-                get_session_extra_roots(session_id)
+                get_session_extra_roots(session_id, user_id=user_id)
             )
             # 2026-10-21(五开关按用户生效):把**承载层已验证的主体**发布进安全档位
             # 作用域,handler 及其 await 链同处一个 asyncio task ⇒ `_tool_run_command`

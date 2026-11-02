@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: LIST_PADDING,
-    paddingVertical: 10,
+    paddingVertical: rnSpacing['sm-loose'],
   } as ViewStyle,
   headerLeft: {
     flexDirection: 'row',
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rnSpacing.sm,
-    marginTop: 6,
+    marginTop: rnSpacing['xs-loose'],
   } as ViewStyle,
   authorBadge: {
     backgroundColor: tokens.surface.muted,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   summary: {
-    marginTop: 6,
+    marginTop: rnSpacing['xs-loose'],
     fontSize: SUMMARY_FONT_SIZE,
     lineHeight: SUMMARY_FONT_SIZE + 6,
     color: tokens.text.secondary,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   socialLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: rnSpacing['sm-loose'],
   } as ViewStyle,
   socialRight: {
     flexDirection: 'row',
