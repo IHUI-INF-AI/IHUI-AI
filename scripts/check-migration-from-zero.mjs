@@ -75,7 +75,7 @@ const FRESH_DB_GUARD_TIMEOUT_MS = 120_000
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
 /**
- * 运行期自管表(2026-09-21 owner 定夺,表级豁免仅此清单,新增必须同行注明原因):
+ * 运行期自管表(2026-09-21 owner 定夺,表级豁免仅此清单,新增必须逐条注明原因):
  * rag_chunks 由迁移 20260919090000 的条件 DO 块(仅当库内已有 pgvector 扩展才执行)与
  * ai-service pgvector_store.py 的运行期 CREATE TABLE IF NOT EXISTS 共同管理,列型为
  * **无界 vector**(≠ knowledge-rag.ts 的 vector1536),刻意不进 drizzle schema——
@@ -83,8 +83,22 @@ const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
  * 在无 pgvector 的部署环境从"静默跳过"变成硬失败。与 KNOWN_SCHEMA_HOLES 的
  * "多表一律不豁免"不变式不冲突:那条不变式保护的是 **drizzle 托管表**不被 schema 遗忘,
  * 本表从未被 drizzle 托管;若未来该表收回 drizzle 管理,必须先从此清单删除。
+ *
+ * 2026-11-02 增补(归属回填迁移 20261102180000_ownership_backfill_before_tighten,本席自己引入):
+ * - ownership_backfill_state:该迁移建的运行期标记表。apps/api/src/db/agent-queries.ts 的
+ *   isAgentTaskBackfillApplied() 直接以裸 SQL 读 scope 标记,决定是否把仍为 NULL 的历史行收紧
+ *   为 orphan;它不是 ORM 实体,进 drizzle schema 只会让下一次 generate 与手写迁移的
+ *   "先回填、后收紧"幂等语义打架 ⇒ 按运行期自管登记。
+ * - "_ownership_backfill_20261102_agent_tasks":同一迁移建的一次性回填备份/审计表,
+ *   只服务于回填核对与回滚窗口(迁移头写明回滚 SQL,并注明"确认无需回滚后手工 DROP TABLE"),
+ *   运行期不读写 ⇒ 同样不进 drizzle schema。生命周期:保留至回滚窗口关闭;手工 DROP 后
+ *   必须同步删除本条(不养僵尸豁免)。
  */
-const RUNTIME_MANAGED_TABLES = new Set(['rag_chunks'])
+const RUNTIME_MANAGED_TABLES = new Set([
+  'rag_chunks',
+  'ownership_backfill_state',
+  '_ownership_backfill_20261102_agent_tasks',
+])
 /**
  * 已定性并挂起的既有漂移(2026-09-21 首跑实测):这些列由手写迁移创建、drizzle schema 未声明。
  * 与 0110 洞同族("迁移链 ≠ schema"),但补 schema 声明 / 补迁移属业务侧决策,不属本门职责,
