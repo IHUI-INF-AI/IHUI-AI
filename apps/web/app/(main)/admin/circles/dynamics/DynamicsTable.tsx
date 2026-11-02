@@ -109,9 +109,9 @@ export function DynamicsTable({
               return (
                 <TableRow key={item.id} className="hover:bg-muted/30">
                   <TableCell className="max-w-xs px-4 py-2.5">
-                    <div className="line-clamp-2 text-sm">{item.content}</div>
+                    <div className="line-clamp-2 text-body">{item.content}</div>
                     {item.images.length > 0 && (
-                      <div className="mt-1 text-xs text-muted-foreground">
+                      <div className="mt-1 text-label text-muted-foreground">
                         {t('imageCount', { count: item.images.length })}
                       </div>
                     )}
@@ -123,14 +123,14 @@ export function DynamicsTable({
                         name={item.author.nickname}
                         size="xs"
                       />
-                      <span className="text-sm">{item.author.nickname || '-'}</span>
+                      <span className="text-body">{item.author.nickname || '-'}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-sm text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-body text-muted-foreground">
                     {item.circle.name || '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 text-xs text-muted-foreground min-[768px]:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 text-label text-muted-foreground min-[768px]:grid-cols-2">
                       <span>
                         {t('view')} {item.viewCount}
                       </span>
@@ -156,7 +156,7 @@ export function DynamicsTable({
                       {t(STATUS_LABEL[item.status])}
                     </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">
+                  <TableCell className="whitespace-nowrap px-4 py-2.5 text-body text-muted-foreground">
                     {dateFormatter.format(new Date(item.createdAt))}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

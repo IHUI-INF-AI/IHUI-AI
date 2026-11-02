@@ -258,7 +258,7 @@ export default function AdminLearnTopicCategoryPage() {
     <div className="space-y-4 px-4 py-4">
       <div>
         <h1 className="text-display font-bold tracking-tight">学习专题分类</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           管理学习专题下的分类,支持排序与状态切换
         </p>
       </div>
@@ -315,7 +315,7 @@ export default function AdminLearnTopicCategoryPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -326,7 +326,7 @@ export default function AdminLearnTopicCategoryPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             第 {page} / {totalPages} 页
           </span>
           <Button
@@ -353,7 +353,7 @@ export default function AdminLearnTopicCategoryPage() {
               <DialogTitle>{editing ? '编辑分类' : '新建分类'}</DialogTitle>
             </DialogHeader>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}
@@ -385,7 +385,7 @@ export default function AdminLearnTopicCategoryPage() {
                     checked={form.status}
                     onCheckedChange={(v) => setForm({ ...form, status: v })}
                   />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {form.status ? '启用' : '禁用'}
                   </span>
                 </div>

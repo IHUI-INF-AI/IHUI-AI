@@ -92,7 +92,7 @@ export default function InsightsPage() {
               </span>
             )}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             基于实测数据自动诊断:错误突增、成本异常、容量预警、慢调用与免费敞口。
           </p>
         </div>
@@ -107,7 +107,7 @@ export default function InsightsPage() {
           {(['critical', 'warning', 'info'] as const).map((s) => (
             <div key={s} className="rounded-lg border bg-card p-3 text-center">
               <p className="text-display font-medium tabular-nums">{summary[s]}</p>
-              <p className={cn('mt-1 rounded-md px-2 py-0.5 text-xs', SEV_STYLE[s].badge)}>
+              <p className={cn('mt-1 rounded-md px-2 py-0.5 text-label', SEV_STYLE[s].badge)}>
                 {SEV_STYLE[s].label}
               </p>
             </div>
@@ -116,7 +116,7 @@ export default function InsightsPage() {
       )}
 
       {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           {(error as Error).message}
         </p>
       )}
@@ -127,7 +127,7 @@ export default function InsightsPage() {
           分析中...
         </div>
       ) : insights.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
+        <p className="py-12 text-center text-body text-muted-foreground">
           一切正常:未检测到错误突增、成本异常或容量风险。
         </p>
       ) : (
@@ -146,8 +146,8 @@ export default function InsightsPage() {
                   </span>
                   <p className="text-body font-medium">{i.title}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{i.detail}</p>
-                <p className="text-xs">
+                <p className="text-label text-muted-foreground">{i.detail}</p>
+                <p className="text-label">
                   <span className="font-medium">建议:</span>
                   <span className="text-muted-foreground">{i.suggestion}</span>
                 </p>

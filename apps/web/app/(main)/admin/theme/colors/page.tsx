@@ -81,7 +81,7 @@ export default function ColorsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">颜色方案</h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理可复用的颜色方案</p>
+          <p className="mt-1 text-body text-muted-foreground">管理可复用的颜色方案</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -124,7 +124,7 @@ export default function ColorsPage() {
           <CardContent className="min-[640px]:p-3 p-3">
             <form onSubmit={save} className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">方案名称</Label>
+                <Label className="text-label">方案名称</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -132,7 +132,7 @@ export default function ColorsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">色板</Label>
+                <Label className="text-label">色板</Label>
                 <div className="flex flex-wrap gap-2">
                   {form.colors.map((color, i) => (
                     <div key={i} className="flex items-center gap-1">

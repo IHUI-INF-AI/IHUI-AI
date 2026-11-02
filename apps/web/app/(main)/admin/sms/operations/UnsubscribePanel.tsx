@@ -131,7 +131,7 @@ export function UnsubscribePanel() {
       <Card>
         <CardContent className="space-y-3 pt-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {t('unsub.listSummary', { total, page, totalPages })}
             </span>
             <Button variant="outline" size="sm" className="ml-auto" onClick={() => void refetch()}>
@@ -141,8 +141,8 @@ export function UnsubscribePanel() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">{t('field.number')}</th>
                   <th className="px-3 py-2 font-medium">{t('field.source')}</th>

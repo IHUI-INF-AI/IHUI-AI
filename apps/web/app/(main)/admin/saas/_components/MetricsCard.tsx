@@ -51,7 +51,7 @@ export function MetricsCard({ slug }: MetricsCardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-rose-600 dark:text-rose-500">
+          <p className="text-label text-rose-600 dark:text-rose-500">
             {error?.message ?? t('unavailable')}
           </p>
         </CardContent>
@@ -82,7 +82,7 @@ export function MetricsCard({ slug }: MetricsCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-body">
           <MetricRow
             icon={<Cpu className="h-4 w-4 text-primary" />}
             label={t('cpu')}
@@ -124,7 +124,7 @@ function MetricRow({
 }) {
   return (
     <div>
-      <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <dt className="flex items-center gap-1.5 text-label text-muted-foreground">
         {icon}
         <span>{label}</span>
       </dt>

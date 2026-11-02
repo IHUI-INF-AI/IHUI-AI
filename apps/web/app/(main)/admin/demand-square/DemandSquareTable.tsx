@@ -87,13 +87,13 @@ export function DemandSquareTable({
             list.map((r) => (
               <TableRow key={r.id} className="transition-colors hover:bg-muted/30">
                 <TableCell
-                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                   title={r.agentId ?? ''}
                 >
                   {r.agentId ? r.agentId.slice(0, 8) : '-'}
                 </TableCell>
                 <TableCell
-                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
+                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label text-muted-foreground"
                   title={r.userId ?? ''}
                 >
                   {r.userId ? r.userId.slice(0, 8) : '-'}
@@ -111,7 +111,7 @@ export function DemandSquareTable({
                 <TableCell className="px-4 py-2.5 text-muted-foreground">
                   <span className="break-words">{r.reason || '-'}</span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {dateFmt.format(new Date(r.createdAt))}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
@@ -147,7 +147,7 @@ export function DemandSquareTable({
                       </HasPermi>
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
+                    <span className="text-label text-muted-foreground">-</span>
                   )}
                 </TableCell>
               </TableRow>
