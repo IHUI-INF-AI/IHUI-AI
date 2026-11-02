@@ -51,6 +51,7 @@ export function ArticleListScreen() {
       loadingMore={loadingMore}
       onPressItem={(item) => navigation.navigate('ArticleDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void refresh(); }}
       colorScheme={resolvedTheme}
       onToast={onToast}
     />

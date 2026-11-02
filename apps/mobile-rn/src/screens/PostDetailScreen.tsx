@@ -28,6 +28,7 @@ export function PostDetailScreen() {
   const [error, setError] = useState('')
 
   const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((k) => k + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -77,6 +78,7 @@ export function PostDetailScreen() {
       item={post}
       loading={loading}
       error={error}
+      onRetry={reload}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}

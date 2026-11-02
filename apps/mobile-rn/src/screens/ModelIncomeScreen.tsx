@@ -141,6 +141,7 @@ export default function ModelIncomeScreen() {
       hasMore={hasMore}
       onLoadMore={loadMore}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )
