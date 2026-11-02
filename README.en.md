@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ce45e49f3f)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
 
 **2026-11-03**
@@ -191,11 +194,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-03**
 - 🚀 Feature/Improvement:app_versions 加 store 维度,多渠道各自一条 latest 才表达得出来 (33f26c2d18)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8581b5c75f)
-- 🔧 Chore/Other:补门 47 水源印：agent-chat-stream.ts（远端 SSE 消费出口带入 HEAD 时缺溯源水印） (5cb5e2fe35)
-- 🔧 Chore/Other:合并前置：与 d16d78d008 兜底清扫冲突，按真实缺陷保留 Y-14（安卓 latest 行缺失导致更新卡无下载地址） (46197828d3)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
