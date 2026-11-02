@@ -7,7 +7,7 @@
 /**
  * check-web-rn-gap-ratchet.mjs — web↔RN 覆盖缺口棘轮(P0-2)
  *
- * 立因(2026-11-03):门 275 `check-web-rn-screen-parity.mjs` 是只读对账尺,读数里
+ * 立因(2026-11-03):`check-web-rn-screen-parity.mjs` 是只读对账尺,读数里
  * `unmapped` / `judgedGap` / `prefixHits` / `prefixExpired` 都没有进提交链;
  * 后来者只要把一条 web 路由从台账里删掉、或新增一条段级豁免,尺子照报 0,没有任何棘轮拦。
  * 本脚本把既有读数包成判据,**不重算第二份口径**(§0.6):
@@ -212,7 +212,9 @@ function collectReadings(face = FACE) {
 }
 
 function report(face, readings, verdict, baseline) {
-  console.log('\n📏 web↔RN 缺口棘轮(复用门 275 的 evaluateMap;只读判据,不重算口径)')
+  console.log(
+    '\n📏 web↔RN 缺口棘轮(复用 check-web-rn-screen-parity 的 evaluateMap;只读判据,不重算口径)',
+  )
   console.log('─'.repeat(72))
   console.log(`判定面        : ${face}`)
   console.log(`unmapped      : ${readings.unmapped} (要求 0)`)
