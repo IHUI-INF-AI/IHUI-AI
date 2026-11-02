@@ -67,7 +67,16 @@ export function performHostNavigate(
   }
 
   const tab = options?.tab === true
-  nav.navigate(target, params, tab ? { tab: true } : undefined)
+  if (tab) {
+    // tab 语义只能靠第三参表达,params 缺省时也必须占位
+    nav.navigate(target, params, { tab: true })
+  } else if (params === undefined) {
+    // params 缺省时不补空占位:navigate(target) 与 navigate(target, undefined) 对真实导航器等价,
+    // 但调用面保持"传几个实参就是几个",替身与埋点看到的形状才和意图一致
+    nav.navigate(target)
+  } else {
+    nav.navigate(target, params)
+  }
   return { status: 'navigated', mode: 'navigate', tab }
 }
 
