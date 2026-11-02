@@ -6791,6 +6791,27 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
+  {
+    id: '282',
+    label:
+      '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
+    script: 'check-web-rn-gap-ratchet.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-web-rn-gap-ratchet.mjs',
+      'scripts/data/web-rn-gap-baseline.json',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'packages/shared/src/constants/web-portal.ts',
+      'packages/app/',
+      'apps/web/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_GAP_RATCHET',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-web-rn-gap-ratchet.mjs [--json|--gate];基线只降不升:node scripts/check-web-rn-gap-ratchet.mjs --baseline',
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
