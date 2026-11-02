@@ -46,7 +46,7 @@
 
 /* ===== 表单体(对齐 RN body:padding 14 + gap 12) ===== */
 .fp-body {
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);

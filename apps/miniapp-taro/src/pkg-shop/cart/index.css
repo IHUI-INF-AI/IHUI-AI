@@ -49,7 +49,7 @@
 .btn {
   display: inline-block;
   margin-top: var(--spacing-md);
-  padding: 28rpx 80rpx;
+  padding: var(--spacing-md-loose) 80rpx;
   background: var(--color-card);
   color: var(--color-muted-foreground);
   text-align: center;
@@ -196,7 +196,7 @@
   gap: var(--spacing-xs);
 }
 .total-label {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .total-price {

@@ -21,7 +21,7 @@
 /* ===== Header:用户信息 + VIP 状态(对齐 RN membershipCard:深色会员卡) ===== */
 .member-header {
   margin: var(--spacing-lg); /* RN marginHorizontal/marginTop 16 → 32rpx */
-  padding: 28rpx; /* RN padding 14 → 28rpx */
+  padding: var(--spacing-md-loose); /* RN padding 14 → 28rpx */
   border-radius: var(--radius-xl);
   /* RN backgroundColor gray.800(#262626,明暗同值)→ --color-vip-card */
   background: var(--color-vip-card);
@@ -78,7 +78,7 @@
 /* ===== 通用卡片(对齐 RN levelsSection/card:页面同底色 + 2rpx 描边 + radius 16rpx) ===== */
 .member-card {
   margin: 0 20rpx 24rpx; /* RN levelsSection paddingH 10 → 20rpx;cardSpacing 12 → 24rpx */
-  padding: 28rpx; /* RN card padding 14 → 28rpx */
+  padding: var(--spacing-md-loose); /* RN card padding 14 → 28rpx */
   background: var(--color-background); /* RN card bg = tk.surface.bg */
   border: 2rpx solid var(--color-border); /* RN borderWidth 1 + tk.border.light */
   border-radius: var(--radius-lg);
@@ -227,7 +227,7 @@
 .member-vip-cta,
 .member-vip-section {
   margin: 0 20rpx 24rpx;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -326,7 +326,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 28rpx 32rpx;
+  padding: var(--spacing-md-loose) 32rpx;
   font-size: var(--text-body);
   color: var(--color-foreground);
 }
@@ -347,7 +347,7 @@
   margin-bottom: var(--spacing-xs);
 }
 .member-contact-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
@@ -355,7 +355,7 @@
 .member-loading {
   padding: var(--spacing-xl);
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
