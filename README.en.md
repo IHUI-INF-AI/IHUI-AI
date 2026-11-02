@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3f04652720)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bd75e36dab)
 
 **2026-11-03**
@@ -193,10 +196,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-02**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9065d9cba8)
-- 🚀 Feature/Improvement:补齐跨端自愈链的最后一节「落库」,写盘件从此有凭据可入库 (4bbb261050)
-- 🔧 Chore/Other:合并前置：还原被并发写坏的计划档并重登记确认行 (f958623743)
-
-**2026-11-02**
 - 🚀 Feature/Improvement:补齐跨端自愈链的最后一节「落库」,写盘件从此有凭据可入库 (4bbb261050)
 - 🔧 Chore/Other:合并前置：还原被并发写坏的计划档并重登记确认行 (f958623743)
 <!-- END RECENT UPDATES -->
