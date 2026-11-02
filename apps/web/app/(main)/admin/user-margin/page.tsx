@@ -156,7 +156,7 @@ export default function UserMarginPage() {
       />
 
       {total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-body">
           <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
             共 {total} 条 · {page}/{totalPages}
           </span>

@@ -43,7 +43,7 @@ export function VersionDiffDialog({
         {/* 2026-09-16 根治:删除自定义关闭按钮,DialogContent 内置 Close 已统一
             视觉(h-7 w-7 @ right-3 top-3),此前自定义导致 DOM 中出现两个关闭按钮 */}
 
-        <div className="flex items-center gap-4 pb-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 pb-3 text-label text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-400/70" />
             <span>旧版: {oldVersion.version}</span>
@@ -54,7 +54,7 @@ export function VersionDiffDialog({
           </div>
         </div>
 
-        <div className="max-h-96 overflow-auto rounded-md border text-xs font-mono">
+        <div className="max-h-96 overflow-auto rounded-md border text-label font-mono">
           {diffLines.length === 0 && (
             <div className="p-3 text-center text-muted-foreground">两个版本内容相同</div>
           )}

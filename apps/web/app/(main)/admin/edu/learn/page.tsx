@@ -136,7 +136,7 @@ export default function EduLearnPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-5">
@@ -146,7 +146,7 @@ export default function EduLearnPage() {
             <Link
               key={s.href}
               href={s.href}
-              className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-accent"
+              className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-body transition-colors hover:bg-accent"
             >
               <Icon className="h-4 w-4 text-primary" />
               <span>{t(s.label)}</span>
@@ -162,7 +162,7 @@ export default function EduLearnPage() {
               <BookOpen className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">{t('totalCourses')}</div>
+              <div className="text-body text-muted-foreground">{t('totalCourses')}</div>
               <div className="mt-1 text-display font-semibold">{total}</div>
             </div>
           </CardContent>
@@ -173,7 +173,7 @@ export default function EduLearnPage() {
               <FolderTree className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">{t('totalCategories')}</div>
+              <div className="text-body text-muted-foreground">{t('totalCategories')}</div>
               <div className="mt-1 text-display font-semibold">{categories.length}</div>
             </div>
           </CardContent>
@@ -184,7 +184,7 @@ export default function EduLearnPage() {
               <GraduationCap className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">{t('totalSignups')}</div>
+              <div className="text-body text-muted-foreground">{t('totalSignups')}</div>
               <div className="mt-1 text-display font-semibold">
                 {lessons.reduce((a, l) => a + l.signupCount, 0)}
               </div>
@@ -212,7 +212,7 @@ export default function EduLearnPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -223,7 +223,7 @@ export default function EduLearnPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

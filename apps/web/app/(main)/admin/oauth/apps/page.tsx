@@ -110,7 +110,7 @@ export default function AdminOAuthAppsPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             OAuth 应用管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理开放平台 OAuth 应用</p>
+          <p className="mt-1 text-body text-muted-foreground">管理开放平台 OAuth 应用</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />

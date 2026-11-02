@@ -82,8 +82,8 @@ export function UserCenterAssignDialog({ target, onClose }: Props) {
             <div className="py-10 text-center text-muted-foreground">暂无可分配用户</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+              <table className="w-full text-body">
+                <thead className="sticky top-0 z-10 bg-muted/50 text-left text-label uppercase text-muted-foreground">
                   <tr>
                     <th className={th}>用户名</th>
                     <th className={th}>昵称</th>

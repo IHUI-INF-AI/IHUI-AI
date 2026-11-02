@@ -62,33 +62,35 @@ export function CommentsDialog({ post, onClose }: Props) {
         </DialogHeader>
         <div className="max-h-[60vh] space-y-2 overflow-y-auto">
           {isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
+            <div className="py-10 text-center text-body text-muted-foreground">
               <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
               {t('loading')}
             </div>
           ) : list.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">{t('noComments')}</div>
+            <div className="py-10 text-center text-body text-muted-foreground">
+              {t('noComments')}
+            </div>
           ) : (
             list.map((c) => (
               <div key={c.id} className="rounded-md border p-3">
                 <div className="flex items-center gap-2">
                   <Avatar src={c.author.avatar ?? undefined} name={c.author.nickname} size="xs" />
                   <span className="text-body font-medium">{c.author.nickname || '-'}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {dateFormatter.format(new Date(c.createdAt))}
                   </span>
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="ml-auto text-label text-muted-foreground">
                     {t('like')} {c.likeCount}
                   </span>
                 </div>
-                <div className="mt-1.5 text-sm">{c.content}</div>
+                <div className="mt-1.5 text-body">{c.content}</div>
               </div>
             ))
           )}
         </div>
         {total > 0 && (
           <div className="flex items-center justify-between pt-2">
-            <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+            <span className="text-body text-muted-foreground">{t('total', { total })}</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -99,7 +101,7 @@ export function CommentsDialog({ post, onClose }: Props) {
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {t('pageOf', { page, totalPages })}
               </span>
               <Button

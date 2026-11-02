@@ -48,8 +48,8 @@ export function JobLogsTable({ list, isLoading, onDetail, onDelete }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('colJobLogId')}</th>
             <th className={th}>{t('colJobName')}</th>
@@ -84,14 +84,14 @@ export function JobLogsTable({ list, isLoading, onDetail, onDelete }: Props) {
                   <td className="px-4 py-2.5">{item.jobLogId ?? '-'}</td>
                   <td className="px-4 py-2.5 font-medium">{item.jobName ?? '-'}</td>
                   <td className="px-4 py-2.5">{item.jobGroup ?? '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {item.invokeTarget ?? '-'}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {item.jobMessage ?? '-'}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`inline-flex rounded-md px-2 py-0.5 text-xs ${BADGE[s]}`}>
+                    <span className={`inline-flex rounded-md px-2 py-0.5 text-label ${BADGE[s]}`}>
                       {s === 'success'
                         ? t('statusSuccess')
                         : s === 'fail'
@@ -99,7 +99,7 @@ export function JobLogsTable({ list, isLoading, onDetail, onDelete }: Props) {
                           : t('statusRunning')}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {fmt(item.createTime)}
                   </td>
                   <td className="px-4 py-2.5 space-x-2">

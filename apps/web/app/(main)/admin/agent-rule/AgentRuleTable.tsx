@@ -60,12 +60,12 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
           ) : (
             list.map((item) => (
               <TableRow key={item.id} className="hover:bg-muted/30">
-                <TableCell className="px-4 py-2.5 font-mono text-xs">
+                <TableCell className="px-4 py-2.5 font-mono text-label">
                   {item.agentId?.slice(0, 8) ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{item.ruleName}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label">
                     {item.ruleCode || '-'}
                   </code>
                 </TableCell>

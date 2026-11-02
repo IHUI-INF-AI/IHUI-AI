@@ -118,7 +118,7 @@ export default function DeveloperPage() {
             <Code2 className="h-6 w-6 text-primary" />
             {t('developer.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('developer.subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('developer.subtitle')}</p>
         </div>
         <HasPermi code="ai:developer:export">
           <Button variant="outline" size="sm" onClick={coze.handleCozeExport}>
