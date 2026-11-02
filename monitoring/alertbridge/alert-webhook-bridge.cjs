@@ -14,8 +14,11 @@
 //     唯一出口是 apps/api/scripts/notify-deploy-failure.ts,而不是在本文件里发信。
 //
 // 去重模型(2026-09-24 起): **只按身份去重,无任何总量封顶。**
-//   - 同一条告警(alertname + instance 指纹)在 BRIDGE_DEDUP_MIN 窗口(默认 240 分钟)内
+//   - 同一条告警(alertname + instance 指纹)在 BRIDGE_DEDUP_MIN 窗口(默认 230 分钟)内
 //     只寄一封;不同告警一律照寄。批次内多条告警合并成一封。
+//     窗口**必须严格小于** Alertmanager 的 repeat_interval(现役 4h):AM 的下一次 repeat 若落在
+//     窗口内会被桥侧压掉,只能等再下一次 repeat ⇒ 持续告警从 4h 沉默成 8h(2026-11-02 定)。
+//     230 = 240 - 10 分钟确定性余量;实测通知落账比桥侧收件晚 0.398~1.183s(3 组真实样本)。
 //   - 窗口从**上一次真正投递**起算:被抑制的重复推送只读旧时间戳、**不续期**窗口
 //     (2026-11-02 修)。此前每次推送都刷新时间戳 ⇒ 持续 firing 的告警窗口永远推不远,
 //     只在第一次响、之后永不再报(PostgresDown 实测被压住的正是这一格)。
@@ -58,7 +61,8 @@
 //
 // 配置(环境变量,均可省略):
 //   BRIDGE_PORT          监听端口(默认 9096)
-//   BRIDGE_DEDUP_MIN     同一告警(alertname+instance)去重窗口分钟数(默认 240=4h)
+//   BRIDGE_DEDUP_MIN     同一告警(alertname+instance)去重窗口分钟数(默认 230;
+//                        必须 < Alertmanager repeat_interval,否则重推会被误压成 8h)
 //   LOG_FILE             日志文件(默认 D:\DevEnv\logs\alert-webhook-bridge.log)
 //   STATE_FILE           去重状态文件(默认 D:\DevEnv\state\alert-bridge-state.json)
 //                        —— 未送达标记 UNDEL_FILE 落在其同目录,随其一起可重定向(沙箱用)
@@ -93,7 +97,12 @@ const logAnchor = require('./log-source-anchor.js')
 
 // ── 配置 ──────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.BRIDGE_PORT || '9096', 10)
-const DEDUP_WINDOW_MIN = parseInt(process.env.BRIDGE_DEDUP_MIN || '240', 10)
+// 去重窗口必须**严格小于** Alertmanager repeat_interval(现读仓库配置 4h)。同值 240 时,
+// AM 的重推只要比桥侧记录的投递时刻早哪怕几毫秒,就会落进窗口被压掉、只能等再下一次
+// repeat ⇒ 持续告警从"4h 重报"沉默成"8h 重报"。留 10 分钟余量(230)把这条边界变成
+// 结构性不可能;实测 AM 通知落账比桥侧收件晚 0.398~1.183s,余量远大于该差值。
+// 仍可由 BRIDGE_DEDUP_MIN 覆盖;覆盖值 ≥ AM repeat_interval 时自检 ⑪ 会红。
+const DEDUP_WINDOW_MIN = parseInt(process.env.BRIDGE_DEDUP_MIN || '230', 10)
 /**
  * 恢复后的最小间隔(分钟):距上次同身份投递不足这么久就恢复 ⇒ 判 flapping,**不摘去重档**
  * (2026-10-18 立,修"邮箱一直在报警")。
@@ -199,6 +208,14 @@ function formatAlert(alert) {
 // 每一次会改变去重状态的 webhook 都在**回响应之前**同步落盘(文件极小,代价可忽略)。
 const dedup = new Map() // key=`alertname|instance` -> lastDeliveredTs(最近一次**真正投递**时刻;被抑制的推送不写)
 const MAX_DEDUP_AGE_MS = DEDUP_WINDOW_MIN * 60 * 1000
+
+/** 解析 Alertmanager 配置里的 Go duration(4h/30m/45s)→ 毫秒;解析不了返回 null,
+ *  自检据此判红而不是悄悄兜一个默认值(两边同值这件事必须由配置本身来证)。 */
+function parseGoDurationMs(text) {
+  const m = /^\s*(\d+)(h|m|s)\s*$/.exec(String(text == null ? '' : text))
+  if (!m) return null
+  return Number(m[1]) * { h: 3600000, m: 60000, s: 1000 }[m[2]]
+}
 
 /** 去重判据(纯读,注入 store ⇒ 只有一个状态源,不造第二份;**判定本身绝不写状态**) */
 function decideDedup(store, key, nowMs, windowMs) {
@@ -1237,6 +1254,25 @@ async function runSelfTest() {
   const bridgeSrc = fs.readFileSync(__filename, 'utf8')
   eq('⑩g 接线锁:handleAlert 真造状态维并拼进既有行(清偿行 1 处 + 投递/跳过行 ≥4 处),不是只写了个函数', [bridgeSrc.includes('const statusDimOf = (queued) => statusDimension(alerts, queued, resolved.length)'), bridgeSrc.includes('${statusDimOf(paging.length)}'), (bridgeSrc.match(/\$\{statusDimOf\(toPush\.length\)\}/g) || []).length >= 4], [true, true, true])
   eq('⑩h 通道唯一:全文件只有一处写日志的落点(补维度不得开出第二套日志通道)', (bridgeSrc.match(/appendFileSync\(LOG_FILE/g) || []).length, 1)
+
+  // ⑪ 去重窗口余量锁(2026-11-02 二修)。边界:桥侧窗口与 AM repeat_interval 同值时,重推
+  //    只要落在窗口内就会被压掉、只能等下一次 repeat ⇒ 持续告警从 4h 沉默成 8h。
+  //    repeat_interval 一律**现读仓库配置**(单一真相,不硬编码),读不到/解析不了即红。
+  const AM_CFG_REL = 'monitoring/alertmanager/alertmanager.yml.tmpl'
+  const amCfg = readRepoFile(AM_CFG_REL)
+  const repeatRaw = (/^  repeat_interval:\s*([^\s#]+)/m.exec(amCfg) || [])[1]
+  const repeatMs = parseGoDurationMs(repeatRaw)
+  eq('⑪a AM repeat_interval 现读配置且解析得出(不硬编码两边)', [repeatRaw, repeatMs], ['4h', 4 * HOUR])
+  eq('⑪b 生产去重窗口严格小于 AM repeat_interval(余量由默认值结构上保证)', MAX_DEDUP_AGE_MS < repeatMs, true)
+  const marginStore = new Map()
+  const marginFirst = 1000
+  partitionAlerts(alerts, marginStore, marginFirst, MAX_DEDUP_AGE_MS)
+  eq('⑪c 窗口内(差 1 分钟到期)同身份仍判重(余量不得把去重改没)', partitionAlerts(alerts, marginStore, marginFirst + MAX_DEDUP_AGE_MS - 60000, MAX_DEDUP_AGE_MS).dedupedCount, 2)
+  eq('⑪d 窗口到期那一刻即放行', partitionAlerts(alerts, marginStore, marginFirst + MAX_DEDUP_AGE_MS, MAX_DEDUP_AGE_MS).toPush.length, 2)
+  const repeatStore = new Map()
+  partitionAlerts(alerts, repeatStore, marginFirst, MAX_DEDUP_AGE_MS)
+  eq('⑪e AM 按 repeat_interval 重推的第一封必然放行(不得被自家窗口压成 8h)', partitionAlerts(alerts, repeatStore, marginFirst + repeatMs, MAX_DEDUP_AGE_MS).toPush.length, 2)
+  eq('⑪f Go duration 解析器正反成对(4h/45s 认,裸数字/未知单位不认)', [parseGoDurationMs('4h'), parseGoDurationMs('45s'), parseGoDurationMs('4'), parseGoDurationMs('4d')], [4 * HOUR, 45000, null, null])
 
   let bad = 0
   for (const [label, pass, why] of cases) {
