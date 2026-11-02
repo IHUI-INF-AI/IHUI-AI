@@ -125,7 +125,7 @@ export default function HistoryPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <BarChart3 className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('history.noHistory')}</p>
+          <p className="text-body text-muted-foreground">{t('history.noHistory')}</p>
         </div>
       ) : (
         <div className="space-y-2">

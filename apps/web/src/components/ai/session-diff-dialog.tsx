@@ -41,7 +41,7 @@ export function SessionDiffDialog() {
           </DialogTitle>
         </DialogHeader>
         {changes.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="py-6 text-center text-body text-muted-foreground">{t('empty')}</p>
         ) : (
           <ul className="-mx-1 flex max-h-[60vh] flex-col gap-1 overflow-y-auto px-1">
             {changes.map((c) => {
@@ -50,7 +50,7 @@ export function SessionDiffDialog() {
                 <li key={c.filePath} className="rounded-lg border border-border bg-card">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-accent/50"
+                    className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-body hover:bg-accent/50"
                     onClick={() =>
                       setExpanded((prev) => ({ ...prev, [c.filePath]: !prev[c.filePath] }))
                     }
@@ -79,7 +79,7 @@ export function SessionDiffDialog() {
                   </button>
                   {isOpen && (
                     <div className="flex flex-col gap-2 px-3 pb-2">
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {t('editedBy', { tool: c.toolName })}
                         {c.applyStatus ? ` · ${t(`applyStatus_${c.applyStatus}`)}` : ''}
                       </p>
@@ -88,7 +88,7 @@ export function SessionDiffDialog() {
                           <p className="mb-1 text-label font-medium text-muted-foreground">
                             {t('before')}
                           </p>
-                          <pre className="max-h-40 overflow-auto rounded-xs bg-muted/50 p-2 text-xs leading-relaxed">
+                          <pre className="max-h-40 overflow-auto rounded-xs bg-muted/50 p-2 text-label leading-relaxed">
                             <code>{c.oldContent}</code>
                           </pre>
                         </div>
@@ -97,7 +97,7 @@ export function SessionDiffDialog() {
                         <p className="mb-1 text-label font-medium text-muted-foreground">
                           {t('after')}
                         </p>
-                        <pre className="max-h-40 overflow-auto rounded-xs bg-muted/50 p-2 text-xs leading-relaxed">
+                        <pre className="max-h-40 overflow-auto rounded-xs bg-muted/50 p-2 text-label leading-relaxed">
                           <code>{c.newContent}</code>
                         </pre>
                       </div>

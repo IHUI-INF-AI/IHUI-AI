@@ -127,7 +127,7 @@ export function PlanItemEditDialog({
             />
           </div>
           {initial && (
-            <label htmlFor="item-completed" className="flex items-center gap-2 text-sm">
+            <label htmlFor="item-completed" className="flex items-center gap-2 text-body">
               <Checkbox
                 id="item-completed"
                 checked={form.completed}

@@ -92,7 +92,7 @@ export const RadarChart = React.memo(function RadarChart({
               y={p.y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="fill-muted-foreground text-xs"
+              className="fill-muted-foreground text-label"
             >
               {d.label}
             </text>

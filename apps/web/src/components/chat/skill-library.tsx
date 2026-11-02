@@ -669,7 +669,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
       {/* 列表区 */}
       <div className="thin-scroll max-h-[320px] space-y-0.5 overflow-y-auto">
         {loading && (
-          <div className="flex items-center justify-center gap-1.5 py-6 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-1.5 py-6 text-label text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span>{t('loading')}</span>
           </div>
@@ -684,12 +684,12 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
               </div>
             )}
             {!isAuthenticated && activeTab === 'custom' && (
-              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+              <div className="px-2 py-6 text-center text-label text-muted-foreground">
                 {t('loginRequired')}
               </div>
             )}
             {isAuthenticated && filteredCustom.length === 0 && activeTab === 'custom' && (
-              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+              <div className="px-2 py-6 text-center text-label text-muted-foreground">
                 {t('emptyCustom')}
               </div>
             )}
@@ -719,7 +719,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
               </div>
             )}
             {filteredBuiltin.length === 0 && (
-              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+              <div className="px-2 py-6 text-center text-label text-muted-foreground">
                 {t('empty')}
               </div>
             )}
@@ -762,13 +762,13 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
               </div>
             )}
             {aiSkillsLoading && (
-              <div className="flex items-center justify-center gap-1.5 py-6 text-xs text-muted-foreground">
+              <div className="flex items-center justify-center gap-1.5 py-6 text-label text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 <span>{t('loading')}</span>
               </div>
             )}
             {!aiSkillsLoading && aiSkills.length === 0 && (
-              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+              <div className="px-2 py-6 text-center text-label text-muted-foreground">
                 {t('empty')}
               </div>
             )}
@@ -980,14 +980,14 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
         placeholder={t('namePlaceholder')}
         aria-label={t('namePlaceholder')}
         maxLength={128}
-        className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none focus:border-foreground/20"
+        className="w-full rounded-sm border border-border bg-background px-2 py-1 text-label outline-none focus:border-foreground/20"
       />
       <div className="flex gap-1">
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as ChatSkillCategory)}
           aria-label={t('category')}
-          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
+          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
         >
           <option value="custom">{t('tabCustom')}</option>
           <option value="template">{t('tabTemplate')}</option>
@@ -1000,7 +1000,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
           value={scenario}
           onChange={(e) => setScenario(e.target.value as ChatSkillScenario)}
           aria-label={t('scenario')}
-          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs outline-none"
+          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-label outline-none"
         >
           <option value="custom">{t('scenarioCustom')}</option>
           <option value="writing">{t('scenarioWriting')}</option>
@@ -1016,7 +1016,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
         aria-label={t('promptPlaceholder')}
         maxLength={10000}
         rows={4}
-        className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
+        className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-label leading-snug outline-none focus:border-foreground/20"
       />
       <div className="flex items-center justify-end gap-1">
         <button
@@ -1260,7 +1260,7 @@ export function AiSkillInvokeDialog({
                 maxLength={maxLen}
                 rows={key === 'content' || key === 'text' ? 3 : 2}
                 className={cn(
-                  'thin-scroll w-full resize-none rounded-sm border bg-background px-2 py-1 text-xs leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
+                  'thin-scroll w-full resize-none rounded-sm border bg-background px-2 py-1 text-label leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
                   isMissing ? 'border-destructive/60' : 'border-border',
                 )}
               />
@@ -1285,7 +1285,7 @@ export function AiSkillInvokeDialog({
                 placeholder={td(placeholderKey)}
                 aria-label={td(labelKey)}
                 className={cn(
-                  'w-full rounded-sm border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
+                  'w-full rounded-sm border bg-background px-2 py-1 text-label outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20',
                   isMissing ? 'border-destructive/60' : 'border-border',
                 )}
               />

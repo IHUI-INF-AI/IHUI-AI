@@ -62,7 +62,7 @@ export function KBArticleForm({
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -124,7 +124,7 @@ export function KBArticleForm({
               value={form.content}
               onChange={(e) => onFormChange({ ...form, content: e.target.value })}
               rows={14}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               placeholder={t('contentPlaceholder')}
             />
           </div>

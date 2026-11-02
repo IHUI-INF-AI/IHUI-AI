@@ -64,7 +64,7 @@ export function Alert({
       <div className="flex-1 min-w-0">
         {title && <p className="font-medium">{title}</p>}
         {description && (
-          <p className={cn('text-sm', title && 'mt-0.5 opacity-90')}>{description}</p>
+          <p className={cn('text-body', title && 'mt-0.5 opacity-90')}>{description}</p>
         )}
         {action && <div className="mt-2">{action}</div>}
       </div>

@@ -63,19 +63,19 @@ export function AiSuggestOverlay({
       </div>
       <div className="max-h-60 overflow-y-auto">
         {error ? (
-          <div className="px-2.5 py-3 text-center text-xs text-destructive">
+          <div className="px-2.5 py-3 text-center text-label text-destructive">
             {error}
             <div className="mt-1 text-[10px] text-muted-foreground">
               {t('terminalPanel.aiServiceUnavailable')}
             </div>
           </div>
         ) : loading ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 px-2.5 py-3 text-label text-muted-foreground">
             <RefreshCw className="h-3 w-3 animate-spin" />
             <span>{t('terminalPanel.generatingSuggest')}</span>
           </div>
         ) : suggestions.length === 0 ? (
-          <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
+          <div className="px-2.5 py-3 text-center text-label text-muted-foreground">
             {t('terminalPanel.noSuggestHint')}
           </div>
         ) : (
@@ -83,7 +83,7 @@ export function AiSuggestOverlay({
             <Tooltip key={`${i}-${s.command}`} content={t('terminalPanel.insertSuggestTitle')}>
               <button
                 type="button"
-                className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-label transition-colors hover:bg-accent"
                 onClick={() => onInsert(s.command)}
               >
                 <div className="flex items-center justify-between gap-2">

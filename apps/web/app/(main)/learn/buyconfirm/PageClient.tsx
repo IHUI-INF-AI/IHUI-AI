@@ -104,12 +104,12 @@ function BuyConfirmContent() {
         <button
           type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {tc('back')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('missingCourseParam')}
         </div>
       </div>
@@ -120,7 +120,7 @@ function BuyConfirmContent() {
       <button
         type="button"
         onClick={() => router.back()}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -136,11 +136,11 @@ function BuyConfirmContent() {
           {tLearn('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('loadFailed')}
         </div>
       ) : !course ? (
-        <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground">
           {t('courseNotFound')}
         </div>
       ) : (
@@ -152,9 +152,11 @@ function BuyConfirmContent() {
             <CardContent className="space-y-2">
               <p className="break-words text-body font-medium">{course.title}</p>
               {course.description && (
-                <p className="line-clamp-2 text-xs text-muted-foreground">{course.description}</p>
+                <p className="line-clamp-2 text-label text-muted-foreground">
+                  {course.description}
+                </p>
               )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
                 {course.teacherName && <span>{t('instructor', { name: course.teacherName })}</span>}
                 {typeof course.lessonCount === 'number' && (
                   <span>{t('lessonCount', { n: course.lessonCount })}</span>
@@ -191,7 +193,7 @@ function BuyConfirmContent() {
                   type="button"
                   onClick={() => setPayMethod(m)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-sm transition-colors',
+                    'flex w-full items-center justify-between rounded-sm border px-3 py-2 text-body transition-colors',
                     payMethod === m
                       ? 'border-brand-accent-deep bg-primary/5 text-foreground'
                       : 'border-border text-muted-foreground hover:text-foreground',
@@ -205,7 +207,7 @@ function BuyConfirmContent() {
           </Card>
 
           <Card>
-            <CardContent className="min-[640px]:p-3 space-y-2 p-3 text-sm">
+            <CardContent className="min-[640px]:p-3 space-y-2 p-3 text-body">
               {originalPrice && originalPrice > price && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('originalPrice')}</span>
@@ -225,7 +227,7 @@ function BuyConfirmContent() {
             </CardContent>
           </Card>
 
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
+          {formError && <p className="text-body text-destructive">{formError}</p>}
           <div className="flex items-center gap-3">
             <Button onClick={() => createMut.mutate()} disabled={createMut.isPending || price <= 0}>
               {createMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}

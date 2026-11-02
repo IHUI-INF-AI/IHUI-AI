@@ -104,7 +104,7 @@ export default function UserExamPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <FileQuestion className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -129,7 +129,7 @@ export default function UserExamPage() {
                       {e.status ? (
                         <span
                           className={cn(
-                            'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                            'shrink-0 rounded-md px-2 py-0.5 text-label',
                             STATUS_STYLE[display] ?? STATUS_STYLE.draft,
                           )}
                         >
@@ -137,7 +137,7 @@ export default function UserExamPage() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                       {hasScore ? (
                         <span>
                           {t('score')}: {score}

@@ -46,7 +46,7 @@ export function PriceChart({ entries }: Props) {
 
   if (data.length === 0) {
     return (
-      <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
+      <div className="flex h-24 items-center justify-center text-label text-muted-foreground">
         {t('compare.noPriceData')}
       </div>
     )

@@ -5,7 +5,17 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowRight, FileText, Loader2, Mic, Package, Plus, Scissors, Sparkles, Telescope } from 'lucide-react'
+import {
+  ArrowRight,
+  FileText,
+  Loader2,
+  Mic,
+  Package,
+  Plus,
+  Scissors,
+  Sparkles,
+  Telescope,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -298,14 +308,17 @@ export function AddMenuPopover(props: {
                     onModeChange('prompt')
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
-                  <ArrowRight className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60" aria-hidden />
+                  <ArrowRight
+                    className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
+                    aria-hidden
+                  />
                 </button>
                 <button
                   type="button"
@@ -316,7 +329,7 @@ export function AddMenuPopover(props: {
                     onAddTextReference()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -332,14 +345,17 @@ export function AddMenuPopover(props: {
                     onModeChange('skill')
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
                 >
                   <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
-                  <ArrowRight className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60" aria-hidden />
+                  <ArrowRight
+                    className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
+                    aria-hidden
+                  />
                 </button>
                 <button
                   type="button"
@@ -349,7 +365,7 @@ export function AddMenuPopover(props: {
                     onAddFile()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -366,7 +382,7 @@ export function AddMenuPopover(props: {
                     onModeChange('voice')
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -382,7 +398,7 @@ export function AddMenuPopover(props: {
                     onOpenPluginMarket()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
@@ -398,7 +414,7 @@ export function AddMenuPopover(props: {
                     onOpenDeepResearch()
                   }}
                   className={cn(
-                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                     'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
@@ -426,7 +442,7 @@ export function AddMenuPopover(props: {
                       onModeChange('menu')
                     }}
                     className={cn(
-                      'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                      'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                       'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                     )}

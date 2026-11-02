@@ -59,7 +59,7 @@ export default function TagsPage() {
           <Hash className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {isLoading ? (
@@ -72,7 +72,7 @@ export default function TagsPage() {
       ) : tags.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Tag className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <>
@@ -109,7 +109,7 @@ export default function TagsPage() {
                       className="transition-opacity hover:opacity-80"
                     >
                       {tag.name}
-                      <span className="ml-1 text-xs opacity-70">{tag.usageCount}</span>
+                      <span className="ml-1 text-label opacity-70">{tag.usageCount}</span>
                     </TagChip>
                   </Link>
                 ))}

@@ -218,7 +218,7 @@ export function AppQrPanel({ refreshKey, agreementAccepted }: AppQrPanelProps) {
     return (
       <div className={`${QR_PANEL_STATE_BOX} gap-2`}>
         <CheckCircle2 className="h-12 w-12 text-green-500" />
-        <p className="text-sm text-muted-foreground">{t('loginSuccess')}</p>
+        <p className="text-body text-muted-foreground">{t('loginSuccess')}</p>
       </div>
     )
   }
@@ -227,8 +227,8 @@ export function AppQrPanel({ refreshKey, agreementAccepted }: AppQrPanelProps) {
     return (
       <div className={`ui-card ${QR_PANEL_STATE_BOX} gap-2 border-destructive/30 bg-destructive/5`}>
         <XCircle className="h-8 w-8 text-destructive" />
-        <p className="text-sm text-destructive">{t('appQrFailed')}</p>
-        {errorMsg && <p className="text-xs text-muted-foreground">{errorMsg}</p>}
+        <p className="text-body text-destructive">{t('appQrFailed')}</p>
+        {errorMsg && <p className="text-label text-muted-foreground">{errorMsg}</p>}
         <button
           type="button"
           onClick={handleRetry}
@@ -265,7 +265,7 @@ export function AppQrPanel({ refreshKey, agreementAccepted }: AppQrPanelProps) {
           {t('appQrExpired')}
         </button>
       ) : (
-        <p className="text-sm text-muted-foreground">{t('appQrWaiting')}</p>
+        <p className="text-body text-muted-foreground">{t('appQrWaiting')}</p>
       )}
     </div>
   )

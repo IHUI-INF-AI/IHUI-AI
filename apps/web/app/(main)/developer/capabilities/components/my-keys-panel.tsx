@@ -67,23 +67,23 @@ export function MyKeysPanel(): React.JSX.Element {
           <KeyRound className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0">
             <h2 className="text-body font-semibold">{t('keysTitle')}</h2>
-            <p className="text-xs text-muted-foreground">{t('keysSubtitle')}</p>
+            <p className="text-label text-muted-foreground">{t('keysSubtitle')}</p>
           </div>
         </div>
 
         {state.phase === 'loading' ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-label text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             <span>{t('keysLoading')}</span>
           </p>
         ) : state.phase === 'error' ? (
-          <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-rose-600 dark:text-rose-400">
+          <p className="rounded-md bg-muted/60 px-3 py-2 text-label text-rose-600 dark:text-rose-400">
             {t('keysError')}
             <span className="ml-1 font-mono">{state.message}</span>
           </p>
         ) : state.list.length === 0 ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-3">
-            <span className="text-xs text-muted-foreground">{t('keysEmpty')}</span>
+            <span className="text-label text-muted-foreground">{t('keysEmpty')}</span>
             <Button asChild size="xs" variant="outline">
               <Link href="/developer/relay/keys">
                 <span>{t('manageKeys')}</span>

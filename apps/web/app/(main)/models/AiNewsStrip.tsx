@@ -81,7 +81,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
 
   if (isLoading && news.length === 0) {
     return (
-      <Card className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
+      <Card className="flex items-center gap-2 p-3 text-label text-muted-foreground">
         <div className="h-3 w-3 animate-pulse rounded-full bg-muted-foreground/40" />
         <span>{t('aiNews.loading')}</span>
       </Card>
@@ -103,7 +103,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
             <TrendingUp className="h-3 w-3" />
             <span>{t('aiNews.liveTag')}</span>
           </span>
-          <Button variant="ghost" size="default" className="gap-1 px-3 text-xs" asChild>
+          <Button variant="ghost" size="default" className="gap-1 px-3 text-label" asChild>
             <Link href="/news">
               <span>{t('aiNews.viewAll')}</span>
               <ChevronRight className="h-3 w-3" />

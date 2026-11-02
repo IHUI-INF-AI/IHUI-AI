@@ -127,7 +127,7 @@ export default function MemberSettingsPage() {
           <Settings className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       <Card>
@@ -181,7 +181,7 @@ export default function MemberSettingsPage() {
           {t('saveBtn')}
         </Button>
         {saveMut.isSuccess && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-500">{t('saved')}</span>
+          <span className="text-label text-emerald-600 dark:text-emerald-500">{t('saved')}</span>
         )}
       </div>
 

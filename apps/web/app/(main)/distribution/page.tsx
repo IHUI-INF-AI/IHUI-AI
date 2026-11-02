@@ -136,7 +136,7 @@ export default function DistributionHomePage() {
               <Gift className="h-7 w-7 text-primary" />
               {t('title')}
             </h1>
-            <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+            <p className="text-body text-muted-foreground">{t('subtitle')}</p>
           </div>
         </CardContent>
       </Card>
@@ -183,7 +183,7 @@ export default function DistributionHomePage() {
                 <h2 className="text-base font-semibold">{t('inviteStats')}</h2>
                 <Link
                   href="/distribution/team"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-body text-primary hover:underline"
                 >
                   {tc('back')}
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -191,7 +191,7 @@ export default function DistributionHomePage() {
               </div>
               <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
                 <div className="rounded-lg bg-muted/40 px-4 py-3">
-                  <div className="text-xs text-muted-foreground">{t('totalInvitees')}</div>
+                  <div className="text-label text-muted-foreground">{t('totalInvitees')}</div>
                   {inviteeQ.isLoading ? (
                     <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
                   ) : (
@@ -201,11 +201,13 @@ export default function DistributionHomePage() {
                   )}
                 </div>
                 <div className="rounded-lg bg-muted/40 px-4 py-3">
-                  <div className="text-xs text-muted-foreground">{t('vipInvitees')}</div>
+                  <div className="text-label text-muted-foreground">{t('vipInvitees')}</div>
                   {inviteeQ.isLoading ? (
                     <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
                   ) : (
-                    <div className="mt-1 text-display font-bold">{inviteeQ.data?.vipInvitees ?? 0}</div>
+                    <div className="mt-1 text-display font-bold">
+                      {inviteeQ.data?.vipInvitees ?? 0}
+                    </div>
                   )}
                 </div>
               </div>

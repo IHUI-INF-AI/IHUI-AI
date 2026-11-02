@@ -191,7 +191,7 @@ export function NotificationFeed({ tab, partition, view }: NotificationFeedProps
     return (
       <div className="space-y-1 py-10 text-center">
         <p className="text-body font-medium text-destructive">{t('unavailable')}</p>
-        <p className="text-xs text-muted-foreground">{(error as Error).message}</p>
+        <p className="text-label text-muted-foreground">{(error as Error).message}</p>
       </div>
     )
   }
@@ -200,8 +200,8 @@ export function NotificationFeed({ tab, partition, view }: NotificationFeedProps
     return (
       <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <Bell className="h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('noData')}</p>
-        <p className="text-xs">
+        <p className="text-body">{t('noData')}</p>
+        <p className="text-label">
           {partition === 'archived' ? t('emptyArchivedDescription') : t('emptyDescription')}
         </p>
       </div>

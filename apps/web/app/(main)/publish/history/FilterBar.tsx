@@ -61,7 +61,7 @@ export function FilterBar({
     <Card>
       <CardContent className="min-[640px]:p-3 flex flex-wrap items-end gap-3 p-3">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">{t('history.filterPlatform')}</label>
+          <label className="text-label text-muted-foreground">{t('history.filterPlatform')}</label>
           <Select value={filterPlatform} onValueChange={onFilterPlatformChange}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -77,7 +77,7 @@ export function FilterBar({
           </Select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">{t('history.filterStatus')}</label>
+          <label className="text-label text-muted-foreground">{t('history.filterStatus')}</label>
           <Select value={filterStatus} onValueChange={onFilterStatusChange}>
             <SelectTrigger className="w-32">
               <SelectValue />

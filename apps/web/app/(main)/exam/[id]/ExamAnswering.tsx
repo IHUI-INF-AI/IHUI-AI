@@ -65,7 +65,7 @@ export function ExamAnswering({
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="min-[640px]:p-3 space-y-2 p-3 pt-0 text-sm">
+          <CardContent className="min-[640px]:p-3 space-y-2 p-3 pt-0 text-body">
             {q.type === 'multiple' ? (
               (q.options ?? []).map((o) => (
                 <label
@@ -88,7 +88,7 @@ export function ExamAnswering({
                 value={(answers[q.id] as string) ?? ''}
                 onChange={(e) => onAnswer(q.id, e.target.value)}
                 rows={3}
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             ) : (
               (q.options ?? []).map((o) => (
@@ -118,8 +118,10 @@ export function ExamAnswering({
           {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {t('submit')}
         </Button>
-        {leftSec === 0 && <span className="text-xs text-destructive">{t('timeUp')}</span>}
-        {isError && <span className="text-xs text-destructive">{(error as Error)?.message}</span>}
+        {leftSec === 0 && <span className="text-label text-destructive">{t('timeUp')}</span>}
+        {isError && (
+          <span className="text-label text-destructive">{(error as Error)?.message}</span>
+        )}
       </div>
     </div>
   )

@@ -239,7 +239,7 @@ export function InputStatusSlot({
                 setManual(kind)
                 setPanelOpen(false)
               }}
-              className="flex items-center gap-2 px-2.5 py-1.5 text-left text-xs text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex items-center gap-2 px-2.5 py-1.5 text-left text-label text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">{t(statusSlotLabelKey(kind))}</span>

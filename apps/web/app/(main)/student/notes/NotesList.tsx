@@ -34,7 +34,7 @@ export function NotesList({ list, isLoading, error, onEdit, onDelete, deletePend
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -43,7 +43,7 @@ export function NotesList({ list, isLoading, error, onEdit, onDelete, deletePend
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <StickyNote className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -66,8 +66,8 @@ export function NotesList({ list, isLoading, error, onEdit, onDelete, deletePend
                 {t('isPublic')}
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">{note.content}</p>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <p className="text-body text-muted-foreground">{note.content}</p>
+            <div className="flex items-center justify-between text-label text-muted-foreground">
               <span>{formatDateOnly(note.createdAt)}</span>
               <div className="flex gap-1">
                 <Button size="sm" variant="ghost" onClick={() => onEdit(note)}>

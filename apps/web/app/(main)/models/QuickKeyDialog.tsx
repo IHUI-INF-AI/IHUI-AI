@@ -232,7 +232,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                   </span>
                 )}
               </DialogTitle>
-              <DialogDescription className="mt-0.5 flex items-center gap-1.5 text-xs">
+              <DialogDescription className="mt-0.5 flex items-center gap-1.5 text-label">
                 <BrandIcon vendor={model.provider} size={12} className="text-muted-foreground" />
                 <span>{PROVIDER_LABEL[model.provider] ?? '其他'}</span>
                 <span className="text-muted-foreground/60">·</span>
@@ -245,7 +245,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
         <div className="space-y-4 px-5 pb-4">
           {/* 无预置模板提示 */}
           {isMissingTemplate ? (
-            <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+            <div className="rounded-md border border-dashed bg-muted/30 p-3 text-label text-muted-foreground">
               {t('quickKey.noTemplate')}
             </div>
           ) : (
@@ -270,7 +270,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
 
               {/* API Key 输入 */}
               <div className="space-y-1.5">
-                <Label htmlFor="qk-key" className="flex items-center gap-1.5 text-sm">
+                <Label htmlFor="qk-key" className="flex items-center gap-1.5 text-body">
                   <KeyRound className="h-3.5 w-3.5" />
                   {t('quickKey.apiKeyLabel')}
                 </Label>
@@ -282,7 +282,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder={t('quickKey.apiKeyPlaceholder')}
                     autoComplete="off"
-                    className="pr-10 font-mono text-sm"
+                    className="pr-10 font-mono text-body"
                   />
                   <Tooltip content={showKey ? t('quickKey.hideKey') : t('quickKey.showKey')}>
                     <button
@@ -302,7 +302,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
 
               {/* 模型 ID 输入 */}
               <div className="space-y-1.5">
-                <Label htmlFor="qk-model" className="text-sm">
+                <Label htmlFor="qk-model" className="text-body">
                   {t('quickKey.modelIdLabel')}
                 </Label>
                 <Input
@@ -310,7 +310,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
                   placeholder={tpl?.defaultModelId || 'gpt-4o-mini'}
-                  className="font-mono text-sm"
+                  className="font-mono text-body"
                 />
               </div>
 

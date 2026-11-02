@@ -60,7 +60,7 @@ export function CompareContent({
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
           {config.tagline}
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-body">
           <div className="flex items-center gap-2">
             <Check className="h-4 w-4 text-primary" />
             <span>
@@ -82,7 +82,9 @@ export function CompareContent({
           <thead>
             <tr className="bg-muted/30">
               <th className="px-4 py-4 text-left text-body font-semibold">对比维度</th>
-              <th className="px-4 py-4 text-center text-body font-semibold text-primary">IHUI AI</th>
+              <th className="px-4 py-4 text-center text-body font-semibold text-primary">
+                IHUI AI
+              </th>
               <th className="px-4 py-4 text-center text-body font-semibold">{config.name}</th>
             </tr>
           </thead>
@@ -92,7 +94,7 @@ export function CompareContent({
                 <td className="px-4 py-4">
                   <div className="text-body font-medium">{row.dimension}</div>
                   {(row.ihuiDetail || row.competitorDetail) && (
-                    <div className="mt-1 text-xs text-muted-foreground">
+                    <div className="mt-1 text-label text-muted-foreground">
                       {row.ihuiDetail && (
                         <div>
                           <span className="text-primary">IHUI:</span> {row.ihuiDetail}
@@ -124,7 +126,7 @@ export function CompareContent({
           <Rocket className="h-6 w-6 shrink-0 text-primary" />
           <div>
             <h2 className="text-heading font-semibold">结论</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+            <p className="mt-2 text-body leading-relaxed text-muted-foreground min-[768px]:text-base">
               {config.verdict}
             </p>
           </div>
@@ -137,7 +139,7 @@ export function CompareContent({
         <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           30 分钟体验 IHUI AI
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           注册即得 1000 积分,所有模型、所有 6 端免费试用。
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

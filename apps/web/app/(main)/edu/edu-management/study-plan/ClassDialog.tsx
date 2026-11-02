@@ -63,17 +63,17 @@ export function ClassDialog({
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {classes.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noClasses')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noClasses')}</p>
           ) : (
             classes.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm"
+                className="flex items-center justify-between rounded-md px-2 py-1.5 text-body"
               >
                 <span>
                   {c.name}
                   {c.grade && (
-                    <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>
+                    <span className="ml-2 text-label text-muted-foreground">({c.grade})</span>
                   )}
                 </span>
               </div>

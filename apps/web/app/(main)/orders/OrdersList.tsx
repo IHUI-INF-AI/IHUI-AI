@@ -50,7 +50,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
       key: 'orderNo',
       title: t('orderNo'),
       render: (o) => (
-        <TruncatedText value={o.orderNo} className="block max-w-[180px] font-mono text-xs" />
+        <TruncatedText value={o.orderNo} className="block max-w-[180px] font-mono text-label" />
       ),
     },
     {
@@ -59,7 +59,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
       render: (o) => (
         <div className="min-w-0">
           <TruncatedText value={o.targetTitle ?? '-'} className="max-w-[200px] font-medium" />
-          <div className="text-xs text-muted-foreground">
+          <div className="text-label text-muted-foreground">
             {t(TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ?? 'type.card')}
           </div>
         </div>
@@ -112,7 +112,7 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(error as Error).message}
       </div>
     )

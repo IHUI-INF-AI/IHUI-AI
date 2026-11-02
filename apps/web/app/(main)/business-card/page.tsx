@@ -62,11 +62,13 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
           <div className="flex items-center gap-2">
             <span className="font-medium">{card.name}</span>
             {card.title && (
-              <span className="truncate text-sm text-muted-foreground">{card.title}</span>
+              <span className="truncate text-body text-muted-foreground">{card.title}</span>
             )}
           </div>
-          {card.company && <p className="truncate text-sm text-muted-foreground">{card.company}</p>}
-          {card.bio && <p className="line-clamp-1 text-xs text-muted-foreground">{card.bio}</p>}
+          {card.company && (
+            <p className="truncate text-body text-muted-foreground">{card.company}</p>
+          )}
+          {card.bio && <p className="line-clamp-1 text-label text-muted-foreground">{card.bio}</p>}
           {footer}
         </div>
       </CardContent>
@@ -125,9 +127,11 @@ export default function BusinessCardPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-primary" />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild>
           <Link href="/business-card/edit">
@@ -152,13 +156,13 @@ export default function BusinessCardPage() {
             {t('loading')}
           </div>
         ) : mineErr ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(mineErr as Error).message}
           </div>
         ) : (mine ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <CreditCard className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('emptyMine')}</p>
+            <p className="text-body text-muted-foreground">{t('emptyMine')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
@@ -167,7 +171,7 @@ export default function BusinessCardPage() {
                 key={card.id}
                 card={card}
                 footer={
-                  <div className="flex items-center gap-2 pt-1.5 text-xs">
+                  <div className="flex items-center gap-2 pt-1.5 text-label">
                     <span className="text-muted-foreground">{fmt(card.createdAt)}</span>
                     <div className="flex flex-1 justify-end gap-1">
                       <Link
@@ -208,11 +212,13 @@ export default function BusinessCardPage() {
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Star className="h-4 w-4 text-amber-500" />
             {t('favorites')}
-            <span className="text-body font-normal text-muted-foreground">{(favs ?? []).length}</span>
+            <span className="text-body font-normal text-muted-foreground">
+              {(favs ?? []).length}
+            </span>
           </h2>
           <Link
             href="/business-card/favorites"
-            className="text-sm text-primary transition-colors hover:opacity-80"
+            className="text-body text-primary transition-colors hover:opacity-80"
           >
             {t('viewAll')}
           </Link>
@@ -226,13 +232,13 @@ export default function BusinessCardPage() {
             {t('loading')}
           </div>
         ) : favErr ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(favErr as Error).message}
           </div>
         ) : (favs ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Star className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('emptyFavorites')}</p>
+            <p className="text-body text-muted-foreground">{t('emptyFavorites')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">

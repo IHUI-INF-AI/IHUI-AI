@@ -38,7 +38,7 @@ export function GlobalErrorBanner() {
       {errors.map((err) => (
         <div
           key={err.id}
-          className="animate-error-slide-down flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="animate-error-slide-down flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-body text-destructive"
           role="alert"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -57,7 +57,7 @@ export function GlobalErrorBanner() {
         // G-641:溢出丢弃必须可见 —— 残缺的错误列表不得伪装成完整,计数行随列表同现
         <div
           data-testid="error-banner-dropped"
-          className="text-xs text-muted-foreground"
+          className="text-label text-muted-foreground"
           role="status"
         >
           {droppedNotice(dropped)}
@@ -67,7 +67,7 @@ export function GlobalErrorBanner() {
         <button
           type="button"
           onClick={clearAll}
-          className="self-end text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="self-end text-label text-muted-foreground transition-colors hover:text-foreground"
         >
           {t('clearAll')}
         </button>

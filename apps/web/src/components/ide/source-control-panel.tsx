@@ -287,7 +287,7 @@ export function SourceControlPanel() {
     return (
       <div
         key={file.id}
-        className="group flex items-center gap-1.5 rounded-xl px-2 py-1 text-xs hover:bg-muted/30"
+        className="group flex items-center gap-1.5 rounded-xl px-2 py-1 text-label hover:bg-muted/30"
       >
         <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.filename))} />
         <span className="truncate">{file.filename.split('/').pop()}</span>
@@ -341,7 +341,7 @@ export function SourceControlPanel() {
                 onClick={() => handleBranchCheckout(b)}
                 disabled={switchingBranch}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs transition-colors disabled:opacity-50',
+                  'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-label transition-colors disabled:opacity-50',
                   b === branch
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
@@ -354,7 +354,7 @@ export function SourceControlPanel() {
             ))}
           </PortalPanel>
         </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1 text-label text-muted-foreground">
           <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
             <ArrowUp className="h-3 w-3" />
             {ahead}
@@ -403,14 +403,14 @@ export function SourceControlPanel() {
           onChange={(e) => setCommitMessage(e.target.value)}
           placeholder={t('sourceControl.commitPlaceholder')}
           rows={2}
-          className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-xs focus:outline-none"
+          className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1 text-label focus:outline-none"
         />
         <button
           onClick={handleCommit}
           disabled={committing || !commitMessage.trim()}
           aria-busy={committing}
           aria-label={t('sourceControl.commit')}
-          className="mt-1 flex w-full items-center justify-center gap-1 rounded-sm bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
+          className="mt-1 flex w-full items-center justify-center gap-1 rounded-sm bg-foreground py-1 text-label text-background hover:bg-foreground/90 disabled:opacity-50"
         >
           {committing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -422,7 +422,7 @@ export function SourceControlPanel() {
       </div>
 
       <div className="px-2 py-1.5">
-        <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="mb-1 flex items-center gap-1 text-label text-muted-foreground">
           <span>{t('sourceControl.changeStats')}</span>
           <span className="ml-auto flex items-center gap-1">
             <span className="text-green-600 dark:text-green-400">+{totalAdd}</span>
@@ -451,7 +451,7 @@ export function SourceControlPanel() {
           {unstagedFiles.length > 0 ? (
             unstagedFiles.map((f) => renderFile(f, false))
           ) : (
-            <div className="px-2 py-1 text-xs text-muted-foreground">
+            <div className="px-2 py-1 text-label text-muted-foreground">
               {t('sourceControl.noChanges')}
             </div>
           )}
@@ -463,7 +463,7 @@ export function SourceControlPanel() {
             <span>{t('sourceControl.commitHistory')}</span>
           </div>
           {gitCommits.map((c) => (
-            <div key={c.id} className="rounded px-2 py-1 text-xs hover:bg-muted/30">
+            <div key={c.id} className="rounded px-2 py-1 text-label hover:bg-muted/30">
               <div className="truncate">{c.message}</div>
               <div className="flex items-center gap-1 text-muted-foreground">
                 <span className="truncate">{c.author}</span>

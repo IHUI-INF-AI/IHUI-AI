@@ -20,7 +20,9 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
         <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="md" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body font-semibold">{user?.nickname ?? '会员'}</p>
-          <p className="truncate text-xs text-muted-foreground">{user?.phone ?? user?.id ?? '-'}</p>
+          <p className="truncate text-label text-muted-foreground">
+            {user?.phone ?? user?.id ?? '-'}
+          </p>
         </div>
         <Link
           href="/vip"

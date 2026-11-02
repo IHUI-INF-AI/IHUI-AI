@@ -36,13 +36,13 @@ export default function CartePage() {
               className="mx-auto mb-3 h-20 w-20 rounded-md object-cover"
             />
             <h2 className="text-base font-medium text-black">AI智汇社 | 私董会创始人 | 李总</h2>
-            <p className="mt-1 text-sm text-black/70">{t('recommend')}</p>
+            <p className="mt-1 text-body text-black/70">{t('recommend')}</p>
           </div>
           <div className="space-y-4 p-3 text-center">
             <p className="text-body font-medium">{t('inviteHint')}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={QR_IMAGE} alt="" className="mx-auto w-48" />
-            <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <p className="flex items-center justify-center gap-1.5 text-label text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
               {t('scanHint')}
             </p>

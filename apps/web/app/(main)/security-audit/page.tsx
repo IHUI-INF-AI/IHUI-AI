@@ -103,7 +103,7 @@ export default function SecurityAuditPage() {
           <ShieldAlert className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -116,7 +116,7 @@ export default function SecurityAuditPage() {
               {t('loading')}
             </div>
           ) : list.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -140,7 +140,9 @@ export default function SecurityAuditPage() {
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">{ev.action}</TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">{ev.ip ?? '-'}</TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {ev.ip ?? '-'}
+                      </TableCell>
                       <TableCell className="px-4 py-2.5 text-muted-foreground">
                         {fmtDate(ev.createdAt)}
                       </TableCell>

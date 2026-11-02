@@ -217,7 +217,7 @@ export function KanbanBoard() {
           {/* 2-2 团队过滤(无团队时隐藏) */}
           {teams.length > 0 && (
             <Select value={teamFilter} onValueChange={handleTeamFilterChange}>
-              <SelectTrigger className="h-8 w-[160px] text-xs">
+              <SelectTrigger className="h-8 w-[160px] text-label">
                 <SelectValue placeholder={t('kanban.allTeams')} />
               </SelectTrigger>
               <SelectContent>
@@ -265,7 +265,7 @@ export function KanbanBoard() {
                 </DialogHeader>
 
                 {createError && (
-                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                     {createError}
                   </div>
                 )}
@@ -288,7 +288,7 @@ export function KanbanBoard() {
                     onChange={(e) => setCreateDesc(e.target.value)}
                     rows={3}
                     maxLength={2000}
-                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
 
@@ -378,7 +378,7 @@ export function KanbanBoard() {
           计数与列分开渲染,原始状态串不进界面文案位(它是外部可写的值 —— 文案位即注入面)。 */}
       {unrecognizedCount > 0 && (
         <div
-          className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-xs text-muted-foreground"
+          className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-label text-muted-foreground"
           data-testid="kanban-unrecognized-summary"
         >
           {/* 数字计数徽章按 AGENTS §4 的确定性居中模板(inline-flex + justify-center +

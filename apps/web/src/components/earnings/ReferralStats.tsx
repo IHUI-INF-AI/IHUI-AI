@@ -40,7 +40,7 @@ export function ReferralStats({ data, loading }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-body font-semibold">{t('referralStats')}</p>
-            <p className="text-xs text-muted-foreground">{t('referralStatsDesc')}</p>
+            <p className="text-label text-muted-foreground">{t('referralStatsDesc')}</p>
           </div>
           <p className="text-body font-bold">{total}</p>
         </div>
@@ -65,7 +65,7 @@ export function ReferralStats({ data, loading }: Props) {
                       : 'channelDirect'
                 return (
                   <div key={c.channel} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="flex items-center gap-1.5 text-muted-foreground">
                         <Icon className="h-3.5 w-3.5" />
                         {t(labelKey)}

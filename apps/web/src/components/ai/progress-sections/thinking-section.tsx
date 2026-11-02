@@ -264,7 +264,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
               /* 2026-10-28 观感档:思考视口 200px → 320px(对标 Qoder 量级"看着它想"窗口)。
                  旧档一屏只容 ~10 行,长思考的"边生成边读"退化成窥管;尾随滚动(上方 effect)
                  与滚动容器形态不变,只扩可读纵深。 */
-              className="max-h-[320px] overflow-y-auto whitespace-pre-wrap break-all text-xs leading-relaxed text-foreground/75"
+              className="max-h-[320px] overflow-y-auto whitespace-pre-wrap break-all text-label leading-relaxed text-foreground/75"
               aria-live={thinkingActive ? 'polite' : undefined}
               aria-atomic={thinkingActive ? 'false' : undefined}
               data-testid="thinking-content"
@@ -325,5 +325,4 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     </div>
   )
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

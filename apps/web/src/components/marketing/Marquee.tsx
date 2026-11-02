@@ -45,7 +45,7 @@ export function Marquee({ items }: MarqueeProps) {
           {loop.map((item, idx) => (
             <span
               key={`${item.id}-${idx}`}
-              className="mx-6 inline-flex items-center text-sm text-muted-foreground"
+              className="mx-6 inline-flex items-center text-body text-muted-foreground"
             >
               <span className="mr-2 h-1.5 w-1.5 rounded-full bg-primary/50" />
               {item.text}

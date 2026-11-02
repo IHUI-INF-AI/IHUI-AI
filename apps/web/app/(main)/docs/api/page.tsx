@@ -70,7 +70,7 @@ export default function ApiDocsPage() {
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <div>
             <p className="text-body font-semibold">Base URL</p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`https://api.aizhs.top/v1          # 生产
 https://api-staging.aizhs.top/v1  # 预发
 http://localhost:8802/v1          # 自托管`}</code>
@@ -78,7 +78,7 @@ http://localhost:8802/v1          # 自托管`}</code>
           </div>
           <div>
             <p className="text-body font-semibold">认证方式</p>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li><strong>JWT</strong>:用户登录态,<code className="rounded bg-muted px-1">Authorization: Bearer &lt;jwt&gt;</code></li>
               <li><strong>API Key</strong>:服务端调用,<code className="rounded bg-muted px-1">X-API-Key: &lt;key&gt;</code>,在 /settings/api-keys 生成</li>
               <li><strong>Webhook 签名</strong>:HMAC-SHA256,<code className="rounded bg-muted px-1">X-Webhook-Signature: &lt;hmac&gt;</code></li>
@@ -86,10 +86,10 @@ http://localhost:8802/v1          # 自托管`}</code>
           </div>
           <div>
             <p className="text-body font-semibold">速率限制</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               默认 60 req/min,Pro 200/min,Team 500/min。超限返回 <code className="rounded bg-muted px-1">429</code>,响应头含:
             </p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`X-RateLimit-Limit: 60
 X-RateLimit-Remaining: 0
 X-RateLimit-Reset: 1699900000`}</code>
@@ -103,10 +103,10 @@ X-RateLimit-Reset: 1699900000`}</code>
         <h2 className="text-display font-bold tracking-tight">AI 对话 API</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">POST /v1/chat/completions</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             OpenAI 兼容接口,支持流式(SSE)和非流式。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`curl -X POST https://api.aizhs.top/v1/chat/completions \\
   -H "Authorization: Bearer <jwt>" \\
   -H "Content-Type: application/json" \\
@@ -126,10 +126,10 @@ data: [DONE]`}</code>
           </pre>
 
           <h3 className="text-lg font-semibold pt-4">POST /v1/chat/agents/:agentId</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             调用指定 Agent(带知识库 + MCP 工具 + 工作流)。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label leading-relaxed">
             <code>{`curl -X POST https://api.aizhs.top/v1/chat/agents/agent_abc123 \\
   -H "X-API-Key: <key>" \\
   -H "Content-Type: application/json" \\
@@ -161,10 +161,10 @@ data: [DONE]`}</code>
           ].map(([method, path, desc], i) => (
             <div
               key={`${method}-${path}`}
-              className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
+              className={`grid grid-cols-2 gap-2 rounded p-3 text-body min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
             >
-              <div className="font-mono text-xs">{method}</div>
-              <div className="font-mono text-xs">{path}</div>
+              <div className="font-mono text-label">{method}</div>
+              <div className="font-mono text-label">{path}</div>
               <div className="col-span-2 text-muted-foreground min-[768px]:col-span-1">{desc}</div>
             </div>
           ))}
@@ -175,8 +175,8 @@ data: [DONE]`}</code>
       <section id="errors" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">错误码</h2>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-sm text-muted-foreground">统一响应格式:</p>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+          <p className="text-body text-muted-foreground">统一响应格式:</p>
+          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
             <code>{`{
   "code": 0,          // 0=成功, 非 0=失败
   "message": "ok",
@@ -200,7 +200,7 @@ data: [DONE]`}</code>
             ].map(([http, code, desc], i) => (
               <div
                 key={`${http}-${code}`}
-                className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
+                className={`grid grid-cols-2 gap-2 rounded p-3 text-body min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
               >
                 <div>{http}</div>
                 <div className="text-muted-foreground">{code}</div>
@@ -217,20 +217,20 @@ data: [DONE]`}</code>
         <div className="grid gap-4 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">JavaScript</h3>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`npm i @ihui/api-client`}</code>
             </pre>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`import { chat } from '@ihui/api-client'
 await chat({ message: '你好' })`}</code>
             </pre>
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">Python</h3>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`pip install ihui-ai`}</code>
             </pre>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`from ihui import IHUI
 client = IHUI(api_key='...')
 client.chat(message='你好')`}</code>
@@ -238,10 +238,10 @@ client.chat(message='你好')`}</code>
           </div>
           <div className="rounded-lg border bg-card p-3">
             <h3 className="text-lg font-semibold">Go</h3>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`go get github.com/ihui/ihui-go`}</code>
             </pre>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-label">
               <code>{`client := ihui.New("key")
 client.Chat(ctx, "你好")`}</code>
             </pre>

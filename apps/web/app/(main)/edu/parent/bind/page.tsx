@@ -124,13 +124,13 @@ export default function ParentBindPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('bind.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('bind.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('bind.subtitle')}</p>
       </header>
 
       {/* 创建绑定 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             <UserPlus className="h-4 w-4 text-primary" />
             {t('bind.createTitle')}
           </CardTitle>
@@ -152,7 +152,7 @@ export default function ParentBindPage() {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setRelationship(e.target.value)
                 }
-                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {RELATIONSHIP_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -182,7 +182,7 @@ export default function ParentBindPage() {
       {/* 绑定列表 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             <LinkIcon className="h-4 w-4 text-primary" />
             {t('bind.listTitle')}
           </CardTitle>
@@ -195,7 +195,7 @@ export default function ParentBindPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : bindings.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('bind.empty')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('bind.empty')}</p>
           ) : (
             <div className="space-y-3">
               {bindings.map((b) => (
@@ -210,7 +210,7 @@ export default function ParentBindPage() {
                         {tParent(STATUS_KEYS[b.status] ?? b.status)}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {t('bind.relationship')}:{' '}
                       {tParent(
                         RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.labelKey ??

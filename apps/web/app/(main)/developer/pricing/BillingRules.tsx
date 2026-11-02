@@ -22,7 +22,7 @@ export function BillingRules(): React.JSX.Element {
           <p className="text-body font-semibold">{t('rulesTitle')}</p>
         </div>
 
-        <p className="text-xs text-muted-foreground">{t('rulesSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('rulesSubtitle')}</p>
 
         {/* 公式卡片 */}
         <div className="rounded-md border bg-muted/30 p-3">
@@ -33,7 +33,7 @@ export function BillingRules(): React.JSX.Element {
         {/* 公式参数说明 */}
         <div className="overflow-hidden rounded-md border">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-label">
               <thead className="bg-muted/40">
                 <tr className="text-left">
                   <th className="px-3 py-1.5 font-medium">{t('paramCol')}</th>
@@ -70,8 +70,8 @@ export function BillingRules(): React.JSX.Element {
             <FileText className="h-3.5 w-3.5" />
             {t('exampleTitle')}
           </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">{t('exampleIntro')}</p>
-          <p className="mt-2 font-mono text-xs leading-relaxed">
+          <p className="mt-1.5 text-label text-muted-foreground">{t('exampleIntro')}</p>
+          <p className="mt-2 font-mono text-label leading-relaxed">
             {t('exampleStep1')}
             <br />
             {t('exampleStep2')}
@@ -83,7 +83,7 @@ export function BillingRules(): React.JSX.Element {
         {/* 计费说明 */}
         <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="space-y-1 text-label text-muted-foreground">
             <p>{t('noteRegion')}</p>
             <p>{t('noteSettlement')}</p>
             <p>{t('noteRound')}</p>
@@ -93,7 +93,7 @@ export function BillingRules(): React.JSX.Element {
         {/* 免费模型不收费说明(BYOK) */}
         <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
           <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="space-y-1 text-label text-muted-foreground">
             <p className="font-medium text-emerald-700 dark:text-emerald-400">
               {tByok('freeNoteTitle')}
             </p>

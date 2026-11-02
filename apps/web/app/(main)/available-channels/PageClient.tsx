@@ -68,7 +68,7 @@ export default function AvailableChannelsClient() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden />
@@ -84,7 +84,7 @@ export default function AvailableChannelsClient() {
           <span>{t('loading')}</span>
         </div>
       ) : channels.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="py-12 text-center text-body text-muted-foreground">{t('empty')}</p>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {channels.map((c) => (
@@ -96,14 +96,14 @@ export default function AvailableChannelsClient() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body font-medium">{c.channelName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{c.providerCode}</p>
+                    <p className="truncate text-label text-muted-foreground">{c.providerCode}</p>
                   </div>
-                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs tabular-nums">
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-label tabular-nums">
                     {t('models')} {c.modelCount}
                   </span>
                 </div>
 
-                <dl className="grid grid-cols-2 gap-2 text-xs">
+                <dl className="grid grid-cols-2 gap-2 text-label">
                   <div>
                     <dt className="text-muted-foreground">{t('inputPrice')}</dt>
                     <dd className="tabular-nums">

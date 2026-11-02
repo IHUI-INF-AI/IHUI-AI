@@ -88,7 +88,7 @@ export default function TeamDocsPage() {
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
             <p className="text-body font-semibold">👤 个人版</p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <ul className="mt-2 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>独立 Agent / 知识库</li>
               <li>独立积分账户</li>
               <li>独立 API Key</li>
@@ -101,7 +101,7 @@ export default function TeamDocsPage() {
               <Users className="mr-1.5 inline h-4 w-4" />
               团队版
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <ul className="mt-2 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>共享 Agent / 知识库(权限管控)</li>
               <li>共享积分池(Admin 统一充值)</li>
               <li>统一 API Key 管理 + 配额</li>
@@ -116,7 +116,7 @@ export default function TeamDocsPage() {
       <section id="rbac" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">RBAC 权限管理(7 级角色)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             基于角色的权限控制(Role-Based Access Control),7 级角色覆盖企业全部场景:
           </p>
           <div className="space-y-2">
@@ -136,16 +136,16 @@ export default function TeamDocsPage() {
             ].map(([role, level, scope, perms], i) => (
               <div
                 key={role}
-                className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
+                className={`grid grid-cols-2 gap-2 rounded p-3 text-body min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
               >
                 <div className="font-medium">{role}</div>
-                <div className="font-mono text-xs">{level}</div>
-                <div className="col-span-2 text-xs text-muted-foreground min-[768px]:col-span-1">{scope}</div>
-                <div className="col-span-2 text-xs text-muted-foreground min-[768px]:col-span-1">{perms}</div>
+                <div className="font-mono text-label">{level}</div>
+                <div className="col-span-2 text-label text-muted-foreground min-[768px]:col-span-1">{scope}</div>
+                <div className="col-span-2 text-label text-muted-foreground min-[768px]:col-span-1">{perms}</div>
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             💡 <strong>资源级权限</strong>:每个 Agent / 知识库 / 工作流可单独设权限(Public / Team / Private),
             精确到"谁能看 / 谁能改 / 谁能删"。
           </p>
@@ -156,7 +156,7 @@ export default function TeamDocsPage() {
       <section id="sso" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">SSO 单点登录</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             企业员工用现有身份系统(AD / LDAP / 飞书 / 钉钉 / 钉钉 / 企业微信)直接登录,无需注册新账号:
           </p>
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
@@ -165,19 +165,19 @@ export default function TeamDocsPage() {
                 <Lock className="mr-1.5 inline h-4 w-4" />
                 SAML 2.0
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-label text-muted-foreground">
                 企业级标准,支持 Azure AD / Okta / OneLogin / ADFS / 飞书 / 钉钉
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
               <p className="text-body font-semibold">🔑 OIDC</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-label text-muted-foreground">
                 OpenID Connect,支持 Google / GitHub / Keycloak / Auth0 / Authing
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
               <p className="text-body font-semibold">📋 LDAP</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-label text-muted-foreground">
                 直接对接 Active Directory / OpenLDAP,自动同步组织架构
               </p>
             </div>
@@ -186,12 +186,12 @@ export default function TeamDocsPage() {
                 <MessageCircle className="mr-1.5 inline h-4 w-4" />
                 扫码登录
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-label text-muted-foreground">
                 飞书 / 钉钉 / 企业微信 扫码直接登录,移动端友好
               </p>
             </div>
           </div>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label">
             <code>{`# Admin 配置 SSO
 设置 → 团队 → SSO 配置
   - 协议: SAML 2.0
@@ -206,10 +206,10 @@ export default function TeamDocsPage() {
       <section id="audit" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">操作审计</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             所有关键操作自动记录,满足等保 2.0 / GDPR / SOX 合规要求:
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li><strong>登录日志</strong>:谁 / 何时 / 何 IP / 何设备 登录</li>
             <li><strong>资源操作</strong>:Agent / 知识库 / 工作流的 创建 / 修改 / 删除 / 发布</li>
             <li><strong>权限变更</strong>:角色分配 / 移除 / 资源权限调整</li>
@@ -218,7 +218,7 @@ export default function TeamDocsPage() {
             <li><strong>数据导出</strong>:知识库导出 / 对话记录导出</li>
             <li><strong>导出报表</strong>:CSV / JSON,可对接 SIEM(Splunk / ELK)</li>
           </ul>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             日志默认保留 180 天,企业版可配置保留 3 年,支持归档到对象存储。
           </p>
         </div>
@@ -228,17 +228,17 @@ export default function TeamDocsPage() {
       <section id="shared-credits" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">积分共享池</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             Admin 统一充值,团队成员共享消耗,告别"每个员工单独报销 OpenAI 账单":
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li><strong>统一充值</strong>:Admin 一次充值 100 万积分,全团队可用</li>
             <li><strong>配额管控</strong>:可给每个成员 / 部门设月度配额(超限禁用 / 告警)</li>
             <li><strong>成本分摊</strong>:按实际消耗自动出账,可导出 CSV 报销</li>
             <li><strong>预警机制</strong>:余额低于阈值自动邮件 / 飞书通知 Admin</li>
             <li><strong>多支付方式</strong>:支付宝 / 微信 / PayPal / USDT / 公对公转账</li>
           </ul>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-label">
             <code>{`# Admin 配额配置示例
 {
   "team_quota_monthly": 100000,        // 团队月度 10 万积分
@@ -259,7 +259,7 @@ export default function TeamDocsPage() {
       <section id="api-keys" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">API Key 管理</h2>
         <div className="rounded-2xl border bg-card p-3 space-y-3">
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li><strong>团队 Key</strong>:Admin 创建团队级 Key,成员可用(权限可控)</li>
             <li><strong>个人 Key</strong>:成员可创建个人 Key(消耗个人配额)</li>
             <li><strong>配额限制</strong>:每个 Key 可设月度调用次数 / Token 上限</li>
@@ -278,8 +278,8 @@ export default function TeamDocsPage() {
           <div className="rounded-2xl border bg-card p-3">
             <p className="text-body font-semibold"> Starter</p>
             <p className="mt-2 text-display font-bold">¥299/月</p>
-            <p className="text-xs text-muted-foreground">/ 5 人</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">/ 5 人</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>5 个成员席位</li>
               <li>共享 5 万积分 / 月</li>
               <li>基础 RBAC(Admin / Member)</li>
@@ -290,8 +290,8 @@ export default function TeamDocsPage() {
           <div className="rounded-2xl border bg-primary/5 p-3 ring-1 ring-primary/30">
             <p className="text-body font-semibold"> Business</p>
             <p className="mt-2 text-display font-bold">¥1299/月</p>
-            <p className="text-xs text-muted-foreground">/ 20 人</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">/ 20 人</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>20 个成员席位</li>
               <li>共享 30 万积分 / 月</li>
               <li>完整 7 级 RBAC</li>
@@ -307,8 +307,8 @@ export default function TeamDocsPage() {
               Enterprise
             </p>
             <p className="mt-2 text-display font-bold">定制报价</p>
-            <p className="text-xs text-muted-foreground">/ 不限人数</p>
-            <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">/ 不限人数</p>
+            <ul className="mt-3 ml-4 list-disc space-y-1 text-label text-muted-foreground">
               <li>不限席位</li>
               <li>不限积分(按需购买)</li>
               <li>私有化部署</li>
@@ -326,17 +326,17 @@ export default function TeamDocsPage() {
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          <Link href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/agent" className="rounded-lg border bg-card p-3 text-body hover:bg-accent">
             🤖 Agent 开发 →<br />
-            <span className="text-xs text-muted-foreground">团队共建 Agent</span>
+            <span className="text-label text-muted-foreground">团队共建 Agent</span>
           </Link>
-          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-body hover:bg-accent">
             🛠️ API 参考 →<br />
-            <span className="text-xs text-muted-foreground">团队 API Key 调用</span>
+            <span className="text-label text-muted-foreground">团队 API Key 调用</span>
           </Link>
-          <Link href="/docs/self-host" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/self-host" className="rounded-lg border bg-card p-3 text-body hover:bg-accent">
             🐳 自托管部署 →<br />
-            <span className="text-xs text-muted-foreground">企业版私有化部署</span>
+            <span className="text-label text-muted-foreground">企业版私有化部署</span>
           </Link>
         </div>
       </section>

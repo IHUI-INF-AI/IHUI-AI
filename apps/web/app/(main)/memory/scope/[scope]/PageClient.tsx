@@ -80,7 +80,7 @@ export default function MemoryScopePage() {
           </Button>
           <h1 className="text-heading font-bold">无效的作用域</h1>
         </div>
-        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           作用域 &ldquo;{rawScope}&rdquo; 不存在,有效值:global / project / session / user
         </div>
@@ -99,8 +99,10 @@ export default function MemoryScopePage() {
           </Button>
           <div className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
-            <h1 className="text-heading font-bold tracking-tight">{scopeOpt?.label ?? scope} 记忆</h1>
-            <span className="text-sm text-muted-foreground">({entries.length})</span>
+            <h1 className="text-heading font-bold tracking-tight">
+              {scopeOpt?.label ?? scope} 记忆
+            </h1>
+            <span className="text-body text-muted-foreground">({entries.length})</span>
           </div>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -120,20 +122,20 @@ export default function MemoryScopePage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="搜索分类或内容..."
-            className="w-full rounded-sm border border-border bg-background py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+            className="w-full rounded-sm border border-border bg-background py-1.5 pl-8 pr-3 text-body outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
           />
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...
         </div>
@@ -142,7 +144,7 @@ export default function MemoryScopePage() {
       {!loading && !error && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-8 text-center">
           <Brain className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-xs text-muted-foreground">该作用域下还没有记忆条目</p>
+          <p className="text-label text-muted-foreground">该作用域下还没有记忆条目</p>
           <Button asChild variant="outline" size="sm">
             <Link href="/memory/new">
               <Plus className="h-4 w-4" />

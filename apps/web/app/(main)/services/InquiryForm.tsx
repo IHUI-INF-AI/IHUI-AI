@@ -120,8 +120,8 @@ export function InquiryForm(): React.JSX.Element {
       <div className="ui-card rounded-lg border bg-card p-3 text-center space-y-3">
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
         <h3 className="text-lg font-semibold">{t('inquiry.success.title')}</h3>
-        <p className="text-sm text-muted-foreground">{t('inquiry.success.message')}</p>
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-sm">
+        <p className="text-body text-muted-foreground">{t('inquiry.success.message')}</p>
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-body">
           <span className="inline-flex items-center gap-1.5">
             <Mail className="h-4 w-4 text-muted-foreground" />
             [REDACTED-EMAIL]
@@ -161,7 +161,7 @@ export function InquiryForm(): React.JSX.Element {
             onChange={(e) => update('name', e.target.value)}
             placeholder={t('inquiry.fields.namePlaceholder')}
           />
-          {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+          {errors.name && <p className="text-label text-destructive">{errors.name}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-body font-medium">{t('inquiry.fields.company')}</label>
@@ -183,7 +183,7 @@ export function InquiryForm(): React.JSX.Element {
             onChange={(e) => update('email', e.target.value)}
             placeholder={t('inquiry.fields.emailPlaceholder')}
           />
-          {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+          {errors.email && <p className="text-label text-destructive">{errors.email}</p>}
         </div>
         <div className="space-y-1.5">
           <label className="text-body font-medium">{t('inquiry.fields.phone')}</label>
@@ -230,15 +230,15 @@ export function InquiryForm(): React.JSX.Element {
           maxLength={2000}
           showCounter
         />
-        {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+        {errors.description && <p className="text-label text-destructive">{errors.description}</p>}
       </div>
       <div className="space-y-1.5">
         <Checkbox
           checked={form.agreeTerms}
           onChange={(v) => update('agreeTerms', v)}
-          label={<span className="text-sm">{t('inquiry.fields.agreeTerms')}</span>}
+          label={<span className="text-body">{t('inquiry.fields.agreeTerms')}</span>}
         />
-        {errors.agreeTerms && <p className="text-xs text-destructive">{errors.agreeTerms}</p>}
+        {errors.agreeTerms && <p className="text-label text-destructive">{errors.agreeTerms}</p>}
       </div>
       <Button type="submit" disabled={submitting} className="w-full">
         {submitting ? (

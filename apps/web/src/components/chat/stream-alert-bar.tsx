@@ -33,9 +33,10 @@ import {
  */
 type ActiveAlert = { kind: StreamAlertKind; alert: StreamAlertFrame }
 
-const isActiveAlert = (
-  entry: { kind: StreamAlertKind; alert: StreamAlertFrame | null },
-): entry is ActiveAlert => entry.alert !== null
+const isActiveAlert = (entry: {
+  kind: StreamAlertKind
+  alert: StreamAlertFrame | null
+}): entry is ActiveAlert => entry.alert !== null
 
 /** 强度 → 色档:info 蓝 / warning 琥珀 / critical 红(与 ContextBudgetBar 的 warning/critical 同族) */
 const SEVERITY_STYLES: Record<string, string> = {
@@ -58,18 +59,14 @@ export function StreamAlertBar() {
   if (active.length === 0) return null
 
   return (
-    <div
-      role="status"
-      data-testid="stream-alert-bar"
-      className="mx-4 mb-2 space-y-1"
-    >
+    <div role="status" data-testid="stream-alert-bar" className="mx-4 mb-2 space-y-1">
       {active.map(({ kind, alert }) => (
         <div
           key={kind}
           data-testid={`stream-alert-${kind}`}
           data-severity={alert.severity}
           className={cn(
-            'ui-card flex min-w-0 items-start gap-2 rounded-lg px-3 py-2 text-xs',
+            'ui-card flex min-w-0 items-start gap-2 rounded-lg px-3 py-2 text-label',
             SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.warning,
           )}
         >

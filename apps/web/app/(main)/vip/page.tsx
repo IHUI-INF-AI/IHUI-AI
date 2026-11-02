@@ -98,13 +98,13 @@ export default function VipPage() {
           <Crown className="h-7 w-7 text-amber-500" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 立即购买 VIP — 跳转收款落地页(支付宝支付) */}
       {!myVip && (
         <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-3 min-[640px]:flex-row">
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-body">
             <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="font-medium text-amber-700">{t('limitedOffer')}</span>
             <span className="text-muted-foreground">{t('buyPrompt')}</span>
@@ -135,12 +135,12 @@ export default function VipPage() {
         <Card className="border-amber-500/40 bg-amber-50/40">
           <CardContent className="min-[640px]:p-3 flex flex-col gap-2 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
+              <p className="text-label text-muted-foreground">{t('currentLevel')}</p>
               <p className="flex items-center gap-2 text-base font-semibold">
                 {myVip.levelName ?? t('title')}
                 <span
                   className={cn(
-                    'rounded-md px-2 py-0.5 text-xs',
+                    'rounded-md px-2 py-0.5 text-label',
                     myVip.status === 1
                       ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-muted text-muted-foreground',
@@ -149,7 +149,7 @@ export default function VipPage() {
                   {myVip.status === 1 ? t('active') : t('expired')}
                 </span>
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('expireAt')}: {dateFmt.format(new Date(myVip.endTime))}
               </p>
             </div>
@@ -166,13 +166,13 @@ export default function VipPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : levels.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Crown className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3 min-[1024px]:items-stretch">
@@ -194,14 +194,14 @@ export default function VipPage() {
                   </span>
                 )}
                 <CardHeader className="p-3 pb-3">
-                  <CardTitle className="text-xl">{level.levelName}</CardTitle>
+                  <CardTitle className="text-heading">{level.levelName}</CardTitle>
                 </CardHeader>
                 <CardContent className="min-[640px]:p-3 flex flex-1 flex-col p-3 pt-0">
                   <div className="mb-4 flex flex-wrap items-baseline gap-1">
                     <span className="text-display min-[768px]:text-3xl font-bold">
                       {formatCNY(level.price)}
                     </span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-body text-muted-foreground">
                       {t('durationDays', { days: level.durationDays })}
                     </span>
                     {hasRecurring && (
@@ -210,12 +210,12 @@ export default function VipPage() {
                       </Badge>
                     )}
                     {maxTrialDays > 0 && (
-                      <span className="text-xs text-primary">前 {maxTrialDays} 天试用</span>
+                      <span className="text-label text-primary">前 {maxTrialDays} 天试用</span>
                     )}
                   </div>
 
                   {benefits.length > 0 && (
-                    <ul className="mb-6 space-y-2 text-sm">
+                    <ul className="mb-6 space-y-2 text-body">
                       {benefits.map((b, i) => (
                         <li key={`benefit-${i}`} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
@@ -237,13 +237,13 @@ export default function VipPage() {
         </div>
       )}
 
-      <div className="rounded-lg border bg-muted/30 p-3 text-center text-xs text-muted-foreground">
+      <div className="rounded-lg border bg-muted/30 p-3 text-center text-label text-muted-foreground">
         {t('faqHint')}
       </div>
       <div className="text-center">
         <Link
           href="/"
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           {tc('backHome')}
         </Link>

@@ -413,7 +413,7 @@ export function StreamDetail({
 }) {
   return (
     <div
-      className={cn('ml-[7px] space-y-1.5 rounded-md bg-muted/30 p-2 pl-3 text-xs', className)}
+      className={cn('ml-[7px] space-y-1.5 rounded-md bg-muted/30 p-2 pl-3 text-label', className)}
       data-testid={testId}
     >
       {children}
@@ -448,7 +448,7 @@ export function StreamCode({
     <pre
       ref={ref}
       className={cn(
-        'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-xs leading-relaxed text-foreground/75',
+        'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-label leading-relaxed text-foreground/75',
         className,
       )}
       data-testid={testId}

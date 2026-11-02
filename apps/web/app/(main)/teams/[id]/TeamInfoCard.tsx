@@ -19,10 +19,10 @@ export function TeamInfoCard({ team }: { team: TeamDetail }) {
           <Crown className="h-6 w-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <CardTitle className="text-xl">{team.name}</CardTitle>
+          <CardTitle className="text-heading">{team.name}</CardTitle>
           <CardDescription className="mt-1">{team.description || `@${team.slug}`}</CardDescription>
         </div>
-        <div className="hidden text-right text-xs text-muted-foreground min-[640px]:block">
+        <div className="hidden text-right text-label text-muted-foreground min-[640px]:block">
           <div>
             {t('owner')}: {team.ownerName}
           </div>

@@ -82,7 +82,7 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
           <Layers className="h-7 w-7 text-primary" aria-hidden />
         </div>
         <h2 className="text-lg font-semibold tracking-tight">{t('workbenchHeroTitle')}</h2>
-        <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 max-w-md text-body leading-relaxed text-muted-foreground">
           {t('workbenchHeroHint')}
         </p>
       </div>
@@ -113,7 +113,7 @@ export function WorkbenchWelcome({ onPrefill }: WorkbenchWelcomeProps) {
               />
               <span className="min-w-0">
                 <span className="block truncate text-body font-medium">{c.label}</span>
-                <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">
+                <span className="mt-0.5 line-clamp-1 block text-label text-muted-foreground">
                   {c.desc}
                 </span>
               </span>

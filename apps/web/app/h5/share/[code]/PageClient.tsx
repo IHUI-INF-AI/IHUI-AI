@@ -45,7 +45,7 @@ function LoadingView(): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="mt-4 text-sm text-muted-foreground">{t('loading')}</p>
+      <p className="mt-4 text-body text-muted-foreground">{t('loading')}</p>
     </div>
   )
 }
@@ -61,11 +61,11 @@ function ErrorView({
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-5 text-center">
       <AlertCircle className="mb-4 h-16 w-16 text-muted-foreground/40" />
-      <p className="mb-6 text-sm text-muted-foreground">{message || t('errorDefault')}</p>
+      <p className="mb-6 text-body text-muted-foreground">{message || t('errorDefault')}</p>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-sm bg-cta px-6 py-2.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
+        className="inline-flex items-center gap-1.5 rounded-sm bg-cta px-6 py-2.5 text-body text-cta-foreground transition-colors hover:bg-cta/90"
       >
         <RotateCcw className="h-4 w-4" />
         {t('retry')}
@@ -132,11 +132,11 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
           <div className="min-w-0 flex-1">
             <div className="truncate text-body font-medium">{data.modelName}</div>
             {data.userName && (
-              <div className="truncate text-xs text-muted-foreground">{data.userName}</div>
+              <div className="truncate text-label text-muted-foreground">{data.userName}</div>
             )}
           </div>
           {data.tokenCost !== undefined && data.tokenCost > 0 && (
-            <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded bg-muted px-2 py-0.5 text-label text-muted-foreground">
               {data.tokenCost} tokens
             </span>
           )}
@@ -147,7 +147,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             <div className="mb-1.5 text-label font-medium text-muted-foreground">
               {t('questionLabel')}
             </div>
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            <p className="whitespace-pre-wrap break-words text-body leading-relaxed">
               {data.question}
             </p>
           </section>
@@ -157,7 +157,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
               <div className="mb-1 text-label font-medium text-muted-foreground">
                 {t('thinkingLabel')}
               </div>
-              <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">
+              <p className="whitespace-pre-wrap break-words text-label leading-relaxed text-muted-foreground">
                 {data.answer.thinking}
               </p>
             </section>
@@ -168,7 +168,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
               <div className="mb-1.5 text-label font-medium text-muted-foreground">
                 {t('answerLabel')}
               </div>
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap break-words text-body leading-relaxed">
                 {data.answer.text}
               </p>
             </section>
@@ -210,7 +210,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
                       <track default kind="captions" srcLang="zh" src="" />
                     </audio>
                   ) : (
-                    <p className="whitespace-pre-wrap break-words text-sm">{it.content}</p>
+                    <p className="whitespace-pre-wrap break-words text-body">{it.content}</p>
                   )}
                 </div>
               ))}
@@ -233,12 +233,14 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             </audio>
           )}
 
-          {createdAt && <div className="mt-2 pt-2 text-xs text-muted-foreground">{createdAt}</div>}
+          {createdAt && (
+            <div className="mt-2 pt-2 text-label text-muted-foreground">{createdAt}</div>
+          )}
         </div>
       </article>
 
       {shareTip && (
-        <div className="fixed inset-x-0 top-4 z-popover mx-auto w-fit max-w-[80%] rounded-md bg-foreground/80 px-4 py-2 text-center text-xs text-background">
+        <div className="fixed inset-x-0 top-4 z-popover mx-auto w-fit max-w-[80%] rounded-md bg-foreground/80 px-4 py-2 text-center text-label text-background">
           {shareTip}
         </div>
       )}
@@ -249,7 +251,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             type="button"
             onClick={copyLink}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-sm border px-4 py-2.5 text-sm transition-colors',
+              'flex flex-1 items-center justify-center gap-1.5 rounded-sm border px-4 py-2.5 text-body transition-colors',
               copied ? 'border-emerald-500 text-emerald-500' : 'hover:bg-muted',
             )}
           >
@@ -259,7 +261,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
           <button
             type="button"
             onClick={wechatShare}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-sm bg-[#07c160] px-4 py-2.5 text-sm text-white transition-opacity hover:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-sm bg-[#07c160] px-4 py-2.5 text-body text-white transition-opacity hover:opacity-90"
           >
             <Share2 className="h-4 w-4" />
             {t('wechatShare')}

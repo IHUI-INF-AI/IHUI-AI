@@ -100,7 +100,7 @@ export default function MemoryDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-3xl">
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-12 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...
         </div>
@@ -126,7 +126,7 @@ export default function MemoryDetailPage() {
       </header>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -184,7 +184,7 @@ export default function MemoryDetailPage() {
           ) : (
             <div className="space-y-2">
               <h2 className="text-base font-semibold text-foreground">{entry.category}</h2>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              <p className="whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
                 {entry.text}
               </p>
             </div>

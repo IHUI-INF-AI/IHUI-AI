@@ -96,7 +96,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
   )
 
   const Meta = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
       <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5">
         <KindIcon className="h-3 w-3" />
         {KIND_LABEL[item.kind]}
@@ -135,7 +135,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
   )
 
   const Summary = item.summary ? (
-    <p className={`line-clamp-2 text-xs text-muted-foreground ${layout === 'grid' ? '' : ''}`}>
+    <p className={`line-clamp-2 text-label text-muted-foreground ${layout === 'grid' ? '' : ''}`}>
       {item.summary}
     </p>
   ) : null

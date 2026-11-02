@@ -98,7 +98,7 @@ function DataTableImpl<T>({
   return (
     <div className={cn('w-full', className)}>
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
+        <table className="w-full text-body">
           <thead className="bg-muted/50">
             <tr>
               {selectable && (
@@ -182,7 +182,7 @@ function DataTableImpl<T>({
         </table>
       </div>
       {pagination && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-body">
           <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
             {t('paginationSummary', {
               total: pagination.total,

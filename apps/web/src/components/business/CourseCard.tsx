@@ -67,7 +67,7 @@ function CourseCardImpl({
         {tags && tags.length > 0 && (
           <div className="absolute top-2 left-2 flex gap-1">
             {tags.map((tag) => (
-              <span key={tag} className="rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+              <span key={tag} className="rounded bg-black/60 px-2 py-0.5 text-label text-white">
                 {tag}
               </span>
             ))}
@@ -76,7 +76,7 @@ function CourseCardImpl({
       </div>
       <div className="space-y-2 p-3">
         <h3 className="font-medium">{title}</h3>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 text-label text-muted-foreground">
           {instructor && (
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
@@ -105,7 +105,7 @@ function CourseCardImpl({
               </span>
             )}
             {originalPrice !== undefined && (
-              <span className="text-sm text-muted-foreground line-through">
+              <span className="text-body text-muted-foreground line-through">
                 {typeof originalPrice === 'number' ? `¥${originalPrice}` : originalPrice}
               </span>
             )}

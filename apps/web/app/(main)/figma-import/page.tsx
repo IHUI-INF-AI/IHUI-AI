@@ -87,7 +87,7 @@ export default function FigmaImportPage() {
           <Palette className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <section className="space-y-3 rounded-lg border border-border bg-card p-3">
@@ -114,7 +114,7 @@ export default function FigmaImportPage() {
             value={fileKey}
             onChange={(e) => setFileKey(e.target.value)}
             placeholder={t('fileKeyPlaceholder')}
-            className="h-9 rounded-sm border border-input bg-background px-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <input
             value={nodeId}
@@ -123,7 +123,7 @@ export default function FigmaImportPage() {
               if (e.key === 'Enter' && !running) void run()
             }}
             placeholder={t('nodeIdPlaceholder')}
-            className="h-9 rounded-sm border border-input bg-background px-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 rounded-sm border border-input bg-background px-3 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
 
@@ -141,7 +141,7 @@ export default function FigmaImportPage() {
       </section>
 
       {error && (
-        <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-body text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
@@ -170,7 +170,7 @@ export default function FigmaImportPage() {
           </div>
 
           {result.degraded && (
-            <p className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <p className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-3 py-2 text-label text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {t('degradedNotice')}
             </p>
@@ -194,7 +194,7 @@ export default function FigmaImportPage() {
             </p>
           )}
 
-          <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed">
+          <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-label leading-relaxed">
             {result.code}
           </pre>
         </section>

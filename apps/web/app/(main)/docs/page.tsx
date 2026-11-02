@@ -202,12 +202,12 @@ export default function DocsIndexPage() {
         {docSections.map((section) => (
           <section key={section.title} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">
+              <span className="text-display font-normal">
                 {typeof section.icon === 'string' ? section.icon : <section.icon className="h-6 w-6" />}
               </span>
               <h2 className="text-lg font-semibold">{section.title}</h2>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-label text-muted-foreground">
               {section.description}
             </p>
             <ul className="mt-4 space-y-3">
@@ -218,7 +218,7 @@ export default function DocsIndexPage() {
                     className="block rounded-lg border bg-background p-3 transition-colors hover:bg-accent"
                   >
                     <div className="font-medium text-body">{item.name}</div>
-                    <div className="text-xs text-muted-foreground">{item.desc}</div>
+                    <div className="text-label text-muted-foreground">{item.desc}</div>
                   </a>
                 </li>
               ))}
@@ -228,7 +228,7 @@ export default function DocsIndexPage() {
       </div>
 
       <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           文档未覆盖到的问题?
           {' '}
           <a href="https://aizhs.top/faq" className="text-primary underline">查看 FAQ</a>

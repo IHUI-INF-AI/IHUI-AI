@@ -128,7 +128,7 @@ export default function NotificationsPage() {
           <Bell className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -144,7 +144,7 @@ export default function NotificationsPage() {
                   <Label className="text-body font-medium">
                     {t(PREF_LABEL_KEY[item.key] ?? `${item.key}Label`)}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t(PREF_DESC_KEY[item.key] ?? `${item.key}Desc`)}
                   </p>
                 </div>
@@ -168,7 +168,7 @@ export default function NotificationsPage() {
           {t('saveBtn')}
         </Button>
         {saveMut.isSuccess && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-500">{t('savedTag')}</span>
+          <span className="text-label text-emerald-600 dark:text-emerald-500">{t('savedTag')}</span>
         )}
       </div>
 

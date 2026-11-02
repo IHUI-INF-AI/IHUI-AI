@@ -121,7 +121,7 @@ export default function CommissionPlanPage() {
           <Gift className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {allow ? (
@@ -156,7 +156,7 @@ export default function CommissionPlanPage() {
                   readOnly
                   value={inviteUrl}
                   placeholder={t('inviteLinkPlaceholder')}
-                  className="h-9 flex-1 rounded-sm border bg-muted/40 px-3 text-sm text-muted-foreground"
+                  className="h-9 flex-1 rounded-sm border bg-muted/40 px-3 text-body text-muted-foreground"
                 />
                 <Button onClick={handleCopy} disabled={!inviteUrl}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -182,7 +182,7 @@ export default function CommissionPlanPage() {
               </span>
               <div className="space-y-0.5">
                 <div className="text-body font-medium">{t(rule.titleKey)}</div>
-                <p className="text-xs text-muted-foreground">{t(rule.key)}</p>
+                <p className="text-label text-muted-foreground">{t(rule.key)}</p>
               </div>
             </div>
           ))}
@@ -201,11 +201,11 @@ export default function CommissionPlanPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {ratesQ.isError ? (
-              <p className="text-xs text-destructive">
+              <p className="text-label text-destructive">
                 {ratesQ.error instanceof Error ? ratesQ.error.message : te('rateEmpty')}
               </p>
             ) : ratesQ.isLoading ? null : rateRows.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{te('rateEmpty')}</p>
+              <p className="text-label text-muted-foreground">{te('rateEmpty')}</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
                 {rateRows.map((row) => (
@@ -214,7 +214,7 @@ export default function CommissionPlanPage() {
                       <span className="text-body font-semibold">{row.level}</span>
                       <span className="text-lg font-bold text-primary">{row.rate}</span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{t('commissionRate')}</p>
+                    <p className="mt-1 text-label text-muted-foreground">{t('commissionRate')}</p>
                   </div>
                 ))}
               </div>

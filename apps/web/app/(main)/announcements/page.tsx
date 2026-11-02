@@ -46,9 +46,11 @@ export default function AnnouncementsPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
@@ -57,7 +59,7 @@ export default function AnnouncementsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length > 0 ? (
@@ -82,17 +84,17 @@ export default function AnnouncementsPage() {
                           {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
                         </span>
                         {a.isPinned && (
-                          <span className="inline-flex items-center gap-0.5 text-xs text-primary">
+                          <span className="inline-flex items-center gap-0.5 text-label text-primary">
                             <Pin className="h-3 w-3" />
                             {t('pinned')}
                           </span>
                         )}
-                        <span className="ml-auto text-xs text-muted-foreground">
+                        <span className="ml-auto text-label text-muted-foreground">
                           {fmt(a.publishedAt)}
                         </span>
                       </div>
                       <h2 className="text-body font-semibold">{a.title}</h2>
-                      <p className="text-sm text-muted-foreground">{a.summary}</p>
+                      <p className="text-body text-muted-foreground">{a.summary}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -103,7 +105,7 @@ export default function AnnouncementsPage() {
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Megaphone className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       )}
     </div>

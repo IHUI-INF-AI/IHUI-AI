@@ -230,7 +230,7 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
             </span>
           </div>
           {isLoading ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-8 text-label text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               {t('loading')}
             </div>
@@ -270,7 +270,7 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
                       className="flex h-full flex-col items-center justify-center gap-1 px-3 text-center"
                       data-pane-marker={leafPaneId}
                     >
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {t('workbenchDropHere')}
                       </span>
                     </div>
