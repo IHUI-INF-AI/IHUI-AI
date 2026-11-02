@@ -12,11 +12,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs'
 import { join, dirname, resolve, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as U } from '../union-converge.mjs'
+// S-SRCPROBE(2026-11-01):源码级锁的**唯一**探测面(零判据,只扫描)。srcOfTool 改吃它,
+// 使被审面覆盖 union-converge.mjs + 全部 lib/union-converge-*.mjs 拆片(后续再拆也自动落入射程)。
+import { familySources, definitionsOf, uniqueDefinition } from './helpers/union-converge-source-probe.mjs'
 import { auditOne } from '../check-merge-addition-loss.mjs'
 import {
   placeholderKeyOfTitle,
@@ -805,13 +808,37 @@ function topLevelBody(src, header) {
 
 /** 出路文案的判据输入全走构造面 —— 不依赖仓库恰好处于哪种状态。 */
 const BOGUS_SHA = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
-// 2026-11-01 纯搬运拆分(守门 103 体积清偿):本体的判据族已逐字搬入
-// lib/union-converge-judgments.mjs ⇒ 源码级锁的被审面改为**两文件拼接**(锁的内容一条不减,
-// 只是跟着实现的新家走;计数不漂移:搬出的那一份在 lib 里逐字还在)。
-const srcOfTool = () =>
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'union-converge.mjs'), 'utf8') +
-  '\n' +
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'union-converge-judgments.mjs'), 'utf8')
+// 2026-11-01 S-SRCPROBE:被审面改为**全家族目录扫描**(union-converge.mjs + lib/union-converge-*.mjs),
+// 不再手抄两份文件。理由:判据族已逐字搬进 lib,后续还可能再拆片(事实已拆出 union-converge-flags.mjs);
+// 两文件拼接看不见"拆出去的那份"也看不见"被复制成两份"。改吃 familySources() 后,任何新拆片/副本
+// 自动落入射程(见下方 R-PROBE 唯一性锁,漏一份即红)。
+const srcOfTool = () => familySources().map((f) => f.src).join('\n')
+
+// 2026-11-01 S-SRCPROBE:srcOfTool 改全家族扫描后,这里把"判据被复制成两份"显式钉死。
+// 前席 S-PROBE 已在 union-closed-row-key-caps / union-marker-triple-recall 两处用同一份 helper 锁过,
+// 本文件原先是**两文件拼接**,漏看拆片也漏看副本;现在补一处同源锁,让"漏一份即红"在主干镜像也成立。
+test('R-PROBE-A 源码级唯一性锁:核心判据 liveDocExpectedCounts 在全家族恰一份定义', () => {
+  const defs = definitionsOf('liveDocExpectedCounts')
+  assert.equal(defs.length, 1, `liveDocExpectedCounts 应只在全家族出现 1 处定义,实得 ${defs.length} 处(${defs.map((d) => d.rel).join(' / ')})`)
+  const u = uniqueDefinition('liveDocExpectedCounts')
+  assert.ok(u.ok, u.why)
+})
+
+test('R-PROBE-B 反向例(S-SRCPROBE):把核心判据函数体复制进新拆片必须翻红', () => {
+  const libDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'lib')
+  const tmp = join(libDir, 'union-converge-__probe.mjs') // 必须匹配家族正则 ^union-converge-.*\.mjs$
+  const u0 = uniqueDefinition('liveDocExpectedCounts')
+  assert.ok(u0.ok, `基线:当前恰一份定义(${u0.why})`)
+  // 复制一份(改名不改体)进临时拆片 ⇒ 函数体在全家族出现 2 次 ⇒ uniqueDefinition 必翻红
+  const renamed = u0.body.replace('export function liveDocExpectedCounts(', 'export function __probeDup(')
+  writeFileSync(tmp, `${renamed}\n`)
+  try {
+    const u1 = uniqueDefinition('liveDocExpectedCounts')
+    assert.equal(u1.ok, false, `复制后必须翻红(函数体全家族出现 2 次),实得 ok=${u1.ok} ${u1.why}`)
+  } finally {
+    if (existsSync(tmp)) unlinkSync(tmp)
+  }
+})
 
 test('R-A 出路文案:对侧 sha 不可达 ⇒ 只给按分支取的 fetch,并给得出免联网出口', () => {
   const g = U.unreachableObjectGuidance({
