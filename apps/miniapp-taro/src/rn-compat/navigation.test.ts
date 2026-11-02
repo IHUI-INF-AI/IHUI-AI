@@ -19,6 +19,7 @@ vi.mock('@tarojs/taro', () => ({
   default: taro,
   useDidShow: vi.fn(),
   useDidHide: vi.fn(),
+  useUnload: vi.fn(),
 }))
 
 import { RN_ROUTE_MAP } from './route-map.generated'
@@ -30,6 +31,7 @@ import {
   MINI_TAB_PATHS,
   onNavigationFailure,
   readCarrierParams,
+  releaseCarrierParams,
   resolveNavigationAction,
   setPageParams,
   subscribePageParams,
@@ -100,6 +102,25 @@ describe('buildRoutePath', () => {
     expect(readCarrierParams(token)).toEqual({ item: { a: 1 } })
     vi.setSystemTime(new Date(Date.now() + 6 * 60 * 1000))
     expect(readCarrierParams(token)).toBeNull()
+  })
+
+  it('releaseCarrierParams:页面 unload 后令牌立即失效,重复释放/非法令牌不抛', () => {
+    const url = buildRoutePath(ROUTE_NAME, { item: { a: 1 } })
+    const token = new URLSearchParams(url!.split('?')[1] ?? '').get('$rp')
+    expect(readCarrierParams(token)).toEqual({ item: { a: 1 } })
+    releaseCarrierParams(token)
+    expect(readCarrierParams(token)).toBeNull()
+    expect(() => releaseCarrierParams(token)).not.toThrow()
+    expect(() => releaseCarrierParams(undefined)).not.toThrow()
+  })
+
+  it('通道容量:连发 25 条只保留最新 20 条(不随页面数线性增长)', () => {
+    const tokens = Array.from({ length: 25 }, (_, i) => {
+      const url = buildRoutePath(ROUTE_NAME, { nested: { i } })
+      return new URLSearchParams(url!.split('?')[1] ?? '').get('$rp')
+    })
+    expect(tokens.slice(0, 5).every((token) => readCarrierParams(token) === null)).toBe(true)
+    expect(tokens.slice(5).every((token) => readCarrierParams(token) !== null)).toBe(true)
   })
 })
 

@@ -12,7 +12,7 @@
  * 两条现读事实 join 出来,产出 route-map.generated.ts。
  * 映射不到时**显式点名并停在原地**,绝不静默跳到别的页(错跳比不跳更难查)。
  */
-import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useUnload } from '@tarojs/taro'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -67,6 +67,12 @@ export function readCarrierParams(token: unknown): RouteParams | null {
     return null
   }
   return entry.params
+}
+
+/** 页面 unload 时释放令牌(幂等):不再等 TTL,避免页面栈反复进出把通道占满 */
+export function releaseCarrierParams(token: unknown): void {
+  if (typeof token !== 'string' || token === '') return
+  carriers.delete(token)
 }
 
 function isScalar(v: unknown): boolean {
@@ -346,6 +352,9 @@ export function useRoute() {
   const [, setVersion] = useState(0)
 
   useEffect(() => subscribePageParams(page, path, () => setVersion((v) => v + 1)), [page, path])
+
+  // 页面 unload 释放 $rp 令牌:参数随页面生命周期走,不再驻留到 TTL 上限
+  useUnload(() => releaseCarrierParams(rawParams[CARRIER_QUERY_KEY]))
 
   const carried = readCarrierParams(rawParams[CARRIER_QUERY_KEY])
   const overrides = getPageParams(page, path)
