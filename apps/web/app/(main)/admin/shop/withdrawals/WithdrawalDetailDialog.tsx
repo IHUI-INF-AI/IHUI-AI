@@ -46,7 +46,7 @@ export function WithdrawalDetailDialog(props: Props) {
             </DialogTitle>
           </DialogHeader>
           {dErr && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {dErr}
             </div>
           )}

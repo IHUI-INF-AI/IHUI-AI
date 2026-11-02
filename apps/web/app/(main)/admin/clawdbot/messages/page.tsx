@@ -94,7 +94,7 @@ export default function ClawdbotMessagesPage() {
           wrapperClassName="flex-1 min-w-0"
         />
         <select
-          className="h-9 rounded-sm border bg-background px-3 text-sm"
+          className="h-9 rounded-sm border bg-background px-3 text-body"
           value={intentFilter}
           onChange={(e) => setIntentFilter(e.target.value)}
         >
@@ -111,7 +111,7 @@ export default function ClawdbotMessagesPage() {
       <div className="rounded-lg border bg-card">
         <div className="space-y-2">
           {messages.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               暂无消息
             </div>
           ) : (
@@ -124,7 +124,7 @@ export default function ClawdbotMessagesPage() {
               >
                 <div
                   className={cn(
-                    'mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs',
+                    'mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-label',
                     m.role === 'user'
                       ? 'bg-primary/10 text-primary'
                       : 'bg-muted text-muted-foreground',
@@ -133,8 +133,8 @@ export default function ClawdbotMessagesPage() {
                   {m.role}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{m.content}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="truncate text-body">{m.content}</p>
+                  <p className="mt-0.5 text-label text-muted-foreground">
                     {timeFmt.format(new Date(m.timestamp))}
                     {m.intent ? ` · ${m.intent}` : ''}
                   </p>
@@ -158,7 +158,7 @@ export default function ClawdbotMessagesPage() {
               <p className="text-body font-medium">消息详情</p>
               <CloseButton aria-label="关闭" onClick={() => setSelected(null)} />
             </div>
-            <div className="space-y-3 p-3 text-sm">
+            <div className="space-y-3 p-3 text-body">
               <div>
                 <span className="text-muted-foreground">ID:</span> {selected.id}
               </div>

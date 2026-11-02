@@ -73,7 +73,7 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                 <TableCell className="px-4 py-2.5">
                   <div className="font-medium">{l.title}</div>
                   {l.intro ? (
-                    <div className="max-w-xs break-words text-xs text-muted-foreground">
+                    <div className="max-w-xs break-words text-label text-muted-foreground">
                       {l.intro}
                     </div>
                   ) : null}

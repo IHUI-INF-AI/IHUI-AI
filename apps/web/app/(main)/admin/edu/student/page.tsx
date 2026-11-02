@@ -136,18 +136,18 @@ export default function EduStudentPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('totalStudents')}</div>
+            <div className="text-body text-muted-foreground">{t('totalStudents')}</div>
             <div className="mt-1 text-display font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('currentPageSignups')}</div>
+            <div className="text-body text-muted-foreground">{t('currentPageSignups')}</div>
             <div className="mt-1 text-display font-semibold">
               {rows.reduce((a, s) => a + s.signupCount, 0)}
             </div>
@@ -155,7 +155,7 @@ export default function EduStudentPage() {
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('currentPageLearnHours')}</div>
+            <div className="text-body text-muted-foreground">{t('currentPageLearnHours')}</div>
             <div className="mt-1 text-display font-semibold">
               {rows.reduce((a, s) => a + s.learnHours, 0)}h
             </div>
@@ -182,7 +182,7 @@ export default function EduStudentPage() {
         deletePending={deleteMut.isPending}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -193,7 +193,9 @@ export default function EduStudentPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"

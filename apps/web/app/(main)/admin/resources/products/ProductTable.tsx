@@ -72,7 +72,7 @@ export function ProductTable({ list, isLoading, error, deletePending, onEdit, on
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{p.name}</div>
                     {p.description ? (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
+                      <div className="max-w-xs break-words text-label text-muted-foreground">
                         {p.description}
                       </div>
                     ) : null}

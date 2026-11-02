@@ -26,8 +26,8 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
   })
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">{t('name')}</th>
             <th className="px-4 py-2.5 font-medium">{t('description')}</th>
@@ -56,7 +56,7 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
               <tr key={r.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-2.5">
                   <div className="font-medium">{r.displayName}</div>
-                  <div className="text-xs text-muted-foreground">{r.name}</div>
+                  <div className="text-label text-muted-foreground">{r.name}</div>
                 </td>
                 <td className="max-w-[240px] break-words px-4 py-2.5 text-muted-foreground">
                   {r.description || '-'}
@@ -68,15 +68,15 @@ export function RoleTable({ list, isLoading, onEdit, onDelete }: Props) {
                 </td>
                 <td className="px-4 py-2.5">
                   {r.isSystem ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-600 dark:text-amber-500">
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600 dark:text-amber-500">
                       <Lock className="h-3 w-3" />
                       {t('builtinYes')}
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{t('builtinNo')}</span>
+                    <span className="text-label text-muted-foreground">{t('builtinNo')}</span>
                   )}
                 </td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="px-4 py-2.5 text-label text-muted-foreground">
                   {dateFmt.format(new Date(r.createdAt))}
                 </td>
                 <td className="px-4 py-2.5 text-right">

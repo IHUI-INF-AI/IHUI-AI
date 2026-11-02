@@ -58,7 +58,7 @@ export default function EduFinanceStatisticsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{tc('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{tc('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{tc('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -103,7 +103,7 @@ export default function EduFinanceStatisticsPage() {
                   <DollarSign className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{tc('totalRevenue')}</div>
+                  <div className="text-body text-muted-foreground">{tc('totalRevenue')}</div>
                   <div className="mt-1 text-display font-semibold">
                     ¥{stats.totalRevenue.toFixed(2)}
                   </div>
@@ -116,7 +116,7 @@ export default function EduFinanceStatisticsPage() {
                   <ShoppingCart className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{tc('totalOrders')}</div>
+                  <div className="text-body text-muted-foreground">{tc('totalOrders')}</div>
                   <div className="mt-1 text-display font-semibold">{stats.totalOrders}</div>
                 </div>
               </CardContent>
@@ -127,7 +127,7 @@ export default function EduFinanceStatisticsPage() {
                   <TrendingUp className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{tc('paidOrders')}</div>
+                  <div className="text-body text-muted-foreground">{tc('paidOrders')}</div>
                   <div className="mt-1 text-display font-semibold">{stats.paidOrders}</div>
                 </div>
               </CardContent>
@@ -138,7 +138,7 @@ export default function EduFinanceStatisticsPage() {
                   <DollarSign className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{tc('refundedAmount')}</div>
+                  <div className="text-body text-muted-foreground">{tc('refundedAmount')}</div>
                   <div className="mt-1 text-display font-semibold">
                     ¥{stats.refundedAmount.toFixed(2)}
                   </div>

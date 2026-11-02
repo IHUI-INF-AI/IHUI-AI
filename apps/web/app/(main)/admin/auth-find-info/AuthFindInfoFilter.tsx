@@ -21,7 +21,7 @@ export function AuthFindInfoFilter({ search, onSearchChange, onQuery, onReset }:
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelUserUuid')}</Label>
+        <Label className="text-label">{t('labelUserUuid')}</Label>
         <Input
           className="h-9 w-48"
           value={search.userUuid}
@@ -30,7 +30,7 @@ export function AuthFindInfoFilter({ search, onSearchChange, onQuery, onReset }:
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelCard')}</Label>
+        <Label className="text-label">{t('labelCard')}</Label>
         <Input
           className="h-9 w-48"
           value={search.card}

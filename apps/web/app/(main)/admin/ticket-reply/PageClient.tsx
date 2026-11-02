@@ -39,12 +39,12 @@ export default function AdminTicketReplyPage() {
         <MessageSquare className="h-6 w-6 text-primary" />
         工单回复
       </h1>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         工单 ID:{ticketId || '—'} · 共 {total} 条回复
       </p>
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">回复人</th>
               <th className="px-4 py-2.5 font-medium">身份</th>
@@ -78,7 +78,7 @@ export default function AdminTicketReplyPage() {
                   <td className="px-4 py-2.5 font-medium">{r.userName ?? r.userId}</td>
                   <td className="px-4 py-2.5">
                     <span
-                      className={`rounded px-2 py-0.5 text-xs ${r.isAdmin ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
+                      className={`rounded px-2 py-0.5 text-label ${r.isAdmin ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}
                     >
                       {r.isAdmin ? '客服' : '用户'}
                     </span>

@@ -92,7 +92,7 @@ export default function RefundDetailPage() {
     <div className="space-y-4">
       <Link
         href="/admin/refund"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}

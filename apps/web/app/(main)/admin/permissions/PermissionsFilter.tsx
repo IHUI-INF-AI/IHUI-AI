@@ -75,7 +75,7 @@ export function PermissionsFilter({
           ))}
         </SelectContent>
       </Select>
-      <span className="text-sm text-muted-foreground">
+      <span className="text-body text-muted-foreground">
         {t('filteredCount', { count: filteredCount })}
       </span>
     </div>

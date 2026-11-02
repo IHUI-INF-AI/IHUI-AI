@@ -77,7 +77,7 @@ export function MemberGroupsTable({ list, isLoading, onEdit, onDelete }: Props) 
                     {item.status === 'active' ? '启用' : '禁用'}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {formatTime(item.createdAt)}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

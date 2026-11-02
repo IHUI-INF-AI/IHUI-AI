@@ -52,7 +52,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <Tag className="h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('noData')}</p>
+        <p className="text-body">{t('noData')}</p>
       </div>
     )
   }
@@ -76,7 +76,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
               >
                 <Tag className="h-3 w-3" />
                 {tag.name}
-                <span className="text-xs text-muted-foreground">({tag.usageCount})</span>
+                <span className="text-label text-muted-foreground">({tag.usageCount})</span>
               </span>
             </Tooltip>
           ))}
@@ -84,8 +84,8 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className={th}>{t('name')}</th>
               <th className={th}>{t('slug')}</th>
@@ -108,7 +108,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
                   </div>
                 </td>
                 <td className="px-4 py-2.5">
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label text-muted-foreground">
                     {tag.slug}
                   </code>
                 </td>
@@ -143,7 +143,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
         </table>
       </div>
 
-      <div className="text-sm text-muted-foreground">{t('total', { total })}</div>
+      <div className="text-body text-muted-foreground">{t('total', { total })}</div>
     </>
   )
 }

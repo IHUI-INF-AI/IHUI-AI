@@ -78,7 +78,7 @@ export function CertTemplateTable({
                 <TableRow key={row.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{row.name}</TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <div className="max-w-xs break-words text-xs text-muted-foreground">
+                    <div className="max-w-xs break-words text-label text-muted-foreground">
                       {row.description ?? '-'}
                     </div>
                   </TableCell>
@@ -100,7 +100,7 @@ export function CertTemplateTable({
                       {enabled ? t('enabled') : t('disabled')}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {formatDateOnly(row.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

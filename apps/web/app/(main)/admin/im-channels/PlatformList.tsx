@@ -77,7 +77,7 @@ export default function PlatformList({
 
   if (platforms.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-3 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-border bg-card p-3 text-center text-body text-muted-foreground">
         暂无平台元数据
       </div>
     )
@@ -95,7 +95,7 @@ export default function PlatformList({
             onClick={() => onSelect(v.platform)}
             aria-current={isSelected ? 'true' : undefined}
             className={cn(
-              'flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors',
+              'flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-body transition-colors',
               'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               isSelected && 'bg-muted',
             )}
@@ -108,14 +108,14 @@ export default function PlatformList({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{v.displayName}</span>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 text-label text-muted-foreground">
                 <MessageSquare className="h-3 w-3" aria-hidden />
                 <span className="tabular-nums">{v.messageCount}</span>
                 <span aria-hidden>·</span>
                 <span>{v.connected ? '已连接' : '未连接'}</span>
               </span>
             </span>
-            <Badge variant="outline" className={cn('text-xs', badge.className)}>
+            <Badge variant="outline" className={cn('text-label', badge.className)}>
               {badge.label}
             </Badge>
           </button>

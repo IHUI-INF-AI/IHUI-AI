@@ -49,7 +49,7 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <Tag className="h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('noData')}</p>
+        <p className="text-body">{t('noData')}</p>
       </div>
     )
   }
@@ -65,8 +65,8 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={cn(th, 'w-10')} />
             <th className={th}>{t('name')}</th>
@@ -86,7 +86,7 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
               </td>
               <td className="px-4 py-2.5 font-medium">{cat.name}</td>
               <td className="px-4 py-2.5">
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label text-muted-foreground">
                   {cat.slug}
                 </code>
               </td>
@@ -119,7 +119,7 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
           ))}
         </tbody>
       </table>
-      <div className="flex items-center justify-between px-4 py-2.5 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between px-4 py-2.5 text-body text-muted-foreground">
         <span>{t('total', { total: categories.length })}</span>
       </div>
     </div>

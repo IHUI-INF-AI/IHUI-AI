@@ -143,7 +143,7 @@ export default function BehaviorAnalyticsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-heading font-semibold">行为埋点分析</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             用户行为事件统计:点击 / 搜索 / 下载 / 表单 / 停留
           </p>
         </div>
@@ -215,13 +215,13 @@ export default function BehaviorAnalyticsPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {rank.length === 0 && (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
+                  <p className="py-6 text-center text-body text-muted-foreground">
                     暂无数据(埋点自 08-10 起采集)
                   </p>
                 )}
                 {rank.slice(0, 12).map((r) => (
                   <div key={r.event} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-body">
                       <span className={`font-medium ${evColor(r.event)}`}>{evLabel(r.event)}</span>
                       <span className="text-muted-foreground">
                         {numFmt.format(r.count)} 次 / {numFmt.format(r.uniqueUsers)} 用户
@@ -244,15 +244,17 @@ export default function BehaviorAnalyticsPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {pages.length === 0 && (
-                  <p className="py-6 text-center text-sm text-muted-foreground">暂无数据</p>
+                  <p className="py-6 text-center text-body text-muted-foreground">暂无数据</p>
                 )}
                 {pages.slice(0, 10).map((p, i) => (
                   <div
                     key={p.path}
-                    className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-body"
                   >
                     <span className="flex items-center gap-2 truncate">
-                      <span className="text-label font-semibold text-muted-foreground">{i + 1}</span>
+                      <span className="text-label font-semibold text-muted-foreground">
+                        {i + 1}
+                      </span>
                       <span className="truncate">{p.path}</span>
                     </span>
                     <span className="shrink-0 text-muted-foreground">{numFmt.format(p.pv)} 次</span>
@@ -274,7 +276,7 @@ export default function BehaviorAnalyticsPage() {
                 const max = Math.max(1, ...days.map(([, c]) => c))
                 if (days.length === 0)
                   return (
-                    <p className="py-4 text-center text-sm text-muted-foreground">暂无趋势数据</p>
+                    <p className="py-4 text-center text-body text-muted-foreground">暂无趋势数据</p>
                   )
                 return (
                   <div className="flex items-end gap-1.5" style={{ height: 80 }}>

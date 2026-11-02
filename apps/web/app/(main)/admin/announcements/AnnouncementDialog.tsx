@@ -63,7 +63,7 @@ export function AnnouncementDialog({
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -84,7 +84,7 @@ export function AnnouncementDialog({
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               placeholder={t('contentPlaceholder')}
               rows={5}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
@@ -106,7 +106,7 @@ export function AnnouncementDialog({
               </Select>
             </div>
             <div className="flex items-end gap-4 pb-1">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <label className="flex cursor-pointer items-center gap-2 text-body">
                 <input
                   type="checkbox"
                   checked={form.isPinned}
@@ -115,7 +115,7 @@ export function AnnouncementDialog({
                 />
                 {t('fieldPinned')}
               </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <label className="flex cursor-pointer items-center gap-2 text-body">
                 <input
                   type="checkbox"
                   checked={form.isPublished}

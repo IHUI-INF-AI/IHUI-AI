@@ -91,12 +91,12 @@ export function MemberResetPwdDialog({
           <DialogHeader>
             <DialogTitle>{t('resetTitle')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {t('resetDesc')}
             {resetTarget?.username ? `：${resetTarget.username}` : ''}
           </p>
           {resetErr && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {resetErr}
             </div>
           )}
@@ -112,7 +112,7 @@ export function MemberResetPwdDialog({
               pattern={'^[^<>"\'|\\\\]+$'}
               autoComplete="new-password"
             />
-            <p className="text-xs text-muted-foreground">{t('passwordHint')}</p>
+            <p className="text-label text-muted-foreground">{t('passwordHint')}</p>
           </div>
           <DialogFooter>
             <Button

@@ -103,7 +103,7 @@ export default function ClawdbotSessionsPage() {
       <div className="rounded-lg border bg-card">
         <div className="space-y-2">
           {sessions.length === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               暂无会话
             </div>
           ) : (
@@ -112,11 +112,11 @@ export default function ClawdbotSessionsPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="min-w-0 flex-1 truncate text-body font-medium">{s.id}</p>
-                    <span className={cn('rounded px-1.5 py-0.5 text-xs', STATUS_CLS[s.status])}>
+                    <span className={cn('rounded px-1.5 py-0.5 text-label', STATUS_CLS[s.status])}>
                       {s.status}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 truncate text-label text-muted-foreground">
                     Bot: {s.botId} · 用户: {s.userId} · {timeFmt.format(new Date(s.lastActiveAt))}
                   </p>
                 </div>
@@ -150,7 +150,7 @@ export default function ClawdbotSessionsPage() {
               <CloseButton aria-label="关闭" onClick={() => setSelected(null)} />
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
-              <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 text-label min-[768px]:grid-cols-2">
                 <div>
                   Bot: <span className="font-medium">{selected.botId}</span>
                 </div>
@@ -170,17 +170,17 @@ export default function ClawdbotSessionsPage() {
               <div className="mt-3 pt-3">
                 <p className="mb-2 text-label font-medium text-muted-foreground">消息记录</p>
                 {(selected.context?.messages ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">暂无消息</p>
+                  <p className="text-body text-muted-foreground">暂无消息</p>
                 ) : (
                   (selected.context?.messages ?? []).map((m) => (
                     <div
                       key={m.id}
                       className={cn(
-                        'mb-2 rounded p-2 text-sm',
+                        'mb-2 rounded p-2 text-body',
                         m.role === 'user' ? 'bg-primary/5' : 'bg-muted/50',
                       )}
                     >
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {m.role} · {timeFmt.format(new Date(m.timestamp))}
                       </span>
                       <p className="mt-0.5">{m.content}</p>

@@ -59,7 +59,7 @@ export default function I18nComparePage() {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/admin/i18n-dashboard"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回概览
@@ -68,15 +68,17 @@ export default function I18nComparePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <GitCompare className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">语言对比</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            语言对比
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">选择两种语言并排查看 Key-Value 翻译</p>
+        <p className="text-label text-muted-foreground">选择两种语言并排查看 Key-Value 翻译</p>
       </header>
 
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">语言 A</span>
+            <span className="text-body text-muted-foreground">语言 A</span>
             <select value={left} onChange={(e) => setLeft(e.target.value)} className={selectClass}>
               {LOCALES.map((l) => (
                 <option key={l.value} value={l.value}>
@@ -87,7 +89,7 @@ export default function I18nComparePage() {
           </div>
           <GitCompare className="h-4 w-4 text-muted-foreground" />
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">语言 B</span>
+            <span className="text-body text-muted-foreground">语言 B</span>
             <select
               value={right}
               onChange={(e) => setRight(e.target.value)}
@@ -115,7 +117,7 @@ export default function I18nComparePage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">Key</th>
@@ -146,23 +148,23 @@ export default function I18nComparePage() {
                           )}
                         >
                           <td className="px-4 py-2">
-                            <div className="font-mono text-xs text-muted-foreground">
+                            <div className="font-mono text-label text-muted-foreground">
                               {e.namespace}
                             </div>
-                            <div className="font-mono text-sm">{e.key}</div>
+                            <div className="font-mono text-body">{e.key}</div>
                           </td>
                           <td className="px-4 py-2">
                             {e.left ? (
                               <span>{e.left}</span>
                             ) : (
-                              <span className="text-xs text-amber-600">缺失</span>
+                              <span className="text-label text-amber-600">缺失</span>
                             )}
                           </td>
                           <td className="px-4 py-2">
                             {e.right ? (
                               <span>{e.right}</span>
                             ) : (
-                              <span className="text-xs text-amber-600">缺失</span>
+                              <span className="text-label text-amber-600">缺失</span>
                             )}
                           </td>
                         </tr>

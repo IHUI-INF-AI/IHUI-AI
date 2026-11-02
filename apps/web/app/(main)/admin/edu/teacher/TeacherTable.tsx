@@ -71,7 +71,7 @@ export function TeacherTable({ rows, isLoading, error, onEdit, onDelete, deleteP
               <TableRow key={tc.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5">
                   <div className="font-medium">{tc.nickname}</div>
-                  {tc.phone && <div className="text-xs text-muted-foreground">{tc.phone}</div>}
+                  {tc.phone && <div className="text-label text-muted-foreground">{tc.phone}</div>}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{tc.title}</TableCell>
                 <TableCell className="px-4 py-2.5">{tc.courseCount}</TableCell>

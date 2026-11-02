@@ -15,7 +15,7 @@ export default function UnauthorizedPage() {
           <ShieldX className="mx-auto h-16 w-16 text-muted-foreground/40" />
           <h1 className="text-6xl font-bold tracking-tight text-muted-foreground">401</h1>
           <h2 className="text-lg font-semibold">无访问权限</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             抱歉,您没有权限访问此页面。请联系管理员获取相应权限。
           </p>
         </div>

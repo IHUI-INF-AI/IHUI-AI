@@ -25,8 +25,8 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
   const t = useTranslations('admin.configs')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('colKey')}</th>
             <th className={th}>{t('colValue')}</th>
@@ -62,10 +62,10 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
                 <td className="px-4 py-2.5">
                   <div className="font-medium">{c.key}</div>
                   {c.description && (
-                    <div className="text-xs text-muted-foreground">{c.description}</div>
+                    <div className="text-label text-muted-foreground">{c.description}</div>
                   )}
                 </td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="px-4 py-2.5 text-label text-muted-foreground">
                   <TruncatedText value={c.value || '-'} className="max-w-[240px]" mono />
                 </td>
                 <td className="px-4 py-2.5">

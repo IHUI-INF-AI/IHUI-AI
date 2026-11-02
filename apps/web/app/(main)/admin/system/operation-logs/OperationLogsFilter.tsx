@@ -35,7 +35,7 @@ export function OperationLogsFilter({
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('operationLogs.filter.module')}</Label>
+        <Label className="text-label">{t('operationLogs.filter.module')}</Label>
         <Input
           value={value.title}
           onChange={(e) => onChange({ ...value, title: e.target.value })}
@@ -44,7 +44,7 @@ export function OperationLogsFilter({
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('operationLogs.filter.operName')}</Label>
+        <Label className="text-label">{t('operationLogs.filter.operName')}</Label>
         <Input
           value={value.operName}
           onChange={(e) => onChange({ ...value, operName: e.target.value })}
@@ -53,7 +53,7 @@ export function OperationLogsFilter({
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('operationLogs.filter.type')}</Label>
+        <Label className="text-label">{t('operationLogs.filter.type')}</Label>
         <Select
           value={value.businessType}
           onValueChange={(v) => onChange({ ...value, businessType: v === 'all' ? '' : v })}

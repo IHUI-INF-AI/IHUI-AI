@@ -76,8 +76,10 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
           ) : (
             list.map((r) => (
               <TableRow key={r.id} className="transition-colors hover:bg-muted/30">
-                <TableCell className="px-4 py-2.5 font-mono text-xs">{r.orderNo || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 font-mono text-label">
+                  {r.orderNo || '-'}
+                </TableCell>
+                <TableCell className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                   {r.agentId ? r.agentId.slice(0, 8) : '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{fmtAmount(r.amount)}</TableCell>
@@ -91,10 +93,10 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
                     {t(STATUS_KEY[r.status] ?? 'statusUnknown')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {r.settledAt ? dateFmt.format(new Date(r.settledAt)) : '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {dateFmt.format(new Date(r.createdAt))}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
@@ -108,7 +110,7 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
                       {t('settle')}
                     </Button>
                   ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
+                    <span className="text-label text-muted-foreground">-</span>
                   )}
                 </TableCell>
               </TableRow>

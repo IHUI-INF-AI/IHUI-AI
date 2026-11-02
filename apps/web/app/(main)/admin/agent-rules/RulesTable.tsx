@@ -73,20 +73,20 @@ export function RulesTable({ rows, isLoading, error, onEdit, onDelete, deletePen
               return (
                 <TableRow key={rule.id} className="hover:bg-muted/30">
                   <TableCell
-                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                     title={rule.id}
                   >
                     {rule.id}
                   </TableCell>
                   <TableCell
-                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                     title={rule.agentId}
                   >
                     {rule.agentId}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{rule.ruleName}</TableCell>
                   <TableCell
-                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-label"
                     title={rule.ruleCode}
                   >
                     {rule.ruleCode}

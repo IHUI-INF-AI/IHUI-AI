@@ -86,7 +86,7 @@ export function HelpDialog({ open, editing, defaultValues, savePending, onValid,
                 id="h-slug"
                 {...form.register('slug')}
                 placeholder={t('slugPlaceholder')}
-                className="font-mono text-xs"
+                className="font-mono text-label"
                 onChange={(e) => {
                   setSlugTouched(true)
                   form.setValue('slug', e.target.value)
@@ -121,10 +121,10 @@ export function HelpDialog({ open, editing, defaultValues, savePending, onValid,
               {...form.register('content')}
               placeholder={t('contentPlaceholder')}
               rows={6}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 font-mono text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <label className="flex cursor-pointer items-center gap-2 text-body">
             <input
               type="checkbox"
               checked={form.watch('isPublished')}

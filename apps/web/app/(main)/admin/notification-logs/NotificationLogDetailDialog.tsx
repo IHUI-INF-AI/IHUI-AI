@@ -19,8 +19,8 @@ interface Props {
 function Field({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs text-muted-foreground">{label}</label>
-      <div className="break-all text-sm">{value ?? '-'}</div>
+      <label className="text-label text-muted-foreground">{label}</label>
+      <div className="break-all text-body">{value ?? '-'}</div>
     </div>
   )
 }
@@ -85,10 +85,10 @@ export function NotificationLogDetailDialog({ open, log, onClose }: Props) {
           <Field label={t('fieldChannel')} value={log.channel} />
           <Field label={t('fieldType')} value={log.type} />
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('fieldStatus')}</label>
+            <label className="text-label text-muted-foreground">{t('fieldStatus')}</label>
             <div>
               <span
-                className={`inline-flex rounded-md px-2 py-0.5 text-xs ${
+                className={`inline-flex rounded-md px-2 py-0.5 text-label ${
                   STATUS_BADGE[s] ?? 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -99,20 +99,20 @@ export function NotificationLogDetailDialog({ open, log, onClose }: Props) {
           <Field label={t('fieldCreatedAt')} value={fmt(log.created_at)} />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">{t('fieldContent')}</label>
+          <label className="text-label text-muted-foreground">{t('fieldContent')}</label>
           <textarea
             readOnly
             value={formatContent(log.content)}
-            className="h-40 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-xs"
+            className="h-40 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-label"
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">{t('errorDetail')}</label>
+          <label className="text-label text-muted-foreground">{t('errorDetail')}</label>
           <textarea
             readOnly
             value={log.error_message ?? ''}
             placeholder={t('emptyError')}
-            className="h-24 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-xs"
+            className="h-24 w-full resize-none rounded-sm border bg-muted/30 p-3 font-mono text-label"
           />
         </div>
       </DialogContent>

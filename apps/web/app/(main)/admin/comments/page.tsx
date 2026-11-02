@@ -90,12 +90,12 @@ export default function AdminCommentsPage() {
           <MessageSquare className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{t('keywordLabel')}</Label>
+          <Label className="text-label text-muted-foreground">{t('keywordLabel')}</Label>
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
@@ -104,7 +104,7 @@ export default function AdminCommentsPage() {
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{t('topicTypeLabel')}</Label>
+          <Label className="text-label text-muted-foreground">{t('topicTypeLabel')}</Label>
           <select
             value={topicType}
             onChange={(e) => {
@@ -123,7 +123,7 @@ export default function AdminCommentsPage() {
           </select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{t('statusLabel')}</Label>
+          <Label className="text-label text-muted-foreground">{t('statusLabel')}</Label>
           <select
             value={status}
             onChange={(e) => {
@@ -140,14 +140,14 @@ export default function AdminCommentsPage() {
             ))}
           </select>
         </div>
-        <Button variant="outline" size="default" onClick={resetFilters} className="px-3 text-xs">
+        <Button variant="outline" size="default" onClick={resetFilters} className="px-3 text-label">
           <Search className="h-4 w-4" />
           {t('reset')}
         </Button>
       </div>
 
       {mockMode && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-label text-amber-700 dark:text-amber-400">
           [!] {t('mockMode')}
         </div>
       )}
@@ -161,7 +161,7 @@ export default function AdminCommentsPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -172,7 +172,9 @@ export default function AdminCommentsPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"

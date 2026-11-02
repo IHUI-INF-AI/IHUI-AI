@@ -397,7 +397,9 @@ export default function AdminRelayChannelsPage() {
           <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Layers className="h-6 w-6 text-primary" /> 渠道统一管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">聚合渠道组、一键测速与熔断状态可视化</p>
+          <p className="mt-1 text-body text-muted-foreground">
+            聚合渠道组、一键测速与熔断状态可视化
+          </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" /> 新建渠道组
@@ -433,7 +435,7 @@ export default function AdminRelayChannelsPage() {
           </Card>
         ) : groups.length === 0 ? (
           <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            <CardContent className="py-10 text-center text-body text-muted-foreground">
               暂无渠道组,点击右上角&ldquo;新建渠道组&rdquo;开始
             </CardContent>
           </Card>
@@ -488,7 +490,7 @@ export default function AdminRelayChannelsPage() {
                 onCheckedChange={() => toggleSelectAll(groups.map((g) => g.id))}
                 aria-label="全选"
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {selected.size > 0
                   ? `已选 ${selected.size} / ${groups.length}`
                   : `共 ${groups.length} 个渠道组,勾选可批量操作`}
@@ -525,13 +527,13 @@ export default function AdminRelayChannelsPage() {
                           <CardTitle className="min-w-0 flex-1 truncate text-base">
                             {g.name}
                           </CardTitle>
-                          <Badge variant="secondary" className="shrink-0 text-xs">
+                          <Badge variant="secondary" className="shrink-0 text-label">
                             {STRATEGY_LABEL[g.loadBalanceStrategy]}
                           </Badge>
-                          <Badge variant="outline" className="shrink-0 text-xs">
+                          <Badge variant="outline" className="shrink-0 text-label">
                             优先级 {g.priority}
                           </Badge>
-                          <Badge variant="outline" className="shrink-0 text-xs">
+                          <Badge variant="outline" className="shrink-0 text-label">
                             {g.memberCount} 成员
                           </Badge>
                         </div>
@@ -589,7 +591,7 @@ export default function AdminRelayChannelsPage() {
                             <Plus className="h-3 w-3" /> 添加成员
                           </Button>
                           {st && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1.5 text-label text-muted-foreground">
                               <span>熔断:</span>
                               <Badge className={CIRCUIT_CLASS.closed}>
                                 {st.circuitSummary.closed} 正常
@@ -605,8 +607,8 @@ export default function AdminRelayChannelsPage() {
                         </div>
                         <div className="rounded-md border border-border">
                           <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                            <table className="w-full text-body">
+                              <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
                                 <tr>
                                   <th className="px-3 py-2 text-left">Key Pool</th>
                                   <th className="px-3 py-2 text-left">Provider</th>
@@ -630,11 +632,11 @@ export default function AdminRelayChannelsPage() {
                                   members.map((m) => (
                                     <tr key={m.memberId}>
                                       <Tooltip content={m.keyPoolId}>
-                                        <td className="px-3 py-2 font-mono text-xs">
+                                        <td className="px-3 py-2 font-mono text-label">
                                           {m.keyPoolName ?? maskId(m.keyPoolId)}
                                         </td>
                                       </Tooltip>
-                                      <td className="px-3 py-2 text-xs">
+                                      <td className="px-3 py-2 text-label">
                                         {m.keyPoolProviderCode ?? '—'}
                                       </td>
                                       <td className="px-3 py-2 text-right tabular-nums">
@@ -811,7 +813,7 @@ export default function AdminRelayChannelsPage() {
                   value={addForm.keyPoolId}
                   onChange={(e) => setAddForm({ ...addForm, keyPoolId: e.target.value })}
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="font-mono text-xs"
+                  className="font-mono text-label"
                 />
               </div>
               <div className="space-y-1">
@@ -867,7 +869,7 @@ export default function AdminRelayChannelsPage() {
                 />
               </div>
               {testResult && (
-                <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1.5">
+                <div className="rounded-md border border-border bg-muted/30 p-3 text-label space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">状态</span>
                     <Badge
@@ -893,7 +895,7 @@ export default function AdminRelayChannelsPage() {
                   {testResult.response && (
                     <div className="space-y-1 pt-1">
                       <span className="text-muted-foreground">响应</span>
-                      <div className="max-h-32 overflow-auto rounded bg-background p-2 font-mono text-xs leading-relaxed">
+                      <div className="max-h-32 overflow-auto rounded bg-background p-2 font-mono text-label leading-relaxed">
                         {testResult.response}
                       </div>
                     </div>
@@ -901,7 +903,7 @@ export default function AdminRelayChannelsPage() {
                   {testResult.error && (
                     <div className="space-y-1 pt-1">
                       <span className="text-muted-foreground">错误</span>
-                      <div className="rounded bg-red-500/5 p-2 font-mono text-xs text-red-600 dark:text-red-400">
+                      <div className="rounded bg-red-500/5 p-2 font-mono text-label text-red-600 dark:text-red-400">
                         {testResult.error}
                       </div>
                     </div>

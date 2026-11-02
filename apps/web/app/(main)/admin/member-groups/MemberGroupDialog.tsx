@@ -52,7 +52,7 @@ export function MemberGroupDialog({
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">名称 *</Label>
+            <Label className="text-label text-muted-foreground">名称 *</Label>
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -61,7 +61,7 @@ export function MemberGroupDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">描述</Label>
+            <Label className="text-label text-muted-foreground">描述</Label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -70,7 +70,7 @@ export function MemberGroupDialog({
               placeholder="可选"
             />
           </div>
-          {err && <p className="text-xs text-destructive">{err}</p>}
+          {err && <p className="text-label text-destructive">{err}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
               取消

@@ -32,7 +32,7 @@ export function TaskLogDetailDialog({ detail, onClose }: Props) {
           <DialogTitle>{t('tasksLog.detail.title')}</DialogTitle>
         </DialogHeader>
         {detail && (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-body">
             <div>
               <span className="text-muted-foreground">{t('tasksLog.detail.id')}</span>
               {detail.id}
@@ -51,7 +51,7 @@ export function TaskLogDetailDialog({ detail, onClose }: Props) {
             </div>
             <div className="col-span-2">
               <span className="text-muted-foreground">{t('tasksLog.detail.invokeTarget')}</span>
-              <code className="font-mono text-xs">{detail.invokeTarget}</code>
+              <code className="font-mono text-label">{detail.invokeTarget}</code>
             </div>
             <div>
               <span className="text-muted-foreground">{t('tasksLog.detail.startTime')}</span>
@@ -67,14 +67,14 @@ export function TaskLogDetailDialog({ detail, onClose }: Props) {
             </div>
             <div className="col-span-2">
               <span className="text-muted-foreground">{t('tasksLog.detail.jobMessage')}</span>
-              <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-xs">
+              <pre className="mt-1 max-h-32 overflow-auto rounded bg-muted/50 p-2 text-label">
                 {detail.jobMessage || '-'}
               </pre>
             </div>
             {detail.status === 1 && (
               <div className="col-span-2">
                 <span className="text-destructive">{t('tasksLog.detail.exceptionInfo')}</span>
-                <pre className="mt-1 max-h-32 overflow-auto rounded bg-red-500/5 p-2 text-xs text-destructive">
+                <pre className="mt-1 max-h-32 overflow-auto rounded bg-red-500/5 p-2 text-label text-destructive">
                   {detail.exceptionInfo || '-'}
                 </pre>
               </div>

@@ -236,6 +236,17 @@ export function setBaseUrl(url: string): void {
 }
 
 /**
+ * 读取当前共享基址(B4 2026-11-02 立)。
+ *
+ * 直连 fetch 的腿(如 Agent 会话 SSE)自己拼 URL 时不能假设 baseUrl 可读 ——
+ * 此前只有写入口没有读出口,端内只能自己再存一份 API_BASE_URL,就是第二份真相。
+ * 浏览器端返回 ''(同源相对路径),RN/桌面返回已注入的绝对基址。
+ */
+export function getBaseUrl(): string {
+  return baseUrl
+}
+
+/**
  * 注入 ai-service 专用基址(2026-10-12 立,见 aiServiceBaseOverride 处注释)。
  * 只影响 fetchAiServiceJson;传 null 恢复"沿用共享 baseUrl"的旧行为(其它端零回归)。
  * web 端在 src/lib/api.ts 用 resolveAiServiceBaseUrl() 注入

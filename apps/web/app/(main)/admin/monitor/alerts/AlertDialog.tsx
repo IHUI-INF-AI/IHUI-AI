@@ -28,17 +28,17 @@ export function AlertRules({ rules }: Props) {
           {rules.map((r) => (
             <div
               key={r.id}
-              className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-md border px-3 py-2 text-body"
             >
               <div>
                 <span className="font-medium">{r.name}</span>
-                <span className="ml-2 text-xs text-muted-foreground">
+                <span className="ml-2 text-label text-muted-foreground">
                   来源 {r.matchSource ?? '全部'} · 抑制 {r.suppressMinutes} 分钟
                 </span>
               </div>
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                  'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                   r.isActive
                     ? 'bg-success/10 text-success-deep-text'
                     : 'bg-muted text-muted-foreground',

@@ -45,40 +45,40 @@ export function ProductTable({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.product')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.category')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.price')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.stock')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.sales')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.type')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.denomination')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.denominationVip')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.denominationOperate')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.images')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-label uppercase">
               {t('products.table.status')}
             </TableHead>
-            <TableHead className="px-3 py-2.5 text-right text-xs uppercase">
+            <TableHead className="px-3 py-2.5 text-right text-label uppercase">
               {t('products.table.action')}
             </TableHead>
           </TableRow>
@@ -104,7 +104,7 @@ export function ProductTable({
                 <TableRow key={p.id} className="hover:bg-muted/30">
                   <TableCell className="px-3 py-2.5 font-medium">{p.name}</TableCell>
                   <TableCell className="px-3 py-2.5">
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label">
                       {p.category || '-'}
                     </span>
                   </TableCell>
@@ -132,17 +132,19 @@ export function ProductTable({
                           />
                         ))}
                         {imgs.length > 3 && (
-                          <span className="text-xs text-muted-foreground">+{imgs.length - 3}</span>
+                          <span className="text-label text-muted-foreground">
+                            +{imgs.length - 3}
+                          </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-label text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="px-3 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         p.status === 'online'
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
