@@ -22,14 +22,26 @@ import { db, dbRead } from './index.js'
 
 type SessionRow = typeof agentRuntimeSessions.$inferSelect
 
-/** 旧数据无 `seq` ⇒ 按数组下标惰性回填(只用于本次计算,不回写旧行)。 */
+/** 全部消息都已带合法 `seq`(空数组不算 —— 没有旧消息要回填)。 */
+function hasAllSeq(messages: readonly AgentRuntimeSessionMessage[]): boolean {
+  return (
+    messages.length > 0 &&
+    messages.every((m) => typeof m.seq === 'number' && Number.isFinite(m.seq))
+  )
+}
+
+/**
+ * 旧数据无 `seq` ⇒ 按数组下标惰性回填 1..n。
+ *
+ * 只要有一条缺,整组统一按下标 —— 不逐条混用「已存 seq + 回填下标」,
+ * 否则新旧混合时会同时出现 0 起与 1 起的两种序号,游标不再单调。
+ * 本函数只用于本次计算,读路径不因此写库;真正回填发生在 appendMessages 的写回。
+ */
 export function withSeqFallback(
   messages: readonly AgentRuntimeSessionMessage[],
 ): AgentRuntimeSessionMessage[] {
-  return messages.map((m, index) => {
-    const seq = typeof m.seq === 'number' && Number.isFinite(m.seq) ? m.seq : index
-    return { ...m, seq }
-  })
+  const allPresent = hasAllSeq(messages)
+  return messages.map((m, index) => ({ ...m, seq: allPresent ? m.seq! : index + 1 }))
 }
 
 /** 下一条的起始 seq = 已归档消息的 max(seq)+1(空会话从 0 开始)。 */
@@ -125,11 +137,19 @@ export async function appendMessages(
       .for('update')
     if (!row) throw new Error('appendMessages: 会话不存在')
 
-    const startSeq = nextSeqOf(Array.isArray(row.messages) ? row.messages : [])
+    const existing = Array.isArray(row.messages) ? row.messages : []
+    const startSeq = nextSeqOf(existing)
     const appended = messages.map((m, index) => ({ ...m, seq: startSeq + index }))
-    const payload = JSON.stringify(appended)
+    // 旧行没有 seq 时,首写顺带把旧消息按下标回填(1..n)并与新消息一起写回;
+    // 已有 seq 的会话保持纯 `||` 追加,不回写旧数组(那会吃掉并发追加)。
+    const needsBackfill = existing.length > 0 && !hasAllSeq(existing)
+    const payload = JSON.stringify(
+      needsBackfill ? [...withSeqFallback(existing), ...appended] : appended,
+    )
     // 写策略(messages 列):只追加 —— 不把读到的旧数组整列写回(那会吃掉并发追加)。
-    const changed = { messages: sql`${agentRuntimeSessions.messages} || ${payload}::jsonb` }
+    const changed = needsBackfill
+      ? { messages: [...withSeqFallback(existing), ...appended] }
+      : { messages: sql`${agentRuntimeSessions.messages} || ${payload}::jsonb` }
     // 归属列进 where(与读到的行同源):会话 id 之外再钉 bot+user,不按裸 id 写。
     const updated = await tx
       .update(agentRuntimeSessions)
@@ -145,4 +165,55 @@ export async function appendMessages(
     if (updated.length === 0) throw new Error('appendMessages: 会话写入失败')
     return appended
   })
+}
+
+/** v2 分页信封:`items` 为时间正序的一页,`total` 为全量条数(不含 system)。 */
+export interface AgentMessagesPage {
+  items: Array<Pick<AgentRuntimeSessionMessage, 'id' | 'role' | 'content'>>
+  total: number
+  hasMoreOlder: boolean
+  nextCursor: number | null
+}
+
+export type AgentMessagesPageResult =
+  { ok: true; page: AgentMessagesPage } | { ok: false; reason: 'cursor-out-of-range' }
+
+/**
+ * 分页读(B2):`seq` 越大越新,`cursor` 指向"上一页最旧那条"的 seq。
+ *
+ * - 无 cursor:取最新 `limit` 条;
+ * - 有 cursor:先按 seq 定位,再取它之前(更旧)的 `limit` 条;
+ * - cursor 不在本次有效 seq 集合里(超过末尾 / 小于起点 / 空会话)⇒ 越界。
+ *
+ * 旧消息缺 seq 时由 withSeqFallback 按下标补 1..n —— 只算不写库。
+ */
+export function pageAgentMessages(
+  messages: readonly AgentRuntimeSessionMessage[],
+  options: { limit: number; cursor?: number | null },
+): AgentMessagesPageResult {
+  const visible = messages.filter((m) => m.role === 'user' || m.role === 'assistant')
+  const normalized = withSeqFallback(visible)
+  const total = normalized.length
+  const limit = options.limit
+
+  let older: readonly AgentRuntimeSessionMessage[]
+  if (options.cursor === undefined || options.cursor === null) {
+    older = normalized
+  } else {
+    const index = normalized.findIndex((m) => m.seq === options.cursor)
+    if (index < 0) return { ok: false, reason: 'cursor-out-of-range' }
+    older = normalized.slice(0, index)
+  }
+
+  const page = older.slice(-limit)
+  const hasMoreOlder = older.length > limit
+  return {
+    ok: true,
+    page: {
+      items: page.map((m) => ({ id: m.id, role: m.role, content: m.content })),
+      total,
+      hasMoreOlder,
+      nextCursor: hasMoreOlder ? page[0]!.seq! : null,
+    },
+  }
 }

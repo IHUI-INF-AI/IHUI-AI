@@ -40,7 +40,12 @@ import {
 } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
-import { appendMessages, findLatestSession, readLatestSession } from '../db/agent-chat-queries.js'
+import {
+  appendMessages,
+  findLatestSession,
+  pageAgentMessages,
+  readLatestSession,
+} from '../db/agent-chat-queries.js'
 import { findCircleByIdOrSlug } from '../db/community-queries.js'
 import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
 import { escapeHtml } from '../websocket/chat-server.js'
@@ -57,6 +62,30 @@ const HISTORY_LIMIT = 50
 
 /** agent 会话里喂给 llm/complete 的历史条数上限(system + 最近 N 条 + 本轮 user)。 */
 const LLM_HISTORY_WINDOW = 20
+
+/** B2:version 显式协商;缺省仍是 v1。非 1/2 一律 400(行为由测试固定)。 */
+function parseVersion(raw: unknown): 1 | 2 | null {
+  if (raw === undefined) return 1
+  if (raw === '1') return 1
+  if (raw === '2') return 2
+  return null
+}
+
+/** v2 分页参数:limit 缺省 20,必须是 1..100 的整数。 */
+function parseLimit(raw: unknown): number | null {
+  if (raw === undefined) return 20
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null
+  const n = Number(raw)
+  return Number.isSafeInteger(n) && n >= 1 && n <= 100 ? n : null
+}
+
+/** v2 游标:缺省 null(首页);其余必须是正整数,负数/小数/非数字一律非法。 */
+function parseCursor(raw: unknown): { ok: true; value: number | null } | { ok: false } {
+  if (raw === undefined) return { ok: true, value: null }
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return { ok: false }
+  const n = Number(raw)
+  return Number.isSafeInteger(n) && n >= 1 ? { ok: true, value: n } : { ok: false }
+}
 
 function isoOrNow(value: Date | string | null | undefined): string {
   if (value instanceof Date) return value.toISOString()
@@ -98,12 +127,31 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
   }
 
   // GET /agents/:id/messages - 与某 Agent 的历史消息(最近一个 active 会话,正序)
+  // B2:version=2 显式协商分页;缺省/1 仍是 v1 数组形状(逐字段不变)。
   server.get('/agents/:id/messages', async (request, reply) => {
     const { id } = request.params as { id: string }
     const found = await loadPublishedAgent(id)
     if ('missing' in found) return reply.status(404).send(error(404, 'Agent 不存在'))
+    const query = request.query as { version?: unknown; limit?: unknown; cursor?: unknown }
+    const version = parseVersion(query.version)
+    if (version === null) {
+      return reply.status(400).send(error(400, 'version 只支持 1 或 2'))
+    }
     const session = await readLatestSession(id, request.userId!)
     const messages = Array.isArray(session?.messages) ? session.messages : []
+
+    if (version === 2) {
+      const limit = parseLimit(query.limit)
+      if (limit === null) {
+        return reply.status(400).send(error(400, 'limit 必须是 1-100 的整数'))
+      }
+      const cursor = parseCursor(query.cursor)
+      if (!cursor.ok) return reply.status(400).send(error(400, 'cursor 必须是正整数'))
+      const result = pageAgentMessages(messages, { limit, cursor: cursor.value })
+      if (!result.ok) return reply.status(400).send(error(400, 'cursor 越界或非法'))
+      return reply.send(success(result.page))
+    }
+
     return reply.send(
       success(
         messages
