@@ -6373,6 +6373,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] Y-67 〔千段租约〕 本机=前台-694a78bf 段=Y-58~Y-67(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
@@ -33632,3 +33633,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] B88 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T07:58:38.989Z last=2026-10-29T07:58:38.989Z route=/deploy/build-fail code=TS2339 sample="deploy_outcome action=build-fail sha=[hex:40] d…"）
 - [ ] B91 [deploy-feedback] [deploy_outcome/alert_firing] build-fail /deploy/build-fail 部署异常 ⇒ 排查链路并修复（登记@2026-11-01/deploy-feedback;来源:deploy_outcome;证据:dims=(none) action=build-fail 窗口=1440min count=1 first=2026-10-29T08:29:24.187Z last=2026-10-29T08:29:24.187Z route=/deploy/build-fail code=TS2554 sample="deploy_outcome action=build-fail sha=[hex:40] d…"） 〔第三次 build-fail 告警:错误码 TS2554,与 B88 的 TS2339 不同;保留本行以避免丢失该错误码证据〕
 - [ ] O69 (2026-11-01) 本机 dev 库口令轮换器已入库但**没挂调度** ⇒ 窗口只能靠人盯，补进 guardian 巡检轮:器物现读 `scripts/rotate-local-dev-db-password.mjs`(自检 7/7;换前逐文件备份、换后强制"旧口令被 PG 拒收 ∧ 新口令全消费面 PING_OK";留痕 `.ihui-agent/state/dev-db-credential-rotation.jsonl` 90 天老化)，但 `grep -rn rotate-local-dev-db-password scripts/git-guardian.mjs scripts/guardian-runner.mjs` 现读 0 命中 ⇒ 它只在有人敲命令时才动，而它自己又要求"8801/8802/8803 全空"才肯 `--apply`(活服务在场时正确 exit 2 = 窗口未到，不是等拍板)。出路 = 照 `git-guardian.mjs` 里 `sweepExposedCredentialRotation()` 的既有形态挂一轮巡检:只在登记面有未结清条目时才派生、`--check` 先行、`--apply` 只在无活服务窗口内动、失败只冷却不硬试、结论行写"未判定"不写"成功"、节流戳落 `.ihui-agent/state/`。验证 = 镜像用例钉"活服务在场 ⇒ 整轮让路且不记绿"与"窗口空闲 ⇒ 派生一次并回读旧口令被拒收"，`node scripts/git-guardian.mjs --check` 末行。
+
+- [ ] Y-58 (2026-11-02) **RN 发布链路余两格:站点落点 + Play 签名一致性**:发布链五腿已由 `scripts/release-mobile-rn.mjs` 收成一处分档读数(OTA 两渠道实测 ready、Play 授权与轨道实测在位),剩两格:① `site-apk` 的站点落点——生产签出副本 `ihui-prod` 在本机任何候选根都不存在,下次出包会在 publish 腿失败,恢复落点唯一合法位置是 `D:/DevEnv/ihui-prod`(不得落仓内 `.DevEnv/`,那会造守门 208 的嵌套 git 仓);② Play 现网签名身份未量到(`appSigningInfo` 对本应用回 HTML 404),而官网 keystore 证书 `62:B0:FF:0E…` 与 EAS 云端那枚 `62:0C:C9:58…` 不同源 ⇒ 以本机 key 提交会不会被拒属未判定,提交前必须先量一次,不得凭"应该可以"下结论。（进行中@2026-11-02/qoder-rn-release）
