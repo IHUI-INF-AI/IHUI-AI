@@ -46,8 +46,8 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">{t('user')}</th>
             <th className="px-4 py-2.5 font-medium">{t('type')}</th>
@@ -112,7 +112,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                         className="h-10 w-10 rounded object-cover"
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-label text-muted-foreground">-</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5">
@@ -144,7 +144,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                         className="h-10 w-10 rounded object-cover"
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-label text-muted-foreground">-</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">

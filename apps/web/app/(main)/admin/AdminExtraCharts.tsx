@@ -47,7 +47,7 @@ export function AdminExtraCharts({ stats }: Props) {
           <CardContent>
             <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <div>
-                <p className="mb-1 text-xs text-muted-foreground">Expected</p>
+                <p className="mb-1 text-label text-muted-foreground">Expected</p>
                 <LineChart
                   data={EXPECTED_DATA}
                   xAxis={LINE_DAYS}
@@ -56,7 +56,7 @@ export function AdminExtraCharts({ stats }: Props) {
                 />
               </div>
               <div>
-                <p className="mb-1 text-xs text-muted-foreground">Actual</p>
+                <p className="mb-1 text-label text-muted-foreground">Actual</p>
                 <LineChart data={ACTUAL_DATA} xAxis={LINE_DAYS} height={160} />
               </div>
             </div>
@@ -70,7 +70,7 @@ export function AdminExtraCharts({ stats }: Props) {
             <ShoppingCart className="h-4 w-4 text-primary" />
             {t('orderStatusDistribution')}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">{t('orderStatusDistributionHint')}</p>
+          <p className="text-label text-muted-foreground">{t('orderStatusDistributionHint')}</p>
         </CardHeader>
         <CardContent className="flex justify-center">
           <PieChart

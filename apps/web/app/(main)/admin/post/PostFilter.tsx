@@ -30,7 +30,7 @@ export function PostFilter({ search, onSearchChange, onSearch, onReset }: PostFi
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1.5">
-        <Label className="text-xs">岗位编码</Label>
+        <Label className="text-label">岗位编码</Label>
         <Input
           value={search.postCode}
           onChange={(e) => onSearchChange({ ...search, postCode: e.target.value })}
@@ -39,7 +39,7 @@ export function PostFilter({ search, onSearchChange, onSearch, onReset }: PostFi
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">岗位名称</Label>
+        <Label className="text-label">岗位名称</Label>
         <Input
           value={search.postName}
           onChange={(e) => onSearchChange({ ...search, postName: e.target.value })}
@@ -48,7 +48,7 @@ export function PostFilter({ search, onSearchChange, onSearch, onReset }: PostFi
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">状态</Label>
+        <Label className="text-label">状态</Label>
         <Select
           value={search.status || 'all'}
           onValueChange={(v) => onSearchChange({ ...search, status: v === 'all' ? '' : v })}

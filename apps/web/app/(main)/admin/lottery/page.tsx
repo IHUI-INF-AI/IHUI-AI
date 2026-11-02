@@ -75,7 +75,7 @@ export default function AdminLotteryPage() {
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
               <tr className="text-left text-muted-foreground">
                 {head.map((h) => (
@@ -106,11 +106,11 @@ export default function AdminLotteryPage() {
                     </td>
                     <td className={c}>{l.prizes.length}</td>
                     <td className={c}>
-                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[l.status]}`}>
+                      <span className={`rounded px-2 py-0.5 text-label ${BADGE[l.status]}`}>
                         {STATUS_LABEL[l.status]}
                       </span>
                     </td>
-                    <td className={`${c} text-xs text-muted-foreground`}>
+                    <td className={`${c} text-label text-muted-foreground`}>
                       {fmt(l.startTime)} ~ {fmt(l.endTime)}
                     </td>
                     <td className={c}>
@@ -135,7 +135,7 @@ export default function AdminLotteryPage() {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -146,7 +146,7 @@ export default function AdminLotteryPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {crud.page} / {totalPages}
           </span>
           <Button

@@ -249,7 +249,7 @@ export default function AdminRelayParamOpsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
             <AlertCircle className="h-8 w-8 text-destructive" />
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {(error as Error).message || t('loadFailed')}
             </div>
           </CardContent>
@@ -264,7 +264,7 @@ export default function AdminRelayParamOpsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">{t('title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => refetch()}>
@@ -314,7 +314,7 @@ export default function AdminRelayParamOpsPage() {
                           {r.enabled ? t('enabled') : t('disabled')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      <TableCell className="text-label text-muted-foreground">
                         {fmtTime(r.updatedAt ?? r.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -322,7 +322,7 @@ export default function AdminRelayParamOpsPage() {
                           <Button
                             variant="ghost"
                             size="default"
-                            className="px-3 text-xs"
+                            className="px-3 text-label"
                             onClick={() => openEdit(r)}
                           >
                             <Pencil className="h-3 w-3" /> {t('edit')}
@@ -330,7 +330,7 @@ export default function AdminRelayParamOpsPage() {
                           <Button
                             variant="ghost"
                             size="default"
-                            className="px-3 text-xs"
+                            className="px-3 text-label"
                             onClick={() => openDryRun(r)}
                           >
                             <Play className="h-3 w-3" /> {t('dryRun')}
@@ -372,7 +372,7 @@ export default function AdminRelayParamOpsPage() {
           <div className="grid grid-cols-1 gap-3 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">{t('nameLabel')}</Label>
+                <Label className="text-label">{t('nameLabel')}</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -381,7 +381,7 @@ export default function AdminRelayParamOpsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">{t('priorityLabel')}</Label>
+                <Label className="text-label">{t('priorityLabel')}</Label>
                 <Input
                   type="number"
                   value={form.priority}
@@ -394,7 +394,7 @@ export default function AdminRelayParamOpsPage() {
             </div>
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
               <div className="space-y-1">
-                <Label className="text-xs">{t('modelLabel')}</Label>
+                <Label className="text-label">{t('modelLabel')}</Label>
                 <Input
                   value={form.model}
                   onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
@@ -403,7 +403,7 @@ export default function AdminRelayParamOpsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">{t('channelIdLabel')}</Label>
+                <Label className="text-label">{t('channelIdLabel')}</Label>
                 <Input
                   value={form.channelId}
                   onChange={(e) => setForm((f) => ({ ...f, channelId: e.target.value }))}
@@ -412,7 +412,7 @@ export default function AdminRelayParamOpsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">{t('globalLabel')}</Label>
+                <Label className="text-label">{t('globalLabel')}</Label>
                 <label className="flex h-8 items-center gap-2">
                   <input
                     type="checkbox"
@@ -420,12 +420,12 @@ export default function AdminRelayParamOpsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, global: e.target.checked }))}
                     className="h-4 w-4"
                   />
-                  <span className="text-xs text-muted-foreground">{t('globalHint')}</span>
+                  <span className="text-label text-muted-foreground">{t('globalHint')}</span>
                 </label>
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('enabledLabel')}</Label>
+              <Label className="text-label">{t('enabledLabel')}</Label>
               <label className="flex h-8 items-center gap-2">
                 <input
                   type="checkbox"
@@ -433,16 +433,16 @@ export default function AdminRelayParamOpsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
                   className="h-4 w-4"
                 />
-                <span className="text-xs text-muted-foreground">{t('enabledHint')}</span>
+                <span className="text-label text-muted-foreground">{t('enabledHint')}</span>
               </label>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('opsLabel')}</Label>
+              <Label className="text-label">{t('opsLabel')}</Label>
               <textarea
                 value={form.opsText}
                 onChange={(e) => setForm((f) => ({ ...f, opsText: e.target.value }))}
                 rows={10}
-                className="w-full rounded-sm border border-border bg-background p-2 font-mono text-xs"
+                className="w-full rounded-sm border border-border bg-background p-2 font-mono text-label"
                 placeholder='[{"op":"set","path":"temperature","value":0.2}]'
               />
             </div>
@@ -475,12 +475,12 @@ export default function AdminRelayParamOpsPage() {
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 py-2">
             <div className="space-y-1">
-              <Label className="text-xs">{t('dryRunInput')}</Label>
+              <Label className="text-label">{t('dryRunInput')}</Label>
               <textarea
                 value={sampleBody}
                 onChange={(e) => setSampleBody(e.target.value)}
                 rows={8}
-                className="w-full rounded-sm border border-border bg-background p-2 font-mono text-xs"
+                className="w-full rounded-sm border border-border bg-background p-2 font-mono text-label"
               />
             </div>
             <Button size="sm" onClick={() => dryRunMut.mutate()} disabled={dryRunMut.isPending}>
@@ -494,16 +494,16 @@ export default function AdminRelayParamOpsPage() {
             {dryRunResult && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">{t('dryRunOriginal')}</Label>
-                  <pre className="max-h-64 overflow-auto rounded-md border border-border bg-muted/30 p-2 text-xs">
+                  <Label className="text-label">{t('dryRunOriginal')}</Label>
+                  <pre className="max-h-64 overflow-auto rounded-md border border-border bg-muted/30 p-2 text-label">
                     {JSON.stringify(dryRunResult.originalBody, null, 2)}
                   </pre>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">
+                  <Label className="text-label">
                     {dryRunResult.modified ? t('dryRunModified') : t('dryRunNoChange')}
                   </Label>
-                  <pre className="max-h-64 overflow-auto rounded-md border border-border bg-muted/30 p-2 text-xs">
+                  <pre className="max-h-64 overflow-auto rounded-md border border-border bg-muted/30 p-2 text-label">
                     {JSON.stringify(dryRunResult.modifiedBody, null, 2)}
                   </pre>
                 </div>

@@ -49,7 +49,7 @@ export default function MonitoringDashboardPage() {
           <LayoutDashboard className="h-6 w-6 text-primary" />
           {t('monitor.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('monitor.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('monitor.subtitle')}</p>
       </div>
 
       {isLoading ? (

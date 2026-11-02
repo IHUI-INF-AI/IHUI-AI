@@ -109,7 +109,7 @@ export default function AdminSensitiveWordPage() {
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
               <tr className="text-left text-muted-foreground">
                 {head.map((h, i) => (
@@ -139,7 +139,7 @@ export default function AdminSensitiveWordPage() {
                     <td className={`${c} text-muted-foreground`}>{w.replacement || '—'}</td>
                     <td className={c}>
                       <span
-                        className={`rounded px-2 py-0.5 text-xs ${BADGE[w.status] ?? BADGE[0]}`}
+                        className={`rounded px-2 py-0.5 text-label ${BADGE[w.status] ?? BADGE[0]}`}
                       >
                         {w.status === 1 ? t('statusOn') : t('statusOff')}
                       </span>
@@ -166,7 +166,7 @@ export default function AdminSensitiveWordPage() {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -177,7 +177,7 @@ export default function AdminSensitiveWordPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {crud.page} / {totalPages}
           </span>
           <Button

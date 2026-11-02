@@ -1276,7 +1276,7 @@ export default function AdminRelayAccountPoolPage() {
             <Users className="h-6 w-6 text-primary" />
             账号池管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             第三方 AI IDE 账号导入、调度与健康检查
           </p>
         </div>
@@ -1304,7 +1304,7 @@ export default function AdminRelayAccountPoolPage() {
 
         <TabsContent value="accounts" className="space-y-4">
           {showRefillBanner && (
-            <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-body text-amber-700 dark:text-amber-400">
               <TriangleAlert className="h-4 w-4 shrink-0" />
               <span>
                 已过期 {poolHealth?.expiredCount ?? 0} 个,可用 {poolHealth?.availableCount ?? 0}{' '}
@@ -1395,7 +1395,7 @@ export default function AdminRelayAccountPoolPage() {
           </div>
 
           {selectedIds.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-body">
               <span className="text-muted-foreground">已选 {selectedIds.length} 项</span>
               <Button
                 size="sm"
@@ -1434,8 +1434,8 @@ export default function AdminRelayAccountPoolPage() {
 
           <div className="rounded-lg border border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+              <table className="w-full text-body">
+                <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
                   <tr>
                     <th className="px-3 py-2 text-left">
                       <Checkbox
@@ -1540,14 +1540,14 @@ export default function AdminRelayAccountPoolPage() {
                             </div>
                             {k.lastErrorMessage && (
                               <div
-                                className="max-w-[16rem] truncate text-xs text-red-500"
+                                className="max-w-[16rem] truncate text-label text-red-500"
                                 title={k.lastErrorMessage}
                               >
                                 {k.lastErrorMessage}
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-label">
                             <div className="flex flex-wrap items-center gap-1">
                               <span className="whitespace-nowrap">{k.providerCode}</span>
                               <RenewalNote cap={renewalByProvider.get(k.providerCode)} />
@@ -1556,7 +1556,7 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2">
                             {k.uid ? (
                               <div className="flex items-center gap-1">
-                                <span className="font-mono text-xs" title={k.uid}>
+                                <span className="font-mono text-label" title={k.uid}>
                                   {k.uid.length > 12 ? `${k.uid.slice(0, 8)}…` : k.uid}
                                 </span>
                                 <Tooltip content="复制 uid">
@@ -1573,12 +1573,12 @@ export default function AdminRelayAccountPoolPage() {
                                 </Tooltip>
                               </div>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
                             <span
-                              className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
+                              className={`whitespace-nowrap rounded-md px-2 py-0.5 text-label ${
                                 HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
                               }`}
                             >
@@ -1596,35 +1596,35 @@ export default function AdminRelayAccountPoolPage() {
                               >
                                 <span className="inline-flex items-center gap-1">
                                   <span
-                                    className={`whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${
+                                    className={`whitespace-nowrap rounded-md px-2 py-0.5 text-label ${
                                       VERDICT_CLASS[k.verdict] ?? VERDICT_CLASS.indeterminate
                                     }`}
                                   >
                                     {VERDICT_LABEL[k.verdict] ?? k.verdict}
                                   </span>
                                   {typeof k.idleDays === 'number' && (
-                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                    <span className="text-label tabular-nums text-muted-foreground">
                                       闲置{Math.round(k.idleDays)}天
                                     </span>
                                   )}
                                 </span>
                               </Tooltip>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
                             {k.circuitBreakReason ? (
                               <Tooltip content={k.circuitBreakReason}>
                                 <span className="inline-flex">
-                                  <span className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600 dark:text-red-400">
+                                  <span className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-label text-red-600 dark:text-red-400">
                                     <ShieldAlert className="h-3 w-3" />
                                     熔断
                                   </span>
                                 </span>
                               </Tooltip>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
@@ -1637,13 +1637,13 @@ export default function AdminRelayAccountPoolPage() {
                                 }`}
                               >
                                 <span className="inline-flex">
-                                  <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                  <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-label text-amber-600 dark:text-amber-400">
                                     待同步
                                   </span>
                                 </span>
                               </Tooltip>
                             ) : ci && ci.found ? (
-                              <div className="flex flex-col gap-0.5 text-xs">
+                              <div className="flex flex-col gap-0.5 text-label">
                                 <span
                                   className={
                                     ci.lastRecord?.ok
@@ -1666,14 +1666,14 @@ export default function AdminRelayAccountPoolPage() {
                                 )}
                               </div>
                             ) : ci?.noEngine === true ? (
-                              <span className="text-xs text-muted-foreground">无签到引擎</span>
+                              <span className="text-label text-muted-foreground">无签到引擎</span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">未同步</span>
+                              <span className="text-label text-muted-foreground">未同步</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
                             {k.usageSummary ? (
-                              <div className="flex flex-col items-end gap-0.5 text-xs tabular-nums">
+                              <div className="flex flex-col items-end gap-0.5 text-label tabular-nums">
                                 <span>{fmtNum(k.usageSummary.calls24h)} 次</span>
                                 <span className="text-muted-foreground">
                                   {fmtNum(k.usageSummary.tokens24h)} tok
@@ -1689,12 +1689,12 @@ export default function AdminRelayAccountPoolPage() {
                                 </span>
                               </div>
                             ) : (
-                              <span className="block text-right text-xs text-muted-foreground">
+                              <span className="block text-right text-label text-muted-foreground">
                                 -
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-label">
                             {expMs !== null ? (
                               <span
                                 className={
@@ -1720,7 +1720,7 @@ export default function AdminRelayAccountPoolPage() {
                           <td className="px-3 py-2 text-right tabular-nums">
                             {k.refreshFailureCount}
                           </td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-label">
                             {k.hasProxy ? (
                               <Tooltip content={`代理：${k.proxyUrlMasked ?? '已配置（脱敏）'}`}>
                                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-600 dark:text-emerald-400">
@@ -1732,7 +1732,7 @@ export default function AdminRelayAccountPoolPage() {
                               <span className="text-muted-foreground">直连</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-label text-muted-foreground">
                             {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
                           </td>
                           <td className="px-3 py-2">
@@ -1743,13 +1743,13 @@ export default function AdminRelayAccountPoolPage() {
                                 } 备注:${k.claimNote ?? '-'}`}
                               >
                                 <span className="inline-flex">
-                                  <span className="max-w-[10rem] truncate rounded-md bg-blue-500/10 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-400">
+                                  <span className="max-w-[10rem] truncate rounded-md bg-blue-500/10 px-2 py-0.5 text-label text-blue-600 dark:text-blue-400">
                                     已认领{k.claimedBy ? ` · ${k.claimedBy}` : ''}
                                   </span>
                                 </span>
                               </Tooltip>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
@@ -1762,11 +1762,11 @@ export default function AdminRelayAccountPoolPage() {
                           </td>
                           <td className="px-3 py-2">
                             {k.tempUnschedulable ? (
-                              <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                              <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-label text-amber-600 dark:text-amber-400">
                                 已摘除
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
@@ -1775,7 +1775,7 @@ export default function AdminRelayAccountPoolPage() {
                                 <Button
                                   size="xs"
                                   variant="ghost"
-                                  className="px-2 text-xs"
+                                  className="px-2 text-label"
                                   onClick={() => {
                                     setCompleting(k)
                                     setCompletePhone('')
@@ -1963,7 +1963,7 @@ export default function AdminRelayAccountPoolPage() {
                               <Button
                                 size="xs"
                                 variant="ghost"
-                                className="px-2 text-xs"
+                                className="px-2 text-label"
                                 disabled={claimMut.isPending}
                                 onClick={() =>
                                   claimMut.mutate({
@@ -2012,7 +2012,7 @@ export default function AdminRelayAccountPoolPage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">共 {total} 条</span>
+            <span className="text-body text-muted-foreground">共 {total} 条</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -2023,7 +2023,7 @@ export default function AdminRelayAccountPoolPage() {
                 <ChevronLeft className="h-4 w-4" />
                 上一页
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {page} / {totalPages}
               </span>
               <Button
@@ -2090,7 +2090,7 @@ export default function AdminRelayAccountPoolPage() {
                 checked={editForm.tempUnschedulable}
                 onCheckedChange={(v) => setEditForm({ ...editForm, tempUnschedulable: v })}
               />
-              <Label htmlFor="a-temp" className="text-sm text-muted-foreground">
+              <Label htmlFor="a-temp" className="text-body text-muted-foreground">
                 临时摘除(暂不参与调度)
               </Label>
             </div>
@@ -2118,7 +2118,7 @@ export default function AdminRelayAccountPoolPage() {
 
               {editing?.hasProxy && proxyMode === 'keep' ? (
                 <div className="flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs">
+                  <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 font-mono text-label">
                     {editing.proxyUrlMasked ?? '已配置（脱敏）'}
                   </code>
                   <Button
@@ -2170,7 +2170,7 @@ export default function AdminRelayAccountPoolPage() {
                       placeholder="http://user:pass@host:port 或 socks5://host:port"
                       autoComplete="off"
                       spellCheck={false}
-                      className="pr-9 font-mono text-xs"
+                      className="pr-9 font-mono text-label"
                     />
                     <button
                       type="button"
@@ -2281,7 +2281,7 @@ export default function AdminRelayAccountPoolPage() {
                     type="button"
                     variant="outline"
                     size="xs"
-                    className="px-2 text-xs"
+                    className="px-2 text-label"
                     onClick={() => importFileRef.current?.click()}
                   >
                     <FileText className="mr-1 h-3 w-3" />
@@ -2313,18 +2313,18 @@ export default function AdminRelayAccountPoolPage() {
                     : '')
                 }
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {importFileName
                   ? `已载入文件 ${importFileName}（点「提交导入」才写进号池）`
                   : '字段:name / token / refreshToken / deviceId / machineId / enabled / cookies(proxyUrl 可选);第三方导出自动识别。示例:'}
               </p>
-              <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+              <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 text-label text-muted-foreground">
                 {EXAMPLE_JSON}
               </pre>
             </div>
             {importResult && (
               <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-label">
                   <span className="text-muted-foreground">
                     导入结果(共 {importResult.total} 条):
                   </span>
@@ -2342,7 +2342,7 @@ export default function AdminRelayAccountPoolPage() {
                   </span>
                 </div>
                 <div className="max-h-60 overflow-auto rounded-md border border-border">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-label">
                     <thead className="bg-muted/50 text-muted-foreground">
                       <tr>
                         <th className="px-2 py-1 text-left">#</th>
@@ -2444,7 +2444,7 @@ export default function AdminRelayAccountPoolPage() {
                 placeholder="每行粘贴一个手机号全号,如:18012345669"
                 className={textareaClass}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 后端按掩码前 3 后 2
                 归位号池内掩码名账号并统一改名为全号;歧义/无命中/非法只汇总报数。
               </p>
@@ -2472,12 +2472,12 @@ export default function AdminRelayAccountPoolPage() {
             {usageQuery.isLoading ? (
               <Skeleton className="h-12 w-full" />
             ) : usageQuery.isError ? (
-              <p className="text-sm text-red-500">
+              <p className="text-body text-red-500">
                 加载失败:{usageQuery.error instanceof Error ? usageQuery.error.message : '未知错误'}
               </p>
             ) : (
               <>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-label">
                   <span className="rounded-md bg-muted px-2 py-1 tabular-nums text-muted-foreground">
                     调用 {fmtNum(usageQuery.data?.summary?.calls24h)} 次
                   </span>
@@ -2499,10 +2499,10 @@ export default function AdminRelayAccountPoolPage() {
                   </span>
                 </div>
                 {usageDetailRows.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">暂无调用明细</p>
+                  <p className="py-8 text-center text-body text-muted-foreground">暂无调用明细</p>
                 ) : (
                   <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-label">
                       <thead className="bg-muted/50 text-muted-foreground [&>tr>th]:whitespace-nowrap">
                         <tr>
                           {usageDetailCols.map((c) => (
@@ -2547,7 +2547,7 @@ export default function AdminRelayAccountPoolPage() {
           </DialogHeader>
           {modelsView && (
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {modelsView.result.scope === 'local-cli-login'
                   ? '清单来源:本机 Qoder CLI 登录态(当前登录账号;自定义模型 ID 因 CLI 显示上限截断,转发请用名称或 auto)'
                   : '清单来源:上游账号凭据点查'}
@@ -2555,11 +2555,11 @@ export default function AdminRelayAccountPoolPage() {
                 {new Date(modelsView.result.queriedAt).toLocaleString()}
               </p>
               {modelsView.result.models.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">清单为空</p>
+                <p className="py-4 text-center text-body text-muted-foreground">清单为空</p>
               ) : (
                 <div className="max-h-80 space-y-1 overflow-auto rounded-md border border-border p-2">
                   {modelsView.result.models.map((m, i) => (
-                    <div key={`${m.name}-${i}`} className="flex items-center gap-2 text-sm">
+                    <div key={`${m.name}-${i}`} className="flex items-center gap-2 text-body">
                       <span className="truncate" title={m.id ?? m.name}>
                         {m.name}
                       </span>
@@ -2732,8 +2732,8 @@ function ProxyPoolPanel() {
 
       <div className="rounded-xl border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">代理地址</th>
                 <th className="px-3 py-2 text-left">平台</th>
@@ -2772,14 +2772,14 @@ function ProxyPoolPanel() {
                   return (
                     <tr key={p.id}>
                       <td
-                        className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
+                        className="max-w-[18rem] truncate px-3 py-2 font-mono text-label"
                         title={p.proxyUrl ? maskProxyDisplay(p.proxyUrl) : undefined}
                       >
                         {maskProxyDisplay(p.proxyUrl)}
                       </td>
-                      <td className="px-3 py-2 text-xs">{p.providerCode ?? '-'}</td>
+                      <td className="px-3 py-2 text-label">{p.providerCode ?? '-'}</td>
                       <td
-                        className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs"
+                        className="max-w-[12rem] truncate px-3 py-2 font-mono text-label"
                         title={p.boundAccountId ?? undefined}
                       >
                         {p.boundAccountId ?? '-'}
@@ -2790,10 +2790,10 @@ function ProxyPoolPanel() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{p.failCount ?? 0}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <td className="px-3 py-2 text-label text-muted-foreground">
                         {p.lastPickedAt ? fmt.format(new Date(p.lastPickedAt)) : '-'}
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <td className="px-3 py-2 text-label text-muted-foreground">
                         {p.lastCheckedAt ? fmt.format(new Date(p.lastCheckedAt)) : '-'}
                       </td>
                       <td className="px-3 py-2">
@@ -2816,7 +2816,7 @@ function ProxyPoolPanel() {
                           <Button
                             size="xs"
                             variant="ghost"
-                            className="px-2 text-xs"
+                            className="px-2 text-label"
                             disabled={checkMut.isPending}
                             onClick={() => checkMut.mutate({ id: p.id, alive: true })}
                           >
@@ -2825,7 +2825,7 @@ function ProxyPoolPanel() {
                           <Button
                             size="xs"
                             variant="ghost"
-                            className="px-2 text-xs"
+                            className="px-2 text-label"
                             disabled={checkMut.isPending}
                             onClick={() => checkMut.mutate({ id: p.id, alive: false })}
                           >
@@ -2862,7 +2862,7 @@ function ProxyPoolPanel() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -2873,7 +2873,7 @@ function ProxyPoolPanel() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -3074,8 +3074,8 @@ function ModelCatalogPanel() {
 
       <div className="rounded-xl border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">平台</th>
                 <th className="px-3 py-2 text-left">别名</th>
@@ -3110,21 +3110,21 @@ function ModelCatalogPanel() {
               ) : (
                 rows.map((m) => (
                   <tr key={m.id}>
-                    <td className="px-3 py-2 text-xs">{m.providerCode ?? '-'}</td>
+                    <td className="px-3 py-2 text-label">{m.providerCode ?? '-'}</td>
                     <td
-                      className="max-w-[14rem] truncate px-3 py-2 font-mono text-xs"
+                      className="max-w-[14rem] truncate px-3 py-2 font-mono text-label"
                       title={m.alias ?? undefined}
                     >
                       {m.alias ?? '-'}
                     </td>
                     <td
-                      className="max-w-[16rem] truncate px-3 py-2 font-mono text-xs"
+                      className="max-w-[16rem] truncate px-3 py-2 font-mono text-label"
                       title={m.upstreamModel ?? undefined}
                     >
                       {m.upstreamModel ?? '-'}
                     </td>
                     <td
-                      className="max-w-[14rem] truncate px-3 py-2 text-xs"
+                      className="max-w-[14rem] truncate px-3 py-2 text-label"
                       title={m.displayName ?? undefined}
                     >
                       {m.displayName ?? '-'}
@@ -3141,7 +3141,7 @@ function ModelCatalogPanel() {
                         {m.enabled === false ? '已停用' : '已启用'}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {m.createdAt ? fmt.format(new Date(m.createdAt)) : '-'}
                     </td>
                     <td className="px-3 py-2">

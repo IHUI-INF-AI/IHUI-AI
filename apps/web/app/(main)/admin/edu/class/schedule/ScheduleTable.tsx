@@ -75,7 +75,7 @@ export function ScheduleTable({ rows, isLoading, error, onEdit, onDelete, delete
                   {s.className ?? s.classId.slice(0, 8)}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{s.teacherName ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {s.startTime} ~ {s.endTime}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{s.location ?? '-'}</TableCell>

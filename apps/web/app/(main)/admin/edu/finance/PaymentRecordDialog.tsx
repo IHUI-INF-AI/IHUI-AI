@@ -118,7 +118,7 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
             <DialogTitle>{t('recordTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -146,10 +146,10 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
               </SelectContent>
             </Select>
             {rosterQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">{t('loading')}</p>
+              <p className="text-body text-muted-foreground">{t('loading')}</p>
             )}
             {!rosterQuery.isLoading && roster.length === 0 && (
-              <p className="text-sm text-muted-foreground">{t('emptyRoster')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyRoster')}</p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">

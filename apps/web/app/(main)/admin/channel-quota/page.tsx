@@ -169,7 +169,7 @@ export default function AdminChannelQuotaPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-heading font-semibold">渠道配额管理</h1>
-            <p className="text-sm text-muted-foreground">管理各渠道的调用与 Token 配额上限</p>
+            <p className="text-body text-muted-foreground">管理各渠道的调用与 Token 配额上限</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-3 w-3" /> 重试
@@ -178,7 +178,7 @@ export default function AdminChannelQuotaPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
             <AlertCircle className="h-8 w-8 text-destructive" />
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {(error as Error).message || '加载渠道配额失败'}
             </div>
           </CardContent>
@@ -193,7 +193,7 @@ export default function AdminChannelQuotaPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">渠道配额管理</h1>
-          <p className="text-sm text-muted-foreground">管理各渠道的调用与 Token 配额上限</p>
+          <p className="text-body text-muted-foreground">管理各渠道的调用与 Token 配额上限</p>
         </div>
         <div className="flex items-center gap-2">
           {selected.size > 0 && (
@@ -252,7 +252,7 @@ export default function AdminChannelQuotaPage() {
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{c.name}</div>
-                          <div className="text-xs text-muted-foreground font-mono">
+                          <div className="text-label text-muted-foreground font-mono">
                             {c.providerCode}
                           </div>
                         </TableCell>
@@ -298,11 +298,11 @@ export default function AdminChannelQuotaPage() {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="text-xs tabular-nums">
+                            <div className="text-label tabular-nums">
                               {fmt(c.dailyUsedCalls)}
                               {c.dailyCallLimit !== null ? ' / ' + fmt(c.dailyCallLimit) : ''}
                             </div>
-                            <div className="text-xs tabular-nums text-muted-foreground">
+                            <div className="text-label tabular-nums text-muted-foreground">
                               {fmt(c.dailyUsedTokens)} tok
                               {c.dailyTokenLimit !== null ? ' / ' + fmt(c.dailyTokenLimit) : ''}
                             </div>
@@ -316,11 +316,11 @@ export default function AdminChannelQuotaPage() {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="text-xs tabular-nums">
+                            <div className="text-label tabular-nums">
                               {fmt(c.monthlyUsedCalls)}
                               {c.monthlyCallLimit !== null ? ' / ' + fmt(c.monthlyCallLimit) : ''}
                             </div>
-                            <div className="text-xs tabular-nums text-muted-foreground">
+                            <div className="text-label tabular-nums text-muted-foreground">
                               {fmt(c.monthlyUsedTokens)} tok
                               {c.monthlyTokenLimit !== null ? ' / ' + fmt(c.monthlyTokenLimit) : ''}
                             </div>
