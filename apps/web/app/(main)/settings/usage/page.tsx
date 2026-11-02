@@ -42,7 +42,7 @@ function formatTokens(n: number): string {
 function UsageBarChart({ data }: { data: Record<string, { total_tokens: number; cost: number }> }) {
   const entries = Object.entries(data)
   if (entries.length === 0)
-    return <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>
+    return <p className="py-4 text-center text-label text-muted-foreground">暂无数据</p>
   const maxTokens = Math.max(...entries.map(([, v]) => v.total_tokens), 1)
   return (
     <div className="flex items-end gap-1" style={{ height: 120 }}>
@@ -118,7 +118,7 @@ export default function UsagePage() {
     return (
       <div className="px-4 space-y-4 py-4">
         <BackButton />
-        <p className="py-8 text-center text-sm text-muted-foreground">加载中...</p>
+        <p className="py-8 text-center text-body text-muted-foreground">加载中...</p>
       </div>
     )
 
@@ -126,7 +126,7 @@ export default function UsagePage() {
     return (
       <div className="px-4 space-y-4 py-4">
         <BackButton />
-        <p className="py-8 text-center text-sm text-destructive">{error}</p>
+        <p className="py-8 text-center text-body text-destructive">{error}</p>
       </div>
     )
 
@@ -150,7 +150,7 @@ export default function UsagePage() {
           </CardHeader>
           <CardContent>
             <p className="text-display font-bold">{formatTokens(totalTokens)}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               输入: {formatTokens(stats?.total_input_tokens ?? 0)} / 输出:{' '}
               {formatTokens(stats?.total_output_tokens ?? 0)}
             </p>
@@ -164,7 +164,7 @@ export default function UsagePage() {
           </CardHeader>
           <CardContent>
             <p className="text-display font-bold">${totalCost.toFixed(4)}</p>
-            <p className="text-xs text-muted-foreground">共 {totalCalls} 次调用</p>
+            <p className="text-label text-muted-foreground">共 {totalCalls} 次调用</p>
           </CardContent>
         </Card>
         <Card>
@@ -175,7 +175,7 @@ export default function UsagePage() {
           </CardHeader>
           <CardContent>
             <p className="text-display font-bold">{formatTokens(quota?.used_tokens ?? 0)}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               剩余 {formatTokens(quota?.remaining ?? 0)}
             </p>
           </CardContent>
@@ -215,7 +215,7 @@ export default function UsagePage() {
           {stats?.daily_breakdown ? (
             <UsageBarChart data={stats.daily_breakdown} />
           ) : (
-            <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>
+            <p className="py-4 text-center text-label text-muted-foreground">暂无数据</p>
           )}
         </CardContent>
       </Card>
@@ -228,14 +228,14 @@ export default function UsagePage() {
         </CardHeader>
         <CardContent>
           {modelEntries.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">暂无数据</p>
+            <p className="py-4 text-center text-label text-muted-foreground">暂无数据</p>
           ) : (
             <div className="space-y-2">
               {modelEntries.map(([model, m]) => {
                 const pct = (m.total_tokens / totalTokens) * 100
                 return (
                   <div key={model}>
-                    <div className="flex justify-between text-xs">
+                    <div className="flex justify-between text-label">
                       <span className="truncate">{model}</span>
                       <span className="text-muted-foreground">
                         {formatTokens(m.total_tokens)} (${m.cost.toFixed(4)})

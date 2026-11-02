@@ -89,7 +89,7 @@ export function ItemEditDialog({ space, item, onClose, onSaved }: ItemEditDialog
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-sm">
+          <DialogTitle className="text-body">
             {isCreate ? t('createItemTitle') : t('reviseItemTitle')}
           </DialogTitle>
         </DialogHeader>
@@ -127,7 +127,7 @@ export function ItemEditDialog({ space, item, onClose, onSaved }: ItemEditDialog
             placeholder={t('changeNotePlaceholder')}
             aria-label={t('changeNoteLabel')}
           />
-          {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+          {error && <span className="text-body text-red-600 dark:text-red-400">{error}</span>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               <span>{t('cancelBtn')}</span>

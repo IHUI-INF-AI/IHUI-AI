@@ -98,7 +98,7 @@ export default async function N8nAgentsPage() {
           <Workflow className="h-7 w-7 text-primary" />
           N8N Agents
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 介绍卡片 */}
@@ -110,7 +110,7 @@ export default async function N8nAgentsPage() {
               <Badge variant="primary">{t('totalBadge', { n: AGENTS.length })}</Badge>
               <Badge variant="success">{t('activeBadge', { n: activeCount })}</Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{t('cardDescription')}</p>
+            <p className="text-body text-muted-foreground">{t('cardDescription')}</p>
           </div>
           <Button className="shrink-0">
             <Plus className="h-4 w-4" />
@@ -133,7 +133,7 @@ export default async function N8nAgentsPage() {
                     <CardTitle className="text-base">
                       {t(AGENT_NAME_KEY[agent.id] ?? 'agents.unknown.name')}
                     </CardTitle>
-                    <p className="text-xs text-muted-foreground">ID: {agent.id}</p>
+                    <p className="text-label text-muted-foreground">ID: {agent.id}</p>
                   </div>
                 </div>
                 <Badge variant={agent.active ? 'success' : 'default'}>
@@ -142,10 +142,10 @@ export default async function N8nAgentsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm leading-relaxed text-muted-foreground">
+              <p className="text-body leading-relaxed text-muted-foreground">
                 {t(AGENT_DESCRIPTION_KEY[agent.id] ?? 'agents.unknown.description')}
               </p>
-              <div className="flex items-center justify-between mt-3 pt-3 text-xs">
+              <div className="flex items-center justify-between mt-3 pt-3 text-label">
                 <div className="space-y-0.5">
                   <div className="text-muted-foreground">{t('lastRunLabel')}</div>
                   <div className="font-medium text-foreground">{agent.lastRunAt}</div>

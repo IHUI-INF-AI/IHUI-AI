@@ -43,8 +43,10 @@ export default function PlanListPage() {
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">Plan 模式</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            Plan 模式
+          </h1>
+          <p className="mt-1 text-body text-muted-foreground">
             单一计划文档管理 · 目标 + 修改范围 + 步骤追踪 · 适用于中小型功能与模块级重构
           </p>
         </div>
@@ -66,14 +68,14 @@ export default function PlanListPage() {
               type="button"
               onClick={() => setFilter(f.value)}
               className={cn(
-                'rounded-sm px-3 py-1.5 text-sm transition-colors',
+                'rounded-sm px-3 py-1.5 text-body transition-colors',
                 filter === f.value
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
               {f.label}
-              <span className="ml-1.5 text-xs opacity-70 tabular-nums">{count}</span>
+              <span className="ml-1.5 text-label opacity-70 tabular-nums">{count}</span>
             </button>
           )
         })}

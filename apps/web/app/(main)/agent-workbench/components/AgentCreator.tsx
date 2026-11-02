@@ -301,7 +301,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
             <Label>工具白名单</Label>
             <div className="grid grid-cols-2 gap-2 rounded-md border p-3 min-[640px]:grid-cols-3">
               {TOOL_OPTIONS.map((t) => (
-                <label key={t} className="flex cursor-pointer items-center gap-2 text-xs">
+                <label key={t} className="flex cursor-pointer items-center gap-2 text-label">
                   <Checkbox checked={tools.includes(t)} onCheckedChange={() => toggleTool(t)} />
                   <span className="font-mono">{t}</span>
                 </label>
@@ -346,12 +346,12 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={4}
               placeholder="留空则使用角色默认 prompt"
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
 
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}

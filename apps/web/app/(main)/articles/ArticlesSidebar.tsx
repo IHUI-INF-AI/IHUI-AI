@@ -22,14 +22,14 @@ export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Pr
     <aside className="w-full shrink-0 space-y-4 min-[1024px]:w-72">
       <Card>
         <CardHeader className="p-3 pb-2">
-          <CardTitle className="text-sm">{t('categories')}</CardTitle>
+          <CardTitle className="text-body">{t('categories')}</CardTitle>
         </CardHeader>
         <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0">
           <button
             type="button"
             onClick={() => onSelectCategory('all')}
             className={cn(
-              'block w-full rounded-sm px-3 py-1.5 text-left text-sm transition-colors',
+              'block w-full rounded-sm px-3 py-1.5 text-left text-body transition-colors',
               categoryId === 'all'
                 ? 'bg-primary/10 font-medium text-primary'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -43,7 +43,7 @@ export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Pr
               type="button"
               onClick={() => onSelectCategory(c.id)}
               className={cn(
-                'block w-full rounded-sm px-3 py-1.5 text-left text-sm transition-colors',
+                'block w-full rounded-sm px-3 py-1.5 text-left text-body transition-colors',
                 categoryId === c.id
                   ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',

@@ -252,25 +252,25 @@ export default function WorkbuddyResetPage() {
     if (planOpen !== mode) return null
     if (planLoading) {
       return (
-        <p className="text-muted-foreground flex items-center gap-2 text-xs">
+        <p className="text-muted-foreground flex items-center gap-2 text-label">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('probeScanning')}
         </p>
       )
     }
     const rep = plans[mode]
     if (!rep || rep.actions.length === 0) {
-      return <p className="text-muted-foreground text-xs">{t('planEmpty')}</p>
+      return <p className="text-muted-foreground text-label">{t('planEmpty')}</p>
     }
     return (
       <div className="space-y-1 rounded-md border p-2">
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-label">
           <span className="font-medium">{t('planTitle')}</span>
           <span className="text-muted-foreground font-mono">
             {rep.total_mb.toFixed(1)} MB · {rep.actions.length}
           </span>
         </div>
         {rep.actions.slice(0, 8).map((a) => (
-          <div key={a.path} className="flex items-center justify-between gap-2 text-xs">
+          <div key={a.path} className="flex items-center justify-between gap-2 text-label">
             <span className="truncate font-mono">{a.path}</span>
             <span className="text-muted-foreground shrink-0">
               {actLabel(a.action)} · {a.size_mb.toFixed(1)} MB
@@ -278,7 +278,7 @@ export default function WorkbuddyResetPage() {
           </div>
         ))}
         {rep.actions.length > 8 ? (
-          <p className="text-muted-foreground text-xs">{t('planTruncated')}</p>
+          <p className="text-muted-foreground text-label">{t('planTruncated')}</p>
         ) : null}
       </div>
     )
@@ -288,7 +288,7 @@ export default function WorkbuddyResetPage() {
     <div className="mx-auto max-w-4xl space-y-4 p-6">
       <div>
         <h1 className="text-heading font-semibold">{t('title')}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t('subtitle')}</p>
+        <p className="text-muted-foreground mt-1 text-body">{t('subtitle')}</p>
       </div>
 
       {/* 探针报告 */}
@@ -318,12 +318,12 @@ export default function WorkbuddyResetPage() {
         </CardHeader>
         <CardContent>
           {probeError ? (
-            <p className="text-destructive text-sm">
+            <p className="text-destructive text-body">
               {t('errPrefix')}: {probeError}
             </p>
           ) : probe ? (
             <>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-3 text-body">
                 <div>
                   <span className="text-muted-foreground">{t('probeTotal')}: </span>
                   <span className="font-medium">{probe.total_mb.toFixed(1)} MB</span>
@@ -337,14 +337,16 @@ export default function WorkbuddyResetPage() {
               </div>
               <div className="mt-3 space-y-1">
                 {probe.entries.slice(0, showAllEntries ? undefined : 12).map((e) => (
-                  <div key={e.path} className="flex items-center justify-between gap-2 text-sm">
+                  <div key={e.path} className="flex items-center justify-between gap-2 text-body">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className={`rounded px-1.5 py-0.5 text-xs ${TIER_BADGE[e.tier] ?? ''}`}>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-label ${TIER_BADGE[e.tier] ?? ''}`}
+                      >
                         {tierLabel(e.tier)}
                       </span>
-                      <span className="truncate font-mono text-xs">{e.path}</span>
+                      <span className="truncate font-mono text-label">{e.path}</span>
                     </div>
-                    <span className="text-muted-foreground shrink-0 text-xs">
+                    <span className="text-muted-foreground shrink-0 text-label">
                       {e.size_mb.toFixed(1)} MB
                     </span>
                   </div>
@@ -352,7 +354,7 @@ export default function WorkbuddyResetPage() {
                 {probe.entries.length > 12 ? (
                   <button
                     type="button"
-                    className="text-primary text-xs"
+                    className="text-primary text-label"
                     onClick={() => setShowAllEntries((v) => !v)}
                   >
                     {showAllEntries ? t('entriesShowLess') : t('entriesShowAll')}
@@ -361,7 +363,7 @@ export default function WorkbuddyResetPage() {
               </div>
             </>
           ) : (
-            <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <p className="text-muted-foreground flex items-center gap-2 text-body">
               <Loader2 className="h-4 w-4 animate-spin" /> {t('probeScanning')}
             </p>
           )}
@@ -413,7 +415,7 @@ export default function WorkbuddyResetPage() {
                 checked={includeDeviceId}
                 onCheckedChange={(v) => setIncludeDeviceId(v === true)}
               />
-              <Label htmlFor="wb-device-id" className="text-sm">
+              <Label htmlFor="wb-device-id" className="text-body">
                 {t('logoutDeviceIdOpt')}
               </Label>
             </div>
@@ -449,7 +451,7 @@ export default function WorkbuddyResetPage() {
           <CardContent>
             {factoryConfirm ? (
               <div className="space-y-2">
-                <p className="text-destructive flex items-start gap-1 text-xs">
+                <p className="text-destructive flex items-start gap-1 text-label">
                   <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {t('factoryConfirm')}
                 </p>
                 <div className="flex gap-2">
@@ -496,7 +498,7 @@ export default function WorkbuddyResetPage() {
       </div>
 
       {/* 提示与边界 */}
-      <div className="text-muted-foreground space-y-1 text-xs">
+      <div className="text-muted-foreground space-y-1 text-label">
         <p className="flex items-start gap-1">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {t('killNote')}
         </p>
@@ -506,7 +508,7 @@ export default function WorkbuddyResetPage() {
       </div>
 
       {runError ? (
-        <p className="text-destructive text-sm">
+        <p className="text-destructive text-body">
           {t('errPrefix')}: {runError}
         </p>
       ) : null}
@@ -515,11 +517,11 @@ export default function WorkbuddyResetPage() {
       {busy && progress ? (
         <Card>
           <CardContent className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between text-body">
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" /> {t('progressLabel')}
               </span>
-              <span className="font-mono text-xs">
+              <span className="font-mono text-label">
                 {progress.done}/{progress.total}
               </span>
             </div>
@@ -531,7 +533,7 @@ export default function WorkbuddyResetPage() {
                 }}
               />
             </div>
-            <p className="text-muted-foreground truncate font-mono text-xs">{progress.item}</p>
+            <p className="text-muted-foreground truncate font-mono text-label">{progress.item}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -544,7 +546,7 @@ export default function WorkbuddyResetPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {result.rep.layers.map((l) => (
-              <div key={l.layer} className="flex items-start justify-between gap-3 text-sm">
+              <div key={l.layer} className="flex items-start justify-between gap-3 text-body">
                 <div className="flex min-w-0 items-start gap-2">
                   <Badge
                     className={
@@ -555,14 +557,14 @@ export default function WorkbuddyResetPage() {
                   >
                     {l.ok ? t('resultOk') : t('resultFail')}
                   </Badge>
-                  <span className="font-mono text-xs">{l.name}</span>
+                  <span className="font-mono text-label">{l.name}</span>
                 </div>
-                <span className="text-muted-foreground min-w-0 flex-1 break-all text-right text-xs">
+                <span className="text-muted-foreground min-w-0 flex-1 break-all text-right text-label">
                   {l.detail}
                 </span>
               </div>
             ))}
-            <p className="text-muted-foreground pt-1 text-xs">{t('restartHint')}</p>
+            <p className="text-muted-foreground pt-1 text-label">{t('restartHint')}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -587,17 +589,17 @@ export default function WorkbuddyResetPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {quarantines.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{t('quarantineEmpty')}</p>
+            <p className="text-muted-foreground text-body">{t('quarantineEmpty')}</p>
           ) : (
             quarantines.map((q) => (
               <div
                 key={q.path}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-body"
               >
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Badge variant="secondary">{q.mode}</Badge>
-                  <span className="truncate font-mono text-xs">{q.name}</span>
-                  <span className="text-muted-foreground text-xs">
+                  <span className="truncate font-mono text-label">{q.name}</span>
+                  <span className="text-muted-foreground text-label">
                     {t('qEntriesLabel')}: {q.entries} · {q.size_mb.toFixed(1)} MB ·{' '}
                     {new Date(q.created_unix * 1000).toLocaleString()}
                   </span>
@@ -613,7 +615,7 @@ export default function WorkbuddyResetPage() {
                   </Button>
                   {qDeleteConfirm === q.path ? (
                     <>
-                      <span className="text-destructive flex items-center gap-1 text-xs">
+                      <span className="text-destructive flex items-center gap-1 text-label">
                         <TriangleAlert className="h-3.5 w-3.5" /> {t('qDeleteConfirm')}
                       </span>
                       <Button
@@ -654,10 +656,10 @@ export default function WorkbuddyResetPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {history.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{t('historyEmpty')}</p>
+            <p className="text-muted-foreground text-body">{t('historyEmpty')}</p>
           ) : (
             history.slice(0, 10).map((h) => (
-              <div key={h.file} className="flex items-start justify-between gap-3 text-sm">
+              <div key={h.file} className="flex items-start justify-between gap-3 text-body">
                 <div className="flex min-w-0 items-center gap-2">
                   <Badge
                     className={
@@ -668,9 +670,9 @@ export default function WorkbuddyResetPage() {
                   >
                     {h.ok ? t('resultOk') : t('resultFail')}
                   </Badge>
-                  <span className="shrink-0 font-mono text-xs">{h.mode}</span>
+                  <span className="shrink-0 font-mono text-label">{h.mode}</span>
                 </div>
-                <span className="text-muted-foreground min-w-0 flex-1 truncate text-right text-xs">
+                <span className="text-muted-foreground min-w-0 flex-1 truncate text-right text-label">
                   {new Date(h.ts_unix * 1000).toLocaleString()} · {h.summary}
                 </span>
               </div>

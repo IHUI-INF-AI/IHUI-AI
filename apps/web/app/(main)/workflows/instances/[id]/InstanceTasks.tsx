@@ -31,7 +31,7 @@ export function InstanceTasks({ tasks, isLoading }: Props) {
           {t('loading')}
         </div>
       ) : tasks.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
           {t('instanceDetail.noTasks')}
         </div>
       ) : (
@@ -60,9 +60,9 @@ function TaskRow({ task }: { task: Task }) {
         ) : (
           <ChevronRight className="h-4 w-4 shrink-0" />
         )}
-        <span className="w-8 shrink-0 text-xs text-muted-foreground">#{task.step}</span>
+        <span className="w-8 shrink-0 text-label text-muted-foreground">#{task.step}</span>
         <span className="min-w-0 flex-1 break-words text-body font-medium">{task.name}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+        <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
           {task.type}
         </span>
         <span
@@ -72,7 +72,7 @@ function TaskRow({ task }: { task: Task }) {
         </span>
       </button>
       {open && (
-        <div className="space-y-2 px-4 py-2 text-xs">
+        <div className="space-y-2 px-4 py-2 text-label">
           {task.error && (
             <div className="rounded-md bg-destructive/10 p-2 text-destructive">
               <div className="mb-1 font-medium">{t('instanceDetail.error')}</div>

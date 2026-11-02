@@ -132,7 +132,7 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <h3 className="truncate text-body font-medium">{agent.name || t('card.unnamed')}</h3>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-label text-muted-foreground">
               {roleLabel} · {agent.model}
             </p>
           </div>
@@ -146,7 +146,7 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {t('card.lastActive', { time: fmt(agent.lastActiveAt) })}
           </span>
           <div className="flex items-center gap-0.5">
@@ -191,11 +191,11 @@ export function AgentDetailCard({ agent }: DetailProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
             <h2 className="truncate text-lg font-semibold">{agent.name || t('card.unnamed')}</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {roleKey ? t(roleKey) : agent.role} · {agent.model}
             </p>
           </div>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-label text-muted-foreground">
             {dateFmt.format(new Date(agent.lastActiveAt))}
           </span>
         </div>
@@ -211,7 +211,7 @@ export function AgentDetailCard({ agent }: DetailProps) {
             ))}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 text-label min-[768px]:grid-cols-2">
           <div className="rounded-md border p-2">
             <div className="text-muted-foreground">{t('card.permissionMode')}</div>
             <div className="mt-0.5 font-medium">{agent.permissionMode ?? 'default'}</div>
