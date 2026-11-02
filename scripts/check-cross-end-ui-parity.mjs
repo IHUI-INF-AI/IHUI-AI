@@ -131,9 +131,11 @@ const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
  */
 export const ALLOWED_DIFFS_REL = 'scripts/data/cross-end-allowed-diffs.json'
 /**
- * web↔RN 配对账本(2026-11-02 立,Phase 2「web 腿几何维」):逐行 `{web,rn,status,data.evidence}`。
+ * web↔RN 配对账本(2026-11-02 立,Phase 2「web 腿几何维」):逐行 `{web,rn,status,data:{evidence,webEvidence?}}`。
  * 本门只取 `status=aligned` 且 `data.evidence` 以 `<rn 路径>:` 开头的行 —— evidence 已经钉到 RN
  * 文件:行,是这条配对唯一可复核的锚点;锚不上的行进「配对待确认清单」,不猜。
+ * `data.webEvidence`(`<web 路径>:<行>`,可选)是 web 侧五维读数的取证件:路由的 page.tsx 只是
+ * 屏壳时,几何住在子组件里,没有这枚锚这一维就只能报 one-sided(读数的缺口,不是两端的差异)。
  */
 export const WEB_RN_LEDGER_REL = 'scripts/data/web-rn-screen-map.jsonl'
 /** 五个可判定几何维;`radius` 走圆角档表,其余四维走 readGeometry 的分类集。 */
@@ -585,6 +587,11 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
      * 裸 `rnSpacing.md` / `rnSpacing['3xl']` / `rnSpacingFor.gap` 按档表 dp 计入 values,
      * 并按命名空间名进 named(与具名档同一张冲突对账表)。
      * 档表读不到的成员(改名/新增没进源)⇒ 报名未判定,不静默跳过(§0.3)。
+     * 归维按**紧邻键名**走(2026-11-02 修):旧版无条件 `push(px,'spacing')`,而间距档最常坐的键
+     * 恰是 `padding` / `paddingHorizontal` / `paddingVertical` —— 内边距整族被读成 0,
+     * web↔RN 的 padding 维看到的是"RN 侧没读数"(假 one-sided),不是"两端不一样"。
+     * 无几何键语境(取不到键 / 键不是几何键)时保持旧口径 `spacing`:不把"没语境"猜成某一维;
+     * 档值本身照旧进 values,所以集合口径(主腿 / 圆角维)不随这一刀移动。
      */
     for (const m of code.matchAll(
       /\b(rnSpacing(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
@@ -602,7 +609,10 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
         })
         continue
       }
-      push(px, 'spacing')
+      const rawKey = keyBefore(m.index)
+      const k = rawKey ? rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null
+      // 有几何键语境 ⇒ 按该键归维;没有(或该键分不进五维)⇒ 保持旧口径 spacing(不静默丢读数)
+      push(px, (k && keyed(k) ? dimOfKey(k) : null) ?? 'spacing')
       if (named[memberName] === undefined) named[memberName] = px
     }
     /**
@@ -2556,13 +2566,19 @@ export function collect(
       ...(listFace(repoRoot, face, 'packages/app/src') ?? []),
       ...(listFace(repoRoot, face, 'apps/mobile-rn/src') ?? []),
     ]
+    // webEvidence 的取证件面:apps/web 全量 ⊕ packages/ui-react(web 设计系统的家)。
+    // 清单取不到时给空集 ⇒ 带锚的行逐条进 pending(核验不了就不进读数,不猜)。
+    const webEvidenceFiles = [
+      ...(listFace(repoRoot, face, 'apps/web') ?? []),
+      ...(listFace(repoRoot, face, 'packages/ui-react') ?? []),
+    ]
     const spec = (face === 'staged' ? ':' : 'HEAD:') + WEB_RN_LEDGER_REL
     const got = catBatch(repoRoot, [spec], { maxBuffer: 1 << 24 })
     const ledgerText = got.get(spec)
     if (webPageList === null) webRnProblem = `${FACE_TXT[face]}取不到 apps/web/app 清单`
     else if (typeof ledgerText !== 'string') webRnProblem = `${FACE_TXT[face]}取不到 ${WEB_RN_LEDGER_REL}`
     else {
-      const built = buildWebRnPairs(ledgerText, webPageList, rnAll)
+      const built = buildWebRnPairs(ledgerText, webPageList, rnAll, webEvidenceFiles)
       webRnPairs = built.pairs
       webRnPending = built.pending
       if (built.problems.length)
@@ -2576,7 +2592,7 @@ export function collect(
     ...new Set([
       ...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]),
       ...webPairs.flatMap((p) => [p.miniapp, p.rn]),
-      ...webRnPairs.flatMap((p) => [p.web, p.rn]),
+      ...webRnPairs.flatMap((p) => [p.web, p.rn, ...(p.webEvidence ? [p.webEvidence] : [])]),
     ]),
   ]
   const text = {}
@@ -5005,8 +5021,15 @@ export function webRouteIndex(webFiles = []) {
  * 只认 `status=aligned` 且 `data.evidence` 以 `<rn>:` 开头的行(evidence 是这一条配对的唯一锚点);
  * 其余行(缺锚点 / web 路由解析不到 page / RN 文件不在被审面 / 重复路由)一律进 `pending`,
  * 由人确认后再补账 —— 推导不出的不猜、不按名字硬配。
+ *
+ * `data.webEvidence`(2026-11-02 增,五维几何读数的 web 取证件):`<web 路径>:<行>`,可选。
+ * 为什么需要:不少 web 路由的 `page.tsx` 只是屏壳(渲染全在子组件里),页面自身五维零读数 ⇒
+ * web↔RN 那一维只能报 one-sided(数据缺口),永远判不了。锚点把"这一屏的几何在哪份文件里"写成
+ * 可复核的一行,读数面因此从"page.tsx 一份"扩到"page.tsx ∪ 取证件"。
+ * 校验两条(不合格进 pending,不猜):①必须是 `<路径>:<行>` 形态;②路径必须落在 web 取证件面
+ * (`apps/web/**` ∪ `packages/ui-react/**` —— web 的设计系统就住后一份)。
  */
-export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = []) {
+export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = [], webEvidenceFiles = null) {
   const pairs = []
   const pending = []
   const problems = []
@@ -5015,6 +5038,8 @@ export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = []) {
   const { map: routeMap, duplicates } = webRouteIndex(webFiles)
   for (const d of duplicates) pending.push({ web: d.route, rn: '', why: `同一路由多份 page:${d.first} / ${d.duplicate}` })
   const rnSet = new Set(rnFiles)
+  const evidenceSet =
+    webEvidenceFiles instanceof Set ? webEvidenceFiles : new Set(webEvidenceFiles ?? [])
   const seen = new Set()
   const lines = ledgerText.split('\n')
   for (let i = 0; i < lines.length; i++) {
@@ -5052,8 +5077,23 @@ export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = []) {
       pending.push({ web: route, rn, why: 'RN 屏文件不在被审面' })
       continue
     }
+    const webEvidenceRaw = row.data?.webEvidence
+    let webEvidence = null
+    if (webEvidenceRaw !== undefined && webEvidenceRaw !== null) {
+      const anchored = /^(.+):(\d+)$/.exec(String(webEvidenceRaw))
+      if (!anchored) {
+        pending.push({ web: route, rn, why: `data.webEvidence 不是 <web 路径>:<行> 形态:${webEvidenceRaw}` })
+        continue
+      }
+      const webFile = anchored[1]
+      if (!evidenceSet.has(webFile)) {
+        pending.push({ web: route, rn, why: `data.webEvidence 文件不在 web 取证件面:${webFile}` })
+        continue
+      }
+      webEvidence = webFile
+    }
     seen.add(route)
-    pairs.push({ name: route, web, rn, evidence })
+    pairs.push({ name: route, web, rn, evidence, webEvidence })
   }
   return { pairs, pending, problems }
 }
@@ -5084,26 +5124,46 @@ export function webRnGeometryAudit(pairRows, text, radiusTable, tiers = {}, cssV
   for (const p of pairRows ?? []) {
     const a = text?.[p.web]
     const b = text?.[p.rn]
-    if (typeof a !== 'string' || typeof b !== 'string') {
+    /**
+     * web 取证件(`data.webEvidence` 锚)与 page.tsx **并集**:屏壳的 `px-4 space-y-*` 与屏内组件
+     * 的盒档/字号/圆角都是这一屏看得见的档,只取锚文件会把屏壳读数删掉(那是另一种失明),只取
+     * page 则回到"子组件里的档全看不见"。两条腿都缺 ⇒ 才判 undetermined。
+     */
+    const ev = p.webEvidence ? text?.[p.webEvidence] : null
+    if (
+      typeof a !== 'string' ||
+      typeof b !== 'string' ||
+      (p.webEvidence && typeof ev !== 'string')
+    ) {
       undetermined.push({ name: p.name, why: 'web 或 RN 正文取不到 ⇒ 这一对没判' })
       continue
     }
     const ga = readGeometry(a, 'rn', tiers, cssVars)
     const gb = readGeometry(b, 'rn', tiers, cssVars)
+    const ge = p.webEvidence && p.webEvidence !== p.web ? readGeometry(ev, 'rn', tiers, cssVars) : null
+    const webDims = {
+      widthHeight: new Set(ga.dims.widthHeight),
+      padding: new Set(ga.dims.padding),
+      spacing: new Set(ga.dims.spacing),
+      fontSize: new Set(ga.dims.fontSize),
+    }
+    if (ge) for (const d of Object.keys(webDims)) for (const v of ge.dims[d]) webDims[d].add(v)
     const ra = new Set(radiusTable ? radiusSetOf(a, radiusTable) : [])
+    if (radiusTable && p.webEvidence && p.webEvidence !== p.web)
+      for (const v of radiusSetOf(ev, radiusTable)) ra.add(v)
     const rb = new Set(radiusTable ? radiusSetOf(b, radiusTable) : [])
     const dimSets = {
-      widthHeight: setDiff(ga.dims.widthHeight, gb.dims.widthHeight),
-      padding: setDiff(ga.dims.padding, gb.dims.padding),
-      spacing: setDiff(ga.dims.spacing, gb.dims.spacing),
+      widthHeight: setDiff(webDims.widthHeight, gb.dims.widthHeight),
+      padding: setDiff(webDims.padding, gb.dims.padding),
+      spacing: setDiff(webDims.spacing, gb.dims.spacing),
       radius: setDiff(ra, rb),
-      fontSize: setDiff(ga.dims.fontSize, gb.dims.fontSize),
+      fontSize: setDiff(webDims.fontSize, gb.dims.fontSize),
     }
     const counts = {}
     let total = 0
     let judgedDims = 0
     for (const d of WEB_RN_GEOMETRY_DIMS) {
-      const webN = d === 'radius' ? ra.size : ga.dims[d].size
+      const webN = d === 'radius' ? ra.size : webDims[d].size
       const rnN = d === 'radius' ? rb.size : gb.dims[d].size
       if (!webN && !rnN) {
         counts[d] = { webOnly: [], rnOnly: [], status: 'no-data' }
@@ -5131,6 +5191,8 @@ export function webRnGeometryAudit(pairRows, text, radiusTable, tiers = {}, cssV
         web: p.web,
         rn: p.rn,
         evidence: p.evidence,
+        // 取证件只在有锚的行出现(逐条可复核;`web` 仍是路由的 page.tsx)
+        webEvidence: p.webEvidence ?? null,
         dims: counts,
         diffCount: total,
         judgedDims,
@@ -5525,6 +5587,7 @@ export function main(argv, repoRoot = ROOT) {
             web: f.web,
             rn: f.rn,
             evidence: f.evidence,
+            webEvidence: f.webEvidence ?? null,
             diffCount: f.diffCount,
             judgedDims: f.judgedDims,
             dims: f.dims,
