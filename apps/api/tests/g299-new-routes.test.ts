@@ -53,8 +53,13 @@ import { subagentDispatchRoutes } from '../src/routes/subagent-dispatch.js'
 import { n8nProxyRoutes } from '../src/routes/n8n-proxy.js'
 import { toolsVendorRoutes } from '../src/routes/ai-vendors/proxy-tools.js'
 
+// 2026-11-02(9f9dbea9a4 归属 fail-open 收敛后):/subagents/all 按 isDispatchVisibleTo 过滤,
+// 记录带 ownerUserId ⇒ 只有本人可见;无 ownerUserId ⇒ 仅管理面。本文件 mock 的鉴权把
+// request.userId 钉成 'probe-user',因此夹具必须带同值 ownerUserId,否则被正当过滤成空 —
+// 这是夹具没跟上生产契约,不是路由过滤出错(过滤本身保持原样,不放宽)。
+const VIEWER_USER_ID = 'probe-user'
 function d(id: string, status: string, createdAt: string) {
-  return { id, status, createdAt }
+  return { id, status, createdAt, ownerUserId: VIEWER_USER_ID }
 }
 
 describe('G-299① GET /api/subagents/all', () => {
