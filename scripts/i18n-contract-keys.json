@@ -474,6 +474,356 @@
             "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
           }
         ]
+      },
+      "cli.failureOutcomeRetryable": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:194-196 的 AGENT_FAILURE_OUTCOME_LABEL_KEYS 用 Object.fromEntries(AGENT_FAILURE_OUTCOMES.map((o) => `cli.failureOutcome${toPascalSegment(o)}`)) 推导键名(成员 'retryable' 在 :44 登记),cli 端按登记表取值渲染;全仓无 'cli.failureOutcomeRetryable' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让结局播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 194,
+            "contains": "export const AGENT_FAILURE_OUTCOME_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 195,
+            "contains": "cli.failureOutcome${toPascalSegment(o)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 44,
+            "contains": "['retryable', 'terminal', 'undetermined']"
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 149,
+            "contains": "'cli.failureOutcomeUndetermined'"
+          }
+        ]
+      },
+      "cli.failureOutcomeTerminal": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:194-196 的 AGENT_FAILURE_OUTCOME_LABEL_KEYS 用 Object.fromEntries(AGENT_FAILURE_OUTCOMES.map((o) => `cli.failureOutcome${toPascalSegment(o)}`)) 推导键名(成员 'terminal' 在 :44 登记),cli 端按登记表取值渲染;全仓无 'cli.failureOutcomeTerminal' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让结局播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 194,
+            "contains": "export const AGENT_FAILURE_OUTCOME_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 195,
+            "contains": "cli.failureOutcome${toPascalSegment(o)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 44,
+            "contains": "['retryable', 'terminal', 'undetermined']"
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 149,
+            "contains": "'cli.failureOutcomeUndetermined'"
+          }
+        ]
+      },
+      "cli.failureOutcomeUndetermined": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:194-196 的 AGENT_FAILURE_OUTCOME_LABEL_KEYS 用 Object.fromEntries(AGENT_FAILURE_OUTCOMES.map((o) => `cli.failureOutcome${toPascalSegment(o)}`)) 推导键名(成员 'undetermined' 在 :44 登记),cli 端按登记表取值渲染;全仓无 'cli.failureOutcomeUndetermined' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让结局播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 194,
+            "contains": "export const AGENT_FAILURE_OUTCOME_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 195,
+            "contains": "cli.failureOutcome${toPascalSegment(o)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 44,
+            "contains": "['retryable', 'terminal', 'undetermined']"
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 149,
+            "contains": "'cli.failureOutcomeUndetermined'"
+          }
+        ]
+      },
+      "cli.agentStallLlmRequest": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'llm_request' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallLlmRequest' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallToolExecution": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'tool_execution' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallToolExecution' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallApprovalWait": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'approval_wait' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallApprovalWait' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallElicitationWait": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'elicitation_wait' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallElicitationWait' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallStreamChannel": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'stream_channel' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallStreamChannel' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallQueueDispatch": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'queue_dispatch' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallQueueDispatch' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallPermissionGate": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'permission_gate' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallPermissionGate' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallBudgetGovernance": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'budget_governance' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallBudgetGovernance' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallHookPipeline": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'hook_pipeline' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallHookPipeline' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallDoomLoopGuard": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'doom_loop_guard' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallDoomLoopGuard' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallUndetermined": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'undetermined' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallUndetermined' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
       }
     }
   }

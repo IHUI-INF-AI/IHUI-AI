@@ -27279,7 +27279,6 @@
     "rateLabel": "分成比例",
     "withdrawModal": {
       "title": "提现",
-      "close": "关闭",
       "subtitle": "可提现金额",
       "wechat": "微信",
       "moreMethods": "更多提现方式陆续开放",

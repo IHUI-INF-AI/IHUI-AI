@@ -14,7 +14,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { listKnowledgeDocs, deleteKnowledgeDoc, type KnowledgeDocSummary } from '@ihui/api-client'
+import {
+  listKnowledgeDocs,
+  deleteKnowledgeDoc,
+  batchDeleteKnowledgeDocs,
+  type KnowledgeDocSummary,
+} from '@ihui/api-client'
 import { KnowledgeBaseScreen as SharedKnowledgeBaseScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -31,6 +36,9 @@ export function KnowledgeBaseScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [batchDeleting, setBatchDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -70,6 +78,52 @@ export function KnowledgeBaseScreen() {
     ])
   }
 
+  /** 批量删除:请求体严格 {docIds};部分失败按 failed[] 条数提示,成功后退出选择态并刷新。 */
+  const onBatchDelete = () => {
+    if (selectedIds.length === 0) return
+    appAlert(
+      t('knowledgeBase.batchDeleteTitle'),
+      t('knowledgeBase.batchDeleteConfirm', { count: selectedIds.length }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            setBatchDeleting(true)
+            try {
+              const { success, failed } = await batchDeleteKnowledgeDocs(selectedIds)
+              if (failed.length > 0) {
+                appAlert(
+                  t('knowledgeBase.batchDeleteTitle'),
+                  t('knowledgeBase.batchDeletePartial', {
+                    success: success.length,
+                    failed: failed.length,
+                  }),
+                )
+              }
+              setSelectionMode(false)
+              setSelectedIds([])
+              void load()
+            } catch {
+              appAlert(t('knowledgeBase.batchDeleteFailed'))
+            } finally {
+              setBatchDeleting(false)
+            }
+          },
+        },
+      ],
+    )
+  }
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => (prev.length === items.length ? [] : items.map((doc) => doc.id)))
+  }
+
   return (
     <SharedKnowledgeBaseScreen
       t={t}
@@ -91,6 +145,16 @@ export function KnowledgeBaseScreen() {
       }
       onDeleteDoc={onDelete}
       onCreate={() => navigation.navigate('KnowledgeCreate')}
+      onToggleSelectionMode={() => {
+        setSelectionMode((prev) => !prev)
+        setSelectedIds([])
+      }}
+      selectionMode={selectionMode}
+      selectedIds={selectedIds}
+      onToggleSelect={toggleSelect}
+      onToggleSelectAll={toggleSelectAll}
+      onBatchDelete={onBatchDelete}
+      batchDeleting={batchDeleting}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />
