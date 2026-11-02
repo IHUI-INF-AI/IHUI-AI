@@ -74,7 +74,7 @@ export default function CirclePostPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href="/circles"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -115,7 +115,7 @@ export default function CirclePostPage() {
               maxCount={9}
             />
           </div>
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
+          {formError && <p className="text-body text-destructive">{formError}</p>}
           <div className="flex items-center gap-3 pt-2">
             <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
               {createMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}

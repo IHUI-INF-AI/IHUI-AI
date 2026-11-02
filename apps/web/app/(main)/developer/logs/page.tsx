@@ -116,7 +116,7 @@ export default function LogsPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="h-8 w-48 pl-8 text-xs"
+            className="h-8 w-48 pl-8 text-label"
           />
         </div>
       </div>
@@ -131,14 +131,14 @@ export default function LogsPage() {
                 <span className="whitespace-nowrap">{t('loading')}</span>
               </div>
             ) : list.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
             ) : (
               <div className="space-y-2">
                 {list.map((log) => (
                   <div key={log.id}>
                     <button
                       onClick={() => toggleExpand(log.id)}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs transition-colors hover:bg-accent"
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-label transition-colors hover:bg-accent"
                     >
                       {expanded[log.id] ? (
                         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -170,7 +170,7 @@ export default function LogsPage() {
                       </span>
                     </button>
                     {expanded[log.id] && (
-                      <div className="min-w-0 space-y-2 bg-muted/30 px-4 py-3 text-xs">
+                      <div className="min-w-0 space-y-2 bg-muted/30 px-4 py-3 text-label">
                         {log.keyName && (
                           <Tooltip content={log.keyName}>
                             <p className="truncate text-muted-foreground">

@@ -117,7 +117,7 @@ export function ResourceForm({
             onChange={(e) => setIntro(e.target.value)}
             placeholder={t('fields.intro.placeholder')}
             rows={3}
-            className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
 
@@ -130,7 +130,7 @@ export function ResourceForm({
             placeholder={t('fields.cidList.placeholder')}
           />
           {categories.length > 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('fields.cidList.available')}: {categories.map((c) => c.name).join(' / ')}
             </p>
           )}
@@ -195,7 +195,7 @@ export function ResourceForm({
           <Label>{t('fields.file.label')}</Label>
           {fileName ? (
             <div className="flex items-center justify-between rounded-sm border border-input px-3 py-2">
-              <span className="flex items-center gap-2 text-sm">
+              <span className="flex items-center gap-2 text-body">
                 <FileText className="h-4 w-4 text-primary" />
                 {fileName}
               </span>
@@ -209,7 +209,7 @@ export function ResourceForm({
               </button>
             </div>
           ) : (
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-input px-3 py-6 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-input px-3 py-6 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
               <Upload className="h-5 w-5" />
               {uploadPending ? t('fields.file.uploading') : t('fields.file.select')}
               <input
@@ -221,13 +221,13 @@ export function ResourceForm({
             </label>
           )}
           {uploadIsError && (
-            <p className="text-xs text-destructive">{(uploadError as Error)?.message}</p>
+            <p className="text-label text-destructive">{(uploadError as Error)?.message}</p>
           )}
         </div>
 
-        {formError && <p className="text-sm text-destructive">{formError}</p>}
+        {formError && <p className="text-body text-destructive">{formError}</p>}
         {saveIsError && !formError && (
-          <p className="text-sm text-destructive">{(saveError as Error)?.message}</p>
+          <p className="text-body text-destructive">{(saveError as Error)?.message}</p>
         )}
 
         <div className="flex items-center gap-3 pt-2">

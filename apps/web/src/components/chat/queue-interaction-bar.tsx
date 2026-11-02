@@ -317,7 +317,7 @@ export function QueueInteractionBar({
               title={blockedTitleOf('reorder')}
               data-blocked-reason={blockedReasonOf('reorder')}
               className={cn(
-                'cursor-grab select-none text-xs text-muted-foreground',
+                'cursor-grab select-none text-label text-muted-foreground',
                 !actionAllowed('reorder') && 'cursor-not-allowed opacity-40',
               )}
               data-queue-op="reorderHandle"
@@ -331,7 +331,7 @@ export function QueueInteractionBar({
             {editing ? (
               <>
                 <input
-                  className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-xs"
+                  className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-label"
                   value={editDraft}
                   ref={editInputRef}
                   data-queue-op="editInput"
@@ -344,7 +344,7 @@ export function QueueInteractionBar({
                 />
                 <button
                   type="button"
-                  className="text-xs text-primary"
+                  className="text-label text-primary"
                   aria-disabled={!actionAllowed('edit')}
                   title={blockedTitleOf('edit')}
                   data-blocked-reason={blockedReasonOf('edit')}
@@ -356,7 +356,7 @@ export function QueueInteractionBar({
                 </button>
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground"
+                  className="text-label text-muted-foreground"
                   data-queue-op="editCancel"
                   data-item-id={item.id}
                   onClick={cancelEdit}
@@ -366,13 +366,13 @@ export function QueueInteractionBar({
               </>
             ) : (
               <>
-                <span className="min-w-0 flex-1 truncate text-xs" data-queued-text={item.text}>
+                <span className="min-w-0 flex-1 truncate text-label" data-queued-text={item.text}>
                   {item.text}
                 </span>
                 {index > 0 ? (
                   <button
                     type="button"
-                    className="text-xs text-primary/80 hover:text-primary"
+                    className="text-label text-primary/80 hover:text-primary"
                     aria-label={t('sendNowAria')}
                     aria-disabled={!actionAllowed('undo')}
                     title={blockedTitleOf('undo')}
@@ -386,7 +386,7 @@ export function QueueInteractionBar({
                 ) : null}
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-label text-muted-foreground hover:text-foreground"
                   aria-disabled={!actionAllowed('undo')}
                   title={blockedTitleOf('undo')}
                   data-blocked-reason={blockedReasonOf('undo')}
@@ -398,7 +398,7 @@ export function QueueInteractionBar({
                 </button>
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-label text-muted-foreground hover:text-foreground"
                   aria-disabled={!actionAllowed('edit')}
                   title={blockedTitleOf('edit')}
                   data-blocked-reason={blockedReasonOf('edit')}
@@ -417,7 +417,7 @@ export function QueueInteractionBar({
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
-          className="text-xs text-primary"
+          className="text-label text-primary"
           aria-disabled={!actionAllowed('interruptAndRun')}
           title={blockedTitleOf('interruptAndRun')}
           data-blocked-reason={blockedReasonOf('interruptAndRun')}
@@ -434,7 +434,7 @@ export function QueueInteractionBar({
             key={m}
             type="button"
             className={cn(
-              'text-xs',
+              'text-label',
               mode === m ? 'font-medium text-foreground' : 'text-muted-foreground',
             )}
             data-queue-op="mode"
@@ -511,5 +511,4 @@ export function QueueInteractionBar({
     </div>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

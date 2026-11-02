@@ -72,7 +72,7 @@ export default function RelaySubscriptionsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">API 订阅</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           选择适合的订阅方案,token 配额自动写入你的活跃 API Key
         </p>
       </div>
@@ -88,7 +88,7 @@ export default function RelaySubscriptionsPage() {
               </span>
               <span className="text-body font-medium">{activePlan.name}</span>
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               剩余{' '}
               <span className="font-semibold tabular-nums">
                 {formatTokens(status?.remainingTokens ?? 0)}
@@ -105,7 +105,7 @@ export default function RelaySubscriptionsPage() {
           加载中...
         </div>
       ) : plans.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">暂无可订阅方案</p>
+        <p className="py-12 text-center text-body text-muted-foreground">暂无可订阅方案</p>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           {plans.map((plan) => {
@@ -123,7 +123,7 @@ export default function RelaySubscriptionsPage() {
                     <div className="rounded-md bg-muted p-1.5">{planIcon(plan.name)}</div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-body font-semibold">{plan.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {plan.billingPeriod === 'month' ? '月付' : plan.billingPeriod}
                       </p>
                     </div>
@@ -133,16 +133,16 @@ export default function RelaySubscriptionsPage() {
                     <span className="text-display font-bold tabular-nums">
                       {formatPrice(plan.price)}
                     </span>
-                    <span className="text-xs text-muted-foreground">/月</span>
+                    <span className="text-label text-muted-foreground">/月</span>
                   </div>
 
                   {plan.description && (
-                    <p className="text-xs text-muted-foreground">{plan.description}</p>
+                    <p className="text-label text-muted-foreground">{plan.description}</p>
                   )}
 
                   <ul className="flex-1 min-w-0 space-y-1.5">
                     {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-start gap-1.5 text-xs">
+                      <li key={i} className="flex items-start gap-1.5 text-label">
                         <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
                         <span>{f}</span>
                       </li>

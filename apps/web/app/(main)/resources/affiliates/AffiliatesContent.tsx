@@ -67,8 +67,8 @@ export function AffiliatesContent(): React.JSX.Element {
               </div>
               <h3 className="text-lg font-semibold">{t(`cards.${id}.name`)}</h3>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">{t(`cards.${id}.desc`)}</p>
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-body text-muted-foreground">{t(`cards.${id}.desc`)}</p>
+            <p className="mt-3 text-label leading-relaxed text-muted-foreground">
               {t('reasonLabel')}:{t(`cards.${id}.reason`)}
             </p>
             <div className="mt-6 flex flex-1 items-end">
@@ -85,7 +85,7 @@ export function AffiliatesContent(): React.JSX.Element {
 
       {/* Disclosure */}
       <section className="mt-12 rounded-lg border bg-card p-3 text-center">
-        <p className="mx-auto max-w-3xl text-xs leading-relaxed text-muted-foreground min-[768px]:text-sm">
+        <p className="mx-auto max-w-3xl text-label leading-relaxed text-muted-foreground min-[768px]:text-body">
           {t('disclosure')}
         </p>
       </section>

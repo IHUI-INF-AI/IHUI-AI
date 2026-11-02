@@ -116,7 +116,7 @@ export function ImageViewer({
     <span
       role="status"
       data-image-viewer-state="loading"
-      className="absolute inset-0 flex items-center justify-center gap-1.5 text-xs text-muted-foreground"
+      className="absolute inset-0 flex items-center justify-center gap-1.5 text-label text-muted-foreground"
     >
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
       {t('loading')}
@@ -142,7 +142,7 @@ export function ImageViewer({
       >
         <ZoomOut className="h-4 w-4" />
       </button>
-      <span className="px-1 text-xs text-white">{Math.round(zoom * 100)}%</span>
+      <span className="px-1 text-label text-white">{Math.round(zoom * 100)}%</span>
       <button
         onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
         aria-label={t('zoomIn')}

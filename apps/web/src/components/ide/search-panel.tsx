@@ -237,7 +237,7 @@ export function SearchPanel() {
               value={replaceValue}
               onChange={(e) => setReplaceValue(e.target.value)}
               placeholder={t('searchPanel.replacePlaceholder')}
-              className="w-full rounded-sm border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
+              className="w-full rounded-sm border border-border bg-background py-1 pl-7 pr-2 text-label focus:outline-none"
             />
           </div>
           <button
@@ -263,14 +263,16 @@ export function SearchPanel() {
               key={f.id}
               onClick={() => setFileType(f.id)}
               className={cn(
-                'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs transition-colors',
+                'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-label transition-colors',
                 fileType === f.id
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:bg-muted/50',
               )}
             >
               <Icon className="h-3 w-3" />
-              <span>{f.commonKey ? tcommon(f.commonKey) : f.labelKey ? t(f.labelKey) : f.label}</span>
+              <span>
+                {f.commonKey ? tcommon(f.commonKey) : f.labelKey ? t(f.labelKey) : f.label}
+              </span>
             </button>
           )
         })}
@@ -278,16 +280,16 @@ export function SearchPanel() {
 
       <div className="flex-1 overflow-auto">
         {!workspacePath ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">
+          <div className="px-3 py-2 text-label text-muted-foreground">
             {t('searchPanel.openWorkspaceHint')}
           </div>
         ) : loading ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">
+          <div className="px-3 py-2 text-label text-muted-foreground">
             {t('searchPanel.searching')}
           </div>
         ) : query && totalMatches > 0 ? (
           <div className="px-2 py-1">
-            <div className="mb-1 text-xs text-muted-foreground">
+            <div className="mb-1 text-label text-muted-foreground">
               {t('searchPanel.resultSummary', { matches: totalMatches, files: fileCount })}
             </div>
             {Array.from(grouped.entries()).map(([filename, items]) => {
@@ -302,7 +304,7 @@ export function SearchPanel() {
                 <div key={filename} className="mb-0.5">
                   <button
                     onClick={() => toggleFile(filename)}
-                    className="flex w-full items-center gap-1 rounded-sm px-1.5 py-1 text-xs hover:bg-muted/40"
+                    className="flex w-full items-center gap-1 rounded-sm px-1.5 py-1 text-label hover:bg-muted/40"
                   >
                     {collapsed ? (
                       <ChevronRight className="h-3 w-3 shrink-0" />
@@ -320,7 +322,7 @@ export function SearchPanel() {
                       {items.map((r, i) => (
                         <div
                           key={i}
-                          className="cursor-pointer rounded px-1.5 py-0.5 text-xs hover:bg-muted/30"
+                          className="cursor-pointer rounded px-1.5 py-0.5 text-label hover:bg-muted/30"
                         >
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <span className="text-foreground/70">{r.line}</span>
@@ -335,19 +337,19 @@ export function SearchPanel() {
             })}
           </div>
         ) : query && searched ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">
+          <div className="px-3 py-2 text-label text-muted-foreground">
             {t('searchPanel.noResults')}
           </div>
         ) : !query && history.length > 0 ? (
           <div className="px-2 py-1">
-            <div className="mb-1 flex items-center gap-1 px-1 text-xs text-muted-foreground">
+            <div className="mb-1 flex items-center gap-1 px-1 text-label text-muted-foreground">
               <History className="h-3 w-3" />
               <span>{t('searchPanel.recentSearches')}</span>
             </div>
             {history.map((h, i) => (
               <div
                 key={i}
-                className="group flex items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-muted/30"
+                className="group flex items-center gap-1 rounded px-1.5 py-1 text-label hover:bg-muted/30"
               >
                 <Search className="h-3 w-3 text-muted-foreground" />
                 <button onClick={() => setQuery(h)} className="flex-1 truncate text-left">
@@ -364,7 +366,7 @@ export function SearchPanel() {
             ))}
           </div>
         ) : (
-          <div className="px-3 py-2 text-xs text-muted-foreground">
+          <div className="px-3 py-2 text-label text-muted-foreground">
             {t('searchPanel.inputHint')}
           </div>
         )}

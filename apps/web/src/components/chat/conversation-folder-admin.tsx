@@ -66,10 +66,10 @@ export function ConversationFolderAdmin() {
   if (state !== 'synced') {
     return (
       <div className="space-y-1.5" data-testid="org-admin-notice">
-        <p className="text-xs text-muted-foreground">{t('adminPending')}</p>
+        <p className="text-label text-muted-foreground">{t('adminPending')}</p>
         {state === 'failed' && reason ? (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-destructive">{t(REASON_KEY[reason])}</span>
+            <span className="text-label text-destructive">{t(REASON_KEY[reason])}</span>
             <Button
               type="button"
               size="xs"
@@ -93,7 +93,10 @@ export function ConversationFolderAdmin() {
       return next
     })
 
-  const run = async (id: string, fn: () => Promise<{ ok: true } | { ok: false; reason: OrgFailureReason }>) => {
+  const run = async (
+    id: string,
+    fn: () => Promise<{ ok: true } | { ok: false; reason: OrgFailureReason }>,
+  ) => {
     setPendingId(id)
     clearRow(id)
     const r = await fn()
@@ -119,7 +122,7 @@ export function ConversationFolderAdmin() {
       </div>
 
       {folders.length === 0 ? (
-        <p className="text-xs text-muted-foreground" data-testid="org-admin-empty">
+        <p className="text-label text-muted-foreground" data-testid="org-admin-empty">
           {t('adminEmpty')}
         </p>
       ) : (
@@ -137,7 +140,7 @@ export function ConversationFolderAdmin() {
                     maxLength={ORG_FOLDER_MAX_LENGTH}
                     onChange={(e) => setDraft(e.target.value)}
                     data-testid={`org-admin-rename-input-${f.id}`}
-                    className="h-7 min-w-0 flex-1 text-xs"
+                    className="h-7 min-w-0 flex-1 text-label"
                   />
                   <button
                     type="button"
@@ -160,7 +163,7 @@ export function ConversationFolderAdmin() {
                 </>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1 truncate text-xs">{f.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-label">{f.name}</span>
                   <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
                     {t('folderCount', { count: f.conversationCount })}
                   </span>

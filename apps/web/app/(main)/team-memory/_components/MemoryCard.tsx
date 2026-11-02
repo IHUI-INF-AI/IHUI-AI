@@ -42,7 +42,7 @@ export function MemoryCard({ row, onEdit, onDelete }: MemoryCardProps) {
     <Card>
       <CardContent className="min-[640px]:p-3 flex flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
-          <span className={`rounded px-2 py-0.5 text-xs ${KIND_BADGE[row.kind]}`}>
+          <span className={`rounded px-2 py-0.5 text-label ${KIND_BADGE[row.kind]}`}>
             {t(`kind.${row.kind}`)}
           </span>
           <span className="flex-1 truncate text-body font-medium">{row.title}</span>
@@ -63,10 +63,10 @@ export function MemoryCard({ row, onEdit, onDelete }: MemoryCardProps) {
             <Trash2 className="size-4" />
           </Button>
         </div>
-        <p className="text-muted-foreground line-clamp-3 text-sm whitespace-pre-wrap">
+        <p className="text-muted-foreground line-clamp-3 text-body whitespace-pre-wrap">
           {row.content}
         </p>
-        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        <div className="text-muted-foreground flex items-center gap-2 text-label">
           {row.tags.map((tag: string) => (
             <span key={tag} className="bg-muted rounded px-1.5 py-0.5">
               {tag}

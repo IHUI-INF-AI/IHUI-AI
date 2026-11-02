@@ -79,7 +79,7 @@ export function NotificationCenter({
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-semibold">通知中心</span>
           {unreadCount > 0 && (
-            <span className="rounded-md bg-cta px-2 py-0.5 text-xs text-cta-foreground">
+            <span className="rounded-md bg-cta px-2 py-0.5 text-label text-cta-foreground">
               {unreadCount}
             </span>
           )}
@@ -112,7 +112,10 @@ export function NotificationCenter({
             )}
           </div>
           {pendingDecisions.length === 0 ? (
-            <p className="py-1.5 text-xs text-muted-foreground" data-testid="decision-inbox-empty">
+            <p
+              className="py-1.5 text-label text-muted-foreground"
+              data-testid="decision-inbox-empty"
+            >
               {t('pendingDecisionsEmpty')}
             </p>
           ) : (
@@ -138,9 +141,9 @@ export function NotificationCenter({
                       {item.summary || decisionTypeLabel(item.type)}
                     </p>
                     {item.threadId && (
-                      <p className="truncate text-xs text-muted-foreground">{item.threadId}</p>
+                      <p className="truncate text-label text-muted-foreground">{item.threadId}</p>
                     )}
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-label text-muted-foreground">
                       {decisionTypeLabel(item.type)}
                       {item.createdAt ? ` · ${formatDate(item.createdAt)}` : ''}
                     </p>
@@ -153,7 +156,7 @@ export function NotificationCenter({
       )}
       <div className="max-h-[60vh] flex-1 overflow-auto">
         {items.length === 0 ? (
-          <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center py-12 text-body text-muted-foreground">
             暂无通知
           </div>
         ) : (
@@ -182,9 +185,11 @@ export function NotificationCenter({
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-body font-medium">{item.title}</p>
                   {item.description && (
-                    <p className="break-words text-xs text-muted-foreground">{item.description}</p>
+                    <p className="break-words text-label text-muted-foreground">
+                      {item.description}
+                    </p>
                   )}
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-label text-muted-foreground">
                     {formatDate(item.createdAt)}
                   </p>
                   {item.rawType === 'automation' && item.sessionId && (
@@ -197,7 +202,7 @@ export function NotificationCenter({
                         e.stopPropagation()
                         onSessionLinkClick?.(item.sessionId!)
                       }}
-                      className="mt-1 text-xs text-primary hover:underline"
+                      className="mt-1 text-label text-primary hover:underline"
                     >
                       {t('viewConversation')}
                     </button>

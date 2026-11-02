@@ -4,14 +4,7 @@
 
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import {
-  Activity,
-  AlertTriangle,
-  Clock,
-  Server,
-  ShieldAlert,
-  type LucideIcon,
-} from 'lucide-react'
+import { Activity, AlertTriangle, Clock, Server, ShieldAlert, type LucideIcon } from 'lucide-react'
 import { Card, CardContent } from '@ihui/ui-react'
 import { getTranslations } from 'next-intl/server'
 import { cn } from '@/lib/utils'
@@ -300,7 +293,7 @@ export function IncidentsUnavailableNotice({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-2">
       <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-      <span className="text-sm text-amber-600 dark:text-amber-400">{label}</span>
+      <span className="text-body text-amber-600 dark:text-amber-400">{label}</span>
     </div>
   )
 }
@@ -340,7 +333,7 @@ export default async function StatusPage() {
           <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
             <AlertTriangle className="h-8 w-8 text-rose-500" />
             <p className="text-body font-medium">{result.error}</p>
-            <p className="text-xs text-muted-foreground">页面将每 60 秒自动刷新重试</p>
+            <p className="text-label text-muted-foreground">页面将每 60 秒自动刷新重试</p>
           </CardContent>
         </Card>
       </div>
@@ -372,7 +365,7 @@ export default async function StatusPage() {
           <Activity className="h-5 w-5 text-primary" />
           系统状态
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-body text-muted-foreground">
           {overview.platform} · v{overview.version} · 每 60 秒自动刷新
         </p>
       </div>
@@ -389,7 +382,7 @@ export default async function StatusPage() {
                   : '部分服务中断'}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-4 text-label text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
               运行 {formatUptime(overview.uptime)}
@@ -406,7 +399,7 @@ export default async function StatusPage() {
         <div className="space-y-2">
           {Object.entries(overview.services).map(([key, status]) => (
             <div key={key} className="flex items-center justify-between">
-              <span className="text-sm">{SERVICE_LABELS[key] ?? key}</span>
+              <span className="text-body">{SERVICE_LABELS[key] ?? key}</span>
               <StatusBadge status={status} />
             </div>
           ))}
@@ -419,7 +412,7 @@ export default async function StatusPage() {
         {incidentsDegraded ? (
           <IncidentsUnavailableNotice label={copy('incidentsUnavailable')} />
         ) : incidents.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">最近 30 天无事件记录</p>
+          <p className="py-4 text-center text-body text-muted-foreground">最近 30 天无事件记录</p>
         ) : (
           <div className="space-y-3">
             {incidents.map((i) => (
@@ -427,10 +420,10 @@ export default async function StatusPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityBadge severity={i.severity} />
                   <span className="text-body font-medium">{i.providerCode}</span>
-                  <span className="text-xs text-muted-foreground">{i.modelId ?? '—'}</span>
+                  <span className="text-label text-muted-foreground">{i.modelId ?? '—'}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">{i.description}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">{i.description}</p>
+                <p className="text-label text-muted-foreground">
                   开始 {formatDateTime(i.startedAt)}
                   {i.resolvedAt ? ` · 解决 ${formatDateTime(i.resolvedAt)}` : ' · 进行中'}
                 </p>

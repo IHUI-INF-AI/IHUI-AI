@@ -29,7 +29,7 @@ export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) 
           {t('devicesLoading')}
         </div>
       ) : devicesList.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
           {t('devicesEmpty')}
         </div>
       ) : (
@@ -39,12 +39,12 @@ export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) 
               <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="break-words text-body font-medium">{d.name}</p>
-                <p className="break-words text-xs text-muted-foreground">
+                <p className="break-words text-label text-muted-foreground">
                   {d.ip} · {dateFmt.format(new Date(d.lastActive))}
                 </p>
               </div>
               {d.current ? (
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
+                <span className="inline-flex items-center gap-1 text-label text-emerald-600 dark:text-emerald-500">
                   <Check className="h-3 w-3" />
                   {t('currentDevice')}
                 </span>

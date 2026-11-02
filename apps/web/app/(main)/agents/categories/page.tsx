@@ -53,7 +53,7 @@ export default function AgentCategoriesPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/agents"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回
@@ -64,7 +64,7 @@ export default function AgentCategoriesPage() {
           <Tag className="h-6 w-6 text-primary" />
           智能体分类
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">浏览所有智能体分类</p>
+        <p className="mt-1 text-body text-muted-foreground">浏览所有智能体分类</p>
       </div>
 
       {isLoading ? (
@@ -73,13 +73,13 @@ export default function AgentCategoriesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : categories.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Tag className="h-8 w-8 opacity-40" />
-          <p className="text-sm">暂无分类</p>
+          <p className="text-body">暂无分类</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -97,7 +97,7 @@ export default function AgentCategoriesPage() {
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
                       <h3 className="line-clamp-2 text-body font-medium">{cat.name}</h3>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
                         {cat.isPaid && (
                           <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
                             <CreditCard className="h-3 w-3" />
@@ -112,7 +112,7 @@ export default function AgentCategoriesPage() {
                     </div>
                   </div>
                   {cat.description && (
-                    <p className={cn('line-clamp-2 text-xs text-muted-foreground')}>
+                    <p className={cn('line-clamp-2 text-label text-muted-foreground')}>
                       {cat.description}
                     </p>
                   )}

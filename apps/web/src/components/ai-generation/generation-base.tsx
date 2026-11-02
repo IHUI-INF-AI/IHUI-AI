@@ -102,7 +102,7 @@ export function GenerationFrame({
         {status === 'error' && error && (
           <div
             role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive"
+            className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-label text-destructive"
           >
             {error}
           </div>
@@ -135,7 +135,7 @@ export function PromptInput({
       placeholder={placeholder ?? t('defaultPromptPlaceholder')}
       rows={rows}
       aria-label={ariaLabel ?? t('promptAriaLabel')}
-      className="w-full resize-none rounded-sm border bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="w-full resize-none rounded-sm border bg-transparent px-3 py-2 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
     />
   )
 }
@@ -156,14 +156,14 @@ export function OptionSelect<T extends string>({
   const labelId = React.useId()
   return (
     <div className="flex items-center gap-2">
-      <span id={labelId} className="text-xs text-muted-foreground">
+      <span id={labelId} className="text-label text-muted-foreground">
         {label}
       </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
         aria-labelledby={labelId}
-        className="h-8 rounded-sm border bg-transparent px-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="h-8 rounded-sm border bg-transparent px-2 text-body outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

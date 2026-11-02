@@ -80,7 +80,7 @@ export const ImageGenJimeng = React.memo(function ImageGenJimeng() {
     <Card>
       <CardHeader>
         <CardTitle>{t('jimengImageTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('jimengImageSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('jimengImageSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -150,7 +150,7 @@ export const ImageGenJimeng = React.memo(function ImageGenJimeng() {
                   download
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-label text-primary hover:underline"
                 >
                   <Download className="h-3 w-3" />
                   {t('download')}

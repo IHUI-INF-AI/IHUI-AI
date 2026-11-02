@@ -52,7 +52,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
           {t('create')}
         </Button>
       </div>
-      <div className="flex items-center gap-4 bg-muted/30 px-4 py-2.5 text-xs">
+      <div className="flex items-center gap-4 bg-muted/30 px-4 py-2.5 text-label">
         <span className="text-muted-foreground">
           {t('active')} <span className="font-semibold text-primary">{active}</span>
         </span>
@@ -62,7 +62,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         {agents.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
         ) : (
           <ul className="space-y-1">
             {agents.map((agent) => {
@@ -88,7 +88,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
                     />
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-body font-medium">{agent.name}</p>
-                      <p className="break-words text-xs text-muted-foreground">{agent.role}</p>
+                      <p className="break-words text-label text-muted-foreground">{agent.role}</p>
                     </div>
                     {agent.model && (
                       <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">

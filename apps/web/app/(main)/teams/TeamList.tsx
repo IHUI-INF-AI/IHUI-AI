@@ -36,7 +36,7 @@ export function TeamList({ data, isLoading, error }: Props) {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {error.message}
         </div>
       ) : data && data.length > 0 ? (
@@ -56,13 +56,13 @@ export function TeamList({ data, isLoading, error }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-body text-muted-foreground">
                   <UserPlus className="h-4 w-4" />
                   <span>{t('memberCount', { count: team.memberCount })}</span>
                 </div>
               </CardContent>
               <CardFooter className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {formatDate(team.createdAt) || '-'}
                 </span>
                 <Button asChild size="sm">
@@ -78,7 +78,7 @@ export function TeamList({ data, isLoading, error }: Props) {
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Users className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       )}
     </>

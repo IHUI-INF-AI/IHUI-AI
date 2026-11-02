@@ -174,7 +174,7 @@ export function ProviderFormDialog({
               // 模板未就绪:显示加载/错误状态,而不是空下拉(避免用户看到"黑不溜秋一条"无内容下拉)
               <div
                 id="providerCode"
-                className="flex h-9 w-full items-center rounded-sm border border-input bg-muted/30 px-3 text-sm text-muted-foreground"
+                className="flex h-9 w-full items-center rounded-sm border border-input bg-muted/30 px-3 text-body text-muted-foreground"
               >
                 {templatesError ? (
                   <Tooltip content={templatesError}>
@@ -224,7 +224,7 @@ export function ProviderFormDialog({
                 href={tpl.docsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline"
+                className="text-label text-primary hover:underline"
               >
                 {t('docs')} ↗
               </a>
@@ -289,7 +289,9 @@ export function ProviderFormDialog({
                 </Button>
               </Tooltip>
             </div>
-            {isEdit ? <p className="text-xs text-muted-foreground">{t('keyKeepEmpty')}</p> : null}
+            {isEdit ? (
+              <p className="text-label text-muted-foreground">{t('keyKeepEmpty')}</p>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -362,16 +364,16 @@ export function ProviderFormDialog({
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder={t('descriptionPlaceholder')}
               rows={2}
-              className="w-full rounded-sm border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
             <div className="min-w-0 flex-1 space-y-0.5">
-              <Label htmlFor="enabled" className="block truncate text-sm">
+              <Label htmlFor="enabled" className="block truncate text-body">
                 {t('enableConfig')}
               </Label>
-              <p className="text-xs text-muted-foreground">{t('enableConfigDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('enableConfigDesc')}</p>
             </div>
             <Switch
               id="enabled"

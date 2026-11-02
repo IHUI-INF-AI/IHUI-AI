@@ -144,7 +144,7 @@ export default function CertificateDownloadPage() {
           <Award className="h-6 w-6 text-primary" />
           {t('download.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('download.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('download.subtitle')}</p>
       </div>
 
       {!allow ? (

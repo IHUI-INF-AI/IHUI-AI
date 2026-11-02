@@ -37,7 +37,7 @@ export function PreviewDialog({ preview, onClose }: Props) {
           ) : preview?.url ? (
             <FilePreview url={preview.url} name={preview.file.name} className="max-h-[60vh]" />
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('cannotPreview')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('cannotPreview')}</p>
           )}
         </div>
       </DialogContent>

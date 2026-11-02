@@ -29,7 +29,7 @@ export default function CapabilitiesPageClient(): React.JSX.Element {
             <span>{t('capabilities.title')}</span>
             <CountBadge count={CAPABILITY_CATALOG.length} />
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{t('capabilities.subtitle')}</p>
+          <p className="mt-0.5 text-body text-muted-foreground">{t('capabilities.subtitle')}</p>
         </div>
         <CapabilityLegend />
         <CapabilityBrowser />

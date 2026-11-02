@@ -36,7 +36,7 @@ export function EcosystemHub() {
     <div className="mx-auto w-full max-w-5xl px-4 py-6">
       <header className="mb-6">
         <h1 className="text-lg font-semibold">{t('title')}</h1>
-        <p className="mt-1 text-xs text-muted-foreground">{t('description')}</p>
+        <p className="mt-1 text-label text-muted-foreground">{t('description')}</p>
       </header>
 
       <section aria-labelledby="ecosystem-packs" className="mb-8">
@@ -46,7 +46,7 @@ export function EcosystemHub() {
           </h2>
           <ViewMoreLink label={more('more')} href={expertPackListHref()} />
         </div>
-        <p className="mb-2 text-xs text-muted-foreground">{t('bundlesHint')}</p>
+        <p className="mb-2 text-label text-muted-foreground">{t('bundlesHint')}</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {EXPERT_PACKS.map((pack) => {
             const Icon = pack.icon
@@ -58,9 +58,11 @@ export function EcosystemHub() {
               >
                 <span className="flex items-center gap-2">
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="text-body font-medium">{t(`bundles.${pack.titleKey}.title`)}</span>
+                  <span className="text-body font-medium">
+                    {t(`bundles.${pack.titleKey}.title`)}
+                  </span>
                 </span>
-                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                <span className="mt-1 block text-label leading-relaxed text-muted-foreground">
                   {t(`bundles.${pack.titleKey}.desc`)}
                 </span>
                 <span className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -70,7 +72,7 @@ export function EcosystemHub() {
                   {pack.members.map((marketKey) => (
                     <span
                       key={marketKey}
-                      className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+                      className="rounded-md bg-muted px-2 py-1 text-label text-muted-foreground"
                     >
                       {t(`cards.${marketKey}.title`)}
                     </span>
@@ -88,19 +90,15 @@ export function EcosystemHub() {
             {t('skillsSection')}
           </h2>
           <CountBadge count={counts.skillsMarket} />
-          <ViewMoreLink
-            label={more('more')}
-            href={MARKETS.skillsMarket.href}
-            className="ms-auto"
-          />
+          <ViewMoreLink label={more('more')} href={MARKETS.skillsMarket.href} className="ms-auto" />
         </div>
         {skills.status === 'failed' ? (
           // 取数失败时正文区不得完全空白:整段没有一行文字,用户读到的是"这个市场没有东西",
           // 而不是"取不到"。文案复用本分区头徽章已有的 `countFailed`(=「统计暂不可用」),
           // 不新增第二份口径,也不新立键(§19 流水线成本与"一处语义一处文案")。
-          <p className="text-xs text-muted-foreground">{t('countFailed')}</p>
+          <p className="text-label text-muted-foreground">{t('countFailed')}</p>
         ) : skills.status === 'ready' && skills.items.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('emptySkills')}</p>
+          <p className="text-label text-muted-foreground">{t('emptySkills')}</p>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {skills.items.map((item) => (
@@ -108,7 +106,7 @@ export function EcosystemHub() {
                 <Link href={skillDetailHref(item.name)} className={CARD_CLASS}>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-body font-medium">{item.name}</span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    <span className="mt-0.5 block truncate text-label text-muted-foreground">
                       {item.description}
                     </span>
                   </span>
@@ -128,17 +126,13 @@ export function EcosystemHub() {
             {t('connectorsSection')}
           </h2>
           <CountBadge count={counts.connectors} />
-          <ViewMoreLink
-            label={more('more')}
-            href={MARKETS.connectors.href}
-            className="ms-auto"
-          />
+          <ViewMoreLink label={more('more')} href={MARKETS.connectors.href} className="ms-auto" />
         </div>
-        <p className="mb-2 text-xs text-muted-foreground">{t('connectorsHint')}</p>
+        <p className="mb-2 text-label text-muted-foreground">{t('connectorsHint')}</p>
         {connectors.status === 'failed' ? (
-          <p className="text-xs text-muted-foreground">{t('countFailed')}</p>
+          <p className="text-label text-muted-foreground">{t('countFailed')}</p>
         ) : connectors.status === 'ready' && connectors.entries.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('emptyConnectors')}</p>
+          <p className="text-label text-muted-foreground">{t('emptyConnectors')}</p>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {connectors.entries.map((entry) => (
@@ -146,7 +140,7 @@ export function EcosystemHub() {
                 <Link href={connectorAuthDetailHref(entry.key)} className={CARD_CLASS}>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-body font-medium">{entry.name}</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                    <span className="mt-0.5 block text-label text-muted-foreground">
                       {tc(entry.configured ? 'configured' : 'notConfigured')}
                     </span>
                   </span>
@@ -176,7 +170,7 @@ export function EcosystemHub() {
                     <span className="text-body font-medium">{t(`cards.${key}.title`)}</span>
                     <CountBadge count={counts[key]} />
                   </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                  <span className="mt-0.5 block text-label leading-relaxed text-muted-foreground">
                     {t(`cards.${key}.desc`)}
                   </span>
                 </span>

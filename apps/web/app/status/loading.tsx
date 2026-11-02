@@ -10,7 +10,7 @@ export default function Loading() {
         <span className="h-2.5 w-2.5 animate-pulse rounded-xs bg-primary [animation-delay:150ms]" />
         <span className="h-2.5 w-2.5 animate-pulse rounded-xs bg-primary [animation-delay:300ms]" />
       </div>
-      <p className="animate-pulse text-sm text-muted-foreground">正在获取最新状态...</p>
+      <p className="animate-pulse text-body text-muted-foreground">正在获取最新状态...</p>
     </div>
   )
 }

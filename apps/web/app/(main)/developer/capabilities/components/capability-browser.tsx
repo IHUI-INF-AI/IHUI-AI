@@ -40,12 +40,7 @@ function CapabilityRow({ entry }: { entry: CapabilityEntry }): React.JSX.Element
         <code className="font-mono text-label font-semibold">{entry.scope}</code>
         <DataClassBadge entry={entry} />
         <RiskBadge entry={entry} />
-        <FlagBadge
-          on={entry.billable}
-          onLabel={t('billable')}
-          offLabel={t('free')}
-          tone="warn"
-        />
+        <FlagBadge on={entry.billable} onLabel={t('billable')} offLabel={t('free')} tone="warn" />
         <FlagBadge
           on={!entry.thirdPartyEligible}
           onLabel={t('thirdPartyNo')}
@@ -58,7 +53,7 @@ function CapabilityRow({ entry }: { entry: CapabilityEntry }): React.JSX.Element
           </span>
         ) : null}
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{entry.description}</p>
+      <p className="mt-1.5 text-label leading-relaxed text-muted-foreground">{entry.description}</p>
       <div className="mt-2 flex flex-wrap gap-1">
         {entry.routes.map((route) => (
           <code
@@ -108,12 +103,12 @@ export function CapabilityBrowser(): React.JSX.Element {
           size="lg"
           wrapperClassName="w-full"
         />
-        <p className="text-xs text-muted-foreground tabular-nums">
+        <p className="text-label text-muted-foreground tabular-nums">
           {t('resultSummary', { matched, total: TOTAL_CAPABILITIES })}
         </p>
 
         {matched === 0 ? (
-          <p className="rounded-md bg-muted/60 px-3 py-6 text-center text-xs text-muted-foreground">
+          <p className="rounded-md bg-muted/60 px-3 py-6 text-center text-label text-muted-foreground">
             {t('emptyResult')}
           </p>
         ) : (

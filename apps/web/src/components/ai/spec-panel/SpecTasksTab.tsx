@@ -33,14 +33,14 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
           <button
             type="button"
             onClick={p.handleExportTasks}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-3 text-label text-foreground hover:bg-muted/60"
           >
             <Download className="h-3 w-3" />
             <span>导出到 PROJECT_PLAN</span>
           </button>
         ) : null}
         {p.tasksResult?.fallback && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">降级模式</span>
+          <span className="text-label text-amber-600 dark:text-amber-400">降级模式</span>
         )}
       </div>
       {p.tasksResult?.tasks.length ? (
@@ -62,13 +62,13 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
                 <span className="text-label font-medium text-foreground">{task.title}</span>
               </div>
               {task.description && (
-                <p className="mt-1 text-xs text-muted-foreground">{task.description}</p>
+                <p className="mt-1 text-label text-muted-foreground">{task.description}</p>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           点击「拆分任务」从 spec 章节自动生成任务列表
         </p>
       )}
