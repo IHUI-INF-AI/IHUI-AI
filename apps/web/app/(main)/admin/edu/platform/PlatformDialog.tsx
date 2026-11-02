@@ -56,7 +56,7 @@ export function PlatformDialog({
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -121,7 +121,7 @@ export function PlatformDialog({
                   checked={form.status}
                   onCheckedChange={(v) => onFormChange({ status: v })}
                 />
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {form.status ? t('statusEnabled') : t('statusDisabled')}
                 </span>
               </div>

@@ -101,7 +101,7 @@ export default function EduExamPapersRandomPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -191,7 +191,7 @@ export default function EduExamPapersRandomPage() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-4 rounded-md bg-muted/40 px-4 py-3 text-sm">
+          <div className="flex items-center gap-4 rounded-md bg-muted/40 px-4 py-3 text-body">
             <Shuffle className="h-4 w-4 text-muted-foreground" />
             <span>{t('summary', { totalQ, totalScore })}</span>
           </div>
@@ -204,7 +204,7 @@ export default function EduExamPapersRandomPage() {
             {t('startRandom')}
           </Button>
           {result && (
-            <pre className="max-h-60 overflow-auto rounded-md border bg-muted/30 p-3 text-xs">
+            <pre className="max-h-60 overflow-auto rounded-md border bg-muted/30 p-3 text-label">
               {result}
             </pre>
           )}

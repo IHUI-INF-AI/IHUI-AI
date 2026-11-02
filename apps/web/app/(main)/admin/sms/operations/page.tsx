@@ -48,7 +48,7 @@ export default function SmsOperationsPage() {
           {t('page.loadingStatus')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-body text-destructive">
           {(error as Error).message || tc('loadFailed')}
         </div>
       ) : data ? (

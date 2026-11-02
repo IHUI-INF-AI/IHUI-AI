@@ -128,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!checked) {
     return (
       <div className="mx-auto w-full max-w-7xl px-4 py-4">
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+        <div className="flex h-64 items-center justify-center text-body text-muted-foreground">
           正在校验管理员权限…
         </div>
       </div>

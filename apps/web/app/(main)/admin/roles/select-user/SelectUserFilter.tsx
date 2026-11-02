@@ -21,7 +21,7 @@ export function SelectUserFilter({ search, setSearch, onSearch }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1.5">
-        <Label className="text-xs">用户名</Label>
+        <Label className="text-label">用户名</Label>
         <Input
           value={search.userName}
           onChange={(e) => setSearch({ ...search, userName: e.target.value })}
@@ -30,7 +30,7 @@ export function SelectUserFilter({ search, setSearch, onSearch }: Props) {
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">手机号</Label>
+        <Label className="text-label">手机号</Label>
         <Input
           value={search.phonenumber}
           onChange={(e) => setSearch({ ...search, phonenumber: e.target.value })}

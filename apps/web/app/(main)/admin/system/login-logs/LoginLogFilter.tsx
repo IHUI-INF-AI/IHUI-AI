@@ -23,7 +23,7 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('loginLogs.filter.user')}</Label>
+        <Label className="text-label">{t('loginLogs.filter.user')}</Label>
         <Input
           value={search.userUuid}
           onChange={(e) => setSearch({ ...search, userUuid: e.target.value })}
@@ -32,7 +32,7 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('loginLogs.filter.platform')}</Label>
+        <Label className="text-label">{t('loginLogs.filter.platform')}</Label>
         <Input
           value={search.platform}
           onChange={(e) => setSearch({ ...search, platform: e.target.value })}
@@ -41,7 +41,7 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('loginLogs.filter.location')}</Label>
+        <Label className="text-label">{t('loginLogs.filter.location')}</Label>
         <Input
           value={search.location}
           onChange={(e) => setSearch({ ...search, location: e.target.value })}
@@ -50,7 +50,7 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('loginLogs.filter.startDate')}</Label>
+        <Label className="text-label">{t('loginLogs.filter.startDate')}</Label>
         <Input
           type="date"
           value={search.startTime}
@@ -59,7 +59,7 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('loginLogs.filter.endDate')}</Label>
+        <Label className="text-label">{t('loginLogs.filter.endDate')}</Label>
         <Input
           type="date"
           value={search.endTime}

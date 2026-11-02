@@ -59,7 +59,7 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
         <CardContent className="space-y-3">
           {fileItems.map((f) => (
             <div key={f.label}>
-              <div className="mb-1 flex justify-between text-xs">
+              <div className="mb-1 flex justify-between text-label">
                 <span>{f.label}</span>
                 <span className="text-muted-foreground">{numFmt.format(f.value)}</span>
               </div>
@@ -88,13 +88,13 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
               {curFmt.format(stats.orderStats.totalAmount)}
             </span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{t('totalAmountLabel')}</p>
+          <p className="mt-1 text-label text-muted-foreground">{t('totalAmountLabel')}</p>
           <div className="mt-4 grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 mt-4 pt-4">
             {orderItems.map((o) => {
               const Icon = o.icon
               return (
                 <div key={o.label}>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-label text-muted-foreground">
                     <Icon className="h-3 w-3" />
                     {o.label}
                   </div>

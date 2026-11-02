@@ -33,8 +33,8 @@ export function TaskDeveloperTable({
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5">
               <input
@@ -103,7 +103,7 @@ export function TaskDeveloperTable({
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{row.publisher}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{row.creator}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {fmtDate(row.createdAt)}
                   </td>
                   <td className="px-4 py-2.5">

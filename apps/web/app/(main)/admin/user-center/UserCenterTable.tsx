@@ -27,8 +27,8 @@ export function UserCenterTable({
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>UUID</th>
             <th className={th}>昵称</th>
@@ -57,7 +57,7 @@ export function UserCenterTable({
           ) : (
             list.map((item) => (
               <tr key={item.uuid} className="hover:bg-muted/30">
-                <td className="px-4 py-2.5 font-mono text-xs">{item.uuid}</td>
+                <td className="px-4 py-2.5 font-mono text-label">{item.uuid}</td>
                 <td className="px-4 py-2.5 font-medium">{item.nickname ?? '-'}</td>
                 <td className="px-4 py-2.5">{item.parentId ?? '-'}</td>
                 <td className="px-4 py-2.5">{item.authInfo?.phone ?? '-'}</td>

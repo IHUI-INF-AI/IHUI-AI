@@ -37,7 +37,7 @@ export function PostTable({
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="w-full text-body">
         <thead className="bg-muted/50">
           <tr>
             <th className="w-10 px-4 py-2.5">
@@ -78,14 +78,14 @@ export function PostTable({
                     onCheckedChange={() => onToggleOne(p.id)}
                   />
                 </td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">{p.id}</td>
-                <td className="px-4 py-2.5 font-mono text-xs">{p.postCode}</td>
+                <td className="px-4 py-2.5 text-label text-muted-foreground">{p.id}</td>
+                <td className="px-4 py-2.5 font-mono text-label">{p.postCode}</td>
                 <td className="px-4 py-2.5 font-medium">{p.postName}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{p.postSort}</td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex rounded-md px-2 py-0.5 text-xs',
+                      'inline-flex rounded-md px-2 py-0.5 text-label',
                       p.status === 0
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-muted text-muted-foreground',
@@ -94,10 +94,10 @@ export function PostTable({
                     {p.status === 0 ? '正常' : '停用'}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="px-4 py-2.5 text-label text-muted-foreground">
                   <TruncatedText value={p.remark || '-'} className="max-w-[160px]" />
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                   {p.createdAt ? formatDate(p.createdAt) : '-'}
                 </td>
                 <td className="px-4 py-2.5">

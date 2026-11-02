@@ -133,7 +133,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
           ) : marketQ.error ? (
             <div className="py-8 text-center text-destructive">{marketQ.error.message}</div>
           ) : list.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
+            <div className="py-8 text-center text-body text-muted-foreground">
               {t('noMarketData')}
             </div>
           ) : (
@@ -149,27 +149,27 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                       href={`/ai-skills/${skill.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-label text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {t('viewDetail')}
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                     {skill.version ? (
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label text-muted-foreground">
                         {skill.version}
                       </code>
                     ) : null}
                     {skill.rating !== null && skill.rating !== undefined ? (
-                      <span className="inline-flex items-center gap-0.5 text-xs text-amber-500">
+                      <span className="inline-flex items-center gap-0.5 text-label text-amber-500">
                         <Star className="h-3 w-3 fill-current" />
                         {skill.rating.toFixed(1)}
                       </span>
                     ) : null}
                   </div>
                   {skill.description ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{skill.description}</p>
+                    <p className="mt-0.5 text-label text-muted-foreground">{skill.description}</p>
                   ) : null}
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-label text-muted-foreground">
                     {skill.author ? (
                       <span>
                         {t('author')}: {skill.author}
@@ -201,7 +201,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                     size="sm"
                     onClick={() => handleInstall(skill)}
                     disabled={installMut.isPending}
-                    className="text-xs"
+                    className="text-label"
                   >
                     {installMut.isPending ? (
                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -220,7 +220,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                     size="sm"
                     onClick={() => handleUnlist(skill)}
                     disabled={unlistMut.isPending}
-                    className="text-xs text-destructive hover:text-destructive"
+                    className="text-label text-destructive hover:text-destructive"
                   >
                     {unlistMut.isPending ? (
                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -236,7 +236,7 @@ export function SkillMarketDialog({ open, onClose }: Props) {
         </div>
 
         {totalPages > 1 ? (
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-label text-muted-foreground">
             <span>{t('pageInfo', { page, total: totalPages })}</span>
             <div className="flex items-center gap-1">
               <Button

@@ -106,7 +106,7 @@ function CategoryDistChart({ data }: { data: CategoryDistribution[] }) {
   }
 
   if (data.length === 0) {
-    return <div className="py-8 text-center text-xs text-muted-foreground">{t('noData')}</div>
+    return <div className="py-8 text-center text-label text-muted-foreground">{t('noData')}</div>
   }
 
   return (
@@ -115,7 +115,7 @@ function CategoryDistChart({ data }: { data: CategoryDistribution[] }) {
         const pct = (d.count / maxCount) * 100
         return (
           <div key={d.category} className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-label">
               <span className="text-muted-foreground">{labelMap[d.category] ?? d.category}</span>
               <span className="tabular-nums text-foreground/70">{d.count}</span>
             </div>
@@ -176,7 +176,7 @@ export default function StatsDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">{t('title')}</h1>
-          <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <p className="mt-1 text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>{t('subtitle')}</span>
           </p>
         </div>
@@ -187,13 +187,13 @@ export default function StatsDashboard() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">
+        <div className="rounded-md bg-destructive/10 p-3 text-label text-destructive">
           {t('loadFailed', { message: (error as Error).message })}
         </div>
       )}
 
       {loading && !data && (
-        <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
+        <div className="flex h-32 items-center justify-center text-label text-muted-foreground">
           {t('loading')}
         </div>
       )}
@@ -208,7 +208,7 @@ export default function StatsDashboard() {
                   <Puzzle className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                  <span className="text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('totalSkills')}</span>
                   </span>
                   <span className="text-heading font-semibold tabular-nums">
@@ -223,7 +223,7 @@ export default function StatsDashboard() {
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                  <span className="text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('onlineCount')}</span>
                   </span>
                   <span className="text-heading font-semibold tabular-nums">
@@ -238,7 +238,7 @@ export default function StatsDashboard() {
                   <MousePointerClick className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                  <span className="text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('totalInstallCount')}</span>
                   </span>
                   <span className="text-heading font-semibold tabular-nums">
@@ -253,10 +253,12 @@ export default function StatsDashboard() {
                   <Star className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+                  <span className="text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('avgRating')}</span>
                   </span>
-                  <span className="text-heading font-semibold tabular-nums">{total!.avgRating}</span>
+                  <span className="text-heading font-semibold tabular-nums">
+                    {total!.avgRating}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -285,7 +287,7 @@ export default function StatsDashboard() {
                       <TableRow>
                         <TableCell
                           colSpan={5}
-                          className="py-8 text-center text-xs text-muted-foreground"
+                          className="py-8 text-center text-label text-muted-foreground"
                         >
                           {t('noData')}
                         </TableCell>
@@ -293,7 +295,7 @@ export default function StatsDashboard() {
                     )}
                     {topSkills.map((skill, idx) => (
                       <TableRow key={skill.name}>
-                        <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
+                        <TableCell className="text-center text-label text-muted-foreground tabular-nums">
                           {idx + 1}
                         </TableCell>
                         <TableCell className="font-medium">{skill.name}</TableCell>
@@ -351,7 +353,7 @@ export default function StatsDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="text-muted-foreground">{t('availableSkills')}</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -369,7 +371,7 @@ export default function StatsDashboard() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="text-muted-foreground">{t('placeholderSkills')}</span>
                       <Tooltip>
                         <TooltipTrigger asChild>

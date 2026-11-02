@@ -151,8 +151,8 @@ export function RefundsTab({
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">{t('orderNo')}</th>
               <th className="px-4 py-2.5 font-medium">{t('refundAmount')}</th>
@@ -187,7 +187,7 @@ export function RefundsTab({
             ) : (
               refunds.map((r) => (
                 <tr key={r.id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-2.5 font-mono text-xs">{r.orderNo}</td>
+                  <td className="px-4 py-2.5 font-mono text-label">{r.orderNo}</td>
                   <td className="px-4 py-2.5 font-medium">
                     {currencyFmt.format(Number(r.refundAmount))}
                   </td>
@@ -223,7 +223,7 @@ export function RefundsTab({
                         </Button>
                       )}
                       {!['pending', 'approved', 'processing'].includes(r.status) && (
-                        <span className="text-xs text-muted-foreground">{t('noAction')}</span>
+                        <span className="text-label text-muted-foreground">{t('noAction')}</span>
                       )}
                     </div>
                   </td>
@@ -248,14 +248,14 @@ export function RefundsTab({
               </DialogDescription>
             </DialogHeader>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}
             {action && (
-              <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-                <div className="font-mono text-xs">{action.refund.orderNo}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
+                <div className="font-mono text-label">{action.refund.orderNo}</div>
+                <div className="mt-0.5 text-label text-muted-foreground">
                   {currencyFmt.format(Number(action.refund.refundAmount))} ·{' '}
                   {t(REFUND_STATUS_KEY[action.refund.status] ?? 'refundStatus_unknown')}
                 </div>

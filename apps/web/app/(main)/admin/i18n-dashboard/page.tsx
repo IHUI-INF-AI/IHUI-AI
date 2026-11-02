@@ -38,7 +38,7 @@ export default function I18nDashboardPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           i18n 数据加载失败:{(error as Error).message}
         </div>
       )}
@@ -46,9 +46,11 @@ export default function I18nDashboardPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Globe className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">国际化数据看板</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            国际化数据看板
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           5 种语言翻译进度概览 · 平均完成度 {avgCompletionText}
         </p>
       </header>
@@ -61,7 +63,7 @@ export default function I18nDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-display font-bold">{d.languages.length}</div>
-            <p className="text-xs text-muted-foreground">支持的语言种类</p>
+            <p className="text-label text-muted-foreground">支持的语言种类</p>
           </CardContent>
         </Card>
 
@@ -74,18 +76,20 @@ export default function I18nDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-display font-bold text-amber-600">{d.totalMissing}</div>
-            <p className="text-xs text-muted-foreground">待翻译 Key 总量</p>
+            <p className="text-label text-muted-foreground">待翻译 Key 总量</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-body font-medium text-muted-foreground">平均完成度</CardTitle>
+            <CardTitle className="text-body font-medium text-muted-foreground">
+              平均完成度
+            </CardTitle>
             <Clock className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-display font-bold text-emerald-600">{avgCompletionText}</div>
-            <p className="text-xs text-muted-foreground">所有语言平均</p>
+            <p className="text-label text-muted-foreground">所有语言平均</p>
           </CardContent>
         </Card>
       </section>
@@ -107,9 +111,9 @@ export default function I18nDashboardPage() {
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{lang.name}</span>
-                    <span className="text-xs text-muted-foreground">{lang.locale}</span>
+                    <span className="text-label text-muted-foreground">{lang.locale}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-label text-muted-foreground">
                     <span>已翻译 {lang.translated}</span>
                     <span>缺失 {lang.missing}</span>
                   </div>
@@ -134,7 +138,7 @@ export default function I18nDashboardPage() {
           <h2 className="text-lg font-semibold">最近更新</h2>
           <Link
             href="/admin/i18n-dashboard/missing"
-            className="inline-flex items-center gap-1 text-sm text-primary transition-colors hover:opacity-80"
+            className="inline-flex items-center gap-1 text-body text-primary transition-colors hover:opacity-80"
           >
             查看缺失列表
             <ArrowRight className="h-4 w-4" />
@@ -156,9 +160,9 @@ export default function I18nDashboardPage() {
                 >
                   {u.locale}
                 </span>
-                <span className="min-w-0 flex-1 truncate font-mono text-sm">{u.key}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{u.namespace}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="min-w-0 flex-1 truncate font-mono text-body">{u.key}</span>
+                <span className="shrink-0 text-label text-muted-foreground">{u.namespace}</span>
+                <span className="shrink-0 text-label text-muted-foreground">
                   {fmtTime(u.updatedAt)}
                 </span>
               </div>

@@ -34,11 +34,11 @@ export function DynamicsFilter({ filter, onFilterChange, onSearch, onReset }: Pr
           <MessageSquare className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('keywordLabel')}</Label>
+          <Label className="text-label">{t('keywordLabel')}</Label>
           <Input
             value={filter.keyword}
             onChange={(e) => onFilterChange({ ...filter, keyword: e.target.value })}
@@ -48,7 +48,7 @@ export function DynamicsFilter({ filter, onFilterChange, onSearch, onReset }: Pr
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('statusLabel')}</Label>
+          <Label className="text-label">{t('statusLabel')}</Label>
           <Select
             value={filter.status}
             onValueChange={(v) => onFilterChange({ ...filter, status: v as PostFilter['status'] })}

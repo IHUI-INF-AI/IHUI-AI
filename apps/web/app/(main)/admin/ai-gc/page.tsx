@@ -94,7 +94,7 @@ export default function AiGcPage() {
             <Sparkles className="h-6 w-6 text-primary" />
             {t('pageHeader')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -111,7 +111,7 @@ export default function AiGcPage() {
       />
 
       {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">{t('total', { total })}</span>
           <div className="flex gap-1">
             <button

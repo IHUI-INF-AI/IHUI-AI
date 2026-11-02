@@ -110,7 +110,7 @@ export default function EduLearnPlanPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <PlanFilter onCreate={openCreate} />
       <PlanTable
@@ -122,7 +122,7 @@ export default function EduLearnPlanPage() {
         deletePending={deleteMut.isPending}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -133,7 +133,9 @@ export default function EduLearnPlanPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"

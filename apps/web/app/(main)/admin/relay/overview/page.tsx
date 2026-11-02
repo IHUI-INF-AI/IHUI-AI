@@ -94,12 +94,12 @@ function Delta({
   positiveIsGood?: boolean
 }): React.ReactElement {
   if (!Number.isFinite(value) || value === 0)
-    return <span className="text-xs text-muted-foreground">环比 —</span>
+    return <span className="text-label text-muted-foreground">环比 —</span>
   const up = value > 0
   const good = positiveIsGood ? up : !up
   return (
     <span
-      className={`flex items-center gap-0.5 text-xs ${good ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+      className={`flex items-center gap-0.5 text-label ${good ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
     >
       {up ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
       环比 {(Math.abs(value) * 100).toFixed(1)}%
@@ -249,7 +249,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
             <Activity className="h-6 w-6 text-primary" />
             实时监控
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             中转站调用 / 消费 / 错误率 / 模型分布(每 30s 自动刷新)
           </p>
         </div>
@@ -260,7 +260,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
               type="button"
               variant={range === r ? 'default' : 'ghost'}
               size="default"
-              className="px-3 text-xs"
+              className="px-3 text-label"
               onClick={() => setRange(r)}
             >
               {r === 'today' ? '今日' : r === '7d' ? '7d' : '30d'}
@@ -293,19 +293,19 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
       <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">今日模型分布</CardTitle>
+            <CardTitle className="text-body">今日模型分布</CardTitle>
           </CardHeader>
           <CardContent>
             {distQ.isLoading ? (
               <Skeleton className="h-40 w-full" />
             ) : dist.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">暂无数据</p>
+              <p className="py-10 text-center text-body text-muted-foreground">暂无数据</p>
             ) : (
               <div className="flex items-center gap-4">
                 <Donut data={dist} />
                 <ul className="flex-1 min-w-0 space-y-1.5">
                   {dist.map((d, i) => (
-                    <li key={d.model} className="flex items-center gap-2 text-xs">
+                    <li key={d.model} className="flex items-center gap-2 text-label">
                       <span
                         className="inline-block h-2.5 w-2.5 shrink-0"
                         style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }}
@@ -327,13 +327,13 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">{rangeLabel}调用趋势</CardTitle>
+            <CardTitle className="text-body">{rangeLabel}调用趋势</CardTitle>
           </CardHeader>
           <CardContent>
             {trendQ.isLoading ? (
               <Skeleton className="h-40 w-full" />
             ) : trend.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">暂无数据</p>
+              <p className="py-10 text-center text-body text-muted-foreground">暂无数据</p>
             ) : (
               <div className="flex h-40 items-end gap-1">
                 {trend.map((d) => (
@@ -371,18 +371,18 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">今日高消费用户 Top 10</CardTitle>
+          <CardTitle className="text-body">今日高消费用户 Top 10</CardTitle>
         </CardHeader>
         <CardContent>
           {topQ.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : topUsers.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无数据</p>
+            <p className="py-8 text-center text-body text-muted-foreground">暂无数据</p>
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                <table className="w-full text-body">
+                  <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-left">用户</th>
                       <th className="px-3 py-2 text-right">调用次数</th>
@@ -394,8 +394,8 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
                     {topUsers.map((u, i) => (
                       <tr key={u.userId}>
                         <td className="px-3 py-2">
-                          <span className="mr-2 text-xs text-muted-foreground">#{i + 1}</span>
-                          <span className="text-xs">{u.username ?? u.userId.slice(0, 8)}</span>
+                          <span className="mr-2 text-label text-muted-foreground">#{i + 1}</span>
+                          <span className="text-label">{u.username ?? u.userId.slice(0, 8)}</span>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {numFmt.format(u.callCount)}

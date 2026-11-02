@@ -23,7 +23,7 @@ interface Props {
 export function SelectUserTable({ list, isLoading, selected, onToggleAll, onToggleOne }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="w-full text-body">
         <thead className="bg-muted/50">
           <tr>
             <th className="w-10 px-4 py-2.5">
@@ -68,14 +68,14 @@ export function SelectUserTable({ list, isLoading, selected, onToggleAll, onTogg
                 </td>
                 <td className="px-4 py-2.5 font-medium">{u.userName}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{u.nickName}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.email || '-'}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="px-4 py-2.5 text-label text-muted-foreground">{u.email || '-'}</td>
+                <td className="px-4 py-2.5 text-label text-muted-foreground">
                   {u.phonenumber || '-'}
                 </td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
-                      'inline-flex rounded-md px-2 py-0.5 text-xs',
+                      'inline-flex rounded-md px-2 py-0.5 text-label',
                       u.status === 0
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-muted text-muted-foreground',
@@ -84,7 +84,7 @@ export function SelectUserTable({ list, isLoading, selected, onToggleAll, onTogg
                     {u.status === 0 ? '正常' : '停用'}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                   {u.createdAt ? formatDate(u.createdAt) : '-'}
                 </td>
               </tr>

@@ -159,7 +159,7 @@ export default function AdapterConfigForm({ platform, adapter, onSaved }: Adapte
             </CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Label htmlFor="adapter-enabled" className="text-xs text-muted-foreground">
+            <Label htmlFor="adapter-enabled" className="text-label text-muted-foreground">
               启用
             </Label>
             <Switch
@@ -183,12 +183,12 @@ export default function AdapterConfigForm({ platform, adapter, onSaved }: Adapte
                   className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
                 >
                   <div className="space-y-0.5">
-                    <Label className="text-sm">
+                    <Label className="text-body">
                       {f.label}
                       {f.required ? <span className="ml-0.5 text-destructive">*</span> : null}
                     </Label>
                     {f.helpText ? (
-                      <p className="text-xs text-muted-foreground">{f.helpText}</p>
+                      <p className="text-label text-muted-foreground">{f.helpText}</p>
                     ) : null}
                   </div>
                   <Switch
@@ -202,7 +202,7 @@ export default function AdapterConfigForm({ platform, adapter, onSaved }: Adapte
             const inputType = FIELD_INPUT_TYPE[f.type]
             return (
               <div key={f.name} className="space-y-1">
-                <Label htmlFor={`field-${f.name}`} className="text-sm">
+                <Label htmlFor={`field-${f.name}`} className="text-body">
                   {f.label}
                   {f.required ? <span className="ml-0.5 text-destructive">*</span> : null}
                 </Label>
@@ -214,7 +214,9 @@ export default function AdapterConfigForm({ platform, adapter, onSaved }: Adapte
                   onChange={(e) => updateField(f.name, e.target.value)}
                   autoComplete="off"
                 />
-                {f.helpText ? <p className="text-xs text-muted-foreground">{f.helpText}</p> : null}
+                {f.helpText ? (
+                  <p className="text-label text-muted-foreground">{f.helpText}</p>
+                ) : null}
               </div>
             )
           })}

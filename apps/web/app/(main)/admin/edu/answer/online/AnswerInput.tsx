@@ -23,7 +23,7 @@ export function AnswerInput({ question, value, onChange }: Props) {
     return (
       <div className="space-y-1">
         {opts.map((o) => (
-          <label key={o.key} className="flex cursor-pointer items-center gap-2 text-sm">
+          <label key={o.key} className="flex cursor-pointer items-center gap-2 text-body">
             <input
               type="radio"
               name={question.id}
@@ -48,7 +48,7 @@ export function AnswerInput({ question, value, onChange }: Props) {
     return (
       <div className="space-y-1">
         {opts.map((o) => (
-          <label key={o.key} className="flex cursor-pointer items-center gap-2 text-sm">
+          <label key={o.key} className="flex cursor-pointer items-center gap-2 text-body">
             <input
               type="checkbox"
               checked={cur.includes(o.key)}
@@ -67,7 +67,7 @@ export function AnswerInput({ question, value, onChange }: Props) {
   if (question.type === 'judgment') {
     return (
       <div className="flex gap-4">
-        <label className="flex cursor-pointer items-center gap-1 text-sm">
+        <label className="flex cursor-pointer items-center gap-1 text-body">
           <input
             type="radio"
             name={question.id}
@@ -77,7 +77,7 @@ export function AnswerInput({ question, value, onChange }: Props) {
           />
           {t('correct')}
         </label>
-        <label className="flex cursor-pointer items-center gap-1 text-sm">
+        <label className="flex cursor-pointer items-center gap-1 text-body">
           <input
             type="radio"
             name={question.id}
@@ -105,7 +105,7 @@ export function AnswerInput({ question, value, onChange }: Props) {
       value={typeof value === 'string' ? value : ''}
       onChange={(e) => onChange(e.target.value)}
       rows={4}
-      className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       placeholder={t('answerPlaceholder')}
     />
   )

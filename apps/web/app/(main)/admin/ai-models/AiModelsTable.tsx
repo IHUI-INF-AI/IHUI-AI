@@ -33,7 +33,7 @@ export function AiModelsTable({
   return (
     <div className="rounded-md border border-border">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-body">
           <thead className="bg-muted/50">
             <tr>
               <th className="px-3 py-2 text-left font-medium">名称</th>
@@ -63,14 +63,14 @@ export function AiModelsTable({
               list.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/30">
                   <td className="px-3 py-2">{item.name}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{item.providerCode}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground max-w-[200px] truncate">
+                  <td className="px-3 py-2 font-mono text-label">{item.providerCode}</td>
+                  <td className="px-3 py-2 font-mono text-label text-muted-foreground max-w-[200px] truncate">
                     {item.baseUrl}
                   </td>
-                  <td className="px-3 py-2 text-xs">{item.apiFormat}</td>
+                  <td className="px-3 py-2 text-label">{item.apiFormat}</td>
                   <td className="px-3 py-2">
                     <span
-                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs ${
+                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-label ${
                         item.hasApiKey
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
                           : 'bg-muted text-muted-foreground'
@@ -89,7 +89,7 @@ export function AiModelsTable({
                   <td className="px-3 py-2">
                     {item.lastTestStatus ? (
                       <span
-                        className={`text-xs ${
+                        className={`text-label ${
                           item.lastTestStatus === 'success'
                             ? 'text-emerald-600 dark:text-emerald-400'
                             : 'text-red-600 dark:text-red-400'
@@ -100,7 +100,7 @@ export function AiModelsTable({
                           : '失败'}
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">未测试</span>
+                      <span className="text-label text-muted-foreground">未测试</span>
                     )}
                   </td>
                   <td className="px-3 py-2">

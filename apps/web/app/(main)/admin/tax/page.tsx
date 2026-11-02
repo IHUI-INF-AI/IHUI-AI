@@ -70,7 +70,7 @@ export default function AdminTaxPage() {
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
               <tr className="text-left text-muted-foreground">
                 {head.map((h) => (
@@ -98,11 +98,13 @@ export default function AdminTaxPage() {
                     <td className={`${c} tabular-nums`}>{row.rate}%</td>
                     <td className={`${c} tabular-nums`}>{row.threshold}</td>
                     <td className={c}>
-                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[row.status]}`}>
+                      <span className={`rounded px-2 py-0.5 text-label ${BADGE[row.status]}`}>
                         {STATUS_LABEL[row.status]}
                       </span>
                     </td>
-                    <td className={`${c} text-xs text-muted-foreground`}>{fmt(row.effectiveAt)}</td>
+                    <td className={`${c} text-label text-muted-foreground`}>
+                      {fmt(row.effectiveAt)}
+                    </td>
                     <td className={c}>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" onClick={() => crud.openEdit(row)}>
@@ -125,7 +127,7 @@ export default function AdminTaxPage() {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -136,7 +138,7 @@ export default function AdminTaxPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {crud.page} / {totalPages}
           </span>
           <Button

@@ -50,7 +50,7 @@ export default function NotificationLogsPage() {
           <Bell className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       <NotificationLogFilter
@@ -63,7 +63,7 @@ export default function NotificationLogsPage() {
       <NotificationLogTable list={list} isLoading={isLoading} onDetail={setDetail} />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button

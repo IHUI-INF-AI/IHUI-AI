@@ -190,7 +190,7 @@ export default function ErrorRulesPage() {
             <ShieldAlert className="h-5 w-5" aria-hidden />
             上游错误透传规则
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             把上游错误改写为对客状态码与文案,避免泄漏上游身份与原始报错;未命中规则时按默认透传口径处理。
           </p>
         </div>
@@ -202,7 +202,7 @@ export default function ErrorRulesPage() {
 
       {coverage.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
-          <span className="text-xs text-muted-foreground">覆盖度(按上游状态码):</span>
+          <span className="text-label text-muted-foreground">覆盖度(按上游状态码):</span>
           {coverage.map((g) => (
             <Badge key={g.upstreamStatus} variant="outline">
               {g.upstreamStatus} · {g.count} 条
@@ -212,7 +212,7 @@ export default function ErrorRulesPage() {
       )}
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">上游状态</th>
@@ -358,7 +358,7 @@ export default function ErrorRulesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="err-expose">透传上游原文</Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   开启后调用方能看到上游原始报错(可能含上游身份信息)
                 </p>
               </div>

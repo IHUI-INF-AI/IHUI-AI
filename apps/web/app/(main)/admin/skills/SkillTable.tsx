@@ -61,7 +61,7 @@ export function SkillTable({
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
         <Bot className="h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('noData')}</p>
+        <p className="text-body">{t('noData')}</p>
         <Button variant="outline" size="sm" onClick={onOpenMarket}>
           <Store className="mr-1.5 h-3.5 w-3.5" />
           {t('browseMarket')}
@@ -72,8 +72,8 @@ export function SkillTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('name')}</th>
             <th className={th}>{t('version')}</th>
@@ -93,13 +93,15 @@ export function SkillTable({
                   <div className="min-w-0">
                     <p className="truncate font-medium">{skill.name}</p>
                     {skill.description ? (
-                      <p className="truncate text-xs text-muted-foreground">{skill.description}</p>
+                      <p className="truncate text-label text-muted-foreground">
+                        {skill.description}
+                      </p>
                     ) : null}
                   </div>
                 </div>
               </td>
               <td className="px-4 py-2.5">
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-label text-muted-foreground">
                   {skill.version ?? '-'}
                 </code>
               </td>
@@ -109,13 +111,13 @@ export function SkillTable({
                     skill.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                       >
                         {tag}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
+                    <span className="text-label text-muted-foreground">-</span>
                   )}
                 </div>
               </td>
@@ -143,7 +145,7 @@ export function SkillTable({
           ))}
         </tbody>
       </table>
-      <div className="flex items-center justify-between px-4 py-2.5 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between px-4 py-2.5 text-body text-muted-foreground">
         <span>{t('total', { total })}</span>
       </div>
     </div>
