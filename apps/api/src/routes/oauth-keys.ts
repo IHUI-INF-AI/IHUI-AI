@@ -2,13 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { generateKeyPairSync } from 'node:crypto'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { db, dbRead } from '../db/index.js'
+import { db, dbRead, type Database } from '../db/index.js'
 import { oauthPrivateKeys, type OauthPrivateKey } from '@ihui/database'
 
 /**
@@ -73,6 +73,27 @@ function generateRsaKeyPair(): { privateKey: string; publicKey: string } {
     publicKeyEncoding: { type: 'spki', format: 'pem' },
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
   })
+}
+
+/**
+ * B68(2026-11-02) 读路径:副本优先,失败显式降级主库一次。
+ *
+ * 判据(为什么降级是安全的、为什么不是"吞错"):
+ *  - 本查询是只读、幂等、无参数的单表元数据读取,重放一次不产生任何副作用;
+ *  - `dbRead` 的故障转移要等健康探测连续 3 次失败(探测 15s/次 ⇒ 约 45s 窗口),
+ *    窗口内副本单次读失败会直接落到本路由 catch(500)—— 副本抖动被放大成用户面 5xx;
+ *  - 只降级一次:主库也失败就原样抛回调用方,由既有 catch 出 500 + `err` 进日志,
+ *    不丢原始错误、不静默返回空列表。
+ */
+async function listKeysReplicaFirst(request: FastifyRequest): Promise<OauthPrivateKey[]> {
+  const run = (client: Database) =>
+    client.select().from(oauthPrivateKeys).orderBy(desc(oauthPrivateKeys.createdAt))
+  try {
+    return await run(dbRead)
+  } catch (err) {
+    request.log.warn({ err }, 'oauth-keys /list 读副本查询失败,降级主库重试')
+    return await run(db)
+  }
 }
 
 // =============================================================================
@@ -180,18 +201,35 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /list - 列出所有私钥(按创建时间倒序,不含 privateKey)
-  server.get('/list', async (request, reply) => {
-    try {
-      const rows = await dbRead
-        .select()
-        .from(oauthPrivateKeys)
-        .orderBy(desc(oauthPrivateKeys.createdAt))
-      return reply.send(success({ keys: rows.map(toKeyMeta) }))
-    } catch (e) {
-      request.log.error({ err: e }, 'oauth-keys /list 查询失败')
-      return reply.status(500).send(error(500, '密钥列表查询失败'))
-    }
-  })
+  //
+  // B68(2026-11-02) 压力闸豁免(只落这一条路由,不动全局 shed 策略):
+  // api_logs 一手现场的 `GET /api/oauth-keys/list -> 503 | FastifyError: Service Unavailable`
+  // 不是读副本故障(副本失败在本路由是 500,见 listKeysReplicaFirst),而是
+  // `@fastify/under-pressure` 在事件循环延迟超 server.ts 的 maxEventLoopDelay=1000ms 时
+  // 对**全站**路由统一 `handlePressure()` 的结果。本端点是单表只读元数据查询
+  // (无写、无 CPU、无外部调用),既不是延迟的成因,也没有被 shed 的价值 ——
+  // 用 under-pressure 官方支持的 per-route `config.pressureHandler` 放行(返回 undefined
+  // 即 next()),其余路由(含本文件写端点与 /active)仍照常被压力闸裁掉。
+  server.get(
+    '/list',
+    {
+      config: {
+        // 留一行 warn:以后查"这条路由为何没被 503"有据可依,不必再靠读插件源码倒推。
+        pressureHandler: (request, _reply, type, value) => {
+          request.log.warn({ pressureType: type, pressureValue: value }, 'oauth-keys /list 压力闸豁免放行')
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const rows = await listKeysReplicaFirst(request)
+        return reply.send(success({ keys: rows.map(toKeyMeta) }))
+      } catch (e) {
+        request.log.error({ err: e }, 'oauth-keys /list 查询失败')
+        return reply.status(500).send(error(500, '密钥列表查询失败'))
+      }
+    },
+  )
 
   // GET /active - 查询当前活跃的私钥
   server.get('/active', async (request, reply) => {
