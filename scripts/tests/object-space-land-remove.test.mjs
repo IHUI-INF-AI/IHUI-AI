@@ -42,15 +42,23 @@ const SRC = readFileSync(SCRIPT, 'utf8')
 /**
  * 自含电池的**字面期望**(期望值不许由被测函数生成,否则变异测不出 —— 仓内同族惯例):
  * 落地器 SELF_TEST_PLAN 少一条、改一个 id、或把"必须拒"的例子换成放行,这里立刻红。
+ * 2026-11-01(S-SELFTEST):ST8–ST12(声明式还原通道 LAND_RESTORE_MANIFEST)在器里已立,
+ * 镜像侧漏同步 ⇒ 补到 12 条,**name 也逐字对齐**(否则只锁条数与期望、不锁用例内容,
+ * 器里把某条改成"另一件事"照样绿)。改器里任何一条文案都必须同步改到这里 —— 这是判据本意。
  */
 const SELF_TEST_PLAN_FOR_TEST = [
-  { id: 'ST1', expect: 'accept' },
-  { id: 'ST2', expect: 'reject' },
-  { id: 'ST3', expect: 'reject' },
-  { id: 'ST4', expect: 'accept' },
-  { id: 'ST5', expect: 'accept' },
-  { id: 'ST6', expect: 'accept' },
-  { id: 'ST7', expect: 'reject' },
+  { id: 'ST1', expect: 'accept', name: '正控:摘一枚基线在位的跟踪件 ⇒ 树里没有、盘上字节未变、反向自证留痕' },
+  { id: 'ST2', expect: 'reject', name: '反证:摘一枚基线不在位的路径 ⇒ 拒(不得静默变成"什么都没删")' },
+  { id: 'ST3', expect: 'reject', name: '互斥:同一路径同时声明写入与删除 ⇒ 拒(自相矛盾)' },
+  { id: 'ST4', expect: 'accept', name: '纯删除是合法入口:只有 LAND_REMOVE_PATHS ⇒ 放行(ST1 已跑,这里钉"不误拒")' },
+  { id: 'ST5', expect: 'accept', name: '写删混同:一次落地既有写入又有摘除 ⇒ 两条自证各问各的方向' },
+  { id: 'ST6', expect: 'accept', name: '嵌套路径:sub/stay.txt 摘除后父目录与其他文件原样' },
+  { id: 'ST7', expect: 'reject', name: '双边空清单 ⇒ 拒(空清单会把 undefined 当路径,本仓踩过)' },
+  { id: 'ST8', expect: 'accept', name: '声明式还原·正控:复活行被清单逐条声明且核验过 ⇒ 放行落地,清单逐字进提交信息' },
+  { id: 'ST9', expect: 'reject', name: '声明式还原·反向①:同枚落地夹带一行未声明的滞后复活 ⇒ 当场拒落并点名(守卫没整颗关掉)' },
+  { id: 'ST10', expect: 'reject', name: '声明式还原·反向②:假 restoredFrom(那枚 blob 里没这行)⇒ 拒;why 过短 ⇒ exit 2' },
+  { id: 'ST11', expect: 'reject', name: '声明式还原·反向③:不传旗 ⇒ 与设立前同形(同一现场照旧被陈旧守卫拒)' },
+  { id: 'ST12', expect: 'reject', name: '声明式还原·未被消费的声明(该行没复活)⇒ 拒;与 ALLOW_STALE 同举 ⇒ exit 2' },
 ]
 const GIT = resolveGitBin() || 'git'
 const RUN_OPTS = { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
@@ -205,13 +213,13 @@ test('T10 器物自证入口:--self-test 真跑得通,且每条用例都点名(�
   assert.match(r.stdout, /self-test: \d+\/\d+ 通过/, '汇总行必须存在')
   const plan = SELF_TEST_PLAN_FOR_TEST
   assert.ok(Array.isArray(plan) && plan.length >= 5, `自含用例清单至少 5 条,实得 ${plan?.length}`)
-  // 被测自己导出的清单必须与字面期望**逐条同 id 同期望** —— 否则"把 reject 的例子改成 accept"
+  // 被测自己导出的清单必须与字面期望**逐条同 id 同期望同名** —— 否则"把 reject 的例子改成 accept"
   // 这种变异(自证失效的最危险形态)只靠输出里有个 ✅ 是拦不住的
   const actual = LANDER.SELF_TEST_PLAN
   assert.deepEqual(
-    actual.map((c) => ({ id: c.id, expect: c.expect })),
+    actual.map((c) => ({ id: c.id, expect: c.expect, name: c.name })),
     plan,
-    'SELF_TEST_PLAN 的 id 与期望必须与字面清单逐条一致(改了就是变异)',
+    'SELF_TEST_PLAN 的 id/期望/用例文案必须与字面清单逐条一致(改了就是变异)',
   )
   for (const c of plan) assert.ok(r.stdout.includes(c.id), `汇总输出必须点名 ${c.id}(空跑/漏跑都算坏)`)
   // 反证与互斥两条"必须拒"的用例不能悄悄变成放行(那等于自证失效)
