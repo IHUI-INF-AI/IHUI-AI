@@ -84,7 +84,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 618 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4672 | `apiRoutes` |
+| API 路由 | 4673 | `apiRoutes` |
 | 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -97,15 +97,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3985 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3993 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 315 | `guardianGates` |
 | — blocking | 286 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18802 | `trackedFiles` |
+| 跟踪文件 | 18822 | `trackedFiles` |
+
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5446,6 +5448,52 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-02**
+- 🚀 新功能/改进:四家商店通道由未判定推进到已证可达,两格仍诚实留未判定 (a83a952cfb)
+- 📚 文档:就地改写 Y-70(四家商店通道已证可达,vivo/OPPO 仍未判定) (233eec47d3)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e2e2250558)
+- 🔧 工程/其他:字号档收口第 6/6 批 —— src/components 402 文件 (45525b8354)
+- 🔧 工程/其他:字号档收口第 5/6 批 —— (main) 业务页 356 文件(乙)+ app/en 与 app/ 其它 (7f01a52f3d)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0491faf17f)
+- 🔧 工程/其他:字号档收口第 4/6 批 —— (main) 业务页 341 文件(甲) (7e35051ed2)
+- 🚀 新功能/改进:safe-commit 新增 --files-from 清单入口(大批量路径绕开 Windows argv 上限) (9710581b38)
+- 🔧 工程/其他:字号档收口第 3/6 批 —— (main)/admin 其余 260 文件(乙) (f685e7e41d)
+- 🔧 工程/其他:字号档收口第 2/6 批 —— (main)/admin 其余 262 文件(甲) (381df55136)
+- 🔧 工程/其他:字号档收口第 1/6 批 —— (main)/admin/edu 126 文件 (72df7ca87d)
+- 🐞 修复:B68 oauth-keys /list 不再被压力闸 503,副本失败降级主库 (2c3a0d1b33)
+- 🚀 新功能/改进:移动端 agentChat 补 stop 停止按钮文案(zh-CN/zh-TW/en/ja/ko 五语,对应 B4 流式停止入口) (2ba6fecdb8)
+- 🚀 新功能/改进:B4 Agent 会话 SSE 消费侧——共享 streamAgentChat 增量回调+abort,断线带 Last-Event-ID 重连一次,仍败回落 v2 分页读+一次性 POST;RN 宿主增量渲染/done 落库替换/失败显式报错;共享屏仅四枚可选 props(缺省显式关闭);新增 4+3 例测试,双端 typecheck 0,门273 --staged 零新增 (0335facba1)
+- 🚀 新功能/改进:发布面从四条腿扩成全平台矩阵(华为通道已证可达,缺的是凭据类型) (dceb9c5695)
+- 🚀 新功能/改进:登记全平台发布矩阵三格未收(华为凭据类型/store 维度/鸿蒙产物) (94e1a44d78)
+- 🐞 修复:演练记录不再生产告警,旧信号不按墙钟窗口复活成票(B69) (6506c8efe1)
+- 🚀 新功能/改进:B3 Agent 会话 SSE 流式回复端点(Last-Event-ID 重放/15s 心跳/单写者接管) (247f9f5652)
+
+**2026-11-02**
+- 🐞 修复:发布链两处跑不通的出路按实测改掉,站点腿根因与本机承载面分开报 (cb447bab63)
+
+**2026-11-02**
+- 🚀 新功能/改进:打通 RN 发布链路(五腿唯一出口 + OTA 桶解耦 + Play 读数器物化) (377af4364d)
+- 📚 文档:结清 Y-14(安卓 latest 行实测在位,登记腿已常态化) (a2da71c391)
+- 🚀 新功能/改进:发布链路登记余两格(站点落点/Play 签名一致性) (1fa03b6655)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (922f84068c)
+- 🐞 修复:补齐 ImagePicker 资产字段/底部安全区,Share 返回常量并锁 Animated 静态样式合并(B3+B4) (13bf8f6c82)
+- ♻️ 重构:500 字摘要截断收敛为单一数值口径 (e972681f74)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (1eaf77b8b4)
+- 🚀 新功能/改进:音频端口化 —— 可选 AudioPort,缺省走 capability-off(RN 壳 expo-audio 注入) (3b2c98c6f5)
+- 📚 文档:补 13 条回捞行侧车归属/在等/证据,stock 19→12 (ce6201bcc3)
+- 🐞 修复:M4 nav-A — RN 壳 push 收口到 onNavigate 端口(9 壳 38 处;CourseDetail 讲师入口改指 TeacherDetail) (e8f8967f07)
+- 🚀 新功能/改进:Agent 会话分页读 version=2,seq 游标与 v1 兼容(B2) (0da2a6a9a7)
+- 🐞 修复:$rp 参数通道补页面 unload 释放,并钉住容量/释放单测 (bb92d216f2)
+- 🐞 修复:Agent 会话写路径改原子追加,修复 20 条窗口截断(B1) (7f39323460)
+- 🐞 修复:announcements 补 platforms 列声明 —— 迁移 20261024160000 为真源 (3ca684ddc8)
+- 🐞 修复:wallet 测试 i18n 替身稳定化 —— 根治 4GB 堆 OOM(真泄漏) (880b86817f)
+- 📚 文档:标注 B53/B91 与同形态告警的签名差异,消除副本读数(+2→0) (03584c62b6)
+- 🐞 修复:三组既有红灯按新契约回正 —— 遥测 store 形状/usePathname/引导时序 (8ae8bf4537)
+- 📚 文档:补 15 条待办归属/在等字段(证据不足标 unassigned 并注明原因),对齐 5 条行内标头与侧车 (e252177924)
+- 🐞 修复:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
+- 🔧 工程/其他:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
+- 🔧 工程/其他:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
+
 **2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7f9c0f84ca)
 - 🔧 工程/其他:收敛后按 HEAD 面重生成 3 件 i18n 派生产物 (cf4929783c)
