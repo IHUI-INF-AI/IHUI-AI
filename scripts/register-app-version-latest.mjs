@@ -20,10 +20,11 @@
  *      前置:一台能连生产库的机器 + DATABASE_URL。生产库无直连通道、生产 Windows 部署机
  *      无 SSH ⇒ 这一腿同样只能在生产机上由机主执行,属于 OWNER-ONLY。
  *
- * 幂等(三态, 由 buildPlan() 纯函数决定):
- *   noop   —— 已有唯一 latest 行且 version/buildNumber/downloadUrl 全等 ⇒ 一个字节都不写
- *   update —— 有同 version 行但状态/地址/构建号不符,或同平台存在多条 latest ⇒ 收敛到一行
- *   create —— 表里完全没有该 version 行 ⇒ INSERT(status='latest')
+ * 幂等(三态, 由 buildPlan() 纯函数决定;作用域 = platform + store 渠道格):
+ *   noop   —— 该渠道已有唯一 latest 行且 version/buildNumber/downloadUrl 全等 ⇒ 一个字节都不写
+ *   update —— 该渠道有同 version 行但状态/地址/构建号不符,或同渠道存在多条 latest ⇒ 收敛到一行
+ *   create —— 该渠道完全没有该 version 行 ⇒ INSERT(status='latest')
+ *   store 缺省 ⇒ 只看 store IS NULL 那一格(= 加列前的全集),其它渠道的 latest 一律不降级。
  *
  * 安全默认:`--apply` 不加就只打印计划(dry-run),绝不写。凭据缺失一律 exit 2「未判定」。
  *
@@ -44,8 +45,11 @@ const REPO = join(HERE, '..')
 
 // 与票面/线上 apk 端点实测同源:0.0.9 / 26102816 来自 apk 文件名 ihui-ai-0.0.9-26102816.apk
 // 与 302 响应头 x-release-version / x-release-version-code,不是抄票面文字。
+// store = 分发渠道(2026-11-03 补):null = "不带渠道"那一格,与加列前的行为逐字同形;
+// 现有调用方(publish-mobile-apk.mjs 的登记腿)不传 store ⇒ 继续只动官网 APK 那一格。
 export const DEFAULTS = {
   platform: 'android',
+  store: null,
   version: '0.0.9',
   buildNumber: 26102816,
   downloadUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
@@ -57,12 +61,27 @@ export const DEFAULTS = {
 // =============================================================================
 
 /**
- * @param {{id:string,version:string,buildNumber:number,status:string,downloadUrl?:string|null}[]} rows 同平台全部行
- * @param {{version:string,buildNumber:number,downloadUrl:string}} desired
- * @returns {{action:'noop'|'update'|'create', targetId?:string, demoteIds:string[], reason:string}}
+ * store 归一:undefined / null / '' / 非字符串 ⇒ null(= 加列前那一格)。
+ * 判据只有一条实现,buildPlan 与两条执行腿都问它,不得各自复算(§0.6/§22c)。
+ */
+export function normalizeStore(value) {
+  if (value === undefined || value === null) return null
+  const s = String(value).trim()
+  return s === '' ? null : s
+}
+
+/**
+ * @param {{id:string,version:string,buildNumber:number,status:string,downloadUrl?:string|null,store?:string|null}[]} rows 同平台全部行
+ * @param {{version:string,buildNumber:number,downloadUrl:string,store?:string|null}} desired
+ * @returns {{action:'noop'|'update'|'create', targetId?:string, demoteIds:string[], store:string|null, reason:string}}
  */
 export function buildPlan(rows, desired) {
-  const list = Array.isArray(rows) ? rows : []
+  const store = normalizeStore(desired.store)
+  // 作用域收窄到「同平台 + 同渠道」:渠道之间的 latest 互不降级(否则发华为会把官网那条挤掉,
+  // 端内更新卡当场取不到包)。store 缺省 ⇒ 只看 store 为 null 的行 = 加列前的全集。
+  const list = (Array.isArray(rows) ? rows : []).filter(
+    (r) => normalizeStore(r && r.store) === store,
+  )
   const latestRows = list.filter((r) => r.status === 'latest')
   const sameVersion = list.filter((r) => String(r.version) === String(desired.version))
 
@@ -80,6 +99,7 @@ export function buildPlan(rows, desired) {
         action: 'noop',
         targetId: r.id,
         demoteIds: [],
+        store,
         reason: `已是唯一 latest 且版本/地址一致(id=${r.id}) ⇒ 不写`,
       }
     }
@@ -87,6 +107,7 @@ export function buildPlan(rows, desired) {
       action: 'update',
       targetId: r.id,
       demoteIds: [],
+      store,
       reason: `latest 行存在但内容不符(build ${r.buildNumber}→${desired.buildNumber}, url ${r.downloadUrl ?? 'null'}) ⇒ 就地收敛`,
     }
   }
@@ -99,28 +120,34 @@ export function buildPlan(rows, desired) {
       action: 'update',
       targetId: target.id,
       demoteIds,
+      store,
       reason:
         `存在 ${sameVersion.length} 条 version=${desired.version} 行,选 buildNumber 最大的一条(id=${target.id});` +
-        `另需降级 ${demoteIds.length} 条同平台 latest` +
-        (latestRows.length > 1 ? `(当前同平台 latest 有 ${latestRows.length} 条,数据已腐烂)` : ''),
+        `另需降级 ${demoteIds.length} 条${store ? `渠道 ${store} 的` : '同渠道(store 空)的'} latest` +
+        (latestRows.length > 1 ? `(当前该渠道 latest 有 ${latestRows.length} 条,数据已腐烂)` : ''),
     }
   }
 
   return {
     action: 'create',
     demoteIds: latestRows.map((r) => r.id),
+    store,
     reason:
       `表内没有 ${desired.version} 行 ⇒ INSERT 为 latest` +
       (latestRows.length > 0
         ? `,并把既有 ${latestRows.length} 条 latest 降级`
-        : '(当前无任何 latest 行,与线上空 data 现状一致)'),
+        : '(当前该渠道无任何 latest 行,与线上空 data 现状一致)'),
   }
 }
 
 /** 参数形状校验(不合法 ⇒ 未判定,而不是发一个注定 400 的请求)。 */
-export function validateDesired({ platform, version, buildNumber, downloadUrl }) {
+export function validateDesired({ platform, store, version, buildNumber, downloadUrl }) {
   const red = []
   if (!/^[a-z]+$/.test(String(platform))) red.push(`platform 非法: ${platform}`)
+  // store 只做"能不能进列宽/是不是渠道名的形状"这一条硬闸:渠道名单在变,不做枚举。
+  const storeNorm = normalizeStore(store)
+  if (storeNorm !== null && !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(storeNorm))
+    red.push(`store 非法(小写字母/数字/-/_ , 1-32 位): ${store}`)
   if (!/^\d+\.\d+\.\d+$/.test(String(version))) red.push(`version 不是 X.Y.Z: ${version}`)
   if (!Number.isInteger(Number(buildNumber)) || Number(buildNumber) <= 0)
     red.push(`buildNumber 不是正整数: ${buildNumber}`)
@@ -194,6 +221,7 @@ export async function fetchAllRowsViaApi({
 export async function applyViaApi({
   baseUrl,
   platform,
+  store,
   version,
   buildNumber,
   downloadUrl,
@@ -201,8 +229,9 @@ export async function applyViaApi({
   apply,
   fetchImpl = fetch,
 }) {
+  const storeNorm = normalizeStore(store)
   const rows = await fetchAllRowsViaApi({ baseUrl, platform, token, fetchImpl })
-  const plan = buildPlan(rows, { version, buildNumber, downloadUrl })
+  const plan = buildPlan(rows, { version, buildNumber, downloadUrl, store: storeNorm })
   console.log(`[plan] ${plan.action}: ${plan.reason}`)
   if (plan.action === 'noop' || !apply) return { plan, wrote: false }
 
@@ -211,7 +240,14 @@ export async function applyViaApi({
       method: 'POST',
       token,
       fetchImpl,
-      body: { version, platform, buildNumber: Number(buildNumber), downloadUrl, status: 'latest' },
+      body: {
+        version,
+        platform,
+        ...(storeNorm === null ? {} : { store: storeNorm }),
+        buildNumber: Number(buildNumber),
+        downloadUrl,
+        status: 'latest',
+      },
     })
     if (r.httpStatus !== 201 && r.httpStatus !== 200)
       throw new Error(`POST 失败(HTTP ${r.httpStatus}): ${r.raw}`)
@@ -229,10 +265,14 @@ export async function applyViaApi({
   }
 
   // 自证:写后重读 /latest(公开端点),用与对账脚本同一判据复核
-  const after = await apiJson(`${baseUrl}/api/app-version/latest?platform=${platform}`, {
-    token: '',
-    fetchImpl,
-  })
+  const after = await apiJson(
+    `${baseUrl}/api/app-version/latest?platform=${platform}` +
+      (storeNorm === null ? '' : `&store=${encodeURIComponent(storeNorm)}`),
+    {
+      token: '',
+      fetchImpl,
+    },
+  )
   const row = after.body?.data?.latest
   if (!row) throw new Error('写后 /latest 仍为空 ⇒ 登记没生效(不要报成功)')
   if (String(row.version) !== String(version) || Number(row.buildNumber) !== Number(buildNumber)) {
@@ -240,8 +280,14 @@ export async function applyViaApi({
       `写后 /latest 指向 ${row.version}/${row.buildNumber},与目标 ${version}/${buildNumber} 不符`,
     )
   }
+  // 渠道格也要自证:落错渠道 = 该渠道的端内更新卡取到别的渠道的包
+  if (normalizeStore(row.store) !== storeNorm) {
+    throw new Error(
+      `写后 /latest 的 store=${JSON.stringify(row.store ?? null)},与目标 ${JSON.stringify(storeNorm)} 不符`,
+    )
+  }
   console.log(
-    `[verify] /latest 现读 → ${row.version}/${row.buildNumber} status=${row.status} url=${row.downloadUrl}`,
+    `[verify] /latest 现读 → ${row.version}/${row.buildNumber} store=${row.store ?? null} status=${row.status} url=${row.downloadUrl}`,
   )
   return { plan, wrote: true, row }
 }
@@ -268,48 +314,73 @@ export function openDbConnection(dbUrl) {
 }
 
 /**
- * @param {{sql:Function, platform:string, version:string, buildNumber:number, downloadUrl:string, apply:boolean}} p
- * 幂等:先读全部行 → buildPlan;noop 直接返回;否则单事务「降级其它 latest → 升格/INSERT」。
+ * @param {{sql:Function, platform:string, store?:string|null, version:string, buildNumber:number, downloadUrl:string, apply:boolean}} p
+ * 幂等:先读全部行 → buildPlan;noop 直接返回;否则单事务「降级该渠道其它 latest → 升格/INSERT」。
+ * store 维度:降级与自证都按 (platform, store) 那一格算,渠道之间互不降级。
+ * 单一 SQL 形态(cast + coalesce)⇒ store 为 null 时也走同一条语句,不产生两种文案漂移。
  */
-export async function applyViaDb({ sql, platform, version, buildNumber, downloadUrl, apply }) {
+export async function applyViaDb({
+  sql,
+  platform,
+  store,
+  version,
+  buildNumber,
+  downloadUrl,
+  apply,
+}) {
+  const storeNorm = normalizeStore(store)
   const rows =
-    await sql`select id, version, build_number, status, download_url from app_versions where platform = ${platform}`
+    await sql`select id, version, build_number, status, download_url, store from app_versions where platform = ${platform}`
   const mapped = rows.map((r) => ({
     id: r.id,
     version: r.version,
     buildNumber: Number(r.build_number),
     status: r.status,
     downloadUrl: r.download_url,
+    store: r.store,
   }))
-  const plan = buildPlan(mapped, { version, buildNumber, downloadUrl })
+  const plan = buildPlan(mapped, { version, buildNumber, downloadUrl, store: storeNorm })
   console.log(`[plan] ${plan.action}: ${plan.reason}`)
   if (plan.action === 'noop' || !apply) return { plan, wrote: false }
 
   await sql.begin(async (tx) => {
     if (plan.action === 'create') {
-      await tx`update app_versions set status = 'history', updated_at = now() where platform = ${platform} and status = 'latest'`
-      await tx`insert into app_versions (version, platform, build_number, download_url, force_update, status, created_at, updated_at)
-               values (${version}, ${platform}, ${Number(buildNumber)}, ${downloadUrl}, false, 'latest', now(), now())`
-    } else {
-      // 先降级**其它** latest(含同 version 的重复行),再把目标行升格 —— 顺序反了会出现两条 latest
       await tx`update app_versions set status = 'history', updated_at = now()
-               where platform = ${platform} and status = 'latest' and id <> ${plan.targetId}`
+               where platform = ${platform} and status = 'latest'
+                 and coalesce(store, '') = coalesce(cast(${storeNorm} as text), '')`
+      await tx`insert into app_versions (version, platform, build_number, download_url, store, force_update, status, created_at, updated_at)
+               values (${version}, ${platform}, ${Number(buildNumber)}, ${downloadUrl}, ${storeNorm}, false, 'latest', now(), now())`
+    } else {
+      // 先降级**同渠道其它** latest(含同 version 的重复行),再把目标行升格 —— 顺序反了会出现两条 latest
+      await tx`update app_versions set status = 'history', updated_at = now()
+               where platform = ${platform} and status = 'latest' and id <> ${plan.targetId}
+                 and coalesce(store, '') = coalesce(cast(${storeNorm} as text), '')`
       await tx`update app_versions set status = 'latest', build_number = ${Number(buildNumber)},
                download_url = ${downloadUrl}, updated_at = now() where id = ${plan.targetId}`
     }
   })
 
-  const after = await sql`select version, build_number, status, download_url from app_versions
-                          where platform = ${platform} and status = 'latest'`
-  if (after.length !== 1) throw new Error(`写后 latest 行数为 ${after.length},应为 1(不要报成功)`)
+  const after =
+    await sql`select version, build_number, status, download_url, store from app_versions
+                          where platform = ${platform} and status = 'latest'
+                            and coalesce(store, '') = coalesce(cast(${storeNorm} as text), '')`
+  if (after.length !== 1)
+    throw new Error(
+      `写后该渠道(platform=${platform}, store=${storeNorm ?? 'null'})latest 行数为 ${after.length},应为 1(不要报成功)`,
+    )
   const row = after[0]
   if (String(row.version) !== String(version) || Number(row.build_number) !== Number(buildNumber)) {
     throw new Error(
       `写后 latest=${row.version}/${row.build_number},与目标 ${version}/${buildNumber} 不符`,
     )
   }
+  if (normalizeStore(row.store) !== storeNorm) {
+    throw new Error(
+      `写后 latest 的 store=${JSON.stringify(row.store ?? null)},与目标 ${JSON.stringify(storeNorm)} 不符`,
+    )
+  }
   console.log(
-    `[verify] db 现读 latest → ${row.version}/${row.build_number} url=${row.download_url}`,
+    `[verify] db 现读 latest → ${row.version}/${row.build_number} store=${row.store ?? null} url=${row.download_url}`,
   )
   return { plan, wrote: true, row }
 }
@@ -323,6 +394,7 @@ export function parseArgs(argv, env = process.env) {
     via: 'api',
     baseUrl: DEFAULTS.baseUrl,
     platform: DEFAULTS.platform,
+    store: DEFAULTS.store,
     version: DEFAULTS.version,
     buildNumber: DEFAULTS.buildNumber,
     downloadUrl: DEFAULTS.downloadUrl,
@@ -336,6 +408,7 @@ export function parseArgs(argv, env = process.env) {
     if (a === '--via') out.via = argv[++i] ?? ''
     else if (a === '--base-url') out.baseUrl = (argv[++i] ?? '').replace(/\/+$/, '')
     else if (a === '--platform') out.platform = argv[++i] ?? ''
+    else if (a === '--store') out.store = argv[++i] ?? ''
     else if (a === '--version') out.version = argv[++i] ?? ''
     else if (a === '--build-number') out.buildNumber = Number(argv[++i] ?? 0)
     else if (a === '--download-url') out.downloadUrl = argv[++i] ?? ''
@@ -354,6 +427,7 @@ const HELP = `用法: node scripts/register-app-version-latest.mjs [--via api|db
   --platform android  --version 0.0.9  --build-number 26102816
   --download-url ${DEFAULTS.downloadUrl}
   --base-url ${DEFAULTS.baseUrl}
+  --store  (可选:google_play/huawei/xiaomi/yingyongbao/honor/website…;不给 ⇒ 只动 store 为 NULL 那一格)
 
 A 腿(需管理员 JWT,OWNER-ONLY):
   --via api --admin-token <JWT>   (或环境变量 IHUI_ADMIN_TOKEN)
