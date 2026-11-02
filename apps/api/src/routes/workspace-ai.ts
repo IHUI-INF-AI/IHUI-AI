@@ -32,6 +32,8 @@ import {
   routineManager,
   githubClient,
   fsBridge,
+  SubagentWorkspaceAccessError,
+  SubagentLinkError,
 } from '../services/workspace-ai-service.js'
 import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
 import {
@@ -1030,8 +1032,19 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const query = z.object({ workspacePath: z.string().optional() }).parse(request.query)
-    if (query.workspacePath) subagentManager.discover(query.workspacePath)
-    return reply.send(success({ subagents: subagentManager.list() }))
+    // 2026-11-02 收紧:此前只过服务端登记根(或整个跳过),且 list 返回全服已发现集。
+    // 现 discover/list 都走调用者 userId:无该工作区 permission 行一律 404(防枚举不引 403);
+    // 符号链接悬空/越界是脚手架内容错误,给 400 明确文案,不用 404 掩盖。
+    try {
+      const subagents = await subagentManager.list(query.workspacePath, request.userId)
+      return reply.send(success({ subagents }))
+    } catch (e) {
+      if (e instanceof SubagentLinkError) return reply.status(400).send(error(400, e.message))
+      if (e instanceof SubagentWorkspaceAccessError) {
+        return reply.status(404).send(error(404, e.message))
+      }
+      throw e
+    }
   })
 
   server.post('/subagents/delegate', async (request, reply) => {
@@ -1047,11 +1060,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.name || !body.prompt)
       return reply.status(400).send(error(400, 'name 和 prompt 不能为空'))
+    // 2026-11-02 收紧:委派与发现同走调用者授权闸(此前 delegate 不看 userId,
+    // 只要知道 name 就能拿任意 workspacePath 触发他人工作区里的子代理配置)。
+    // 越权同理 404(与 GET 同形,防枚举);符号链接失效仍是 400 明确文案。
     try {
-      const result = await subagentManager.delegate(body)
+      const result = await subagentManager.delegate({ ...body, userId: request.userId })
       return reply.send(success(result))
     } catch (e) {
-      return reply.status(404).send(error(404, (e as Error).message))
+      if (e instanceof SubagentLinkError) return reply.status(400).send(error(400, e.message))
+      if (e instanceof SubagentWorkspaceAccessError) {
+        return reply.status(404).send(error(404, e.message))
+      }
+      throw e
     }
   })
 
