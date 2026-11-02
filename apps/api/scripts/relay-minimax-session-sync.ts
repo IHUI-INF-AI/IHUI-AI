@@ -48,6 +48,8 @@ const { db } = await import('../src/db/index.js')
 const traeSync = await import('./relay-trae-session-sync.js')
 const decideSync = traeSync.__test__.decideSync
 const parseIso = traeSync.__test__.parseIso
+// rt 终点键名单源与 Trae/Qoder 腿共用(§0.6):消费端不得各写一份字面量
+const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
 // 目标行选择单源(2026-11-01 第四条腿收口):运营池优先 / 个人池唯一行 / 多行拒写。
 // 候选查询去掉 owner 过滤,本机号落个人池时不再走自动入池造重复行(与 qoder 事故同型)。
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
@@ -471,7 +473,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         clientToken: token,
         clientRefreshToken: cstr(acc.refreshToken) || null,
         clientExpiresAt: expiryOf(acc),
-        clientRefreshExpiresAt: parseIso(acc.refreshExpiresAt),
+        clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
       })
       if (!final.apply) {
         // 票没轮换 ⇒ 不写任何列:minimax 的会话没有设备材料可补种,健康态也不许被"同票"

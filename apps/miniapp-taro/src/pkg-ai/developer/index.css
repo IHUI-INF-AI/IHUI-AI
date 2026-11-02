@@ -25,7 +25,7 @@
   background: linear-gradient(135deg, var(--color-secondary), var(--color-muted));
   /* custom color: 原蓝紫渐变 rgba(78,140,255)→rgba(106,92,255) 靛渣,已收敛为品牌 secondary/muted */
   margin: var(--spacing-sm-loose);
-  padding: 28rpx 30rpx;
+  padding: var(--spacing-md-loose) 30rpx;
   border-radius: var(--radius-lg);
 }
 .subscribe-entry-body {

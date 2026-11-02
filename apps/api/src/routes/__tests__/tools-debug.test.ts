@@ -24,6 +24,19 @@ vi.mock('jose', () => ({
   decodeJwt: vi.fn(() => ({ type: 'access' })),
 }))
 
+// 认证链(2026-10-30 起)在 authenticate 内 new IORedis(config.REDIS_URL) 做 access 吊销名单
+// (plugins/auth.ts:69)与按用户限流(services/user-rate-limit.ts:35)。本文件没 mock config,
+// 会落到 tests/setup-env.ts 的兜底值 —— 那里指向**生产 Redis 8811**(setup-env 已就此告警)。
+// 真实 ioredis 连不上时,上面两处 `redis.on('error')` 各调一次 logger.error,与本用例断言的
+// logger.error 是同一模块同一方法 ⇒ 断言"1 次"恒读成 2~3 次(2026-11-02 实测调用栈:
+// plugins/auth.ts:71 与 services/user-rate-limit.ts:37/64)。
+// 换仓内唯一内存替身(src/testing/fake-redis.ts):既断掉本用例对生产 Redis 的读写
+// (既有纪律:凡经 await redis 的测试必须 mock ioredis),也让断言只看到路由自己那一次。
+vi.mock('ioredis', async () => {
+  const { createFakeRedisState, makeFakeRedisClass } = await import('../../testing/fake-redis.js')
+  return { default: makeFakeRedisClass(createFakeRedisState()) }
+})
+
 vi.mock('@ihui/database', () => ({
   developerApiKeys: {
     alias: 'alias',
