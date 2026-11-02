@@ -345,6 +345,11 @@ $FailAlertRepeatHours = 4
 $AlertQuietStart = '23:00'; if ($env:IHUI_ALERT_QUIET_START) { $AlertQuietStart = $env:IHUI_ALERT_QUIET_START }
 $AlertQuietEnd   = '07:30'; if ($env:IHUI_ALERT_QUIET_END)   { $AlertQuietEnd   = $env:IHUI_ALERT_QUIET_END }
 $AlertQuietLedgerFile = "$Root\deploy\win\.alert-quiet-ledger.jsonl"
+# ── 族级窗口(2026-11-03 立):同一「部署告警:类别=…」24h 至多一封。
+#    判据住在 scripts/lib/alert-family-gate.mjs(与 IHUI-MONITOR 同一份实现/同一张策略表),
+#    本文件只产族名(Get-DeployAlertFamily,在 alert-dedup.ps1)并调 PS 桥。
+#    状态与监控侧共用 $Root\.ihui-agent\state\alert-family-window.json:族名带前缀,天然分槽。
+$AlertFamilyStateFile = "$Root\.ihui-agent\state\alert-family-window.json"
 # 切流受阻类告警的宽限窗(分钟,2026-10-10 加)。阈值是量出来的,不是拍的:
 #   · 轮询节奏实测 ~70 秒/轮(10-10 10:56:37→11:03:06 六轮,间隔 70±6s)⇒ 15 分钟 = 13 轮
 #   · 被挡段时长分布(10-04→10-10 全日志,37 段)min 8 / p50 32 / p90 288 分钟 ⇒ 37 段里 13 段(35%)
@@ -512,6 +517,18 @@ function Invoke-FailNotify {
             return
         }
     }
+    # [2026-11-03 族窗口] 位置刻意在 Test-AlertDueByIdentity **之前**:族窗口压住期间不得登记
+    # 本身份的 4h 去重槽,否则 24h 届满那一次会被自家 4h 窗再压一轮(与监控侧同一顺序纪律)。
+    # 族名 = 「部署告警:类别=…」,同一失败类别 24h 只留首封;不同类别/不同 generic 骨架分槽不误伤。
+    $family = Get-DeployAlertFamily -Sig $dedupSig
+    $familyGate = Test-AlertFamilyWindow -Family $family -RepoRoot $Root -StateFile $AlertFamilyStateFile
+    if ($familyGate.Suppressed) {
+        Log "ALERT 族级窗口抑制(族=$family, 首封距今 $($familyGate.AgeHours)h < 上限 $($familyGate.CooldownHours)h):本轮不寄,不登记 4h 去重槽"
+        return
+    }
+    if (-not $familyGate.Ok) {
+        Log "ALERT 族窗口判据未判定,按 fail-open 放行:$($familyGate.Error)"
+    }
     $due = Test-AlertDueByIdentity -Sig $dedupSig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
     if (-not $due.Due) {
         Log "ALERT 同身份失败告警本轮跳过:$($due.Note)"
@@ -541,6 +558,11 @@ function Invoke-FailNotify {
     } catch { $mailOk = $false }
     if ($mailOk) {
         try { Remove-Item -LiteralPath $AlertUndelFile -Force -ErrorAction SilentlyContinue } catch {}
+        # [2026-11-03 族窗口] 只在这封**确认真送达**后记族首封;失败不记 ⇒ 下一轮首封仍能重试。
+        $familyCommit = Confirm-AlertFamilyDelivery -Family $family -RepoRoot $Root -StateFile $AlertFamilyStateFile
+        if (-not $familyCommit.Ok) {
+            Log "WARN  族窗口首封未记账(族=$family):$($familyCommit.Error)(下一轮同族仍会照发,不影响送达)"
+        }
     } else {
         try {
             @{ ts = (Get-Date).ToString('o'); sig = $dedupSig; why = '品牌模板与 --plain 降级两条邮件通道均未送达(细节见部署日志 MAIL 行)' } | ConvertTo-Json |
@@ -3132,7 +3154,10 @@ try {
         # 14 枚 build-fail 的 reason 全是同一句固定措辞 ⇒ 事后没人能从台账知道"哪一次为什么挂",
         # 而散文日志只活 ~6 小时。$_ 与告警侧取的是同一份 throw 原文(不另拼一路、不重排两流),
         # 由 deploy-decision.mjs 的 normalizeReason 统一折叠空白并截 400;它不参与告警身份计算 ⇒ 不改 4h 去重。
-        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "构建失败,未切流,保持当前在线版本:$_")
+        # dims 必须点名 web(B87/B88/B91 立因,2026-11-02):此前这一支漏传 -Dims,台账 14 枚 build-fail
+        # 的 failDims 全是空 ⇒ 信号落 dims=(none),事后读不出"哪个端挂了"。build-fail 只可能来自 web
+        # 构建(Build-Web 是唯一抛出点),dims 恒为 web,不是猜。
+        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Dims 'web' -Reason "构建失败,未切流,保持当前在线版本:$_")
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
