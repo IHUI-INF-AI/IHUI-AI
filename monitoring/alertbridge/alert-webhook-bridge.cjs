@@ -23,6 +23,10 @@
 //     (2026-11-02 修)。此前每次推送都刷新时间戳 ⇒ 持续 firing 的告警窗口永远推不远,
 //     只在第一次响、之后永不再报(PostgresDown 实测被压住的正是这一格)。
 //     语义仍是"同一身份在两次投递之间至少隔 BRIDGE_DEDUP_MIN",不是"最后一次推送后再等"。
+//   - 状态文件只存 `dedup` 一张表:落盘走 tmp+rename 原子替换(硬杀不会留半写 JSON);启动时
+//     JSON/形态损坏 ⇒ 原文件先备份成 .corrupt-* 再按空态起算(ERROR 日志 + state_load_failures
+//     计数,不吞错、可人工恢复);条目级非法值(非数/非正/未来时刻)只跳过该条,且未来时间戳
+//     在判据层也不构成压制(否则时钟回拨会把同身份告警压到时钟追平为止)。
 //   - 为什么第三方推送时代需要"每日预算":免费额度是**第三方配额**(5 条/天),不自保就会
 //     撞墙并被静默丢投递。SMTP 是我们自己的服务,自设总量上限等于把"告警静默"再复制一遍
 //     —— 第 11 封恰好是唯一那封真故障时,预算闸门就是事故本身。故寄几封完全由
@@ -208,6 +212,13 @@ function formatAlert(alert) {
 // 每一次会改变去重状态的 webhook 都在**回响应之前**同步落盘(文件极小,代价可忽略)。
 const dedup = new Map() // key=`alertname|instance` -> lastDeliveredTs(最近一次**真正投递**时刻;被抑制的推送不写)
 const MAX_DEDUP_AGE_MS = DEDUP_WINDOW_MIN * 60 * 1000
+/**
+ * 时钟容差(2026-11-02 三修)。时间戳落在"未来"只有两种来源:机器时钟回拨,或状态文件被
+ * 写坏/手工改成未来值。两种都**不得**构成压制 —— 未来时刻 + 窗口会把该身份压到时钟追平
+ * 为止(实测 +4h 的条目让同身份 firing 直接被判重),方向锁只能是"多寄一封",与派发器
+ * decideDedupe 的 `elapsed < 0 ⇒ send` 同向。60s 只容忍正常 NTP 抖动。
+ */
+const CLOCK_SKEW_MS = 60 * 1000
 
 /** 解析 Alertmanager 配置里的 Go duration(4h/30m/45s)→ 毫秒;解析不了返回 null,
  *  自检据此判红而不是悄悄兜一个默认值(两边同值这件事必须由配置本身来证)。 */
@@ -220,7 +231,13 @@ function parseGoDurationMs(text) {
 /** 去重判据(纯读,注入 store ⇒ 只有一个状态源,不造第二份;**判定本身绝不写状态**) */
 function decideDedup(store, key, nowMs, windowMs) {
   const last = store.get(key)
-  return !!(last && nowMs - last < windowMs)
+  if (!last) return false
+  const ts = Number(last)
+  if (!Number.isFinite(ts) || ts <= 0) return false
+  // 未来时间戳不构成压制(见 CLOCK_SKEW_MS):放行后由 partitionAlerts 用本次时刻覆盖,
+  // 未来值自愈;否则时钟回拨/坏状态文件会让同身份告警"该发的没发"。
+  if (ts > nowMs + CLOCK_SKEW_MS) return false
+  return nowMs - ts < windowMs
 }
 /** 一批告警 → 待投递子集(只有判定**可投递**的条目才落状态;被抑制的只读旧值、
  *  不得写回时间戳 —— 写回就是给窗口续期,持续 firing 的告警会被永远压住) */
@@ -240,35 +257,93 @@ function partitionAlerts(alerts, store, nowMs, windowMs) {
 /** 状态文件形态只有一个键 `dedup`(纯函数 ⇒ --self-test 钉死"无预算/计数字段"的无总量封顶契约) */
 function serializeState(store, nowMs, windowMs = MAX_DEDUP_AGE_MS) {
   const dedupObj = {}
-  for (const [k, ts] of store) {
-    if (nowMs - Number(ts) < windowMs) dedupObj[k] = Number(ts)
+  for (const [k, tsRaw] of store) {
+    const ts = Number(tsRaw)
+    // 非数/非正/未来时刻一律不落盘:重启后不得凭一个坏值压制该身份(见 CLOCK_SKEW_MS)。
+    if (!Number.isFinite(ts) || ts <= 0 || ts > nowMs + CLOCK_SKEW_MS) continue
+    if (nowMs - ts < windowMs) dedupObj[k] = ts
   }
   return JSON.stringify({ dedup: dedupObj })
 }
+/**
+ * 落盘**必须原子**(2026-11-02 三修):先写同目录临时文件再 rename 覆盖。
+ * 原实现直接 writeFileSync 到目标路径,NSSM 硬杀/断电落在写入中途会留下截断 JSON;
+ * 下次启动解析失败 ⇒ 静默空态 ⇒ 同身份告警全量重报(多信方向)。rename 在同一卷上是
+ * 原子替换:读者要么看到旧完整文件、要么看到新完整文件,不存在半写中间态。
+ */
 function persistState(file, store, nowMs, log, windowMs = MAX_DEDUP_AGE_MS) {
+  const tmp = `${file}.tmp-${process.pid}`
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, serializeState(store, nowMs, windowMs), 'utf8')
+    fs.writeFileSync(tmp, serializeState(store, nowMs, windowMs), 'utf8')
+    fs.renameSync(tmp, file)
     return true
   } catch (e) {
+    try { fs.rmSync(tmp, { force: true }) } catch { /* 残留由下次同名覆盖 */ }
     // 状态落不下来 = 重启后去重失效(同一告警会重寄)。不得静默。
     log(`[state] 保存去重状态失败(重启后去重会重置): ${e.message}`)
     return false
   }
 }
-/** 读回去重态;返回载入条数(null=首启或文件损坏,按空态起算)。nowMs/windowMs 可注入供 --self-test 钉陈旧条目判据 */
-function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AGE_MS) {
+/**
+ * 读回去重态;返回载入条数(null=首启或文件损坏,按空态起算)。nowMs/windowMs 可注入供 --self-test 钉陈旧条目判据。
+ * 文件损坏/形态不对时:**先备份原文件再按空态起算**,并写 ERROR 日志 + 计数 —— 不吞错,
+ * 也不让下一次 persist 把唯一的诊断证据覆盖掉(备份可人工抢救回有效条目)。
+ * 条目级异常(非数字/非正/未来时刻)只跳过该条并如实报数,不牵连整份文件(保留可恢复能力)。
+ */
+function quarantineStateFile(file, log, why) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const bak = `${file}.corrupt-${stamp}`
   try {
-    const s = JSON.parse(fs.readFileSync(file, 'utf8'))
-    const now = nowMs
-    const stored = s.dedup && typeof s.dedup === 'object' ? s.dedup : {}
-    let n = 0
-    for (const k of Object.keys(stored)) {
-      const ts = Number(stored[k])
-      if (Number.isFinite(ts) && now - ts < windowMs) { store.set(k, ts); n += 1 }
-    }
-    return n
-  } catch { return null }
+    fs.renameSync(file, bak)
+    if (log) log(`[state][ERROR] 状态文件损坏(${why}),已原样备份到 ${bak};本次按空态起算 —— 同身份告警可能在窗口内重报,可从备份人工恢复`)
+    return true
+  } catch (e) {
+    if (log) log(`[state][ERROR] 状态文件损坏(${why})且备份失败(${e.message}) —— 下一次落盘会覆盖原文件,请立即人工留存`)
+    return false
+  }
+}
+function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AGE_MS, log = null) {
+  let raw
+  try {
+    raw = fs.readFileSync(file, 'utf8')
+  } catch (e) {
+    // 文件不存在 = 正常首启,不算故障;其余读失败(权限/占用)才是异常。
+    if (e.code !== 'ENOENT' && log) log(`[state][ERROR] 状态文件不可读(${e.message}) —— 本次按空态起算`)
+    return null
+  }
+  let s
+  try {
+    s = JSON.parse(raw)
+  } catch (e) {
+    counters.stateLoadFailures += 1
+    quarantineStateFile(file, log, `JSON 解析失败: ${e.message}`)
+    return null
+  }
+  // 顶层必须是普通对象、dedup 必须是普通对象(数组的 typeof 也是 object ⇒ 必须显式排除,
+  // 否则索引 0/1 会被当成身份键读进去,既不报错也毫无意义)。
+  if (!s || typeof s !== 'object' || Array.isArray(s)) {
+    counters.stateLoadFailures += 1
+    quarantineStateFile(file, log, '顶层不是 JSON 对象')
+    return null
+  }
+  const stored = s.dedup
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+    counters.stateLoadFailures += 1
+    quarantineStateFile(file, log, 'dedup 字段缺失或类型不是对象')
+    return null
+  }
+  const now = nowMs
+  let n = 0
+  let skipped = 0
+  for (const k of Object.keys(stored)) {
+    const ts = Number(stored[k])
+    // 非数/非正/未来时刻:不载入。未来值会被判据层放行并覆盖(多寄一封),绝不让它压制。
+    if (!Number.isFinite(ts) || ts <= 0 || ts > now + CLOCK_SKEW_MS) { skipped += 1; continue }
+    if (now - ts < windowMs) { store.set(k, ts); n += 1 }
+  }
+  if (skipped && log) log(`[state][WARN] 状态文件有 ${skipped} 条时间戳非法(非数/非正/未来),已跳过;其余 ${n} 条正常载入`)
+  return n
 }
 
 // ── 自监控指标(GET /metrics,标准 Prometheus 文本格式)───────────────────────────
@@ -295,6 +370,7 @@ const counters = {
   alertsDelivered: 0,        // 真正随邮件寄出的告警条数
   plainFallbacks: 0,         // 品牌模板失败但纯文本救回:版式退化了,投递没丢 —— 必须可见
   statePersistFailures: 0,   // 去重态落盘失败 ⇒ 重启后去重重置(本文件注释里那个"重寄"洞的前置信号)
+  stateLoadFailures: 0,      // 状态文件存在但读不出(JSON 坏/形态不对):原文件已备份,本次按空态起算
   undeliveredMarks: 0,       // 写下 UNDELIVERED 标记的次数
   selfScopeReported: 0,      // 按来源锚点判为"采集器/监控自身造成"、只记账不炸到人的条数
   alertsCleared: 0,          // 显式 status=resolved 被清偿(ALERT-CLEARED 记账、未冒充故障寄信)的条数
@@ -351,6 +427,7 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_mail_alerts_delivered_total', 'counter', 'Alerts actually carried out to a human inside delivered batches.', (s) => s.counters.alertsDelivered],
   ['ihui_alertbridge_mail_plain_fallback_total', 'counter', 'Deliveries rescued by the --plain downgrade because the branded template failed (layout degraded, delivery kept).', (s) => s.counters.plainFallbacks],
   ['ihui_alertbridge_state_persist_failures_total', 'counter', 'Times dedup state failed to persist; after a restart dedup then silently resets and alerts get re-mailed.', (s) => s.counters.statePersistFailures],
+  ['ihui_alertbridge_state_load_failures_total', 'counter', 'Times the dedup state file existed but was unparseable/wrong-shaped at startup (original quarantined as .corrupt-* and dedup started empty).', (s) => s.counters.stateLoadFailures],
   ['ihui_alertbridge_undelivered_marks_written_total', 'counter', 'UNDELIVERED markers written (each one means an alert batch went out blind).', (s) => s.counters.undeliveredMarks],
   ['ihui_alertbridge_mail_last_attempt_timestamp_seconds', 'gauge', 'Wall clock of the last mail delivery attempt, 0 = never attempted since start.', (s) => s.lastMailAttemptTs],
   ['ihui_alertbridge_mail_last_success_timestamp_seconds', 'gauge', 'Wall clock of the last successful delivery, 0 = never succeeded since start.', (s) => s.lastMailSuccessTs],
@@ -1274,6 +1351,40 @@ async function runSelfTest() {
   eq('⑪e AM 按 repeat_interval 重推的第一封必然放行(不得被自家窗口压成 8h)', partitionAlerts(alerts, repeatStore, marginFirst + repeatMs, MAX_DEDUP_AGE_MS).toPush.length, 2)
   eq('⑪f Go duration 解析器正反成对(4h/45s 认,裸数字/未知单位不认)', [parseGoDurationMs('4h'), parseGoDurationMs('45s'), parseGoDurationMs('4'), parseGoDurationMs('4d')], [4 * HOUR, 45000, null, null])
 
+  // ⑫ 状态文件损坏/半写/未来时间戳(2026-11-02 三修)。两条方向锁各钉一头:
+  //    坏文件不得被静默当成空态(那会让重启后全量重报 = 多信),未来时刻不得构成压制
+  //    (那会让同身份告警永久静默 = 丢信)。文件损坏时必须先备份再空态起算,且 ERROR 可见。
+  const corruptLogs = []
+  const stateLog = (m) => corruptLogs.push(m)
+  const corruptBase = tmpProbe('corrupt')
+  cleanup.push(corruptBase)
+  const parentDir = path.dirname(corruptBase)
+  const corruptBaks = () => fs.readdirSync(parentDir).filter((f) => f.startsWith(path.basename(corruptBase) + '.corrupt-'))
+  const mkCorrupt = (text) => {
+    for (const f of corruptBaks()) fs.rmSync(path.join(parentDir, f), { force: true })
+    fs.writeFileSync(corruptBase, text, 'utf8')
+  }
+  mkCorrupt('{"dedup":{')
+  eq('⑫a 非法 JSON 不崩、按空态起算(null)', loadDedupState(corruptBase, new Map(), Date.now(), HOUR, stateLog), null)
+  eq('⑫b 损坏文件原样备份(可人工恢复),原路径不再留坏文件', [corruptBaks().length, fs.existsSync(corruptBase)], [1, false])
+  eq('⑫c 损坏必须喊出来(ERROR 行点名原因,不吞错)', [corruptLogs.some((l) => /\[state\]\[ERROR\]/.test(l)), corruptLogs.some((l) => /JSON 解析失败/.test(l))], [true, true])
+  mkCorrupt(JSON.stringify({ dedup: [{ x: 1 }] }))
+  eq('⑫d dedup 字段类型不对(数组)同样判损坏并备份(不得静默当空对象)', [loadDedupState(corruptBase, new Map(), Date.now(), HOUR, stateLog), corruptBaks().length], [null, 1])
+  mkCorrupt(JSON.stringify({ dedup: { 'Future|x': Date.now() + 4 * HOUR, 'Ok|y': Date.now() - 60000 } }))
+  const futStore = new Map()
+  eq('⑫e 未来时间戳条目不载入,同文件里的正常条目照常载入(条目级隔离,不牵连整份文件)', [loadDedupState(corruptBase, futStore, Date.now(), HOUR, stateLog), futStore.has('Future|x'), futStore.has('Ok|y')], [1, false, true])
+  eq('⑫f 判据层同样不认未来时间戳(放行,不得压到时钟追平为止)', decideDedup(new Map([['Future|x', Date.now() + 4 * HOUR]]), 'Future|x', Date.now(), HOUR), false)
+  eq('⑫g 持久化不得把未来时刻写进文件(重启后也不给压制留载体)', /"Future\|x"/.test(serializeState(new Map([['Future|x', Date.now() + 4 * HOUR]]), Date.now(), HOUR)), false)
+  const atomicFile = tmpProbe('atomic')
+  cleanup.push(atomicFile)
+  const atomicDir = path.dirname(atomicFile)
+  const tmpLeft = () => fs.readdirSync(atomicDir).filter((f) => f.startsWith(path.basename(atomicFile) + '.tmp-'))
+  const a1 = persistState(atomicFile, new Map([['A|a', Date.now() - 1000]]), Date.now(), stateLog, HOUR)
+  const a2 = persistState(atomicFile, new Map([['B|b', Date.now() - 1000]]), Date.now(), stateLog, HOUR)
+  eq('⑫h 原子写:两次覆盖都成功且无 .tmp- 残留(不存在半写中间态)', [a1, a2, tmpLeft().length, Object.keys(JSON.parse(fs.readFileSync(atomicFile, 'utf8')).dedup)], [true, true, 0, ['B|b']])
+  eq('⑫i 状态载入失败进入可观测计数(坏文件不是无声事件)', counters.stateLoadFailures > 0, true)
+  for (const f of corruptBaks()) fs.rmSync(path.join(parentDir, f), { force: true })
+
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
@@ -1289,7 +1400,7 @@ function startServer() {
   // `for: 10m` 会把一次正常重启读成"分流失明"。
   const anchor = currentLogAnchor()
   server.listen(PORT, '127.0.0.1', () => {
-    const n = loadDedupState(STATE_FILE, dedup) // 去重态跨重启延续(修前只在 3s 防抖窗口内存活)
+    const n = loadDedupState(STATE_FILE, dedup, Date.now(), MAX_DEDUP_AGE_MS, writeLog) // 去重态跨重启延续;损坏文件先备份再空态起算
     if (fs.existsSync(UNDEL_FILE)) {
       writeLog(`[mail][WARN] 存在未送达标记 ${UNDEL_FILE} —— 此前有告警未能到人,处置后由下一次成功投递自动清除`)
     }
