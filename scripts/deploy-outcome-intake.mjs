@@ -22,6 +22,11 @@
  *   canary-rollback    是    perf_degradation   error     观察窗异常,自动回滚
  *   canary-unproven    否    —                  —         未判定(样本不足),不冒充失败
  *
+ * 演练绝缘(B69,2026-11-02):`synthetic === true` 的决策(联测/演练构造记录)不产信号,
+ * 只计入 `synthetic` 读数。旧形态(2026-10-31 那枚先于 `--synthetic` 存在的记录)按其
+ * reason 的显式前缀「联测构造记录」识别 —— 这是对既有脏账的一次性归位,不是猜;
+ * 真实回滚的 reason 绝不会以该前缀开头。演练不得变成生产 error 告警。
+ *
  * 形态纪律:
  *  - 身份去重只问 `scripts/lib/incident-cluster.mjs` 的 `identityOf`(全仓唯一身份定义),
  *    不得自造第二份 key 规则;默认 24h 窗口内同身份只产一次;`--out` 已有文件的同身份行
@@ -53,6 +58,8 @@ export const DEFAULT_OUT = join(ROOT, '.ihui-agent', 'state', 'incident-signals.
 export const RESULT_PREFIX = 'DEPLOY-INTAKE'
 export const DEFAULT_MINUTES = 24 * 60
 const SOURCE = 'deploy_outcome'
+/** 旧演练记录的显式 reason 前缀(2026-10-31 那枚记录早于 `--synthetic` 字段存在)。 */
+export const LEGACY_DRILL_REASON_PREFIX = '联测构造记录'
 const DECISION_VERSION = 1
 const MAX_REASON = 200
 const MAX_DIMS = 12
@@ -117,6 +124,16 @@ export function sanitizeShortHex(text) {
 }
 
 /**
+ * 演练/联测记录识别:显式 `synthetic:true` 优先;旧记录按 reason 的显式前缀归位。
+ * 只认这两个有据可查的形态 —— 不按 host/pid/时间窗口猜"这大概是演练"。
+ */
+export function isSyntheticDecision(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false
+  if (raw.synthetic === true) return true
+  return asText(raw.reason).startsWith(LEGACY_DRILL_REASON_PREFIX)
+}
+
+/**
  * 一条部署决策 → `{produce:false,action}` 或 `{produce:true,action,signal}`。
  * 纯函数(不碰盘),非法形状一律 throw —— 本器不替调用方猜"这大概是回滚"。
  */
@@ -131,6 +148,8 @@ export function decisionToSignal(raw, contract = loadContract()) {
   if (!(action in OUTCOME_MAP)) {
     throw new IntakeShapeError(`action 非法:「${action || '(空)'}」(闭集:${Object.keys(OUTCOME_MAP).join('/')})`)
   }
+  // action 形状仍先校验(坏形状照旧落未判定);演练行在映射到告警之前绝缘。
+  if (isSyntheticDecision(raw)) return { produce: false, action, synthetic: true }
   const rule = OUTCOME_MAP[action]
   if (!rule) return { produce: false, action }
 
@@ -239,12 +258,16 @@ export function planIntake({ decisions, contract, minutes, existing = [] }) {
   const bad = []
   const signals = []
   let skipped = 0
+  let synthetic = 0
   decisions.forEach((row, i) => {
     const line = row?.line ?? i + 1
     try {
       const r = decisionToSignal(row?.object, contract)
       if (!r.produce) {
-        skipped += 1
+        // 演练行单列读数:它与「pass 不产信号」是两件事,混在 skipped 里会让
+        // 「演练被绝缘」看起来像「本轮正常出口」,审计时无法区分。
+        if (r.synthetic) synthetic += 1
+        else skipped += 1
         return
       }
       const t = Date.parse(r.signal.at)
@@ -268,7 +291,7 @@ export function planIntake({ decisions, contract, minutes, existing = [] }) {
       bad.push({ line, reason: e?.message ?? String(e) })
     }
   })
-  return { signals, skipped, bad, undetermined: bad.length }
+  return { signals, skipped, synthetic, bad, undetermined: bad.length }
 }
 
 /** 追加写(仅追加不改写,与既有台账同形)。0 条时不建目录、不落空文件。 */
@@ -409,6 +432,24 @@ export function runSelfTest() {
   const unknown = planIntake({ decisions: [{ line: 1, object: mk({ action: 'auto-heal' }) }], contract, minutes: DEFAULT_MINUTES, existing: [] })
   ok('未知 action 落未判定(不猜)', unknown.undetermined === 1 && unknown.signals.length === 0)
 
+  // —— B69 演练绝缘(2026-11-02):synthetic 与旧 reason 标记都不得产 error 告警 ——
+  const drill = decisionToSignal(mk({ synthetic: true }), contract)
+  ok('synthetic 记录不产信号且单列标记', drill.produce === false && drill.synthetic === true)
+  const legacy = decisionToSignal(mk({ reason: `${LEGACY_DRILL_REASON_PREFIX}:本机无生产部署决策账` }), contract)
+  ok('旧演练 reason 前缀按 synthetic 绝缘(不产信号)', legacy.produce === false && legacy.synthetic === true)
+  const real = decisionToSignal(mk({}), contract)
+  ok('反向:同形真实回滚仍产 error 告警', real.produce === true && real.signal.severity === 'error' && real.signal.route === 'deploy/rollback')
+  const mixed = planIntake({
+    decisions: [
+      { line: 1, object: mk({ synthetic: true }) },
+      { line: 2, object: mk({ ts: '2026-10-26T11:00:00.000Z' }) },
+    ],
+    contract,
+    minutes: DEFAULT_MINUTES,
+    existing: [],
+  })
+  ok('演练计数与正常出口分开(synthetic=1 / skipped=0 / signals=1)', mixed.synthetic === 1 && mixed.skipped === 0 && mixed.signals.length === 1)
+
   for (const c of checks) console.log(`${c.ok ? 'PASS' : 'FAIL'}  ${c.name}${c.ok ? '' : ` — ${c.why}`}`)
   const failed = checks.filter((c) => !c.ok)
   console.log(`# deploy-outcome-intake self-test ${checks.length - failed.length}/${checks.length}`)
@@ -499,6 +540,7 @@ function main(argv) {
         judged: true,
         signals: result.signals.length,
         skipped: result.skipped,
+        synthetic: result.synthetic,
         undetermined: 0,
         rows: result.signals,
       }),
@@ -510,7 +552,9 @@ function main(argv) {
     console.error(`DEPLOY-INTAKE-WRITE-FAILED ${outPath}: ${e?.message ?? e}`)
     return 3
   }
-  console.log(`${RESULT_PREFIX} signals=${result.signals.length} skipped=${result.skipped} undetermined=0`)
+  console.log(
+    `${RESULT_PREFIX} signals=${result.signals.length} skipped=${result.skipped} synthetic=${result.synthetic} undetermined=0`,
+  )
   return 0
 }
 
@@ -527,6 +571,8 @@ export const __test__ = {
   IntakeShapeError,
   appendSignals,
   decisionToSignal,
+  isSyntheticDecision,
+  LEGACY_DRILL_REASON_PREFIX,
   parseArgs,
   parseExistingSignals,
   planIntake,
