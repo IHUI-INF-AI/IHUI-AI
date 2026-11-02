@@ -50,7 +50,10 @@ const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
 const gateMode = argv.includes('--gate')
 const baselineMode = argv.includes('--baseline')
-const faceSel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
+const faceSel = selectFace({
+  staged: argv.includes('--staged'),
+  worktree: argv.includes('--worktree'),
+})
 if (faceSel.error) {
   console.error(`❌ ${faceSel.error} ⇒ 未判定,不猜哪一个算`)
   process.exit(2)
@@ -65,22 +68,46 @@ const FACE = faceSel.face
 export function judgeRatchet(readings, { prefixCap = PREFIX_HITS_CAP } = {}) {
   const failures = []
   if (!Number.isInteger(readings?.unmapped) || readings.unmapped < 0)
-    failures.push({ rule: 'unmapped-undetermined', detail: `unmapped 非自然数:${String(readings?.unmapped)}` })
-  else if (readings.unmapped !== 0) failures.push({ rule: 'unmapped', detail: `unmapped=${readings.unmapped}(要求 0)` })
+    failures.push({
+      rule: 'unmapped-undetermined',
+      detail: `unmapped 非自然数:${String(readings?.unmapped)}`,
+    })
+  else if (readings.unmapped !== 0)
+    failures.push({ rule: 'unmapped', detail: `unmapped=${readings.unmapped}(要求 0)` })
   if (!Number.isInteger(readings?.judgedGap) || readings.judgedGap < 0)
-    failures.push({ rule: 'judgedGap-undetermined', detail: `judgedGap 非自然数:${String(readings?.judgedGap)}` })
-  else if (readings.judgedGap !== 0) failures.push({ rule: 'judgedGap', detail: `judgedGap=${readings.judgedGap}(要求 0)` })
+    failures.push({
+      rule: 'judgedGap-undetermined',
+      detail: `judgedGap 非自然数:${String(readings?.judgedGap)}`,
+    })
+  else if (readings.judgedGap !== 0)
+    failures.push({ rule: 'judgedGap', detail: `judgedGap=${readings.judgedGap}(要求 0)` })
   if (!Number.isInteger(readings?.prefixHits) || readings.prefixHits < 0)
-    failures.push({ rule: 'prefixHits-undetermined', detail: `prefixHits 非自然数:${String(readings?.prefixHits)}` })
+    failures.push({
+      rule: 'prefixHits-undetermined',
+      detail: `prefixHits 非自然数:${String(readings?.prefixHits)}`,
+    })
   else if (readings.prefixHits > prefixCap)
-    failures.push({ rule: 'prefixHits', detail: `prefixHits=${readings.prefixHits} > 容量 ${prefixCap}(段级豁免不得扩张)` })
+    failures.push({
+      rule: 'prefixHits',
+      detail: `prefixHits=${readings.prefixHits} > 容量 ${prefixCap}(段级豁免不得扩张)`,
+    })
   if (!Number.isInteger(readings?.prefixExpired) || readings.prefixExpired < 0)
-    failures.push({ rule: 'prefixExpired-undetermined', detail: `prefixExpired 非自然数:${String(readings?.prefixExpired)}` })
+    failures.push({
+      rule: 'prefixExpired-undetermined',
+      detail: `prefixExpired 非自然数:${String(readings?.prefixExpired)}`,
+    })
   else if (readings.prefixExpired !== 0)
-    failures.push({ rule: 'prefixExpired', detail: `prefixExpired=${readings.prefixExpired}(豁免已到期,须复核/续期)` })
+    failures.push({
+      rule: 'prefixExpired',
+      detail: `prefixExpired=${readings.prefixExpired}(豁免已到期,须复核/续期)`,
+    })
 
   const alignedRows = Array.isArray(readings?.alignedRows) ? readings.alignedRows : null
-  if (alignedRows === null) failures.push({ rule: 'aligned-undetermined', detail: 'alignedRows 不是数组 ⇒ data.kind 完整性判不了' })
+  if (alignedRows === null)
+    failures.push({
+      rule: 'aligned-undetermined',
+      detail: 'alignedRows 不是数组 ⇒ data.kind 完整性判不了',
+    })
   else {
     const bad = alignedRows.filter((r) => !DATA_KINDS.has(r?.data?.kind))
     if (bad.length > 0)
@@ -104,7 +131,11 @@ function loadBaseline() {
   let text = null
   try {
     if (FACE === 'worktree') text = readWorktreeFile(ROOT, BASELINE_REL)
-    else text = catBatch(ROOT, [specPrefix + BASELINE_REL], { maxBuffer: 1 << 28 }).get(specPrefix + BASELINE_REL) ?? null
+    else
+      text =
+        catBatch(ROOT, [specPrefix + BASELINE_REL], { maxBuffer: 1 << 28 }).get(
+          specPrefix + BASELINE_REL,
+        ) ?? null
   } catch {
     text = null
   }
@@ -149,12 +180,21 @@ function collectReadings(face = FACE) {
   const webRoutes = parity.collectWebRoutes(face)
   const rnScreens = parity.collectRnScreens(face)
   if (webRoutes.length === 0 || rnScreens.length === 0)
-    throw new Error(`取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length})⇒ 未判定`)
+    throw new Error(
+      `取不到被审面(web 路由 ${webRoutes.length} / RN 屏 ${rnScreens.length})⇒ 未判定`,
+    )
   const mapDetail = parity.loadMapDetailed(face)
   if (mapDetail.unreadable) throw new Error(`台账 ${parity.MAP_PATH} 取不到 ⇒ 未判定`)
   const portal = parity.collectPortalRoutes(face)
   if (portal.unreadable) throw new Error('门户表取不到 ⇒ unmapped 判不了,未判定(§0.3)')
-  const ev = parity.evaluateMap(webRoutes, mapDetail.rows, rnScreens, face, portal, mapDetail.unreadable)
+  const ev = parity.evaluateMap(
+    webRoutes,
+    mapDetail.rows,
+    rnScreens,
+    face,
+    portal,
+    mapDetail.unreadable,
+  )
   const expiry = ev.missingExpiry ?? { items: [] }
   if (Array.isArray(expiry.undetermined) && expiry.undetermined.length > 0)
     throw new Error(`段级豁免到期维未判定:${expiry.undetermined.join(';')}`)
@@ -178,7 +218,9 @@ function report(face, readings, verdict, baseline) {
   console.log(`unmapped      : ${readings.unmapped} (要求 0)`)
   console.log(`judgedGap     : ${readings.judgedGap} (要求 0)`)
   console.log(`aligned       : ${readings.aligned} (data.kind 必须完整)`)
-  console.log(`prefixHits    : ${readings.prefixHits} (容量 ${verdict.prefixCap}${baseline ? ',取自基线' : ',首跑常量'})`)
+  console.log(
+    `prefixHits    : ${readings.prefixHits} (容量 ${verdict.prefixCap}${baseline ? ',取自基线' : ',首跑常量'})`,
+  )
   console.log(`prefixExpired : ${readings.prefixExpired} (要求 0)`)
   if (verdict.failures.length === 0) {
     console.log('\n✅ 全部棘轮判据在闸内')
