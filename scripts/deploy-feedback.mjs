@@ -604,7 +604,7 @@ export function runRound({
     code: 0,
     status: 'undetermined',
     why: null,
-    input: { path: inputPath, total: 0, deployRows: 0, badRows: 0, invalidRows: 0 },
+    input: { path: inputPath, total: 0, deployRows: 0, badRows: 0, invalidRows: 0, agedRows: 0 },
     family: null,
     candidates: [],
     clusters: [],
@@ -651,13 +651,30 @@ export function runRound({
   }
   out.input.invalidRows = invalid.length
 
+  // 窗口外旧信号绝缘(B69,2026-11-02):`clusterSignals` 的窗口锚点是批次内最新时刻
+  // (纯函数为离线复算而设),只含一条历史信号时它会永远自锚 ⇒ 24h 去重过期后同一枚旧证据
+  // 每天重登记一次(实测 B53→B67→B69 三天三牌)。生产轮以真墙钟 `now` 先剔窗口外行:
+  // 不改变纯函数语义,也不让旧证据复活成新票;新发生的同形信号(新 at)照常进窗。
+  const windowStartMs = now.getTime() - minutes * 60_000
+  const fresh = []
+  const aged = []
+  for (const x of valid) {
+    const t = Date.parse(x.signal.at)
+    if (t >= windowStartMs) fresh.push(x)
+    else aged.push(x)
+  }
+  out.input.agedRows = aged.length
+  if (aged.length > 0) {
+    log(`ℹ 窗口外 ${aged.length} 条 ${DEPLOY_SOURCE} 信号早于 ${new Date(windowStartMs).toISOString()} ⇒ 不纳入本轮(旧证据不得复活成新票)`)
+  }
+
   log(
     `分诊轮:输入=${inputPath}(总行 ${out.input.total},deploy_outcome ${deployRows.length},坏行 ${parsed.bad.length},形状坏 ${invalid.length}) 窗口=${minutes}min 门槛=${gate.minCount}(${gate.basis})`,
   )
   for (const b of parsed.bad) warn(`BAD-LINE line=${b.line} ${b.reason}`)
   for (const b of invalid) warn(`BAD-SIGNAL line=${b.line} ${b.reason}`)
 
-  if (valid.length === 0) {
+  if (fresh.length === 0) {
     if (deployRows.length === 0 && parsed.bad.length === 0) {
       out.status = 'judged'
       log(`✅ 判定:输入里没有 source=${DEPLOY_SOURCE} 的行 ⇒ 无可派单候选`)
@@ -671,7 +688,13 @@ export function runRound({
       }
       return out
     }
-    out.why = `没有一条通过契约校验的 ${DEPLOY_SOURCE} 信号(坏行 ${parsed.bad.length},形状坏 ${invalid.length})`
+    if (aged.length > 0 && invalid.length === 0 && parsed.bad.length === 0) {
+      // 全是窗口外旧证据:这是「已判定、无可派单候选」,不是「读不懂」。
+      out.status = 'judged'
+      log(`✅ 判定:${aged.length} 条 ${DEPLOY_SOURCE} 信号均在 ${minutes}min 窗口外 ⇒ 无可派单候选(不重登记旧票)`)
+      return out
+    }
+    out.why = `没有一条通过契约校验的 ${DEPLOY_SOURCE} 信号(坏行 ${parsed.bad.length},形状坏 ${invalid.length},窗口外 ${aged.length})`
     warn(`未判定:${out.why}`)
     out.code = 2
     return out
@@ -680,7 +703,7 @@ export function runRound({
   let clusters
   try {
     clusters = clusterSignals(
-      valid.map((x) => x.signal),
+      fresh.map((x) => x.signal),
       { windowMinutes: minutes, contract: c },
     )
   } catch (e) {
@@ -692,7 +715,7 @@ export function runRound({
   out.clusters = clusters
 
   const byIdentity = new Map()
-  for (const x of valid) {
+  for (const x of fresh) {
     const id = identityOf(x.signal)
     const arr = byIdentity.get(id) ?? []
     arr.push(x)
