@@ -32,7 +32,6 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import {
-  agentRuntimeSessions,
   agents,
   circlePosts,
   liveComment,
@@ -41,6 +40,7 @@ import {
 } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
+import { appendMessages, findLatestSession, readLatestSession } from '../db/agent-chat-queries.js'
 import { findCircleByIdOrSlug } from '../db/community-queries.js'
 import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
 import { escapeHtml } from '../websocket/chat-server.js'
@@ -97,28 +97,12 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     return { agent }
   }
 
-  async function findLatestSession(agentId: string, userId: string) {
-    const [row] = await dbRead
-      .select()
-      .from(agentRuntimeSessions)
-      .where(
-        and(
-          eq(agentRuntimeSessions.botId, agentId),
-          eq(agentRuntimeSessions.userId, userId),
-          eq(agentRuntimeSessions.status, 'active'),
-        ),
-      )
-      .orderBy(desc(agentRuntimeSessions.updatedAt))
-      .limit(1)
-    return row ?? null
-  }
-
   // GET /agents/:id/messages - 与某 Agent 的历史消息(最近一个 active 会话,正序)
   server.get('/agents/:id/messages', async (request, reply) => {
     const { id } = request.params as { id: string }
     const found = await loadPublishedAgent(id)
     if ('missing' in found) return reply.status(404).send(error(404, 'Agent 不存在'))
-    const session = await findLatestSession(id, request.userId!)
+    const session = await readLatestSession(id, request.userId!)
     const messages = Array.isArray(session?.messages) ? session.messages : []
     return reply.send(
       success(
@@ -140,7 +124,8 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     if ('missing' in found) return reply.status(404).send(error(404, 'Agent 不存在'))
 
     const userId = request.userId!
-    const existing = await findLatestSession(id, userId)
+    // 读全文:上下文窗口只作用于喂给 LLM 的那一份,不影响落库完整性。
+    const existing = await readLatestSession(id, userId)
     const history = (Array.isArray(existing?.messages) ? existing.messages : [])
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .slice(-LLM_HISTORY_WINDOW)
@@ -188,23 +173,11 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
       content: assistantContent,
       timestamp: now,
     }
-    const nextMessages = [...history, userMsg, assistantMsg]
-    if (existing) {
-      // nextMessages 必比库里多这两条真消息(先取过 history 现值,守门 198 出口形态,展开名固定 changed)
-      const changed = { messages: nextMessages }
-      await db
-        .update(agentRuntimeSessions)
-        .set({ ...changed, updatedAt: new Date() })
-        .where(eq(agentRuntimeSessions.id, existing.id))
-    } else {
-      await db.insert(agentRuntimeSessions).values({
-        id: `sess_${crypto.randomUUID()}`,
-        botId: id,
-        userId,
-        status: 'active',
-        messages: nextMessages,
-      })
-    }
+    // B1:成功才写 —— 锁内取/建会话,再以 `messages || $jsonb` 原子追加到**完整**历史。
+    // 不再用 [...history, user, assistant] 覆盖:history 只有 20 条窗口,覆盖会把
+    // 早期消息永久截断,也会吃掉并发请求刚追加的两条。
+    const session = await findLatestSession(id, userId)
+    await appendMessages(session.id, [userMsg, assistantMsg])
 
     return reply.send(
       success({ id: assistantMsg.id, role: 'assistant', content: assistantContent }),
