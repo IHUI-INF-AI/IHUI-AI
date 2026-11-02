@@ -8067,6 +8067,125 @@ export function sweepDesktopDiscoveryBudget(opts = {}) {
   }
 }
 
+/**
+ * iOS `.ipa` 中继到自有站点腿(2026-11-03 立;执行器 = `scripts/publish-mobile-ipa.mjs --from-release`)。
+ *
+ * 为什么必须由守护来跑:iOS 的包在 macOS runner 上构建,这台机器过去**从不需要**它的字节,
+ * 所以站点腿上永远不会有 `.ipa` —— 下载栏里 iOS 是唯一还挂 GitHub 资产域名(2026-11-02 实测
+ * API 0.9s 而资产下载 12s 超时 2/3 次)的实物包。没有调度器,这条链就是"器物造好了没人开车"(§0.9)。
+ *
+ * 三档语义(与 §0.3/§5e-1 对齐):
+ *   rc 0 ⇒ 上腿成功,清持续台账;
+ *   rc 1 ⇒ 真失败(包已落腿但登记不成 / 自证不过)⇒ 当场喊人(可整改动作在执行器打印的命令里);
+ *   rc 2 ⇒ 未判定(还没可自证的版本号 / 跨境段取不到包 / 落点不在)⇒ 平时只写日志,
+ *          **持续 72h+ 才升格喊人**(alertHeldTier 的 tierEscalated)——版本号自证那一步要靠
+ *          iOS 构建链产出 ios-version.json,那枚资产要等下一次 iOS 构建才有,天天喊就是噪声;
+ *          但也不能永远不喊:那样"腿一直空着"与"刚切完正常"长得一样。
+ */
+const IOS_RELAY_TICK = join(WORKTREE, '.ihui-agent', 'state', 'ios-ipa-relay-tick.ts')
+const IOS_RELAY_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'ios-ipa-relay-first.json')
+const IOS_RELAY_INTERVAL_MS = Number(process.env.IHUI_IOS_RELAY_INTERVAL_MS || 60 * 60 * 1000)
+const IOS_RELAY_TIMEOUT_MS = Number(process.env.IHUI_IOS_RELAY_TIMEOUT_MS || 20 * 60 * 1000)
+
+export function sweepIosIpaRelay(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = IOS_RELAY_INTERVAL_MS,
+    tickFile = IOS_RELAY_TICK,
+    firstFile = IOS_RELAY_FIRST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'publish-mobile-ipa.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ iOS 站点腿中继:执行器不在位(scripts/publish-mobile-ipa.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '执行器不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--from-release'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b
+                timeout: IOS_RELAY_TIMEOUT_MS,
+                maxBuffer: 1 << 24,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    const tail = ([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(-600)
+    if (call.status === 0) {
+      clearUndeterminedStreak(firstFile)
+      logger('✅ iOS 站点腿中继:版本副本已落地、指针已翻、登记腿已写(详见执行器输出)')
+      return { ran: true, judged: true, state: 'published' }
+    }
+    if (call.status === 1) {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      notify(
+        'iOS 包已发到站点腿但没收口:登记或自证失败',
+        [
+          '执行器 `scripts/publish-mobile-ipa.mjs --from-release` 以 1 退出 —— 这一档是"包已经在腿上,',
+          '但账没收平"(app_versions 没写上 / 本地源站自证不过),不是网络抖动:',
+          tail,
+          '',
+          '可整改的那一步在执行器打印的整改命令里(register-app-version-latest,幂等,只补登记不重发包)。',
+          '若失败的是自证:先 `nssm status IHUI-IMAGE-CDN` 与 `curl -sSI -H "Host: www.aizhs.top" ' +
+            'http://127.0.0.1:80/remote-images/download/ihui-ai-latest.ipa` 看指针有没有转 302。',
+        ].join('\n'),
+        { severity: 'warning', dedupKey: `verdict=fail;held=${held.tier}` },
+      )
+      logger('❌ iOS 站点腿中继:执行器以 1 退出(已发信)')
+      return { ran: true, judged: true, state: 'fail' }
+    }
+    // rc 2 = 未判定
+    const { firstMs } = noteUndeterminedStreak(firstFile, now)
+    const held = alertHeldTier(firstMs, now)
+    if (held.tierEscalated) {
+      notify(
+        `iOS 站点腿已持续 ${String(held.hours)} 小时拿不到可自证的包`,
+        [
+          '执行器一直返回"未判定"(rc 2)。最常见成因:release `ios-nightly` 里还没有 `ios-version.json`',
+          '—— 那枚资产要等 iOS 构建链跑一次才会有(2026-11-03 加的步骤);其次是跨境段取不到包、',
+          '或站点腿落点不在(生产签出根取不到 ⇒ 执行器 exit 2 点名已试路径)。',
+          tail,
+          '',
+          '要么让下一次 iOS 构建产出该资产,要么显式补一次:',
+          '  node scripts/publish-mobile-ipa.mjs --ipa <path> --version X.Y.Z --build-number <纯数字>',
+        ].join('\n'),
+        { severity: 'warning', dedupKey: 'verdict=undetermined;escalated=72h+' },
+      )
+      logger(`❌ iOS 站点腿中继:未判定已持续 ${String(held.hours)}h ⇒ 升格喊人(§0.10 不许静默)`)
+      return { ran: true, judged: false, state: 'undetermined-escalated', held: held.tier }
+    }
+    logger(`ℹ️ iOS 站点腿中继:未判定(${held.tier})—— 平时不喊人,持续 72h+ 才升格`)
+    return { ran: true, judged: false, state: 'undetermined', held: held.tier }
+  } catch (e) {
+    logger('⚠️ iOS 站点腿中继派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -11728,6 +11847,7 @@ async function main() {
     // 判公网与线上数据 ⇒ 不进提交链(§12e),唯一调度器就是这里;红项正文直接给登记器物那一步(OWNER-ONLY)。
     if (!CHECK_ONLY) auditAppVersionLatest()
     if (!CHECK_ONLY) sweepDesktopDiscoveryBudget()
+    if (!CHECK_ONLY) sweepIosIpaRelay()
     // 逐字回潮巡检(2026-10-29 立,尺子 = scripts/check-verbatim-resurrection.mjs,6h 节流):立因 =
     // 同日的嫁接枚 1fe3a2b42d 把 9 枚已声明删除的路径带回主线,而 168 要 ≥2 个父、旁路落地不跑钩子、
     // 238 只管文档面 —— 这型在提交链上结构上无人能看见,只能由常驻班次在"一切面"上判。
@@ -13023,6 +13143,7 @@ export const __test__ = {
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
   auditAppVersionLatest,
   sweepDesktopDiscoveryBudget,
+  sweepIosIpaRelay,
   // git filter 残留巡检(2026-10-31 立):解析判据与派发腿本体导出,镜像测试只 import 这一份(§22c)。
   auditGitFilterResidue,
   parseGitFilterKeys,
