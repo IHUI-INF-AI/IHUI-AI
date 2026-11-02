@@ -16,5 +16,14 @@
     "owner": "git-guardian",
     "reviewBy": "2026-11-16",
     "evidence": "node scripts/check-tunnel-leg-health.mjs --json"
+  },
+  {
+    "id": "feedback-loop-backlog",
+    "prefix": "反馈闭环卡住超 48h",
+    "cooldownMs": 86400000,
+    "reason": "同一批积压卡点的条数会变(1/2/3 条),原先条数进告警名 ⇒ 每变一次就是新身份、4h 窗口失效(24h 实测 8 封,卡点还是同样两条)。积压只增不减属提醒类而非新故障;改为族级 24h 只留首封 + 正文带累计抑制计数,判据仍逐轮判红。",
+    "owner": "git-guardian",
+    "reviewBy": "2026-11-16",
+    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl 24h 同族 8 封 / node scripts/git-guardian.mjs 反馈闭环巡检段"
   }
 ]
