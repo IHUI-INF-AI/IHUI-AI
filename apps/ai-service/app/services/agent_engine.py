@@ -81,6 +81,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
+
+# 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
+# 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
+from app.core.background_tasks import spawn
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
 from app.core.feature_flags import FeatureRegistry, FeatureSpec
 
@@ -3243,7 +3247,12 @@ class AgentEngine:
             # 在那之前把 cancel() 排进独立任务,子循环正在跑的工具才能看到取消标志。
             cancel_running = getattr(loop, "cancel", None)
             if cancel_running is not None and not getattr(loop, "_cancel_requested", False):
-                asyncio.get_running_loop().create_task(cancel_running())
+                # 守门 247:原为裸 `asyncio.get_running_loop().create_task(...)`,返回值即丢
+                # ⇒ 事件循环只握弱引用,这条 cancel 可能在子循环看到取消标志之前就被 GC 吞掉。
+                # 语义逐字不变:`spawn` 内部就是 asyncio.create_task(同一个 running loop),
+                # 只多了一层强引用登记;无 loop 时同样抛 RuntimeError,不新增异常路径。
+                # 此处不能 await:正在传播的 CancelledError 会立刻打断 await,取消反而不到位。
+                spawn(cancel_running(), name="agent-engine-loop-cancel")
             raise
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)

@@ -500,7 +500,7 @@ export function EduTeacherStudyPlanScreen({
                     >
                       <View style={[styles.checkbox, item.completed ? styles.checkboxOn : null]}>
                         {item.completed ? (
-                          <Check size={11} color={tk.brand.foreground} strokeWidth={3} />
+                          <Check size={11} color={styles.checkboxOnText.color} strokeWidth={3} />
                         ) : null}
                       </View>
                       <View style={styles.itemMain}>
@@ -540,7 +540,7 @@ export function EduTeacherStudyPlanScreen({
                           ]}
                         >
                           {child.completed ? (
-                            <Check size={11} color={tk.brand.foreground} strokeWidth={3} />
+                            <Check size={11} color={styles.checkboxOnText.color} strokeWidth={3} />
                           ) : null}
                         </View>
                         <View style={styles.itemMain}>
@@ -1083,7 +1083,9 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     checkboxSm: { width: 15, height: 15 },
-    checkboxOn: { backgroundColor: tk.brand.DEFAULT, borderColor: tk.brandAccent.deep },
+    // 选中态成对取档(AGENTS §4):实底 brand.cta + 其上字形 brand.ctaForeground,配对由 key 名成立
+    checkboxOn: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
+    checkboxOnText: { color: tk.brand.ctaForeground },
     itemMain: { flex: 1 },
     itemText: { fontSize: rnType.body.size, color: tk.text.primary },
     itemTextSm: { fontSize: rnType.label.size, color: tk.text.primary },

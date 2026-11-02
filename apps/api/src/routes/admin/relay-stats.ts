@@ -21,6 +21,7 @@ import { dbRead } from '../../db/index.js'
 import { llmCallLogs, users } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { bizDayStartUtc } from '../../utils/biz-day.js'
 
 // ===== 共享类型 =====
 interface PeriodAggregate {
@@ -40,17 +41,9 @@ interface RangeAggregate {
 }
 
 // ===== 时区工具:Asia/Shanghai 日界(UTC 表示)=====
-// Shanghai = UTC+8。Shanghai 当天 00:00 对应的 UTC 时间 = Date.UTC(y,m,d) - 8h。
+// 日界算法唯一出口 = utils/biz-day.ts(守门 246);此处只留名字转发,不再复算。
 function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
+  return bizDayStartUtc(daysAgo)
 }
 
 // ===== 聚合查询:指定 [start, end) 区间 =====
