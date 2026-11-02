@@ -22,7 +22,7 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     DATABASE_URL: 'postgres://localhost:8810/ihui_test',
-    REDIS_URL: 'redis://localhost:8811',
+    REDIS_URL: 'redis://127.0.0.1:6399',
   },
 }))
 

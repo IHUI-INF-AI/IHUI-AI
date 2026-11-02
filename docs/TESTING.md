@@ -79,9 +79,10 @@
    process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
    process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-characters-long!!'
    process.env.CREDENTIALS_ENCRYPTION_KEY ??= 'a'.repeat(32)  // 测试允许弱密钥
-   process.env.REDIS_URL ??= 'redis://localhost:8811/1'        // 用 DB 1 隔离
+   process.env.REDIS_URL ??= 'redis://127.0.0.1:6399/1'        // 不可用哨兵:缺省即连不上,绝不兜底生产 8811
    process.env.NODE_ENV = 'test'
    ```
+   `REDIS_URL` 若显式指向 8811(生产 Redis 宿主映射端口),`setup-env.ts` 会直接抛错中止,不会静默连生产。
 3. 兼容两种 cwd(`cd apps/api` 或仓库根目录)。
 
 ### 2.4 Fastify inject 模式
