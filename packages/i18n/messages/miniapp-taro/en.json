@@ -2112,8 +2112,7 @@
       "selectAigc": "Select AI work (optional)",
       "noAigc": "No AI works available to link",
       "allowComments": "Allow comments",
-      "visibility": "Visibility",
-      "publishFailed": "Publish failed, please try again"
+      "visibility": "Visibility"
     },
     "index": {
       "goPublish": "Publish",
@@ -2215,8 +2214,7 @@
       "targetGroupEnterprise": "Enterprise",
       "discountNone": "Not eligible",
       "discountPartial": "Partially eligible",
-      "discountFull": "Fully eligible",
-      "mockSuccess": "This feature isn't available yet. Nothing was submitted"
+      "discountFull": "Fully eligible"
     }
   },
   "devSpace": {
@@ -2694,8 +2692,7 @@
     "payFailed": "Payment failed. Please try again",
     "paying": "Paying...",
     "purchaseContent": "Purchase Content",
-    "userAgreement": "User Agreement",
-    "activateDelayed": "Benefit delivery is delayed, please contact support"
+    "userAgreement": "User Agreement"
   },
   "study": {
     "todayMinutes": "{n} min today",

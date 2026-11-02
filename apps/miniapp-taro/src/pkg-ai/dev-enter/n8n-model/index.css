@@ -96,7 +96,7 @@
 /* RN modalLabel: 13dp=26rpx,text.secondary;下距对齐 RN modalLabel mb rpx(8),上距为页面节奏 */
 .nm-label {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   margin: var(--spacing-md) 0 8rpx;
 }
@@ -164,7 +164,7 @@
   opacity: 0.8;
 }
 .nm-file-text {
-  font-size: 26rpx; /* RN 次级文字 13dp 档 */
+  font-size: var(--text-body-sm); /* RN 次级文字 13dp 档 */
   color: var(--color-muted-foreground); /* RN text.secondary */
 }
 .nm-file-info {
@@ -213,7 +213,7 @@
   color: var(--color-foreground);
 }
 .nm-param-del {
-  font-size: 26rpx; /* RN 次级文字 13dp 档 */
+  font-size: var(--text-body-sm); /* RN 次级文字 13dp 档 */
   color: var(--color-danger); /* RN danger.DEFAULT */
   padding: var(--spacing-2xs) 12rpx;
 }
@@ -236,7 +236,7 @@
   padding: var(--spacing-xs-loose) 16rpx;
   background: var(--color-muted);
   border-radius: var(--radius-sm);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
@@ -247,7 +247,7 @@
   padding: var(--spacing-xs-loose) 16rpx;
   background: var(--color-muted);
   border-radius: var(--radius-sm);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
@@ -285,7 +285,7 @@
   padding: var(--spacing-xs-loose);
   background: var(--color-muted);
   border-radius: var(--radius-lg);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   text-align: center;
 }
@@ -302,7 +302,7 @@
   padding: var(--spacing-md);
   background: transparent;
   border-radius: var(--radius-lg);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary); /* RN retryText brand.DEFAULT */
   border: 1px solid var(--color-border);
 }
