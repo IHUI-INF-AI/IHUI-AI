@@ -5449,6 +5449,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (34ba63607b)
+
+**2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9b60105652)
 - 🔧 工程/其他:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
 - 🚀 新功能/改进:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
@@ -5509,39 +5512,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:销 plan-write-invariants 两枚的 HEAD 面水印欠账(假横幅 → 可解码载荷) (47263ad17c)
 - 📚 文档:补 282 与 283 两道已接线门的 R4 点名行,消掉接线层一枚真红 (f56d51306f)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7367e5a195)
-
-**2026-11-03**
-- 🚀 新功能/改进:把 RN 薄壳覆盖判据装上提交链(守门 283,blocking) (e8c610eadb)
-- 🔧 工程/其他:收编守护落档产出(4 件,凭落点账本) (5355177bb8)
-- 🐞 修复:落库器每条早退路径都必须出机读结论行(治"器物在跑但说不出话") (6178c8bdf7)
-- 🐞 修复:覆盖门把 evidence 纳入 needsManual 硬判据并补缺 evidence 镜像测试 (60df42dbf4)
-- 🔧 工程/其他:12 枚 needsManual 全量登记(3 语义不同/5 退役内联/4 手写壳挂账) (296be37c48)
-- 🐞 修复:补齐导航替身 getState 契约并保持 navigate 实参形状 (a7282ff7c4)
-- 🔧 工程/其他:给 web↔RN 缺口棘轮建真实基线件,脱离"首跑常量"锚 (03be228081)
-- 🐞 修复:修存量红:段宽期望与实际不一致 (1b172544c3)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5f728aca25)
-- 🚀 新功能/改进:新增门 282 web↔RN 覆盖缺口棘轮 (43fe135510)
-- 🚀 新功能/改进:派生链补 rn-host-shell 段,gen-rn-host-shell 真正上链 (c7339348b7)
-- 🐞 修复:映射块比对改判像素等值,止住 ui-mirror 腿回退他人已入库修复 (6dcfd1d601)
-- 🐞 修复:真 onRetry 取代别名（第 3 批） (8dca03cb7b)
-- 🚀 新功能/改进:新增小程序端口等价表与只读门禁(表/实现/类型键集合三向对账) (a0280a8b94)
-- 🐞 修复:A3 测试的 git 派生显式接管 stdio(门 193) (7f700f94c9)
-- 🐞 修复:真 onRetry 取代别名（第 2 批） (3fa6b98e7a)
-- 🐞 修复:replace 缺失走 CAPABILITY_OFF、tab 语义透传、空实现黑名单与小程序 toast 落地 (14038ab3e4)
-- 📚 文档:更正 P0-2/P0-3 头注里的门号引用 (0cf2b9ddc6)
-- 🚀 新功能/改进:新增写盘不变量库(六条断言) (00d9edda4b)
-- 🐞 修复:严格档把 dup 与租约同键重复判红 (c1300d59c7)
-- 🐞 修复:租约追加同键幂等,重复段拒绝再写 (ec34d3ab47)
-- 🐞 修复:真 onRetry 取代别名（第 1 批） (f8e651a83b)
-- 🐞 修复:回捞拒绝同号多候选,--pick 显式选一枚 (6ffe4b85b9)
-- 🐞 修复:补齐 getState 端口面并把 tabBar 名单收敛为唯一真相源 (27dfe8e87e)
-- 🚀 新功能/改进:放行两件"器物早已存在、写档从未被放行"的存量落档器,并把归属判据收成单源 (8096a3aff8)
-- 🐞 修复:P0-1/P0-2 新增脚本 lint 未用变量与 prettier 收口 (fb04a6e9ed)
-- 🚀 新功能/改进:新增非色档分叉 decision 账本对账 decide-style-tier-forks(P0-3) (1fd4311254)
-- 🚀 新功能/改进:新增 web↔RN 覆盖缺口棘轮 check-web-rn-gap-ratchet(P0-2) (7c799be026)
-- 🐞 修复:下载中心未上线平台改走显式「尚未上线」态,并收平平台清单多份真相 (097f73e73b)
-- 🔧 工程/其他:补齐摘权限插件的水印覆盖(HEAD 面唯一缺口,落地后复跑点名的那条 blocking 就是它) (dd715319dc)
-- 🚀 新功能/改进:新增 RN 薄壳直接 import 覆盖判据 check-rn-host-shell-coverage(P0-1) (01a900c030)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
