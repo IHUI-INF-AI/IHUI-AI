@@ -29,6 +29,10 @@
  *
  * 落地一律走 safe-commit(全门冻结索引),失败只记日志不重试轰炸;调度器下一轮自然重来。
  * 推送不自带(交 post-commit 的 git-push-guard)。
+ * **结论行纪律(2026-11-03 立,§0.3/§0.9)**:直跑形态的每一轮 —— 含每一条让路(no-candidates
+ * 型/busy 型/账本取不到型)与异常 —— 都必须经唯一出口 `emitConclusion` 往 **stdout** 打恰好一行
+ * `COLLECT-RESULT …`(形态仍由 `ledgerConclusionLine` 现产,键集与前缀一字不改);
+ * 被 import 时默认不写调用方 stdout(测试面走注入的 logLine)。
  * 用法: node scripts/auto-commit-quiet.mjs [--dry-run]
  */
 import { execFileSync } from 'node:child_process'
@@ -54,7 +58,12 @@ import {
   ledgerPathFor,
 } from './lib/cross-end-landing-ledger.mjs'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// 测试注入面(2026-11-03,"结论行纪律"的镜像测试要直跑子进程于临时仓夹具):
+// 仅 IHUI_AUTO_COMMIT_QUIET_TEST_ROOT 显式设置时改钉 ROOT;守护/生产派发从不设置该变量
+// ⇒ 生产形态 ROOT 仍由脚本自身位置推导(§15),逐字节同形。
+const ROOT = process.env.IHUI_AUTO_COMMIT_QUIET_TEST_ROOT
+  ? resolve(process.env.IHUI_AUTO_COMMIT_QUIET_TEST_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const QUIET_MIN = Number(process.env.IHUI_AUTO_COMMIT_QUIET_MIN || 3)
 const DRY = process.argv.includes('--dry-run')
 const LOG = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'auto-commit-quiet.log')
@@ -778,6 +787,71 @@ export function ledgerConclusionLine(r) {
   return parts.join(' ')
 }
 
+/**
+ * 结论行 stdout 臂的开关(§22d 同取向):只有直跑形态置 true,被 import 时绝不写调用方 stdout。
+ * `stdoutConclusionWritten` 保证一轮至多一行 —— 异常兜底不得在已出行的轮次上叠第二行。
+ */
+let conclusionStdoutEnabled = false
+let stdoutConclusionWritten = false
+
+function setConclusionStdout(on) {
+  conclusionStdoutEnabled = !!on
+  if (!on) stdoutConclusionWritten = false
+}
+
+/**
+ * 本器**唯一**的结论出口(2026-11-03 立,§0.3):每一条退出路径(让路/无候选/取不到输入/异常)
+ * 都必须经由它出结论行 —— 形态仍由 `ledgerConclusionLine` 现产(键集与前缀不改、不加,§0.6),
+ * 文件日志走 logLine(默认 log;测试注入面),直跑形态再补一行 stdout 给消费者(runLegChild)。
+ */
+function emitConclusion(r, logLine = log) {
+  const line = ledgerConclusionLine(r)
+  logLine(line)
+  if (conclusionStdoutEnabled && !stdoutConclusionWritten) {
+    stdoutConclusionWritten = true
+    process.stdout.write(`${line}\n`)
+  }
+  return line
+}
+
+/** 结论行的默认形态:每个键都是数(不得让 undefined 漏进机读面),覆写只填差异。 */
+function baseConclusion(over = {}) {
+  return {
+    ledger: 'ok',
+    collected: 0,
+    whitelistCollected: 0,
+    ledgerCollected: 0,
+    quiet: 0,
+    contested: 0,
+    incomplete: 0,
+    ignored: 0,
+    deduped: 0,
+    held: 0,
+    dry: DRY,
+    reason: null,
+    ...over,
+  }
+}
+
+/**
+ * busy 让路必须分得清是哪一路(两型都是"被让路"却成因不同;机读面一个 token,不带空格)。
+ * 取值 = `busy-index-lock` / `busy-pre-commit-log`(§0.3:失效方向是多要一次点名,不是"skipped")。
+ */
+function classifyBusy(busy) {
+  return String(busy).includes('index.lock') ? 'busy-index-lock' : 'busy-pre-commit-log'
+}
+
+/**
+ * 白名单族的唯一出口笔:把"本轮不提交"的**具体形态码**记账进 tally,轮级结论行由
+ * `runLedgerFamily`(main 的 finally 担保每轮都跑)经 `emitConclusion` 一并出 ——
+ * 白名单族体内自此不得再有静默 return(§0.3)。`line` 只进文件日志,细节不挤进机读行。
+ */
+function exitWhitelist(tally, code, line = null) {
+  if (line) log(line)
+  if (code && !tally.reasons.includes(code)) tally.reasons.push(code)
+  return line
+}
+
 /** 复洁器回带的机读读数;未回带 ⇒ null(调用方必须让路,不得当成绿)。 */
 function parseScrubOutcome(text) {
   const m = /state=(\w+) dropped=(\d+)/.exec(String(text ?? ''))
@@ -873,6 +947,8 @@ export function runLedgerFamily(opts = {}) {
     dry = DRY,
     whitelistPaths = new Set(),
     whitelistCollected = 0,
+    whitelistHeld = 0,
+    whitelistReasons = [],
     commit = commitBatch,
     logLine = log,
     busyCheck = guardBusy,
@@ -880,7 +956,7 @@ export function runLedgerFamily(opts = {}) {
   } = opts
 
   const emit = (r) => {
-    logLine(ledgerConclusionLine(r))
+    emitConclusion(r, logLine)
     return r
   }
 
@@ -892,8 +968,23 @@ export function runLedgerFamily(opts = {}) {
     ignored: entries.ignored.length,
     deduped: entries.deduped.length,
   }
+  // 轮级结论行的 reason = 白名单族形态码 + 本族形态码(无空格 '+' 连接;取不到任何
+  // 让路形态 ⇒ null,行内不写 reason 键,与既有形态同形)。held 同样两族合计。
+  const joinReason = (r) => {
+    const parts = [...whitelistReasons]
+    if (r) parts.push(r)
+    return parts.length ? parts.join('+') : null
+  }
   const withCounts = (over) =>
-    emit({ dry, ledger: entries.ledger, whitelistCollected, ...counts, ...over })
+    emit({
+      dry,
+      ledger: entries.ledger,
+      whitelistCollected,
+      ...counts,
+      ...over,
+      held: (over.held ?? 0) + whitelistHeld,
+      reason: joinReason(over.reason),
+    })
 
   if (entries.ledger !== 'ok') {
     logLine(
@@ -937,7 +1028,12 @@ export function runLedgerFamily(opts = {}) {
     logLine(`账本族 ignored(被 .gitignore 覆盖)逐条点名:${named(entries.ignored)}${counts.ignored > 8 ? ' …' : ''}`)
 
   if (entries.collectible.length === 0) {
-    return withCounts({ collected: whitelistCollected, ledgerCollected: 0, held: 0 })
+    return withCounts({
+      collected: whitelistCollected,
+      ledgerCollected: 0,
+      held: 0,
+      reason: 'no-ledger-collectible',
+    })
   }
 
   // 既有护栏之一:busy 闸(index.lock / 守门批正在写)在**落地前**再问一次 ——
@@ -949,7 +1045,7 @@ export function runLedgerFamily(opts = {}) {
       collected: whitelistCollected,
       ledgerCollected: 0,
       held: entries.collectible.length,
-      reason: `busy:${busy}`,
+      reason: classifyBusy(busy),
     })
   }
 
@@ -969,7 +1065,12 @@ export function runLedgerFamily(opts = {}) {
     paths.push(p)
   }
   if (paths.length === 0)
-    return withCounts({ collected: whitelistCollected, ledgerCollected: 0, held })
+    return withCounts({
+      collected: whitelistCollected,
+      ledgerCollected: 0,
+      held,
+      reason: 'livedoc-held',
+    })
 
   // 既有护栏之一:MAX_PATHS 分批(命令行长度,见模块级定义处注释)。
   let batch = paths
@@ -1015,23 +1116,32 @@ export function runLedgerFamily(opts = {}) {
  */
 function main() {
   const busy = guardBusy()
-  if (busy) return log(`跳过:${busy}`)
+  if (busy) {
+    log(`跳过:${busy}`)
+    return emitConclusion(baseConclusion({ ledger: 'unjudged', reason: classifyBusy(busy) }))
+  }
 
-  const tally = { collected: 0, paths: new Set() }
+  const tally = { collected: 0, paths: new Set(), held: 0, reasons: [] }
   try {
     runWhitelistFamily(tally)
   } finally {
-    runLedgerFamily({ whitelistPaths: tally.paths, whitelistCollected: tally.collected })
+    runLedgerFamily({
+      whitelistPaths: tally.paths,
+      whitelistCollected: tally.collected,
+      whitelistHeld: tally.held,
+      whitelistReasons: [...tally.reasons],
+    })
   }
 }
 
 /** 白名单族(既有收编链,判据与顺序一字未改;只是从 main 拆出来,并向下族交回本轮计数)。 */
-function runWhitelistFamily(tally = { collected: 0, paths: new Set() }) {
+function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, reasons: [] }) {
   const rawChanges = listChanges().filter((c) => !isExcluded(c.path))
   // 路径白名单(2026-11-02,fail-safe):白名单外的改动一律不收编,只记日志留给人清;
   // 无法判定归属的路径同样落进 held —— 宁可悬挂,也不再替别的席位提交业务代码/测试。
   const changes = rawChanges.filter((c) => isCollectible(c.path))
   const held = rawChanges.filter((c) => !isCollectible(c.path))
+  tally.held = held.length
   if (held.length) {
     log(
       `白名单外 ${held.length} 个路径不收编(留给人清):${held
@@ -1040,10 +1150,16 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set() }) {
         .join(', ')}${held.length > 8 ? ' …' : ''}`,
     )
   }
-  if (changes.length === 0) return
+  if (changes.length === 0)
+    return exitWhitelist(tally, rawChanges.length === 0 ? 'no-changes' : 'no-whitelist-hits')
 
   const conflicted = changes.filter((c) => /^(UU|AA|DD|AU|UA|DU|UD)$/.test(c.xy))
-  if (conflicted.length) return log(`跳过:有未解决冲突 ${conflicted.map((c) => c.path).join(',')}`)
+  if (conflicted.length)
+    return exitWhitelist(
+      tally,
+      'whitelist-conflicted',
+      `跳过:有未解决冲突 ${conflicted.map((c) => c.path).join(',')}`,
+    )
 
   const now = Date.now()
   let youngest = Infinity
@@ -1069,7 +1185,7 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set() }) {
     if (ageMin >= QUIET_MIN) stale.push(c.path)
   }
   if (deleted.length) log(`跳过删除(不自动收编,请人工确认后显式声明):${deleted.join(', ')}`)
-  if (stale.length === 0) return
+  if (stale.length === 0) return exitWhitelist(tally, 'not-quiet')
 
   // 活文档先归并,再把归并达标的收编(2026-10-22:替代"永不收编"——后者会让改动永久悬挂)。
   if (!DRY) {
@@ -1201,14 +1317,14 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set() }) {
         stale.splice(stale.indexOf(f), 1)
       }
     }
-    if (stale.length === 0) return
+    if (stale.length === 0) return exitWhitelist(tally, 'livedoc-held-empty')
   }
 
   const verb = youngest === Infinity ? '全部已删除' : `最年轻 ${youngest.toFixed(1)} 分钟`
   log(
     `候选 ${stale.length}/${changes.length} 个文件(${verb},阈值 ${QUIET_MIN} 分钟):${stale.slice(0, 8).join(', ')}${stale.length > 8 ? ' …' : ''}`,
   )
-  if (DRY) return log('dry-run:不提交')
+  if (DRY) return exitWhitelist(tally, 'whitelist-dry-run', 'dry-run:不提交')
 
   // 滞后副本/删除档死件守卫(2026-10-31 重新接线):判据与装车锁(T6)2026-10-29 就写好了,
   // 但 main 里的接线被后续某次副本覆盖洗掉 —— 守卫整个悬空,aboutPageSections 第四次回潮
@@ -1224,7 +1340,7 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set() }) {
           .map((p) => `${p}${why?.get?.(p) ? ` [${why.get(p)}]` : ''}`)
           .join(', ')}`,
       )
-      if (kept.length === 0) return
+      if (kept.length === 0) return exitWhitelist(tally, 'stale-copy-held-empty')
       stale.length = 0
       stale.push(...kept)
     }
@@ -1295,7 +1411,23 @@ function commitBatch(paths, message, root = ROOT) {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
-  main()
+  // 直跑形态:结论行必须达 stdout(消费者 runLegChild 读 stdout);异常路径也必须
+  // **先行后抛**(§0.3 —— 取不到输入/坏了都要点名,绝不只靠 catch 打日志后哑退)。
+  // 重抛保持既有退出码语义(未捕获异常 ⇒ 非 0 退出,与改前同形)。
+  setConclusionStdout(true)
+  try {
+    main()
+  } catch (e) {
+    emitConclusion(
+      baseConclusion({
+        ledger: 'unjudged',
+        reason: `exception:${String(e?.message ?? e)
+          .replace(/\s+/g, '_')
+          .slice(0, 160)}`,
+      }),
+    )
+    throw e
+  }
 }
 
 export const __test__ = {
@@ -1321,6 +1453,12 @@ export const __test__ = {
   guardLedgerLiveDocPath,
   ledgerCommitMessage,
   ledgerConclusionLine,
+  // 结论行唯一出口族(2026-11-03):镜像测试据此钉"每条退出路径都出声"。
+  emitConclusion,
+  baseConclusion,
+  classifyBusy,
+  exitWhitelist,
+  setConclusionStdout,
   appsSegmentsOf,
   worktreeBlobOid,
   parseScrubOutcome,
