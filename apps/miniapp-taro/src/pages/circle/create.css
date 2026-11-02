@@ -173,7 +173,7 @@
   padding: 0 24rpx;
   background: var(--color-card);
   border-radius: var(--radius-md);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .cc-aigc-picked {
@@ -224,7 +224,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28rpx 32rpx;
+  padding: var(--spacing-md-loose) 32rpx;
 }
 .cc-sheet-title {
   font-size: var(--text-strong);
@@ -264,7 +264,7 @@
 .cc-aigc-empty {
   padding: var(--spacing-4xl) 0;
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 

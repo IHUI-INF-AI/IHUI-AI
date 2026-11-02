@@ -27,20 +27,20 @@
 .table-row {
   display: flex;
   align-items: flex-start;
-  padding: 28rpx 32rpx;
+  padding: var(--spacing-md-loose) 32rpx;
 }
 .table-row + .table-row {
   margin-top: var(--spacing-sm);
 }
 .cell-label {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   flex-shrink: 0;
   width: 160rpx;
 }
 .cell-value {
   flex: 1;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   word-break: break-all;
 }
@@ -69,7 +69,7 @@
 }
 
 .image-fallback-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
@@ -84,7 +84,7 @@
   margin-bottom: var(--spacing-sm);
 }
 .notice-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 1.8;
 }

@@ -47,7 +47,7 @@
 
 /* ===== 表单卡片(对齐 RN card:padding 14 + surface.light;圆角按角色档 card→lg) ===== */
 .reg-card {
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   background-color: var(--color-card);
   border-radius: var(--radius-lg);
 }
