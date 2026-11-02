@@ -1219,10 +1219,6 @@
     "compactionToast": "컨텍스트가 자동 압축되었습니다({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "표지 적용 완료",
-      "message": "「{title}」에 표지를 적용했습니다:{label}"
-    },
     "aiGen": {
       "title": "AI 표지 생성",
       "message": "기능 개발 중"
@@ -1282,10 +1278,6 @@
     "detailMembers": "멤버",
     "detailRecent": "최근",
     "empty": "그룹이 없습니다",
-    "enterChat": {
-      "message": "이 그룹에 입장하시겠습니까?",
-      "title": "알림"
-    },
     "enterDiscover": "탐색",
     "enterMine": "내 그룹",
     "loadFailed": "그룹 불러오기 실패",
@@ -1458,15 +1450,6 @@
     "workflowTab": "워크플로"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "충전 확인",
-      "message": "패키지:{tokens} Token · ¥{price}",
-      "payBtn": "지금 결제",
-      "success": {
-        "title": "결제 성공",
-        "message": "{tokens} Token이 충전되었습니다"
-      }
-    },
     "balanceLabel": "토큰 잔액",
     "bonus": "보너스",
     "empty": "데이터 없음",
@@ -1486,9 +1469,7 @@
     "range7d": "7일",
     "range1m": "1개월",
     "range1y": "1년",
-    "rangeAll": "전체",
-    "unitYi": "{v}B",
-    "unitWan": "{v}K"
+    "rangeAll": "전체"
   },
   "messageInput": {
     "document": "문서",
@@ -3510,8 +3491,7 @@
     "viewNow": "지금 보기"
   },
   "vipBenefit": {
-    "title": "멤버십 혜택",
-    "loadFailed": "회원 혜택 불러오기 실패"
+    "title": "멤버십 혜택"
   },
   "vipTrader": {
     "title": "VIP 트레이더",
@@ -3984,7 +3964,6 @@
     "today": "오늘",
     "withdrawBtn": "출금",
     "withdrawModal": {
-      "close": "취소",
       "confirm": "확인",
       "moreMethods": "더 많은 출금 방법",
       "subtitle": "출금 방법 선택",

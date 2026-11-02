@@ -18,8 +18,8 @@
  * 判据(每条都有反向例,见文件尾「反向例」注释与 .ihui-agent/seats/S-ACTIVE.md 的实测读数):
  *  ① A 请求 /active 只看到 A 的 pending/running;B 的同理(双向断言,不只看一侧)。
  *  ② 语义未变:/active 仍只 pending/running —— 同租户塞入 completed/failed/cancelled 不得出现。
- *  ③ 无归属记录(ownerUserId 缺失)⇒ 照旧公开(fail-open),与 /all 同源同判;
- *     该档是已知残余(见 seat),断言钉住"现在是什么",不许含糊。
+ *  ③ 无归属记录(ownerUserId 缺失)⇒ **fail-closed**(2026-11-02 归属回填与 fail-open 收敛):
+ *     普通用户在 /active 与 /all 都看不到,仅系统管理员可见;回填成功的记录回到「本人可见」。
  *  ④ 反向例:删掉路由里的租户 filter ⇒ ① 变红(实测读数在 seat)。
  *  ⑤ 反向例:把 isActiveDispatchStatus 放宽成恒真 ⇒ ② 变红(本文件的 listActive mock 直接
  *     引这个生产谓词,故谓词一放宽,② 立刻收进 completed/failed)。
@@ -33,11 +33,20 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a)
+/**
+ * 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a);
+ * x-probe-role=1 时同时注入 jwtPayload.roleId,供 isAdminViewer 判管理面(2026-11-02 fail-closed)
+ */
 vi.mock('../src/plugins/auth.js', () => ({
-  authenticate: async (request: { userId?: string; headers: Record<string, unknown> }) => {
+  authenticate: async (request: {
+    userId?: string
+    jwtPayload?: { roleId?: number }
+    headers: Record<string, unknown>
+  }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
+    const role = request.headers['x-probe-role']
+    request.jwtPayload = typeof role === 'string' ? { roleId: Number(role) } : undefined
   },
   checkAuth: async () => true,
 }))
@@ -108,17 +117,23 @@ afterEach(async () => {
   listActiveMock.mockReset()
 })
 
-async function getActive(asTenant: string) {
+async function getActiveAs(headers: Record<string, string>) {
   const res = await app.inject({
     method: 'GET',
     url: '/api/subagents/active',
-    headers: { 'x-probe-user': asTenant },
+    headers,
   })
   expect(res.statusCode).toBe(200)
   const body = res.json()
   expect(body.code).toBe(0)
   return body.data.dispatches as Array<Record<string, unknown>>
 }
+
+async function getActive(asTenant: string) {
+  return getActiveAs({ 'x-probe-user': asTenant })
+}
+
+const asAdmin = { 'x-probe-user': 'tenant-admin', 'x-probe-role': '1' }
 
 const ids = (rows: Array<Record<string, unknown>>) => rows.map((d) => d.id)
 
@@ -187,8 +202,8 @@ describe('S-ACTIVE ② /active 语义未变:只回 pending/running', () => {
   })
 })
 
-describe('S-ACTIVE ③ 无归属记录(ownerUserId 缺失)的明确行为', () => {
-  it('fail-open:历史无归属记录照旧公开(与 /all 同判,单一判据),且这是已知残余而非"已隔离"', async () => {
+describe('S-ACTIVE ③ 无归属记录(ownerUserId 缺失):fail-closed(仅管理面)', () => {
+  it('普通用户在 /active 与 /all 都看不到;系统管理员看得到(同源同判)', async () => {
     listAllMock.mockReturnValue([
       row('a-pending', 'pending', '2026-11-01T01:00:00Z', 'tenant-a'),
       // 2026-11-01 ownerUserId 落地前的在途记录 / Redis 旧 hash(读回时 '' → undefined)
@@ -196,19 +211,30 @@ describe('S-ACTIVE ③ 无归属记录(ownerUserId 缺失)的明确行为', () =
     ])
 
     const mine = await getActive('tenant-a')
-    expect(ids(mine)).toEqual(['a-pending', 'legacy-pending'])
+    expect(ids(mine)).toEqual(['a-pending'])
 
-    // 另一租户同样看得到它 —— 断言的是"现在是什么",不是"应该已隔离"(§0.3)
+    // 无归属记录不再对任何普通租户公开(2026-11-02 fail-closed)
     const theirs = await getActive('tenant-b')
-    expect(ids(theirs)).toEqual(['legacy-pending'])
+    expect(ids(theirs)).toEqual([])
 
-    // 与 /all 同判:同一批记录两边口径一致(单一份 isDispatchVisibleTo 的直接后果)
-    const all = await app.inject({
+    // 管理面只多出「无归属/orphan」这一档:带 owner 的记录仍只对属主可见(管理面不跨租户读)
+    const admin = await getActiveAs(asAdmin)
+    expect(ids(admin)).toEqual(['legacy-pending'])
+
+    // 与 /all 同判:同一批记录,普通用户两边都看不到 legacy;管理员两边都只看得到 legacy
+    const allB = await app.inject({
       method: 'GET',
       url: '/api/subagents/all',
       headers: { 'x-probe-user': 'tenant-b' },
     })
-    expect(ids(all.json().data.dispatches)).toEqual(['legacy-pending'])
+    expect(ids(allB.json().data.dispatches)).toEqual([])
+
+    const allAdmin = await app.inject({
+      method: 'GET',
+      url: '/api/subagents/all',
+      headers: asAdmin,
+    })
+    expect(ids(allAdmin.json().data.dispatches)).toEqual(['legacy-pending'])
   })
 })
 
