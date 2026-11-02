@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
@@ -124,22 +124,26 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    body: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    subtitle: { fontSize: 14, color: tk.text.secondary },
-    updatedAt: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
-    sectionTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
+    updatedAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     sectionBody: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
-    docTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    introText: { fontSize: 14, color: tk.text.medium, lineHeight: 20 },
+    docTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
+    introText: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.body.lineHeight,
+    },
     groupIntro: {
       marginTop: rnSpacing['xs-loose'],
       fontSize: 12,

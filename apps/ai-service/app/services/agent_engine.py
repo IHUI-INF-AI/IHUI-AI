@@ -4700,7 +4700,7 @@ class AgentEngine:
 
             try:
                 thread.additional_directories = set_session_extra_roots(
-                    thread.session_id, additional_dirs
+                    thread.session_id, additional_dirs, user_id=thread.user_id
                 )
             except ValueError as e:
                 raise JsonRpcError(INVALID_PARAMS, str(e))

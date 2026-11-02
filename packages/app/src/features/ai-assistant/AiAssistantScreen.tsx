@@ -179,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
     catScroll: { marginTop: rnSpacing.md, maxHeight: 40 },
     catScrollContent: { paddingHorizontal: rnSpacing['sm-loose'], gap: rnSpacing.sm },
     catItem: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 32,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
@@ -190,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
     catText: { fontSize: rnType.body.size, color: tk.text.secondary },
     catTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     catMore: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 32,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -252,7 +252,7 @@ function createStyles(tk: AppThemeTokens) {
     metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     ctaBtn: {
       marginLeft: 'auto',
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 30,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

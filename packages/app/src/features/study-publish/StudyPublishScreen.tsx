@@ -618,7 +618,11 @@ function createStyles(tk: AppThemeTokens) {
 
 const formStyles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { padding: 14, gap: 14, paddingBottom: rnSpacing['3xl'] },
+  content: {
+    padding: rnSpacing['md-loose'],
+    gap: rnSpacing['md-loose'],
+    paddingBottom: rnSpacing['3xl'],
+  },
 })
 
 // 以下四个 StyleSheet 均含主题色,不能模块级锁浅色:按当前 colorScheme 的 tokens 动态创建(组件内 useMemo)。

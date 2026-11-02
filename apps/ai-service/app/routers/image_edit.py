@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# 2026-11-01 安全强化(高危):本端点此前**没有任何上传上限** —— `await image.read()`
+# 把整包读进内存之后也不判长度,一枚多 GB 的 multipart 就能把 worker 内存打爆。
+# 上限定 25MiB:与本端点参数说明(png/jpeg/webp,≤25MiB)以及上游图片编辑接口的
+# 实际受理量级一致;编辑输入是"待改的图",不是素材库批量上传,25MiB 足够 4K 单图。
+MAX_IMAGE_EDIT_UPLOAD_BYTES = 25 * 1024 * 1024
+
 
 @router.post("/image/edits")
 async def image_edits(
@@ -43,10 +49,24 @@ async def image_edits(
             detail="token6688 未配置:请在 .env 设置 TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688.api_key",
         )
     provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
-    image_bytes = await image.read()
+    from ..utils.upload_read import read_capped
+
+    image_bytes = await read_capped(image, MAX_IMAGE_EDIT_UPLOAD_BYTES)
+    if image_bytes is None:
+        raise HTTPException(
+            status_code=413,
+            detail=f"待编辑图超过 {MAX_IMAGE_EDIT_UPLOAD_BYTES // (1024 * 1024)}MiB 上限",
+        )
     if not image_bytes:
         raise HTTPException(status_code=400, detail="待编辑图为空")
-    mask_bytes = await mask.read() if mask else None
+    mask_bytes: bytes | None = None
+    if mask is not None:
+        mask_bytes = await read_capped(mask, MAX_IMAGE_EDIT_UPLOAD_BYTES)
+        if mask_bytes is None:
+            raise HTTPException(
+                status_code=413,
+                detail=f"遮罩图超过 {MAX_IMAGE_EDIT_UPLOAD_BYTES // (1024 * 1024)}MiB 上限",
+            )
     extra: dict[str, str] = {}
     if aspect_ratio:
         extra["aspect_ratio"] = aspect_ratio

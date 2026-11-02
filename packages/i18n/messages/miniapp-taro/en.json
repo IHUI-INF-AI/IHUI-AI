@@ -1086,7 +1086,7 @@
     "useCount": "{n} users",
     "join": {
       "title": "Join Group",
-      "message": "Requested to join \"{name}\""
+      "message": "Joined \"{name}\""
     },
     "cardMembers": "Members",
     "detailEnter": "Enter chat",
@@ -4771,7 +4771,7 @@
     "taskRunning": "Running…",
     "taskEmpty": "No tasks yet, or not loaded",
     "taskResult": "Result",
-    "taskUnjudged": "Unjudged: the upstream response could not be parsed, so this run cannot be counted as success."
+    "taskUnjudged": "Upstream response could not be parsed — this run is undetermined (not a success)"
   },
   "developerInfo": {
     "title": "Developer info",

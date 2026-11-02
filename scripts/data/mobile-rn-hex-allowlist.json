@@ -1,0 +1,158 @@
+{
+  "note": "RN 侧硬编码 hex 的显式白名单(2026-11-02 立,跨端对齐 Phase 2「色值归零」)。判据在 scripts/check-mobile-rn-style-parity.mjs:命中本表 file+value 且未到期、reason≥20 字、evidence≥8 字 ⇒ 放行并计入 allowed;未登记/过期/形态坏 ⇒ 照旧 BLOCK。本表是「带到期日的债」,不是永久豁免;到期项必须重新报红。为什么这些值不进 design-tokens:主题 token 会随明暗翻面或没有同值档,塞进去会改变现网视觉或制造假语义。",
+  "entries": [
+    {
+      "component": "ModelList",
+      "value": "#f5b301",
+      "file": "apps/mobile-rn/src/components/ModelList.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "排名第一徽章金牌底色,design-tokens 无同值金色档;复刻 Uniapp rankone 的既有视觉,新增 token 需产品先定语义",
+      "evidence": "ModelList.tsx:65 RANK_GOLD_BG"
+    },
+    {
+      "component": "PersonalInformationCard",
+      "value": "#ffffff",
+      "file": "apps/mobile-rn/src/components/PersonalInformationCard.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "收入卡背景图上文字恒白;主题 token(surface.light/brand.foreground)会随明暗翻成深色,替换即改变暗色表现",
+      "evidence": "PersonalInformationCard.tsx:74 MEDIA_TEXT"
+    },
+    {
+      "component": "use-push",
+      "value": "#ff231f7c",
+      "file": "apps/mobile-rn/src/hooks/use-push.ts",
+      "owner": "rn-platform",
+      "expires": "2027-03-27",
+      "reason": "Android 通知 LED lightColor 的平台参数,8 位带 alpha 的红色;主题 token 不承载通知通道参数,无对应语义",
+      "evidence": "use-push.ts:63 lightColor"
+    },
+    {
+      "component": "ChatScreen",
+      "value": "#9cdcfe",
+      "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "代码块语言标签沿用 VS Code 浅色主题语法高亮蓝;design-tokens 无语法高亮色族,映射到 text.* 会失去代码块视觉语义",
+      "evidence": "ChatScreen.tsx:3892 codeBlockLang"
+    },
+    {
+      "component": "LoginScreen",
+      "value": "#000000",
+      "file": "apps/mobile-rn/src/screens/LoginScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "登录页内嵌 SVG 品牌字标的矢量填充值,属于图形资源字面量而非样式取值;替换成主题 token 会让同一矢量在暗色下换色",
+      "evidence": "LoginScreen.tsx:139 svg fill"
+    },
+    {
+      "component": "LoginScreen",
+      "value": "#ffffff",
+      "file": "apps/mobile-rn/src/screens/LoginScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "登录页内嵌 SVG 品牌字标的矢量填充值,属于图形资源字面量而非样式取值;替换成主题 token 会让同一矢量在暗色下换色",
+      "evidence": "LoginScreen.tsx:147 svg fill"
+    },
+    {
+      "component": "MoreCourseScreen",
+      "value": "#93d2e2",
+      "file": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "Uniapp 三色渐变的中间色近似(项目未引入渐变库),design-tokens 无同值档;新增档需产品先定渐变语义",
+      "evidence": "MoreCourseScreen.tsx:285 root backgroundColor"
+    },
+    {
+      "component": "ScanLoginScreen",
+      "value": "#ffffff",
+      "file": "apps/mobile-rn/src/screens/ScanLoginScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "相机预览层文字恒白;注释已明确不取主题 token,否则暗色主题会翻黑叠在暗相机上不可读",
+      "evidence": "ScanLoginScreen.tsx:202 CAMERA_TEXT"
+    },
+    {
+      "component": "HomeScreen",
+      "value": "#1a1a1a",
+      "file": "packages/app/src/features/home/HomeScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "「即将开始」标签在浅底上的近黑文字;主题 token 无同值对比档,brand.foreground 亮色为白、语义相反",
+      "evidence": "HomeScreen.tsx:394 tagUpcomingText"
+    },
+    {
+      "component": "HomeScreen",
+      "value": "#ffffff",
+      "file": "packages/app/src/features/home/HomeScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "徽章/标签/错误重试文字在品牌色底上的恒白对比色;brand.foreground 暗色翻黑会改变暗色主题的既有视觉",
+      "evidence": "HomeScreen.tsx:328/347/393 color"
+    },
+    {
+      "component": "ModelPlazaScreen",
+      "value": "#10a37f",
+      "file": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "OpenAI 品牌识别色,属于第三方品牌资产;design-tokens 是自有设计语义,不能承载他方品牌色",
+      "evidence": "ModelPlazaScreen.tsx:46 openai bg"
+    },
+    {
+      "component": "ModelPlazaScreen",
+      "value": "#4285f4",
+      "file": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "Google 品牌识别色,属于第三方品牌资产;design-tokens 是自有设计语义,不能承载他方品牌色",
+      "evidence": "ModelPlazaScreen.tsx:48 google bg"
+    },
+    {
+      "component": "ModelPlazaScreen",
+      "value": "#76b900",
+      "file": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "NVIDIA 品牌识别色,属于第三方品牌资产;design-tokens 是自有设计语义,不能承载他方品牌色",
+      "evidence": "ModelPlazaScreen.tsx:51 nvidia bg"
+    },
+    {
+      "component": "ModelPlazaScreen",
+      "value": "#d97757",
+      "file": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "Anthropic 品牌识别色,属于第三方品牌资产;design-tokens 是自有设计语义,不能承载他方品牌色",
+      "evidence": "ModelPlazaScreen.tsx:47 anthropic bg"
+    },
+    {
+      "component": "ModelPlazaScreen",
+      "value": "#e94560",
+      "file": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "阶跃星辰品牌识别色,属于第三方品牌资产;design-tokens 是自有设计语义,不能承载他方品牌色",
+      "evidence": "ModelPlazaScreen.tsx:50 stepfun bg"
+    },
+    {
+      "component": "ModelPlazaScreen",
+      "value": "#f38020",
+      "file": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "Cloudflare 品牌识别色,属于第三方品牌资产;design-tokens 是自有设计语义,不能承载他方品牌色",
+      "evidence": "ModelPlazaScreen.tsx:49 cloudflare bg"
+    },
+    {
+      "component": "PdfToolsHubScreen",
+      "value": "#888888",
+      "file": "packages/app/src/features/tools/pdf/PdfToolsHubScreen.tsx",
+      "owner": "rn-ui",
+      "expires": "2027-03-27",
+      "reason": "PDF 水印默认颜色,是交给 PDF 生成器的用户可改参数;design-tokens 的 text.* 无同值档,替换会改变默认水印视觉",
+      "evidence": "PdfToolsHubScreen.tsx:196 wmColor 默认值"
+    }
+  ]
+}

@@ -72,6 +72,11 @@ def test_rollback_allows_session_extra_roots(monkeypatch, tmp_path):
     )
     extra = tmp_path / "extra-ws"
     extra.mkdir()
+    # 2026-11-01:附加目录必须落在服务端允许根内(MCP_WORKSPACE_ROOTS ∪
+    # IHUI_WORKSPACE_ROOTS ∪ 本人 workspace)。这里把 extra 登记成 IHUI 侧的
+    # 工作区根 —— 它仍**不在** MCP 工具根里,所以下面"回滚被放行"证明的依旧是
+    # 会话级附加根的扩权作用(而不是被进程白名单顺带放行)。
+    monkeypatch.setenv("IHUI_WORKSPACE_ROOTS", str(extra))
     mcp_server.set_session_extra_roots("s-extra", [str(extra)])
     try:
         out = cr._rollback_files(

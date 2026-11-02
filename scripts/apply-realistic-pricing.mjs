@@ -30,6 +30,20 @@ import { createRequire } from 'node:module'
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
 
+/**
+ * 必填环境变量:缺失即 exit 2(2026-11-01)。
+ * 原先 `process.env.DATABASE_URL || '<内置开发库连接串>'` 把带口令的连接串随仓库分发;
+ * 缺配时也不该静默连某个开发库。
+ */
+function requireEnv(name) {
+  const value = (process.env[name] ?? '').trim()
+  if (!value) {
+    console.error(`❌ 缺少环境变量 ${name}:请显式配置后再运行(拒绝使用内置默认连接串)。`)
+    process.exit(2)
+  }
+  return value
+}
+
 // ============================================================================
 // 模型定价分级(基于模型名 pattern 匹配,大小写不敏感)
 // 单位:分/千 token(1元 = 100分)
@@ -181,7 +195,7 @@ async function main() {
   // AGENTS §22d/批次 G2:建库连接只在 CLI 真正执行时发生,被 import 时零副作用。
   const require = createRequire(import.meta.url)
   const postgres = require('postgres')
-  const sql = postgres(process.env.DATABASE_URL || 'postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui', { max: 4, prepare: false })
+  const sql = postgres(requireEnv('DATABASE_URL'), { max: 4, prepare: false })
 
   console.log('========== 模型定价修复脚本 ==========')
   console.log(`模式: ${dryRun ? 'DRY-RUN(预览)' : 'EXECUTE(执行)'}`)

@@ -478,7 +478,7 @@ function makeStyles() {
     },
     badgeOn: { borderColor: tokens.success.DEFAULT },
     badgeOff: { borderColor: tokens.border.medium },
-    badgeText: { fontSize: 10, fontWeight: '600' },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '600' },
     mono: { fontFamily: 'monospace', fontSize: rnType.label.size, color: tokens.text.secondary },
     monoSmall: {
       fontFamily: 'monospace',
@@ -488,7 +488,7 @@ function makeStyles() {
     },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
     chip: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tokens.text.secondary,
       backgroundColor: tokens.surface.muted,
       paddingHorizontal: 5,
@@ -496,7 +496,11 @@ function makeStyles() {
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
-    chipMore: { fontSize: 10, color: tokens.text.tertiary, paddingHorizontal: rnSpacing.xs },
+    chipMore: {
+      fontSize: rnType.badge.size,
+      color: tokens.text.tertiary,
+      paddingHorizontal: rnSpacing.xs,
+    },
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     actions: {
       flexDirection: 'row',

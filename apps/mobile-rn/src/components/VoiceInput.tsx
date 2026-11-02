@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   } as TextStyle,
   popupLabel: {
-    fontSize: 11,
+    fontSize: rnType.caption.size,
     color: tokens.text.secondary,
     marginTop: rnSpacing['2xs'],
   } as TextStyle,

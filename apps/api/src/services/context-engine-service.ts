@@ -30,6 +30,7 @@ import { db } from '../db/index.js'
 import { codebaseIndexService } from './codebase-index-service.js'
 import { findRecentFiles } from '../db/file-queries.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { mintInternalJwt } from '../utils/internal-jwt.js'
 import type {
   ContextMention,
   DatabaseColumn,
@@ -246,6 +247,32 @@ const IGNORE_DIRS = new Set([
 
 class ContextEngineService {
   private cache = new LRUCache<string, unknown>()
+
+  /**
+   * 出站凭据:把调用主体签成一枚内部 JWT 放进 Authorization(2026-11-01 安全强化)。
+   *
+   * 这 8 处此前一律 `aiServiceFetch(null, …)` —— null 的语义是"后台任务,无用户上下文",
+   * 于是 aiServiceFetch 给每一处都注入了**系统票**(sub='system-worker')。后果分两层:
+   * ① ai-service 侧无法区分"张三读自己的上下文"与"系统读上下文",任何按主体收口的判据
+   *    在这一腿上都失效;
+   * ② 而上下文/记忆面恰恰是**最该按主体隔离**的一面(/api/context 的 GET memory、
+   *    DELETE memory 连自报值都不看,只按 conversationId 派生键)。
+   *
+   * 为什么由 api 侧签而不是让 ai-service 自己判:会话归属判据全仓只在 api 侧有一份,
+   * 在 ai-service 再写一份就是第二份必然漂移的实现(§0.6)。ai-service 只判"有没有主体",
+   * 主体是谁由这枚 JWT 的 sub 说了算。
+   *
+   * userId 为空时保持原行为(不签、不带头):这类调用是真正的系统级动作,不该假装成
+   * 某个用户;而 ai-service 侧对"无主体"的处理由它自己的档位决定,不在这一层猜。
+   */
+  private async authHeaders(
+    userId: string,
+    extra: Record<string, string> = {},
+  ): Promise<Record<string, string>> {
+    if (!userId) return extra
+    const token = await mintInternalJwt(userId)
+    return { ...extra, Authorization: `Bearer ${token}` }
+  }
 
   /** 统一检索入口(按 type 分发) */
   async search(opts: {
@@ -513,7 +540,7 @@ class ContextEngineService {
     try {
       const resp = await aiServiceFetch(null, '/api/context/enrich', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await this.authHeaders(userId, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           mentions,
           conversationId,
@@ -553,6 +580,7 @@ class ContextEngineService {
       const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
       const resp = await aiServiceFetch(null, `/api/context/sources${qs}`, {
         method: 'GET',
+        headers: await this.authHeaders(userId),
         signal: AbortSignal.timeout(5_000),
       })
       if (!resp.ok) {
@@ -619,7 +647,7 @@ class ContextEngineService {
     const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
     const resp = await aiServiceFetch(null, `/api/context/sources${qs}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await this.authHeaders(userId, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ updates }),
       signal: AbortSignal.timeout(5_000),
     })
@@ -689,11 +717,14 @@ class ContextEngineService {
    *
    * 降级:ai-service 不可用时静默忽略(可视化数据非关键路径)。
    */
-  async trackVisualization(opts: TrackVisualizationOptions): Promise<boolean> {
+  async trackVisualization(
+    opts: TrackVisualizationOptions,
+    userId: string = '',
+  ): Promise<boolean> {
     try {
       const resp = await aiServiceFetch(null, '/api/context/visualization/track', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await this.authHeaders(userId, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(opts),
         signal: AbortSignal.timeout(5_000),
       })
@@ -727,6 +758,7 @@ class ContextEngineService {
       const path = `/api/context/visualization${qs ? `?${qs}` : ''}`
       const resp = await aiServiceFetch(null, path, {
         method: 'GET',
+        headers: await this.authHeaders(userId),
         signal: AbortSignal.timeout(5_000),
       })
       if (!resp.ok) {
@@ -762,6 +794,7 @@ class ContextEngineService {
       const path = `/api/context/compression-stats${qs}`
       const resp = await aiServiceFetch(null, path, {
         method: 'GET',
+        headers: await this.authHeaders(userId),
         signal: AbortSignal.timeout(5_000),
       })
       if (!resp.ok) {
@@ -806,6 +839,7 @@ class ContextEngineService {
       const path = `/api/context/memory${qs ? `?${qs}` : ''}`
       const resp = await aiServiceFetch(null, path, {
         method: 'GET',
+        headers: await this.authHeaders(userId),
         signal: AbortSignal.timeout(5_000),
       })
       if (!resp.ok) {
@@ -832,12 +866,13 @@ class ContextEngineService {
    *
    * 降级:ai-service 不可用时返回 false。
    */
-  async clearSessionMemory(conversationId: string): Promise<boolean> {
+  async clearSessionMemory(conversationId: string, userId: string = ''): Promise<boolean> {
     try {
       const qs = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ''
       const path = `/api/context/memory${qs}`
       const resp = await aiServiceFetch(null, path, {
         method: 'DELETE',
+        headers: await this.authHeaders(userId),
         signal: AbortSignal.timeout(5_000),
       })
       if (!resp.ok) {

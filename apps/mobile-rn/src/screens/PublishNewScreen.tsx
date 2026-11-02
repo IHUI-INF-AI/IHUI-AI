@@ -483,7 +483,7 @@ function makeStyles() {
     fileBox: { gap: rnSpacing.sm },
     outlineBtn: {
       height: 40,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,

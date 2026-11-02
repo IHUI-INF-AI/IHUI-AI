@@ -208,19 +208,27 @@ export function stripAnsi(text: string): string {
 /** URL 中敏感 query 参数的值脱敏(移植 ② 的 `redactUrl`,12 类参数名与标记均不变) */
 export function redactUrl(input: string): string {
   if (!input) return input
-  return input.replace(/((?:https?|ftp|file):\/\/[^\s"'<>#?]*\?)([^\s"'<>#]*)/gi, (_m, prefix: string, query: string) => {
-    if (!query) return prefix
-    const parts = query.split('&').map((kv) => {
-      const eq = kv.indexOf('=')
-      if (eq === -1) return kv
-      const key = kv.slice(0, eq)
-      if (SENSITIVE_QUERY_PARAMS.has(decodeURIComponent(key).toLowerCase())) {
-        return `${key}=${REDACT_QUERY_MARKER}`
-      }
-      return kv
-    })
-    return prefix + parts.join('&')
-  })
+  // 2026-11-01 补相对 URL 分支:`/api/ws/ai?token=…` 这类**以 `/` 开头**的请求目标
+  // 原先整条不匹配(旧正则强制要求 `scheme://`),而 api 的日志里恰恰全是相对路径 ⇒
+  // `?api_key=<不透明串>` 原样落盘。服务端请求日志、trace、审计都吃这一条,补在这里
+  // 是**唯一出口**,不在各调用点各写一份。
+  // 绝对 URL 分支放前面:同一位置优先按完整 scheme 解析,避免被相对分支从中间截断。
+  return input.replace(
+    /((?:(?:https?|ftp|file):\/\/[^\s"'<>#?]*|\/[^\s"'<>#?]*)\?)([^\s"'<>#]*)/gi,
+    (_m, prefix: string, query: string) => {
+      if (!query) return prefix
+      const parts = query.split('&').map((kv) => {
+        const eq = kv.indexOf('=')
+        if (eq === -1) return kv
+        const key = kv.slice(0, eq)
+        if (SENSITIVE_QUERY_PARAMS.has(decodeURIComponent(key).toLowerCase())) {
+          return `${key}=${REDACT_QUERY_MARKER}`
+        }
+        return kv
+      })
+      return prefix + parts.join('&')
+    },
+  )
 }
 
 /**

@@ -36,8 +36,8 @@ test('T1 站点腿公网地址与落点形态(与线上 cdn-server 的 --root �
   assert.equal(pub.SITE_LEG.RelDir.split(/[\\/]/).join('/'), 'deploy/server-root/remote-images/download')
 })
 
-test('T2 落点选择:生产签出优先,其次本仓,都不存在时不猜(未判定)', () => {
-  // 生产根期望值一律向单源取(§0.6):本测不复算候选序,只锁"优先级 + 都不在时给 null"。
+test('T2 落点选择:只认生产签出,主仓影子目录即使存在也不选(未判定)', () => {
+  // 生产根期望值一律向单源取(§0.6):本测不复算候选序,只锁"生产优先 + 主仓影子不得兜底"。
   const prodDir = join(prodCheckoutRoot('R', () => false, {}), pub.SITE_LEG.RelDir)
   const repoDir = join('R', pub.SITE_LEG.RelDir)
   const mk = (has) => (p) => has.includes(p)
@@ -45,13 +45,14 @@ test('T2 落点选择:生产签出优先,其次本仓,都不存在时不猜(未�
   assert.equal(both.chosen.source, 'prod-checkout', '线上 cdn-server 读的是生产签出,选错边等于把包放到没人发的位置')
   assert.equal(both.chosen.dir, prodDir)
   const onlyRepo = pub.siteLegPlan({ repoRoot: 'R', exists: mk([repoDir]), env: {} })
-  assert.equal(onlyRepo.chosen.source, 'repo')
+  assert.equal(onlyRepo.chosen, null, '主仓影子目录不是线上 --root ⇒ 不许静默回落(repo 只作诊断点名)')
+  assert.deepEqual(onlyRepo.candidates.map((c) => c.source), ['prod-checkout', 'repo'], '失败时必须点名已试路径')
   const none = pub.siteLegPlan({ repoRoot: 'R', exists: mk([]), env: {} })
   assert.equal(none.chosen, null, '两处都不存在时必须给 null,由调用方判未判定 —— 静默跳过会让对外地址停在旧包')
   assert.equal(none.candidates.length, 2)
 })
 
-test('T3 生产根取不到(仓根在 scratch 夹具内 ⇒ 单源抛出)时不炸,仍留本仓候选', () => {
+test('T3 生产根取不到(仓根在 scratch 夹具内 ⇒ 单源抛出)时不炸,但 chosen=null(不回落主仓)', () => {
   // 真实失效形态:devEnvRoot 对"仓根本身在 §26 夹具里"显式抛错 ⇒ prodCheckoutRoot 抛 ⇒ 本器不得炸。
   const prev = process.env.IHUI_DEVENV_ROOT
   delete process.env.IHUI_DEVENV_ROOT
@@ -62,7 +63,7 @@ test('T3 生产根取不到(仓根在 scratch 夹具内 ⇒ 单源抛出)时不�
       env: {},
     })
     assert.equal(plan.candidates.length, 1)
-    assert.equal(plan.chosen.source, 'repo')
+    assert.equal(plan.chosen, null, '取不到生产根 = 未判定,repo 影子目录再在也不许顶上')
   } finally {
     if (prev !== undefined) process.env.IHUI_DEVENV_ROOT = prev
   }

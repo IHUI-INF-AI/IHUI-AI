@@ -134,10 +134,10 @@ function createStyles(tk: AppThemeTokens) {
     },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
-    listBody: { padding: 14 },
+    listBody: { padding: rnSpacing['md-loose'] },
     separator: { height: 12 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 10, color: tk.surface.light },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light },
     cardDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

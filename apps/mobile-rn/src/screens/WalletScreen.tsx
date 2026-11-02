@@ -54,12 +54,14 @@ export function WalletScreen() {
       // 余额单位是「分」(userMargins.tokenQuantity,与 web /api/finance/margin/balance 同源;
       // web 钱包页按 value/100 渲染),壳内投影 /100,避免共享屏 toFixed(2) 放大 100 倍。
       const d = res.data
+      // null 安全:后端缺值时保留 null ⇒ 共享屏显示 — 占位符;
+      // 不被 /100 换算强转成 0,避免静默击穿「余额为 null 显示 —」既有特性。
       setBalance({
-        balance: d.balance / 100,
-        frozenBalance: d.frozenBalance / 100,
-        totalRecharge: d.totalRecharge / 100,
-        totalWithdraw: d.totalWithdraw / 100,
-      })
+        balance: Number.isFinite(d.balance) ? d.balance / 100 : null,
+        frozenBalance: Number.isFinite(d.frozenBalance) ? d.frozenBalance / 100 : null,
+        totalRecharge: Number.isFinite(d.totalRecharge) ? d.totalRecharge / 100 : null,
+        totalWithdraw: Number.isFinite(d.totalWithdraw) ? d.totalWithdraw / 100 : null,
+      } as WalletBalance)
     } catch {
       setError(uniappT('wallet.loadFailed'))
     } finally {

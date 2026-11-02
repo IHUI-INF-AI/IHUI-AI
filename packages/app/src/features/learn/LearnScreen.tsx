@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
 
     section: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.sm,
       backgroundColor: tk.surface.light,
     } as ViewStyle,

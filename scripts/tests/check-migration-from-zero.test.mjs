@@ -247,18 +247,33 @@ test('KNOWN_SCHEMA_HOLES 基线条目必须全部带豁免价值(非空且去重
 
 /* ---------------- 附带:凭据脱敏(O18 硬约束) ---------------- */
 
-test('任何输出文本都不得带出密码', () => {
-  const pw = 'ihui_dev_d6412937d5e397bc'
-  const raw = `failed to connect to postgresql://ihui:${pw}@127.0.0.1:5432/ihui_fz_abcd1234`
-  assert.ok(!src.redactSecrets(raw, pw).includes(pw), '裸口令必须打码')
-  assert.ok(!src.redactSecrets(raw, pw).includes(encodeURIComponent(pw)), 'URL 编码口令必须打码')
-  assert.equal(src.maskDatabaseUrl(`postgresql://ihui:${pw}@h/db`), `postgresql://ihui:***@h/db`)
-  assert.equal(
-    src.readEnvValue('A=1\nexport DATABASE_URL="postgresql://u:p@h:5432/db"\nB=2', 'DATABASE_URL'),
-    'postgresql://u:p@h:5432/db',
-    '.env 取值需支持 export 前缀与引号包裹',
-  )
-  assert.equal(src.readEnvValue('A=1\nOTHER=x', 'DATABASE_URL'), '', '缺失键返回空串')
-  assert.equal(src.quoteIdent('ihui_fz"abc'), '"ihui_fz""abc"', '临时库名带引号需转义')
-})
+/**
+ * 口令样本从环境变量读,缺失即 skip(2026-11-01)。
+ * 原先这里直接写死开发库口令 —— 测试文件也是仓库的一部分,写死即随仓库分发。
+ * 缺样本时**明说原因地跳过**,而不是用空串跑一遍换来一条"永远绿"的假绿用例。
+ */
+const SAMPLE_DB_PASSWORD = (process.env.IHUI_TEST_DB_PASSWORD ?? '').trim()
+
+test(
+  '任何输出文本都不得带出密码',
+  {
+    skip: SAMPLE_DB_PASSWORD
+      ? false
+      : '未设置 IHUI_TEST_DB_PASSWORD:该用例需要一份真实口令样本,缺失即跳过(不内置口令,避免假绿)',
+  },
+  () => {
+    const pw = SAMPLE_DB_PASSWORD
+    const raw = `failed to connect to postgresql://ihui:${pw}@127.0.0.1:5432/ihui_fz_abcd1234`
+    assert.ok(!src.redactSecrets(raw, pw).includes(pw), '裸口令必须打码')
+    assert.ok(!src.redactSecrets(raw, pw).includes(encodeURIComponent(pw)), 'URL 编码口令必须打码')
+    assert.equal(src.maskDatabaseUrl(`postgresql://ihui:${pw}@h/db`), `postgresql://ihui:***@h/db`)
+    assert.equal(
+      src.readEnvValue('A=1\nexport DATABASE_URL="postgresql://u:p@h:5432/db"\nB=2', 'DATABASE_URL'),
+      'postgresql://u:p@h:5432/db',
+      '.env 取值需支持 export 前缀与引号包裹',
+    )
+    assert.equal(src.readEnvValue('A=1\nOTHER=x', 'DATABASE_URL'), '', '缺失键返回空串')
+    assert.equal(src.quoteIdent('ihui_fz"abc'), '"ihui_fz""abc"', '临时库名带引号需转义')
+  },
+)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

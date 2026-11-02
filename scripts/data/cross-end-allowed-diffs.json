@@ -1,0 +1,907 @@
+{
+  "version": 1,
+  "note": "RN↔小程序允许差异登记表(2026-11-02 立)。每条形如 component × key × platform × owner × 到期日:check-cross-end-ui-parity 只对未登记 / 已到期 / 超量 / 条目坏的差异报红;已登记且在期内的差异只记账不报红。到期项会在下一次检查时重新报红,防止白名单腐化。key=geometry|radius|elementRadius 时 count 是该族实测差异处数,不得写成无限额度;key=platform:<capability> 时登记宿主能力差异,不带 count。",
+  "entries": [
+    {
+      "component": "BottomActionBar",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 13,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: BottomActionBar diffCount=13(onlyMiniapp=1 / onlyRn=12)"
+    },
+    {
+      "component": "BottomActionBar",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 3,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: BottomActionBar radiusCount=3(onlyMiniapp=1 / onlyRn=2)"
+    },
+    {
+      "component": "Carousel",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 6,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: Carousel diffCount=6(onlyMiniapp=6 / onlyRn=0)"
+    },
+    {
+      "component": "DrawerComponent",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 12,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: DrawerComponent diffCount=12(onlyMiniapp=8 / onlyRn=4)"
+    },
+    {
+      "component": "DrawerComponent",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 2,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: DrawerComponent radiusCount=2(onlyMiniapp=0 / onlyRn=2)"
+    },
+    {
+      "component": "InputArea",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 15,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: InputArea diffCount=15(onlyMiniapp=10 / onlyRn=5)"
+    },
+    {
+      "component": "InputArea",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 2,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: InputArea radiusCount=2(onlyMiniapp=0 / onlyRn=2)"
+    },
+    {
+      "component": "IntelligentAssistant",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 6,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: IntelligentAssistant diffCount=6(onlyMiniapp=1 / onlyRn=5)"
+    },
+    {
+      "component": "IntelligentAssistant",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: IntelligentAssistant radiusCount=1(onlyMiniapp=0 / onlyRn=1)"
+    },
+    {
+      "component": "LoginPopUp",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 9,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: LoginPopUp diffCount=9(onlyMiniapp=2 / onlyRn=7)"
+    },
+    {
+      "component": "ModelConfigDialog",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 6,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: ModelConfigDialog diffCount=6(onlyMiniapp=1 / onlyRn=5)"
+    },
+    {
+      "component": "ModelList",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 6,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: ModelList diffCount=6(onlyMiniapp=5 / onlyRn=1)"
+    },
+    {
+      "component": "ModelList",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: ModelList radiusCount=1(onlyMiniapp=1 / onlyRn=0)"
+    },
+    {
+      "component": "NavBar",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 7,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: NavBar diffCount=7(onlyMiniapp=1 / onlyRn=6)"
+    },
+    {
+      "component": "NavBar",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: NavBar radiusCount=1(onlyMiniapp=1 / onlyRn=0)"
+    },
+    {
+      "component": "SectionHeader",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: SectionHeader diffCount=1(onlyMiniapp=1 / onlyRn=0)"
+    },
+    {
+      "component": "UserInfoCard",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 4,
+      "reason": "两端盒档读数仍有差;4 枚全属 RN 独有元素(等级说明弹窗):6=tokenRow/growthRow/inviteRow 的 paddingVertical、18=modalTitle 的 rnType.subtitle.size、24=modalCard 的 rnSpacing.xl、32=avatarFallbackText 的 initials 字号。小程序端的等级说明由 VipBenefitsPopup 承载(组件里只有 onOpenLevel 回调,无弹窗层),结构上没有这些节点;补数字等于往屏上加节点。本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json(2026-11-02 Phase 3,几何维识别 rnType/rnSpacing 引用后):UserInfoCard diffCount=4(onlyMiniapp=0 / onlyRn=[6,18,24,32]);RN 腿 apps/mobile-rn/src/components/UserInfoCard.tsx 的 modalCard/modalTitle/avatarFallbackText;小程序腿 apps/miniapp-taro/src/components/UserInfoCard.tsx 无 Modal 节点(pages/user/index.tsx:950 onOpenLevel → VipBenefitsPopup)"
+    },
+    {
+      "component": "UserInfoCard",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: UserInfoCard radiusCount=1(onlyMiniapp=0 / onlyRn=1)"
+    },
+    {
+      "component": "VideoPlayer",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 5,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: VideoPlayer diffCount=5(onlyMiniapp=0 / onlyRn=5)"
+    },
+    {
+      "component": "VoiceInput",
+      "key": "geometry",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 7,
+      "reason": "两端盒档读数仍有差;本批只登记为允许差异,不改 UI 结构与视觉取值;到期前必须由 owner 复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: VoiceInput diffCount=7(onlyMiniapp=1 / onlyRn=6)"
+    },
+    {
+      "component": "VoiceInput",
+      "key": "radius",
+      "platform": "both",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "两端圆角档集合仍有差;属文件级读数差异,本批不调视觉取值;到期前必须复核收敛或续期。",
+      "evidence": "check-cross-end-ui-parity --json: VoiceInput radiusCount=1(onlyMiniapp=0 / onlyRn=1)"
+    },
+    {
+      "component": "pay",
+      "key": "platform:payment-channel",
+      "platform": "both",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "支付通道由宿主决定:小程序走 Taro.requestPayment/tradePay,RN 走 react-native-wechat-lib;两端不可共用同一实现。",
+      "evidence": "apps/miniapp-taro/src/platform/pay.ts:Taro.requestPayment/Taro.tradePay; apps/mobile-rn/src/hooks/useWechatPayment.ts:react-native-wechat-lib"
+    },
+    {
+      "component": "Share",
+      "key": "platform:share-channel",
+      "platform": "both",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "分享通道由宿主决定:小程序 rn-compat 的 Share.share 只弹 modal,RN 走原生分享;两端不共享实现。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/apis.ts:102-111:Share.share→showModal; apps/mobile-rn 原生 Share"
+    },
+    {
+      "component": "push",
+      "key": "platform:subscribe-message",
+      "platform": "miniapp",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "订阅消息是小程序宿主能力(Taro.requestSubscribeMessage),RN 无对应通道;不得在 RN 端伪造。",
+      "evidence": "apps/miniapp-taro/src/utils/push.ts:11:requestSubscribeMessage; apps/miniapp-taro/src/utils/push-init.ts:74"
+    },
+    {
+      "component": "native-wechat",
+      "key": "platform:miniapp-native",
+      "platform": "miniapp",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "小程序码/截屏/微信授权属微信宿主产物;RN 无 wxacode 能力,截屏走 react-native-view-shot。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/native-wechat.ts:27-34:unsupported; apps/miniapp-taro/src/pages/distribution/index.tsx:72:getWxCode; apps/mobile-rn/src/hooks/use-screenshot.ts:7:captureRef"
+    },
+    {
+      "component": "font",
+      "key": "platform:font-stack",
+      "platform": "rn",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "等宽字体栈由平台字体决定:RN 用 Menlo/monospace,小程序无该字体栈;视觉差异登记为允许。",
+      "evidence": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:2394,2406,2413:Menlo/monospace"
+    },
+    {
+      "component": "BlurView",
+      "key": "platform:gaussian-blur",
+      "platform": "both",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "高斯模糊实现不同:RN 用 expo-blur,小程序 rn-compat 以透明度近似且不接收 tint 等参数。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/expo-blur.tsx:48-51:opacity 近似; apps/mobile-rn/src/components/TabBar.tsx:139-143:expo-blur"
+    },
+    {
+      "component": "PanResponder",
+      "key": "platform:gesture",
+      "platform": "both",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "手势实现不同:RN 用 PanResponder,小程序端不派发手势事件,仅能降级处理。",
+      "evidence": "apps/mobile-rn/src/components/BottomPops.tsx:118-152:PanResponder; apps/miniapp-taro/src/rn-compat/primitives.tsx:109-115:事件不派发"
+    },
+    {
+      "component": "SafeAreaView",
+      "key": "platform:safe-area",
+      "platform": "both",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "安全区来源不同:小程序 rn-compat 的 useSafeAreaInsets 恒 0、SafeAreaView 退化为 View;RN 用原生安全区。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/platform.tsx:134:useSafeAreaInsets 恒 0; apps/miniapp-taro/src/rn-compat/primitives.tsx:590:SafeAreaView=View"
+    },
+    {
+      "component": "Platform",
+      "key": "platform:os-constant",
+      "platform": "miniapp",
+      "owner": "cross-end-platform",
+      "expires": "2027-03-27",
+      "reason": "平台常量不同:小程序 rn-compat 的 Platform.OS 恒 ios、isAndroid 恒 false;RN 读真实平台。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/apis.ts:43-52:OS='ios', isIOS=true, isAndroid=false"
+    },
+    {
+      "component": "RN:spacing:marginTop",
+      "key": "styleTier:spacing:marginTop:1",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 3,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN marginTop=1 逐处(apps/mobile-rn/src/components/AddPanel.tsx 等 3 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RN:spacing:marginVertical",
+      "key": "styleTier:spacing:marginVertical:2.5",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN marginVertical=2.5 逐处(apps/mobile-rn/src/components/AgentList.tsx 等 1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RN:spacing:paddingVertical",
+      "key": "styleTier:spacing:paddingVertical:1",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 24,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN paddingVertical=1 逐处(apps/mobile-rn/src/components/AgentList.tsx 等 24 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ConfirmPurchasePopUp.radioDot",
+      "key": "styleTier:radius:borderRadius:10",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/ConfirmPurchasePopUp.tsx 的 radioDot 为 borderRadius=10(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseCarousel.thumbIcon",
+      "key": "styleTier:fontSize:fontSize:36",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=36(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseCarousel.thumbIcon",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseCarousel.thumbIcon",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/CourseCarousel.tsx 的 thumbIcon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RN:spacing:marginLeft",
+      "key": "styleTier:spacing:marginLeft:1",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN marginLeft=1 逐处(apps/mobile-rn/src/components/FullRankingList.tsx 等 1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RN:spacing:paddingLeft",
+      "key": "styleTier:spacing:paddingLeft:9.6",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN paddingLeft=9.6 逐处(apps/mobile-rn/src/components/GlobalFloatBox.tsx 等 1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RN:spacing:marginRight",
+      "key": "styleTier:spacing:marginRight:7.8",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN marginRight=7.8 逐处(apps/mobile-rn/src/components/GlobalFloatBox.tsx 等 1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "HandPlatePops.radioDot",
+      "key": "styleTier:radius:borderRadius:10",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/HandPlatePops.tsx 的 radioDot 为 borderRadius=10(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "InputArea.thumbClose",
+      "key": "styleTier:radius:borderRadius:18",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/InputArea.tsx 的 thumbClose 为 borderRadius=18(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "InputArea.collapseBtn",
+      "key": "styleTier:radius:borderRadius:24",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/InputArea.tsx 的 collapseBtn 为 borderRadius=24(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "Toolbar.bannerFloatEmoji",
+      "key": "styleTier:fontSize:fontSize:64",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/Toolbar.tsx 的 bannerFloatEmoji 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "Toolbar.customIcon",
+      "key": "styleTier:fontSize:fontSize:26",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/Toolbar.tsx 的 customIcon 为 fontSize=26(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "UserInfoCard.avatarFallbackText",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/UserInfoCard.tsx 的 avatarFallbackText 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "VoiceInput.clearBtn",
+      "key": "styleTier:radius:borderRadius:24",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/VoiceInput.tsx 的 clearBtn 为 borderRadius=24(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "Default.emoji",
+      "key": "styleTier:fontSize:fontSize:56",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/common/Default.tsx 的 emoji 为 fontSize=56(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "Empty.emoji",
+      "key": "styleTier:fontSize:fontSize:48",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/components/common/Empty.tsx 的 emoji 为 fontSize=48(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "HomeScreen.materialSheetClose",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/HomeScreen.tsx 的 materialSheetClose 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "HomeScreen.detailDialogClose",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/HomeScreen.tsx 的 detailDialogClose 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "HomeScreen.modelModalClose",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/HomeScreen.tsx 的 modelModalClose 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LoginScreen.carrierWebClose",
+      "key": "styleTier:fontSize:fontSize:26",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/LoginScreen.tsx 的 carrierWebClose 为 fontSize=26(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "PlazaScreen.identityAvatarFallbackText",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/PlazaScreen.tsx 的 identityAvatarFallbackText 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ProfileScreen.sharePopupCloseText",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/ProfileScreen.tsx 的 sharePopupCloseText 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ProfileScreen.editProfileAvatarFallbackText",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/ProfileScreen.tsx 的 editProfileAvatarFallbackText 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ProfileScreen.unsubscribeIcon",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/ProfileScreen.tsx 的 unsubscribeIcon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ShareScreen.pickerIcon",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: apps/mobile-rn/src/screens/ShareScreen.tsx 的 pickerIcon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ScreenStates.stateGlyph",
+      "key": "styleTier:fontSize:fontSize:26",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/components/ScreenStates.tsx 的 stateGlyph 为 fontSize=26(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "MessageInput.fileRemove",
+      "key": "styleTier:radius:borderRadius:7.5",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/chat/MessageInput.tsx 的 fileRemove 为 borderRadius=7.5(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CoursePlanetScreen.courseCoverEmoji",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/course-planet/CoursePlanetScreen.tsx 的 courseCoverEmoji 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseTabScreen.pathCoverEmoji",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/course-tab/CourseTabScreen.tsx 的 pathCoverEmoji 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseTabScreen.categoryIcon",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/course-tab/CourseTabScreen.tsx 的 categoryIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseTabScreen.popularCoverEmoji",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/course-tab/CourseTabScreen.tsx 的 popularCoverEmoji 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "CourseTabScreen.courseImageEmoji",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/course-tab/CourseTabScreen.tsx 的 courseImageEmoji 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "FeedbackScreen.imageRemove",
+      "key": "styleTier:radius:borderRadius:10",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/feedback/FeedbackScreen.tsx 的 imageRemove 为 borderRadius=10(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "HomeScreen.menuIcon",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/home/HomeScreen.tsx 的 menuIcon 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LearnDevelopScreen.entryIcon",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/learn-develop/LearnDevelopScreen.tsx 的 entryIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LearnScreen.categoryIcon",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/learn/LearnScreen.tsx 的 categoryIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LecturerListScreen.avatarFallbackText",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/lecturer-list/LecturerListScreen.tsx 的 avatarFallbackText 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LecturerProfileScreen.avatarFallbackText",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/lecturer/LecturerProfileScreen.tsx 的 avatarFallbackText 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LivePlaybackScreen.playerIcon",
+      "key": "styleTier:fontSize:fontSize:36",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx 的 playerIcon 为 fontSize=36(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "LoginScreen.qrPlaceholderIconText",
+      "key": "styleTier:fontSize:fontSize:56",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/login/LoginScreen.tsx 的 qrPlaceholderIconText 为 fontSize=56(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ModelIncomeScreen.payRadio",
+      "key": "styleTier:radius:borderRadius:9",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/model-income/ModelIncomeScreen.tsx 的 payRadio 为 borderRadius=9(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ModelPlazaScreen.providerTabIcon",
+      "key": "styleTier:radius:borderRadius:18",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/model-plaza/ModelPlazaScreen.tsx 的 providerTabIcon 为 borderRadius=18(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "NoteCreateScreen.switchThumb",
+      "key": "styleTier:radius:borderRadius:20",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "圆形按钮/圆点按「尺寸的一半」写 borderRadius,web 侧用 rounded-full;RN 无百分比圆角档,该值是渲染必需而非散档;零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/note-create/NoteCreateScreen.tsx 的 switchThumb 为 borderRadius=20(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "PlazaCoverScreen.heroEmoji",
+      "key": "styleTier:fontSize:fontSize:64",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx 的 heroEmoji 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "PlazaCoverScreen.featureIcon",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx 的 featureIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "PlazaScreen.emptyIcon",
+      "key": "styleTier:fontSize:fontSize:48",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/plaza/PlazaScreen.tsx 的 emptyIcon 为 fontSize=48(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "PlazaScreen.fabIcon",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/plaza/PlazaScreen.tsx 的 fabIcon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "PointsMallScreen.coverEmoji",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/points-mall/PointsMallScreen.tsx 的 coverEmoji 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ProfileEditScreen.avatarEmoji",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/profile-edit/ProfileEditScreen.tsx 的 avatarEmoji 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "ProfileScreen.avatarText",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/profile/ProfileScreen.tsx 的 avatarText 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "QrCodeScreen.qrPlaceholder",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/qr-code/QrCodeScreen.tsx 的 qrPlaceholder 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RankingScreen.avatarInitial",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/ranking/RankingScreen.tsx 的 avatarInitial 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "RN:spacing:gap",
+      "key": "styleTier:spacing:gap:1",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "1px / 半像素级微调是 RN 逻辑像素对齐值,web 侧无同值也无对应档;登记为 RN 单侧像素对齐,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: RN gap=1 逐处(packages/app/src/features/skills-market/SkillMarketDetailScreen.tsx 等 1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "StudyPublishScreen.icon",
+      "key": "styleTier:fontSize:fontSize:28",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/study-publish/StudyPublishScreen.tsx 的 icon 为 fontSize=28(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "SubPackageIndexScreen.entryIcon",
+      "key": "styleTier:fontSize:fontSize:32",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx 的 entryIcon 为 fontSize=32(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "TeamDetailScreen.avatarText",
+      "key": "styleTier:fontSize:fontSize:22",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/team-detail/TeamDetailScreen.tsx 的 avatarText 为 fontSize=22(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "TopupFailScreen.icon",
+      "key": "styleTier:fontSize:fontSize:64",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/topup-fail/TopupFailScreen.tsx 的 icon 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "TopupSuccessScreen.icon",
+      "key": "styleTier:fontSize:fontSize:64",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-03-27",
+      "count": 1,
+      "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/topup-success/TopupSuccessScreen.tsx 的 icon 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    }
+  ]
+}

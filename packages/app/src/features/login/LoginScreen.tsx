@@ -1749,7 +1749,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     areaArrow: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.tertiary,
       marginLeft: rnSpacing['xs-loose'],
     },
@@ -1779,7 +1779,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -1920,7 +1920,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyItem: {
       paddingVertical: 0,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -1941,7 +1941,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyClear: {
       paddingVertical: rnSpacing['sm-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       alignItems: 'center',
     },
     historyClearText: {
@@ -2005,9 +2005,9 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     ssoBtnText: {
       color: tk.text.secondary,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '400',
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       // 与 loginBtnText 同一光学居中校正(中文字体度量偏下)
       transform: [{ translateY: -1 }],
     },

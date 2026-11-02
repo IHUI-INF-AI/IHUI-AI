@@ -585,8 +585,11 @@ def test_working_dev_principal_is_not_treated_as_an_owner(monkeypatch: pytest.Mo
     """
     monkeypatch.setattr(settings, "jwt_secret", "")
     monkeypatch.setattr(jwt_auth.settings, "jwt_secret", "")
+    # 2026-11-01:开发降级只由显式开关打开(不再由缺 secret + node_env 推导)
     monkeypatch.setattr(settings, "node_env", "development")
     monkeypatch.setattr(jwt_auth.settings, "node_env", "development")
+    monkeypatch.setattr(settings, "ai_dev_no_auth", True)
+    monkeypatch.setattr(jwt_auth.settings, "ai_dev_no_auth", True)
 
     svc, calls = _install_working_service(monkeypatch)
     app = FastAPI()

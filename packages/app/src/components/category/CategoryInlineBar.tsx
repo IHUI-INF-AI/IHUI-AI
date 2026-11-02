@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
   CategoryItemContent,
   categoryItemA11yLabel,
@@ -201,9 +201,9 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.7,
     },
     itemText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '400',
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     itemTextActive: {

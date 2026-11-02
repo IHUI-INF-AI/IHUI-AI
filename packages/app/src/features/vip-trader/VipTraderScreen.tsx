@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
     heroCard: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.sm,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.dark,
     },
@@ -247,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
     statCard: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -267,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
     entryBtn: {
       flex: 1,
       marginHorizontal: rnSpacing.sm,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
@@ -288,7 +288,7 @@ function createStyles(tk: AppThemeTokens) {
     featureItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,

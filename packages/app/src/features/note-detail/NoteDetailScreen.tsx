@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Heart } from 'lucide-react-native'
 import type { NoteDetailItem, NoteDetailScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -106,8 +106,8 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['xs-loose'],
       marginBottom: rnSpacing['xs-loose'],
     },
-    author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: 11, color: tk.text.tertiary },
+    author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     tagRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -115,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     tag: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -134,7 +134,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
     },
     statText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.medium,
     },
   })

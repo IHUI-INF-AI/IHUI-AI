@@ -16,7 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FavoritesItem, FavoritesScreenProps } from '../../types'
 import { Star } from 'lucide-react-native'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -123,13 +123,13 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
-    footerText: { fontSize: 11, color: tk.text.secondary },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -153,10 +153,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
     },
-    coverEmoji: { fontSize: 24 },
+    coverEmoji: { fontSize: rnType.display.size },
     cardInfo: { flex: 1, marginLeft: rnSpacing.md },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     deleteBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
@@ -165,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
-    deleteBtnText: { fontSize: 14, color: tk.text.primary },
+    deleteBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

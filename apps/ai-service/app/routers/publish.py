@@ -333,16 +333,19 @@ async def upload_file(
             detail=f"unsupported file extension: {Path(file.filename).suffix}. allowed: {allowed}",
         )
 
-    # 读取内容并检查大小
-    content_bytes = await file.read()
+    # 读取内容并检查大小(2026-11-01:分块读到上限即断 —— 原先 `await file.read()`
+    # 把整包读进内存之后才判 200MB,单请求峰值不受上限约束)
+    from ..utils.upload_read import read_capped
+
+    content_bytes = await read_capped(file, _MAX_FILE_SIZE)
+    if content_bytes is None:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file too large > max {_MAX_FILE_SIZE} bytes (200MB)",
+        )
     size = len(content_bytes)
     if size == 0:
         raise HTTPException(status_code=400, detail="file is empty")
-    if size > _MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"file too large: {size} bytes > max {_MAX_FILE_SIZE} bytes (200MB)",
-        )
 
     # 构造存储路径(user_id 已由 JWT 校验,必定非空)
     user_dir = "".join(c for c in user_id if c.isalnum() or c in "-_") or "anonymous"

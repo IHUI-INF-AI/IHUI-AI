@@ -216,7 +216,11 @@ function makeStyles() {
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
     },
-    countBadgeText: { fontSize: 10, fontWeight: '700', color: tokens.brand.ctaForeground },
+    countBadgeText: {
+      fontSize: rnType.badge.size,
+      fontWeight: '700',
+      color: tokens.brand.ctaForeground,
+    },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     error: { fontSize: 13, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
@@ -255,7 +259,7 @@ function makeStyles() {
       borderColor: tokens.danger.DEFAULT,
       backgroundColor: tokens.surface.card,
     },
-    overdueText: { fontSize: 10, fontWeight: '700', color: tokens.danger.DEFAULT },
+    overdueText: { fontSize: rnType.badge.size, fontWeight: '700', color: tokens.danger.DEFAULT },
     itemMetaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     typeChip: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -263,7 +267,7 @@ function makeStyles() {
       borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
-    typeChipText: { fontSize: 10, color: tokens.text.secondary },
+    typeChipText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   })
 }

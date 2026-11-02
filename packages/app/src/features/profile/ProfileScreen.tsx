@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     userCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -223,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 96,
       width: '31%',
       flexGrow: 1,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
@@ -252,7 +252,7 @@ function createStyles(tk: AppThemeTokens) {
     logoutBtn: {
       marginTop: rnSpacing.sm,
       height: 50,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.error.bg,
       alignItems: 'center',

@@ -10,7 +10,7 @@ import type { RefundDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnSpacing } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 /**
  * 退款详情共享屏 — 平台无关渲染层。
  *
@@ -96,17 +96,17 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    body: { padding: 14 },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    body: { padding: rnSpacing['md-loose'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingVertical: rnSpacing['sm-loose'],
     },
-    label: { fontSize: 14, color: tk.text.secondary },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
     value: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       fontWeight: '500',
       flexShrink: 1,

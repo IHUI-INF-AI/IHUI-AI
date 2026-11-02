@@ -22,6 +22,7 @@ import {
   findLogs,
   type CreateTaskInput,
 } from '../db/workflow-queries.js'
+import type { Workflow, WorkflowInstance } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 
 // =============================================================================
@@ -95,6 +96,43 @@ const listInstancesQuery = z.object({
   workflowId: z.uuid().optional(),
   status: z.string().optional(),
 })
+
+// =============================================================================
+// 归属判定（唯一落点）
+//
+// 2026-11-01 IDOR 收口：本文件此前只有 PATCH/DELETE 做了 `existing.createdBy !== request.userId`
+// (见下方两个路由的历史注释)，而列表/实例列表/详情/取消/重试/trigger 全部只按 id 取 ——
+// 任一登录用户即可枚举全平台工作流与实例(instance.context/tasks/logs 含项目数据与提示词)、
+// 取消/重试他人实例、触发他人工作流消耗其额度。
+//
+// 口径（两条，全文件统一，不得再散落第三份判据）：
+//  1. **拒绝一律 404**，不用 403。工作流与实例是"个人私有对象"，不是"存在但你没权限"的
+//     共享资源：403 会把"这个 id 存在"本身漏给他人(可用来撞 id / 统计规模)。404 让
+//     "别人的对象"与"不存在的对象"在响应上完全同形。
+//  2. **实例归属 = 所属 workflow 的 createdBy**。`workflow_instances` 没有 userId 列，
+//     也不打算加(加列要回填历史数据，且 workflow 转手时会出现两份真相)，所以实例必须先取
+//     实体、再取它所属 workflow 比对。
+//
+// 管理员：本文件**没有**管理员分支(既有 PATCH/DELETE 就是纯属主判定)，故这里沿用同一口径，
+// 不为列表/实例新增"管理员看全部"的捷径 —— 那会在收口的同时新开一个跨用户读面。
+// 系统级清理(超时 sweep)走的是显式的 `scope: 'system'`，与请求者身份无关，且不回传 id。
+// =============================================================================
+
+/** 取本人工作流；不是本人(或不存在)一律 undefined ⇒ 调用方回 404。 */
+async function loadOwnedWorkflow(id: string, userId: string): Promise<Workflow | undefined> {
+  const workflow = await findWorkflowById(id)
+  if (!workflow) return undefined
+  return workflow.createdBy === userId ? workflow : undefined
+}
+
+/** 取本人实例：先按 id 取实例，再经其 workflow 的 createdBy 判归属。 */
+async function loadOwnedInstance(id: string, userId: string): Promise<WorkflowInstance | undefined> {
+  const instance = await findInstanceById(id)
+  if (!instance) return undefined
+  const workflow = await findWorkflowById(instance.workflowId)
+  if (!workflow) return undefined
+  return workflow.createdBy === userId ? instance : undefined
+}
 
 // =============================================================================
 // 路由
@@ -205,7 +243,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { page, pageSize } = parsed.data
-      const { list, total } = await findWorkflows({ page, pageSize })
+      const { list, total } = await findWorkflows({ page, pageSize, userId: request.userId! })
       return reply.send(success({ list, total, page, pageSize }))
     },
   )
@@ -218,17 +256,32 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { page, pageSize, workflowId, status } = parsed.data
-    const { list, total } = await findInstances({ page, pageSize, workflowId, status })
+    const { list, total } = await findInstances({
+      page,
+      pageSize,
+      workflowId,
+      status,
+      userId: request.userId!,
+    })
     return reply.send(success({ list, total, page, pageSize }))
   })
 
   // GET /workflows/instances/timeout - 检查并标记超时实例
   // 静态路径，必须放在 /instances/:id 之前，避免 timeout 被当作 :id
-  server.get('/workflows/instances/timeout', async (_request, reply) => {
-    // 查询 running 实例（findInstances 支持 status 过滤）
-    const { list } = await findInstances({ page: 1, pageSize: 100, status: 'running' })
+  //
+  // 这是**系统级清理**：要遍历全平台 running 实例(否则他人的实例永远不会被判超时)，
+  // 所以用显式的 `scope: 'system'`，与请求者身份无关。回传只剩计数 —— 此前返回的
+  // `timedOut` id 列表本身就是越权数据(用它可反推他人实例 id 并继续打 /instances/:id)。
+  server.get('/workflows/instances/timeout', async (request, reply) => {
+    const { list } = await findInstances({
+      page: 1,
+      pageSize: 100,
+      status: 'running',
+      userId: request.userId!,
+      scope: 'system',
+    })
     const now = new Date()
-    const timedOut: string[] = []
+    let timedOutCount = 0
     for (const inst of list) {
       const ctx = (inst.context ?? {}) as Record<string, unknown>
       const timeout = typeof ctx.timeout === 'number' ? ctx.timeout : null
@@ -242,11 +295,11 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
             message: `实例超时 (${elapsed}ms > ${timeout}ms)`,
             data: { elapsed, timeout },
           })
-          timedOut.push(inst.id)
+          timedOutCount++
         }
       }
     }
-    return reply.send(success({ timedOut, count: timedOut.length }))
+    return reply.send(success({ count: timedOutCount }))
   })
 
   // GET /workflows/instances/:id - 实例详情（含 tasks）
@@ -255,7 +308,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const instance = await findInstanceById(parsed.data.id)
+    const instance = await loadOwnedInstance(parsed.data.id, request.userId!)
     if (!instance) {
       return reply.status(404).send(error(404, '实例不存在'))
     }
@@ -269,7 +322,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const instance = await findInstanceById(parsed.data.id)
+    const instance = await loadOwnedInstance(parsed.data.id, request.userId!)
     if (!instance) {
       return reply.status(404).send(error(404, '实例不存在'))
     }
@@ -283,7 +336,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const instance = await findInstanceById(parsed.data.id)
+    const instance = await loadOwnedInstance(parsed.data.id, request.userId!)
     if (!instance) {
       return reply.status(404).send(error(404, '实例不存在'))
     }
@@ -296,13 +349,13 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
 
-  // POST /workflows/instances/:id/cancel - 取消运行中实例
+  // POST /workflows/instances/:id/cancel - 取消运行中实例（仅该实例所属工作流的创建者）
   server.post('/workflows/instances/:id/cancel', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const instance = await findInstanceById(parsed.data.id)
+    const instance = await loadOwnedInstance(parsed.data.id, request.userId!)
     if (!instance) {
       return reply.status(404).send(error(404, '实例不存在'))
     }
@@ -318,13 +371,13 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ instance: cancelled }))
   })
 
-  // POST /workflows/instances/:id/retry - 重试失败实例
+  // POST /workflows/instances/:id/retry - 重试失败实例（仅该实例所属工作流的创建者）
   server.post('/workflows/instances/:id/retry', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const instance = await findInstanceById(parsed.data.id)
+    const instance = await loadOwnedInstance(parsed.data.id, request.userId!)
     if (!instance) {
       return reply.status(404).send(error(404, '实例不存在'))
     }
@@ -350,7 +403,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const workflow = await findWorkflowById(parsed.data.id)
+    const workflow = await loadOwnedWorkflow(parsed.data.id, request.userId!)
     if (!workflow) {
       return reply.status(404).send(error(404, '工作流不存在'))
     }
@@ -367,12 +420,10 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findWorkflowById(parsed.data.id)
+    // 归属走 loadOwnedWorkflow：非本人与不存在同为 404（口径见文件顶部注释）
+    const existing = await loadOwnedWorkflow(parsed.data.id, request.userId!)
     if (!existing) {
       return reply.status(404).send(error(404, '工作流不存在'))
-    }
-    if (existing.createdBy !== request.userId) {
-      return reply.status(403).send(error(403, '无权修改该工作流'))
     }
     const updated = await updateWorkflow(parsed.data.id, body.data)
     return reply.send(success({ workflow: updated }))
@@ -384,12 +435,9 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findWorkflowById(parsed.data.id)
+    const existing = await loadOwnedWorkflow(parsed.data.id, request.userId!)
     if (!existing) {
       return reply.status(404).send(error(404, '工作流不存在'))
-    }
-    if (existing.createdBy !== request.userId) {
-      return reply.status(403).send(error(403, '无权删除该工作流'))
     }
     // 2026-09-27 布尔删除 ack 清账:deleted 由库侧 RETURNING 命中集派生,不得再回常量 true
     const removed = await deleteWorkflow(parsed.data.id)
@@ -458,7 +506,7 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
       if (!body.success) {
         return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
       }
-      const workflow = await findWorkflowById(parsed.data.id)
+      const workflow = await loadOwnedWorkflow(parsed.data.id, request.userId!)
       if (!workflow) {
         return reply.status(404).send(error(404, '工作流不存在'))
       }
@@ -601,7 +649,9 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
         data: { workflowId: workflow.id, taskCount: tasks.length },
       })
 
-      // 重新查询以反映 running 状态变更
+      // 重新查询以反映 running 状态变更。
+      // 这里刻意用裸 findInstanceById：instance 是上面本请求刚在**已通过归属判定**的
+      // workflow 下创建的，id 不来自入参，不存在"读他人"的可能(全文件唯一允许的裸取实例)。
       const finalInstance = await findInstanceById(instance.id)
       return reply.status(201).send(success({ instance: finalInstance ?? instance, tasks }))
     },

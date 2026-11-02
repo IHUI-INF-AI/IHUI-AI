@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FollowingItem, FollowingScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -134,13 +134,13 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 12 },
     footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
-    footerText: { fontSize: 11, color: tk.text.secondary },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -160,11 +160,11 @@ function createStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
-    avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
+    avatarInitial: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: rnSpacing.md },
-    cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    cardBio: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.secondary },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardBio: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     unfollowBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
@@ -173,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
-    unfollowBtnText: { fontSize: 14, color: tk.text.primary },
+    unfollowBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

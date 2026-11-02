@@ -99,6 +99,13 @@ export function judgeDims({
   segment,
   hasMarker,
   now = Date.now(),
+  /**
+   * 倒数第二段(区分"单轮瞬时失败"与"连续失败")。
+   * 不传(测试/无历史)⇒ 退化为旧行为:最后一轮报错即 breach(§报警前先自愈)。
+   * 传了且上一段健康 ⇒ 单轮瞬时失败(机器饱和被 SIGTERM / 并发改文件短暂缺失,下一轮自愈重试即恢复)⇒ unjudged 不喊人;
+   * 传了且上一段也失败 ⇒ 连续失败(真故障,qoder 号要掉)⇒ breach。
+   */
+  prevSegment = null,
 }) {
   const dims = {}
   const task = parseTaskXml(xml)
@@ -180,10 +187,29 @@ export function judgeDims({
 
   const summary = parseLastJson(segment)
   if (hasFailureMark(segment)) {
-    dims.log_verdict = {
-      verdict: 'breach',
-      reason: '最后一轮回灌报错(捕获失败或写库失败)',
-      reading: String(segment).trim().split(/\r?\n/).slice(-1)[0]?.slice(0, 200) ?? '',
+    // §报警前先自愈:同步任务每几分钟自跑即重试。单轮瞬时失败(机器饱和被 SIGTERM /
+    // 并发改文件短暂缺失)下一轮即恢复,不应占人通道;只有连续失败才是真故障(qoder 号要掉)。
+    const hasPrev = Boolean(prevSegment) && prevSegment.trim().length > 0
+    const prevFailed = hasPrev && hasFailureMark(prevSegment)
+    if (prevFailed) {
+      dims.log_verdict = {
+        verdict: 'breach',
+        reason: '连续两轮回灌报错(非瞬时,真故障)',
+        reading: String(segment).trim().split(/\r?\n/).slice(-1)[0]?.slice(0, 200) ?? '',
+      }
+    } else if (hasPrev) {
+      dims.log_verdict = {
+        verdict: 'unjudged',
+        reason:
+          '最后一轮回灌报错,但上一轮成功 ⇒ 单轮瞬时失败,待下一轮确认(下一轮仍失败才视为真故障)',
+        reading: String(segment).trim().split(/\r?\n/).slice(-1)[0]?.slice(0, 200) ?? '',
+      }
+    } else {
+      dims.log_verdict = {
+        verdict: 'breach',
+        reason: '最后一轮回灌报错(无历史段可确认是否瞬时)',
+        reading: String(segment).trim().split(/\r?\n/).slice(-1)[0]?.slice(0, 200) ?? '',
+      }
     }
   } else if (!summary) {
     dims.log_verdict = {
@@ -276,6 +302,9 @@ export async function main(argv) {
   const logStat = readLog(logPath)
   const raw = readLogSegment(logPath, logStat.size)
   const split = splitLastRun(raw)
+  // 取倒数第二段,供 log_verdict 区分"单轮瞬时失败"与"连续失败"(§报警前先自愈)
+  const runSegs = raw.split(RUN_MARKER)
+  const prevSegment = runSegs.length >= 2 ? runSegs[runSegs.length - 2] : ''
   const dims = judgeDims({
     taskQuery,
     xml,
@@ -283,6 +312,7 @@ export async function main(argv) {
     logStat,
     segment: split.segment,
     hasMarker: split.hasMarker,
+    prevSegment,
     now,
   })
   const overall = judgeOverall(dims)

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../../theme/tokens'
 
@@ -18,7 +18,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.xs,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     tabStrip: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing.md,
@@ -37,10 +37,10 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     tabActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    tabText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    tabText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     tabActiveText: { color: tk.brand.ctaForeground },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
-    desc: { fontSize: 12, color: tk.text.secondary },
+    desc: { fontSize: rnType.label.size, color: tk.text.secondary },
     uploadBox: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -64,12 +64,12 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     },
     fileMain: { flex: 1, gap: rnSpacing['2xs'] },
     fileName: { fontSize: 13, color: tk.text.primary },
-    fileMeta: { fontSize: 11, color: tk.text.tertiary },
+    fileMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     iconBtn: { padding: rnSpacing['xs-loose'] },
     orderBtns: { flexDirection: 'row', gap: rnSpacing['2xs'] },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.md,
       borderWidth: StyleSheet.hairlineWidth,
@@ -110,7 +110,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     posCellActive: { backgroundColor: tk.brandAccent.light, borderColor: tk.brandAccent.DEFAULT },
-    posText: { fontSize: 12, color: tk.text.secondary },
+    posText: { fontSize: rnType.label.size, color: tk.text.secondary },
     posTextActive: { color: tk.brandAccent.deep, fontWeight: '600' },
     previewBox: {
       height: 160,
@@ -131,8 +131,8 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     submitBtnDisabled: { opacity: 0.5 },
-    submitText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
-    rowHint: { fontSize: 11, color: tk.text.tertiary },
+    submitText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    rowHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     progressTrack: {
       height: 8,
       borderRadius: rnRadius.sm,
@@ -153,7 +153,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
     },
     noticeMain: { flex: 1, gap: rnSpacing.xs },
     noticeTitle: { fontSize: 13, fontWeight: '700', color: tk.warning.amberText },
-    noticeText: { fontSize: 12, color: tk.warning.amberText },
+    noticeText: { fontSize: rnType.label.size, color: tk.warning.amberText },
     resultBox: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -162,9 +162,9 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       gap: rnSpacing.sm,
     },
-    resultHint: { fontSize: 12, color: tk.text.secondary },
+    resultHint: { fontSize: rnType.label.size, color: tk.text.secondary },
     downloadRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    downloadText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
+    downloadText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

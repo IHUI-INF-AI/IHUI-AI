@@ -78,7 +78,7 @@ import {
   createReadStream,
   utimesSync,
 } from 'node:fs'
-import { dirname, join, parse, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { devEnvRoot } from './seal-c-root-stray.mjs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
@@ -94,6 +94,7 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // `ihui_dev_*.dump` 就是第二个真相 —— 两处必然随每一次命名演进漂开,而漂开的表现不是报错,
 // 是"最新文件"被读成"我们的链产出的"(2026-10-01 那次假绿正是这个形态)。
 import { classifyFileName, dumpNameReFor, EXEC_CANDIDATES, resolveDatabases } from './pg-backup-cadence-audit.mjs'
+import { cloudSyncHealthy } from './cloud-sync/rclone-baidu-sync.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..')
@@ -2282,16 +2283,27 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   checkGrowth({ devEnv }).forEach(add)
   heartbeatRows({ now, devEnv }).forEach((r) => add({ id: `P5·${r.label}`, state: r.state, detail: `${r.detail}${r.note ? ` | ${r.note}` : ''}` }))
   add(checkDeployLoopOutcome(makeBuildAttributionDeps()))
-  const baidu = baiduSyncRunning()
+  const cs = await cloudSyncHealthy()
+  let p5
+  if (cs.mode === 'gui') {
+    const g = baiduSyncRunning()
+    p5 = { running: g.running, why: g.why, via: g.via }
+  } else {
+    p5 = cs
+  }
   add({
     id: 'P5·网盘同步客户端',
-    state: baidu.running === null ? 'undetermined' : baidu.running ? 'ok' : 'finding',
+    state: p5.running === null ? 'undetermined' : p5.running ? 'ok' : 'finding',
     detail:
-      baidu.running === false
-        ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
-        : baidu.running === true
-          ? `进程在位(注:同步**完成与否**仍无判据,这里只判进程;取用=${baidu.via})`
-          : baidu.why,
+      cs.mode === 'headless'
+        ? (p5.running
+            ? `无头同步通道健康(最近成功 sync 于 ${p5.lastSuccessTs ? new Date(p5.lastSuccessTs).toISOString() : '未知'},取用=${p5.via})`
+            : `无头同步通道最近 ${p5.staleHours}h 无成功 sync ⇒ 云同步腿不成立(${p5.why})`)
+        : (p5.running === false
+            ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
+            : p5.running === true
+              ? `进程在位(注:同步**完成与否**仍无判据,这里只判进程;取用=${p5.via})`
+              : p5.why),
   })
   // P7:副本在位/新鲜/同哈希三维。"网盘客户端在不在跑"这一维**留在上面 P5 那一行**,
   // 这里只量副本本身 —— 同一条债不在两个判据各计一次(机主明令)。

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -23,10 +23,14 @@ export function createUserFansStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     body: { padding: rnSpacing.md, gap: rnSpacing.sm, paddingBottom: rnSpacing['3xl'] },
-    muted: { fontSize: 12, color: tk.text.secondary },
-    total: { fontSize: 12, color: tk.text.tertiary, paddingHorizontal: rnSpacing.xs },
+    muted: { fontSize: rnType.label.size, color: tk.text.secondary },
+    total: {
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+      paddingHorizontal: rnSpacing.xs,
+    },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -45,16 +49,16 @@ export function createUserFansStyles(tk: AppThemeTokens) {
       overflow: 'hidden',
     },
     avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-    avatarText: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
+    avatarText: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.secondary },
     rowMain: { flex: 1, gap: 3 },
-    nickname: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    nickname: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     followedTag: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.xs,
     },
-    followedText: { fontSize: 12, fontWeight: '600', color: tk.success.DEFAULT },
+    followedText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.success.DEFAULT },
     followBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -65,7 +69,11 @@ export function createUserFansStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     btnDisabled: { opacity: 0.5 },
-    followBtnText: { fontSize: 12, fontWeight: '600', color: tk.brand.ctaForeground },
+    followBtnText: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     moreBtn: {
       height: 40,
       borderRadius: rnRadius.sm,

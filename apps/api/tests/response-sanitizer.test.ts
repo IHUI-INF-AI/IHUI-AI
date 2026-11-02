@@ -363,8 +363,11 @@ describe('response-sanitizer — DataMaskingPipeline', () => {
     expect(pipeline.stats().totalSkipped).toBe(1)
   })
 
-  it('DEFAULT_SENSITIVE_KEYS 包含 8 个默认键', () => {
-    expect(DEFAULT_SENSITIVE_KEYS).toHaveLength(8)
+  it('DEFAULT_SENSITIVE_KEYS 覆盖凭据族,且每个名字都真的命中', () => {
+    // 2026-11-01:原断言写死"8 个",而它测的是**数量**不是**覆盖** —— 于是
+    // `api_key` 因为子串不匹配(`'api_key'.includes('apikey') === false`)从未生效过,
+    // 这个用例照样是绿的。数量断言只能防"有人删了一行",防不了"名字根本命中不了"。
+    expect(DEFAULT_SENSITIVE_KEYS).toHaveLength(14)
     expect(DEFAULT_SENSITIVE_KEYS).toContain('password')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('phone')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('idcard')
@@ -373,6 +376,32 @@ describe('response-sanitizer — DataMaskingPipeline', () => {
     expect(DEFAULT_SENSITIVE_KEYS).toContain('token')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('secret')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('apikey')
+    // 2026-11-01 补齐的六个(注释承诺过但从未生效的那一族)
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('api_key')
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('authorization')
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('private_key')
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('cookie')
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('dsn')
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('credential')
+  })
+
+  it('每个默认键都真的能命中 isSensitiveKey(不是只躺在数组里)', () => {
+    const keys = buildSensitiveKeySet()
+    for (const k of DEFAULT_SENSITIVE_KEYS) {
+      expect(isSensitiveKey(k, keys), `默认键 ${k} 命中不了自己`).toBe(true)
+    }
+    // 逐点名:这七个是"注释写了、代码没做到"的历史坑位,任何一个回退都必须翻红
+    for (const name of [
+      'api_key',
+      'apiKey',
+      'authorization',
+      'private_key',
+      'cookie',
+      'dsn',
+      'credential',
+    ]) {
+      expect(isSensitiveKey(name, keys), `${name} 必须命中`).toBe(true)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

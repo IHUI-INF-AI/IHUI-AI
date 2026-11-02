@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -223,12 +223,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.sm,
     },
     title: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     createText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.brandAccent.deep,
     },
@@ -248,11 +248,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     tabText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     tabTextActive: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -285,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     } satisfies ViewStyle,
     coverFallbackText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       textAlign: 'center',
       color: tk.text.tertiary,
     },
@@ -299,20 +299,20 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.overlay.modal,
     },
     statusBadgeText: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.surface.light,
     },
     cardBody: {
       padding: rnSpacing.sm,
     },
     prompt: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     time: {
       marginTop: rnSpacing.xs,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)

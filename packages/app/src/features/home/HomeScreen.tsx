@@ -325,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    badgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '700', color: '#FFFFFF' },
     errorWrap: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -411,7 +411,7 @@ function createStyles(tk: AppThemeTokens) {
     progressFill: { height: 6, backgroundColor: tk.success.DEFAULT },
     primaryBtn: {
       paddingVertical: 7,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
@@ -421,7 +421,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '33.333%',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       paddingHorizontal: rnSpacing['xs-loose'],
       gap: rnSpacing.sm,
     },
