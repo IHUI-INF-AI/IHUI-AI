@@ -6845,7 +6845,9 @@ const pushGateChecks = [
   // push 门是**远程前的最后一道结构闸**,必须独立跑一次;只判 PUSH_SCOPE_FILES(本次 push 变更文件)
   // ∩ HEAD 树,不跑全量 1.6 万+(判据本体、第三方排除面、自愈策略与 pre-commit 档共用同一份实现)。
   {
-    id: '47',
+    // 号位:pre-commit 已有门 47(自愈档),push 是同一判据的**收窄档**,不能复用 id
+    // (check-gate-wiring R5:同 id 多道门会串 skipEnv 与失败归属;后来者改号)。
+    id: '47p',
     label: '💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)',
     script: 'check-watermark-coverage.mjs',
     args: ['--push-scope'],
