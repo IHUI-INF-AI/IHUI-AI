@@ -101,6 +101,14 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (685cd7f884)
+- 🐞 Fix:补 windowsHide,销掉门 52 抓出的派生弹窗缺陷(本会话上一枚引入) (a1cc3c3d0d)
+- 🚀 Feature/Improvement:给到人哨兵补上「样式档位净增」四维,兑现档位尺那句"净增经 §5e 到人" (13d41f451a)
+- 🔧 Chore/Other:夹具钉 git 身份、并发窗口改走离线旗标、取名改判磁盘主面,并同步词表收窄与新增编号族 (0ee72a091c)
+- 🔧 Chore/Other:号池夹具按两位数池宽(99)重建,并同步池式期望值 (0351606d05)
+- 🚀 Feature/Improvement:新增门 284「声明承载 vs 真承载」差集棘轮(小程序功能对齐不再按声明计) (abf77f0662)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (2a56005f6c)
 - 🚀 Feature/Improvement:把守门 251 的修法出口首次上守护周期腿(前置=归属闸与未知旗拒绝) (72650fe783)
 - 🔧 Chore/Other:覆盖写路径默认严格与 --legacy-lenient 逃生阀 (9a821daebd)
@@ -227,9 +235,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
 - 🔧 Chore/Other:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
 - 🔧 Chore/Other:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (624f3fded6)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
