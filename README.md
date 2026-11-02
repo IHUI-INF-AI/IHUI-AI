@@ -41153,3 +41153,8 @@ A: Yes. ~14839+ tests / 3959 test files / 67 e2e spec / 4670 API 路由 / 618 �
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (dc9a528104)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (cffca2c7c7)
 - 🐞 修复:F6 判据改行级预算口径,根治「union 重组涌现块」半格死锁 (1addf6f4ab)
+| CLI 工具文件 | 73 | `cliToolFiles` |
+| 测试文件 | 3984 | `testFiles` |
+| CI 工作流 | 50 | `ciWorkflows` |
+| 跟踪文件 | 18796 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
