@@ -235,6 +235,11 @@ export function parseExistingSignals(text) {
 /**
  * 主判据:决策行 → 信号,按 `identityOf` 在同身份窗口内去重。
  * `existing` 是 `--out` 已有行(已解析对象),与 `decisions` 里已产出的行合并计入 seen。
+ *
+ * 去重口径(B87/B88/B91 立因,2026-11-02):身份已按 route 归一(deploy_outcome 不带 TS 码),
+ * 同一轮重试只产一条信号。**同批内若后一轮更晚**,用后一条替换待写的那条 —— 部署失败的原因
+ * 在最后一轮最可诊断(末次报错指纹/维度都在里面),保留首轮会把"原因不可读"的那条固化下来。
+ * 已在 `--out` 落盘的行只跳过、不替换:追加写器不改写既有台账(幂等)。
  */
 export function planIntake({ decisions, contract, minutes, existing = [] }) {
   if (!Array.isArray(decisions)) throw new IntakeShapeError('decisions 必须是数组')
@@ -248,6 +253,8 @@ export function planIntake({ decisions, contract, minutes, existing = [] }) {
     if (!Number.isFinite(t)) continue
     seen.push({ identity: identityOf(e), atMs: t })
   }
+  /** 本批待写信号的身份 → 数组下标(只替换本批,不碰 --out 既有行)。 */
+  const pending = new Map()
   const bad = []
   const signals = []
   let skipped = 0
@@ -268,9 +275,17 @@ export function planIntake({ decisions, contract, minutes, existing = [] }) {
       const duplicate = seen.some((s) => s.identity === key && Math.abs(t - s.atMs) <= windowMs)
       if (duplicate) {
         skipped += 1
+        const at = pending.get(key)
+        // 同批更晚的一轮 ⇒ 原位替换(更可诊断),仍只产一条;更早/同刻的重复丢弃。
+        if (at !== undefined && t > Date.parse(signals[at].at)) {
+          signals[at] = r.signal
+          const hit = seen.find((s) => s.identity === key)
+          if (hit) hit.atMs = t
+        }
         return
       }
       seen.push({ identity: key, atMs: t })
+      pending.set(key, signals.length)
       signals.push(r.signal)
     } catch (e) {
       bad.push({ line, reason: e?.message ?? String(e) })
