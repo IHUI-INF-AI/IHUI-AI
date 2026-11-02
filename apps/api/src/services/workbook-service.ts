@@ -177,7 +177,7 @@ function numberToCol(n: number): string {
 }
 
 /** 解析 `A1` / `$A$1` 形态单元格地址;非法返回 null。 */
-export function parseCellRef(ref: string): { row: number; column: number } | null {
+function parseCellRef(ref: string): { row: number; column: number } | null {
   const m = CELL_RE.exec(String(ref ?? '').trim())
   if (!m) return null
   const colRaw = m[1]
@@ -188,7 +188,7 @@ export function parseCellRef(ref: string): { row: number; column: number } | nul
 }
 
 /** 解析 `A1:C10` 或单格 `B7` 形态区域;非法返回 null。 */
-export function parseRangeRef(
+function parseRangeRef(
   range: string,
 ): { fromRow: number; fromCol: number; toRow: number; toCol: number } | null {
   const raw = String(range ?? '').trim()
@@ -228,7 +228,7 @@ const SHEET_QUAL = String.raw`(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_.]*))!`
  * 剩下疑似 R1C1(`RC[-1]`)与跨簿引用(`[book.xlsx]`)⇒ 标 `unjudged`,交给"多要一次说明"
  * 的失效方向(AGENTS §0.10),**绝不判成"肯定不影响"**。
  */
-export function parseFormulaRefs(formula: string): {
+function parseFormulaRefs(formula: string): {
   refs: FormulaRef[]
   colRefs: Array<{ sheet: string | null; fromCol: number; toCol: number }>
   unjudged: boolean
@@ -829,23 +829,6 @@ export function closeWorkbook(params: {
   const savedFileIds = [...s.savedFileIds]
   _sessions.delete(s.handle)
   return { ok: true, data: { closed: true, savedFileIds } }
-}
-
-/** 只读自省:会话还在不在(供测试与上层判「未判定」用,不猜内容)。 */
-export function sessionState(params: {
-  subjectId: string
-  handle: string
-}): WorkbookResult<{ alive: true; touchedCells: number; savedFiles: number }> {
-  const take = takeSession(params?.handle, params?.subjectId)
-  if (!take.ok) return take.error
-  return {
-    ok: true,
-    data: {
-      alive: true,
-      touchedCells: take.session.touched.length,
-      savedFiles: take.session.savedFileIds.length,
-    },
-  }
 }
 
 /** 测试/运维用:清空会话表(不影响盘上文件)。 */

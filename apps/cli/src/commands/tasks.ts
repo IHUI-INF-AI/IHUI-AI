@@ -182,7 +182,7 @@ export function markDone(workspacePath: string, id: string): TaskItem | null {
 }
 
 /** 标记任务受阻(等待外部条件;id 不存在返回 null) */
-export function markBlocked(workspacePath: string, id: string): TaskItem | null {
+function markBlocked(workspacePath: string, id: string): TaskItem | null {
   const store = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;
@@ -195,7 +195,7 @@ export function markBlocked(workspacePath: string, id: string): TaskItem | null 
 }
 
 /** 标记任务已取消(不再执行;id 不存在返回 null) */
-export function markCancelled(workspacePath: string, id: string): TaskItem | null {
+function markCancelled(workspacePath: string, id: string): TaskItem | null {
   const store = loadStore();
   const ws = store.workspaces[workspacePath];
   if (!ws) return null;

@@ -18,6 +18,16 @@
  *   派生 = knip.jsonc 里 apps/miniapp-taro.entry 的受管块( `// BEGIN/END:knip-taro-entries` )
  * 受管块禁止手改:新增/删除页面只改 app.config.ts,再跑本脚本 --write。
  *
+ * 2026-11-03(Taro 装载面补全)派生源扩到三处(全部是"框架/构建按约定装载"的真相源):
+ *   ① app.config.ts 的 pages/subPackages → 页面 entry(同前)
+ *   ② app.config.ts 的 tabBar.custom:true → src/custom-tab-bar/index(.config).tsx
+ *      (Taro/微信把自定义 TabBar 组件按**固定目录约定**装载,静态 import 面看不见)
+ *   ③ config/index.ts 的构建 alias → knip paths 的 rn-compat 键集 + 对应目标文件 entry
+ *      (共享层 import 'react-native' 等请求在构建期被换到端内 rn-compat;knip 走 node_modules
+ *      解析,既看不见 alias 也不知道这些文件是模块根 ⇒ 目标文件必须同时进 entry 才可达)
+ *      paths 键集与 config/index.ts 的 rn-compat alias 键集**逐项相等**,由
+ *      scripts/tests/knip-taro-alias-parity.test.mjs 判红;alias 增减而配置不跟上当场失败。
+ *
  * 用法:
  *   node scripts/gen-knip-taro-entries.mjs           # 干跑,打印将写入的条数与差异摘要
  *   node scripts/gen-knip-taro-entries.mjs --write   # 写回 knip.jsonc
@@ -32,7 +42,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(ROOT, 'apps/miniapp-taro/src')
 const CONFIG_REL = 'apps/miniapp-taro/src/app.config.ts'
+const BUILD_CONFIG_REL = 'apps/miniapp-taro/config/index.ts'
 const KNIP_REL = 'knip.jsonc'
+/** knip paths 里与 rn-compat 别名并列的非别名映射(来源 apps/miniapp-taro/tsconfig.json 的 paths,
+ *  它们不是构建 alias、不在 config/index.ts 别名表里,故不参与 alias 键集自检)。 */
+const EXTRA_PATHS = {
+  '@rn-shells/*': ['../mobile-rn/src/screens/*'],
+  '@ihui/rn-app/*': ['../../packages/app/src/*'],
+}
 const BEGIN = '// BEGIN:knip-taro-entries(由 scripts/gen-knip-taro-entries.mjs 生成,禁止手改)'
 const END = '// END:knip-taro-entries'
 
@@ -84,7 +101,69 @@ function resolvePage(base) {
   return out
 }
 
-export function buildEntries(configText) {
+/** 从 openIdx 处的开括号起截取到配对的闭括号 */
+function extractBraced(text, openIdx, open = '(', close = ')') {
+  let depth = 0
+  for (let i = openIdx; i < text.length; i++) {
+    if (text[i] === open) depth++
+    else if (text[i] === close) {
+      depth--
+      if (depth === 0) return text.slice(openIdx, i + 1)
+    }
+  }
+  return null
+}
+
+/**
+ * 解析 apps/miniapp-taro/config/index.ts 里指向端内 rn-compat 的构建别名。
+ * 只在 `alias: { ... }` 对象内取键(同文件的 rnShellReplacements 也有 `to: path.resolve(...rn-compat...)`,
+ * 那是替换插件落点、不是别名,全局匹配会把它误记成别名)。
+ * 支持键带引号/裸写(nativewind$),值跨多行 path.resolve(__dirname, '..', 'src', 'rn-compat', '<file>')。
+ * 只收目标路径包含 'rn-compat' 的键 —— '@' / '@ihui/rn-app' 不是替换式别名,不进键集。
+ * 同一键在顶层 alias 与 mini.alias 重复声明时,目标必须一致,否则当场抛错(第二真相)。
+ */
+export function parseRncAliases(text) {
+  const clean = stripLineComments(text)
+  const out = new Map()
+  const aliasRe = /alias\s*:\s*{/g
+  let block
+  while ((block = aliasRe.exec(clean)) !== null) {
+    const body = extractBraced(clean, block.index + block[0].length - 1, '{', '}')
+    if (!body) continue
+    const entryRe = /(?:^|[{,])\s*(?:'([^']+)'|"([^"]+)"|([A-Za-z_$][\w$-]*))\s*:\s*path\.resolve\(/g
+    let m
+    while ((m = entryRe.exec(body)) !== null) {
+      const key = m[1] ?? m[2] ?? m[3]
+      const call = extractBraced(body, m.index + m[0].length - 1)
+      if (!call) continue
+      const parts = [...call.matchAll(/'([^']+)'/g)].map((x) => x[1])
+      if (!parts.includes('rn-compat')) continue
+      const target = `src/rn-compat/${parts[parts.length - 1]}`
+      if (out.has(key) && out.get(key) !== target) {
+        throw new Error(`[gen-knip-taro-entries] alias ${key} 在两处声明指向不同目标:${out.get(key)} vs ${target}`)
+      }
+      out.set(key, target)
+    }
+  }
+  return out
+}
+
+/** rn-compat 目标:能补 .ts/.tsx 就补上真实文件名(alias 允许不带后缀,如 native-extras) */
+export function resolveRncFile(rel) {
+  const candidates = [rel, `${rel}.ts`, `${rel}.tsx`, `${rel}/index.ts`, `${rel}/index.tsx`]
+  const hit = candidates.find((c) => existsSync(join(ROOT, 'apps/miniapp-taro', c)))
+  return hit ?? rel
+}
+
+/** app.config.ts 是否启用自定义 TabBar(Taro 按固定目录 custom-tab-bar/index 装载) */
+export function hasCustomTabBar(configText) {
+  const clean = stripLineComments(configText)
+  const at = clean.indexOf('tabBar')
+  if (at < 0) return false
+  return /custom\s*:\s*true/.test(clean.slice(at))
+}
+
+export function buildEntries(configText, rncAliases = new Map()) {
   const pages = parseTaroPages(configText)
   if (!pages) return null
   const set = new Set(['src/app.tsx'])
@@ -94,19 +173,74 @@ export function buildEntries(configText) {
     if (files.length === 0) unresolved.push(p)
     for (const f of files) set.add(`src/${f}`)
   }
-  return { entries: [...set].sort(), unresolved, pageCount: pages.length }
+  // 构建 alias 的目标文件是"共享层 import 的模块根",静态面不可达 ⇒ 必须作为 entry 才可达
+  for (const target of rncAliases.values()) set.add(resolveRncFile(target))
+  // custom-tab-bar:app.config.ts 的 tabBar.custom:true 时,平台按目录约定装载这两个文件
+  let customTabBar = false
+  if (hasCustomTabBar(configText)) {
+    for (const f of ['src/custom-tab-bar/index.tsx', 'src/custom-tab-bar/index.config.ts']) {
+      if (existsSync(join(ROOT, 'apps/miniapp-taro', f))) {
+        set.add(f)
+        customTabBar = true
+      }
+    }
+  }
+  return { entries: [...set].sort(), unresolved, pageCount: pages.length, customTabBar }
 }
 
-function renderBlock(entries) {
+/** 受管 paths = config/index.ts 的 rn-compat alias(按原键,保留 `$` 语义) + tsconfig 的非别名映射 */
+export function buildPaths(rncAliases) {
+  const out = {}
+  for (const [key, target] of rncAliases) out[key] = [resolveRncFile(target)]
+  return { ...EXTRA_PATHS, ...out }
+}
+
+function renderBlock(entries, paths = {}) {
   const lines = entries.map((e) => `        ${JSON.stringify(e)},`)
-  return [BEGIN, '      "entry": [', ...lines, '      ],', END].join('\n')
+  const pathLines = Object.entries(paths).map(
+    ([k, rels]) => `        ${JSON.stringify(k)}: ${JSON.stringify(rels)},`,
+  )
+  return [
+    BEGIN,
+    '      // rn-compat 构建别名:键集与 apps/miniapp-taro/config/index.ts 逐项相等',
+    '      // (自检 scripts/tests/knip-taro-alias-parity.test.mjs;alias 增减而此处不跟上即判红)。',
+    '      // 注意:knip 对已安装包的请求先走 node_modules resolveSync,不回落到 paths ——',
+    '      // 真正让这些目标可达的是上面 entry 里的同名文件,paths 保留是为了键集漂移可见。',
+    '      // @rn-shells/* 与 @ihui/rn-app/* 来自 apps/miniapp-taro/tsconfig.json,非 rn-compat,不参与自检。',
+    '      "entry": [',
+    ...lines,
+    '      ],',
+    '      "paths": {',
+    ...pathLines,
+    '      },',
+    END,
+  ].join('\n')
+}
+
+/** 从 knip.jsonc 受管块读出 rn-compat alias 键值(值数组里含 rn-compat 的才算) */
+export function parseKnipRncAliases(knipText) {
+  const block = currentBlock(knipText)
+  if (!block) return null
+  const at = block.indexOf('"paths"')
+  if (at < 0) return null
+  const out = new Map()
+  for (const m of block.slice(at).matchAll(/"([^"]+)"\s*:\s*\[\s*"([^"]+)"\s*\]/g)) {
+    if (m[2].includes('rn-compat')) out.set(m[1], m[2])
+  }
+  return out
 }
 
 function readFaces() {
   const cfgPath = join(ROOT, CONFIG_REL)
   const knipPath = join(ROOT, KNIP_REL)
   if (!existsSync(cfgPath) || !existsSync(knipPath)) return null
-  return { configText: readFileSync(cfgPath, 'utf8'), knipText: readFileSync(knipPath, 'utf8') }
+  return {
+    configText: readFileSync(cfgPath, 'utf8'),
+    buildConfigText: existsSync(join(ROOT, BUILD_CONFIG_REL))
+      ? readFileSync(join(ROOT, BUILD_CONFIG_REL), 'utf8')
+      : null,
+    knipText: readFileSync(knipPath, 'utf8'),
+  }
 }
 
 export function currentBlock(knipText) {
@@ -124,15 +258,31 @@ function main() {
     console.error('[gen-knip-taro-entries] 未判定:取不到 app.config.ts 或 knip.jsonc')
     process.exit(2)
   }
-  const built = buildEntries(faces.configText)
+  if (faces.buildConfigText === null) {
+    console.error(`[gen-knip-taro-entries] 未判定:取不到 ${BUILD_CONFIG_REL}`)
+    process.exit(2)
+  }
+  let rncAliases
+  try {
+    rncAliases = parseRncAliases(faces.buildConfigText)
+  } catch (e) {
+    console.error(`[gen-knip-taro-entries] 未判定:${e.message}`)
+    process.exit(2)
+  }
+  if (rncAliases.size === 0) {
+    console.error('[gen-knip-taro-entries] 未判定:config/index.ts 里解析不到 rn-compat alias')
+    process.exit(2)
+  }
+  const built = buildEntries(faces.configText, rncAliases)
   if (!built) {
     console.error('[gen-knip-taro-entries] 未判定:app.config.ts 里找不到 pages 数组')
     process.exit(2)
   }
-  const block = renderBlock(built.entries)
+  const block = renderBlock(built.entries, buildPaths(rncAliases))
   const cur = currentBlock(faces.knipText)
   console.log(
-    `[gen-knip-taro-entries] 页面 ${built.pageCount} 个 → entry ${built.entries.length} 条` +
+    `[gen-knip-taro-entries] 页面 ${built.pageCount} 个 + rn-compat alias ${rncAliases.size} 条` +
+      `${built.customTabBar ? ' + custom-tab-bar' : ''} → entry ${built.entries.length} 条` +
       (built.unresolved.length ? `;解析不到文件的页面 ${built.unresolved.length} 个:${built.unresolved.slice(0, 5).join(',')}` : ''),
   )
   if (check) {
@@ -179,5 +329,15 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { parseTaroPages, buildEntries, currentBlock, renderBlock }
+export const __test__ = {
+  parseTaroPages,
+  parseRncAliases,
+  resolveRncFile,
+  hasCustomTabBar,
+  buildEntries,
+  buildPaths,
+  currentBlock,
+  renderBlock,
+  parseKnipRncAliases,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

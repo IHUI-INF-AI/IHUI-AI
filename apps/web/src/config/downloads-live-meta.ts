@@ -230,12 +230,12 @@ export interface ExtensionManifestEntry {
 }
 
 /** 扩展包站内可点地址(单一落形处,防第二处手拼漂移) */
-export function extensionAssetHref(fileName: string): string {
+function extensionAssetHref(fileName: string): string {
   return `/downloads/extension/${encodeURIComponent(fileName)}`
 }
 
 /** 从扩展包文件名里取版本号;取不到返回 null(不编) */
-export function parseVersionFromArtifactName(name: string): string | null {
+function parseVersionFromArtifactName(name: string): string | null {
   const matched = /-v(\d+\.\d+\.\d+)\.zip$/i.exec(name)
   return matched?.[1] ?? null
 }
@@ -296,7 +296,7 @@ export function judgeExtensionArtifact(
 /* -------------------------------------------------------------------------- */
 
 /** ISO 时刻 → YYYY-MM-DD;取不到返回 undefined(不写假日期) */
-export function isoDateOf(value: string | null | undefined): string | undefined {
+function isoDateOf(value: string | null | undefined): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return /^\d{4}-\d{2}-\d{2}/.test(trimmed) ? trimmed.slice(0, 10) : undefined
@@ -399,7 +399,11 @@ export function judgeIpaPointerProbe(
   const status = Number(input.status ?? 0)
   const loc = typeof input.location === 'string' ? input.location.trim() : ''
   if (status !== 302 || loc === '' || !/^https?:/i.test(loc)) {
-    return { ...base, source: 'snapshot', reason: `ipa-pointer-not-resolved:${status || 'no-location'}` }
+    return {
+      ...base,
+      source: 'snapshot',
+      reason: `ipa-pointer-not-resolved:${status || 'no-location'}`,
+    }
   }
   const version = typeof input.version === 'string' ? input.version.trim() : ''
   if (version === '') {
@@ -436,7 +440,11 @@ export function judgeMiniappQr(
   const base: Omit<LivePlatformInfo, 'source'> = { platform: 'wechat-miniapp', resolvedAt: nowIso }
   if (!input.exists) return { ...base, source: 'unavailable', reason: 'miniapp-qr-file-missing' }
   if (!Number.isFinite(input.sizeBytes) || input.sizeBytes < MINIAPP_QR_MIN_BYTES) {
-    return { ...base, source: 'unavailable', reason: `miniapp-qr-stub:${input.sizeBytes}B(<${MINIAPP_QR_MIN_BYTES}B)` }
+    return {
+      ...base,
+      source: 'unavailable',
+      reason: `miniapp-qr-stub:${input.sizeBytes}B(<${MINIAPP_QR_MIN_BYTES}B)`,
+    }
   }
   // 版本号仍留空:小程序的"已发布版本"只有公众平台后台知道,这里不编 —— 接入与否由实物图说话
   return {
