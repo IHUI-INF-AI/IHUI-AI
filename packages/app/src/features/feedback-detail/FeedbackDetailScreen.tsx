@@ -27,8 +27,9 @@ export function FeedbackDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: FeedbackDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: FeedbackDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -44,7 +45,7 @@ export function FeedbackDetailScreen({
     return (
       <ErrorState
         message={error || t('feedbackDetail.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

@@ -73,7 +73,8 @@ test('T7 派生文件保护:app.css 必须在排除表里(手改会被 sync 洗�
 
 test('T8 归属避让在位:工作树脏的文件必须跳过而不是覆盖', () => {
   const src = readFileSync(SCRIPT, 'utf8')
-  assert.match(src, /dirtySet\(files\)/, '必须有归属检查')
+  assert.match(src, /const dirty = ownershipDirtyPaths\(\{ root: ROOT \}\)/, '必须有归属检查(判据单源 lib/git-paths.mjs)')
+  assert.match(src, /from '\.\/lib\/git-paths\.mjs'/, '归属判据必须 import 库出口,不得就地再写一份')
   assert.match(src, /held\.push\(f\)/, '脏文件必须进 held 而不是被改')
 })
 

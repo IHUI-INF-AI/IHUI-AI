@@ -68,7 +68,8 @@ function filterByTitle(
 
 export function ChatWorkbenchScreen({
   t,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   locale,
   onBack,
   conversations,
@@ -79,8 +80,7 @@ export function ChatWorkbenchScreen({
   onKeywordChange,
   onSelectConversation,
   onNewConversation,
-  onRefresh,
-}: ChatWorkbenchScreenProps) {
+}: ChatWorkbenchScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createChatWorkbenchStyles(tk), [tk])
   const items = useMemo(
@@ -130,7 +130,7 @@ export function ChatWorkbenchScreen({
       ) : error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('chatWorkbenchPage.retry')}
           colorScheme={colorScheme}
         />

@@ -27,8 +27,9 @@ export function RefundDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: RefundDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: RefundDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function RefundDetailScreen({
         {/* 原错误/空态只有「返回」一个动作,这里如实沿用该动作(不新增键) */}
         <ErrorState
           message={error || t('refundDetail.empty')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />
