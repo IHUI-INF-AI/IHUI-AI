@@ -142,7 +142,12 @@ function makeDirLink(target: string, linkPath: string): void {
 // 夹具
 // =============================================================================
 
-const grantedPaths = new Map<string, string[]>()
+interface GrantedRow {
+  workspacePath: string
+  mode: string
+}
+
+const grantedPaths = new Map<string, GrantedRow[]>()
 
 let scratchRoot: string
 let workspaceA: string
@@ -167,8 +172,18 @@ function writeAgent(workspacePath: string, fileName: string, name: string): stri
   return file
 }
 
+/** 授予可写档(default);口径二要求读面不受 mode 限制,写面按 mode 判 */
 function grant(userId: string, ...workspacePaths: string[]): void {
-  grantedPaths.set(userId, [...(grantedPaths.get(userId) ?? []), ...workspacePaths])
+  const rows = grantedPaths.get(userId) ?? []
+  rows.push(...workspacePaths.map((workspacePath) => ({ workspacePath, mode: 'default' })))
+  grantedPaths.set(userId, rows)
+}
+
+/** 授予指定档位(如 plan = 只读档;落库拼写用 wire kebab) */
+function grantWithMode(userId: string, workspacePath: string, mode: string): void {
+  const rows = grantedPaths.get(userId) ?? []
+  rows.push({ workspacePath, mode })
+  grantedPaths.set(userId, rows)
 }
 
 function clearSubagentBuckets(): void {
@@ -210,12 +225,12 @@ beforeEach(() => {
 
   grantedPaths.clear()
   mockListPermissionsByUser.mockImplementation(async (userId: string) =>
-    (grantedPaths.get(userId) ?? []).map((workspacePath) => ({
-      id: `perm-${userId}-${workspacePath}`,
+    (grantedPaths.get(userId) ?? []).map((row) => ({
+      id: `perm-${userId}-${row.workspacePath}`,
       userId,
-      workspacePath,
+      workspacePath: row.workspacePath,
       name: 'test',
-      mode: 'default',
+      mode: row.mode,
     })),
   )
 
@@ -568,6 +583,29 @@ describe('路由层 · /api/workspace/subagents 映射', () => {
     expect(res.json().data.agentName).toBe('alpha')
   })
 
+  it('只读档(plan)用户 GET ⇒ 200;POST delegate ⇒ 404(mode 只管写面)', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grantWithMode('user-a', workspaceA, 'plan')
+
+    const get = await app.inject({
+      method: 'GET',
+      url: '/api/workspace/subagents',
+      query: { workspacePath: workspaceA },
+      headers: { 'x-probe-user': 'user-a' },
+    })
+    expect(get.statusCode).toBe(200)
+    expect(get.json().data.subagents.map((s: { name: string }) => s.name)).toEqual(['alpha'])
+
+    const post = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/subagents/delegate',
+      headers: { 'x-probe-user': 'user-a' },
+      payload: { name: 'alpha', prompt: '只读档委派', workspacePath: workspaceA },
+    })
+    expect(post.statusCode).toBe(404)
+    expect(post.body).not.toContain('alpha')
+  })
+
   itFileLink(
     `路由层:悬空符号链接 ⇒ 400 明确文案(不是 404 掩盖、也不是 500)${
       linkCapability.fileSymlink.ok ? '' : FILE_LINK_SKIP_NOTE
@@ -592,5 +630,168 @@ describe('路由层 · /api/workspace/subagents 映射', () => {
       expect(res.body).not.toMatch(/ENOENT/)
     },
   )
+})
+
+// =============================================================================
+// 口径一(2026-11-02 拍板):permission 行的根语义 = 该根及其子树
+// =============================================================================
+
+describe('口径一 · permission 行的根语义 = 根及其子树', () => {
+  const itDirLink = linkCapability.dirLink.kind === 'none' ? it.skip : it
+
+  it('根本身放行:permission 行的 workspacePath 就是授权根', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grant('user-a', workspaceA)
+
+    const configs = await subagentManager.discover(workspaceA, 'user-a')
+    expect(configs.map((c) => c.name)).toEqual(['alpha'])
+  })
+
+  it('根的子目录放行:子树语义,不是只认根路径', async () => {
+    const nested = join(workspaceA, 'packages', 'app')
+    writeAgent(nested, 'nested.md', 'nested-agent')
+    grant('user-a', workspaceA)
+
+    const configs = await subagentManager.discover(nested, 'user-a')
+    expect(configs.map((c) => c.name)).toEqual(['nested-agent'])
+  })
+
+  it('看似子目录实为别处 ⇒ 拒绝(邻名前缀 ws-a-other / .. 回跳到 ws-a-escape)', async () => {
+    const sibling = join(scratchRoot, 'ws-a-other')
+    const escaped = join(scratchRoot, 'ws-a-escape')
+    mkdirSync(sibling, { recursive: true })
+    mkdirSync(escaped, { recursive: true })
+    writeAgent(sibling, 'sibling.md', 'sibling')
+    writeAgent(escaped, 'escaped.md', 'escaped')
+
+    // 邻名与回跳目标也登记为服务端根:登记根闸先放行,只剩「是否在 permission
+    // 行子树内」这一关。否则 404 可能来自登记根闸,测不到子树判据(反向例也不会红)。
+    process.env.IHUI_WORKSPACE_ROOTS = [
+      realpathSync(workspaceA),
+      realpathSync(workspaceB),
+      realpathSync(sibling),
+      realpathSync(escaped),
+    ].join(',')
+    grant('user-a', workspaceA)
+
+    // 邻名前缀:字符串前缀会误认成 ws-a 的子目录,relative 段比较必须拒绝
+    await expectAccessDenied(subagentManager.discover(sibling, 'user-a'))
+    // .. 回跳:拼接串以 ws-a 开头、realpath 后落在 ws-a-escape,同样不许借前缀混进子树
+    await expectAccessDenied(
+      subagentManager.discover(join(workspaceA, '..', 'ws-a-escape'), 'user-a'),
+    )
+  })
+
+  itDirLink(
+    `workspacePath 是符号链接且指向根外 ⇒ 拒绝(realpath 后不在子树内)${
+      linkCapability.dirLink.kind === 'none' ? DIR_LINK_SKIP_NOTE : ''
+    }`,
+    async () => {
+      const escaped = join(scratchRoot, 'ws-a-escape')
+      mkdirSync(escaped, { recursive: true })
+      writeAgent(escaped, 'escaped.md', 'escaped')
+      const link = join(scratchRoot, 'linked-outside')
+      makeDirLink(escaped, link)
+
+      process.env.IHUI_WORKSPACE_ROOTS = [
+        realpathSync(workspaceA),
+        realpathSync(workspaceB),
+        realpathSync(escaped),
+      ].join(',')
+      grant('user-a', workspaceA)
+
+      await expectAccessDenied(subagentManager.discover(link, 'user-a'))
+    },
+  )
+})
+
+// =============================================================================
+// 口径二(2026-11-02 拍板):mode 只管写面
+// =============================================================================
+
+describe('口径二 · mode 只管写面(discover/list 不看,delegate 看)', () => {
+  it('只读档(plan): discover 放行(读面不看 mode)', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grantWithMode('user-a', workspaceA, 'plan')
+
+    const configs = await subagentManager.discover(workspaceA, 'user-a')
+    expect(configs.map((c) => c.name)).toEqual(['alpha'])
+  })
+
+  it('只读档(plan): list(不带 workspacePath)放行', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grantWithMode('user-a', workspaceA, 'plan')
+    await subagentManager.discover(workspaceA, 'user-a')
+
+    const configs = await subagentManager.list(undefined, 'user-a')
+    expect(configs.map((c) => c.name)).toEqual(['alpha'])
+  })
+
+  it('只读档(plan): delegate ⇒ 404(与未授权同形,不是 403)', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grantWithMode('user-a', workspaceA, 'plan')
+    // 先 discover 让桶里真有 alpha ⇒ 404 只能来自 mode 写面闸,而不是空桶
+    await subagentManager.discover(workspaceA, 'user-a')
+
+    const err = await rejectionOf(
+      subagentManager.delegate({
+        name: 'alpha',
+        prompt: '只读档委派',
+        workspacePath: workspaceA,
+        userId: 'user-a',
+      }),
+    )
+    expect(err).toBeInstanceOf(SubagentWorkspaceAccessError)
+    expect(err.statusCode).toBe(404)
+  })
+
+  it('可写档(default): delegate 正常(证明上条不是怎么都 404)', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grant('user-a', workspaceA)
+    await subagentManager.discover(workspaceA, 'user-a')
+
+    const result = await subagentManager.delegate({
+      name: 'alpha',
+      prompt: '可写档委派',
+      workspacePath: workspaceA,
+      userId: 'user-a',
+    })
+    expect(result.agentName).toBe('alpha')
+  })
+
+  it('只读用户跨租户:discover / delegate 全 404,list 不泄漏他人配置', async () => {
+    writeAgent(workspaceB, 'beta.md', 'beta')
+    grantWithMode('user-a', workspaceA, 'plan')
+    grant('user-b', workspaceB)
+    // user-b 先真实发现,让 B 桶里有 beta(404 只能来自授权闸,不是空桶)
+    await subagentManager.discover(workspaceB, 'user-b')
+
+    await expectAccessDenied(subagentManager.discover(workspaceB, 'user-a'))
+    await expectAccessDenied(
+      subagentManager.delegate({
+        name: 'beta',
+        prompt: '跨租户委派',
+        workspacePath: workspaceB,
+        userId: 'user-a',
+      }),
+    )
+    expect(await subagentManager.list(undefined, 'user-a')).toEqual([])
+  })
+
+  it('认不出的 mode ⇒ delegate 按只读拒绝(fail-closed)', async () => {
+    writeAgent(workspaceA, 'alpha.md', 'alpha')
+    grantWithMode('user-a', workspaceA, 'not-a-mode')
+    await subagentManager.discover(workspaceA, 'user-a')
+
+    const err = await rejectionOf(
+      subagentManager.delegate({
+        name: 'alpha',
+        prompt: '未知档委派',
+        workspacePath: workspaceA,
+        userId: 'user-a',
+      }),
+    )
+    expect(err.statusCode).toBe(404)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
