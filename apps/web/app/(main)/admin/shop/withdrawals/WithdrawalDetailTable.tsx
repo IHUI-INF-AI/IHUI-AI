@@ -80,7 +80,7 @@ export function WithdrawalDetailTable(props: Props) {
     <>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.detail.searchUser')}</Label>
+          <Label className="text-label">{t('withdrawals.detail.searchUser')}</Label>
           <SearchInput
             value={dSearch.user}
             onChange={(e) => setDSearch({ ...dSearch, user: e.target.value })}
@@ -90,7 +90,7 @@ export function WithdrawalDetailTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.detail.searchUserName')}</Label>
+          <Label className="text-label">{t('withdrawals.detail.searchUserName')}</Label>
           <SearchInput
             value={dSearch.userName}
             onChange={(e) => setDSearch({ ...dSearch, userName: e.target.value })}
@@ -100,7 +100,7 @@ export function WithdrawalDetailTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.detail.searchOutBillNo')}</Label>
+          <Label className="text-label">{t('withdrawals.detail.searchOutBillNo')}</Label>
           <SearchInput
             value={dSearch.outBillNo}
             onChange={(e) => setDSearch({ ...dSearch, outBillNo: e.target.value })}
@@ -110,7 +110,7 @@ export function WithdrawalDetailTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.detail.searchReviewer')}</Label>
+          <Label className="text-label">{t('withdrawals.detail.searchReviewer')}</Label>
           <SearchInput
             value={dSearch.reviewer}
             onChange={(e) => setDSearch({ ...dSearch, reviewer: e.target.value })}
@@ -120,7 +120,7 @@ export function WithdrawalDetailTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.detail.amountRange')}</Label>
+          <Label className="text-label">{t('withdrawals.detail.amountRange')}</Label>
           <div className="flex items-center gap-1">
             <Input
               className={inputSm}
@@ -138,7 +138,7 @@ export function WithdrawalDetailTable(props: Props) {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('withdrawals.detail.table.status')}</Label>
+          <Label className="text-label">{t('withdrawals.detail.table.status')}</Label>
           <Select value={dStatus} onValueChange={setDStatus}>
             <SelectTrigger className={selectClass}>
               <SelectValue />
@@ -173,8 +173,8 @@ export function WithdrawalDetailTable(props: Props) {
       </div>
 
       <div className="overflow-x-auto ui-card rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.detail.table.user')}</th>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.detail.table.amount')}</th>
@@ -207,13 +207,13 @@ export function WithdrawalDetailTable(props: Props) {
                   <td className="px-4 py-2.5 font-medium">{w.user ?? w.userName ?? '-'}</td>
                   <td className="px-4 py-2.5 font-medium">¥{(w.amount / 100).toFixed(2)}</td>
                   <td className="px-4 py-2.5">{t(CHANNEL_LABEL[w.channel] ?? '')}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                     {w.account}
                   </td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         STATUS_STYLE[w.status],
                       )}
                     >
@@ -222,7 +222,7 @@ export function WithdrawalDetailTable(props: Props) {
                     </span>
                   </td>
                   <td className="px-4 py-2.5">{w.reviewer ?? '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     {formatDate(w.createdAt)}
                   </td>
                   <td className="px-4 py-2.5 text-right">
@@ -280,7 +280,7 @@ export function WithdrawalDetailTable(props: Props) {
 
       {dTotalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('withdrawals.total', { total: dTotal, page: dPage, totalPages: dTotalPages })}
           </span>
           <div className="flex gap-2">

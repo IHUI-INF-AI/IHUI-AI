@@ -264,7 +264,7 @@ export default function HomeSchemaEditorPage() {
             <LayoutGrid className="h-6 w-6 text-primary" />
             首页布局编辑
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             编辑草稿 → 预览确认 →
             发布生效。改动不会立即影响生产,需点&ldquo;发布&rdquo;才同步到营销页(/)与工作区首页(/home)。
           </p>
@@ -346,28 +346,28 @@ export default function HomeSchemaEditorPage() {
 
       {/* 错误提示 */}
       {err && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-body text-destructive">
           {err}
         </div>
       )}
 
       {/* 成功提示 */}
       {info && !err && (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2 text-body text-emerald-600 dark:text-emerald-400">
           {info}
         </div>
       )}
 
       {/* 未保存改动提示 */}
       {hasUnsavedChanges && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm text-amber-600 dark:text-amber-400">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-body text-amber-600 dark:text-amber-400">
           有未保存的改动(预览前请先&ldquo;保存草稿&rdquo;)
         </div>
       )}
 
       {/* 草稿与生产差异提示 */}
       {hasDraftDiff && !hasUnsavedChanges && (
-        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-2 text-sm text-blue-600 dark:text-blue-400">
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-2 text-body text-blue-600 dark:text-blue-400">
           草稿已保存,与生产存在差异 → 可&ldquo;预览&rdquo;确认,或直接&ldquo;发布&rdquo;生效
         </div>
       )}
@@ -392,7 +392,7 @@ export default function HomeSchemaEditorPage() {
       </DndContext>
 
       {/* 底部说明 */}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-label text-muted-foreground">
         共 {draft.sections.length} 个 section,其中 {draft.sections.filter((s) => s.enabled).length}{' '}
         个启用。
         {hasDraftDiff ? ' 草稿与生产存在差异,发布后生效。' : ' 草稿与生产一致。'}

@@ -42,7 +42,7 @@ export function NewsArticleDialog(props: Props) {
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -110,7 +110,7 @@ export function NewsArticleDialog(props: Props) {
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               placeholder={t('contentPlaceholder')}
-              className="min-h-[120px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[120px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
             />
           </div>
           <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
@@ -148,7 +148,7 @@ export function NewsArticleDialog(props: Props) {
               onCheckedChange={(v) => setForm({ ...form, status: v })}
             />
             <Label htmlFor="art-status">{t('fieldStatus')}</Label>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {form.status ? t('enabled') : t('disabled')}
             </span>
           </div>

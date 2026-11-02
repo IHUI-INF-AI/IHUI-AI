@@ -39,7 +39,7 @@ export function AdminOverviewCharts({ stats, numFmt }: Props) {
             <TrendingUp className="h-4 w-4 text-primary" />
             {t('userGrowth')}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">{t('userGrowthHint')}</p>
+          <p className="text-label text-muted-foreground">{t('userGrowthHint')}</p>
         </CardHeader>
         <CardContent>
           <MiniChart data={stats.userGrowth} height={140} />
@@ -61,12 +61,12 @@ export function AdminOverviewCharts({ stats, numFmt }: Props) {
             >
               <div className="absolute inset-[22%] flex flex-col items-center justify-center ui-card rounded-lg bg-card">
                 <span className="text-lg font-bold">{numFmt.format(statusTotal)}</span>
-                <span className="text-xs text-muted-foreground">{t('totalLabel')}</span>
+                <span className="text-label text-muted-foreground">{t('totalLabel')}</span>
               </div>
             </div>
             <ul className="flex-1 min-w-0 space-y-2">
               {statusItems.map((s, i) => (
-                <li key={s.label} className="flex items-center justify-between text-sm">
+                <li key={s.label} className="flex items-center justify-between text-body">
                   <span className="flex items-center gap-2">
                     <span
                       className="h-2.5 w-2.5 rounded-full"

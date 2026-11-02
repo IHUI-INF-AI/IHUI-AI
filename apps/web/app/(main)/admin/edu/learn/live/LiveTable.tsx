@@ -76,7 +76,7 @@ export function LiveTable({ rows, isLoading, error, onEdit, onDelete, deletePend
                 <TableRow key={l.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5 font-medium">{l.title}</TableCell>
                   <TableCell className="px-4 py-2.5">{l.lecturerName ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs">{l.startTime}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-label">{l.startTime}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(

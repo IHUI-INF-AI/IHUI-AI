@@ -69,7 +69,7 @@ export default function AdminDistributionWithdrawalsPage() {
     <div className="space-y-4 px-4 py-4">
       <Link
         href="/admin/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回分销中心
@@ -77,7 +77,7 @@ export default function AdminDistributionWithdrawalsPage() {
 
       <div>
         <h1 className="text-display font-bold tracking-tight">提现申请</h1>
-        <p className="mt-1 text-sm text-muted-foreground">审核用户提现请求</p>
+        <p className="mt-1 text-body text-muted-foreground">审核用户提现请求</p>
       </div>
 
       {listQ.isError && (
@@ -102,7 +102,7 @@ export default function AdminDistributionWithdrawalsPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">共 {total} 条</span>
+          <span className="text-body text-muted-foreground">共 {total} 条</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -112,7 +112,7 @@ export default function AdminDistributionWithdrawalsPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button

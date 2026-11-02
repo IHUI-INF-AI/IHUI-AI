@@ -214,7 +214,7 @@ export default function BackupJobsPage() {
             <HardDriveDownload className="h-5 w-5" aria-hidden />
             数据库备份作业
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             pg_dump + gzip 定时备份到本地目录,成功后按保留份数清理超额产物;支持随时手动触发一次。
           </p>
         </div>
@@ -280,7 +280,7 @@ export default function BackupJobsPage() {
                 checked={settingsForm.enabled}
                 onCheckedChange={(v) => setSettingsForm((f) => ({ ...f, enabled: v }))}
               />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {settingsForm.enabled ? '已开启' : '已关闭'}
               </span>
             </div>
@@ -294,7 +294,7 @@ export default function BackupJobsPage() {
             <span>保存配置</span>
           </Button>
           {settingsQ.data?.updatedAt && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               最后更新 {new Date(settingsQ.data.updatedAt).toLocaleString('zh-CN')}
             </span>
           )}
@@ -302,7 +302,7 @@ export default function BackupJobsPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">名称</th>
@@ -376,7 +376,7 @@ export default function BackupJobsPage() {
         </table>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-label text-muted-foreground">
         说明:定时备份依赖服务进程常驻(备份配置改动即时重载调度);异地备份需另配备份目录到云盘/对象存储同步。
       </p>
 
@@ -394,11 +394,11 @@ export default function BackupJobsPage() {
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="如 manual-20260917"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 仅允许字母/数字/下划线/连字符(防路径穿越),1-64 位。
               </p>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               备份为同步执行 pg_dump + gzip,大库可能耗时数十秒到数分钟,期间请勿关闭页面。
             </p>
           </div>

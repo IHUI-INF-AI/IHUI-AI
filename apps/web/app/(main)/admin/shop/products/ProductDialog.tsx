@@ -60,7 +60,7 @@ export function ProductDialog({
             <DialogDescription>{t('products.dialog.description')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -163,7 +163,7 @@ export function ProductDialog({
               value={form.desc}
               onChange={(e) => setForm({ ...form, desc: e.target.value })}
               placeholder={t('products.dialog.descPlaceholder')}
-              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+              className="min-h-[80px] w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
             />
           </div>
           <div className="space-y-2">

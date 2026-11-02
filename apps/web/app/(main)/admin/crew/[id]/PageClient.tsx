@@ -158,15 +158,17 @@ export default function CrewSessionDetailPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-heading font-bold tracking-tight">{session?.title || '未命名会话'}</h1>
-            <p className="text-xs text-muted-foreground">
+            <h1 className="text-heading font-bold tracking-tight">
+              {session?.title || '未命名会话'}
+            </h1>
+            <p className="text-label text-muted-foreground">
               ID: {sessionId} · {session?.userId}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`rounded px-2 py-0.5 text-xs ${statusBadgeClass(session?.status ?? '')}`}
+            className={`rounded px-2 py-0.5 text-label ${statusBadgeClass(session?.status ?? '')}`}
           >
             {session?.status}
           </span>
@@ -184,14 +186,14 @@ export default function CrewSessionDetailPage() {
 
       <div className="rounded-lg border bg-card p-3">
         <p className="text-label font-medium text-muted-foreground">输入</p>
-        <p className="mt-1 whitespace-pre-wrap text-sm">{session?.inputMessage}</p>
+        <p className="mt-1 whitespace-pre-wrap text-body">{session?.inputMessage}</p>
         {session?.outputMessage && (
           <>
             <p className="mt-3 text-label font-medium text-muted-foreground">最终输出</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm">{session.outputMessage}</p>
+            <p className="mt-1 whitespace-pre-wrap text-body">{session.outputMessage}</p>
           </>
         )}
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-label text-muted-foreground">
           创建: {fmtTime(session?.createdAt)} · 完成: {fmtTime(session?.completedAt)}
         </p>
       </div>
@@ -207,33 +209,33 @@ export default function CrewSessionDetailPage() {
         <TabsContent value="tasks" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             {tasks.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">暂无任务</div>
+              <div className="py-8 text-center text-body text-muted-foreground">暂无任务</div>
             ) : (
               <div className="space-y-2">
                 {tasks.map((t) => (
                   <div key={t.id} className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">#{t.taskIndex}</span>
+                        <span className="text-label text-muted-foreground">#{t.taskIndex}</span>
                         <span className="text-body font-medium">{t.agentRole}</span>
                         <span
-                          className={`rounded px-1.5 py-0.5 text-xs ${statusBadgeClass(t.status)}`}
+                          className={`rounded px-1.5 py-0.5 text-label ${statusBadgeClass(t.status)}`}
                         >
                           {t.status}
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {fmtTime(t.startedAt)} → {fmtTime(t.completedAt)}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
+                    <p className="mt-1 text-body text-muted-foreground">{t.description}</p>
                     {t.outputData && (
-                      <pre className="mt-2 overflow-x-auto rounded bg-muted/50 p-2 text-xs">
+                      <pre className="mt-2 overflow-x-auto rounded bg-muted/50 p-2 text-label">
                         {t.outputData}
                       </pre>
                     )}
                     {t.errorMessage && (
-                      <p className="mt-1 text-xs text-rose-600">错误: {t.errorMessage}</p>
+                      <p className="mt-1 text-label text-rose-600">错误: {t.errorMessage}</p>
                     )}
                   </div>
                 ))}
@@ -245,7 +247,7 @@ export default function CrewSessionDetailPage() {
         <TabsContent value="messages" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             {messages.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">暂无消息</div>
+              <div className="py-8 text-center text-body text-muted-foreground">暂无消息</div>
             ) : (
               <div className="space-y-2">
                 {messages.map((m) => (
@@ -254,13 +256,13 @@ export default function CrewSessionDetailPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-label font-medium">{m.fromRole}</span>
-                        <span className="text-xs text-muted-foreground">→</span>
+                        <span className="text-label text-muted-foreground">→</span>
                         <span className="text-label font-medium">{m.toRole}</span>
-                        <span className="ml-auto text-xs text-muted-foreground">
+                        <span className="ml-auto text-label text-muted-foreground">
                           {fmtTime(m.createdAt)}
                         </span>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm">{m.content}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-body">{m.content}</p>
                     </div>
                   </div>
                 ))}
@@ -272,7 +274,7 @@ export default function CrewSessionDetailPage() {
         <TabsContent value="artifacts" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             {artifacts.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">暂无产物</div>
+              <div className="py-8 text-center text-body text-muted-foreground">暂无产物</div>
             ) : (
               <div className="space-y-2">
                 {artifacts.map((a) => (
@@ -280,14 +282,14 @@ export default function CrewSessionDetailPage() {
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary" />
                       <span className="text-body font-medium">{a.name}</span>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                         {a.type}
                       </span>
-                      <span className="ml-auto text-xs text-muted-foreground">
+                      <span className="ml-auto text-label text-muted-foreground">
                         {fmtTime(a.createdAt)}
                       </span>
                     </div>
-                    <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/50 p-2 text-xs">
+                    <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/50 p-2 text-label">
                       {a.content}
                     </pre>
                   </div>
@@ -303,11 +305,11 @@ export default function CrewSessionDetailPage() {
               <span className="flex items-center gap-1.5 text-label font-medium">
                 <Terminal className="h-4 w-4" /> 实时日志
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {streaming ? '运行中...' : '空闲'}
               </span>
             </div>
-            <div className="max-h-96 overflow-auto p-3 font-mono text-xs">
+            <div className="max-h-96 overflow-auto p-3 font-mono text-label">
               {logs.length === 0 ? (
                 <p className="text-muted-foreground">点击「流式执行」开始...</p>
               ) : (

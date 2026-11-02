@@ -29,7 +29,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
         {t('noData')}
       </div>
     )
@@ -44,7 +44,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
   }
   if (grouped.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
         <Lock className="mx-auto mb-2 h-8 w-8 opacity-40" />
         {t('noData')}
       </div>
@@ -57,13 +57,13 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
           <header className="flex items-center gap-2 bg-muted/40 px-4 py-2">
             <Lock className="h-4 w-4 text-muted-foreground" />
             <span className="text-body font-semibold">{resource}</span>
-            <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
               {t('count', { count: list.length })}
             </span>
           </header>
           <div className="overflow-x-auto">
-            <Table className="text-sm">
-              <TableHeader className="bg-muted/30 text-left text-xs uppercase text-muted-foreground">
+            <Table className="text-body">
+              <TableHeader className="bg-muted/30 text-left text-label uppercase text-muted-foreground">
                 <TableRow>
                   <TableHead className="px-4 py-2 font-medium">{t('name')}</TableHead>
                   <TableHead className="px-4 py-2 font-medium">{t('code')}</TableHead>
@@ -83,7 +83,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
                         <button
                           type="button"
                           onClick={() => onCopy(p)}
-                          className="group inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs transition-colors hover:bg-muted/70"
+                          className="group inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-label transition-colors hover:bg-muted/70"
                         >
                           <code>{p.name}</code>
                           {copiedId === p.id ? (
@@ -102,7 +102,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
                     <TableCell className="max-w-[260px] break-words px-4 py-2 text-muted-foreground">
                       {p.description || '-'}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap px-4 py-2 text-xs text-muted-foreground">
+                    <TableCell className="whitespace-nowrap px-4 py-2 text-label text-muted-foreground">
                       {dateFmt.format(new Date(p.createdAt))}
                     </TableCell>
                   </TableRow>

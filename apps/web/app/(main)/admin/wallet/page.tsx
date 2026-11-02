@@ -71,7 +71,7 @@ export default function AdminWalletPage() {
           <WalletIcon className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <form onSubmit={form.handleSubmit(() => undefined)} className="flex items-center gap-2">
@@ -85,8 +85,8 @@ export default function AdminWalletPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">{t('colUser')}</th>
                 <th className="px-3 py-2 text-right">{t('colBalance')}</th>
@@ -136,12 +136,12 @@ export default function AdminWalletPage() {
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-0.5 text-xs ${STATUS_CLASS[w.status] ?? STATUS_CLASS[0]}`}
+                        className={`rounded-md px-2 py-0.5 text-label ${STATUS_CLASS[w.status] ?? STATUS_CLASS[0]}`}
                       >
                         {t(STATUS_KEY[w.status] ?? 'status.unknown')}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-label text-muted-foreground">
                       {fmt.format(new Date(w.updatedAt))}
                     </td>
                   </tr>
@@ -153,7 +153,7 @@ export default function AdminWalletPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -164,7 +164,7 @@ export default function AdminWalletPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

@@ -93,7 +93,7 @@ function EmptyState({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
       {icon}
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-body text-muted-foreground">{label}</p>
     </div>
   )
 }
@@ -176,7 +176,7 @@ export default function MetaLearnerPage() {
             <Brain className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* 控制帧 `refresh_memory`:强制重扫持久化记忆源(与「手动触发」分工:那个跑学习,这个只重读) */}
@@ -217,7 +217,7 @@ export default function MetaLearnerPage() {
       {refreshMutation.isSuccess && refreshMutation.data && (
         <div
           data-testid="meta-learner-refresh-result"
-          className="space-y-2 rounded-lg border bg-card px-3 py-2.5 text-xs"
+          className="space-y-2 rounded-lg border bg-card px-3 py-2.5 text-label"
         >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="font-medium text-foreground">
@@ -301,7 +301,7 @@ export default function MetaLearnerPage() {
                   {t('learner')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-1 text-body">
                 <p className="text-muted-foreground">
                   {t('lessons')}: {status.learner.totalLessons}
                 </p>
@@ -317,7 +317,7 @@ export default function MetaLearnerPage() {
                   {t('scheduler')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-1 text-body">
                 <Badge className={status.scheduler.enabled ? RUN_BADGE.success : RUN_BADGE.skipped}>
                   {status.scheduler.enabled ? t('enabled') : t('disabled')}
                 </Badge>
@@ -333,7 +333,7 @@ export default function MetaLearnerPage() {
                   {t('skillEvolution')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-1 text-body">
                 <Badge
                   className={status.skillEvolution.enabled ? RUN_BADGE.success : RUN_BADGE.skipped}
                 >
@@ -371,7 +371,10 @@ export default function MetaLearnerPage() {
             }
             const byTypeRows = (m: Record<string, number>) =>
               Object.entries(m).map(([k, v]) => (
-                <span key={k} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  key={k}
+                  className="flex items-center gap-1.5 text-label text-muted-foreground"
+                >
                   <Badge className={typeBadge[k] ?? typeBadge.unknown}>{k}</Badge>
                   {v}
                 </span>
@@ -386,7 +389,7 @@ export default function MetaLearnerPage() {
                         {t('agentErrors')}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-1 text-sm">
+                    <CardContent className="space-y-1 text-body">
                       <p className="text-display font-medium">{f.agentErrors.total}</p>
                       <div className="flex flex-wrap gap-2">{byTypeRows(f.agentErrors.byType)}</div>
                     </CardContent>
@@ -398,7 +401,7 @@ export default function MetaLearnerPage() {
                         {t('toolFailures')}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-1 text-sm">
+                    <CardContent className="space-y-1 text-body">
                       <p className="text-display font-medium">{f.toolFailures.total}</p>
                       <div className="flex flex-wrap gap-2">
                         {byTypeRows(f.toolFailures.byType)}
@@ -412,16 +415,18 @@ export default function MetaLearnerPage() {
                         {t('failedCheckpoints')}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-1 text-sm">
+                    <CardContent className="space-y-1 text-body">
                       <p className="text-display font-medium">{f.failedCheckpoints}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {t('lessonsExtracted')}: {t('recentFailures')}
                       </p>
                     </CardContent>
                   </Card>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-body font-medium text-muted-foreground">{t('recentFailures')}</p>
+                  <p className="text-body font-medium text-muted-foreground">
+                    {t('recentFailures')}
+                  </p>
                   {f.recent.length === 0 ? (
                     <EmptyState
                       icon={<Activity className="h-8 w-8 text-muted-foreground" />}
@@ -429,7 +434,7 @@ export default function MetaLearnerPage() {
                     />
                   ) : (
                     <div className="overflow-x-auto rounded-lg border">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-body">
                         <thead className="bg-muted/50">
                           <tr>
                             <th className="px-3 py-2 text-left font-medium">{t('errorType')}</th>
@@ -478,7 +483,7 @@ export default function MetaLearnerPage() {
           />
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead className="bg-muted/50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">{t('lessonType')}</th>
@@ -499,7 +504,7 @@ export default function MetaLearnerPage() {
                     <td className="max-w-xs px-3 py-2">
                       <p className="truncate">{lesson.title}</p>
                       {lesson.content && (
-                        <p className="line-clamp-1 text-xs text-muted-foreground">
+                        <p className="line-clamp-1 text-label text-muted-foreground">
                           {lesson.content}
                         </p>
                       )}
@@ -513,7 +518,7 @@ export default function MetaLearnerPage() {
                         {lesson.sourceSkills.map((s, i) => (
                           <span
                             key={`${i}-${s}`}
-                            className="rounded bg-muted px-1.5 py-0.5 text-xs"
+                            className="rounded bg-muted px-1.5 py-0.5 text-label"
                           >
                             {s}
                           </span>
@@ -546,7 +551,7 @@ export default function MetaLearnerPage() {
           <div className="space-y-2">
             {history.map((entry, i) => (
               <Card key={`${i}-${entry.triggered_at}`}>
-                <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3 text-sm">
+                <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3 text-body">
                   <Badge className={RUN_BADGE[entry.status]}>{t(RUN_I18N[entry.status])}</Badge>
                   <span className="text-muted-foreground">
                     {t('runAt')}: {formatShortDateTime(entry.triggered_at, locale)}

@@ -103,7 +103,7 @@ export default function AdminMenuPermissionPage() {
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
               <tr className="text-left text-muted-foreground">
                 {head.map((h, i) => (
@@ -132,19 +132,19 @@ export default function AdminMenuPermissionPage() {
                 list.map((m) => (
                   <tr key={m.id}>
                     <td className={`${c} font-medium`}>{m.name}</td>
-                    <td className={`${c} text-muted-foreground font-mono text-xs`}>
+                    <td className={`${c} text-muted-foreground font-mono text-label`}>
                       {m.code ?? '—'}
                     </td>
-                    <td className={`${c} text-muted-foreground font-mono text-xs`}>
+                    <td className={`${c} text-muted-foreground font-mono text-label`}>
                       {m.path ?? '—'}
                     </td>
                     <td className={c}>
-                      <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded bg-muted px-2 py-0.5 text-label text-muted-foreground">
                         {t(TYPE_KEY[m.type] ?? 'type_unknown')}
                       </span>
                     </td>
                     <td className={c}>
-                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[m.status]}`}>
+                      <span className={`rounded px-2 py-0.5 text-label ${BADGE[m.status]}`}>
                         {t(MENU_STATUS_KEYS[m.status]!)}
                       </span>
                     </td>
@@ -182,7 +182,7 @@ export default function AdminMenuPermissionPage() {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -193,7 +193,7 @@ export default function AdminMenuPermissionPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
