@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, getSignInHistory, type SignInHistoryItem } from '@ihui/api-client'
 import {
   PointsScreen as SharedPointsScreen,
   type PointsAccountInfo,
@@ -14,6 +14,7 @@ import {
   type PointsTransactionItem,
 } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
+import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -21,6 +22,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
+const HISTORY_PAGE_SIZE = 20
 
 /**
  * 积分中心 —— 对齐 web `/points`(总览 + 签到 + 流水 + 入口)。
@@ -64,6 +66,7 @@ interface RawTxRow {
 export default function PointsScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
+  const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
 
   const [account, setAccount] = useState<PointsAccountInfo | null>(null)
@@ -78,6 +81,11 @@ export default function PointsScreen() {
   const [txLoading, setTxLoading] = useState(true)
   const [txFailed, setTxFailed] = useState(false)
   const [signing, setSigning] = useState(false)
+
+  const [historyRows, setHistoryRows] = useState<SignInHistoryItem[]>([])
+  const [historyTotal, setHistoryTotal] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyFailed, setHistoryFailed] = useState(false)
 
   const fmt = useCallback(
     (iso: string) => {
@@ -143,6 +151,41 @@ export default function PointsScreen() {
     void loadTxs(1)
   }, [loadTxs])
 
+  /**
+   * 签到历史(web /points/sign-in 历史表同源)。
+   * 未登录不发请求;rewardPoints 是积分整数,原值展示,不得按金额分/100。
+   */
+  const loadHistory = useCallback(async (targetPage: number, append = false) => {
+    setHistoryLoading(true)
+    setHistoryFailed(false)
+    try {
+      const res = await getSignInHistory({ page: targetPage, pageSize: HISTORY_PAGE_SIZE })
+      if (!res.success) throw new Error(res.error)
+      const list = res.data?.list ?? []
+      setHistoryRows((prev) => (append ? [...prev, ...list] : list))
+      setHistoryTotal(res.data?.total ?? 0)
+    } catch {
+      if (!append) {
+        setHistoryRows([])
+        setHistoryTotal(0)
+      }
+      setHistoryFailed(true)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setHistoryRows([])
+      setHistoryTotal(0)
+      setHistoryFailed(false)
+      setHistoryLoading(false)
+      return
+    }
+    void loadHistory(1)
+  }, [user, loadHistory])
+
   const loadMoreTxs = async () => {
     const next = txPage + 1
     await loadTxs(next, true)
@@ -167,6 +210,7 @@ export default function PointsScreen() {
       await loadOverview()
       setTxPage(1)
       await loadTxs(1)
+      await loadHistory(1)
     } catch {
       appAlert(t('common.error'), t('points.signIn.signInFailed'))
     } finally {
@@ -197,6 +241,20 @@ export default function PointsScreen() {
       }}
       onLoadMoreTxs={() => void loadMoreTxs()}
       onSignIn={() => void onSignIn()}
+      history={
+        user
+          ? {
+              items: historyRows,
+              total: historyTotal,
+              loading: historyLoading,
+              failed: historyFailed,
+            }
+          : undefined
+      }
+      onRetryHistory={() => void loadHistory(1)}
+      onLoadMoreHistory={() =>
+        void loadHistory(Math.floor(historyRows.length / HISTORY_PAGE_SIZE) + 1, true)
+      }
       onOpenMall={() => navigation.navigate('PointsMall')}
       onOpenTasks={() => navigation.navigate('TaskCenter')}
       onOpenRules={() => navigation.navigate('PointRule')}
