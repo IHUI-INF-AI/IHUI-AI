@@ -130,6 +130,7 @@ export function readLockSnapshot(path, { fs = nodeFs } = {}) {
     createdAt: field('at'),
     host: field('host'),
     role: field('role'),
+    staleMs: Number(field('staleMs')) || null,
     mtimeMs,
   }
 }
@@ -143,7 +144,7 @@ function writeAll(fd, text, fs) {
   fs.writeFileSync(fd, text, 'utf8')
 }
 
-function tryCreate(path, { now, role, fs }) {
+function tryCreate(path, { now, role, fs, staleMs = null }) {
   let fd
   try {
     fd = fs.openSync(path, 'wx')
@@ -153,7 +154,9 @@ function tryCreate(path, { now, role, fs }) {
   }
   const token = nonce()
   const createdAt = new Date(now()).toISOString()
-  const content = `pid=${process.pid}\ntoken=${token}\nat=${createdAt}\nhost=${hostname()}\nrole=${role}\n`
+  const content =
+    `pid=${process.pid}\ntoken=${token}\nat=${createdAt}\nhost=${hostname()}\nrole=${role}\n` +
+    (Number(staleMs) > 0 ? `staleMs=${Number(staleMs)}\n` : '')
   try {
     writeAll(fd, content, fs)
     fs.closeSync(fd)
@@ -300,6 +303,8 @@ function existsQuiet(path, fs) {
 }
 
 const held = new Map()
+/** path → { timer, token }:轮级心跳定时器。必须在释放/退出时清空,否则进程被拖住。 */
+const heartbeats = new Map()
 let handlersInstalled = false
 
 function installProcessHandlers() {
@@ -320,6 +325,10 @@ function installProcessHandlers() {
 }
 
 function releaseAllQuietly() {
+  for (const rec of heartbeats.values()) {
+    clearInterval(rec.timer)
+  }
+  heartbeats.clear()
   for (const handle of [...held.values()]) {
     try {
       releaseGuardianLock(handle)
@@ -365,7 +374,7 @@ export function acquireGuardianLock({
 
   let ioFailures = 0
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const made = tryCreate(lockPath, { now, role, fs })
+    const made = tryCreate(lockPath, { now, role, fs, staleMs })
     if (made.ok) {
       held.set(lockPath, made.handle)
       installProcessHandlers()
@@ -465,6 +474,47 @@ export function heartbeatGuardianLock(handle, { env = process.env, now = Date.no
 }
 
 /**
+ * 轮级锁心跳定时器(2026-11-03):长轮次期间每 `intervalMs` 续一次 mtime。
+ *
+ * 为什么需要:计划任务/守护的轮次是同步 `execFileSync` 串起来的,事件循环在单步里被阻塞,
+ * 只在轮首续一次 ⇒ 任何超过 staleMs 的步骤都会把锁变成 `stale-alive`。
+ *
+ * 约束:
+ *   - 定时器 `unref()`,不拖住进程退出;`releaseGuardianLock` / `process.on('exit')` 都会 clearInterval;
+ *   - 续不上(锁被挪走/易主)⇒ 立刻停表并只回调一次 `onLost`,绝不偷别人的锁。
+ */
+export function startHeartbeatGuardianLock(
+  handle,
+  { intervalMs = 30_000, env = process.env, now = Date.now, fs = nodeFs, onLost = null } = {},
+) {
+  const period = Math.max(1_000, Number(intervalMs) || 30_000)
+  if (!handle || handle.disabled || !handle.path || !handle.token) {
+    return { started: false, stop: () => {}, intervalMs: period }
+  }
+  const stop = () => {
+    const rec = heartbeats.get(handle.path)
+    if (rec && rec.token === handle.token) {
+      clearInterval(rec.timer)
+      heartbeats.delete(handle.path)
+    }
+  }
+  const fire = () => {
+    const r = heartbeatGuardianLock(handle, { env, now, fs })
+    if (!r.ok) {
+      stop()
+      if (typeof onLost === 'function') onLost(r)
+    }
+    return r
+  }
+  stop() // 同路径换持者时绝不留旧表
+  const timer = setInterval(fire, period)
+  if (typeof timer.unref === 'function') timer.unref()
+  heartbeats.set(handle.path, { timer, token: handle.token })
+  const first = fire()
+  return { started: true, intervalMs: period, firstOk: first.ok, firstAt: first.at ?? null, stop }
+}
+
+/**
  * 释放。只删 token 与 pid 都对得上的那一份。
  * `releaseGuardianLock()` 不带参数 = 释放本进程持有的全部(给 exit/信号路径用)。
  */
@@ -477,6 +527,11 @@ export function releaseGuardianLock(handle = null, { env = process.env, fs = nod
   const lockPath = typeof handle === 'string' ? resolve(handle) : handle.path
   const token = typeof handle === 'string' ? '' : handle.token
   if (!lockPath) return { released: false, why: '没有可释放的锁路径' }
+  const hb = heartbeats.get(lockPath)
+  if (hb && (!token || hb.token === token)) {
+    clearInterval(hb.timer)
+    heartbeats.delete(lockPath)
+  }
   const snap = readLockSnapshot(lockPath, { fs })
   if (!snap.ok) {
     held.delete(lockPath)
@@ -506,7 +561,9 @@ export function inspectGuardianLock({ path = null, env = process.env, staleMs = 
   }
   const ageMs = ageOf(snap, now())
   const alive = isPidAlive(snap.pid)
-  const stale = ageMs !== null && ageMs > staleMs
+  // 锁面自带声明阈值(长步骤轮次会写 21min):体检按持有者声明判,旧锁无此字段才回落调用方阈值。
+  const effectiveStaleMs = Number(snap.staleMs) > 0 ? Number(snap.staleMs) : staleMs
+  const stale = ageMs !== null && ageMs > effectiveStaleMs
   const state = alive ? (stale ? 'stale-alive' : 'held') : snap.pid > 0 ? 'dead' : 'held-unknown'
   return {
     mode,
@@ -520,6 +577,7 @@ export function inspectGuardianLock({ path = null, env = process.env, staleMs = 
     role: snap.role,
     heartbeatAgeMs: ageMs,
     stale,
+    staleMs: effectiveStaleMs,
     alive,
   }
 }
