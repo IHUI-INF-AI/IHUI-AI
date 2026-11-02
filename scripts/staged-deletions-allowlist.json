@@ -66,6 +66,22 @@
       "reason": "有意摘除重复镜像锁(2026-11-01):本席为门 128 几何维加的 CSS 命名档腿(var(--spacing-*)/var(--text-*))与间距档键长修复,已被并席票 O67(88bd07c0c0)以更贴实现落点的方式重做并入库 —— 解值住在 lib/radius-tokens.cssVarItemsInSrc + 门体经 lib/design-token-blocks.collectVars 直读 tokens.css 受管块(浏览器真正解析的那一份),并互证小程序派生副本、失明扫描面含类臂声明体。那 9 例(var 解值成同档 / 解不到逐枚点名 / 行高字重圆角不串味 / 0 值不入集 / 键长回归 / CategoryBar 端到端零分叉)在对面那套 C14/C15/C16/C17/C9/C13/C8b 里逐条有更贴实现落点的版本,两把并留必然按 §0.6 漂开。",
       "ticket": "O67",
       "until": "2027-05-01"
+    },
+    {
+      "path": "apps/api/tests/agent-tasks-createdby-isolation.test.ts",
+      "reason": "2026-11-02 有意删除:本文件是 ef1c716616 自动收编时随 fail-open 归属面半成品一并带上主干的 3 个新测试之一。按 ef1c716616~1 基线恢复归属面(fail-closed)后,它测的 findAgentTasksByAgentId 三参 viewer 语义不在基线,实测对基线红。删除不是丢锁:基线归属面的 fail-closed 锁由 tests/subagents-ownership-backfill.test.ts(9/9)与 tests/subagents-id-ownership.test.ts(8/8)承接,本枚复跑 40/40 全绿。"
+    },
+    {
+      "path": "apps/api/tests/subagent-dispatch-restart-recovery.test.ts",
+      "reason": "2026-11-02 有意删除:同属 ef1c716616 收编带回的 fail-open/E1 半成品测试。它锁的 INSTANCE_HEARTBEAT_MS 心跳与重启队列恢复在 ef1c716616~1 基线不存在(基线服务无该常量),实测对基线红。该能力若要落地应作为独立票重新实现并配锁,不以把主干恢复到 fail-open 的方式回填。"
+    },
+    {
+      "path": "apps/api/tests/subagents-collaboration-ownership.test.ts",
+      "reason": "2026-11-02 有意删除:同属 ef1c716616 收编带回的半成品测试。它锁的 :id/collaboration 租户闸不在 ef1c716616~1 基线(基线路由无此闸),实测 ③ 未标注记录用例实得 404/应为 200 ⇒ 文件红。S-ACL-COLLAB 的协作面归属收窄应独立成票重新落地,不以把主干恢复到 fail-open 的方式回填。"
+    },
+    {
+      "path": "deploy/cf-preferred-ip.mjs",
+      "reason": "2026-11-02 有意删除(整链退役收尾):本件早由 7c02b0fb48 删除,但该枚不是 HEAD 祖先,自动收编只带回了配套测试口径而未带回删除,导致 check-plan-claims-vs-head 期待 retired 而文件仍在 HEAD。本门 E1 点名的唯一引用方 scripts/tests/check-plan-claims-vs-head.test.mjs:127 不是消费者,而是退役锁的判据目标字面量 —— 该用例断言本路径必须不在 HEAD 且删除证据带枚 sha;同口径记载在 PROJECT_PLAN.md(整链退役:脚本与 .env.example 删除、.gitignore 条目摘除)。本条豁免仅记录『否定断言引用』这一形态,不改门 99 判据。问责复跑:node --test scripts/tests/check-plan-claims-vs-head.test.mjs。"
     }
   ]
 }
