@@ -2652,7 +2652,11 @@
       "signing": "Checking in...",
       "signInSuccess": "Checked in and earned {points} points",
       "signInFailed": "Check-in failed",
-      "alreadySigned": "Already checked in today"
+      "alreadySigned": "Already checked in today",
+      "historyTitle": "Check-in history",
+      "historyEmpty": "No check-in records",
+      "historyLoadFailed": "Failed to load check-in history",
+      "historyConsecutive": "{days}-day streak"
     },
     "mallLink": "Points mall",
     "taskCenterLink": "Task center",
