@@ -97,7 +97,7 @@ export interface ToolInvocationLedgerExportFilters {
   endDate?: string
 }
 
-export const toolInvocationLedgerExportFiltersSchema = z
+const toolInvocationLedgerExportFiltersSchema = z
   .object({
     userId: z.uuid().optional(),
     toolName: z.string().min(1).max(80).optional(),

@@ -22,7 +22,7 @@
  * 只在**无 nonce** 的分支里是有效约束;有 nonce + strict-dynamic 时,CSP3 浏览器会忽略
  * 这份 host 列表(改由"已信任脚本动态插入"决定),保留它是为了老浏览器仍能加载这些 SDK。
  */
-export const SCRIPT_SRC_HOSTS = [
+const SCRIPT_SRC_HOSTS = [
   // res.wx.qq.com:微信 WxLogin.js
   // wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
   // g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0

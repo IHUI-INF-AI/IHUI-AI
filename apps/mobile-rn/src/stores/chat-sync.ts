@@ -61,7 +61,7 @@ interface ChatSyncRnState {
   clear: () => void
 }
 
-export const chatSyncRnStore = createStore<ChatSyncRnState>()(() => ({
+const chatSyncRnStore = createStore<ChatSyncRnState>()(() => ({
   version: 0,
   messagesOf: (conversationId) => chatSyncStore.messagesOf(conversationId),
   applyEvent: (event) => chatSyncStore.applyEvent(event),
@@ -165,7 +165,8 @@ export function planChatSyncSurfaceMerge(
     }
     // 回声:本端刚写完的那条没有服务端 id,但内容逐字相同 ⇒ 不是"另一端的新消息"
     const echo = local.some(
-      (row) => row.role === surface.role && row.content.length > 0 && row.content === surface.content,
+      (row) =>
+        row.role === surface.role && row.content.length > 0 && row.content === surface.content,
     )
     if (echo) continue
     appends.push(surface)

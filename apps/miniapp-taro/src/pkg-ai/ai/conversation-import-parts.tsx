@@ -211,7 +211,7 @@ export function ImportResultList({
 }
 
 /** 未知状态回退显示服务端原文,不猜(§5e 诚实交代) */
-export function historyStatusLabel(status: ImportHistoryStatus, raw: string, tt: TtFn): string {
+function historyStatusLabel(status: ImportHistoryStatus, raw: string, tt: TtFn): string {
   if (status === 'success') return tt('conversationImport.statusSuccess', '成功')
   if (status === 'partial') return tt('conversationImport.statusPartial', '部分成功')
   if (status === 'failed') return tt('conversationImport.statusFailed', '失败')

@@ -1188,7 +1188,6 @@ export const getExamList = (params?: {
 // 并让作答按下标提交(题库 answer 存的是选项 key "A"/["A","B"],下标恒判错)。
 export {
   serializeExamAnswers,
-  toShellOptionKeys,
   toShellOptionTexts,
   toShellQuestionType,
   type ExamAnswerValue,

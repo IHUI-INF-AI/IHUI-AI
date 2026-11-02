@@ -91,7 +91,7 @@ function takeRemoteLookupQuota(): boolean {
   return true
 }
 
-export function countryToRegion(countryCode: string): LoginRegion | null {
+function countryToRegion(countryCode: string): LoginRegion | null {
   const code = countryCode.toUpperCase()
   if (!COUNTRY_CODE_RE.test(code)) return null
   if (UNKNOWN_COUNTRY_CODES.has(code)) return null
