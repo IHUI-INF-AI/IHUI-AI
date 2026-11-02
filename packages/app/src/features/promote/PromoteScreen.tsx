@@ -41,8 +41,9 @@ export function PromoteScreen({
   onCopy,
   onShare,
   onBack,
-  colorScheme = 'light',
-}: PromoteScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: PromoteScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -59,7 +60,7 @@ export function PromoteScreen({
       <View style={styles.container}>
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('promote.retry')}
           colorScheme={colorScheme}
         />

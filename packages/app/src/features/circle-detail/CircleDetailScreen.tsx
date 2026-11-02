@@ -31,8 +31,9 @@ export function CircleDetailScreen({
   onPressPost,
   onPressMembers,
   onBack,
-  colorScheme = 'light',
-}: CircleDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: CircleDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -43,7 +44,7 @@ export function CircleDetailScreen({
     return (
       <ErrorState
         message={error || t('circleDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
