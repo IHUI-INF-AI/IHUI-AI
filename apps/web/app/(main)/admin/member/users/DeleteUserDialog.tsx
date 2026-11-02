@@ -28,7 +28,7 @@ export function DeleteUserDialog({ target, onOpenChange, submitting, onConfirm }
         <DialogHeader>
           <DialogTitle>删除用户</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           确认要删除用户
           <span className="mx-1 font-medium text-foreground">
             "{target?.nickname || target?.phone || target?.email || target?.id}"

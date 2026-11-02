@@ -75,7 +75,7 @@ export default function AdminMemberPermissionsPage() {
           <Key className="h-6 w-6 text-primary" />
           会员权限点
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">会员体系权限点管理</p>
+        <p className="mt-1 text-body text-muted-foreground">会员体系权限点管理</p>
       </div>
 
       <SearchInput
@@ -91,7 +91,7 @@ export default function AdminMemberPermissionsPage() {
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         </div>
       ) : grouped.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
           <Lock className="mx-auto mb-2 h-8 w-8 opacity-40" />
           暂无权限
         </div>
@@ -102,13 +102,13 @@ export default function AdminMemberPermissionsPage() {
               <header className="flex items-center gap-2 bg-muted/40 px-4 py-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-body font-semibold">{resource}</span>
-                <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                   {items.length}
                 </span>
               </header>
               <div className="overflow-x-auto">
-                <Table className="text-sm">
-                  <TableHeader className="bg-muted/30 text-left text-xs uppercase text-muted-foreground">
+                <Table className="text-body">
+                  <TableHeader className="bg-muted/30 text-left text-label uppercase text-muted-foreground">
                     <TableRow>
                       <TableHead className="px-4 py-2 font-medium">名称</TableHead>
                       <TableHead className="px-4 py-2 font-medium">标识</TableHead>
@@ -125,7 +125,7 @@ export default function AdminMemberPermissionsPage() {
                           <button
                             type="button"
                             onClick={() => copyCode(p)}
-                            className="group inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs hover:bg-muted/70"
+                            className="group inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-label hover:bg-muted/70"
                           >
                             <code>{p.name}</code>
                             {copiedId === p.id ? (
@@ -143,7 +143,7 @@ export default function AdminMemberPermissionsPage() {
                         <TableCell className="px-4 py-2">
                           <div className="flex flex-wrap gap-1">
                             {(p.roles ?? []).map((r) => (
-                              <span key={r} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                              <span key={r} className="rounded bg-muted px-1.5 py-0.5 text-label">
                                 {r}
                               </span>
                             ))}

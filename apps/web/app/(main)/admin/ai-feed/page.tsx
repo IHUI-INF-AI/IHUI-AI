@@ -135,7 +135,7 @@ export default function AiFeedHealthPage() {
 
       {isError && (
         <Card className="border-destructive/50">
-          <CardContent className="flex items-center gap-2 py-4 text-sm text-destructive">
+          <CardContent className="flex items-center gap-2 py-4 text-body text-destructive">
             <AlertTriangle className="h-4 w-4" /> 加载统计数据失败，请确认 API 可用后重试。
           </CardContent>
         </Card>
@@ -156,11 +156,11 @@ export default function AiFeedHealthPage() {
         </CardHeader>
         <CardContent className="space-y-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 加载中…
             </div>
           ) : list.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">暂无数据源</div>
+            <div className="py-10 text-center text-body text-muted-foreground">暂无数据源</div>
           ) : (
             <div>
               {list.map(({ source: s, itemCount, snapshotCount }) => (
@@ -174,7 +174,7 @@ export default function AiFeedHealthPage() {
                       </Badge>
                       {!s.enabled && <Badge variant="secondary">已停用</Badge>}
                     </div>
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                    <p className="mt-1 line-clamp-1 text-label text-muted-foreground">
                       {s.category ?? '未分类'} · {s.sourceType} · 最近采集 {fmtTime(s.lastFetchAt)}{' '}
                       · 本次 {s.lastFetchCount ?? 0} 条 · 历史条目 {itemCount} · 快照{' '}
                       {snapshotCount}
@@ -203,8 +203,10 @@ function SummaryCard({ label, value, danger }: { label: string; value: number; d
   return (
     <Card className={danger ? 'border-destructive/60' : undefined}>
       <CardContent className="py-3">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`mt-1 text-display font-semibold ${danger ? 'text-destructive' : ''}`}>{value}</p>
+        <p className="text-label text-muted-foreground">{label}</p>
+        <p className={`mt-1 text-display font-semibold ${danger ? 'text-destructive' : ''}`}>
+          {value}
+        </p>
       </CardContent>
     </Card>
   )

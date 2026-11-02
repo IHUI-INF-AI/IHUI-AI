@@ -76,7 +76,7 @@ export default function PageClient() {
           <MessageSquare className="h-6 w-6 text-primary" />
           <span>IM 渠道管理</span>
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           统一管理 16 平台 IM 适配器配置、连接状态与消息历史
         </p>
       </div>
@@ -96,14 +96,14 @@ export default function PageClient() {
         <TabsContent value="config" className="mt-4">
           {isLoadingMeta ? (
             <Card>
-              <CardContent className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+              <CardContent className="flex items-center gap-2 py-10 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 加载平台元数据…
               </CardContent>
             </Card>
           ) : platforms.length === 0 ? (
             <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              <CardContent className="py-10 text-center text-body text-muted-foreground">
                 暂无平台元数据,请检查后端 /api/im-gateway/platforms 接口
               </CardContent>
             </Card>
@@ -111,7 +111,7 @@ export default function PageClient() {
             <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[320px_1fr]">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">平台列表</CardTitle>
+                  <CardTitle className="text-body">平台列表</CardTitle>
                   <CardDescription className="line-clamp-2 break-words">
                     共 {platforms.length} 个平台,点击查看配置
                   </CardDescription>
@@ -136,7 +136,7 @@ export default function PageClient() {
                   />
                 ) : (
                   <Card>
-                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                    <CardContent className="py-10 text-center text-body text-muted-foreground">
                       请在左侧选择一个平台
                     </CardContent>
                   </Card>

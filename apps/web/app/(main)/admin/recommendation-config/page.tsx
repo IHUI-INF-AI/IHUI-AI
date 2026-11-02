@@ -99,7 +99,7 @@ export default function RecommendationConfigPage() {
             <LayoutGrid className="h-6 w-6 text-primary" />
             {t('rec.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('rec.subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('rec.subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />

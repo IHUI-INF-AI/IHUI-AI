@@ -24,8 +24,8 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             {COLS.map((c) => (
               <th key={c.key} className={TH_CLASS}>

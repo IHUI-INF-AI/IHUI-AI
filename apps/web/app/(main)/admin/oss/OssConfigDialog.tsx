@@ -63,7 +63,7 @@ export function OssConfigDialog({
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -137,7 +137,7 @@ export function OssConfigDialog({
             />
           </div>
           <div className="flex gap-6">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label className="flex cursor-pointer items-center gap-2 text-body">
               <input
                 type="checkbox"
                 checked={form.isEnabled}
@@ -146,7 +146,7 @@ export function OssConfigDialog({
               />
               {t('fieldEnabled')}
             </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label className="flex cursor-pointer items-center gap-2 text-body">
               <input
                 type="checkbox"
                 checked={form.isDefault}

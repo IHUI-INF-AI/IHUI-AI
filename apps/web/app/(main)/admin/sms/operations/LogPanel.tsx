@@ -148,12 +148,12 @@ export function LogPanel() {
             )}
             {tc('export')}
           </Button>
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="ml-auto text-label text-muted-foreground">
             {t('log.exportLimitHint', { limit: EXPORT_LIMIT })}
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
           <span>{t('log.totalCount', { count: isError ? '—' : total })}</span>
           {Object.keys(LOG_STATUS)
             .filter((k) => (counts[k] ?? 0) > 0)
@@ -169,8 +169,8 @@ export function LogPanel() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-left text-label text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">{t('field.time')}</th>
                 <th className="px-3 py-2 font-medium">{t('field.channel')}</th>
@@ -234,7 +234,7 @@ export function LogPanel() {
                         {row.reason ?? '-'}
                       </td>
                       <td
-                        className="max-w-40 truncate px-3 py-2 font-mono text-xs"
+                        className="max-w-40 truncate px-3 py-2 font-mono text-label"
                         title={row.request_id ?? ''}
                       >
                         {row.request_id ?? '-'}
@@ -247,7 +247,7 @@ export function LogPanel() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between gap-3 text-sm">
+        <div className="flex items-center justify-between gap-3 text-body">
           <span className="text-muted-foreground">
             {t('log.pagination', { page, size: PAGE_SIZE, total })}
           </span>
