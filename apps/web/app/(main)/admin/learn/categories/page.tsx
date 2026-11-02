@@ -104,7 +104,7 @@ export default function AdminLearnCategoriesPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('categoriesTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('categoriesSubtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('categoriesSubtitle')}</p>
       </div>
 
       <LearnCategoryFilter onCreate={openCreate} />

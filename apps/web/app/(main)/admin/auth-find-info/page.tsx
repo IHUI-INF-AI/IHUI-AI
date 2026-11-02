@@ -145,7 +145,7 @@ export default function AuthFindInfoPage() {
       />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button

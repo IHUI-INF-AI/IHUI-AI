@@ -25,8 +25,8 @@ export function HelpTable({ list, isLoading, deletePending, onEdit, onDelete }: 
   const t = useTranslations('admin.help')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('colTitle')}</th>
             <th className={th}>{t('colCategory')}</th>
@@ -59,7 +59,7 @@ export function HelpTable({ list, isLoading, deletePending, onEdit, onDelete }: 
                     {t(CATEGORY_KEY[h.category] ?? 'categories.unknown')}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{h.slug}</td>
+                <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">{h.slug}</td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(

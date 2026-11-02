@@ -99,7 +99,7 @@ export default function AdminTicketPage() {
             setStatus(e.target.value as '' | TicketStatus)
             setPage(1)
           }}
-          className="h-9 rounded-sm border border-input bg-transparent px-3 text-sm"
+          className="h-9 rounded-sm border border-input bg-transparent px-3 text-body"
         >
           <option value="">全部状态</option>
           {Object.entries(STATUS_LABEL).map(([k, v]) => (
@@ -110,8 +110,8 @@ export default function AdminTicketPage() {
         </select>
       </div>
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">工单号</th>
               <th className="px-4 py-2.5 font-medium">标题</th>
@@ -139,13 +139,13 @@ export default function AdminTicketPage() {
             ) : (
               list.map((t: Ticket) => (
                 <tr key={t.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                     {t.ticketNo}
                   </td>
                   <td className="px-4 py-2.5 font-medium line-clamp-1">{t.title}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.userName ?? t.userId}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`rounded px-2 py-0.5 text-xs ${STATUS_BADGE[t.status]}`}>
+                    <span className={`rounded px-2 py-0.5 text-label ${STATUS_BADGE[t.status]}`}>
                       {STATUS_LABEL[t.status]}
                     </span>
                   </td>
@@ -195,7 +195,7 @@ export default function AdminTicketPage() {
         </table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -206,7 +206,7 @@ export default function AdminTicketPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -269,7 +269,7 @@ function ReplyForm({
         </Button>
       </div>
       {err && (
-        <p className="text-xs text-destructive">
+        <p className="text-label text-destructive">
           {(form.formState.errors.content?.message as string) ?? ''}
         </p>
       )}

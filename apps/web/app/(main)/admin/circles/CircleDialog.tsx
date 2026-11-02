@@ -53,7 +53,7 @@ export function CircleDialog({
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -105,7 +105,7 @@ export function CircleDialog({
               onChange={(e) => setForm({ ...form, cidList: e.target.value })}
               placeholder={t('cidListPlaceholder')}
             />
-            <p className="text-xs text-muted-foreground">{t('cidListHint')}</p>
+            <p className="text-label text-muted-foreground">{t('cidListHint')}</p>
           </div>
           <div className="flex items-center gap-2">
             <Switch
@@ -114,7 +114,7 @@ export function CircleDialog({
               onCheckedChange={(v) => setForm({ ...form, isPublished: v })}
             />
             <Label htmlFor="c-published">{t('fieldPublished')}</Label>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {form.isPublished ? t('published') : t('draft')}
             </span>
           </div>

@@ -23,11 +23,11 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">{t('colApp')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colType')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colAmount')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colStatus')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('colTime')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colApp')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colType')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colAmount')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colStatus')}</TableHead>
+            <TableHead className="text-label uppercase">{t('colTime')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -50,7 +50,7 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
                 <TableCell>
                   <span
                     className={cn(
-                      'inline-flex rounded px-1.5 py-0.5 text-xs',
+                      'inline-flex rounded px-1.5 py-0.5 text-label',
                       r.type === 'recharge' && 'bg-emerald-500/10 text-emerald-600',
                       r.type === 'consume' && 'bg-amber-500/10 text-amber-600',
                       r.type === 'refund' && 'bg-red-500/10 text-red-600',
@@ -74,7 +74,7 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
                 <TableCell>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                       r.status === 'success' && 'bg-emerald-500/10 text-emerald-600',
                       r.status === 'pending' && 'bg-amber-500/10 text-amber-600',
                       r.status === 'failed' && 'bg-red-500/10 text-red-600',
@@ -93,7 +93,7 @@ export function BillingRecordsTable({ list, isLoading }: Props) {
                     {t(STATUS_LABEL_KEY[r.status])}
                   </span>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-label text-muted-foreground">
                   {new Intl.DateTimeFormat(locale).format(new Date(r.createdAt))}
                 </TableCell>
               </TableRow>
