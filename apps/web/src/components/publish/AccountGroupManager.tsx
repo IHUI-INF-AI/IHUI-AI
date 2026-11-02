@@ -242,7 +242,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
           <Users className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-body font-semibold">{t('groups.title')}</h3>
           {groups.length > 0 && (
-            <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
               {groups.length}
             </span>
           )}
@@ -259,7 +259,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
         </div>
       ) : groups.length === 0 ? (
         <div className="rounded-lg border border-dashed p-3 text-center">
-          <p className="text-xs text-muted-foreground">{t('groups.empty')}</p>
+          <p className="text-label text-muted-foreground">{t('groups.empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -281,7 +281,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-body font-medium">{g.name}</div>
                       {g.description && (
-                        <div className="truncate text-xs text-muted-foreground">
+                        <div className="truncate text-label text-muted-foreground">
                           {g.description}
                         </div>
                       )}
@@ -294,7 +294,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="px-2 text-xs"
+                      className="px-2 text-label"
                       onClick={() => openAddAccounts(g.group_id)}
                     >
                       <Plus className="h-3 w-3" />
@@ -303,7 +303,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="px-2 text-xs"
+                      className="px-2 text-label"
                       onClick={() => openEdit(g)}
                     >
                       <Pencil className="h-3 w-3" />
@@ -311,7 +311,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="px-2 text-xs text-destructive hover:text-destructive"
+                      className="px-2 text-label text-destructive hover:text-destructive"
                       onClick={() => setDeleteTarget(g)}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -322,7 +322,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                 {expandedId === g.group_id && (
                   <div className="mt-2 space-y-1 pl-6">
                     {memberIds.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('groups.noMembers')}</p>
+                      <p className="text-label text-muted-foreground">{t('groups.noMembers')}</p>
                     ) : (
                       memberIds.map((aid) => {
                         const acc = accounts.find((a) => a.id === aid)
@@ -337,7 +337,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                                 platformName={acc?.platform}
                                 size={20}
                               />
-                              <span className="truncate text-xs">
+                              <span className="truncate text-label">
                                 {acc ? splitDisplayNameParts(acc.displayName).name : `#${aid}`}
                               </span>
                               <span className="shrink-0 text-[10px] text-muted-foreground">
@@ -379,21 +379,21 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
               <DialogTitle>{editTarget ? t('groups.edit') : t('groups.create')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-1">
-              <Label className="text-xs">{t('groups.name')}</Label>
+              <Label className="text-label">{t('groups.name')}</Label>
               <Input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 required
-                className="h-8 text-xs"
+                className="h-8 text-label"
                 placeholder={t('groups.namePlaceholder')}
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('groups.description')}</Label>
+              <Label className="text-label">{t('groups.description')}</Label>
               <Input
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                className="h-8 text-xs"
+                className="h-8 text-label"
                 placeholder={t('groups.descPlaceholder')}
               />
             </div>
@@ -421,7 +421,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
           <DialogHeader>
             <DialogTitle>{t('groups.delete')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {t('groups.deleteConfirm', { name: deleteTarget?.name ?? '' })}
           </p>
           <DialogFooter>
@@ -443,7 +443,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
           </DialogHeader>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {availableAccounts.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">
+              <p className="py-4 text-center text-label text-muted-foreground">
                 {t('groups.noAvailableAccounts')}
               </p>
             ) : (
@@ -471,7 +471,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                       className="h-3.5 w-3.5"
                     />
                     <PlatformIcon platform={a.platform} platformName={a.platform} size={20} />
-                    <span className="flex-1 truncate text-xs">
+                    <span className="flex-1 truncate text-label">
                       {splitDisplayNameParts(a.displayName).name}
                     </span>
                     <span className="text-[10px] text-muted-foreground">{a.platform}</span>

@@ -274,12 +274,12 @@ export function McpPane() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : error ? (
-              <div className="flex flex-col items-center gap-1 px-3 py-4 text-center text-xs text-destructive">
+              <div className="flex flex-col items-center gap-1 px-3 py-4 text-center text-label text-destructive">
                 <AlertCircle className="h-4 w-4" />
                 <span>{error}</span>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+              <div className="px-3 py-4 text-center text-label text-muted-foreground">
                 {t('mcpPane.empty')}
               </div>
             ) : (
@@ -288,7 +288,7 @@ export function McpPane() {
                   key={it.key}
                   type="button"
                   className={cn(
-                    'flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-label transition-colors',
                     selectedKey === it.key
                       ? 'bg-accent text-accent-foreground'
                       : 'hover:bg-accent/50',
@@ -327,7 +327,7 @@ export function McpPane() {
                 }}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-label text-muted-foreground">
                 {t('mcpPane.selectHint')}
               </div>
             )}
@@ -484,7 +484,7 @@ function DetailPanel({
   const showSlashInput = tab === 'slash'
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5 text-xs">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5 text-label">
       {/* 标题 + 描述 */}
       <div className="flex flex-col gap-0.5">
         <span className="font-medium text-foreground">{item.name}</span>
@@ -524,7 +524,7 @@ function DetailPanel({
                   value={values[f.name] ?? ''}
                   onChange={(e) => setValues((prev) => ({ ...prev, [f.name]: e.target.value }))}
                   placeholder={f.description || ''}
-                  className="h-6 rounded-sm border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+                  className="h-6 rounded-sm border border-border bg-background px-2 text-label outline-none focus:border-ring/50"
                 />
               </label>
             ))
@@ -564,7 +564,7 @@ function DetailPanel({
             value={values.args ?? ''}
             onChange={(e) => setValues((prev) => ({ ...prev, args: e.target.value }))}
             placeholder={t('mcpPane.slashArgsHint')}
-            className="h-6 rounded-sm border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+            className="h-6 rounded-sm border border-border bg-background px-2 text-label outline-none focus:border-ring/50"
           />
         </div>
       )}

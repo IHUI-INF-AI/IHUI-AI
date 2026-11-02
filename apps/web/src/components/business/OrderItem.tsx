@@ -76,25 +76,32 @@ function OrderItemImpl({
         className,
       )}
     >
-      <div className="flex items-center justify-between pb-2 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between pb-2 text-body text-muted-foreground">
         <span>
           {t('orderNoLabel')}: {orderNo}
         </span>
         <div className="flex items-center gap-2">
-          {createdAt && <span className="text-xs">{createdAt}</span>}
+          {createdAt && <span className="text-label">{createdAt}</span>}
           <Badge variant={statusInfo.variant}>{tOrder(ORDER_STATUS_KEYS[status]!)}</Badge>
         </div>
       </div>
       <div className="flex items-center gap-3 py-3">
         {product.image && (
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-            <Image src={toMediaImageUrl(product.image)} alt={product.name} fill className="object-cover" />
+            <Image
+              src={toMediaImageUrl(product.image)}
+              alt={product.name}
+              fill
+              className="object-cover"
+            />
           </div>
         )}
         <div className="min-w-0 flex-1">
           <p className="break-words font-medium">{product.name}</p>
-          {product.spec && <p className="text-sm text-muted-foreground">{product.spec}</p>}
-          {product.quantity && <p className="text-sm text-muted-foreground">x{product.quantity}</p>}
+          {product.spec && <p className="text-body text-muted-foreground">{product.spec}</p>}
+          {product.quantity && (
+            <p className="text-body text-muted-foreground">x{product.quantity}</p>
+          )}
         </div>
         <div className="text-right">
           <p className="font-bold text-primary">

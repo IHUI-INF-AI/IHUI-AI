@@ -220,7 +220,7 @@ export function RegisterAccountForm({
           {...register('account')}
         />
         {errors.account && (
-          <p className="text-xs text-destructive">{resolveError(errors.account.message!)}</p>
+          <p className="text-label text-destructive">{resolveError(errors.account.message!)}</p>
         )}
       </div>
 
@@ -247,7 +247,7 @@ export function RegisterAccountForm({
           </Button>
         </div>
         {errors.code && (
-          <p className="text-xs text-destructive">{resolveError(errors.code.message!)}</p>
+          <p className="text-label text-destructive">{resolveError(errors.code.message!)}</p>
         )}
       </div>
 
@@ -262,7 +262,7 @@ export function RegisterAccountForm({
         />
         <PasswordStrengthIndicator password={password} />
         {errors.password && (
-          <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
+          <p className="text-label text-destructive">{resolveError(errors.password.message!)}</p>
         )}
       </div>
 
@@ -276,7 +276,7 @@ export function RegisterAccountForm({
           {...register('confirmPassword')}
         />
         {errors.confirmPassword && (
-          <p className="text-xs text-destructive">
+          <p className="text-label text-destructive">
             {resolveError(errors.confirmPassword.message!)}
           </p>
         )}
@@ -290,13 +290,15 @@ export function RegisterAccountForm({
         }}
         error={showAgreeErr && !agreed}
       />
-      {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
+      {showAgreeErr && !agreed && (
+        <p className="text-label text-destructive">{t('agreeRequired')}</p>
+      )}
       <Button size="lg" type="submit" className="w-full px-4" disabled={submitting || !agreed}>
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('registerBtn')}
       </Button>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-body text-muted-foreground">
         {t('hasAccount')}{' '}
         <button
           type="button"

@@ -214,7 +214,7 @@ export function CrudFormDialog(props: {
         <div className="space-y-3">
           {props.fields.map((f) => (
             <label key={f.key} className="block space-y-1">
-              <span className="text-sm text-muted-foreground">{f.label}</span>
+              <span className="text-body text-muted-foreground">{f.label}</span>
               {f.type === 'select' ? (
                 <Select value={values[f.key] ?? ''} onValueChange={(v) => set(f.key, v)}>
                   <SelectTrigger className={inputCls}>
@@ -246,7 +246,7 @@ export function CrudFormDialog(props: {
               )}
             </label>
           ))}
-          {props.err ? <p className="text-sm text-rose-600">{props.err}</p> : null}
+          {props.err ? <p className="text-body text-rose-600">{props.err}</p> : null}
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" size="sm" onClick={props.onClose} disabled={props.pending}>

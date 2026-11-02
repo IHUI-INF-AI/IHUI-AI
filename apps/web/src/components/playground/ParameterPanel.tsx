@@ -124,7 +124,7 @@ export function ParameterPanel({
             onChange={(e) => handleApiKeyChange(e.target.value)}
             placeholder="ihui_xxx"
             disabled={disabled}
-            className="h-8 text-xs"
+            className="h-8 text-label"
           />
           <p className="text-[11px] text-muted-foreground">{t('apiKeyHint')}</p>
         </div>
@@ -153,12 +153,12 @@ export function ParameterPanel({
               onValueChange={(v) => onParamsChange({ model: v })}
               disabled={disabled}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-label">
                 <SelectValue placeholder={t('selectModelPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {models.map((m) => (
-                  <SelectItem key={m} value={m} className="text-xs">
+                  <SelectItem key={m} value={m} className="text-label">
                     {m}
                   </SelectItem>
                 ))}
@@ -170,7 +170,7 @@ export function ParameterPanel({
               onChange={(e) => onParamsChange({ model: e.target.value })}
               placeholder={modelsError ?? t('inputModelOrRefresh')}
               disabled={disabled}
-              className="h-8 text-xs"
+              className="h-8 text-label"
             />
           )}
           {modelsError && <p className="text-[11px] text-destructive">{modelsError}</p>}
@@ -241,7 +241,7 @@ function SliderField({ label, value, min, max, step, onChange, disabled }: Slide
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <Label className="text-label font-medium">{label}</Label>
-        <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+        <span className="text-label tabular-nums text-muted-foreground">{value}</span>
       </div>
       <Input
         type="range"

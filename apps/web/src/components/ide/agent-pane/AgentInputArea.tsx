@@ -49,7 +49,7 @@ export function AgentInputArea({
         rows={3}
         disabled={isRunning}
         aria-label={t('agentPane.placeholder')}
-        className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
+        className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
       />
       {/*
         goal 模式的硬性指标必须**执行前**声明(AGENTS.md §8 第 1 步),否则独立校验闸门
@@ -67,7 +67,7 @@ export function AgentInputArea({
           disabled={isRunning}
           placeholder={t('agentPane.criteriaPlaceholder')}
           aria-label={t('agentPane.criteriaLabel')}
-          className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
+          className="w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
         />
       </label>
       <div className="flex items-center gap-1.5">
@@ -76,7 +76,7 @@ export function AgentInputArea({
           onChange={(e) => onModelChange(e.target.value)}
           disabled={isRunning}
           aria-label={t('agentPane.modelSelect')}
-          className="h-7 rounded-sm border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
+          className="h-7 rounded-sm border border-border bg-background px-1.5 text-label text-foreground focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
         >
           {MODEL_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

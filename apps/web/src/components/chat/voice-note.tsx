@@ -408,7 +408,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {showPhaseLabel && (
             <div
               className={cn(
-                'mb-2 rounded-md border px-2 py-1 text-xs',
+                'mb-2 rounded-md border px-2 py-1 text-label',
                 phase === 'completed' && 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600',
                 phase === 'cancelled' && 'border-muted bg-muted/30 text-muted-foreground',
                 (phase === 'failed' || phase === 'error' || phase === 'interrupted') &&
@@ -430,7 +430,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 错误文案(权限拒绝/无设备/启动失败/保存失败/识别中断) */}
           {errorCode && (
             <div
-              className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive"
+              className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
               data-testid="voice-note-error"
             >
               {t(`errors.${errorCode}`)}
@@ -440,14 +440,14 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 转写结果 */}
           {phase === 'completed' && transcript && !emptyResult && (
             <div
-              className="mb-2 max-h-32 overflow-auto rounded-md border bg-muted/30 px-2 py-1 text-xs"
+              className="mb-2 max-h-32 overflow-auto rounded-md border bg-muted/30 px-2 py-1 text-label"
               data-testid="voice-note-transcript"
             >
               {transcript}
             </div>
           )}
           {phase === 'completed' && emptyResult && (
-            <div className="mb-2 text-xs text-muted-foreground" data-testid="voice-note-empty">
+            <div className="mb-2 text-label text-muted-foreground" data-testid="voice-note-empty">
               {t('errors.emptyTranscript')}
             </div>
           )}
@@ -455,7 +455,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
           {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
             <div
-              className="mb-2 text-xs text-muted-foreground"
+              className="mb-2 text-label text-muted-foreground"
               data-testid="voice-note-stt-pending"
             >
               {t('errors.sttPending')}
@@ -584,7 +584,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
           {listError && (
             <div
-              className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive"
+              className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
               data-testid="voice-note-list-error"
             >
               {t('errors.loadFailed')}
@@ -598,7 +598,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
                 .map((note) => (
                   <React.Fragment key={note.id}>
                     <div
-                      className="flex items-center gap-1.5 rounded px-1 py-1 text-xs hover:bg-accent"
+                      className="flex items-center gap-1.5 rounded px-1 py-1 text-label hover:bg-accent"
                       data-testid="voice-note-archive-item"
                     >
                       <span className="font-mono tabular-nums text-muted-foreground">
@@ -677,7 +677,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
                         data-testid="voice-note-group-editor"
                       >
                         <input
-                          className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-xs"
+                          className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-label"
                           value={groupDraft}
                           onChange={(e) => setGroupDraft(e.target.value)}
                           onKeyDown={(e) => {

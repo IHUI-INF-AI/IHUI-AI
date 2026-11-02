@@ -192,7 +192,7 @@ export function QueryThumbRail({ messages, containerRef }: QueryThumbRailProps) 
             aria-label={`${kindLabel(node.kind)}: ${node.preview}`}
           >
             {isHovered && (
-              <span className="pointer-events-none absolute right-full mr-2 flex max-w-56 items-center gap-1.5 truncate rounded-md border border-border bg-float-indicator-bg px-2 py-1 text-xs text-foreground shadow-md">
+              <span className="pointer-events-none absolute right-full mr-2 flex max-w-56 items-center gap-1.5 truncate rounded-md border border-border bg-float-indicator-bg px-2 py-1 text-label text-foreground shadow-md">
                 <span className="shrink-0 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                   {kindLabel(node.kind)}
                 </span>

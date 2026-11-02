@@ -36,7 +36,7 @@ export function McpToolCallResult({
     <Card className={cn('overflow-hidden', !isSuccess && 'border-destructive/40')}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2 text-body">
             {isSuccess ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             ) : (
@@ -46,7 +46,7 @@ export function McpToolCallResult({
           </CardTitle>
           <div className="flex items-center gap-2">
             {duration !== undefined && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 text-label text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {duration}ms
               </span>
@@ -66,7 +66,7 @@ export function McpToolCallResult({
       </CardHeader>
       <CardContent className="pt-0">
         {!isSuccess && error ? (
-          <pre className="overflow-auto rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs whitespace-pre-wrap text-destructive">
+          <pre className="overflow-auto rounded-md border border-destructive/30 bg-destructive/5 p-3 text-label whitespace-pre-wrap text-destructive">
             {error}
           </pre>
         ) : (
@@ -74,7 +74,7 @@ export function McpToolCallResult({
             <button
               type="button"
               onClick={() => setExpanded((p) => !p)}
-              className="mb-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              className="mb-2 flex items-center gap-1 text-label text-muted-foreground hover:text-foreground"
             >
               {expanded ? (
                 <ChevronDown className="h-3.5 w-3.5" />

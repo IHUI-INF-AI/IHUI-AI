@@ -32,9 +32,9 @@ export function FormField({
       )}
       {children}
       {description && !error && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>
+        <p className="line-clamp-2 text-label text-muted-foreground">{description}</p>
       )}
-      {error && <p className="line-clamp-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="line-clamp-2 text-label text-destructive">{error}</p>}
     </div>
   )
 }

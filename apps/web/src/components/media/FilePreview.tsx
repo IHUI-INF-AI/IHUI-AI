@@ -154,7 +154,7 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
     window.open(url, '_blank', 'noopener')
   }, [url])
 
-  if (feed.loading) return <div className="p-3 text-sm text-muted-foreground">{t('loading')}</div>
+  if (feed.loading) return <div className="p-3 text-body text-muted-foreground">{t('loading')}</div>
 
   // D163 五态·expired:地址/记录已失效 —— 给"重试 + 打开原文"
   if (feed.notice === 'expired')
@@ -202,7 +202,7 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
         copy={copy}
         onRetry={feed.refresh}
       />
-      <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
+      <pre className="min-h-0 flex-1 overflow-auto p-3 text-body">
         <code>{feed.content}</code>
       </pre>
     </div>
@@ -523,13 +523,13 @@ function ImagePreview({
             loading/ready/unsupported 三态;解码失败只收口当前画廊项,预览壳与翻页不塌。 */}
         {currentIsVideo ? (
           videoState === 'unsupported' ? (
-            <p role="alert" className="px-6 text-center text-sm text-muted-foreground">
+            <p role="alert" className="px-6 text-center text-body text-muted-foreground">
               {t('videoLoadFailed')}
             </p>
           ) : (
             <>
               {videoState === 'loading' ? (
-                <p role="status" className="text-sm text-muted-foreground">
+                <p role="status" className="text-body text-muted-foreground">
                   {t('loading')}
                 </p>
               ) : null}

@@ -135,20 +135,22 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
       <CardContent className="space-y-1">
         {customMode ? (
           <div className="space-y-2 py-2">
-            <p className="text-xs text-muted-foreground">
-              {t('customHint', { defaultValue: '该表达式无法由可视化编辑器无损表达,以下原文逐字保留:' })}
+            <p className="text-label text-muted-foreground">
+              {t('customHint', {
+                defaultValue: '该表达式无法由可视化编辑器无损表达,以下原文逐字保留:',
+              })}
             </p>
             <Input
               value={customExpr}
               onChange={(e) => setCustomExpr(e.target.value)}
-              className="font-mono text-sm"
+              className="font-mono text-body"
               spellCheck={false}
             />
             {canVisualizeCron(customExpr) && (
               <Button
                 size="xs"
                 variant="ghost"
-                className="px-2 text-xs"
+                className="px-2 text-label"
                 onClick={trySwitchToVisual}
               >
                 {t('switchToVisual', { defaultValue: '切换到可视化编辑' })}
@@ -157,109 +159,111 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
           </div>
         ) : (
           FIELDS.map((cfg) => {
-          const f = fields[cfg.key]
-          const fieldLabel = t(FIELD_KEY[cfg.key] ?? 'field.unknown')
-          return (
-            <div key={cfg.key} className="flex items-center gap-3 py-1.5">
-              <Label className="w-9 shrink-0 text-xs text-muted-foreground">{fieldLabel}</Label>
-              <div className="flex gap-1">
-                {MODES.map((mode) => (
-                  <Button
-                    key={mode}
-                    size="xs"
-                    variant="ghost"
-                    className={cn(
-                      'px-2 text-xs hover:bg-muted',
-                      f.mode === mode && 'bg-primary/10 text-primary hover:bg-primary/15',
-                    )}
-                    onClick={() => update(cfg.key, { mode })}
-                  >
-                    {t(MODE_KEY[mode])}
-                  </Button>
-                ))}
-              </div>
-              <div className="flex flex-1 min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                {f.mode === 'every' && <span>{t('everyField', { field: fieldLabel })}</span>}
-                {f.mode === 'step' && (
-                  <>
-                    {t('stepPrefix')}
+            const f = fields[cfg.key]
+            const fieldLabel = t(FIELD_KEY[cfg.key] ?? 'field.unknown')
+            return (
+              <div key={cfg.key} className="flex items-center gap-3 py-1.5">
+                <Label className="w-9 shrink-0 text-label text-muted-foreground">
+                  {fieldLabel}
+                </Label>
+                <div className="flex gap-1">
+                  {MODES.map((mode) => (
+                    <Button
+                      key={mode}
+                      size="xs"
+                      variant="ghost"
+                      className={cn(
+                        'px-2 text-label hover:bg-muted',
+                        f.mode === mode && 'bg-primary/10 text-primary hover:bg-primary/15',
+                      )}
+                      onClick={() => update(cfg.key, { mode })}
+                    >
+                      {t(MODE_KEY[mode])}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex flex-1 min-w-0 items-center gap-2 text-label text-muted-foreground">
+                  {f.mode === 'every' && <span>{t('everyField', { field: fieldLabel })}</span>}
+                  {f.mode === 'step' && (
+                    <>
+                      {t('stepPrefix')}
+                      <Input
+                        type="number"
+                        className="h-7 w-14 text-label"
+                        min={1}
+                        max={cfg.max}
+                        value={f.step}
+                        onChange={(e) =>
+                          update(cfg.key, { step: clamp(parseInt(e.target.value, 10), 1, cfg.max) })
+                        }
+                      />
+                      {fieldLabel}
+                    </>
+                  )}
+                  {f.mode === 'range' && (
+                    <>
+                      <Input
+                        type="number"
+                        className="h-7 w-14 text-label"
+                        min={cfg.min}
+                        max={cfg.max}
+                        value={f.rangeStart}
+                        onChange={(e) =>
+                          update(cfg.key, {
+                            rangeStart: clamp(parseInt(e.target.value, 10), cfg.min, cfg.max),
+                          })
+                        }
+                      />
+                      <span>-</span>
+                      <Input
+                        type="number"
+                        className="h-7 w-14 text-label"
+                        min={cfg.min}
+                        max={cfg.max}
+                        value={f.rangeEnd}
+                        onChange={(e) =>
+                          update(cfg.key, {
+                            rangeEnd: clamp(parseInt(e.target.value, 10), cfg.min, cfg.max),
+                          })
+                        }
+                      />
+                      {fieldLabel}
+                    </>
+                  )}
+                  {f.mode === 'specific' && (
                     <Input
-                      type="number"
-                      className="h-7 w-14 text-xs"
-                      min={1}
-                      max={cfg.max}
-                      value={f.step}
-                      onChange={(e) =>
-                        update(cfg.key, { step: clamp(parseInt(e.target.value, 10), 1, cfg.max) })
-                      }
-                    />
-                    {fieldLabel}
-                  </>
-                )}
-                {f.mode === 'range' && (
-                  <>
-                    <Input
-                      type="number"
-                      className="h-7 w-14 text-xs"
-                      min={cfg.min}
-                      max={cfg.max}
-                      value={f.rangeStart}
+                      className="h-7 flex-1 text-label"
+                      placeholder={t('specificPlaceholder', { min: cfg.min, max: cfg.max })}
+                      value={f.specific.join(',')}
                       onChange={(e) =>
                         update(cfg.key, {
-                          rangeStart: clamp(parseInt(e.target.value, 10), cfg.min, cfg.max),
+                          specific: [
+                            ...new Set(
+                              e.target.value
+                                .split(',')
+                                .map((s) => parseInt(s.trim(), 10))
+                                .filter((n) => !Number.isNaN(n) && n >= cfg.min && n <= cfg.max),
+                            ),
+                          ].sort((a, b) => a - b),
                         })
                       }
                     />
-                    <span>-</span>
-                    <Input
-                      type="number"
-                      className="h-7 w-14 text-xs"
-                      min={cfg.min}
-                      max={cfg.max}
-                      value={f.rangeEnd}
-                      onChange={(e) =>
-                        update(cfg.key, {
-                          rangeEnd: clamp(parseInt(e.target.value, 10), cfg.min, cfg.max),
-                        })
-                      }
-                    />
-                    {fieldLabel}
-                  </>
-                )}
-                {f.mode === 'specific' && (
-                  <Input
-                    className="h-7 flex-1 text-xs"
-                    placeholder={t('specificPlaceholder', { min: cfg.min, max: cfg.max })}
-                    value={f.specific.join(',')}
-                    onChange={(e) =>
-                      update(cfg.key, {
-                        specific: [
-                          ...new Set(
-                            e.target.value
-                              .split(',')
-                              .map((s) => parseInt(s.trim(), 10))
-                              .filter((n) => !Number.isNaN(n) && n >= cfg.min && n <= cfg.max),
-                          ),
-                        ].sort((a, b) => a - b),
-                      })
-                    }
-                  />
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })
+            )
+          })
         )}
 
         <div className="mt-3 rounded-md border bg-muted/30 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <code className="font-mono text-base font-semibold">{output}</code>
-            <span className="text-xs text-muted-foreground">{describeCron(output)}</span>
+            <span className="text-label text-muted-foreground">{describeCron(output)}</span>
           </div>
           {runs.length > 0 && (
             <div className="mt-2">
-              <p className="mb-1 text-xs text-muted-foreground">{t('recentRuns')}</p>
-              <ul className="grid grid-cols-1 gap-0.5 text-xs min-[640px]:grid-cols-2">
+              <p className="mb-1 text-label text-muted-foreground">{t('recentRuns')}</p>
+              <ul className="grid grid-cols-1 gap-0.5 text-label min-[640px]:grid-cols-2">
                 {runs.map((d, i) => (
                   <li key={i} className="inline-flex items-center gap-1">
                     <span className="h-1 w-1 rounded-full bg-primary/60" />
