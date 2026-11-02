@@ -186,7 +186,7 @@ export function writeConversationCache(
  * 分页态由调用方在结算时一并传入 —— 组件实例里的 hasMore state 更新是异步的,
  * 所以出口用 ref 镜像把"刚翻页那一刻"的现值带过来,不能等到下次渲染才写。
  */
-export function patchConversationCache(
+function patchConversationCache(
   paneId: string | null,
   conversationId: string,
   messages: ChatMessage[],

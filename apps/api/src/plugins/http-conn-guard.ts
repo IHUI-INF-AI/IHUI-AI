@@ -60,11 +60,7 @@ export function resolveMaxConnections(raw: string | undefined, fallback = 20000)
 const activeByIp = new Map<string, Set<string>>()
 
 /** 占用一个并发槽；已达上限返回 false（调用方回 429）。 */
-export function tryAcquireSlot(
-  ip: string,
-  requestId: string,
-  max: number = MAX_CONN_PER_IP,
-): boolean {
+function tryAcquireSlot(ip: string, requestId: string, max: number = MAX_CONN_PER_IP): boolean {
   let set = activeByIp.get(ip)
   if (!set) {
     set = new Set<string>()
@@ -88,7 +84,7 @@ export function tryAcquireSlot(
  * 挂在 req 侧等于没挂。reply.raw 的 'close' 才是"响应结束或连接提前关闭"。
  * 与 onResponse 双通道并存无碍：releaseSlot 按请求 id 从集合摘除，天然幂等。
  */
-export function attachSlotReleaseOnClose(
+function attachSlotReleaseOnClose(
   reply: { raw: { once(event: 'close', listener: () => void): unknown } },
   ip: string,
   requestId: string,
@@ -98,7 +94,7 @@ export function attachSlotReleaseOnClose(
   })
 }
 /** 释放并发槽；集合空时删键，避免 Map 随 IP 数无限增长。 */
-export function releaseSlot(ip: string, requestId: string): void {
+function releaseSlot(ip: string, requestId: string): void {
   const set = activeByIp.get(ip)
   if (!set) return
   set.delete(requestId)

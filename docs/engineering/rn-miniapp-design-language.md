@@ -26,7 +26,7 @@
 | 几何 | `geometry.js` | `rnGeometry`(dp) | `taroGeometry`(rpx=dp×2) | 命中块/图标/抽屉宽等 |
 | **间距** | **`spacing.ts`(本轮新增)** | `rnSpacing` / `rnSpacingFor[role]` | `taroSpacing` / `taroSpacingFor[role]`(rpx) | 4px 基,语义角色见 `SPACING_ROLES` |
 | **字号** | **`typography.ts`(本轮新增)** | `rnType[step]` → `{fontSize,lineHeight,weight}` | `taroType[step]` → `{fontSize:rpx,...}` | 与 geometry 文字档对齐 |
-| **阴影** | **`elevation.ts`(本轮新增)** | `rnElevation[step]`(ShadowStyle 四元组) | `taroElevation[step]` / `ELEVATION_CSS_VAR` | 轻投影,opacity 0.05→0.16 |
+| **阴影** | **`elevation.ts`(本轮新增)** | `ELEVATION_STEPS[step]`(ShadowStyle 四元组) | `ELEVATION_CSS[step]` / `ELEVATION_CSS_VAR` | 轻投影,opacity 0.05→0.16 |
 | z-index | `token-registry.ts` | — | — | 层级 |
 
 ### 1.1 间距档位(新增)

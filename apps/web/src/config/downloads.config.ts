@@ -112,7 +112,7 @@ export const DOWNLOAD_PLATFORMS: readonly DownloadPlatform[] = [
   'cli',
 ]
 
-export function isDownloadPlatform(raw: string): raw is DownloadPlatform {
+function isDownloadPlatform(raw: string): raw is DownloadPlatform {
   return (DOWNLOAD_PLATFORMS as readonly string[]).includes(raw)
 }
 

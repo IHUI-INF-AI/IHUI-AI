@@ -17,7 +17,7 @@
  */
 
 export const UPSTREAM_AUTH_FAILED = 'UPSTREAM_AUTH_FAILED'
-export const UPSTREAM_AUTH_FAILED_MESSAGE = '上游服务鉴权失败(服务侧凭据问题,非您的登录状态)'
+const UPSTREAM_AUTH_FAILED_MESSAGE = '上游服务鉴权失败(服务侧凭据问题,非您的登录状态)'
 
 /** 非会话场景下把下游状态码映射为出栈状态码:401 ⇒ 502,其余原样。 */
 export function mapNonSessionUpstreamStatus(status: number): number {

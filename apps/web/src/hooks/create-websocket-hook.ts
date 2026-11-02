@@ -17,7 +17,7 @@ export const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5
 export const MAX_FALLBACK_TRANSIENT_RECONNECTS = 2
 
 /** 指数退避唯一算式(构造失败与 onclose 两条路径共用,禁止第二份副本) */
-export function wsBackoffDelay(attempt: number, maxReconnectDelay: number): number {
+function wsBackoffDelay(attempt: number, maxReconnectDelay: number): number {
   return Math.min(1000 * 2 ** attempt, maxReconnectDelay)
 }
 

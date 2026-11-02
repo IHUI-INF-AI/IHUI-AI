@@ -22,7 +22,7 @@ const PAGE_SIZE = 20
  * `Number(null)` = 0 会把它渲染成「¥0.00」(屏幕上就是"免费"),`Number(undefined)` = NaN 会渲染成
  * 「¥NaN」—— 两者都是把"没有金额"谎报成一个数。取不到可显示的数字一律落 `null`,由共享屏渲染 `—`。
  */
-export function parsePayAmount(raw: unknown): number | null {
+function parsePayAmount(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const n = Number(raw)
   return Number.isFinite(n) ? n : null

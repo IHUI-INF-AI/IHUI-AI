@@ -31,10 +31,10 @@ import {
 } from '@ihui/shared/chat'
 
 /** 词包命名空间(与 `ai.pane.errorCatalog` 并列、互相独立)。 */
-export const STREAM_ERRORS_NS = 'streamErrors' as const
+const STREAM_ERRORS_NS = 'streamErrors' as const
 
 /** 目录表命名空间(既有;本层只读不写)。 */
-export const ERROR_CATALOG_NS = 'ai.pane.errorCatalog' as const
+const ERROR_CATALOG_NS = 'ai.pane.errorCatalog' as const
 
 /**
  * 已解析的文案集。纯函数只吃它,不碰 hook —— 单测直接把桩塞进来即可钉判据。
