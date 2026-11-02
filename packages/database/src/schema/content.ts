@@ -20,6 +20,8 @@ import { users } from './users.js'
  * is_pinned: 置顶（列表置顶在前）。
  * is_published: 是否发布（公开列表只返回已发布）。
  * published_at: 发布时间（列表按此倒序）；expires_at 过期时间（过期则不展示）。
+ * platforms: 投放端数组（web/miniapp/desktop/extension/rn/cli/mobile-cap），空数组 = 全端通用
+ * （2026-10-24 立，真源为迁移 20261024160000_announcement_platforms.sql）。
  */
 export const announcements = pgTable('announcements', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -30,6 +32,7 @@ export const announcements = pgTable('announcements', {
   isPublished: boolean('is_published').default(false).notNull(),
   publishedAt: timestamp('published_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
+  platforms: text('platforms').array().notNull().default([]),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
