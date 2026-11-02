@@ -56,7 +56,7 @@ export type AuthDefaultDenyMode = 'off' | 'observe' | 'enforce'
  *  显式声明一律优先:写 `off` 是有意关掉,写 `observe` 是有意灰度,缺省档不夺权;
  *  档位名拼错落 observe(既不静默放行,也不静默拦死)。
  */
-export function resolveAuthDefaultDenyMode(): AuthDefaultDenyMode {
+function resolveAuthDefaultDenyMode(): AuthDefaultDenyMode {
   const raw = (config as { AUTH_DEFAULT_DENY_MODE?: string }).AUTH_DEFAULT_DENY_MODE
   if (raw === undefined) return runtimeEnv === 'production' ? 'enforce' : 'off'
   return raw === 'off' || raw === 'enforce' ? raw : 'observe'
@@ -206,7 +206,7 @@ const SELF_AUTHENTICATED_PREFIXES: readonly string[] = [
  * `/api/agents` 会顺带放过 `/api/agentsXYZ`(子代理审计现读到的一处形态)。那一份我**不动**
  * —— 收紧它会把当下靠它活着的匿名面判掉,属另一件事;但新清单不许把同一个毛病复制一遍。
  */
-export function isSelfAuthenticatedRoute(rawUrl: string): boolean {
+function isSelfAuthenticatedRoute(rawUrl: string): boolean {
   const path = (rawUrl.split('?')[0] ?? rawUrl) || '/'
   return SELF_AUTHENTICATED_PREFIXES.some((p) =>
     p.endsWith('/') ? path.startsWith(p) : path === p,
@@ -223,7 +223,7 @@ function isInScope(url: string): boolean {
   )
 }
 
-export function isAuthDefaultPublicPath(rawUrl: string): boolean {
+function isAuthDefaultPublicPath(rawUrl: string): boolean {
   const path = (rawUrl.split('?')[0] ?? rawUrl) || '/'
   if (PUBLIC_EXACT.has(path)) return true
   return PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p))
@@ -270,7 +270,7 @@ function logObserveHit(
  * 兜底本体:只在"前面的鉴权一条都没跑过"时才可能拦人。
  * 模块级而非插件内闭包 —— 测试要直接调用它,不复制判据(§22c)。
  */
-export async function authGuard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+async function authGuard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   // 上游 preHandler 可能已经 send 过(401/403)但仍把链交到这里 —— 再 send 一次会抛
   // "Reply was already sent" 并被全局处理器收敛成 500(2026-10-29 生产实测:
   // /api/knowledge/docs 匿名访问 500 而非 401)。这道判断是根治,不依赖上游写法。

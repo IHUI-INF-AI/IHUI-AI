@@ -63,7 +63,7 @@ export const TEMPLATE_LABEL_KEYS: Record<string, string> = {
 }
 
 /** 腾讯云审核状态 → i18n 键与徽标色调。null(未回填模板 ID)单独走"未回填"。 */
-export const REVIEW_LABELS: Record<SmsReviewStatus, { key: string; tone: BadgeTone }> = {
+const REVIEW_LABELS: Record<SmsReviewStatus, { key: string; tone: BadgeTone }> = {
   approved: { key: 'review.approved', tone: 'default' },
   pending: { key: 'review.pending', tone: 'secondary' },
   rejected: { key: 'review.rejected', tone: 'destructive' },

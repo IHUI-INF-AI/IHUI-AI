@@ -33,7 +33,7 @@ export const PREDICTIVE_EDIT_ENDPOINT = '/api/llm/fim/edit-intent'
  * FIM 指标上报端点(与 CodeEditor 补全上报同一个后端入口,scene 分桶)。
  * 反代路径与 edit-intent 同前缀(`/api/llm/:path*` → ai-service)。
  */
-export const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
+const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
 
 /**
  * 本场景在 model×scene 聚合里的场景字面量。**逐字**取自后端
@@ -42,7 +42,7 @@ export const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
  * `_normalize_scene` 只剥分隔符/截断,不做白名单,故拼错的值会静默落进
  * 另一个桶而不是报错 —— 改动前必须回读后端。
  */
-export const PREDICTIVE_EDIT_METRICS_SCENE = 'edit_intent'
+const PREDICTIVE_EDIT_METRICS_SCENE = 'edit_intent'
 
 /** 对话输入区草稿的文件类型线索(后端只把它当语言提示,不参与区间坐标系)。 */
 export const PREDICTIVE_EDIT_LANGUAGE = 'markdown'
@@ -275,7 +275,7 @@ export interface PredictiveEditMetricEvent {
  * 同本文件头注的降级纪律。Promise.resolve 包裹:mock/异常实现返回非 Promise 也不抛
  * (与 CodeEditor flushFimReport 同型防线)。
  */
-export function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): void {
+function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): void {
   const body = {
     model: event.model || 'auto',
     scene: PREDICTIVE_EDIT_METRICS_SCENE,
@@ -318,7 +318,7 @@ export interface PredictiveEditSettlementPayload {
   latencyMs?: number
 }
 
-export function createPredictiveEditMetricSettler() {
+function createPredictiveEditMetricSettler() {
   let pending: PredictiveEditSettlementPayload | null = null
   return {
     /** 建议开始展示:登记为待结算(同一条目重复登记幂等)。 */

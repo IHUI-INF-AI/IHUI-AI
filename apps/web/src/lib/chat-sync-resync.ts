@@ -29,7 +29,7 @@ import type { ChatSyncMessageSnapshot } from '@ihui/types'
 export const CHAT_SYNC_RESYNC_MAX_ATTEMPTS = 3
 
 /** 退避基数(第 n 次重试等 n × 基数);测试可注入 delay 跳过等待 */
-export const CHAT_SYNC_RESYNC_BACKOFF_MS = 800
+const CHAT_SYNC_RESYNC_BACKOFF_MS = 800
 
 export interface ChatSyncResyncOutcome {
   /** 真正尝试过的坐标数(已在飞被去重跳过的不计) */

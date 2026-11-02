@@ -62,16 +62,16 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-export const DEFAULT_LOOP_PS1 = join(ROOT, 'deploy', 'win', 'ihui-deploy-loop.ps1')
+const DEFAULT_LOOP_PS1 = join(ROOT, 'deploy', 'win', 'ihui-deploy-loop.ps1')
 /** W12 的第二枚被审文件:分流器本体(车道计数落盘出口住在这里,不在部署环里)。 */
-export const DEFAULT_SPLIT_MJS = join(ROOT, 'deploy', 'win', 'ihui-canary-split.mjs')
+const DEFAULT_SPLIT_MJS = join(ROOT, 'deploy', 'win', 'ihui-canary-split.mjs')
 
-export const EXIT_WIRED = 0
-export const EXIT_GAP = 1
-export const EXIT_UNDETERMINED = 2
+const EXIT_WIRED = 0
+const EXIT_GAP = 1
+const EXIT_UNDETERMINED = 2
 
 /** 判据表:一条一格,`test` 收函数体文本。新增一格必须同时在自证里给"摘掉即翻红"的夹具。 */
-export const WIRING_RULES = [
+const WIRING_RULES = [
   {
     id: 'W1',
     need: /ihui-canary-stage\.mjs/,
@@ -171,7 +171,7 @@ export const WIRING_RULES = [
  * PowerShell 的字符串里 `{0}` 这类插值占位会让括号配平假配不上,而行级"下一个顶格 function"
  * 是本文件既有的稳定结构)。找不到段 ⇒ 返回 null(由调用方落「未判定」,绝不空串记绿)。
  */
-export function canaryGateBody(text) {
+function canaryGateBody(text) {
   const lines = String(text ?? '').split(/\r?\n/)
   let start = -1
   for (let i = 0; i < lines.length; i += 1) {
@@ -197,7 +197,7 @@ export function canaryGateBody(text) {
  * `splitText` = 分流器源码全文(W12)。带 `scope:'split'` 的格子**必须**拿到自己的输入,
  * 拿不到就抛 —— "这一格没有输入所以跳过"等于把没判写成判过(§0.3)。
  */
-export function wiringGaps(text, splitText) {
+function wiringGaps(text, splitText) {
   if (typeof text !== 'string' || !text.trim())
     throw new Error('接线判据输入为空文本(取不到被审面)')
   const body = canaryGateBody(text)
