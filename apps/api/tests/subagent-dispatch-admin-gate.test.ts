@@ -295,8 +295,10 @@ describe('subagent 派单面 user-scoped 归属存续锁(跨租户行为层)', (
 
 describe('判据变异自证(同一函数跑变异体必须失败)', () => {
   it('删掉 cancel 的闸 ⇒ (a) 判据为 false', () => {
+    // 闸的第三参是管理员档(isAdminViewer),正则容忍该可选参数 —— 否则 D1 收紧后
+    // 变异体静默替换失败,这个反向例就变成永远绿的摆设。
     const GATE_BLOCK =
-      /\n\s*if \(!ownsDispatchById\(id, userId\)\) \{\n\s*return reply\.status\(404\)\.send\(error\(404, [^\n]*\)\)\n\s*\}/
+      /\n\s*if \(!ownsDispatchById\(id, userId(?:, [^\n]*)?\)\) \{\n\s*return reply\.status\(404\)\.send\(error\(404, [^\n]*\)\)\n\s*\}/
     const withoutGate = SRC.replace(GATE_BLOCK, '\n')
     expect(withoutGate).not.toBe(SRC)
     const body = routeBody(withoutGate, '/subagents/:id/cancel')
@@ -306,7 +308,7 @@ describe('判据变异自证(同一函数跑变异体必须失败)', () => {
 
   it('本地另写一份输出恒真的 ownsDispatchById ⇒ (b) 判据为 true', () => {
     const localStub = SRC.replace(
-      "import { isDispatchVisibleTo, ownsDispatchById } from '../utils/dispatch-ownership.js'",
+      /import \{[^}]*\} from '\.\.\/utils\/dispatch-ownership\.js'/,
       "import { isDispatchVisibleTo } from '../utils/dispatch-ownership.js'\nconst ownsDispatchById = (_id: string, _userId: string) => true",
     )
     expect(localStub).not.toBe(SRC)

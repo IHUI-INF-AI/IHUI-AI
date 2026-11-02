@@ -1219,10 +1219,6 @@
     "compactionToast": "上下文已自動壓縮({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已套用",
-      "message": "已為「{title}」套用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能開發中"
@@ -1282,10 +1278,6 @@
     "detailMembers": "群組成員",
     "detailRecent": "最近訊息",
     "empty": "暫無群聊",
-    "enterChat": {
-      "message": "確定要進入該群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "發現",
     "enterMine": "我的",
     "loadFailed": "載入群聊失敗",
@@ -1458,15 +1450,6 @@
     "workflowTab": "工作流"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "確認充值",
-      "message": "套餐:{tokens} Token · ¥{price}",
-      "payBtn": "立即支付",
-      "success": {
-        "title": "支付成功",
-        "message": "已到賬 {tokens} Token"
-      }
-    },
     "balanceLabel": "智匯值餘額",
     "bonus": "獎勵",
     "empty": "暫無資料",
@@ -1486,9 +1469,7 @@
     "range7d": "7天",
     "range1m": "一個月",
     "range1y": "近一年",
-    "rangeAll": "全部",
-    "unitYi": "{v}億",
-    "unitWan": "{v}萬"
+    "rangeAll": "全部"
   },
   "messageInput": {
     "document": "文件",
@@ -1877,7 +1858,7 @@
   "distribution": {
     "plan": {
       "openVipTitle": "開通VIP會員",
-      "openVipContent": "是否前往開通VIP會員,參與分佣計劃?",
+      "openVipContent": "是否前往開通VIP會員,參與分傭計劃?",
       "confirm": "確認",
       "cancel": "取消"
     },
@@ -3510,8 +3491,7 @@
     "viewNow": "立即查看"
   },
   "vipBenefit": {
-    "title": "會員權益",
-    "loadFailed": "載入會員權益失敗"
+    "title": "會員權益"
   },
   "vipTrader": {
     "title": "VIP 操盤手",
@@ -3984,7 +3964,6 @@
     "today": "今日收入",
     "withdrawBtn": "提現",
     "withdrawModal": {
-      "close": "取消",
       "confirm": "確認提現",
       "moreMethods": "更多提現方式",
       "subtitle": "請選擇提現方式",
