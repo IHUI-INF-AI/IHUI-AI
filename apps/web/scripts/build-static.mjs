@@ -26,7 +26,7 @@ process.env.EXPORT_STATIC = 'true'
 process.env.NEXT_TELEMETRY_DISABLED = '1'
 
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -53,19 +53,88 @@ const RUNTIME_ONLY_ROUTE_DIRS = ['cdn', 'uploads']
  */
 const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
 /**
- * 直接 import `proxy.ts` 的测试(相对 apps/web/)。
+ * proxy.ts 的**反向依赖闭包**(直接/间接 import 它的源码,相对 apps/web/),静态导出期与 proxy 同批移出。
  *
  * `next build` 的 typecheck 覆盖 tsconfig.include 的**全部**文件(含 src/tests 与
- * 各 `__tests__` 目录),而 proxy.ts 在静态导出构建期已被移出 ⇒ 这两个测试的
- * `import ... from '../../../proxy' / '../../proxy'` 结构上必然 TS2307
- * (2026-10-31 实测 Build Docker run 41150575611 的 build:static)。
- * 与 proxy 同批移出、finally 恢复;`pnpm typecheck`(不在本脚本内)仍照旧检查它们。
+ * 各 `__tests__` 目录),而 proxy.ts 在静态导出构建期已被移出 ⇒ 任何还留在原位的引用者
+ * 都结构上必然 TS2307。
+ *
+ * 为什么从"手工清单"换成"按 import 图现算"(2026-11-03):
+ *   原清单是 2026-10-31 09:36 按当时两枚测试写死的;同日 11:51 新增的
+ *   src/tests/proxy-internal-prefix-block.test.ts 没人补进清单,Pages 的 build:static
+ *   在 2026-11-03 报 `Cannot find module '../../proxy'`(与 2026-10-31 Build Docker run
+ *   41150575611 同型)。"手工清单必然落后于新增"是本仓反复记过的失效型,故改为扫源码
+ *   import 图现算:以后谁再写 `import { proxy } from '../proxy'`,它自动进移出面,
+ *   不再依赖某个人记得回来加一行。
  */
-const STATIC_EXCLUDED_TEST_FILES = [
-  'src/tests/proxy-guard.test.ts',
-  'src/lib/__tests__/origin-direct-host-guard.test.ts',
-]
-const STATIC_EXCLUDED_FILES = [...STATIC_EXCLUDED_TOP_FILES, ...STATIC_EXCLUDED_TEST_FILES]
+const PROXY_SOURCE_REL = 'proxy.ts'
+const SCAN_SKIP_DIRS = new Set([
+  'node_modules',
+  '.next',
+  '.next-static',
+  '.static-excluded',
+  '.turbo',
+  'out',
+  'e2e',
+])
+const CANDIDATE_SUFFIXES = ['', '.ts', '.tsx', '/index.ts', '/index.tsx']
+
+/** 把 import 说明符解析成 apps/web 内的真实文件(只认相对路径与 `@/` 别名)。 */
+function resolveSourceModule(specifier, fromAbs) {
+  let base
+  if (specifier.startsWith('@/')) base = path.join(webRoot, 'src', specifier.slice(2))
+  else if (specifier.startsWith('.')) base = path.resolve(path.dirname(fromAbs), specifier)
+  else return null
+  return (
+    CANDIDATE_SUFFIXES.map((suffix) => base + suffix).find(
+      (p) => existsSync(p) && statSync(p).isFile(),
+    ) ?? null
+  )
+}
+
+/** 枚举 apps/web 下参与类型检查的 .ts/.tsx(含测试),供上面那张 import 图用。 */
+function listSourceFiles() {
+  const files = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (!SCAN_SKIP_DIRS.has(entry.name)) walk(abs)
+      } else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+        files.push(abs)
+      }
+    }
+  }
+  walk(webRoot)
+  return files
+}
+
+function proxyDependentFiles() {
+  const proxyAbs = path.join(webRoot, PROXY_SOURCE_REL)
+  const sources = listSourceFiles()
+  const dependents = new Set()
+  // 从 proxy.ts 出发做反向闭包:直接引用它的文件先入集合,再反复收引用这些文件的文件
+  // (测试 → helper → proxy 这种两跳引用也一并覆盖,不再靠人工登记)。
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const abs of sources) {
+      if (abs === proxyAbs || dependents.has(abs)) continue
+      const text = readFileSync(abs, 'utf8')
+      for (const m of text.matchAll(/from\s*['"]([^'"]+)['"]/g)) {
+        const target = resolveSourceModule(m[1], abs)
+        if (target === proxyAbs || (target !== null && dependents.has(target))) {
+          dependents.add(abs)
+          grew = true
+          break
+        }
+      }
+    }
+  }
+  return [...dependents].map((abs) => path.relative(webRoot, abs).replaceAll('\\', '/')).sort()
+}
+
+const STATIC_EXCLUDED_FILES = [...STATIC_EXCLUDED_TOP_FILES, ...proxyDependentFiles()]
 const appDir = path.join(webRoot, 'app')
 const stashDir = path.join(webRoot, '.static-excluded')
 
@@ -183,7 +252,9 @@ try {
     cpSync(staticDist, outDir, { recursive: true })
     console.log('[build-static] 已同步 .next-static → out/(下游契约路径)')
   } else if (exitCode === 0) {
-    console.error('[build-static] 错误: 构建成功但 .next-static/index.html 缺失(导出目录异常),拒绝放行以防陈旧 out/ 被打包')
+    console.error(
+      '[build-static] 错误: 构建成功但 .next-static/index.html 缺失(导出目录异常),拒绝放行以防陈旧 out/ 被打包',
+    )
     exitCode = 1
   }
 } finally {

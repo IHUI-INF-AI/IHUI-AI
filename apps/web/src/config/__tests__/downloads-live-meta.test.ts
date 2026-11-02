@@ -332,6 +332,58 @@ describe('toDesktopLiveInfo —— desktop 落形只搬展示三件,不把签名
   })
 })
 
+describe('judgeIpaPointerProbe —— iOS 以"服务自己怎么答"为真值', () => {
+  const good = {
+    status: 302,
+    location: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.9-26110301.ipa',
+    version: '0.0.9',
+    sizeBytes: 42825211,
+    contentType: 'application/octet-stream',
+  }
+  it('302 + 版本头 + 版本副本字节可核 ⇒ live,落点是快腿上的版本名副本', () => {
+    expect(liveMeta.judgeIpaPointerProbe(good, NOW)).toEqual({
+      platform: 'ios',
+      source: 'live',
+      version: '0.0.9',
+      assets: [{ href: good.location, sizeBytes: 42825211, format: 'iOS IPA (TrollStore)' }],
+      resolvedAt: NOW,
+    })
+  })
+  it('不是 302 ⇒ snapshot(腿还没发布),不读成"该端没包"', () => {
+    expect(
+      liveMeta.judgeIpaPointerProbe({ ...good, status: 404, location: null }, NOW),
+    ).toMatchObject({ source: 'snapshot', reason: 'ipa-pointer-not-resolved:404' })
+  })
+  it('302 但没有 X-Release-Version ⇒ snapshot(账上没号就不写号)', () => {
+    expect(liveMeta.judgeIpaPointerProbe({ ...good, version: '' }, NOW)).toMatchObject({
+      source: 'snapshot',
+      reason: 'ipa-pointer-missing-version-header',
+    })
+  })
+  it('版本副本取不到字节或类型不对 ⇒ snapshot(多半落到占位图/缺文件)', () => {
+    expect(liveMeta.judgeIpaPointerProbe({ ...good, sizeBytes: 0 }, NOW)).toMatchObject({
+      source: 'snapshot',
+      reason: 'ipa-version-copy-unverified:no-size/application/octet-stream',
+    })
+    expect(liveMeta.judgeIpaPointerProbe({ ...good, contentType: 'image/png' }, NOW)).toMatchObject({
+      source: 'snapshot',
+      reason: 'ipa-version-copy-unverified:42825211/image/png',
+    })
+  })
+  it('探测成功后合并进底稿:版本号与安装包都换过来,慢腿直链不再出现', () => {
+    const merged = mergeLiveMeta(
+      {
+        platform: 'ios',
+        assets: [{ href: 'https://github.com/x/releases/latest/download/ihui-ai-latest.ipa', sizeBytes: 0, format: 'App Store' }],
+      } as never,
+      liveMeta.judgeIpaPointerProbe(good, NOW),
+    )
+    expect(merged.version).toBe('0.0.9')
+    expect(merged.assets[0]?.href).toContain('remote-images/download')
+    expect(merged.assets[0]?.href).not.toContain('github.com')
+  })
+})
+
 describe('形状锁(两面各一条,缺一档即翻红)', () => {
   const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf-8')
   it('纯判据文件不得含 node:fs —— 侧栏是 client component,fs 进包即构建错误', () => {

@@ -36,6 +36,7 @@ import {
   judgeAppVersionRow,
   judgeExtensionArtifact,
   judgeIosReleaseDoc,
+  judgeIpaPointerProbe,
   judgeNpmRegistryDoc,
   pickNewestArtifact,
   toDesktopLiveInfo,
@@ -45,6 +46,8 @@ import type { DownloadPlatform } from './downloads.config'
 
 const IOS_RELEASE_TAG = 'ios-nightly'
 const IOS_ASSET_NAME = 'ihui-ai-latest.ipa'
+/** 站点腿上的恒定指针名(与 scripts/publish-mobile-ipa.mjs 的 LATEST_IPA_KEY 同形) */
+const IOS_LATEST_KEY = 'ihui-ai-latest.ipa'
 const CLI_NPM_PACKAGE = 'ihui-cli'
 const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
 const LOCAL_API_TIMEOUT_MS = 4000
@@ -157,14 +160,67 @@ function githubHeaders(): Record<string, string> {
   return headers
 }
 
+/**
+ * iOS 站点腿指针探测:问**线上 cdn-server 自己怎么答**。
+ * 302 + `X-Release-Version` + 版本副本的 Content-Length/Type ⇒ 这一档既是用户真正拿到的地址,
+ * 又比 GitHub 那条跨境腿快两个数量级;答不上(还没发布过 / 服务没转 302)⇒ snapshot,
+ * 由 resolveIos 回落 GitHub 那一档。落点路径不在这里复制第二份:本站只消费公网形态。
+ */
+const IPA_POINTER_URL = `${siteLegBase()}/remote-images/download/${IOS_LATEST_KEY}`
+
+function siteLegBase(): string {
+  const raw = typeof process.env.IHUI_SITE_LEG_BASE === 'string' ? process.env.IHUI_SITE_LEG_BASE.trim() : ''
+  return (raw === '' ? 'https://www.aizhs.top' : raw).replace(/\/+$/, '')
+}
+
+async function probeIpaSiteLeg(nowIso: string): Promise<LivePlatformInfo> {
+  try {
+    const r = await fetch(IPA_POINTER_URL, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(NPM_TIMEOUT_MS),
+      next: { revalidate: REVALIDATE_S },
+    })
+    const loc = r.headers.get('location')
+    let sizeBytes = 0
+    let contentType = ''
+    if (r.status === 302 && typeof loc === 'string' && loc !== '') {
+      const f = await fetch(loc, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(NPM_TIMEOUT_MS),
+        next: { revalidate: REVALIDATE_S },
+      })
+      sizeBytes = Number(f.headers.get('content-length') || 0)
+      contentType = String(f.headers.get('content-type') || '')
+    }
+    return judgeIpaPointerProbe(
+      {
+        status: r.status,
+        location: loc,
+        version: r.headers.get('x-release-version'),
+        sizeBytes,
+        contentType,
+      },
+      nowIso,
+    )
+  } catch {
+    // 探测失败 ≠ 该端没包:交调用方回落,并把原因带出去(两态不并桶,§0.3)
+    return { platform: 'ios', source: 'snapshot', reason: 'ipa-pointer-probe-failed', resolvedAt: nowIso }
+  }
+}
+
 async function resolveIos(nowIso: string): Promise<LivePlatformInfo> {
+  const leg = await probeIpaSiteLeg(nowIso)
+  if (leg.source === 'live') return leg
   const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
   const doc = await fetchJson<unknown>(
     `https://api.github.com/repos/${repo}/releases/tags/${IOS_RELEASE_TAG}`,
     githubHeaders(),
     REVALIDATE_S,
   )
-  return judgeIosReleaseDoc(doc, { assetName: IOS_ASSET_NAME, nowIso })
+  const gh = judgeIosReleaseDoc(doc, { assetName: IOS_ASSET_NAME, nowIso })
+  if (gh.source !== 'live') return gh
+  // GitHub 兜底成功时把"站点腿为什么没用上"一起带出去:排查"为什么还在慢腿上"不用猜
+  return { ...gh, reason: leg.reason ? `site-leg-unused:${leg.reason}` : gh.reason }
 }
 
 async function resolveCli(nowIso: string): Promise<LivePlatformInfo> {

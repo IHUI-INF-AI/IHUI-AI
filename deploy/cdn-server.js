@@ -178,12 +178,13 @@ const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.i
  * 每次都指到最新包;把"新鲜度"压进一条几百字节的 no-cache 302,回源成本与包大小无关。
  * 指针读不到/形态不合法一律不转(回落到"文件在就直发、缺就 404"),绝不打断下载成 500。
  */
-function readApkPointer(text) {
+function readReleasePointer(text) {
   try {
     const j = JSON.parse(String(text))
     const u = new URL(String(j && j.url))
     if (u.protocol !== 'https:') return null
-    if (!/\.apk$/i.test(u.pathname)) return null
+    // 安装包指针只认自有分发腿的两种实物包;第三方地址一律不转(与 APK 同一纪律)
+    if (!/\.(apk|ipa)$/i.test(u.pathname)) return null
     return {
       url: u.href,
       version: String(j.version || ''),
@@ -209,10 +210,13 @@ function serveStatic(req, res, root) {
     return res.end('Forbidden')
   }
 
-  if (path.extname(url).toLowerCase() === '.apk') {
+  // 安装包的「恒定地址 + 版本副本」形态:latest 指针走 no-cache 302,带版本号的实物才给长缓存
+  // (APK 与 iOS 的 .ipa 同一机制;字节不变才谈得上缓存,否则用户拿到的还是上一版)
+  const reqExt = path.extname(url).toLowerCase()
+  if (reqExt === '.apk' || reqExt === '.ipa') {
     const pointerPath = filePath + '.redirect.json'
     if (fs.existsSync(pointerPath)) {
-      const ptr = readApkPointer(fs.readFileSync(pointerPath, 'utf8'))
+      const ptr = readReleasePointer(fs.readFileSync(pointerPath, 'utf8'))
       if (ptr) {
         res.writeHead(302, {
           Location: ptr.url,
@@ -273,8 +277,9 @@ function serveStatic(req, res, root) {
       'Cache-Control': isTxt ? 'public,max-age=86400' : 'public,max-age=604800',
       'Access-Control-Allow-Origin': '*',
     }
-    // APK 等下载类型:强制附件下载并保留原始文件名
-    if (ext === '.apk') {
+    // APK/iOS 包等下载类型:强制附件下载并保留原始文件名(.ipa 不在 MIME 表里 ⇒ 按
+    // mimeFor 默认落 application/octet-stream,正是要的形态,不要再加一条 MIME)
+    if (ext === '.apk' || ext === '.ipa') {
       headers['Content-Disposition'] =
         'attachment; filename="' + path.basename(filePath).replace(/"/g, '') + '"'
     }

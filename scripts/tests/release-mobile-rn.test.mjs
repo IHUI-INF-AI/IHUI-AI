@@ -193,12 +193,35 @@ test('M15 未核实端点的厂商:零网络调用 + 未判定(防"猜的 URL �
     calls++
     return { status: 200, text: async () => '{}' }
   }
-  for (const id of ['xiaomi', 'oppo', 'vivo', 'yyb', 'honor', 'harmony']) {
+  const unverified = STORE_VENDORS.map((v) => v.id).filter((id) => !Object.keys(CHANNELS).includes(id))
+  assert.ok(unverified.includes('harmony'), '鸿蒙无产物能力也不该有猜的端点,必须留在未核实集里')
+  for (const id of unverified) {
     const r = await probeVendor(id, { fetchImpl: fakeFetch })
     assert.equal(r.status, 'unjudged', `${id} 未核实端点必须判未判定,不得冒 missing`)
     assert.equal(r.verdict, 'endpoint-unverified')
-    assert.ok(!Object.keys(CHANNELS).includes(id), `${id} 的端点形态未经核实,不得进 CHANNELS 表`)
   }
   assert.equal(calls, 0, '未核实的厂商一条请求都不许发')
+  // OPPO 特例:token 端点有官方出处、传包端点正文需登录 ⇒ 必须落"未核实"而不是"不可用"
+  const oppo = await probeVendor('oppo', { fetchImpl: fakeFetch })
+  assert.equal(oppo.verdict, 'publish-endpoint-unverified')
+  assert.equal(oppo.status, 'unjudged')
+  assert.equal(calls, 0, 'OPPO 传包端点未证 ⇒ 一条也不发')
+})
+
+test('M16 探测只打只读端点:任何厂商的 URL 都不得含写动词(防误改别人商店后台)', async () => {
+  const { __test__ } = await import(import.meta.resolve('../probe-store-channel.mjs'))
+  const { CHANNELS, classifySignatureProbe } = __test__
+  const WRITE_VERBS = /upload|submit|audit|push|update|create|delete|release|modify|commit/i
+  for (const [id, ch] of Object.entries(CHANNELS)) {
+    if (typeof ch.probe !== 'function') continue
+    // 只看动作段(路径最后一段):小米域名本身叫 devupload,拿整条 URL 比会误报
+    const action = new URL(ch.probe('probe-app-id').url).pathname.split('/').filter(Boolean).pop()
+    assert.ok(!WRITE_VERBS.test(action), `${id} 的探测动作段含写动词:${action} ⇒ 探测只准打只读查询端点`)
+  }
+  // 三臂:HTML ⇒ 未判定 / 参数校验类拒绝 ⇒ 缺凭据 / "功能不存在" ⇒ 我方形态未获认可,不背书
+  assert.equal(classifySignatureProbe(404, '<html>nope</html>').status, 'unjudged')
+  assert.equal(classifySignatureProbe(200, JSON.stringify({ code: -20002, msg: '数字签名异常' })).status, 'missing')
+  assert.equal(classifySignatureProbe(200, JSON.stringify({ code: 10010, msg: '此功能不存在，请联系vivo开放平台' })).status, 'unjudged', '对方没认我的 method ⇒ 端点活着不等于调用形态对,必须落未判定')
+  assert.equal(classifySignatureProbe(200, JSON.stringify({ msg: 'unknown method' })).verdict, 'endpoint-alive-but-call-shape-unverified')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

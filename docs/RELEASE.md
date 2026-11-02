@@ -425,10 +425,18 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 | App Store / TestFlight | EAS 云端 build + submit | 需 iOS 产物 | — | ❌ ASC API 凭据未取到 | `eas build:list -p ios` 空 | 阻塞:凭据 |
 | EAS Update(两渠道) | `eas update --channel X --environment X` | ✅ JS bundle | — | ✅ token | **已端到端实证**:一次性分支发出 `✔ Published!`、runtime 读回 `0.0.5`,发后即删 | 通 |
 | 华为 AppGallery | AGC Publishing API | ✅ 同上 APK | ✅ | ⚠ 有一枚但**类型不对** | 端点**已证可达**:`ret.code=205524993 client token auth failed`;旁证 HMS OAuth 能签 token(len=104) | 差一枚 Connect API 客户端凭据 |
-| 小米 / OPPO / vivo / 应用宝 / 荣耀 | 各家开放 API | ✅ 同上 APK | ✅ | ❌ 目录内无 | 端点形态**未经核实** ⇒ 探测器零调用、判未判定 | 未判定 |
+| 小米应用商店 | `POST api.developer.xiaomi.com/devupload/dev/query`(只读探针)/ `dev/push`(传包) | ✅ 同上 APK | ✅ | ❌ 缺"接口私钥" | **端点已证可达**:`code=-20002 数字签名异常` ⇒ 对方在校验我们的签名 | 差一枚小米开发者站接口私钥(RSA SIG,非登录密码) |
+| 腾讯应用宝 | `POST p.open.qq.com/open_file/developer_api/query_app_detail` / `update_app` | ✅ | ✅ | ❌ 缺 access_secret | **端点已证可达**:`msg="请求参数user_id为空"` | 差 access_secret;**官方明写不支持新应用发布**(首包须后台手工上线) |
+| 荣耀应用市场 | OAuth2 `POST iam.developer.honor.com/auth/token` → `appmarket-openapi-drcn.cloud.honor.com/openapi/v1/publish/*` | ✅ | ✅ | ❌ 缺 Client ID/API 密钥 | **端点已证可达**:`http=401 Invalid client` | 差荣耀管理中心「开放能力→凭证」的 API 密钥;官方限流查询类 <3min/次 |
+| vivo 应用商店 | `POST developer-api.vivo.com.cn/router/rest`(method=`app.query.details`/`app.upload.file`) | ✅ | ✅ | ❌ 缺 access_key/secret | 对方应答但**未认本次 method**:`code=10010 此功能不存在` ⇒ 通道活着,调用形态未获背书 | 未判定(method 形态待用官方正文核) |
+| OPPO 开放平台 | token `GET oop-openapi-cn.heytapmobi.com/developer/v1/token`(出处在册) | ✅ | ✅ | ❌ 缺 client_id/secret | 传包端点**正文需登录**(文档返回 300005)⇒ 不猜端点,探测器零调用 | 未判定 |
 | 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
 
-华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。另五家本器**不发猜的 URL**——端点形态未经核实就判未判定,防"猜的端点进水"。
+华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。探测纪律(锁在 `scripts/tests/release-mobile-rn.test.mjs` M14–M16):没凭据时也**只用占位签名打只读查询端点**
+(动作段含 upload/submit/audit/update 一律判违规),据此把"通道可达"与"有没有凭据"分成两格——
+否则就会把"我路径写错"读成"这家没开 API"(本票真踩过一次:404 HTML 是我把端点拼错,不是华为的答复)。
+各家端点与鉴权形态的**官方出处**逐条登记在 `scripts/probe-store-channel.mjs` 的 `CHANNELS[*].doc` 字段;
+核不到出处的(vivo 的 method、OPPO 的传包正文)一律判未判定,不发猜的 URL。
 
 > **两个结构性缺口(不在发布器射程,已在台账登记)**
 > ① `app_versions.platform` 枚举 = `ios/android/web/harmony/cli`,**没有 store 维度** ⇒ "华为一条 latest、小米一条 latest"在数据面上表达不出来;下载中心与端内更新卡因此只能给一个安卓地址。出路:一次加列迁移(`store`/`channel`),按迁移纪律走 `db:migrate` + 门 49 的 B1–B9 验证。

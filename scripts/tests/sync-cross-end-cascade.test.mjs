@@ -105,4 +105,21 @@ test('A8 一键入口在位自证:根 package.json 必须真挂着 sync:cross-en
     'node scripts/sync-cross-end-cascade.mjs --apply',
   )
 })
+
+test('A9 css-tokens 写腿:--apply 档实派 argv 恰为 ["--write"],且排在所有派生腿之前(2026-11-01 断链格)', () => {
+  const stage = C.STAGES.find((s) => s.name === 'verify-css-tokens')
+  assert.ok(stage, 'verify-css-tokens 登记条不存在')
+  assert.equal(stage.script, 'sync-css-tokens.mjs')
+  assert.equal(stage.write, true, '未标 write:true ⇒ --apply 档不会追加写旗,升级未落地')
+  // 断言参数数组本身(stageArgv = runStage 消费的唯一装配出口),不是登记册散文
+  const argv = C.stageArgv(stage, C.parseArgs(['--apply']))
+  assert.deepEqual(argv, ['--write'])
+  assert.ok(!argv.includes('--check'), '--check 与 --write 同给会被器物互斥闸 exit 2,装配层不得拼出')
+  // 顺序:tokens.css 受管块生成必须在拿它当源的下游腿之前(倒序 = 下游派生旧面)
+  const idx = C.STAGES.indexOf(stage)
+  for (const dep of ['derive-tokens', 'land-web', 'land-rn', 'land-miniapp']) {
+    const j = C.STAGES.findIndex((s) => s.name === dep)
+    assert.ok(j > idx, `${dep} 排在 css-tokens 生成腿之前 = 拿到旧 tokens.css 派生(中间态)`)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
