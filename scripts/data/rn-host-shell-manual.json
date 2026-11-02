@@ -1,5 +1,102 @@
 {
   "version": 1,
-  "note": "RN 薄壳 needsManual 挂账账本:每条必须有 shared(屏名或 packages/app/src/features/... 相对路径)、owner、expires(YYYY-MM-DD,当天仍算在期)、reason。本账本由人认领,禁止为消红批量伪造;check-rn-host-shell-coverage.mjs 只读不写。",
-  "entries": []
+  "note": "RN 薄壳 needsManual 挂账账本:每条必须有 shared(屏名或 packages/app/src/features/... 相对路径)、owner、expires(YYYY-MM-DD,当天仍算在期)、evidence(可复核的文件/行号/读数)、reason。verdict 区分语义不同(semantic-different)/已退役(not-applicable)/待手写壳(manual-shell-required)。本账本由人认领,禁止为消红批量伪造;check-rn-host-shell-coverage.mjs 只读不写。",
+  "entries": [
+    {
+      "shared": "CourseScreen",
+      "verdict": "semantic-different",
+      "owner": "learn-course",
+      "expires": "2027-03-31",
+      "reason": "RN 同名壳 CourseScreen 渲染的是课程 Tab 容器 CourseTabScreen;共享 course-screen/CourseScreen 是纯搜索+翻页列表页,渲染主体与 props 契约不同,强行替换会丢学习进度/学习路径/分类/热门区。",
+      "evidence": "apps/mobile-rn/src/screens/CourseScreen.tsx:29 值导入 CourseTabScreen、:192 渲染;共享屏 packages/app/src/features/course-screen/CourseScreen.tsx:19 只暴露 items/keyword/loading/error/page/totalPages 等列表 props;全仓消费点仅 packages/app/tests/text-field.test.tsx:28;cross-end-screen-registry.json 中 RN CourseScreen 配对的是 features/course-tab/CourseTabScreen.tsx。"
+    },
+    {
+      "shared": "FavoritesScreen",
+      "verdict": "semantic-different",
+      "owner": "social-favorites",
+      "expires": "2027-03-31",
+      "reason": "共享 favorites/FavoritesScreen 是无 tab 筛选的收藏子集;RN 两条收藏路由都渲染带 tab 筛选的共享 favorite/FavoriteScreen,换回子集会回退功能。",
+      "evidence": "apps/mobile-rn/src/screens/FavoritesScreen.tsx:16 值导入 FavoriteScreen、:21 渲染;apps/mobile-rn/src/screens/FavoriteScreen.tsx:23 同源导入、:153 渲染;共享 packages/app/src/features/favorite/FavoriteScreen.tsx:26 含 all/course/live/post/aigc/news tabs;features/favorites/FavoritesScreen.tsx 除 packages/app/src/index.ts:157 导出外全仓零消费(2026-10-28 合并结论见两壳头注)。"
+    },
+    {
+      "shared": "LegalDocScreen",
+      "verdict": "semantic-different",
+      "owner": "legal-docs",
+      "expires": "2027-03-31",
+      "reason": "共享 LegalDocScreen 是单文档叶子屏,RN 路由 LegalDoc 的壳渲染四文档 Hub;叶子已随 Hub/Agreement/Privacy 上屏,没有独立路由可挂。",
+      "evidence": "apps/mobile-rn/src/screens/LegalDocScreen.tsx:7 值导入 LegalDocsHubScreen、:29 渲染;packages/app/src/features/legal-doc/LegalDocsHubScreen.tsx:12 导入 LegalDocScreen、:172 渲染;另 AgreementScreen.tsx:10 与 PrivacyScreen.tsx:6 以叶子方式消费。"
+    },
+    {
+      "shared": "FinanceScreen",
+      "verdict": "not-applicable",
+      "owner": "wallet-finance",
+      "expires": "2027-03-31",
+      "reason": "2026-09-04 收敛:FinanceScreen 并入 WalletScreen,wrapper 与 RN 路由已删除,余额概览由 Wallet 承接。",
+      "evidence": "apps/mobile-rn/src/navigation/RootNavigator.tsx:41 与 :468 记「FinanceScreen 并入 WalletScreen,wrapper 与路由已删除」;承接点 apps/mobile-rn/src/screens/WalletScreen.tsx:9 值导入共享 WalletScreen、:173 渲染;features/finance/FinanceScreen.tsx 除 packages/app/src/index.ts:336 导出外无消费。"
+    },
+    {
+      "shared": "AssistantScreen",
+      "verdict": "not-applicable",
+      "owner": "chat-room",
+      "expires": "2027-03-31",
+      "reason": "RN 路由 Assistant 的壳是 IM 聊天室,渲染共享 ChatRoomScreen;共享 AssistantScreen 是带 tab/subTab/items 的助手列表页,语义与硬 props 均不同。",
+      "evidence": "apps/mobile-rn/src/screens/AssistantScreen.tsx:28 值导入 ChatRoomScreen(2026-09-14 下沉);共享 packages/app/src/features/assistant/AssistantScreen.tsx:34 需 tab/subTab/items/keyword/onTabChange/onSubTabChange/onEdit/onOffline 等宿主状态,RN 无消费点,仅 index.ts:176 导出。"
+    },
+    {
+      "shared": "AiAssistantN8nScreen",
+      "verdict": "not-applicable",
+      "owner": "ai-assistant-n8n",
+      "expires": "2027-03-31",
+      "reason": "RN 侧为平台独占本地实现(SSE 流式对话/Drawer/模型配置/图片选择),共享屏受控 props 契约承载不了这些平台端口,不建薄壳。",
+      "evidence": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:98 streamChat、:133 ModelConfigDialog、:137 Drawer、:991 ImagePicker;文件内无 @ihui/rn-app 值导入;共享屏硬 props 见覆盖读数 emptyText/messages/onModelConfigPress/onModelPress/onPreviewImage/quickSuggestions/searchInput/selectedModelLabel/sending。"
+    },
+    {
+      "shared": "AgentReviewDetailScreen",
+      "verdict": "manual-shell-required",
+      "owner": "agent-review",
+      "expires": "2027-01-31",
+      "reason": "RN 端无 Agent 评价详情路由/壳;共享屏需要宿主取数与导航端口,待手写壳。",
+      "evidence": "apps/mobile-rn/src 下无 AgentReviewDetail(Screen) 引用(RootNavigator.tsx 无该路由);共享屏 packages/app/src/features/agent-review-detail/AgentReviewDetailScreen.tsx:16 硬 props item/loading/error/onBack/onRetry 需宿主注入;当前仅 packages/app/src/index.ts:269 导出。"
+    },
+    {
+      "shared": "CoursePlanetScreen",
+      "verdict": "manual-shell-required",
+      "owner": "learn-course",
+      "expires": "2027-02-28",
+      "reason": "RN 侧为本地实现未接共享屏;共享屏需要 data/selectedType/onTypeChange/refreshing 等受控 props,待手写壳对齐。",
+      "evidence": "apps/mobile-rn/src/screens/CoursePlanetScreen.tsx:106 本地组件、:128 自取 /api/course-planet、:182 RefreshControl、:220 仅复用 ScrollJumpButton;共享屏硬 props data/error/loading/onCoursePress/onRefresh/onTypeChange/refreshing/selectedType 未接入。"
+    },
+    {
+      "shared": "MoreCourseScreen",
+      "verdict": "manual-shell-required",
+      "owner": "learn-course",
+      "expires": "2027-04-30",
+      "reason": "RN 侧为本地组件拼装实现未接共享屏;共享屏需 items/total/onEndReached 等受控分页 props,待手写壳对齐。",
+      "evidence": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx:114 本地组件、:138 自取 getCourses、:238 本地 PopularCourses;仅 :34 复用 ScrollJumpButton;共享屏硬 props error/items/loading/loadingMore/onEndReached/onPressItem/onRefresh/refreshing/total 未接入。"
+    },
+    {
+      "shared": "StudyIndexScreen",
+      "verdict": "manual-shell-required",
+      "owner": "learn-study",
+      "expires": "2027-05-31",
+      "reason": "RN 侧为本地三态实现(pageType 预览/模型/课程 + Drawer),共享屏 25 枚硬 props 需整套宿主模型,待手写壳。",
+      "evidence": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx:180 本地组件、:198 pageType 三态、:219 自取 /api/study/videos、:525 SearchInput;仅 :64 复用 SearchInput/CategoryInlineBar/MoreLink;共享屏硬 props activeCategory/items/previewItems/previewModels/onCategoryChange/onViewMoreCourses/onViewMoreModels/pageType/searchInput/trackCategories 等未接入。"
+    },
+    {
+      "shared": "FollowingScreen",
+      "verdict": "not-applicable",
+      "owner": "social-follow",
+      "expires": "2027-03-31",
+      "reason": "2026-09-04 收敛:Following 功能为 Follow 子集,RN 路由与菜单入口已删除并并入 Follow。",
+      "evidence": "apps/mobile-rn/src/navigation/RootNavigator.tsx:432 记「Following 收敛:功能为 Follow 子集,路由删除,菜单入口并入 Follow」、:445 与 :1336;承接点 apps/mobile-rn/src/screens/FollowScreen.tsx:10 值导入共享 FollowScreen;features/following/FollowingScreen.tsx 硬 props items/loading/loadingMore/onLoadMore/onRefresh/onUnfollow/refreshing 无 RN 宿主。"
+    },
+    {
+      "shared": "HelpDetailScreen",
+      "verdict": "not-applicable",
+      "owner": "help-support",
+      "expires": "2027-03-31",
+      "reason": "RN 帮助域只有 Help 列表路由,详情答案由共享 HelpScreen 的 expandedId 内联展开承载,没有独立 HelpDetail 路由。",
+      "evidence": "apps/mobile-rn/src/navigation/RootNavigator.tsx:169 与 :1142 只有 HelpScreen 路由;apps/mobile-rn/src/screens/HelpScreen.tsx:9 值导入共享 HelpScreen、:112 传 expandedId、:114 onToggle;共享 HelpScreen packages/app/src/features/help/HelpScreen.tsx:170 内联渲染 answer;features/help-detail/HelpDetailScreen.tsx 的 item/loading/error/onBack/onRetry 无 RN 宿主。"
+    }
+  ]
 }
