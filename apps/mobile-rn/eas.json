@@ -38,6 +38,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./credentials/google-play-service-account.json"
+      }
+    }
   }
 }

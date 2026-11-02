@@ -26,15 +26,15 @@ const pkg = require('./package.json')
  *   · 小时粒度:同一小时多次构建同号;同号更新(install -r)合法,不构成降级;
  *   · 不取 git commit count:本仓主干会被并行会话整谱系重写,计数会缩,缩一次
  *     就等于给全量已装机用户发一个"永远装不上"的版本;
- *   · 不取 EAS 远端计数器:eas.json appVersionSource=remote,EAS 自管(见下)。
+ *   · 不取 EAS 远端计数器:eas.json appVersionSource=local,EAS 与本函数读同一份号段。
  *
  * 覆盖口 IHUI_VERSION_CODE(CI/手工受控构建):须为正整数且 ∈ [26010100, 2100000000]。
  *   非法值**抛错**而不是静默回落时间戳 —— 静默回落会把"拼错的环境变量"重新变成
  *   vc=1 事故,而那正是本函数存在的理由。
  *
- * 与 EAS 的边界:eas.json appVersionSource=remote ⇒ EAS 构建走 Expo 远端计数器,
- *   与本函数的 YYMMDDHH 号段永不交叠 ⇒ prebuild/CI 包可覆盖 EAS 包;反向(EAS 包
- *   覆盖 CI 包)被降级保护拒属预期,内部署手机以 CI nightly 为准。
+ * 与 EAS 的边界:eas.json appVersionSource=local ⇒ EAS 构建与 prebuild/CI **同读这一份号段**,
+ *   不存在"两套号互相降级"的问题(旧注释写的 remote/永不交叠与在册值相反,已按现读更正)。
+ *   同一小时内两条腿各出一枚包时号相同 ⇒ `install -r` 覆盖合法,不构成降级。
  */
 function resolveBuildNumber() {
   const override = process.env.IHUI_VERSION_CODE
@@ -57,6 +57,32 @@ function resolveBuildNumber() {
   const dd = String(now.getUTCDate()).padStart(2, '0')
   const hh = String(now.getUTCHours()).padStart(2, '0')
   return Number(`${yy}${mm}${dd}${hh}`)
+}
+
+/**
+ * OTA 运行时桶(runtimeVersion)—— 必须与"每次构建自动涨的显示版本"解耦(2026-11-02 立)。
+ *
+ * 病灶是实测出来的,不是预防性的:旧形态是 app.json 里 `runtimeVersion.policy = "appVersion"`,
+ * 它读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被下面的 displayVersion 每次构建
+ * 注入成 `<base>.<UTC YYYYMMDD>` ⇒ **桶随构建漂移**。取证(2026-11-02 `eas channel:list`):
+ * preview 渠道里唯一一条 update 落在 runtime `0.0.8`,而线上登记的安卓最新包是 `0.0.9`
+ * ⇒ 那条 OTA 对任何当前装机用户永久不可达。"发了更新但没人收得到"正是本函数的存在理由。
+ *
+ * 口径:桶 = **原生基座版本**(package.json 的 version),只在真正重打原生包并抬基座时变;
+ * 显示版本继续每次涨(用户要能分辨包)。发 OTA 前若原生面已变而基座未抬,由
+ * `scripts/release-mobile-rn.mjs` 的 preflight 判 blocked 并点名,不静默发不兼容包。
+ * 覆盖口 IHUI_RUNTIME_VERSION 供"同一基座要分桶灰度"这类场景用。
+ */
+function resolveRuntimeVersion(pkgVersion = pkg.version) {
+  const override = process.env.IHUI_RUNTIME_VERSION
+  const value = override && override !== '' ? override : pkgVersion
+  if (!/^[0-9][0-9A-Za-z._+-]{0,62}$/.test(String(value))) {
+    throw new Error(
+      `[app.config] runtimeVersion 非法:'${value}'(须以数字开头、长度 ≤63、字符集 [0-9A-Za-z._+-];` +
+        '这是 Expo 对 runtimeVersion 的硬约束,构建期报错优于发出去收不到)',
+    )
+  }
+  return String(value)
 }
 
 module.exports = ({ config }) => {
@@ -93,6 +119,9 @@ module.exports = ({ config }) => {
   return {
     ...config,
     version: displayVersion,
+    // OTA 桶与显示版本解耦(见 resolveRuntimeVersion 头注)——policy:"appVersion" 会把
+    // 每次自动涨的 displayVersion 当成桶,导致 OTA 对已装用户永久不可达。
+    runtimeVersion: resolveRuntimeVersion(),
     android: { ...config.android, versionCode: buildNumber },
     ios: { ...config.ios, buildNumber: String(buildNumber) },
     plugins: [
