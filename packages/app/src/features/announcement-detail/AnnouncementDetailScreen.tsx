@@ -26,8 +26,9 @@ export function AnnouncementDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: AnnouncementDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AnnouncementDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -37,7 +38,7 @@ export function AnnouncementDetailScreen({
     return (
       <ErrorState
         message={error || t('announcementDetail.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

@@ -557,15 +557,58 @@ test('T5 appendLeaseRows:只追加不删改;区在插区头,区不在文件尾�
   assert.equal(out1.length, lines.length + 3, '空行 + 区标题 + 租约行')
   assert.equal(out1[out1.length - 2], LEASE_SECTION_TITLE)
   assert.deepEqual(out1.slice(0, 2), lines.slice(0, 2), '既有行一字不动')
-  const out2 = appendLeaseRows(out1, [row(), row({ start: 1062000, end: 1062999 })])
+  const out2 = appendLeaseRows(out1, [
+    row({ start: 1062000, end: 1062999 }),
+    row({ start: 1064000, end: 1064999 }),
+  ])
   const idx = out2.findIndex((l) => l.trim() === LEASE_SECTION_TITLE)
   assert.ok(idx > 0, '区标题必须已在')
   assert.deepEqual(
     out2.slice(idx + 1, idx + 3),
-    [row(), row({ start: 1062000, end: 1062999 })],
+    [row({ start: 1062000, end: 1062999 }), row({ start: 1064000, end: 1064999 })],
     '新行插在区头',
   )
-  assert.equal(out2.filter((l) => l === row()).length, 2, '旧行仍在(只追加)')
+  // 2026-11-03 起同键重复被幂等闸挡住(T5b 钉),这里只验"旧行仍在(只追加)"
+  assert.equal(out2.filter((l) => l === row()).length, 1, '既有租约行必须原样保留且不得重复')
+})
+
+test('T5b appendLeaseRows 幂等:同键第二次 unchanged 不写;failOnLeaseDup 点名既有行号', () => {
+  const lines = ['- [ ] G-1 某票', '']
+  const first = appendLeaseRows(lines, [row()])
+  assert.equal(first.unchanged, undefined, '首次追加不是幂等命中')
+  assert.equal(first.filter((l) => l === row()).length, 1)
+  const second = appendLeaseRows(first, [row()])
+  assert.equal(second.unchanged, true, '第二次同键必须 unchanged')
+  assert.equal(second.length, first.length, '行数不变')
+  assert.deepEqual(
+    [...second],
+    [...first],
+    '一个字节都不写(返回原内容,现役调用方 .join 仍可用)',
+  )
+  assert.throws(
+    () => appendLeaseRows(first, [row()], { failOnLeaseDup: true }),
+    /租约重复/,
+    'failOnLeaseDup 必须抛错',
+  )
+  assert.throws(
+    () => appendLeaseRows(first, [row()], { failOnLeaseDup: true }),
+    /L5/,
+    '抛错必须点名既有行号',
+  )
+  assert.throws(
+    () => appendLeaseRows(first, [row()], { failOnLeaseDup: true }),
+    /1060999/,
+    '抛错必须给重复段/内容摘要',
+  )
+  // 本批内同键也不得写两行:默认整批不写,fail 档点名"本批"
+  const batch = appendLeaseRows(lines, [row(), row()])
+  assert.equal(batch.unchanged, true, '同批两行同键 ⇒ 默认拒绝整批')
+  assert.equal(batch.filter((l) => l === row()).length, 0)
+  assert.throws(() => appendLeaseRows(lines, [row(), row()], { failOnLeaseDup: true }), /本批内同键/)
+  // 段号只在族/机器域内成义:换机同段不是重复
+  const otherMachine = appendLeaseRows(first, [row({ machineId: 'hostB-fp' })])
+  assert.equal(otherMachine.unchanged, undefined, '换机器同段必须照常追加')
+  assert.equal(otherMachine.filter((l) => l === row({ machineId: 'hostB-fp' })).length, 1)
 })
 
 test('T6 源码形状锁:live-doc-edit 必须经 lib 取租约判据,CAS 循环内的取号带 machineId', () => {

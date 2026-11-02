@@ -2336,7 +2336,75 @@ export function idExistsOnFace(targetSrc, id) {
 }
 
 
-export function healContent(targetSrc, missing, declared = null) {
+/**
+ * 回捞变体的插入锚点(1 基行号,给拒绝同号多候选时的人读点名用):
+ * 邻居还在 ⇒ 邻居行号 + 1;邻居不在(会追加到末尾)⇒ 当前末尾行号 + 1(即将插入的位置)。
+ */
+function healAnchorLine(lines, entry) {
+  const prev = entry?.prev ? String(entry.prev).replace(/\r$/, '') : ''
+  if (prev) {
+    const at = lines.findIndex((l) => l.replace(/\r$/, '') === prev)
+    if (at >= 0) return at + 2
+  }
+  return lines.length + 1
+}
+
+/** 两个同号变体的差异摘要(共同前/后缀 + 分岔段;用于让 `--pick` 的人看懂选的是哪一枚)。 */
+export function variantDiffSummary(a, b, max = 36) {
+  const x = String(a ?? '')
+  const y = String(b ?? '')
+  if (x === y) return '逐字相同'
+  const min = Math.min(x.length, y.length)
+  let p = 0
+  while (p < min && x[p] === y[p]) p += 1
+  let s = 0
+  while (s < min - p && x[x.length - 1 - s] === y[y.length - 1 - s]) s += 1
+  const clip = (v) => {
+    const t = String(v ?? '').replace(/\s+/g, ' ').trim()
+    return t.length > max ? `${t.slice(0, max)}…` : t
+  }
+  return `共同前缀 ${p} 字/后缀 ${s} 字;分岔 A=«${clip(x.slice(p, x.length - s))}» B=«${clip(y.slice(p, y.length - s))}»`
+}
+
+/**
+ * 解析回捞的 `--pick <id>=<variantIndex>`(0 基,与拒绝报告里的 `[index]` 对齐)。
+ * 同一编号给多次 ⇒ 用法错(不猜"最后一个赢",那会把选错静默成选对)。
+ */
+export function parseHealPicks(argv = []) {
+  const picks = new Map()
+  const errors = []
+  const one = (raw) => {
+    const s = String(raw ?? '').trim()
+    const cut = s.lastIndexOf('=')
+    if (cut <= 0 || cut === s.length - 1) {
+      errors.push(`--pick 形态错:«${s}»(必须是 <id>=<variantIndex>,如 G-1=0)`)
+      return
+    }
+    const id = s.slice(0, cut).trim()
+    const index = Number(s.slice(cut + 1).trim())
+    if (!id || !Number.isInteger(index) || index < 0) {
+      errors.push(`--pick 形态错:«${s}»(variantIndex 必须是非负整数,0 基)`)
+      return
+    }
+    if (picks.has(id)) errors.push(`--pick 重复给出同一编号 ${id}(请只留一枚)`)
+    else picks.set(id, index)
+  }
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = String(argv[i] ?? '')
+    if (a === '--pick') {
+      const val = argv[i + 1]
+      if (val === undefined || String(val).startsWith('--')) {
+        errors.push('--pick 缺少取值(必须是 <id>=<variantIndex>)')
+        continue
+      }
+      i += 1
+      one(val)
+    } else if (a.startsWith('--pick=')) one(a.slice('--pick='.length))
+  }
+  return { picks, errors }
+}
+
+export function healContent(targetSrc, missing, declared = null, opts = {}) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
   /**
@@ -2413,9 +2481,64 @@ export function healContent(targetSrc, missing, declared = null) {
     return !e.multiSlot
   })
   const withheld = candidates.length - pending.length - skippedExistingId
+  /**
+   * 同号多候选刹车(2026-11-03 立,`05af7e8c5d` / `9ae4f3bd0a` 两枚坏写实测):旧实现只问
+   * "目标面上还有没有同号"(`idExistsOnFace`),**不问本批待回捞集合内部是否同号** —— 一次能把
+   * 两行 `Z-1` 同时插回,于是"回捞"自己把台账写成重复登记(§1「一个编号只能有一行当前状态」)。
+   * 判据 = 待插集合按登记编号分组;`size > 1` 的组一律**拒绝自动回捞**,逐个变体打出行号与
+   * 差异摘要,要求显式 `--pick <id>=<variantIndex>` 选一枚。未给 `--pick` 时该组计入
+   * `refusedGroups`(上层据此非零退出),绝不静默跳过、也绝不"两枚都插"。
+   */
+  const pickOf = (id) => {
+    const p = opts?.pick
+    if (p instanceof Map) return p.get(id)
+    if (p && typeof p === 'object' && !Array.isArray(p)) return p[id]
+    return undefined
+  }
+  const byId = new Map()
+  const selected = new Set()
+  for (const e of pending) {
+    if (!e.id) {
+      selected.add(e)
+      continue
+    }
+    const id = String(e.id)
+    const list = byId.get(id)
+    if (list) list.push(e)
+    else byId.set(id, [e])
+  }
+  const refusedGroups = []
+  const picked = []
+  for (const [id, group] of byId) {
+    if (group.length === 1) {
+      selected.add(group[0])
+      continue
+    }
+    const variants = group.map((e, index) => ({
+      index,
+      marker: e.marker,
+      line: e.line,
+      sha: e.sha ?? null,
+      anchorLine: healAnchorLine(lines, e),
+      diffSummary: index === 0 ? '基准变体(其余变体与它逐字比较)' : variantDiffSummary(group[0].line, e.line),
+    }))
+    const want = pickOf(id)
+    if (want === undefined) {
+      refusedGroups.push({ id, reason: '未给 --pick', variants })
+      continue
+    }
+    if (!Number.isInteger(want) || want < 0 || want >= group.length) {
+      refusedGroups.push({ id, reason: `--pick ${id}=${want} 越界(合法范围 0..${group.length - 1})`, variants })
+      continue
+    }
+    selected.add(group[want])
+    picked.push({ id, index: want, marker: group[want].marker, anchorLine: variants[want].anchorLine })
+  }
+  const finalPending = pending.filter((e) => selected.has(e))
+  const refusedRows = refusedGroups.reduce((n, g) => n + g.variants.length, 0)
   let appended = 0
   let inserted = 0
-  for (const entry of pending) {
+  for (const entry of finalPending) {
     const { line, prev } = entry
     const clean = line.replace(/\r$/, '')
     const at = prev ? lines.findIndex((l) => l.replace(/\r$/, '') === prev.replace(/\r$/, '')) : -1
@@ -2427,7 +2550,18 @@ export function healContent(targetSrc, missing, declared = null) {
       appended += 1
     }
   }
-  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId, skippedCollected, skippedDeclared }
+  return {
+    out: lines.join(eol),
+    inserted,
+    appended,
+    withheld,
+    skippedExistingId,
+    skippedCollected,
+    skippedDeclared,
+    refusedGroups,
+    refusedRows,
+    picked,
+  }
 }
 
 /**
@@ -3821,7 +3955,31 @@ function src7(entry) {
   return entry.sha ? String(entry.sha).slice(0, 9) : '未知来源'
 }
 
-function heal(commit) {
+/** 拒绝同号多候选的逐变体点名(行号 + 出处 + 差异摘要),出路固定为显式 `--pick`。 */
+function reportHealRefusals(label, groups, pickPath) {
+  if (!groups?.length) return
+  const rows = groups.reduce((n, g) => n + g.variants.length, 0)
+  console.error(
+    `🛑 [plan-line-loss] ${label}有 ${groups.length} 组同号多候选(共 ${rows} 行)⇒ **拒绝自动回捞**` +
+      '(一次插回两行同号 = 把台账写成重复登记,§1):',
+  )
+  for (const g of groups) {
+    console.error(`   · ${g.id}  ${g.variants.length} 个变体,处置=${g.reason}:`)
+    for (const v of g.variants) {
+      const line = String(v.line ?? '').replace(/\s+/g, ' ').trim()
+      console.error(
+        `      [${v.index}] 目标面锚点 L${v.anchorLine} 出处 ${v.sha ? String(v.sha).slice(0, 9) : '未知来源'}` +
+          ` 差异:${v.diffSummary} 原文:${line.length > 110 ? `${line.slice(0, 110)}…` : line}`,
+      )
+    }
+  }
+  console.error(
+    `   出路(不给 --pick 就不写、且本次以非零退出):${pickPath} --pick "<id>=<variantIndex>"` +
+      '(variantIndex 从 0 起,逐个变体见上;同号其它变体一律保持缺席,交人工复核)',
+  )
+}
+
+function heal(commit, picks = new Map()) {
   // 自愈层只**告警**不拒跑:摘线时它恰恰是唯一还能把行捞回来的东西,拒绝执行等于见死不救
   guardWiring(false)
   const head = git(['show', `HEAD:${PLAN}`])
@@ -3971,14 +4129,23 @@ function heal(commit) {
   }
   let inserted = 0
   let appended = 0
+  let refusedRows = 0
+  const pickedNote = new Set()
   if (diskDoable.length) {
-    const healed = healContent(disk, diskDoable, declaredRowSet())
+    const healed = healContent(disk, diskDoable, declaredRowSet(), { pick: picks })
     inserted = healed.inserted
     appended = healed.appended
+    refusedRows += healed.refusedRows
+    for (const p of healed.picked) pickedNote.add(`${p.id}=#${p.index}`)
     console.warn(
       `⚠️  [plan-line-loss] 工作区缺 ${diskDoable.length} 条登记行(另有 ${diskMissing.length - diskDoable.length} 条已熔断不回捞)→ 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
     )
     for (const m of diskDoable) console.warn(`     · ${m.marker}(回捞自 ${src7(m)})`)
+    reportHealRefusals(
+      '工作区',
+      healed.refusedGroups,
+      'node scripts/check-plan-line-loss.mjs --heal',
+    )
     if (healed.out !== disk) writeFileSync(path.join(ROOT, PLAN), healed.out, 'utf8')
   }
   if (headDoable.length) {
@@ -4037,6 +4204,13 @@ function heal(commit) {
   }
   if (!commit) {
     console.log('   (未加 --commit:只写工作区,不建提交)')
+    if (refusedRows > 0) {
+      console.error(
+        `❌ [plan-line-loss] 本次有 ${refusedRows} 行因同号多候选被拒绝回捞(未给 --pick)⇒ 退出码 1:` +
+          '不静默跳过,也不把"少插几行"报成"回捞完成"。',
+      )
+      return 1
+    }
     return 0
   }
   if (headDoable.length === 0) {
@@ -4048,17 +4222,21 @@ function heal(commit) {
             ? `(但**索引档那 ${indexMissing.length} 行仍未收口** —— 本层不回写共享索引,处置见上面索引档)`
             : ''),
     )
-    return 0
+    return refusedRows > 0 ? 1 : 0
   }
   const msgFile = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.msg`)
   // post-commit 里这条链是 `... || true`,目录不存在会让恢复提交**静默失败** → 先确保目录在
   mkdirSync(path.dirname(msgFile), { recursive: true })
   // 提交用的基线**必须是 HEAD**,不能用刚写盘的工作区内容 —— 工作区可能带着别人
   // 尚未提交的行,拿去建提交等于代收(§12 暂存区污染红线)。
-  const healedHead = healContent(head, headDoable, declaredRowSet()).out
+  const healedHeadRes = healContent(head, headDoable, declaredRowSet(), { pick: picks })
+  const healedHead = healedHeadRes.out
+  refusedRows += healedHeadRes.refusedRows
+  for (const p of healedHeadRes.picked) pickedNote.add(`${p.id}=#${p.index}`)
+  reportHealRefusals('HEAD', healedHeadRes.refusedGroups, 'node scripts/check-plan-line-loss.mjs --heal --commit')
   if (healedHead === head) {
     console.log('   回捞后 HEAD 内容与当前一致,不建空提交')
-    return 0
+    return refusedRows > 0 ? 1 : 0
   }
   writeFileSync(
     msgFile,
@@ -4071,7 +4249,13 @@ function heal(commit) {
       (headMissing.length - headDoable.length
         ? `(另有 ${headMissing.length - headDoable.length} 条因循环熔断本轮**未回捞**,清单见提交时的 🛑 输出。)\n`
         : '') +
-      (diskDoable.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : ''),
+      (diskDoable.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : '') +
+      (refusedRows > 0
+        ? `(同号多候选拒绝回捞 ${refusedRows} 行:未给 --pick 的组一行都不插,清单见 🛑 输出。)\n`
+        : '') +
+      (pickedNote.size
+        ? `(本轮显式 --pick 选定的变体:${[...pickedNote].join(', ')} —— 同号只回插这一枚。)\n`
+        : ''),
     'utf8',
   )
   const tmp = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.md`)
@@ -4146,7 +4330,7 @@ function heal(commit) {
     rmSync(tmp, { force: true })
     rmSync(msgFile, { force: true })
   }
-  return 0
+  return refusedRows > 0 ? 1 : 0
 }
 
 const isDirectRun =
@@ -4159,7 +4343,13 @@ if (isDirectRun) {
     // 从最近历史回捞被"旧基线整文件提交 / 索引层合并"抹掉的登记行,写回工作区文件。
     // 默认只改工作区(由调用方决定何时提交);--commit 额外走一次"临时 index + commit-tree"
     // 的前向恢复提交,并交给 git-push-guard 推送(绕过钩子的并发提交模式,与 AGENTS §12 一致)。
-    process.exit(heal(args.includes('--commit')))
+    // --pick <id>=<variantIndex>:同号多候选组必须显式指定插哪一枚,不给就拒绝该组并非零退出。
+    const { picks, errors } = parseHealPicks(args)
+    if (errors.length) {
+      for (const e of errors) console.error(`❌ [plan-line-loss] ${e}`)
+      process.exit(2)
+    }
+    process.exit(heal(args.includes('--commit'), picks))
   }
   if (process.env.HUSKY_SKIP_PLAN_LINE_LOSS === '1') {
     console.warn('⚠️  HUSKY_SKIP_PLAN_LINE_LOSS=1,已跳过计划登记行防丢守门')
@@ -4446,6 +4636,9 @@ export const __test__ = {
   healLegs,
   healLegRoster,
   healContent,
+  // 同号多候选刹车(2026-11-03 立):变体差异摘要与 --pick 解析,镜像测试直接用生产实现
+  variantDiffSummary,
+  parseHealPicks,
   // 摘除台账闸门(2026-10-27 立):三态读取 + 回捞决议,镜像测试直接喂夹具,不得在测试里抄第二份(§22c)
   declaredLedgerGate,
   rescueDecisionFromGate,
