@@ -189,7 +189,7 @@ export default function AdminTopupConfigPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-heading font-semibold">充值阶梯折扣配置</h1>
-            <p className="text-sm text-muted-foreground">管理阶梯折扣规则与自定义充值选项</p>
+            <p className="text-body text-muted-foreground">管理阶梯折扣规则与自定义充值选项</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-3 w-3" /> 重试
@@ -198,7 +198,7 @@ export default function AdminTopupConfigPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
             <AlertCircle className="h-8 w-8 text-destructive" />
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {(error as Error).message || '加载充值配置失败'}
             </div>
           </CardContent>
@@ -213,7 +213,7 @@ export default function AdminTopupConfigPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">充值阶梯折扣配置</h1>
-          <p className="text-sm text-muted-foreground">管理阶梯折扣规则与自定义充值选项</p>
+          <p className="text-body text-muted-foreground">管理阶梯折扣规则与自定义充值选项</p>
         </div>
         <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
           {saveMut.isPending ? (
@@ -332,7 +332,7 @@ export default function AdminTopupConfigPage() {
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-2">
             {options.length === 0 ? (
-              <span className="text-sm text-muted-foreground">暂无选项</span>
+              <span className="text-body text-muted-foreground">暂无选项</span>
             ) : (
               options.map((n) => (
                 <Badge key={n} variant="secondary" className="gap-1">
@@ -375,7 +375,7 @@ export default function AdminTopupConfigPage() {
         <CardContent className="space-y-3">
           <div className="space-y-2">
             {Object.keys(minTopupByMethod).length === 0 ? (
-              <span className="text-sm text-muted-foreground">暂无支付方式配置</span>
+              <span className="text-body text-muted-foreground">暂无支付方式配置</span>
             ) : (
               Object.entries(minTopupByMethod).map(([key, val]) => (
                 <div key={key} className="flex items-center gap-2">
@@ -389,7 +389,7 @@ export default function AdminTopupConfigPage() {
                     onChange={(e) => updateMethodValue(key, e.target.value)}
                     className="h-8 w-32"
                   />
-                  <span className="text-xs text-muted-foreground">元</span>
+                  <span className="text-label text-muted-foreground">元</span>
                   <Button
                     variant="ghost"
                     size="icon-xs"
@@ -448,7 +448,7 @@ export default function AdminTopupConfigPage() {
             <select
               value={previewMethod}
               onChange={(e) => setPreviewMethod(e.target.value)}
-              className="h-8 rounded-sm border border-border bg-background px-2 text-sm"
+              className="h-8 rounded-sm border border-border bg-background px-2 text-body"
             >
               {Object.keys(minTopupByMethod).length === 0 ? (
                 <option value="alipay">alipay</option>
@@ -472,19 +472,19 @@ export default function AdminTopupConfigPage() {
           {previewResult && (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <div className="text-xs text-muted-foreground">命中倍率</div>
+                <div className="text-label text-muted-foreground">命中倍率</div>
                 <div className="text-lg font-semibold tabular-nums">
                   ×{previewResult.multiplier}
                 </div>
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3">
-                <div className="text-xs text-muted-foreground">额外赠送</div>
+                <div className="text-label text-muted-foreground">额外赠送</div>
                 <div className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                   +{previewResult.bonus}
                 </div>
               </div>
               <div className="rounded-md border border-border bg-primary/5 p-3">
-                <div className="text-xs text-muted-foreground">实际到账</div>
+                <div className="text-label text-muted-foreground">实际到账</div>
                 <div className="text-lg font-semibold tabular-nums text-primary">
                   {previewResult.actualCredit}
                 </div>

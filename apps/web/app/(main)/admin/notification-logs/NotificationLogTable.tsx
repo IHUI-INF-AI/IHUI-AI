@@ -43,8 +43,8 @@ export function NotificationLogTable({ list, isLoading, onDetail }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('colId')}</th>
             <th className={th}>{t('userId')}</th>
@@ -76,20 +76,20 @@ export function NotificationLogTable({ list, isLoading, onDetail }: Props) {
               const s = item.status ?? ''
               return (
                 <tr key={item.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{item.id}</td>
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">{item.id}</td>
                   <td className="px-4 py-2.5 font-medium">{maskUserId(item.user_id)}</td>
                   <td className="px-4 py-2.5">{item.channel ?? '-'}</td>
                   <td className="px-4 py-2.5">{item.type ?? '-'}</td>
                   <td className="px-4 py-2.5">
                     <span
-                      className={`inline-flex rounded-md px-2 py-0.5 text-xs ${
+                      className={`inline-flex rounded-md px-2 py-0.5 text-label ${
                         STATUS_BADGE[s] ?? 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {statusLabel(item.status)}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">
                     <TruncatedText value={item.content ?? '-'} className="max-w-48" />
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{fmt(item.created_at)}</td>

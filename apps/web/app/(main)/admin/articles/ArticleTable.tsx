@@ -175,7 +175,7 @@ export function ArticleTable(props: ArticleTableProps) {
                         {published ? '已发布' : '草稿'}
                       </button>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                       {dateFmt.format(new Date(a.createdAt))}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
@@ -214,7 +214,7 @@ export function ArticleTable(props: ArticleTableProps) {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -224,7 +224,7 @@ export function ArticleTable(props: ArticleTableProps) {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

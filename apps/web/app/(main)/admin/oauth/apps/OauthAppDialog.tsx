@@ -52,7 +52,7 @@ export function OauthAppCreateDialog({
             <DialogDescription>创建开放平台 OAuth 应用</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -133,11 +133,11 @@ export function OauthAppDeleteDialog({
           <DialogDescription>该操作不可恢复</DialogDescription>
         </DialogHeader>
         {err && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
             {err}
           </div>
         )}
-        <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+        <div className="rounded-md bg-muted/50 px-3 py-2 text-body">
           <span className="font-medium">{target?.name}</span>
         </div>
         <DialogFooter>

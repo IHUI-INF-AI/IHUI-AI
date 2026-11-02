@@ -41,7 +41,7 @@ export default function AdminShopWithdrawalsPage() {
           <Wallet className="h-6 w-6 text-primary" />
           {t('withdrawals.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('withdrawals.subtitle')}</p>
       </div>
 
       <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1">

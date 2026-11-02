@@ -207,21 +207,21 @@ export default function VisitTrackingPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">访问追踪统计</h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           日期范围筛选 · 前台/后台/登录页口径切换 · 排行可按端(网站/移动端/小程序)筛选 · PV/UV 趋势
           · 页面使用排行 · 访问明细
         </p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted-foreground">日期范围：</span>
+        <span className="text-body text-muted-foreground">日期范围：</span>
         <Input
           type="date"
           value={start}
           onChange={(e) => setStart(e.target.value)}
           className={`${inputCls} w-40`}
         />
-        <span className="text-sm text-muted-foreground">至</span>
+        <span className="text-body text-muted-foreground">至</span>
         <Input
           type="date"
           value={end}
@@ -237,7 +237,7 @@ export default function VisitTrackingPage() {
         <Button variant="outline" size="sm" onClick={() => setRecent(30)}>
           近 30 天
         </Button>
-        <span className="ml-2 text-sm text-muted-foreground">访问面：</span>
+        <span className="ml-2 text-body text-muted-foreground">访问面：</span>
         {SCOPE_OPTIONS.map((o) => (
           <Button
             key={o.value}
@@ -285,7 +285,7 @@ export default function VisitTrackingPage() {
               ) : c.series.length ? (
                 <BarChart data={c.series} xAxis={trendLabels} height={240} color={c.color} />
               ) : (
-                <p className="py-10 text-center text-sm text-muted-foreground">暂无数据</p>
+                <p className="py-10 text-center text-body text-muted-foreground">暂无数据</p>
               )}
             </CardContent>
           </Card>
@@ -307,7 +307,7 @@ export default function VisitTrackingPage() {
                   {o.label}
                 </Button>
               ))}
-              <span className="mx-1 text-xs text-muted-foreground">排序</span>
+              <span className="mx-1 text-label text-muted-foreground">排序</span>
               {(
                 [
                   { value: 'pv' as const, label: '按次数' },
@@ -325,7 +325,7 @@ export default function VisitTrackingPage() {
               ))}
             </div>
             {pageUsage && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 共 {pageUsage.total} 个页面 · 区间总 PV {pageUsage.totalPv}
               </span>
             )}
@@ -338,7 +338,7 @@ export default function VisitTrackingPage() {
               加载中...
             </div>
           ) : (pageUsage?.list.length ?? 0) === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">暂无数据</p>
+            <p className="py-10 text-center text-body text-muted-foreground">暂无数据</p>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
@@ -389,7 +389,7 @@ export default function VisitTrackingPage() {
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+                            <span className="w-12 text-right text-label tabular-nums text-muted-foreground">
                               {pct.toFixed(1)}%
                             </span>
                           </div>
@@ -452,7 +452,9 @@ export default function VisitTrackingPage() {
                 ) : (
                   list.map((row, i) => (
                     <TableRow key={row.id ?? i} className="hover:bg-muted/30">
-                      <TableCell className="px-3 py-2 font-mono text-xs">{row.ip ?? '-'}</TableCell>
+                      <TableCell className="px-3 py-2 font-mono text-label">
+                        {row.ip ?? '-'}
+                      </TableCell>
                       <TableCell className="px-3 py-2">
                         {row.ipCityName ?? row.city ?? '-'}
                       </TableCell>
@@ -462,7 +464,7 @@ export default function VisitTrackingPage() {
                       <TableCell className="px-3 py-2 text-muted-foreground">
                         {row.referer ?? '-'}
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-xs text-muted-foreground">
+                      <TableCell className="px-3 py-2 text-label text-muted-foreground">
                         {row.visitDate ?? row.createTime ?? '-'}
                       </TableCell>
                     </TableRow>
@@ -481,7 +483,7 @@ export default function VisitTrackingPage() {
               >
                 上一页
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {page} / {totalPages}
               </span>
               <Button

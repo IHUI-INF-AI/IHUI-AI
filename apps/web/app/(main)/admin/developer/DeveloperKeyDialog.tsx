@@ -159,10 +159,10 @@ export function DeveloperKeyDialog({
           </div>
           <div className="space-y-2">
             <Label>{t('developer.permissionLabel')}</Label>
-            <p className="text-xs text-muted-foreground">{t('developer.permissionHint')}</p>
+            <p className="text-label text-muted-foreground">{t('developer.permissionHint')}</p>
             <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
               {API_KEY_PERMISSIONS.map((perm) => (
-                <label key={perm} className="flex cursor-pointer items-center gap-2 text-sm">
+                <label key={perm} className="flex cursor-pointer items-center gap-2 text-body">
                   <Checkbox
                     checked={currentPermissions.includes(perm)}
                     onCheckedChange={(checked) => {
@@ -174,7 +174,7 @@ export function DeveloperKeyDialog({
                     }}
                   />
                   <span>{tPerms(PERMISSION_LABELS[perm])}</span>
-                  <code className="ml-auto font-mono text-xs text-muted-foreground">{perm}</code>
+                  <code className="ml-auto font-mono text-label text-muted-foreground">{perm}</code>
                 </label>
               ))}
             </div>
@@ -254,7 +254,7 @@ export function DeveloperWebhookDialog({
               className={textareaClass}
               placeholder="order.created,order.paid"
             />
-            <p className="text-xs text-muted-foreground">{t('developer.eventsHint')}</p>
+            <p className="text-label text-muted-foreground">{t('developer.eventsHint')}</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
