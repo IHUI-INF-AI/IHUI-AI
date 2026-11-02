@@ -710,9 +710,10 @@ def get_session_extra_roots(
     deny-by-default:主体没给或与登记时的主体不一致,一律读不到 —— 扩权不跨用户、
     不跨会话、不永生。
     """
-    if not (session_id or "").strip():
+    sid = session_id or ''
+    if not sid.strip():
         return ()
-    return _SESSION_EXTRA_ROOTS.get(_session_extra_root_key(user_id, session_id), ()) or ()
+    return _SESSION_EXTRA_ROOTS.get(_session_extra_root_key(user_id, sid), ()) or ()
 
 
 def _active_extra_roots() -> tuple[str, ...]:
