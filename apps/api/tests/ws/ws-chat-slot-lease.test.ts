@@ -267,7 +267,7 @@ describe('ws-chat 槽位租约:acquire 之后的每条退出路径恰好 release
     await waitForZero(() => h.total() === 0)
     h.redisBehavior.gate = null
     const s = h.snapshot()
-    expect(s.acquires).toBe(s.releases, '取得与归还得逐笔配平')
+    expect(s.acquires, '取得与归还得逐笔配平').toBe(s.releases)
     expect(s.minBalance).toBe(0)
   })
 })
