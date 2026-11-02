@@ -5567,6 +5567,15 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dd0248cbd2)
+- 🔧 工程/其他:清算主工作树滞后副本并补齐派生产物 (04d0c2c7cb)
+- 📚 文档:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (05e0909aff)
+- 🔧 工程/其他:重封 AGENTS.md 铁律段哈希，消除合流后 advisory 告警 (86bde84fa7)
+- 🔧 工程/其他:补 .gitignore 兜住本地优选 IP 凭据，避免令牌误入库 (213b7c038c)
+- 🔧 工程/其他:重生成 ui-routes 生成物（911 条），对齐设置页新卡片 (d388266f28)
+- 🔧 工程/其他:按新 HEAD 源重生成离线语言包（键 544→592，钉 2fb7af837e） (2f98eb1e6b)
+
+**2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c5a90766cf)
 **2026-11-01**
 - 🐞 修复:probe 改派 headless 可执行的只读自检,解危险拒签死循环 (1e42fc5e81)
