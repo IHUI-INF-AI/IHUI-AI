@@ -136,7 +136,7 @@ export function ModelDetailDialog({
                   </span>
                 )}
               </DialogTitle>
-              <DialogDescription className="flex items-center gap-1 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
+              <DialogDescription className="flex items-center gap-1 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <Building2 className="h-3 w-3" />
                 <span>{vendorLabel}</span>
                 <span className="text-muted-foreground/60">·</span>
@@ -179,7 +179,7 @@ export function ModelDetailDialog({
             </div>
           )}
 
-          <p className="text-sm leading-relaxed text-foreground/90">{description}</p>
+          <p className="text-body leading-relaxed text-foreground/90">{description}</p>
 
           <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
             <DetailStat

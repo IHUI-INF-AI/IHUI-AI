@@ -80,12 +80,12 @@ export function PatrolRunsDialog({ open, onOpenChange, task }: Props) {
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('runs.loading')}
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-md bg-muted/40 px-4 py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-md bg-muted/40 px-4 py-10 text-center text-body text-muted-foreground">
             {t('runs.empty')}
           </div>
         ) : (
@@ -96,7 +96,7 @@ export function PatrolRunsDialog({ open, onOpenChange, task }: Props) {
                   <Badge className={RUN_STATUS_BADGE_CLASS[run.status]}>
                     {t(RUN_STATUS_KEYS[run.status])}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {new Date(run.createdAt).toLocaleString()}
                   </span>
                   {run.status === 'issue' && run.conversationId && (
@@ -107,7 +107,9 @@ export function PatrolRunsDialog({ open, onOpenChange, task }: Props) {
                     </Button>
                   )}
                 </div>
-                <p className="mt-1.5 line-clamp-3 text-xs text-muted-foreground">{run.summary}</p>
+                <p className="mt-1.5 line-clamp-3 text-label text-muted-foreground">
+                  {run.summary}
+                </p>
               </div>
             ))}
           </div>

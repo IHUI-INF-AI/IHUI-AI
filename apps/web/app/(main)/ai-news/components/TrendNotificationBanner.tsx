@@ -153,7 +153,7 @@ export function TrendNotificationBanner() {
         <span className="shrink-0 text-label font-semibold text-orange-700 dark:text-orange-300">
           {t('feed.trendNotifyTitle', { count: visibleNotifications.length })}
         </span>
-        <span className="min-w-0 flex-1 truncate text-xs text-orange-600 dark:text-orange-400">
+        <span className="min-w-0 flex-1 truncate text-label text-orange-600 dark:text-orange-400">
           {latest.title}
         </span>
         <span className="shrink-0 text-[10px] tabular-nums text-orange-500/70 dark:text-orange-400/70">
@@ -189,7 +189,7 @@ export function TrendNotificationBanner() {
                 : null
             const inner = (
               <>
-                <span className="min-w-0 flex-1 truncate text-xs text-orange-700 dark:text-orange-300">
+                <span className="min-w-0 flex-1 truncate text-label text-orange-700 dark:text-orange-300">
                   {n.title}
                 </span>
                 <span className="shrink-0 text-[10px] tabular-nums text-orange-500/60 dark:text-orange-400/60">

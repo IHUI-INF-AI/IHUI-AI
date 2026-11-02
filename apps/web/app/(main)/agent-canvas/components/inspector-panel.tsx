@@ -41,7 +41,7 @@ function LogList({ logs, dropped }: { logs: CanvasLogEntry[]; dropped: number })
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto rounded-md border bg-background p-2">
       {logs.length === 0 ? (
-        <p className="py-6 text-center text-xs text-muted-foreground">{t('noLogs')}</p>
+        <p className="py-6 text-center text-label text-muted-foreground">{t('noLogs')}</p>
       ) : (
         <ul className="space-y-1 font-mono text-[11px] leading-relaxed">
           {dropped > 0 ? (
@@ -75,7 +75,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
         <div className="bg-muted/40 px-3 py-2.5 text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('inspectorTitle')}
         </div>
-        <div className="flex flex-1 items-center justify-center p-3 text-center text-xs text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center p-3 text-center text-label text-muted-foreground">
           {t('inspectorEmpty')}
         </div>
       </div>
@@ -122,7 +122,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
                 value={params.input ?? ''}
                 placeholder="传给该 Agent 的文本输入"
                 onChange={(e) => onUpdateParams(nodeId, { input: e.target.value })}
-                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </>
@@ -146,7 +146,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
                 value={params.input ?? ''}
                 placeholder={t('toolInputPlaceholder')}
                 onChange={(e) => onUpdateParams(nodeId, { input: e.target.value })}
-                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </>
@@ -160,7 +160,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
               value={params.prompt ?? ''}
               placeholder={t('promptPlaceholder')}
               onChange={(e) => onUpdateParams(nodeId, { prompt: e.target.value })}
-              className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-20 w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
         )}

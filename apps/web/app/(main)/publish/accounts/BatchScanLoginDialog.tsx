@@ -679,7 +679,7 @@ export function BatchScanLoginDialog({
 
         <div className="space-y-3">
           {popupBlocked && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-label text-destructive">
               {t('accounts.batchScanPopupBlocked')}
             </div>
           )}
@@ -699,7 +699,7 @@ export function BatchScanLoginDialog({
                   }}
                 >
                   <Monitor className="h-4 w-4" />
-                  <span className="text-xs">{t('accounts.batchScanModeInternal')}</span>
+                  <span className="text-label">{t('accounts.batchScanModeInternal')}</span>
                 </Button>
                 <Button
                   type="button"
@@ -711,7 +711,7 @@ export function BatchScanLoginDialog({
                   }}
                 >
                   <ExternalLink className="h-4 w-4" />
-                  <span className="text-xs">{t('accounts.batchScanModeExternal')}</span>
+                  <span className="text-label">{t('accounts.batchScanModeExternal')}</span>
                 </Button>
               </div>
               {/* 2026-09-30 会话复用开关:仅内置档消费(外部档走用户真实浏览器,无此概念) */}
@@ -719,7 +719,7 @@ export function BatchScanLoginDialog({
                 <button
                   type="button"
                   onClick={toggleReuseSession}
-                  className="flex w-full items-center justify-between rounded-sm border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+                  className="flex w-full items-center justify-between rounded-sm border px-3 py-2 text-label text-muted-foreground transition-colors hover:bg-accent/40"
                 >
                   <span>{t('accounts.scanLoginReuseLabel')}</span>
                   <span className={reuseSession ? 'font-medium text-foreground' : ''}>
@@ -745,7 +745,7 @@ export function BatchScanLoginDialog({
                     className="h-60 w-60 bg-white object-contain"
                     data-testid="batch-qr-image"
                   />
-                  <p className="text-center text-xs text-muted-foreground">
+                  <p className="text-center text-label text-muted-foreground">
                     {t('accounts.scanWithPhoneHint')}
                   </p>
                 </>
@@ -761,7 +761,7 @@ export function BatchScanLoginDialog({
                       name: activeItem.name,
                     })}
               </p>
-              <p className="text-center text-xs text-muted-foreground">
+              <p className="text-center text-label text-muted-foreground">
                 {mode === 'external'
                   ? profileAvailable === false
                     ? t('accounts.batchScanWaitingHintExternal')
@@ -774,7 +774,7 @@ export function BatchScanLoginDialog({
           {done && (
             <div className="rounded-lg border bg-muted/30 p-3 text-center">
               <p className="text-body font-medium">{t('accounts.batchScanDone')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-label text-muted-foreground">
                 {t('accounts.batchScanSummary', {
                   success: successCount,
                   timeout: timeoutCount,
@@ -786,7 +786,7 @@ export function BatchScanLoginDialog({
           )}
 
           {!items.length && !platMapReady && (
-            <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-6 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('accounts.batchScanLoading')}
             </div>
@@ -798,7 +798,7 @@ export function BatchScanLoginDialog({
                 <div
                   key={it.platform}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-2 py-1 text-xs',
+                    'flex items-center gap-2 rounded-md px-2 py-1 text-label',
                     ITEM_STATUS_STYLE[it.status],
                     it.status === 'active' && 'ring-1 ring-primary/40',
                   )}

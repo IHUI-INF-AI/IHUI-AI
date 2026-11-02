@@ -283,7 +283,7 @@ export default function PlanDetailPage() {
               </option>
             ))}
           </select>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             创建于 {formatDate(plan.createdAt)} · 更新于 {formatDate(plan.updatedAt)}
           </span>
         </div>
@@ -298,7 +298,7 @@ export default function PlanDetailPage() {
               {plan.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                  className="rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                 >
                   {tag}
                 </span>
@@ -362,7 +362,7 @@ function Field({ label, content }: { label: string; content: string }) {
   return (
     <div className="space-y-1">
       <span className="text-label font-medium text-muted-foreground">{label}</span>
-      <p className="whitespace-pre-wrap text-sm">{content}</p>
+      <p className="whitespace-pre-wrap text-body">{content}</p>
     </div>
   )
 }

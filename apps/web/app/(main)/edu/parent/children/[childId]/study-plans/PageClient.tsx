@@ -76,7 +76,7 @@ export default function ChildStudyPlansPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('child.studyPlans')}</h1>
-        <p className="text-xs text-muted-foreground">{t('child.studyPlansHint')}</p>
+        <p className="text-label text-muted-foreground">{t('child.studyPlansHint')}</p>
       </header>
 
       {!allow ? (
@@ -91,7 +91,7 @@ export default function ChildStudyPlansPage() {
       ) : plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <ClipboardList className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('child.empty')}</p>
+          <p className="text-body text-muted-foreground">{t('child.empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -99,7 +99,7 @@ export default function ChildStudyPlansPage() {
             <Card key={p.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-sm">
+                  <CardTitle className="flex items-center gap-2 text-body">
                     {p.planType === 'monthly' ? (
                       <CalendarDays className="h-4 w-4 text-primary" />
                     ) : (
@@ -112,7 +112,7 @@ export default function ChildStudyPlansPage() {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+              <CardContent className="space-y-2 text-body">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5" />
                   <span>
@@ -122,7 +122,7 @@ export default function ChildStudyPlansPage() {
                 {p.description && (
                   <p className="line-clamp-2 text-muted-foreground">{p.description}</p>
                 )}
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1 text-label text-muted-foreground">
                   {p.planType === 'monthly' ? t('child.monthlyPlan') : t('child.weeklyPlan')}
                 </div>
               </CardContent>

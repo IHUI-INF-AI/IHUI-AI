@@ -117,7 +117,7 @@ export function ApiKeyListCard({
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <p className="text-sm text-destructive">
+            <p className="text-body text-destructive">
               {t('apiKeysPage.loadFailedDetail', { message: error.message })}
             </p>
             <Button size="sm" variant="outline" onClick={onRetry}>
@@ -130,7 +130,7 @@ export function ApiKeyListCard({
               <KeyRound className="h-6 w-6 text-muted-foreground" />
             </div>
             <p className="text-body font-medium">{t('apiKeysPage.emptyTitle')}</p>
-            <p className="text-xs text-muted-foreground">{t('apiKeysPage.emptyHint')}</p>
+            <p className="text-label text-muted-foreground">{t('apiKeysPage.emptyHint')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -154,7 +154,7 @@ export function ApiKeyListCard({
                           : t('apiKeysPage.statusRevoked')}
                       </Badge>
                     </div>
-                    <code className="block break-all rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                    <code className="block break-all rounded bg-muted/50 px-2 py-1 font-mono text-label text-muted-foreground">
                       {maskKey(k.key)}
                     </code>
                     <div className="flex flex-wrap gap-1">
@@ -167,7 +167,7 @@ export function ApiKeyListCard({
                         </span>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {k.lastUsedAt
                         ? t('apiKeysPage.lastUsedAt', {
                             time: dateFmt.format(new Date(k.lastUsedAt)),
@@ -235,7 +235,7 @@ export function ApiKeyListCard({
           <DialogHeader>
             <DialogTitle>{confirm.title}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{confirm.desc}</p>
+          <p className="text-body text-muted-foreground">{confirm.desc}</p>
           <DialogFooter>
             <Button
               type="button"

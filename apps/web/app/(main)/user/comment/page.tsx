@@ -79,7 +79,7 @@ export default function CommentPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <MessageSquare className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
+          <p className="text-body">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -89,8 +89,8 @@ export default function CommentPage() {
               className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
             >
               <div className="space-y-1.5">
-                <p className="break-words text-sm">{item.content}</p>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <p className="break-words text-body">{item.content}</p>
+                <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
                   {item.targetTitle ? (
                     <span className="truncate">on {item.targetTitle}</span>
                   ) : null}

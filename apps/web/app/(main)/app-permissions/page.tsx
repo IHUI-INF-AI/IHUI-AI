@@ -58,7 +58,7 @@ export default function AppPermissionPage() {
         <h1 className="text-lg font-medium">{t('title')}</h1>
         <div className="w-10" />
       </div>
-      <p className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
+      <p className="mb-4 flex items-center gap-1.5 text-body text-muted-foreground">
         <Lock className="h-4 w-4" />
         {t('subtitle')}
       </p>
@@ -72,7 +72,7 @@ export default function AppPermissionPage() {
               </div>
               <div className="min-w-0">
                 <h3 className="text-body font-medium">{p.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{p.desc}</p>
+                <p className="mt-1 text-body text-muted-foreground">{p.desc}</p>
               </div>
             </CardContent>
           </Card>

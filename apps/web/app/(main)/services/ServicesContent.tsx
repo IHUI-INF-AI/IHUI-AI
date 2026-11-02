@@ -45,7 +45,7 @@ export function ServicesContent(): React.JSX.Element {
         <h1 className="text-display min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
           {t('hero.title')}
         </h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
           {t('hero.subtitle')}
         </p>
         <div className="flex justify-center pt-2">
@@ -71,14 +71,14 @@ export function ServicesContent(): React.JSX.Element {
                 <h2 className="mt-3 text-lg font-semibold tracking-tight">
                   {t(`cards.${key}.title`)}
                 </h2>
-                <p className="mt-1 text-xs text-muted-foreground">{t(`cards.${key}.desc`)}</p>
+                <p className="mt-1 text-label text-muted-foreground">{t(`cards.${key}.desc`)}</p>
                 <div className="mt-3 flex items-baseline gap-1">
                   <span className="text-display font-bold tracking-tight text-primary">
                     {t(`cards.${key}.price`)}
                   </span>
-                  <span className="text-sm text-muted-foreground">{t(`cards.${key}.unit`)}</span>
+                  <span className="text-body text-muted-foreground">{t(`cards.${key}.unit`)}</span>
                 </div>
-                <ul className="mt-4 flex-1 min-w-0 space-y-2 text-sm">
+                <ul className="mt-4 flex-1 min-w-0 space-y-2 text-body">
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
@@ -107,7 +107,7 @@ export function ServicesContent(): React.JSX.Element {
               <div className="text-heading font-bold tracking-tight min-[768px]:text-display text-primary">
                 <AnimatedNumber value={value} suffix={suffix} duration={1500} />
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">{t(labelKey)}</div>
+              <div className="mt-1 text-body text-muted-foreground">{t(labelKey)}</div>
             </CardContent>
           </Card>
         ))}
@@ -128,7 +128,7 @@ export function ServicesContent(): React.JSX.Element {
                 <h3 className="text-body font-semibold min-[768px]:text-base">{item.q}</h3>
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
               </summary>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
+              <p className="mt-3 text-body leading-relaxed text-muted-foreground">{item.a}</p>
             </details>
           ))}
         </div>
@@ -140,7 +140,7 @@ export function ServicesContent(): React.JSX.Element {
           <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             {t('inquiry.title')}
           </h2>
-          <p className="text-sm text-muted-foreground">{t('inquiry.subtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('inquiry.subtitle')}</p>
         </div>
       </section>
     </main>

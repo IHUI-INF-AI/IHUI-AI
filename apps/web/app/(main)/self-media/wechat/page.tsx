@@ -240,7 +240,7 @@ export default function WechatPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-label"
                   >
                     <Upload className="h-3 w-3" />
                     上传 md
@@ -252,7 +252,7 @@ export default function WechatPage() {
                         variant="ghost"
                         size="sm"
                         onClick={copyMd}
-                        className="h-6 px-2 text-xs"
+                        className="h-6 px-2 text-label"
                       >
                         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                         {copied ? '已复制' : '复制'}
@@ -262,7 +262,7 @@ export default function WechatPage() {
                         variant="ghost"
                         size="sm"
                         onClick={downloadMd}
-                        className="h-6 px-2 text-xs"
+                        className="h-6 px-2 text-label"
                       >
                         <Download className="h-3 w-3" />
                         下载
@@ -272,7 +272,7 @@ export default function WechatPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setMdContent('')}
-                        className="h-6 px-2 text-xs"
+                        className="h-6 px-2 text-label"
                       >
                         清空
                       </Button>
@@ -287,10 +287,10 @@ export default function WechatPage() {
                 placeholder={
                   t('mdPathPlaceholder') + ' (可上传 md 或在线编辑;留空则用 LLM 自动生成)'
                 }
-                className="thin-scroll min-h-[180px] w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+                className="thin-scroll min-h-[180px] w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label leading-relaxed"
               />
               {mdPath && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   已用 md 路径: <code className="rounded bg-muted px-1">{mdPath}</code>
                 </p>
               )}
@@ -401,17 +401,17 @@ export default function WechatPage() {
                 {typeof result.returncode === 'number' && ` (rc=${result.returncode})`}
               </div>
               {result.error && (
-                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-rose-50 p-2 text-label text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
                   {result.error}
                 </pre>
               )}
               {result.stdout && (
-                <pre className="thin-scroll max-h-60 overflow-auto rounded-md bg-muted p-2 text-xs">
+                <pre className="thin-scroll max-h-60 overflow-auto rounded-md bg-muted p-2 text-label">
                   {result.stdout}
                 </pre>
               )}
               {result.stderr && (
-                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <pre className="thin-scroll max-h-40 overflow-auto rounded-md bg-amber-50 p-2 text-label text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                   {result.stderr}
                 </pre>
               )}
@@ -429,7 +429,7 @@ export default function WechatPage() {
         </CardHeader>
         <CardContent className="min-[640px]:p-2 p-2">
           {history.length === 0 ? (
-            <p className="px-2 py-4 text-xs text-muted-foreground">{t('historyEmpty')}</p>
+            <p className="px-2 py-4 text-label text-muted-foreground">{t('historyEmpty')}</p>
           ) : (
             <div role="list" className="space-y-1">
               {history.map((h) => (
@@ -437,7 +437,7 @@ export default function WechatPage() {
                   <button
                     type="button"
                     onClick={() => applyHistory(h)}
-                    className="block w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="block w-full cursor-pointer rounded-sm px-2 py-1.5 text-left text-label transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="truncate font-medium">{h.title}</div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">

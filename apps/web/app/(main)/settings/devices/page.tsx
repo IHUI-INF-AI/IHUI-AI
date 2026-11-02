@@ -289,7 +289,7 @@ export default function DevicesPage() {
     return (
       <div className="px-4 space-y-4 py-4">
         <BackButton />
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('devices.loading')}</p>
+        <p className="py-8 text-center text-body text-muted-foreground">{t('devices.loading')}</p>
       </div>
     )
   }
@@ -315,14 +315,16 @@ export default function DevicesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-xs text-muted-foreground">{t('devices.desc')}</p>
+          <p className="mb-3 text-label text-muted-foreground">{t('devices.desc')}</p>
           {devicesError && (
             <Alert variant="danger" title={devicesError} closable className="mb-3" />
           )}
           {devicesLoading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('devices.loading')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">
+              {t('devices.loading')}
+            </p>
           ) : devices.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('devices.empty')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('devices.empty')}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -349,8 +351,8 @@ export default function DevicesPage() {
                           )}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs">{device.os || '—'}</TableCell>
-                      <TableCell className="max-w-[200px] truncate text-xs">
+                      <TableCell className="text-label">{device.os || '—'}</TableCell>
+                      <TableCell className="max-w-[200px] truncate text-label">
                         {formatCapabilities(device.capabilities) || t('devices.capabilitiesEmpty')}
                       </TableCell>
                       <TableCell>
@@ -370,7 +372,7 @@ export default function DevicesPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-label text-muted-foreground">
                         {formatLastSeen(device.lastSeenAt, t)}
                       </TableCell>
                       <TableCell>
@@ -402,7 +404,7 @@ export default function DevicesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-xs text-muted-foreground">{t('devices.pairHint')}</p>
+          <p className="mb-3 text-label text-muted-foreground">{t('devices.pairHint')}</p>
           {pairError === 'rate' && (
             <Alert
               variant="warning"
@@ -429,7 +431,7 @@ export default function DevicesPage() {
                 <span
                   data-testid="pair-code-countdown"
                   className={cn(
-                    'text-xs',
+                    'text-label',
                     pairExpired ? 'text-destructive' : 'text-muted-foreground',
                   )}
                 >
@@ -471,7 +473,7 @@ export default function DevicesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">{t('devices.delegateHint')}</p>
+          <p className="text-label text-muted-foreground">{t('devices.delegateHint')}</p>
           {delegateResult && (
             <Alert
               variant={delegateResult.ok ? 'success' : 'danger'}
@@ -480,13 +482,13 @@ export default function DevicesPage() {
             />
           )}
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
-            <label className="block text-xs">
+            <label className="block text-label">
               <span className="mb-1 block text-muted-foreground">
                 {t('devices.delegateSessionLabel')}
               </span>
               <select
                 data-testid="delegate-session-select"
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
                 value={delegateSessionId}
                 onChange={(e) => setDelegateSessionId(e.target.value)}
               >
@@ -498,13 +500,13 @@ export default function DevicesPage() {
                 ))}
               </select>
             </label>
-            <label className="block text-xs">
+            <label className="block text-label">
               <span className="mb-1 block text-muted-foreground">
                 {t('devices.delegateDeviceLabel')}
               </span>
               <select
                 data-testid="delegate-device-select"
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
                 value={delegateDeviceId}
                 onChange={(e) => setDelegateDeviceId(e.target.value)}
               >
@@ -540,13 +542,13 @@ export default function DevicesPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-end gap-2">
-            <label className="block flex-1 text-xs">
+            <label className="block flex-1 text-label">
               <span className="mb-1 block text-muted-foreground">
                 {t('devices.delegateDeviceLabel')}
               </span>
               <select
                 data-testid="tasks-device-select"
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
                 value={tasksDeviceId}
                 onChange={(e) => {
                   setTasksDeviceId(e.target.value)
@@ -574,9 +576,11 @@ export default function DevicesPage() {
           </div>
           {tasksError && <Alert variant="danger" title={tasksError} closable />}
           {tasksLoading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t('devices.loading')}</p>
+            <p className="py-6 text-center text-body text-muted-foreground">
+              {t('devices.loading')}
+            </p>
           ) : tasksDeviceId && tasks.length === 0 && !tasksError ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-body text-muted-foreground">
               {t('devices.tasksEmpty')}
             </p>
           ) : tasks.length > 0 ? (
@@ -594,7 +598,7 @@ export default function DevicesPage() {
                 <TableBody>
                   {tasks.map((task) => (
                     <TableRow key={task.id} data-testid={`task-row-${task.id}`}>
-                      <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}</TableCell>
+                      <TableCell className="font-mono text-label">{task.id.slice(0, 8)}</TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
@@ -603,13 +607,13 @@ export default function DevicesPage() {
                           {t(`devices.taskStatus_${task.status}`)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-label text-muted-foreground">
                         {formatLastSeen(task.createdAt, t)}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-label text-muted-foreground">
                         {task.finishedAt ? formatLastSeen(task.finishedAt, t) : '—'}
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate text-xs text-destructive">
+                      <TableCell className="max-w-[200px] truncate text-label text-destructive">
                         {task.error || '—'}
                       </TableCell>
                     </TableRow>

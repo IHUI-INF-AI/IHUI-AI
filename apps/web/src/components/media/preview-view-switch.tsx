@@ -281,7 +281,7 @@ export function PreviewSourceText({
       <p
         data-testid={testId}
         data-source-state="extracting"
-        className="p-3 text-xs text-muted-foreground"
+        className="p-3 text-label text-muted-foreground"
       >
         {copy('previewSourceExtracting')}
       </p>
@@ -293,7 +293,7 @@ export function PreviewSourceText({
         data-testid={testId}
         data-source-state="failed"
         role="status"
-        className="p-3 text-xs text-muted-foreground"
+        className="p-3 text-label text-muted-foreground"
       >
         {copy('previewSourceExtractFailed')}
       </p>
@@ -309,7 +309,7 @@ export function PreviewSourceText({
       )}
       <pre
         className={cn(
-          'max-h-[420px] overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs',
+          'max-h-[420px] overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-label',
           className,
         )}
       >

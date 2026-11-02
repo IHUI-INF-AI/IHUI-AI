@@ -347,7 +347,7 @@ export default function AutomationPage() {
             <Sparkles className="h-4 w-4" />
             {t('examplesTitle')}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">{t('examplesDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('examplesDesc')}</p>
         </CardHeader>
         <CardContent className="min-[640px]:p-3 p-3">
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -364,7 +364,7 @@ export default function AutomationPage() {
                     </div>
                     <h4 className="text-body font-semibold leading-tight">{t(ex.nameKey)}</h4>
                   </div>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{t(ex.descKey)}</p>
+                  <p className="line-clamp-2 text-label text-muted-foreground">{t(ex.descKey)}</p>
                   <div className="space-y-1 text-[11px] text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3 w-3 shrink-0" />
@@ -380,7 +380,7 @@ export default function AutomationPage() {
                     variant="outline"
                     size="xs"
                     onClick={() => handleUseExample(ex)}
-                    className="mt-auto text-xs"
+                    className="mt-auto text-label"
                   >
                     {t('useRefTemplate')}
                   </Button>
@@ -429,7 +429,7 @@ export default function AutomationPage() {
               <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                 {/* 当前配置展示 */}
                 {!isEditing && (
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-2 text-label">
                     <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
                       <span className="text-muted-foreground">{t('executionTime')}</span>
                       <code className="font-mono">
@@ -493,7 +493,7 @@ export default function AutomationPage() {
                   <div className="space-y-2.5 rounded-md border border-border p-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <Label htmlFor={`hour-${task.id}`} className="text-xs">
+                        <Label htmlFor={`hour-${task.id}`} className="text-label">
                           {t('hourLabel')}
                         </Label>
                         <Input
@@ -503,11 +503,11 @@ export default function AutomationPage() {
                           max={23}
                           value={editHour}
                           onChange={(e) => setEditHour(Number(e.target.value))}
-                          className="h-8 text-xs"
+                          className="h-8 text-label"
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`minute-${task.id}`} className="text-xs">
+                        <Label htmlFor={`minute-${task.id}`} className="text-label">
                           {t('minuteLabel')}
                         </Label>
                         <Input
@@ -517,12 +517,12 @@ export default function AutomationPage() {
                           max={59}
                           value={editMinute}
                           onChange={(e) => setEditMinute(Number(e.target.value))}
-                          className="h-8 text-xs"
+                          className="h-8 text-label"
                         />
                       </div>
                     </div>
                     <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
-                      <Label htmlFor={`dryrun-${task.id}`} className="text-xs">
+                      <Label htmlFor={`dryrun-${task.id}`} className="text-label">
                         {t('dryRunLabel')}
                       </Label>
                       <Switch
@@ -533,7 +533,7 @@ export default function AutomationPage() {
                     </div>
                     {task.id === 'wechat_daily' && (
                       <div className="space-y-1">
-                        <Label htmlFor={`title-${task.id}`} className="text-xs">
+                        <Label htmlFor={`title-${task.id}`} className="text-label">
                           {t('titleTemplateLabel')}
                         </Label>
                         <Input
@@ -541,7 +541,7 @@ export default function AutomationPage() {
                           value={editTitleTpl}
                           onChange={(e) => setEditTitleTpl(e.target.value)}
                           placeholder={t('titleTemplatePlaceholder')}
-                          className="text-xs"
+                          className="text-label"
                         />
                       </div>
                     )}
@@ -552,7 +552,7 @@ export default function AutomationPage() {
                         size="xs"
                         onClick={cancelEdit}
                         disabled={saving !== null}
-                        className="text-xs"
+                        className="text-label"
                       >
                         {t('cancel')}
                       </Button>
@@ -561,7 +561,7 @@ export default function AutomationPage() {
                         size="xs"
                         onClick={() => saveEdit(task)}
                         disabled={saving !== null}
-                        className="text-xs"
+                        className="text-label"
                       >
                         {saving === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                         {t('save')}
@@ -578,7 +578,7 @@ export default function AutomationPage() {
                       size="xs"
                       onClick={() => handleTrigger(task)}
                       disabled={task.running || isTriggering}
-                      className="text-xs"
+                      className="text-label"
                     >
                       {isTriggering ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -591,7 +591,7 @@ export default function AutomationPage() {
                       variant="ghost"
                       size="xs"
                       onClick={() => startEdit(task)}
-                      className="text-xs"
+                      className="text-label"
                     >
                       <Settings2 className="h-3 w-3" />
                       {t('configure')}
@@ -601,7 +601,7 @@ export default function AutomationPage() {
                       size="xs"
                       onClick={() => handleToggle(task)}
                       disabled={isToggling}
-                      className="text-xs"
+                      className="text-label"
                     >
                       <Power className="h-3 w-3" />
                       {task.config.enabled ? t('disable') : t('enable')}
@@ -617,11 +617,11 @@ export default function AutomationPage() {
       {/* 全局开关说明 */}
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
-          <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-label text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             <Clock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-semibold">{t('schedulerNoteTitle')}</p>
-              <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs">
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-label">
                 <li>{t('note1')}</li>
                 <li>{t('note2')}</li>
                 <li>{t('note3')}</li>
@@ -647,7 +647,7 @@ export default function AutomationPage() {
         </CardHeader>
         <CardContent className="min-[640px]:p-2 p-2">
           {history.length === 0 ? (
-            <p className="px-2 py-4 text-xs text-muted-foreground">{t('historyEmpty')}</p>
+            <p className="px-2 py-4 text-label text-muted-foreground">{t('historyEmpty')}</p>
           ) : (
             <div role="list" className="space-y-1">
               {history.map((h, idx) => {
@@ -656,7 +656,7 @@ export default function AutomationPage() {
                   <div
                     key={`${h.task_id}-${idx}-${h.triggered_at}`}
                     role="listitem"
-                    className="rounded-md px-2.5 py-2 text-xs transition-colors hover:bg-accent"
+                    className="rounded-md px-2.5 py-2 text-label transition-colors hover:bg-accent"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 truncate">

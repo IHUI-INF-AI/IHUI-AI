@@ -111,11 +111,11 @@ export default function CertificateDetailClient() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : !data ? (
-        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
           <Award className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
           {t('notFound')}
         </div>
@@ -132,7 +132,7 @@ export default function CertificateDetailClient() {
             awardConditions={t('defaultConditions')}
             validityPolicy={t('defaultValidity')}
           />
-          <div className="grid grid-cols-1 gap-3 text-sm text-muted-foreground min-[640px]:grid-cols-2 print:hidden">
+          <div className="grid grid-cols-1 gap-3 text-body text-muted-foreground min-[640px]:grid-cols-2 print:hidden">
             <MetaRow label={t('certNo')} value={data.certificateNo} />
             <MetaRow
               label={t('issueDate')}
@@ -154,7 +154,7 @@ export default function CertificateDetailClient() {
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-label text-muted-foreground">{label}</span>
       <span className="font-medium text-foreground">{value}</span>
     </div>
   )

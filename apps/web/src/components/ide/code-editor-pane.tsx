@@ -269,7 +269,7 @@ export function CodeEditorPane() {
       {activeTab ? (
         <>
           {/* 面包屑 + 语言指示器 */}
-          <div className="flex h-7 shrink-0 items-center gap-1 px-3 text-xs text-muted-foreground">
+          <div className="flex h-7 shrink-0 items-center gap-1 px-3 text-label text-muted-foreground">
             <div className="flex min-w-0 flex-1 items-center gap-1">
               {activeTab.path
                 .split('/')
@@ -295,7 +295,7 @@ export function CodeEditorPane() {
           {/* 编辑器主体:Monaco + InlineEditDialog 浮层 + 字号控制 */}
           <div className="relative flex flex-1 overflow-hidden">
             {isLoadingContent ? (
-              <div className="flex h-full flex-1 items-center justify-center text-xs text-muted-foreground">
+              <div className="flex h-full flex-1 items-center justify-center text-label text-muted-foreground">
                 ...
               </div>
             ) : (
@@ -328,7 +328,7 @@ export function CodeEditorPane() {
                 >
                   <Minus className="h-3 w-3" />
                 </button>
-                <span className="min-w-[2ch] text-center text-xs tabular-nums text-muted-foreground">
+                <span className="min-w-[2ch] text-center text-label tabular-nums text-muted-foreground">
                   {fontSize}
                 </span>
                 <button

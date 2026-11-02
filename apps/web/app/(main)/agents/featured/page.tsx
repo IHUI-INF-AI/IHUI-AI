@@ -41,8 +41,7 @@ export default function FeaturedAgentsPage() {
     // page/pageSize/status/categoryId/userId/keyword)⇒ 它一直是空转,页面实际展示的是运营排序
     // (asc(sort), desc(updatedAt))的前 20 条、124 枚里静默丢掉 104 枚。目录一次取全(服务端
     // limit(pageSize) 无上限钳制),排序语义不变 —— 不在这里发明"精选"的数据口径。
-    queryFn: () =>
-      apiOrThrow<AgentsData>('/api/agents/list?status=published&page=1&pageSize=200'),
+    queryFn: () => apiOrThrow<AgentsData>('/api/agents/list?status=published&page=1&pageSize=200'),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -61,7 +60,7 @@ export default function FeaturedAgentsPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/agents"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回
@@ -72,7 +71,7 @@ export default function FeaturedAgentsPage() {
           <Star className="h-6 w-6 text-primary" />
           精选智能体
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">编辑推荐的优质智能体</p>
+        <p className="mt-1 text-body text-muted-foreground">编辑推荐的优质智能体</p>
       </div>
 
       {isLoading ? (
@@ -81,13 +80,13 @@ export default function FeaturedAgentsPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : agents.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Star className="h-8 w-8 opacity-40" />
-          <p className="text-sm">暂无精选智能体</p>
+          <p className="text-body">暂无精选智能体</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -129,10 +128,10 @@ export default function FeaturedAgentsPage() {
                     )}
                     <h3 className="line-clamp-2 pt-1 text-body font-medium">{agent.name}</h3>
                   </div>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                  <p className="line-clamp-2 text-label text-muted-foreground">
                     {agent.description ?? '暂无描述'}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span
                       className={cn(
                         'font-semibold',

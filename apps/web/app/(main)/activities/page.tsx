@@ -78,13 +78,15 @@ export default function ActivitiesPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Gift className="h-6 w-6 text-primary" />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link
           href="/invitations"
-          className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <UserPlus className="h-4 w-4" />
           {t('invitationsLink')}
@@ -97,7 +99,7 @@ export default function ActivitiesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : data && data.length > 0 ? (
@@ -138,8 +140,8 @@ export default function ActivitiesPage() {
                       {t(STATUS_KEY[displayStatus] ?? 'status.unknown')}
                     </span>
                   </div>
-                  <p className="flex-1 text-sm text-muted-foreground">{a.description ?? ''}</p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <p className="flex-1 text-body text-muted-foreground">{a.description ?? ''}</p>
+                  <div className="flex items-center gap-1 text-label text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     <span>
                       {fmt(a.startAt)} - {fmt(a.endAt)}
@@ -160,7 +162,7 @@ export default function ActivitiesPage() {
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Gift className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       )}
     </div>

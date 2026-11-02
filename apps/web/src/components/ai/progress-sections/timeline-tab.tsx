@@ -269,7 +269,7 @@ export const TimelineTab = React.memo(function TimelineTab({
             <div className="rounded-md bg-muted/30 p-3">
               <Inbox className="h-6 w-6 text-muted-foreground/40" aria-hidden />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {emptyText || safeT(t, 'timelineEmptyTitle', '暂无事件')}
             </p>
             <p className="text-[10px] text-muted-foreground/60">
@@ -469,7 +469,7 @@ export const TimelineTab = React.memo(function TimelineTab({
               <div className="rounded-md bg-muted/30 p-3">
                 <Inbox className="h-6 w-6 text-muted-foreground/40" aria-hidden />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {emptyText || safeT(t, 'timelineEmptyTitle', '暂无事件')}
               </p>
               <p className="text-[10px] text-muted-foreground/60">
@@ -484,7 +484,7 @@ export const TimelineTab = React.memo(function TimelineTab({
           >
             <div className="flex flex-col items-center gap-1" data-testid="timeline-filter-empty">
               <FilterX className="h-5 w-5 text-muted-foreground/40" aria-hidden />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {safeT(t, 'timelineFilterEmpty', '该类型暂无事件')}
               </p>
             </div>
@@ -601,5 +601,4 @@ export function flattenToTimelineEvents(input: {
 
   return events
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

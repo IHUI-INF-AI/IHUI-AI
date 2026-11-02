@@ -227,7 +227,7 @@ export default function DeveloperHomePageClient() {
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
               <p className="mt-2 truncate text-lg font-semibold tabular-nums">{s.fmt(s.value)}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className="text-label text-muted-foreground">{s.label}</p>
             </Link>
           )
         })}
@@ -237,12 +237,12 @@ export default function DeveloperHomePageClient() {
         <Card>
           <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
             <div>
-              <p className="text-xs text-muted-foreground">{t('currentPlan')}</p>
+              <p className="text-label text-muted-foreground">{t('currentPlan')}</p>
               <p className="mt-0.5 text-body font-semibold">{summary.planName}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">{t('quotaUsage')}</p>
+                <p className="text-label text-muted-foreground">{t('quotaUsage')}</p>
                 <p className="whitespace-nowrap tabular-nums text-body font-medium">
                   {numFmt.format(summary.quotaUsed ?? 0)} / {numFmt.format(summary.quotaTotal ?? 0)}
                 </p>
@@ -262,7 +262,7 @@ export default function DeveloperHomePageClient() {
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">{tDash('dashboard.todayCost')}</p>
+            <p className="text-label text-muted-foreground">{tDash('dashboard.todayCost')}</p>
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
               <Check className="h-3 w-3 shrink-0" aria-hidden />
               {tDash('dashboard.actualCost')}
@@ -271,7 +271,9 @@ export default function DeveloperHomePageClient() {
           <p className="mt-1 text-display font-semibold tabular-nums">
             {todayUsageQ.isLoading ? '—' : `¥${(todayCostCents / 100).toFixed(2)}`}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{tDash('dashboard.todayCostHint')}</p>
+          <p className="mt-1 text-label text-muted-foreground">
+            {tDash('dashboard.todayCostHint')}
+          </p>
         </CardContent>
       </Card>
 
@@ -280,7 +282,7 @@ export default function DeveloperHomePageClient() {
         <CardContent className="min-[640px]:p-3 p-3">
           <p className="mb-3 text-body font-semibold">{tDash('dashboard.balanceWindows')}</p>
           {windows.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{tDash('dashboard.noSubscription')}</p>
+            <p className="text-label text-muted-foreground">{tDash('dashboard.noSubscription')}</p>
           ) : (
             <div className="space-y-3">
               {windows.map((w) => {
@@ -294,7 +296,7 @@ export default function DeveloperHomePageClient() {
                       : 'dashboard.monthlyWindow'
                 return (
                   <div key={w.windowType}>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="text-muted-foreground">{tDash(labelKey)}</span>
                       <span className="tabular-nums">
                         {isUnlimited
@@ -330,7 +332,7 @@ export default function DeveloperHomePageClient() {
             >
               <KeyRound className="h-5 w-5 shrink-0 text-primary" aria-hidden />
               <p className="mt-1 text-body font-medium">{tDash('dashboard.createKey')}</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
+              <p className="line-clamp-2 text-label text-muted-foreground">
                 {tDash('dashboard.createKeyDesc')}
               </p>
             </Link>
@@ -340,7 +342,7 @@ export default function DeveloperHomePageClient() {
             >
               <Coins className="h-5 w-5 shrink-0 text-primary" aria-hidden />
               <p className="mt-1 text-body font-medium">{tDash('dashboard.buyCredit')}</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
+              <p className="line-clamp-2 text-label text-muted-foreground">
                 {tDash('dashboard.buyCreditDesc')}
               </p>
             </Link>
@@ -350,7 +352,7 @@ export default function DeveloperHomePageClient() {
             >
               <Activity className="h-5 w-5 shrink-0 text-primary" aria-hidden />
               <p className="mt-1 text-body font-medium">{tDash('dashboard.viewUsage')}</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
+              <p className="line-clamp-2 text-label text-muted-foreground">
                 {tDash('dashboard.viewUsageDesc')}
               </p>
             </Link>
@@ -372,7 +374,7 @@ export default function DeveloperHomePageClient() {
                 >
                   <Icon className="h-5 w-5 shrink-0 text-primary" />
                   <p className="mt-1 text-body font-medium break-words">{q.label}</p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{q.desc}</p>
+                  <p className="line-clamp-2 text-label text-muted-foreground">{q.desc}</p>
                 </Link>
               )
             })}
@@ -391,8 +393,10 @@ export default function DeveloperHomePageClient() {
                   {tByok('cardTitle')}
                 </span>
               </div>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{tByok('cardDesc')}</p>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground [&>li]:translate-y-[var(--text-vcenter-offset)]">
+              <p className="mt-1 line-clamp-2 text-label text-muted-foreground">
+                {tByok('cardDesc')}
+              </p>
+              <ul className="mt-2 space-y-1 text-label text-muted-foreground [&>li]:translate-y-[var(--text-vcenter-offset)]">
                 <li className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 shrink-0 text-emerald-500" />
                   <span className="whitespace-nowrap">{tByok('feature1')}</span>

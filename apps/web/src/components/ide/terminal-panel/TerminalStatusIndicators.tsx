@@ -80,7 +80,7 @@ export function TerminalStatusIndicators({
           <button
             type="button"
             onClick={onDismissError}
-            className="pointer-events-auto shrink-0 rounded-sm px-1 text-xs leading-none text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="pointer-events-auto shrink-0 rounded-sm px-1 text-label leading-none text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             ×
           </button>

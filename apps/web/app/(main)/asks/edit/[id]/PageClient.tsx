@@ -79,7 +79,7 @@ export default function AskEditByIdPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href={`/asks/${params.id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回问题详情

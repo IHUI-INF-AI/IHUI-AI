@@ -35,15 +35,15 @@ export function Hero() {
             <Newspaper className="h-7 w-7 text-primary min-[768px]:h-8 min-[768px]:w-8" />
             {t('hero.title')}
           </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
             {t('hero.subtitle')}
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="inline-flex items-center gap-1.5 rounded-md border bg-background/50 px-2 py-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-md border bg-background/50 px-2 py-1 text-label text-muted-foreground">
               <Calendar className="h-3.5 w-3.5" />
               {today}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-md border bg-background/50 px-2 py-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-md border bg-background/50 px-2 py-1 text-label text-muted-foreground">
               {t('hero.updateFreq')}
             </span>
           </div>

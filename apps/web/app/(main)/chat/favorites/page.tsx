@@ -46,7 +46,7 @@ export default function ChatFavoritesPage() {
             <Star className="h-6 w-6 text-primary" />
             {t('favoritesTitle')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('favoritesSubtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('favoritesSubtitle')}</p>
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/chat/history">{t('backToHistory')}</Link>
@@ -63,7 +63,7 @@ export default function ChatFavoritesPage() {
         // 终态(ready 且未登录/会话确认过期):登录引导
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
           <LogIn className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('loginRequired')}</p>
+          <p className="text-body">{t('loginRequired')}</p>
           <Button size="sm" onClick={() => openLoginDialogOnce('/chat/favorites')}>
             {t('loginRequired')}
           </Button>
@@ -78,7 +78,7 @@ export default function ChatFavoritesPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Star className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('favoritesEmpty')}</p>
+          <p className="text-body">{t('favoritesEmpty')}</p>
         </div>
       ) : (
         <ConversationList items={items} />
