@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-02T10:16:10.078Z",
+  "sealedAt": "2026-11-02T18:30:49.952Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-11-02 全工作树口径条款压缩至 96000 字节预算内(语义不变,细节留在脚本头注与门 281);按在册出口重封 guardian-runner/judgement-libs/agents-ironlaw 段哈希",
+  "reason": "指标存在性门注册 id 282 改了 guardian-runner,按 SEC 复核后重封清单",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "cd554afe5d0945bc5447528ab3d6bc5a0002ce1e16ee8ef64bed8cdeef0a4b2b"
+      "sha256": "bf5502484c51df07e967098788cef98ebc8b4889fa76ddd16ccbf4f1e8ef7608"
     },
     {
       "id": "judgement-libs",

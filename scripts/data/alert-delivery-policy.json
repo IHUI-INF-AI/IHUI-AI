@@ -147,7 +147,7 @@
     "id": "deployloop-alert-family",
     "prefix": "部署告警:",
     "cooldownMs": 86400000,
-    "reason": "部署失败族名 = 身份签名去掉病因后的类别(已知类 build-failed/health-failed…,generic 保留归一化骨架)。此前 4h 按身份重发 + 病因漂移会多寄,24h 实测 3 封。族级 24h 只留首封,首封仍立即出;切流宽限窗/夜间静默判据不动。",
+    "reason": "部署失败族名:已知类只到类别(同类别 24h 一条,病因漂移不再多寄);归不进枚举的 generic 保留含病因的完整签名(骨架同、病因不同的两次失败仍分族,绝不吞真新故障,守住 D3)。24h 实测 3 封。族级 24h 只留首封,首封仍立即出;切流宽限窗/夜间静默判据不动。",
     "owner": "ihui-deployloop",
     "reviewBy": "2026-11-17",
     "evidence": "deploy/win/ihui-deploy.ps1 Invoke-FailNotify / .ihui-agent/state/mail-send-ledger.jsonl 24h 3 封"
