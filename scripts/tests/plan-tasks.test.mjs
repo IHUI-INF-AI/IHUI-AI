@@ -1650,7 +1650,7 @@ test('M25 反向(顶高红线):行文引用不得算编号位;窗口语义的已
     throw new Error('该族零成员必须 null,不得当"0 已用"')
 })
 
-test('M26 逐行条件不变量·真仓台账面(§22c:输入逐字取自被审面;每行两侧不一致即点名)', () => {
+test('M26 逐行条件不变量·独立尺子(自包含 100+ 行面)+ 真仓面行数棘轮(§22c:输入逐字取自被审面;每行两侧不一致即点名)', () => {
   // 一把与生产解析**不同构造**的独立尺子(测试本地,仅用于取证,不参与任何生产路径):
   // 行首成对括注(四种,深度感知)+ 词形装饰/强调记号全部跳过后,正文开头若就是编号形态 ⇒ 该行"编号位在行首"。
   const ID = String.raw`G-\d+[a-z]?|D\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?|V3-\d+[a-z]?`
@@ -1682,37 +1682,83 @@ test('M26 逐行条件不变量·真仓台账面(§22c:输入逐字取自被审�
     if (/^守门/.test(id) || /^P\d+$/.test(id)) return null // 与 keyOfRow 的既有排除同口径
     return id
   }
-  const txt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], ROOT)
-  if (!txt || txt.length < 100000) throw new Error('取不到 HEAD 台账面 ⇒ 不变量无从跑,不得静默跳过')
-  const lines = txt.split(/\r?\n/)
-  const byFam = {}
-  for (const f of ['G', 'D', 'O', 'B', 'P', 'W', 'V3']) {
-    const u = usedIdsOfPrefix(txt, f)
-    byFam[f] = new Set((u?.ids ?? []).map((x) => (/^([A-Za-z]+)[-_ ]?(\d+)/.exec(x) || []).slice(1, 3).join('')))
-  }
   const norm = (id) => {
     const m = /^([A-Za-z]+)[-_ ]?(\d+)/.exec(id)
     return `${m[1].toUpperCase()}${m[2]}`
   }
-  let checked = 0
-  const bad = []
-  lines.forEach((l, idx) => {
-    const a = indepAnchor(l)
-    if (!a) return
-    checked++
-    const fam = /^([A-Za-z]+)/.exec(a)[1].toUpperCase()
-    if (!byFam[fam] || !byFam[fam].has(norm(a)))
-      bad.push(`L${idx + 1} 锚=${a} 不在该族取号集合 | ${l.slice(0, 40)}`)
-  })
-  // 护栏阈值 2026-10-08 校准(G-1102638 批2 收尾):批1 物理归并删 381 行自述副本后,行首编号位
-  // 真实读数 656(批1 前提交 c1a66c68e4 上 A/B 实证 657,差值=删行数)——旧阈值 800 与文案"2400+"
-  // 写在旧台账时代,是存量红不是尺子坏。本测试真正的语义断言是下面的 bad=0(认出的编号位必须
-  // 全在取号集合里);本护栏只防尺子完全退化(认出≈0),降到 100 与台账行数解耦,后续批次删行不再误红。
-  if (checked < 100)
-    throw new Error(`独立尺子只认出 ${checked} 行编号位(2026-10-08 现读 656)⇒ 尺子坏了,不是面干净`)
-  if (bad.length)
+  // 逐行条件不变量本体(对任意面都同一份判据):认出的行首编号位必须全在该族取号集合里。
+  function auditFace(txt) {
+    const famKey = (x) => (/^([A-Za-z]+)[-_ ]?(\d+)/.exec(x) || []).slice(1, 3).join('')
+    const byFam = {}
+    for (const f of ['G', 'D', 'O', 'B', 'P', 'W', 'V3']) {
+      const u = usedIdsOfPrefix(txt, f)
+      byFam[f] = new Set((u?.ids ?? []).map(famKey))
+    }
+    let checked = 0
+    const bad = []
+    txt.split(/\r?\n/).forEach((l, idx) => {
+      const a = indepAnchor(l)
+      if (!a) return
+      checked++
+      const fam = /^([A-Za-z]+)/.exec(a)[1].toUpperCase()
+      if (!byFam[fam] || !byFam[fam].has(norm(a)))
+        bad.push(`L${idx + 1} 锚=${a} 不在该族取号集合 | ${l.slice(0, 40)}`)
+    })
+    return { checked, bad }
+  }
+
+  // ① 自包含 100+ 行面(2026-11-03 口径):`checked>=100` 这条下限**不降**,只是把输入从活档
+  //    搬到测试里自造的 120 行面 —— 活档经压缩归档后只剩 43 条登记行 / 13 条行首编号位,
+  //    把固定下限继续绑在活档上就是拿"台账被归档"当"尺子退化"报红(存量红)。
+  //    这一腿防的是:尺子完全退化(认出≈0)、生成侧行首装饰/括注词形漂移(两把尺子对同一行
+  //    给出不同编号位,取号器就会重发)。它**不**依赖活档行数,故台账继续瘦身也不会误红。
+  const SYNTH_DECOR = [
+    (id, t) => `- [ ] ${id} ${t}`,
+    (id, t) => `- [ ] **${id} ${t}**`,
+    (id, t) => `- [ ]（待派）${id} ${t}`,
+    (id, t) => `- [ ]〔归:某席〕${id} ${t}`,
+    (id, t) => `- [ ] **〔归:某席〕${id} ${t}**`,
+    (id, t) => `- [x] ${id} ${t}`,
+  ]
+  const synthLines = []
+  for (const [prefix, n] of [['G-', 70], ['D', 15], ['O', 15], ['B', 10], ['W', 10]]) {
+    for (let i = 1; i <= n; i += 1) {
+      const id = `${prefix}${i}`
+      synthLines.push(SYNTH_DECOR[i % SYNTH_DECOR.length](id, `合成登记行 ${id}`))
+    }
+  }
+  const synth = auditFace(['# 合成台账面(120 条登记行,自包含)', '', ...synthLines, ''].join('\n'))
+  if (synth.checked < 100)
+    throw new Error(`独立尺子在自包含 120 行面上只认出 ${synth.checked} 行编号位 ⇒ 尺子坏了,不是面干净`)
+  if (synth.bad.length)
+    throw new Error(`自包含面逐行条件不变量红 ${synth.bad.length} 行(两把尺子对同一行给出不同编号位):\n${synth.bad.slice(0, 8).join('\n')}`)
+
+  // ② 真仓面:输入逐字取自被审面,逐行不变量照旧(bad=0);另做**登记行数棘轮** ——
+  //    已提交快照里的每个登记行键都必须还在本次 HEAD 面上,少一个即红。这一腿防的是:
+  //    "整档取对侧" / "回捞件种回" 把登记行成片吞掉(8MB 历史正文还在、活登记行却少了)这类事故,
+  //    它不靠总数阈值,故台账合法瘦身只红"键消失",不红"行数变小"的噪声。
+  const txt = gitRaw(['show', 'HEAD:PROJECT_PLAN.md'], ROOT)
+  if (!txt || txt.length < 100000) throw new Error('取不到 HEAD 台账面 ⇒ 不变量无从跑,不得静默跳过')
+  const live = auditFace(txt)
+  if (live.bad.length)
     throw new Error(
-      `逐行条件不变量红 ${bad.length} 行(编号位在行首却没进集合 ⇒ 取号器会重发):\n${bad.slice(0, 8).join('\n')}`,
+      `逐行条件不变量红 ${live.bad.length} 行(编号位在行首却没进集合 ⇒ 取号器会重发):\n${live.bad.slice(0, 8).join('\n')}`,
+    )
+  const snap = JSON.parse(
+    readFileSync(path.resolve(ROOT, 'scripts', 'tests', 'fixtures', 'plan-ledger-row-keys.snapshot.json'), 'utf8'),
+  )
+  const liveKeys = new Set(
+    txt
+      .split(/\r?\n/)
+      .filter((l) => /^\s*[-*]\s\[(?: |x|X)\]/.test(l))
+      .map((l) => keyOfRow(l))
+      .filter(Boolean),
+  )
+  const missing = snap.keys.filter((k) => !liveKeys.has(k))
+  if (missing.length)
+    throw new Error(
+      `真仓台账面丢了快照(${snap.sha.slice(0, 10)} 时 ${snap.keys.length} 个登记行键)里的 ${missing.length} 个键:\n` +
+        `${missing.join(', ')}\n⇒ 整档取对侧/回捞种回把登记行吞了;合法删行请同批更新快照并说明归并去向`,
     )
 })
 
