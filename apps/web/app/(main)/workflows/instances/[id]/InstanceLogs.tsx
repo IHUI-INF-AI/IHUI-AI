@@ -29,7 +29,7 @@ export function InstanceLogs({ logs, isLoading, logLevel, setLogLevel, fmt }: Pr
           {t('instanceDetail.logs')}
         </h2>
         <Select value={logLevel} onValueChange={(v) => setLogLevel(v as 'all' | LogLevel)}>
-          <SelectTrigger className="h-8 rounded-sm border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+          <SelectTrigger className="h-8 rounded-sm border border-input bg-transparent px-2 py-1 text-label shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -48,7 +48,7 @@ export function InstanceLogs({ logs, isLoading, logLevel, setLogLevel, fmt }: Pr
           {t('loading')}
         </div>
       ) : logs.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
           {t('instanceDetail.noLogs')}
         </div>
       ) : (
@@ -56,7 +56,7 @@ export function InstanceLogs({ logs, isLoading, logLevel, setLogLevel, fmt }: Pr
           {logs.map((l) => (
             <div
               key={l.id}
-              className="flex items-start gap-3 px-3 py-1.5 text-xs transition-colors hover:bg-muted/30"
+              className="flex items-start gap-3 px-3 py-1.5 text-label transition-colors hover:bg-muted/30"
             >
               <span className="shrink-0 font-mono text-muted-foreground">{fmt(l.timestamp)}</span>
               <span className={cn('w-12 shrink-0 font-semibold uppercase', LEVEL_COLOR[l.level])}>

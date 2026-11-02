@@ -54,17 +54,17 @@ export function FilesSection({
       <div className="flex items-center gap-2">
         <FolderOpen className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-base font-semibold">{t('files')}</h2>
-        {files && <span className="text-sm text-muted-foreground">({files.length})</span>}
+        {files && <span className="text-body text-muted-foreground">({files.length})</span>}
       </div>
 
       <UploadZone uploading={uploading} onFiles={onFiles} />
 
-      {uploadErrorMessage && <p className="text-xs text-destructive">{uploadErrorMessage}</p>}
-      {deleteErrorMessage && <p className="text-xs text-destructive">{deleteErrorMessage}</p>}
-      {convertErrorMessage && <p className="text-xs text-destructive">{convertErrorMessage}</p>}
+      {uploadErrorMessage && <p className="text-label text-destructive">{uploadErrorMessage}</p>}
+      {deleteErrorMessage && <p className="text-label text-destructive">{deleteErrorMessage}</p>}
+      {convertErrorMessage && <p className="text-label text-destructive">{convertErrorMessage}</p>}
 
       {filesError ? (
-        <div className="py-8 text-center text-sm text-destructive">
+        <div className="py-8 text-center text-body text-destructive">
           {(filesErr as Error)?.message}
         </div>
       ) : filesLoading ? (

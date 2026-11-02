@@ -74,7 +74,10 @@ export function SnapshotSourceCard({
         <span data-snapshot-label={view.state}>{t(view.labelKey)}</span>
       </div>
       {attach ? (
-        <span className="text-xs text-muted-foreground" data-snapshot-app={attach.values.appName}>
+        <span
+          className="text-label text-muted-foreground"
+          data-snapshot-app={attach.values.appName}
+        >
           {t('attachApp', { appName: attach.values.appName })}
         </span>
       ) : null}
@@ -148,33 +151,33 @@ export function QueueCommandCard({
             data-command={cmd.id}
             data-command-semantic={cmd.semantic}
             title={t(cmd.descKey)}
-            className="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-left text-xs text-foreground transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-transparent"
+            className="flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-left text-label text-foreground transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-transparent"
           >
             <span data-command-label={cmd.id}>{t(cmd.labelKey)}</span>
           </button>
         ))}
       </div>
-      {undoPhase ? (
-        (() => {
-          const undo = undoRestoreView(undoPhase, undoVariant)
-          return (
-            <p
-              className={cn(
-                'text-[11px]',
-                undo.tone === 'success'
-                  ? 'text-emerald-600 dark:text-emerald-500'
-                  : undo.tone === 'danger'
-                    ? 'text-destructive'
-                    : 'text-muted-foreground',
-              )}
-              data-undo-phase={undo.phase}
-              data-undo-label={undo.labelKey}
-            >
-              {t(undo.labelKey)}
-            </p>
-          )
-        })()
-      ) : null}
+      {undoPhase
+        ? (() => {
+            const undo = undoRestoreView(undoPhase, undoVariant)
+            return (
+              <p
+                className={cn(
+                  'text-[11px]',
+                  undo.tone === 'success'
+                    ? 'text-emerald-600 dark:text-emerald-500'
+                    : undo.tone === 'danger'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground',
+                )}
+                data-undo-phase={undo.phase}
+                data-undo-label={undo.labelKey}
+              >
+                {t(undo.labelKey)}
+              </p>
+            )
+          })()
+        : null}
     </div>
   )
 }
@@ -192,7 +195,12 @@ export interface MemoryRefCardProps {
   'data-testid'?: string
 }
 
-export function MemoryRefCard({ count, totalTimeMs, className, 'data-testid': testId }: MemoryRefCardProps) {
+export function MemoryRefCard({
+  count,
+  totalTimeMs,
+  className,
+  'data-testid': testId,
+}: MemoryRefCardProps) {
   const t = useTranslations('ai.pane.inputSources')
   const refs = memoryRefCountView(count)
   const goal = totalTimeMs === undefined ? null : goalAchievementView(totalTimeMs)
@@ -204,7 +212,7 @@ export function MemoryRefCard({ count, totalTimeMs, className, 'data-testid': te
       data-testid={testId}
       data-input-source="memory"
     >
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label text-muted-foreground">
         <Bookmark className="h-3.5 w-3.5 shrink-0" />
         <span
           data-memory-ref-count={refs.values.count}
@@ -216,7 +224,7 @@ export function MemoryRefCard({ count, totalTimeMs, className, 'data-testid': te
       </div>
       {goal ? (
         <div
-          className="flex items-center gap-1 rounded-sm bg-primary/5 px-2 py-1 text-xs text-primary"
+          className="flex items-center gap-1 rounded-sm bg-primary/5 px-2 py-1 text-label text-primary"
           data-goal-achieved={goal.labelKey}
         >
           {t(goal.labelKey, { totalTime: goal.values.totalTime })}

@@ -57,7 +57,7 @@ export function CheckpointHistoryPanel({
       </div>
       {onRestore && checkpoints.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2" data-testid="checkpoint-scope-selector">
-          <span className="text-xs text-muted-foreground">{t('scopeLabel')}</span>
+          <span className="text-label text-muted-foreground">{t('scopeLabel')}</span>
           <div className="flex overflow-hidden rounded-md border" role="group">
             {(
               [
@@ -72,7 +72,7 @@ export function CheckpointHistoryPanel({
                 data-testid={`checkpoint-scope-${s}`}
                 onClick={() => setScope(s)}
                 className={cn(
-                  'px-2 py-0.5 text-xs transition-colors',
+                  'px-2 py-0.5 text-label transition-colors',
                   scope === s
                     ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -86,7 +86,7 @@ export function CheckpointHistoryPanel({
       )}
       <div className="p-3">
         {checkpoints.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
         ) : (
           <ol className="relative space-y-2">
             {checkpoints.map((cp, idx) => {
@@ -120,10 +120,12 @@ export function CheckpointHistoryPanel({
                           />
                         )}
                       </button>
-                      <span className="shrink-0 text-xs text-muted-foreground">{cp.timestamp}</span>
+                      <span className="shrink-0 text-label text-muted-foreground">
+                        {cp.timestamp}
+                      </span>
                     </div>
                     {hasDiff && isOpen && (
-                      <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                      <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-muted/40 p-2 text-label text-muted-foreground">
                         <code>{cp.diff}</code>
                       </pre>
                     )}
@@ -131,7 +133,7 @@ export function CheckpointHistoryPanel({
                       <Button
                         variant="ghost"
                         size="xs"
-                        className="mt-1 px-2 text-xs text-muted-foreground hover:text-primary"
+                        className="mt-1 px-2 text-label text-muted-foreground hover:text-primary"
                         onClick={() => setConfirmTarget({ id: cp.id, scope })}
                         data-testid={`checkpoint-restore-${cp.id}`}
                       >

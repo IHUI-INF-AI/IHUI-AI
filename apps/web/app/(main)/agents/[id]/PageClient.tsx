@@ -213,13 +213,13 @@ export default function AgentDetailPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : !agent ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Sparkles className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t('notFound')}</p>
+          <p className="text-body text-muted-foreground">{t('notFound')}</p>
         </div>
       ) : (
         <>
@@ -245,10 +245,12 @@ export default function AgentDetailPage() {
                   name={agent.name ?? 'A'}
                   size="lg"
                   shape="square"
-                  className="-mt-8 h-16 w-16 text-xl border-4 border-background rounded-xl"
+                  className="-mt-8 h-16 w-16 text-heading border-4 border-background rounded-xl"
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <h1 className="break-words text-heading font-bold tracking-tight">{agent.name}</h1>
+                  <h1 className="break-words text-heading font-bold tracking-tight">
+                    {agent.name}
+                  </h1>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={cn(
@@ -260,7 +262,7 @@ export default function AgentDetailPage() {
                     </span>
                     {agent.isVipExclusive && <VipBadge size="md" />}
                     {agent.categoryId && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                         <Tag className="h-3 w-3" />
                         {t('category')}
                       </span>
@@ -276,7 +278,7 @@ export default function AgentDetailPage() {
                   </div>
                   {/* VIP 权限校验状态（调用 getAgentPermission 实时显示） */}
                   {permLoading ? (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-label text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       {t('permissionLoading')}
                     </div>
@@ -298,7 +300,7 @@ export default function AgentDetailPage() {
                   ) : null}
                 </div>
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap text-body leading-relaxed">
                 {agent.description || t('noDescription')}
               </p>
               <div className="mt-4 pt-4">

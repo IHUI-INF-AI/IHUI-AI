@@ -312,7 +312,7 @@ export function ByokWizard() {
               <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               {t('title')}
             </DialogTitle>
-            <DialogDescription className="text-xs">{t('subtitle')}</DialogDescription>
+            <DialogDescription className="text-label">{t('subtitle')}</DialogDescription>
           </DialogHeader>
 
           {/* Stepper */}
@@ -340,7 +340,7 @@ export function ByokWizard() {
             {/* 步骤 1:选厂商 */}
             {step === 0 && (
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">{t('step1Desc')}</p>
+                <p className="text-label text-muted-foreground">{t('step1Desc')}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {PROVIDERS.map((p) => (
                     <button
@@ -372,16 +372,16 @@ export function ByokWizard() {
             {/* 步骤 2:填 API Key */}
             {step === 1 && selected && (
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">{t('step2Desc')}</p>
+                <p className="text-label text-muted-foreground">{t('step2Desc')}</p>
                 {selected.free ? (
-                  <div className="rounded-md bg-emerald-50/60 p-3 text-xs text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                  <div className="rounded-md bg-emerald-50/60 p-3 text-label text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                     <ShieldCheck className="mr-1 inline h-3.5 w-3.5" />
                     {t('freeNoKey')}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
-                      <Label className="text-xs">{t('apiKeyLabel')}</Label>
+                      <Label className="text-label">{t('apiKeyLabel')}</Label>
                       <Tooltip content={t('apiKeyHelp')}>
                         <HelpCircle className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
                       </Tooltip>
@@ -426,7 +426,7 @@ export function ByokWizard() {
                       href={selected.signupUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline dark:text-emerald-400"
+                      className="inline-flex items-center gap-1 text-label text-emerald-600 hover:underline dark:text-emerald-400"
                     >
                       {t('getApiKey')}
                       <ArrowRight className="h-3 w-3" />
@@ -439,7 +439,7 @@ export function ByokWizard() {
             {/* 步骤 3:自动验证 */}
             {step === 2 && (
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">{t('step3Desc')}</p>
+                <p className="text-label text-muted-foreground">{t('step3Desc')}</p>
                 {verifyState === 'idle' && (
                   <div className="flex flex-col items-center gap-3 py-6">
                     <ShieldCheck className="h-8 w-8 text-muted-foreground" />
@@ -451,7 +451,7 @@ export function ByokWizard() {
                 {verifyState === 'verifying' && (
                   <div className="flex flex-col items-center gap-2 py-6">
                     <Loader2 className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" />
-                    <p className="text-xs text-muted-foreground">{t('verifying')}</p>
+                    <p className="text-label text-muted-foreground">{t('verifying')}</p>
                   </div>
                 )}
                 {verifyState === 'success' && (
@@ -472,7 +472,7 @@ export function ByokWizard() {
                     <p className="text-body font-medium text-red-600 dark:text-red-400">
                       {t('verifyFailed')}
                     </p>
-                    {verifyMsg && <p className="text-xs text-muted-foreground">{verifyMsg}</p>}
+                    {verifyMsg && <p className="text-label text-muted-foreground">{verifyMsg}</p>}
                     <Button onClick={handleVerify} size="sm" variant="outline">
                       {t('verifyRetry')}
                     </Button>
@@ -486,7 +486,7 @@ export function ByokWizard() {
                     <p className="text-body font-medium text-amber-600 dark:text-amber-400">
                       {t('verifyUnavailable')}
                     </p>
-                    <p className="text-xs text-muted-foreground">{t('verifyUnavailableDesc')}</p>
+                    <p className="text-label text-muted-foreground">{t('verifyUnavailableDesc')}</p>
                   </div>
                 )}
               </div>
@@ -495,8 +495,8 @@ export function ByokWizard() {
             {/* 步骤 4:激活抽成 */}
             {step === 3 && (
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">{t('step4Desc')}</p>
-                <div className="rounded-md border p-3 text-xs">
+                <p className="text-label text-muted-foreground">{t('step4Desc')}</p>
+                <div className="rounded-md border p-3 text-label">
                   <div className="flex items-center justify-between gap-3 py-1">
                     <span className="min-w-0 flex-1 text-muted-foreground">
                       {t('providerLabel')}
@@ -510,12 +510,12 @@ export function ByokWizard() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-start gap-2 rounded-md bg-emerald-50/60 p-3 text-xs text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                <div className="flex items-start gap-2 rounded-md bg-emerald-50/60 p-3 text-label text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>{t('commissionNote')}</p>
                 </div>
                 {activateMut.isPending && (
-                  <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2 py-2 text-label text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {t('activating')}
                   </div>

@@ -132,7 +132,7 @@ export default function OrderDetailPage() {
           <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
           {tc('back')}
         </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function OrderDetailPage() {
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         <TruncatedText
           value={order.orderNo}
-          className="max-w-full font-mono text-sm text-muted-foreground"
+          className="max-w-full font-mono text-body text-muted-foreground"
         />
       </div>
 
@@ -168,19 +168,19 @@ export default function OrderDetailPage() {
       </div>
 
       <dl className="space-y-2 rounded-lg border p-2">
-        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+        <div className="flex justify-between gap-3 px-4 py-3 text-body">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('orderNo')}</dt>
           <dd className="min-w-0 flex-1 text-right font-mono">
             <TruncatedText value={order.orderNo} />
           </dd>
         </div>
-        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+        <div className="flex justify-between gap-3 px-4 py-3 text-body">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('target')}</dt>
           <dd className="min-w-0 flex-1 text-right font-medium">
             <TruncatedText value={order.targetTitle ?? '-'} />
           </dd>
         </div>
-        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+        <div className="flex justify-between gap-3 px-4 py-3 text-body">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('orderType')}</dt>
           <dd className="min-w-0 flex-1 truncate text-right">
             {t(TYPE_KEY[order.orderType] ?? `type.${order.orderType}`, {
@@ -188,14 +188,14 @@ export default function OrderDetailPage() {
             })}
           </dd>
         </div>
-        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+        <div className="flex justify-between gap-3 px-4 py-3 text-body">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('createdAt')}</dt>
           <dd className="whitespace-nowrap tabular-nums">
             {dateFmt.format(new Date(order.createdAt))}
           </dd>
         </div>
         {order.payTime && (
-          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <div className="flex justify-between gap-3 px-4 py-3 text-body">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('payTime')}</dt>
             <dd className="whitespace-nowrap tabular-nums">
               {dateFmt.format(new Date(order.payTime))}
@@ -203,7 +203,7 @@ export default function OrderDetailPage() {
           </div>
         )}
         {order.cancelTime && (
-          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <div className="flex justify-between gap-3 px-4 py-3 text-body">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('cancelTime')}</dt>
             <dd className="whitespace-nowrap tabular-nums">
               {dateFmt.format(new Date(order.cancelTime))}
@@ -211,7 +211,7 @@ export default function OrderDetailPage() {
           </div>
         )}
         {order.refundTime && (
-          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <div className="flex justify-between gap-3 px-4 py-3 text-body">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('refundTime')}</dt>
             <dd className="whitespace-nowrap tabular-nums">
               {dateFmt.format(new Date(order.refundTime))}
@@ -219,7 +219,7 @@ export default function OrderDetailPage() {
           </div>
         )}
         {order.remark && (
-          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <div className="flex justify-between gap-3 px-4 py-3 text-body">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('remark')}</dt>
             <dd className="min-w-0 flex-1 truncate text-right">{order.remark}</dd>
           </div>
@@ -227,11 +227,11 @@ export default function OrderDetailPage() {
       </dl>
 
       <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between text-body">
           <span className="text-muted-foreground">{tc('originalPrice')}</span>
           <span className="tabular-nums">{currencyFmt.format(Number(order.originalPrice))}</span>
         </div>
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between text-body">
           <span className="text-muted-foreground">{tc('discountAmount')}</span>
           <span className="tabular-nums text-emerald-600 dark:text-emerald-500">
             -{currencyFmt.format(Number(order.discountAmount))}

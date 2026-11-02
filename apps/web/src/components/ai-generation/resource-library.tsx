@@ -80,7 +80,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
 
   const renderPreview = (record: AigcRecord): React.ReactNode => {
     const url = record.resultUrl
-    if (!url) return <p className="text-sm text-muted-foreground">{t('noResult')}</p>
+    if (!url) return <p className="text-body text-muted-foreground">{t('noResult')}</p>
     switch (record.type) {
       case 'image':
         return (
@@ -112,7 +112,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
             download
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            className="inline-flex items-center gap-1 text-body text-primary hover:underline"
           >
             {t('downloadModel')}
           </a>
@@ -123,7 +123,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            className="inline-flex items-center gap-1 text-body text-primary hover:underline"
           >
             {t('download')}
           </a>
@@ -135,7 +135,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
     <Card>
       <CardHeader>
         <CardTitle>{t('resourceLibraryTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('resourceLibrarySubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('resourceLibrarySubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-end gap-3">
@@ -177,12 +177,12 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('polling')}
           </div>
         ) : pageItems.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('noData')}</p>
+          <p className="text-body text-muted-foreground">{t('noData')}</p>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4">
@@ -203,11 +203,13 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                         className="object-cover"
                       />
                     ) : (
-                      <span className="text-xs uppercase text-muted-foreground">{record.type}</span>
+                      <span className="text-label uppercase text-muted-foreground">
+                        {record.type}
+                      </span>
                     )}
                   </div>
-                  <p className="text-xs text-foreground">{record.prompt || t('noResult')}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-foreground">{record.prompt || t('noResult')}</p>
+                  <p className="text-label text-muted-foreground">
                     {record.vendor} · {formatDate(record.createdAt)}
                   </p>
                 </button>
@@ -215,7 +217,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
             </div>
 
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {t('page', { current: currentPage, total: totalPages })}
               </p>
               <div className="flex gap-2">
@@ -223,7 +225,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1}
-                  className="rounded-sm border px-3 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-50"
+                  className="rounded-sm border px-3 py-1 text-body transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   {t('prev')}
                 </button>
@@ -231,7 +233,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
-                  className="rounded-sm border px-3 py-1 text-sm transition-colors hover:bg-accent disabled:opacity-50"
+                  className="rounded-sm border px-3 py-1 text-body transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   {t('next')}
                 </button>
@@ -253,7 +255,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
             {preview ? (
               <div className="space-y-3">
                 {renderPreview(preview)}
-                <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="space-y-1 text-body text-muted-foreground">
                   <p>
                     {t('type')}: {preview.type}
                   </p>

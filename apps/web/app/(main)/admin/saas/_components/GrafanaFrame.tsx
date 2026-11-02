@@ -25,8 +25,16 @@ import { AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 import { fetchApi } from '@/lib/api'
-import { MONITOR_DASHBOARDS, type NativeDashboard } from '../../monitor/panels/dashboard-config.generated'
-import { DashboardGrid, materializeExpr, stepFor, type QueryResult } from '../../monitor/panels/panel-render'
+import {
+  MONITOR_DASHBOARDS,
+  type NativeDashboard,
+} from '../../monitor/panels/dashboard-config.generated'
+import {
+  DashboardGrid,
+  materializeExpr,
+  stepFor,
+  type QueryResult,
+} from '../../monitor/panels/panel-render'
 
 interface GrafanaFrameProps {
   /** 当前租户标识(历史形参;prom 标签为 UUID 而 SaaS 侧只有 slug,不再做逐租户过滤) */
@@ -59,7 +67,13 @@ function resolveDashboard(uid?: string): NativeDashboard {
   )
 }
 
-export function GrafanaFrame({ tenant: _tenant, uid, title, height = 480, bare = false }: GrafanaFrameProps) {
+export function GrafanaFrame({
+  tenant: _tenant,
+  uid,
+  title,
+  height = 480,
+  bare = false,
+}: GrafanaFrameProps) {
   const t = useTranslations('admin.saas.metrics')
   const dash = React.useMemo(() => resolveDashboard(uid), [uid])
   const [results, setResults] = React.useState<Map<number, QueryResult>>(new Map())
@@ -73,7 +87,13 @@ export function GrafanaFrame({ tenant: _tenant, uid, title, height = 480, bare =
     setLoading(true)
     setError('')
     try {
-      const queries: Array<{ ref: string; expr: string; backend: 'prometheus' | 'loki'; rangeSeconds?: number; stepSeconds?: number }> = []
+      const queries: Array<{
+        ref: string
+        expr: string
+        backend: 'prometheus' | 'loki'
+        rangeSeconds?: number
+        stepSeconds?: number
+      }> = []
       const idx: Array<{ panelIdx: number; targetIdx: number }> = []
       const stepSec = stepFor(RANGE_SEC)
       d.panels.forEach((p, pi) => {
@@ -125,7 +145,10 @@ export function GrafanaFrame({ tenant: _tenant, uid, title, height = 480, bare =
   }
 
   const grid = (
-    <div className="overflow-y-auto rounded-lg border border-border bg-[#070d1a] p-3" style={{ height }}>
+    <div
+      className="overflow-y-auto rounded-lg border border-border bg-[#070d1a] p-3"
+      style={{ height }}
+    >
       <DashboardGrid dash={dash} panels={dash.panels} results={results} loading={loading} />
     </div>
   )
@@ -148,11 +171,11 @@ export function GrafanaUnavailableHint({ reason }: { reason?: string }) {
   const t = useTranslations('admin.saas.metrics')
   return (
     <Card>
-      <CardContent className="flex items-start gap-3 py-6 text-sm text-muted-foreground">
+      <CardContent className="flex items-start gap-3 py-6 text-body text-muted-foreground">
         <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
         <div>
           <p className="font-medium text-foreground">{t('unavailableTitle')}</p>
-          <p className="mt-1 text-xs">{reason ?? t('unavailableHint')}</p>
+          <p className="mt-1 text-label">{reason ?? t('unavailableHint')}</p>
         </div>
       </CardContent>
     </Card>

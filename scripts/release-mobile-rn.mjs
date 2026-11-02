@@ -36,7 +36,7 @@ import Module from 'node:module'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry } from './lib/rn-release-credentials.mjs'
+import { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, storeCredential, androidArtifacts, STORE_VENDORS } from './lib/rn-release-credentials.mjs'
 import { resolveSecretsRoot } from './lib/key-dir.mjs'
 import { siteLegPlan } from './publish-mobile-apk.mjs'
 
@@ -280,10 +280,61 @@ function takeEvidence({ withEas = true, withConfig = true }) {
     return r.code === 0 ? { status: STATUS.FOUND, detail: firstMeaningfulLine(r.out) } : { status: STATUS.MISSING, detail: '本机无 Xcode ⇒ iOS 只能走 EAS 云端构建(记录形态,不阻塞)' }
   })()
 
-  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, latest, apple, xcode }
+  // 生产承载面(2026-11-02 现读:本机 Get-Service IHUI-* 零命中、无 IHUI-DEPLOYLOOP 计划任务,
+  // 8801/8806/8807 是 dev 栈端口)⇒ 站点腿"落不了地"的根因不是目录被误删,而是这台机不承载生产。
+  // 报告必须把这两件事分开,否则会把"去恢复一个本来就不该在这台机上的目录"当成出路推给人。
+  const prodHost = (() => {
+    const r = sh(
+      'pwsh.exe',
+      ['-NoProfile', '-Command', "(Get-Service -Name 'IHUI-*' -ErrorAction SilentlyContinue).Name -join ','"],
+      { cwd: ROOT, timeout: 60000 },
+    )
+    if (r.code !== 0 && !r.out) return { status: STATUS.UNJUDGED, detail: `pwsh 取服务面失败(exit=${r.code})⇒ 不判承载面` }
+    const names = r.out.trim()
+    return names
+      ? { status: STATUS.FOUND, detail: `本机承载 IHUI 服务:${names}` }
+      : { status: STATUS.MISSING, detail: '本机零 IHUI-* 服务 ⇒ 不承载生产;站点腿落点在别处,需生产侧通道而非在本机造目录' }
+  })()
+
+  const artifacts = androidArtifacts({ dir: join(RN_DIR, 'android', 'app', 'build', 'outputs') })
+  const stores = STORE_VENDORS.map((vendor) => ({ vendor, cred: storeCredential(vendor) }))
+
+  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, prodHost, latest, apple, xcode, artifacts, stores }
 }
 
-// ── 腿注册表:每条腿 = 一组现读判据 + 一条真跑得通的命令 ──
+/**
+ * 国内商店 + 鸿蒙矩阵腿(2026-11-02 加)。
+ * 这一族此前**整仓零接线**(实读:appgallery/hms/小米/OPPO/vivo/应用宝 的命中全是 i18n 术语表、
+ * 品牌图标或上游中转适配器,没有一处是上传器),所以先把"每家缺什么"做成可重跑的读数,
+ * 而不是先写一个只能对着空凭据报错的脚本。出路一律指向同一个形态:
+ * 复用 scripts/upload-miniapp.mjs 那一套(单出口 + 凭据三态 + 默认 dry-run + 登记腿)。
+ */
+export function buildStoreLegs(ev) {
+  const channelGap = {
+    k: '渠道登记面',
+    status: STATUS.MISSING,
+    detail: 'app_versions.platform 枚举 = ios/android/web/harmony/cli,无 store 维度 ⇒ 多家商店各自一条 latest 与下载地址在数据面上表达不出来(需一次加列迁移,属数据面不在发布器射程)',
+  }
+  return ev.stores.map(({ vendor, cred }) => ({
+    id: `store-${vendor.id}`,
+    title: `${vendor.label} 上架`,
+    checks: [
+      { k: '提交物(AAB/APK)', ...ev.artifacts },
+      { k: '正式签名件', ...ev.signing },
+      { k: '开发者凭据', ...cred },
+      {
+        k: '上传通道器物',
+        status: STATUS.MISSING,
+        detail: vendor.id === 'harmony' ? '本仓当前无 RN 鸿蒙产物能力(零 .ets / oh-package.json5 / react-native-harmony)⇒ 先解决产物,发布腿才有意义' : `仓内无面向 ${vendor.label} 的上传器;凭据到位后新增 scripts/submit-store-${vendor.id}.mjs`,
+      },
+      channelGap,
+    ],
+    command: vendor.id === 'harmony' ? '先做鸿蒙产物适配(独立工程票),再回到本腿' : `凭据补进密钥目录后:node scripts/release-mobile-rn.mjs --leg store-${vendor.id} --execute`,
+    note: vendor.note,
+  }))
+}
+
+
 export function buildLegs(ev) {
   const ch = (name) => (ev.channels.raw ? findChannel(ev.channels.raw, name) : ev.channels)
   const ota = (name) => ({
@@ -295,13 +346,13 @@ export function buildLegs(ev) {
       { k: `渠道 ${name}`, ...ch(name) },
       { k: 'updates.url', status: ev.appJson?.updates?.url ? STATUS.FOUND : STATUS.MISSING, detail: ev.appJson?.updates?.url ?? 'app.json 未配 expo.updates.url' },
     ],
-    command: `eas update --channel ${name} --platform android --message "<本次说明>" --non-interactive`,
+    command: `eas update --channel ${name} --environment ${name} --platform android --message "<本次说明>" --non-interactive`,
   })
   return [
     {
       id: 'site-apk',
       title: 'Android → 官网固定地址 + 端内更新卡',
-      checks: [{ k: '正式签名件', ...ev.signing }, { k: '站点落点', ...ev.site }, { k: '线上 latest 登记(android)', ...ev.latest.android }],
+      checks: [{ k: '正式签名件', ...ev.signing }, { k: '站点落点', ...ev.site }, { k: '本机生产承载面', ...ev.prodHost }, { k: '线上 latest 登记(android)', ...ev.latest.android }],
       command: 'pwsh -File scripts/build-mobile-rn-release.ps1   # 出包链尾自动走 publish-mobile-apk.mjs(含 app_versions 登记)',
     },
     {
@@ -337,6 +388,7 @@ export function buildLegs(ev) {
     },
     ota('preview'),
     ota('production'),
+    ...buildStoreLegs(ev),
   ]
 }
 
@@ -437,7 +489,7 @@ async function main() {
     }
     const channel = id.replace('ota-', '')
     const message = opt('m') ?? opt('message') ?? `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
-    const r = ev.eas(['update', '--channel', channel, '--platform', 'android', '--message', message, '--non-interactive'], { timeout: 900000 })
+    const r = ev.eas(['update', '--channel', channel, '--environment', channel, '--platform', 'android', '--message', message, '--non-interactive'], { timeout: 900000 })
     console.log(`eas update(${channel}) exit=${r.code} ${firstMeaningfulLine(r.out) || firstMeaningfulLine(r.err)}`)
     const back = findChannel(ev.eas(['channel:list', '--json']).out, channel)
     console.log(`回读渠道:${back.status} ${back.detail}`)
@@ -481,13 +533,18 @@ function selfTest() {
   const defectShape = `module.exports = ({ config }) => ({ version: process.env.IHUI_MOBILE_VERSION, runtimeVersion: process.env.IHUI_MOBILE_VERSION })`
   eq('反例:桶随显示版本漂移 ⇒ 判 missing', probeRuntimeVersion(defectShape).status, STATUS.MISSING)
   eq('反例:桶恒缺 ⇒ 判 missing', probeRuntimeVersion('module.exports = () => ({ version: process.env.IHUI_MOBILE_VERSION })').status, STATUS.MISSING)
+  // 出路可跑性锁:`eas update --non-interactive` 缺 --environment 会当场报 "The --environment flag must be set"
+  // (2026-11-02 冒烟实测)⇒ 命令形态一旦被改回去,这枚锁必须翻红,而不是等到真要发布那天才发现
+  const self = readFileSync(join(ROOT, 'scripts', 'release-mobile-rn.mjs'), 'utf8')
+  eq('OTA 执行参数带 --environment', self.includes(" '--environment', channel"), true)
+  eq('OTA 展示命令带 --environment', /eas update --channel \$\{name\} --environment \$\{name\}/.test(self), true)
   const fail = cases.filter((c) => !c.pass).length
   for (const c of cases) console.log(`${c.pass ? 'PASS' : 'FAIL'} ${c.name}${c.pass ? '' : ` got=${JSON.stringify(c.got)} want=${JSON.stringify(c.want)}`}`)
   console.log(`SELF-TEST cases=${cases.length} fail=${fail}`)
   return fail ? 1 : 0
 }
 
-export const __test__ = { foldStatus, checkSubmitProfile, findChannel, firstMeaningfulLine, probeRuntimeVersion, buildLegs, render, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS }
+export const __test__ = { foldStatus, checkSubmitProfile, findChannel, firstMeaningfulLine, probeRuntimeVersion, buildLegs, buildStoreLegs, render, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {

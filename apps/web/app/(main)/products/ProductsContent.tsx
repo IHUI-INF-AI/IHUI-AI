@@ -63,11 +63,13 @@ export function ProductsContent(): React.JSX.Element {
                 <Icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-              <div className="mt-2 text-display font-bold text-primary">{t(`cards.${id}.price`)}</div>
-              <p className="mt-2 text-sm text-muted-foreground">{t(`cards.${id}.desc`)}</p>
+              <div className="mt-2 text-display font-bold text-primary">
+                {t(`cards.${id}.price`)}
+              </div>
+              <p className="mt-2 text-body text-muted-foreground">{t(`cards.${id}.desc`)}</p>
               <ul className="mt-4 space-y-2">
                 {[1, 2, 3].map((n) => (
-                  <li key={n} className="flex items-start gap-2 text-sm">
+                  <li key={n} className="flex items-start gap-2 text-body">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <span>{t(`cards.${id}.feature${n}`)}</span>
                   </li>
@@ -89,7 +91,7 @@ export function ProductsContent(): React.JSX.Element {
         <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('ctaTitle')}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

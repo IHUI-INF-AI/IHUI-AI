@@ -226,7 +226,7 @@ export default function AlertRulesPage() {
             <BellRing className="h-5 w-5" aria-hidden />
             告警规则引擎
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             自定义指标阈值,每 5 分钟自动评估,触发即推送并记录事件流。
           </p>
         </div>
@@ -252,7 +252,7 @@ export default function AlertRulesPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">规则名</th>
@@ -321,7 +321,7 @@ export default function AlertRulesPage() {
 
       <h2 className="pt-2 text-base font-medium">最近告警事件</h2>
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">规则</th>

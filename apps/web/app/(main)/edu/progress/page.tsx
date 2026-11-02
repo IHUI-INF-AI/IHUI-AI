@@ -60,7 +60,7 @@ export default function EduProgressPage() {
           <BarChart3 className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {!allow ? (
@@ -90,7 +90,7 @@ export default function EduProgressPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t('weeklyHours')}</CardTitle>
+              <CardTitle className="text-body">{t('weeklyHours')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex h-40 items-end justify-between gap-2">
@@ -104,7 +104,7 @@ export default function EduProgressPage() {
                         />
                       </Tooltip>
                     </div>
-                    <span className="text-xs text-muted-foreground">{fmt(w.date)}</span>
+                    <span className="text-label text-muted-foreground">{fmt(w.date)}</span>
                   </div>
                 ))}
               </div>
@@ -114,15 +114,15 @@ export default function EduProgressPage() {
           <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">{t('categoryProgress')}</CardTitle>
+                <CardTitle className="text-body">{t('categoryProgress')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(data.categoryProgress ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">{t('noData')}</p>
+                  <p className="py-4 text-center text-body text-muted-foreground">{t('noData')}</p>
                 ) : (
                   (data.categoryProgress ?? []).map((cat) => (
                     <div key={cat.name} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between text-body">
                         <span>{cat.name}</span>
                         <span className="text-muted-foreground">
                           {cat.completed}/{cat.total}
@@ -142,11 +142,11 @@ export default function EduProgressPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">{t('recentMilestones')}</CardTitle>
+                <CardTitle className="text-body">{t('recentMilestones')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(data.recentMilestones ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">
+                  <p className="py-4 text-center text-body text-muted-foreground">
                     {t('noMilestones')}
                   </p>
                 ) : (
@@ -154,7 +154,7 @@ export default function EduProgressPage() {
                     <div
                       key={m.id}
                       className={cn(
-                        'flex items-center gap-3 rounded-md border p-2 text-sm transition-colors hover:bg-accent',
+                        'flex items-center gap-3 rounded-md border p-2 text-body transition-colors hover:bg-accent',
                       )}
                     >
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
@@ -162,7 +162,7 @@ export default function EduProgressPage() {
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">{m.title}</p>
-                        <p className="text-xs text-muted-foreground">{fmt(m.achievedAt)}</p>
+                        <p className="text-label text-muted-foreground">{fmt(m.achievedAt)}</p>
                       </div>
                     </div>
                   ))

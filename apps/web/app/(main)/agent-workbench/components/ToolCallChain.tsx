@@ -129,14 +129,14 @@ export function ToolCallChain({ toolCalls, running }: Props) {
   const t = useTranslations('agentWorkbench.toolCallChain')
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
-      <div className="flex items-center gap-2 px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 px-3 py-2 text-body">
         <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="font-medium">{t('title')}</span>
-        <span className="text-xs text-muted-foreground">{toolCalls.length}</span>
+        <span className="text-label text-muted-foreground">{toolCalls.length}</span>
       </div>
       <div className="flex-1 overflow-auto px-3 py-2">
         {toolCalls.length === 0 ? (
-          <div className="py-8 text-center text-xs text-muted-foreground">
+          <div className="py-8 text-center text-label text-muted-foreground">
             {running ? t('waiting') : t('empty')}
           </div>
         ) : (

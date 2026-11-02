@@ -39,7 +39,7 @@ export function WatchSection() {
           onChange={(e) => setWatchInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addWatch()}
           placeholder={t('debug.watchPlaceholder')}
-          className="flex-1 rounded-sm border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
+          className="flex-1 rounded-sm border border-border bg-background px-1.5 py-0.5 text-label focus:outline-none"
         />
         <button
           onClick={addWatch}
@@ -52,7 +52,7 @@ export function WatchSection() {
       {watches.map((w, i) => (
         <div
           key={i}
-          className="group flex items-center gap-1 px-2 py-0.5 text-xs hover:bg-muted/30"
+          className="group flex items-center gap-1 px-2 py-0.5 text-label hover:bg-muted/30"
         >
           <span className="truncate text-blue-600 dark:text-blue-400">{w}</span>
           <span className="text-muted-foreground">:</span>

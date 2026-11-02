@@ -133,7 +133,7 @@ export default function AdminMemberUsersPage() {
             <Users className="h-6 w-6 text-primary" />
             会员用户列表
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理平台会员用户</p>
+          <p className="mt-1 text-body text-muted-foreground">管理平台会员用户</p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -160,7 +160,7 @@ export default function AdminMemberUsersPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -171,7 +171,7 @@ export default function AdminMemberUsersPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

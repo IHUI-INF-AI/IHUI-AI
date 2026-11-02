@@ -88,7 +88,7 @@ export function ItemList({
                   key={opt.key}
                   variant={order === opt.key ? 'secondary' : 'ghost'}
                   size="xs"
-                  className="px-2.5 text-xs"
+                  className="px-2.5 text-label"
                   onClick={() => setOrder(opt.key)}
                 >
                   {opt.label}
@@ -105,11 +105,11 @@ export function ItemList({
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-body text-muted-foreground">
           {emptyHint}
         </div>
       ) : (

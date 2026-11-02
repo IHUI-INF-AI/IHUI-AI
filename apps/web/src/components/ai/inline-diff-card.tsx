@@ -445,7 +445,7 @@ export function InlineDiffCard({
       </CardHeader>
 
       <CardContent className="p-0">
-        <div className="max-h-80 overflow-auto bg-background font-mono text-xs">
+        <div className="max-h-80 overflow-auto bg-background font-mono text-label">
           {mode === 'split' ? (
             <SplitDiffBody
               entries={splitEntries}
@@ -514,7 +514,7 @@ export function InlineDiffCard({
 
       <CardFooter className="flex items-center gap-2 p-3">
         {isTerminal ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {applyStatus === 'applied' ? t('diffAppliedHint') : t('diffRejectedHint')}
           </span>
         ) : (
@@ -572,7 +572,7 @@ export function InlineDiffCard({
         )}
         {applyStatus === 'error' && applyError && (
           <Tooltip content={applyError}>
-            <span className="ml-auto truncate text-xs text-red-600">{applyError}</span>
+            <span className="ml-auto truncate text-label text-red-600">{applyError}</span>
           </Tooltip>
         )}
       </CardFooter>

@@ -71,7 +71,7 @@ export default function ChannelStatusClient() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden />
@@ -87,14 +87,16 @@ export default function ChannelStatusClient() {
           <span>{t('loading')}</span>
         </div>
       ) : channels.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="py-12 text-center text-body text-muted-foreground">{t('empty')}</p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
             {(['operational', 'degraded', 'down', 'maintenance'] as const).map((s) => (
               <div key={s} className="rounded-lg border bg-card p-3 text-center">
                 <p className="text-display font-medium tabular-nums">{count(s)}</p>
-                <p className={cn('mt-1 rounded-md px-2 py-0.5 text-xs', STATUS_STYLE[s])}>{t(s)}</p>
+                <p className={cn('mt-1 rounded-md px-2 py-0.5 text-label', STATUS_STYLE[s])}>
+                  {t(s)}
+                </p>
               </div>
             ))}
           </div>
@@ -114,7 +116,7 @@ export default function ChannelStatusClient() {
                       {t(c.status)}
                     </span>
                   </div>
-                  <dl className="grid grid-cols-3 gap-2 text-xs">
+                  <dl className="grid grid-cols-3 gap-2 text-label">
                     <div>
                       <dt className="text-muted-foreground">{t('avgLatency')}</dt>
                       <dd className="tabular-nums">

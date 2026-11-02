@@ -31,8 +31,8 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
   return (
     <div className="overflow-hidden rounded-lg border">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/40 text-label text-muted-foreground">
             <tr>
               <th className="px-4 py-2 text-left font-medium">{t('source')}</th>
               <th className="px-4 py-2 text-right font-medium">{t('amount')}</th>
@@ -74,7 +74,7 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
                   <td className="hidden px-4 py-2 text-muted-foreground min-[768px]:table-cell">
                     {tx.description ?? '-'}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">
+                  <td className="whitespace-nowrap px-4 py-2 text-right text-label tabular-nums text-muted-foreground">
                     {fmt(tx.createdAt)}
                   </td>
                 </tr>

@@ -58,7 +58,7 @@ export default function ModelsPageClient() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       {isError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           模型列表加载失败,请稍后重试
         </div>
       )}

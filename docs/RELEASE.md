@@ -68,9 +68,9 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | Trusted Publisher 网页登记实测 | ⛔ 已终止(用户不要 2FA,不再尝试) | `https://www.npmjs.com/package/ihui-cli/access` → Add Trusted Publisher | 2026-10-19 实测:表单可填可提交,但跳 `Confirm Password to Continue` 后直接落到 `/settings/ihui-ai/tfa` 要求加安全密钥,无邮箱 OTP 分支。**该路径按用户指示永久关闭** |
 | desktop GitHub Release | ✅ 已发布(对照项) | `git tag -l 'desktop-v*'` | `desktop-v0.1.42` 等已产出(见 `release-desktop.yml`) |
 | 桌面端 updater 闭环 | ✅ 已验证(任务 2,2026-10-19) | 本机自装 0.1.76 全流程 | `checkForUpdate()` 拉 `aizhs.top/desktop-feed.json` → 比对版本 → 验签安装 → 重启,闭环绿 |
-| Android versionCode + 可上架 AAB | ✅ 已产出(任务 4,2026-10-19) | `apps/mobile-rn/android/app/.../gradle` `assembleRelease` | AAB 已落 `android/app/build/outputs/bundle/release/`,`versionCode` 由 `app.config.js` 号段派生 |
+| Android versionCode + 可上架 AAB | ⚠️ 号段在位、AAB **本机当前无产物**(2026-11-02 现读 `android/app/build/outputs/` 只有 `apk/{debug,release}`,无 `bundle/release`) | `apps/mobile-rn/android` 里 `./gradlew bundleRelease` | 10-19 那枚 AAB 是在 **EAS 云端**产出的(用 EAS 自动 keystore,与官网包不同源),不是本机产物 |
 | 小程序 weapp 产物 | ✅ 已构建(任务 3,2026-10-19) | `pnpm --filter @ihui/miniapp-taro build:weapp` | `apps/miniapp-taro/dist/` 全链 exit 0;上传密钥缺失待用户补 |
-| iOS 端 | ⏳ 工程侧全就绪,待用户侧 Apple Developer + EAS 登录 + AASA Team ID 占位替换(任务 6,2026-10-19) | `npx eas build -p ios` | 见下节「iOS 端可行性评估」 |
+| iOS 端 | ❓ **未判定**(2026-11-02 现读):EAS 身份已实测通(`eas whoami`=`ihui-ai`)、AASA 真 Team ID 已落地,但 ASC API 凭据未取到 ⇒ 提交无法验证 | `node scripts/release-mobile-rn.mjs --leg app-store --execute` | 见下节「iOS 端可行性评估」;旧行写的"待 Apple Developer + EAS 登录 + AASA 占位替换"三件里有两件已不成立 |
 
 **结论:`ihui-cli@1.0.0` 已真实发布并通过安装验证;npm 发布通道已定案为 granular token(`bypass_2fa`)。**
 **⛔ 用户明确指示:永久不启用 2FA、不绑定任何 WebAuthn 认证器,因此不登记 Trusted Publisher —— 此结论已定案,后续不得再提议或询问。**
@@ -416,6 +416,23 @@ node scripts/release-mobile-rn.mjs --diagnose-play      # 经本地代理读 Pla
 node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明>"
 ```
 
+**全平台发布矩阵(2026-11-02 现读;每格由 `release-mobile-rn.mjs` 与 `probe-store-channel.mjs` 当次量出,不是规划表)**
+
+| 平台 | 通道形态 | 提交物 | 签名件 | 凭据 | 通道证据 | 判定 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 自有站点 APK | 本机落 `deploy/server-root/…` + `app_versions` 登记 | ✅ `apk=87239461B` | ✅ | — | 线上 `android latest=0.0.9/26102816` 实测在位 | 阻塞:本机不承载生产 |
+| Google Play | 本机 `bundleRelease` + `eas submit` | 缺 AAB | ✅ | ✅ SA 已授权 | `edits:begin` 200;alpha 挂 `0.0.6/26101921` | 待量签名一致性 |
+| App Store / TestFlight | EAS 云端 build + submit | 需 iOS 产物 | — | ❌ ASC API 凭据未取到 | `eas build:list -p ios` 空 | 阻塞:凭据 |
+| EAS Update(两渠道) | `eas update --channel X --environment X` | ✅ JS bundle | — | ✅ token | **已端到端实证**:一次性分支发出 `✔ Published!`、runtime 读回 `0.0.5`,发后即删 | 通 |
+| 华为 AppGallery | AGC Publishing API | ✅ 同上 APK | ✅ | ⚠ 有一枚但**类型不对** | 端点**已证可达**:`ret.code=205524993 client token auth failed`;旁证 HMS OAuth 能签 token(len=104) | 差一枚 Connect API 客户端凭据 |
+| 小米 / OPPO / vivo / 应用宝 / 荣耀 | 各家开放 API | ✅ 同上 APK | ✅ | ❌ 目录内无 | 端点形态**未经核实** ⇒ 探测器零调用、判未判定 | 未判定 |
+| 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
+
+华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。另五家本器**不发猜的 URL**——端点形态未经核实就判未判定,防"猜的端点进水"。
+
+> **两个结构性缺口(不在发布器射程,已在台账登记)**
+> ① `app_versions.platform` 枚举 = `ios/android/web/harmony/cli`,**没有 store 维度** ⇒ "华为一条 latest、小米一条 latest"在数据面上表达不出来;下载中心与端内更新卡因此只能给一个安卓地址。出路:一次加列迁移(`store`/`channel`),按迁移纪律走 `db:migrate` + 门 49 的 B1–B9 验证。
+> ② 下载中心 8 个入口(web/desktop/ios/android-apk/mobile/wechat-miniapp/extension/cli)**不含任何国内商店**,且访问 `/download/harmony` 会被**静默 fallback 成 desktop**(`apps/web/app/(main)/download/[platform]/DownloadDetailContent.tsx:107`)——静默错配比 404 更坏:用户会以为鸿蒙版就是那个包。
 > **runtimeVersion 曾是 OTA 腿的隐性断点(2026-11-02 修)**:旧形态 `app.json` 里 `runtimeVersion.policy = "appVersion"`,读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被 CI 每次构建注入成 `<base>.<UTC YYYYMMDD>` ⇒ 桶随构建漂移。实测后果:10-27 那条 OTA 落在 runtime `0.0.8`,而线上最新包是 `0.0.9` ⇒ **发出去的更新对任何已装用户永久不可达**,而账面 `eas update` 是成功的。现在桶锚在 `package.json` 基座版本(只在真正重打原生包时抬),判据与反例锁在 `scripts/tests/release-mobile-rn.test.mjs` M6。
 >
 > **签名一致性是 Play 腿未收口的一格**:官网包用 `ihui-release.keystore`(证书 SHA256 `62:B0:FF:0E…`),EAS 云端 10-19 那枚 production AAB 用 EAS 自动生成的 keystore(`62:0C:C9:58…`)—— 二者不同源,而 alpha 轨上那枚 `26101921` 正是 EAS 的号。Play 现网签名身份没能量到(`appSigningInfo` 对本应用回 HTML 404)⇒ **以本机 keystore 提交会不会被 Play 拒绝,属未判定,提交前必须先量一次**,不得凭"应该可以"下结论。
@@ -456,15 +473,9 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 | ⑥ 推送证书(APNs) | 若启用 `expo-notifications`:App Store Connect → App → App Services → Push Notifications → 注册 APNs 证书;或 EAS 走 `eas build -p ios` 时上传 cert 到 EAS |
 | ⑦ 微信 Universal Link 域名 | `aizhs.top` / `file.aizhs.top` 域名 ICP 备案 + HTTPS 证书有效;微信开放平台移动应用注册时填 `https://aizhs.top`(与 `WX_UNIVERSAL_LINK` 一致) |
 
-**上架命令(用户侧动作)**:
-
-```bash
-cd apps/mobile-rn
-npx eas login                              # 首次
-npx eas build --platform ios --profile production
-npx eas submit -p ios                     # 走 App Store Connect
-```
-
+**iOS 提交出口**:`node scripts/release-mobile-rn.mjs --leg app-store --execute`(体检判 ready 才真跑)。
+旧文档在这里写的是 `npx eas login` + 裸 `eas build/submit` 三步"用户侧动作"——login 那步已被密钥目录里的
+token 取代(实测 `eas whoami` 通),而裸命令缺 `--non-interactive`/凭据接线,属跑不通的出路,已删。
 **可行性结论(2026-11-02 更正)**:工程侧就绪这一条成立,但**"可立即启动上架"当时是过度声明**——它把三件没量过的事写成了已备好:① EAS 登录(现已实测通:`eas whoami` = `ihui-ai`,token 走 §5d 密钥目录,无需交互 `eas login`);② Apple 凭据(**仍未取到** —— 密钥目录深 2 层无 `.p8`/`.mobileprovision`,Team ID `TKF3V7GG6T` 只能证明会员关系存在过,不能替代 ASC API key);③ Play 提交(现已实测通,且发现 alpha/internal 轨上早有 release)。所以 iOS 的真前置只剩 Apple 侧凭据一项,取到即可跑下面两条命令;取不到就停在"未判定",不得据此宣称就绪。
 
 ```bash

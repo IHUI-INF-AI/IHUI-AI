@@ -1944,7 +1944,7 @@ export function AISidePanel() {
                         className="flex h-full flex-col items-center justify-center gap-1 px-3"
                         data-pane-marker={paneId}
                       >
-                        <span className="text-xs text-muted-foreground">{paneId}</span>
+                        <span className="text-label text-muted-foreground">{paneId}</span>
                       </div>
                     )
                   }

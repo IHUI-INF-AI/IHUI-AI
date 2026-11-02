@@ -126,7 +126,7 @@ export default function AdminProjectsPage() {
             <FolderCog className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -169,9 +169,9 @@ export default function AdminProjectsPage() {
             <DialogDescription>{t('deleteConfirm')}</DialogDescription>
           </DialogHeader>
           {delTarget && (
-            <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+            <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
               <div className="font-medium">{delTarget.name}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="mt-0.5 text-label text-muted-foreground">
                 {t('owner')}:{' '}
                 {delTarget.ownerNickname ?? delTarget.ownerPhone ?? delTarget.ownerEmail ?? '-'} ·{' '}
                 {t(STATUS_KEY[delTarget.status] ?? 'status_unknown')}
@@ -179,7 +179,7 @@ export default function AdminProjectsPage() {
             </div>
           )}
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}

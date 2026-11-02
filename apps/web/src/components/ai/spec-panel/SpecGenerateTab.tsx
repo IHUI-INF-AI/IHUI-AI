@@ -21,7 +21,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
             onChange={(e) =>
               p.setRequirementFormat(e.target.value as 'text' | 'markdown' | 'image_description')
             }
-            className="h-7 rounded-sm border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+            className="h-7 rounded-sm border border-border bg-background px-1 text-label text-foreground focus:outline-none"
           >
             <option value="text">纯文本</option>
             <option value="markdown">markdown</option>
@@ -55,7 +55,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
             : '需求描述(支持 markdown,LLM 生成 5 章节 spec 草稿)'
         }
         rows={6}
-        className="w-full rounded-sm border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+        className="w-full rounded-sm border border-border bg-background p-2 text-label text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
       />
       {p.genResult?.spec ? (
         <div className="max-h-[45vh] overflow-auto rounded-md border border-border bg-background p-3">
@@ -74,7 +74,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
           <MarkdownViewer content={p.genResult.spec} />
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           填写需求后点击「生成 spec 草稿」,LLM 生成包含 概述 / 模块结构 / API 契约 / 数据模型 /
           测试用例 的 5 章节 spec
         </p>

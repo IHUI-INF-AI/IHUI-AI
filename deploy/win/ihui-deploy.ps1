@@ -3132,7 +3132,10 @@ try {
         # 14 枚 build-fail 的 reason 全是同一句固定措辞 ⇒ 事后没人能从台账知道"哪一次为什么挂",
         # 而散文日志只活 ~6 小时。$_ 与告警侧取的是同一份 throw 原文(不另拼一路、不重排两流),
         # 由 deploy-decision.mjs 的 normalizeReason 统一折叠空白并截 400;它不参与告警身份计算 ⇒ 不改 4h 去重。
-        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Reason "构建失败,未切流,保持当前在线版本:$_")
+        # dims 必须点名 web(B87/B88/B91 立因,2026-11-02):此前这一支漏传 -Dims,台账 14 枚 build-fail
+        # 的 failDims 全是空 ⇒ 信号落 dims=(none),事后读不出"哪个端挂了"。build-fail 只可能来自 web
+        # 构建(Build-Web 是唯一抛出点),dims 恒为 web,不是猜。
+        [void](Write-DeployDecision -Action 'build-fail' -Sha $buildSha -GateVerdict 'not-run' -Dims 'web' -Reason "构建失败,未切流,保持当前在线版本:$_")
         Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 

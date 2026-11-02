@@ -24,7 +24,7 @@ export function InstanceHeader({ inst, fmt, onBack }: Props) {
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('instanceDetail.backToWorkflow')}
@@ -40,7 +40,7 @@ export function InstanceHeader({ inst, fmt, onBack }: Props) {
           {t(INSTANCE_STATUS_KEYS[inst.status] ?? 'instanceStatus.unknown')}
         </span>
         {inst.workflowName && <span className="text-body font-medium">{inst.workflowName}</span>}
-        <div className="text-xs text-muted-foreground">
+        <div className="text-label text-muted-foreground">
           <span>
             {t('instanceDetail.startedAt')}: {fmt(inst.startedAt)}
           </span>

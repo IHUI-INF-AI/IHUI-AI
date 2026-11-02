@@ -85,7 +85,7 @@ export default function ContextOverviewPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-bold tracking-tight">上下文</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-body text-muted-foreground">
             管理对话上下文源、预算分配与 Token 分布
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function ContextOverviewPage() {
           加载中…
         </div>
       ) : sourcesQ.error || vizQ.error ? (
-        <div className="flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>加载失败:{(sourcesQ.error ?? vizQ.error)?.message ?? '未知错误'}</span>
         </div>
@@ -118,13 +118,13 @@ export default function ContextOverviewPage() {
         <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">当前会话 Token 分布</CardTitle>
+              <CardTitle className="text-body">当前会话 Token 分布</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               {dist ? (
                 <TokenPieChart distribution={dist} />
               ) : (
-                <div className="py-10 text-center text-sm text-muted-foreground">
+                <div className="py-10 text-center text-body text-muted-foreground">
                   暂无会话数据,发起对话后再次刷新
                 </div>
               )}
@@ -133,7 +133,7 @@ export default function ContextOverviewPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">上下文源</CardTitle>
+              <CardTitle className="text-body">上下文源</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               {sources.length > 0 ? (
@@ -143,7 +143,7 @@ export default function ContextOverviewPage() {
                   onBudgetChange={handleBudget}
                 />
               ) : (
-                <div className="py-10 text-center text-sm text-muted-foreground">暂无可用源</div>
+                <div className="py-10 text-center text-body text-muted-foreground">暂无可用源</div>
               )}
             </CardContent>
           </Card>
@@ -152,7 +152,7 @@ export default function ContextOverviewPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">子页面</CardTitle>
+          <CardTitle className="text-body">子页面</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-2 pt-0 min-[640px]:grid-cols-3">
           {SUB_PAGES.map((p) => (
@@ -165,7 +165,7 @@ export default function ContextOverviewPage() {
                 <p className="text-body font-medium">{p.title}</p>
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
-              <p className="text-xs text-muted-foreground">{p.desc}</p>
+              <p className="text-label text-muted-foreground">{p.desc}</p>
             </Link>
           ))}
         </CardContent>

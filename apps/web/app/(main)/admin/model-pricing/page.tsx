@@ -59,7 +59,7 @@ export default function ModelPricingPage() {
       <div className="flex items-center gap-2">
         <Link
           href="/admin/ai-cost"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> {t('backToCost')}
         </Link>
@@ -68,7 +68,7 @@ export default function ModelPricingPage() {
         <Coins className="h-5 w-5 text-primary" />
         <h1 className="text-display font-bold">{t('title')}</h1>
         {coverage && (
-          <span className="ml-2 inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
+          <span className="ml-2 inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600">
             <BadgeCheck className="h-3 w-3" />
             {t('coverage', {
               models: coverage.model_count,
@@ -78,10 +78,10 @@ export default function ModelPricingPage() {
           </span>
         )}
       </div>
-      <p className="text-sm text-muted-foreground">{data?.meta.note ?? t('subtitle')}</p>
+      <p className="text-body text-muted-foreground">{data?.meta.note ?? t('subtitle')}</p>
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-body text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> {t('loading')}
         </div>
       )}
@@ -95,7 +95,9 @@ export default function ModelPricingPage() {
                   <Layers className="h-3.5 w-3.5" /> {t('modelCount')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-heading font-bold">{data.coverage.model_count}</CardContent>
+              <CardContent className="text-heading font-bold">
+                {data.coverage.model_count}
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-1">
@@ -124,7 +126,7 @@ export default function ModelPricingPage() {
               <button
                 key={k}
                 onClick={() => setTab(k)}
-                className={`rounded-sm px-3 py-1.5 text-sm transition ${
+                className={`rounded-sm px-3 py-1.5 text-body transition ${
                   tab === k ? 'bg-cta text-cta-foreground' : 'border hover:bg-muted'
                 }`}
               >
@@ -134,9 +136,9 @@ export default function ModelPricingPage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr className="bg-muted/50 text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('name')}</th>
                   <th className="px-4 py-2 text-right font-medium">{t('inputPrice')}</th>
                   <th className="px-4 py-2 text-right font-medium">{t('outputPrice')}</th>
@@ -145,7 +147,7 @@ export default function ModelPricingPage() {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.model} className="hover:bg-muted/30">
-                    <td className="px-4 py-2 font-mono text-xs">{row.model}</td>
+                    <td className="px-4 py-2 font-mono text-label">{row.model}</td>
                     <td className="px-4 py-2 text-right">{fmtPrice(row.input)}</td>
                     <td className="px-4 py-2 text-right">{fmtPrice(row.output)}</td>
                   </tr>
@@ -160,7 +162,7 @@ export default function ModelPricingPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-muted-foreground">{t('unitNote')}</p>
+          <p className="text-label text-muted-foreground">{t('unitNote')}</p>
         </>
       )}
     </div>

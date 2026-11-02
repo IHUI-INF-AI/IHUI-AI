@@ -73,12 +73,12 @@ export default function LearnTopicDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/learn/topic')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
@@ -94,7 +94,7 @@ export default function LearnTopicDetailPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/learn/topic"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -136,9 +136,9 @@ export default function LearnTopicDetailPage() {
           <div className="flex-1 min-w-0 space-y-2">
             <h1 className="text-display font-bold tracking-tight">{topic.title}</h1>
             {topic.description && (
-              <p className="text-sm text-muted-foreground">{topic.description}</p>
+              <p className="text-body text-muted-foreground">{topic.description}</p>
             )}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-4 text-body text-muted-foreground">
               <span className="flex items-center gap-1">
                 <BookOpen className="h-4 w-4" />
                 {t('lessonCount', { n: topic.lessonIds?.length ?? lessons.length })}
@@ -165,7 +165,7 @@ export default function LearnTopicDetailPage() {
         {lessons.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {source === 'premium' && premiumError ? t('premiumLoadFailed') : t('noLessons')}
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function LearnTopicDetailPage() {
                     <CardHeader className="p-3 pb-2">
                       <CardTitle className="text-base">{title}</CardTitle>
                     </CardHeader>
-                    <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0 text-sm">
+                    <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0 text-body">
                       {lesson.instructor && (
                         <p className="text-muted-foreground">{lesson.instructor}</p>
                       )}

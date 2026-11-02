@@ -75,7 +75,7 @@ export default function AdminOAuthAuditPage() {
           <ShieldAlert className="h-6 w-6 text-primary" />
           授权记录审计
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">审计用户授权 OAuth 应用的历史记录</p>
+        <p className="mt-1 text-body text-muted-foreground">审计用户授权 OAuth 应用的历史记录</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -105,13 +105,13 @@ export default function AdminOAuthAuditPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">用户</TableHead>
-              <TableHead className="text-xs uppercase">应用</TableHead>
-              <TableHead className="text-xs uppercase">权限</TableHead>
-              <TableHead className="text-xs uppercase">IP</TableHead>
-              <TableHead className="text-xs uppercase">状态</TableHead>
-              <TableHead className="text-xs uppercase">授权时间</TableHead>
-              <TableHead className="text-xs uppercase">过期时间</TableHead>
+              <TableHead className="text-label uppercase">用户</TableHead>
+              <TableHead className="text-label uppercase">应用</TableHead>
+              <TableHead className="text-label uppercase">权限</TableHead>
+              <TableHead className="text-label uppercase">IP</TableHead>
+              <TableHead className="text-label uppercase">状态</TableHead>
+              <TableHead className="text-label uppercase">授权时间</TableHead>
+              <TableHead className="text-label uppercase">过期时间</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,22 +134,24 @@ export default function AdminOAuthAuditPage() {
                   <TableCell className="font-medium">{r.user}</TableCell>
                   <TableCell>
                     <div className="font-medium">{r.appName}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{r.clientId}</div>
+                    <div className="font-mono text-label text-muted-foreground">{r.clientId}</div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {(r.scopes ?? []).map((s) => (
-                        <span key={s} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                        <span key={s} className="rounded bg-muted px-1.5 py-0.5 text-label">
                           {s}
                         </span>
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.ip}</TableCell>
+                  <TableCell className="font-mono text-label text-muted-foreground">
+                    {r.ip}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         STATUS_STYLE[r.status],
                       )}
                     >
@@ -157,10 +159,10 @@ export default function AdminOAuthAuditPage() {
                       {STATUS_LABEL[r.status]}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {formatDate(r.createdAt)}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {r.expiresAt ? formatDate(r.expiresAt) : '永久'}
                   </TableCell>
                 </TableRow>

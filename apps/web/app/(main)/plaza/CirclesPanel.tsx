@@ -33,13 +33,13 @@ export function CirclesPanel({ isLoading, error, circles }: Props) {
         // 而带着 status 的身份在这一步又被丢一次(守门 135 的第二半)。
         // 容器沿用既有的"染色底 + 完整描边"(bg-destructive/10 + border-destructive/50),
         // 不是实底黑块;图标位刻意留空 —— §4 禁止把告警图形当错误态的唯一表达。
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {toUserFriendlyMessage(error)}
         </div>
       ) : circles.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Circle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{tc('empty')}</p>
+          <p className="text-body text-muted-foreground">{tc('empty')}</p>
         </div>
       ) : (
         <>
@@ -53,11 +53,11 @@ export function CirclesPanel({ isLoading, error, circles }: Props) {
                     </div>
                     <CardTitle className="text-base">{c.name}</CardTitle>
                     {c.description && (
-                      <CardDescription className="text-xs">{c.description}</CardDescription>
+                      <CardDescription className="text-label">{c.description}</CardDescription>
                     )}
                   </CardHeader>
                   <CardContent className="min-[640px]:p-3 p-3 pt-0">
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4 text-label text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
                         {tc('memberCount', { count: c.memberCount })}
@@ -75,7 +75,7 @@ export function CirclesPanel({ isLoading, error, circles }: Props) {
           <div className="flex justify-end">
             <Link
               href="/circles"
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
+              className="flex items-center gap-1 text-body text-primary hover:underline"
             >
               {t('viewAllCircles')}
               <ArrowRight className="h-3.5 w-3.5" />

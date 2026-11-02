@@ -183,7 +183,7 @@ export default function EduAiPolicyPage() {
           <Landmark className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +243,7 @@ export default function EduAiPolicyPage() {
                     {levelLabel(item.policyLevel)}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-label text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Building2 className="h-3.5 w-3.5" />
                     {item.issuingAuthority}
@@ -254,7 +254,7 @@ export default function EduAiPolicyPage() {
                   </span>
                 </div>
                 {item.summary && (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">{item.summary}</p>
+                  <p className="line-clamp-2 text-body text-muted-foreground">{item.summary}</p>
                 )}
               </CardContent>
             </Card>
@@ -264,7 +264,7 @@ export default function EduAiPolicyPage() {
 
       {!isLoading && !isError && list.length > 0 && (
         <div className="flex items-center justify-between gap-3">
-          <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <div className="flex shrink-0 items-center gap-2">
@@ -317,7 +317,7 @@ export default function EduAiPolicyPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {metaItems(detail).map((m) => (
-                  <div key={m.label} className="flex items-center gap-2 text-sm">
+                  <div key={m.label} className="flex items-center gap-2 text-body">
                     <m.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="shrink-0 text-muted-foreground">{m.label}</span>
                     <span className="min-w-0 truncate">{m.value}</span>
@@ -326,12 +326,12 @@ export default function EduAiPolicyPage() {
               </div>
 
               {contentSections.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('noDetail')}</p>
+                <p className="text-body text-muted-foreground">{t('noDetail')}</p>
               ) : (
                 contentSections.map((s) => (
                   <section key={s.label} className="space-y-1">
                     <h3 className="text-body font-semibold">{s.label}</h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                    <p className="whitespace-pre-line text-body leading-relaxed text-muted-foreground">
                       {s.value}
                     </p>
                   </section>
@@ -343,7 +343,7 @@ export default function EduAiPolicyPage() {
                   href={detail.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-body text-primary hover:underline"
                 >
                   <ExternalLink className="h-4 w-4" />
                   {t('sourceUrl')}

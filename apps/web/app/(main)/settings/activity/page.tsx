@@ -106,11 +106,13 @@ export default function ActivityPage() {
           {!allow ? (
             <AuthGatePrompt message={tGate('loginRequired')} />
           ) : loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">
+              {t('activityLoading')}
+            </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-destructive">{error}</p>
+            <p className="py-8 text-center text-body text-destructive">{error}</p>
           ) : logs.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('activityEmpty')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('activityEmpty')}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -126,10 +128,10 @@ export default function ActivityPage() {
                 <TableBody>
                   {logs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="whitespace-nowrap text-xs">{log.time}</TableCell>
-                      <TableCell className="font-mono text-xs">{log.ip}</TableCell>
-                      <TableCell className="text-xs">{log.device}</TableCell>
-                      <TableCell className="text-xs">
+                      <TableCell className="whitespace-nowrap text-label">{log.time}</TableCell>
+                      <TableCell className="font-mono text-label">{log.ip}</TableCell>
+                      <TableCell className="text-label">{log.device}</TableCell>
+                      <TableCell className="text-label">
                         {eventLabels[log.event] ?? log.event}
                       </TableCell>
                       <TableCell>
@@ -153,7 +155,7 @@ export default function ActivityPage() {
 
           {!loading && !error && logs.length > 0 && (
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('activityPageInfo', { page, totalPages })}
               </span>
               <div className="flex gap-2">

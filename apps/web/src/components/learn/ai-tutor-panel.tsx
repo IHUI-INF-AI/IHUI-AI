@@ -126,7 +126,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">{t('subject')}</div>
+          <div className="text-label text-muted-foreground">{t('subject')}</div>
           <div className="flex flex-wrap gap-1.5">
             {SUBJECTS.map((item) => (
               <button
@@ -146,7 +146,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">{t('mode')}</div>
+          <div className="text-label text-muted-foreground">{t('mode')}</div>
           <div className="flex gap-1.5">
             {MODES.map((m) => {
               const active = m.value === mode
@@ -174,7 +174,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">
+          <div className="text-label text-muted-foreground">
             {mode === 'quiz' ? t('quizDirection') : t('yourQuestion')}
           </div>
           <Input
@@ -187,7 +187,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
               }
             }}
             placeholder={mode === 'quiz' ? t('quizPlaceholder') : t('questionPlaceholder')}
-            className="h-9 text-sm"
+            className="h-9 text-body"
           />
           <Button
             size="sm"
@@ -204,9 +204,9 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto text-sm">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto text-body">
           {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs text-destructive">
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-label text-destructive">
               {error}
             </div>
           )}
@@ -215,16 +215,16 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
             <div className="space-y-3">
               <div className="space-y-1">
                 <div className="text-label font-medium text-primary">{t('modeExplain')}</div>
-                <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-relaxed">
+                <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-body leading-relaxed">
                   {explain.answer}
                 </div>
               </div>
               {explain.knowledge_points && explain.knowledge_points.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{t('knowledgePoints')}</div>
+                  <div className="text-label text-muted-foreground">{t('knowledgePoints')}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {explain.knowledge_points.map((k, i) => (
-                      <span key={i} className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                      <span key={i} className="rounded-md bg-muted px-2 py-0.5 text-label">
                         {k}
                       </span>
                     ))}
@@ -233,8 +233,8 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
               )}
               {explain.follow_up_questions && explain.follow_up_questions.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{t('followUp')}</div>
-                  <ul className="space-y-1 text-xs">
+                  <div className="text-label text-muted-foreground">{t('followUp')}</div>
+                  <ul className="space-y-1 text-label">
                     {explain.follow_up_questions.map((q, i) => (
                       <li key={i} className="rounded-md bg-muted/30 px-2 py-1">
                         {i + 1}. {q}
@@ -250,20 +250,20 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
             <div className="space-y-3">
               <div className="space-y-1">
                 <div className="text-label font-medium text-amber-600">{t('modeHint')}</div>
-                <div className="whitespace-pre-wrap rounded-md bg-amber-500/5 p-3 text-sm leading-relaxed">
+                <div className="whitespace-pre-wrap rounded-md bg-amber-500/5 p-3 text-body leading-relaxed">
                   {hint.hint}
                 </div>
               </div>
               {hint.next_step_hint && (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{t('nextStep')}</div>
-                  <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-relaxed">
+                  <div className="text-label text-muted-foreground">{t('nextStep')}</div>
+                  <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-label leading-relaxed">
                     {hint.next_step_hint}
                   </div>
                 </div>
               )}
               {hint.encouragement && (
-                <div className="text-xs italic text-muted-foreground">{hint.encouragement}</div>
+                <div className="text-label italic text-muted-foreground">{hint.encouragement}</div>
               )}
             </div>
           )}
@@ -279,19 +279,19 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
                     {i + 1}. {item.question_text}
                   </div>
                   {item.options && item.options.length > 0 && (
-                    <div className="space-y-0.5 text-xs text-muted-foreground">
+                    <div className="space-y-0.5 text-label text-muted-foreground">
                       {item.options.map((opt, j) => (
                         <div key={j}>{opt}</div>
                       ))}
                     </div>
                   )}
                   {item.answer && (
-                    <div className="text-xs text-emerald-700">
+                    <div className="text-label text-emerald-700">
                       {t('answerValue', { answer: item.answer })}
                     </div>
                   )}
                   {item.explanation && (
-                    <div className="text-xs text-muted-foreground">{item.explanation}</div>
+                    <div className="text-label text-muted-foreground">{item.explanation}</div>
                   )}
                 </div>
               ))}
@@ -299,17 +299,17 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           )}
 
           {!error && !explain && !hint && !quiz && !loading && (
-            <div className="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-center text-label text-muted-foreground">
               {t('emptyHint')}
             </div>
           )}
 
           {history.length > 0 && (
             <div className="space-y-1.5 pt-3">
-              <div className="text-xs text-muted-foreground">{t('history')}</div>
+              <div className="text-label text-muted-foreground">{t('history')}</div>
               <ul className="space-y-1">
                 {history.map((h) => (
-                  <li key={h.id} className="rounded-md bg-muted/30 px-2 py-1.5 text-xs">
+                  <li key={h.id} className="rounded-md bg-muted/30 px-2 py-1.5 text-label">
                     <span className="mr-1.5 font-medium text-primary">{h.subject || h.mode}</span>
                     <span className="line-clamp-1 inline">{h.question}</span>
                   </li>

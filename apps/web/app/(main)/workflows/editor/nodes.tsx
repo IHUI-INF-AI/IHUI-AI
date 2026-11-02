@@ -87,7 +87,7 @@ export function StepNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
 
       {/* 头部 */}
       <div className="flex items-center gap-2">
-        <div className={cn('flex h-6 w-6 items-center justify-center rounded text-xs', c.badge)}>
+        <div className={cn('flex h-6 w-6 items-center justify-center rounded text-label', c.badge)}>
           {TYPE_LABEL[data.stepType]}
         </div>
         <span className="text-body font-medium">{data.label}</span>
@@ -95,24 +95,28 @@ export function StepNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
 
       {/* 摘要信息 */}
       {data.stepType === 'echo' && data.step.input && (
-        <div className="mt-1.5 truncate text-xs text-muted-foreground">输入: {data.step.input}</div>
+        <div className="mt-1.5 truncate text-label text-muted-foreground">
+          输入: {data.step.input}
+        </div>
       )}
       {data.stepType === 'skill' && data.step.skill && (
-        <div className="mt-1.5 truncate text-xs text-muted-foreground">技能: {data.step.skill}</div>
+        <div className="mt-1.5 truncate text-label text-muted-foreground">
+          技能: {data.step.skill}
+        </div>
       )}
       {data.stepType === 'delay' && data.step.duration !== undefined && (
-        <div className="mt-1.5 text-xs text-muted-foreground">延迟: {data.step.duration}ms</div>
+        <div className="mt-1.5 text-label text-muted-foreground">延迟: {data.step.duration}ms</div>
       )}
       {data.stepType === 'loop' && data.step.count !== undefined && (
-        <div className="mt-1.5 text-xs text-muted-foreground">循环: {data.step.count} 次</div>
+        <div className="mt-1.5 text-label text-muted-foreground">循环: {data.step.count} 次</div>
       )}
       {data.stepType === 'condition' && data.step.condition && (
-        <div className="mt-1.5 truncate text-xs text-muted-foreground">
+        <div className="mt-1.5 truncate text-label text-muted-foreground">
           条件: {data.step.condition}
         </div>
       )}
       {data.stepType === 'parallel' && data.step.steps && (
-        <div className="mt-1.5 text-xs text-muted-foreground">
+        <div className="mt-1.5 text-label text-muted-foreground">
           并行: {data.step.steps.length} 个子任务
         </div>
       )}

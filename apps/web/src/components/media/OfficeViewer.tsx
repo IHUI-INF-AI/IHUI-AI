@@ -34,11 +34,11 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
   return (
     <div className={cn('relative flex h-full w-full flex-col', className)}>
       <div className="flex items-center justify-between bg-muted/50 px-3 py-1.5">
-        <span className="text-xs text-muted-foreground">{t('officePreviewLabel')}</span>
+        <span className="text-label text-muted-foreground">{t('officePreviewLabel')}</span>
         <a
           href={url}
           download={fileName}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
+          className="inline-flex items-center gap-1 text-label text-muted-foreground transition-colors hover:text-primary"
         >
           <Download className="h-3 w-3" />
           {t('download')}
@@ -53,11 +53,11 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
         {error ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <AlertCircle className="h-8 w-8" />
-            <p className="text-sm">{t('previewTimeout')}</p>
+            <p className="text-body">{t('previewTimeout')}</p>
             <a
               href={url}
               download={fileName}
-              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-body text-primary hover:underline"
             >
               <Download className="h-4 w-4" />
               {t('downloadFile')}

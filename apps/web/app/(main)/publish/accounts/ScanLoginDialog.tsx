@@ -825,7 +825,7 @@ export function ScanLoginDialog({
                 type="button"
                 onClick={toggleReuseSession}
                 disabled={isBusy}
-                className="flex w-full items-center justify-between rounded-sm border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+                className="flex w-full items-center justify-between rounded-sm border px-3 py-2 text-label text-muted-foreground transition-colors hover:bg-accent/40"
               >
                 <span>{t('accounts.scanLoginReuseLabel')}</span>
                 <span className={reuseSession ? 'font-medium text-foreground' : ''}>
@@ -841,7 +841,7 @@ export function ScanLoginDialog({
                 <QrCode className="h-4 w-4" />
                 {isBusy ? t('accounts.preparingQr') : t('accounts.startScanLogin')}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
+              <p className="text-center text-label text-muted-foreground">
                 {t('accounts.scanWithPhoneHint')}
               </p>
               <div className="flex items-center justify-center gap-2">
@@ -867,7 +867,7 @@ export function ScanLoginDialog({
                 <ExternalLink className="h-4 w-4" />
                 {t('accounts.openExternalBrowser')}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
+              <p className="text-center text-label text-muted-foreground">
                 {t('accounts.externalBrowserHint')}
               </p>
               {/* 2026-09-30 新增:Chrome 导入模式 —— 后端拉起带调试端口的独立 Chrome 窗口,
@@ -893,8 +893,10 @@ export function ScanLoginDialog({
           {phase === 'starting' && (
             <div className="flex flex-col items-center gap-3 py-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('accounts.loadingStage.booting')}</p>
-              <p className="text-xs tabular-nums text-muted-foreground">
+              <p className="text-body text-muted-foreground">
+                {t('accounts.loadingStage.booting')}
+              </p>
+              <p className="text-label tabular-nums text-muted-foreground">
                 {t('accounts.elapsedSeconds', { seconds: elapsedSeconds.toFixed(1) })}
               </p>
             </div>
@@ -930,7 +932,7 @@ export function ScanLoginDialog({
                     data-testid="qr-placeholder"
                   >
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <span className="absolute bottom-3 text-xs tabular-nums text-muted-foreground">
+                    <span className="absolute bottom-3 text-label tabular-nums text-muted-foreground">
                       {t('accounts.elapsedSeconds', { seconds: elapsedSeconds.toFixed(1) })}
                     </span>
                   </div>
@@ -938,7 +940,7 @@ export function ScanLoginDialog({
                     {t(`accounts.loadingStage.${displayStage}`)}
                   </p>
                   {taskMessage && taskMessage !== t(`accounts.loadingStage.${displayStage}`) && (
-                    <p className="-mt-2 max-w-[16rem] text-center text-xs text-muted-foreground">
+                    <p className="-mt-2 max-w-[16rem] text-center text-label text-muted-foreground">
                       {taskMessage}
                     </p>
                   )}
@@ -967,7 +969,7 @@ export function ScanLoginDialog({
                     })}
                   </ol>
                   {elapsedSeconds >= SLOW_HINT_AFTER_SECONDS && (
-                    <p className="max-w-[15rem] text-center text-xs text-muted-foreground">
+                    <p className="max-w-[15rem] text-center text-label text-muted-foreground">
                       {t('accounts.loadingSlowHint')}
                     </p>
                   )}
@@ -975,7 +977,9 @@ export function ScanLoginDialog({
               )}
               <div className="space-y-1 text-center">
                 <p className="text-body font-medium">{t('accounts.scanLogin')}</p>
-                <p className="text-xs text-muted-foreground">{t('accounts.scanWithPhoneHint')}</p>
+                <p className="text-label text-muted-foreground">
+                  {t('accounts.scanWithPhoneHint')}
+                </p>
               </div>
               <CountdownTimer
                 totalSeconds={countdownSeconds}
@@ -987,7 +991,7 @@ export function ScanLoginDialog({
 
           {phase === 'manual-import' && (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {t('accounts.importCookiesHint', { platform: platformName })}
               </p>
               <Textarea
@@ -1004,10 +1008,10 @@ export function ScanLoginDialog({
           {phase === 'chrome-import' && (
             <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-3">
               <ImportIcon className="h-10 w-10 text-primary" />
-              <p className="max-w-[18rem] text-center text-sm text-foreground">
+              <p className="max-w-[18rem] text-center text-body text-foreground">
                 {t('accounts.chromeImportHint', { platform: platformName })}
               </p>
-              <p className="text-xs tabular-nums text-muted-foreground">
+              <p className="text-label tabular-nums text-muted-foreground">
                 {t('accounts.elapsedSeconds', { seconds: elapsedSeconds.toFixed(1) })}
               </p>
               <CountdownTimer
@@ -1029,7 +1033,7 @@ export function ScanLoginDialog({
             <div className="flex flex-col items-center gap-2 py-4 text-destructive">
               <XCircle className="h-12 w-12" />
               <p className="text-body font-medium">{t('accounts.scanLoginFailed')}</p>
-              {errorMsg && <p className="text-xs text-muted-foreground">{errorMsg}</p>}
+              {errorMsg && <p className="text-label text-muted-foreground">{errorMsg}</p>}
             </div>
           )}
         </div>

@@ -22,7 +22,7 @@ export function AnnouncementFilter({ onCreate, onSendNotice }: Props) {
           <Megaphone className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" onClick={onSendNotice}>
