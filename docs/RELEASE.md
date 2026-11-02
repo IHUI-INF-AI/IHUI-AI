@@ -416,6 +416,23 @@ node scripts/release-mobile-rn.mjs --diagnose-play      # 经本地代理读 Pla
 node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明>"
 ```
 
+**全平台发布矩阵(2026-11-02 现读;每格由 `release-mobile-rn.mjs` 与 `probe-store-channel.mjs` 当次量出,不是规划表)**
+
+| 平台 | 通道形态 | 提交物 | 签名件 | 凭据 | 通道证据 | 判定 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 自有站点 APK | 本机落 `deploy/server-root/…` + `app_versions` 登记 | ✅ `apk=87239461B` | ✅ | — | 线上 `android latest=0.0.9/26102816` 实测在位 | 阻塞:本机不承载生产 |
+| Google Play | 本机 `bundleRelease` + `eas submit` | 缺 AAB | ✅ | ✅ SA 已授权 | `edits:begin` 200;alpha 挂 `0.0.6/26101921` | 待量签名一致性 |
+| App Store / TestFlight | EAS 云端 build + submit | 需 iOS 产物 | — | ❌ ASC API 凭据未取到 | `eas build:list -p ios` 空 | 阻塞:凭据 |
+| EAS Update(两渠道) | `eas update --channel X --environment X` | ✅ JS bundle | — | ✅ token | **已端到端实证**:一次性分支发出 `✔ Published!`、runtime 读回 `0.0.5`,发后即删 | 通 |
+| 华为 AppGallery | AGC Publishing API | ✅ 同上 APK | ✅ | ⚠ 有一枚但**类型不对** | 端点**已证可达**:`ret.code=205524993 client token auth failed`;旁证 HMS OAuth 能签 token(len=104) | 差一枚 Connect API 客户端凭据 |
+| 小米 / OPPO / vivo / 应用宝 / 荣耀 | 各家开放 API | ✅ 同上 APK | ✅ | ❌ 目录内无 | 端点形态**未经核实** ⇒ 探测器零调用、判未判定 | 未判定 |
+| 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
+
+华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。另五家本器**不发猜的 URL**——端点形态未经核实就判未判定,防"猜的端点进水"。
+
+> **两个结构性缺口(不在发布器射程,已在台账登记)**
+> ① `app_versions.platform` 枚举 = `ios/android/web/harmony/cli`,**没有 store 维度** ⇒ "华为一条 latest、小米一条 latest"在数据面上表达不出来;下载中心与端内更新卡因此只能给一个安卓地址。出路:一次加列迁移(`store`/`channel`),按迁移纪律走 `db:migrate` + 门 49 的 B1–B9 验证。
+> ② 下载中心 8 个入口(web/desktop/ios/android-apk/mobile/wechat-miniapp/extension/cli)**不含任何国内商店**,且访问 `/download/harmony` 会被**静默 fallback 成 desktop**(`apps/web/app/(main)/download/[platform]/DownloadDetailContent.tsx:107`)——静默错配比 404 更坏:用户会以为鸿蒙版就是那个包。
 > **runtimeVersion 曾是 OTA 腿的隐性断点(2026-11-02 修)**:旧形态 `app.json` 里 `runtimeVersion.policy = "appVersion"`,读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被 CI 每次构建注入成 `<base>.<UTC YYYYMMDD>` ⇒ 桶随构建漂移。实测后果:10-27 那条 OTA 落在 runtime `0.0.8`,而线上最新包是 `0.0.9` ⇒ **发出去的更新对任何已装用户永久不可达**,而账面 `eas update` 是成功的。现在桶锚在 `package.json` 基座版本(只在真正重打原生包时抬),判据与反例锁在 `scripts/tests/release-mobile-rn.test.mjs` M6。
 >
 > **签名一致性是 Play 腿未收口的一格**:官网包用 `ihui-release.keystore`(证书 SHA256 `62:B0:FF:0E…`),EAS 云端 10-19 那枚 production AAB 用 EAS 自动生成的 keystore(`62:0C:C9:58…`)—— 二者不同源,而 alpha 轨上那枚 `26101921` 正是 EAS 的号。Play 现网签名身份没能量到(`appSigningInfo` 对本应用回 HTML 404)⇒ **以本机 keystore 提交会不会被 Play 拒绝,属未判定,提交前必须先量一次**,不得凭"应该可以"下结论。
