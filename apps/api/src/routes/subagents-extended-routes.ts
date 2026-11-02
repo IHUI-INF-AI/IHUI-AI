@@ -31,16 +31,19 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
 // S-ACL 归属判据的唯一出口(与 subagent-dispatch.ts 共用同一份,不在本文件重写谓词)
-import { ownsDispatchById } from '../utils/dispatch-ownership.js'
+import { isAdminViewer, ownsDispatchById } from '../utils/dispatch-ownership.js'
 
 // ---------- 进程内存储(零迁移) ----------
 
 interface CustomRole {
   id: string
+  /** 创建者(2026-11-02):本 Map 此前无 owner ⇒ 任何登录用户都能列出/改写/删除别人的角色 */
+  ownerUserId: string
   role: string
   displayName: string
   systemPrompt: string
@@ -84,7 +87,31 @@ interface EvolutionHistory {
 }
 
 const customRoles = new Map<string, CustomRole>()
+/**
+ * 演化历史(2026-11-02):键从「role」改为「`${userId}:${role}`」。
+ *
+ * 原实现只以 role 为键 ⇒ 同一内置角色在全局只有一份历史,任何登录用户读/写
+ * `evolution-history` / `evolve` / `apply-evolution` 都在动别人的 prompt 版本与补丁。
+ * 选「复合键」而不是「记录内 ownerUserId 再过滤」的理由:隔离写进**键**本身后,
+ * 每个读写点只有一次 O(1) 取用,不存在「忘了过滤」这一档;过滤式实现要求四处
+ * 都记得判 owner,漏一处即越权,正是本票要根除的形态。
+ */
 const evolutionHistories = new Map<string, EvolutionHistory>()
+
+function evolutionKey(userId: string, role: string): string {
+  return `${userId}:${role}`
+}
+
+/**
+ * 自定义角色归属判据(单一实现)。不存在(undefined)与「非本人」都返回 false,
+ * 调用方统一映射成 404 —— 不告诉调用方该 id 是否真实存在(防枚举,无 403)。
+ */
+function isCustomRoleOwnedBy(
+  role: CustomRole | undefined,
+  userId: string | undefined,
+): role is CustomRole {
+  return role?.ownerUserId === userId
+}
 
 /** 内置角色初始 prompt(对应 5 个 SubagentRole) */
 const INITIAL_PROMPTS: Record<string, string> = {
@@ -318,53 +345,63 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/subagents/roles/custom', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
-    const roles = Array.from(customRoles.values()).sort((a, b) =>
-      a.createdAt.localeCompare(b.createdAt),
-    )
+    // 只列本人创建的角色:全局 Map 里混着别的租户的 id / systemPrompt,不能整表返回
+    const roles = Array.from(customRoles.values())
+      .filter((r) => isCustomRoleOwnedBy(r, userId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     return reply.send(success({ roles }))
   })
 
   // ---------- POST /subagents/roles/custom ----------
 
-  server.post('/subagents/roles/custom', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
-    const parsed = customRoleSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const input = parsed.data
-
-    // role 唯一性校验
-    for (const r of customRoles.values()) {
-      if (r.role === input.role) {
-        return reply.status(409).send(error(409, `角色技术名 ${input.role} 已存在`))
+  server.post(
+    '/subagents/roles/custom',
+    { preHandler: requireAdminRouteGuard },
+    async (request, reply) => {
+      const parsed = customRoleSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-    }
+      const input = parsed.data
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
 
-    const now = nowIso()
-    const role: CustomRole = {
-      id: genId(),
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    }
-    customRoles.set(role.id, role)
-    return reply.send(success({ role }))
-  })
+      // role 唯一性校验:只在**本人**的角色集合内判重(2026-11-02)。
+      // 原实现是全租户唯一 ⇒ 别的租户先占了同名,本租户就被 409 挡下 —— 既泄漏
+      // 「全局已有该名」的存在性,又让租户之间的命名互相干扰。跨租户同名现在各自成立。
+      for (const r of customRoles.values()) {
+        if (isCustomRoleOwnedBy(r, userId) && r.role === input.role) {
+          return reply.status(409).send(error(409, `角色技术名 ${input.role} 已存在`))
+        }
+      }
+
+      const now = nowIso()
+      const role: CustomRole = {
+        id: genId(),
+        ownerUserId: userId,
+        ...input,
+        createdAt: now,
+        updatedAt: now,
+      }
+      customRoles.set(role.id, role)
+      return reply.send(success({ role }))
+    },
+  )
 
   // ---------- GET /subagents/roles/custom/:id ----------
 
   server.get('/subagents/roles/custom/:id', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { id } = request.params as { id: string }
     const role = customRoles.get(id)
-    if (!role) {
+    // 不存在与「非本人」合并成同一个 404(无 403):不让调用方探测 id 是否真实存在
+    if (!isCustomRoleOwnedBy(role, userId)) {
       return reply.status(404).send(error(404, '角色不存在'))
     }
     return reply.send(success({ role }))
@@ -372,121 +409,137 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- PUT /subagents/roles/custom/:id ----------
 
-  server.put('/subagents/roles/custom/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+  server.put(
+    '/subagents/roles/custom/:id',
+    { preHandler: requireAdminRouteGuard },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
 
-    const { id } = request.params as { id: string }
-    const existing = customRoles.get(id)
-    if (!existing) {
-      return reply.status(404).send(error(404, '角色不存在'))
-    }
-
-    const parsed = customRoleSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const input = parsed.data
-
-    // role 唯一性校验(排除自身)
-    for (const r of customRoles.values()) {
-      if (r.id !== id && r.role === input.role) {
-        return reply.status(409).send(error(409, `角色技术名 ${input.role} 已存在`))
+      const existing = customRoles.get(id)
+      // 归属闸在解析 body 之前:跨租户请求无论 body 是否合法都只得到 404,不暴露记录的存否
+      if (!isCustomRoleOwnedBy(existing, userId)) {
+        return reply.status(404).send(error(404, '角色不存在'))
       }
-    }
 
-    const updated: CustomRole = {
-      ...existing,
-      ...input,
-      updatedAt: nowIso(),
-    }
-    customRoles.set(id, updated)
-    return reply.send(success({ role: updated }))
-  })
+      const parsed = customRoleSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const input = parsed.data
+
+      // role 唯一性校验(排除自身,且只在本人角色集合内判重 —— 与创建同口径)
+      for (const r of customRoles.values()) {
+        if (r.id !== id && isCustomRoleOwnedBy(r, userId) && r.role === input.role) {
+          return reply.status(409).send(error(409, `角色技术名 ${input.role} 已存在`))
+        }
+      }
+
+      const updated: CustomRole = {
+        ...existing,
+        ...input,
+        updatedAt: nowIso(),
+      }
+      customRoles.set(id, updated)
+      return reply.send(success({ role: updated }))
+    },
+  )
 
   // ---------- DELETE /subagents/roles/custom/:id ----------
 
-  server.delete('/subagents/roles/custom/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
-    const { id } = request.params as { id: string }
-    const deleted = customRoles.delete(id)
-    if (!deleted) {
-      return reply.status(404).send(error(404, '角色不存在'))
-    }
-    return reply.send(success({ deleted }))
-  })
+  server.delete(
+    '/subagents/roles/custom/:id',
+    { preHandler: requireAdminRouteGuard },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const existing = customRoles.get(id)
+      // 归属闸在删除之前:跨租户 DELETE 一律 404,且绝不能先删后补(别人的记录原样留在 Map 里)
+      if (!isCustomRoleOwnedBy(existing, request.userId)) {
+        return reply.status(404).send(error(404, '角色不存在'))
+      }
+      const deleted = customRoles.delete(id)
+      if (!deleted) {
+        return reply.status(404).send(error(404, '角色不存在'))
+      }
+      return reply.send(success({ deleted }))
+    },
+  )
 
   // ---------- POST /subagents/roles/auto-generate(调用 ai-service 生成角色定义) ----------
 
-  server.post('/subagents/roles/auto-generate', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
-    const parsed = autoGenerateSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { task } = parsed.data
-
-    // 调用 ai-service /api/llm/complete,要求 LLM 返回 JSON 角色定义
-    const systemPrompt =
-      'Generate a specialized agent role definition for the task. ' +
-      'Return JSON: { role, displayName, systemPrompt, skills: [], recommendedTasks: [] }'
-    const llmText = await callAiService(systemPrompt, task)
-    if (llmText) {
-      const role = safeParseLlmJson<{
-        role?: string
-        displayName?: string
-        systemPrompt?: string
-        skills?: unknown
-        recommendedTasks?: unknown
-      }>(llmText)
-      // 必须包含 role + systemPrompt 才视为有效生成
-      if (role && typeof role.role === 'string' && typeof role.systemPrompt === 'string') {
-        // 安全转换 skills / recommendedTasks(必须是 string[],否则降级为空数组)
-        const skills = Array.isArray(role.skills)
-          ? role.skills.filter((s): s is string => typeof s === 'string')
-          : []
-        const recommendedTasks = Array.isArray(role.recommendedTasks)
-          ? role.recommendedTasks.filter((s): s is string => typeof s === 'string')
-          : []
-        return reply.send(
-          success({
-            role: role.role,
-            displayName:
-              typeof role.displayName === 'string' ? role.displayName : `${task.slice(0, 24)} 专家`,
-            systemPrompt: role.systemPrompt,
-            skills,
-            recommendedTasks,
-            reasoning: 'LLM 自动生成',
-          }),
-        )
+  server.post(
+    '/subagents/roles/auto-generate',
+    { preHandler: requireAdminRouteGuard },
+    async (request, reply) => {
+      const parsed = autoGenerateSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-    }
+      const { task } = parsed.data
 
-    // fallback:LLM 不可达 / 返回无效 / 解析失败 → 返回模板桩(保留前端兼容格式)
-    return reply.send(
-      success({
-        role: taskToRoleSlug(task),
-        displayName: `${task.slice(0, 24)} 专家`,
-        systemPrompt: `You are a specialized agent for: ${task}.`,
-        skills: [],
-        recommendedTasks: [],
-        reasoning: 'LLM 不可达或返回无效,返回模板桩。',
-      }),
-    )
-  })
+      // 调用 ai-service /api/llm/complete,要求 LLM 返回 JSON 角色定义
+      const systemPrompt =
+        'Generate a specialized agent role definition for the task. ' +
+        'Return JSON: { role, displayName, systemPrompt, skills: [], recommendedTasks: [] }'
+      const llmText = await callAiService(systemPrompt, task)
+      if (llmText) {
+        const role = safeParseLlmJson<{
+          role?: string
+          displayName?: string
+          systemPrompt?: string
+          skills?: unknown
+          recommendedTasks?: unknown
+        }>(llmText)
+        // 必须包含 role + systemPrompt 才视为有效生成
+        if (role && typeof role.role === 'string' && typeof role.systemPrompt === 'string') {
+          // 安全转换 skills / recommendedTasks(必须是 string[],否则降级为空数组)
+          const skills = Array.isArray(role.skills)
+            ? role.skills.filter((s): s is string => typeof s === 'string')
+            : []
+          const recommendedTasks = Array.isArray(role.recommendedTasks)
+            ? role.recommendedTasks.filter((s): s is string => typeof s === 'string')
+            : []
+          return reply.send(
+            success({
+              role: role.role,
+              displayName:
+                typeof role.displayName === 'string'
+                  ? role.displayName
+                  : `${task.slice(0, 24)} 专家`,
+              systemPrompt: role.systemPrompt,
+              skills,
+              recommendedTasks,
+              reasoning: 'LLM 自动生成',
+            }),
+          )
+        }
+      }
+
+      // fallback:LLM 不可达 / 返回无效 / 解析失败 → 返回模板桩(保留前端兼容格式)
+      return reply.send(
+        success({
+          role: taskToRoleSlug(task),
+          displayName: `${task.slice(0, 24)} 专家`,
+          systemPrompt: `You are a specialized agent for: ${task}.`,
+          skills: [],
+          recommendedTasks: [],
+          reasoning: 'LLM 不可达或返回无效,返回模板桩。',
+        }),
+      )
+    },
+  )
 
   // ---------- GET /subagents/agents/:role/evolution-history ----------
 
   server.get('/subagents/agents/:role/evolution-history', async (request, reply) => {
     await requireAuth(request, reply)
-    if (!request.userId) return
+    const userId = request.userId
+    if (!userId) return
 
     const { role } = request.params as { role: string }
-    const stored = evolutionHistories.get(role)
+    // 只取本人命名空间的历史(复合键见 evolutionHistories 注释);别人的记录结构上取不到
+    const stored = evolutionHistories.get(evolutionKey(userId, role))
     if (stored) {
       return reply.send(success(stored))
     }
@@ -503,139 +556,147 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // ---------- POST /subagents/agents/:role/evolve(调用 ai-service 分析演化) ----------
 
-  server.post('/subagents/agents/:role/evolve', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+  server.post(
+    '/subagents/agents/:role/evolve',
+    { preHandler: requireAdminRouteGuard },
+    async (request, reply) => {
+      const { role } = request.params as { role: string }
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
 
-    const { role } = request.params as { role: string }
-
-    // 读取演化历史记录;无记录 → 无需演化,直接返回空桩(避免无谓 LLM 调用)
-    const stored = evolutionHistories.get(role)
-    const recentRecords = stored?.recentRecords ?? []
-    if (recentRecords.length === 0) {
-      return reply.send(
-        success({
-          agentRole: role,
-          scannedRecords: 0,
-          needsEvolution: false,
-          patches: [],
-          summary: '无演化记录,跳过分析。',
-          analyzedAt: nowIso(),
-        }),
-      )
-    }
-
-    // 调用 ai-service /api/llm/complete,要求 LLM 分析记录并返回补丁
-    const systemPrompt =
-      "Analyze the agent's recent execution records and suggest prompt improvements. " +
-      'Return JSON: { needsEvolution: boolean, patches: [{ originalText, suggestedReplacement, reason }], summary }'
-    // 只取最近 10 条记录(避免上下文过长 + token 浪费)
-    const recordsSample = recentRecords.slice(-10)
-    const userMessage = JSON.stringify({
-      agentRole: role,
-      currentPrompt: stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? '',
-      recentRecords: recordsSample,
-    })
-
-    const llmText = await callAiService(systemPrompt, userMessage)
-    if (llmText) {
-      const result = safeParseLlmJson<{
-        needsEvolution?: boolean
-        patches?: Array<{
-          originalText?: unknown
-          suggestedReplacement?: unknown
-          reason?: unknown
-        }>
-        summary?: string
-      }>(llmText)
-      if (result) {
-        // 安全过滤有效 patch(必须 originalText + suggestedReplacement 都是字符串)
-        const patches: PromptPatch[] = []
-        if (Array.isArray(result.patches)) {
-          for (const p of result.patches) {
-            if (
-              p &&
-              typeof p.originalText === 'string' &&
-              typeof p.suggestedReplacement === 'string' &&
-              typeof p.reason === 'string'
-            ) {
-              patches.push({
-                originalText: p.originalText,
-                suggestedReplacement: p.suggestedReplacement,
-                reason: p.reason,
-              })
-            }
-          }
-        }
+      // 读取**本人**的演化历史记录;无记录 → 无需演化,直接返回空桩(避免无谓 LLM 调用)
+      const stored = evolutionHistories.get(evolutionKey(userId, role))
+      const recentRecords = stored?.recentRecords ?? []
+      if (recentRecords.length === 0) {
         return reply.send(
           success({
             agentRole: role,
-            scannedRecords: recentRecords.length,
-            // needsEvolution 显式 false 时尊重 LLM 判断;否则按 patches 是否非空推断
-            needsEvolution:
-              typeof result.needsEvolution === 'boolean'
-                ? result.needsEvolution
-                : patches.length > 0,
-            patches,
-            summary: result.summary ?? `LLM 分析了 ${recentRecords.length} 条记录`,
+            scannedRecords: 0,
+            needsEvolution: false,
+            patches: [],
+            summary: '无演化记录,跳过分析。',
             analyzedAt: nowIso(),
           }),
         )
       }
-    }
 
-    // fallback:LLM 不可达 / 返回无效 / 解析失败 → 返回空补丁桩
-    return reply.send(
-      success({
+      // 调用 ai-service /api/llm/complete,要求 LLM 分析记录并返回补丁
+      const systemPrompt =
+        "Analyze the agent's recent execution records and suggest prompt improvements. " +
+        'Return JSON: { needsEvolution: boolean, patches: [{ originalText, suggestedReplacement, reason }], summary }'
+      // 只取最近 10 条记录(避免上下文过长 + token 浪费)
+      const recordsSample = recentRecords.slice(-10)
+      const userMessage = JSON.stringify({
         agentRole: role,
-        scannedRecords: recentRecords.length,
-        needsEvolution: false,
-        patches: [],
-        summary: 'LLM 不可达或返回无效,跳过演化分析。',
-        analyzedAt: nowIso(),
-      }),
-    )
-  })
+        currentPrompt: stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? '',
+        recentRecords: recordsSample,
+      })
+
+      const llmText = await callAiService(systemPrompt, userMessage)
+      if (llmText) {
+        const result = safeParseLlmJson<{
+          needsEvolution?: boolean
+          patches?: Array<{
+            originalText?: unknown
+            suggestedReplacement?: unknown
+            reason?: unknown
+          }>
+          summary?: string
+        }>(llmText)
+        if (result) {
+          // 安全过滤有效 patch(必须 originalText + suggestedReplacement 都是字符串)
+          const patches: PromptPatch[] = []
+          if (Array.isArray(result.patches)) {
+            for (const p of result.patches) {
+              if (
+                p &&
+                typeof p.originalText === 'string' &&
+                typeof p.suggestedReplacement === 'string' &&
+                typeof p.reason === 'string'
+              ) {
+                patches.push({
+                  originalText: p.originalText,
+                  suggestedReplacement: p.suggestedReplacement,
+                  reason: p.reason,
+                })
+              }
+            }
+          }
+          return reply.send(
+            success({
+              agentRole: role,
+              scannedRecords: recentRecords.length,
+              // needsEvolution 显式 false 时尊重 LLM 判断;否则按 patches 是否非空推断
+              needsEvolution:
+                typeof result.needsEvolution === 'boolean'
+                  ? result.needsEvolution
+                  : patches.length > 0,
+              patches,
+              summary: result.summary ?? `LLM 分析了 ${recentRecords.length} 条记录`,
+              analyzedAt: nowIso(),
+            }),
+          )
+        }
+      }
+
+      // fallback:LLM 不可达 / 返回无效 / 解析失败 → 返回空补丁桩
+      return reply.send(
+        success({
+          agentRole: role,
+          scannedRecords: recentRecords.length,
+          needsEvolution: false,
+          patches: [],
+          summary: 'LLM 不可达或返回无效,跳过演化分析。',
+          analyzedAt: nowIso(),
+        }),
+      )
+    },
+  )
 
   // ---------- POST /subagents/agents/:role/apply-evolution ----------
 
-  server.post('/subagents/agents/:role/apply-evolution', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
-    const { role } = request.params as { role: string }
-    const parsed = applyEvolutionSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { patches } = parsed.data
-
-    // 应用补丁到内存历史
-    const stored = evolutionHistories.get(role)
-    const currentPrompt = stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? ''
-    let newPrompt = currentPrompt
-    for (const p of patches) {
-      if (p.originalText.length > 0) {
-        newPrompt = newPrompt.replace(p.originalText, p.suggestedReplacement)
+  server.post(
+    '/subagents/agents/:role/apply-evolution',
+    { preHandler: requireAdminRouteGuard },
+    async (request, reply) => {
+      const { role } = request.params as { role: string }
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
+      const parsed = applyEvolutionSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-    }
+      const { patches } = parsed.data
 
-    const version: EvolutionVersion = {
-      version: `v${(stored?.versions.length ?? 0) + 1}`,
-      prompt: newPrompt,
-      changes: patches,
-      createdAt: nowIso(),
-    }
+      // 应用补丁到**本人**的内存历史(复合键):别人的 currentPrompt / versions / recentRecords
+      // 与本次写入完全不相交,B 的补丁不可能出现在 A 的版本里,也不可能清掉 A 的记录。
+      const key = evolutionKey(userId, role)
+      const stored = evolutionHistories.get(key)
+      const currentPrompt = stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? ''
+      let newPrompt = currentPrompt
+      for (const p of patches) {
+        if (p.originalText.length > 0) {
+          newPrompt = newPrompt.replace(p.originalText, p.suggestedReplacement)
+        }
+      }
 
-    const history: EvolutionHistory = {
-      agentRole: role,
-      currentPrompt: newPrompt,
-      versions: [...(stored?.versions ?? []), version],
-      recentRecords: [],
-    }
-    evolutionHistories.set(role, history)
-    return reply.send(success({ version }))
-  })
+      const version: EvolutionVersion = {
+        version: `v${(stored?.versions.length ?? 0) + 1}`,
+        prompt: newPrompt,
+        changes: patches,
+        createdAt: nowIso(),
+      }
+
+      const history: EvolutionHistory = {
+        agentRole: role,
+        currentPrompt: newPrompt,
+        versions: [...(stored?.versions ?? []), version],
+        recentRecords: [],
+      }
+      evolutionHistories.set(key, history)
+      return reply.send(success({ version }))
+    },
+  )
 
   // ---------- GET /subagents/:id/collaboration(从 subagent-dispatch-service 拉取) ----------
 
@@ -647,8 +708,8 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     const { id } = request.params as { id: string }
     // S-ACL(2026-11-02):本端点此前按 id 直读 messages / dispatchStats —— 知道 id 就能跨租户
     // 读他人的协作消息与运行统计。闸必须在**读之前**,且与其余按 id 端点同源(ownsDispatchById):
-    // 不存在与「不属于你」合并成同一个 404,不告诉调用方该 id 是否真实存在(防枚举)。
-    if (!ownsDispatchById(id, userId)) {
+    // 不存在与「不属于你」合并成同一个 404,不告诉调用方该 id 是否真实存在(防枚举,无 403)。
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -685,4 +746,15 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
 }
 
 export default subagentsExtendedRoutes
+
+/**
+ * 供回归测试 import 的进程内状态与判据(§22c:测试直接引源,不另写一份键/归属口径)。
+ * 只给测试注入/读取进程内 Map,不挂任何路由、不改变对外契约。
+ */
+export const __test__ = {
+  customRoles,
+  evolutionHistories,
+  evolutionKey,
+  isCustomRoleOwnedBy,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
