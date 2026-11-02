@@ -9,7 +9,7 @@ import type { Redis } from 'ioredis'
 import { createHash } from 'node:crypto'
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5399/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
   process.env.REDIS_URL ??= 'redis://127.0.0.1:6399/0'
 })
