@@ -27,7 +27,7 @@ export function AuthAccountsFilter({
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelUserUuid')}</Label>
+        <Label className="text-label">{t('labelUserUuid')}</Label>
         <Input
           className="h-9 w-40"
           value={search.userUuid}
@@ -36,7 +36,7 @@ export function AuthAccountsFilter({
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelPlatform')}</Label>
+        <Label className="text-label">{t('labelPlatform')}</Label>
         <Input
           className="h-9 w-40"
           value={search.platform}
@@ -45,7 +45,7 @@ export function AuthAccountsFilter({
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelOpenId')}</Label>
+        <Label className="text-label">{t('labelOpenId')}</Label>
         <Input
           className="h-9 w-40"
           value={search.openId}
@@ -54,7 +54,7 @@ export function AuthAccountsFilter({
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelPlatformName')}</Label>
+        <Label className="text-label">{t('labelPlatformName')}</Label>
         <Input
           className="h-9 w-40"
           value={search.platformName}
@@ -63,7 +63,7 @@ export function AuthAccountsFilter({
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelNickname')}</Label>
+        <Label className="text-label">{t('labelNickname')}</Label>
         <Input
           className="h-9 w-40"
           value={search.nickname}

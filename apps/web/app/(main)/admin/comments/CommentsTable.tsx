@@ -82,7 +82,7 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-label">
                       {item.resourceType}
                     </code>
                   </TableCell>
@@ -91,10 +91,10 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                       <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-label font-medium">
                         {initials(name)}
                       </span>
-                      <span className="text-sm">{name}</span>
+                      <span className="text-body">{name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[120px] truncate px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="max-w-[120px] truncate px-4 py-2.5 text-label text-muted-foreground">
                     {item.resourceId}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
@@ -109,7 +109,7 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                       {item.isDeleted ? t('statusDeleted') : t('statusNormal')}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {formatTime(item.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
@@ -188,7 +188,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
         ) : (
           <div className="space-y-4">
             <div className="rounded-md border bg-muted/30 p-3">
-              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+              <div className="mb-2 flex items-center justify-between text-label text-muted-foreground">
                 <span>
                   <code className="rounded bg-muted px-1.5 py-0.5">{comment.resourceType}</code>
                   <span className="ml-2">resourceId: {comment.resourceId}</span>
@@ -201,7 +201,7 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
                 </span>
                 <div className="flex-1">
                   <div className="text-body font-medium">{comment.userNickname ?? '-'}</div>
-                  <div className="mt-1 text-sm">
+                  <div className="mt-1 text-body">
                     {comment.isDeleted ? (
                       <span className="italic text-muted-foreground">{t('deletedContent')}</span>
                     ) : (
@@ -214,19 +214,19 @@ export function CommentDrawer({ open, commentId, onClose }: DrawerProps) {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="text-body font-medium">{t('repliesTitle')}</h4>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t('repliesCount', { count: replies.length })}
                 </span>
               </div>
               {replies.length === 0 ? (
-                <div className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
+                <div className="rounded-md border border-dashed py-6 text-center text-label text-muted-foreground">
                   {t('noReplies')}
                 </div>
               ) : (
                 <div className="max-h-64 space-y-2 overflow-auto">
                   {replies.map((r) => (
-                    <div key={r.id} className="rounded-lg border bg-card p-2 text-sm">
-                      <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <div key={r.id} className="rounded-lg border bg-card p-2 text-body">
+                      <div className="mb-1 flex items-center justify-between text-label text-muted-foreground">
                         <span>{r.userNickname ?? '-'}</span>
                         <span>{formatTime(r.createdAt)}</span>
                       </div>

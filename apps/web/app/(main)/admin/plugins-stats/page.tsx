@@ -108,7 +108,7 @@ function StatCard({ icon, label, value, sublabel }: StatCardProps) {
           {icon}
         </div>
         <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <span className="text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>{label}</span>
           </span>
           <span className="text-heading font-semibold tabular-nums">{formatNumber(value)}</span>
@@ -135,7 +135,7 @@ function TrendBar({
   const installPct = maxInstalls > 0 ? (row.installs / maxInstalls) * 100 : 0
   const clickPct = maxClicks > 0 ? (row.clicks / maxClicks) * 100 : 0
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-label">
       <span className="w-20 shrink-0 text-muted-foreground tabular-nums">{row.date.slice(5)}</span>
       <div className="flex flex-1 flex-col gap-1">
         <div className="flex items-center gap-1">
@@ -187,7 +187,7 @@ export default function PluginStatsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">插件市场监测</h1>
-          <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <p className="mt-1 text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>实时追踪插件热度、安装量、点击量,辅助运营决策</span>
           </p>
         </div>
@@ -277,7 +277,7 @@ export default function PluginStatsPage() {
                   <TableRow>
                     <TableCell
                       colSpan={7}
-                      className="py-8 text-center text-xs text-muted-foreground"
+                      className="py-8 text-center text-label text-muted-foreground"
                     >
                       暂无数据(可能 plugin_events 表未创建,请运行 drizzle-kit push)
                     </TableCell>
@@ -285,7 +285,7 @@ export default function PluginStatsPage() {
                 )}
                 {topRows.map((row, idx) => (
                   <TableRow key={row.pluginId}>
-                    <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
+                    <TableCell className="text-center text-label text-muted-foreground tabular-nums">
                       {idx + 1}
                     </TableCell>
                     <TableCell className="font-medium">{getPluginName(row.pluginId)}</TableCell>
@@ -312,7 +312,7 @@ export default function PluginStatsPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {trendRows.length === 0 && (
-              <div className="py-8 text-center text-xs text-muted-foreground">暂无趋势数据</div>
+              <div className="py-8 text-center text-label text-muted-foreground">暂无趋势数据</div>
             )}
             {trendRows
               .slice()

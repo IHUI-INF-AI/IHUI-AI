@@ -165,7 +165,7 @@ export default function ErrorDashboardPage() {
           <Bug className="h-6 w-6 text-primary" />
           {t('errorDash.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('errorDash.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('errorDash.subtitle')}</p>
       </div>
 
       {/* 统计卡 */}
@@ -197,7 +197,7 @@ export default function ErrorDashboardPage() {
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{t('errorDash.filterLevel')}</span>
+              <span className="text-label text-muted-foreground">{t('errorDash.filterLevel')}</span>
               <select
                 aria-label={t('errorDash.filterLevel')}
                 value={severityFilter}
@@ -217,7 +217,9 @@ export default function ErrorDashboardPage() {
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{t('errorDash.filterStatus')}</span>
+              <span className="text-label text-muted-foreground">
+                {t('errorDash.filterStatus')}
+              </span>
               <select
                 aria-label={t('errorDash.filterStatus')}
                 value={statusFilter}
@@ -259,8 +261,8 @@ export default function ErrorDashboardPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                 <tr>
                   <th className={th}>{t('errorDash.colType')}</th>
                   <th className={th}>{t('errorDash.colMessage')}</th>
@@ -277,12 +279,12 @@ export default function ErrorDashboardPage() {
                   return (
                     <tr key={a.id} className="transition-colors hover:bg-muted/30">
                       <td className="px-4 py-2.5">
-                        <code className="font-mono text-xs">{a.name}</code>
+                        <code className="font-mono text-label">{a.name}</code>
                       </td>
                       <td className="px-4 py-2.5">
                         <TruncatedText value={a.message ?? '—'} className="max-w-[260px]" />
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                      <td className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                         {a.source}
                       </td>
                       <td className="px-4 py-2.5">
@@ -307,7 +309,7 @@ export default function ErrorDashboardPage() {
                           {st.label}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
                         {formatFiredAt(a.firedAt)}
                       </td>
                     </tr>

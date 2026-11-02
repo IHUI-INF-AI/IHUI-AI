@@ -94,7 +94,7 @@ export default function GrayReleasePage() {
             <FlaskConical className="h-6 w-6 text-primary" />
             {t('grayRelease.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('grayRelease.subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('grayRelease.subtitle')}</p>
         </div>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -113,8 +113,8 @@ export default function GrayReleasePage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
               <tr>
                 <th className={th}>{t('grayRelease.colName')}</th>
                 <th className={th}>{t('grayRelease.colDescription')}</th>
@@ -128,7 +128,7 @@ export default function GrayReleasePage() {
                 <tr key={r.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5">
                     <div className="font-medium">{r.name}</div>
-                    <div className="text-xs text-muted-foreground">{r.target}</div>
+                    <div className="text-label text-muted-foreground">{r.target}</div>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
                     <TruncatedText value={r.description} className="max-w-[280px]" />

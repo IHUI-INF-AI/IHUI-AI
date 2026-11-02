@@ -66,7 +66,7 @@ export function ZhsUserTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="whitespace-nowrap px-4 py-2.5 tabular-nums">
                   {item.phone || '-'}
                 </TableCell>
-                <TableCell className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">
+                <TableCell className="whitespace-nowrap px-4 py-2.5 font-mono text-label">
                   {item.inviteCode || '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 tabular-nums">{item.balance || '-'}</TableCell>
@@ -75,7 +75,7 @@ export function ZhsUserTable({ list, isLoading, onEdit, onDelete }: Props) {
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{item.isVip || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.identityTypy || '-'}</TableCell>
-                <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-muted-foreground">
+                <TableCell className="whitespace-nowrap px-4 py-2.5 text-label tabular-nums text-muted-foreground">
                   {item.createdAt || '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

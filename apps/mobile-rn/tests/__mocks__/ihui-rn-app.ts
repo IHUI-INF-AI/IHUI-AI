@@ -19,6 +19,17 @@ export function AgentScreen(props: Record<string, unknown>) {
   return createElement('div', { 'data-testid': 'shared-agent-screen', ...props }, null)
 }
 
+/**
+ * AgentChatScreen(B4 流式消费宿主):与上方 Plaza/Agent 同型 —— 本替身只做 props 捕获,
+ * 判的是「RN 宿主把增量文本/流式态/显式错误交给共享屏」这一层,共享屏渲染本身由
+ * packages/app 的套件负责。替身缺这条出口时宿主渲染拿到 undefined ⇒ 用例收集期即红。
+ */
+export const agentChatPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentChatScreen(props: Record<string, unknown>) {
+  agentChatPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-chat-screen' }, null)
+}
+
 export type PlazaScreenProps = {
   t: (key: string) => string
   colorScheme?: 'light' | 'dark'
