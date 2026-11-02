@@ -201,21 +201,23 @@ describe('check-plan-claims-vs-head', () => {
     assert.equal(retiredRow.reason, 'retired', `曾被枚 ${sample.sha} 删除的 ${sample.target} 现读应为 retired,实得 ${retiredRow.reason}`)
     assert.match(retiredRow.evidence, /枚 \w{7,}/, '真面也必须带删除枚 sha')
 
-    // 待裁决冲突(证据见 .ihui-agent/seats/S-CLAIMRED.md,本席判"应退役"但删文件属破坏性动作,交人裁决):
-    // 只钉两条事实 —— 它在 HEAD 里(判据必须判 ok),PROJECT_PLAN 里仍有它的整链退役记载。
-    // 后半是反向哨兵:文件一旦从 HEAD 消失,前半立刻红。
+    // 退役已落地(2026-11-01):bf805b6551 把已整链退役的 cf-preferred-ip 原样捞回属误捞,
+    // 现按计划与运行手册一致口径(整链退役)真删除。本段从"钉脱节"改为"钉已退役且文档一致":
+    // 文件不在 HEAD + 删除证据进证据行 + PROJECT_PLAN 仍记整链退役 ⇒ 仓库与文档一致,脱节消除。
+    // 反向哨兵仍在:若有人再把文件捞回 HEAD(如 bf805b6551 那样),reason 不再是 retired、此段必红。
     const cfRow = G.judgeEntry({ kind: 'path', target: 'deploy/cf-preferred-ip.mjs', rows: ['G-957'] }, probes)
     assert.equal(
-      cfRow.verdict,
-      'ok',
-      `deploy/cf-preferred-ip.mjs 当前在 HEAD 中 ⇒ 必须判 ok(实得 ${cfRow.verdict}/${cfRow.reason});` +
-        '若它消失则此处变红,不许用 skip 把它从监管里摘掉',
+      cfRow.reason,
+      'retired',
+      `deploy/cf-preferred-ip.mjs 已删除 ⇒ 必须判 retired(实得 ${cfRow.verdict}/${cfRow.reason});` +
+        '若它被捞回 HEAD,此段立刻红,不许用 skip 摘掉',
     )
+    assert.match(cfRow.evidence, /枚 \w{7,}/, '退役证据必须带删除枚 sha,否则下一手无从判这是真删还是叙述')
     const planText = readFileSync(new URL('../../PROJECT_PLAN.md', import.meta.url), 'utf8')
     assert.match(
       planText,
       /`deploy\/cf-preferred-ip\.mjs`\s*整链退役/,
-      'PROJECT_PLAN 必须仍记它的整链退役;两条同真 = 仓库状态与计划文档脱节,待人工裁决',
+      'PROJECT_PLAN 必须仍记它的整链退役;两条同真 = 仓库状态与计划文档一致',
     )
   })
 })
