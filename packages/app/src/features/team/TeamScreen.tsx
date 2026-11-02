@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { ChevronDown, ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type {
@@ -206,6 +207,7 @@ export function TeamScreen({
             <TeamTreeSection
               t={t}
               styles={styles}
+              iconColor={tk.text.secondary}
               tree={tree}
               treeLoading={treeLoading}
               treeFailed={treeFailed}
@@ -276,6 +278,8 @@ type TeamScreenStyles = ReturnType<typeof createStyles>
 interface TeamTreeSectionProps {
   t: TFunction
   styles: TeamScreenStyles
+  /** 展开箭头图标颜色(取主题 token,禁止用 ▾/▸ 字符图标) */
+  iconColor: string
   tree?: TeamTreeNode[]
   treeLoading?: boolean
   treeFailed?: boolean
@@ -288,6 +292,7 @@ interface TeamTreeSectionProps {
 function TeamTreeSection({
   t,
   styles,
+  iconColor,
   tree,
   treeLoading,
   treeFailed,
@@ -341,6 +346,7 @@ function TeamTreeSection({
             depth={0}
             t={t}
             styles={styles}
+            iconColor={iconColor}
             collapsedIds={collapsedIds}
             onToggle={toggle}
             onPressNode={onPressTreeMember}
@@ -356,6 +362,7 @@ interface TreeNodeRowProps {
   depth: number
   t: TFunction
   styles: TeamScreenStyles
+  iconColor: string
   collapsedIds: Set<string>
   onToggle: (id: string) => void
   onPressNode?: (memberId: string) => void
@@ -367,6 +374,7 @@ function TreeNodeRow({
   depth,
   t,
   styles,
+  iconColor,
   collapsedIds,
   onToggle,
   onPressNode,
@@ -389,7 +397,11 @@ function TreeNodeRow({
             accessibilityHint={t('distribution.treeCollapseHint')}
             style={styles.treeArrow}
           >
-            <Text style={styles.treeArrowText}>{expanded ? '▾' : '▸'}</Text>
+            {expanded ? (
+              <ChevronDown size={14} color={iconColor} />
+            ) : (
+              <ChevronRight size={14} color={iconColor} />
+            )}
           </Pressable>
         ) : (
           <View style={styles.treeArrowSpacer} />
@@ -430,6 +442,7 @@ function TreeNodeRow({
               depth={depth + 1}
               t={t}
               styles={styles}
+              iconColor={iconColor}
               collapsedIds={collapsedIds}
               onToggle={onToggle}
               onPressNode={onPressNode}
@@ -563,7 +576,6 @@ function createStyles(tk: AppThemeTokens) {
     treeRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.xs },
     treeArrow: { width: 20, alignItems: 'center' },
     treeArrowSpacer: { width: 20 },
-    treeArrowText: { fontSize: rnType.caption.size, color: tk.text.secondary },
     treeNodeBody: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     treeAvatar: {
       width: 28,
