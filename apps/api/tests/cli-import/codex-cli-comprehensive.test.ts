@@ -70,9 +70,9 @@ env_key = "OPENAI_API_KEY"
 `
     const res = parseCodexCli(makeInput(toml, JSON.stringify({ OPENAI_API_KEY: 'sk-xxx' })))
     expect(res.providers).toHaveLength(1)
-    expect(res.providers[0].name).toBe('OpenAI')
-    expect(res.providers[0].baseUrl).toBe('https://api.openai.com/v1')
-    expect(res.providers[0].apiKey).toBe('sk-xxx')
+    expect(res.providers[0]!.name).toBe('OpenAI')
+    expect(res.providers[0]!.baseUrl).toBe('https://api.openai.com/v1')
+    expect(res.providers[0]!.apiKey).toBe('sk-xxx')
   })
 
   it('多个 provider 同时解析', () => {
@@ -119,7 +119,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "responses"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 
   it('wire_api = "chat" → openai_chat', () => {
@@ -129,7 +129,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "chat"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('wire_api = "chatcompletions" → openai_chat(别名)', () => {
@@ -139,7 +139,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "chatcompletions"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('wire_api = "chat_completions" → openai_chat(下划线别名)', () => {
@@ -149,7 +149,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "chat_completions"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('wire_api 大小写不敏感(Responses) → openai_responses', () => {
@@ -159,7 +159,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "Responses"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 
   it('wire_api 缺失 → 默认 openai_responses', () => {
@@ -168,7 +168,7 @@ wire_api = "Responses"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 
   it('wire_api 未知值 → 默认 openai_responses', () => {
@@ -178,7 +178,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "unknown_protocol"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 })
 
@@ -190,7 +190,7 @@ base_url = "https://api.openai.com/v1"
 env_key = "OPENAI_API_KEY"
 `
     const res = parseCodexCli(makeInput(toml, JSON.stringify({ OPENAI_API_KEY: 'sk-found' })))
-    expect(res.providers[0].apiKey).toBe('sk-found')
+    expect(res.providers[0]!.apiKey).toBe('sk-found')
   })
 
   it('envKey 缺失 → 默认 ${KEY}_API_KEY(大写)', () => {
@@ -202,7 +202,7 @@ base_url = "https://api.myprovider.com"
     const res = parseCodexCli(
       makeInput(toml, JSON.stringify({ MYPROVIDER_API_KEY: 'sk-default-env' })),
     )
-    expect(res.providers[0].apiKey).toBe('sk-default-env')
+    expect(res.providers[0]!.apiKey).toBe('sk-default-env')
   })
 
   it('auth.json 中 envKey 不存在 → apiKey undefined + 警告', () => {
@@ -212,8 +212,8 @@ base_url = "https://api.openai.com/v1"
 env_key = "MISSING_KEY"
 `
     const res = parseCodexCli(makeInput(toml, JSON.stringify({ OTHER_KEY: 'sk-xxx' })))
-    expect(res.providers[0].apiKey).toBeUndefined()
-    expect(res.providers[0].warnings.some((w) => w.includes('MISSING_KEY'))).toBe(true)
+    expect(res.providers[0]!.apiKey).toBeUndefined()
+    expect(res.providers[0]!.warnings.some((w) => w.includes('MISSING_KEY'))).toBe(true)
   })
 
   it('未提供 auth.json → globalWarnings + apiKey undefined', () => {
@@ -223,7 +223,7 @@ base_url = "https://api.openai.com/v1"
 env_key = "OPENAI_API_KEY"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].apiKey).toBeUndefined()
+    expect(res.providers[0]!.apiKey).toBeUndefined()
     expect(res.globalWarnings.some((w) => w.includes('auth.json'))).toBe(true)
   })
 
@@ -247,8 +247,8 @@ env_key = "OPENAI_API_KEY"
     // 但 `!authJsonText` 检查原值('   ' 是 truthy)→ 不加 globalWarning
     // 改为验证 provider 级 warning:apiKey 缺失
     const res = parseCodexCli(makeInput(toml, '   '))
-    expect(res.providers[0].apiKey).toBeUndefined()
-    expect(res.providers[0].warnings.some((w) => w.includes('OPENAI_API_KEY'))).toBe(true)
+    expect(res.providers[0]!.apiKey).toBeUndefined()
+    expect(res.providers[0]!.warnings.some((w) => w.includes('OPENAI_API_KEY'))).toBe(true)
   })
 })
 
@@ -289,7 +289,7 @@ base_url = "https://api.anthropic.com"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('model_provider 指向不存在的 key → 无 provider isCurrent=true', () => {
@@ -300,7 +300,7 @@ model_provider = "nonexistent"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 })
 
@@ -316,9 +316,9 @@ wire_api = "chat"
 env_key = "OPENAI_API_KEY"
 `
     const res = parseCodexCli(makeInput(toml, JSON.stringify({ OPENAI_API_KEY: 'sk-xxx' })))
-    expect(res.providers[0].baseUrl).toBe('https://api.openai.com/v1')
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
-    expect(res.providers[0].apiKey).toBe('sk-xxx')
+    expect(res.providers[0]!.baseUrl).toBe('https://api.openai.com/v1')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiKey).toBe('sk-xxx')
   })
 
   it('modelProvider camelCase 也能识别', () => {
@@ -330,7 +330,7 @@ modelProvider = "openai"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('modelProviders camelCase 也能识别', () => {
@@ -358,7 +358,7 @@ base_url = "https://api.anthropic.com"
 `
     const res = parseCodexCli(makeInput(toml))
     expect(res.providers.every((p) => p.modelIdForTest === 'gpt-5')).toBe(true)
-    expect(res.providers.every((p) => p.meta.models?.[0] === 'gpt-5')).toBe(true)
+    expect(res.providers.every((p) => p.meta!.models?.[0] === 'gpt-5')).toBe(true)
   })
 
   it('model 缺失 → modelIdForTest undefined', () => {
@@ -367,8 +367,8 @@ base_url = "https://api.anthropic.com"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].modelIdForTest).toBeUndefined()
-    expect(res.providers[0].meta.models).toBeUndefined()
+    expect(res.providers[0]!.modelIdForTest).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
   })
 })
 
@@ -379,7 +379,7 @@ describe('codex-cli parser — providerCode 推断', () => {
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].providerCode).toBe('openai')
+    expect(res.providers[0]!.providerCode).toBe('openai')
   })
 
   it('baseUrl=anthropic.com → anthropic', () => {
@@ -388,7 +388,7 @@ base_url = "https://api.openai.com/v1"
 base_url = "https://api.anthropic.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].providerCode).toBe('anthropic')
+    expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('baseUrl=deepseek.com → deepseek', () => {
@@ -397,7 +397,7 @@ base_url = "https://api.anthropic.com"
 base_url = "https://api.deepseek.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].providerCode).toBe('deepseek')
+    expect(res.providers[0]!.providerCode).toBe('deepseek')
   })
 
   it('model=gemini-xxx 优先于 baseUrl → google', () => {
@@ -408,7 +408,7 @@ model = "gemini-2.0-flash"
 base_url = "https://api.example.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].providerCode).toBe('google')
+    expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('model=gpt-xxx 优先于 baseUrl → openai', () => {
@@ -419,7 +419,7 @@ model = "gpt-5"
 base_url = "https://api.example.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].providerCode).toBe('openai')
+    expect(res.providers[0]!.providerCode).toBe('openai')
   })
 
   it('未知 baseUrl + 未知 model → custom', () => {
@@ -428,7 +428,7 @@ base_url = "https://api.example.com"
 base_url = "https://api.unknown-example.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].providerCode).toBe('custom')
+    expect(res.providers[0]!.providerCode).toBe('custom')
   })
 })
 
@@ -439,7 +439,7 @@ describe('codex-cli parser — sourceId / sourceAppType / meta 字段', () => {
 base_url = "https://api.myprovider.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].sourceId).toBe('codex-cli::myprovider')
+    expect(res.providers[0]!.sourceId).toBe('codex-cli::myprovider')
   })
 
   it('sourceAppType 固定为 codex', () => {
@@ -448,7 +448,7 @@ base_url = "https://api.myprovider.com"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].sourceAppType).toBe('codex')
+    expect(res.providers[0]!.sourceAppType).toBe('codex')
   })
 
   it('meta.category 固定为 Codex', () => {
@@ -457,7 +457,7 @@ base_url = "https://api.openai.com/v1"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].meta.category).toBe('Codex')
+    expect(res.providers[0]!.meta!.category).toBe('Codex')
   })
 
   it('meta.protocol = chatCompletions 当 wire_api=chat', () => {
@@ -467,7 +467,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "chat"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].meta.protocol).toBe('chatCompletions')
+    expect(res.providers[0]!.meta!.protocol).toBe('chatCompletions')
   })
 
   it('meta.protocol = responses 当 wire_api=responses', () => {
@@ -477,7 +477,7 @@ base_url = "https://api.openai.com/v1"
 wire_api = "responses"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].meta.protocol).toBe('responses')
+    expect(res.providers[0]!.meta!.protocol).toBe('responses')
   })
 
   it('meta.protocol = responses 当 wire_api 缺失(默认)', () => {
@@ -486,7 +486,7 @@ wire_api = "responses"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].meta.protocol).toBe('responses')
+    expect(res.providers[0]!.meta!.protocol).toBe('responses')
   })
 
   it('name fallback 到 key(当 name 缺失)', () => {
@@ -495,7 +495,7 @@ base_url = "https://api.openai.com/v1"
 base_url = "https://api.myprovider.com"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].name).toBe('myprovider')
+    expect(res.providers[0]!.name).toBe('myprovider')
   })
 })
 
@@ -507,8 +507,8 @@ name = "OpenAI"
 `
     const res = parseCodexCli(makeInput(toml))
     expect(res.providers).toHaveLength(1)
-    expect(res.providers[0].baseUrl).toBe('')
-    expect(res.providers[0].warnings.some((w) => w.includes('baseUrl'))).toBe(true)
+    expect(res.providers[0]!.baseUrl).toBe('')
+    expect(res.providers[0]!.warnings.some((w) => w.includes('baseUrl'))).toBe(true)
   })
 
   it('normalizeProvider 加 apiKey 缺失警告(when auth.json 缺失)', () => {
@@ -517,7 +517,7 @@ name = "OpenAI"
 base_url = "https://api.openai.com/v1"
 `
     const res = parseCodexCli(makeInput(toml))
-    expect(res.providers[0].warnings.some((w) => w.includes('apiKey'))).toBe(true)
+    expect(res.providers[0]!.warnings.some((w) => w.includes('apiKey'))).toBe(true)
   })
 })
 
@@ -535,7 +535,7 @@ env_key = "OPENAI_API_KEY"
 `
     const res = parseCodexCli(makeInput(toml, JSON.stringify({ OPENAI_API_KEY: 'sk-real' })))
     expect(res.providers).toHaveLength(1)
-    const p = res.providers[0]
+    const p = res.providers[0]!
     expect(p.name).toBe('OpenAI')
     expect(p.baseUrl).toBe('https://api.openai.com/v1')
     expect(p.apiKey).toBe('sk-real')
@@ -543,8 +543,8 @@ env_key = "OPENAI_API_KEY"
     expect(p.providerCode).toBe('openai')
     expect(p.modelIdForTest).toBe('gpt-5')
     expect(p.isCurrent).toBe(true)
-    expect(p.meta.protocol).toBe('responses')
-    expect(p.meta.models).toEqual(['gpt-5'])
+    expect(p.meta!.protocol).toBe('responses')
+    expect(p.meta!.models).toEqual(['gpt-5'])
   })
 
   it('多 provider 混合配置(官方 + 第三方)', () => {
