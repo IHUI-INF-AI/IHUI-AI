@@ -11777,6 +11777,11 @@ function startDaemon() {
         // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .ihui-agent/state/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
+        // P5 公网路径探测(票 G-301):此前只挂 main() 单轮路径,而本机常驻载体是 `--daemon`
+        // ⇒ tick 戳停在 2026-11-01T18:54Z,元运维巡检连续 400+ 分钟判「P5·公网路径探测过旧」。
+        // 与 main() 同一挂点语义,共用 .ihui-agent/state/public-path-probe-tick.ts 节流戳(30min)
+        // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍探测、也不会翻倍发信。
+        auditPublicPathProbe()
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
