@@ -2524,6 +2524,13 @@
       "version": "7",
       "tag": "20261102190000_agent_runtime_sessions_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 364,
+      "version": "7",
+      "when": 1793635790143,
+      "tag": "0364_app_versions_store_channel",
+      "breakpoints": true
     }
   ]
 }
