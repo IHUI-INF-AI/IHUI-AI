@@ -209,9 +209,23 @@ describe('注册即装车 + 调用点逐字对账(判"做不了"要有证据,判
     )
     const rnCalled = [...rnSrc.matchAll(/fetchApi\(\s*`([^`]+)`/gu)].map((m) => m[1] ?? '')
     const taroCalled = [...taroSrc.matchAll(/post\(\s*`([^`]+)`/gu)].map((m) => m[1] ?? '')
-    const topicCalls = [...rnCalled, ...taroCalled].filter((p) => p.includes('/circles/topic/'))
-    // 两端各一条话题关注调用点,少了任何一端 = 跨端漂移(§9 多端同步)
-    expect(topicCalls.length).toBeGreaterThanOrEqual(2)
+    const rnTopicCalls = rnCalled.filter((p) => p.includes('/circles/topic/'))
+    const taroTopicCalls = taroCalled.filter((p) => p.includes('/circles/topic/'))
+    // 契约本意:两端都必须能发起话题关注。
+    // a69349f15b(2026-11-01)把小程序 4 枚手写镜像页改成「壳承载」:detail.tsx 不再自写数据与交互,
+    //   而是渲染 RN 壳本体(@rn-shells/TopicDetailScreen → apps/mobile-rn/src/screens/TopicDetailScreen),
+    //   所以 RN 侧那一条调用点就是两端共同的那一条;此时仍要求 taro 自己有一条,等于要求
+    //   "壳承载页再抄一份调用",反而制造第二份实现 ⇒ 漂移。
+    // 反向锁:若该页退化为手写镜像(不再承载壳),就必须两端各有一条,少一端即红。
+    const taroIsShellCarrier = /from\s+'@rn-shells\/TopicDetailScreen'/u.test(taroSrc)
+    if (taroIsShellCarrier) {
+      expect(rnTopicCalls.length).toBeGreaterThanOrEqual(1)
+      expect(taroTopicCalls).toHaveLength(0)
+    } else {
+      expect(rnTopicCalls.length).toBeGreaterThanOrEqual(1)
+      expect(taroTopicCalls.length).toBeGreaterThanOrEqual(1)
+    }
+    const topicCalls = [...rnTopicCalls, ...taroTopicCalls]
     // 把 `${...}` 插值段折成 :param 后必须逐字命中在册形状(与守门 8 BP 腿同一归一)
     for (const p of topicCalls) {
       expect(inner.has(`/api${p.replace(/\$\{[^}]*\}/gu, ':tid')}`), p).toBe(true)
