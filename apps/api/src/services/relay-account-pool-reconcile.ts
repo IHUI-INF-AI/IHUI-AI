@@ -126,6 +126,9 @@ export function planReconciliation(
 
   const actions: ReconcileAction[] = []
   let outOfScope = 0
+  // 映射域外账号按 provider 归因(2026-11-03 立):此前只有总数 outOfScope,
+  // 「15 个号静默跳过」看不出是 doubao 还是 codearts,和"失败"混在一张脸上。
+  const outOfScopeByProvider = new Map<string, number>()
   let truncated = 0
   let skippedDisabledMissing = 0
   const taken = { push: 0, disable: 0, state: 0, flush: 0 }
@@ -136,6 +139,7 @@ export function planReconciliation(
   for (const p of poolSide) {
     if (!checkinPlatformFor(p.providerCode)) {
       outOfScope++
+      outOfScopeByProvider.set(p.providerCode, (outOfScopeByProvider.get(p.providerCode) ?? 0) + 1)
       continue
     }
     const c = checkinByPoolAccountId.get(p.id)
@@ -191,6 +195,13 @@ export function planReconciliation(
       ownerUserId: c.ownerUserId,
     })
     taken.disable++
+  }
+
+  if (outOfScopeByProvider.size > 0) {
+    logger.info('[relay-account-pool] 映射域外账号跳过(无签到引擎)', {
+      total: outOfScope,
+      providers: Array.from(outOfScopeByProvider, ([k, v]) => `${k}:${v}`).join(','),
+    })
   }
 
   return { actions, orphanNoPoolId, outOfScope, truncated, skippedDisabledMissing }
