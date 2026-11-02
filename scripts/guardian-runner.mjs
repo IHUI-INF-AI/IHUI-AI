@@ -6838,6 +6838,30 @@ const pushGateChecks = [
       '',
     ].join('\n'),
   },
+  // 47 溯源水印覆盖的 **push 收窄档**(2026-11-03 补):pre-commit 档能拦暂存面,但私有索引
+  // (read-tree/hash-object/write-tree/commit-tree)与任何绕过 pre-commit 的落地都不经过它。
+  // 事故:0335facba1 把 packages/api-client/src/endpoints/agent-chat-stream.ts 的载荷写坏
+  // (blob 461 码元 vs 规范 485,丢 24 个零宽码元),坏 blob 直入 HEAD,靠 dde93677f6 重注入才恢复。
+  // push 门是**远程前的最后一道结构闸**,必须独立跑一次;只判 PUSH_SCOPE_FILES(本次 push 变更文件)
+  // ∩ HEAD 树,不跑全量 1.6 万+(判据本体、第三方排除面、自愈策略与 pre-commit 档共用同一份实现)。
+  {
+    // 号位:pre-commit 已有门 47(自愈档),push 是同一判据的**收窄档**,不能复用 id
+    // (check-gate-wiring R5:同 id 多道门会串 skipEnv 与失败归属;后来者改号)。
+    id: '47p',
+    label: '💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)',
+    script: 'check-watermark-coverage.mjs',
+    args: ['--push-scope'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 本次推送携带的某个文件在 HEAD blob 里水印缺失/损坏(常见于 commit-tree/私有索引落地绕过 pre-commit)。',
+      '     修复:node scripts/watermark.mjs inject <file> → 随一枚新提交带进 HEAD → 重新 push。',
+      '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
+      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
+      '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === CLI 解析 ===
