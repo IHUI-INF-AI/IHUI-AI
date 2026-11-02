@@ -18,6 +18,7 @@ import {
 } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -149,6 +150,8 @@ export default function AigcPublishScreen() {
     }
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedAigcPublishScreen
       t={t}
@@ -177,6 +180,7 @@ export default function AigcPublishScreen() {
       onSubmit={onSubmit}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

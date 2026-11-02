@@ -15,6 +15,7 @@ import { useWechatPayment } from '../hooks/useWechatPayment'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useRefreshOnFocus } from '../hooks'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -167,6 +168,8 @@ export default function VipTraderScreen() {
     )
   }, [pay, t])
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedVipTraderScreen
       t={t}
@@ -179,6 +182,7 @@ export default function VipTraderScreen() {
       onOpen={onOpen}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

@@ -16,6 +16,7 @@ import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import { formatShortDateTime } from '../utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -73,6 +74,8 @@ export function LiveListScreen() {
     // 调的是**上一次渲染**的闭包(绑旧 tab)⇒ 两个请求竞速,旧结果后到会覆盖新 tab 的列表。
   }
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedLiveListScreen
       t={t}
@@ -88,6 +91,7 @@ export function LiveListScreen() {
       onPressItem={(item: LiveListItem) => navigation.navigate('LiveDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

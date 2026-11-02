@@ -16,6 +16,7 @@ import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { aboutIcon } from './about-icons'
 import { createAboutStyles } from './about-styles'
+import { assertRequiredPort } from '../../host/ports'
 
 /**
  * 「关于我们」跨端共享屏 —— RN 端与小程序端的唯一渲染真相源。
@@ -97,7 +98,12 @@ export function AboutScreen({
   onRegister,
   onOpenPortal,
   entries = [],
+  onNavigate,
+  onToast,
 }: SharedAboutScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createAboutStyles(tk), [tk])
   const accent = tk.brandAccent.deep

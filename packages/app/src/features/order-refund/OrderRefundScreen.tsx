@@ -6,11 +6,13 @@ import { useMemo } from 'react'
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import type { OnToast } from '@ihui/types'
 
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 退款订单项(平台注入,字段对齐 mobile-rn OrderRefundScreen Order 子集) */
 export interface OrderRefundItem {
@@ -48,6 +50,8 @@ export interface OrderRefundScreenProps {
   onRefresh: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /**
@@ -74,7 +78,10 @@ export function OrderRefundScreen({
   onRefresh,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: OrderRefundScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 预设退款原因(对齐小程序退款页的五项单选):点选即把该原因文案写进 reason,

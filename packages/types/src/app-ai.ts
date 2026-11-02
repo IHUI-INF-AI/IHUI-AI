@@ -12,6 +12,7 @@
  */
 
 import type { TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
 
@@ -45,6 +46,10 @@ export interface AgentDetailScreenProps {
    */
   onEdit?: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /**
@@ -281,6 +286,8 @@ export interface ModelEditScreenProps {
   onSave: () => void
   onCancel: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** AIGC 作品文件类型(对齐 mobile-rn AigcListScreen FileType:0=图片/1=视频/3=音频/4=文案) */
@@ -326,6 +333,8 @@ export interface AigcListScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
   onLoadMore?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
@@ -483,6 +492,8 @@ export interface AigcPublishScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
@@ -516,6 +527,8 @@ export interface AgentScreenProps {
    * console.error;此模式下拉刷新由外层 ScrollView 的 RefreshControl 负责。
    */
   nestedInScrollView?: boolean
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** AI 助手分类 */

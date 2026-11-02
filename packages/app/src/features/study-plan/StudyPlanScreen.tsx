@@ -11,6 +11,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlanStatus, StudyPlanItem, StudyPlanScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 学习计划/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlanStatus, StudyPlanItem, StudyPlanScreenProps }
@@ -31,7 +32,10 @@ export function StudyPlanScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: StudyPlanScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

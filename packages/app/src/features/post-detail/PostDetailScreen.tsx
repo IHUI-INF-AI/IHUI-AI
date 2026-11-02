@@ -20,6 +20,7 @@ import type { PostDetailScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /**
  * 动态详情共享屏 — props 注入式跨端组件
@@ -35,7 +36,12 @@ export function PostDetailScreen({
   error,
   onBack,
   colorScheme = 'light',
+  onNavigate,
+  onToast,
 }: PostDetailScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const imageUrls =

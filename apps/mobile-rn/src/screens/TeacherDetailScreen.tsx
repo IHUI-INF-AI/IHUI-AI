@@ -22,6 +22,7 @@ import { LecturerDetailScreen, type LecturerDetailInfo } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'TeacherDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'TeacherDetail'>
@@ -126,6 +127,8 @@ export function TeacherDetailScreen() {
     ])
   }
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <LecturerDetailScreen
       t={t}
@@ -152,6 +155,7 @@ export function TeacherDetailScreen() {
       onOpenCourse={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

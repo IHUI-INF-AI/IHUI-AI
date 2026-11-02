@@ -15,6 +15,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 文章列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ArticleListItem, ArticleListScreenProps }
@@ -47,7 +48,10 @@ export function ArticleListScreen({
   onEndReached,
   loadingMore = false,
   colorScheme = 'light',
+  onToast,
 }: ArticleListScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

@@ -46,6 +46,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -199,6 +200,7 @@ const TABS: readonly { key: PlanTab; labelKey: string }[] = [
 ]
 
 export function VipScreen() {
+  const { onNavigate, onToast } = useHostPorts()
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -543,6 +545,7 @@ export function VipScreen() {
         >
           {filteredPlans.map((plan) => {
             const hasDiscount = plan.defAmount > plan.amount
+
             return (
               <View key={plan.id} style={styles.planItem}>
                 <View style={styles.planHeader}>
@@ -660,6 +663,8 @@ export function VipScreen() {
         onPurchase={onPurchase}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
+        onNavigate={onNavigate}
+        onToast={onToast}
       />
       <PurchaseNoticePopUp
         visible={introVisible}
