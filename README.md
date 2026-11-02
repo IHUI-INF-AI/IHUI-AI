@@ -100,8 +100,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 3998 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 317 | `guardianGates` |
-| — blocking | 288 | `guardianBlocking` |
+| 工程守门 | 318 | `guardianGates` |
+| — blocking | 289 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 18864 | `trackedFiles` |
 
@@ -5448,6 +5448,15 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (2a56005f6c)
+- 🚀 新功能/改进:把守门 251 的修法出口首次上守护周期腿(前置=归属闸与未知旗拒绝) (72650fe783)
+- 🔧 工程/其他:覆盖写路径默认严格与 --legacy-lenient 逃生阀 (9a821daebd)
+- 🐞 修复:严格编号判据改为写路径默认生效，并留 --legacy-lenient 逃生阀 (90fcbe7029)
+- 🔧 工程/其他:覆盖同号重复/带号行解删/空行被吞/无 attestation 四场景 (b30700c44f)
+- 🐞 修复:合并器补严同号重复与我方带号行解删 (e4f24acbb2)
+- 🔧 工程/其他:Revert "fix(i18n): 小程序词包补 career 命名空间七键" —— 撤回,根因是承载关系不在 (92bd78493b)
+
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (63f9ac4a14)
 - 🐞 修复:小程序词包补 career 命名空间七键,消掉"整屏文案取不到"的产物级回归 (909ce225b5)
@@ -15553,6 +15562,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 ## 守门脚本点名索引(内部参考)
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
 - 跨端 / web↔RN 覆盖缺口棘轮(2026-11-03 装车,blocking,runner id '282'): `check-web-rn-gap-ratchet.mjs`(把只读对账尺 `check-web-rn-screen-parity.mjs` 的读数包成提交链判据,**不重算第二份口径**——判据 import 其 `__test__` 出口,§0.6;四维 unmapped=0 ∧ judgedGap=0 ∧ prefixHits≤基线容量 ∧ prefixExpired=0,外加每条 aligned 必须带完整 `data.kind`(direct/indirect/static/missing);基线件 `scripts/data/web-rn-gap-baseline.json` 由本器 `--baseline` 现读生成,容量取 min(常量,基线) ⇒ **只收紧不抬闸**;现读 HEAD 面 total 423 · 容量 423 · 全维在闸内 ⇒ 判绿;单次耗时约 4.2s;应急放行 `HUSKY_SKIP_WEB_RN_GAP_RATCHET=1`;镜像 `check-web-rn-gap-ratchet.test.mjs`)
+- 跨端 / 声明承载 vs 真承载(2026-11-03 立,blocking,runner id '284'): `check-declared-carriage.mjs`(registry 声明"某小程序页承载某共享屏"时,必须能在该页 HEAD blob 里读到 **`@rn-shells/<屏名>` 的值 import**——注释与 `import type` 都不算(这两型过报本仓都踩过);三桶 carried/假声明/页面查无之和必须等于声明数,漏桶即判死。档位是**差值棘轮**:锚点 = HEAD 面同一判据读数,只拦"本次新增的假声明",现读存量 69 枚(declared 256 / carried 187)逐条报数不拦(§12e:存量未归零前升绝对零 = 恒红门)。整面只起 3 次 git(ls-tree + git grep + show),实测 0.85s——第一版逐页 `git show` 要 21.5s,慢门本身就是逼人跳门的成因。取不到 registry / 坏 JSON / 枚举 0 条 / 阳性对照读到 0 ⇒ 一律未判定或判死,绝不把"尺子读不到"写成"没有缺陷"。镜像 `check-declared-carriage.test.mjs`(7 例,含真仓存活证明);应急放行 `HUSKY_SKIP_DECLARED_CARRIAGE=1`)
 - 跨端 / RN 薄壳覆盖(2026-11-03 装车,blocking,runner id '283'): `check-rn-host-shell-coverage.mjs`(判每枚共享屏是否被**至少一枚 RN 壳直接 import**——值 import 才算,`import type` 型边不计;三桶 covered / needsManual / seedableMissing;挂账出口 `scripts/data/rn-host-shell-manual.json`,三要素 owner + expires + reason 齐备才生效,到期即判红,在册面不再命中按 §0.7 判清单腐烂;现读 272 枚 · covered 260 · 12 枚在册在期 ⇒ 判绿;修法出口 `gen-rn-host-shell.mjs`(已由守护腿 `sweepRnHostShells` 30 分钟派发);镜像 `check-rn-host-shell-coverage.test.mjs`;应急放行 `HUSKY_SKIP_RN_HOST_SHELL_COVERAGE=1`)
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
 - 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)

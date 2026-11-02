@@ -6830,6 +6830,23 @@ const checks = [
     onFailHint:
       '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
   },
+  // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
+  {
+    id: '284',
+    label:
+      '🪤 跨端声明承载 vs 真承载棘轮(blocking;差值只拦本次新增的假声明,存量逐条报数不拦)',
+    script: 'check-declared-carriage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-declared-carriage.mjs',
+      'scripts/data/cross-end-screen-registry.json',
+      'apps/miniapp-taro/src/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DECLARED_CARRIAGE',
+    onFailHint:
+      '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
