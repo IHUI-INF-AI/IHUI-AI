@@ -153,6 +153,22 @@ jobs:
           zip -r -y ihui-ai-latest.ipa Payload
           ls -lh ihui-ai-latest.ipa
 
+      - name: Emit ios-version.json (版本自证资产,2026-11-03 立)
+        # 为什么必须有这一步:iOS 侧此前**没有任何版本号出口** —— APK 有 resolve-mobile-version,
+        # iOS workflow 从头到尾没推导过版本,于是"这个 .ipa 到底是哪一版"只能靠猜。而站点腿发布器
+        # (scripts/publish-mobile-ipa.mjs)与下载页都要写真实版本号,猜出来的号会造出
+        # "下载页显示 vX、装到手机上显示 0.0.5"那种两号对不上(2026-10 实测过的同型)。
+        # 因此这里只准从**真进包的那份 Info.plist** 取号:取不到 ⇒ exit 1 让构建红,
+        # 绝不 fallback 到 package.json 或当天日期(那是把猜测写成事实)。
+        run: |
+          APP_PATH=$(find apps/mobile-rn/ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then echo "ERROR: 找不到 .app bundle,无法自证版本号"; exit 1; fi
+          V=$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Info.plist" 2>/dev/null || true)
+          C=$(plutil -extract CFBundleVersion raw "$APP_PATH/Info.plist" 2>/dev/null || true)
+          if [ -z "$V" ] || [ -z "$C" ]; then echo "ERROR: Info.plist 里取不到 CFBundleShortVersionString/CFBundleVersion ⇒ 拒绝发资产"; exit 1; fi
+          printf '{\n  "version": "%s",\n  "buildNumber": "%s",\n  "source": "Info.plist",\n  "builtAt": "%s"\n}\n' "$V" "$C" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > ios-version.json
+          cat ios-version.json
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -163,10 +179,13 @@ jobs:
         # iOS 使用固定 tag ios-nightly,不设 make_latest(避免与 Android nightly 竞争 latest)
         # 下载页 iOS 地址:releases/tags/ios-nightly/download/ihui-ai-latest.ipa
         # tag 触发 → 发布到该 tag;手动/push → 发布到 ios-nightly 固定 tag
+        # ios-version.json 同批上传:它是站点腿发布器唯一的版本号凭据(缺它发布器 exit 2 不猜号)
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'ios-nightly' }}
-          files: ihui-ai-latest.ipa
+          files: |
+            ihui-ai-latest.ipa
+            ios-version.json
           fail_on_unmatched_files: false
           generate_release_notes: false
           make_latest: false
