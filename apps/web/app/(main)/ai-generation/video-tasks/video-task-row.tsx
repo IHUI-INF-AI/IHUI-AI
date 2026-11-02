@@ -39,7 +39,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
   const statusLabelKey = getVideoTaskStatusLabelKey(task.status)
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 text-xs min-[640px]:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 text-label min-[640px]:grid-cols-4">
         <div>
           <div className="text-muted-foreground">{t('volcanoTaskId')}</div>
           <div className="font-mono">{task.taskId}</div>
@@ -58,7 +58,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
         </div>
       </div>
       {warning ? (
-        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-2 text-xs text-yellow-700 dark:text-yellow-300">
+        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-2 text-label text-yellow-700 dark:text-yellow-300">
           {warning}
         </div>
       ) : null}
@@ -71,7 +71,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
           <track kind="captions" />
         </video>
       ) : task.status === 'success' ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-label text-destructive">
           {t('noVideoUrlExtracted')}
         </div>
       ) : null}
@@ -82,7 +82,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
 export function VideoTaskRowLoading() {
   const t = useTranslations('videoTasksPage')
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex items-center gap-2 text-body text-muted-foreground">
       <Loader2 className="h-4 w-4 animate-spin" />
       {t('syncingStatus')}
     </div>
@@ -90,6 +90,6 @@ export function VideoTaskRowLoading() {
 }
 
 export function VideoTaskRowError({ error }: { error: unknown }) {
-  return <div className="text-sm text-destructive">{(error as Error).message}</div>
+  return <div className="text-body text-destructive">{(error as Error).message}</div>
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

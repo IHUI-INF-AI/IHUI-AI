@@ -42,7 +42,7 @@ export default async function SsoProviderCompatPage({ params }: PageProps) {
         }}
       />
       <div className="px-4 py-4 flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">正在跳转...</p>
+        <p className="text-body text-muted-foreground">正在跳转...</p>
       </div>
     </>
   )

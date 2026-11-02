@@ -106,7 +106,7 @@ export default function FundDataPage() {
           <TrendingUp className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -137,13 +137,13 @@ export default function FundDataPage() {
           ) : funds.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
               <DollarSign className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('noFunds')}</p>
+              <p className="text-body text-muted-foreground">{t('noFunds')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
-                  <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                  <tr className="bg-muted/40 text-left text-label text-muted-foreground">
                     <th className="pb-2 pr-4 font-medium">{t('fundCode')}</th>
                     <th className="pb-2 pr-4 font-medium">{t('fundName')}</th>
                     <th className="pb-2 pr-4 font-medium">{t('fundType')}</th>
@@ -154,11 +154,11 @@ export default function FundDataPage() {
                 <tbody>
                   {funds.map((fund) => (
                     <tr key={fund.id}>
-                      <td className="py-2.5 pr-4 font-mono text-xs">{fund.code}</td>
+                      <td className="py-2.5 pr-4 font-mono text-label">{fund.code}</td>
                       <td className="py-2.5 pr-4">{fund.name}</td>
                       <td className="py-2.5 pr-4">
                         {fund.type && (
-                          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                             {fund.type}
                           </span>
                         )}
@@ -217,13 +217,13 @@ export default function FundDataPage() {
           ) : history.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-8">
               <Calendar className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('noFunds')}</p>
+              <p className="text-body text-muted-foreground">{t('noFunds')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
-                  <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
+                  <tr className="bg-muted/40 text-left text-label text-muted-foreground">
                     <th className="pb-2 pr-4 font-medium">{t('date')}</th>
                     <th className="pb-2 text-right font-medium">{t('netValue')}</th>
                   </tr>
@@ -231,7 +231,7 @@ export default function FundDataPage() {
                 <tbody>
                   {history.map((nv) => (
                     <tr key={nv.id}>
-                      <td className="py-2 pr-4 font-mono text-xs">{nv.date}</td>
+                      <td className="py-2 pr-4 font-mono text-label">{nv.date}</td>
                       <td className="py-2 text-right font-mono tabular-nums">
                         {formatValue(nv.value)}
                       </td>

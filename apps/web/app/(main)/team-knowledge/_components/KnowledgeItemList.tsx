@@ -126,7 +126,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
                 key={k || 'kind-all'}
                 type="button"
                 onClick={() => setKindFilter(k)}
-                className={`rounded-sm px-2 py-1 text-xs ${
+                className={`rounded-sm px-2 py-1 text-label ${
                   kindFilter === k ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -138,7 +138,7 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
                 key={s || 'status-all'}
                 type="button"
                 onClick={() => setStatusFilter(s)}
-                className={`rounded-sm px-2 py-1 text-xs ${
+                className={`rounded-sm px-2 py-1 text-label ${
                   statusFilter === s
                     ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground'
@@ -150,23 +150,23 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
           </div>
         </div>
 
-        {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+        {error && <span className="text-body text-red-600 dark:text-red-400">{error}</span>}
 
         {rows.length === 0 && !loading ? (
-          <div className="text-muted-foreground text-sm">{t('emptyItems')}</div>
+          <div className="text-muted-foreground text-body">{t('emptyItems')}</div>
         ) : (
           <div className="flex flex-col gap-2">
             {rows.map((row) => (
               <div key={row.id} className="bg-muted/40 flex flex-col gap-1 rounded px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="bg-background rounded px-1.5 py-0.5 text-xs">
+                  <span className="bg-background rounded px-1.5 py-0.5 text-label">
                     {t(`kind.${row.kind}`)}
                   </span>
-                  <span className={`rounded px-1.5 py-0.5 text-xs ${STATUS_BADGE[row.status]}`}>
+                  <span className={`rounded px-1.5 py-0.5 text-label ${STATUS_BADGE[row.status]}`}>
                     {t(`status.${row.status}`)}
                   </span>
                   <span className="flex-1 truncate text-body font-medium">{row.title}</span>
-                  <span className="text-muted-foreground text-xs">r{row.revision}</span>
+                  <span className="text-muted-foreground text-label">r{row.revision}</span>
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -208,11 +208,11 @@ export function KnowledgeItemList({ space }: { space: KnowledgeSpaceDTO }) {
                   </Button>
                 </div>
                 {row.plainText && (
-                  <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
+                  <p className="text-muted-foreground line-clamp-2 text-label whitespace-pre-wrap">
                     {row.plainText}
                   </p>
                 )}
-                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                <div className="text-muted-foreground flex items-center gap-2 text-label">
                   {row.tags.map((tag: string) => (
                     <span key={tag} className="bg-background rounded px-1.5 py-0.5">
                       {tag}

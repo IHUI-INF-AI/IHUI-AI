@@ -146,26 +146,26 @@ export default function AgentSecurityPage() {
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-display font-bold tracking-tight">{t('agentSecurityTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('agentSecurityDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('agentSecurityDesc')}</p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
         {!ready ? (
           // 登录态确认中 ≠ 未登录:bootstrap 静默刷新还没跑完时就显「请先登录」,
           // 已登录用户会误判被踢出(与签到助手 HEAD 三态同型,2026-10-15 改判)。
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
           </div>
         ) : !allow ? (
           <AuthGatePrompt message={tGate('loginRequired')} />
         ) : loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
           </div>
         ) : error ? (
-          <p className="py-8 text-center text-sm text-destructive">{error}</p>
+          <p className="py-8 text-center text-body text-destructive">{error}</p>
         ) : (
           <>
             {switchItems.map((item) => {
@@ -180,7 +180,7 @@ export default function AgentSecurityPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                      <span className="min-w-0 flex-1 text-body text-muted-foreground">
                         {item.desc}
                       </span>
                       <Switch
@@ -206,7 +206,7 @@ export default function AgentSecurityPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                      <span className="min-w-0 flex-1 text-body text-muted-foreground">
                         {row.desc}
                       </span>
                       <div className="flex shrink-0 items-center gap-2">
@@ -231,7 +231,7 @@ export default function AgentSecurityPage() {
 
         {toast && (
           <div
-            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
           >
             {toast.msg}
           </div>

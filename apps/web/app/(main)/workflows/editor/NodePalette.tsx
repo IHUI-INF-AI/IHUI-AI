@@ -73,7 +73,7 @@ export function NodePalette({ onDragStart }: Props) {
               draggable
               onDragStart={(e) => handleDragStart(e, item.type)}
               className={cn(
-                'flex cursor-grab items-center gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors hover:bg-accent active:cursor-grabbing',
+                'flex cursor-grab items-center gap-2 rounded-md border px-2.5 py-2 text-label transition-colors hover:bg-accent active:cursor-grabbing',
                 ITEM_COLORS[item.type],
               )}
             >

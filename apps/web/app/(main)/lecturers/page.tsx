@@ -53,7 +53,7 @@ export default function LecturersPage() {
           <GraduationCap className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="relative w-full max-w-xs">
@@ -73,13 +73,13 @@ export default function LecturersPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <GraduationCap className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -96,13 +96,13 @@ export default function LecturersPage() {
                   <div className="min-w-0">
                     <CardTitle className="break-words text-base">{l.name}</CardTitle>
                     {l.title ? (
-                      <p className="break-words text-xs text-muted-foreground">{l.title}</p>
+                      <p className="break-words text-label text-muted-foreground">{l.title}</p>
                     ) : null}
                   </div>
                 </CardHeader>
                 <CardContent className="min-[640px]:p-3 space-y-3 p-3 pt-0">
-                  <p className="text-sm text-muted-foreground">{l.intro ?? ''}</p>
-                  <span className="inline-flex items-center gap-1 text-xs text-primary transition-colors group-hover:underline">
+                  <p className="text-body text-muted-foreground">{l.intro ?? ''}</p>
+                  <span className="inline-flex items-center gap-1 text-label text-primary transition-colors group-hover:underline">
                     {t('viewDetail')}
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>

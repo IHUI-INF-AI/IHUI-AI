@@ -109,7 +109,7 @@ export default function ModelsLandingPage() {
           <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-foreground md:text-5xl">
             176+ AI Models, One Unified API
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-heading md:font-normal">
             Access OpenAI, Claude, Gemini, Qwen, DeepSeek and more through a single
             OpenAI-compatible API. Auto-failover, pay-as-you-go.
           </p>
@@ -143,13 +143,16 @@ export default function ModelsLandingPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{p.name}</CardTitle>
-                    <span className="text-xs text-muted-foreground">{p.count}</span>
+                    <span className="text-label text-muted-foreground">{p.count}</span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <ul className="space-y-1">
                     {p.models.map((m) => (
-                      <li key={m} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <li
+                        key={m}
+                        className="flex items-center gap-2 text-body text-muted-foreground"
+                      >
                         <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                         {m}
                       </li>
@@ -197,7 +200,7 @@ export default function ModelsLandingPage() {
             </p>
           </div>
           <pre className="overflow-x-auto rounded-lg bg-muted p-3">
-            <code className="text-sm text-foreground">{`curl https://aizhs.top/api/v1/chat/completions \\
+            <code className="text-body text-foreground">{`curl https://aizhs.top/api/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello"}]}'`}</code>
           </pre>
@@ -209,7 +212,7 @@ export default function ModelsLandingPage() {
             <h2 className="text-heading font-bold tracking-tight text-foreground md:text-display">
               Ready to build with 176+ AI models?
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+            <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground md:text-base">
               Get your API key and start building in minutes. Free tier available.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

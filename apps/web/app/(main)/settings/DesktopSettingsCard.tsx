@@ -121,13 +121,13 @@ export function DesktopSettingsCard() {
         <CardContent className="space-y-4">
           {/* 版本信息 */}
           <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
-            <div className="flex min-w-0 items-center gap-2 text-sm">
+            <div className="flex min-w-0 items-center gap-2 text-body">
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 {t('desktopVersion')}
               </span>
               <span className="truncate font-medium tabular-nums">{appInfo?.version ?? '—'}</span>
             </div>
-            <div className="flex shrink-0 items-center gap-2 text-sm">
+            <div className="flex shrink-0 items-center gap-2 text-body">
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 {t('desktopPlatform')}
               </span>
@@ -166,7 +166,7 @@ export function DesktopSettingsCard() {
           {desktopPrefsSupported ? (
             <DesktopPrefsSection prefs={desktopPrefs} disabled={busy} onPatch={onPatch} />
           ) : (
-            <div className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <div className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-body text-muted-foreground">
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{t('desktopPrefsUnsupported')}</span>
             </div>
@@ -199,7 +199,7 @@ export function DesktopSettingsCard() {
               <Keyboard className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="whitespace-nowrap">{t('desktopShortcutsTitle')}</span>
             </div>
-            <div className="grid grid-cols-1 gap-1.5 text-xs">
+            <div className="grid grid-cols-1 gap-1.5 text-label">
               <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">
                   {t('desktopShortcutToggleWindow')}
@@ -232,7 +232,7 @@ export function DesktopSettingsCard() {
                 className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
               >
                 <Minimize className="h-3.5 w-3.5 shrink-0" />
-                <span className="whitespace-nowrap text-xs">{t('desktopWindowMinimize')}</span>
+                <span className="whitespace-nowrap text-label">{t('desktopWindowMinimize')}</span>
               </Button>
               <Button
                 variant="outline"
@@ -243,7 +243,7 @@ export function DesktopSettingsCard() {
                 className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
               >
                 <Maximize2 className="h-3.5 w-3.5 shrink-0" />
-                <span className="whitespace-nowrap text-xs">
+                <span className="whitespace-nowrap text-label">
                   {isMaximized ? t('desktopWindowRestore') : t('desktopWindowMaximize')}
                 </span>
               </Button>
@@ -256,7 +256,7 @@ export function DesktopSettingsCard() {
                 className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
               >
                 <X className="h-3.5 w-3.5 shrink-0" />
-                <span className="whitespace-nowrap text-xs">{t('desktopWindowClose')}</span>
+                <span className="whitespace-nowrap text-label">{t('desktopWindowClose')}</span>
               </Button>
             </div>
             {/* 同一句话有三种说法,按**有效**档位说 —— 宿主把 hide 纠正成 quit 后这里跟着变,
@@ -275,7 +275,7 @@ export function DesktopSettingsCard() {
               className="flex shrink-0 flex-nowrap items-center gap-1.5"
             >
               <RotateCcw className="h-3.5 w-3.5 shrink-0" />
-              <span className="whitespace-nowrap text-xs">{t('desktopResetWindow')}</span>
+              <span className="whitespace-nowrap text-label">{t('desktopResetWindow')}</span>
             </Button>
             <Button
               variant="ghost"
@@ -286,7 +286,7 @@ export function DesktopSettingsCard() {
               className="flex shrink-0 flex-nowrap items-center gap-1.5"
             >
               <Bell className="h-3.5 w-3.5 shrink-0" />
-              <span className="whitespace-nowrap text-xs">{t('desktopTestNotify')}</span>
+              <span className="whitespace-nowrap text-label">{t('desktopTestNotify')}</span>
             </Button>
           </div>
         </CardContent>
