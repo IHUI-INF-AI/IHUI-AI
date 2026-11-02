@@ -3,6 +3,7 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
+
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 > 作用域:`G:/IHUI-AI` 仓库根目录及所有子目录。凡「盘符 / gitdir 形态 / 远端 URL / 代理 / 服务承载体(nssm·计划任务·daemon) / PowerShell 解释器身份 / TEMP」七类机器事实,**每次使用前按当次实测取值**,不得把本文或另一台机的现状当本机事实写进判据。
 > **本文件为 2026-10-14 压缩版**:规则条款全部保留;历史叙述、失效原文残留、重复登记副本与超长守门登记整区逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`。本文与归档原文冲突时以本文为准;本文未写的历史案例按归档件查。另见 `.ihui-agent/archive/AGENTS_history.md`。2026-10-21 二次压缩:压缩前原文逐字归档于 `.ihui-agent/archive/AGENTS-pre-compress-2026-10-21.md`。
@@ -285,8 +286,11 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 <!--
 -->
 - **监控告警词表单一真相源**(275):canonical = `packages/types/src/monitor-vocabulary.ts` 的 `MONITOR_ALERT_SEVERITIES/STATUSES`(库列 severity/status 真值),web 只 re-export + 展示元数据;`check-monitor-alert-vocabulary.mjs` 按差值棘轮只拦新增同值副本(锚点=文件 HEAD 面自身,存量只报数)。
+
+
 - **只读对账尺子不进提交链**(判机器状态/票面文本,提交者结构上满足不了,挂成提交门即 §12e 恒红门):`check-temp-landing.mjs`(TEMP 落点回潮)、`check-landed-reverts.mjs`(2026-11-01 立,提交面"整片退回更早版本"只读尺:臂一逐字等值/臂二 import 收编器 `isPartialRevert`;30c·84 只判暂存与索引面、100·168 只判合并,绕过钩子的提交此前无人复查。调度器 = git-guardian `auditLandedReverts()` 30 分钟轮,只写日志与台账;`--proof` 钉已知事故枚,量不到的按实测记为在册盲区;镜像 16 例)、`check-dispatch-premise.mjs`(派单票 premises 是否仍在 HEAD 成立,需 `--ticket`)、`check-alertmanager-live-config.mjs`(生效配置↔仓内模板)、`check-monitor-runtime-parity.mjs`(运行副本↔仓内 `monitoring/` 四对 + ai-service `.env` 结构键,三态分桶,配对 <4 即 exit 2;差异 ≠ 错,判红权归人;镜像 `check-monitor-runtime-parity.test.mjs`)、`check-cross-end-parity-drift.mjs`(跨端对齐漂移;唯一调度器 = git-guardian 的 `auditCrossEndParityDrift()` 60 分钟轮,倒退按维到人;镜像 `cross-end-parity-drift-dispatch.test.mjs`)。**另一格会写盘**:`repair-cross-end-mirror.mjs` 的调度器 = 同文件的 `healCrossEndMirror()` 30 分钟轮(只补登记表已有的声明缺口、他席在飞一律拒落、只留日志不喊人;镜像 `cross-end-mirror-heal-dispatch.test.mjs`)。
 - **自主能力与开发库哨兵点名(R4 义务,2026-11-01 补)**:`check-autonomy-leg-health.mjs`(自主能力各腿在位/连败封票;判机器状态⇒**刻意不进提交链**§12e,调度=git-guardian 巡检轮,判据 import `auto-evolve.mjs` 的 `quarantineUntilOf`/`failureStreakOf` 零复算,自检 `--self-test`)、`check-dev-db-rotation-window.mjs`(开发库口令轮换窗口对账;同档不进提交链)。两门此前已接线而文档通篇不点名 ⇒ 门 89 R4 判红,这一行就是把那格补上。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 - **全工作树口径(强制)**:未提交结论须覆盖全部 worktree;唯一口径 `scripts/check-worktree-status.mjs`(门 281,提交口 `--gate`)。
 - **本票新增安全门点名(R4 义务,2026-11-01)**:`check-redirect-target-origin-pinned.mjs`(278:第一方回跳落点必须显式交 `allowedOrigins`;豁免=具名台账带到期)、`check-like-wildcard-escape.mjs`(279:LIKE 通配符转义单源 D1 绝对零 + 未转义内插 D2 差值棘轮 + 整值即模式 D3 台账)、`check-pool-isolation.mjs`(号池隔离列;此前已接线未点名,一并补上,免得他人撞同一格 R4)。编号与档位以 runner 现值为准。
+
