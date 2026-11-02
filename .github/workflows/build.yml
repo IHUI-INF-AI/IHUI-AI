@@ -18,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # 2026-11-03:postinstall 新增 scripts/lib/patch-lint-staged-stdio.mjs 而镜像未 COPY,
+      # build-api/build-web 双双 MODULE_NOT_FOUND。本地 pre-commit 只在暂存 Dockerfile / 根
+      # package.json / .dockerignore 时触发本门,且改动前的 A 判据只读 HEAD,看不见"本次提交
+      # 新增的钩子";这里在真正构建镜像前做一次全量对账,作为最后一道防线。
+      - name: Check Dockerfile build context
+        run: node scripts/check-dockerfile-copy-paths.mjs
       - name: Build API image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -30,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check Dockerfile build context
+        run: node scripts/check-dockerfile-copy-paths.mjs
       - name: Build Web image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
