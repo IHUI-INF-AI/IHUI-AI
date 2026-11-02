@@ -726,9 +726,14 @@ export interface PoolStatusView {
   pendingCred: boolean
   cooldownUntil: string | null
   lastRecord: {
-    ok: boolean
+    ok: boolean | null
     action: string | null
     credits: number | null
+    message: string | null
+    code: string | null
+    httpStatus: number | null
+    /** 错误分类名(Unknown/SessionDead/BusinessError...),claim 归因用 */
+    classifiedErrorType: string | null
     createdAt: string | null
   } | null
   error: string | null
@@ -787,9 +792,17 @@ export async function fetchPoolStatus(
       cooldownUntil: typeof body.cooldownUntil === 'string' ? body.cooldownUntil : null,
       lastRecord: last
         ? {
-            ok: last.ok === true,
+            ok: last.ok === true ? true : last.ok === false ? false : null,
             action: typeof last.action === 'string' ? last.action : null,
             credits: typeof last.credits === 'number' ? last.credits : null,
+            message: typeof last.message === 'string' ? last.message.slice(0, 200) : null,
+            code:
+              typeof last.code === 'string' || typeof last.code === 'number'
+                ? String(last.code).slice(0, 32)
+                : null,
+            httpStatus: typeof last.httpStatus === 'number' ? last.httpStatus : null,
+            classifiedErrorType:
+              typeof last.classifiedErrorType === 'string' ? last.classifiedErrorType : null,
             createdAt: typeof last.createdAt === 'string' ? last.createdAt : null,
           }
         : null,
