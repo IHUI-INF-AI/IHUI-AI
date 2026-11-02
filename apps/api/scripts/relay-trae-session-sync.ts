@@ -82,6 +82,49 @@ export interface SyncCandidate {
   sessionTemplate?: Record<string, unknown> | null
 }
 
+/**
+ * 客户端账号对象上「rt 自然终点」的键名单源(2026-11-01 立,勿在消费端各写一份)。
+ *
+ * 提取器 `toPoolAccount` 写的是规范拼写 `refreshTokenExpiresAt`;历史 wrapper 曾转发
+ * `refreshExpiresAt`。两种拼写都认,规范拼写优先 —— 键名一旦由生产端与消费端各写一份,
+ * 唯一的失效表现就是库里 `refresh_expires_at` 恒 NULL 而所有门照绿(2026-11-01 实测)。
+ */
+export const CLIENT_REFRESH_EXPIRY_KEYS = ['refreshTokenExpiresAt', 'refreshExpiresAt'] as const
+
+/** 单源读取器:见 CLIENT_REFRESH_EXPIRY_KEYS;空串/非字符串不算证据。 */
+export function clientRefreshExpiryRaw(acc: object | null | undefined): string | null {
+  if (!acc || typeof acc !== 'object') return null
+  for (const key of CLIENT_REFRESH_EXPIRY_KEYS) {
+    const v = (acc as Record<string, unknown>)[key]
+    if (typeof v === 'string' && v.trim() !== '') return v
+  }
+  return null
+}
+
+export interface ExpiryBackfillInput {
+  /** 客户端票与池内票是否同一枚(同票不 apply,但列仍可能缺证据) */
+  ticketIdentical: boolean
+  poolTokenExpiresAt: Date | null
+  poolRefreshExpiresAt: Date | null
+  clientExpiresAt: Date | null
+  clientRefreshExpiresAt: Date | null
+}
+
+/**
+ * 「同票但 rt 终点未知」的窄回填判据(2026-11-01 立,纯函数)。
+ *
+ * 只在票面一致时把客户端证据填进池内空列;已知值绝不改写、不一致的旧票绝不参与
+ * (2026-11-01 实测:池刷成功后 rt 终点按契约写回未知,若拿 storage 里旧快照的
+ * 2027-04-29 填上去,管理面读到的是一枚已死 rt 的未来)。
+ * 返回空对象 = 本轮不补,调用方据此不写库、不推 updatedAt。
+ */
+export function expiryBackfillOf(input: ExpiryBackfillInput): { refreshExpiresAt?: Date } {
+  if (!input.ticketIdentical) return {}
+  if (input.poolRefreshExpiresAt !== null) return {}
+  if (input.clientRefreshExpiresAt === null) return {}
+  return { refreshExpiresAt: input.clientRefreshExpiresAt }
+}
+
 export interface SyncInputPayload {
   providerCode: string
   accounts: SyncCandidate[]
@@ -135,9 +178,8 @@ export function buildTraeAutoImportInput(acc: SyncCandidate): ImportAccountInput
     input.refreshToken = acc.refreshToken
   }
   if (typeof acc.expiresAt === 'string' && acc.expiresAt) input.expiresAt = acc.expiresAt
-  if (typeof acc.refreshExpiresAt === 'string' && acc.refreshExpiresAt) {
-    input.refreshTokenExpiresAt = acc.refreshExpiresAt
-  }
+  const rawRefreshExpiry = clientRefreshExpiryRaw(acc)
+  if (rawRefreshExpiry) input.refreshTokenExpiresAt = rawRefreshExpiry
   for (const k of ['deviceId', 'machineId', 'deviceKeyPem', 'devicePubPem'] as const) {
     const v = acc[k]
     if (typeof v === 'string' && v) input[k] = v
@@ -335,7 +377,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
         clientToken: acc.token,
         clientRefreshToken: typeof acc.refreshToken === 'string' ? acc.refreshToken : null,
         clientExpiresAt: parseIso(acc.expiresAt),
-        clientRefreshExpiresAt: parseIso(acc.refreshExpiresAt),
+        clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
       })
       // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值。
       // 2026-10-28:secretsEnc 改为「读出旧档 → 合并 → 写回」——档案快照(profile)与设备密钥
@@ -393,10 +435,20 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
               ...(machineId ? { machineId } : {}),
             }
           : {}
-        if (secretsChanged && !dryRun) {
+        // 同票分支还有一条窄缺口(2026-11-01):池内 rt 终点为空、客户端手里有证据时,
+        // 此前的 skip 会把它永远留在 NULL(所有门照绿)。判据只认「票面一致 + 池内未知」,
+        // 已知值不改写、不一致的旧票不参与;没有可补的列时也不推 updatedAt。
+        const expiryBackfill = expiryBackfillOf({
+          ticketIdentical: final.reason === 'same-token',
+          poolTokenExpiresAt: row.tokenExpiresAt,
+          poolRefreshExpiresAt: row.refreshExpiresAt,
+          clientExpiresAt: parseIso(acc.expiresAt),
+          clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
+        })
+        if ((secretsChanged || expiryBackfill.refreshExpiresAt !== undefined) && !dryRun) {
           await db
             .update(aiRelayAccountPool)
-            .set({ ...deviceUpdate, updatedAt: new Date() })
+            .set({ ...deviceUpdate, ...expiryBackfill, updatedAt: new Date() })
             // 按主键 id:目标行可能是个人池唯一行(2026-11-01)
             .where(eq(aiRelayAccountPool.id, row.id))
         }
@@ -540,5 +592,13 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { decideSync, parseIso, parseArgs, buildTraeAutoImportInput }
+export const __test__ = {
+  decideSync,
+  parseIso,
+  parseArgs,
+  buildTraeAutoImportInput,
+  clientRefreshExpiryRaw,
+  CLIENT_REFRESH_EXPIRY_KEYS,
+  expiryBackfillOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
