@@ -3,14 +3,22 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { appAlert } from '../components/BottomPops'
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { appAlert, BottomPops } from '../components/BottomPops'
 import { useRefreshOnFocus } from '../hooks'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
-import { AiSkillScreen as SharedAiSkillScreen, type AiSkillListItem } from '@ihui/rn-app'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import {
+  importAiSkill,
+  listAiSkills,
+  type AiSkillMeta,
+  type SkillImportData,
+} from '@ihui/api-client'
+import { AiSkillScreen as SharedAiSkillScreen, TextField, type AiSkillListItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -43,6 +51,10 @@ export function AiSkillScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [importJson, setImportJson] = useState('')
+  const [importError, setImportError] = useState('')
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -76,25 +88,193 @@ export function AiSkillScreen() {
     ])
   }
 
+  const openImport = () => {
+    setImportError('')
+    setImportOpen(true)
+  }
+
+  const closeImport = () => {
+    if (importing) return
+    setImportOpen(false)
+  }
+
+  /**
+   * 粘贴 JSON → 校验(空 / 非法 JSON / 缺 name)→ importAiSkill → 刷新列表。
+   * 校验全部前置:任一不过都不发请求,错误以内联文案留在输入区内。
+   */
+  const handleImport = async () => {
+    const trimmed = importJson.trim()
+    if (!trimmed) {
+      setImportError(t('aiSkill.importInvalidJson'))
+      return
+    }
+    let parsed: Record<string, unknown>
+    try {
+      const rawParsed: unknown = JSON.parse(trimmed)
+      if (typeof rawParsed !== 'object' || rawParsed === null || Array.isArray(rawParsed)) {
+        setImportError(t('aiSkill.importInvalidJson'))
+        return
+      }
+      parsed = rawParsed as Record<string, unknown>
+    } catch {
+      setImportError(t('aiSkill.importInvalidJson'))
+      return
+    }
+    const name = parsed.name
+    if (typeof name !== 'string' || !name.trim()) {
+      setImportError(t('aiSkill.importMissingName'))
+      return
+    }
+
+    const data: SkillImportData = {
+      name: name.trim(),
+      description: typeof parsed.description === 'string' ? parsed.description : '',
+      icon: typeof parsed.icon === 'string' ? parsed.icon : 'wand2',
+      category: typeof parsed.category === 'string' ? parsed.category : 'ai-top',
+      tags: Array.isArray(parsed.tags)
+        ? parsed.tags.filter((tag): tag is string => typeof tag === 'string')
+        : [],
+      promptTemplate: typeof parsed.promptTemplate === 'string' ? parsed.promptTemplate : '',
+      sourceUrl: typeof parsed.sourceUrl === 'string' ? parsed.sourceUrl : '',
+    }
+
+    setImportError('')
+    setImporting(true)
+    try {
+      const r = await importAiSkill(data)
+      if (!r.success) {
+        setImportError(r.error || t('aiSkill.importFailed'))
+        return
+      }
+      setImportOpen(false)
+      setImportJson('')
+      appAlert(t('aiSkill.importSuccess'))
+      void load()
+    } catch {
+      setImportError(t('aiSkill.importFailed'))
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
-    <SharedAiSkillScreen
-      t={t}
-      items={items.map(toItem)}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={() => {
-        setRefreshing(true)
-        void load()
-      }}
-      onRetry={() => {
-        setLoading(true)
-        void load()
-      }}
-      onOpenSkill={onOpen}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-    />
+    <>
+      <SharedAiSkillScreen
+        t={t}
+        items={items.map(toItem)}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={() => {
+          setRefreshing(true)
+          void load()
+        }}
+        onRetry={() => {
+          setLoading(true)
+          void load()
+        }}
+        onOpenSkill={onOpen}
+        onImport={openImport}
+        importing={importing}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+      />
+
+      <BottomPops visible={importOpen} onClose={closeImport} title={t('aiSkill.importTitle')}>
+        <View style={styles.importBody}>
+          <Text style={styles.importHint}>{t('aiSkill.importHint')}</Text>
+          <TextField
+            colorScheme={resolvedTheme}
+            value={importJson}
+            onChangeText={(value) => {
+              setImportJson(value)
+              if (importError) setImportError('')
+            }}
+            multiline
+            textAlignVertical="top"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!importing}
+            placeholder='{"name": "my-skill"}'
+            style={styles.importInput}
+          />
+          {importError ? <Text style={styles.importError}>{importError}</Text> : null}
+          <View style={styles.importActions}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={closeImport}
+              disabled={importing}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.successButton, importing ? styles.buttonDisabled : null]}
+              onPress={() => void handleImport()}
+              disabled={importing}
+              activeOpacity={0.7}
+            >
+              {importing ? (
+                <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+              ) : null}
+              <Text style={styles.successText}>
+                {importing ? t('aiSkill.importing') : t('aiSkill.importButton')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </BottomPops>
+    </>
   )
 }
+
+const styles = StyleSheet.create({
+  importBody: { gap: rnSpacing.md },
+  importHint: {
+    fontSize: rnType.label.size,
+    lineHeight: 18,
+    color: tokens.text.secondary,
+  },
+  importInput: {
+    minHeight: 140,
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing.sm,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    backgroundColor: tokens.surface.inputBg,
+    color: tokens.text.primary,
+    fontSize: rnType.body.size,
+    fontFamily: 'monospace',
+  },
+  importError: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
+  importActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: rnSpacing.sm,
+  },
+  cancelButton: {
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing['xs-loose'],
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+  },
+  cancelText: { fontSize: rnType.body.size, color: tokens.text.primary },
+  successButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['2xs'],
+    paddingHorizontal: rnSpacing.md,
+    paddingVertical: rnSpacing['xs-loose'],
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+  },
+  successText: {
+    fontSize: rnType.body.size,
+    fontWeight: '500',
+    color: tokens.brand.ctaForeground,
+  },
+  buttonDisabled: { opacity: 0.5 },
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

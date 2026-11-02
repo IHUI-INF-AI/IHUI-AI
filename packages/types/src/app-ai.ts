@@ -601,6 +601,9 @@ export interface AiCareerQuestion {
   section: AiCareerSection
 }
 
+/** AI 生涯报告导出格式(对齐 exportCareerReport 的 CareerReportFormat) */
+export type AiCareerReportFormat = 'pdf' | 'word' | 'ppt'
+
 /** AiCareerScreen(孩子学业问卷)props */
 export interface AiCareerScreenProps {
   t: TFunction
@@ -613,6 +616,14 @@ export interface AiCareerScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 生成的 AI 学业建议正文;不传(undefined)则不渲染报告区,保持旧行为 */
+  result?: string
+  /** 导出格式,默认 'pdf' */
+  format?: AiCareerReportFormat
+  onFormatChange?: (format: AiCareerReportFormat) => void
+  /** 导出回调;不传则不渲染导出控件 */
+  onExport?: () => void
+  exporting?: boolean
 }
 
 /** AI 多模态模式 */

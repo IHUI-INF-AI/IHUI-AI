@@ -516,6 +516,8 @@ export type {
   WalletBalance,
   WalletRecordType,
   WalletRecordItem,
+  WalletFlowItem,
+  WalletFlowsState,
   WalletScreenProps,
   CourseCatalogItem,
   CourseCatalogScreenProps,
@@ -834,6 +836,7 @@ export type {
   TeamTab,
   TeamStats,
   TeamMember,
+  TeamTreeNode,
   TeamScreenProps,
   VideoPlayerProgress,
   VideoPlayerScreenProps,
@@ -971,6 +974,8 @@ export { AiSkillDetailScreen } from './features/ai-skill/AiSkillDetailScreen'
 export type {
   AiSkillDetailData,
   AiSkillDetailScreenProps,
+  SkillInvokeResult,
+  SkillRatingStats,
 } from './features/ai-skill/AiSkillDetailScreen'
 export { KnowledgeBaseScreen } from './features/knowledge-base/KnowledgeBaseScreen'
 export type {
