@@ -74,6 +74,18 @@ vi.mock('@ihui/database', () => ({
   ),
 }))
 
+// 升级告警出口:只记调用,不落渠道;动态 import 按模块 id 命中此 mock
+const alertHoisted = vi.hoisted(() => ({ calls: [] as Array<Record<string, unknown>> }))
+vi.mock('../alert-notification-service.js', () => ({
+  pushAlertWithResult: async (n: Record<string, unknown>) => {
+    alertHoisted.calls.push(n)
+    return {}
+  },
+  pushAlert: async (n: Record<string, unknown>) => {
+    alertHoisted.calls.push(n)
+  },
+}))
+
 import {
   buildPoolSyncAccount,
   checkinPlatformFor,
@@ -82,6 +94,10 @@ import {
   listCheckinSyncPending,
   markCheckinSyncPending,
   parseCheckinSyncMeta,
+  parseCheckinSyncEscalation,
+  shouldEscalateCheckinSyncFailure,
+  escalateCheckinSyncFailureOnce,
+  CHECKIN_SYNC_ESCALATE_ATTEMPTS,
   pushPoolState,
   fetchPoolStatus,
   postPoolRun,
@@ -137,6 +153,7 @@ beforeEach(() => {
   hoisted.updateCalls.length = 0
   hoisted.pendingRows.length = 0
   hoisted.limitUsed.length = 0
+  alertHoisted.calls.length = 0
 })
 
 // =============================================================================
@@ -841,5 +858,195 @@ describe('postPoolRun(立即签到转发)', () => {
     )
     expect(r).toMatchObject({ ok: false, httpStatus: 502 })
     expect(r.error).toContain('网络错误')
+  })
+})
+
+// =============================================================================
+// 2026-11-03 修复:逐条失败原因 / 阈值升级 / 四边界 / 反向例
+// =============================================================================
+
+describe('pushPoolSync 逐条失败原因(可定位到账号)', () => {
+  it('失败条目的 name + poolAccountId 前 8 + reason 进 error;成功条目不写', async () => {
+    const fetchMock = makeFetchMock({
+      sync: () =>
+        jsonResponse({
+          results: [
+            {
+              poolAccountId: '709ea3a1-d81b-44f6-9756-4a513be825f6',
+              status: 'failed',
+              reason: '账号名已存在: minimax:cn',
+            },
+            { poolAccountId: 'ok-2', status: 'synced' },
+          ],
+        }),
+    })
+    const r = await pushPoolSync(
+      'minimax',
+      [
+        makeAccount({ poolAccountId: '709ea3a1-d81b-44f6-9756-4a513be825f6', name: 'minimax:cn' }),
+        makeAccount({ poolAccountId: 'ok-2', name: '正常号' }),
+      ],
+      fetchMock,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('minimax:cn')
+    expect(r.error).toContain('709ea3a1')
+    expect(r.error).toContain('账号名已存在')
+    expect(r.error).not.toContain('正常号')
+  })
+
+  it('边界:接口 429 → 逐条原因透传,不抛', async () => {
+    const fetchMock = makeFetchMock({
+      sync: () => jsonResponse({ detail: 'rate limited' }, 429),
+    })
+    const r = await pushPoolSync('qoder', [makeAccount()], fetchMock)
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('HTTP 429')
+  })
+
+  it('边界:token 过期 → 原因进 error(可被升级腿带到告警)', async () => {
+    const r = await pushPoolSync(
+      'trae',
+      [makeAccount({ poolAccountId: 'exp-1', name: '过期号' })],
+      makeFetchMock({
+        sync: () =>
+          jsonResponse({
+            results: [{ poolAccountId: 'exp-1', status: 'failed', reason: 'token 已过期(401)' }],
+          }),
+      }),
+    )
+    expect(r.error).toContain('过期号')
+    expect(r.error).toContain('token 已过期')
+  })
+})
+
+describe('regression: 撤掉修复可复现(失败退化成无主语聚合句)', () => {
+  // 反向例:旧实现只回 `1 条签到同步失败`。把 B 修复撤掉时本用例必红。
+  it('错误串不得只是聚合句,必须含具体账号与原因', async () => {
+    const r = await pushPoolSync(
+      'minimax',
+      [makeAccount({ poolAccountId: 'pool-1', name: 'minimax:cn' })],
+      makeFetchMock({
+        sync: () =>
+          jsonResponse({
+            results: [{ poolAccountId: 'pool-1', status: 'failed', reason: '账号名已存在' }],
+          }),
+      }),
+    )
+    expect(r.error).not.toBe('1 条签到同步失败')
+    expect(r.error).toContain('minimax:cn')
+    expect(r.error).toContain('账号名已存在')
+  })
+})
+
+describe('parseCheckinSyncEscalation / shouldEscalateCheckinSyncFailure', () => {
+  it('坏形状 → 两个时刻都为 null', () => {
+    expect(parseCheckinSyncEscalation(undefined)).toEqual({
+      firstPendingAt: null,
+      escalatedAt: null,
+    })
+    expect(parseCheckinSyncEscalation({ checkinSync: 'x' })).toEqual({
+      firstPendingAt: null,
+      escalatedAt: null,
+    })
+  })
+
+  it('阈值:19 不升、20 升;已升级过的不再升', () => {
+    const now = new Date('2026-11-03T00:00:00Z')
+    const base = { firstPendingAt: null, escalatedAt: null }
+    expect(shouldEscalateCheckinSyncFailure(base, CHECKIN_SYNC_ESCALATE_ATTEMPTS - 1, now)).toBe(
+      false,
+    )
+    expect(shouldEscalateCheckinSyncFailure(base, CHECKIN_SYNC_ESCALATE_ATTEMPTS, now)).toBe(true)
+    expect(
+      shouldEscalateCheckinSyncFailure(
+        { ...base, escalatedAt: '2026-11-01T00:00:00Z' },
+        CHECKIN_SYNC_ESCALATE_ATTEMPTS + 5,
+        now,
+      ),
+    ).toBe(false)
+  })
+
+  it('时间窗:首次 pending 超 6h 也升级(attempts 未到阈值)', () => {
+    const now = new Date('2026-11-03T00:00:00Z')
+    expect(
+      shouldEscalateCheckinSyncFailure({ firstPendingAt: '2026-11-02T17:00:00Z', escalatedAt: null }, 1, now),
+    ).toBe(true)
+    expect(
+      shouldEscalateCheckinSyncFailure({ firstPendingAt: '2026-11-02T20:00:00Z', escalatedAt: null }, 1, now),
+    ).toBe(false)
+  })
+})
+
+describe('escalateCheckinSyncFailureOnce(单账号升级一次)', () => {
+  function escalationRow(over: Record<string, unknown> = {}) {
+    return {
+      id: 'pool-1',
+      providerCode: 'minimax',
+      name: 'minimax:cn',
+      extraMetadata: { checkinSync: { pending: true, pendingKind: 'cred', attempts: 19 } },
+      ...over,
+    }
+  }
+
+  it('19→20 触发:先写 escalatedAt 台账,再投递一封告警', async () => {
+    const fired = await escalateCheckinSyncFailureOnce(
+      escalationRow(),
+      20,
+      '账号名已存在: minimax:cn',
+      new Date('2026-11-03T00:00:00Z'),
+    )
+    expect(fired).toBe(true)
+    expect(hoisted.updateCalls).toHaveLength(1)
+    const extra = hoisted.updateCalls[0]!.values.extraMetadata as { __sql: string; __vals: unknown[] }
+    expect(extra.__sql).toContain('escalatedAt')
+    expect(alertHoisted.calls).toHaveLength(1)
+    expect(alertHoisted.calls[0]!.title).toContain('minimax:cn')
+    expect(alertHoisted.calls[0]!.message).toContain('账号名已存在')
+  })
+
+  it('已 escalatedAt → 不写台账、不告警(重复触发不刷屏)', async () => {
+    const fired = await escalateCheckinSyncFailureOnce(
+      escalationRow({
+        extraMetadata: {
+          checkinSync: { pending: true, attempts: 30, escalatedAt: '2026-11-01T00:00:00Z' },
+        },
+      }),
+      31,
+      'boom',
+    )
+    expect(fired).toBe(false)
+    expect(hoisted.updateCalls).toHaveLength(0)
+    expect(alertHoisted.calls).toHaveLength(0)
+  })
+})
+
+describe('retryPendingCheckinSyncs 升级腿(单账号失败不影响同批)', () => {
+  it('attempts=19 的账号失败 → mark + escalatedAt 两次写 + 1 封告警;另一账号照常成功', async () => {
+    hoisted.pendingRows.push(
+      pendingCredRow({
+        id: 'bad-1',
+        name: '坏号',
+        extraMetadata: { checkinSync: { pending: true, pendingKind: 'cred', attempts: 19 } },
+      }),
+      pendingCredRow({ id: 'good-1', name: '好号' }),
+    )
+    const fetchMock = makeFetchMock({
+      sync: (body) => {
+        const accounts = (body as { accounts: Array<{ poolAccountId: string }> }).accounts
+        const id = accounts[0]!.poolAccountId
+        return id === 'bad-1'
+          ? jsonResponse({
+              results: [{ poolAccountId: 'bad-1', status: 'failed', reason: '账号名已存在: 坏号' }],
+            })
+          : jsonResponse({ results: [{ poolAccountId: 'good-1', status: 'synced' }] })
+      },
+    })
+    const r = await retryPendingCheckinSyncs(10, fetchMock)
+    expect(r).toMatchObject({ retried: 2, cleared: 1, stillPending: 1 })
+    // bad-1:mark + escalatedAt;good-1:clear → 共 3 次写
+    expect(hoisted.updateCalls).toHaveLength(3)
+    expect(alertHoisted.calls).toHaveLength(1)
+    expect(alertHoisted.calls[0]!.message).toContain('坏号')
   })
 })
