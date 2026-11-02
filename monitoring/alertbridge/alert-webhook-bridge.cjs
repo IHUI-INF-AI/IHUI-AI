@@ -38,6 +38,12 @@
 //     两条路都失败时,必须在 UNDEL_FILE(与 STATE_FILE 同目录)留下可诊断的未送达标记,
 //     并写 [mail][ERROR] 日志;/health 暴露 mailUndelivered=true。标记在下一次成功投递时
 //     清除(参照 scripts/check-credential-health.mjs 的 UNDELIVERED 机制)。
+//   - 双失败后不再"一次就放弃":桥侧排**一次**后台重试(默认 30s 后;距首次失败超过 2min
+//     即放弃),仍失败才把 UNDEL 留作最终凭据(2026-11-02 落地)。重试**绝不回滚**
+//     partitionAlerts 写入的去重锚点 —— 回滚会让 AM group 频繁变化时把同一故障反复寄,
+//     那正是本文件另一头要治的"多信"。待重试记录原子落盘(与 STATE_FILE 同目录的
+//     alert-bridge-mail-retry-pending.json),重启时**丢弃超过 10 分钟**的条目:
+//     补发陈年告警等于新造一次轰炸,不是"补救"。
 //
 // 状态分流(2026-10-17 立,根治"已恢复被当故障寄信"的假警报型):
 //   现役 Alertmanager 配置 send_resolved: true(tmpl 现读),恢复事件同样 POST 进本桥。
@@ -73,6 +79,8 @@
 //   BRIDGE_MAIL_ENABLED  邮件通道开关(缺省=开;0/false/off/no 显式关闭)
 //   BRIDGE_MAIL_TO       收件人覆盖;**缺省不传 --to**,由派发器回读 apps/api/.env 的 ALERT_EMAIL_TO
 //   BRIDGE_MAIL_TIMEOUT_MS 派发器单次调用墙上时钟上限(默认 90000)
+//   BRIDGE_MAIL_RETRY_DELAY_MS  双失败后后台重试的延迟毫秒数(默认 30000;只重试一次)
+//   BRIDGE_MAIL_RETRY_WINDOW_MS 重试发送窗口毫秒数(默认 120000;距首次失败超过它即放弃)
 //
 // 邮件出口纪律:正文一律经 apps/api/scripts/notify-deploy-failure.ts 的 `--message-file` 派发,
 //   版式由 apps/api/src/services/email-templates.ts 的 renderSystemAlertEmail 单点决定 ——
@@ -149,6 +157,24 @@ const MAIL_TMP_DIR = path.join(REPO_ROOT, '.ihui-agent', 'tmp', 'alertbridge-mai
 /** 默认开:收件人就是值班运维本人,邮件没有第三方总量配额,关掉等于回到"告警静默"。 */
 const MAIL_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.BRIDGE_MAIL_ENABLED || '').trim())
 const MAIL_TIMEOUT_MS = parseInt(process.env.BRIDGE_MAIL_TIMEOUT_MS || '90000', 10)
+/** 非负整数环境量:非法/负数回落到默认值(配置写坏不得把重试退化成"立即轰炸"或"永不重试") */
+function envNonNegInt(name, fallback) {
+  const v = parseInt(String(process.env[name] == null ? '' : process.env[name]), 10)
+  return Number.isFinite(v) && v >= 0 ? v : fallback
+}
+/**
+ * 双失败后的**一次**后台重试(2026-11-02)。为什么是后台重试而不是回滚去重档:
+ * partitionAlerts 的锚点语义是"上一次真正投递时刻",回滚它 => 下一次同 group 的任何推送
+ * 都会立刻再寄一遍,AM group 每 5 分钟就可能变一次 => 一封失败告警会在通道抖动时变成
+ * 连续多封(多信)。后台重试只对"那一批"补一次,不改变任何身份的去重锚点。
+ * 两个闸门:延迟 30s(给瞬时故障自愈时间);距首次失败超过 2min 不再发送(陈旧告警补发=轰炸)。
+ */
+const MAIL_RETRY_DELAY_MS = envNonNegInt('BRIDGE_MAIL_RETRY_DELAY_MS', 30000)
+const MAIL_RETRY_WINDOW_MS = envNonNegInt('BRIDGE_MAIL_RETRY_WINDOW_MS', 120000)
+/** 重启接管上限:超过 10 分钟的待重试一律丢弃(进程不在时故障早已过去,补发只会训人忽略告警) */
+const MAIL_RETRY_MAX_AGE_MS = 10 * 60 * 1000
+/** 待重试队列:与 STATE_FILE 同目录 ⇒ 沙箱把 STATE_FILE 指进临时目录即零线上污染 */
+const RETRY_FILE = path.join(path.dirname(STATE_FILE), 'alert-bridge-mail-retry-pending.json')
 /** 空串 ⇒ 不传 --to,由派发器按 process.env → apps/api/.env 的 ALERT_EMAIL_TO 解析(不复制第二份收件人真相) */
 const MAIL_TO = String(process.env.BRIDGE_MAIL_TO || '').trim()
 const MAIL_SOURCE = 'ihui-alertbridge'
@@ -291,15 +317,15 @@ function persistState(file, store, nowMs, log, windowMs = MAX_DEDUP_AGE_MS) {
  * 也不让下一次 persist 把唯一的诊断证据覆盖掉(备份可人工抢救回有效条目)。
  * 条目级异常(非数字/非正/未来时刻)只跳过该条并如实报数,不牵连整份文件(保留可恢复能力)。
  */
-function quarantineStateFile(file, log, why) {
+function quarantineStateFile(file, log, why, label = '状态文件') {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const bak = `${file}.corrupt-${stamp}`
   try {
     fs.renameSync(file, bak)
-    if (log) log(`[state][ERROR] 状态文件损坏(${why}),已原样备份到 ${bak};本次按空态起算 —— 同身份告警可能在窗口内重报,可从备份人工恢复`)
+    if (log) log(`[state][ERROR] ${label}损坏(${why}),已原样备份到 ${bak};本次按空态起算 —— 可从备份人工恢复`)
     return true
   } catch (e) {
-    if (log) log(`[state][ERROR] 状态文件损坏(${why})且备份失败(${e.message}) —— 下一次落盘会覆盖原文件,请立即人工留存`)
+    if (log) log(`[state][ERROR] ${label}损坏(${why})且备份失败(${e.message}) —— 下一次落盘会覆盖原文件,请立即人工留存`)
     return false
   }
 }
@@ -346,6 +372,80 @@ function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AG
   return n
 }
 
+// ── 待重试队列(双失败后的一次后台重试;2026-11-02)──────────────────────────────
+// 为什么落盘:重试要能扛 NSSM 硬杀重启。为什么不无限期接管:补发 20 分钟前的告警
+// 等于把"已经过去、可能早已恢复"的故障重新炸一遍,那是新造轰炸而不是补救。
+function serializeRetryQueue(queue, nowMs = Date.now()) {
+  const pending = []
+  for (const e of queue.values()) {
+    if (!e || !Array.isArray(e.alerts)) continue
+    const first = Number(e.firstAttemptTs)
+    // 未来时刻(时钟回拨)与超过接管上限的一律不写:重试的前提是"这次失败还新鲜"。
+    if (!Number.isFinite(first) || first <= 0 || first > nowMs + CLOCK_SKEW_MS) continue
+    if (nowMs - first > MAIL_RETRY_MAX_AGE_MS) continue
+    const next = Number(e.nextAttemptTs)
+    pending.push({
+      id: String(e.id || ''),
+      firstAttemptTs: first,
+      nextAttemptTs: Number.isFinite(next) ? next : first + MAIL_RETRY_DELAY_MS,
+      alerts: e.alerts,
+      why: String(e.why || ''),
+    })
+  }
+  return JSON.stringify({ pending })
+}
+/** 原子写(同 persistState):重试队列被截断就只剩"重启后不再补救",且现场会被下一次覆盖 */
+function persistRetryQueue(file, queue, nowMs, log) {
+  const tmp = `${file}.tmp-${process.pid}`
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(tmp, serializeRetryQueue(queue, nowMs), 'utf8')
+    fs.renameSync(tmp, file)
+    return true
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }) } catch { /* 残留由下次同名覆盖 */ }
+    if (log) log(`[mail][retry][ERROR] 待重试记录落盘失败(重启后这条补救会丢): ${e.message}`)
+    return false
+  }
+}
+/**
+ * 启动接管:丢弃超过 MAIL_RETRY_MAX_AGE_MS 的条目,所以"15 分钟前的 pending 重启后不会补发"。
+ * 文件坏/形态不对 => 备份 + 空队列(与去重状态同一条"不吞错"纪律),绝不因重试记录坏掉而拒绝启动。
+ */
+function loadRetryQueue(file, nowMs = Date.now(), log = null) {
+  let raw
+  try {
+    raw = fs.readFileSync(file, 'utf8')
+  } catch (e) {
+    if (e.code !== 'ENOENT' && log) log(`[mail][retry][ERROR] 待重试记录不可读(${e.message}) —— 本次不接管任何重试`)
+    return new Map()
+  }
+  let s
+  try {
+    s = JSON.parse(raw)
+  } catch (e) {
+    quarantineStateFile(file, log, `JSON 解析失败: ${e.message}`, '待重试记录')
+    return new Map()
+  }
+  if (!s || typeof s !== 'object' || Array.isArray(s) || !Array.isArray(s.pending)) {
+    quarantineStateFile(file, log, '顶层不是含 pending 数组的对象', '待重试记录')
+    return new Map()
+  }
+  const now = nowMs
+  const q = new Map()
+  let dropped = 0
+  for (const e of s.pending) {
+    if (!e || typeof e !== 'object' || typeof e.id !== 'string' || !e.id || !Array.isArray(e.alerts)) { dropped += 1; continue }
+    const first = Number(e.firstAttemptTs)
+    const next = Number(e.nextAttemptTs)
+    if (!Number.isFinite(first) || first <= 0 || first > now + CLOCK_SKEW_MS || !Number.isFinite(next)) { dropped += 1; continue }
+    if (now - first > MAIL_RETRY_MAX_AGE_MS) { dropped += 1; continue }
+    q.set(e.id, { id: e.id, firstAttemptTs: first, nextAttemptTs: next, alerts: e.alerts, why: String(e.why || '') })
+  }
+  if (dropped && log) log(`[mail][retry][WARN] 丢弃 ${dropped} 条过期/非法的待重试记录(超过 ${Math.floor(MAIL_RETRY_MAX_AGE_MS / 60000)} 分钟的补发等于新造轰炸)`)
+  return q
+}
+
 // ── 自监控指标(GET /metrics,标准 Prometheus 文本格式)───────────────────────────
 // 为什么必须有 /metrics 而不是把 prometheus 指到 /health:Prometheus 3.x 抓取时**强制校验
 // Content-Type**,而 /health 返回 application/json ⇒ 该 target 恒 down ⇒
@@ -375,12 +475,19 @@ const counters = {
   selfScopeReported: 0,      // 按来源锚点判为"采集器/监控自身造成"、只记账不炸到人的条数
   alertsCleared: 0,          // 显式 status=resolved 被清偿(ALERT-CLEARED 记账、未冒充故障寄信)的条数
   alertsClearedHeld: 0,      // 恢复但判为抖动、去重档被保留(压住下一轮重寄)的条数 —— "压住了多少重寄"
+  mailRetriesOk: 0,          // 后台重试成功(UNDEL 已清;不改去重锚点、不计第二批 delivered)
+  mailRetriesFail: 0,        // 后台重试仍失败(UNDEL 保留,一次退避已用完,不再重试)
+  mailRetriesExpired: 0,     // 重试到时已超过发送窗口,主动放弃(不补发陈旧告警)
 }
 /** 日志来源锚点的活性(1=两侧名字对得上、分流在跑;0=失明 ⇒ 本桥已 fail-open 全照旧到人)。 */
 let logAnchorOk = false
 /** 最近一次投递尝试/成功的墙上时刻(秒)。up==1 而它长期不推进 = 链路活着但从未投递过任何东西。 */
 let lastMailAttemptTs = 0
 let lastMailSuccessTs = 0
+/** 待重试批次(id -> entry)与计时器(id -> Timeout)。记录本身另落 RETRY_FILE(重启可接管) */
+const pendingRetries = new Map()
+const retryTimers = new Map()
+let retrySeq = 0
 
 /** /metrics 的 Content-Type —— Prometheus 靠 `version=0.0.4` 这一参数认 scrape_protocol */
 const METRICS_CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8'
@@ -426,6 +533,9 @@ const METRIC_SPECS = [
   ['ihui_alertbridge_mail_batches_skipped_total', 'counter', 'Mail batches skipped by the gate (empty batch / BRIDGE_MAIL_ENABLED=0). Skipped is not failed.', (s) => s.counters.batchesSkipped],
   ['ihui_alertbridge_mail_alerts_delivered_total', 'counter', 'Alerts actually carried out to a human inside delivered batches.', (s) => s.counters.alertsDelivered],
   ['ihui_alertbridge_mail_plain_fallback_total', 'counter', 'Deliveries rescued by the --plain downgrade because the branded template failed (layout degraded, delivery kept).', (s) => s.counters.plainFallbacks],
+  ['ihui_alertbridge_mail_retry_total', 'counter', 'Background retries after both mail paths failed (one attempt per failed batch, dedup anchor untouched): result=ok delivered on retry; result=fail still failed (marker kept); result=expired skipped because the retry window had passed (no stale alert is sent).', (s) => s.counters.mailRetriesOk, '{result="ok"}'],
+  ['ihui_alertbridge_mail_retry_total', 'counter', 'Same metric; one series per result label.', (s) => s.counters.mailRetriesFail, '{result="fail"}'],
+  ['ihui_alertbridge_mail_retry_total', 'counter', 'Same metric; one series per result label.', (s) => s.counters.mailRetriesExpired, '{result="expired"}'],
   ['ihui_alertbridge_state_persist_failures_total', 'counter', 'Times dedup state failed to persist; after a restart dedup then silently resets and alerts get re-mailed.', (s) => s.counters.statePersistFailures],
   ['ihui_alertbridge_state_load_failures_total', 'counter', 'Times the dedup state file existed but was unparseable/wrong-shaped at startup (original quarantined as .corrupt-* and dedup started empty).', (s) => s.counters.stateLoadFailures],
   ['ihui_alertbridge_undelivered_marks_written_total', 'counter', 'UNDELIVERED markers written (each one means an alert batch went out blind).', (s) => s.counters.undeliveredMarks],
@@ -435,9 +545,16 @@ const METRIC_SPECS = [
 
 function renderMetrics(s, specs = METRIC_SPECS) {
   const lines = []
-  for (const [name, type, help, read] of specs) {
+  const declared = new Set()
+  for (const [name, type, help, read, labels] of specs) {
     const raw = Number(read(s))
-    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`, `${name} ${Number.isFinite(raw) ? raw : 0}`)
+    // 同一指标名可以有多条带不同 result 标签的样本行:HELP/TYPE 只在首次出现时声明一次
+    // (Prometheus 文本格式里 TYPE 行只认指标名,重复声明会被判格式错)。
+    if (!declared.has(name)) {
+      lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`)
+      declared.add(name)
+    }
+    lines.push(`${name}${labels || ''} ${Number.isFinite(raw) ? raw : 0}`)
   }
   return lines.join('\n') + '\n'
 }
@@ -741,6 +858,83 @@ function sendMailLeg(toPush, { dispatch = dispatchBrandMail, log = writeLog, und
   return deliverMail(toPush, { dispatch, log, undelFile })
 }
 
+/**
+ * 双失败 → 排**一次**后台重试(2026-11-02)。
+ * 只登记这一批,绝不触碰 dedup 里任何身份的时间戳:回滚锚点会把"一次失败"放大成
+ * "AM group 每变一次就重寄一次"(多信),而本文件另一头刚把这条治掉。
+ */
+function scheduleMailRetry(alerts, why, log) {
+  const now = Date.now()
+  retrySeq += 1
+  const entry = {
+    id: `${now}-${process.pid}-${retrySeq}`,
+    firstAttemptTs: now,
+    nextAttemptTs: now + MAIL_RETRY_DELAY_MS,
+    alerts: Array.isArray(alerts) ? alerts : [],
+    why: String(why || ''),
+  }
+  pendingRetries.set(entry.id, entry)
+  persistRetryQueue(RETRY_FILE, pendingRetries, now, log)
+  armRetryTimer(entry, { log })
+  log(`[mail][retry] 已排一次后台重试(${MAIL_RETRY_DELAY_MS}ms 后;距首次失败超过 ${MAIL_RETRY_WINDOW_MS}ms 即放弃,不补发;去重锚点保持不变)`)
+  return entry.id
+}
+
+/** 计时器到点(或重启接管时 nextAttemptTs 已过 ⇒ waitMs=0);窗口上限防止"睡过头"越过 2min */
+function armRetryTimer(entry, ctx) {
+  const waitMs = Math.max(0, Math.min(Number(entry.nextAttemptTs) - Date.now(), MAIL_RETRY_WINDOW_MS))
+  const timer = setTimeout(() => { void runMailRetry(entry.id, ctx) }, waitMs)
+  retryTimers.set(entry.id, timer)
+}
+
+/**
+ * 唯一一次重试。成功 => 清 UNDEL + retry ok;仍失败 => UNDEL 保留 + retry fail + **不再排第二次**
+ * (无限重试会把"通道断"变成"每 30 秒一封信",比丢信更糟)。
+ */
+async function runMailRetry(id, { log = writeLog, dispatch = dispatchBrandMail, undelFile = UNDEL_FILE, retryFile = RETRY_FILE } = {}) {
+  retryTimers.delete(id)
+  const entry = pendingRetries.get(id)
+  if (!entry) return { ok: false, gone: true }
+  const now = Date.now()
+  if (now - entry.firstAttemptTs > MAIL_RETRY_WINDOW_MS) {
+    counters.mailRetriesExpired += 1
+    pendingRetries.delete(id)
+    persistRetryQueue(retryFile, pendingRetries, now, log)
+    log(`[mail][retry][WARN] 放弃重试:距首次失败 ${now - entry.firstAttemptTs}ms 已超过 ${MAIL_RETRY_WINDOW_MS}ms 窗口 —— 不补发陈旧告警(未送达标记保留)`)
+    return { ok: false, expired: true }
+  }
+  let r
+  try {
+    r = await deliverMail(entry.alerts, { dispatch, log, undelFile })
+  } catch (e) {
+    r = { ok: false, why: `重试腿异常: ${redact(e && e.message ? e.message : e)}` }
+  }
+  pendingRetries.delete(id)
+  persistRetryQueue(retryFile, pendingRetries, Date.now(), log)
+  if (r.ok) {
+    counters.mailRetriesOk += 1
+    lastMailSuccessTs = Math.floor(Date.now() / 1000)
+    log(`[mail][retry] 重试成功(唯一一次;此前的失败批次已到人): ${redact(r.why || '')}`)
+    // deliverMail 的成功会清 UNDEL;但若还有别的批次在等重试,那个标记必须重新立起来,
+    // 否则"一封救回"会把另一封仍双盲的证据抹掉。
+    if (pendingRetries.size > 0) {
+      try {
+        markMailUndelivered(undelFile, {
+          ts: new Date().toISOString(),
+          alerts: [...pendingRetries.values()].flatMap((x) => (x.alerts || []).map((a) => (a.labels || {}).alertname || 'unnamed')),
+          why: '仍有后台重试未完成',
+        })
+      } catch (e) {
+        log(`[mail][retry][ERROR] 重写未送达标记失败(${redact(e.message)}) —— 请人工核对剩余待重试批次`)
+      }
+    }
+  } else {
+    counters.mailRetriesFail += 1
+    log(`[mail][retry][ERROR] 重试仍失败,不再重试(一次退避已用完;未送达标记保留): ${redact(r.why || '')}`)
+  }
+  return r
+}
+
 /** 一批告警 → 投递计划(纯函数:先按来源分流、再对"要炸到人"的那一支做身份去重)。
  *  handleAlert 与 --self-test 都走这一条铰链 —— 分流判据若只在生产路径里内联一份,
  *  自检就是在测另一件事(本仓"判据必须在真跑它的那一刻才成立"同族)。 */
@@ -891,7 +1085,11 @@ async function handleAlert(reqBody) {
       // 就是在污染对账,与本文件 mailGate 的注释同一条理由。
       if (m.ok) { counters.batchesDelivered += 1; counters.alertsDelivered += toPush.length; lastMailSuccessTs = Math.floor(Date.now() / 1000) }
       else if (m.skipped) counters.batchesSkipped += 1
-      else counters.batchesFailed += 1
+      else {
+        counters.batchesFailed += 1
+        // 双失败只补一次后台重试;partitionAlerts 已写下的去重锚点**不回滚**(见 scheduleMailRetry 注释)。
+        scheduleMailRetry(toPush, m.why, writeLog)
+      }
       const tag = m.ok ? '已送达' : m.skipped ? '跳过' : '失败'
       writeLog(`[mail] ${tag}: ${redact(m.why || '')}(本批 ${toPush.length} 条,身份去重窗口 ${DEDUP_WINDOW_MIN} 分钟) ${statusDimOf(toPush.length)}`)
     })
@@ -1154,11 +1352,13 @@ async function runSelfTest() {
   const typeNames = allLines.filter((l) => l.startsWith('# TYPE ')).map((l) => l.split(' ')[2])
   const helpNames = allLines.filter((l) => l.startsWith('# HELP ')).map((l) => l.split(' ')[2])
   const sampleLines = allLines.filter((l) => !l.startsWith('#'))
-  const sampleNames = sampleLines.map((l) => l.split(' ')[0])
-  eq('每个样本名都有且只有一条同名 # TYPE(按名字集合比,不靠行序)', sampleNames.slice().sort(), typeNames.slice().sort())
-  eq('每个样本名都有同名 # HELP', sampleNames.slice().sort(), helpNames.slice().sort())
-  eq('名字与类型均不重复(重复 TYPE 行会让整次抓取失败)', [new Set(sampleNames).size, new Set(typeNames).size], [sampleNames.length, typeNames.length])
-  eq('样本行形态 = 名 + 单个十进制数值(无标签、无 NaN/Inf、无引号)', sampleLines.every((l) => /^[a-z_]+ -?[0-9]+(\.[0-9]+)?$/.test(l)), true)
+  // 同一指标可以有多条带 result 标签的序列(重试 ok/fail/expired):比对时按"名"去掉标签,
+  // 否则三条序列会被读成三个不同的指标,把合法的多标签形态误判成格式错。
+  const sampleNames = sampleLines.map((l) => l.split(' ')[0].replace(/\{.*$/, ''))
+  eq('每个样本名都有且只有一条同名 # TYPE(按名字集合比,不靠行序)', [...new Set(sampleNames)].sort(), typeNames.slice().sort())
+  eq('每个样本名都有同名 # HELP', [...new Set(sampleNames)].sort(), helpNames.slice().sort())
+  eq('每个 TYPE 名恰好声明一次(同名多标签序列不得重复声明)', typeNames.length, new Set(typeNames).size)
+  eq('样本行形态 = 名(+可选 result 标签集) + 单个十进制数值(无 NaN/Inf、无引号)', sampleLines.every((l) => /^[a-z_]+(\{[a-z_]+="[^"]*"\})? -?[0-9]+(\.[0-9]+)?$/.test(l)), true)
   eq('HELP 文本单行(HELP 里带换行会把后续样本吞进注释)', allLines.filter((l) => l.startsWith('# HELP ')).every((l) => l.length > 9), true)
   // 正向证明:判据输入取自 METRIC_SPECS 名单本身 —— 每个计数器都要"数得出来",
   // 否则名单可以是张死表而渲染一路报绿(§120 名单类判据必须有正向证明)。
@@ -1385,6 +1585,72 @@ async function runSelfTest() {
   eq('⑫i 状态载入失败进入可观测计数(坏文件不是无声事件)', counters.stateLoadFailures > 0, true)
   for (const f of corruptBaks()) fs.rmSync(path.join(parentDir, f), { force: true })
 
+  // ⑬ 双失败 ⇒ 一次后台重试(2026-11-02 四修)。两头都要钉死:
+  //    丢信方向:品牌 + --plain 双失败后若"一次就放弃",一封本该到人的告警永远消失;
+  //    多信方向:若靠"回滚去重锚点"来补救,AM group 每变一次就会把同一故障再寄一遍 ——
+  //    所以重试只补这一批、**绝不触碰 dedup**。队列落盘要扛 NSSM 重启,但只接管 10 分钟内
+  //    的记录:补发 15 分钟前的告警等于新造一次轰炸,不是补救。
+  const retryLogs = []
+  const retryLog = (m) => retryLogs.push(m)
+  const retryFile = tmpProbe('retry-queue')
+  const retryUndel = tmpProbe('retry-undel')
+  cleanup.push(retryFile, retryUndel)
+  const retryTmpLeft = () => fs.readdirSync(path.dirname(retryFile)).filter((f) => f.startsWith(path.basename(retryFile) + '.tmp-'))
+  const nowRetry = Date.now()
+  const freshEntry = { id: 'fresh-1', firstAttemptTs: nowRetry, nextAttemptTs: nowRetry + MAIL_RETRY_DELAY_MS, alerts, why: '假失败' }
+  const staleEntry = { id: 'stale-1', firstAttemptTs: nowRetry - 15 * 60 * 1000, nextAttemptTs: nowRetry - 14 * 60 * 1000, alerts, why: '假失败' }
+  const futureEntry = { id: 'future-1', firstAttemptTs: nowRetry + 4 * HOUR, nextAttemptTs: nowRetry + 4 * HOUR, alerts, why: '假失败' }
+  eq('⑬a 落盘过滤:15 分钟前 / 时钟未来的条目一律不写(重启后没有补发陈旧告警的载体)', JSON.parse(serializeRetryQueue(new Map([[freshEntry.id, freshEntry], [staleEntry.id, staleEntry], [futureEntry.id, futureEntry]]), nowRetry)).pending.map((x) => x.id), ['fresh-1'])
+  const rq1 = persistRetryQueue(retryFile, new Map([[freshEntry.id, freshEntry]]), nowRetry, retryLog)
+  const rq2 = persistRetryQueue(retryFile, new Map(), nowRetry, retryLog)
+  eq('⑬b 待重试记录原子写:两次覆盖均成功且无 .tmp- 残留', [rq1, rq2, retryTmpLeft().length], [true, true, 0])
+  fs.writeFileSync(retryFile, JSON.stringify({ pending: [freshEntry, staleEntry] }), 'utf8')
+  const rqLoaded = loadRetryQueue(retryFile, nowRetry, retryLog)
+  eq('⑬c 载入只接管 10 分钟内的记录,更早的丢弃并留 WARN(不静默补发)', [rqLoaded.size, retryLogs.some((l) => /丢弃 1 条过期/.test(l))], [1, true])
+  // 成功腿:UNDEL 起点必须存在(模拟首次双失败留下的凭据),再看重试成功后是否被清掉。
+  markMailUndelivered(retryUndel, { ts: new Date(nowRetry).toISOString(), alerts: ['HighCPU'], why: '首次双失败' })
+  dedup.set('Anchor|a:1', 1000) // 种一个去重锚点:重试腿不得改写它(回滚锚点 = 多信)
+  const okCalls = []
+  const okDispatchCounted = async (p) => { okCalls.push(p); return { ok: true, why: '假成功' } }
+  const okBefore = counters.mailRetriesOk
+  pendingRetries.set('ok-1', { ...freshEntry, id: 'ok-1' })
+  persistRetryQueue(retryFile, pendingRetries, Date.now(), retryLog)
+  const rOkRetry = await runMailRetry('ok-1', { log: retryLog, dispatch: okDispatchCounted, undelFile: retryUndel, retryFile })
+  eq('⑬d 重试成功 ⇒ ok 计数 +1、派发只 1 次(品牌一次即成)、队列清空', [rOkRetry.ok, counters.mailRetriesOk - okBefore, okCalls.length, pendingRetries.size], [true, 1, 1, 0])
+  eq('⑬e 重试成功 ⇒ UNDEL 被清(告警已到人,旧凭据必须消失)', fs.existsSync(retryUndel), false)
+  eq('⑬f 日志有「重试成功」', retryLogs.some((l) => /重试成功/.test(l)), true)
+  eq('⑬g 重试腿不碰去重锚点:ts 原样保留,且重试后同身份推送仍被判重(窗口没被打穿)', [dedup.get('Anchor|a:1'), partitionAlerts([{ labels: { alertname: 'Anchor', instance: 'a:1' } }], dedup, 1000 + 60000, HOUR).toPush.length], [1000, 0])
+  dedup.delete('Anchor|a:1')
+  // 失败腿:两次都失败 ⇒ UNDEL 保留、计数 +1,且**不再排第二次**(无限重试比丢信更糟)。
+  const failBefore = counters.mailRetriesFail
+  markMailUndelivered(retryUndel, { ts: new Date(nowRetry).toISOString(), alerts: ['HighCPU'], why: '首次双失败' })
+  const failCalls = []
+  const failDispatchCounted = async (p) => { failCalls.push(p); return { ok: false, why: '假失败:SMTP 拒收' } }
+  pendingRetries.set('fail-1', { ...freshEntry, id: 'fail-1' })
+  persistRetryQueue(retryFile, pendingRetries, Date.now(), retryLog)
+  const rFailRetry = await runMailRetry('fail-1', { log: retryLog, dispatch: failDispatchCounted, undelFile: retryUndel, retryFile })
+  eq('⑬h 重试仍失败 ⇒ fail 计数 +1、品牌 + plain 共 2 次、队列清空且不再排第二次(无无限重试)', [rFailRetry.ok, counters.mailRetriesFail - failBefore, failCalls.length, pendingRetries.size, retryTimers.size], [false, 1, 2, 0, 0])
+  eq('⑬i 仍失败 ⇒ UNDEL 保留(重试过不等于到人)', fs.existsSync(retryUndel), true)
+  eq('⑬j 日志有「不再重试」', retryLogs.some((l) => /不再重试/.test(l)), true)
+  // 过期腿:15 分钟前的记录被进程接管也绝不发送(陈旧告警补发 = 新造轰炸)。
+  const expBefore = counters.mailRetriesExpired
+  let expCalls = 0
+  pendingRetries.set('exp-1', { ...staleEntry, id: 'exp-1', nextAttemptTs: Date.now() })
+  const rExpRetry = await runMailRetry('exp-1', { log: retryLog, dispatch: async () => { expCalls += 1; return { ok: true } }, undelFile: retryUndel, retryFile })
+  eq('⑬k 超过 2min 发送窗口 ⇒ 派发 0 次、expired 计数 +1、队列清空(陈旧告警不补发)', [rExpRetry.expired, expCalls, counters.mailRetriesExpired - expBefore, pendingRetries.size], [true, 0, 1, 0])
+  const retryText = renderMetrics({ ...sample, counters })
+  eq('⑬l 三条 result 样本行都真渲染(retry ok/fail/expired 各自可观测,不并桶)', [
+    /^ihui_alertbridge_mail_retry_total{result="ok"} [0-9]+$/m.test(retryText),
+    /^ihui_alertbridge_mail_retry_total{result="fail"} [0-9]+$/m.test(retryText),
+    /^ihui_alertbridge_mail_retry_total{result="expired"} [0-9]+$/m.test(retryText),
+  ], [true, true, true])
+  const bridgeSrcRetry = fs.readFileSync(__filename, 'utf8')
+  eq('⑬m 接线锁:handleAlert 的双失败分支真排重试(不是只写了个函数)', bridgeSrcRetry.includes('scheduleMailRetry(toPush, m.why, writeLog)'), true)
+  const retryFnBody = bridgeSrcRetry.slice(bridgeSrcRetry.indexOf('async function runMailRetry'), bridgeSrcRetry.indexOf('/** 一批告警 → 投递计划'))
+  eq('⑬n 反向锁:重试腿里不得再排第二次,也不得读写去重表', [/armRetryTimer|scheduleMailRetry|setTimeout/.test(retryFnBody), /\bdedup\b/.test(retryFnBody), /\bstore\.(set|delete)\b/.test(retryFnBody)], [false, false, false])
+  eq('⑬o 重启接管锁:startServer 真读待重试队列并续排(不是只落盘不接)', [bridgeSrcRetry.includes('loadRetryQueue(RETRY_FILE, Date.now(), writeLog)'), bridgeSrcRetry.includes('if (MAIL_ENABLED) armRetryTimer(e, { log: writeLog })')], [true, true])
+  eq('⑬p 对外契约未改:/health 仍是原来四个键、全文件没有 503(AM 不得因邮件失败被拖进重试风暴)', [bridgeSrcRetry.includes("JSON.stringify({ ok: true, service: 'alert-webhook-bridge', mailEnabled: MAIL_ENABLED, mailUndelivered: fs.existsSync(UNDEL_FILE) })"), (bridgeSrcRetry.match(/writeHead\(503/g) || []).length], [true, 0])
+
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
@@ -1401,6 +1667,19 @@ function startServer() {
   const anchor = currentLogAnchor()
   server.listen(PORT, '127.0.0.1', () => {
     const n = loadDedupState(STATE_FILE, dedup, Date.now(), MAX_DEDUP_AGE_MS, writeLog) // 去重态跨重启延续;损坏文件先备份再空态起算
+    // 重启接管待重试:只接 10 分钟内的记录;更早的一律丢弃(补发陈年告警 = 新造轰炸)。
+    const rq = loadRetryQueue(RETRY_FILE, Date.now(), writeLog)
+    pendingRetries.clear()
+    for (const e of rq.values()) {
+      pendingRetries.set(e.id, e)
+      if (MAIL_ENABLED) armRetryTimer(e, { log: writeLog })
+    }
+    persistRetryQueue(RETRY_FILE, pendingRetries, Date.now(), writeLog)
+    if (rq.size) {
+      writeLog(MAIL_ENABLED
+        ? `[mail][retry] 重启接管 ${rq.size} 条待重试记录(仅 10 分钟内且 2 分钟发送窗口内的才真发)`
+        : `[mail][retry][WARN] 邮件通道关闭,${rq.size} 条待重试记录不接管(超过 10 分钟自然作废)`)
+    }
     if (fs.existsSync(UNDEL_FILE)) {
       writeLog(`[mail][WARN] 存在未送达标记 ${UNDEL_FILE} —— 此前有告警未能到人,处置后由下一次成功投递自动清除`)
     }
