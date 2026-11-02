@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3998 | `testFiles` |
+| 测试文件 | 4001 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 318 | `guardianGates` |
 | — blocking | 289 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18867 | `trackedFiles` |
+| 跟踪文件 | 18870 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ae46cd2635)
+
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (45954293cd)
 
@@ -191,9 +194,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:下载中心「尚未上线」态三键补齐五语言 (791b2bcf0e)
 - 📚 Docs:补齐 ApkPure 与其余品牌的核实结论,并把 App 备案挂成法律级前置 (d333f3f82a)
 - 📚 Docs:Y-70 就地改写为四格动手清单(备案号登记/四家接口凭据/迁移先于上线/三端 store 消费) (133f99596f)
-
-**2026-11-03**
-- 🚀 Feature/Improvement:各商店提交前的合规对账器 + 摘除一个全仓零引用的危险权限 (1c6aecb1a4)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
