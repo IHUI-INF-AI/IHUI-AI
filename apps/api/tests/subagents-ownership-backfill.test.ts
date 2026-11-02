@@ -34,6 +34,8 @@
  *  ② `isAgentTaskVisibleTo` 的 NULL 分支改回恒 `return true` ⇒ B6/B7 红;恢复后核对源码 sha256。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+// eslint 规则 consistent-type-imports 禁 `import()` 类型注解 ⇒ 顶层 import type 供 typeof 引用
+import type * as DatabaseModule from '@ihui/database'
 import type { Redis } from 'ioredis'
 
 const TABLES = vi.hoisted(() => ({
@@ -96,7 +98,7 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
 // 部分 mock:只为把本文件关心的三张表换成可辨识的标记对象;
 // 其余导出(developerApiKeys 等)保留真实实现,避免间接依赖链上的模块拿到 undefined。
 vi.mock('@ihui/database', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/database')>()
+  const actual = await importOriginal<typeof DatabaseModule>()
   return {
     ...actual,
     chatConversations: TABLES.chatConversations,
@@ -146,7 +148,8 @@ vi.mock('../src/db/index.js', () => {
         from: (table: unknown) => chain(table, fields, false),
       }),
       execute: async () => {
-        if (dbState.executeThrows) throw new Error('relation "ownership_backfill_state" does not exist')
+        if (dbState.executeThrows)
+          throw new Error('relation "ownership_backfill_state" does not exist')
         return dbState.markerRows
       },
     },
@@ -260,11 +263,7 @@ function asRedis(fake: FakeRedis): Redis {
  * 造一条「旧 hash」:默认 queued(装载但不在本批抢跑),ownerUserId 与关联 id 默认空 ——
  * 正是 2026-11-01 ownerUserId 落地前的存量形态。
  */
-function seedDispatch(
-  fake: FakeRedis,
-  id: string,
-  overrides: Record<string, string> = {},
-): void {
+function seedDispatch(fake: FakeRedis, id: string, overrides: Record<string, string> = {}): void {
   const hash: Record<string, string> = {
     id,
     goal: `goal-${id}`,
@@ -458,7 +457,10 @@ describe('B7 findAgentTasksByAgentId 按标记过滤', () => {
     expect(mine.map((r) => (r as unknown as { id: string }).id)).toEqual(['row-mine', 'row-null'])
 
     const theirs = await findAgentTasksByAgentId('agent-1', { userId: 'u-b', isAdmin: false })
-    expect(theirs.map((r) => (r as unknown as { id: string }).id)).toEqual(['row-other', 'row-null'])
+    expect(theirs.map((r) => (r as unknown as { id: string }).id)).toEqual([
+      'row-other',
+      'row-null',
+    ])
 
     const all = await findAgentTasksByAgentId('agent-1', { userId: 'admin-x', isAdmin: true })
     expect(all.map((r) => (r as unknown as { id: string }).id)).toEqual([
