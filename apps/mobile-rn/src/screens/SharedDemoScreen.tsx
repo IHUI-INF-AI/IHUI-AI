@@ -29,6 +29,7 @@ import { rpx } from '../utils/rpx'
 import { APP_VERSION } from '../lib/config'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
@@ -47,6 +48,7 @@ export function SharedDemoScreen() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [stats, setStats] = useState<UserStatistics | null>(null)
   const [loading, setLoading] = useState(true)
+  const { onNavigate, onToast } = useHostPorts()
 
   useEffect(() => {
     if (!__DEV__) return
@@ -132,7 +134,13 @@ export function SharedDemoScreen() {
         <Text style={styles.statusText}>加载失败</Text>
       ) : null}
       {tab === 'about' && (
-        <AboutScreen t={t} onBack={() => setTab('profile')} colorScheme={resolvedTheme} />
+        <AboutScreen
+          t={t}
+          onBack={() => setTab('profile')}
+          colorScheme={resolvedTheme}
+          onNavigate={onNavigate}
+          onToast={onToast}
+        />
       )}
       {tab === 'profile' && (
         <ProfileScreen

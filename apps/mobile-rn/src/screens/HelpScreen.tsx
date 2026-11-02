@@ -11,6 +11,7 @@ import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useRefreshOnFocus } from '../hooks'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -99,6 +100,8 @@ export function HelpScreen() {
     }
   }, [feedbackName, feedbackContact, feedbackContent, t])
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedHelpScreen
       t={t}
@@ -122,6 +125,7 @@ export function HelpScreen() {
       onFeedbackContactChange={setFeedbackContact}
       onFeedbackContentChange={setFeedbackContent}
       onSubmitFeedback={handleSubmitFeedback}
+      onToast={onToast}
     />
   )
 }

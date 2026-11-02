@@ -12,6 +12,7 @@
  */
 
 import type { AppIcon, TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 学习计划状态 */
 export type PlanStatus = 'active' | 'paused' | 'completed' | 'overdue' | string
@@ -45,6 +46,8 @@ export interface StudyPlanScreenProps {
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 课程目录项(平台注入,字段对齐 mobile-rn CourseCatalogScreen CatalogItem) */
@@ -225,6 +228,10 @@ export interface StudyRecordScreenProps {
   onRefresh: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
@@ -287,6 +294,8 @@ export interface ExamResultScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 课程报名列表项 */
@@ -385,6 +394,10 @@ export interface CourseDetailScreenProps {
   onPlayLesson: (lessonId: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /**
@@ -599,6 +612,8 @@ export interface LecturerDetailScreenProps {
    * **可选且不默认渲染**:不传 ⇒ RN 现状零变化;文案走共享键 teacher.detail.viewCourses。
    */
   onViewCourses?: (lecturerName: string) => void
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 任务中心任务项(TaskCenterScreen) */
@@ -683,6 +698,8 @@ export interface ExamQuestionScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /**
@@ -788,6 +805,8 @@ export interface LearnDevelopScreenProps {
   /** 学习功能导航卡片;由端侧 wrapper 注入真实跳转 */
   entries?: LearnDevelopEntry[]
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 export interface SubPackageEntry {

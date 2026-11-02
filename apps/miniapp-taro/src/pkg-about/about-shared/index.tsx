@@ -16,10 +16,24 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { WEB_BASE_URL } from '@/constants/web-portal'
 import { ABOUT_ENTRY_IDS } from '@ihui/shared/constants'
 import { AboutScreen as SharedAboutScreen } from '@ihui/rn-app/features/about/AboutScreen'
+import type { OnNavigate, OnToast } from '@ihui/types'
 import Taro from '@tarojs/taro'
 import { useCallback } from 'react'
 
 import { useTheme } from '@/rn-compat/theme'
+
+/**
+ * B1 契约冻结:共享屏本轮只 assert 端口、尚未调用导航。
+ * 真实"逻辑路由名 → 小程序页"映射在 B2 接 `rn-compat/navigation-state` 时补上;
+ * 在此之前任何落空都走可见失败,不静默吞。
+ */
+const onNavigate: OnNavigate = (target) => {
+  void Taro.showToast({ title: `导航未接入: ${target}`, icon: 'none' })
+}
+
+const onToast: OnToast = (message, options) => {
+  void Taro.showToast({ title: message, icon: 'none', duration: options?.duration ?? 1500 })
+}
 
 export default function AboutSharedScreen() {
   const { t } = useI18n()
@@ -35,6 +49,8 @@ export default function AboutSharedScreen() {
         colorScheme={resolvedTheme}
         onBack={() => Taro.navigateBack()}
         onOpenPortal={onOpenPortal}
+        onNavigate={onNavigate}
+        onToast={onToast}
         entries={ABOUT_ENTRY_IDS.map((id: string) => ({
           id,
           label: t(`about.${id}`),

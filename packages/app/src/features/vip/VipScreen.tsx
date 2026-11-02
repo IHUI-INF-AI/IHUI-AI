@@ -11,6 +11,7 @@ import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../typ
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** VIP/Props 类型 re-export(单一来源 @ihui/types) */
 export type { VipLevelItem2, VipMembershipInfo, VipScreenProps }
@@ -41,7 +42,12 @@ export function VipScreen({
   onBack,
   benefitItems,
   colorScheme = 'light',
+  onNavigate,
+  onToast,
 }: VipScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

@@ -14,6 +14,7 @@
 import type { ReactNode } from 'react'
 import type { ListPaginationProps, TFunction } from './app-shared.js'
 import type { CategoryItem } from './app-learning.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
 export interface NoteListItem {
@@ -64,6 +65,8 @@ export interface ArticleListScreenProps extends ListPaginationProps {
   onPressItem: (item: ArticleListItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
@@ -171,6 +174,10 @@ export interface PostDetailScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 公告详情(平台注入,字段对齐 mobile-rn AnnouncementDetailScreen Detail) */
@@ -288,6 +295,8 @@ export interface AskCreateScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** NoteCreateScreen props(表单屏,状态由 wrapper 管理) */
@@ -571,6 +580,8 @@ export interface VideoPlayerScreenProps {
   onBack: () => void
   playerContent?: ReactNode
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 export interface PlazaCoverScreenProps {

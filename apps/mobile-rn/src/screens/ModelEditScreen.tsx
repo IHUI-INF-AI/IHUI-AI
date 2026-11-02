@@ -16,6 +16,7 @@ import {
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -93,6 +94,8 @@ export default function ModelEditScreen() {
     }, 800)
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedModelEditScreen
       t={t}
@@ -108,6 +111,7 @@ export default function ModelEditScreen() {
       onSave={handleSubmit}
       onCancel={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }
