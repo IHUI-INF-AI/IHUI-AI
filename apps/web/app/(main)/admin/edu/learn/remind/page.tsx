@@ -120,7 +120,7 @@ export default function EduLearnRemindPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -131,7 +131,9 @@ export default function EduLearnRemindPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"
