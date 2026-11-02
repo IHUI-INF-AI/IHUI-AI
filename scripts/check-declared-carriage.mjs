@@ -48,6 +48,9 @@ const git = (args, faceRoot = ROOT) =>
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 26,
+    // §5b:本机任何派生进程都必须显式 windowsHide —— 漏这一行在守护/计划任务(无桌面会话)下
+    // 必弹控制台窗,由 blocking 门 52 check-no-visible-spawn 判红(本枚就是被它抓出来的)。
+    windowsHide: true,
   })
 
 /** 被审面的 ref/旗形制:head=HEAD 树 / staged=索引(--cached) / worktree=磁盘(无 rev)。 */
