@@ -19,8 +19,15 @@
  * 而这两条不变量本质是"谓词必须存在于该查询里",结构断言足以钉住且不受实现细节漂移影响。
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { capToOrderAmount } from '../src/db/order-queries.js'
-import orderQueriesSrc from '../src/db/order-queries.ts?raw'
+
+/** 读被审文件源码(tsc 不认 `?raw` 后缀,改用与其它结构断言测试同款的磁盘读取) */
+const orderQueriesSrc = readFileSync(
+  fileURLToPath(new URL('../src/db/order-queries.ts', import.meta.url)),
+  'utf8',
+)
 
 const OWNER_PREDICATE = 'and(eq(eduOrders.id, data.orderId), eq(eduOrders.userId, data.userId))'
 

@@ -11,6 +11,7 @@
  * - 异常时降级为 warn 而非 throw（不阻塞服务启动）
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { FastifyBaseLogger } from 'fastify'
 
 const mockInsert = vi.fn()
 const mockValues = vi.fn()
@@ -44,11 +45,11 @@ type MockLogger = {
   warn: ReturnType<typeof vi.fn>
   error: ReturnType<typeof vi.fn>
 }
-const log: MockLogger = {
+const log = {
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
-}
+} as unknown as FastifyBaseLogger & MockLogger
 
 const { initVendorConfigs } = await import('../src/lifecycle/init-vendor-configs.js')
 

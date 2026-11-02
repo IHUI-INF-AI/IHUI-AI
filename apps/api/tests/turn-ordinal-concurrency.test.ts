@@ -197,7 +197,7 @@ function ddlColumnsOf(tableSqlName: string): string[] {
   const to = SCHEMA_DDL.indexOf('\n);', from)
   expect(to).toBeGreaterThan(from)
   const body = SCHEMA_DDL.slice(from + marker.length, to)
-  return [...body.matchAll(/^\s{2}([a-z_][a-z0-9_]*)\s+[a-z]/gm)].map((m) => m[1]).sort()
+  return [...body.matchAll(/^\s{2}([a-z_][a-z0-9_]*)\s+[a-z]/gm)].map((m) => m[1]!).sort()
 }
 
 function schemaColumnsOf(table: Table): string[] {
