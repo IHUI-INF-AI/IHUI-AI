@@ -261,7 +261,7 @@ async function buildInstance(): Promise<{
         close: () => {},
       }
       void handlers
-      await routeHandler(socket, { query: { token: 'x' } })
+      await routeHandler!(socket, { query: { token: 'x' } })
       return socket
     },
   }

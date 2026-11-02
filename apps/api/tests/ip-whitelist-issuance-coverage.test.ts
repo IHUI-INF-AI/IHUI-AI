@@ -85,16 +85,16 @@ const FN_ANCHOR = /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)/
 function findAnchor(lines: (string | null)[], from: number): { label: string; at: number } {
   for (let i = from; i >= 0; i--) {
     const line = lines[i]
-    if (line === null) continue
+    if (line === null || line === undefined) continue
     const route = ROUTE_ANCHOR.exec(line)
     if (route) {
       const method = route[1]!.toUpperCase()
-      const sameLine = /['"`](\/[^'"`]+)['"`]/.exec(line.slice(route.index))
+      const sameLine = /['"`](\/[^'"`]+)['"`]/.exec(line!.slice(route.index))
       let path = sameLine?.[1]
       if (!path) {
         for (let j = i + 1; j <= i + 4 && j < lines.length; j++) {
           const next = lines[j]
-          if (next === null) continue
+          if (next === null || next === undefined) continue
           const m = /^\s*['"`](\/[^'"`]+)['"`]/.exec(next)
           if (m) {
             path = m[1]

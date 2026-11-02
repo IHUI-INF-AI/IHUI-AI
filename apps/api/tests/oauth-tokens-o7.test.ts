@@ -395,14 +395,20 @@ describe('O7 POST /oauth/token + /oauth/introspect + /oauth/revoke', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.decorate('redis', {
-      setex: vi.fn(async () => 'OK'),
-      exists: vi.fn(async () => 0),
-      del: vi.fn(async () => 1),
-      smembers: vi.fn(async () => []),
-      sadd: vi.fn(async () => 1),
-      expire: vi.fn(async () => 1),
-    })
+    // 只用到这几枚命令;Redis 客户端类型是完整类面,故按真实装饰器类型收口(零 any)。
+    app.decorate(
+      'redis',
+      {
+        setex: vi.fn(
+          async (_key: unknown, _seconds: unknown, _value: unknown): Promise<'OK'> => 'OK',
+        ),
+        exists: vi.fn(async () => 0),
+        del: vi.fn(async () => 1),
+        smembers: vi.fn(async () => []),
+        sadd: vi.fn(async () => 1),
+        expire: vi.fn(async () => 1),
+      } as unknown as FastifyInstance['redis'],
+    )
     // 挂上真实响应脱敏管线:它是全局 onSend 钩子,不挂则本文件所有"响应形状"断言只测了
     // 裸路由 —— 生产上 access_token / token_use 被 "token" 子串匹配整体打成 "***"
     // 这件事测不到(2026-09-21 生产实跑抓到,HTTP 200 + 假令牌,OAuth 通道对外不可用)。
@@ -852,7 +858,7 @@ describe('O17b-④ POST /oauth/register(RFC 7591 DCR)', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.decorate('redis', {})
+    app.decorate('redis', {} as unknown as FastifyInstance['redis'])
     await app.register(oauthRegisterRoutes)
     await app.ready()
   })
@@ -924,7 +930,7 @@ describe('O17b-④ POST /oauth/register(RFC 7591 DCR)', () => {
 
   it('token 路由把表单里的客户端凭证原样交给认证函数(client_secret_post 取参位置)', async () => {
     const tokenApp = Fastify({ logger: false })
-    tokenApp.decorate('redis', {})
+    tokenApp.decorate('redis', {} as unknown as FastifyInstance['redis'])
     await tokenApp.register(oauthTokensRoutes)
     await tokenApp.ready()
     asMocks.authenticateOAuthClient.mockResolvedValue({

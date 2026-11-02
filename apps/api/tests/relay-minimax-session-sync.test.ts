@@ -49,7 +49,7 @@ function row(over: Record<string, unknown> = {}) {
     refreshFailureCount: 0,
     tempUnschedulable: false,
     ...over,
-  } as Parameters<typeof matchPoolRow>[0][number]
+  } as unknown as Parameters<typeof matchPoolRow>[0][number]
 }
 
 describe('判据单源 · decideSync 必须是 Trae 那一个函数对象', () => {

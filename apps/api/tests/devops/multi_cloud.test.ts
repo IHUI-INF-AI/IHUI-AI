@@ -168,7 +168,7 @@ async function selectOptimalCloud(
     })),
   )
   results.sort((a, b) => a.latencyMs - b.latencyMs)
-  return results[0]
+  return results[0]!
 }
 
 // ---------- 业务逻辑: 成本对比 ----------
@@ -227,19 +227,19 @@ describe('multi_cloud — 多云部署', () => {
       const sdks = [makeCloudSDK('aws', 'us-west-2'), makeCloudSDK('aliyun', 'cn-hangzhou')]
       const results = await deployToClouds('ihui-api', sdks)
       expect(results).toHaveLength(2)
-      expect(results[0].status).toBe('success')
-      expect(results[1].status).toBe('success')
-      expect(results[0].provider).toBe('aws')
-      expect(results[1].provider).toBe('aliyun')
+      expect(results[0]!.status).toBe('success')
+      expect(results[1]!.status).toBe('success')
+      expect(results[0]!.provider).toBe('aws')
+      expect(results[1]!.provider).toBe('aliyun')
     })
 
     it('某云不可用时返回 failed 状态', async () => {
       cloudHealthMap.aliyun = false
       const sdks = [makeCloudSDK('aws', 'us-west-2'), makeCloudSDK('aliyun', 'cn-hangzhou')]
       const results = await deployToClouds('ihui-api', sdks)
-      expect(results[0].status).toBe('success')
-      expect(results[1].status).toBe('failed')
-      expect(results[1].message).toBe('cloud unavailable')
+      expect(results[0]!.status).toBe('success')
+      expect(results[1]!.status).toBe('failed')
+      expect(results[1]!.message).toBe('cloud unavailable')
     })
 
     it('部署到 4 个云, endpoint 命名正确', async () => {
@@ -279,14 +279,24 @@ describe('multi_cloud — 多云部署', () => {
   describe('故障切换: aws 不可用时流量切到 aliyun', () => {
     it('aws 健康时维持 70/30', () => {
       const initial = weightedRouting({ aws: 70, aliyun: 30 })
-      const r = dns.failover(initial.weights, { aws: true, aliyun: true })
+      const r = dns.failover(initial.weights, {
+        aws: true,
+        aliyun: true,
+        tencent: true,
+        gcp: true,
+      })
       expect(r.aws).toBe(70)
       expect(r.aliyun).toBe(30)
     })
 
     it('aws 故障 → 流量全部切到 aliyun', () => {
       const initial = weightedRouting({ aws: 70, aliyun: 30 })
-      const r = dns.failover(initial.weights, { aws: false, aliyun: true })
+      const r = dns.failover(initial.weights, {
+        aws: false,
+        aliyun: true,
+        tencent: true,
+        gcp: true,
+      })
       expect(r.aws).toBe(0)
       expect(r.aliyun).toBe(100)
     })
@@ -346,8 +356,8 @@ describe('multi_cloud — 多云部署', () => {
         })),
       )
       results.sort((a, b) => a.latencyMs - b.latencyMs)
-      expect(results[0].latencyMs).toBeLessThanOrEqual(results[1].latencyMs)
-      expect(results[1].latencyMs).toBeLessThanOrEqual(results[2].latencyMs)
+      expect(results[0]!.latencyMs).toBeLessThanOrEqual(results[1]!.latencyMs)
+      expect(results[1]!.latencyMs).toBeLessThanOrEqual(results[2]!.latencyMs)
     })
   })
 
@@ -356,9 +366,9 @@ describe('multi_cloud — 多云部署', () => {
       const sorted = comparePricing({ vcpu: 4, memoryGB: 8 })
       expect(sorted).toHaveLength(4)
       // aliyun 0.165 < tencent 0.171 < gcp 0.190 < aws 0.192
-      expect(sorted[0].provider).toBe('aliyun')
-      expect(sorted[0].hourlyUSD).toBe(0.165)
-      expect(sorted[3].provider).toBe('aws')
+      expect(sorted[0]!.provider).toBe('aliyun')
+      expect(sorted[0]!.hourlyUSD).toBe(0.165)
+      expect(sorted[3]!.provider).toBe('aws')
     })
 
     it('aws vs aliyun vs tencent 月度成本对比', () => {

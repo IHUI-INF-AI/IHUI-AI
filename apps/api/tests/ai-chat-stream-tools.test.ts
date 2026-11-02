@@ -167,6 +167,52 @@ import {
 
 const USER_TOKEN = 'Bearer user-token'
 
+/** findMessagesForExport 返回的 DB 消息行类型(含 conversationId / createdAt 等必填列) */
+type ChatMessageRow = Awaited<ReturnType<typeof findMessagesForExport>>[number]
+
+/** 补齐 DB 消息行的可空列(测试只关心正文与顺序) */
+function makeMessageRow(
+  over: Pick<ChatMessageRow, 'id' | 'conversationId' | 'role' | 'content' | 'createdAt'>,
+): ChatMessageRow {
+  return {
+    metadata: {},
+    tokens: null,
+    reasoning: null,
+    turnOrdinal: null,
+    parentMessageId: null,
+    siblingIndex: null,
+    pinnedAt: null,
+    bookmarkedAt: null,
+    ...over,
+  }
+}
+
+/** findConversationById 返回的 DB 会话行类型 */
+type ChatConversationRow = NonNullable<Awaited<ReturnType<typeof findConversationById>>>
+
+/** 补齐 DB 会话行的可空列(测试只关心归属与标题) */
+function makeConversationRow(
+  over: Pick<ChatConversationRow, 'id' | 'userId' | 'title' | 'model'>,
+): ChatConversationRow {
+  return {
+    metadata: {},
+    systemPrompt: null,
+    lastMessageAt: null,
+    lastReadAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    archivedAt: null,
+    compressedAt: null,
+    compressedContext: null,
+    pinned: false,
+    pinnedAt: null,
+    groupId: null,
+    shareToken: null,
+    historyProjectionState: null,
+    ...over,
+  }
+}
+
 function mockUser() {
   mockVerifyAccessToken.mockResolvedValue({
     userId: '00000000-0000-4000-8000-000000000001',
@@ -800,16 +846,19 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
   })
 
   /** 构造 12 条长中文消息(> keepRecent=6,toCompress 为前 6 条;tokens 充足覆盖伪造 limit 的 ceil 分支) */
-  function buildLongRows() {
-    return Array.from({ length: 12 }, (_, i) => ({
-      id: `msg-${i + 1}`,
-      conversationId: CONV_ID,
-      role: i % 2 === 0 ? 'user' : 'assistant',
-      content:
-        `这是第 ${i + 1} 条历史消息,围绕上下文压缩功能展开讨论并记录关键决策与未完成事项。`.repeat(
-          8,
-        ),
-    }))
+  function buildLongRows(): ChatMessageRow[] {
+    return Array.from({ length: 12 }, (_, i) =>
+      makeMessageRow({
+        id: `msg-${i + 1}`,
+        conversationId: CONV_ID,
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content:
+          `这是第 ${i + 1} 条历史消息,围绕上下文压缩功能展开讨论并记录关键决策与未完成事项。`.repeat(
+            8,
+          ),
+        createdAt: new Date(),
+      }),
+    )
   }
 
   /** mock ai-service 摘要接口:返回固定正文,返回恢复函数 */
@@ -827,11 +876,14 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
   beforeEach(() => {
     mockUser()
     vi.mocked(findConversationById).mockReset()
-    vi.mocked(findConversationById).mockResolvedValue({
-      id: CONV_ID,
-      userId: USER_ID,
-      model: 'test-model',
-    })
+    vi.mocked(findConversationById).mockResolvedValue(
+      makeConversationRow({
+        id: CONV_ID,
+        userId: USER_ID,
+        title: '测试会话',
+        model: 'test-model',
+      }),
+    )
     vi.mocked(findMessagesForExport).mockReset()
     vi.mocked(findMessagesForExport).mockResolvedValue([])
     vi.mocked(replaceMessages).mockReset()
@@ -851,8 +903,20 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
 
   it('too_few_messages:消息 < 3 条 → 200 + reason(不报错),不进压缩器不持久化', async () => {
     vi.mocked(findMessagesForExport).mockResolvedValue([
-      { id: 'm1', role: 'user', content: '你好' },
-      { id: 'm2', role: 'assistant', content: '你好,有什么可以帮你?' },
+      makeMessageRow({
+        id: 'm1',
+        conversationId: CONV_ID,
+        role: 'user',
+        content: '你好',
+        createdAt: new Date(),
+      }),
+      makeMessageRow({
+        id: 'm2',
+        conversationId: CONV_ID,
+        role: 'assistant',
+        content: '你好,有什么可以帮你?',
+        createdAt: new Date(),
+      }),
     ])
     const res = await server.inject({
       method: 'POST',
@@ -963,11 +1027,14 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
     expect(resMissing.statusCode).toBe(404)
     expect(resMissing.json().message).toBe('对话不存在或无权限')
     // ② 会话存在但属于他人
-    vi.mocked(findConversationById).mockResolvedValue({
-      id: CONV_ID,
-      userId: 'someone-else-user',
-      model: null,
-    })
+    vi.mocked(findConversationById).mockResolvedValue(
+      makeConversationRow({
+        id: CONV_ID,
+        userId: 'someone-else-user',
+        title: '他人会话',
+        model: 'test-model',
+      }),
+    )
     const resForbidden = await server.inject({
       method: 'POST',
       url: '/api/chat/compact',

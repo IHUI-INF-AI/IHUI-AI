@@ -159,7 +159,7 @@ describe('csrf — 双提交 Cookie 模式', () => {
       expect(setCookie).toBeDefined()
       const cookieStr = Array.isArray(setCookie) ? setCookie[0]! : setCookie
       expect(cookieStr).toContain('XSRF-TOKEN=')
-      expect(cookieStr.toLowerCase()).toContain('httponly')
+      expect(cookieStr!.toLowerCase()).toContain('httponly')
     })
   })
 

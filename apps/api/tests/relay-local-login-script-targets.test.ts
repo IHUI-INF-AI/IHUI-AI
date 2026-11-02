@@ -26,7 +26,7 @@ function declaredScriptTargets(src: string): string[] {
   const out = new Set<string>()
   const re = /resolve\(\s*REPO_ROOT\s*,\s*((?:'[^']+'\s*,\s*)*'[^']+')\s*\)/g
   for (const m of src.matchAll(re)) {
-    const segments = [...m[1].matchAll(/'([^']+)'/g)].map((s) => s[1])
+    const segments = [...m[1]!.matchAll(/'([^']+)'/g)].map((s) => s[1]!)
     if (segments.length > 0) out.add(join(...segments))
   }
   return [...out].sort()

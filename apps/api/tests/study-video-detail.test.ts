@@ -146,8 +146,8 @@ describe('GET /api/study/videos/:id — 视频小节详情出网契约', () => {
     const res = await server.inject({ method: 'GET', url: `/api/study/videos/${SECTION_ID}` })
     const d = res.json().data as { chapters: Array<{ id: string; title: string; duration: string }> }
     expect(d.chapters.map((c) => c.id)).toEqual([SECTION_ID, OTHER_SECTION_ID])
-    expect(d.chapters[0].duration).toBe('1:02:10')
-    expect(d.chapters[1].duration).toBe('1:35')
+    expect(d.chapters[0]!.duration).toBe('1:02:10')
+    expect(d.chapters[1]!.duration).toBe('1:35')
   })
 
   it('付费小节(小节与整课都不免费)⇒ 播址两个名字都不给,但元信息与目录照给', async () => {

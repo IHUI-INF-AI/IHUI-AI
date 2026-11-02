@@ -184,7 +184,7 @@ describe('② Redis 抛错 ⇒ 回落进程内闸、首次 warn、facts 报出�
     expect(f.redisFailures).toBeGreaterThanOrEqual(1)
     const deg = notices.filter((n) => n.event === 'degraded-to-in-process')
     expect(deg.length).toBe(1) // 首次立即喊
-    expect(deg[0].level).toBe('warn')
+    expect(deg[0]!.level).toBe('warn')
     // 第二次取用不再重复喊(已 latch 降级,回落内层),但失败计数只在真正 EVAL 抛错那一次 +1。
     expect(await gate.runExclusive('m2', async () => 'ok2')).toBe('ok2')
     expect(notices.filter((n) => n.event === 'degraded-to-in-process')).toHaveLength(1)
@@ -223,7 +223,7 @@ describe('⑤ env=0 ⇒ 两层都报 unlimited 且各有喊话', () => {
     await Promise.all([gate.runExclusive('a', async () => delay(6)), gate.runExclusive('b', async () => delay(6))])
     const un = notices.filter((n) => n.event === 'unlimited-mode')
     expect(un.length).toBeGreaterThanOrEqual(1)
-    expect(un[0].level).toBe('warn')
+    expect(un[0]!.level).toBe('warn')
     expect(gate.facts()).toMatchObject({ unlimited: true, effectiveLimit: null, limitSource: 'env-unlimited' })
   })
   it('跨进程层(redis):unlimited 走外层自己喊,两层互不遮蔽', async () => {
@@ -237,7 +237,7 @@ describe('⑤ env=0 ⇒ 两层都报 unlimited 且各有喊话', () => {
     await gate.runExclusive('m', async () => 1)
     const un = notices.filter((n) => n.event === 'unlimited-mode')
     expect(un.length).toBeGreaterThanOrEqual(1)
-    expect(un[0].level).toBe('warn')
+    expect(un[0]!.level).toBe('warn')
     const f = gate.facts()
     expect(f.unlimited).toBe(true)
     expect(f.effectiveLimit).toBeNull()

@@ -82,7 +82,7 @@ describe('页面流转:页对口径', () => {
       1,
     )
     expect(s.top).toHaveLength(1)
-    expect(s.top[0].n).toBe(5)
+    expect(s.top[0]!.n).toBe(5)
     // 全量 5+3+2 = 10,不是 5
     expect(s.totalMoves).toBe(10)
     expect(s.distinctPairs).toBe(3)
@@ -93,7 +93,7 @@ describe('页面流转:页对口径', () => {
       { fromUrl: '/z', toUrl: '/b', n: 5 },
       { fromUrl: '/a', toUrl: '/b', n: 5 },
     ])
-    expect(s.top[0].fromUrl).toBe('/a')
+    expect(s.top[0]!.fromUrl).toBe('/a')
   })
 
   it('A5 空输入落空集(不是 0 行伪装成读数)', () => {

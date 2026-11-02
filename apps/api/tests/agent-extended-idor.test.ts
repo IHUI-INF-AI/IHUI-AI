@@ -112,16 +112,22 @@ function boundValues(sqlObj: unknown): string[] {
   return out
 }
 
+type ChainMock = {
+  then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise<unknown>
+  set: ReturnType<typeof vi.fn>
+  [m: string]: unknown
+}
+
 /** 构造 thenable Drizzle query builder mock,await 后返回 finalValue。 */
-function chain<T>(finalValue: T): unknown {
+function chain<T>(finalValue: T): ChainMock {
   const obj: Record<string, unknown> = {
-    then: (resolve?: (v: T) => unknown, reject?: (e: unknown) => unknown) =>
+    then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(finalValue).then(resolve, reject),
   }
   for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'values', 'set', 'returning']) {
     obj[m] = vi.fn().mockReturnValue(obj)
   }
-  return obj
+  return obj as ChainMock
 }
 
 function asRegular(userId: string): void {
@@ -311,7 +317,7 @@ describe('agent-extended IDOR 防护', () => {
         payload: { amount: 100, type: 2, status: 'completed' },
       })
       expect(res.statusCode).toBe(200)
-      const setArg = updateChain.set.mock.calls[0][0] as Record<string, unknown>
+      const setArg = updateChain.set.mock.calls[0]![0] as Record<string, unknown>
       expect(setArg.status).toBeUndefined()
       expect(setArg.amount).toBeUndefined()
       expect(setArg.type).toBeUndefined()

@@ -21,7 +21,7 @@
  * 链的构造与重算走与生产同一份 computeAuditHash / verifyAuditLogIntegrity(§22c 直接 import,零镜像)。
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import type { SQL } from 'drizzle-orm'
 
@@ -190,7 +190,12 @@ function makeFakeTx(opts: FakeTxOptions) {
   return { tx, statements }
 }
 
-function depsFor(fake: { tx: EvidenceTx }, auditWrite = vi.fn(async () => 'audit-write-id')) {
+type AuditWriteMock = Mock<(entry: unknown) => Promise<string>>
+
+function depsFor(
+  fake: { tx: EvidenceTx },
+  auditWrite: AuditWriteMock = vi.fn(async (_entry: unknown) => 'audit-write-id'),
+) {
   return {
     transaction: async <T>(fn: (tx: EvidenceTx) => Promise<T>): Promise<T> => fn(fake.tx),
     auditWrite,
@@ -258,7 +263,7 @@ describe('86D 判据 2 — 原文 0 天:字段被清、rawRetained=false、rawPu
   it('apply:只 UPDATE、全链无 DELETE;被清行的 metadata 携完整墓碑', async () => {
     const chain = buildChain(3)
     const fake = makeFakeTx({ chain, structExpired: 7, rawCandidates: 3, targetIds: ['id-1'] })
-    const auditWrite = vi.fn(async () => 'x')
+    const auditWrite = vi.fn(async (_entry: unknown) => 'x')
     const r = await runAuditEvidenceRetention({
       apply: true,
       deps: depsFor(fake, auditWrite),

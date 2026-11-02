@@ -84,8 +84,8 @@ describe('访问来源:主机归并与分类', () => {
   it('A6 主机榜按 PV 降序并按 topN 截断', () => {
     const s = buildVisitSource(ROWS, ['aizhs.top'], 2)
     expect(s.hosts).toHaveLength(2)
-    expect(s.hosts[0].host).toBe('github.com')
-    expect(s.hosts[0].pv).toBeGreaterThanOrEqual(s.hosts[1].pv)
+    expect(s.hosts[0]!.host).toBe('github.com')
+    expect(s.hosts[0]!.pv).toBeGreaterThanOrEqual(s.hosts[1]!.pv)
   })
 
   it('A7 主机榜带来源类别(前端按类别着色,不自己判)', () => {

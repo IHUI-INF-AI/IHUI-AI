@@ -21,7 +21,11 @@ vi.stubEnv('WX_PAY_V3_KEY', '')
 vi.stubEnv('WX_PAY_PRIVATE_KEY', '')
 vi.stubEnv('NODE_ENV', 'test')
 
-import { parseContractExpiredTime, type DeductSettleMode } from '../src/services/wechat-pay.js'
+import {
+  parseContractExpiredTime,
+  type DeductSettleMode,
+  type DeductRecurringParams,
+} from '../src/services/wechat-pay.js'
 
 describe('wechat-pay — parseContractExpiredTime + settleMode 类型契约', () => {
   beforeEach(() => {
