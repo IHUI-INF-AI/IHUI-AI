@@ -14,7 +14,11 @@ import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
-import { normalizePermissionMode, permissionModeWire } from '@ihui/types/permission-mode'
+import {
+  isReadonlyPermissionMode,
+  normalizePermissionMode,
+  permissionModeWire,
+} from '@ihui/types/permission-mode'
 import type { PermissionModeId } from '@ihui/types/permission-mode'
 import {
   existsSync,
@@ -286,6 +290,30 @@ export class SubagentLinkError extends Error {
 }
 
 /**
+ * 一条 `workspace_permissions` 行归一后代表的可访问范围。
+ *
+ * 口径一(2026-11-02 拍板,勿再翻案):permission 行的 `workspacePath` 是**根**,
+ * 授权范围 = **该根及其子树**。判定必须先把两侧都 realpath 归一,再用
+ * `isInsideRoot`(内部走 `path.relative` + 段比较),**不得**退化成字符串前缀 ——
+ * 前缀会把 `ws-a-other` 误认成 `ws-a` 的子目录,也会把符号链接指到的外部路径
+ * 当成根内路径。根自身与任意层子目录放行;看似子目录、实为别处(`..` 回跳、
+ * 邻名前缀、链接外指)一律拒绝。
+ */
+interface AuthorizedWorkspaceRoot {
+  /** realpath 归一后的授权根(permission 行路径) */
+  root: string
+  /**
+   * 该根是否只能读。
+   *
+   * 口径二(2026-11-02 拍板):`mode` **只管写面**。`plan` 是唯一只读档
+   * (`isReadonlyPermissionMode`);只读档对 `discover`/`list` 不设限(看自己的
+   * 定义是合理的),只对 `delegate`(会触发实际执行)设限。认不出的库值按只读
+   * 处理(fail-closed):不把"没人认识"读成"可写"。
+   */
+  readonly: boolean
+}
+
+/**
  * 调用者在该用户级 `workspace_permissions` 表里真正有权的工作区根。
  *
  * 单一判据来源是 `listPermissionsByUser`(SQL 自带 userId 谓词,不会读到别人的行),
@@ -295,43 +323,73 @@ export class SubagentLinkError extends Error {
  *   ② 统一 realpath 归一,消解客户端字符串里的符号链接/相对形态。
  * 这与「无归属的登记根」相反:登记根只有在**有归属行**时才可能被使用。
  */
-async function listAuthorizedWorkspaceRoots(userId: string): Promise<string[]> {
+async function listAuthorizedWorkspaceRoots(userId: string): Promise<AuthorizedWorkspaceRoot[]> {
   const { listPermissionsByUser } = await import('../db/workspace-permission-queries.js')
   const rows = await listPermissionsByUser(userId)
   const registered = getRegisteredWorkspaceRoots()
-  const roots: string[] = []
+  const out: AuthorizedWorkspaceRoot[] = []
   for (const row of rows) {
     const real = realpathOrResolve(row.workspacePath)
-    if (registered.some((r) => isInsideRoot(real, r) && roots.every((x) => x !== real))) {
-      roots.push(real)
-    }
+    if (!registered.some((r) => isInsideRoot(real, r))) continue
+    const mode = normalizePermissionMode(row.mode)
+    const readonly = mode === null || isReadonlyPermissionMode(mode)
+    const existing = out.find((x) => x.root === real)
+    // 同一 realpath 可能对应多行(历史别名/symlink 落库):取更严的那档
+    if (existing) existing.readonly = existing.readonly || readonly
+    else out.push({ root: real, readonly })
   }
-  return roots
+  return out
 }
 
 /**
- * 子代理工作区授权闸(唯一出口,discover/list/delegate 三处共用)。
+ * 授权闸的唯一实现:登记根闸 + 用户级 permission 子树闸,两关缺一不可。
  *
- * 两级判据,缺一不可:
- *   ① 路径先过服务端登记根(assertWithinRegisteredRoots)—— 拦住未登记路径;
- *   ② 归一后的根必须落在调用者自己的 permission 行内 —— 拦住「登录了但没有这个工作区」。
+ * 口径一在这里落地:命中的是 permission 行的根,**范围含该根及其子树**;
+ * 判定是 `isInsideRoot(root, authorizedRoot)`(realpath 之后的段比较),
+ * 不是 `root.startsWith(authorizedRoot)`。前者对 `..` 回跳、邻名前缀
+ * (`ws-a-other` vs `ws-a`)、symlink 外指都返回 false;后者会全部误放行。
+ *
+ * 返回命中的授权根与其读写档,供 `delegate` 做写面闸。
  * 任一级失败都抛 404 语义错误,不区分「未登记」「不是你的」两种原因(防枚举)。
  */
-async function assertSubagentWorkspaceAccess(
+async function resolveSubagentWorkspace(
   userId: string,
   workspacePath: string,
-): Promise<string> {
-  let root: string
+): Promise<AuthorizedWorkspaceRoot & { requestedRoot: string }> {
+  let requestedRoot: string
   try {
-    root = assertWithinRegisteredRoots(workspacePath, '工作区')
+    requestedRoot = assertWithinRegisteredRoots(workspacePath, '工作区')
   } catch {
     throw new SubagentWorkspaceAccessError()
   }
   const allowed = await listAuthorizedWorkspaceRoots(userId)
-  if (!allowed.some((r) => isInsideRoot(root, r))) {
-    throw new SubagentWorkspaceAccessError()
-  }
-  return root
+  const hit = allowed.find((a) => isInsideRoot(requestedRoot, a.root))
+  if (!hit) throw new SubagentWorkspaceAccessError()
+  return { ...hit, requestedRoot }
+}
+
+/** 读面闸(`discover`/`list`):只看「这个请求路径是否在本人授权根的子树内」 */
+async function assertSubagentWorkspaceAccess(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  return (await resolveSubagentWorkspace(userId, workspacePath)).requestedRoot
+}
+
+/**
+ * 写面闸(`delegate`):在读面闸之上叠加 `mode`。
+ *
+ * 口径二:只读档(`plan`)必须拒绝,回 404 而不是 403 —— 与未授权同形,
+ * 不给"这个工作区存在、只是你只读"提供存在性探针。可写档(default /
+ * acceptEdits / bypassPermissions / manual)放行。
+ */
+async function assertSubagentWorkspaceWritable(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  const hit = await resolveSubagentWorkspace(userId, workspacePath)
+  if (hit.readonly) throw new SubagentWorkspaceAccessError()
+  return hit.requestedRoot
 }
 
 class SubagentManager {
@@ -365,9 +423,10 @@ class SubagentManager {
    */
   async list(workspacePath: string | undefined, userId: string): Promise<SubagentConfig[]> {
     if (workspacePath) return this.discover(workspacePath, userId)
+    // 读面不看 mode:只读档用户也应能看到自己有权根里已发现的配置
     const roots = await listAuthorizedWorkspaceRoots(userId)
     const out: SubagentConfig[] = []
-    for (const root of roots) {
+    for (const { root } of roots) {
       const bucket = this.buckets.get(root)
       if (bucket) out.push(...bucket.values())
     }
@@ -376,6 +435,7 @@ class SubagentManager {
 
   /**
    * 委派任务给子代理(独立上下文)。
+   * 写面闸:先过用户级授权与子树判定,再按 `mode` 拒绝只读档(404,防枚举)。
    * 只查**本次 workspacePath 对应桶**,不跨桶兜底 —— 否则「有权进入 B 工作区」
    * 就能调用只存在于 A 工作区(他人)的子代理配置。
    */
@@ -386,7 +446,7 @@ class SubagentManager {
     model?: string
     userId: string
   }): Promise<{ agentName: string; result: string }> {
-    const root = await assertSubagentWorkspaceAccess(params.userId, params.workspacePath)
+    const root = await assertSubagentWorkspaceWritable(params.userId, params.workspacePath)
     const cfg = this.buckets.get(root)?.get(params.name)
     if (!cfg) throw new SubagentWorkspaceAccessError('子代理不存在或无权访问')
     // 简化：返回子代理执行结果（实际应调用 AgentLoopRuntime）
