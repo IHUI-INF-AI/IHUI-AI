@@ -30,7 +30,7 @@ const { mockConfig } = vi.hoisted(() => ({
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
     // G1 新增两键(与 src/config/index.ts 同形态,字符串档位)
@@ -295,8 +295,8 @@ vi.mock('../src/db/index.js', async () => {
     // 原子认领:UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1)
     if (text.includes('FOR UPDATE SKIP LOCKED')) {
       const deviceId = params[0] as string
-      const cands = store.device_tasks!
-        .filter((r) => r.targetDeviceId === deviceId && r.status === 'queued')
+      const cands = store
+        .device_tasks!.filter((r) => r.targetDeviceId === deviceId && r.status === 'queued')
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       const pick = cands[0]
       if (!pick) return { rows: [] }
