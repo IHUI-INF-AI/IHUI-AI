@@ -27278,7 +27278,6 @@
     "rateLabel": "分配率",
     "withdrawModal": {
       "title": "引き出し方法を選択",
-      "close": "閉じる",
       "subtitle": "出金可能額",
       "wechat": "WeChat",
       "moreMethods": "その他の出金方法は順次開放予定",
