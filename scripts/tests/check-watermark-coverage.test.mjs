@@ -58,7 +58,7 @@ const git = (args, cwd) =>
   })
 
 /** 跑门体 CLI。env 里显式清空应急跳过变量 —— 否则本机一旦带着它跑测试,门整道静默 exit 0。 */
-const runGate = (cwd, args) => {
+const runGate = (cwd, args, extraEnv = {}) => {
   try {
     const out = execFileSync(process.execPath, [join(cwd, 'scripts', 'check-watermark-coverage.mjs'), ...args], {
       cwd,
@@ -67,7 +67,8 @@ const runGate = (cwd, args) => {
       timeout: 180_000,
       encoding: 'utf8',
       maxBuffer: 32 << 20,
-      env: { ...process.env, HUSKY_SKIP_WATERMARK_GUARD: '' },
+      // PUSH_SCOPE_FILES 必须显式清空:本机若带着上一轮 push 的清单,非 push 档测试会被它串味。
+      env: { ...process.env, HUSKY_SKIP_WATERMARK_GUARD: '', PUSH_SCOPE_FILES: '', ...extraEnv },
     })
     return { rc: 0, out }
   } catch (e) {
@@ -152,6 +153,21 @@ test('T1 装车证明(读 HEAD 面注册表与门体):id 47 确在提交链且 b
   assert.match(block, /mode: 'blocking'/, '门 47 必须是 blocking:降级成 warn 就等于允许无水印文件进提交')
   const gate = git(['show', 'HEAD:scripts/check-watermark-coverage.mjs'], ROOT)
   assert.match(gate, /process\.env\.HUSKY_SKIP_WATERMARK_GUARD/, '文档承诺的应急变量必须在门体被读(假逃生舱禁令)')
+})
+
+test('T1b push 门装车(2026-11-03):pushGateChecks 必须真登记门 47 且收窄到 --push-scope', () => {
+  // 读工作树面:push 门注册与门体同批落地;HEAD 面那一份由 T1 的提交链断言兜底。
+  const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const pushStart = runner.indexOf('const pushGateChecks = [')
+  assert.ok(pushStart > 0, 'runner 里找不到 pushGateChecks 注册块')
+  const pushEnd = runner.indexOf('\n]', pushStart)
+  assert.ok(pushEnd > pushStart, 'pushGateChecks 注册块没有闭合锚点')
+  const block = runner.slice(pushStart, pushEnd)
+  assert.match(block, /id: '47'/, 'pushGateChecks 里没有门 47 ⇒ 私有索引/绕过 pre-commit 的坏载荷仍可在 push 前进入远端')
+  assert.match(block, /args: \['--push-scope'\]/, 'push 档必须走 --push-scope,不得退回全量面或空扫')
+  const i = block.indexOf("id: '47'")
+  assert.match(block.slice(i, i + 400), /check-watermark-coverage\.mjs/, '门 47 push 档必须指向水印覆盖门体')
+  assert.match(block.slice(i, i + 400), /mode: 'blocking'/, 'push 档必须是 blocking,降 warn 等于允许坏载荷上远端')
 })
 
 test('T2 装载守卫(§22d):两脚本守卫在位 ⇒ 本文件必须 import 生产判据(正/反空转对照都在)', () => {
@@ -296,6 +312,78 @@ test('W10 反控:三面一致且载荷完好 ⇒ 三档全部 exit 0(防恒红�
     for (const args of [['--no-fix'], ['--no-fix', '--staged'], ['--no-fix', '--worktree']]) {
       const r = runGate(dir, args)
       assert.equal(r.rc, 0, `${args.join(' ')} 应判绿,实得 ${r.rc}:${r.out}`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('P1 push scope 有牙(2026-11-03):HEAD 坏载荷在 scope 内必红点名;scope 外放行;判的是 HEAD 不是盘上', () => {
+  // 夹具 = 事故同形:HEAD blob 可见横幅在、零宽载荷损坏(residue);index 与盘上已补齐。
+  // push 门必须按 HEAD 判 —— 盘上补齐不能替 HEAD 销账(否则"本地修了但没提交"会静默上远端)。
+  const dir = makeRepo({ residueAndFix: true })
+  try {
+    assert.ok(
+      !WM.payloadIntact(String(headBlob(dir, 'src/demo.mjs'))),
+      '夹具前提:HEAD 里的 src/demo.mjs 必须是坏载荷(可见横幅在,载荷解不出)',
+    )
+    const inScope = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: 'src/demo.mjs' })
+    assert.equal(inScope.rc, 1, `scope 命中坏 blob 必须 rc=1,实得 ${inScope.rc}:${inScope.out}`)
+    assert.match(inScope.out, /src\/demo\.mjs/, '必须点名那个坏文件(只报数不点名 = 责任不可归)')
+    assert.match(inScope.out, /HEAD/, '必须写明判的是 HEAD 面,不是盘上那份')
+    // 同 HEAD、scope 只含另一个完好文件 ⇒ 绿:证明收窄真的只判本次 push,而不是"换个名字跑全量"
+    const outScope = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: 'README.md' })
+    assert.equal(outScope.rc, 0, `scope 外的存量坏 blob 不得替本次 push 挡路,实得 ${outScope.rc}:${outScope.out}`)
+    assert.match(outScope.out, /push scope 面/, '通过行必须如实报出口径(不得让人误以为跑了全量)')
+    // 取不到 push scope ⇒ 如实退回 HEAD 全量面(不是空扫放行):同一夹具必须重新判红
+    const noScope = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: '' })
+    assert.equal(noScope.rc, 1, `push scope 不可得时必须退回全量面并判红,实得 ${noScope.rc}:${noScope.out}`)
+    assert.match(noScope.out, /退回 HEAD 全量面|push scope 不可得/, '回退必须显式留痕,不得静默')
+    // 纯删除(scope 里的路径已不在 HEAD)不是"判不了",不得因交集为空而误红
+    const deletedOnly = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: 'src/gone.mjs' })
+    assert.equal(deletedOnly.rc, 0, `删除路径不进 HEAD 分母,应绿,实得 ${deletedOnly.rc}:${deletedOnly.out}`)
+    assert.match(deletedOnly.out, /交集 0/, '必须报出交集为空,与"没取到 scope"区分')
+    // 把补齐版提交进 HEAD ⇒ 同一 scope、同一输入必须翻绿(证明红可由提交修复,不是恒红门)
+    git(['commit', '-m', 'seat-watermark-fix', '--no-verify'], dir)
+    assert.ok(WM.payloadIntact(String(headBlob(dir, 'src/demo.mjs'))), '修复提交后 HEAD 载荷必须完好')
+    const fixed = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: 'src/demo.mjs' })
+    assert.equal(fixed.rc, 0, `同一 scope 的坏 blob 修好后必须 rc=0,实得 ${fixed.rc}:${fixed.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('P2 --files-from 空清单/混面 ⇒ exit 2(空清单不是"全部通过",混面不是"两个面都判")', () => {
+  const dir = makeRepo({ residueAndFix: true })
+  try {
+    writeFileSync(join(dir, 'empty.txt'), '', 'utf8')
+    const softRun = (args) => {
+      try {
+        return { rc: 0, out: runWatermark(dir, args) }
+      } catch (e) {
+        return { rc: typeof e.status === 'number' ? e.status : 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` }
+      }
+    }
+    const empty = softRun(['list-uncovered', '--files-from', 'empty.txt'])
+    assert.equal(empty.rc, 2, `空清单必须 exit 2,实得 ${empty.rc}:${empty.out}`)
+    assert.match(empty.out, /清单为空/, '必须点名"清单为空",不得静默返回 0 条缺口冒充全绿')
+    const mixed = softRun(['list-uncovered', '--files-from', 'README.md', 'src/demo.mjs'])
+    assert.equal(mixed.rc, 2, `--files-from + 显式点名文件必须 exit 2,实得 ${mixed.rc}:${mixed.out}`)
+    assert.match(mixed.out, /只能与批量 HEAD 面搭配/, '混面必须显式拒绝')
+    const faceMix = softRun(['list-uncovered', '--files-from', 'README.md', '--worktree'])
+    assert.equal(faceMix.rc, 2, `--files-from + --worktree 必须 exit 2,实得 ${faceMix.rc}:${faceMix.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('P3 push 档与换面旗互斥:--push-scope + --staged/--worktree ⇒ exit 2(两个面混判 = 未判定)', () => {
+  const dir = makeRepo({ residueAndFix: true })
+  try {
+    for (const flag of ['--staged', '--worktree']) {
+      const r = runGate(dir, ['--push-scope', flag], { PUSH_SCOPE_FILES: 'src/demo.mjs' })
+      assert.equal(r.rc, 2, `--push-scope ${flag} 必须 exit 2,实得 ${r.rc}:${r.out}`)
+      assert.match(r.out, /不得与 --staged\/--worktree 同用|无法判定/)
     }
   } finally {
     rmScratch(dir)
