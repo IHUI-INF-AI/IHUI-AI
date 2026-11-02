@@ -12,10 +12,12 @@
 // A5(2026-11-03):以上两条默认档只罚"新增",于是"同号重复被两份各自合法化"能穿过、我方独有带号行
 // 可被当"合法解删"静默丢掉。严格档 --strict-ids 把两处补严:合并结果里同号/超长行重复一律判红;
 // 我方独有带号行未存活必须有 --attest-id-drop <登记键>=<理由> 显式声明(否则阻断)。
-// 默认不打开严格档是刻意取舍:本工具是人工解阻塞器,旧调用方(只有人工)不能被无声改行为;
-// guardian/git-sync 链并不调用本工具(已核实),故严格档目前只能由调用者显式加旗。
+// A5b(2026-11-03):严格档改为**写路径默认生效** —— 带 --apply 时不加任何旗标也走严格判据
+// (同号重复即红 / 我方独有带号行须 --attest-id-drop)。事故的教训就是"默认档放行":写盘那一步
+// 不该靠调用方记得加旗。只读预演(不带 --apply)保持原语义不变;显式 --strict-ids 仍可在预演里开启。
+// 逃生阀 --legacy-lenient:退回旧档(C3 只罚新增重复、解删放行),但 stderr 必打一行醒目告警。
 // 用法: node scripts/plan-union-merge.mjs --base <sha> --ours <sha> --theirs <sha> [--apply]
-//       [--strict-ids] [--attest-id-drop <登记键>=<删除理由>]...
+//       [--strict-ids] [--legacy-lenient] [--attest-id-drop <登记键>=<删除理由>]...
 // 不带 --apply 只出报告(零副作用)。
 import { execFileSync } from 'node:child_process'
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
@@ -28,7 +30,21 @@ import { keyOfRow } from './lib/plan-task-index.mjs'
 const argv = process.argv.slice(2)
 const arg = (k) => argv[argv.indexOf(`--${k}`) + 1]
 const APPLY = argv.includes('--apply')
-const STRICT_IDS = argv.includes('--strict-ids')
+const LEGACY_LENIENT = argv.includes('--legacy-lenient')
+const EXPLICIT_STRICT = argv.includes('--strict-ids')
+if (LEGACY_LENIENT && EXPLICIT_STRICT) {
+  console.error('用法错:--legacy-lenient 与 --strict-ids 互斥(逃生阀不能与严格档同时声明)')
+  process.exit(2)
+}
+// 写路径默认严格:--apply 且未开逃生阀。只读预演保持旧档,除非显式 --strict-ids。
+const STRICT_IDS = EXPLICIT_STRICT || (APPLY && !LEGACY_LENIENT)
+const STRICT_LABEL = EXPLICIT_STRICT ? '--strict-ids' : '--apply 默认严格档'
+if (LEGACY_LENIENT) {
+  console.error(
+    '⚠️ [plan-union-merge] --legacy-lenient:严格编号判据已关闭(回到旧档:只罚新增超长重复;' +
+      '同号重复、我方独有带号行解删一律放行)。仅限确知风险时使用。',
+  )
+}
 /** A5:`--attest-id-drop <登记键>=<理由>` 的显式删除声明(理由 ≥10 字,防"空理由"式放行)。 */
 const ATTEST_MIN_REASON = 10
 const attestedIdDrops = new Map()
@@ -268,7 +284,7 @@ try {
           credited.slice(0, 6).map((e) => `${e.key}「${attestedIdDrops.get(e.key)}」`).join('; '),
       )
     if (problems.length) {
-      console.info(`  ❌ [--strict-ids] ${problems.join(' / ')} ⇒ 阻断,不落地。`)
+      console.info(`  ❌ [${STRICT_LABEL}] ${problems.join(' / ')} ⇒ 阻断,不落地。`)
       exitClean(1)
     }
   }
@@ -284,7 +300,7 @@ try {
   if (STRICT_IDS ? d1 > 0 : d1 > d0) {
     console.info(
       STRICT_IDS
-        ? '  ❌ [--strict-ids] 合并结果仍有超长行重复(d1>0)⇒ 同义重复不得落地,阻断。'
+        ? `  ❌ [${STRICT_LABEL}] 合并结果仍有超长行重复(d1>0)⇒ 同义重复不得落地,阻断。`
         : '  ❌ 并集引入了新的长行重复 ⇒ 可能造出同义两行,放弃。',
     )
     exitClean(1)
