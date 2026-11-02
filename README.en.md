@@ -101,6 +101,15 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-02**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dd0248cbd2)
+- 🔧 Chore/Other:清算主工作树滞后副本并补齐派生产物 (04d0c2c7cb)
+- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (05e0909aff)
+- 🔧 Chore/Other:重封 AGENTS.md 铁律段哈希，消除合流后 advisory 告警 (86bde84fa7)
+- 🔧 Chore/Other:补 .gitignore 兜住本地优选 IP 凭据，避免令牌误入库 (213b7c038c)
+- 🔧 Chore/Other:重生成 ui-routes 生成物（911 条），对齐设置页新卡片 (d388266f28)
+- 🔧 Chore/Other:按新 HEAD 源重生成离线语言包（键 544→592，钉 2fb7af837e） (2f98eb1e6b)
+
+**2026-11-02**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c5a90766cf)
 
 **2026-11-01**
@@ -639,24 +648,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🚀 Feature/Improvement:号池面板补齐健康四态 / 按供应商分布 / 24h 临期 —— 三格数据一直回但界面无人读 (7215469a79)
 - 🔧 Chore/Other:RP-47 结清摘行 —— 两门 --staged 现读 rc=0(221:2118 枚逐一编译通过;254:零缺口),票面所称「恒取不到索引 blob」症状已不在;票面要求的可观测腿已装车(lib/face-reader 的 probeFaceSpec/describeProbe,两门未判定分支各接一次,镜像 39/39 含接线形状锁),落地 53d8ef47e9 (db197d2f1e)
 - 🐞 Fix:RP-47 可观测腿 —— 两把门的「取不到」未判定必须点名命令/rc/stderr (53d8ef47e9)
-
-- 🚀 Feature/Improvement:切号携对话全覆盖收口 —— MiniMax 会话回灌 + 统一入口 + 对账器扩到 8 平台 (05508a71a7)
-- 🚀 Feature/Improvement:复登两枚「造好没装车」判据 + 修 CI 还原度假接线与两处零调度盲区 (8e9094548c)
-- 🐞 Fix:恢复被 72769534b6 整片回退的离线包承载层装载 —— 生成器接回 bundleInputRels/rn-carried-keys,钉与门 105 的现算口径重新同源 (3b36cc477a)
-- 📚 Docs:补 Agnes 生产落地三步 —— 密钥面 + 定价行落地 + 三处验证 (d99922c773)
-- 🐞 Fix:8 枚 .ps1 补 UTF-8 BOM —— 门 265 的 HEAD 面绝对判据(含今天安全那批 deploy/win) (953b46af35)
-- 🐞 Fix:切号连续性快照落点修正 —— 状态不再写进 scripts/.ihui-agent 树内 (638a0b0476)
-- 🐞 Fix:补两件 HEAD 欠账(ps1 + 归档件)—— blob 档,别席在飞件一行不动 (3b647eaf63)
-- 🔧 Chore/Other:补最后一枚归档件水印 —— 取 HEAD 内容注水,不碰别席在飞改动 (71adeb2b6f)
-- 📚 Docs:207 体积回预算内 + 更正一条与实测相反的机器事实 (349f7a40fe)
-- 🚀 Feature/Improvement:聊天端自动压缩上限改为按模型解析(对齐执行器侧与 Qoder/Trae) (19653cc078)
-- 📚 Docs:删掉被取代的 gitdir 旧版描述 —— 同一机器事实两份并存,留 2026-10-31 实测更正版(.git 实体目录 / D:/IHUI-AI-git-repo 不存在 / 备份目录禁删清),删被取代的那份;门 207 与 238 复跑见末读数 (2040dbcdd0)
-- 🚀 Feature/Improvement:输入上下文溢出应急压缩(对齐 Qoder/Trae) (8aa6e04350)
-- 🚀 Feature/Improvement:补装 schedule_wakeup 延迟唤醒工具(定时四件套补齐),同 admin 档;修席遗留的 handler 注册键(测试随 ce51d9031 已落,本枚补实现件) (5cc32a4b19)
-- 📚 Docs:207 再回预算内(95,207/96,000)+ gitdir 机器事实按实测改对 (c323d961bd)
-- 🚀 Feature/Improvement:补装 schedule_wakeup 延迟唤醒工具(定时四件套补齐),同 admin 档;修席遗留的 handler 注册键 (ce51d90315)
-- 📚 Docs:删掉第三条重复且与本机实测相反的 gitdir 断言行(仍写 gitfile 指向不存在的 D-IHUI-AI-git-repo) —— 同一条断言在文内已另有两条且均为实测正确的实体目录版; immutable-exempt: 删除的是会被后续读者当成事实的假断言重复副本,不新增也不放宽任何判据 (fce6073326)
-- 🐞 Fix:生产构建红于 expo-blur → expo-modules-core 未编译 TS(补端内承载面 + 双段 alias) (335dbba679)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
