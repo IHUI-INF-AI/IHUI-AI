@@ -124,7 +124,7 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
         <div className="min-w-0 flex-1 space-y-1">
           <p className="truncate text-body font-medium leading-snug">{task.name}</p>
           {task.description && (
-            <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
+            <p className="line-clamp-2 text-label text-muted-foreground">{task.description}</p>
           )}
           <div className="flex items-center gap-1.5 pt-0.5">
             <span
@@ -175,7 +175,7 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
 export function KanbanTaskCardEmpty() {
   const t = useTranslations('agents.kanban')
   return (
-    <div className="flex items-center justify-center ui-card rounded-lg border border-dashed py-6 text-xs text-muted-foreground">
+    <div className="flex items-center justify-center ui-card rounded-lg border border-dashed py-6 text-label text-muted-foreground">
       <CenteredText enabled={false}>{t('empty')}</CenteredText>
     </div>
   )

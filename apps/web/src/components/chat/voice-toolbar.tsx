@@ -321,7 +321,7 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
               voiceRef.current?.toggleRecording()
             }}
             className={cn(
-              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
               'focus:bg-accent focus:text-accent-foreground',
             )}
           >
@@ -348,7 +348,7 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
           <DropdownMenu.Item
             onSelect={() => togglePlayback()}
             className={cn(
-              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
               'focus:bg-accent focus:text-accent-foreground',
             )}
           >
@@ -371,7 +371,7 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
           <DropdownMenu.Item
             onSelect={() => toggleHandsFree()}
             className={cn(
-              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
               'focus:bg-accent focus:text-accent-foreground',
             )}
           >

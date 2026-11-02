@@ -26,17 +26,11 @@ interface SelectionAnnotationBarProps {
 }
 
 /** 消息尾部划词批注条:无批注时整体不渲染(零占位)。 */
-export function SelectionAnnotationBar({
-  conversationId,
-  messageId,
-}: SelectionAnnotationBarProps) {
+export function SelectionAnnotationBar({ conversationId, messageId }: SelectionAnnotationBarProps) {
   const t = useTranslations('chat')
   const key = selectionAnnotationKey(conversationId, messageId)
   const annotations = useSelectionAnnotationsStore(
-    React.useCallback(
-      (s) => s.annotationsByMessage[key] ?? EMPTY_SELECTION_ANNOTATIONS,
-      [key],
-    ),
+    React.useCallback((s) => s.annotationsByMessage[key] ?? EMPTY_SELECTION_ANNOTATIONS, [key]),
   )
   const removeAnnotation = useSelectionAnnotationsStore((s) => s.removeAnnotation)
   const removeAllAnnotations = useSelectionAnnotationsStore((s) => s.removeAllAnnotations)
@@ -70,7 +64,7 @@ export function SelectionAnnotationBar({
           data-testid={`selection-annotation-trigger-${messageId}`}
           className={cn(
             'inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1',
-            'text-xs text-muted-foreground shadow-sm transition-colors',
+            'text-label text-muted-foreground shadow-sm transition-colors',
             'hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
@@ -110,15 +104,15 @@ export function SelectionAnnotationBar({
                   <div className="text-label font-medium text-foreground">
                     {t('selectionAnnotations.selectedText', { index })}
                   </div>
-                  <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                  <p className="mt-0.5 whitespace-pre-wrap break-words text-label text-muted-foreground">
                     {a.text}
                   </p>
                   {a.comment ? (
-                    <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-foreground">
+                    <p className="mt-0.5 whitespace-pre-wrap break-words text-label text-foreground">
                       {a.comment}
                     </p>
                   ) : (
-                    <div className="mt-0.5 text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-label text-muted-foreground">
                       {t('selectionAnnotations.noComment')}
                     </div>
                   )}
@@ -126,14 +120,12 @@ export function SelectionAnnotationBar({
                     <input
                       type="text"
                       value={draft}
-                      onChange={(e) =>
-                        setDrafts((d) => ({ ...d, [a.id]: e.target.value }))
-                      }
+                      onChange={(e) => setDrafts((d) => ({ ...d, [a.id]: e.target.value }))}
                       placeholder={t('selectionAnnotations.commentPlaceholder')}
                       aria-label={t('selectionAnnotations.commentAriaLabel')}
                       data-testid={`selection-annotation-comment-input-${messageId}-${index}`}
                       className={cn(
-                        'min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs',
+                        'min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 text-label',
                         'text-foreground placeholder:text-muted-foreground',
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                       )}
@@ -147,7 +139,7 @@ export function SelectionAnnotationBar({
                       }}
                       data-testid={`selection-annotation-comment-add-${messageId}-${index}`}
                       className={cn(
-                        'rounded-sm border border-border bg-card px-2 py-1 text-xs text-muted-foreground',
+                        'rounded-sm border border-border bg-card px-2 py-1 text-label text-muted-foreground',
                         'shadow-sm transition-colors hover:border-primary/40 hover:text-foreground',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',

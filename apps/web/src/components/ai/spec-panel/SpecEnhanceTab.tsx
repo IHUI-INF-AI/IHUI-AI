@@ -35,7 +35,7 @@ export function SpecEnhanceTab({ p }: { p: SpecPanelApi }) {
           <MarkdownViewer content={p.enhanceResult.enhancement} />
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           点击「生成智能分析」由 LLM 分析 spec,生成功能意图说明 + 潜在风险点 + 改进建议
         </p>
       )}

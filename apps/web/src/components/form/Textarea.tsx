@@ -68,7 +68,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           value={value}
           onChange={onChange}
           className={cn(
-            'flex min-h-[80px] w-full rounded-sm border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors',
+            'flex min-h-[80px] w-full rounded-sm border border-input bg-background px-3 py-2 text-body ring-offset-background transition-colors',
             'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
             autoResize && 'resize-none overflow-hidden',
@@ -78,9 +78,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         <div className="flex items-center justify-between">
-          {error ? <p className="text-xs text-destructive">{error}</p> : <span />}
+          {error ? <p className="text-label text-destructive">{error}</p> : <span />}
           {showCounter && (
-            <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            <span className="whitespace-nowrap text-label tabular-nums text-muted-foreground">
               {length}
               {maxLength ? `/${maxLength}` : ''}
             </span>

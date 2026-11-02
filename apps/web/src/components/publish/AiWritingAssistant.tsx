@@ -281,7 +281,7 @@ export function AiWritingAssistant({
           <Collapsible key={fn} open={isOpen} onOpenChange={(o) => setOpenFn(o ? fn : null)}>
             <div className="rounded-lg border border-border/60 bg-card">
               <CollapsibleTrigger
-                className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/40"
+                className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-label transition-colors hover:bg-accent/40"
                 onClick={() => {
                   if (!isOpen) triggerFn(fn, hasResult)
                 }}

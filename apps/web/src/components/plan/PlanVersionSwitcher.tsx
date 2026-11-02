@@ -56,8 +56,8 @@ export function PlanVersionSwitcher({
 
       {versions.length === 0 ? (
         <div className="rounded-md border border-dashed py-6 text-center">
-          <p className="text-sm text-muted-foreground">No history yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-body text-muted-foreground">No history yet</p>
+          <p className="mt-1 text-label text-muted-foreground">
             Round versions appear here after structure changes
           </p>
         </div>
@@ -81,7 +81,7 @@ export function PlanVersionSwitcher({
           </select>
           {viewingHistory && (
             <>
-              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-label text-amber-700">
                 Viewing round {selectedVersion} (read-only)
               </span>
               <Button

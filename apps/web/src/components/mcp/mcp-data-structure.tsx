@@ -60,7 +60,7 @@ function TreeNode({ name, value, depth }: TreeNodeProps) {
   }, [value, type])
 
   return (
-    <div className="text-sm">
+    <div className="text-body">
       <div className="flex items-center gap-1 py-0.5">
         {isContainer ? (
           <button
@@ -79,7 +79,7 @@ function TreeNode({ name, value, depth }: TreeNodeProps) {
         )}
         {name !== undefined && <span className="font-medium text-foreground">{name}:</span>}
         {isContainer ? (
-          <span className={cn('text-xs', typeColor(type))}>
+          <span className={cn('text-label', typeColor(type))}>
             {type}
             {entries.length > 0 && ` (${entries.length})`}
           </span>
@@ -121,7 +121,7 @@ export function McpDataStructure({ data, name }: McpDataStructureProps) {
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2">
           {name && <span className="text-body font-medium">{name}</span>}
-          <span className={cn('text-xs', typeColor(type))}>{type}</span>
+          <span className={cn('text-label', typeColor(type))}>{type}</span>
         </div>
         <Tooltip content={t('copy')}>
           <Button variant="ghost" size="icon" onClick={handleCopy}>

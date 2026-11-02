@@ -38,7 +38,7 @@ export function PromptTemplates({
   variant = 'popover',
 }: PromptTemplatesProps) {
   if (templates.length === 0) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">暂无模板</p>
+    return <p className="py-6 text-center text-body text-muted-foreground">暂无模板</p>
   }
 
   if (variant === 'chips') {

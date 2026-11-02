@@ -45,13 +45,13 @@ export function PendingCommandHint({ conversationId, revision }: PendingCommandH
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 space-y-1">
           <p className="text-label font-medium text-foreground">{t('duplicatePendingTitle')}</p>
-          <p className="text-xs text-muted-foreground">{t('duplicatePendingDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('duplicatePendingDesc')}</p>
           <ul className="space-y-1">
             {visible.map((record) => (
               <li
                 key={record.commandId}
                 data-testid="pending-command-preview"
-                className="truncate text-xs text-foreground"
+                className="truncate text-label text-foreground"
               >
                 {record.preview}
               </li>

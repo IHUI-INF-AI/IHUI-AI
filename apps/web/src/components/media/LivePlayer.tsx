@@ -233,7 +233,7 @@ export function LivePlayer({
       {error && (
         <div className="absolute top-2 bottom-2 left-2 right-2 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
           <AlertCircle className="h-8 w-8 text-red-400" />
-          <p className="text-sm">{error}</p>
+          <p className="text-body">{error}</p>
           {/* 2026-10-12 恢复:2cb99226b4 死键清理误删了 G-856 ③ 的重试出口(键 a11y.previewRetryAction
               五语言俱在,见 git show 2cb99226b4 的 LivePlayer diff)——失败终态重新摆出手动重试,
               点击换 attempt 走 effect 重挂载,与上方注释意图一致。 */}
@@ -241,7 +241,7 @@ export function LivePlayer({
             type="button"
             onClick={() => setAttempt((n) => n + 1)}
             aria-label={t('previewRetryAction')}
-            className="rounded-sm p-1 text-xs underline hover:bg-white/20"
+            className="rounded-sm p-1 text-label underline hover:bg-white/20"
           >
             {t('previewRetryAction')}
           </button>
@@ -265,7 +265,7 @@ export function LivePlayer({
             >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
-            <span className="ml-1 text-xs">
+            <span className="ml-1 text-label">
               {isHlsStream(src) ? t('hlsLiveLabel') : t('onDemandLabel')}
             </span>
             <button
