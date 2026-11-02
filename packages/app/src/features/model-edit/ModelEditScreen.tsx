@@ -17,6 +17,7 @@ import type {
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
 export type {
@@ -63,7 +64,10 @@ export function ModelEditScreen({
   onSave,
   onCancel,
   colorScheme = 'light',
+  onToast,
 }: ModelEditScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

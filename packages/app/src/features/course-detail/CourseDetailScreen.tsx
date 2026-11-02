@@ -15,6 +15,7 @@ import {
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
+import { assertRequiredPort } from '../../host/ports'
 
 /**
  * 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
@@ -38,7 +39,12 @@ export function CourseDetailScreen({
   onPlayLesson,
   onBack,
   colorScheme = 'light',
+  onNavigate,
+  onToast,
 }: CourseDetailScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)。

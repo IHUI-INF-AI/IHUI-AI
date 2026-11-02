@@ -12,6 +12,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 export type { VideoPlayerProgress, VideoPlayerScreenProps }
 
@@ -34,7 +35,10 @@ export function VideoPlayerScreen({
   onBack,
   playerContent,
   colorScheme = 'light',
+  onNavigate,
 }: VideoPlayerScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 原页只 Taro.showShareMenu 开了右上角菜单、未自定义正文 ⇒ 转壳后按同族(列表/详情族)口径发布

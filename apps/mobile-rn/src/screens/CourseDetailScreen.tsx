@@ -27,6 +27,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { NavChrome } from '../components/NavChrome'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'CourseDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'CourseDetail'>
@@ -133,6 +134,8 @@ export function CourseDetailScreen() {
     isCompleted: completedSectionIds.has(section.id),
   }))
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <View style={{ flex: 1 }}>
       <NavChrome>
@@ -149,6 +152,8 @@ export function CourseDetailScreen() {
         onEnroll={onEnroll}
         onPlayLesson={onPlay}
         onBack={() => navigation.goBack()}
+        onNavigate={onNavigate}
+        onToast={onToast}
       />
       {/* 目录/评论/讲师入口(孤儿路由修复:CourseCatalog/CourseComment 注册无入口,课程详情补挂;P0 讲师列表接线) */}
       <View style={styles.entryRow}>

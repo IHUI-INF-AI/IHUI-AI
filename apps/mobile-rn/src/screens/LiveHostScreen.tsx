@@ -19,6 +19,7 @@ import {
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { apiFailureToText, formatDuration, formatFileSize } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -162,6 +163,8 @@ export function LiveHostScreen() {
   const recvBytesText = useMemo(() => formatFileSize(stream?.recvBytes ?? 0), [stream?.recvBytes])
   const sendBytesText = useMemo(() => formatFileSize(stream?.sendBytes ?? 0), [stream?.sendBytes])
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedLiveHostScreen
       t={t}
@@ -184,6 +187,7 @@ export function LiveHostScreen() {
       onCopyText={copyText}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

@@ -16,6 +16,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 
 export type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps }
 
@@ -47,7 +48,10 @@ export function ExamQuestionScreen({
   onSubmit,
   onBack,
   colorScheme = 'light',
+  onNavigate,
 }: ExamQuestionScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 必须排在条件 return 之前:输入框聚焦态是 Hook,放到下面会变成条件调用

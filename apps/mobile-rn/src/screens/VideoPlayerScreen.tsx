@@ -22,6 +22,7 @@ import {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { VideoPlayer } from '../components/VideoPlayer'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'VideoPlayer'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VideoPlayer'>
@@ -255,6 +256,8 @@ export function VideoPlayerScreen() {
     }
   }, [progress, sections, sectionStatus, lessonId, courseId])
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedVideoPlayerScreen
       t={t}
@@ -280,6 +283,7 @@ export function VideoPlayerScreen() {
         ) : undefined
       }
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }
