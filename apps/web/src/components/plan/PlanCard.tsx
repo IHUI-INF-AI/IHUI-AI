@@ -50,7 +50,7 @@ export function PlanCard({ plan }: PlanCardProps) {
             {PLAN_STATUS_LABEL[plan.status]}
           </span>
         </div>
-        <p className="line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
+        <p className="line-clamp-2 min-h-[2.5rem] text-body text-muted-foreground">
           {plan.goal || '暂无目标描述'}
         </p>
       </CardHeader>
@@ -61,7 +61,7 @@ export function PlanCard({ plan }: PlanCardProps) {
             {plan.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                className="rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
               >
                 {tag}
               </span>
@@ -70,7 +70,7 @@ export function PlanCard({ plan }: PlanCardProps) {
         )}
       </CardContent>
       <CardFooter className="flex items-center justify-between pt-0">
-        <span className="text-xs text-muted-foreground">{formatDate(plan.createdAt)}</span>
+        <span className="text-label text-muted-foreground">{formatDate(plan.createdAt)}</span>
         <Button asChild size="sm" variant="ghost">
           <Link href={`/plan/${plan.id}`}>
             查看详情

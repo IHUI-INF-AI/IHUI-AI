@@ -194,7 +194,7 @@ export default function TaskDeveloperPage() {
       />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex items-center justify-between text-body text-muted-foreground">
           <span>共 {total} 条</span>
           <div className="flex gap-2">
             <Button

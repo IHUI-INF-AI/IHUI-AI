@@ -153,7 +153,7 @@ export default function ConversationsPage() {
           <MessageSquare className="h-5 w-5 text-primary" />
           对话历史
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-body text-muted-foreground">
           通过 API Key 调用时附带的 conversation_id 自动归档的对话记录
         </p>
       </div>
@@ -168,7 +168,7 @@ export default function ConversationsPage() {
               加载中...
             </div>
           ) : items.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无对话记录</p>
+            <p className="py-8 text-center text-body text-muted-foreground">暂无对话记录</p>
           ) : (
             <div className="space-y-2 p-3">
               {items.map((c) => {
@@ -194,7 +194,7 @@ export default function ConversationsPage() {
                             <input
                               value={editTitle}
                               onChange={(e) => setEditTitle(e.target.value)}
-                              className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm"
+                              className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-body"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEdit()
                                 if (e.key === 'Escape') {
@@ -228,7 +228,7 @@ export default function ConversationsPage() {
                             </button>
                           </div>
                         )}
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
                           {c.model && (
                             <span className="rounded bg-muted px-1.5 py-0.5">{c.model}</span>
                           )}
@@ -260,12 +260,12 @@ export default function ConversationsPage() {
                     {isExpanded && (
                       <div className="mt-3 space-y-2 rounded-md bg-muted/40 p-3">
                         {messagesLoading ? (
-                          <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 py-2 text-label text-muted-foreground">
                             <Loader2 className="h-3 w-3 animate-spin" />
                             加载消息...
                           </div>
                         ) : (messagesData?.items ?? []).length === 0 ? (
-                          <p className="py-2 text-xs text-muted-foreground">暂无消息</p>
+                          <p className="py-2 text-label text-muted-foreground">暂无消息</p>
                         ) : (
                           (messagesData?.items ?? []).map((m) => (
                             <div
@@ -288,11 +288,13 @@ export default function ConversationsPage() {
                                       : '系统'}
                                 </span>
                                 {m.model && (
-                                  <span className="text-xs text-muted-foreground">{m.model}</span>
+                                  <span className="text-label text-muted-foreground">
+                                    {m.model}
+                                  </span>
                                 )}
                                 <span
                                   className={cn(
-                                    'rounded px-1 text-xs',
+                                    'rounded px-1 text-label',
                                     m.status === 'success'
                                       ? 'text-emerald-600 dark:text-emerald-400'
                                       : 'text-rose-600 dark:text-rose-400',
@@ -300,17 +302,19 @@ export default function ConversationsPage() {
                                 >
                                   {m.status === 'success' ? '成功' : '错误'}
                                 </span>
-                                <span className="ml-auto text-xs text-muted-foreground">
+                                <span className="ml-auto text-label text-muted-foreground">
                                   {dateFmt.format(new Date(m.createdAt))}
                                 </span>
                               </div>
-                              <p className="whitespace-pre-wrap break-words text-sm">{m.content}</p>
+                              <p className="whitespace-pre-wrap break-words text-body">
+                                {m.content}
+                              </p>
                               {m.errorMessage && (
-                                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                                <p className="mt-1 text-label text-rose-600 dark:text-rose-400">
                                   {m.errorMessage}
                                 </p>
                               )}
-                              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                              <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                                 <span>{num.format(m.totalTokens)} token</span>
                                 {m.latencyMs !== null && <span>{m.latencyMs} ms</span>}
                                 {m.costCents > 0 && <span>¥{(m.costCents / 100).toFixed(4)}</span>}
@@ -338,7 +342,7 @@ export default function ConversationsPage() {
           >
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

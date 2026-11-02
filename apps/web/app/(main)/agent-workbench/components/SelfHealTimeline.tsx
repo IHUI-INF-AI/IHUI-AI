@@ -95,10 +95,10 @@ export function SelfHealTimeline({ events }: Props) {
   const t = useTranslations('agentWorkbench.selfHealTimeline')
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
-      <div className="flex items-center gap-2 px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 px-3 py-2 text-body">
         <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="font-medium">{t('title')}</span>
-        <span className="text-xs text-muted-foreground">{events.length}</span>
+        <span className="text-label text-muted-foreground">{events.length}</span>
       </div>
       <div className="flex-1 overflow-auto px-3 py-2">
         <div className="space-y-2">

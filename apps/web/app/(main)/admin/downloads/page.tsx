@@ -187,11 +187,11 @@ export default function DownloadsPage() {
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 py-4">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('filterPlatform')}</label>
+            <label className="text-label text-muted-foreground">{t('filterPlatform')}</label>
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value)}
-              className="h-9 rounded-sm border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-sm border border-border bg-background px-3 text-body"
             >
               <option value="">{t('allPlatforms')}</option>
               {PLATFORM_KEYS.map((k) => (
@@ -202,21 +202,21 @@ export default function DownloadsPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('startDate')}</label>
+            <label className="text-label text-muted-foreground">{t('startDate')}</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 rounded-sm border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-sm border border-border bg-background px-3 text-body"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('endDate')}</label>
+            <label className="text-label text-muted-foreground">{t('endDate')}</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 rounded-sm border border-border bg-background px-3 text-sm"
+              className="h-9 rounded-sm border border-border bg-background px-3 text-body"
             />
           </div>
         </CardContent>
@@ -227,11 +227,11 @@ export default function DownloadsPage() {
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
       ) : error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : total === 0 ? (
-        <div className="rounded-md border border-border bg-muted/30 p-3 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-center text-body text-muted-foreground">
           {t('noData')}
         </div>
       ) : (
@@ -277,9 +277,9 @@ export default function DownloadsPage() {
                 <CardTitle className="text-base">{t('detail')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <table className="w-full text-sm">
+                <table className="w-full text-body">
                   <thead>
-                    <tr className="text-left text-xs text-muted-foreground">
+                    <tr className="text-left text-label text-muted-foreground">
                       <th className="pb-2 font-medium">{t('platform')}</th>
                       <th className="pb-2 text-right font-medium">{t('count')}</th>
                       <th className="pb-2 text-right font-medium">{t('ratio')}</th>
@@ -306,12 +306,12 @@ export default function DownloadsPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{t('pendingTitle')}</CardTitle>
-          <p className="text-xs text-muted-foreground">{t('pendingDesc')}</p>
+          <p className="text-label text-muted-foreground">{t('pendingDesc')}</p>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
+          <table className="w-full text-body">
             <thead>
-              <tr className="text-left text-xs text-muted-foreground">
+              <tr className="text-left text-label text-muted-foreground">
                 <th className="pb-2 font-medium">{t('platform')}</th>
                 <th className="pb-2 font-medium">{t('pendingField')}</th>
                 <th className="pb-2 font-medium">{t('pendingStatus')}</th>
@@ -325,7 +325,7 @@ export default function DownloadsPage() {
                   <tr key={p.field}>
                     <td className="py-1.5 pr-3 font-medium">{t(p.labelKey)}</td>
                     <td className="py-1.5 pr-3">
-                      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{p.field}</code>
+                      <code className="rounded bg-muted px-1.5 py-0.5 text-label">{p.field}</code>
                     </td>
                     <td className="py-1.5 pr-3">
                       {p.value ? (
@@ -338,18 +338,18 @@ export default function DownloadsPage() {
                         </span>
                       )}
                       {hasAssets && (
-                        <span className="ml-1 text-xs text-muted-foreground">
+                        <span className="ml-1 text-label text-muted-foreground">
                           ({PLATFORM_META[p.platformKey].assets.length})
                         </span>
                       )}
                     </td>
-                    <td className="py-1.5 text-xs text-muted-foreground">{t(p.guideKey)}</td>
+                    <td className="py-1.5 text-label text-muted-foreground">{t(p.guideKey)}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-label text-muted-foreground">
             {t('pendingConfigFile')}:{' '}
             <code className="rounded bg-muted px-1.5 py-0.5">
               apps/web/src/config/downloads.config.ts

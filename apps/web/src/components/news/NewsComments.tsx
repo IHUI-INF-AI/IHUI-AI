@@ -146,7 +146,7 @@ export function NewsComments({ articleId, className }: NewsCommentsProps) {
             className="min-h-[80px]"
           />
         </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-label text-destructive">{error}</p>}
         <div className="flex justify-end">
           <Button size="sm" onClick={handleSubmit} disabled={!content.trim() || submitting}>
             <Send className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export function NewsComments({ articleId, className }: NewsCommentsProps) {
               {tCommon('loading')}
             </div>
           ) : comments.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="py-6 text-center text-body text-muted-foreground">{t('empty')}</p>
           ) : (
             comments.map((c) => (
               <CommentItem

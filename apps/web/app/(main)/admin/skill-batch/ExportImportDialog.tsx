@@ -107,7 +107,7 @@ export function ExportImportDialog({
 
         {tab === 'export' ? (
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {t('exportHint', { count: skills.length })}
             </p>
             <Button onClick={handleExport} disabled={skills.length === 0} className="w-full">
@@ -117,7 +117,7 @@ export function ExportImportDialog({
           </div>
         ) : (
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">{t('importHint')}</p>
+            <p className="text-body text-muted-foreground">{t('importHint')}</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -127,13 +127,13 @@ export function ExportImportDialog({
               className="block w-full text-body text-muted-foreground file:mr-3 file:rounded-sm file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-body file:font-medium file:text-primary hover:file:bg-primary/20"
             />
             {importing && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('importingProgress', { current: progress.current, total: progress.total })}
               </div>
             )}
             {importResult && (
-              <div className="space-y-2 rounded-md border p-3 text-sm">
+              <div className="space-y-2 rounded-md border p-3 text-body">
                 <div className="flex items-center gap-2 text-emerald-600">
                   <CheckCircle className="h-4 w-4" />
                   {t('importSuccess', { count: importResult.success })}
@@ -144,7 +144,7 @@ export function ExportImportDialog({
                       <XCircle className="h-4 w-4" />
                       {t('importFailed', { count: importResult.failed })}
                     </div>
-                    <ul className="mt-1 max-h-24 overflow-y-auto space-y-0.5 pl-6 text-xs text-muted-foreground list-disc">
+                    <ul className="mt-1 max-h-24 overflow-y-auto space-y-0.5 pl-6 text-label text-muted-foreground list-disc">
                       {importResult.errors.map((err, i) => (
                         <li key={i}>{err}</li>
                       ))}

@@ -182,7 +182,7 @@ export default function EvalPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('eval.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('eval.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('eval.subtitle')}</p>
       </header>
 
       {/* 2026-09-30 登录态门:未登录时用登录引导替换个性化数据区 */}
@@ -214,13 +214,13 @@ export default function EvalPage() {
             <Card>
               <CardContent className="px-0">
                 {datasetsQ.isLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {t('eval.datasets.loading')}
                   </div>
                 ) : datasetsQ.isError ? (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
-                    <p className="text-sm text-destructive">
+                    <p className="text-body text-destructive">
                       {datasetsQ.error instanceof Error
                         ? datasetsQ.error.message
                         : t('eval.datasets.messages.createFailed')}
@@ -232,7 +232,7 @@ export default function EvalPage() {
                 ) : datasets.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
                     <Database className="h-8 w-8 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">{t('eval.datasets.empty')}</p>
+                    <p className="text-body text-muted-foreground">{t('eval.datasets.empty')}</p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -245,9 +245,9 @@ export default function EvalPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-body">
                       <thead>
-                        <tr className="text-left text-xs text-muted-foreground">
+                        <tr className="text-left text-label text-muted-foreground">
                           <th className="px-4 py-2 font-medium">{t('eval.datasets.table.name')}</th>
                           <th className="px-4 py-2 font-medium">
                             {t('eval.datasets.table.description')}
@@ -265,7 +265,7 @@ export default function EvalPage() {
                       </thead>
                       <tbody>
                         {datasets.map((ds: Dataset) => (
-                          <tr key={ds.name} className="text-xs hover:bg-muted/30">
+                          <tr key={ds.name} className="text-label hover:bg-muted/30">
                             <td className="px-4 py-2.5 font-medium">{ds.name}</td>
                             <td className="px-4 py-2.5 text-muted-foreground">
                               {ds.description || '—'}
@@ -320,13 +320,13 @@ export default function EvalPage() {
             <Card>
               <CardContent className="px-0">
                 {runsQ.isLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {t('eval.runs.loading')}
                   </div>
                 ) : runsQ.isError ? (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
-                    <p className="text-sm text-destructive">
+                    <p className="text-body text-destructive">
                       {runsQ.error instanceof Error
                         ? runsQ.error.message
                         : t('eval.runs.messages.loadFailed')}
@@ -338,7 +338,7 @@ export default function EvalPage() {
                 ) : runs.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-10 text-center">
                     <FlaskConical className="h-8 w-8 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">{t('eval.runs.empty')}</p>
+                    <p className="text-body text-muted-foreground">{t('eval.runs.empty')}</p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -351,9 +351,9 @@ export default function EvalPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-body">
                       <thead>
-                        <tr className="text-left text-xs text-muted-foreground">
+                        <tr className="text-left text-label text-muted-foreground">
                           <th className="px-4 py-2 font-medium">{t('eval.runs.table.id')}</th>
                           <th className="px-4 py-2 font-medium">{t('eval.runs.table.dataset')}</th>
                           <th className="px-4 py-2 font-medium">{t('eval.runs.table.model')}</th>
@@ -370,7 +370,7 @@ export default function EvalPage() {
                       </thead>
                       <tbody>
                         {runs.map((run: EvalRun) => (
-                          <tr key={run.id} className="text-xs hover:bg-muted/30">
+                          <tr key={run.id} className="text-label hover:bg-muted/30">
                             <td className="px-4 py-2.5 font-mono text-muted-foreground">
                               {run.id.slice(0, 8)}
                             </td>
@@ -431,12 +431,14 @@ export default function EvalPage() {
               <div>
                 <p className="text-body font-medium">{viewDataset.name}</p>
                 {viewDataset.description && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">{viewDataset.description}</p>
+                  <p className="mt-0.5 text-label text-muted-foreground">
+                    {viewDataset.description}
+                  </p>
                 )}
               </div>
               <div className="max-h-80 space-y-2 overflow-y-auto">
                 {viewDataset.items.map((item: DatasetItem, i: number) => (
-                  <div key={i} className="rounded-lg border border-border/60 p-3 text-xs">
+                  <div key={i} className="rounded-lg border border-border/60 p-3 text-label">
                     <p className="mb-1 font-medium text-muted-foreground">
                       {t('eval.datasets.detail.item', { index: i + 1 })}
                     </p>
@@ -610,7 +612,7 @@ function CreateDatasetDialog({ open, onOpenChange, onSuccess }: CreateDatasetDia
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="ds-name" className="text-xs">
+            <Label htmlFor="ds-name" className="text-label">
               {t('eval.datasets.form.name')}
             </Label>
             <Input
@@ -622,7 +624,7 @@ function CreateDatasetDialog({ open, onOpenChange, onSuccess }: CreateDatasetDia
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ds-desc" className="text-xs">
+            <Label htmlFor="ds-desc" className="text-label">
               {t('eval.datasets.form.description')}
             </Label>
             <Input
@@ -634,7 +636,7 @@ function CreateDatasetDialog({ open, onOpenChange, onSuccess }: CreateDatasetDia
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">{t('eval.datasets.form.items')}</Label>
+            <Label className="text-label">{t('eval.datasets.form.items')}</Label>
             <div className="max-h-64 space-y-2 overflow-y-auto">
               {items.map((item, i) => (
                 <div key={i} className="space-y-1.5 rounded-lg border border-border/60 p-3">
@@ -659,14 +661,14 @@ function CreateDatasetDialog({ open, onOpenChange, onSuccess }: CreateDatasetDia
                     value={item.input}
                     onChange={(e) => updateItem(i, 'input', e.target.value)}
                     placeholder={t('eval.datasets.form.inputPlaceholder')}
-                    className="w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                    className="w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-label outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
                     rows={2}
                   />
                   <textarea
                     value={item.expectedOutput}
                     onChange={(e) => updateItem(i, 'expectedOutput', e.target.value)}
                     placeholder={t('eval.datasets.form.expectedOutputPlaceholder')}
-                    className="w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-xs outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                    className="w-full resize-none rounded-sm border border-input bg-transparent px-3 py-2 text-label outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
                     rows={2}
                   />
                 </div>
@@ -769,7 +771,7 @@ function CreateRunDialog({ open, onOpenChange, onSuccess, datasets }: CreateRunD
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="run-dataset" className="text-xs">
+            <Label htmlFor="run-dataset" className="text-label">
               {t('eval.runs.form.datasetName')}
             </Label>
             <Input
@@ -786,7 +788,7 @@ function CreateRunDialog({ open, onOpenChange, onSuccess, datasets }: CreateRunD
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="run-model" className="text-xs">
+            <Label htmlFor="run-model" className="text-label">
               {t('eval.runs.form.model')}
             </Label>
             <Input
@@ -798,7 +800,7 @@ function CreateRunDialog({ open, onOpenChange, onSuccess, datasets }: CreateRunD
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="run-prompt" className="text-xs">
+            <Label htmlFor="run-prompt" className="text-label">
               {t('eval.runs.form.promptName')}
             </Label>
             <Input
@@ -885,7 +887,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
           </DialogTitle>
         </DialogHeader>
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('eval.runs.loading')}
           </div>
@@ -938,12 +940,12 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
               </h4>
               <div className="max-h-80 space-y-2 overflow-y-auto">
                 {(detail.results ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-xs text-muted-foreground">
+                  <p className="py-4 text-center text-label text-muted-foreground">
                     {t('eval.runs.empty')}
                   </p>
                 ) : (
                   (detail.results ?? []).map((result: EvalRunResult, i: number) => (
-                    <div key={i} className="rounded-lg border border-border/60 p-3 text-xs">
+                    <div key={i} className="rounded-lg border border-border/60 p-3 text-label">
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="font-medium text-muted-foreground">
                           {t('eval.runs.detail.item', { index: i + 1 })}
@@ -998,7 +1000,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
             </div>
           </div>
         ) : (
-          <div className="py-8 text-center text-sm text-muted-foreground">
+          <div className="py-8 text-center text-body text-muted-foreground">
             {t('eval.runs.messages.loadFailed')}
           </div>
         )}

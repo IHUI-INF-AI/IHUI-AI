@@ -63,7 +63,7 @@ export default function PointsMallPage() {
 
       {allow && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
-          <span className="text-sm text-muted-foreground">{t('balance')}</span>
+          <span className="text-body text-muted-foreground">{t('balance')}</span>
           <span className="text-base font-medium">
             {balance === undefined ? '—' : `${balance} ${t('pointsUnit')}`}
           </span>
@@ -79,7 +79,7 @@ export default function PointsMallPage() {
         </div>
       ) : mallQ.isError ? (
         <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
+          <p className="mb-3 text-body text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void mallQ.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
             {t('retry')}
@@ -87,7 +87,7 @@ export default function PointsMallPage() {
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+          <CardContent className="flex items-center justify-center py-12 text-body text-muted-foreground">
             {t('redeemEmpty')}
           </CardContent>
         </Card>

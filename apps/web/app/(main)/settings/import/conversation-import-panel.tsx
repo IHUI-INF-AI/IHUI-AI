@@ -511,10 +511,10 @@ export function ConversationImportPanel() {
         <Card>
           <CardContent className="space-y-3 p-3 min-[640px]:p-3">
             <p className="text-body font-medium">{t('upload')}</p>
-            <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
+            <p className="text-label text-muted-foreground">{t('uploadHint')}</p>
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
               <FileUp className="h-6 w-6 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{t('dragDrop')}</span>
+              <span className="text-label text-muted-foreground">{t('dragDrop')}</span>
               <input
                 type="file"
                 className="hidden"
@@ -524,7 +524,7 @@ export function ConversationImportPanel() {
               />
             </label>
             {file && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('fileSelected', { name: file.name, size: formatSize(file.size) })}
               </p>
             )}
@@ -545,7 +545,7 @@ export function ConversationImportPanel() {
         <Card>
           <CardContent className="space-y-3 p-3 min-[640px]:p-3">
             {!hasConversations ? (
-              <p className="text-xs text-muted-foreground">{t('parseEmpty')}</p>
+              <p className="text-label text-muted-foreground">{t('parseEmpty')}</p>
             ) : (
               <>
                 <div className="flex items-center justify-between">
@@ -553,26 +553,26 @@ export function ConversationImportPanel() {
                   <button
                     type="button"
                     onClick={toggleAll}
-                    className="text-xs text-primary hover:underline"
+                    className="text-label text-primary hover:underline"
                   >
                     {selected.size === preview.conversations.length
                       ? t('deselectAll')
                       : t('selectAll')}
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {t('selected', { count: selected.size, total: preview.conversations.length })}
                 </p>
 
                 {preview.truncated && (
-                  <div className="flex items-start gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+                  <div className="flex items-start gap-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-label text-amber-700 dark:text-amber-400">
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                     <span>{t('truncatedWarning')}</span>
                   </div>
                 )}
 
                 {preview.warnings.length > 0 && (
-                  <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+                  <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-label text-amber-700 dark:text-amber-400">
                     {preview.warnings.map((w, i) => (
                       <p key={i} className="flex items-start gap-1">
                         <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -593,7 +593,7 @@ export function ConversationImportPanel() {
                     return (
                       <div
                         key={i}
-                        className={`flex items-start gap-2 rounded-md border p-2 text-xs transition-colors ${
+                        className={`flex items-start gap-2 rounded-md border p-2 text-label transition-colors ${
                           checked
                             ? 'border-primary/40 bg-primary/5'
                             : 'border-border hover:bg-accent'
@@ -676,7 +676,7 @@ export function ConversationImportPanel() {
               {committed.map((c) => (
                 <div
                   key={c.conversationId}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border p-2.5 text-xs"
+                  className="flex items-center justify-between gap-3 rounded-md border border-border p-2.5 text-label"
                 >
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <p className="truncate font-medium">{c.title}</p>
@@ -760,12 +760,12 @@ export function ConversationImportPanel() {
             {t('historyTitle')}
           </p>
           {historyLoading ? (
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="flex items-center text-label text-muted-foreground">
               <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
               {t('parsing')}
             </div>
           ) : history.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t('historyEmpty')}</p>
+            <p className="text-label text-muted-foreground">{t('historyEmpty')}</p>
           ) : (
             <div className="space-y-2" data-testid="import-history-list">
               {history.map((h) => {
@@ -777,7 +777,7 @@ export function ConversationImportPanel() {
                 return (
                   <div
                     key={h.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs"
+                    className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-label"
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">

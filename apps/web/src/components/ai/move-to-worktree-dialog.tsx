@@ -139,7 +139,7 @@ export function MoveToWorktreeDialog({
 
           {view.blockKey === 'existingWorktreeRunning' ? (
             <p
-              className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-500"
+              className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-label text-amber-600 dark:text-amber-500"
               data-block="existingWorktreeRunning"
             >
               {t('existingWorktreeRunning')}
@@ -148,7 +148,7 @@ export function MoveToWorktreeDialog({
 
           {precheck === 'loading' ? (
             <p
-              className="flex items-center gap-2 py-2 text-sm text-muted-foreground"
+              className="flex items-center gap-2 py-2 text-body text-muted-foreground"
               data-precheck-line="loading"
             >
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -157,7 +157,10 @@ export function MoveToWorktreeDialog({
           ) : null}
 
           <fieldset className="space-y-1" data-slot="target-group">
-            <legend className="text-label font-medium text-muted-foreground" data-slot="target-label">
+            <legend
+              className="text-label font-medium text-muted-foreground"
+              data-slot="target-label"
+            >
               {t('targetLabel')}
             </legend>
             <div className="flex gap-2" role="radiogroup" aria-label={t('targetLabel')}>
@@ -169,7 +172,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={option === target}
                   data-target-option={option}
                   onClick={() => setTarget(option)}
-                  className="rounded-sm border px-3 py-1.5 text-sm transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
+                  className="rounded-sm border px-3 py-1.5 text-body transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {t(TARGET_LABEL_KEY[option])}
                 </button>
@@ -193,23 +196,23 @@ export function MoveToWorktreeDialog({
                 aria-label={t('worktreeBranchAriaLabel')}
                 value={branchInput}
                 onChange={(e) => setBranchInput(e.target.value)}
-                className="w-full rounded-sm border bg-transparent px-2 py-1.5 font-mono text-sm"
+                className="w-full rounded-sm border bg-transparent px-2 py-1.5 font-mono text-body"
               />
               {branchError ? (
-                <p className="text-xs text-destructive" data-branch-error={branchError}>
+                <p className="text-label text-destructive" data-branch-error={branchError}>
                   {t(branchError)}
                 </p>
               ) : null}
 
               <div className="space-y-1" data-slot="local-checkout">
-                <span className="text-xs text-muted-foreground" data-slot="local-checkout-label">
+                <span className="text-label text-muted-foreground" data-slot="local-checkout-label">
                   {t('localCheckoutLabel')}
                 </span>
                 {list.statusKey ? (
                   <div className="flex items-center gap-2">
                     <span
                       data-branches-status={list.statusKey}
-                      className="text-xs text-muted-foreground"
+                      className="text-label text-muted-foreground"
                     >
                       {t(list.statusKey)}
                     </span>
@@ -220,14 +223,14 @@ export function MoveToWorktreeDialog({
                     ) : null}
                   </div>
                 ) : list.empty ? (
-                  <p className="text-xs text-muted-foreground" data-empty="noTargetBranch">
+                  <p className="text-label text-muted-foreground" data-empty="noTargetBranch">
                     {t('noTargetBranch')}
                   </p>
                 ) : (
                   <select
                     data-slot="local-branch-select"
                     aria-label={t('localBranchPlaceholder')}
-                    className="w-full rounded-sm border bg-transparent px-2 py-1.5 text-sm"
+                    className="w-full rounded-sm border bg-transparent px-2 py-1.5 text-body"
                     defaultValue=""
                   >
                     <option value="">{t('localBranchPlaceholder')}</option>
@@ -255,7 +258,7 @@ export function MoveToWorktreeDialog({
                   aria-checked={b === selectedExisting}
                   data-existing-branch={b}
                   onClick={() => setSelectedExisting(b)}
-                  className="block w-full rounded-sm border px-3 py-1.5 text-left font-mono text-xs transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
+                  className="block w-full rounded-sm border px-3 py-1.5 text-left font-mono text-label transition-colors aria-checked:border-brand-accent-deep aria-checked:bg-primary/10"
                 >
                   {b}
                 </button>

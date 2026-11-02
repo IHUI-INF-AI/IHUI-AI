@@ -134,7 +134,7 @@ export function ErrorCodeTable(): React.JSX.Element {
           <AlertTriangle className="h-4 w-4 text-primary" />
           <p className="text-body font-semibold">{t('errorCodesTitle')}</p>
         </div>
-        <p className="text-xs text-muted-foreground">{t('errorCodesDesc')}</p>
+        <p className="text-label text-muted-foreground">{t('errorCodesDesc')}</p>
 
         <SearchInput
           value={keyword}
@@ -148,16 +148,19 @@ export function ErrorCodeTable(): React.JSX.Element {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="h-9 px-2 text-xs">{t('errorCodesTitle')}</TableHead>
-                <TableHead className="h-9 px-2 text-xs">HTTP</TableHead>
-                <TableHead className="h-9 px-2 text-xs">{t('meaningCol')}</TableHead>
-                <TableHead className="h-9 px-2 text-xs">{t('fixCol')}</TableHead>
+                <TableHead className="h-9 px-2 text-label">{t('errorCodesTitle')}</TableHead>
+                <TableHead className="h-9 px-2 text-label">HTTP</TableHead>
+                <TableHead className="h-9 px-2 text-label">{t('meaningCol')}</TableHead>
+                <TableHead className="h-9 px-2 text-label">{t('fixCol')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
+                  <TableCell
+                    colSpan={4}
+                    className="py-6 text-center text-label text-muted-foreground"
+                  >
                     {t('noMatchedErrorCodes')}
                   </TableCell>
                 </TableRow>
@@ -177,8 +180,8 @@ export function ErrorCodeTable(): React.JSX.Element {
                         {e.httpStatus}
                       </span>
                     </TableCell>
-                    <TableCell className="px-2 py-1.5 text-xs">{e.meaning}</TableCell>
-                    <TableCell className="px-2 py-1.5 text-xs text-muted-foreground">
+                    <TableCell className="px-2 py-1.5 text-label">{e.meaning}</TableCell>
+                    <TableCell className="px-2 py-1.5 text-label text-muted-foreground">
                       {e.fix}
                     </TableCell>
                   </TableRow>

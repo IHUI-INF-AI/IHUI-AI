@@ -39,14 +39,14 @@ export default async function RedeemPage() {
           <div className="flex flex-col gap-2 min-[640px]:flex-row">
             <Input
               placeholder={t('redeem.form.placeholder')}
-              className="flex-1 font-mono text-sm"
+              className="flex-1 font-mono text-body"
             />
             <Button className="gap-1.5">
               <Gift className="h-4 w-4" />
               {t('redeem.form.submit')}
             </Button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">{t('redeem.form.tip')}</p>
+          <p className="mt-2 text-label text-muted-foreground">{t('redeem.form.tip')}</p>
         </CardContent>
       </Card>
 
@@ -57,9 +57,9 @@ export default async function RedeemPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('redeem.history.code')}</th>
                   <th className="px-4 py-2 font-medium">{t('redeem.history.amount')}</th>
                   <th className="px-4 py-2 font-medium">{t('redeem.history.time')}</th>
@@ -68,7 +68,7 @@ export default async function RedeemPage() {
               </thead>
               <tbody>
                 {history.map((h, i) => (
-                  <tr key={i} className="text-xs hover:bg-muted/30">
+                  <tr key={i} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{h.code}</td>
                     <td className="px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
                       {h.status === 'success' ? `+¥ ${h.amount.toFixed(2)}` : '—'}

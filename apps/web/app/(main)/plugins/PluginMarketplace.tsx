@@ -343,7 +343,7 @@ export function PluginMarketplace() {
           )}
         </div>
         <div className="flex items-center gap-2 [&>span]:translate-y-[var(--text-vcenter-offset)]">
-          <span className="text-xs text-muted-foreground">{t('sortLabel')}</span>
+          <span className="text-label text-muted-foreground">{t('sortLabel')}</span>
           <div className="flex rounded-md bg-muted/60 p-0.5">
             {(['default', 'name', 'installed'] as const).map((s) => (
               <button
@@ -387,7 +387,7 @@ export function PluginMarketplace() {
       </div>
 
       {/* 统计行 */}
-      <div className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      <div className="text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <span>{t('resultCount', { count: filtered.length })}</span>
       </div>
 
@@ -396,7 +396,7 @@ export function PluginMarketplace() {
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/40" />
           <p className="text-body font-medium text-muted-foreground">{t('emptyTitle')}</p>
-          <p className="mt-1 text-xs text-muted-foreground/70">{t('emptyDesc')}</p>
+          <p className="mt-1 text-label text-muted-foreground/70">{t('emptyDesc')}</p>
           <button
             type="button"
             onClick={() => {
@@ -492,7 +492,7 @@ function SectionHeader({ title, desc, count }: { title: string; desc: string; co
     <div className="mb-4 flex items-baseline justify-between gap-3">
       <div className="min-w-0">
         <h2 className="text-lg font-semibold leading-tight">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
+        <p className="mt-1 text-body text-muted-foreground">{desc}</p>
       </div>
       <span className="shrink-0 rounded-md bg-muted/60 px-2 py-1 text-label font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <span>{count}</span>
@@ -626,7 +626,7 @@ function ProjectPluginCard({
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-body font-semibold leading-tight">{plugin.name}</h3>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
                 <Shield className="mr-0.5 h-3 w-3" />
                 {builtinLabel}
@@ -646,7 +646,7 @@ function ProjectPluginCard({
             unpinLabel={unpinLabel}
           />
         </div>
-        <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">
+        <p className="line-clamp-2 min-h-[2.5rem] text-label text-muted-foreground">
           {plugin.description}
         </p>
         <div className="mt-auto flex flex-wrap gap-1">
@@ -761,7 +761,7 @@ function MarketPluginCard({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-body font-semibold leading-tight">{plugin.name}</h3>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label [&>span]:translate-y-[var(--text-vcenter-offset)]">
             {plugin.official && (
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
                 <Shield className="mr-0.5 h-3 w-3" />
@@ -829,7 +829,7 @@ function MarketPluginCard({
           unpinLabel={unpinLabel}
         />
       </div>
-      <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">
+      <p className="line-clamp-2 min-h-[2.5rem] text-label text-muted-foreground">
         {plugin.description}
       </p>
       <div className="mt-auto flex flex-wrap gap-1">

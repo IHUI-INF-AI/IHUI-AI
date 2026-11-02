@@ -182,7 +182,7 @@ export default function AutomationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-heading font-semibold">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -203,16 +203,16 @@ export default function AutomationsPage() {
       </div>
 
       {loading && items.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : loadError ? (
-        <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-md bg-destructive/10 px-4 py-3 text-body text-destructive">
           {loadError}
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-md bg-muted/40 px-4 py-16 text-center text-sm text-muted-foreground">
+        <div className="rounded-md bg-muted/40 px-4 py-16 text-center text-body text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -236,15 +236,15 @@ export default function AutomationsPage() {
                       </Badge>
                     )}
                     <TerminalBadge reason={a.terminalReason} />
-                    <span className="text-xs text-muted-foreground">{describeSchedule(a)}</span>
+                    <span className="text-label text-muted-foreground">{describeSchedule(a)}</span>
                   </div>
                   {a.lastRunAt && (
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-label text-muted-foreground">
                       {t('lastRunAt')}: {formatDateTime(a.lastRunAt)}
                     </div>
                   )}
                   {a.lastResult?.summary && (
-                    <div className="truncate text-xs text-muted-foreground">
+                    <div className="truncate text-label text-muted-foreground">
                       {t('lastResult')}: {a.lastResult.summary}
                     </div>
                   )}

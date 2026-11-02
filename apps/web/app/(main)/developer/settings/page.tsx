@@ -115,7 +115,7 @@ export default function SettingsPage() {
           <Settings className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -123,7 +123,7 @@ export default function SettingsPage() {
           <p className="pb-2 text-body font-semibold">{t('infoTitle')}</p>
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-sm">{t('infoName')}</Label>
+              <Label className="text-body">{t('infoName')}</Label>
               <Input
                 value={info.name}
                 onChange={(e) => setInfo({ ...info, name: e.target.value })}
@@ -131,7 +131,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">{t('infoEmail')}</Label>
+              <Label className="text-body">{t('infoEmail')}</Label>
               <Input
                 value={info.email}
                 onChange={(e) => setInfo({ ...info, email: e.target.value })}
@@ -139,7 +139,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">{t('infoCompany')}</Label>
+              <Label className="text-body">{t('infoCompany')}</Label>
               <Input
                 value={info.company ?? ''}
                 onChange={(e) => setInfo({ ...info, company: e.target.value })}
@@ -147,7 +147,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">{t('infoWebsite')}</Label>
+              <Label className="text-body">{t('infoWebsite')}</Label>
               <Input
                 value={info.website ?? ''}
                 onChange={(e) => setInfo({ ...info, website: e.target.value })}
@@ -172,8 +172,8 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1 space-y-0.5">
-                <Label className="block truncate text-sm">{t('prefsDefaultVersion')}</Label>
-                <p className="text-xs text-muted-foreground">{t('prefsDefaultVersionDesc')}</p>
+                <Label className="block truncate text-body">{t('prefsDefaultVersion')}</Label>
+                <p className="text-label text-muted-foreground">{t('prefsDefaultVersionDesc')}</p>
               </div>
               <Input
                 value={prefs.defaultVersion}
@@ -183,8 +183,8 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1 space-y-0.5">
-                <Label className="block truncate text-sm">{t('prefsSandboxAutoRun')}</Label>
-                <p className="text-xs text-muted-foreground">{t('prefsSandboxAutoRunDesc')}</p>
+                <Label className="block truncate text-body">{t('prefsSandboxAutoRun')}</Label>
+                <p className="text-label text-muted-foreground">{t('prefsSandboxAutoRunDesc')}</p>
               </div>
               <Switch
                 checked={prefs.sandboxAutoRun}
@@ -194,8 +194,8 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1 space-y-0.5">
-                <Label className="block truncate text-sm">{t('prefsErrorReport')}</Label>
-                <p className="text-xs text-muted-foreground">{t('prefsErrorReportDesc')}</p>
+                <Label className="block truncate text-body">{t('prefsErrorReport')}</Label>
+                <p className="text-label text-muted-foreground">{t('prefsErrorReportDesc')}</p>
               </div>
               <Switch
                 checked={prefs.errorReport}
@@ -223,8 +223,8 @@ export default function SettingsPage() {
           </p>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-0.5">
-              <Label className="block truncate text-sm">{t('dangerDeleteLabel')}</Label>
-              <p className="text-xs text-muted-foreground">{t('dangerDeleteDesc')}</p>
+              <Label className="block truncate text-body">{t('dangerDeleteLabel')}</Label>
+              <p className="text-label text-muted-foreground">{t('dangerDeleteDesc')}</p>
             </div>
             <Button
               size="sm"

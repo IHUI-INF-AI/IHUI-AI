@@ -182,7 +182,7 @@ export default function AgentPlanProgressPage() {
       <div className="mx-auto max-w-4xl px-4 py-4">
         <button
           onClick={backToList}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
+          className="mb-4 inline-flex items-center gap-1.5 text-body text-muted-foreground transition hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" /> 返回列表
         </button>
@@ -192,7 +192,7 @@ export default function AgentPlanProgressPage() {
         </div>
 
         {error && (
-          <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
             <CircleX className="h-4 w-4" /> {error}
           </p>
         )}
@@ -216,7 +216,7 @@ export default function AgentPlanProgressPage() {
               {STATUS_LABEL[detail.status] || detail.status}
             </span>
           </div>
-          <dl className="space-y-2 text-sm">
+          <dl className="space-y-2 text-body">
             <div className="flex gap-3">
               <dt className="w-24 shrink-0 text-muted-foreground">plan_id</dt>
               <dd className="break-all">
@@ -253,7 +253,7 @@ export default function AgentPlanProgressPage() {
           <h2 className="mb-3 flex items-center gap-2 text-body font-semibold">
             <ListChecks className="h-4 w-4" /> 任务进度
           </h2>
-          <div className="mb-3 flex items-center gap-3 text-sm">
+          <div className="mb-3 flex items-center gap-3 text-body">
             <span className="font-medium">
               {done}/{total}
             </span>
@@ -263,13 +263,13 @@ export default function AgentPlanProgressPage() {
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span className="text-xs text-muted-foreground">{pct}%</span>
+            <span className="text-label text-muted-foreground">{pct}%</span>
           </div>
           {total > 0 && blocked > 0 && (
-            <p className="mb-2 text-xs text-muted-foreground">其中阻塞 {blocked}</p>
+            <p className="mb-2 text-label text-muted-foreground">其中阻塞 {blocked}</p>
           )}
           {tasksData && tasksData.tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               暂无任务,可稍后在“计划工作台”生成任务后刷新查看。
             </p>
           ) : (
@@ -277,7 +277,7 @@ export default function AgentPlanProgressPage() {
               {tasksData?.tasks.map((t) => (
                 <li
                   key={t.task_id}
-                  className="flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm"
+                  className="flex items-center gap-2.5 rounded-lg border px-3 py-2 text-body"
                 >
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
@@ -292,7 +292,7 @@ export default function AgentPlanProgressPage() {
                     {t.order}. {t.title}
                   </span>
                   <span
-                    className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs ${
+                    className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-label ${
                       t.status === 'done'
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : t.status === 'blocked'
@@ -314,14 +314,14 @@ export default function AgentPlanProgressPage() {
             <Layers className="h-4 w-4" /> 版本历史(点击切换查看差异)
           </h2>
           {versionsData && versionsData.versions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无版本记录</p>
+            <p className="text-body text-muted-foreground">暂无版本记录</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {versionsData?.versions.map((v) => (
                 <button
                   key={v.version}
                   onClick={() => void selectVersion(v.version)}
-                  className={`inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition hover:bg-muted ${
+                  className={`inline-flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-body transition hover:bg-muted ${
                     v.version === selectedVersion ? 'border-brand-accent-deep bg-primary/10' : ''
                   }`}
                 >
@@ -336,7 +336,7 @@ export default function AgentPlanProgressPage() {
             </div>
           )}
           {versionsData && versionsData.versions.length > 0 && (
-            <div className="mt-3 pt-2 text-xs">
+            <div className="mt-3 pt-2 text-label">
               <p className="mb-1 text-muted-foreground">
                 当前查看 v{selectedVersion} 与 v1 的差异
                 {selectedVersion === 1 ? '(与自身比较, 无差异)' : ''}:
@@ -357,7 +357,7 @@ export default function AgentPlanProgressPage() {
             </div>
           )}
           {versionsData && (
-            <ul className="mt-3 space-y-1 pt-2 text-xs text-muted-foreground">
+            <ul className="mt-3 space-y-1 pt-2 text-label text-muted-foreground">
               {versionsData.versions.map((v) => (
                 <li key={v.version}>
                   v{v.version} · {v.channel} · {v.reason || '-'} · {v.created_at}
@@ -377,7 +377,7 @@ export default function AgentPlanProgressPage() {
         <FileText className="h-5 w-5 text-primary" />
         <h1 className="text-display font-bold">Plan 任务进度</h1>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">
+      <p className="mb-4 text-body text-muted-foreground">
         查看计划任务勾选态与版本演进。输入 plan_id 打开某份计划,或点击下方最近查看。
       </p>
 
@@ -387,7 +387,7 @@ export default function AgentPlanProgressPage() {
           onChange={(e) => setPlanId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void loadPlan(planId)}
           placeholder="输入 plan_id 打开计划"
-          className="flex-1 rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
         />
         <button
           onClick={() => void loadPlan(planId)}
@@ -400,7 +400,7 @@ export default function AgentPlanProgressPage() {
       </div>
 
       {error && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <CircleX className="h-4 w-4" /> {error}
         </p>
       )}
@@ -410,7 +410,7 @@ export default function AgentPlanProgressPage() {
           <ListChecks className="h-4 w-4" /> 最近查看({recent.length})
         </h2>
         {recent.length === 0 ? (
-          <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+          <p className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
             <FileText className="h-5 w-5" /> 尚无记录,输入 plan_id 打开后会自动保存到这里
           </p>
         ) : (
@@ -422,7 +422,7 @@ export default function AgentPlanProgressPage() {
                   className="w-full rounded-sm border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
-                    <code className="truncate rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <code className="truncate rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {p.plan_id.slice(0, 24)}
                     </code>
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-label font-medium">
@@ -433,7 +433,7 @@ export default function AgentPlanProgressPage() {
                     </span>
                   </div>
                   <p className="line-clamp-1 text-body font-medium">{p.goal || '(无目标描述)'}</p>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                     {p.total > 0 && (
                       <span>
                         任务 {p.done}/{p.total}

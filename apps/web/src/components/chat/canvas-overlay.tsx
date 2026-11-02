@@ -238,7 +238,7 @@ export function CanvasOverlay() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           spellCheck={false}
-          className="min-h-0 w-full flex-1 resize-none bg-muted/40 p-3 font-mono text-xs leading-5 outline-none"
+          className="min-h-0 w-full flex-1 resize-none bg-muted/40 p-3 font-mono text-label leading-5 outline-none"
         />
       )}
     </div>

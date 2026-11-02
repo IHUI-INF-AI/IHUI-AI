@@ -87,7 +87,7 @@ export default async function OverviewPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('overview.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('overview.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('overview.subtitle')}</p>
       </header>
 
       {/* 统计卡片 */}
@@ -115,7 +115,7 @@ export default async function OverviewPage() {
                   </span>
                 </div>
                 <div className="mt-3 text-display font-bold tracking-tight">{s.value}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
+                <div className="mt-0.5 text-label text-muted-foreground">{s.label}</div>
               </CardContent>
             </Card>
           )
@@ -155,9 +155,9 @@ export default async function OverviewPage() {
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="text-left text-xs text-muted-foreground">
+                <tr className="text-left text-label text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('overview.recentCalls.time')}</th>
                   <th className="px-4 py-2 font-medium">{t('overview.recentCalls.model')}</th>
                   <th className="px-4 py-2 font-medium">{t('overview.recentCalls.tokens')}</th>
@@ -167,7 +167,7 @@ export default async function OverviewPage() {
               </thead>
               <tbody>
                 {recentCalls.map((c, i) => (
-                  <tr key={i} className="text-xs hover:bg-muted/30">
+                  <tr key={i} className="text-label hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{c.time}</td>
                     <td className="px-4 py-2.5 font-medium">{c.model}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{c.tokens}</td>

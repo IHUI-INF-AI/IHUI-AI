@@ -138,7 +138,7 @@ export function UnconfiguredState({ platform }: { platform: string }) {
   const t = useTranslations('auth')
   return (
     <div className={`${QR_PANEL_STATE_BOX} gap-2 bg-muted/30`}>
-      <p className="text-sm text-muted-foreground">{t('qrNotConfigured', { platform })}</p>
+      <p className="text-body text-muted-foreground">{t('qrNotConfigured', { platform })}</p>
     </div>
   )
 }
@@ -147,8 +147,8 @@ export function ErrorState({ message }: { message: string }) {
   const t = useTranslations('auth')
   return (
     <div className={`${QR_PANEL_STATE_BOX} gap-2 border-destructive/30 bg-destructive/5`}>
-      <p className="text-sm text-destructive">{t('qrSdkLoadFailed')}</p>
-      <p className="text-xs text-muted-foreground">{message}</p>
+      <p className="text-body text-destructive">{t('qrSdkLoadFailed')}</p>
+      <p className="text-label text-muted-foreground">{message}</p>
     </div>
   )
 }

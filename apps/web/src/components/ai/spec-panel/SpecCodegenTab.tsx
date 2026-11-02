@@ -35,7 +35,7 @@ export function SpecCodegenTab({ p }: { p: SpecPanelApi }) {
             onClick={p.handleApplyConfirm}
             disabled={p.confirmLoading}
             className={cn(
-              'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
+              'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-3 text-label text-foreground hover:bg-muted/60',
               p.confirmLoading && 'cursor-not-allowed opacity-60',
             )}
           >
@@ -48,16 +48,16 @@ export function SpecCodegenTab({ p }: { p: SpecPanelApi }) {
           </button>
         )}
         {p.applyResult?.summary && (
-          <span className="text-xs text-muted-foreground">{p.applyResult.summary}</span>
+          <span className="text-label text-muted-foreground">{p.applyResult.summary}</span>
         )}
       </div>
       {p.applyResult?.patch && (
         <div className="max-h-[50vh] overflow-auto rounded-md border border-border bg-background p-2">
-          <DiffView diff={p.applyResult.patch} className="text-xs leading-5" />
+          <DiffView diff={p.applyResult.patch} className="text-label leading-5" />
         </div>
       )}
       {!p.applyResult?.patch && (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           点击「生成 patch」对比新旧 spec 生成代码补丁
         </p>
       )}

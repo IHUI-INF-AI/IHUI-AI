@@ -103,11 +103,11 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
               {t(trace.success ? 'traceSuccess' : 'traceFailed')}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {stopReasonLabel(trace.stop_reason, t)}
           </span>
         </div>
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+        <div className="mt-2 flex flex-wrap gap-3 text-label text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
             {t('traceTotalDuration')}: {formatDuration(trace.total_duration_ms)}
@@ -154,7 +154,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {hasErrorInIter && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {it.tool_calls.length > 0
                       ? t('traceToolsCount', { n: it.tool_calls.length })
                       : t('traceNoToolCalls')}
@@ -180,7 +180,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                       </p>
                       <div
                         className={cn(
-                          'rounded-md bg-muted/40 p-3 text-sm',
+                          'rounded-md bg-muted/40 p-3 text-body',
                           !showAllReasoning &&
                             it.reasoning.length > 300 &&
                             'max-h-24 overflow-hidden',
@@ -192,7 +192,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                         <button
                           type="button"
                           onClick={() => setShowAllReasoning(!showAllReasoning)}
-                          className="mt-1 text-xs text-primary hover:underline"
+                          className="mt-1 text-label text-primary hover:underline"
                         >
                           {showAllReasoning ? t('traceCollapse') : t('traceExpandAll')}
                         </button>
@@ -234,12 +234,12 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                                 )}
                               </div>
                               {tc.args && Object.keys(tc.args).length > 0 && (
-                                <p className="mt-1 truncate text-xs text-muted-foreground">
+                                <p className="mt-1 truncate text-label text-muted-foreground">
                                   {JSON.stringify(tc.args)}
                                 </p>
                               )}
                               {result?.error && (
-                                <p className="mt-1 text-xs text-destructive">{result.error}</p>
+                                <p className="mt-1 text-label text-destructive">{result.error}</p>
                               )}
                             </div>
                           )
@@ -249,7 +249,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   )}
 
                   {/* 耗时 */}
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-label text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {t('traceRoundDuration')}: {formatDuration(it.duration_ms)}
                   </div>
@@ -264,7 +264,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
       {trace.final_response && (
         <div className="rounded-lg border bg-card p-3">
           <p className="mb-1 text-label font-medium text-muted-foreground">最终回复</p>
-          <p className="whitespace-pre-wrap break-words text-sm">{trace.final_response}</p>
+          <p className="whitespace-pre-wrap break-words text-body">{trace.final_response}</p>
         </div>
       )}
     </div>

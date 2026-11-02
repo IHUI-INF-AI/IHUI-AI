@@ -96,7 +96,7 @@ export function McpPromptManager() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : !prompts || prompts.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-12 text-center text-body text-muted-foreground">
           {t('noPrompts')}
         </div>
       ) : (
@@ -120,14 +120,14 @@ export function McpPromptManager() {
                   </div>
                 </div>
                 {prompt.description && (
-                  <p className="mb-2 text-xs text-muted-foreground">{prompt.description}</p>
+                  <p className="mb-2 text-label text-muted-foreground">{prompt.description}</p>
                 )}
                 {prompt.arguments && prompt.arguments.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {prompt.arguments.map((arg) => (
                       <span
                         key={arg.name}
-                        className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                       >
                         {arg.name}
                         {arg.required ? '*' : ''}
@@ -147,13 +147,15 @@ export function McpPromptManager() {
             <DialogTitle>{previewPrompt?.name}</DialogTitle>
           </DialogHeader>
           {previewPrompt?.description && (
-            <p className="text-sm text-muted-foreground">{previewPrompt.description}</p>
+            <p className="text-body text-muted-foreground">{previewPrompt.description}</p>
           )}
           {previewPrompt?.arguments && previewPrompt.arguments.length > 0 && (
             <div className="space-y-1">
-              <span className="text-label font-medium text-muted-foreground">{t('parameters')}</span>
+              <span className="text-label font-medium text-muted-foreground">
+                {t('parameters')}
+              </span>
               {previewPrompt.arguments.map((arg) => (
-                <div key={arg.name} className="text-xs">
+                <div key={arg.name} className="text-label">
                   <span className="font-mono">{arg.name}</span>
                   {arg.required && <span className="text-destructive">*</span>}
                   {arg.description && (
@@ -164,7 +166,7 @@ export function McpPromptManager() {
             </div>
           )}
           {previewPrompt?.template && (
-            <pre className="max-h-[300px] overflow-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+            <pre className="max-h-[300px] overflow-auto rounded-md border bg-muted/30 p-3 text-label whitespace-pre-wrap">
               {previewPrompt.template}
             </pre>
           )}
@@ -187,14 +189,16 @@ export function McpPromptManager() {
                 submitting={execMutation.isPending}
               />
               {execMutation.isPending && (
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 text-body text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('executing')}
                 </div>
               )}
               {execMutation.isSuccess && (
                 <div className="space-y-1.5">
-                  <span className="text-label font-medium text-muted-foreground">{t('result')}</span>
+                  <span className="text-label font-medium text-muted-foreground">
+                    {t('result')}
+                  </span>
                   <McpResultPreview result={execMutation.data} />
                 </div>
               )}

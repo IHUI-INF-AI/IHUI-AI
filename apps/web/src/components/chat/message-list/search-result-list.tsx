@@ -78,7 +78,7 @@ export function SearchResultList({ results, selectedId, onPick }: SearchResultLi
                 aria-label={timeText ? `${result.preview} · ${timeText}` : result.preview}
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left transition-colors hover:bg-muted/50 data-[current=true]:bg-muted"
               >
-                <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+                <span className="min-w-0 flex-1 truncate text-label text-foreground">
                   {result.preview}
                 </span>
                 {timeText ? (

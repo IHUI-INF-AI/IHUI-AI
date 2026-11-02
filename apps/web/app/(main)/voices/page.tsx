@@ -211,7 +211,7 @@ export default function VoicesPage() {
             <Mic className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -241,16 +241,16 @@ export default function VoicesPage() {
         </div>
       </header>
 
-      <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
+      <p className="text-label text-muted-foreground">{t('uploadHint')}</p>
 
       {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {error}
         </div>
       )}
 
       {info && (
-        <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm text-primary">
+        <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-body text-primary">
           {info}
         </div>
       )}
@@ -264,13 +264,13 @@ export default function VoicesPage() {
             {t('loading')}
           </div>
         ) : listQuery.error ? (
-          <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {String((listQuery.error as Error).message ?? '') || t('loadFailed')}
           </div>
         ) : voices.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
             <Mic className="h-8 w-8 opacity-40" />
-            <p className="text-sm">{t('empty')}</p>
+            <p className="text-body">{t('empty')}</p>
           </div>
         ) : (
           <div>
@@ -381,7 +381,7 @@ export default function VoicesPage() {
       </div>
 
       {!listQuery.isLoading && !listQuery.error && voices.length > 0 && (
-        <p className="text-xs text-muted-foreground">{t('count', { count: voices.length })}</p>
+        <p className="text-label text-muted-foreground">{t('count', { count: voices.length })}</p>
       )}
       <ConfirmDialogRenderer />
     </div>
@@ -401,7 +401,7 @@ function VoiceDetailPanel({ voiceId: vid }: { voiceId: string }) {
 
   if (detailQuery.isLoading) {
     return (
-      <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 py-2 text-label text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         {t('loading')}
       </div>
@@ -410,7 +410,7 @@ function VoiceDetailPanel({ voiceId: vid }: { voiceId: string }) {
 
   if (detailQuery.error || !detailQuery.data) {
     return (
-      <div className="ui-card rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-label text-destructive">
         {String((detailQuery.error as Error)?.message ?? '') || t('notFound')}
       </div>
     )
@@ -434,7 +434,7 @@ function VoiceDetailPanel({ voiceId: vid }: { voiceId: string }) {
   }
 
   return (
-    <dl className="ui-card grid grid-cols-1 gap-1 rounded-lg bg-muted/30 p-2 text-xs sm:grid-cols-2">
+    <dl className="ui-card grid grid-cols-1 gap-1 rounded-lg bg-muted/30 p-2 text-label sm:grid-cols-2">
       {fields.map(([label, val]) => (
         <div key={label} className="flex items-start gap-2">
           <dt className="shrink-0 text-muted-foreground">{label}:</dt>

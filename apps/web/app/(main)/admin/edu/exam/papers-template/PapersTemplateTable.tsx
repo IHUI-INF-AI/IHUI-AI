@@ -76,7 +76,7 @@ export function PapersTemplateTable({
                 <TableCell className="max-w-xs break-words px-4 py-2.5 text-muted-foreground">
                   {t.description ?? '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{t.createdAt}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{t.createdAt}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Tooltip content={tc('edit')}>

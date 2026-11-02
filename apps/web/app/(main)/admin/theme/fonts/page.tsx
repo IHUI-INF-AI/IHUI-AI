@@ -84,7 +84,7 @@ export default function FontsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">字体配置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理自定义与系统字体</p>
+        <p className="mt-1 text-body text-muted-foreground">管理自定义与系统字体</p>
       </div>
 
       {loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
@@ -94,7 +94,7 @@ export default function FontsPage() {
         <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <p className="text-body font-medium">上传字体文件</p>
           <div
-            className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
+            className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-body text-muted-foreground"
             onClick={() => fileRef.current?.click()}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -142,11 +142,11 @@ export default function FontsPage() {
               <Type className="h-5 w-5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-medium">{f.name}</p>
-                <p className="truncate text-xs" style={{ fontFamily: f.name }}>
+                <p className="truncate text-label" style={{ fontFamily: f.name }}>
                   永和九年,岁在癸丑,暮春之初。The quick brown fox.
                 </p>
               </div>
-              {f.isSystem && <span className="text-xs text-muted-foreground">系统</span>}
+              {f.isSystem && <span className="text-label text-muted-foreground">系统</span>}
               <Switch checked={f.isActive} onCheckedChange={() => toggleActive(f)} />
               <Button variant="ghost" size="icon" onClick={() => remove(f.id)}>
                 <Trash2 className="h-4 w-4" />

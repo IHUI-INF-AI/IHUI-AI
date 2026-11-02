@@ -122,7 +122,7 @@ export function AgentSessionList({ agentId }: Props) {
 
   if (!agentId) {
     return (
-      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-xs text-muted-foreground">
+      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-label text-muted-foreground">
         选择 Agent 后查看会话历史
       </div>
     )
@@ -136,14 +136,14 @@ export function AgentSessionList({ agentId }: Props) {
       </div>
       <div className="flex-1 overflow-auto px-2 py-1">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center py-8 text-label text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             加载中...
           </div>
         ) : err ? (
-          <div className="px-2 py-4 text-center text-xs text-destructive">{err}</div>
+          <div className="px-2 py-4 text-center text-label text-destructive">{err}</div>
         ) : sessions.length === 0 ? (
-          <div className="px-2 py-8 text-center text-xs text-muted-foreground">暂无会话</div>
+          <div className="px-2 py-8 text-center text-label text-muted-foreground">暂无会话</div>
         ) : (
           <div className="space-y-1">
             {sessions.map((s) => {
@@ -156,7 +156,7 @@ export function AgentSessionList({ agentId }: Props) {
                   className="w-full rounded-sm px-2 py-2 text-left transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                    <span className="min-w-0 flex-1 truncate font-mono text-label">
                       {truncate(s.id)}
                     </span>
                     <span
@@ -194,12 +194,12 @@ export function AgentSessionList({ agentId }: Props) {
           </DialogHeader>
           <div className="max-h-[55vh] overflow-auto rounded-md border bg-background p-3">
             {msgLoading ? (
-              <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+              <div className="flex items-center justify-center py-8 text-label text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 加载消息...
               </div>
             ) : messages.length === 0 ? (
-              <div className="py-8 text-center text-xs text-muted-foreground">暂无消息</div>
+              <div className="py-8 text-center text-label text-muted-foreground">暂无消息</div>
             ) : (
               <div className="space-y-3">
                 {messages.map((m, i) => (
@@ -208,7 +208,7 @@ export function AgentSessionList({ agentId }: Props) {
                       <span className="font-medium uppercase">{m.role}</span>
                       <span>{timeFmt.format(new Date(m.ts))}</span>
                     </div>
-                    <div className="whitespace-pre-wrap break-words rounded-md bg-muted/50 px-3 py-2 text-xs">
+                    <div className="whitespace-pre-wrap break-words rounded-md bg-muted/50 px-3 py-2 text-label">
                       {m.content}
                     </div>
                   </div>

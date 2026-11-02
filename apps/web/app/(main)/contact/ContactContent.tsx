@@ -131,7 +131,7 @@ export function ContactContent({
                   <Icon className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div className="text-label text-muted-foreground">{label}</div>
                   <div className="mt-1 truncate text-body font-medium">{value}</div>
                 </div>
               </a>
@@ -147,21 +147,25 @@ export function ContactContent({
           </div>
           <div className="space-y-2">
             <h2 className="text-lg font-semibold">{t('addressTitle')}</h2>
-            <p className="text-sm text-muted-foreground">{company.name}</p>
+            <p className="text-body text-muted-foreground">{company.name}</p>
             {company.merchantId && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {t('merchantIdLabel')}:{company.merchantId}
               </p>
             )}
-            {company.address && <p className="text-sm text-muted-foreground">{company.address}</p>}
+            {company.address && (
+              <p className="text-body text-muted-foreground">{company.address}</p>
+            )}
           </div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="mt-12 rounded-2xl border bg-primary/5 p-3 text-center">
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('ctaTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('ctaTitle')}
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('ctaSubtitle')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

@@ -255,7 +255,7 @@ function useOrchFetch<T>(url: string | null, intervalMs?: number): FetchState<T>
 
 function Spinner({ label }: { label?: string }) {
   return (
-    <div className="flex h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
+    <div className="flex h-32 items-center justify-center gap-2 text-body text-muted-foreground">
       <Loader2 className="h-4 w-4 animate-spin" />
       {label && <span>{label}</span>}
     </div>
@@ -264,7 +264,7 @@ function Spinner({ label }: { label?: string }) {
 
 function Unavailable({ message }: { message: string }) {
   return (
-    <div className="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+    <div className="flex h-32 flex-col items-center justify-center gap-2 text-body text-muted-foreground">
       <AlertCircle className="h-5 w-5 text-amber-400" />
       <span>{message}</span>
     </div>
@@ -338,7 +338,7 @@ function EventFeedTab() {
     <div className="flex flex-col gap-3">
       {/* 顶部统计条 */}
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
-        <div className="flex items-center gap-1.5 text-xs">
+        <div className="flex items-center gap-1.5 text-label">
           <Zap className="h-3.5 w-3.5 text-amber-400" />
           <span className="text-muted-foreground">{t('events.events24h')}</span>
           <span className="font-semibold tabular-nums">{formatNumber(stats.total)}</span>
@@ -360,7 +360,7 @@ function EventFeedTab() {
           <button
             type="button"
             onClick={refresh}
-            className="inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs transition-colors hover:bg-accent"
+            className="inline-flex h-7 items-center gap-1 rounded-sm px-2 text-label transition-colors hover:bg-accent"
           >
             <RefreshCw className="h-3 w-3" />
             <span>{t('events.refresh')}</span>
@@ -374,7 +374,7 @@ function EventFeedTab() {
           type="button"
           onClick={() => setPillarFilter(null)}
           className={cn(
-            'rounded-sm border px-2 py-1 text-xs transition-colors',
+            'rounded-sm border px-2 py-1 text-label transition-colors',
             pillarFilter === null
               ? 'border-brand-accent-deep bg-cta text-cta-foreground'
               : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
@@ -388,7 +388,7 @@ function EventFeedTab() {
             type="button"
             onClick={() => setPillarFilter(p)}
             className={cn(
-              'rounded-sm border px-2 py-1 text-xs transition-colors',
+              'rounded-sm border px-2 py-1 text-label transition-colors',
               pillarFilter === p
                 ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                 : cn('hover:opacity-80', pillarStyle(p)),
@@ -535,7 +535,7 @@ function DecisionsTab() {
                 key={id}
                 className="rounded-md border border-border bg-card/40 px-2.5 py-2 backdrop-blur-sm"
               >
-                <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-label">
                   <span className="text-muted-foreground">{relativeTime(d.ts)}</span>
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                   <span className="truncate text-foreground">
@@ -1054,7 +1054,7 @@ export function OrchestrationHubPanel() {
               onClick={() => setActiveTab(tab.key)}
               aria-pressed={active}
               className={cn(
-                'inline-flex h-7 items-center gap-1 rounded-sm px-2.5 text-xs transition-colors',
+                'inline-flex h-7 items-center gap-1 rounded-sm px-2.5 text-label transition-colors',
                 active
                   ? 'bg-cta text-cta-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',

@@ -108,7 +108,7 @@ export default function AdminMonitorDashboardPage() {
           <LayoutDashboard className="h-6 w-6 text-primary" />
           系统监控概览
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           CPU / 内存 / 请求 监控(无数据源的项标未判定)
         </p>
       </div>
@@ -132,7 +132,7 @@ export default function AdminMonitorDashboardPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               </div>
             ) : services.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">暂无服务数据</p>
+              <p className="py-6 text-center text-body text-muted-foreground">暂无服务数据</p>
             ) : (
               <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
                 {services.map((s) => {
@@ -157,7 +157,10 @@ export default function AdminMonitorDashboardPage() {
                           <XCircle className="h-3.5 w-3.5 text-danger-text" />
                         )}
                         <span
-                          className={cn('text-xs', ok ? 'text-success-text' : 'text-danger-text')}
+                          className={cn(
+                            'text-label',
+                            ok ? 'text-success-text' : 'text-danger-text',
+                          )}
                         >
                           {s.latency === null ? '未判定' : `${s.latency}ms`}
                         </span>
@@ -181,7 +184,7 @@ export default function AdminMonitorDashboardPage() {
             <div className="grid grid-cols-2 gap-3">
               {perfCards.map((c) => (
                 <div key={c.label} className="rounded-md border p-3">
-                  <div className="text-xs text-muted-foreground">{c.label}</div>
+                  <div className="text-label text-muted-foreground">{c.label}</div>
                   <div className={cn('mt-1 text-heading font-bold', c.cls)}>
                     {c.value === null ? (
                       <span className="text-base font-medium text-muted-foreground">未判定</span>
@@ -222,7 +225,7 @@ export default function AdminMonitorDashboardPage() {
               后端至今没有 QPS 时序数据源 ⇒ 这里显式「未判定」,不画假曲线。 */}
           <div className="py-6 text-center" data-qps-unjudged>
             <div className="text-display font-bold text-muted-foreground">未判定</div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-label text-muted-foreground">
               后端暂无 QPS 时序数据源,此处不冒充读数(旧实现为随机生成的假曲线)。
             </p>
           </div>

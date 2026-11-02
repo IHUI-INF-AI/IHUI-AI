@@ -49,7 +49,7 @@ export function HomeScenarios() {
           03
         </div>
         <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <h3 className="font-edix text-label uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
       </RevealOnView>
@@ -79,7 +79,7 @@ export function HomeScenarios() {
             </div>
 
             {/* 痛点 → 收益 */}
-            <div className="relative flex items-center gap-2 text-sm min-[640px]:ml-auto min-[640px]:text-base">
+            <div className="relative flex items-center gap-2 text-body min-[640px]:ml-auto min-[640px]:text-base">
               <span className="text-destructive/60">{painPoint}</span>
               <ArrowRight
                 className="h-4 w-4 shrink-0 text-muted-foreground/40"

@@ -138,7 +138,7 @@ export default function RelayPluginsPage() {
             <Blocks className="h-5 w-5" aria-hidden />
             插件系统
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             声明式插件,零任意代码执行;请求拦截在计费/审计前生效(403),上游头注入作用于全部渠道直连路径。
           </p>
         </div>
@@ -147,7 +147,7 @@ export default function RelayPluginsPage() {
           <span>刷新</span>
         </Button>
       </div>
-      {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+      {msg && <p className="text-body text-muted-foreground">{msg}</p>}
 
       {/* 安装表单 */}
       <div className="rounded-lg border bg-card p-3 space-y-2">
@@ -164,7 +164,7 @@ export default function RelayPluginsPage() {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
           <select
-            className="rounded-sm border bg-background px-3 py-2 text-sm"
+            className="rounded-sm border bg-background px-3 py-2 text-body"
             value={form.pluginType}
             onChange={(e) => setForm({ ...form, pluginType: e.target.value, config: '' })}
             aria-label="插件类型"
@@ -174,7 +174,7 @@ export default function RelayPluginsPage() {
           </select>
         </div>
         <textarea
-          className="min-h-[72px] w-full rounded-sm border bg-background px-3 py-2 font-mono text-xs"
+          className="min-h-[72px] w-full rounded-sm border bg-background px-3 py-2 font-mono text-label"
           placeholder={`JSON 配置,如 ${TYPE_PLACEHOLDER[form.pluginType]}`}
           value={form.config}
           onChange={(e) => setForm({ ...form, config: e.target.value })}
@@ -192,7 +192,7 @@ export default function RelayPluginsPage() {
           加载中...
         </div>
       ) : (q.data ?? []).length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">暂无插件</p>
+        <p className="py-12 text-center text-body text-muted-foreground">暂无插件</p>
       ) : (
         <div className="space-y-3">
           {(q.data ?? []).map((p) => (
@@ -200,16 +200,16 @@ export default function RelayPluginsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-body font-medium">{p.name}</p>
                 <Badge status={p.status} />
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                <span className="rounded-md bg-muted px-2 py-0.5 text-label">
                   {TYPE_LABEL[p.pluginType] ?? p.pluginType}
                 </span>
-                <span className="text-xs text-muted-foreground">优先级 {p.priority}</span>
+                <span className="text-label text-muted-foreground">优先级 {p.priority}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {p.pluginKey}
                 {p.description ? ` · ${p.description}` : ''}
               </p>
-              <pre className="overflow-x-auto rounded-md bg-muted/50 p-2 text-xs">
+              <pre className="overflow-x-auto rounded-md bg-muted/50 p-2 text-label">
                 {JSON.stringify(p.config, null, 2)}
               </pre>
               <div className="flex gap-2 pt-1">

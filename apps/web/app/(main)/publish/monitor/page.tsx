@@ -77,7 +77,7 @@ export default function MonitorPage() {
           <BarChart3 className="h-8 w-8 text-muted-foreground" />
           <div className="space-y-1 text-center">
             <p className="text-body font-medium">{t('emptyTitle')}</p>
-            <p className="text-xs text-muted-foreground">{t('emptyHint')}</p>
+            <p className="text-label text-muted-foreground">{t('emptyHint')}</p>
           </div>
           <Link href="/publish/new">
             <Button size="sm" variant="outline">

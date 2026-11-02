@@ -70,10 +70,10 @@ export default function PdfWatermarkPage() {
           label={t('uploadLabel')}
         />
       ) : (
-        <div className="flex items-center gap-3 rounded-lg border bg-card p-3 text-sm">
+        <div className="flex items-center gap-3 rounded-lg border bg-card p-3 text-body">
           <FileText className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex-1 truncate">{file.name}</span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {(file.size / 1024).toFixed(1)} {t('fileSizeUnit')}
           </span>
           <Button
@@ -150,7 +150,7 @@ export default function PdfWatermarkPage() {
               type="button"
               onClick={() => setPosition(p.key)}
               className={cn(
-                'rounded-sm border px-3 py-2 text-sm transition-colors',
+                'rounded-sm border px-3 py-2 text-body transition-colors',
                 position === p.key
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'hover:bg-accent',

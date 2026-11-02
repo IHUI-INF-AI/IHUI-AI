@@ -127,7 +127,7 @@ export default function AiSkillDetailPage() {
   if (isLoading) {
     return (
       <div className="mx-auto w-full max-w-3xl py-8">
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{tp('loading')}</span>
         </div>
@@ -139,7 +139,7 @@ export default function AiSkillDetailPage() {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <BackLink />
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('notFound')}
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function AiSkillDetailPage() {
               </Link>
             )}
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-label text-muted-foreground">
             {tp(
               `category${skill.category === 'ai-top' ? 'AiTop' : skill.category === 'code' ? 'Code' : 'Media'}` as 'categoryCode',
             )}
@@ -226,7 +226,7 @@ export default function AiSkillDetailPage() {
         <h2 className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
           {t('sectionMeta')}
         </h2>
-        <p className="text-sm leading-relaxed text-foreground/90">{skill.description}</p>
+        <p className="text-body leading-relaxed text-foreground/90">{skill.description}</p>
         {skill.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {skill.tags.map((tag: string) => (
@@ -244,7 +244,7 @@ export default function AiSkillDetailPage() {
             href={skill.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-label text-foreground transition-colors hover:bg-accent"
           >
             <Code className="h-3.5 w-3.5" />
             {t('openGitHub')}
@@ -275,7 +275,7 @@ export default function AiSkillDetailPage() {
               toast.error(t('exportError'))
             }
           }}
-          className="inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+          className="inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2.5 py-1 text-label text-foreground transition-colors hover:bg-accent"
         >
           <Download className="h-3.5 w-3.5" />
           {t('exportBtn')}
@@ -283,7 +283,7 @@ export default function AiSkillDetailPage() {
         {/* 版本信息 */}
         {(skill as unknown as Record<string, unknown>).version ||
         (skill as unknown as Record<string, unknown>).updatedAt ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             {(skill as unknown as Record<string, unknown>).version ? (
               <>
                 {t('versionLabel')}: v
@@ -357,7 +357,7 @@ export default function AiSkillDetailPage() {
                       maxLength={maxLen}
                       rows={key === 'content' || key === 'text' ? 4 : 3}
                       className={cn(
-                        'thin-scroll w-full resize-none rounded-sm border bg-background px-3 py-1.5 text-sm leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
+                        'thin-scroll w-full resize-none rounded-sm border bg-background px-3 py-1.5 text-body leading-snug outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
                         isMissing ? 'border-destructive/60' : 'border-border',
                       )}
                     />
@@ -382,7 +382,7 @@ export default function AiSkillDetailPage() {
                       placeholder={t(placeholderKey)}
                       aria-label={t(labelKey)}
                       className={cn(
-                        'w-full rounded-sm border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
+                        'w-full rounded-sm border bg-background px-3 py-1.5 text-body outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30',
                         isMissing ? 'border-destructive/60' : 'border-border',
                       )}
                     />
@@ -393,7 +393,7 @@ export default function AiSkillDetailPage() {
           </div>
 
           {invokeError && (
-            <div className="flex items-center gap-1.5 rounded-md border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+            <div className="flex items-center gap-1.5 rounded-md border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-label text-destructive">
               <XCircle className="h-3.5 w-3.5 shrink-0" />
               <span>{invokeError}</span>
             </div>
@@ -405,7 +405,7 @@ export default function AiSkillDetailPage() {
               onClick={handleSubmit}
               disabled={running}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
                 running
                   ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
                   : 'bg-cta text-cta-foreground hover:bg-cta/90',
@@ -432,7 +432,7 @@ export default function AiSkillDetailPage() {
             <Sparkles className="h-4 w-4 text-primary" />
             {t('comingSoonTitle')}
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('comingSoonHint')}</p>
+          <p className="text-label leading-relaxed text-muted-foreground">{t('comingSoonHint')}</p>
         </section>
       )}
 
@@ -456,7 +456,7 @@ export default function AiSkillDetailPage() {
             <button
               type="button"
               onClick={() => sendToChat(result.content)}
-              className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-xs text-cta-foreground transition-colors hover:bg-cta/90"
+              className="inline-flex items-center gap-1 rounded-sm bg-cta px-3 py-1.5 text-label text-cta-foreground transition-colors hover:bg-cta/90"
             >
               <MessageSquare className="h-3 w-3" />
               {t('sendToChat')}
@@ -479,7 +479,7 @@ function BackLink() {
   return (
     <Link
       href="/ai-skills"
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
     >
       <ArrowLeft className="h-4 w-4" />
       {t('backToList')}
@@ -517,7 +517,7 @@ function ResultContent({ result }: ResultContentProps) {
     )
   }
   return (
-    <div className="thin-scroll max-h-[280px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm leading-relaxed">
+    <div className="thin-scroll max-h-[280px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-body leading-relaxed">
       {result.content || t('resultEmpty')}
     </div>
   )
@@ -570,7 +570,7 @@ function FeedbackSection({
         {t('feedbackTitle')}
       </h2>
       {submitted ? (
-        <p className="flex items-center gap-1.5 text-sm text-emerald-600">
+        <p className="flex items-center gap-1.5 text-body text-emerald-600">
           <CheckCircle2 className="h-4 w-4" />
           {t('feedbackSubmitted')}
         </p>
@@ -610,7 +610,7 @@ function FeedbackSection({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder={t('feedbackCommentPlaceholder')}
-              className="w-full rounded-sm border border-border bg-background px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
+              className="w-full rounded-sm border border-border bg-background px-3 py-1.5 text-body outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
             />
           </div>
           {/* 提交按钮 */}
@@ -620,7 +620,7 @@ function FeedbackSection({
               onClick={handleSubmit}
               disabled={submitting}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-body transition-colors',
                 submitting
                   ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
                   : 'bg-cta text-cta-foreground hover:bg-cta/90',
@@ -667,12 +667,12 @@ function RecommendationsSection({
         <p className="text-[11px] text-muted-foreground/70">{t('relatedHint')}</p>
       </div>
       {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>{t('relatedLoading')}</span>
         </div>
       ) : recommendations.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('relatedEmpty')}</p>
+        <p className="text-body text-muted-foreground">{t('relatedEmpty')}</p>
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-1">
           {recommendations.map((rec) => (
@@ -687,7 +687,7 @@ function RecommendationsSection({
                 </div>
                 <span className="truncate text-body font-medium">{rec.name}</span>
               </div>
-              <p className="line-clamp-1 text-xs text-muted-foreground">{rec.description}</p>
+              <p className="line-clamp-1 text-label text-muted-foreground">{rec.description}</p>
               {rec.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {rec.tags.slice(0, 3).map((tag) => (

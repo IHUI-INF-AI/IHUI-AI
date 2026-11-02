@@ -83,13 +83,13 @@ export function ResponseViewer({
       <CardContent className="min-[640px]:p-3 flex h-full flex-col p-3">
         <Tabs defaultValue="response" className="flex h-full flex-col">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="response" className="text-xs">
+            <TabsTrigger value="response" className="text-label">
               {t('tabResponse')}
             </TabsTrigger>
-            <TabsTrigger value="code" className="text-xs">
+            <TabsTrigger value="code" className="text-label">
               {t('tabCode')}
             </TabsTrigger>
-            <TabsTrigger value="history" className="text-xs">
+            <TabsTrigger value="history" className="text-label">
               {t('tabHistory', { n: history.length })}
             </TabsTrigger>
           </TabsList>
@@ -97,7 +97,7 @@ export function ResponseViewer({
           {/* 响应 Tab */}
           <TabsContent value="response" className="mt-3 flex-1 overflow-y-auto">
             {error ? (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {error}
               </div>
             ) : displayContent ? (
@@ -108,7 +108,7 @@ export function ResponseViewer({
                 )}
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center py-12 text-body text-muted-foreground">
                 {isStreaming ? t('waitingResponse') : t('clickSendHint')}
               </div>
             )}
@@ -150,7 +150,7 @@ export function ResponseViewer({
                     variant={codeLang === lang ? 'default' : 'outline'}
                     size="xs"
                     onClick={() => setCodeLang(lang)}
-                    className="text-xs"
+                    className="text-label"
                   >
                     {LANG_LABELS[lang]}
                   </Button>
@@ -172,7 +172,7 @@ export function ResponseViewer({
           {/* 历史 Tab */}
           <TabsContent value="history" className="mt-3 flex-1 overflow-y-auto">
             {history.length === 0 ? (
-              <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center py-12 text-body text-muted-foreground">
                 <History className="mr-2 h-4 w-4" />
                 {t('noHistory')}
               </div>
@@ -183,7 +183,7 @@ export function ResponseViewer({
                     variant="ghost"
                     size="xs"
                     onClick={onClearHistory}
-                    className="text-xs text-muted-foreground hover:text-destructive"
+                    className="text-label text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-3 w-3" />
                     {tc('clear')}

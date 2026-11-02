@@ -109,12 +109,12 @@ export default function AgentTeamsPage() {
         {statChips.map((chip) => (
           <div key={chip.label} className="rounded-lg border bg-card p-3">
             <div className="text-lg font-semibold tabular-nums">{chip.value}</div>
-            <div className="text-xs text-muted-foreground">{chip.label}</div>
+            <div className="text-label text-muted-foreground">{chip.label}</div>
           </div>
         ))}
       </div>
 
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-4 text-body text-destructive">{error}</p>}
 
       {/* 状态筛选 + 列表/详情双栏 */}
       <div className="mb-3 flex flex-wrap gap-2">
@@ -131,7 +131,7 @@ export default function AgentTeamsPage() {
               type="button"
               onClick={() => setFilter(f)}
               className={cn(
-                'rounded-sm border px-3 py-1 text-xs transition-colors',
+                'rounded-sm border px-3 py-1 text-label transition-colors',
                 filter === f
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent',
@@ -146,11 +146,11 @@ export default function AgentTeamsPage() {
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="w-full shrink-0 rounded-xl border p-3 lg:w-96">
           {loading && dispatches.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
               <RefreshCw className="h-4 w-4 animate-spin" />
             </div>
           ) : filtered.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="py-10 text-center text-body text-muted-foreground">{t('empty')}</p>
           ) : (
             <ul className="max-h-[32rem] space-y-1 overflow-y-auto thin-scroll">
               {filtered.map((d) => (
@@ -188,7 +188,7 @@ export default function AgentTeamsPage() {
         {selected ? (
           <RunDetail dispatch={selected} />
         ) : (
-          <div className="flex min-w-0 flex-1 items-center justify-center rounded-xl border p-10 text-sm text-muted-foreground">
+          <div className="flex min-w-0 flex-1 items-center justify-center rounded-xl border p-10 text-body text-muted-foreground">
             {t('selectHint')}
           </div>
         )}

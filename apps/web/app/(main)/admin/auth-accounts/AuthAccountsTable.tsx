@@ -37,8 +37,8 @@ export function AuthAccountsTable({
   return (
     <>
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className={th}>ID</th>
               <th className={th}>{t('colUserUuid')}</th>
@@ -72,7 +72,7 @@ export function AuthAccountsTable({
                   <td className="px-4 py-2.5">{item.id}</td>
                   <td className="px-4 py-2.5 font-medium">{item.userUuid}</td>
                   <td className="px-4 py-2.5">{item.platform}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{item.openId}</td>
+                  <td className="px-4 py-2.5 text-label text-muted-foreground">{item.openId}</td>
                   <td className="px-4 py-2.5">{item.platformName ?? '-'}</td>
                   <td className="px-4 py-2.5">{item.nickname ?? '-'}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{item.expiresAt ?? '-'}</td>
@@ -100,7 +100,7 @@ export function AuthAccountsTable({
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-body">
           <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button

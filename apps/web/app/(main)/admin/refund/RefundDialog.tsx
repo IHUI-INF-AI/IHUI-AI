@@ -69,14 +69,14 @@ export function RefundDialog({
             </DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
           {action && (
-            <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-              <div className="font-mono text-xs">{action.refund.orderNo}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+            <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
+              <div className="font-mono text-label">{action.refund.orderNo}</div>
+              <div className="mt-0.5 text-label text-muted-foreground">
                 {currencyFmt.format(Number(action.refund.refundAmount))} ·{' '}
                 {t(STATUS_KEY[action.refund.status] ?? 'status_unknown')}
               </div>
