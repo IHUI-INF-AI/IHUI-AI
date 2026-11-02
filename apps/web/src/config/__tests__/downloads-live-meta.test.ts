@@ -253,7 +253,7 @@ describe('mergeLiveMeta / liveEntryView —— 底稿与真值只有一条合并
     })
     expect(merged.version).toBe('0.1.76')
   })
-  it('侧栏投影与详情页同一规则:非 live 一律回落底稿 href', () => {
+  it('非 live 一律回落底稿 href:解析失败不把入口判死', () => {
     expect(
       liveEntryView({ platform: 'ios', source: 'snapshot', resolvedAt: NOW }, '/fallback'),
     ).toEqual({
@@ -261,6 +261,8 @@ describe('mergeLiveMeta / liveEntryView —— 底稿与真值只有一条合并
       hasLiveAsset: false,
     })
     expect(liveEntryView(null, '/fallback').href).toBe('/fallback')
+  })
+  it('底稿已有去处 ⇒ 运行期资产不得覆写点击语义(版本号照样取真值)', () => {
     expect(
       liveEntryView(
         {
@@ -270,16 +272,30 @@ describe('mergeLiveMeta / liveEntryView —— 底稿与真值只有一条合并
           assets: [{ href: 'https://x/ipa', sizeBytes: 1, format: 'iOS IPA (TrollStore)' }],
           resolvedAt: NOW,
         },
-        '/fallback',
+        '/download/ios',
       ),
-    ).toEqual({ version: '9', href: 'https://x/ipa', hasLiveAsset: true })
+    ).toEqual({ version: '9', href: '/download/ios', hasLiveAsset: true })
+  })
+  it('底稿为空(该端未接入)⇒ 运行期一有货就点亮,不必等重新构建', () => {
+    expect(
+      liveEntryView(
+        {
+          platform: 'wechat-miniapp',
+          source: 'live',
+          version: '1.2.3',
+          assets: [{ href: 'https://x/qr', sizeBytes: 0, format: '微信小程序' }],
+          resolvedAt: NOW,
+        },
+        '',
+      ),
+    ).toEqual({ version: '1.2.3', href: 'https://x/qr', hasLiveAsset: true })
   })
   it('live 但没资产 ⇒ 落点仍用底稿,且不算"有可点安装包"', () => {
     const view = liveEntryView(
       { platform: 'cli', source: 'live', version: '2.3.1', assets: [], resolvedAt: NOW },
-      '/guide',
+      '/download/cli',
     )
-    expect(view).toEqual({ version: '2.3.1', href: '/guide', hasLiveAsset: false })
+    expect(view).toEqual({ version: '2.3.1', href: '/download/cli', hasLiveAsset: false })
   })
 })
 

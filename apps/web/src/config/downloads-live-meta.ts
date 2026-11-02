@@ -325,10 +325,11 @@ export interface LiveEntryView {
 }
 
 /**
- * 侧边栏「下载」栏用的投影:与 `mergeLiveMeta` 同一条规则(只有 live 才覆盖),
- * 只是产出形态是列表项要的那三件(版本号 / 按钮落点 / 算不算已接入)。
- * `fallbackHref` 是构建期底稿的 href —— 运行期取不到时**照旧用它**,
- * 于是解析失败的表现是"版本旧一格",而不是"整栏灰掉点不动"。
+ * 侧边栏「下载」栏用的投影:与 `mergeLiveMeta` 同一条"只有 live 才覆盖"的规则,
+ * 但**落点(href)只在底稿为空时才由运行期资产补上** —— 底稿非空说明那一格本来就有既定
+ * 去处:desktop / extension / cli 指的是站内详情页 `/download/<端>`,不是裸文件链接。
+ * 覆写它等于替机主改掉点击语义(点了直接开始下载文件),那不是"实时更新"要的事。
+ * 版本号仍一律取运行期真值 —— 徽章说的是"最新已发布版本",与点进去看哪一页无关。
  */
 export function liveEntryView(
   live: LivePlatformInfo | null | undefined,
@@ -340,7 +341,7 @@ export function liveEntryView(
   const assetHref = live.assets?.[0]?.href ?? ''
   return {
     version: live.version,
-    href: assetHref === '' ? fallbackHref : assetHref,
+    href: fallbackHref !== '' || assetHref === '' ? fallbackHref : assetHref,
     hasLiveAsset: assetHref !== '',
   }
 }
