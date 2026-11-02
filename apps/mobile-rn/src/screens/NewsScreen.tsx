@@ -460,6 +460,7 @@ export default function NewsScreenWrapper() {
         </NavChrome>
         <SharedSquareScreen
           t={t}
+          onRetry={() => { void load(1, false); }}
           colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           items={items}
           loading={loading}
