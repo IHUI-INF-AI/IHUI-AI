@@ -280,7 +280,23 @@ function takeEvidence({ withEas = true, withConfig = true }) {
     return r.code === 0 ? { status: STATUS.FOUND, detail: firstMeaningfulLine(r.out) } : { status: STATUS.MISSING, detail: '本机无 Xcode ⇒ iOS 只能走 EAS 云端构建(记录形态,不阻塞)' }
   })()
 
-  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, latest, apple, xcode }
+  // 生产承载面(2026-11-02 现读:本机 Get-Service IHUI-* 零命中、无 IHUI-DEPLOYLOOP 计划任务,
+  // 8801/8806/8807 是 dev 栈端口)⇒ 站点腿"落不了地"的根因不是目录被误删,而是这台机不承载生产。
+  // 报告必须把这两件事分开,否则会把"去恢复一个本来就不该在这台机上的目录"当成出路推给人。
+  const prodHost = (() => {
+    const r = sh(
+      'pwsh.exe',
+      ['-NoProfile', '-Command', "(Get-Service -Name 'IHUI-*' -ErrorAction SilentlyContinue).Name -join ','"],
+      { cwd: ROOT, timeout: 60000 },
+    )
+    if (r.code !== 0 && !r.out) return { status: STATUS.UNJUDGED, detail: `pwsh 取服务面失败(exit=${r.code})⇒ 不判承载面` }
+    const names = r.out.trim()
+    return names
+      ? { status: STATUS.FOUND, detail: `本机承载 IHUI 服务:${names}` }
+      : { status: STATUS.MISSING, detail: '本机零 IHUI-* 服务 ⇒ 不承载生产;站点腿落点在别处,需生产侧通道而非在本机造目录' }
+  })()
+
+  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, prodHost, latest, apple, xcode }
 }
 
 // ── 腿注册表:每条腿 = 一组现读判据 + 一条真跑得通的命令 ──
@@ -295,13 +311,13 @@ export function buildLegs(ev) {
       { k: `渠道 ${name}`, ...ch(name) },
       { k: 'updates.url', status: ev.appJson?.updates?.url ? STATUS.FOUND : STATUS.MISSING, detail: ev.appJson?.updates?.url ?? 'app.json 未配 expo.updates.url' },
     ],
-    command: `eas update --channel ${name} --platform android --message "<本次说明>" --non-interactive`,
+    command: `eas update --channel ${name} --environment ${name} --platform android --message "<本次说明>" --non-interactive`,
   })
   return [
     {
       id: 'site-apk',
       title: 'Android → 官网固定地址 + 端内更新卡',
-      checks: [{ k: '正式签名件', ...ev.signing }, { k: '站点落点', ...ev.site }, { k: '线上 latest 登记(android)', ...ev.latest.android }],
+      checks: [{ k: '正式签名件', ...ev.signing }, { k: '站点落点', ...ev.site }, { k: '本机生产承载面', ...ev.prodHost }, { k: '线上 latest 登记(android)', ...ev.latest.android }],
       command: 'pwsh -File scripts/build-mobile-rn-release.ps1   # 出包链尾自动走 publish-mobile-apk.mjs(含 app_versions 登记)',
     },
     {
@@ -437,7 +453,7 @@ async function main() {
     }
     const channel = id.replace('ota-', '')
     const message = opt('m') ?? opt('message') ?? `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
-    const r = ev.eas(['update', '--channel', channel, '--platform', 'android', '--message', message, '--non-interactive'], { timeout: 900000 })
+    const r = ev.eas(['update', '--channel', channel, '--environment', channel, '--platform', 'android', '--message', message, '--non-interactive'], { timeout: 900000 })
     console.log(`eas update(${channel}) exit=${r.code} ${firstMeaningfulLine(r.out) || firstMeaningfulLine(r.err)}`)
     const back = findChannel(ev.eas(['channel:list', '--json']).out, channel)
     console.log(`回读渠道:${back.status} ${back.detail}`)
@@ -481,6 +497,11 @@ function selfTest() {
   const defectShape = `module.exports = ({ config }) => ({ version: process.env.IHUI_MOBILE_VERSION, runtimeVersion: process.env.IHUI_MOBILE_VERSION })`
   eq('反例:桶随显示版本漂移 ⇒ 判 missing', probeRuntimeVersion(defectShape).status, STATUS.MISSING)
   eq('反例:桶恒缺 ⇒ 判 missing', probeRuntimeVersion('module.exports = () => ({ version: process.env.IHUI_MOBILE_VERSION })').status, STATUS.MISSING)
+  // 出路可跑性锁:`eas update --non-interactive` 缺 --environment 会当场报 "The --environment flag must be set"
+  // (2026-11-02 冒烟实测)⇒ 命令形态一旦被改回去,这枚锁必须翻红,而不是等到真要发布那天才发现
+  const self = readFileSync(join(ROOT, 'scripts', 'release-mobile-rn.mjs'), 'utf8')
+  eq('OTA 执行参数带 --environment', self.includes(" '--environment', channel"), true)
+  eq('OTA 展示命令带 --environment', /eas update --channel \$\{name\} --environment \$\{name\}/.test(self), true)
   const fail = cases.filter((c) => !c.pass).length
   for (const c of cases) console.log(`${c.pass ? 'PASS' : 'FAIL'} ${c.name}${c.pass ? '' : ` got=${JSON.stringify(c.got)} want=${JSON.stringify(c.want)}`}`)
   console.log(`SELF-TEST cases=${cases.length} fail=${fail}`)
