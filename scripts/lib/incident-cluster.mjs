@@ -130,6 +130,66 @@ export function errorCodeOf(message) {
   return null
 }
 
+/** TypeScript 编译器诊断码(`TS2339` 形态)的**唯一族名**。 */
+export const TS_CODE_FAMILY = 'TS-COMPILE'
+const TS_DIAGNOSTIC_RE = /\bTS\d{4}\b/g
+const TS_CODE_EXACT_RE = /^TS\d{4}$/
+
+/**
+ * 部署结果来源的唯一名。它的 route 是闭集(`deploy/<action>`,由 deploy-decision.mjs 的
+ * ACTION enums 卡死),action 本身就是"哪一类部署异常"的完整体裁,不再需要把自由文本里
+ * 抽到的码挂进身份去二次分裂同一件事。
+ */
+export const DEPLOY_SOURCE = 'deploy_outcome'
+
+/**
+ * 收集消息里出现的全部 TS 诊断码(按出现序去重,最多 `max` 枚)。
+ * 立因(2026-11-02,B87/B88/B91):部署信号里只有一行指纹,不同重试轮的末次报错可能是
+ * TS2339 / TS2554;按"具体编号"做身份或证据会丢掉同题的另一半。把码收成一列,
+ * 身份用族名(`errorCodeFamilyOf`),证据保留具体编号 —— 聚合与可定位不再二选一。
+ */
+export function tsCodesOf(message, max = 8) {
+  const codes = []
+  for (const m of String(message ?? '').matchAll(TS_DIAGNOSTIC_RE)) {
+    const c = m[0].toUpperCase()
+    if (!codes.includes(c)) codes.push(c)
+    if (codes.length >= max) break
+  }
+  return codes
+}
+
+/** 错误码族:TS 诊断码无论编号多少都是同一个编译器门,其余码原样返回。 */
+export function errorCodeFamilyOf(code) {
+  const c = String(code ?? '').trim().toUpperCase()
+  if (!c) return ''
+  return TS_CODE_EXACT_RE.test(c) ? TS_CODE_FAMILY : c
+}
+
+/** 身份拆成「基底 + 可选 code 段」;code 段只认最后一个 `|code:`(消息签名里出现同形文本时不误切)。 */
+function splitIdentityCode(identity) {
+  const s = String(identity ?? '')
+  const i = s.lastIndexOf('|code:')
+  if (i < 0) return { base: s, code: '' }
+  return { base: s.slice(0, i), code: s.slice(i + 6) }
+}
+
+/**
+ * 新旧身份是否指同一件事(去重面用)。两条兼容:
+ *  - deploy_outcome 旧身份把具体 TS 码挂在 route 后(新身份按 route 归一,不带码)⇒ 基底相同即同一件事;
+ *  - 非部署来源的 TS 诊断码旧身份是具体编号、新身份是族名 `TS-COMPILE` ⇒ 两向认账。
+ * 兼容只用于**比较**,不改变新身份的生成;否则修完当天旧台账认不出新键,立刻多登记一张票。
+ */
+export function sameIncidentIdentity(a, b) {
+  const x = splitIdentityCode(a)
+  const y = splitIdentityCode(b)
+  if (!x.base || !y.base) return false
+  if (x.base !== y.base) return false
+  if (x.code === y.code) return true
+  if (x.base.startsWith(`${DEPLOY_SOURCE}|`) && (x.code === '' || y.code === '')) return true
+  return (x.code === TS_CODE_FAMILY && TS_CODE_EXACT_RE.test(y.code)) ||
+    (y.code === TS_CODE_FAMILY && TS_CODE_EXACT_RE.test(x.code))
+}
+
 /** 归一消息是否还剩实义文本(只剩 `:n :uuid` 这类占位符 ⇒ 无法指名承载面)。 */
 export function hasMeaningfulShape(shape) {
   return String(shape ?? '')
@@ -138,11 +198,22 @@ export function hasMeaningfulShape(shape) {
     .length >= 4
 }
 
-/** 稳定语义身份键:source|kind|route[:code] ⇒ 退 code ⇒ 退归一消息。禁止 traceId/时刻/计数。 */
+/**
+ * 稳定语义身份键:source|kind|route[:code] ⇒ 退族化 code ⇒ 退归一消息。禁止 traceId/时刻/计数。
+ *
+ * 两条族化规则(B87/B88/B91 立因,2026-11-02):
+ *  - `deploy_outcome` 的身份**不带码**:route 已由 `deploy/<action>` 闭集卡死,action 就是
+ *    这类部署异常的完整分类;把自由文本里抽到的 TS 编号挂上去,同一件事每换一轮重试
+ *    (TS2339 → TS2554)就多一个键,台账被同一件事刷屏(实证:3 次 build-fail ⇒ 3 张票)。
+ *  - 其余来源的 TS 诊断码一律折成族名 `TS-COMPILE`:它们都是"同一道编译器门"的不同
+ *    报错位置,按编号分身会永远凑不够样本、永远派不出单。证据仍保留具体编号(见
+ *    `clusterSignals` 的 `codes`),聚合与可定位不二选一。
+ */
 export function identityOf(signal) {
   const head = `${signal.source}|${signal.kind}`
   const routeKey = signal.route ? `route:${normalizeRoute(signal.route)}` : ''
-  const code = errorCodeOf(signal.message)
+  const rawCode = errorCodeOf(signal.message)
+  const code = signal.source === DEPLOY_SOURCE ? '' : errorCodeFamilyOf(rawCode)
   if (routeKey) return code ? `${head}|${routeKey}|code:${code}` : `${head}|${routeKey}`
   if (code) return `${head}|code:${code}`
   return `${head}|msg:${normalizeSignature(signal.message)}`
@@ -262,7 +333,8 @@ function assertClusterParams(minCount, windowMinutes) {
  *  - contract       已校验的契约(默认现场读;测试可注入)
  *
  * 返回按「可派单优先 → 计数降序 → 键升序」排序的簇数组:
- *  `{clusterKey, count, firstAt, lastAt, sample, dispatchable, why, severity, source, kind, route, code}`
+ *  `{clusterKey, count, firstAt, lastAt, sample, dispatchable, why, severity, source, kind, route, code, codes}`
+ *  (`code` 是首个抽到的码,`codes` 是该簇内出现过的全部 TS 诊断码 —— 身份按族聚合,证据按编号保留)
  */
 export function clusterSignals(signals, opts = {}) {
   if (!Array.isArray(signals)) throw new IncidentShapeError('signals 必须是数组')
@@ -286,12 +358,15 @@ export function clusterSignals(signals, opts = {}) {
   for (const s of win.inWindow) {
     const key = identityOf(s)
     const ts = Date.parse(s.at)
+    const rawCode = errorCodeOf(s.message)
+    const tsCodes = tsCodesOf(s.message)
     const cur = buckets.get(key) ?? {
       clusterKey: key,
       source: s.source,
       kind: s.kind,
       route: s.route ? normalizeRoute(s.route) : null,
-      code: errorCodeOf(s.message),
+      code: rawCode,
+      codes: tsCodes,
       count: 0,
       firstTs: ts,
       lastTs: ts,
@@ -300,6 +375,9 @@ export function clusterSignals(signals, opts = {}) {
       sevRank: sevEnum.indexOf(s.severity),
     }
     cur.count += 1
+    // 同族不同编号(或首条恰好无码)不丢证据:码取首个非空,编号逐条并入。
+    if (!cur.code && rawCode) cur.code = rawCode
+    for (const c of tsCodes) if (!cur.codes.includes(c)) cur.codes.push(c)
     if (ts < cur.firstTs) {
       cur.firstTs = ts
       cur.sample = s.message
@@ -345,6 +423,7 @@ export function clusterSignals(signals, opts = {}) {
       kind: b.kind,
       route: b.route,
       code: b.code,
+      codes: b.codes,
     }
   })
   clusters.sort(
@@ -359,8 +438,14 @@ export function clusterSignals(signals, opts = {}) {
 export const __test__ = {
   AT_RE,
   CODE_STOPWORDS,
+  TS_CODE_FAMILY,
+  TS_DIAGNOSTIC_RE,
+  DEPLOY_SOURCE,
   normalizeRoute,
   errorCodeOf,
+  tsCodesOf,
+  errorCodeFamilyOf,
+  sameIncidentIdentity,
   hasMeaningfulShape,
   identityOf,
   validateSignal,

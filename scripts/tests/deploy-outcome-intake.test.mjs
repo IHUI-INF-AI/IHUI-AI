@@ -20,7 +20,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { loadContract, validateSignal } from '../lib/incident-cluster.mjs'
+import { loadContract, identityOf, validateSignal } from '../lib/incident-cluster.mjs'
 
 const SRC = resolve(fileURLToPath(import.meta.url), '../../deploy-outcome-intake.mjs')
 const { __test__ } = await import(pathToFileURL(SRC).href)
@@ -198,4 +198,50 @@ test('⑦ 0 信号(只有 pass)仍 exit 0 并打印机器行', () => {
   } finally {
     rmScratch(dir)
   }
+})
+
+// B87/B88/B91 同题三登记:同一 /deploy/build-fail 因每轮重试的末次报错换 TS 号
+// (无码 → TS2339 → TS2554)被旧身份拆成 3 条信号,再各登记一张票。
+// 新口径:deploy_outcome 身份按 route(闭集 action)定,TS 号不进身份 ⇒ 3 条决策只产 1 条信号,
+// 两条 skipped=2;具体编号留给 cluster.codes 作证据(deploy-feedback 侧钉)。
+test('⑧ build-fail 跨 retry 换 TS 码 ⇒ 同 route 只产 1 条信号,旧行仍能去重', () => {
+  const contract = loadContract()
+  const fullReason = (code) =>
+    `构建失败,未切流,保持当前在线版本:next build 连续 1 次失败,保持当前在线版本(末次报错: ./apps/web/src/app/page.tsx:12:34 - error ${code}: Property 'x' does not exist on type 'Y')`
+  const rows = [
+    {
+      line: 1,
+      object: decision({
+        action: 'build-fail',
+        ts: '2026-10-29T07:32:13.093Z',
+        failDims: [],
+        reason: '构建失败,未切流,保持当前在线版本:next build 连续 1 次失败,保持当前在线版本(末轮报错行不可读,exit=1)',
+      }),
+    },
+    { line: 2, object: decision({ action: 'build-fail', ts: '2026-10-29T07:58:38.989Z', failDims: ['web'], reason: fullReason('TS2339') }) },
+    { line: 3, object: decision({ action: 'build-fail', ts: '2026-10-29T08:29:24.187Z', failDims: ['web'], reason: fullReason('TS2554') }) },
+  ]
+  const r = planIntake({ decisions: rows, contract, minutes: DEFAULT_MINUTES, existing: [] })
+  assert.equal(r.signals.length, 1, '同一 route 的三轮构建失败只能产 1 条信号')
+  assert.equal(r.skipped, 2)
+  assert.equal(r.undetermined, 0)
+  assert.equal(r.signals[0].route, 'deploy/build-fail')
+  // 保留同批最晚一轮(08:29 / TS2554):失败原因在最后一轮最可诊断,首轮"末轮报错行不可读"不固化。
+  assert.equal(r.signals[0].at, '2026-10-29T08:29:24.187Z')
+  assert.match(r.signals[0].message, /TS2554/)
+  assert.doesNotMatch(r.signals[0].message, /末轮报错行不可读/)
+  // 身份不带 code:具体 TS 号不再把同一件事拆成多键。
+  assert.equal(identityOf(r.signals[0]), 'deploy_outcome|alert_firing|route:/deploy/build-fail')
+  assert.doesNotMatch(identityOf(r.signals[0]), /code:/)
+
+  // 旧台账兼容:改造前落盘的信号(message 带 TS2339,旧身份带 |code:TS2339)仍按同 route 认账。
+  const legacy = decisionToSignal(rows[1].object, contract).signal
+  const again = planIntake({
+    decisions: [{ line: 1, object: decision({ action: 'build-fail', ts: '2026-10-29T09:10:00.000Z', reason: fullReason('TS2554') }) }],
+    contract,
+    minutes: DEFAULT_MINUTES,
+    existing: [legacy],
+  })
+  assert.equal(again.signals.length, 0, '旧信号行必须仍能拦住同一 route 的新信号(否则修复当天就多一条)')
+  assert.equal(again.skipped, 1)
 })
