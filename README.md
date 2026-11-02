@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 315 | `guardianGates` |
 | — blocking | 286 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18822 | `trackedFiles` |
+| 跟踪文件 | 18827 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5448,6 +5448,13 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-02**
+- 🚀 新功能/改进:补齐跨端自愈链的最后一节「落库」,写盘件从此有凭据可入库 (4bbb261050)
+- 🔧 工程/其他:合并前置：还原被并发写坏的计划档并重登记确认行 (f958623743)
+
+**2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d48ee4d4d3)
+
 **2026-11-02**
 - 🚀 新功能/改进:四家商店通道由未判定推进到已证可达,两格仍诚实留未判定 (a83a952cfb)
 - 📚 文档:就地改写 Y-70(四家商店通道已证可达,vivo/OPPO 仍未判定) (233eec47d3)
