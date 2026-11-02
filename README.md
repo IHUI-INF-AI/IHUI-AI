@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 318 | `guardianGates` |
 | — blocking | 289 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18866 | `trackedFiles` |
+| 跟踪文件 | 18867 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5449,6 +5449,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ac1469fc5c)
+- 🚀 新功能/改进:到人哨兵再加「小程序档位偏离同源」两维(defaulted / literal 净增) (b604096a0b)
+
+**2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (685cd7f884)
 - 🐞 修复:补 windowsHide,销掉门 52 抓出的派生弹窗缺陷(本会话上一枚引入) (a1cc3c3d0d)
 - 🚀 新功能/改进:给到人哨兵补上「样式档位净增」四维,兑现档位尺那句"净增经 §5e 到人" (13d41f451a)
@@ -5560,29 +5564,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 **2026-11-02**
 - 🐞 修复:发布链两处跑不通的出路按实测改掉,站点腿根因与本机承载面分开报 (cb447bab63)
-
-**2026-11-02**
-- 🚀 新功能/改进:打通 RN 发布链路(五腿唯一出口 + OTA 桶解耦 + Play 读数器物化) (377af4364d)
-- 📚 文档:结清 Y-14(安卓 latest 行实测在位,登记腿已常态化) (a2da71c391)
-- 🚀 新功能/改进:发布链路登记余两格(站点落点/Play 签名一致性) (1fa03b6655)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (922f84068c)
-- 🐞 修复:补齐 ImagePicker 资产字段/底部安全区,Share 返回常量并锁 Animated 静态样式合并(B3+B4) (13bf8f6c82)
-- ♻️ 重构:500 字摘要截断收敛为单一数值口径 (e972681f74)
-- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (1eaf77b8b4)
-- 🚀 新功能/改进:音频端口化 —— 可选 AudioPort,缺省走 capability-off(RN 壳 expo-audio 注入) (3b2c98c6f5)
-- 📚 文档:补 13 条回捞行侧车归属/在等/证据,stock 19→12 (ce6201bcc3)
-- 🐞 修复:M4 nav-A — RN 壳 push 收口到 onNavigate 端口(9 壳 38 处;CourseDetail 讲师入口改指 TeacherDetail) (e8f8967f07)
-- 🚀 新功能/改进:Agent 会话分页读 version=2,seq 游标与 v1 兼容(B2) (0da2a6a9a7)
-- 🐞 修复:$rp 参数通道补页面 unload 释放,并钉住容量/释放单测 (bb92d216f2)
-- 🐞 修复:Agent 会话写路径改原子追加,修复 20 条窗口截断(B1) (7f39323460)
-- 🐞 修复:announcements 补 platforms 列声明 —— 迁移 20261024160000 为真源 (3ca684ddc8)
-- 🐞 修复:wallet 测试 i18n 替身稳定化 —— 根治 4GB 堆 OOM(真泄漏) (880b86817f)
-- 📚 文档:标注 B53/B91 与同形态告警的签名差异,消除副本读数(+2→0) (03584c62b6)
-- 🐞 修复:三组既有红灯按新契约回正 —— 遥测 store 形状/usePathname/引导时序 (8ae8bf4537)
-- 📚 文档:补 15 条待办归属/在等字段(证据不足标 unassigned 并注明原因),对齐 5 条行内标头与侧车 (e252177924)
-- 🐞 修复:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
-- 🔧 工程/其他:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
-- 🔧 工程/其他:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
