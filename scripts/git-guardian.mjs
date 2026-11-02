@@ -10945,6 +10945,93 @@ export function sweepCssTokensSourceLeg(opts = {}) {
 }
 
 /**
+ * 跨端**存量漂移落档族**的共用派发体(两件器物一条形状,2026-11-03 立)。
+ *
+ * 立因:机主要的是"对齐且不再靠人开发"。这两件器物早就存在、也都自带写档形态
+ * (`gen-ui-mirror` 登记在 parity-auto 的 ui-mirror 腿、`fix-rn-color-literals` 是守门 255 的修法出口),
+ * 但实测**写档从未被放行过**:sweepParityCockpit 只传 `--json`,runner 里 255 只跑 `--check --staged`,
+ * 两处 git-guardian 通篇零 `--apply` ⇒ 按 §0.9「造好没装车 = 没有」,这两格每天照常长新漂移。
+ *
+ * 放行前置(不是可选项):两枚器物现已接归属闸(lib/git-paths.mjs 的 `ownershipDirtyPaths` 单源,
+ * porcelain 里出现该路径 ⇒ 归属未知不写)与落点账本登记。共享工作区 1700+ 他席在飞文件的当下,
+ * 没有归属闸就自动写档 = 覆盖别人的未提交工作,与本仓"提交链不代摘他人暂存"同一条禁令。
+ *
+ * 同族纪律:30 分钟一轮 ⇒ 只写工作树并申报账本,落库交 sweepCrossEndLandingLeg(15 分钟)收;
+ * clean ⇒ 一声不出;归属未过 ⇒ held 点名;结论取不到 ⇒ 未判定,绝不折成"无漂移可落"(§0.3);
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+const CROSS_END_APPLY_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_APPLY_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+function runCrossEndApplyLeg({ scriptName, args, defaultTickFile, label, opts }) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_APPLY_INTERVAL_MS,
+    tickFile = defaultTickFile,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), scriptName)
+  if (!existsSync(script)) {
+    logger(`ℹ️ ${label}:器物不在位(scripts/${scriptName})⇒ 本轮跳过,不记为已探测`)
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const timeoutMs = Number(process.env.IHUI_CROSS_END_APPLY_TIMEOUT_MS || 15 * 60 * 1000)
+  const r =
+    typeof runner === 'function' ? runner() : runLegChild(script, args, timeoutMs)
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  const blob = `${String(r.stdout ?? '')}\n${String(r.stderr ?? '')}`
+  // 两枚器物的既有结论行都含 landing=(与 held=);本腿只解析不改它
+  const line = /^.*landing=\d+.*$/m.exec(blob)?.[0]
+  if (!line) {
+    logger(
+      `⚠️ ${label}:结论取不到 ⇒ 本轮未判定(${
+        r.signal
+          ? `子进程被 ${r.signal} 掐死(上限 ${Math.round(timeoutMs / 60000)} 分钟)`
+          : `status=${r.status ?? '?'}`
+      })—— 这不等于"无漂移可落"`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+  }
+  const num = (k) => Number(new RegExp(`${k}=(\\d+)`).exec(line)?.[1]) || 0
+  const out = {
+    ran: true,
+    ok: true,
+    state: /ledger=unjudged/.test(line) ? 'unjudged-ledger' : 'ok',
+    landed: num('landing'),
+    held: num('held'),
+    skipped: num('skipLanded'),
+  }
+  if (out.landed === 0 && out.held === 0) return out
+  logger(`🧩 ${label}:${line.slice(0, 220)}`)
+  return out
+}
+
+/** 小程序↔RN 同档位组件的「档→类」映射块落档(写侧只补绑定声明,不改判据)。 */
+export function sweepUiMirrorLeg(opts = {}) {
+  return runCrossEndApplyLeg({
+    scriptName: 'gen-ui-mirror.mjs',
+    args: ['--apply'],
+    defaultTickFile: join(dirname(LOG), 'ui-mirror-last.json'),
+    label: '小程序↔RN 映射块落档',
+    opts,
+  })
+}
+
+/** RN 端硬编码色字面量 → token 引用落档(等价性由器物自己的 colorsAgree 前置断言兜底)。 */
+export function sweepRnColorLiteralLeg(opts = {}) {
+  return runCrossEndApplyLeg({
+    scriptName: 'fix-rn-color-literals.mjs',
+    args: ['--apply'],
+    defaultTickFile: join(dirname(LOG), 'rn-color-literals-last.json'),
+    label: 'RN 色字面量落档',
+    opts,
+  })
+}
+
+/**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
  * → 逐份复量"新钉 == 面上现算输入哈希" → 只把复量过的 blob 落 HEAD(主工作树一字节不动)。
@@ -11810,6 +11897,10 @@ async function main() {
     // 源头先补(TS 档表→tokens.css 受管块),再把本轮七条腿的写盘产出按落点账本收编入库 ——
     // 这两行是整条跨端链的**最后一节**;此前它们不存在,所以七条腿写得动盘却永远落不了库。
     if (!CHECK_ONLY) sweepCssTokensSourceLeg()
+    // 两件"早就存在、但写档从未被放行"的存量落档器(小程序↔RN 映射块 / RN 硬编码色),
+    // 归属闸与落点账本都已就位 ⇒ 这里才是它们第一次真正上链。落库腿排在最后收。
+    if (!CHECK_ONLY) sweepUiMirrorLeg()
+    if (!CHECK_ONLY) sweepRnColorLiteralLeg()
     if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
