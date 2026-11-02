@@ -52,7 +52,7 @@ module.exports = function withPermissionPruning(config, props = {}) {
     if (removed > 0) {
       // prebuild 期的可见回执:这格被摘过就必须说出来,否则下一次审计只看到"manifest 里没有",
       // 分不清"本来就没有"与"被摘掉了"—— 后者是需要在商店材料里同步的。
-      console.log(`[withPermissionPruning] 从 manifest 摘除 ${removed} 条未使用危险权限:${pruned.join(', ')}`)
+      console.info(`[withPermissionPruning] 从 manifest 摘除 ${removed} 条未使用危险权限:${pruned.join(', ')}`)
     }
     return cfg
   })

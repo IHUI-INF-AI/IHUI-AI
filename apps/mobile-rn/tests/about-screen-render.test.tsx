@@ -18,9 +18,9 @@ import { messages, getValueByPath, type Locale } from '../src/i18n'
 
 /**
  * 2026-11-03 夹具补齐 `getState`(不是实现缺陷):RN「关于」薄壳改成渲染共享屏并经宿主端口
- * 跳转后,`useHostNavigate` 在 dev 下先用 `navigation.getState().routeNames` 判 target 是否在册
- * (src/host/use-host-ports.ts:45 取,48 行抛);旧夹具只给了 navigate/goBack ⇒ 第一次点击就
- * `TypeError: nav.getState is not a function`,看到的是夹具缺件而不是"没跳"。
+ * 跳转后,`performHostNavigate` 先用 `navigation.getState().routeNames` 判 target 是否在册
+ * (src/host/use-host-ports.ts:52 取,未登记在 97 行 dev 抛);旧夹具只给了 navigate/goBack
+ * ⇒ 第一次点击就 `TypeError: nav.getState is not a function`,看到的是夹具缺件而不是"没跳"。
  */
 const nav = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -199,9 +199,13 @@ describe('AboutScreen 渲染与跳转', () => {
     ]
     for (const [key, target] of rows) {
       fireEvent.click(screen.getByText(val(key)))
-      // 宿主端口按 (target, params) 固定两参转发(无参时第二参为 undefined),故这里钉精确
-      // 调用形状:目标屏与"入口不带参"一起守住;只比首参会把参数面漏掉。
-      expect(nav.navigate, `${key} 没跳 ${target}`).toHaveBeenCalledWith(target, undefined)
+      // 宿主端口按 (target, params, options) 固定三参转发:入口屏无参、非 tab 目标,
+      // 故后两参为 undefined。钉精确形状可同时守住目标屏、不带参与非 tab 语义。
+      expect(nav.navigate, `${key} 没跳 ${target}`).toHaveBeenCalledWith(
+        target,
+        undefined,
+        undefined,
+      )
     }
     expect(nav.navigate).toHaveBeenCalledTimes(rows.length)
   })
@@ -220,12 +224,16 @@ describe('AboutScreen 渲染与跳转', () => {
   it('CTA 落点:注册进本端屏,开放平台走 WebView 且 URL 由同源底座拼出', () => {
     renderScreen()
     fireEvent.click(screen.getByText(val('about.ctaPrimary')))
-    expect(nav.navigate).toHaveBeenCalledWith('Register', undefined)
+    expect(nav.navigate).toHaveBeenCalledWith('Register', undefined, undefined)
     fireEvent.click(screen.getByText(val('about.ctaSecondary')))
-    expect(nav.navigate).toHaveBeenCalledWith('WebView', {
-      url: `${WEB_BASE_URL}/developer`,
-      title: val('about.ctaSecondary'),
-    })
+    expect(nav.navigate).toHaveBeenCalledWith(
+      'WebView',
+      {
+        url: `${WEB_BASE_URL}/developer`,
+        title: val('about.ctaSecondary'),
+      },
+      undefined,
+    )
   })
 })
 
