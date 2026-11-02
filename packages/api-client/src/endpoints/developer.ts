@@ -437,6 +437,21 @@ export async function getDeveloperApiKeys(): Promise<ApiResult<{ list: Developer
   return fetchApi<{ list: DeveloperApiKeyItem[] }>('/developer/api-keys')
 }
 
+/** 轮换 secret 返回值(明文 secret 仅此一次下发) */
+export interface RotatedDeveloperApiKey {
+  apiKey: string
+  secret: string
+}
+
+/** 轮换 API 密钥 secret(旧 secret 立即失效;web /settings/api-keys 同源) */
+export async function rotateDeveloperApiKey(
+  id: string,
+): Promise<ApiResult<RotatedDeveloperApiKey>> {
+  return fetchApi<RotatedDeveloperApiKey>(`/developer/keys/${encodeURIComponent(id)}/reset`, {
+    method: 'POST',
+  })
+}
+
 /** 开发者信息聚合(对齐后端 GET /api/developer/dev-info:账号 + 订阅 + 密钥摘要 + 申请信息) */
 export interface DeveloperDevInfo {
   /** 登录账号信息(email/phone/nickname/username,可能为 null) */
