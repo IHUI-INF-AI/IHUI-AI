@@ -19,7 +19,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCategory, AigcFileType, AigcListItem, AigcListScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
-import { assertRequiredPort } from '../../host/ports'
+import { assertRequiredPort, isCapabilityOff, resolveOptionalPort } from '../../host/ports'
 
 /** AIGC 作品列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCategory, AigcListItem, AigcListScreenProps }
@@ -40,11 +40,27 @@ export function AigcListScreen({
   onLoadMore,
   colorScheme = 'light',
   onToast,
+  audio,
 }: AigcListScreenProps) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  /** 音频端口缺省 = capability-off:显式失败提示,绝不假装播放成功 */
+  const audioPort = resolveOptionalPort(audio)
+  const playAudio = (item: AigcListItem) => {
+    if (isCapabilityOff(audioPort)) {
+      onToast(t('common.failed'))
+      return
+    }
+    const url = item.audioUrl || item.fileUrl
+    if (!url) {
+      onToast(t('common.failed'))
+      return
+    }
+    audioPort.play(url)
+  }
 
   const fileTypeForCategory = (key: AigcCategory): AigcFileType | undefined =>
     categories.find((c) => c.key === key)?.fileType
@@ -92,9 +108,17 @@ export function AigcListScreen({
               {item.title}
             </Text>
             <Text style={styles.audioDuration}>{item.duration ?? '--:--'}</Text>
-            <View style={styles.audioPlayBtn}>
+            <TouchableOpacity
+              style={styles.audioPlayBtn}
+              activeOpacity={0.7}
+              onPress={(event) => {
+                // 阻止冒泡:点"播放"不应同时跳到作品详情
+                event.stopPropagation()
+                playAudio(item)
+              }}
+            >
               <Text style={styles.audioPlayText}>{t('aigcList.playAudio')}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       )
