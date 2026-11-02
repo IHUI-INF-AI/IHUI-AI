@@ -52,5 +52,11 @@ $env:WHISPER_MODEL_DIR = "D:\DevEnv\models\faster-whisper-small"
 # 这一档管的是进程级 FD/内存耗尽。3000 是**上界保护值**、不是从流量分位数量出来的
 # (本机无该维度历史序列):按 ai-service 常态并发几十~几百条留了约十倍余量。
 # 触顶时 uvicorn 直接回 503(可观测、可回退),优于 FD 耗尽后整站不可用。
+# 签到/保活总闸(2026-11-03):生产默认开,只做兜底;要关就在 NSSM 服务环境(或系统环境)里
+# 显式设 false —— 进程环境优先于 .env。关掉 ⇒ CHECKIN_CRON_ENABLED=false 时每日签到 job
+# 不注册(自动签到不发生),KEEPALIVE_ENABLED=false 时保活中心不探活/不刷新 token。
+# 注意:本脚本给"未设置的进程变量"兜底 true,所以只改 apps\ai-service\.env 里为 false 不生效。
+if ([string]::IsNullOrWhiteSpace($env:CHECKIN_CRON_ENABLED)) { $env:CHECKIN_CRON_ENABLED = 'true' }
+if ([string]::IsNullOrWhiteSpace($env:KEEPALIVE_ENABLED)) { $env:KEEPALIVE_ENABLED = 'true' }
 & "$(Join-Path $Root 'apps\ai-service\.venv\Scripts\python.exe')" -m uvicorn app.main:app --host 127.0.0.1 --port 8803 --limit-concurrency 3000
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
