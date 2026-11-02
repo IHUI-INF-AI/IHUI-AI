@@ -7088,14 +7088,5 @@
   },
   "studyIndex": {
     "receiveFreeBody": "Link copied; paste it in a browser to open"
-  },
-  "career": {
-    "fillField": "Please fill: {name}",
-    "submitFail": "Submit failed. Retry later.",
-    "doneTitle": "Submitted",
-    "doneBody": "Survey submitted. Your AI study plan will appear here.",
-    "exportingReport": "Exporting...",
-    "exportEmptyHint": "Generate a report to export",
-    "exportLoginRequired": "Sign in to export"
   }
 }
