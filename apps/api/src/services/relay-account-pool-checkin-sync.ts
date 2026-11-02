@@ -468,7 +468,9 @@ export async function escalateCheckinSyncFailureOnce(
   lastError: string,
   now: Date = new Date(),
 ): Promise<boolean> {
-  if (!shouldEscalateCheckinSyncFailure(parseCheckinSyncEscalation(row.extraMetadata), attempts, now))
+  if (
+    !shouldEscalateCheckinSyncFailure(parseCheckinSyncEscalation(row.extraMetadata), attempts, now)
+  )
     return false
   const marker = now.toISOString()
   await db
@@ -515,6 +517,15 @@ export async function markCheckinSyncPending(
   error: string,
 ): Promise<void> {
   if (ids.length === 0) return
+  // 失败当场落日志(2026-11-03 立):此前只有 lastError 字段与 20 次/6h 升级告警,
+  // 在「重推轮本身没跑」或「未达升级阈值」的窗口里,失败只躺在 jsonb 里没人看见。
+  // 这里只打 id/kind/原因(不碰 token),让 grep 日志能直接回答「哪几个号、为什么」。
+  logger.warn('[checkin-sync] 落待推(本次同步失败,等待重推)', {
+    count: ids.length,
+    ids: ids.slice(0, 20),
+    kind,
+    error: error.slice(0, 200),
+  })
   await db
     .update(aiRelayAccountPool)
     .set({

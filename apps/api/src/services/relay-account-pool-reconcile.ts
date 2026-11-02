@@ -90,6 +90,8 @@ export interface ReconcilePlan {
   orphanNoPoolId: number
   /** 映射域外(codearts 等)被忽略的号池行数 */
   outOfScope: number
+  /** 映射域外按 provider 归因(2026-11-03 立):总数看不出是 doubao 还是 codearts 被跳过 */
+  outOfScopeByProvider: Record<string, number>
   /** 被单轮配额挤掉的动作数(>0 表示本轮未处理完,下轮继续) */
   truncated: number
   /**
@@ -204,7 +206,14 @@ export function planReconciliation(
     })
   }
 
-  return { actions, orphanNoPoolId, outOfScope, truncated, skippedDisabledMissing }
+  return {
+    actions,
+    orphanNoPoolId,
+    outOfScope,
+    outOfScopeByProvider: Object.fromEntries(outOfScopeByProvider),
+    truncated,
+    skippedDisabledMissing,
+  }
 }
 
 // =============================================================================
@@ -290,6 +299,8 @@ export interface ReconcileResult {
   flushFailed: number
   orphanNoPoolId: number
   outOfScope: number
+  /** 映射域外按 provider 归因(与 ReconcilePlan 同源,供状态接口/断言直接消费) */
+  outOfScopeByProvider: Record<string, number>
   /** 截断余量(>0 表示本轮未处理完,下轮继续) */
   truncated: number
 }
@@ -307,6 +318,7 @@ const EMPTY_RESULT: ReconcileResult = {
   flushFailed: 0,
   orphanNoPoolId: 0,
   outOfScope: 0,
+  outOfScopeByProvider: {},
   truncated: 0,
 }
 
@@ -323,15 +335,25 @@ async function loadPoolSide(): Promise<PoolSideRow[]> {
       credVersion: aiRelayAccountPool.credVersion,
     })
     .from(aiRelayAccountPool)
-  return rows.map((r) => ({
-    id: r.id,
-    ownerUserId: r.ownerUserId,
-    providerCode: r.providerCode,
-    uid: r.uid ?? '',
-    name: r.name ?? '',
-    isEnabled: r.isEnabled,
-    credVersion: r.credVersion,
-  }))
+  return rows.map(
+    (r: {
+      id: string
+      ownerUserId: string | null
+      providerCode: string
+      uid: string | null
+      name: string | null
+      isEnabled: boolean
+      credVersion: number
+    }) => ({
+      id: r.id,
+      ownerUserId: r.ownerUserId,
+      providerCode: r.providerCode,
+      uid: r.uid ?? '',
+      name: r.name ?? '',
+      isEnabled: r.isEnabled,
+      credVersion: r.credVersion,
+    }),
+  )
 }
 
 /** 按 id 回查完整号池行(仅 push 执行路径调用;plan 与日志都不碰明文) */
@@ -402,6 +424,7 @@ export async function reconcileCheckinSync(opts?: {
     ...EMPTY_RESULT,
     orphanNoPoolId: plan.orphanNoPoolId,
     outOfScope: plan.outOfScope,
+    outOfScopeByProvider: plan.outOfScopeByProvider,
     truncated: plan.truncated,
   }
   if (plan.orphanNoPoolId > 0) {
@@ -553,6 +576,7 @@ export async function reconcileCheckinSync(opts?: {
     flushFailed: out.flushFailed,
     orphanNoPoolId: out.orphanNoPoolId,
     outOfScope: out.outOfScope,
+    outOfScopeByProvider: out.outOfScopeByProvider,
     truncated: out.truncated,
   })
   return out
