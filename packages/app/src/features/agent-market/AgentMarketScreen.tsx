@@ -30,8 +30,9 @@ export function AgentMarketScreen({
   onSearch,
   onPressItem,
   onBack,
-  colorScheme = 'light',
-}: AgentMarketScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AgentMarketScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function AgentMarketScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

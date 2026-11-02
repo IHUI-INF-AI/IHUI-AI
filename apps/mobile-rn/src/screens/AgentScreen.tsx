@@ -747,6 +747,7 @@ export function AgentScreen() {
           {viewMode === 'shared' ? (
             <SharedAgentScreen
               t={t}
+              onRetry={() => { void load(); }}
               colorScheme={resolvedTheme}
               items={items.slice(0, visibleCount)}
               loading={loading}

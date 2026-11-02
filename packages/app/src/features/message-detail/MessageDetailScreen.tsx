@@ -29,8 +29,9 @@ export function MessageDetailScreen({
   error,
   onReply,
   onBack,
-  colorScheme = 'light',
-}: MessageDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: MessageDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -53,7 +54,7 @@ export function MessageDetailScreen({
       ) : error || !message ? (
         <ErrorState
           message={error || t('messageDetail.notFound')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />
