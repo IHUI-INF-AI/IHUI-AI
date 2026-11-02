@@ -24,12 +24,33 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const authState = vi.hoisted(() => ({ userId: 'user-anonymous-placeholder' }))
+// 2026-11-02 夹具跟契约:61e07b30fc / 47c254e167 起 discover/list 改为「登记根闸 +
+// 用户级 workspace_permissions 子树闸」两关,授权范围来自调用者的 permission 行。
+// 本文件靶面是租户边界与路径闸,不是权限表本身,故把权限表桩成"按 userId 发根"的内存态:
+// 用例显式授予 A 自己的根,B 不授予 —— 闸门保持原样(仍只认本人 permission 行),
+// 不为了绿回落到旧的"只看登记根"口径。
+const permissionState = vi.hoisted(() => ({
+  rootsByUser: new Map<string, string[]>(),
+}))
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: async (request: { userId?: string }) => {
     request.userId = authState.userId
   },
 }))
+
+vi.mock('../src/db/workspace-permission-queries.js', () => ({
+  listPermissionsByUser: async (userId: string) =>
+    (permissionState.rootsByUser.get(userId) ?? []).map((workspacePath) => ({
+      workspacePath,
+      mode: 'default',
+    })),
+}))
+
+/** 把某个工作区根授予当前用例里的用户(等价于库里已有一行 permission) */
+function grantRoot(userId: string, root: string): void {
+  permissionState.rootsByUser.set(userId, [root])
+}
 
 import { workspaceAiRoutes } from '../src/routes/workspace-ai.js'
 import { WORKSPACE_ROOTS_ENV } from '../src/utils/workspace-roots.js'
@@ -72,6 +93,7 @@ beforeEach(async () => {
   scratchRoot = mkdtempSync(join(tmpdir(), 'ihui-subagents-'))
   savedRootsEnv = process.env[WORKSPACE_ROOTS_ENV]
   process.env[WORKSPACE_ROOTS_ENV] = scratchRoot
+  permissionState.rootsByUser.clear()
 
   app = Fastify()
   await app.register(workspaceAiRoutes, { prefix: '/api/workspace' })
@@ -97,6 +119,7 @@ describe('GET /api/workspace/subagents 租户隔离', () => {
   it('本人正例:A discover 后 list 能看到自己的配置(收紧未误伤)', async () => {
     const agent = seedAgent(scratchRoot)
     authState.userId = `user-a-${randomUUID()}`
+    grantRoot(authState.userId, scratchRoot)
 
     const res = await list(scratchRoot)
     expect(res.statusCode).toBe(200)
@@ -112,6 +135,7 @@ describe('GET /api/workspace/subagents 租户隔离', () => {
     const agent = seedAgent(scratchRoot)
 
     authState.userId = `user-a-${randomUUID()}`
+    grantRoot(authState.userId, scratchRoot)
     const aRes = await list(scratchRoot)
     expect(aRes.statusCode).toBe(200)
     expect(aRes.body).toContain(agent.name)
@@ -134,6 +158,7 @@ describe('GET /api/workspace/subagents 租户隔离', () => {
     const outsideMissing = join(tmpdir(), `ihui-subagents-nope-${randomUUID()}`)
 
     authState.userId = `user-a-${randomUUID()}`
+    grantRoot(authState.userId, scratchRoot)
     for (const bad of [outsideExisting, outsideMissing, join(scratchRoot, '..', '..')]) {
       const res = await list(bad)
       expect(res.statusCode).toBe(404)
@@ -149,6 +174,8 @@ describe('GET /api/workspace/subagents 租户隔离', () => {
   it('未登记任何工作区根 ⇒ fail-closed 404(不静默回落到全局桶)', async () => {
     delete process.env[WORKSPACE_ROOTS_ENV]
     authState.userId = `user-a-${randomUUID()}`
+    // 用户仍有该根的 permission 行,但服务端登记根已撤销 ⇒ 必须 404(历史行不得成为绕过口)
+    grantRoot(authState.userId, scratchRoot)
 
     const res = await list(scratchRoot)
     expect(res.statusCode).toBe(404)
