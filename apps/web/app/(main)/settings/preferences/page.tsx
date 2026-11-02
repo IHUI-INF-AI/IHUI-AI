@@ -18,6 +18,7 @@ import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
 import { WebSearchCard } from '@/components/settings/web-search-card'
+import { PredictiveEditCard } from '@/components/settings/predictive-edit-card'
 import { NavTierCard } from '@/components/settings/nav-tier-card'
 import { cn } from '@/lib/utils'
 
@@ -176,6 +177,9 @@ export default function PreferencesPage() {
 
         {/* 网页搜索开关(2026-09-21 自聊天输入区工具栏迁入,D22 能力偏好归位设置页) */}
         <WebSearchCard />
+
+        {/* 预测式编辑开关(V3 #82 两把钥匙之"开关"位;2026-11-01 接线) */}
+        <PredictiveEditCard />
 
         {isDesktop && (
           <Card>
