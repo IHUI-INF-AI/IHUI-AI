@@ -477,7 +477,7 @@ describe('qoderCliChatChunks: 假 spawn 全流程', () => {
     const it = qoderCliChatChunks({ prompt: 'p', spawnImpl })[Symbol.asyncIterator]()
     const first = await it.next()
     expect(contentOf(first.value!)).toBe('X')
-    await it.return?.()
+    await it.return?.(undefined)
     expect(ctl.killMock).toHaveBeenCalled()
   })
 
