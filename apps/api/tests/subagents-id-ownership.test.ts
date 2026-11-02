@@ -17,8 +17,7 @@
  *  ② 跨租户读 messages/dag/quotas/stats ⇒ 全部不可得,响应体里不带对方数据;
  *  ③ 正例:本人对这 6 个端点全部正常(cancel 真的把状态改成 cancelled ——
  *     这条同时证明 ① 的「状态没动」不是 mock 不会写造成的假绿);
- *  ④ 无归属记录(ownerUserId 缺失)⇒ **fail-closed**:普通用户一律 404,仅系统管理员可见
- *     (2026-11-02 归属回填与 fail-open 收敛;回填成功的记录回到「本人可见」,不再走本档);
+ *  ④ 无归属记录(ownerUserId 缺失)⇒ 与 /all 同判:按「未标注」可见(S-G02 已知残余,不在此票扩大);
  *  ⑤ 跨租户 resume 同样被挡(写端点不止 cancel 一个);
  *  ⑥ 聚合面 topology / queue 按调用方收窄;
  *
@@ -34,18 +33,11 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a);
-// x-probe-role=1 时同时注入 jwtPayload.roleId,供 isAdminViewer 判管理面(2026-11-02 fail-closed)
+// 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a)
 vi.mock('../src/plugins/auth.js', () => ({
-  authenticate: async (request: {
-    userId?: string
-    jwtPayload?: { roleId?: number }
-    headers: Record<string, unknown>
-  }) => {
+  authenticate: async (request: { userId?: string; headers: Record<string, unknown> }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
-    const role = request.headers['x-probe-role']
-    request.jwtPayload = typeof role === 'string' ? { roleId: Number(role) } : undefined
   },
   checkAuth: async () => true,
 }))
@@ -162,14 +154,17 @@ vi.mock('../src/services/subagent-dispatch-service.js', () => {
           position: i + 1,
         }))
       },
-      getStats: () => ({
-        active: 0,
-        completed: 0,
-        failed: 0,
-        total: 0,
-        avgDurationMs: 0,
-        totalTokens: 0,
-      }),
+      getStats: (visible?: (d: { ownerUserId?: string; status: string }) => boolean) => {
+        const rows = Array.from(store.values()).filter((d) => (visible ? visible(d) : true))
+        return {
+          active: rows.filter((d) => d.status === 'pending' || d.status === 'running').length,
+          completed: rows.filter((d) => d.status === 'completed').length,
+          failed: rows.filter((d) => d.status === 'failed').length,
+          total: rows.length,
+          avgDurationMs: 0,
+          totalTokens: 0,
+        }
+      },
       listAll: () => Array.from(store.values()),
       listActive: () =>
         Array.from(store.values()).filter((d) => d.status === 'pending' || d.status === 'running'),
@@ -205,7 +200,6 @@ function seed(
 
 const asA = { 'x-probe-user': 'tenant-a' }
 const asB = { 'x-probe-user': 'tenant-b' }
-const asAdmin = { 'x-probe-user': 'tenant-admin', 'x-probe-role': '1' }
 
 const ID_ENDPOINTS = [
   { method: 'POST', suffix: '/cancel' },
@@ -327,8 +321,8 @@ describe('S-ACL ③ 正例:本人对自己的派单,6 个端点全通', () => {
   })
 })
 
-describe('S-ACL ④ 无归属记录:fail-closed(仅管理面可见)', () => {
-  it('ownerUserId 缺失的派单:普通用户一律 404(不再按「未标注」公开)', async () => {
+describe('S-ACL ④ 无归属记录:与 /all 同判(按「未标注」可见)', () => {
+  it('ownerUserId 缺失的派单:任何登录用户都可读(不是本票要收的口径)', async () => {
     seed('legacy', undefined, 'running', { dag: true })
 
     for (const suffix of ['/stats', '/dag', '/quotas', '/messages'] as const) {
@@ -337,33 +331,8 @@ describe('S-ACL ④ 无归属记录:fail-closed(仅管理面可见)', () => {
         url: `/api/subagents/legacy${suffix}`,
         headers: asB,
       })
-      expect(res.statusCode, `GET ${suffix} 应 404(fail-closed)`).toBe(404)
-      expect(res.body).not.toContain('goal-legacy')
+      expect(res.statusCode, `GET ${suffix} 应 200(未标注照旧公开)`).toBe(200)
     }
-  })
-
-  it('同一记录对系统管理员可见(orphan / 未回填档的独立管理面)', async () => {
-    seed('legacy-admin', undefined, 'running', { dag: true })
-
-    for (const suffix of ['/stats', '/dag', '/quotas', '/messages'] as const) {
-      const res = await app.inject({
-        method: 'GET',
-        url: `/api/subagents/legacy-admin${suffix}`,
-        headers: asAdmin,
-      })
-      expect(res.statusCode, `GET ${suffix} 应 200(管理员可见)`).toBe(200)
-    }
-
-    // /all 也按同一判据:管理员看得到,普通用户看不到
-    const adminAll = await app.inject({ method: 'GET', url: '/api/subagents/all', headers: asAdmin })
-    expect(adminAll.statusCode).toBe(200)
-    expect(adminAll.json().data.dispatches.map((d: { id: string }) => d.id)).toContain(
-      'legacy-admin',
-    )
-    const userAll = await app.inject({ method: 'GET', url: '/api/subagents/all', headers: asB })
-    expect(userAll.json().data.dispatches.map((d: { id: string }) => d.id)).not.toContain(
-      'legacy-admin',
-    )
   })
 })
 
@@ -382,6 +351,22 @@ describe('S-ACL ⑤ 聚合面 topology / queue 按调用方收窄', () => {
     expect(queueB.json().data.queue.map((q: { dispatchId: string }) => q.dispatchId)).toEqual([
       'b-d',
     ])
+  })
+})
+
+describe('S-ACL ⑥ 聚合面 /subagents/stats 与 topology/queue 同源收窄', () => {
+  it('A 的 stats 只数 A 的记录,B 的只数 B 的(不出现"列表按租户、总量按全站")', async () => {
+    seed('a-running', 'tenant-a', 'running')
+    seed('b-done', 'tenant-b', 'completed')
+    seed('b-running', 'tenant-b', 'running')
+
+    const a = await app.inject({ method: 'GET', url: '/api/subagents/stats', headers: asA })
+    expect(a.statusCode).toBe(200)
+    expect(a.json().data).toMatchObject({ total: 1, active: 1, completed: 0, failed: 0 })
+
+    const b = await app.inject({ method: 'GET', url: '/api/subagents/stats', headers: asB })
+    expect(b.statusCode).toBe(200)
+    expect(b.json().data).toMatchObject({ total: 2, active: 1, completed: 1, failed: 0 })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
