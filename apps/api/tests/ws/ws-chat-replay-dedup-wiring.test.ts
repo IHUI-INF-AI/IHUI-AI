@@ -21,7 +21,7 @@ import { WebSocket } from 'ws'
 import { wsChat } from '../../src/plugins/ws-chat.js'
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5399/test'
 })
 
 /** 替身读数:测试断言全部从这里取,不猜时序 */

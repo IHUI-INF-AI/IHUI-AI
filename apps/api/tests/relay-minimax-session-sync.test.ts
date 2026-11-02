@@ -13,7 +13,7 @@ import { describe, it, expect, vi } from 'vitest'
 // 兜底 env:静态 import 链会走 config/crypto 的校验(setup-env.ts 已提供,这里再兜一层,
 // 保证单文件直跑也不崩)。vi.hoisted 在 import 之前执行。
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
+  process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@127.0.0.1:5399/ihui_test'
   process.env.JWT_SECRET ??= 'minimax-sync-test-jwt-secret-0123456789abcdef'
   process.env.CREDENTIALS_ENCRYPTION_KEY ??= 'minimax-sync-test-cred-key-0123456789abcd'
 })

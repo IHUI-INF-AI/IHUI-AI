@@ -196,8 +196,30 @@ def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
 
 
 def _cron_enabled() -> bool:
-    """CHECKIN_CRON_ENABLED 是否为 "true";start() 与 status() 共用同一读取,防漂移。"""
+    """CHECKIN_CRON_ENABLED 是否为 "true";start() 与 status() 共用同一读取,防漂移。
+
+    代码缺省为 false(测试/裸跑安全);部署入口(docker-compose.yml 与
+    deploy\\scripts\\prod-bundle\\svc\\run-ai.ps1)以「未设置则 true」注入。
+    """
     return os.environ.get("CHECKIN_CRON_ENABLED", "false").lower() == "true"
+
+
+def _job_cron_expr(trigger: Any) -> str:
+    """把 APScheduler trigger 压成 cron 表达式,供启动日志核对注册了什么。
+
+    CronTrigger 只用 hour/minute(本调度器全部 job 均如此),其余位写 *;
+    IntervalTrigger 压成 ``*/N * * * *`` 的分钟形态。
+    """
+    fields = getattr(trigger, "fields", None)
+    if fields:
+        named = {field.name: str(field) for field in fields}
+        if "hour" in named and "minute" in named:
+            return f"{named['minute']} {named['hour']} * * *"
+    interval = getattr(trigger, "interval", None)
+    if interval is not None:
+        minutes = int(interval.total_seconds() // 60)
+        return f"*/{max(minutes, 1)} * * * *"
+    return str(trigger)
 
 
 def _wb_tasks_sweep_minutes() -> int:
@@ -365,7 +387,8 @@ class CheckinScheduler:
 
     async def start(self) -> None:
         """启动每日 08:05(非 Qoder)/10:05(Qoder)/补跑(CHECKIN_QODER_RETRY_TIMES,
-        默认 11:00、12:30)定时任务(CHECKIN_CRON_ENABLED 控制全部 job,默认 false)。
+        默认 11:00、12:30)定时任务(CHECKIN_CRON_ENABLED 控制全部 job;代码缺省 false,
+        部署入口默认注入 true)。
 
         建表 fail-open:表建不出来时只告警,不阻塞主服务启动。
         """
@@ -373,7 +396,10 @@ class CheckinScheduler:
             return
         enabled = _cron_enabled()
         if not enabled:
-            logger.info("[checkin_scheduler] CHECKIN_CRON_ENABLED=false, 不启动每日签到调度")
+            logger.warning(
+                "[checkin_scheduler] CHECKIN_CRON_ENABLED=false, 每日签到 job 未注册"
+                "(自动签到/积分快照都不会跑;开启:设置环境变量 CHECKIN_CRON_ENABLED=true 后重启服务)"
+            )
             return
         try:
             await checkin_store.ensure_tables()
@@ -381,70 +407,75 @@ class CheckinScheduler:
             logger.warning("[checkin_scheduler] 签到建表异常(忽略,签到功能不可用): %s", e)
             return
         await self._restore_outbound_pause()
-        self._scheduler = AsyncIOScheduler(timezone=_CN_TZ)
-        self._scheduler.add_job(
+        # 本地变量持有实例:闭包里用 self._scheduler 会被 mypy 判成 Any|None(union-attr)
+        scheduler = AsyncIOScheduler(timezone=_CN_TZ)
+        self._scheduler = scheduler
+        registered: list[str] = []
+
+        def _add(func: Any, trigger: Any, job_id: str) -> None:
+            """注册一个 job 并记账(启动日志用;不依赖具体 scheduler 的 get_jobs)。"""
+            scheduler.add_job(func, trigger=trigger, id=job_id, replace_existing=True)
+            registered.append(f"{job_id}={_job_cron_expr(trigger)}")
+
+        _add(
             self._daily_run,
-            trigger=CronTrigger(hour=8, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_JOB_ID,
-            replace_existing=True,
+            CronTrigger(hour=8, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID,
         )
-        self._scheduler.add_job(
+        _add(
             self._daily_run_qoder,
-            trigger=CronTrigger(hour=10, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_JOB_ID_QODER,
-            replace_existing=True,
+            CronTrigger(hour=10, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_QODER,
         )
         # Qoder 补跑轮(2026-11-01):10:05 单跑一次会撞上"活动还没下发",按
         # CHECKIN_QODER_RETRY_TIMES 逐个注册补跑 job(同一 jitter,与其它 job 一致);
         # 只挑今日无确定结果的号,风控语义不变(见 _daily_run_qoder_retry)。
         for retry_hour, retry_minute in _qoder_retry_times():
-            self._scheduler.add_job(
+            _add(
                 self._daily_run_qoder_retry,
-                trigger=CronTrigger(
+                CronTrigger(
                     hour=retry_hour,
                     minute=retry_minute,
                     timezone=_CN_TZ,
                     jitter=_CRON_JITTER,
                 ),
-                id=_qoder_retry_job_id(retry_hour, retry_minute),
-                replace_existing=True,
+                _qoder_retry_job_id(retry_hour, retry_minute),
             )
         # 06:00 状态探针:先于主窗口同步平台侧「已签」状态(见 _JOB_ID_PROBE 注)
-        self._scheduler.add_job(
+        _add(
             self._daily_status_probe,
-            trigger=CronTrigger(hour=6, minute=0, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_JOB_ID_PROBE,
-            replace_existing=True,
+            CronTrigger(hour=6, minute=0, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_PROBE,
         )
         # WP-B(2026-10-09):每日积分快照 job,与签到 job 同一启用开关
-        self._scheduler.add_job(
+        _add(
             self._daily_credits_snapshot,
-            trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_CREDITS_JOB_ID,
-            replace_existing=True,
+            CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _CREDITS_JOB_ID,
         )
         # 本机凭据同步:与每日签到开关同一个门;客户端不在同机时任务内部直接跳过(不假装成功)
-        self._scheduler.add_job(
+        _add(
             self._sync_local_credentials,
-            trigger=IntervalTrigger(minutes=15),
-            id=_JOB_ID_LOCAL_SYNC,
-            replace_existing=True,
+            IntervalTrigger(minutes=15),
+            _JOB_ID_LOCAL_SYNC,
         )
         # O68 WorkBuddy 任务赚积分巡检:独立开关(默认 off),节拍可调;写侧另由
         # WORKBUDDY_TASKS_LIVE_RUN 把关,默认调度轮只 dry-run。
         if settings.workbuddy_tasks_enabled:
-            self._scheduler.add_job(
+            _add(
                 self._workbuddy_task_sweep,
-                trigger=IntervalTrigger(minutes=_wb_tasks_sweep_minutes()),
-                id=_JOB_ID_WB_TASKS,
-                replace_existing=True,
+                IntervalTrigger(minutes=_wb_tasks_sweep_minutes()),
+                _JOB_ID_WB_TASKS,
             )
-        self._scheduler.start()
+        scheduler.start()
         self._started = True
         retry_label = "/".join(f"{h:02d}:{m:02d}" for h, m in _qoder_retry_times())
         logger.info(
-            "[checkin_scheduler] 已启动每日调度(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / "
-            "Qoder 补跑 %s / 08:10 积分快照,起批漂移 ≤%ds)",
+            "[checkin_scheduler] 已启动每日调度:注册 %d 个 job [%s]"
+            "(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / Qoder 补跑 %s / 08:10 积分快照,"
+            "起批漂移 ≤%ds)",
+            len(registered),
+            ", ".join(registered),
             retry_label or "未配置",
             _CRON_JITTER,
         )
@@ -574,6 +605,8 @@ class CheckinScheduler:
         wb_cron_enabled = _cron_enabled()
         return {
             "enabled": wb_cron_enabled,
+            # 开关真实值(原样,不看 started):前端/运维据此判断「是没开还是开了没跑」
+            "cron_enabled": wb_cron_enabled,
             "started": self._started,
             "next_run": next_run,
             "next_run_qoder": next_run_qoder,

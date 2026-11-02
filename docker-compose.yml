@@ -262,6 +262,11 @@ services:
       - LLM_PROXY_URL=${LLM_PROXY_URL:-}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
       - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
+      # 签到总闸:默认开;显式设 CHECKIN_CRON_ENABLED=false 可关。关掉 ⇒ 每日签到 job 不注册,
+      # 自动签到/积分快照全部不跑(手动签到不受影响)
+      - CHECKIN_CRON_ENABLED=${CHECKIN_CRON_ENABLED:-true}
+      # 保活中心总闸:默认开;显式设 KEEPALIVE_ENABLED=false 可关。关掉 ⇒ 不再探活/刷新平台 token
+      - KEEPALIVE_ENABLED=${KEEPALIVE_ENABLED:-true}
     depends_on:
       db:
         condition: service_healthy

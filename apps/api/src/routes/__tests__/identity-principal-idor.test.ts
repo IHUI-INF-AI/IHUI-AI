@@ -21,7 +21,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5399/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 

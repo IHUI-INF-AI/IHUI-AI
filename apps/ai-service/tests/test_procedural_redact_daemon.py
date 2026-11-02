@@ -26,7 +26,7 @@ import pytest
 
 from app.services import procedural_redact_daemon as daemon
 
-DSN = "postgresql://u:p@127.0.0.1:8810/ihui"
+DSN = "postgresql://u:p@127.0.0.1:5399/ihui"
 PLAIN_TAIL = '{"path":"G:/IHUI-AI/secret.txt","content":"李春川的口令是 abc123"}'
 LOGGER_NAME = "app.services.procedural_redact_daemon"
 
