@@ -8,7 +8,7 @@ import { type ReactNode } from 'react'
 import { StyleSheet, Text, TouchableOpacity, type StyleProp, type TextStyle } from 'react-native'
 import { MousePointerClick } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { useI18n } from '../../i18n'
 
@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.ctaForeground,
   },
   anchorChipLabel: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: rnType.bodySm.size,
+    lineHeight: rnType.bodySm.lineHeight,
     fontWeight: '600',
     color: tokens.brandAccent.deep,
   },

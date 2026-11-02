@@ -154,14 +154,17 @@ vi.mock('../src/services/subagent-dispatch-service.js', () => {
           position: i + 1,
         }))
       },
-      getStats: () => ({
-        active: 0,
-        completed: 0,
-        failed: 0,
-        total: 0,
-        avgDurationMs: 0,
-        totalTokens: 0,
-      }),
+      getStats: (visible?: (d: { ownerUserId?: string; status: string }) => boolean) => {
+        const rows = Array.from(store.values()).filter((d) => (visible ? visible(d) : true))
+        return {
+          active: rows.filter((d) => d.status === 'pending' || d.status === 'running').length,
+          completed: rows.filter((d) => d.status === 'completed').length,
+          failed: rows.filter((d) => d.status === 'failed').length,
+          total: rows.length,
+          avgDurationMs: 0,
+          totalTokens: 0,
+        }
+      },
       listAll: () => Array.from(store.values()),
       listActive: () =>
         Array.from(store.values()).filter((d) => d.status === 'pending' || d.status === 'running'),
@@ -348,6 +351,22 @@ describe('S-ACL ⑤ 聚合面 topology / queue 按调用方收窄', () => {
     expect(queueB.json().data.queue.map((q: { dispatchId: string }) => q.dispatchId)).toEqual([
       'b-d',
     ])
+  })
+})
+
+describe('S-ACL ⑥ 聚合面 /subagents/stats 与 topology/queue 同源收窄', () => {
+  it('A 的 stats 只数 A 的记录,B 的只数 B 的(不出现"列表按租户、总量按全站")', async () => {
+    seed('a-running', 'tenant-a', 'running')
+    seed('b-done', 'tenant-b', 'completed')
+    seed('b-running', 'tenant-b', 'running')
+
+    const a = await app.inject({ method: 'GET', url: '/api/subagents/stats', headers: asA })
+    expect(a.statusCode).toBe(200)
+    expect(a.json().data).toMatchObject({ total: 1, active: 1, completed: 0, failed: 0 })
+
+    const b = await app.inject({ method: 'GET', url: '/api/subagents/stats', headers: asB })
+    expect(b.statusCode).toBe(200)
+    expect(b.json().data).toMatchObject({ total: 2, active: 1, completed: 1, failed: 0 })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

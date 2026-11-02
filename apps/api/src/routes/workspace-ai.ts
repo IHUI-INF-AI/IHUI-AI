@@ -32,6 +32,8 @@ import {
   routineManager,
   githubClient,
   fsBridge,
+  SubagentWorkspaceAccessError,
+  SubagentLinkError,
 } from '../services/workspace-ai-service.js'
 import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
 import {
@@ -1030,18 +1032,19 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const query = z.object({ workspacePath: z.string().optional() }).parse(request.query)
-    const ownerUserId = request.userId
-    // 2026-11-02:workspacePath 是客户端自报串,discover 内的登记根闸才是唯一判据。
-    // 越界/未登记一律 404(防枚举:不复述服务端路径细节),也不静默回落成"只看全局桶"。
-    if (query.workspacePath) {
-      try {
-        subagentManager.discover(ownerUserId, query.workspacePath)
-      } catch {
-        return reply.status(404).send(error(404, '工作区不可用'))
+    // 2026-11-02 收紧:此前只过服务端登记根(或整个跳过),且 list 返回全服已发现集。
+    // 现 discover/list 都走调用者 userId:无该工作区 permission 行一律 404(防枚举不引 403);
+    // 符号链接悬空/越界是脚手架内容错误,给 400 明确文案,不用 404 掩盖。
+    try {
+      const subagents = await subagentManager.list(query.workspacePath, request.userId)
+      return reply.send(success({ subagents }))
+    } catch (e) {
+      if (e instanceof SubagentLinkError) return reply.status(400).send(error(400, e.message))
+      if (e instanceof SubagentWorkspaceAccessError) {
+        return reply.status(404).send(error(404, e.message))
       }
+      throw e
     }
-    // configs 按 owner 分桶:只回本人的子代理配置
-    return reply.send(success({ subagents: subagentManager.list(ownerUserId) }))
   })
 
   server.post('/subagents/delegate', async (request, reply) => {
@@ -1057,11 +1060,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.body)
     if (!body.name || !body.prompt)
       return reply.status(400).send(error(400, 'name 和 prompt 不能为空'))
+    // 2026-11-02 收紧:委派与发现同走调用者授权闸(此前 delegate 不看 userId,
+    // 只要知道 name 就能拿任意 workspacePath 触发他人工作区里的子代理配置)。
+    // 越权同理 404(与 GET 同形,防枚举);符号链接失效仍是 400 明确文案。
     try {
-      const result = await subagentManager.delegate({ ...body, ownerUserId: request.userId })
+      const result = await subagentManager.delegate({ ...body, userId: request.userId })
       return reply.send(success(result))
     } catch (e) {
-      return reply.status(404).send(error(404, (e as Error).message))
+      if (e instanceof SubagentLinkError) return reply.status(400).send(error(400, e.message))
+      if (e instanceof SubagentWorkspaceAccessError) {
+        return reply.status(404).send(error(404, e.message))
+      }
+      throw e
     }
   })
 
@@ -1154,14 +1164,17 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!body.command || !body.workspacePath)
       return reply.status(400).send(error(400, 'command 和 workspacePath 不能为空'))
     try {
-      const mode = body.mode ? sandboxExecutor.resolveMode(body.mode) : undefined
       // 2026-10-31 安全强化第 10 批:两道闸补齐 ——
       // ① danger-full-access 仅管理员:此前任意登录用户自报该档即可放行 curl/wget
       //   并拿到全量进程环境(等价于整台服务器的凭据外传通道);
       // ② 工作区权限闸:与 /fs/run 同型 —— workspace_permissions 未配置 ⇒ 401 引导
       //   先走 /fs/open setup,已配置但不覆盖该路径 ⇒ 403。
+      // 注意:sandboxMode 是**沙箱轴**(packages/types/src/permission-axis.ts 的
+      // SANDBOX_MODES 成员),不是权限档(单轴注册表 permission-mode.ts),
+      // 故变量名不得叫 `mode`(那是本文件权限档比较面的登记名,守门 68 R3)。
+      const sandboxMode = body.mode ? sandboxExecutor.resolveMode(body.mode) : undefined
       if (
-        mode === 'danger-full-access' &&
+        sandboxMode === 'danger-full-access' &&
         resolveAdminRoleId(request, { includeInternalChannel: false }) < ADMIN_ROLE_ID
       ) {
         return reply.status(403).send(error(403, 'danger-full-access 沙箱模式仅管理员可用'))
@@ -1179,7 +1192,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         workspacePath: body.workspacePath,
         cwd: body.cwd,
         timeoutMs: body.timeoutMs,
-        mode,
+        mode: sandboxMode,
         isAdmin: resolveAdminRoleId(request, { includeInternalChannel: false }) >= ADMIN_ROLE_ID,
       })
       return reply.send(success(result))

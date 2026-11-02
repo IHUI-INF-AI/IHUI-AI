@@ -235,7 +235,11 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: rnRadius.lg },
+    card: {
+      padding: rnSpacing['md-loose'],
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+    },
     label: {
       fontSize: rnType.body.size,
       fontWeight: '600',
@@ -257,7 +261,7 @@ function createStyles(tk: AppThemeTokens) {
     codeInput: { flex: 1 },
     codeBtn: {
       height: 50,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
       borderWidth: 1,

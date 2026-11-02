@@ -486,7 +486,7 @@ export default function DevicesPage() {
               </span>
               <select
                 data-testid="delegate-session-select"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
                 value={delegateSessionId}
                 onChange={(e) => setDelegateSessionId(e.target.value)}
               >
@@ -504,7 +504,7 @@ export default function DevicesPage() {
               </span>
               <select
                 data-testid="delegate-device-select"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
                 value={delegateDeviceId}
                 onChange={(e) => setDelegateDeviceId(e.target.value)}
               >
@@ -546,7 +546,7 @@ export default function DevicesPage() {
               </span>
               <select
                 data-testid="tasks-device-select"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
                 value={tasksDeviceId}
                 onChange={(e) => {
                   setTasksDeviceId(e.target.value)

@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   historyBtn: {
-    paddingVertical: 14,
+    paddingVertical: rnSpacing['md-loose'],
     paddingHorizontal: rnSpacing.xl,
     alignItems: 'center',
     justifyContent: 'center',

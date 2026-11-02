@@ -8,7 +8,7 @@
  */
 
 import { StyleSheet, type TextStyle } from 'react-native'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
 
 export function formatQuickNoteStamp(ts: number): string {
@@ -28,7 +28,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       paddingTop: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['xs-loose'],
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     addBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -38,7 +38,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    addBtnText: { color: tk.brand.ctaForeground, fontSize: 14, fontWeight: '600' },
+    addBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
     searchRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -46,7 +46,7 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       paddingTop: rnSpacing['xs-loose'],
     },
-    searchInput: { flex: 1, fontSize: 14 } as TextStyle,
+    searchInput: { flex: 1, fontSize: rnType.body.size } as TextStyle,
     archivedToggle: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -67,9 +67,9 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
     archivedToggleText: { fontSize: 13, color: tk.text.secondary },
     list: { flex: 1, paddingHorizontal: rnSpacing.md },
     empty: { paddingVertical: rnSpacing['4xl'], alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -77,16 +77,16 @@ export function createQuickNotesStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     badgeArchived: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    badgeArchivedText: { fontSize: 11, color: tk.text.tertiary },
-    cardContent: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    badgeArchivedText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     cardActions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -129,13 +129,17 @@ export function createQuickNoteEditorStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     modalTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
     },
-    input: { marginBottom: rnSpacing['sm-loose'], fontSize: 14 } as TextStyle,
-    inputMultiline: { height: 120, marginBottom: rnSpacing['sm-loose'], fontSize: 14 } as TextStyle,
+    input: { marginBottom: rnSpacing['sm-loose'], fontSize: rnType.body.size } as TextStyle,
+    inputMultiline: {
+      height: 120,
+      marginBottom: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+    } as TextStyle,
     modalActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -148,14 +152,14 @@ export function createQuickNoteEditorStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
     },
-    cancelBtnText: { color: tk.text.secondary, fontSize: 14 },
+    cancelBtnText: { color: tk.text.secondary, fontSize: rnType.body.size },
     saveBtn: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    saveBtnText: { color: tk.brand.ctaForeground, fontSize: 14, fontWeight: '600' },
+    saveBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

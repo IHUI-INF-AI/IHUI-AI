@@ -445,7 +445,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium, // 历史 #333
     },
     readStatus: {
-      fontSize: 10, // rpx(20)
+      fontSize: rnType.badge.size, // rpx(20)
       color: tk.text.tertiary, // 历史 #999
       marginTop: rnSpacing.xs, // rpx(8)
       textAlign: 'right',
@@ -550,7 +550,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: rnSpacing['xs-loose'], // rpx(12)
     },
     unreadText: {
-      fontSize: 10, // rpx(20)
+      fontSize: rnType.badge.size, // rpx(20)
       color: tk.surface.light,
     },
     roomTime: {

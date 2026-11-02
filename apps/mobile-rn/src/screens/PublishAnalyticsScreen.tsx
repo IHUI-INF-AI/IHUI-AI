@@ -369,7 +369,7 @@ function makeStyles() {
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
     accountRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     rate: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    risk: { fontSize: 10 },
+    risk: { fontSize: rnType.badge.size },
     riskSafe: { color: tokens.success.deep },
     riskWarn: { color: tokens.danger.DEFAULT },
   })

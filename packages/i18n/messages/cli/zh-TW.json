@@ -141,7 +141,7 @@
     "failureOutcomeUndetermined": "未判定(證據不足,不得讀成成功或失敗)",
     "agentStallLlmRequest": "模型請求",
     "agentStallToolExecution": "工具執行",
-    "agentStallApprovalWait": "等待核准",
+    "agentStallApprovalWait": "等待核準",
     "agentStallElicitationWait": "等待補充輸入",
     "agentStallStreamChannel": "串流通道",
     "agentStallQueueDispatch": "佇列派發",

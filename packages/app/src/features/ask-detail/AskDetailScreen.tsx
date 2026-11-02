@@ -8,7 +8,7 @@ import { ChevronLeft, Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskDetailScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -92,9 +92,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       padding: rnSpacing.lg,
     },
-    muted: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     error: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
       marginBottom: rnSpacing.sm,
       textAlign: 'center',
@@ -113,17 +113,17 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['xs-loose'],
       marginBottom: rnSpacing.md,
     },
-    author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: 11, color: tk.text.tertiary },
+    author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium, marginBottom: rnSpacing.lg },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
     },
     answer: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -132,8 +132,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     accepted: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     answerHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    acceptedTag: { fontSize: 11, color: tk.success.DEFAULT, fontWeight: '600' },
-    answerContent: { marginTop: rnSpacing['xs-loose'], fontSize: 14, color: tk.text.medium },
+    acceptedTag: { fontSize: rnType.caption.size, color: tk.success.DEFAULT, fontWeight: '600' },
+    answerContent: {
+      marginTop: rnSpacing['xs-loose'],
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

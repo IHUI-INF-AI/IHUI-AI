@@ -188,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     membershipCard: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       // 对齐 uniapp vip/index.vue .vip-page 深色渐变(#0F1623→#1F2937),用纯色 #1F2937 近似
       backgroundColor: VIP_GOLD_TEXT,
@@ -217,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: rnSpacing.sm,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -240,7 +240,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardSpacing: { marginBottom: rnSpacing.md },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

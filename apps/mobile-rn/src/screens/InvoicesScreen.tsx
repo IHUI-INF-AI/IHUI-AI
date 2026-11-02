@@ -338,7 +338,7 @@ function makeStyles() {
       color: tokens.brand.ctaForeground,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
@@ -350,7 +350,7 @@ function makeStyles() {
     typeRow: { flexDirection: 'row', gap: rnSpacing.sm },
     typeChip: {
       height: 32,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,

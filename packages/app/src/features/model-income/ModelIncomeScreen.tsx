@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sumFooter: {
       flexDirection: 'row',
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,

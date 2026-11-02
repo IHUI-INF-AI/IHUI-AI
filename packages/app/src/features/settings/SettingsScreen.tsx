@@ -324,7 +324,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     userCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       gap: rnSpacing.md,
@@ -358,7 +358,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'space-between',
       minHeight: 60,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       paddingHorizontal: rnSpacing.md,
       backgroundColor: cardBg,
     },
@@ -369,7 +369,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'space-between',
       minHeight: 60,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       paddingHorizontal: rnSpacing.md,
       backgroundColor: cardBg,
     },
@@ -397,7 +397,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     modalCard: {
       backgroundColor: tk.surface.bg,
       borderRadius: rnRadiusFor.panel,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing['sm-loose'],
     },
     modalTitle: {
