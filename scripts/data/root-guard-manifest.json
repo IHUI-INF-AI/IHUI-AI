@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-01T16:11:57.976Z",
+  "sealedAt": "2026-11-02T08:47:47.446Z",
   "sealedBy": "root-guard --seal",
-  "reason": "守门 267 现读 stale-manifest:guardian-runner 自上次封印后被多枚已入库提交改动(注册条目新增/改号),清单哈希 3e2e42815537 落后被审面 6e49ae936556 ⇒ 部署环将 fail-closed;本次按在册出口重封,清单与被改规则文件同枚提交",
+  "reason": "2026-11-02 合流后 AGENTS.md 铁律段经 13be9b6449 复核修订(新增逆向-复现-超越铁律与体积清偿注记),按在册出口重封;guardian-runner/judgement-libs 哈希未变,仅 agents-ironlaw 一处更新",
   "targets": [
     {
       "id": "guardian-runner",
@@ -22,7 +22,7 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
+      "sha256": "8829560208706482bc1feb6710590609a89cdfc21b75b3d6d3ab1fd8a9ca1b9b"
     }
   ]
 }
