@@ -74,6 +74,7 @@ test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必
     appJson: { updates: { url: 'https://u.expo.dev/1' }, ios: { bundleIdentifier: 'ai.ihui.mobile' }, android: { package: PLAY_PACKAGE } },
     signing: { status: STATUS.FOUND, detail: 'x' },
     site: { status: STATUS.FOUND, detail: 'x' },
+    prodHost: { status: STATUS.MISSING, detail: '本机零 IHUI-* 服务' },
     latest: { android: { status: STATUS.FOUND, detail: 'x' }, ios: { status: STATUS.MISSING, detail: 'x' } },
     submit: { status: STATUS.FOUND, detail: 'x' },
     saKey: { status: STATUS.FOUND, detail: 'x' },
