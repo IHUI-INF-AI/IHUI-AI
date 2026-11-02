@@ -91,20 +91,34 @@ const ARTIFACT_MAX_CHARS = 200_000
  *  - 每租户上限:防单租户吃满全局(单租户打满只影响自己);
  *  - 每租户每优先级上限:同租户内 high/urgent 可多占,low 只留 1 档(避免低优任务长期霸槽)。
  *
- * 具体数值是产品策略决策点(F2 报告里单列):默认全局 3 / 租户 2 / low 1·normal 1·high 2·urgent 2。
+ * 具体数值(2026-11-02 拍板):全局 6 / 每租户 3 / 每租户每优先级 low 1·normal 2·high 3·urgent 3。
  * 调数值只需改这三个常量,调度逻辑与判据不变。
+ *
+ * 为什么不是拍板前的「租户 2 + normal 1」:
+ *  - normal=1 时,租户里的**第二条普通任务**会先撞自己的优先级配额,而租户总配额(2)还有余量
+ *    —— 优先级层比租户层更早成为瓶颈,等于把优先级设计反用了:优先级层的职责是
+ *    「防止低优任务把租户槽位灌满」,不该回头限制正常任务本身。
+ *  - 抬到 normal 2 / high 3 / urgent 3 之后,三层判据的先后才有意义:
+ *    先看全局(6),再看每租户(3),最后才用优先级层兜底低优任务 ——
+ *    优先级层不再抢在租户层之前拦人,只在同租户同类任务占满自己那一档时才生效。
+ *  - low 仍保留 1 档:低优任务不长期霸槽,这是优先级层唯一保留的「更早生效」场景
+ *    (同租户 low 已占 1 槽时,第二条 low 直接落 queued,而不是再去挤占 normal/high 的空间)。
  */
-const DEFAULT_MAX_CONCURRENT = 3
+const DEFAULT_MAX_CONCURRENT = 6
 
 /** 单租户在跑上限(与全局上限取小,是「单租户打满不影响他人」的关键保护) */
-const DEFAULT_TENANT_MAX_CONCURRENT = 2
+const DEFAULT_TENANT_MAX_CONCURRENT = 3
 
-/** 单租户单优先级在跑上限(仍需同时满足租户总上限) */
+/**
+ * 单租户单优先级在跑上限(仍需同时满足租户总上限)。
+ * 只有 low 比租户层更早生效(1 档);normal/high/urgent 的档位等于或高于租户层,
+ * 保证「第二条普通任务」先落到租户层的余量里,而不是被优先级层先拦下。
+ */
 const TENANT_PRIORITY_MAX_CONCURRENT: Record<DispatchPriority, number> = {
   low: 1,
-  normal: 1,
-  high: 2,
-  urgent: 2,
+  normal: 2,
+  high: 3,
+  urgent: 3,
 }
 
 /**
