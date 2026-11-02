@@ -132,7 +132,7 @@ export default function ClawdbotPermissionsPage() {
             <div className="space-y-1">
               <Label>效果</Label>
               <select
-                className="h-9 w-full rounded-sm border bg-background px-3 text-sm"
+                className="h-9 w-full rounded-sm border bg-background px-3 text-body"
                 value={form.effect}
                 onChange={(e) => setForm({ ...form, effect: e.target.value as 'allow' | 'deny' })}
               >
@@ -148,7 +148,7 @@ export default function ClawdbotPermissionsPage() {
       )}
 
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
+        <table className="w-full text-body">
           <thead className="bg-muted/30">
             <tr>
               <th className="px-4 py-2 text-left font-medium">角色</th>
@@ -173,7 +173,7 @@ export default function ClawdbotPermissionsPage() {
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap gap-1">
                       {r.actions.map((a) => (
-                        <span key={a} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                        <span key={a} className="rounded bg-muted px-1.5 py-0.5 text-label">
                           {a}
                         </span>
                       ))}
@@ -182,7 +182,7 @@ export default function ClawdbotPermissionsPage() {
                   <td className="px-4 py-2">
                     <span
                       className={cn(
-                        'rounded px-1.5 py-0.5 text-xs',
+                        'rounded px-1.5 py-0.5 text-label',
                         r.effect === 'allow'
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-red-500/10 text-red-600',
@@ -207,7 +207,7 @@ export default function ClawdbotPermissionsPage() {
         <div className="rounded-lg border bg-card p-3">
           <p className="mb-2 text-body font-medium">角色 × 资源矩阵</p>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-label">
               <thead>
                 <tr>
                   <th className="px-2 py-1 text-left">角色</th>

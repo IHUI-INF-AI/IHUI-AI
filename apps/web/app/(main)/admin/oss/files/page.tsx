@@ -114,7 +114,7 @@ export default function AdminOssFilesPage() {
             <HardDrive className="h-6 w-6 text-primary" />
             文件管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理对象存储中的文件</p>
+          <p className="mt-1 text-body text-muted-foreground">管理对象存储中的文件</p>
         </div>
         <HasPermi code="system:oss:export">
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -127,7 +127,7 @@ export default function AdminOssFilesPage() {
       <HasPermi
         code="system:oss:add"
         fallback={
-          <div className="rounded-lg border-2 border-dashed p-3 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border-2 border-dashed p-3 text-center text-body text-muted-foreground">
             无上传权限
           </div>
         }
@@ -151,7 +151,7 @@ export default function AdminOssFilesPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -161,7 +161,7 @@ export default function AdminOssFilesPage() {
           >
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             第 {page} / {totalPages} 页
           </span>
           <Button

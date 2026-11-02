@@ -76,7 +76,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
 
   if (loading) {
     return (
-      <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
+      <div className="flex h-32 items-center justify-center text-label text-muted-foreground">
         加载中...
       </div>
     )
@@ -84,14 +84,14 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
 
   if (error) {
     return (
-      <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">
+      <div className="rounded-md bg-destructive/10 p-3 text-label text-destructive">
         加载失败: {error.message}
       </div>
     )
   }
 
   if (skills.length === 0) {
-    return <div className="py-8 text-center text-xs text-muted-foreground">暂无技能版本数据</div>
+    return <div className="py-8 text-center text-label text-muted-foreground">暂无技能版本数据</div>
   }
 
   return (
@@ -140,7 +140,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                       return (
                         <div
                           key={v.version}
-                          className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs transition-colors ${
+                          className={`flex items-center justify-between rounded-md border px-3 py-2 text-label transition-colors ${
                             isCompareTarget
                               ? 'border-primary/50 bg-primary/5'
                               : 'border-transparent bg-muted/20'

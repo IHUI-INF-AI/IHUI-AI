@@ -104,9 +104,9 @@ export function MemberImportDialog({
           <DialogHeader>
             <DialogTitle>{t('title')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{t('desc')}</p>
+          <p className="text-body text-muted-foreground">{t('desc')}</p>
 
-          <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+          <div className="rounded-md border bg-muted/30 p-3 text-label text-muted-foreground">
             <div className="mb-1 font-medium text-foreground">{t('formatTitle')}</div>
             <code className="block whitespace-pre-wrap">{t('formatExample')}</code>
           </div>
@@ -134,7 +134,7 @@ export function MemberImportDialog({
                 disabled={uploadMut.isPending}
               />
               {file && (
-                <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1 text-body text-muted-foreground">
                   <FileText className="h-4 w-4" />
                   {file.name}
                 </span>
@@ -143,14 +143,14 @@ export function MemberImportDialog({
           </div>
 
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
 
           {result && (
             <div className="space-y-3 rounded-md border p-3">
-              <div className="flex flex-wrap items-center gap-4 text-sm">
+              <div className="flex flex-wrap items-center gap-4 text-body">
                 <span>
                   {t('total')}: <strong>{total}</strong>
                 </span>
@@ -201,7 +201,7 @@ export function MemberImportDialog({
                   </Table>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">{t('noDetails')}</p>
+                <p className="text-label text-muted-foreground">{t('noDetails')}</p>
               )}
             </div>
           )}

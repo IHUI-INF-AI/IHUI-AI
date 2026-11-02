@@ -31,7 +31,7 @@ export function TaskLogFilter({ search, onSearchChange, onQuery, onReset }: Prop
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('tasksLog.filter.jobName')}</Label>
+        <Label className="text-label">{t('tasksLog.filter.jobName')}</Label>
         <Input
           value={search.jobName}
           onChange={(e) => onSearchChange({ jobName: e.target.value })}
@@ -40,7 +40,7 @@ export function TaskLogFilter({ search, onSearchChange, onQuery, onReset }: Prop
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('tasksLog.filter.jobGroup')}</Label>
+        <Label className="text-label">{t('tasksLog.filter.jobGroup')}</Label>
         <Input
           value={search.jobGroup}
           onChange={(e) => onSearchChange({ jobGroup: e.target.value })}
@@ -49,7 +49,7 @@ export function TaskLogFilter({ search, onSearchChange, onQuery, onReset }: Prop
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">{t('tasksLog.filter.status')}</Label>
+        <Label className="text-label">{t('tasksLog.filter.status')}</Label>
         <Select
           value={search.status || 'all'}
           onValueChange={(v) => onSearchChange({ status: v === 'all' ? '' : v })}

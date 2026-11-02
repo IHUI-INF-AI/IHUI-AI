@@ -113,7 +113,7 @@ function Row({ children }: { children: React.ReactNode }) {
 
 function Meta({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <p className="text-xs text-muted-foreground">
+    <p className="text-label text-muted-foreground">
       <span className="font-medium text-foreground">{label}:</span> {value ?? '-'}
     </p>
   )
@@ -176,7 +176,7 @@ export default function EnterprisePage() {
             <Building2 className="h-5 w-5" aria-hidden />
             企业合规
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             企业认证 / 发票 / 合同 / 对公结算;对公确认后自动完成订单并激活订阅。
           </p>
         </div>
@@ -251,7 +251,7 @@ export default function EnterprisePage() {
           </Button>
         </div>
       )}
-      {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+      {msg && <p className="text-body text-muted-foreground">{msg}</p>}
 
       {q.isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -259,7 +259,7 @@ export default function EnterprisePage() {
           加载中...
         </div>
       ) : rows.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">暂无记录</p>
+        <p className="py-12 text-center text-body text-muted-foreground">暂无记录</p>
       ) : (
         <div className="space-y-3">
           {tab === 'profiles' &&

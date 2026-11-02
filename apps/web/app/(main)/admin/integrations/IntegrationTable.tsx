@@ -65,7 +65,7 @@ export function IntegrationTable({
                 </div>
                 <div>
                   <div className="font-medium">{i.name}</div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-label text-muted-foreground">
                     {t(PROVIDER_KEY[i.provider] ?? 'providers.unknown')}
                   </div>
                 </div>
@@ -90,7 +90,7 @@ export function IntegrationTable({
             {tr && tr !== 'loading' && (
               <div
                 className={cn(
-                  'mt-3 flex items-start gap-2 rounded-md px-2.5 py-1.5 text-xs',
+                  'mt-3 flex items-start gap-2 rounded-md px-2.5 py-1.5 text-label',
                   tr.success
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                     : 'bg-red-500/10 text-red-600 dark:text-red-500',

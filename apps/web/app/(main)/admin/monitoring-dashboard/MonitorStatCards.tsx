@@ -53,7 +53,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
                     ) : (
                       <XCircle className="h-3.5 w-3.5 text-red-600" />
                     )}
-                    <span className={cn('text-xs', ok ? 'text-emerald-600' : 'text-red-600')}>
+                    <span className={cn('text-label', ok ? 'text-emerald-600' : 'text-red-600')}>
                       {s.latency}ms
                     </span>
                   </div>
@@ -75,7 +75,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             {perfCards.map((c) => (
               <div key={c.label} className="rounded-md border p-3">
-                <div className="text-xs text-muted-foreground">{c.label}</div>
+                <div className="text-label text-muted-foreground">{c.label}</div>
                 <div className={cn('mt-1 text-heading font-bold', c.color)}>{c.value}</div>
               </div>
             ))}

@@ -17,7 +17,7 @@ export function CompanyTypeFilter({ onCreate }: Props) {
     <>
       <div>
         <h1 className="text-display font-bold tracking-tight">公司类型管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理会员公司的分类类型</p>
+        <p className="mt-1 text-body text-muted-foreground">管理会员公司的分类类型</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">

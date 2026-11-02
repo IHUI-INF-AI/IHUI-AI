@@ -124,11 +124,11 @@ export default function DeployDiagnosisPage() {
           <Bot className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* 浏览器无法读服务器文件,必须手动粘贴 */}
-      <div className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+      <div className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-body text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{t('pasteNote')}</span>
       </div>
@@ -144,14 +144,14 @@ export default function DeployDiagnosisPage() {
                   <Icon className="h-4 w-4 text-primary" />
                   {t(s.labelKey)}
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">{t(s.hintKey)}</p>
+                <p className="text-label text-muted-foreground">{t(s.hintKey)}</p>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={inputs[s.key] ?? ''}
                   onChange={(e) => setInputs((prev) => ({ ...prev, [s.key]: e.target.value }))}
                   rows={s.rows}
-                  className="font-mono text-xs"
+                  className="font-mono text-label"
                   placeholder={t(s.hintKey)}
                 />
               </CardContent>
@@ -161,7 +161,7 @@ export default function DeployDiagnosisPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-600">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-body text-red-600">
           {error}
         </div>
       )}
@@ -188,7 +188,7 @@ export default function DeployDiagnosisPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t('reportTitle')}</h2>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {meta?.model ? `${t('model')}: ${meta.model}` : ''}
               {meta?.model && meta.durationMs !== undefined ? ' · ' : ''}
               {meta?.durationMs !== undefined ? `${t('duration')}: ${meta.durationMs}ms` : ''}
@@ -199,14 +199,14 @@ export default function DeployDiagnosisPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-body font-medium">{t('rootCause')}</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm">{report.rootCause || '-'}</CardContent>
+            <CardContent className="text-body">{report.rootCause || '-'}</CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-body font-medium">{t('impact')}</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm">{report.impact || '-'}</CardContent>
+            <CardContent className="text-body">{report.impact || '-'}</CardContent>
           </Card>
 
           <Card>
@@ -218,14 +218,14 @@ export default function DeployDiagnosisPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {report.fixCommands.length === 0 ? (
-                <span className="text-sm text-muted-foreground">-</span>
+                <span className="text-body text-muted-foreground">-</span>
               ) : (
                 report.fixCommands.map((cmd, i) => (
                   <div
                     key={i}
                     className="flex items-center justify-between gap-2 rounded-md border p-2"
                   >
-                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre font-mono text-xs">
+                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre font-mono text-label">
                       {cmd}
                     </code>
                     <Button
@@ -250,13 +250,13 @@ export default function DeployDiagnosisPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-body font-medium">{t('summary')}</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm">{report.summary || '-'}</CardContent>
+            <CardContent className="text-body">{report.summary || '-'}</CardContent>
           </Card>
 
           {!report.parseOk && report.raw && (
             <div className="rounded-lg border border-dashed p-3">
-              <p className="mb-2 text-xs text-muted-foreground">{t('rawNote')}</p>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs">
+              <p className="mb-2 text-label text-muted-foreground">{t('rawNote')}</p>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-label">
                 {report.raw}
               </pre>
             </div>
@@ -264,7 +264,7 @@ export default function DeployDiagnosisPage() {
         </div>
       ) : (
         !running && (
-          <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
             {t('empty')}
           </div>
         )

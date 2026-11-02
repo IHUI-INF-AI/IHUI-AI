@@ -532,7 +532,7 @@ export default function SmsReceivePage() {
           <MessageSquareMore className="h-6 w-6 text-primary" />
           短信接码
         </h1>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
           余额:
           {balanceLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -613,7 +613,7 @@ export default function SmsReceivePage() {
                   disabled={autoMode}
                 />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <label className="flex cursor-pointer items-center gap-2 text-body">
                 <input
                   type="checkbox"
                   checked={autoMode}
@@ -636,7 +636,7 @@ export default function SmsReceivePage() {
             {phone && (
               <div className="space-y-3 rounded-lg border p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">当前号码</span>
+                  <span className="text-body text-muted-foreground">当前号码</span>
                   <span className="font-mono text-lg font-bold">{phone}</span>
                 </div>
                 <div className="flex gap-2">
@@ -662,12 +662,12 @@ export default function SmsReceivePage() {
 
                 {phase === 'polling' && (
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-body text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       正在等待短信(关键词「{keyWord}」),每 {POLL_INTERVAL_MS / 1000} 秒查询一次…
                     </div>
                     {autoRound > 0 && (
-                      <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-2 text-sm text-sky-600">
+                      <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-2 text-body text-sky-600">
                         自动筛新号:第 {autoRound} 轮 · 已拉黑 {autoBlocked} 个 · 请用{' '}
                         <span className="font-mono font-bold">{phone}</span> 去「{keyWord}
                         」平台发送验证码
@@ -677,12 +677,12 @@ export default function SmsReceivePage() {
                 )}
                 {phase === 'waiting' && (
                   <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-body text-muted-foreground">
                       已取号 <span className="font-mono font-bold">{phone}</span>,去「{keyWord}
                       」平台发送验证码后点下方按钮查询(手动查询,不自动轮询)
                     </div>
                     {sms?.status === 'pending' && (
-                      <div className="rounded-md border border-amber-500/30 bg-amber-500/15 p-2 text-sm text-amber-600">
+                      <div className="rounded-md border border-amber-500/30 bg-amber-500/15 p-2 text-body text-amber-600">
                         尚未收到短信,稍后再试
                       </div>
                     )}
@@ -697,7 +697,7 @@ export default function SmsReceivePage() {
                   </div>
                 )}
                 {phase === 'timeout' && (
-                  <div className="text-sm text-destructive">
+                  <div className="text-body text-destructive">
                     {autoRound > 0
                       ? `自动筛选已停止:连续 ${autoRound} 轮未收到短信。可调整关键词/卡类型后重新取号继续。`
                       : '等待超时,未收到短信。可释放号码后重新取号,或检查关键词是否正确。'}
@@ -706,13 +706,13 @@ export default function SmsReceivePage() {
                 {phase === 'received' && sms?.status === 'received' && (
                   <div className="space-y-2">
                     {sms.usageKind === 'login' && (
-                      <div className="rounded-md border border-amber-500/30 bg-amber-500/15 p-2 text-sm text-amber-600">
+                      <div className="rounded-md border border-amber-500/30 bg-amber-500/15 p-2 text-body text-amber-600">
                         该号已注册过{sms.platform ? `【${sms.platform}】` : '该平台'}
                         ,本次收到的为登录验证码(非首次注册)
                       </div>
                     )}
                     {sms.usageKind === 'register' && (
-                      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/15 p-2 text-sm text-emerald-600">
+                      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/15 p-2 text-body text-emerald-600">
                         新号注册{sms.platform ? `:${sms.platform}` : ''},该号码此前未在该平台注册过
                       </div>
                     )}
@@ -733,7 +733,7 @@ export default function SmsReceivePage() {
                         </Button>
                       </div>
                     )}
-                    <p className="rounded-md bg-muted p-3 text-sm break-all">{sms.raw}</p>
+                    <p className="rounded-md bg-muted p-3 text-body break-all">{sms.raw}</p>
                   </div>
                 )}
               </div>
@@ -764,22 +764,22 @@ export default function SmsReceivePage() {
                         ? '未被接码'
                         : `${relatedStats.totalUnion ?? relatedStats.total} 次`}
                     </div>
-                    <div className="text-xs text-muted-foreground">全局被接码(累积)</div>
+                    <div className="text-label text-muted-foreground">全局被接码(累积)</div>
                   </div>
                   <div className="rounded-md bg-muted/60 px-1 py-2">
                     <div className="text-lg font-bold leading-tight text-amber-600">
                       {relatedStats.recent} 次
                     </div>
-                    <div className="text-xs text-muted-foreground">近 30 分钟热度</div>
+                    <div className="text-label text-muted-foreground">近 30 分钟热度</div>
                   </div>
                   <div className="rounded-md bg-muted/60 px-1 py-2">
                     <div className="text-lg font-bold leading-tight text-primary">
                       {phoneHistoryTotal} 次
                     </div>
-                    <div className="text-xs text-muted-foreground">本机累计使用</div>
+                    <div className="text-label text-muted-foreground">本机累计使用</div>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {(relatedStats.totalUnion ?? relatedStats.total) === 0
                     ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
                     : '累积=每次查询把平台 12 条滚动窗口抄进本地快照并去重累计,随时间增长、可超越平台 12 条上限(2026-10-09 起);近 30 分钟热度与预筛判据仍用平台单次窗口口径'}
@@ -798,7 +798,7 @@ export default function SmsReceivePage() {
                     return (
                       <div
                         key={row.platform}
-                        className={`rounded-md px-2 py-1.5 text-sm ${allZero ? 'bg-muted/60 text-muted-foreground' : 'bg-primary/10'}`}
+                        className={`rounded-md px-2 py-1.5 text-body ${allZero ? 'bg-muted/60 text-muted-foreground' : 'bg-primary/10'}`}
                       >
                         <span className="font-semibold">【{row.platform}】</span>
                         登录 <span className="font-mono font-bold">{row.login}</span> · 注册{' '}
@@ -816,9 +816,9 @@ export default function SmsReceivePage() {
               </div>
             )}
             {!phone ? (
-              <p className="text-sm text-muted-foreground">取号后自动展示该号码的历史接码记录</p>
+              <p className="text-body text-muted-foreground">取号后自动展示该号码的历史接码记录</p>
             ) : phoneHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {historyLoading
                   ? '查询中…'
                   : '该号码暂无本地台账记录(首次使用,通常是没接过码的新号)'}
@@ -826,9 +826,9 @@ export default function SmsReceivePage() {
             ) : (
               <div className="max-h-64 space-y-2 overflow-auto">
                 {phoneHistory.map((h) => (
-                  <div key={h.id} className="rounded-md border p-2 text-sm">
+                  <div key={h.id} className="rounded-md border p-2 text-body">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="font-mono text-label text-muted-foreground">
                         {new Date(h.receivedAt).toLocaleString('zh-CN', { hour12: false })}
                       </span>
                       {h.platform && (
@@ -839,10 +839,10 @@ export default function SmsReceivePage() {
                         <span className="font-mono font-bold text-primary">{h.smsCode}</span>
                       )}
                       {h.keyword && (
-                        <span className="text-xs text-muted-foreground">关键词:{h.keyword}</span>
+                        <span className="text-label text-muted-foreground">关键词:{h.keyword}</span>
                       )}
                     </div>
-                    <p className="mt-1 truncate text-xs text-muted-foreground" title={h.smsRaw}>
+                    <p className="mt-1 truncate text-label text-muted-foreground" title={h.smsRaw}>
                       {h.smsRaw}
                     </p>
                   </div>
@@ -882,7 +882,7 @@ export default function SmsReceivePage() {
                   <Send className="h-4 w-4" />
                   发送短信
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   以当前持有号码发送;不能向个人手机号发送,发送垃圾信息平台会封号
                 </p>
                 <form onSubmit={handleSend} className="space-y-3">
@@ -942,7 +942,7 @@ export default function SmsReceivePage() {
                   {usedItems.length > 0 && (
                     <div className="max-h-48 space-y-1 overflow-auto">
                       {usedItems.map((u, i) => (
-                        <div key={`${u.phone}-${i}`} className="rounded-md bg-muted p-2 text-xs">
+                        <div key={`${u.phone}-${i}`} className="rounded-md bg-muted p-2 text-label">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-mono font-semibold">{u.phone}</span>
                             <span className="text-muted-foreground">扣费 {u.fee}</span>
@@ -958,7 +958,7 @@ export default function SmsReceivePage() {
                   )}
                   {usedUnion && usedUnion.items.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         累积记录(最近 {usedUnion.items.length} 条/共 {usedUnion.total}
                         条,按入库时间;每次查询历史自动把平台 24h 窗口抄进本地,超越 24h+100 条上限)
                       </p>
@@ -966,7 +966,7 @@ export default function SmsReceivePage() {
                         {usedUnion.items.map((u) => (
                           <div
                             key={u.id}
-                            className="rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"
+                            className="rounded-md border border-primary/20 bg-primary/5 p-2 text-label"
                           >
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-mono font-semibold">{u.phone}</span>
@@ -994,7 +994,7 @@ export default function SmsReceivePage() {
         </Card>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-label text-muted-foreground">
         API 文档:https://www.d1jiema.com/api.html · 频率计费:同一账号或 IP 每请求 1000 次扣 0.01~0.2
         元 · Token 配置于服务端 D1JIEMA_TOKEN
       </p>
@@ -1008,18 +1008,18 @@ export default function SmsReceivePage() {
 function UsageTag({ kind }: { kind: PhoneHistoryItem['usageKind'] }) {
   if (kind === 'register')
     return (
-      <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">
+      <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-label text-emerald-600">
         注册
       </span>
     )
   if (kind === 'login')
     return (
-      <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-600">
+      <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-label text-amber-600">
         登录(已注册过)
       </span>
     )
   return (
-    <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">其他</span>
+    <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">其他</span>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

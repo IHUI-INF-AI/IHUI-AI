@@ -158,7 +158,7 @@ export default function AdminInvoiceApplicationsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">发票申请管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">审核用户发票申请并管理开票流程</p>
+        <p className="mt-1 text-body text-muted-foreground">审核用户发票申请并管理开票流程</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
@@ -237,7 +237,7 @@ export default function AdminInvoiceApplicationsPage() {
                         {sc.label}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                       {dateFmt.format(new Date(a.createdAt))}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
@@ -254,7 +254,7 @@ export default function AdminInvoiceApplicationsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -264,7 +264,7 @@ export default function AdminInvoiceApplicationsPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -285,14 +285,14 @@ export default function AdminInvoiceApplicationsPage() {
               <DialogTitle>审核发票申请</DialogTitle>
             </DialogHeader>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}
             {target && (
-              <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+              <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
                 <div className="font-medium">{currencyFmt.format(Number(target.amount))}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
+                <div className="mt-0.5 text-label text-muted-foreground">
                   {target.invoiceType} · {STATUS_CFG[target.status]?.label}
                 </div>
               </div>

@@ -19,7 +19,7 @@ interface Props {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3">
-      <dt className="w-24 shrink-0 text-xs uppercase text-muted-foreground">{label}</dt>
+      <dt className="w-24 shrink-0 text-label uppercase text-muted-foreground">{label}</dt>
       <dd className="min-w-0 flex-1">{children}</dd>
     </div>
   )
@@ -35,12 +35,12 @@ export function LogDetailDialog({ selected, dateFmt, onClose }: Props) {
           <DialogDescription>{selected?.path}</DialogDescription>
         </DialogHeader>
         {selected && (
-          <dl className="space-y-2.5 text-sm">
+          <dl className="space-y-2.5 text-body">
             <Row label={t('method')}>
               <Badge cls={methodClass(selected.method)}>{selected.method}</Badge>
             </Row>
             <Row label={t('path')}>
-              <code className="break-all font-mono text-xs">{selected.path}</code>
+              <code className="break-all font-mono text-label">{selected.path}</code>
             </Row>
             <Row label={t('statusCode')}>
               <Badge cls={statusClass(selected.statusCode)}>{selected.statusCode}</Badge>
@@ -53,19 +53,19 @@ export function LogDetailDialog({ selected, dateFmt, onClose }: Props) {
             <Row label={t('ip')}>{selected.ip || '-'}</Row>
             <Row label={t('user')}>
               {selected.userId ? (
-                <code className="font-mono text-xs">{selected.userId}</code>
+                <code className="font-mono text-label">{selected.userId}</code>
               ) : (
                 t('anonymous')
               )}
             </Row>
             <Row label={t('userAgent')}>
-              <span className="break-all text-xs text-muted-foreground">
+              <span className="break-all text-label text-muted-foreground">
                 {selected.userAgent || '-'}
               </span>
             </Row>
             {selected.error && (
               <Row label={t('error')}>
-                <pre className="max-h-40 overflow-auto rounded-md bg-red-500/10 p-2 text-xs text-red-600 dark:text-red-400">
+                <pre className="max-h-40 overflow-auto rounded-md bg-red-500/10 p-2 text-label text-red-600 dark:text-red-400">
                   {selected.error}
                 </pre>
               </Row>

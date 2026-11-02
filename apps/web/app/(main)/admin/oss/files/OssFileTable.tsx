@@ -62,10 +62,10 @@ export function OssFileTable({ list, isLoading, deletePending, onPreview, onDele
                 <TableCell className="px-4 py-2.5 text-muted-foreground">
                   {formatSize(f.size)}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {f.mimeType}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {f.createdAt}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{f.uploadedBy}</TableCell>
