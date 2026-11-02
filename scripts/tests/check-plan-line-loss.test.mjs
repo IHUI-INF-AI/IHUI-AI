@@ -36,13 +36,20 @@ const REPO = join(HERE, '..', '..')
 const SCRIPT_REL = 'scripts/check-plan-line-loss.mjs'
 const GIT = 'git'
 const git = (dir, ...args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
-    cwd: dir,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    timeout: 60000,
-  })
+  // 身份两个键显式 -c:夹具仓是 `git init` 出来的新库,不继承本仓 local config;本机又没有
+  // global user.* ⇒ commit 会以 "Author identity unknown" 失败(2026-11-03 实测),红在环境
+  // 而不是被测判据上。夹具自己钉身份,与真仓/开发机配置解耦。
+  execFileSync(
+    GIT,
+    ['-c', 'safe.directory=*', '-c', 'user.name=plan-loss-fixture', '-c', 'user.email=fixture@e2e.local', ...args],
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 60000,
+    },
+  )
 
 /**
  * 端到端夹具的装车面:复制**整条相对 import 闭包**,不是只复制入口那一个文件。
