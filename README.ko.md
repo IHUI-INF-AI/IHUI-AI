@@ -2219,6 +2219,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (45954293cd)
+
+**2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (ce45e49f3f)
 
 **2026-11-03**
@@ -2309,9 +2312,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-03**
 - 🚀 기능/개선:各商店提交前的合规对账器 + 摘除一个全仓零引用的危险权限 (1c6aecb1a4)
-
-**2026-11-03**
-- 🚀 기능/개선:app_versions 加 store 维度,多渠道各自一条 latest 才表达得出来 (33f26c2d18)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
