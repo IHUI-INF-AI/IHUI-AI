@@ -4,73 +4,26 @@
 
 'use client'
 
-import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Download,
-  ExternalLink,
-  Globe,
-  Monitor,
-  Puzzle,
-  Smartphone,
-  Terminal,
-  Package,
-  Calendar,
-  Cpu,
-  HardDrive,
-  ShieldCheck,
-  type LucideIcon,
-} from 'lucide-react'
+import { ArrowLeft, ExternalLink, Globe, Package, ShieldCheck } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
 import { Button, Card } from '@ihui/ui-react'
-import { AppleIcon, AndroidIcon, WechatMiniIcon } from '@/lib/downloads'
 import {
-  formatFileSize,
   getPlatformMeta,
-  type DownloadAsset,
+  isDownloadPlatform,
+  isPlatformLaunched,
   type DownloadPlatform,
   type PlatformMeta,
 } from '@/config/downloads.config'
-import { useDownloadTrack } from '@ihui/shared/hooks'
 import type { DesktopFeed } from '@/config/desktop-feed.generated'
 import type { LiveAndroidSource } from '@/config/desktop-feed-live'
-
-/** platform → 图标组件映射(与 downloads.tsx 的 DOWNLOADS 数组同源) */
-const PLATFORM_ICON: Record<DownloadPlatform, LucideIcon | React.FC<{ className?: string }>> = {
-  web: Globe,
-  desktop: Monitor,
-  ios: AppleIcon,
-  'android-apk': AndroidIcon,
-  mobile: Smartphone,
-  'wechat-miniapp': WechatMiniIcon,
-  extension: Puzzle,
-  cli: Terminal,
-}
-
-/**
- * CLI 的 npm 安装命令。
- * 包名是 unscoped 的 `ihui-cli`(apps/cli/package.json),不是 `@ihui/cli` ——
- * 该 scope 在 npm 上属于第三方,写成 scoped 会让用户装到别人的包。
- * 复制按钮与代码块共用此常量,避免两处漂移。
- */
-const CLI_INSTALL_COMMAND = 'npm install -g ihui-cli'
-
-/** platform → labelKey 映射(用于 t() 翻译) */
-const PLATFORM_LABEL_KEY: Record<DownloadPlatform, string> = {
-  web: 'downloadWeb',
-  desktop: 'downloadDesktop',
-  ios: 'downloadIOS',
-  'android-apk': 'downloadAndroidApk',
-  mobile: 'downloadMobile',
-  'wechat-miniapp': 'downloadWechatMiniApp',
-  extension: 'downloadExtension',
-  cli: 'downloadCli',
-}
+import { DOWNLOAD_ENTRY_BY_PLATFORM } from './platformEntries'
+import { PlatformNotLaunched } from './PlatformNotLaunched'
+import { DownloadDetailHeader } from './DownloadDetailHeader'
+import { DownloadAssetCard } from './DownloadAssetCard'
+import { InstallGuideContent } from './InstallGuideContent'
 
 /**
  * 详情页主内容(client component,使用 useTranslations + useParams)
@@ -79,6 +32,10 @@ const PLATFORM_LABEL_KEY: Record<DownloadPlatform, string> = {
  * 自带的 latest.json)。只对 desktop 端生效 —— 这是当前唯一存在"版本已发到 → 线上仍显示旧号"
  * 的那一端(快照入库链被 main 分支保护挡死,见 @/config/desktop-feed-live 头注)。
  * 注入失败/缺 foreground 时静默回落到构建期快照,详情页形态不变。
+ *
+ * 2026-11-03:拆出 DownloadDetailHeader / DownloadAssetCard / InstallGuideContent 三个同目录
+ * 组件(本文件此前 442 行,超出本仓"每页面 < 250 行"的约束);同一批把认不出的平台段
+ * 从"静默回落 desktop"改成显式 PlatformNotLaunched 态。
  */
 export function DownloadDetailContent({
   platform: platformParam,
@@ -92,20 +49,14 @@ export function DownloadDetailContent({
   const t = useTranslations('nav')
   const router = useRouter()
 
-  // 校验 platform 参数,无效则回退到 desktop
-  const validPlatforms: DownloadPlatform[] = [
-    'web',
-    'desktop',
-    'ios',
-    'android-apk',
-    'mobile',
-    'wechat-miniapp',
-    'extension',
-    'cli',
-  ]
-  const platform = (
-    validPlatforms.includes(platformParam as DownloadPlatform) ? platformParam : 'desktop'
-  ) as DownloadPlatform
+  // 认不出的平台段 ⇒ 显式「该平台尚未上线」态。
+  // 旧写法是 `validPlatforms.includes(x) ? x : 'desktop'` —— 把 /download/harmony 这类
+  // "平台确实存在、只是下载中心还没上"的 URL 静默折成桌面版,用户看到的就是桌面版详情页。
+  // 清单的唯一来源已是 DOWNLOAD_PLATFORMS(见 @/config/downloads.config),此处只做判定。
+  if (!isDownloadPlatform(platformParam)) {
+    return <PlatformNotLaunched platformParam={platformParam} />
+  }
+  const platform: DownloadPlatform = platformParam
 
   // 构建期快照为底,运行期解析到新版本才覆盖 —— 覆盖只动「版本/日期/安装包」三个展示面,
   // installGuideKey 等静态文案仍走快照,避免把两种来源混成一个类型。
@@ -137,10 +88,13 @@ export function DownloadDetailContent({
           : staticMeta.assets,
     }
   }
-  const Icon = PLATFORM_ICON[platform]
-  const label = t(PLATFORM_LABEL_KEY[platform])
+  // 图标与名称取自 DOWNLOADS 同一张表(此前此处另有 PLATFORM_ICON / PLATFORM_LABEL_KEY
+  // 两张同义副本,新增一端要改三处才能不静默错配)
+  const entry = DOWNLOAD_ENTRY_BY_PLATFORM[platform]
+  const label = t(entry.labelKey)
   const hasAssets = meta.assets.length > 0
-  const isAvailable = hasAssets || (meta.version && meta.installGuideKey) ? true : false
+  // 「已发布」徽章的判据与「尚未上线」态的可选平台清单同源(见 isPlatformLaunched)
+  const isAvailable = isPlatformLaunched(meta)
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-4">
@@ -156,44 +110,13 @@ export function DownloadDetailContent({
       </button>
 
       {/* 头部卡片:平台图标 + 名称 + 版本 + 发布日期 + 状态徽章 */}
-      <Card className="mb-6 p-3">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
-              <Icon className="h-7 w-7" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="flex items-center gap-2 text-heading font-semibold text-foreground">
-                <span>{label}</span>
-                {meta.version && (
-                  <span className="rounded-sm bg-muted px-1.5 py-0.5 text-label font-medium text-muted-foreground">
-                    v{meta.version}
-                  </span>
-                )}
-              </h1>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
-                {meta.releaseDate && (
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {meta.releaseDate}
-                  </span>
-                )}
-                {isAvailable ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {t('downloadAvailable')}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                    <Package className="h-3 w-3" />
-                    {t('downloadComingSoon')}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
+      <DownloadDetailHeader
+        icon={entry.icon}
+        label={label}
+        meta={meta}
+        isAvailable={isAvailable}
+        t={t}
+      />
 
       {/* 主区域:基于 assets 状态分支渲染 */}
       {hasAssets ? (
@@ -223,7 +146,8 @@ export function DownloadDetailContent({
           <Card className="border-dashed bg-muted/30 p-3 text-center">
             <Package className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
             <h2 className="mb-1 text-base font-medium text-foreground">
-              {t('downloadComingSoonTitle')}
+              {/* 该 key 的取值带 {platform} 占位(五语言同形),此前漏传 vars ⇒ 占位符裸奔 */}
+              {t('downloadComingSoonTitle', { platform: label })}
             </h2>
             <p className="mx-auto max-w-md text-body text-muted-foreground">
               {t('downloadComingSoonHint', { platform: label })}
@@ -310,133 +234,6 @@ export function DownloadDetailContent({
         </section>
       )}
     </div>
-  )
-}
-
-/** 单个下载资源卡片(format / arch / size + 下载按钮) */
-function DownloadAssetCard({
-  asset,
-  label,
-  t,
-  platform,
-}: {
-  asset: DownloadAsset
-  label: string
-  t: (key: string) => string
-  platform: DownloadPlatform
-}) {
-  const trackDownload = useDownloadTrack()
-  const isExternal = /^https?:/.test(asset.href)
-  const sizeLabel = formatFileSize(asset.sizeBytes)
-
-  return (
-    <Card className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
-          <Download className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-foreground">{asset.format}</span>
-            {asset.arch && (
-              <span className="inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 py-px text-[10px] text-muted-foreground">
-                <Cpu className="h-2.5 w-2.5" />
-                {asset.arch}
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 flex items-center gap-3 text-label text-muted-foreground">
-            <span className="inline-flex items-center gap-0.5">
-              <HardDrive className="h-2.5 w-2.5" />
-              {sizeLabel}
-            </span>
-            {asset.sha256 && <span className="font-mono">SHA256: {asset.sha256.slice(0, 8)}…</span>}
-          </div>
-        </div>
-      </div>
-      <a
-        href={asset.href}
-        target={isExternal ? '_blank' : undefined}
-        rel={isExternal ? 'noopener noreferrer' : undefined}
-        onClick={() => trackDownload(platform, 'detail_page', asset.href)}
-        className={cn(
-          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-cta px-4 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        )}
-      >
-        <Download className="h-4 w-4" />
-        <span>{t('downloadNow')}</span>
-        <span className="sr-only">— {label}</span>
-      </a>
-    </Card>
-  )
-}
-
-/**
- * 安装指南内容(基于 platform 渲染不同形式):
- *  - cli:显示 npm install 命令(可复制)
- *  - extension:显示加载步骤 + 命令
- *  - 其他:显示纯文本指南
- */
-function InstallGuideContent({
-  platform,
-  t,
-  guideKey,
-}: {
-  platform: DownloadPlatform
-  t: (key: string) => string
-  guideKey: string
-}) {
-  const guideText = t(guideKey)
-  // 2026-08-06 修复:copied state 从 cli 分支内提升到组件顶层——原实现
-  // `if (platform === 'cli')` 块内调用 useState,违反 Rules of Hooks(条件 Hook),
-  // 平台切换时 Hook 顺序变化会导致 React 运行时崩溃。
-  const [copied, setCopied] = React.useState(false)
-
-  // CLI:渲染 npm 命令块(可复制)
-  if (platform === 'cli') {
-    const handleCopy = () => {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        void navigator.clipboard.writeText(CLI_INSTALL_COMMAND)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      }
-    }
-    return (
-      <div className="space-y-3">
-        <p className="whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-body text-foreground">
-            {CLI_INSTALL_COMMAND}
-          </code>
-          <Button variant="outline" size="sm" onClick={handleCopy}>
-            {copied ? t('downloadCopied') : t('downloadCopy')}
-          </Button>
-        </div>
-        <p className="text-label text-muted-foreground">
-          {t('downloadCliUsageHint')} <code className="font-mono">ihui --help</code>
-        </p>
-      </div>
-    )
-  }
-
-  // Extension:渲染加载步骤 + 命令
-  if (platform === 'extension') {
-    return (
-      <div className="space-y-3">
-        <p className="whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
-        <ol className="ml-4 list-decimal space-y-1 text-body text-muted-foreground">
-          <li>{t('downloadExtensionStep1')}</li>
-          <li>{t('downloadExtensionStep2')}</li>
-          <li>{t('downloadExtensionStep3')}</li>
-          <li>{t('downloadExtensionStep4')}</li>
-        </ol>
-      </div>
-    )
-  }
-
-  // 其他:纯文本
-  return (
-    <p className="px-4 py-4 whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
