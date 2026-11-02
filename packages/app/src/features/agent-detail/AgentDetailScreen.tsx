@@ -11,6 +11,7 @@ import type { AgentDetailScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** Agent 详情共享屏 — props 注入式跨端组件 */
 export type { AgentDetailScreenProps }
@@ -24,7 +25,12 @@ export function AgentDetailScreen({
   onStartChat,
   onEdit,
   colorScheme = 'light',
+  onNavigate,
+  onToast,
 }: AgentDetailScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

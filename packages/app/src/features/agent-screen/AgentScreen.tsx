@@ -17,6 +17,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentScreenProps }
@@ -97,7 +98,10 @@ export function AgentScreen({
   onBack,
   colorScheme = 'light',
   nestedInScrollView = false,
+  onNavigate,
 }: AgentScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

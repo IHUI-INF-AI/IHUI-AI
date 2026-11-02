@@ -231,6 +231,7 @@ import { rpx } from '../utils/rpx'
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { ChatModelType } from '@ihui/types'
 import { Tappable } from '@ihui/ui-native'
+import { useHostPorts } from '../host/use-host-ports'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -2859,6 +2860,8 @@ export function ChatScreen() {
     .filter((m) => m.role !== 'system')
     .map(toChatScreenMessage)
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <View style={styles.root}>
       {/* 推送通知弹窗由 RootNavigator 全局挂载(见该处 <NotificationPanel />);
@@ -2971,6 +2974,8 @@ export function ChatScreen() {
           onInputVoiceStart={() => {}}
           onInputVoiceEnd={() => {}}
           colorScheme={resolvedTheme}
+          onNavigate={onNavigate}
+          onToast={onToast}
         />
         {/* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */}
         <TaskStatusBar

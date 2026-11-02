@@ -18,6 +18,7 @@ import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** AIGC 发布作品共享屏 — 表单型 props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType }
@@ -59,7 +60,10 @@ export function AigcPublishScreen({
   onSubmit,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: AigcPublishScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const showTextInput = workType === 'text'

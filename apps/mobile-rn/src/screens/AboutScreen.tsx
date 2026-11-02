@@ -11,6 +11,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { WEB_BASE_URL } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -74,6 +75,8 @@ export function AboutScreen() {
     onPress: goTo[id],
   }))
 
+  const { onNavigate, onToast } = useHostPorts()
+
   return (
     <SharedAboutScreen
       t={t}
@@ -82,6 +85,8 @@ export function AboutScreen() {
       onRegister={() => navigation.navigate('Register')}
       onOpenPortal={openPortal}
       entries={entries}
+      onNavigate={onNavigate}
+      onToast={onToast}
     />
   )
 }

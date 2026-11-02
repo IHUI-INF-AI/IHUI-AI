@@ -12,6 +12,7 @@ import { OrderRefundScreen as SharedOrderRefundScreen, type OrderRefundItem } fr
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -85,6 +86,8 @@ export function OrderRefundScreen() {
     }
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedOrderRefundScreen
       t={t}
@@ -108,6 +111,7 @@ export function OrderRefundScreen() {
       onRefresh={() => load(true)}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

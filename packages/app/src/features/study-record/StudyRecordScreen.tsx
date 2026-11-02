@@ -15,6 +15,7 @@ import type {
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 学习记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { StudyRecordItem, StudyRecordScreenProps, StudyRecordStats, StudyRecordStatus }
@@ -38,7 +39,12 @@ export function StudyRecordScreen({
   onRefresh,
   onBack,
   colorScheme = 'light',
+  onNavigate,
+  onToast,
 }: StudyRecordScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
