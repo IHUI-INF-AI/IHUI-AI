@@ -5567,6 +5567,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ff3f0c5c5c)
+
+**2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (fb8410f958)
 
 **2026-11-02**
