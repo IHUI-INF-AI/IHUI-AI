@@ -94,7 +94,7 @@ function specialtyChips(specialties: string[] | undefined, className?: string) {
       {items.map((s, i) => (
         <span
           key={`${i}-${s}`}
-          className={cn('rounded-md px-2 py-0.5 text-xs', CHIP_COLORS[i % CHIP_COLORS.length])}
+          className={cn('rounded-md px-2 py-0.5 text-label', CHIP_COLORS[i % CHIP_COLORS.length])}
         >
           {s}
         </span>
@@ -187,7 +187,7 @@ export default function TradersPage() {
           <TrendingUp className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -289,7 +289,7 @@ export default function TradersPage() {
         ) : traders.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
             <UserRound className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noTraders')}</p>
+            <p className="text-body text-muted-foreground">{t('noTraders')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -305,7 +305,7 @@ export default function TradersPage() {
                       <Percent className="h-3.5 w-3.5" />
                       {t('commission')}: {trader.commissionRate}%
                     </span>
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                    <span className="flex shrink-0 items-center gap-1 text-label text-muted-foreground">
                       <CalendarDays className="h-3.5 w-3.5" />
                       {formatDateOnly(trader.createdAt, locale)}
                     </span>
@@ -314,13 +314,13 @@ export default function TradersPage() {
                   {specialtyChips(trader.specialties)}
 
                   {trader.intro && (
-                    <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 flex-1 text-body text-muted-foreground">
                       {trader.intro}
                     </p>
                   )}
 
                   <div className="mt-auto flex items-center justify-end pt-1">
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-primary">
+                    <span className="flex shrink-0 items-center gap-1 text-label text-primary">
                       {t('viewDetail')}
                       <ChevronRight className="h-3.5 w-3.5" />
                     </span>
@@ -346,7 +346,7 @@ export default function TradersPage() {
                     <Percent className="h-3.5 w-3.5" />
                     {t('commission')}: {detail.commissionRate}%
                   </span>
-                  <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex shrink-0 items-center gap-1 text-label text-muted-foreground">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {t('joinedAt')}: {formatDateOnly(detail.createdAt, locale)}
                   </span>
@@ -365,14 +365,14 @@ export default function TradersPage() {
           ) : detailQuery.isError ? (
             <Alert variant="danger" description={(detailQuery.error as Error).message} />
           ) : detail ? (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-4 text-body">
               <div className="space-y-1.5">
                 <h3 className="flex items-center gap-1.5 font-medium">
                   <Briefcase className="h-4 w-4 text-primary/70" />
                   {t('specialties')}
                 </h3>
                 {specialtyChips(detail.specialties) ?? (
-                  <p className="text-xs text-muted-foreground">{t('empty')}</p>
+                  <p className="text-label text-muted-foreground">{t('empty')}</p>
                 )}
               </div>
 
@@ -391,7 +391,7 @@ export default function TradersPage() {
                   </h3>
                   <div className="flex flex-wrap gap-x-4 gap-y-1">
                     {Object.entries(detail.performance ?? {}).map(([k, v]) => (
-                      <span key={k} className="text-xs text-muted-foreground">
+                      <span key={k} className="text-label text-muted-foreground">
                         {k}: {String(v)}
                       </span>
                     ))}

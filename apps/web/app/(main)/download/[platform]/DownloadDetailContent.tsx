@@ -149,7 +149,7 @@ export function DownloadDetailContent({
       <button
         type="button"
         onClick={() => router.back()}
-        className="mb-4 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>{t('downloadBack')}</span>
@@ -171,7 +171,7 @@ export function DownloadDetailContent({
                   </span>
                 )}
               </h1>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
                 {meta.releaseDate && (
                   <span className="inline-flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -225,7 +225,7 @@ export function DownloadDetailContent({
             <h2 className="mb-1 text-base font-medium text-foreground">
               {t('downloadComingSoonTitle')}
             </h2>
-            <p className="mx-auto max-w-md text-sm text-muted-foreground">
+            <p className="mx-auto max-w-md text-body text-muted-foreground">
               {t('downloadComingSoonHint', { platform: label })}
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -250,7 +250,7 @@ export function DownloadDetailContent({
 
       {/* 代码签名声明:SignPath Foundation 要求下载页明确注明签名来源 */}
       {(platform === 'desktop' || platform === 'cli') && (
-        <p className="mb-6 flex items-start gap-2 text-xs text-muted-foreground">
+        <p className="mb-6 flex items-start gap-2 text-label text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span>{t('downloadCodeSigningNotice')}</span>
         </p>
@@ -275,7 +275,7 @@ export function DownloadDetailContent({
             {t('downloadSystemRequirements')}
           </h2>
           <Card className="p-3">
-            <p className="whitespace-pre-line text-sm text-muted-foreground">
+            <p className="whitespace-pre-line text-body text-muted-foreground">
               {t(meta.systemRequirementsKey)}
             </p>
           </Card>
@@ -290,7 +290,7 @@ export function DownloadDetailContent({
               href={meta.githubReleasesUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               {t('downloadGithubReleases')}
@@ -301,7 +301,7 @@ export function DownloadDetailContent({
               href={meta.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               {t('downloadDocs')}
@@ -345,7 +345,7 @@ function DownloadAssetCard({
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-3 text-label text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">
               <HardDrive className="h-2.5 w-2.5" />
               {sizeLabel}
@@ -403,16 +403,16 @@ function InstallGuideContent({
     }
     return (
       <div className="space-y-3">
-        <p className="whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
+        <p className="whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-sm text-foreground">
+          <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-body text-foreground">
             {CLI_INSTALL_COMMAND}
           </code>
           <Button variant="outline" size="sm" onClick={handleCopy}>
             {copied ? t('downloadCopied') : t('downloadCopy')}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('downloadCliUsageHint')} <code className="font-mono">ihui --help</code>
         </p>
       </div>
@@ -423,8 +423,8 @@ function InstallGuideContent({
   if (platform === 'extension') {
     return (
       <div className="space-y-3">
-        <p className="whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
-        <ol className="ml-4 list-decimal space-y-1 text-sm text-muted-foreground">
+        <p className="whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
+        <ol className="ml-4 list-decimal space-y-1 text-body text-muted-foreground">
           <li>{t('downloadExtensionStep1')}</li>
           <li>{t('downloadExtensionStep2')}</li>
           <li>{t('downloadExtensionStep3')}</li>
@@ -435,6 +435,8 @@ function InstallGuideContent({
   }
 
   // 其他:纯文本
-  return <p className="px-4 py-4 whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
+  return (
+    <p className="px-4 py-4 whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

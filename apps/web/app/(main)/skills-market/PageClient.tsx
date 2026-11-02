@@ -218,7 +218,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
     return (
       <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
         <BackButton />
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
@@ -235,12 +235,12 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
         <BackButton />
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-body font-medium text-foreground">{t('notFoundTitle')}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-label text-muted-foreground">
             {t('notFoundHint', { name: deepLinkName })}
           </p>
           <Link
             href="/skills-market"
-            className="mt-4 inline-flex items-center text-xs text-primary hover:underline"
+            className="mt-4 inline-flex items-center text-label text-primary hover:underline"
           >
             <span>{t('backToMarket')}</span>
           </Link>
@@ -258,7 +258,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
           {!isLoading && !error && <Badge variant="primary">{t('count', { count: total })}</Badge>}
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 过滤栏:关键词 + 标签 */}
@@ -279,7 +279,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
             setTag(e.target.value)
             setPage(1)
           }}
-          className="rounded-sm border bg-card px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border bg-card px-3 py-2 text-body text-foreground"
           aria-label={t('tag')}
         >
           <option value="">{t('allTags')}</option>
@@ -292,20 +292,20 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
       )}
       {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('loadFailed')}
         </div>
       )}
       {!isLoading && !error && items.length === 0 && (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-8 text-center text-body text-muted-foreground">
           <p>{t('empty')}</p>
-          <p className="mt-1 text-xs">{t('emptyHint')}</p>
+          <p className="mt-1 text-label">{t('emptyHint')}</p>
         </div>
       )}
 
@@ -336,7 +336,7 @@ export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?
           >
             {t('prevPage')}
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {t('pageIndicator', { page, total: totalPages })}
           </span>
           <Button
@@ -420,7 +420,7 @@ function SkillCard({
           </div>
         </div>
       </div>
-      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-label leading-relaxed text-muted-foreground">
         {entry.description}
       </p>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -576,7 +576,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
               <Badge variant="default">{entry.license}</Badge>
               {ownership && !ownership.enabled && <Badge variant="default">{t('unlisted')}</Badge>}
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <RatingStars score={entry.rating} />
                 {entry.rating.toFixed(1)} · {t('ratingCount', { count: entry.ratingCount })}
@@ -593,7 +593,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
           </div>
         </div>
 
-        <p className="mt-3 text-sm leading-relaxed text-foreground/90">{entry.description}</p>
+        <p className="mt-3 text-body leading-relaxed text-foreground/90">{entry.description}</p>
         {entry.tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {entry.tags.map((tg) => (
@@ -643,23 +643,23 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
         <div className="mt-5 space-y-2 pt-4">
           <h3 className="text-body font-semibold text-foreground">{t('ratingsTitle')}</h3>
           {ratingsLoading && (
-            <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 py-2 text-label text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {t('loading')}
             </div>
           )}
           {!ratingsLoading && (ratings ?? []).length === 0 && (
-            <p className="text-xs text-muted-foreground">{t('noRatings')}</p>
+            <p className="text-label text-muted-foreground">{t('noRatings')}</p>
           )}
           {(ratings ?? []).map((r) => (
             <div key={r.id} className="rounded-md border bg-muted/30 p-2.5">
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-label">
                 <span className="font-medium text-foreground">{r.userName}</span>
                 <RatingStars score={r.score} />
                 <span className="ml-auto text-muted-foreground">{r.createdAt.slice(0, 10)}</span>
               </div>
               {r.comment && (
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{r.comment}</p>
+                <p className="mt-1 text-label leading-relaxed text-muted-foreground">{r.comment}</p>
               )}
             </div>
           ))}
@@ -696,7 +696,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
               onChange={(e) => setComment(e.target.value)}
               placeholder={t('commentPlaceholder')}
               rows={2}
-              className="w-full rounded-sm border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+              className="w-full rounded-sm border bg-card px-3 py-2 text-body text-foreground placeholder:text-muted-foreground"
             />
             <Button size="sm" onClick={() => void handleSubmitRating()} disabled={submitting}>
               {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}

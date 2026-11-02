@@ -100,7 +100,7 @@ export function TicketDetailDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>{ticket.title}</span>
-            <span className="font-mono text-xs text-muted-foreground">{ticket.ticketNo}</span>
+            <span className="font-mono text-label text-muted-foreground">{ticket.ticketNo}</span>
           </DialogTitle>
           <DialogDescription>
             {t('statusPrefix')}
@@ -121,12 +121,12 @@ export function TicketDetailDialog({
 
         <div className="space-y-4">
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
 
-          <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+          <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
             <div className="mb-1 text-label font-medium text-muted-foreground">
               {t('descriptionLabel')}
             </div>
@@ -136,18 +136,18 @@ export function TicketDetailDialog({
           <div className="space-y-2">
             <div className="text-body font-medium">{t('commentsLabel')}</div>
             {comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noComments')}</p>
+              <p className="text-body text-muted-foreground">{t('noComments')}</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
                 {comments.map((c) => (
                   <div
                     key={c.id}
                     className={cn(
-                      'rounded px-2 py-1.5 text-sm',
+                      'rounded px-2 py-1.5 text-body',
                       c.isAdmin ? 'bg-primary/5' : 'bg-muted/40',
                     )}
                   >
-                    <div className="mb-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="mb-0.5 flex items-center gap-2 text-label text-muted-foreground">
                       <span className="font-medium">
                         {c.isAdmin ? t('adminRole') : t('userRole')}
                       </span>
@@ -209,7 +209,7 @@ export function TicketDetailDialog({
                 ))}
               </div>
               {existingRating.comment && (
-                <p className="mt-1 text-sm text-muted-foreground">{existingRating.comment}</p>
+                <p className="mt-1 text-body text-muted-foreground">{existingRating.comment}</p>
               )}
             </div>
           ) : canRate ? (

@@ -133,7 +133,7 @@ export default function LivePage() {
         <BackButton fallbackHref="/edu-ai" />
         <Link
           href="/live/host"
-          className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+          className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-body text-foreground transition-colors hover:bg-secondary/60"
         >
           <RadioTower className="h-4 w-4" />
           {t('hostLink')}
@@ -144,12 +144,12 @@ export default function LivePage() {
           <Radio className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 分类筛选 chips */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">{t('category')}</span>
+        <span className="text-label text-muted-foreground">{t('category')}</span>
         <Button
           size="sm"
           variant={category === null ? 'default' : 'outline'}
@@ -189,7 +189,7 @@ export default function LivePage() {
       ) : channels.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <PlayCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -225,20 +225,20 @@ export default function LivePage() {
               <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-1 font-medium">{channel.title}</p>
-                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                     {categoryName(channel.categoryId)}
                   </span>
                 </div>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <p className="flex items-center gap-1 text-label text-muted-foreground">
                   <Calendar className="h-3.5 w-3.5 shrink-0" />
                   {t('startTime')}: {formatTime(channel.startTime, locale)}
                 </p>
                 {channel.intro && (
-                  <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
+                  <p className="line-clamp-2 flex-1 text-body text-muted-foreground">
                     {channel.intro}
                   </p>
                 )}
-                <span className="mt-auto flex shrink-0 items-center gap-1 pt-1 text-xs text-primary">
+                <span className="mt-auto flex shrink-0 items-center gap-1 pt-1 text-label text-primary">
                   {t('viewDetail')}
                   <ExternalLink className="h-3.5 w-3.5" />
                 </span>
@@ -250,7 +250,7 @@ export default function LivePage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export default function LivePage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button
@@ -322,7 +322,7 @@ export default function LivePage() {
                     href={selected.playUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex w-fit items-center gap-1 text-sm text-primary hover:underline"
+                    className="flex w-fit items-center gap-1 text-body text-primary hover:underline"
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t('watch')}
@@ -331,12 +331,12 @@ export default function LivePage() {
               ) : (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
                   <PlayCircle className="h-10 w-10 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">{t('noStream')}</p>
+                  <p className="text-body text-muted-foreground">{t('noStream')}</p>
                 </div>
               )}
 
               {selected.intro && (
-                <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
+                <p className="whitespace-pre-line text-body leading-6 text-muted-foreground">
                   {selected.intro}
                 </p>
               )}

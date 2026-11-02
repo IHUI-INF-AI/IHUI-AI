@@ -71,13 +71,13 @@ export default function MyCertificatesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Award className="h-8 w-8 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">{t('empty')}</p>
+          <p className="text-label text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -99,7 +99,7 @@ export default function MyCertificatesPage() {
                       {t(statusKey)}
                     </span>
                   </div>
-                  <div className="space-y-1.5 text-sm">
+                  <div className="space-y-1.5 text-body">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">{t('certNo')}</span>
                       <span className="font-medium">{cert.certificateNo}</span>

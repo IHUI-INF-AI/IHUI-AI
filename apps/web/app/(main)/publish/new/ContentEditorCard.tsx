@@ -130,11 +130,11 @@ export function ContentEditorCard({
               onChange={(e) => onTextContentChange(e.target.value)}
               rows={8}
               placeholder={t('new.contentTextPlaceholder')}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           ) : (
             <div className="space-y-2">
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-xs text-muted-foreground transition-colors hover:bg-accent">
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-label text-muted-foreground transition-colors hover:bg-accent">
                 <Upload className="h-4 w-4" />
                 <span>
                   {fileMeta ? `${fileMeta.filename} · ${fileMeta.format}` : t('new.uploadFileHint')}
@@ -167,7 +167,7 @@ export function ContentEditorCard({
         </div>
         <div className="space-y-2">
           <Label>{t('new.coverImage')}</Label>
-          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent">
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-label text-muted-foreground transition-colors hover:bg-accent">
             <Upload className="h-4 w-4" />
             <span>{coverMeta ? coverMeta.filename : t('new.coverImage')}</span>
             <input

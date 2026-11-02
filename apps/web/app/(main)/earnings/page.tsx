@@ -39,7 +39,7 @@ export default function EarningsPage() {
             <Coins className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
             {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
       </header>
 
@@ -64,7 +64,7 @@ export default function EarningsPage() {
             </div>
             <div>
               <p className="text-body font-semibold">{t('configureByok')}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{t('configureByokDesc')}</p>
+              <p className="mt-0.5 text-label text-muted-foreground">{t('configureByokDesc')}</p>
             </div>
           </div>
           <Button asChild size="sm" className="shrink-0 bg-emerald-600 hover:bg-emerald-700">

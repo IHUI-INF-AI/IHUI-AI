@@ -90,7 +90,7 @@ export function ToolsSection() {
       </div>
       <div className="space-y-2">
         <h2 className="text-heading font-bold tracking-tight">{t('title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
@@ -106,7 +106,7 @@ export function ToolsSection() {
                   return (
                     <div
                       key={item.labelKey}
-                      className="flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-2 text-sm transition-colors hover:bg-accent"
+                      className="flex items-center gap-2 rounded-md border bg-muted/30 px-2.5 py-2 text-body transition-colors hover:bg-accent"
                     >
                       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span>{t(ITEM_KEY[item.labelKey] ?? 'items.unknown')}</span>
@@ -126,7 +126,7 @@ export function ToolsSection() {
             {PARTNERS.map((name) => (
               <div
                 key={name}
-                className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+                className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-body transition-colors hover:bg-accent"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-label font-bold text-primary">
                   {name[0]}

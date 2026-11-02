@@ -114,7 +114,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
             <ArrowLeftRight className="h-4 w-4 text-primary" />
             {t('title')}
             {compared.length > 0 ? (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-label">
                 {t('selectedCount', { count: compared.length, max: MAX_COMPARE })}
               </Badge>
             ) : null}
@@ -123,10 +123,10 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
 
         {/* 选区 */}
         <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-          <p className="text-xs text-muted-foreground">{t('pickHint', { max: MAX_COMPARE })}</p>
+          <p className="text-label text-muted-foreground">{t('pickHint', { max: MAX_COMPARE })}</p>
           <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
             {allOptions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{t('noModels')}</p>
+              <p className="text-label text-muted-foreground">{t('noModels')}</p>
             ) : (
               allOptions.map(({ model, provider }) => {
                 const checked = selected.has(model.id)
@@ -135,7 +135,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
                     key={model.id}
                     type="button"
                     onClick={() => toggle(model.id)}
-                    className={`inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition-colors ${
+                    className={`inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors ${
                       checked
                         ? 'border-brand-accent-deep bg-primary/10 text-primary'
                         : 'border-input bg-background hover:bg-accent'
@@ -160,13 +160,13 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
 
         {/* 对比表 */}
         {compared.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 py-8 text-center text-body text-muted-foreground">
             <Sparkles className="h-6 w-6" />
             {t('empty')}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-xs">
+            <table className="w-full text-label">
               <thead>
                 <tr className="bg-muted/30 text-left">
                   <th className="w-32 px-3 py-2 font-medium text-muted-foreground">
@@ -175,7 +175,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
                   {compared.map(({ model, provider }) => (
                     <th key={model.id} className="min-w-32 px-3 py-2 font-medium">
                       <div className="space-y-0.5">
-                        <p className="truncate font-mono text-sm">
+                        <p className="truncate font-mono text-body">
                           {model.displayName || model.modelId}
                         </p>
                         <p className="truncate text-[10px] font-normal text-muted-foreground">

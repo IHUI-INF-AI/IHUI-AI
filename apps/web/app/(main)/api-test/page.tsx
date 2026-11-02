@@ -60,7 +60,7 @@ export default function ApiTestPage() {
           <Terminal className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -70,7 +70,7 @@ export default function ApiTestPage() {
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value as Method)}
-                className="rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+                className="rounded-sm border border-input bg-transparent px-3 py-2 text-body"
               >
                 {METHODS.map((m) => (
                   <option key={m} value={m}>
@@ -112,12 +112,12 @@ export default function ApiTestPage() {
                 onChange={(e) => setBody(e.target.value)}
                 rows={4}
                 placeholder='{"key":"value"}'
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
 
             {error && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {error}
               </div>
             )}
@@ -128,10 +128,10 @@ export default function ApiTestPage() {
       {response && (
         <Card>
           <CardHeader className="p-3">
-            <CardTitle className="text-sm">{t('response')}</CardTitle>
+            <CardTitle className="text-body">{t('response')}</CardTitle>
           </CardHeader>
           <CardContent className="min-[640px]:p-3 p-3 pt-0">
-            <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs">{response}</pre>
+            <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-label">{response}</pre>
           </CardContent>
         </Card>
       )}

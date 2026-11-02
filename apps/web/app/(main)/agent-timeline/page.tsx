@@ -165,7 +165,7 @@ export default function AgentTimelinePage() {
         <History className="h-5 w-5 text-primary" />
         <h1 className="text-display font-bold">{t('title')}</h1>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       <div className="mb-6 flex items-center gap-2">
         <input
@@ -173,7 +173,7 @@ export default function AgentTimelinePage() {
           onChange={(e) => setSessionId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void load(sessionId)}
           placeholder={t('sessionIdPlaceholder')}
-          className="flex-1 rounded-sm border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="flex-1 rounded-sm border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
         />
         <button
           onClick={() => void load(sessionId)}
@@ -186,18 +186,18 @@ export default function AgentTimelinePage() {
       </div>
 
       {needLogin && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {error && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <XCircle className="h-4 w-4" /> {error}
         </p>
       )}
 
       {!loading && !data && !error && !needLogin && (
-        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-body text-muted-foreground">
           <Activity className="h-5 w-5" /> {t('noEvents')}
         </div>
       )}
@@ -207,19 +207,19 @@ export default function AgentTimelinePage() {
           {/* 汇总统计 */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('totalEvents')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('totalEvents')}</div>
               <div className="text-heading font-bold">{data.total}</div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('totalCost')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('totalCost')}</div>
               <div className="text-heading font-bold">{fmtCost(data.summary.total_cost_usd)}</div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('totalTokens')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('totalTokens')}</div>
               <div className="text-heading font-bold">{data.summary.total_tokens}</div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 text-xs text-muted-foreground">{t('window')}</div>
+              <div className="mb-1 text-label text-muted-foreground">{t('window')}</div>
               <div className="truncate text-label font-medium">
                 {data.summary.window.start ? fmtTime(data.summary.window.start) : '-'}
                 {' → '}
@@ -234,7 +234,7 @@ export default function AgentTimelinePage() {
               <span
                 key={k}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs',
+                  'inline-flex items-center gap-1 rounded px-2 py-0.5 text-label',
                   KIND_COLOR[k],
                 )}
               >
@@ -272,11 +272,11 @@ export default function AgentTimelinePage() {
                         </span>
                         <span className="truncate text-body font-medium">{ev.title}</span>
                         {ev.kind === 'checkpoint' && (
-                          <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                          <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-label text-emerald-600">
                             {t('restorable')}
                           </span>
                         )}
-                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                        <span className="ml-auto shrink-0 text-label text-muted-foreground">
                           {fmtTime(ev.at_iso)}
                           {isOpen ? (
                             <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
@@ -286,7 +286,7 @@ export default function AgentTimelinePage() {
                         </span>
                       </div>
                       {ev.subtitle && (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                        <p className="mt-1 line-clamp-1 text-label text-muted-foreground">
                           {ev.subtitle}
                         </p>
                       )}
@@ -301,11 +301,11 @@ export default function AgentTimelinePage() {
                                 <span className="text-label font-semibold text-muted-foreground">
                                   {t('decision')}
                                 </span>
-                                <code className="rounded bg-cta/10 px-1.5 py-0.5 text-xs text-primary">
+                                <code className="rounded bg-cta/10 px-1.5 py-0.5 text-label text-primary">
                                   {getMetaStr(ev.meta, 'decision')}
                                 </code>
                                 {getMetaStr(ev.meta, 'reason') && (
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-label text-muted-foreground">
                                     {getMetaStr(ev.meta, 'reason')}
                                   </span>
                                 )}
@@ -313,7 +313,7 @@ export default function AgentTimelinePage() {
                             )}
                             {getMetaStr(ev.meta, 'decision') !== 'execute_tool' &&
                               !getMetaStr(ev.meta, 'decision') && (
-                                <span className="text-xs text-muted-foreground" />
+                                <span className="text-label text-muted-foreground" />
                               )}
                             {(() => {
                               const diff = ev.meta.diff as StepEvidenceDiff | undefined
@@ -328,7 +328,7 @@ export default function AgentTimelinePage() {
                                       <p className="mb-1 text-label font-medium text-destructive/80">
                                         {t('diffBefore')}
                                       </p>
-                                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs">
+                                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-label">
                                         {diff.before || '(empty)'}
                                       </pre>
                                     </div>
@@ -336,7 +336,7 @@ export default function AgentTimelinePage() {
                                       <p className="mb-1 text-label font-medium text-emerald-700">
                                         {t('diffAfter')}
                                       </p>
-                                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs">
+                                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-label">
                                         {diff.after || '(empty)'}
                                       </pre>
                                     </div>
@@ -352,7 +352,7 @@ export default function AgentTimelinePage() {
                                   <span className="text-label font-semibold text-muted-foreground">
                                     {t('testEvidence')}
                                   </span>
-                                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                  <code className="rounded bg-muted px-1.5 py-0.5 text-label">
                                     {test.command}
                                   </code>
                                   {test.exit_code !== null && (
@@ -367,12 +367,12 @@ export default function AgentTimelinePage() {
                                     </span>
                                   )}
                                   {test.passed !== null && (
-                                    <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                                    <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-label text-emerald-600">
                                       {t('testPassed', { count: test.passed })}
                                     </span>
                                   )}
                                   {test.failed !== null && test.failed > 0 && (
-                                    <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                                    <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-label text-destructive">
                                       {t('testFailed', { count: test.failed })}
                                     </span>
                                   )}
@@ -388,10 +388,12 @@ export default function AgentTimelinePage() {
                                   <span className="text-label font-medium text-emerald-700">
                                     {t('rollbackEvidence')}
                                   </span>
-                                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                  <code className="rounded bg-muted px-1.5 py-0.5 text-label">
                                     {rb.checkpoint_id}
                                   </code>
-                                  <span className="text-xs text-muted-foreground">{rb.path}</span>
+                                  <span className="text-label text-muted-foreground">
+                                    {rb.path}
+                                  </span>
                                 </div>
                               )
                             })()}
@@ -401,7 +403,7 @@ export default function AgentTimelinePage() {
                               const dur = getMetaNum(ev.meta, 'duration_ms')
                               if (!cost && !tokens && !dur) return null
                               return (
-                                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-3 text-label text-muted-foreground">
                                   {dur > 0 && (
                                     <span>
                                       {t('duration')}{' '}
@@ -428,7 +430,7 @@ export default function AgentTimelinePage() {
                         <p className="mb-1 text-label font-semibold text-muted-foreground">
                           {t('detail')}
                         </p>
-                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-label">
                           {JSON.stringify(ev.meta, null, 2)}
                         </pre>
                       </div>

@@ -236,7 +236,7 @@ export default function UserLlmConfigsPage() {
             <KeyRound className="h-6 w-6 shrink-0 text-primary" />
             <span className="truncate">{t('title')}</span>
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <Button
@@ -265,7 +265,7 @@ export default function UserLlmConfigsPage() {
       <Alert variant="info" title={t('infoTitle')} description={t('infoDesc')} />
 
       {/* BYOK 模式提示 */}
-      <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
+      <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3 text-label text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
         <p className="min-w-0 flex-1">
           <span className="whitespace-nowrap font-medium text-foreground">
@@ -278,7 +278,7 @@ export default function UserLlmConfigsPage() {
             onClick={reopenOnboarding}
             size="xs"
             variant="ghost"
-            className="shrink-0 whitespace-nowrap px-2 text-xs"
+            className="shrink-0 whitespace-nowrap px-2 text-label"
           >
             <BookOpen className="mr-1 h-3.5 w-3.5 shrink-0" />
             <span className="whitespace-nowrap">{tV2('byok.viewGuide')}</span>
@@ -294,7 +294,7 @@ export default function UserLlmConfigsPage() {
         <div className="space-y-3">
           {/* Toolbar */}
           <div className="flex items-center justify-between">
-            <p className="min-w-0 flex-1 truncate text-sm tabular-nums text-muted-foreground">
+            <p className="min-w-0 flex-1 truncate text-body tabular-nums text-muted-foreground">
               {tV2('listCount', { total, enabledCount })}
             </p>
             {visibleProviders.length > 0 && (
@@ -334,7 +334,7 @@ export default function UserLlmConfigsPage() {
                 </div>
                 <div>
                   <p className="text-body font-medium">{tV2('emptyTitle')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{tV2('emptyDesc')}</p>
+                  <p className="mt-1 text-label text-muted-foreground">{tV2('emptyDesc')}</p>
                 </div>
                 <Button
                   onClick={openCreateProvider}
@@ -347,7 +347,9 @@ export default function UserLlmConfigsPage() {
                 </Button>
                 {templates.length > 0 && (
                   <div className="mt-4 w-full">
-                    <p className="mb-2 text-xs text-muted-foreground">{tV2('quickStartTitle')}</p>
+                    <p className="mb-2 text-label text-muted-foreground">
+                      {tV2('quickStartTitle')}
+                    </p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {templates
                         .filter(
@@ -365,7 +367,7 @@ export default function UserLlmConfigsPage() {
                               setEditingProvider(null)
                               setProvDialogOpen(true)
                             }}
-                            className="rounded-sm border px-3 py-1 text-xs transition-colors hover:border-brand-accent-deep hover:bg-primary/5"
+                            className="rounded-sm border px-3 py-1 text-label transition-colors hover:border-brand-accent-deep hover:bg-primary/5"
                           >
                             {tpl.name}
                           </button>
@@ -396,7 +398,7 @@ export default function UserLlmConfigsPage() {
       </div>
 
       {/* Security notice */}
-      <div className="flex items-start gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+      <div className="flex items-start gap-2 rounded-md border border-dashed p-3 text-label text-muted-foreground">
         <p>{t('securityNotice')}</p>
       </div>
 
@@ -452,14 +454,16 @@ export default function UserLlmConfigsPage() {
               <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" />
               <span className="whitespace-nowrap">{tV2('byok.welcomeTitle')}</span>
             </DialogTitle>
-            <DialogDescription className="text-xs">{tV2('byok.welcomeDesc')}</DialogDescription>
+            <DialogDescription className="text-label">{tV2('byok.welcomeDesc')}</DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[70vh] space-y-4 overflow-y-auto p-3 text-sm">
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto p-3 text-body">
             {/* 价值说明 */}
             <section className="space-y-1.5">
               <p className="font-medium text-foreground">{tV2('byok.whyTitle')}</p>
-              <p className="text-xs leading-relaxed text-muted-foreground">{tV2('byok.whyDesc')}</p>
+              <p className="text-label leading-relaxed text-muted-foreground">
+                {tV2('byok.whyDesc')}
+              </p>
             </section>
 
             {/* 免费 provider 推荐 */}
@@ -507,7 +511,7 @@ export default function UserLlmConfigsPage() {
             {/* 操作步骤 */}
             <section className="space-y-2">
               <p className="font-medium text-foreground">{tV2('byok.stepsTitle')}</p>
-              <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
+              <ol className="list-decimal space-y-1 pl-5 text-label leading-relaxed text-muted-foreground">
                 <li>{tV2('byok.step1')}</li>
                 <li>{tV2('byok.step2')}</li>
                 <li>{tV2('byok.step3')}</li>
