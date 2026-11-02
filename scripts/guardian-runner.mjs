@@ -6791,6 +6791,32 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
+  // 编号 282:注册前现读全仓门号 282 出现 0 次(上一枚 281;取号规则 = 注册前现读最大 + 1)。
+  // 立因(2026-11-03):把 alerts-ai.yml 的指标名改成 `..._totl`,promtool/reload/status/config
+  // 全绿、lastError 空,规则从此静默永不触发。本门把规则里的指标名与 Prometheus
+  // `/api/v1/label/__name__/values` + `/api/v1/series`(默认 24h)对账,打错/从未产生/样本过期
+  // 三态任一命中即 exit 1。直接跑:node scripts/check-metric-existence.mjs
+  // 为什么是 warn 而不是 blocking:判据依赖本机 Prometheus(8815→9090),机器没起时只能退到
+  // 静态清单;把机器态升成 blocking 会变成"Prometheus 没起就谁也提交不了"的恒红门(§12e)。
+  // 应急放行:HUSKY_SKIP_METRIC_EXISTENCE=1 git commit ...(须在提交信息写明理由)。
+  {
+    id: '282',
+    label: '📊 告警/记录规则指标存在性(打错/从未产生/样本过期 ⇒ 非零退出;warn)',
+    script: 'check-metric-existence.mjs',
+    // pre-commit 门审的是**暂存内容**:默认 HEAD 面会漏掉本次暂存进来的规则改动
+    args: ['--staged'],
+    mode: 'warn',
+    stagedTriggers: ['monitoring/', 'scripts/data/metric-existence-exemptions.json'],
+    skipEnv: 'HUSKY_SKIP_METRIC_EXISTENCE',
+    onFailHint: [
+      '  💡 先看输出里的三态:打错(最近已知名 + 编辑距离)/ 从未产生 / 样本过期。',
+      '     直接跑:node scripts/check-metric-existence.mjs(有 Prometheus 时按真实名字与 24h 序列判)',
+      '     没有 Prometheus 时退到静态清单(代码声明 + exporter 前缀台账 + recording 输出)。',
+      '     合法零样本(事件型计数器无 0 基线)只能登记在 scripts/data/metric-existence-exemptions.json:',
+      '     硬验发射点仍在 + up{job}==1,到期/空挂/发射点改名都会判红 —— 它不是"忽略"。',
+      '     自检:node --test scripts/tests/check-metric-existence.test.mjs(11 例)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
