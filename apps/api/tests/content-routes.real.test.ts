@@ -30,6 +30,7 @@ async function createAnnouncement(data: {
       publishedAt: data.publishedAt,
     })
     .returning()
+  if (!row) throw new Error('content-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -48,6 +49,7 @@ async function createHelpCategory(data: {
       sortOrder: data.sortOrder ?? 0,
     })
     .returning()
+  if (!row) throw new Error('content-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -70,6 +72,7 @@ async function createHelpArticle(data: {
       sortOrder: data.sortOrder ?? 0,
     })
     .returning()
+  if (!row) throw new Error('content-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -92,6 +95,7 @@ async function createDoc(data: {
       sortOrder: data.sortOrder ?? 0,
     })
     .returning()
+  if (!row) throw new Error('content-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -224,7 +228,7 @@ describe('content-routes — 路由层真实 DB 集成测试', () => {
       .from(helpArticles)
       .where(eq(helpArticles.id, a.id))
       .limit(1)
-    expect(updated.viewCount).toBe(before + 1)
+    expect(updated!.viewCount).toBe(before + 1)
   })
 
   it('GET /api/help/articles/:slug — 未发布返回 404', async () => {
@@ -269,7 +273,7 @@ describe('content-routes — 路由层真实 DB 集成测试', () => {
       .from(docs)
       .where(eq(docs.id, d.id))
       .limit(1)
-    expect(updated.viewCount).toBe(before + 1)
+    expect(updated!.viewCount).toBe(before + 1)
   })
 
   it('GET /api/docs/:slug — 未发布返回 404', async () => {

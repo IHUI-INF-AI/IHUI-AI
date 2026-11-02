@@ -17,7 +17,7 @@
  * 铁律:全程 mock db,不连生产 PostgreSQL(8810)/ Redis(8811)。
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 
 // ---------------------------------------------------------------- mock 面
 
@@ -116,7 +116,7 @@ let server: FastifyInstance
 beforeAll(async () => {
   server = Fastify({ logger: false })
   // 刻意不含 errorCode / data:409 体里的结构化字段只能来自路由自身的 catch
-  server.setErrorHandler((err, _request, reply) => {
+  server.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode =
       typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 600
         ? err.statusCode

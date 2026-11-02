@@ -98,8 +98,8 @@ describe('sse-replay-buffer', () => {
       registerStream(k)
     }
     // 最早注册的 key(创建时间最小)应被淘汰
-    expect(isStreamActive(keys[0])).toBe(false)
-    expect(isStreamActive(keys[209])).toBe(true)
+    expect(isStreamActive(keys[0]!)).toBe(false)
+    expect(isStreamActive(keys[209]!)).toBe(true)
   })
 
   it('releaseStream 在 60s 后才释放缓冲', () => {

@@ -148,6 +148,12 @@ import {
   CHAT_SYNC_STREAM_FRAME_MIN_CHARS,
 } from '../src/routes/ai-chat-stream.js'
 import { CHAT_SYNC_EVENT_NAMES } from '@ihui/types'
+import type {
+  ChatMessageCreatedBroadcastInput,
+  ChatMessagePatchedBroadcastInput,
+  ChatMessageTerminalBroadcastInput,
+  ChatSyncBroadcastResult,
+} from '../src/plugins/ws-broadcast.js'
 
 const USER_TOKEN = 'Bearer user-token'
 
@@ -232,22 +238,22 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
   beforeAll(async () => {
     server.decorate(
       'broadcastChatMessageCreated',
-      (input: Record<string, unknown>): Record<string, unknown> => {
-        timeline.push({ kind: 'created', input })
+      (input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult => {
+        timeline.push({ kind: 'created', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
     server.decorate(
       'broadcastChatMessagePatched',
-      async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        timeline.push({ kind: 'patched', input })
+      async (input: ChatMessagePatchedBroadcastInput): Promise<ChatSyncBroadcastResult> => {
+        timeline.push({ kind: 'patched', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
     server.decorate(
       'broadcastChatMessageTerminal',
-      async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        timeline.push({ kind: 'terminal', input })
+      async (input: ChatMessageTerminalBroadcastInput): Promise<ChatSyncBroadcastResult> => {
+        timeline.push({ kind: 'terminal', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )

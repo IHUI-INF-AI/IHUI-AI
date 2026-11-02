@@ -20,7 +20,9 @@ const insertedRows: unknown[] = []
 let insertCalls: { table?: string; values?: unknown }[] = []
 const selectRows: unknown[] = []
 
-const chain: Record<string, (...a: unknown[]) => typeof chain> & { then: unknown } = {
+type Chain = Record<string, (...a: unknown[]) => Chain> & { then: unknown }
+
+const chain: Chain = {
   then: undefined as never,
   from: () => chain,
   where: () => chain,
@@ -31,11 +33,9 @@ const chain: Record<string, (...a: unknown[]) => typeof chain> & { then: unknown
     return chain
   },
   returning: () => {
-    const next = {
-      ...chain,
-      then: (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([insertedRows.shift()]).then(resolve),
-    }
+    const next: Chain = { ...chain }
+    next.then = (resolve: (v: unknown) => unknown) =>
+      Promise.resolve([insertedRows.shift()]).then(resolve)
     return next
   },
 }

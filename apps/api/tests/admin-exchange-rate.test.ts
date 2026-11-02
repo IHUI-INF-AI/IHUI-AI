@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -71,7 +71,7 @@ describe('exchange-rate routes', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((error, _request, reply) => {
+    server.setErrorHandler((error: FastifyError, _request, reply) => {
       const statusCode =
         error.statusCode && error.statusCode >= 400 && error.statusCode < 600
           ? error.statusCode
@@ -147,6 +147,8 @@ describe('exchange-rate routes', () => {
     beforeEach(() => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: '00000000-0000-4000-8000-000000000fee',
+        phone: '13800000000',
+        familyId: '00000000-0000-4000-8000-0000000000fa',
         roleId: 0,
       })
     })
@@ -194,6 +196,8 @@ describe('exchange-rate routes', () => {
     beforeEach(() => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: '00000000-0000-4000-8000-000000000fee',
+        phone: '13800000000',
+        familyId: '00000000-0000-4000-8000-0000000000fa',
         roleId: 1,
       })
     })

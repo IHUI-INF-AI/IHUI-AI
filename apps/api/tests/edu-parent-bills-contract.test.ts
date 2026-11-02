@@ -39,7 +39,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 
 /**
  * 夹具账本(hoisted:vi.mock 工厂要在模块求值前拿到它)。
@@ -346,7 +346,7 @@ async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
   // 承载层由端点自己经 checkAuthOrInternalService 调用(见 handler 首行),
   // 与生产 server.ts 的全局链路同源;测试只需装配路由与错误信封。
-  app.setErrorHandler((err, _request, reply) => {
+  app.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode =
       typeof (err as { statusCode?: number }).statusCode === 'number'
         ? (err as { statusCode: number }).statusCode

@@ -21,7 +21,7 @@
  *     ⇒ 摘掉 status 的判据 ⇒ 这条会把 mock token 回给 PC 翻红。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
@@ -167,14 +167,14 @@ describe('扫码登录 · 协议同意闸门', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
-    server.setErrorHandler((err, _request, reply) => {
+    server.setErrorHandler((err: FastifyError, _request, reply) => {
       const statusCode =
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(statusCode).send({ code: statusCode, message: err.message })
     })
     server.decorate('riskEngine', {
-      evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], score: 0 }),
-    })
+      evaluateRisk: () => ({ action: 'ALLOW' as const, hits: [], totalScore: 0, score: 0 }),
+    } as unknown as FastifyInstance['riskEngine'])
     server.decorate('recordFunnel', () => {})
     ;(server as unknown as { redis: FakeRedis }).redis = redis
     await server.register(cookie)

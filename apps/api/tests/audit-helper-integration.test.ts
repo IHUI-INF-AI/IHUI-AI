@@ -56,7 +56,7 @@ vi.mock('../src/db/index.js', () => {
     db: {
       insert: makeInsert,
       // 事务:同步调用 cb(tx) 返回其 Promise(模拟提交/回滚语义)
-      transaction: <T>(cb: (tx: typeof tx) => Promise<T>) => cb(tx),
+      transaction: <T>(cb: (txArg: typeof tx) => Promise<T>) => cb(tx),
     },
     dbRead: { insert: makeInsert },
   }

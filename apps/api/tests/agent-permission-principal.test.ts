@@ -12,7 +12,7 @@ const OTHER = '00000000-0000-4000-8000-000000000002'
  * 只 mock 两处:权限门(承载层写 request.userId 的那一步)与判定服务(把它的入参取出来断)。
  * 路由本体、zod 解析、preHandler 挂载关系全部跑真实代码(§22c:判据不复制进测试)。
  */
-const mockCalculate = vi.fn(async () => ({
+const mockCalculate = vi.fn(async (_agentId: string, _userId?: string) => ({
   type: 'free',
   accountType: '免费',
   hasPermission: true,

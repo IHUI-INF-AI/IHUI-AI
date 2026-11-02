@@ -262,7 +262,9 @@ describe('86 B04 明细账签名导出(service 层:记录→导出→验签闭�
     const all = await buildSignedToolInvocationLedgerExport({}, 100, deps)
     const filtered = await buildSignedToolInvocationLedgerExport({ outcome: 'success' }, 100, deps)
     expect(all.signature).not.toBe(filtered.signature)
-    expect(filtered.payload.filters['outcome']).toBe('success')
+    expect(
+      (filtered.payload.filters as unknown as Record<string, unknown>)['outcome'],
+    ).toBe('success')
     expect(verifySignedAuditExport(filtered).ok).toBe(true)
   })
 

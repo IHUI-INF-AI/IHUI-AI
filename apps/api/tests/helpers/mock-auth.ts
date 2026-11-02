@@ -57,6 +57,8 @@ export const mockCheckAuth = async (...args: unknown[]): Promise<boolean> => {
 
 export interface MockJWTPayload {
   userId: string
+  phone: string
+  familyId: string
   roleId: number
   type?: string
   iat?: number
@@ -69,7 +71,13 @@ export interface MockJWTPayload {
  * @param roleId 角色 ID(0=普通用户,1=管理员)
  */
 export function setMockUser(userId: string, roleId: number = 0): void {
-  const payload: MockJWTPayload = { userId, roleId, type: 'access' }
+  const payload: MockJWTPayload = {
+    userId,
+    phone: '',
+    familyId: 'mock-family',
+    roleId,
+    type: 'access',
+  }
   mockAuthenticate.mockImplementation(async (request: FastifyRequest) => {
     request.userId = userId
     ;(request as FastifyRequest & { jwtPayload?: MockJWTPayload }).jwtPayload = payload

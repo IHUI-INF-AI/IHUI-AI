@@ -12,7 +12,7 @@
  * agents 归属查询证明,否则同样拒绝。拒绝一律 404(不用 403 —— 那等于替人确认 id 存在)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -79,7 +79,7 @@ import { memoryRoutes } from '../src/routes/memory.js'
 
 async function build() {
   const app = Fastify({ logger: false })
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err: FastifyError, _req, reply) => {
     reply.status(err.statusCode && err.statusCode >= 400 ? err.statusCode : 500).send({
       code: 500,
       message: 'boom',
