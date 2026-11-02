@@ -1901,7 +1901,13 @@
     "sales": "{count} 件販売",
     "loadFailed": "アフィリエイトの読み込みに失敗",
     "withdrawFailed": "出金に失敗",
-    "withdrawSuccess": "出金に成功"
+    "withdrawSuccess": "出金に成功",
+    "treeTitle": "紹介ツリー",
+    "treeEmpty": "下位メンバーがいません",
+    "treeLoadFailed": "ツリーの読み込みに失敗しました",
+    "treeRetry": "再試行",
+    "treeLevelLabel": "第 {level} 階層",
+    "treeCollapseHint": "ノードをタップして詳細を表示"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -3534,7 +3540,22 @@
     "title": "マイウォレット",
     "totalRecharge": "累計チャージ",
     "totalWithdraw": "累計出金",
-    "withdraw": "出金"
+    "withdraw": "出金",
+    "flowsTitle": "資金履歴",
+    "flowsEmpty": "履歴がありません",
+    "flowsLoadFailed": "履歴の読み込みに失敗しました",
+    "flowsRetry": "再試行",
+    "flowsLoadMore": "さらに読み込む",
+    "flowsLoading": "読み込み中...",
+    "flowBalanceAfter": "残高",
+    "flowRemarkEmpty": "メモなし",
+    "opType1": "チャージ",
+    "opType2": "減算",
+    "opType3": "失効",
+    "opType4": "返金",
+    "opType5": "コミッション",
+    "loginRequiredHint": "ログインして資金履歴を表示",
+    "goLogin": "ログイン"
   },
   "activity": {
     "empty": "アクティビティがありません",
@@ -4177,14 +4198,38 @@
     "loadFailed": "スキル一覧の読み込みに失敗",
     "retry": "再試行",
     "empty": "スキルがありません",
-    "detail": "詳細を見る"
+    "detail": "詳細を見る",
+    "importTitle": "スキルをインポート",
+    "importHint": "スキル JSON を貼り付けてインポートします。name 欠落や形式エラーは拒否されます。",
+    "importButton": "インポート",
+    "importing": "インポート中...",
+    "importInvalidJson": "JSON の形式が正しくありません",
+    "importMissingName": "スキルに name フィールドがありません",
+    "importFailed": "インポートに失敗しました",
+    "importSuccess": "インポートしました"
   },
   "aiSkillDetail": {
     "loadFailed": "スキル詳細の読み込みに失敗",
     "retry": "再試行",
     "prompt": "プロンプトテンプレート",
     "noPrompt": "テンプレートなし",
-    "source": "出典"
+    "source": "出典",
+    "invoke": "実行",
+    "invoking": "実行中...",
+    "invokeVariables": "変数",
+    "invokeRequired": "必須変数を入力してください",
+    "invokeFailed": "実行に失敗しました",
+    "invokeResult": "実行結果",
+    "export": "エクスポート",
+    "exporting": "エクスポート中...",
+    "exportFailed": "エクスポートに失敗しました",
+    "exportBlocked": "キャッシュに保存しました。Android では直接共有できません",
+    "rateTitle": "評価",
+    "rateSubmit": "評価を送信",
+    "ratingSubmitted": "評価を送信しました",
+    "ratingFailed": "評価の送信に失敗しました",
+    "commentPlaceholder": "コメントを入力（任意）",
+    "ratingLoginHint": "ログイン後に評価できます"
   },
   "memory": {
     "detail": "詳細",
@@ -5691,7 +5736,10 @@
     "fillField": "入力してください：{name}",
     "submitFail": "送信に失敗しました。後で再試行",
     "doneTitle": "送信完了",
-    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます."
+    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます.",
+    "exportingReport": "エクスポート中...",
+    "exportEmptyHint": "レポート生成後にエクスポートできます",
+    "exportLoginRequired": "エクスポートするにはログインしてください"
   },
   "pwd": {
     "oldRequired": "旧パスワードを入力",

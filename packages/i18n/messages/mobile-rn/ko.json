@@ -1901,7 +1901,13 @@
     "sales": "{count}개 판매됨",
     "loadFailed": "유통 불러오기 실패",
     "withdrawFailed": "출금 실패",
-    "withdrawSuccess": "출금 완료"
+    "withdrawSuccess": "출금 완료",
+    "treeTitle": "추천 계층 트리",
+    "treeEmpty": "하위 멤버가 없습니다",
+    "treeLoadFailed": "트리를 불러오지 못했습니다",
+    "treeRetry": "다시 시도",
+    "treeLevelLabel": "{level} 단계",
+    "treeCollapseHint": "노드를 눌러 상세 보기"
   },
   "earnCommission": {
     "title": "커미션 플랜",
@@ -3534,7 +3540,22 @@
     "title": "내 지갑",
     "totalRecharge": "누적 충전",
     "totalWithdraw": "누적 출금",
-    "withdraw": "출금"
+    "withdraw": "출금",
+    "flowsTitle": "자금 내역",
+    "flowsEmpty": "내역이 없습니다",
+    "flowsLoadFailed": "내역을 불러오지 못했습니다",
+    "flowsRetry": "다시 시도",
+    "flowsLoadMore": "더 불러오기",
+    "flowsLoading": "불러오는 중...",
+    "flowBalanceAfter": "잔액",
+    "flowRemarkEmpty": "메모 없음",
+    "opType1": "충전",
+    "opType2": "차감",
+    "opType3": "만료",
+    "opType4": "환불",
+    "opType5": "커미션",
+    "loginRequiredHint": "로그인 후 자금 내역을 확인하세요",
+    "goLogin": "로그인"
   },
   "activity": {
     "empty": "활동이 없습니다",
@@ -4177,14 +4198,38 @@
     "loadFailed": "스킬 목록 로드 실패",
     "retry": "재시도",
     "empty": "스킬이 없습니다",
-    "detail": "상세 보기"
+    "detail": "상세 보기",
+    "importTitle": "스킬 가져오기",
+    "importHint": "스킬 JSON을 붙여넣어 가져옵니다. name 누락 또는 형식 오류는 거부됩니다.",
+    "importButton": "가져오기",
+    "importing": "가져오는 중...",
+    "importInvalidJson": "JSON 형식이 올바르지 않습니다",
+    "importMissingName": "스킬에 name 필드가 없습니다",
+    "importFailed": "가져오지 못했습니다",
+    "importSuccess": "가져왔습니다"
   },
   "aiSkillDetail": {
     "loadFailed": "스킬 상세 로드 실패",
     "retry": "재시도",
     "prompt": "프롬프트 템플릿",
     "noPrompt": "템플릿 없음",
-    "source": "출처"
+    "source": "출처",
+    "invoke": "실행",
+    "invoking": "실행 중...",
+    "invokeVariables": "변수",
+    "invokeRequired": "필수 변수를 입력하세요",
+    "invokeFailed": "실행하지 못했습니다",
+    "invokeResult": "실행 결과",
+    "export": "내보내기",
+    "exporting": "내보내는 중...",
+    "exportFailed": "내보내지 못했습니다",
+    "exportBlocked": "캐시에 저장했습니다. Android에서는 직접 공유할 수 없습니다",
+    "rateTitle": "평가",
+    "rateSubmit": "평가 제출",
+    "ratingSubmitted": "평가가 제출되었습니다",
+    "ratingFailed": "평가 제출에 실패했습니다",
+    "commentPlaceholder": "평가를 남겨 주세요 (선택)",
+    "ratingLoginHint": "로그인 후 평가할 수 있습니다"
   },
   "memory": {
     "detail": "상세",
@@ -5691,7 +5736,10 @@
     "fillField": "입력: {name}",
     "submitFail": "제출 실패, 잠시 후 재시도",
     "doneTitle": "제출 완료",
-    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능"
+    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능",
+    "exportingReport": "내보내는 중...",
+    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다",
+    "exportLoginRequired": "내보내려면 로그인하세요"
   },
   "pwd": {
     "oldRequired": " 이전 비밀번호 입력",

@@ -1901,7 +1901,13 @@
     "sales": "已售 {count} 件",
     "loadFailed": "載入分銷失敗",
     "withdrawFailed": "提現失敗",
-    "withdrawSuccess": "提現成功"
+    "withdrawSuccess": "提現成功",
+    "treeTitle": "分銷層級樹",
+    "treeEmpty": "暫無下級成員",
+    "treeLoadFailed": "層級樹載入失敗",
+    "treeRetry": "重試",
+    "treeLevelLabel": "第 {level} 層",
+    "treeCollapseHint": "點擊節點查看詳情"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -3534,7 +3540,22 @@
     "title": "我的錢包",
     "totalRecharge": "累計儲值",
     "totalWithdraw": "累計提現",
-    "withdraw": "提現"
+    "withdraw": "提現",
+    "flowsTitle": "資金流水",
+    "flowsEmpty": "暫無流水紀錄",
+    "flowsLoadFailed": "流水載入失敗",
+    "flowsRetry": "重試",
+    "flowsLoadMore": "載入更多",
+    "flowsLoading": "載入中...",
+    "flowBalanceAfter": "餘額",
+    "flowRemarkEmpty": "無備註",
+    "opType1": "儲值",
+    "opType2": "扣減",
+    "opType3": "過期",
+    "opType4": "退款",
+    "opType5": "佣金",
+    "loginRequiredHint": "登入後查看資金流水",
+    "goLogin": "前往登入"
   },
   "activity": {
     "empty": "暫無活動",
@@ -4177,14 +4198,38 @@
     "loadFailed": "技能清單載入失敗",
     "retry": "重試",
     "empty": "暫無技能",
-    "detail": "檢視詳情"
+    "detail": "檢視詳情",
+    "importTitle": "匯入技能",
+    "importHint": "貼上技能 JSON 後匯入；缺少 name 或格式錯誤會被拒絕。",
+    "importButton": "匯入",
+    "importing": "匯入中...",
+    "importInvalidJson": "JSON 格式不正確",
+    "importMissingName": "技能缺少 name 欄位",
+    "importFailed": "匯入失敗",
+    "importSuccess": "匯入成功"
   },
   "aiSkillDetail": {
     "loadFailed": "技能詳情載入失敗",
     "retry": "重試",
     "prompt": "Prompt 模板",
     "noPrompt": "無模板",
-    "source": "來源"
+    "source": "來源",
+    "invoke": "執行",
+    "invoking": "執行中...",
+    "invokeVariables": "變數",
+    "invokeRequired": "請填寫必填變數",
+    "invokeFailed": "執行失敗",
+    "invokeResult": "執行結果",
+    "export": "匯出",
+    "exporting": "匯出中...",
+    "exportFailed": "匯出失敗",
+    "exportBlocked": "檔案已儲存到快取，Android 暫不支援直接分享",
+    "rateTitle": "評分",
+    "rateSubmit": "提交評分",
+    "ratingSubmitted": "評分已提交",
+    "ratingFailed": "評分提交失敗",
+    "commentPlaceholder": "寫下你的評價（選填）",
+    "ratingLoginHint": "登入後可評分"
   },
   "memory": {
     "detail": "詳情",
@@ -5691,7 +5736,10 @@
     "fillField": "請填寫：{name}",
     "submitFail": "提交失敗，請稍後重試",
     "doneTitle": "提交成功",
-    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。"
+    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。",
+    "exportingReport": "匯出中...",
+    "exportEmptyHint": "產生報告後可匯出",
+    "exportLoginRequired": "請先登入後再匯出"
   },
   "pwd": {
     "oldRequired": "請輸入舊密碼",
