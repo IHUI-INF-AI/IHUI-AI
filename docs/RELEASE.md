@@ -430,7 +430,23 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 | 荣耀应用市场 | OAuth2 `POST iam.developer.honor.com/auth/token` → `appmarket-openapi-drcn.cloud.honor.com/openapi/v1/publish/*` | ✅ | ✅ | ❌ 缺 Client ID/API 密钥 | **端点已证可达**:`http=401 Invalid client` | 差荣耀管理中心「开放能力→凭证」的 API 密钥;官方限流查询类 <3min/次 |
 | vivo 应用商店 | `POST developer-api.vivo.com.cn/router/rest`(method=`app.query.details`/`app.upload.file`) | ✅ | ✅ | ❌ 缺 access_key/secret | 对方应答但**未认本次 method**:`code=10010 此功能不存在` ⇒ 通道活着,调用形态未获背书 | 未判定(method 形态待用官方正文核) |
 | OPPO 开放平台 | token `GET oop-openapi-cn.heytapmobi.com/developer/v1/token`(出处在册) | ✅ | ✅ | ❌ 缺 client_id/secret | 传包端点**正文需登录**(文档返回 300005)⇒ 不猜端点,探测器零调用 | 未判定 |
+| ApkPure | **无官方开发者平台/API 可核实** | 不适用 | 不适用 | ❌ | 流传的"开发者入口/审核 1~5 工作日/VirusTotal"全部出自博客,按本仓纪律不当官方出处 | **不接入自动链路**(登记为 unverified);要接需先拿到官方正文 |
+| 魅族 / 中兴·努比亚 / 应用汇 | 仅网页后台(`open.flyme.cn`、`developer.nubia.com`、`dev.appchina.com`) | ✅ 同上 APK | ✅ | ❌ 各家开发者账号未在册 | 无公开 API;魅族《更换签名如何更新版本》要求**邮件申请**换签名 | 人工渠道:材料由 `prepare-store-bundle.mjs` 产出后后台提交 |
+| 百度手机助手 / 91 助手 | — | — | — | — | 91 助手 2025-09-27 停服、安卓市场早已下线 | **不列**(S4 锁住不得回流) |
 | 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
+
+**上架的法律级前置(2026-11-03 查得,优先级高于一切通道工作)**:工信部信管〔2023〕105 号第九条 ——
+**分发平台不得为未备案 App 提供分发**,省级通管局约 20 个工作日发备案号,且第八条要求 App 内标注备案号。
+本仓现读**取不到任何 App 备案号**(仓内无该字符串、站点 HTML 未带,而 `apps/api/src/routes/algorithm-record.ts`
+自述"不再展示本平台的虚假备案号")⇒ `prepare-store-bundle.mjs` 判 **unjudged**,并让所有 `needsIcpFiling`
+的国内店**不得报 ready**。备案号一旦拿到,登记到 `scripts/data/app-icp-filing.json`
+(需 `appFilingNumber`/`icpNumber` + `authority` + `verifiedAt` 三项齐,缺项仍判未判定)。
+
+**隐私政策与包内容双向不一致也已量出**:政策大篇幅写"个推公共库SDK(Gtc) 收集 IMEI/IMSI/MAC/应用列表"
+与"DCloud开发通用工具库",而 manifest / app 级 build.gradle / package.json 三面查无 ⇒ **过度声明**
+(疑似 uniapp 时代残留,该改政策);反向的"漏声明"更严重,判据两向都出。
+另 `SYSTEM_ALERT_WINDOW` 在包内 manifest 而全仓零引用 ⇒ 已由 `plugins/withPermissionPruning.cjs` 摘除
+(**上架前需跑一次 clean prebuild 复验**,本枚只验到纯函数行为与已挂载)。
 
 华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。探测纪律(锁在 `scripts/tests/release-mobile-rn.test.mjs` M14–M16):没凭据时也**只用占位签名打只读查询端点**
 (动作段含 upload/submit/audit/update 一律判违规),据此把"通道可达"与"有没有凭据"分成两格——
