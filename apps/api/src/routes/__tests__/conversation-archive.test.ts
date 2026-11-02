@@ -24,7 +24,7 @@ vi.mock('../../config/index.js', () => ({
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
     DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
