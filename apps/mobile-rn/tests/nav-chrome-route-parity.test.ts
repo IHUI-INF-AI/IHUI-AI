@@ -30,9 +30,7 @@ const CHROME_TIER = 'surface.chrome'
  * 每条必须带理由,且由本用例反向核"它今天还在渲染 NavBar" —— 不在了就是腐烂。
  */
 const DECLARED_EXCEPTIONS: Record<string, string> = {
-  CoursePlanetScreen:
-    'ROUTE_ROOT_BG 给的是课程星球渐变定档(2026-09 定稿),导航行透出的是渐变而不是 chrome',
-  MoreCourseScreen: '同上:更多课程顶色走自己的渐变定档,不得被 chrome 一刀切',
+  // 2026-11-03:CoursePlanet/MoreCourse 改共享屏薄壳后不再渲染 NavBar,原两条渐变例外已摘除。
 }
 
 function read(p: string): string {

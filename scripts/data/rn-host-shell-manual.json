@@ -59,30 +59,6 @@
       "evidence": "apps/mobile-rn/src 下无 AgentReviewDetail(Screen) 引用(RootNavigator.tsx 无该路由);共享屏 packages/app/src/features/agent-review-detail/AgentReviewDetailScreen.tsx:16 硬 props item/loading/error/onBack/onRetry 需宿主注入;当前仅 packages/app/src/index.ts:269 导出。"
     },
     {
-      "shared": "CoursePlanetScreen",
-      "verdict": "manual-shell-required",
-      "owner": "learn-course",
-      "expires": "2027-02-28",
-      "reason": "RN 侧为本地实现未接共享屏;共享屏需要 data/selectedType/onTypeChange/refreshing 等受控 props,待手写壳对齐。",
-      "evidence": "apps/mobile-rn/src/screens/CoursePlanetScreen.tsx:106 本地组件、:128 自取 /api/course-planet、:182 RefreshControl、:220 仅复用 ScrollJumpButton;共享屏硬 props data/error/loading/onCoursePress/onRefresh/onTypeChange/refreshing/selectedType 未接入。"
-    },
-    {
-      "shared": "MoreCourseScreen",
-      "verdict": "manual-shell-required",
-      "owner": "learn-course",
-      "expires": "2027-04-30",
-      "reason": "RN 侧为本地组件拼装实现未接共享屏;共享屏需 items/total/onEndReached 等受控分页 props,待手写壳对齐。",
-      "evidence": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx:114 本地组件、:138 自取 getCourses、:238 本地 PopularCourses;仅 :34 复用 ScrollJumpButton;共享屏硬 props error/items/loading/loadingMore/onEndReached/onPressItem/onRefresh/refreshing/total 未接入。"
-    },
-    {
-      "shared": "StudyIndexScreen",
-      "verdict": "manual-shell-required",
-      "owner": "learn-study",
-      "expires": "2027-05-31",
-      "reason": "RN 侧为本地三态实现(pageType 预览/模型/课程 + Drawer),共享屏 25 枚硬 props 需整套宿主模型,待手写壳。",
-      "evidence": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx:180 本地组件、:198 pageType 三态、:219 自取 /api/study/videos、:525 SearchInput;仅 :64 复用 SearchInput/CategoryInlineBar/MoreLink;共享屏硬 props activeCategory/items/previewItems/previewModels/onCategoryChange/onViewMoreCourses/onViewMoreModels/pageType/searchInput/trackCategories 等未接入。"
-    },
-    {
       "shared": "FollowingScreen",
       "verdict": "not-applicable",
       "owner": "social-follow",
