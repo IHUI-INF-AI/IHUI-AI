@@ -21,7 +21,19 @@
  * 用法见 --help。
  */
 
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { createHash, randomBytes } from 'node:crypto'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import nodemailer, { type Transporter } from 'nodemailer'
@@ -49,6 +61,14 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails'
  */
 const DISPOSITION_DELIVERED = '__DISPOSITION__=delivered'
 const DISPOSITION_SUPPRESSED = '__DISPOSITION__=suppressed'
+/**
+ * 出口层「同一 alertId 正在投递」的跨进程占位(2026-11-02)。
+ * guardian 层的窗口去重是 read→decide→send→write,两个轮次可以同时读到"没寄过"再各寄一封;
+ * 只有 O_CREAT|O_EXCL 能让"谁先占位"变成原子事实。TTL 10 分钟兜住崩溃残留。
+ * 占位只覆盖同一个 alertId,不同告警互不串行 —— 全局 SMTP 不做串行化。
+ */
+const ALERT_CLAIM_TTL_MS = 10 * 60 * 1000
+const ALERT_CLAIM_MAX_ATTEMPTS = 4
 
 /** env-file 只允许补齐这些键:通知链路所需的最小集,避免把整份 .env 灌进进程 */
 const ENV_FILL_KEYS: readonly string[] = [
@@ -590,6 +610,8 @@ interface RunDeps {
   nowMs?: () => number
   /** 只写状态文件;失败不改变发送结论(告警链路不得因记账失败而少寄一封)。同上可选。 */
   writeStateFile?: (p: string, text: string) => void
+  /** 出口占位落点(目录)。默认与去重状态同目录;测试注入临时目录,避免碰生产 state。 */
+  alertClaimDir?: string
   /** --probe 的零投递握手出口。可选:只有探针档会用到,不传即按 defaultVerifySmtp。 */
   verifySmtp?: SmtpVerifyFn
 }
@@ -805,6 +827,147 @@ function defaultDedupeStatePath(): string {
     'state',
     'notify-dedupe-state.json',
   )
+}
+
+/** 占位落点:与去重状态同目录;alertId 可能含任意字符 ⇒ 安全化 + 8 位哈希防碰撞。 */
+function alertClaimPath(alertId: string, baseDir?: string): string {
+  const safe = alertId.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '_').slice(0, 48) || 'id'
+  const tag = createHash('sha256').update(alertId).digest('hex').slice(0, 8)
+  return resolve(baseDir ?? dirname(defaultDedupeStatePath()), `notify-claim-${safe}-${tag}.lock`)
+}
+
+function isPidAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException)?.code === 'EPERM'
+  }
+}
+
+interface AlertClaimSnapshot {
+  pid: number
+  token: string
+  mtimeMs: number
+}
+
+function readAlertClaimSnapshot(p: string): AlertClaimSnapshot | null {
+  try {
+    const text = readFileSync(p, 'utf8')
+    const pid = Number(/^pid=(\d+)$/m.exec(text)?.[1] ?? 0)
+    const token = /^token=(.+)$/m.exec(text)?.[1]?.trim() ?? ''
+    let mtimeMs = 0
+    try {
+      mtimeMs = statSync(p).mtimeMs
+    } catch {
+      /* 内容读到了却 stat 不到:按最旧处理,由 TTL 兜底 */
+    }
+    return { pid, token, mtimeMs }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 按 alertId 原子占位。成功返回 release();失败返回 why(调用方按 suppressed 处理,不寄)。
+ * 死 pid / 超 TTL 的残留走唯一墓碑名再 unlink,两个回收者不会互删对方刚建的新占位。
+ * 锁面故障(非 EEXIST)退回 fail-open:邮件投递优先于去重,但会把退化原因带进 warnings。
+ */
+function claimAlertId(
+  alertId: string,
+  nowMs: number,
+  baseDir?: string,
+): { ok: true; release: () => void; degraded?: string } | { ok: false; why: string } {
+  let p: string
+  try {
+    p = alertClaimPath(alertId, baseDir)
+    mkdirSync(dirname(p), { recursive: true })
+  } catch (e) {
+    return {
+      ok: true,
+      release: () => {},
+      degraded: `alertId 占位不可用(${errText(e)})⇒ 本轮退回仅窗口去重`,
+    }
+  }
+  const token = `${process.pid}-${nowMs.toString(36)}-${randomBytes(4).toString('hex')}`
+  for (let attempt = 0; attempt < ALERT_CLAIM_MAX_ATTEMPTS; attempt += 1) {
+    let fd: number | null = null
+    try {
+      fd = openSync(p, 'wx')
+      writeFileSync(
+        fd,
+        `pid=${process.pid}\ntoken=${token}\nat=${new Date(nowMs).toISOString()}\n`,
+        'utf8',
+      )
+      closeSync(fd)
+      fd = null
+      return {
+        ok: true,
+        release: () => {
+          try {
+            const lines = readFileSync(p, 'utf8').split(/\r?\n/)
+            if (!lines.includes(`pid=${process.pid}`) || !lines.includes(`token=${token}`)) return
+            unlinkSync(p)
+          } catch {
+            /* 已不在 / 已易主 ⇒ 放手,绝不删别人的占位 */
+          }
+        },
+      }
+    } catch (e) {
+      if (fd !== null) {
+        try {
+          closeSync(fd)
+        } catch {
+          /* 关不掉也要删自己刚建的那份 */
+        }
+        try {
+          unlinkSync(p)
+        } catch {
+          /* 已被别人回收 ⇒ 交给下一轮 */
+        }
+      }
+      const code = (e as NodeJS.ErrnoException)?.code
+      if (code !== 'EEXIST') {
+        return {
+          ok: true,
+          release: () => {},
+          degraded: `alertId 占位不可用(${code})⇒ 本轮退回仅窗口去重`,
+        }
+      }
+      const snap = readAlertClaimSnapshot(p)
+      if (snap && snap.pid === 0 && nowMs - snap.mtimeMs < ALERT_CLAIM_TTL_MS) {
+        return { ok: false, why: '同一 alertId 的占位正在初始化(pid 尚未落盘)⇒ 本轮不寄' }
+      }
+      if (
+        snap &&
+        snap.pid > 0 &&
+        isPidAlive(snap.pid) &&
+        nowMs - snap.mtimeMs < ALERT_CLAIM_TTL_MS
+      ) {
+        return {
+          ok: false,
+          why: `同一 alertId 正由另一场派发投递(pid=${snap.pid},占位 ${Math.round((nowMs - snap.mtimeMs) / 1000)}s)⇒ 本轮不寄`,
+        }
+      }
+      const tomb = `${p}.dead.${process.pid}.${nowMs.toString(36)}.${randomBytes(4).toString('hex')}`
+      try {
+        renameSync(p, tomb)
+        const moved = readAlertClaimSnapshot(tomb)
+        if (!moved || (snap && (moved.token !== snap.token || moved.pid !== snap.pid))) {
+          if (!existsSync(p)) renameSync(tomb, p)
+          continue
+        }
+        unlinkSync(tomb)
+      } catch {
+        continue
+      }
+    }
+  }
+  return {
+    ok: false,
+    why: `同一 alertId 的占位连续竞态(${ALERT_CLAIM_MAX_ATTEMPTS} 次)⇒ 本轮不寄,交下一轮`,
+  }
 }
 
 /** 解析不出 = 空状态,但必须把原因带回调用方打印(不得静默当成"没寄过") */
@@ -1184,26 +1347,70 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
       reasons: [],
     }
   }
-  const result = await dispatchMail(cfg, rendered, {
-    sendSmtp: deps.sendSmtp,
-    fetchResend: deps.fetchResend,
-  })
-  if (result.ok && alertId !== '') {
-    // 只在真送达后记账:投递失败必须让下一轮重试,否则一次网络抖动换来 4 小时静默
-    try {
-      const next = pruneDedupeState({ ...state, [alertId]: { ts: nowMs } }, nowMs, windowMs)
-      writeState(statePath, JSON.stringify(next, null, 1))
-    } catch (e) {
-      warnings.push(`去重状态写入失败(不影响本次发送,但下一轮可能重寄): ${errText(e)}`)
+  // 占位在发送前:两个进程都可能刚读到"没寄过",但只有一个能创建这个文件(2026-11-02)。
+  // 拿不到 ⇒ 按 suppressed 处理(不是失败:同一 alertId 的另一场正在投递),但 why 必须点名。
+  const claim = alertId === '' ? null : claimAlertId(alertId, nowMs, deps.alertClaimDir)
+  if (claim && !claim.ok) {
+    return {
+      ...base,
+      sent: false,
+      suppressed: true,
+      dedupeWhy: claim.why,
+      channel: null,
+      reasons: [],
     }
   }
-  return {
-    ...base,
-    sent: result.ok,
-    suppressed: false,
-    dedupeWhy: decision.why,
-    channel: result.channel,
-    reasons: result.reasons,
+  if (claim?.degraded) warnings.push(claim.degraded)
+  try {
+    // 拿到占位后重读一次状态:先读 → 占位之间可能已经有人寄完并释放了占位。
+    if (alertId !== '') {
+      try {
+        const again = parseDedupeState(deps.readTextFile(statePath))
+        state = again.state
+        const recheck = decideDedupe({
+          alertId,
+          force: args.forceAlert,
+          windowMs,
+          nowMs,
+          prevMs: state[alertId]?.ts ?? null,
+        })
+        if (recheck.action === 'suppress') {
+          return {
+            ...base,
+            sent: false,
+            suppressed: true,
+            dedupeWhy: recheck.why,
+            channel: null,
+            reasons: [],
+          }
+        }
+      } catch {
+        /* 文件仍不存在 ⇒ 沿用首读的空状态 */
+      }
+    }
+    const result = await dispatchMail(cfg, rendered, {
+      sendSmtp: deps.sendSmtp,
+      fetchResend: deps.fetchResend,
+    })
+    if (result.ok && alertId !== '') {
+      // 只在真送达后记账:投递失败必须让下一轮重试,否则一次网络抖动换来 4 小时静默
+      try {
+        const next = pruneDedupeState({ ...state, [alertId]: { ts: nowMs } }, nowMs, windowMs)
+        writeState(statePath, JSON.stringify(next, null, 1))
+      } catch (e) {
+        warnings.push(`去重状态写入失败(不影响本次发送,但下一轮可能重寄): ${errText(e)}`)
+      }
+    }
+    return {
+      ...base,
+      sent: result.ok,
+      suppressed: false,
+      dedupeWhy: decision.why,
+      channel: result.channel,
+      reasons: result.reasons,
+    }
+  } finally {
+    claim?.release()
   }
 }
 
@@ -1265,7 +1472,19 @@ const defaultVerifySmtp: SmtpVerifyFn = async (opts) => {
 /** 状态落盘的默认档:.ihui-agent/state/ 可能整目录不存在(新机 / 被清理),先建目录再写 */
 function defaultWriteStateFile(p: string, text: string): void {
   mkdirSync(dirname(p), { recursive: true })
-  writeFileSync(p, text, 'utf8')
+  // tmp→rename:裸 writeFileSync 对已存在文件是 truncate→再写,读侧可能读到半份 JSON
+  // (parseDedupeState 会把半份当成"没寄过" ⇒ 双跑窗口被自己放大)。
+  const tmp = `${p}.tmp.${process.pid}.${randomBytes(4).toString('hex')}`
+  try {
+    writeFileSync(tmp, text, 'utf8')
+    renameSync(tmp, p)
+  } finally {
+    try {
+      if (existsSync(tmp)) unlinkSync(tmp)
+    } catch {
+      /* 临时件残留不影响状态判定 */
+    }
+  }
 }
 
 const defaultRunDeps: RunDeps = {
@@ -1414,6 +1633,10 @@ export const __test__ = {
   decideDedupe,
   pruneDedupeState,
   parseDedupeState,
+  // 出口占位(2026-11-02):同一 alertId 的跨进程互斥,死 pid 回收与 fail-open 降级必须可被直接钉住
+  alertClaimPath,
+  claimAlertId,
+  readAlertClaimSnapshot,
   resolveWindowMs,
   stripBom,
   ENV_FILL_KEYS,

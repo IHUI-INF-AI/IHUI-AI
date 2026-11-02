@@ -10,6 +10,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { __test__ as t } from '../scripts/notify-deploy-failure.js'
 
 interface SmtpCall {
@@ -35,6 +38,8 @@ interface FakeDeps {
   now: () => string
   nowMs: () => number
   writeStateFile: (p: string, text: string) => void
+  /** 出口占位落点:测试一律用临时目录,不得碰仓库 .ihui-agent/state(生产状态面)。 */
+  alertClaimDir: string
 }
 
 function makeDeps(
@@ -77,6 +82,7 @@ function makeDeps(
       if (opts.writeError) throw opts.writeError
       writes.push({ p, text })
     },
+    alertClaimDir: mkdtempSync(join(tmpdir(), 'ihui-notify-claim-')),
   }
   return { deps, smtpCalls, fetchCalls, writes }
 }
