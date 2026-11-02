@@ -300,6 +300,41 @@ export function devEnvTargetRoots(repoRoot = REPO) {
   return resolve(inRepo) === resolve(legacy) ? [inRepo] : [inRepo, legacy]
 }
 
+/** 搬迁过渡期的**按件**根候选(只给根,不拼件):显式 IHUI_DEVENV_ROOT 是强声明(只认它,不越权回落),
+ *  否则按 devEnvTargetRoots 的新根→旧根顺序给出所有根。
+ *  这是"根在、子树没搬"那类机器的唯一选根出口 —— 调用方不得再各抄一份候选序。
+ *  件路径由下面两个出口各拼一次(本函数不拼,否则 join 会叠成 monitor/prometheus/monitor/prometheus)。 */
+function devEnvArtifactBaseRoots(repoRoot = REPO, env = process.env) {
+  const explicit = String(env.IHUI_DEVENV_ROOT || '').trim()
+  if (explicit) return [resolve(explicit)]
+  return devEnvTargetRoots(repoRoot)
+}
+
+/** 按件选根需要的候选落点序列(按优先级去重)。 */
+export function devEnvArtifactCandidates(
+  relPath,
+  { repoRoot = REPO, env = process.env, roots = null } = {},
+) {
+  const out = []
+  for (const root of roots ?? devEnvArtifactBaseRoots(repoRoot, env)) {
+    const p = join(root, relPath)
+    const key = resolve(p)
+    if (!out.includes(key)) out.push(key)
+  }
+  return out
+}
+
+/** 第一个**真有这个件**的根;全都没有时交回主候选(devEnvRoot),由调用方落未判定并点名。
+ *  `roots`/`exists` 可注入 ⇒ §22c 构造面可证,不赌本机此刻是哪一种形态。 */
+export function devEnvArtifactRoot(
+  relPath,
+  { repoRoot = REPO, env = process.env, exists = existsSync, roots = null } = {},
+) {
+  const candidates = roots ?? devEnvArtifactBaseRoots(repoRoot, env)
+  for (const root of candidates) if (exists(join(root, relPath))) return root
+  return candidates[0] ?? devEnvRoot(repoRoot)
+}
+
 /**
  * 目录指纹(文件数 + 总字节 + 相对路径集)。**枚举本身已收进共用层** —— 这里只是
  * `fingerprintTree` 的投影,留 `{count,bytes,files}` 这个形状是因为巡检报告
