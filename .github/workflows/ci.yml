@@ -15,25 +15,41 @@ permissions:
   contents: read
 
 jobs:
-  lint-typecheck-test:
+  # 前置检查拆成独立 job(2026-11-02 立)。立因:watermark / conflict-markers 原是本 job 步骤链的
+  # 头两步,而 GitHub 的步骤链 fail-fast —— 这两条一红,后面的 install / typecheck / lint / test
+  # 全部**从未执行**,required check 的结论里只剩"水印"一条(本轮 lint 修复长期只有本地证据,正是此型)。
+  # 拆出后三条结论互不掩盖:本 job 名 `lint-typecheck-test` 逐字未变 ⇒ required context
+  # `CI / lint-typecheck-test (push)` 不变,仓库分支保护设置无需改动。
+  # 两个 preflight 不设 needs(与主 job 并行),主 job 也不 needs 它们 —— 前置检查"先跑"但不阻塞。
+  # 各只有一条 run 步骤且不设 id:,刻意不装失败自述(TRIAGE_IDS 只认具名 id 的步骤,
+  # 见 scripts/check-ci-failure-triage-wiring.mjs W4:无 id 步骤只报数)。
+  preflight-watermark:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        id: checkout
 
       # 版权溯源水印守护: 任何删除水印的 PR 将导致 CI 失败
       - name: Provenance watermark check
-        id: watermark
         run: node scripts/watermark.mjs verify
+
+  preflight-conflict-markers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # 守门 77 的远端面(2026-09-23 接):本地 pre-commit 拦得住"成对 <<<<====>>>> 冲突标记入树",
       # 但本机 .git 被宿主清除那类场面多个会话用 --no-verify 提交,整条本地钩子链失效
       # (实测 apps/cli/tests/file-edit.test.ts 带标记进 HEAD 树)。CI 是唯一的第二道防线。
       # 必须用 --rev HEAD(判刚被 push/合并出来的提交树);**禁止**改成 --staged —— CI 没有
-      # 暂存区,索引恒等于 HEAD,那会退化成永远判绿。零依赖(纯 node + git),故前置到 install 之前。
+      # 暂存区,索引恒等于 HEAD,那会退化成永远判绿。零依赖(纯 node + git)。
       - name: Conflict marker check (committed tree)
-        id: conflict-markers
         run: node scripts/check-no-conflict-markers.mjs --rev HEAD
+
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
 
       - name: Install pnpm
         id: install-pnpm
@@ -237,10 +253,8 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout watermark conflict-markers install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare assert-web-build-script build assert-web-artifact typecheck schema-drift migration-bookkeeping api-routes port-registry lint test assert-sw-stamped version-drift
+          TRIAGE_IDS: checkout install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare assert-web-build-script build assert-web-artifact typecheck schema-drift migration-bookkeeping api-routes port-registry lint test assert-sw-stamped version-drift
           O_CHECKOUT: ${{ steps.checkout.outcome }}
-          O_WATERMARK: ${{ steps.watermark.outcome }}
-          O_CONFLICT_MARKERS: ${{ steps.conflict-markers.outcome }}
           O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
