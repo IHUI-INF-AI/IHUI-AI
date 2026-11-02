@@ -24,6 +24,8 @@ export function LiveChatScreen() {
   const [messages, setMessages] = useState<LiveChatMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -43,7 +45,7 @@ export function LiveChatScreen() {
     return () => {
       cancelled = true
     }
-  }, [liveId, t])
+  }, [liveId, t, reloadKey])
 
   const onSend = async () => {
     const text = input.trim()
@@ -76,6 +78,7 @@ export function LiveChatScreen() {
       onInputChange={setInput}
       onSend={onSend}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

@@ -7,7 +7,7 @@
 /**
  * decide-style-tier-forks.mjs — web↔RN 非色档分叉的「允许额度 / 决策」对账与账本维护(P0-3)
  *
- * 立因(2026-11-03):门 275 的分叉登记表 `cross-end-allowed-diffs.json` 只解决「已登记额度」,
+ * 立因(2026-11-03):`check-web-rn-style-tiers.mjs` 的分叉登记表 `cross-end-allowed-diffs.json` 只解决「已登记额度」,
  * 未登记的分叉(`forkAllowance.pending`)一直是只读读数 —— 没有账本记录「谁认领、何时复核、
  * 落到哪一档」,也没有判据把「不在额度内又无决策」折成红。本脚本补这一格。
  *
@@ -316,7 +316,9 @@ function applyReal() {
 }
 
 function reportCheck(out) {
-  console.log('\n🧭 非色档分叉 decision 对账(复用门 275 runJudge;只读 --check)')
+  console.log(
+    '\n🧭 非色档分叉 decision 对账(复用 check-web-rn-style-tiers 的 runJudge;只读 --check)',
+  )
   console.log('─'.repeat(72))
   console.log(`判定面        : ${out.face}`)
   console.log(
