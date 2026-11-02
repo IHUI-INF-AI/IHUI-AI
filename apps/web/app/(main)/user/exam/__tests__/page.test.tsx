@@ -62,6 +62,18 @@ vi.mock('@/stores/auth', () => {
   return { useAuthStore }
 })
 
+/**
+ * 引导替身(2026-10-15 C 类冷启动补门后,页面挂载链多了 useAuthGate → useAuthBootstrap)。
+ *
+ * 真 bootstrap 会读 store 的 setToken/setUser/logout 等动作并发 /auth/me + /auth/refresh,
+ * 时序由网络决定;本组只锁「请求路径 + 字段映射」,不测引导时序。只压掉网络时序这一层,
+ * 登录态门 useAuthGate 本身仍是真实现。token 在场的真实现同样落成
+ * isAuthenticated=true + ready=true ⇒ allow=true,断言口径不变。
+ */
+vi.mock('@/hooks/use-auth-bootstrap', () => ({
+  useAuthBootstrap: () => ({ ready: true, isAuthenticated: true, error: null }),
+}))
+
 /** 一条 `exam_records` 行(字段名与 packages/database/src/schema/exam.ts:101 一致)。 */
 function record(over: Record<string, unknown> = {}) {
   return {
