@@ -40,12 +40,26 @@ vi.mock('@/components/ai/chat-pane-body', () => ({
 }))
 
 const paneStoreSetStateSpy = vi.hoisted(() => vi.fn())
+const paneChatState = vi.hoisted(() => ({
+  conversationId: null as string | null,
+  messages: [] as unknown[],
+  error: null,
+  draftInput: '',
+  isStreaming: false,
+  usageByMessageId: {} as Record<string, unknown>,
+}))
 vi.mock('@/stores/chat-pane-context', () => ({
   ChatPaneProvider: (props: { children: React.ReactNode }) => <>{props.children}</>,
-  // 新任务 pane 的清台 effect 会调 store.setState;mock 面留 spy 给 ⑥b
+  // 替身必须给出**真实 ChatState 形状**:StreamTelemetryBar(useStreamTelemetry)按
+  // `s.isStreaming` 的真假驱动流式计时状态机;selector 恒返回 undefined 时
+  // `undefined !== false` 每帧都被当成一次开流转移 ⇒ 渲染期 setState 无限循环
+  // (React "Too many re-renders")。新任务 pane 的清台 effect 仍走同一个 setState spy。
   usePaneChatStore: () => {
-    const selector = <T,>(_fn: (s: unknown) => T) => undefined as T
-    return Object.assign(selector, { setState: paneStoreSetStateSpy })
+    const useStore = (selector: (s: typeof paneChatState) => unknown) => selector(paneChatState)
+    return Object.assign(useStore, {
+      setState: paneStoreSetStateSpy,
+      getState: () => paneChatState,
+    })
   },
 }))
 
