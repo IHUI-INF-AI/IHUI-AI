@@ -10,18 +10,20 @@
  *  - _syncAgentTask:无 taskId 跳过 / 非终态跳过 / 终态先释放工作区锁(P0-2) / completed 写回 result /
  *    failed·quota_exceeded 写回 errorMessage / preempted 归一为 cancelled / db 抛错静默
  */
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { mockLoggerWarn, mockInsert, mockUpdate, mockWhere, mockSet, mockSelectResult } = vi.hoisted(
-  () => ({
+const { mockLoggerWarn, mockInsert, mockUpdate, mockWhere, mockSet, mockSelectResult, mockFetch } =
+  vi.hoisted(() => ({
     mockLoggerWarn: vi.fn(),
     mockInsert: vi.fn(),
     mockUpdate: vi.fn(),
     mockWhere: vi.fn(),
     mockSet: vi.fn(),
     mockSelectResult: vi.fn().mockResolvedValue([]),
-  }),
-)
+    mockFetch: vi.fn(),
+  }))
 
 vi.mock('../src/utils/logger.js', () => ({
   logger: {
@@ -30,6 +32,10 @@ vi.mock('../src/utils/logger.js', () => ({
     warn: mockLoggerWarn,
     error: vi.fn(),
   },
+}))
+
+vi.mock('../src/utils/ai-service-fetch.js', () => ({
+  aiServiceSystemFetch: mockFetch,
 }))
 
 vi.mock('../src/db/index.js', () => ({
@@ -90,6 +96,7 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => {
 })
 
 import {
+  SubagentDispatchService,
   aggregateDeliverables,
   subagentDispatchService,
 } from '../src/services/subagent-dispatch-service'
@@ -409,6 +416,82 @@ describe('aggregateDeliverables(D27 交付清单聚合)', () => {
     expect(d!.citations).toHaveLength(20)
     expect(d!.filesChanged).toHaveLength(100)
     expect(d!.toolsSummary.total).toBe(135)
+  })
+})
+
+describe('摘要截断口径(SUMMARY_MAX_CHARS/truncateSummary)', () => {
+  it('反向例:两处摘要截断共用同一 helper,不再各自写死 .slice(0, 500)', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../src/services/subagent-dispatch-service.ts', import.meta.url)),
+      'utf8',
+    )
+    // 改前:outputSummary(L716)与通信消息内容(L1431)各自写死 .slice(0, 500) ⇒ 本断言红;
+    // 改后:两处统一走 truncateSummary,且上限只由 SUMMARY_MAX_CHARS 提供 ⇒ 绿。
+    expect(src).not.toMatch(/\.slice\(0, 500\)/)
+    expect(src).toContain('const SUMMARY_MAX_CHARS = 500')
+    expect(src).toContain("truncateSummary(result.final_output ?? '')")
+    expect(src).toContain('truncateSummary(r.output)')
+  })
+})
+
+describe('with_communication 消息摘要(行为侧)', () => {
+  const ROLES = ['researcher', 'coder', 'reviewer', 'architect', 'debugger'] as const
+  const longOutput = (role: string): string => `${role}-HEAD|${'M'.repeat(1500)}|TAIL-${role}`
+
+  const parallelResponse = () => ({
+    status: 200,
+    ok: true,
+    statusText: 'OK',
+    json: async () => ({
+      code: 0,
+      message: '',
+      data: {
+        final_output: '',
+        steps: ROLES.map((role) => ({ agent_name: role, output: longOutput(role) })),
+      },
+    }),
+  })
+
+  async function waitFor(predicate: () => boolean, timeoutMs = 3000): Promise<void> {
+    const started = Date.now()
+    while (!predicate()) {
+      if (Date.now() - started > timeoutMs) throw new Error('waitFor timeout')
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+  }
+
+  it('每条消息 content 为来源 agent 原文前 500 字;finalResults 仍保留全文', async () => {
+    mockFetch.mockReset()
+    mockFetch.mockImplementation(async () => parallelResponse())
+    const svc = new SubagentDispatchService()
+    const created = await svc.dispatch({
+      goal: '三轮通信摘要口径',
+      affectedFiles: [],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
+      orchestration: 'with_communication',
+      ownerUserId: 'tenant-summary',
+    })
+    const id = created.dispatch!.id
+    await waitFor(() => svc.findById(id)?.status === 'completed')
+
+    const messages = svc.getMessages(id)
+    // 3 轮只有前 2 轮发送:5 agent × 4 个其他 agent × 2 轮 = 40 条
+    expect(messages).toHaveLength(40)
+    for (const m of messages) {
+      expect(m.content).toHaveLength(500)
+      expect(m.content).toBe(longOutput(m.from).slice(0, 500))
+      expect(m.content).not.toContain('TAIL-')
+    }
+
+    const parsed = JSON.parse(svc.findById(id)!.result!) as {
+      finalResults: Array<{ agent: string; output: string }>
+      rounds: number
+    }
+    expect(parsed.rounds).toBe(3)
+    expect(parsed.finalResults).toHaveLength(ROLES.length)
+    for (const r of parsed.finalResults) expect(r.output).toBe(longOutput(r.agent))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

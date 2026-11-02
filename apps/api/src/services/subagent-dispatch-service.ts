@@ -145,6 +145,19 @@ const CHECKPOINT_TTL_SEC = 24 * 60 * 60
 /** 通信轮次默认值(with_communication) */
 const DEFAULT_COMM_ROUNDS = 3
 
+/**
+ * 摘要截断上限(单一数值口径,2026-11-02)。
+ *
+ * with_communication 的 agent 间 result 消息与 deliverables.outputSummary 语义不同:
+ * 前者是下一轮 prompt 的预算控制,后者是给人看的最终答复摘录;数据源也不同
+ * (单 agent 单轮 output vs 整次 run 的 final_output)。两者**只共用 500 这一数值口径**,
+ * 不得各自写死数字(否则会出现一侧 500、一侧 501 的静默漂移);也不得合并数据源/形状。
+ *
+ * 不加省略号或「已截断」标记:既有契约测试断言摘要精确等于原文前 500 字
+ * (subagent-dispatch-service.test.ts 的 'x'.repeat(500) 用例),加标记会破坏该契约。
+ */
+const SUMMARY_MAX_CHARS = 500
+
 /** 简单成本估算($/token,演示用) */
 const COST_PER_TOKEN_USD = 0.000001
 
@@ -610,6 +623,14 @@ function firstStringOf(obj: Record<string, unknown>, keys: readonly string[]): s
   return undefined
 }
 
+/**
+ * 摘要前缀截断(纯函数:无省略号、无副作用)。
+ * 两处调用点共用,保证字节级一致的 500 字口径;语义差异见 SUMMARY_MAX_CHARS 注释。
+ */
+function truncateSummary(text: string): string {
+  return text.slice(0, SUMMARY_MAX_CHARS)
+}
+
 /** 估算文本行数(空串按 0 行) */
 function countLinesOf(text: string): number {
   return text.length === 0 ? 0 : text.split('\n').length
@@ -713,7 +734,7 @@ export function aggregateDeliverables(result: AiOrchestrationResult): Deliverabl
     }
   }
 
-  const outputSummary = (result.final_output ?? '').slice(0, 500)
+  const outputSummary = truncateSummary(result.final_output ?? '')
   // 全空(无引用/无文件变更/无工具调用/无输出)→ null
   if (
     citations.length === 0 &&
@@ -1428,7 +1449,8 @@ async function callAiServiceWithCommunication(
             from: r.agent,
             to: other,
             type: 'result',
-            content: r.output.slice(0, 500), // 截断避免消息过长
+            // 仅 prompt 预算控制,非交付摘要;与 outputSummary 共用数值口径但不合并数据源
+            content: truncateSummary(r.output),
             timestamp: nowIso(),
             round,
           })
