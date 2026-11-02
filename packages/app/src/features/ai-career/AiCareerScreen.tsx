@@ -4,12 +4,20 @@
 
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import type { AiCareerReportFormat } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiCareerScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+
+/** 导出格式选项(PDF/Word/PPT 为通用专名,无需 i18n) */
+const REPORT_FORMATS: ReadonlyArray<{ value: AiCareerReportFormat; label: string }> = [
+  { value: 'pdf', label: 'PDF' },
+  { value: 'word', label: 'Word' },
+  { value: 'ppt', label: 'PPT' },
+]
 
 /** AI 生涯指导 — 孩子学业问卷共享屏(props 注入式跨端组件,纯 UI,不依赖平台 API) */
 export type { AiCareerScreenProps }
@@ -25,6 +33,11 @@ export function AiCareerScreen({
   onSubmit,
   onBack,
   colorScheme = 'light',
+  result,
+  format = 'pdf',
+  onFormatChange,
+  onExport,
+  exporting = false,
 }: AiCareerScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -120,6 +133,58 @@ export function AiCareerScreen({
           </Text>
         </TouchableOpacity>
       </View>
+
+      {result !== undefined || onExport ? (
+        <View style={styles.reportCard}>
+          <View style={styles.reportHeader}>
+            <Text style={styles.reportTitle}>AI 学业建议</Text>
+            {onExport ? (
+              <TouchableOpacity
+                style={[styles.exportBtn, (!result || exporting) && styles.exportBtnDisabled]}
+                onPress={onExport}
+                disabled={!result || exporting}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    styles.exportBtnText,
+                    (!result || exporting) && styles.exportBtnTextDisabled,
+                  ]}
+                >
+                  {exporting ? t('career.exportingReport') : t('studentPage.exportReport')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {onExport && onFormatChange ? (
+            <View style={styles.formatRow}>
+              {REPORT_FORMATS.map((item) => {
+                const active = format === item.value
+                return (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={[styles.formatChip, active && styles.formatChipActive]}
+                    onPress={() => onFormatChange(item.value)}
+                    disabled={exporting}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.formatText, active && styles.formatTextActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          ) : null}
+
+          {result ? (
+            <Text style={styles.reportBody}>{result}</Text>
+          ) : (
+            <Text style={styles.emptyHint}>{t('career.exportEmptyHint')}</Text>
+          )}
+        </View>
+      ) : null}
     </ScrollView>
   )
 }
@@ -225,6 +290,53 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     submitBtnText: { fontSize: 17, fontWeight: '700', color: tk.surface.light },
+    reportCard: {
+      padding: rnSpacing.lg,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    reportHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+    },
+    reportTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
+    exportBtn: {
+      paddingVertical: rnSpacing['sm-loose'],
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    exportBtnDisabled: { opacity: 0.5 },
+    exportBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    exportBtnTextDisabled: { color: tk.text.tertiary },
+    formatRow: {
+      flexDirection: 'row',
+      gap: rnSpacing['sm-loose'],
+      marginBottom: rnSpacing.md,
+    },
+    formatChip: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.muted,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    formatChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
+    formatText: { fontSize: rnType.body.size, color: tk.text.medium },
+    formatTextActive: { color: tk.surface.light, fontWeight: '600' },
+    reportBody: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 22,
+    },
+    emptyHint: { fontSize: rnType.body.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

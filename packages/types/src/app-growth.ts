@@ -607,6 +607,20 @@ export interface TeamMember {
   relation: TeamRelation
 }
 
+/**
+ * 分销层级树节点(平台注入,字段对齐 api-client DistributionTreeNode;
+ * 后端递归最多 3 层,顶层 level=1)
+ */
+export interface TeamTreeNode {
+  id: string
+  username: string
+  nickname: string | null
+  avatar: string | null
+  createdAt: string
+  level: number
+  children?: TeamTreeNode[]
+}
+
 /** TeamScreen props(平台无关,wrapper 注入数据+回调) */
 export interface TeamScreenProps {
   t: TFunction
@@ -625,6 +639,21 @@ export interface TeamScreenProps {
   keyword?: string
   /** 搜索关键词变更回调(由 wrapper 注入 state) */
   onKeywordChange?: (keyword: string) => void
+  /**
+   * 分销层级树(可选;未登录/无数据源时不传 ⇒ 不渲染树区块;
+   * 传空数组表示已登录但无下级,渲染空态)
+   */
+  tree?: TeamTreeNode[]
+  /** 层级树加载中(可选) */
+  treeLoading?: boolean
+  /** 层级树拉取失败(可选;失败只影响树区块,不动统计区与成员列表) */
+  treeFailed?: boolean
+  /** 后端下发的最深层级(可选,仅用于标题右侧层级提示) */
+  treeTotalLevels?: number
+  /** 层级树失败重试回调(可选,不传则不渲染重试按钮) */
+  onRetryTree?: () => void
+  /** 层级树节点点击回调(可选,不传则节点不可点击) */
+  onPressTreeMember?: (memberId: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
