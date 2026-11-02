@@ -15,13 +15,16 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as G, idNorm, judge, verdict } from '../check-plan-fields.mjs'
 import { __test__ as H } from '../lib/plan-field-line.mjs'
+import { leaseDupGroupsOf } from '../lib/plan-id-lease.mjs'
 import { compositeKeyOf, dispositionOfV2 } from '../lib/plan-task-index.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const mk = (raw, line = 1) => ({ line, state: 'open', raw })
@@ -198,4 +201,77 @@ describe('守门判定:差值维有牙、孤儿只报数', () => {
     assert.equal(r.code, 0)
   })
 })
+
+/**
+ * 租约绝对唯一维(2026-11-03 立):`〔千段租约〕` 同 `(族, 机器, 段)` 两行即重复。
+ * 判据落 `--strict`;默认档逐字不变(只报数、exit 0),避免把存量 dup 变成与提交内容无关的恒红门。
+ * 三向对照:同族同机同段 ⇒ 重复;换族、换段 ⇒ 都不是重复(段号只在族内成义)。
+ */
+describe('租约绝对唯一:--strict 判红、默认只报数、换族/换段不误伤', () => {
+  const lease = (id, seg) =>
+    `- [x] ${id} 〔千段租约〕 本机=M1 段=${seg}(取号器专用行:占用面只取本行主键=段尾号;段内连号自段首起)`
+
+  it('单源分组:同键双行成组且带真实行号;换族/换段各自独立', () => {
+    const content = [
+      lease('G-120', 'G-101~G-120'),
+      lease('G-120', 'G-101~G-120'),
+      lease('G-220', 'G-201~G-220'),
+      lease('D-120', 'D-101~D-120'),
+    ].join('\n')
+    const groups = leaseDupGroupsOf(content)
+    assert.equal(groups.length, 1, '只有同族同机同段那两行算重复')
+    assert.deepEqual(
+      groups[0].map((e) => e.lineNo),
+      [1, 2],
+      '行号必须是被审面里的真实 1 基行号',
+    )
+    assert.equal(groups[0][0].segment, 'G:101~120')
+  })
+
+  it('judge 读数 + verdict 两档:默认 warn/exit 0,--strict red/exit 1', () => {
+    const rows = [
+      mk(lease('G-120', 'G-101~G-120'), 1),
+      mk(lease('G-120', 'G-101~G-120'), 2),
+    ]
+    const v = judge(rows, { map: new Map() })
+    assert.equal(v.leaseDup, 1)
+    assert.match(v.leaseDupList[0], /L1 \/ L2/, '错误输出必须点名两条行号')
+    assert.match(v.leaseDupList[0], /重复 ×2/, '必须给出重复条数')
+    assert.match(v.leaseDupList[0], /千段租约/, '必须给重复内容摘要')
+    const relaxed = verdict(v, 'head')
+    assert.equal(relaxed.code, 0, '默认档只报数:存量租约重复不得打断其它腿')
+    assert.match(relaxed.line, /leaseDup=1/)
+    const strict = verdict(v, 'head', { strict: true })
+    assert.equal(strict.code, 1, '--strict:同键两行即红')
+    assert.equal(strict.state, 'red')
+    assert.match(strict.line, /strict=1/)
+  })
+
+  it('CLI 档位端到:同一现场默认 run=0,strict run=1(run 即 main 的 --strict 接线)', () => {
+    const dir = mkScratch('check-plan-fields-strict')
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: dir })
+      mkdirSync(path.join(dir, 'scripts', 'data'), { recursive: true })
+      writeFileSync(path.join(dir, 'scripts', 'data', 'plan-fields.jsonl'), '', 'utf8')
+      writeFileSync(
+        path.join(dir, 'PROJECT_PLAN.md'),
+        ['# 计划', '', lease('G-120', 'G-101~G-120'), lease('G-120', 'G-101~G-120'), ''].join('\n'),
+        'utf8',
+      )
+      execFileSync('git', ['add', 'PROJECT_PLAN.md', 'scripts/data/plan-fields.jsonl'], { cwd: dir })
+      execFileSync(
+        'git',
+        ['-c', 'user.name=fixture', '-c', 'user.email=fixture@local', 'commit', '-q', '-m', 'fixture'],
+        { cwd: dir },
+      )
+      const relaxed = G.run({ root: dir, face: 'worktree' })
+      assert.equal(relaxed, 0, '默认档必须仍 exit 0(只报数)')
+      const strict = G.run({ root: dir, face: 'worktree', strict: true })
+      assert.equal(strict, 1, '--strict 必须非零')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
