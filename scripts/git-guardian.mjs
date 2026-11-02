@@ -2443,6 +2443,27 @@ export function judgeDryRunChannel(stdout) {
   return /通道判定 (?:SMTP|Resend): 可用/.test(String(stdout ?? ''))
 }
 
+/**
+ * 出口 exit 0 的结论判定(纯函数,2026-11-02)。
+ * 出口 `notify-deploy-failure.ts` 被 `--alert-id` 窗口压住时**同样 exit 0**(退出码不能动:
+ * 它被 bridge / monitor / credential-health 三条调用方共用),所以"寄出"与"压住"只能靠
+ * stdout 上的 `__DISPOSITION__=<kind>` 区分:
+ *   · 明确 delivered ⇒ 只有它算寄出;
+ *   · 明确 suppressed ⇒ 未寄出(调用方只计数、不得续窗口起点);
+ *   · 其它明确标记 ⇒ 也不算寄出(不认识的失败标记不得折成送达);
+ *   · 取不到标记 ⇒ **fail-open 按旧行为当成功**,绝不因读不懂输出而制造新的漏报。
+ */
+export function judgeDispatchStdout(stdout) {
+  // 容忍 CRLF(子进程输出经管道时可能是 \r\n):标记必须独占一行,避免正文里偶发同名字串被误读
+  const m = /^__DISPOSITION__=([a-z]+)\r?$/m.exec(String(stdout ?? ''))
+  const kind = m ? m[1] : ''
+  if (kind === 'suppressed')
+    return { ok: false, suppressed: true, why: '出口按标识去重压住(本轮未寄)' }
+  if (kind === 'delivered') return { ok: true, why: '已送达' }
+  if (kind === '') return { ok: true, why: '已送达(出口未给处置标记,按旧行为)' }
+  return { ok: false, why: `出口处置=${kind},非投递` }
+}
+
 /** 品牌派发器的一次调用:异常/超时一律归为失败,绝不抛出(通知层不能把守护带崩) */
 function dispatchGuardMail({
   title,
@@ -2492,7 +2513,10 @@ function dispatchGuardMail({
       }
     if (dryRun)
       return { ok: judgeDryRunChannel(r.stdout), why: `通道判定: ${redactChildOutput(r.stdout)}` }
-    if (r.status === 0) return { ok: true, why: '已送达' }
+    // 压住 ≠ 寄出:出口在身份窗口内会静默压下并 exit 0,旧写法把它当成功,于是族窗口
+    // 拿一次根本没寄出的尝试重新起算(2026-11-02 实测:16:54:42.043Z 台账 suppressed,
+    // 同秒日志却写"已寄出")。判定单源在 judgeDispatchStdout。
+    if (r.status === 0) return judgeDispatchStdout(r.stdout)
     return { ok: false, why: `exit=${r.status} ${redactChildOutput(r.stderr || r.stdout)}` }
   } catch (e) {
     return { ok: false, why: `派发器调用异常: ${redactChildOutput((e && e.message) || e)}` }
@@ -2732,6 +2756,28 @@ export function notifyGuardRed(name, detail, opts = {}) {
       writeNotifyJson(stateFile, sentState)
       rmSync(undelFile, { force: true }) // 下一次成功投递自动清除失败标记(§5e)
       logger(`✅ 判红通报已寄出: ${name} → ${maskEmail(resolveAlertTo())}`)
+    } else if (r.suppressed) {
+      // 出口窗口压住(2026-11-02):这一轮**根本没有寄出**。只累加抑制计数,绝不写 ts / 绝不 n=0 ——
+      // 一次没寄出的尝试不得成为族窗口的新起点(实测那是重喊时刻被无限推后的真因)。
+      // 不写 UNDELIVERED:压住不是投递失败,按失败退避重试只会制造第二轮噪声。
+      const counter = policyEntry ? familyMark : prevEntry
+      const n = (Number(counter && counter.n) || 0) + 1
+      try {
+        if (policyEntry && familyMark)
+          writeNotifyJson(stateFile, {
+            ...state,
+            [policyLedgerKey]: { ...familyMark, fp: name, n },
+          })
+        else if (prevEntry && prevEntry.fp === fp)
+          writeNotifyJson(stateFile, { ...state, [name]: { ...prevEntry, n } })
+        // 没有任何可保留的旧时刻 ⇒ 宁可不落这一格计数,也绝不凭空写一个 ts(那正是本缺陷的形态)。
+      } catch {
+        /* 计数写不进去只影响下一封的汇总读数,不影响"压住"本身 */
+      }
+      logger(
+        `ℹ️ 出口身份窗口内已通报,本轮压住(本窗口累计 ${n} 次):${name}${policyEntry ? ` [策略 ${policyEntry.id}]` : ''}`,
+      )
+      return { sent: false, suppressed: true, why: r.why }
     } else {
       // 失败不记"已送达"⇒ 下轮(退避后)还会重试;标记落盘让人在 --status/日志里看得见
       writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, false))
@@ -12927,6 +12973,8 @@ export const __test__ = {
   buildGuardMailArgv,
   redactChildOutput,
   judgeDryRunChannel,
+  // 出口处置标记的判据(2026-11-02):压住 ≠ 寄出,镜像测试直接喂 stdout 样本。
+  judgeDispatchStdout,
   notifyGuardRed,
   // 合并吞并对账的派生结论分档(2026-10-17 立):"取不到输入"必须与"对账层坏了"分家,
   // 而分家之后"该不该喊人"落在持续性起点件上 —— 这三格都是判据,不导出的话镜像测试只能
