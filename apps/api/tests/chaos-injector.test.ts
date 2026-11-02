@@ -114,13 +114,13 @@ describe('chaos-injector — 混沌测试异常注入', () => {
     it('未注册 target 返回 false 且计入 skip', async () => {
       const c = new ChaosInjector(42)
       expect(await c.hit('missing')).toBe(false)
-      expect(c.getStats().missing.skip).toBe(1)
+      expect(c.getStats().missing!.skip).toBe(1)
     })
     it('probability=0 不触发', async () => {
       const c = new ChaosInjector(42)
       c.add(createFaultRule('x', FaultType.EXCEPTION, { probability: 0 }))
       expect(await c.hit('x')).toBe(false)
-      expect(c.getStats().x.skip).toBe(1)
+      expect(c.getStats().x!.skip).toBe(1)
     })
     it('种子化可复现（同种子同序列）', async () => {
       const c1 = new ChaosInjector(42)
@@ -154,8 +154,8 @@ describe('chaos-injector — 混沌测试异常注入', () => {
       await c.hit('x')
       await c.hit('missing')
       const s = c.getStats()
-      expect(s.x.hit).toBe(1)
-      expect(s.missing.skip).toBe(1)
+      expect(s.x!.hit).toBe(1)
+      expect(s.missing!.skip).toBe(1)
     })
   })
 })

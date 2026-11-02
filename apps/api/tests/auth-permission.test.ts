@@ -14,6 +14,12 @@ vi.hoisted(() => {
 })
 
 // ---------- 可控 mock ----------
+/**
+ * login-preferences 路由只消费 list[].key/value。本用例关注的是"无记录/有记录"两态,
+ * 不造生产 UserPreferenceRow 的其余列 ⇒ 在此声明 mock 返回形状,避免 list 被推成 never[]。
+ */
+type MockPreferenceList = { list: Array<{ key: string; value: string }>; total: number }
+
 const {
   mockVerifyRefreshToken,
   mockCreateFamilyId,
@@ -55,7 +61,7 @@ const {
   mockGetLockRemainingMs: vi.fn(),
   mockRecordLoginFailure: vi.fn(),
   mockClearLoginFailures: vi.fn(),
-  mockFindUserPreferences: vi.fn(async () => ({ list: [], total: 0 })),
+  mockFindUserPreferences: vi.fn(async (): Promise<MockPreferenceList> => ({ list: [], total: 0 })),
   mockUpsertUserPreference: vi.fn(),
   mockSignChallengeToken: vi.fn(),
 }))
@@ -783,7 +789,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
           return Promise.resolve(request.jwtPayload)
         },
       )
-      mockFindUserPreferences.mockResolvedValueOnce({ list: [] })
+      mockFindUserPreferences.mockResolvedValueOnce({ list: [], total: 0 })
       const res = await app.inject({
         method: 'GET',
         url: '/api/auth/login-preferences',
@@ -808,6 +814,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
           { key: 'autoLogin', value: '1' },
           { key: 'autoRenew', value: '0' },
         ],
+        total: 2,
       })
       const res = await app.inject({
         method: 'GET',
@@ -860,6 +867,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
       mockUpsertUserPreference.mockResolvedValueOnce(undefined)
       mockFindUserPreferences.mockResolvedValueOnce({
         list: [{ key: 'autoLogin', value: '1' }],
+        total: 1,
       })
       const res = await app.inject({
         method: 'PUT',
@@ -888,6 +896,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
       mockUpsertUserPreference.mockResolvedValueOnce(undefined)
       mockFindUserPreferences.mockResolvedValueOnce({
         list: [{ key: 'autoRenew', value: '0' }],
+        total: 1,
       })
       const res = await app.inject({
         method: 'PUT',

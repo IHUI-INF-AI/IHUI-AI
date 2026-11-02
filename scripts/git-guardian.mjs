@@ -7928,6 +7928,145 @@ export function auditAppVersionLatest(opts = {}) {
   }
 }
 
+/**
+ * 桌面版"发现射程"巡检(2026-11-02 立;尺子 = `scripts/check-desktop-release-discovery-budget.mjs`)。
+ *
+ * 治的是"以后还会翻不到"这一格:运行期解析桌面版靠分页翻 GitHub `/releases`(按创建时间倒序),
+ * 而 Android nightly 每跑一次就多一枚 release ⇒ 桌面版离第一页越来越远。分页有上限(maxPages=10,
+ * 射程 1000 枚),**顶穿的那一刻不会当场报错** —— 它只是安静地挑不出候选、退回入库快照,
+ * 表现和"上游没通"一模一样,而页面躺旧号没人看得出(0.1.54 躺四天即同型)。
+ * 所以这一档在顶穿**之前**喊:pages 触到上限或有页取不到 ⇒ 发信;取不到出口 ⇒ 未判定,不喊人(§0.3)。
+ */
+const DESKTOP_BUDGET_TICK = join(WORKTREE, '.ihui-agent', 'state', 'desktop-discovery-budget-tick.ts')
+const DESKTOP_BUDGET_FIRST = join(
+  WORKTREE,
+  '.ihui-agent',
+  'state',
+  'desktop-discovery-budget-first.json',
+)
+const DESKTOP_BUDGET_LAST = join(
+  WORKTREE,
+  '.ihui-agent',
+  'state',
+  'desktop-discovery-budget-last.json',
+)
+const DESKTOP_BUDGET_INTERVAL_MS = Number(
+  process.env.IHUI_DESKTOP_BUDGET_INTERVAL_MS || 6 * 60 * 60 * 1000,
+)
+const DESKTOP_BUDGET_TIMEOUT_MS = Number(process.env.IHUI_DESKTOP_BUDGET_TIMEOUT_MS || 90_000)
+
+export function sweepDesktopDiscoveryBudget(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DESKTOP_BUDGET_INTERVAL_MS,
+    tickFile = DESKTOP_BUDGET_TICK,
+    firstFile = DESKTOP_BUDGET_FIRST,
+    lastFile = DESKTOP_BUDGET_LAST,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'check-desktop-release-discovery-budget.mjs',
+  )
+  if (!existsSync(script)) {
+    logger('ℹ️ 桌面发现射程巡检:尺子脚本不在位 ⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!publicProbeDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+                timeout: DESKTOP_BUDGET_TIMEOUT_MS,
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    let parsed = null
+    try {
+      parsed = JSON.parse(String(call.stdout || ''))
+    } catch {
+      /* 落到未判定 */
+    }
+    if (!parsed || typeof parsed.state !== 'string') {
+      logger(
+        `⚠️ 桌面发现射程巡检未产出结论(未判定,不记为已探测):rc=${call.status} ` +
+          `${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').slice(0, 200)}`,
+      )
+      return { ran: true, judged: false, why: '结论不可解析' }
+    }
+    try {
+      mkdirSync(dirname(lastFile), { recursive: true })
+      writeFileSync(lastFile, JSON.stringify(parsed, null, 1), 'utf8')
+    } catch {
+      /* 状态件写不掉只影响可见性 */
+    }
+    const red = Array.isArray(parsed.red) ? parsed.red : []
+    if (parsed.state === 'fail') {
+      const held = alertHeldTier(noteUndeterminedStreak(firstFile, now).firstMs, now)
+      // 身份只放"哪一维红了"(触顶 / 有页取不到),不放会抖动的页数与时刻(§5e-3)
+      const cause = red.some((r) => r?.id === 'partial') ? 'page-unreachable' : 'pages-at-ceiling'
+      notify(
+        '桌面版可能翻不到最新发布:发现射程触顶',
+        [
+          '运行期解析桌面版时,分页枚举已经顶到上限或有页取不到(逐条来自尺子 JSON 的 red 数组):',
+          ...red.slice(0, 10).map((r) => `· ${r?.id ?? '?'}: ${r?.detail ?? ''}`),
+          '',
+          '为什么必须现在动:再往后一页,解析器只是"安静地"退回入库快照,页面写旧号而每一环都是绿的。',
+          '当场可改的两条(任选其一,都可回退):',
+          '  ① 抬 apps/web/src/config/desktop-feed-live.ts 的 RELEASE_PAGE_MAX_PAGES(注意未认证',
+          '     GitHub 上限 60 次/小时/IP,抬上限要同时看窗口 RELEASE_LIST_REVALIDATE_S);',
+          '  ② 把"最新桌面 tag"缓存成一次 releases/tags/<tag> 直查(bake-desktop-latest.mjs 已用同一端点),',
+          '     从此不依赖列表顺序。',
+        ].join('\n'),
+        { severity: 'warning', dedupKey: `verdict=fail;cause=${cause};held=${held.tier}` },
+      )
+      logger(`❌ 桌面发现射程红 ${red.length} 项(已按稳定身份去重发信)`)
+      return { ran: true, judged: true, reds: red.length }
+    }
+    if (parsed.state === 'undetermined') {
+      const un = Array.isArray(parsed.undetermined) ? parsed.undetermined.length : 0
+      logger(`ℹ️ 桌面发现射程巡检:未判定 ${un} 项 —— 不喊人(出口取不到不是缺陷;§5e-1)`)
+      return { ran: true, judged: false, undetermined: un }
+    }
+    clearUndeterminedStreak(firstFile)
+    const s = parsed.scan || {}
+    logger(
+      `✅ 桌面发现射程 OK:第 ${String(s.pages ?? '?')}/${String(s.maxPages ?? '?')} 页,scanned=${String(s.scanned ?? '?')}`,
+    )
+    return { ran: true, judged: true, reds: 0 }
+  } catch (e) {
+    logger(
+      '⚠️ 桌面发现射程巡检派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160),
+    )
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /** 〈原 25 行头注已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-24.md#git-guardian-L4586〉 部署停摆的**高频**派发点(尺子本体 = `scripts/check-credential-health.mjs --stall-only --json`) */
 const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
 const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
@@ -11716,6 +11855,7 @@ async function main() {
     // 那一格红了用户侧是"更新卡没有可点的按钮",监控侧却是一条 200,提交链上结构上无人能看见。
     // 判公网与线上数据 ⇒ 不进提交链(§12e),唯一调度器就是这里;红项正文直接给登记器物那一步(OWNER-ONLY)。
     if (!CHECK_ONLY) auditAppVersionLatest()
+    if (!CHECK_ONLY) sweepDesktopDiscoveryBudget()
     // 逐字回潮巡检(2026-10-29 立,尺子 = scripts/check-verbatim-resurrection.mjs,6h 节流):立因 =
     // 同日的嫁接枚 1fe3a2b42d 把 9 枚已声明删除的路径带回主线,而 168 要 ≥2 个父、旁路落地不跑钩子、
     // 238 只管文档面 —— 这型在提交链上结构上无人能看见,只能由常驻班次在"一切面"上判。
@@ -13014,6 +13154,7 @@ export const __test__ = {
   auditLintStagedPins,
   // App 更新卡 latest 行对账派发腿(2026-10-30 接线,Y-14;镜像测试按名 import,不复制判据 §22c)。
   auditAppVersionLatest,
+  sweepDesktopDiscoveryBudget,
   // git filter 残留巡检(2026-10-31 立):解析判据与派发腿本体导出,镜像测试只 import 这一份(§22c)。
   auditGitFilterResidue,
   parseGitFilterKeys,

@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
   selects: [] as { whereSql: string }[],
   messageRows: [] as unknown[],
   familyRows: [] as { siblingIndex: number | null }[],
+  insertRow: {} as Record<string, unknown>,
+  updateResult: [] as unknown[],
 }))
 
 vi.mock('../src/db/index.js', async () => {

@@ -125,7 +125,7 @@ describe('老门使用留痕', () => {
   it('票认证成功 ⇒ 老门计数**不增**(不留假归因)', async () => {
     const { mintInternalServiceTicket, INTERNAL_TICKET_HEADER } =
       await import('../src/plugins/internal-service-ticket')
-    const ticket = await mintInternalServiceTicket({ subject: SUBJECT, scope: 'memory' })
+    const ticket = await mintInternalServiceTicket({ userId: SUBJECT, scope: 'memory' })
     expect(typeof ticket).toBe('string')
     const before = internalAuthLegacyDoorUses()
     const code = await probeWith({ [INTERNAL_TICKET_HEADER]: ticket }, 'dual', '/probe-ticket')

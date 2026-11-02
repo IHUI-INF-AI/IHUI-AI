@@ -45,6 +45,7 @@ vi.mock('../src/services/relay-account-pool-service.js', () => ({
 }))
 
 const A = await import('../scripts/relay-pool-isolation-audit.js')
+import type { Dim, DimKey, DimState } from '../scripts/relay-pool-isolation-audit.js'
 
 describe('D1 设备簇(deviceClusterDim)', () => {
   it('① ≥2 uid 共用一枚 deviceId ⇒ info(设备身份整机一份、不可整改,点名提醒而非假红 breach)', () => {
@@ -146,15 +147,27 @@ describe('D6 死副本(deadCopyDim)', () => {
 })
 
 describe('汇总裁决 overallState / conclusionLine', () => {
-  const mk = (key: string, state: string) => ({ key, state, count: 0, detail: [], fix: '' })
+  const mk = (key: DimKey, state: DimState): Dim => ({ key, state, count: 0, detail: [], fix: '' })
   it('⑰ 任一 breach ⇒ breach 优先', () => {
-    expect(A.overallState([mk('a', 'ok'), mk('b', 'breach'), mk('c', 'info')])).toBe('breach')
+    expect(
+      A.overallState([
+        mk('deviceCluster', 'ok'),
+        mk('sharedRefreshToken', 'breach'),
+        mk('sameUidMultiRow', 'info'),
+      ]),
+    ).toBe('breach')
   })
   it('⑱ 无 breach 但有 unjudged ⇒ undetermined(不记绿)', () => {
-    expect(A.overallState([mk('a', 'ok'), mk('b', 'info'), mk('c', 'unjudged')])).toBe('undetermined')
+    expect(
+      A.overallState([
+        mk('deviceCluster', 'ok'),
+        mk('sharedRefreshToken', 'info'),
+        mk('sameUidMultiRow', 'unjudged'),
+      ]),
+    ).toBe('undetermined')
   })
   it('⑲ 全 ok/info ⇒ ok', () => {
-    expect(A.overallState([mk('a', 'ok'), mk('b', 'info')])).toBe('ok')
+    expect(A.overallState([mk('deviceCluster', 'ok'), mk('sharedRefreshToken', 'info')])).toBe('ok')
   })
   it('⑳ 结论行形态:POOL-ISOLATION state=<x> total=<n> <kv>,unjudged 维带 ? 后缀', () => {
     const line = A.conclusionLine([mk('deviceCluster', 'info'), mk('sharedRefreshToken', 'ok')], 14)

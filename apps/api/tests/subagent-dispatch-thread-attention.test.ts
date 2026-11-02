@@ -79,7 +79,6 @@ import { SubagentDispatchService } from '../src/services/subagent-dispatch-servi
 
 const KEY_DISPATCH = 'subagent:dispatch:'
 const KEY_IDS = 'subagent:dispatch:ids'
-const _KEY_LOGS = 'subagent:logs:'
 const KEY_THREAD = 'subagent:dispatch:thread:'
 
 /** 最小 Redis 假件(含 F3 thread 索引需要的 zrevrange;数值贴 ioredis 行为) */
@@ -238,6 +237,9 @@ describe('F3 ① 同会话派单挂 thread 并带入第一次上下文', () => {
     const first = await service.dispatch({
       goal: '第一条:梳理登录流程',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-a',
     })
@@ -248,6 +250,9 @@ describe('F3 ① 同会话派单挂 thread 并带入第一次上下文', () => {
     const second = await service.dispatch({
       goal: '第二条:补充边界用例',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-a',
     })
@@ -281,6 +286,9 @@ describe('F3 ② 跨租户同一会话不成链', () => {
     const first = await service.dispatch({
       goal: 'A 的秘密目标',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-a',
     })
@@ -289,6 +297,9 @@ describe('F3 ② 跨租户同一会话不成链', () => {
     const second = await service.dispatch({
       goal: 'B 的目标',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-b',
     })
@@ -312,6 +323,9 @@ describe('F3 ③ 重启后 thread 仍可挂回(历史来自 Redis 索引)', () =
     const first = await serviceA.dispatch({
       goal: '重启前的目标',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-a',
     })
@@ -326,6 +340,9 @@ describe('F3 ③ 重启后 thread 仍可挂回(历史来自 Redis 索引)', () =
     const second = await serviceB.dispatch({
       goal: '重启后的目标',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-a',
     })
@@ -356,6 +373,9 @@ describe('F3 ④ 人工注意力:进入/退出 + /active 反映', () => {
     const created = await service.dispatch({
       goal: '等人的任务',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       ownerUserId: 'tenant-a',
     })
     const id = created.dispatch!.id
@@ -404,6 +424,9 @@ describe('F3 ⑤ 落库镜像:agent_tasks.parent_dispatch_id / attention', () =>
     const created = await service.dispatch({
       goal: '子任务',
       affectedFiles: ['a.ts'],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
       conversationId: CONV,
       ownerUserId: 'tenant-a',
       agentId: 'agent-1',

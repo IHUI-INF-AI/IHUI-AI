@@ -188,7 +188,9 @@ function entryByName(entries: SkillMarketEntry[], name: string): SkillMarketEntr
 
 /** 设定 users 行返回什么(dbb.execute 的返回值);传 null 表示"查不到行" */
 function stubUsersRow(row: { nickname?: string | null; username?: string | null } | null): void {
-  vi.mocked(db.execute).mockResolvedValue(row === null ? undefined : ([row] as never))
+  vi.mocked(db.execute).mockResolvedValue(
+    row === null ? (undefined as never) : ([row] as never),
+  )
 }
 
 interface As {

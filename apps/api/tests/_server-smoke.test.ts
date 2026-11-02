@@ -4,6 +4,14 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import type { Queue } from 'bullmq'
+import type { CookieSerializeOptions, UnsignResult } from '@fastify/cookie'
+import type {
+  AICallbackJobData,
+  EmailJobData,
+  NotificationJobData,
+  TargetedDispatchJobData,
+} from '../src/plugins/queue.js'
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
@@ -53,21 +61,18 @@ vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockR
 // smoke 只验证 buildServer 路由无冲突,不验证队列行为 → 均替换为 stub 队列。
 vi.mock('../src/plugins/queue.js', async () => {
   const { default: fp } = await import('fastify-plugin')
-  const stubQueue = () =>
-    new Proxy(
-      {},
-      {
-        get(_t, prop: string) {
-          if (prop === 'then') return undefined
-          return () => Promise.resolve(undefined)
-        },
+  const stubQueue = <T>(): Queue<T> =>
+    new Proxy({} as Queue<T>, {
+      get(_t, prop: string) {
+        if (prop === 'then') return undefined
+        return () => Promise.resolve(undefined)
       },
-    )
+    })
   const queueStub = async (server: FastifyInstance): Promise<void> => {
-    server.decorate('emailQueue', stubQueue())
-    server.decorate('notificationQueue', stubQueue())
-    server.decorate('aiCallbackQueue', stubQueue())
-    server.decorate('notificationDispatchQueue', stubQueue())
+    server.decorate('emailQueue', stubQueue<EmailJobData>())
+    server.decorate('notificationQueue', stubQueue<NotificationJobData>())
+    server.decorate('aiCallbackQueue', stubQueue<AICallbackJobData>())
+    server.decorate('notificationDispatchQueue', stubQueue<TargetedDispatchJobData>())
   }
   return {
     queue: fp(queueStub, { name: 'queue', fastify: '5.x' }),
@@ -84,9 +89,9 @@ vi.mock('../src/plugins/scheduler.js', async () => {
   const { default: fp } = await import('fastify-plugin')
   const schedulerStub = async (server: FastifyInstance): Promise<void> => {
     server.decorate('schedulerQueue', {
-      upsertJobScheduler: vi.fn().mockResolvedValue(undefined),
-      close: vi.fn().mockResolvedValue(undefined),
-    })
+      upsertJobScheduler: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+    } as unknown as FastifyInstance['schedulerQueue'])
   }
   return { scheduler: fp(schedulerStub, { name: 'scheduler', fastify: '5.x' }) }
 })
@@ -145,14 +150,7 @@ vi.mock('../src/db/index.js', () => {
 vi.mock('@fastify/cookie', async () => {
   const { default: fp } = await import('fastify-plugin')
 
-  type CookieOpts = {
-    path?: string
-    domain?: string
-    httpOnly?: boolean
-    secure?: boolean
-    sameSite?: string | boolean
-    maxAge?: number
-  }
+  type CookieOpts = CookieSerializeOptions
 
   function parseCookieHeader(cookieHeader: string): Record<string, string> {
     const cookies: Record<string, string> = {}
@@ -184,7 +182,7 @@ vi.mock('@fastify/cookie', async () => {
   }
 
   const plugin = async (instance: FastifyInstance): Promise<void> => {
-    instance.decorateRequest('cookies', null)
+    instance.decorateRequest('cookies', null as unknown as FastifyRequest['cookies'])
     instance.addHook(
       'onRequest',
       (request: FastifyRequest, _reply: FastifyReply, done: () => void) => {
@@ -217,8 +215,12 @@ vi.mock('@fastify/cookie', async () => {
         return this
       },
     )
-    instance.decorate('signCookie', vi.fn())
-    instance.decorate('unsignCookie', vi.fn())
+    instance.decorate('signCookie', vi.fn((_value: string): string => ''))
+    instance.decorate('unsignCookie', vi.fn((_value: string): UnsignResult => ({
+      valid: false,
+      renew: false,
+      value: null,
+    })))
     instance.decorate('unsign', vi.fn())
   }
 

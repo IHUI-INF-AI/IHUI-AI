@@ -64,7 +64,9 @@ describe('network-segment denyProxied(第 14 批)', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.decorate('redis', makeRedisStub())
+    // 内存替身与路由声明的 Redis 类型不同形,装饰口按插件层的宽口径走
+    const decorable = app as unknown as { decorate(name: string, value: unknown): void }
+    decorable.decorate('redis', makeRedisStub())
     await app.register(networkSegmentPlugin)
 
     const ok = async () => ({ ok: true })
