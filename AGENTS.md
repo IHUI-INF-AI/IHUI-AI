@@ -143,7 +143,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 - **强制 `scripts/safe-commit.mjs` 五步法**(真实事故根治):①暂存文件清单回显 → ②只 add 本任务文件(禁 `git add .`/`-A`)→ ③commit 带 pathspec(只提交声明集)→ ④推送 → ⑤回读验证 local == remote。禁止裸 `git commit`。
 - **git 写锁**:`scripts/git-lock.mjs`;部署/构建全局锁 `deploy-lock.mjs`(meta 记 host+pidStart,`pidStart` 量的必须是"判活所问的那个 pid";判活再加一环 = 身份凭据;只有 `mismatch` 给抢占授权,先归档现场再抢;`check`/`release` 不现测)。dev 入口统一 `scripts/dev-with-warmup.mjs` 启动器(拿锁在 spawn 之前;破坏性步骤必须在 acquire 后、next dev 前)。
 - **stash 全面禁止**(多会话共享工作区 stash 会吞他人现场);跨会话现场隔离用 git worktree(§12d)。
-- **全工作树口径(2026-11-02 立,强制)**:任何「是否还有未提交改动 / 工作树是否干净」的结论**必须覆盖 `git worktree list` 的全部工作树**(主树 + 附加树 + detached + locked);**仅凭主树 `git status` 得出的结论无效**(本会话曾因此漏掉 `.ihui-agent/tmp/wip-*` 里的 6 个待提交文件)。唯一指定口径 = `node scripts/check-worktree-status.mjs [--json]`(逐树统计 staged/unstaged/untracked/conflict/stash,任一树非空或有 stash ⇒ exit 1);提交口用同脚本 `--gate`(门 281):主树残量(未暂存/未跟踪/冲突/stash)阻断,仅其他工作树脏只告警不阻断(本次提交的暂存内容天然在主树,故 staged 不计脏);`pnpm check:worktree-status` 为同名入口。
+- **全工作树口径(强制)**:未提交结论须覆盖全部 worktree;唯一口径 `scripts/check-worktree-status.mjs`(门 281,提交口 `--gate`)。
 - **12b 协作收尾 SOP / 12c 并发 commit 防混淆 / 12d worktree 隔离规范**:commit 前 `merge-live-doc.mjs --file <活文档>` 对账(lost/superseded/stale 三态;提交后立刻 `git show <新提交>^..<新提交>` 行级对账,有丢失就地回补);converge 用 merge-tree/commit-tree 只推进 HEAD+index 不 checkout,工作区落后 HEAD 时 `git add <file>` 交的是旧基线(守门 84 R1 拦,判据 = 暂存 blob≠HEAD 且等于某祖先版本)。
 - **12e 恒红门优先级(强制)**:与提交内容无关的红门唯一结局是人人 `--no-verify` 连带废掉全部守门——**修红不得顺手削判据**;存量未清时上 blocking = 恒红门;升档前置 = 存量归零。
 - **12f 恒红门优先级(同日三道实测)**:同型。判据失效的表现永远是安静;凡"文档写了出路"必须实测真跑得通。

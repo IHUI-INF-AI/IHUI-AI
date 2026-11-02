@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-02T09:44:05.250Z",
+  "sealedAt": "2026-11-02T10:16:10.078Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-11-02 门 281 全工作树口径:新增 check-worktree-status 注册进 guardian-runner,并补 AGENTS.md §12 全工作树硬规则;按在册出口重封 guardian-runner 与 AGENTS.md 段哈希",
+  "reason": "2026-11-02 全工作树口径条款压缩至 96000 字节预算内(语义不变,细节留在脚本头注与门 281);按在册出口重封 guardian-runner/judgement-libs/agents-ironlaw 段哈希",
   "targets": [
     {
       "id": "guardian-runner",
