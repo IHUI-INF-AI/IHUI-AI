@@ -77,6 +77,11 @@
  *       #   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息;
  *       #   声明的路径两侧都取不到 ⇒ 未判定(不记通过,拦落地);声明了非活文档路径
  *       #   ⇒ 声明未命中判红(整路径取对侧请改用 --take-theirs,它对非活文档本来就生效)。
+ *   node scripts/union-converge.mjs --legacy-lenient
+ *       # A6b(2026-11-03)逃生阀:显式退回旧口径 —— --take-theirs-doc 整份取对侧前**不再量**
+ *       #   本侧带号键/空行/非空行三项差(少内容也不阻断)。默认在 CHECK 与 APPLY 两档恒量(写盘
+ *       #   那一步不该靠调用方记得加旗);本旗一经出现,stderr 必打一行醒目告警,该次运行不得
+ *       #   被读成"零丢失"。
  *   node scripts/union-converge.mjs --resolve '<path>=<内容文件>' [--resolve ...]
  *       # 真三方报冲突后,**人工判完的回灌出口**(2026-09-26 立)。此前"请人工判"是一句死路:
  *       #   工具不接收人工结果,人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
@@ -1017,6 +1022,7 @@ export function buildUnion(
   foldKeep = null,
   declaredLoss = null,
   takeTheirsDocs = null,
+  lenient = false,
 ) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
@@ -1087,16 +1093,19 @@ export function buildUnion(
           takeDocsUndetermined.push({ doc: p, reason: '对侧取不到该路径的 blob(路径不存在/对象不在本机)' })
         } else {
           // A6:整份取代之前先量本侧会少什么;少内容且没有理由声明 ⇒ 折进 violations 阻断落地。
-          const loss = takeTheirsDocLoss(a, b)
-          const why = takeDocReason(takeTheirsDocs, p)
-          if (!loss.ok && why.length < TAKE_DOC_MIN_REASON) {
-            violations.push(
-              `${p} 整份取对侧会让本侧少内容(${loss.losses.join('; ')}),` +
-                `且未用 --take-theirs-doc '${p}=<理由>' 声明这次少内容的去向 ⇒ 阻断(不记通过)`,
-            )
-          } else if (!loss.ok) {
-            takeDocCredits.push({ doc: p, why, losses: loss.losses })
-            console.log(`   ⚠️ ${p} 整份取对侧已声明少内容(${loss.losses.join('; ')});理由:${why}`)
+          // A6b(`--legacy-lenient` 逃生阀):显式退回旧行为,整份取对侧不再量三项差;告警在 CLI 入口打。
+          if (!lenient) {
+            const loss = takeTheirsDocLoss(a, b)
+            const why = takeDocReason(takeTheirsDocs, p)
+            if (!loss.ok && why.length < TAKE_DOC_MIN_REASON) {
+              violations.push(
+                `${p} 整份取对侧会让本侧少内容(${loss.losses.join('; ')}),` +
+                  `且未用 --take-theirs-doc '${p}=<理由>' 声明这次少内容的去向 ⇒ 阻断(不记通过)`,
+              )
+            } else if (!loss.ok) {
+              takeDocCredits.push({ doc: p, why, losses: loss.losses })
+              console.log(`   ⚠️ ${p} 整份取对侧已声明少内容(${loss.losses.join('; ')});理由:${why}`)
+            }
           }
           run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
           keptTheirsDocs.push(p)
@@ -1626,6 +1635,7 @@ export function verifyUnion(
   foldLedgers = null,
   supersede = null,
   takeTheirsDocs = null,
+  lenient = false,
 ) {
   const M = new Set(listPaths(tree, cwd))
   const bad = []
@@ -1698,7 +1708,8 @@ export function verifyUnion(
     // 但声明绝不因此免检:树里不是对侧那一份字节 ⇒ 照红,取不到对侧 ⇒ 未判定(不记通过)。
     if (takeDocHas(takeTheirsDocs, p)) {
       // A6:整份取代的自证不能只验"树 == 对侧"——先量本侧会少什么,少内容且无理由声明照样红。
-      if (a !== null && b !== null) {
+      // A6b(`--legacy-lenient`):逃生阀开启时自证也回到旧口径(只验 blob 逐字等于对侧)。
+      if (!lenient && a !== null && b !== null) {
         const loss = takeTheirsDocLoss(a, b)
         const why = takeDocReason(takeTheirsDocs, p)
         if (!loss.ok && why.length < TAKE_DOC_MIN_REASON)
@@ -2154,6 +2165,7 @@ export function plan(
   foldKeep = null,
   declaredLoss = null,
   takeTheirsDocs = null,
+  lenient = false,
 ) {
   // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
   // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
@@ -2200,13 +2212,25 @@ export function plan(
     foldKeep,
     declaredLoss,
     takeTheirsDocs,
+    lenient,
   )
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
   // 折叠台账必须**同轮**交给落地自证(§0.4 同面同轮):产物面是折叠之后那一份,自证侧若拿不到
   // 这本账,就会对着一个"产物面根本不存在的重数"判红 —— 本机实测 289 处「未存活行」而真丢失 0。
-  const vu = verifyUnion(ours, theirs, built.tree, cwd, base, moveAwareCache, built.foldLedgers, supersede, takeTheirsDocs)
+  const vu = verifyUnion(
+    ours,
+    theirs,
+    built.tree,
+    cwd,
+    base,
+    moveAwareCache,
+    built.foldLedgers,
+    supersede,
+    takeTheirsDocs,
+    lenient,
+  )
   // --take-theirs-doc 的陈旧/错道声明必须当场点名(§0.3:配了清单 ≠ 这轮真放过东西):
   //  · 声明的路径两侧都取不到 ⇒ 未判定(不记通过);
   //  · 声明的路径存在但不在活文档清单 ⇒ 未命中(该族整路径取对侧本就由 --take-theirs 负责,
@@ -4132,6 +4156,15 @@ async function main() {
   }
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
+  // A6b 逃生阀:显式退回旧口径(整份取对侧不再量本侧三项差)。告警必须每次开跑都打且足够醒目,
+  // 不许静默 —— 逃生阀本身也是"少带内容"的合法入口,账面必须能看见它被开了。
+  const legacyLenient = argv.includes('--legacy-lenient')
+  if (legacyLenient) {
+    console.error(
+      '⚠️ [union-converge] --legacy-lenient:--take-theirs-doc 的三项丢失检测已关闭' +
+        '(带号键/空行/非空行任一减少都不再阻断,整份取对侧回到旧行为)。仅限确知风险时使用。',
+    )
+  }
   // --theirs <sha> 的取值交单源出口(G-322)。旧写法 `argv[i + 1]` 有两型吞值都**静默降级**:
   //   ① `--theirs` 收尾(无值)⇒ undefined 进 resolveTargets,被读成"调用方没点名" ⇒ 回落到自动
   //      解析 origin/<branch>,`explicit` 那一维也翻假,于是"本地纯落后"短路把一次显式点名的合并
@@ -4439,6 +4472,7 @@ async function main() {
     foldKeep.size ? foldKeep : null,
     declaredLoss.size ? declaredLoss : null,
     takeTheirsDocs.size ? takeTheirsDocs : null,
+    legacyLenient,
   )
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 活文档整份取对侧 ${p.keptTheirsDocs?.length ?? 0} / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
