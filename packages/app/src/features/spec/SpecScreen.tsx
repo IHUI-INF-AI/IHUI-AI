@@ -254,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted, // bg-gray-100 dark:bg-neutral-800
     },
     idBadgeText: {
-      fontSize: 10, // text-[10px]
+      fontSize: rnType.badge.size, // text-[10px]
       color: tk.text.secondary, // text-gray-500 dark:text-neutral-400
     },
     tplDesc: {
@@ -275,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.light, // bg-orange-50 dark:bg-orange-900/30 → 共享层强调色浅底
     },
     tagText: {
-      fontSize: 10, // text-[10px]
+      fontSize: rnType.badge.size, // text-[10px]
       color: tk.brandAccent.deep, // text-orange-600 dark:text-orange-300
     },
   } satisfies Record<string, ViewStyle | TextStyle>)

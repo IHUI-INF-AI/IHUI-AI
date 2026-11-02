@@ -140,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     searchBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -148,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

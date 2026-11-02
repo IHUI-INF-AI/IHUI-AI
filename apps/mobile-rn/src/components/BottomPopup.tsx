@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { scaleText } from '@ihui/rn-app'
 
@@ -150,11 +151,17 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                           <Text style={styles.levelName} numberOfLines={1}>
                             {level.levelName}
                           </Text>
-                          <Text style={[styles.levelMeta, scaleText(styles.levelMeta)]} allowFontScaling={false}>
+                          <Text
+                            style={[styles.levelMeta, scaleText(styles.levelMeta)]}
+                            allowFontScaling={false}
+                          >
                             {level.durationDays} 天 · Lv.{level.levelValue}
                           </Text>
                         </View>
-                        <Text style={[styles.levelPrice, scaleText(styles.levelPrice)]} allowFontScaling={false}>
+                        <Text
+                          style={[styles.levelPrice, scaleText(styles.levelPrice)]}
+                          allowFontScaling={false}
+                        >
                           ¥{level.price}
                         </Text>
                       </View>
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   levelsScroll: {
     flex: 1,
-    marginTop: 14,
+    marginTop: rnSpacing['md-loose'],
   } as ViewStyle,
   levelsContent: {
     gap: LEVEL_ITEM_GAP,
@@ -310,7 +317,7 @@ const styles = StyleSheet.create({
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 14,
+    marginTop: rnSpacing['md-loose'],
   } as ViewStyle,
   confirmButtonDisabled: {
     opacity: 0.4,

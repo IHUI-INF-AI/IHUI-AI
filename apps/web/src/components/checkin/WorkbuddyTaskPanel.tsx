@@ -249,7 +249,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card">
+    <section className="rounded-xl border border-border bg-card">
       <button
         type="button"
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
@@ -314,7 +314,7 @@ export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] 
               </Label>
               <select
                 id="wb-task-account"
-                className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+                className="mt-1 h-8 w-full rounded-sm border border-border bg-background px-2 text-xs"
                 value={accountId ?? ''}
                 onChange={(e) => {
                   setAccountId(Number(e.target.value))

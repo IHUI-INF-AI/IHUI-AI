@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -21,13 +21,13 @@ export function createAboutStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { alignItems: 'center', gap: rnSpacing.sm, paddingTop: rnSpacing.sm },
     heroTitle: { fontSize: 28, fontWeight: '700', textAlign: 'center', color: tk.text.primary },
     bodyText: { fontSize: 13, lineHeight: 20, color: tk.text.secondary },
-    itemLabel: { fontSize: 14, color: tk.text.primary },
-    sectionTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    itemLabel: { fontSize: rnType.body.size, color: tk.text.primary },
+    sectionTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     chip: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -38,7 +38,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.brandAccent.light,
     },
-    chipText: { fontSize: 11, fontWeight: '500', color: tk.brandAccent.deep },
+    chipText: { fontSize: rnType.caption.size, fontWeight: '500', color: tk.brandAccent.deep },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -58,12 +58,12 @@ export function createAboutStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brandAccent.light,
     },
-    cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
+    cardTitle: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     cardDesc: { fontSize: 12, lineHeight: 19, color: tk.text.secondary },
     statsCard: { gap: rnSpacing.md },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     statCell: { flexGrow: 1, flexBasis: '44%', alignItems: 'center', gap: rnSpacing.xs },
-    statValue: { fontSize: 24, fontWeight: '700', color: tk.brandAccent.deep },
+    statValue: { fontSize: rnType.display.size, fontWeight: '700', color: tk.brandAccent.deep },
     ctaCard: { alignItems: 'center', paddingVertical: 18, gap: rnSpacing['sm-loose'] },
     ctaPrimary: {
       alignSelf: 'stretch',
@@ -72,7 +72,11 @@ export function createAboutStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    ctaPrimaryText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    ctaPrimaryText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     ctaSecondary: {
       alignSelf: 'stretch',
       alignItems: 'center',
@@ -81,7 +85,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    ctaSecondaryText: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    ctaSecondaryText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     entryRow: {
       flexDirection: 'row',
       alignItems: 'center',

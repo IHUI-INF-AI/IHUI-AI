@@ -74,6 +74,9 @@ export * from './leaderboard.js'
 // 签到助手跨端契约(2026-10-03 立,镜像 apps/ai-service/app/routers/checkin.py)
 export * from './checkin.js'
 
+// 宿主能力端口跨端契约(M4 T1,2026-11-02 立):导航/提示/登录态/存储/媒体/确认/分页/支付结果
+export * from './app-host-ports.js'
+
 // P3 Wave 11:6 大核心能力跨端契约(2026-07-22 立)
 // 终端集成(对标 Codex/OpenCode 内置终端)
 export * from './terminal.js'

@@ -418,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     } as ViewStyle,
     indexContent: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       paddingBottom: 96,
     } as ViewStyle,
     // 预览区块
@@ -507,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     // 视频列表(双列网格)
     listContent: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       paddingBottom: 96,
     } as ViewStyle,
     gridRow: {

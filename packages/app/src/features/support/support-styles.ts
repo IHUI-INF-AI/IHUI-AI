@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnHue, rnHueTintOnly, rnRadius, rnTokens, rnSpacing } from '@ihui/design-tokens'
+import { rnHue, rnHueTintOnly, rnRadius, rnTokens, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -42,11 +42,16 @@ export function createSupportStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: { fontSize: 12, color: tk.text.secondary },
+    heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     /* 页签(web tab 条同源:容器描边 + 选中胶囊实底) */
     tabRow: {
       flexDirection: 'row',
@@ -58,7 +63,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     tabBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: 7,
       borderRadius: rnRadius.sm,
     },
@@ -84,16 +89,16 @@ export function createSupportStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
     },
-    cardTitle: { fontSize: 16, fontWeight: '700', color: tk.text.primary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
-    rowTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    rowSub: { fontSize: 11, color: tk.text.tertiary },
+    rowTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 11, fontWeight: '600' },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     emptyBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderStyle: 'dashed',
@@ -105,7 +110,12 @@ export function createSupportStyles(tk: AppThemeTokens) {
     },
     emptyText: { fontSize: 13, color: tk.text.secondary },
     /* 表单 */
-    fieldLabel: { fontSize: 12, fontWeight: '600', color: tk.text.medium, marginTop: rnSpacing.xs },
+    fieldLabel: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: tk.text.medium,
+      marginTop: rnSpacing.xs,
+    },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
@@ -128,9 +138,9 @@ export function createSupportStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.inputBg,
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    chipText: { fontSize: 12, color: tk.text.secondary },
+    chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipActiveText: { color: tk.brand.ctaForeground, fontWeight: '600' },
-    formErr: { fontSize: 12, color: tk.danger.DEFAULT },
+    formErr: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
     formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: rnSpacing.sm },
     primaryBtn: {
       paddingHorizontal: rnSpacing.lg,
@@ -151,17 +161,22 @@ export function createSupportStyles(tk: AppThemeTokens) {
     secondaryBtnText: { fontSize: 13, color: tk.text.medium },
     btnDisabled: { opacity: 0.6 },
     /* 详情 */
-    detailTitle: { fontSize: 16, fontWeight: '700', color: tk.text.primary, flex: 1 },
-    detailNo: { fontSize: 11, color: tk.text.tertiary },
+    detailTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      flex: 1,
+    },
+    detailNo: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     metaLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: rnSpacing.sm },
-    metaLabel: { fontSize: 12, color: tk.text.secondary },
+    metaLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
     descBox: {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.sm,
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing.xs,
     },
-    descLabel: { fontSize: 11, fontWeight: '600', color: tk.text.tertiary },
+    descLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
     descText: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     commentsBox: {
       borderWidth: StyleSheet.hairlineWidth,
@@ -179,9 +194,13 @@ export function createSupportStyles(tk: AppThemeTokens) {
     },
     commentAdmin: { backgroundColor: tk.brandAccent.light },
     commentUser: { backgroundColor: tk.surface.muted },
-    commentMeta: { fontSize: 11, color: tk.text.tertiary },
-    commentRole: { fontSize: 11, fontWeight: '600', color: tk.text.secondary },
-    commentText: { fontSize: 13, color: tk.text.primary, lineHeight: 18 },
+    commentMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    commentRole: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
+    commentText: {
+      fontSize: rnType.bodySm.size,
+      color: tk.text.primary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     starRow: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     ratingBox: {
       borderWidth: StyleSheet.hairlineWidth,

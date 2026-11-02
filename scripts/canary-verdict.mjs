@@ -79,6 +79,16 @@ export function loadPolicy(rawText) {
   for (const k of ['ticks', 'gapMs', 'timeoutMs']) {
     if (!isPosInt(win[k])) throw new CanaryShapeError(`策略形状坏:window.${k} 必须是正整数`)
   }
+  // 预热轮数(可选,缺省 0 —— 既有策略/夹具不写这一项时口径完全不变)。
+  // 必须 < ticks:预热拍会被剔除,若把观察窗全部吃掉就没有稳态样本可判,等于用"没样本"放行。
+  if (win.warmupTicks !== undefined) {
+    if (!Number.isInteger(win.warmupTicks) || win.warmupTicks < 0) {
+      throw new CanaryShapeError('策略形状坏:window.warmupTicks 必须是非负整数')
+    }
+    if (win.warmupTicks >= win.ticks) {
+      throw new CanaryShapeError('策略形状坏:window.warmupTicks 必须小于 window.ticks(否则没有稳态样本可判)')
+    }
+  }
 
   const th = doc.thresholds
   if (!isPlainObject(th)) throw new CanaryShapeError('策略形状坏:缺 thresholds 对象')
@@ -364,30 +374,67 @@ async function probeEndpoint(ep, timeoutMs, fetchImpl) {
   }
 }
 
-/** 采样窗口:每 tick 把全部端点各打一次,共 ticks 轮;逐条落 JSONL。 */
+/**
+ * 采样:观察窗前固定预热 → 8 拍稳态窗口。逐条落 JSONL(只写进判据的样本)。
+ *
+ * 暖机口径(2026-11-02 立,window.warmupTicks 驱动):
+ *  - **为什么剔除**:灰度实例刚起时 Next 的路由还没预编译、JS 还没热,第一拍的耗时是
+ *    实例启动成本,不是线上表现。2026-11-02 实测 web-origin 首拍 2937.606ms、后续 7 拍
+ *    38-50ms,而 8 拍最近秩 P95(n=8 取最大值)被首拍顶到 2938ms > 1500ms ⇒ 好构建被判死
+ *    并自动回滚。剔除的是「冷启动那一拍」,不是把阈值放宽:阈值 1500ms 与 8 拍窗口一字未改。
+ *  - **预热怎么打**:与观察窗同一端点集(web 首屏 HTML + api/llm 健康检查 + 公网腿,
+ *    不另造第二份路由表),连续打 warmupTicks 轮、不插 gapMs —— 暖机要的是尽快把路由与
+ *    JS 热起来;5s 间隔留给观察窗,保持原口径。
+ *  - **失败不洗白(按端点)**:同一端点的预热拍只有**全绿**才整组剔除;该端点任一非 pass ⇒
+ *    只把**该端点**的预热拍并入候选样本,让判据看见它 —— 硬失败(5xx/正文不命中)照样判死;
+ *    拿不到答案(超时/429)按本模块三态纪律记 unknown,不冒充失败,也不静默吃掉。
+ *    **不跨端点牵连**:公网腿预热 unknown 只是隧道抖一下,它本来就不进判据;若用"全场非绿"
+ *    做剔除条件,一条 public 腿的 unknown 会把 origin 腿的冷启动首拍拖进 P95 —— 2026-11-02
+ *    13:21 实测正是这样二次误杀(web-origin 暖机 3158ms,后 9 拍 55-73ms)。
+ */
 export async function runSampling({ policy, stage, out, fetchImpl = globalThis.fetch, now = () => new Date(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   if (!policy) throw new CanaryShapeError('runSampling 缺 policy')
   if (!out) throw new CanaryShapeError('runSampling 缺 out 路径')
-  const records = []
-  for (let tick = 0; tick < policy.window.ticks; tick += 1) {
-    for (const ep of policy.endpoints) {
-      const r = await probeEndpoint(ep, policy.window.timeoutMs, fetchImpl)
-      records.push({
-        v: 1,
-        ts: now().toISOString(),
-        stage,
-        endpoint: ep.id,
-        kind: ep.kind,
-        verdict: r.verdict,
-        status: r.status,
-        ms: Math.round(r.ms * 1000) / 1000,
-      })
+  const warmTicks = policy.window.warmupTicks ?? 0
+  const warmRecords = []
+  const probeOnce = async (ep) => {
+    const r = await probeEndpoint(ep, policy.window.timeoutMs, fetchImpl)
+    return {
+      v: 1,
+      ts: now().toISOString(),
+      stage,
+      endpoint: ep.id,
+      kind: ep.kind,
+      verdict: r.verdict,
+      status: r.status,
+      ms: Math.round(r.ms * 1000) / 1000,
     }
+  }
+  for (let tick = 0; tick < warmTicks; tick += 1) {
+    for (const ep of policy.endpoints) warmRecords.push(await probeOnce(ep))
+  }
+  // 按端点决定剔除:某端点预热全绿 ⇒ 该端点预热拍不进候选;非绿 ⇒ 该端点预热拍整体并入。
+  const mergedWarm = []
+  const mergedIds = []
+  for (const ep of policy.endpoints) {
+    const rows = warmRecords.filter((r) => r.endpoint === ep.id)
+    if (rows.every((r) => r.verdict === 'pass')) continue
+    mergedWarm.push(...rows)
+    mergedIds.push(ep.id)
+  }
+  const records = mergedWarm
+  for (let tick = 0; tick < policy.window.ticks; tick += 1) {
+    for (const ep of policy.endpoints) records.push(await probeOnce(ep))
     if (tick < policy.window.ticks - 1) await sleep(policy.window.gapMs)
   }
   mkdirSync(dirname(resolve(out)), { recursive: true })
   writeFileSync(out, `${records.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8')
-  return { out, count: records.length, records }
+  return {
+    out,
+    count: records.length,
+    records,
+    warmup: { ticks: warmTicks, excluded: mergedIds.length === 0, merged: mergedIds, records: warmRecords },
+  }
 }
 
 function readIfExists(p) {
@@ -439,11 +486,20 @@ export function recordCanaryDecision({ verdict, dims, reasons, sha, ledger, now 
   return decision
 }
 
-function selfTest() {
+async function selfTest() {
   const checks = []
   const t = (name, fn) => {
     try {
       fn()
+      checks.push({ name, ok: true })
+    } catch (e) {
+      checks.push({ name, ok: false, why: e?.message ?? String(e) })
+    }
+  }
+  // 采样面用例要 await(假 fetch 自带延时才量得出冷启动耗时);同步用例继续走 t(),不重排既有断言。
+  const ta = async (name, fn) => {
+    try {
+      await fn()
       checks.push({ name, ok: true })
     } catch (e) {
       checks.push({ name, ok: false, why: e?.message ?? String(e) })
@@ -531,6 +587,125 @@ function selfTest() {
       try { unlinkSync(ledger) } catch {}
     }
   })
+  t('warmupTicks 形状锁:可选、非负、必须小于 ticks', () => {
+    const base = {
+      version: 1,
+      window: { ticks: 8, gapMs: 1, timeoutMs: 1, warmupTicks: 2 },
+      thresholds: th,
+      endpoints: [{ id: 'a', kind: 'origin', url: 'http://127.0.0.1:1/' }],
+    }
+    const ok = loadPolicy(JSON.stringify(base))
+    if (ok.window.warmupTicks !== 2) throw new Error('warmupTicks 未被保留')
+    for (const bad of [-1, 1.5, 8, 9]) {
+      let hit = false
+      try {
+        loadPolicy(JSON.stringify({ ...base, window: { ...base.window, warmupTicks: bad } }))
+      } catch (e) {
+        hit = e instanceof CanaryShapeError
+      }
+      if (!hit) throw new Error(`warmupTicks=${bad} 未拒`)
+    }
+  })
+
+  // 采样面夹具:1 个 origin 端点、2 轮暖机 + 2 拍稳态(短窗口,只为验证口径;真策略是 2 + 8)。
+  // 前 2 次调用落在暖机拍(1 端点 × 2 轮),其余落在稳态拍。
+  const mkWarmPolicy = (thOver = {}) => ({
+    window: { ticks: 2, gapMs: 1, timeoutMs: 1000, warmupTicks: 2 },
+    thresholds: { ...th, minSamples: 2, ...thOver },
+    endpoints: [{ id: 'a', kind: 'origin', url: 'http://127.0.0.1:1/', contains: '' }],
+  })
+  const fakeFetch = ({ warmMs = 0, warmStatus = 200, steadyMs = 0 }) => {
+    let calls = 0
+    return async () => {
+      calls += 1
+      const warm = calls <= 2
+      const ms = warm ? warmMs : steadyMs
+      if (ms > 0) await new Promise((r) => setTimeout(r, ms))
+      return { status: warm ? warmStatus : 200, text: async () => '' }
+    }
+  }
+
+  await ta('冷启动首拍:暖机全绿 ⇒ 预热拍剔除,稳态判 pass', async () => {
+    const dir = join(ROOT, '.ihui-agent', 'tmp')
+    mkdirSync(dir, { recursive: true })
+    const out = join(dir, `canary-warm-pass-${process.pid}.jsonl`)
+    try {
+      const p = mkWarmPolicy({ maxP95Ms: 100 })
+      const r = await runSampling({ policy: p, stage: 'candidate', out, fetchImpl: fakeFetch({ warmMs: 100 }), sleep: async () => {} })
+      if (r.count !== 2) throw new Error(`候选应只含稳态 2 条,实得 ${r.count}`)
+      if (!r.warmup.excluded) throw new Error('预热全绿应判剔除')
+      const ws = summarizeSamples(r.warmup.records).get('a')
+      if (!ws || ws.p95Ms === null || ws.p95Ms < 50) throw new Error(`暖机 P95 未采到冷启动耗时(实得 ${ws && ws.p95Ms})`)
+      const d = decideCanary({ policy: p, candidate: r.records })
+      if (d.verdict !== 'pass') throw new Error(`稳态应判 pass,实得 ${d.verdict}:${d.reasons.join(';')}`)
+    } finally {
+      try { unlinkSync(out) } catch {}
+    }
+  })
+  await ta('暖机硬失败不洗白:并入候选并判死', async () => {
+    const dir = join(ROOT, '.ihui-agent', 'tmp')
+    mkdirSync(dir, { recursive: true })
+    const out = join(dir, `canary-warm-fail-${process.pid}.jsonl`)
+    try {
+      const p = mkWarmPolicy({ maxP95Ms: 100 })
+      const r = await runSampling({ policy: p, stage: 'candidate', out, fetchImpl: fakeFetch({ warmStatus: 500 }), sleep: async () => {} })
+      if (r.count !== 4) throw new Error(`暖机失败应并入候选(2+2=4),实得 ${r.count}`)
+      if (r.warmup.excluded) throw new Error('预热含 fail 不得剔除')
+      const d = decideCanary({ policy: p, candidate: r.records })
+      if (d.verdict !== 'fail') throw new Error(`暖机硬失败应判死,实得 ${d.verdict}:${d.reasons.join(';')}`)
+    } finally {
+      try { unlinkSync(out) } catch {}
+    }
+  })
+  await ta('热态真慢仍然判死:暖机剔除不放宽阈值', async () => {
+    const dir = join(ROOT, '.ihui-agent', 'tmp')
+    mkdirSync(dir, { recursive: true })
+    const out = join(dir, `canary-warm-slow-${process.pid}.jsonl`)
+    try {
+      const p = mkWarmPolicy({ maxP95Ms: 10 })
+      const r = await runSampling({ policy: p, stage: 'candidate', out, fetchImpl: fakeFetch({ warmMs: 30, steadyMs: 30 }), sleep: async () => {} })
+      const d = decideCanary({ policy: p, candidate: r.records })
+      if (d.verdict !== 'fail') throw new Error(`稳态 30ms > 阈值 10ms 应判死,实得 ${d.verdict}`)
+      const ss = summarizeSamples(r.records).get('a')
+      if (!ss || ss.p95Ms === null || ss.p95Ms <= p.thresholds.maxP95Ms) throw new Error(`稳态 P95 应仍超阈,实得 ${ss && ss.p95Ms}`)
+    } finally {
+      try { unlinkSync(out) } catch {}
+    }
+  })
+
+  await ta('公网腿暖机 unknown 不牵连 origin 暖机剔除(2026-11-02 13:21 二次误杀回归)', async () => {
+    const dir = join(ROOT, '.ihui-agent', 'tmp')
+    mkdirSync(dir, { recursive: true })
+    const out = join(dir, `canary-warm-mixed-${process.pid}.jsonl`)
+    try {
+      const p = {
+        ...mkWarmPolicy({ maxP95Ms: 100 }),
+        endpoints: [
+          { id: 'a', kind: 'origin', url: 'http://127.0.0.1:1/', contains: '' },
+          { id: 'p', kind: 'public', url: 'http://127.0.0.1:2/', contains: '' },
+        ],
+      }
+      const seen = new Map()
+      const fetchImpl = async (url) => {
+        const id = url.includes(':1') ? 'a' : 'p'
+        const n = (seen.get(id) ?? 0) + 1
+        seen.set(id, n)
+        const warm = n <= 2
+        if (id === 'a' && warm) await new Promise((r) => setTimeout(r, 100))
+        if (id === 'p' && warm) return { status: 429, text: async () => '' }
+        return { status: 200, text: async () => '' }
+      }
+      const r = await runSampling({ policy: p, stage: 'candidate', out, fetchImpl, sleep: async () => {} })
+      if (r.warmup.merged.join(',') !== 'p') throw new Error(`只应并入 public 腿,实得 [${r.warmup.merged}]`)
+      if (r.count !== 6) throw new Error(`候选应为 p 暖机 2 + 稳态 4 = 6 条,实得 ${r.count}`)
+      const a = summarizeSamples(r.records).get('a')
+      if (!a || a.total !== 2 || a.p95Ms === null || a.p95Ms >= 50) throw new Error(`origin 稳态应只含 2 条快样本,实得 ${JSON.stringify(a)}`)
+      const d = decideCanary({ policy: p, candidate: r.records })
+      if (d.verdict !== 'pass') throw new Error(`公网腿 unknown 不应影响 origin 判定,实得 ${d.verdict}:${d.reasons.join(';')}`)
+    } finally {
+      try { unlinkSync(out) } catch {}
+    }
+  })
 
   const failed = checks.filter((c) => !c.ok)
   for (const c of checks) console.log(`${c.ok ? 'ok  ' : 'FAIL'}  ${c.name}${c.ok ? '' : ` — ${c.why}`}`)
@@ -559,6 +734,15 @@ async function main() {
     }
     const stage = args.stage || 'candidate'
     const r = await runSampling({ policy, stage, out })
+    // 暖机读数单独打一行:报告要能对比「暖机样本 vs 稳态样本」,证明被剔除的是冷启动成本。
+    if (r.warmup.ticks > 0) {
+      const ws = summarizeSamples(r.warmup.records)
+      const mergedIds = r.warmup.merged.length ? ` merged=${r.warmup.merged.join(',')}` : ''
+      console.log(`CANARY-WARM ticks=${r.warmup.ticks} excluded=${r.warmup.excluded ? 'yes' : 'no'}${mergedIds}(按端点:全绿剔除,非绿只并入该端点)`)
+      for (const [id, v] of ws) {
+        console.log(`CANARY-WARM-SAMPLE ${id} total=${v.total} pass=${v.pass} fail=${v.fail} unknown=${v.unknown} p95=${v.p95Ms === null ? 'n/a' : Math.round(v.p95Ms) + 'ms'}`)
+      }
+    }
     const s = summarizeSamples(r.records)
     for (const [id, v] of s) {
       console.log(`CANARY-SAMPLE ${id} total=${v.total} pass=${v.pass} fail=${v.fail} unknown=${v.unknown} err=${pct(v.errorRate)} p95=${v.p95Ms === null ? 'n/a' : Math.round(v.p95Ms) + 'ms'}`)

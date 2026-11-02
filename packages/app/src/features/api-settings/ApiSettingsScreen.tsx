@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
@@ -182,30 +182,30 @@ export function ApiSettingsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    content: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    content: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing.md,
       marginBottom: rnSpacing.lg,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
     },
     label: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.sm,
@@ -217,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
@@ -232,8 +232,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    eyeText: { fontSize: 16 },
-    hint: { fontSize: 11, color: tk.text.tertiary, marginTop: rnSpacing.md },
+    eyeText: { fontSize: rnType.title.size },
+    hint: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginTop: rnSpacing.md },
     btnRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.md },
     btn: {
       flex: 1,
@@ -249,14 +249,18 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     btnDisabled: { opacity: 0.6 },
-    btnTextPrimary: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
-    btnTextGhost: { color: tk.text.medium, fontSize: 16, fontWeight: '600' },
+    btnTextPrimary: {
+      color: tk.brand.ctaForeground,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
+    btnTextGhost: { color: tk.text.medium, fontSize: rnType.title.size, fontWeight: '600' },
     testRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    testLabel: { fontSize: 14, color: tk.text.medium },
+    testLabel: { fontSize: rnType.body.size, color: tk.text.medium },
     testBtn: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
@@ -264,11 +268,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     testBtnRunning: { opacity: 0.6 },
-    testBtnText: { color: tk.brand.ctaForeground, fontSize: 14, fontWeight: '600' },
-    statusOk: { fontSize: 14, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
-    statusErr: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    testBtnText: { color: tk.brand.ctaForeground, fontSize: rnType.body.size, fontWeight: '600' },
+    statusOk: { fontSize: rnType.body.size, color: tk.success.DEFAULT, marginTop: rnSpacing.sm },
+    statusErr: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
     toast: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.success.DEFAULT,
       textAlign: 'center',
       marginTop: rnSpacing.sm,

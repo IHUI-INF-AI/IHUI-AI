@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,

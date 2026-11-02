@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.xl,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       backgroundColor: tk.surface.light,
     },
     publicLabel: { fontSize: rnType.title.size, color: tk.text.primary },

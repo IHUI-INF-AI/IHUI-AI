@@ -43,7 +43,7 @@
 
 /* 对齐 RN tabText:13dp→26rpx / text.secondary;active 600 + surface.card */
 .ci-tab-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
@@ -86,7 +86,7 @@
 
 /* 对齐 RN topicName:13dp→26rpx / text.primary→foreground / maxWidth 240rpx */
 .ci-hottopic-name {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   max-width: 240rpx;
   overflow: hidden;
@@ -136,7 +136,7 @@
 
 /* 对齐 RN userName:13dp→26rpx / 600 / text.primary→foreground / maxWidth 180rpx */
 .ci-user-name {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 600;
   max-width: 180rpx;
@@ -225,7 +225,7 @@
 /* 对齐 RN author:flex 1 / 13dp→26rpx / 500 / text.primary→foreground */
 .ci-author {
   flex: 1;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 500;
   overflow: hidden;
@@ -251,7 +251,7 @@
 /* 对齐 RN content:13dp→26rpx / lineHeight 19dp→38rpx / text.secondary→muted-foreground / 3 行截断 */
 .ci-content {
   display: -webkit-box;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 38rpx;
   overflow: hidden;
@@ -321,7 +321,7 @@
 }
 
 .ci-empty-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
 }
 
@@ -337,7 +337,7 @@
 
 /* 对齐 RN emptyBtnText:13dp→26rpx / 600 / surface.card */
 .ci-empty-btn-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-card);
   font-weight: 600;
 }
@@ -353,13 +353,13 @@
 
 /* 对齐 RN errorText:13dp→26rpx / danger.DEFAULT→--color-danger */
 .ci-error-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-danger);
 }
 
 /* 对齐 RN retryText:13dp→26rpx / text.primary→foreground */
 .ci-error-retry {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
 }
 
@@ -367,7 +367,7 @@
 .ci-status {
   display: block;
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
   padding: var(--spacing-md) 0;
 }

@@ -21,7 +21,7 @@ import type {
   ModelPlazaTypeFilter,
 } from '../../types'
 
-import { rnRadius, rnCssLight, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -303,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.sm,
       backgroundColor: tk.surface.bg,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     compareBtn: {
       paddingHorizontal: rnSpacing.md,
       height: 44,
@@ -313,7 +313,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    compareText: { fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
+    compareText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.DEFAULT },
     providerScroll: { maxHeight: 48, backgroundColor: 'transparent' },
     providerScrollContent: {
       paddingHorizontal: rnSpacing.md,
@@ -326,7 +326,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing['xs-loose'],
     },
     sectionLabel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
       marginBottom: rnSpacing.sm,
       marginHorizontal: rnSpacing.md,
@@ -335,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing['xs-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 36,
       borderRadius: rnRadius['2xl'],
       borderWidth: 0,
@@ -359,31 +359,31 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.surface.light,
       lineHeight: 13,
     },
-    providerText: { fontSize: 16, color: tk.text.secondary },
+    providerText: { fontSize: rnType.title.size, color: tk.text.secondary },
     providerTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     providerHeader: {
       marginHorizontal: rnSpacing.md,
       marginBottom: rnSpacing.md,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       backgroundColor: tk.surface.bg,
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       ...shadowCard,
     },
-    providerName: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    providerMeta: { marginTop: rnSpacing.xs, fontSize: 14, color: tk.text.tertiary },
+    providerName: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    providerMeta: { marginTop: rnSpacing.xs, fontSize: rnType.body.size, color: tk.text.tertiary },
     providerDesc: {
       marginTop: rnSpacing['xs-loose'],
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     },
     errorBar: {
       paddingHorizontal: rnSpacing.lg,
       paddingVertical: rnSpacing.sm,
       backgroundColor: tk.surface.bg,
     },
-    errorText: { fontSize: 14, color: tk.danger.bright },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.bright },
     typeTabs: {
       flexDirection: 'row',
       gap: rnSpacing.sm,
@@ -392,7 +392,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     typeTab: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 34,
       borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.bg,
@@ -401,7 +401,7 @@ function createStyles(tk: AppThemeTokens) {
       ...shadowSoft,
     },
     typeTabActive: { backgroundColor: rnCssLight.black8 },
-    typeTabText: { fontSize: 16, color: tk.text.secondary },
+    typeTabText: { fontSize: rnType.title.size, color: tk.text.secondary },
     typeTabTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     listBody: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -410,7 +410,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     separator: { height: 12 },
     empty: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     modelCard: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
@@ -423,14 +423,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginBottom: rnSpacing.sm,
     },
-    modelName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    modelName: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     typeBadge: {
       paddingHorizontal: 7,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
       marginLeft: rnSpacing.sm,
     },
-    typeBadgeText: { fontSize: 12, fontWeight: '600' },
+    typeBadgeText: { fontSize: rnType.label.size, fontWeight: '600' },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -438,14 +438,14 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['xs-loose'],
       flexWrap: 'wrap',
     },
-    priceLabel: { fontSize: 14, color: tk.text.tertiary },
-    priceValue: { fontSize: 14, color: tk.brand.DEFAULT, fontWeight: '600' },
+    priceLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    priceValue: { fontSize: rnType.body.size, color: tk.brand.DEFAULT, fontWeight: '600' },
     priceDivider: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.border.medium,
       marginHorizontal: rnSpacing['xs-loose'],
     },
-    priceExtra: { fontSize: 12, color: tk.text.tertiary },
+    priceExtra: { fontSize: rnType.label.size, color: tk.text.tertiary },
     cardDesc: {
       fontSize: 14,
       color: tk.text.secondary,
@@ -464,8 +464,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md, // 原 3,R1 吸附至 xs(2)
       backgroundColor: tk.surface.muted,
     },
-    cardTagText: { fontSize: 12, color: tk.text.secondary },
-    payMode: { marginLeft: 'auto', fontSize: 12, color: tk.text.tertiary },
+    cardTagText: { fontSize: rnType.label.size, color: tk.text.secondary },
+    payMode: { marginLeft: 'auto', fontSize: rnType.label.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

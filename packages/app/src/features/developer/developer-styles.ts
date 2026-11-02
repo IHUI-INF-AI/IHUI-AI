@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
+import { rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -22,7 +22,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     headerCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       alignItems: 'center',
       marginBottom: rnSpacing['sm-loose'],
     },
@@ -40,7 +40,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
-    ctaBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    ctaBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     infoCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
@@ -48,7 +48,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['sm-loose'],
     },
     infoTitle: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing['xs-loose'],
@@ -56,7 +56,11 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: rnSpacing.xs },
     infoLabel: { width: 76, fontSize: 13, color: tk.text.secondary },
     infoValue: { flex: 1, fontSize: 13, color: tk.text.primary },
-    infoAction: { fontSize: 12, color: tk.brand.DEFAULT, paddingHorizontal: rnSpacing.xs },
+    infoAction: {
+      fontSize: rnType.label.size,
+      color: tk.brand.DEFAULT,
+      paddingHorizontal: rnSpacing.xs,
+    },
     dangerText: { color: tk.danger.bright },
     entryRow: {
       flexDirection: 'row',
@@ -78,7 +82,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     entryText: { fontSize: 13, color: tk.text.primary },
     faqSection: { gap: rnSpacing.sm },
     faqHeading: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.xs,
@@ -89,7 +93,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
     },
     problemTitle: {
-      fontSize: 15,
+      fontSize: rnType.strong.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.xs,
@@ -109,8 +113,8 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       alignItems: 'center',
     },
-    contactTitle: { fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    contactDesc: { fontSize: 12, color: tk.text.secondary, marginTop: 3 },
+    contactTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
+    contactDesc: { fontSize: rnType.label.size, color: tk.text.secondary, marginTop: 3 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

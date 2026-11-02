@@ -76,7 +76,7 @@ export function Switch({
       disabled={disabled}
       onPress={() => onCheckedChange?.(!checked)}
       className={cn(
-        'flex-row items-center border-foreground',
+        'flex-row items-center border-foreground', // border-ink-exempt: 与 ui-react Switch 同一片新拟态定稿(本端 style.shadowColor=foreground 的 3px 硬投影必须与框同色才成立体感,改档即破逐像素对齐;复核日随 web 同一条豁免同日 until 2027-09-26
         TRACK_W_CLASS[w],
         TRACK_H_CLASS[h],
         TRACK_RADIUS_CLASS[SWITCH_TRACK_RADIUS_TIER],

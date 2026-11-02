@@ -241,12 +241,10 @@ const EXEMPTIONS: { file: string; anchor: string; class: string; reason: string 
     class: 'refresh',
     reason: '恢复码腿在 checkAuth 之后：沿用当前 family 补发 access token，无 refresh、无 cookie',
   },
-  {
-    file: 'src/routes/v1-shared.ts',
-    anchor: 'fn:mintInternalJwt',
-    class: 'refresh',
-    reason: 'API Key → 内部 JWT 的服务内换算，调用方已持 API Key 通过鉴权，不建立新会话',
-  },
+  // 2026-11-02:原 `src/routes/v1-shared.ts :: fn:mintInternalJwt` 豁免条目随站点一并下线 ——
+  // `9103baba9b` 把 mintInternalJwt 的实现下沉到 `src/utils/internal-jwt.ts`,v1-shared.ts 只留
+  // `export { mintInternalJwt } from '../utils/internal-jwt.js'` 再导出,不再有函数体与签发调用;
+  // 本测试取材面只有 src/routes,utils 下的实现属"原语自身、守卫在调用方",不需要也够不到豁免。
   {
     file: 'src/routes/oauth-authorization-server.ts',
     anchor: 'fn:issueIdToken',

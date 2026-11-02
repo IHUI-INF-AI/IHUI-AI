@@ -27252,7 +27252,6 @@
     "rateLabel": "分潤比例",
     "withdrawModal": {
       "title": "選擇提現方式",
-      "close": "關閉",
       "subtitle": "可提現金額",
       "wechat": "微信",
       "moreMethods": "更多提現方式陸續開放",
