@@ -48,6 +48,8 @@ const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync
 const traeSync = await import('./relay-trae-session-sync.js')
 const decideSync = traeSync.__test__.decideSync
 const parseIso = traeSync.__test__.parseIso
+// rt 终点键名单源与 Trae 腿共用(§0.6):两种拼写都认,消费端不得各写一份字面量
+const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
 
 export interface QoderSyncCandidate {
   uid: string
@@ -197,7 +199,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
           accessToken: acc.token,
           refreshToken: acc.refreshToken ?? undefined,
           expiresAt: acc.expiresAt ?? undefined,
-          refreshTokenExpiresAt: acc.refreshTokenExpiresAt ?? undefined,
+          refreshTokenExpiresAt: clientRefreshExpiryRaw(acc) ?? undefined,
           deviceId: acc.deviceId ?? undefined,
           machineId: acc.machineId ?? undefined,
           machineToken: acc.machineToken ?? undefined,
@@ -254,7 +256,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         clientToken: acc.token,
         clientRefreshToken: typeof acc.refreshToken === 'string' ? acc.refreshToken : null,
         clientExpiresAt: parseIso(acc.expiresAt),
-        clientRefreshExpiresAt: parseIso(acc.refreshTokenExpiresAt),
+        clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
       })
       const cosyPatch = buildCosyPatch(row.extraMetadata as Record<string, unknown> | null, acc)
       const extraUpdate = cosyPatch
