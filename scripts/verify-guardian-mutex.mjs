@@ -260,7 +260,8 @@ function sourceWiring() {
   const text = readText(GUARDIAN_SRC)
   if (typeof text !== 'string') return { readable: false, error: text.error }
   const acquireCalls = (text.match(/acquireGuardianLock\s*\(/g) ?? []).length
-  const daemonGuarded = /function startDaemon\s*\(\s*\)[^]*?acquireGuardianLock\s*\(/.test(text)
+  // 真实签名是 `startDaemon(bootGuard = null)`;旧正则写死空参数 ⇒ 恒 false(量具假阴性)。
+  const daemonGuarded = /function startDaemon\s*\([^)]*\)[^]*?acquireGuardianLock\s*\(/.test(text)
   const mainGuarded = /async function main\s*\(\s*\)[^]*?acquireGuardianLock\s*\(/.test(text)
   return { readable: true, acquireCalls, mainGuarded, daemonGuarded }
 }
