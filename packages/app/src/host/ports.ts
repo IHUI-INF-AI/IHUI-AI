@@ -80,8 +80,34 @@ function isDevBuild(): boolean {
 const reported = new Set<string>()
 
 /**
+ * 已知空实现黑名单:`() => {}` / `() => undefined` 这类函数在运行时"有值",
+ * 但整条能力会被静默吞掉 —— 这是端口层最常见的假绿形态。
+ * 只按函数来源文本精确匹配匿名空实现;绑定函数 / native code 的 toString 不可判定,
+ * 不做猜测(静态无法判断时至少拦住前两种)。
+ */
+const KNOWN_EMPTY_IMPLEMENTATIONS = new Set([
+  '()=>{}',
+  '()=>undefined',
+  '()=>void0',
+  '()=>{return}',
+  '()=>{returnundefined}',
+  '()=>{returnvoid0}',
+  'function(){}',
+  'function(){return}',
+  'function(){returnundefined}',
+  'function(){returnvoid0}',
+])
+
+export function isKnownEmptyImplementation(value: unknown): boolean {
+  if (typeof value !== 'function') return false
+  const source = Function.prototype.toString.call(value).replace(/\s+/g, '')
+  return KNOWN_EMPTY_IMPLEMENTATIONS.has(source)
+}
+
+/**
  * 必填端口运行时闸。
  * - 有值 ⇒ 原样返回(含 falsy 以外的合法对象/函数)。
+ * - 已知空实现 ⇒ 与缺腿同判:dev throw / prod 错误态(绝不把 noop 当端口)。
  * - dev 缺失 ⇒ `throw new Error('[host-port] missing <name>')`。
  * - prod 缺失 ⇒ 返回 `PortErrorState` 并 console.error 一次(同名进程内仅一次)。
  */
@@ -89,9 +115,12 @@ export function assertRequiredPort<T>(
   name: string,
   value: T | null | undefined,
 ): T | PortErrorState {
-  if (value !== null && value !== undefined) return value
+  if (value !== null && value !== undefined && !isKnownEmptyImplementation(value)) return value
 
-  const message = `[host-port] missing ${name}`
+  const message =
+    value === null || value === undefined
+      ? `[host-port] missing ${name}`
+      : `[host-port] empty implementation ${name}`
   if (isDevBuild()) throw new Error(message)
 
   if (!reported.has(name)) {

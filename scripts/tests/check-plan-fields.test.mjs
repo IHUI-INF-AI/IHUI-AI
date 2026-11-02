@@ -250,7 +250,7 @@ describe('租约绝对唯一:--strict 判红、默认只报数、换族/换段�
   it('CLI 档位端到:同一现场默认 run=0,strict run=1(run 即 main 的 --strict 接线)', () => {
     const dir = mkScratch('check-plan-fields-strict')
     try {
-      execFileSync('git', ['init', '-q'], { cwd: dir })
+      execFileSync('git', ['init', '-q'], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] })
       mkdirSync(path.join(dir, 'scripts', 'data'), { recursive: true })
       writeFileSync(path.join(dir, 'scripts', 'data', 'plan-fields.jsonl'), '', 'utf8')
       writeFileSync(
@@ -258,11 +258,14 @@ describe('租约绝对唯一:--strict 判红、默认只报数、换族/换段�
         ['# 计划', '', lease('G-120', 'G-101~G-120'), lease('G-120', 'G-101~G-120'), ''].join('\n'),
         'utf8',
       )
-      execFileSync('git', ['add', 'PROJECT_PLAN.md', 'scripts/data/plan-fields.jsonl'], { cwd: dir })
+      execFileSync('git', ['add', 'PROJECT_PLAN.md', 'scripts/data/plan-fields.jsonl'], {
+        cwd: dir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
       execFileSync(
         'git',
         ['-c', 'user.name=fixture', '-c', 'user.email=fixture@local', 'commit', '-q', '-m', 'fixture'],
-        { cwd: dir },
+        { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] },
       )
       const relaxed = G.run({ root: dir, face: 'worktree' })
       assert.equal(relaxed, 0, '默认档必须仍 exit 0(只报数)')

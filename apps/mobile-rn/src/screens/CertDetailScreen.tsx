@@ -24,6 +24,8 @@ export function CertDetailScreen() {
   const [cert, setCert] = useState<CertDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +41,7 @@ export function CertDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   return (
     <SharedCertDetailScreen
@@ -49,6 +51,7 @@ export function CertDetailScreen() {
       error={error}
       onBack={() => navigation.goBack()}
       onVerify={(certNo) => navigation.navigate('CertVerify', { certNo })}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )
