@@ -166,12 +166,14 @@ test('D171 形状锁:safe-commit 的路径取值必须走 lib/git-paths 的 -z �
   for (const need of ['gitCommitPaths', 'gitStagedPaths', 'gitUntrackedPaths']) {
     assert.ok(imported.has(need), `${need} 未被 import ⇒ 那一处的取路径可能退回换行 split`)
   }
-  // 三处 → 四处(2026-10-15,G-920 前置护栏新增发令前复量)。钉的是"这几处**都**走 lib 出口":
-  // 数量随合法新增点位走,但每次增加都必须在报告里点名新点是哪个,不许只改数字了事。
+  // 三处 → 四处(2026-10-15,G-920 前置护栏新增发令前复量)→ 五处(O43② 发令前基线快照)
+  // → 六处(O67 发令前"索引里非本票已暂存件"只读点名;该点 2026-10-31 入库时本数字漏改,
+  //   实测 HEAD 上已是 6 而断言仍写 5 —— 2026-11-02 现读校正,不是放宽判据)。
+  // 钉的是"这几处**都**走 lib 出口":数量随合法新增点位走,每次增加都必须在报告里点名新点。
   assert.equal(
     (src.match(/gitStagedPaths\(\{ root: repoRoot \}\)/g) ?? []).length,
-    5,
-    'Step 3 / 归因面 / 重暂存校验 / 4-pre 发令前复量 / **O43② 发令前基线快照**五处都必须走 lib 出口',
+    6,
+    'Step 3 / O67 点名 / G-920 复量 / O43② 基线 / 门47归因面 / 重暂存校验六处都必须走 lib 出口',
   )
   assert.match(src, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单也必须走 -z 出口')
   assert.match(
