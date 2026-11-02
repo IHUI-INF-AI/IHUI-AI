@@ -181,11 +181,12 @@ async function resolveCli(nowIso: string): Promise<LivePlatformInfo> {
  */
 async function resolveDesktop(nowIso: string): Promise<LivePlatformInfo> {
   const resolved = await resolveLiveDesktopFeed()
-  if (resolved.source === 'live') return toDesktopLiveInfo(resolved.data, nowIso)
+  if (resolved.source === 'live') return toDesktopLiveInfo(resolved.data, nowIso, resolved.data.scan)
   return {
     platform: 'desktop',
     source: 'snapshot',
     reason: `desktop-feed-${resolved.source}:${resolved.reason}`.slice(0, 160),
+    ...(resolved.scan === undefined ? {} : { scan: resolved.scan }),
     resolvedAt: nowIso,
   }
 }

@@ -83,11 +83,13 @@ export interface LiveDesktopSource {
   payload: DesktopFeedPayload | null
   /** 下载页要展示的安装包(size 由 Releases API 给出,免下载 200MB 包体) */
   assets: DesktopFeedAsset[]
+  /** 枚举预算自证:pages 顶到 maxPages 就说明下一枚 release 会被挤出射程 */
+  scan?: ReleaseScanSummary
 }
 
 export type LiveDesktopResolution =
   | { source: 'live'; data: LiveDesktopSource }
-  | { source: 'snapshot'; reason: string; fallback: DesktopFeed } /**
+  | { source: 'snapshot'; reason: string; fallback: DesktopFeed; scan?: ReleaseScanSummary } /**
  * SemVer 三段比较(a>b 返回正数)。与 scripts/resolve-desktop-download.mjs 的 cmpVer 同形状。
  *
  * 为什么两者都按"取版本最大者"而不是依赖 API 顺序:GitHub /releases 会把 draft 排在最前,
@@ -277,8 +279,19 @@ export interface ReleasesScan {
   releases: UpstreamRelease[]
   /** 实际扫了几页(枚举面自证) */
   pages: number
+  /** 本轮用的分页上限(预算自证:pages 顶到 maxPages 就说明下一枚 release 可能被挤出射程) */
+  maxPages: number
   /** 中途某页失败 ⇒ 只拿到部分;首页失败不产生这个形态(直接 null) */
   partial: boolean
+  /** 扫到的 release 总条数 */
+  scanned: number
+}
+
+/** 可以随解析结果一起交出去的预算形状(不含 release 明细) */
+export type ReleaseScanSummary = Omit<ReleasesScan, 'releases'>
+
+export function summarizeScan(scan: ReleasesScan): ReleaseScanSummary {
+  return { pages: scan.pages, maxPages: scan.maxPages, partial: scan.partial, scanned: scan.scanned }
 }
 
 /**
@@ -333,7 +346,7 @@ export async function fetchReleasesPaged(
     releases.push(...(batch as UpstreamRelease[]))
     if (batch.length < perPage) break
   }
-  return { releases, pages, partial }
+  return { releases, pages, maxPages, partial, scanned: releases.length }
 }
 
 /**
@@ -359,6 +372,7 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
       source: 'snapshot',
       reason: `releases api unreachable(pages=${scan?.pages ?? 0} scanned=${scan?.releases.length ?? 0})`,
       fallback: DESKTOP_FEED,
+      scan: scan === null ? undefined : summarizeScan(scan),
     }
   }
   const pick = pickLatestDesktopRelease(scan.releases)
@@ -369,6 +383,7 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
       source: 'snapshot',
       reason: `no published ${RELEASE_PREFIX}* release(pages=${scan.pages} scanned=${scan.releases.length}${scan.partial ? ' partial' : ''})`,
       fallback: DESKTOP_FEED,
+      scan: summarizeScan(scan),
     }
   }
   // latest.json 取不到时**不再整份降级**,而是带着 payload=null 返回 live。
@@ -394,7 +409,11 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
   const base = buildLiveSource(pick, preferred, repo)
   return {
     source: 'live',
-    data: { ...base, assets: await preferGiteeInAssets(base.assets, pick.tag) },
+    data: {
+      ...base,
+      assets: await preferGiteeInAssets(base.assets, pick.tag),
+      scan: summarizeScan(scan),
+    },
   }
 }
 
