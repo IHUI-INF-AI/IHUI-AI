@@ -6,6 +6,7 @@
  * db/config/crypto/logger 全 mock;fetch 经 fetchImpl 参数注入,不污染全局。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { logger } from '../../utils/logger.js'
 
 const hoisted = vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -504,6 +505,16 @@ describe('markCheckinSyncPending / clearCheckinSyncPending', () => {
     expect(extra.__vals).toContain('cred')
     expect(extra.__vals).toContain('网络错误: boom')
     expect(extra.__vals).toContain(null)
+    // 失败当场必须进日志(ids/kind/原因),不能只写进 lastError 字段等 20 次/6h 升级
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      expect.stringContaining('落待推'),
+      expect.objectContaining({
+        count: 2,
+        ids: ['p1', 'p2'],
+        kind: 'cred',
+        error: '网络错误: boom',
+      }),
+    )
   })
 
   it('mark state:state 值进 SQL 参数', async () => {
@@ -970,10 +981,18 @@ describe('parseCheckinSyncEscalation / shouldEscalateCheckinSyncFailure', () => 
   it('时间窗:首次 pending 超 6h 也升级(attempts 未到阈值)', () => {
     const now = new Date('2026-11-03T00:00:00Z')
     expect(
-      shouldEscalateCheckinSyncFailure({ firstPendingAt: '2026-11-02T17:00:00Z', escalatedAt: null }, 1, now),
+      shouldEscalateCheckinSyncFailure(
+        { firstPendingAt: '2026-11-02T17:00:00Z', escalatedAt: null },
+        1,
+        now,
+      ),
     ).toBe(true)
     expect(
-      shouldEscalateCheckinSyncFailure({ firstPendingAt: '2026-11-02T20:00:00Z', escalatedAt: null }, 1, now),
+      shouldEscalateCheckinSyncFailure(
+        { firstPendingAt: '2026-11-02T20:00:00Z', escalatedAt: null },
+        1,
+        now,
+      ),
     ).toBe(false)
   })
 })
@@ -998,7 +1017,10 @@ describe('escalateCheckinSyncFailureOnce(单账号升级一次)', () => {
     )
     expect(fired).toBe(true)
     expect(hoisted.updateCalls).toHaveLength(1)
-    const extra = hoisted.updateCalls[0]!.values.extraMetadata as { __sql: string; __vals: unknown[] }
+    const extra = hoisted.updateCalls[0]!.values.extraMetadata as {
+      __sql: string
+      __vals: unknown[]
+    }
     expect(extra.__sql).toContain('escalatedAt')
     expect(alertHoisted.calls).toHaveLength(1)
     expect(alertHoisted.calls[0]!.title).toContain('minimax:cn')
