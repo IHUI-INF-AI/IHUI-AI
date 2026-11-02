@@ -2225,6 +2225,16 @@ export function ChatScreen() {
     ],
   )
 
+  /**
+   * 素材卡片删除。定义必须早于 renderListHeader —— 后者把它放进 useCallback 的依赖数组,
+   * 而依赖数组在渲染时即刻求值;放到原处(其后 270 行)会在同一轮渲染里撞 TDZ。
+   * 消费面只有 renderListHeader 一处,故就近上移;并用 useCallback 固定身份,
+   * 否则每轮渲染都换引用,exhaustive-deps 会判「deps 每次都变」。
+   */
+  const removeMaterialCard = useCallback((id: string): void => {
+    setMaterialCards((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
   const renderListHeader = useCallback((): React.ReactNode => {
     const nodes: React.ReactNode[] = []
     // 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue 行 117-131:tishi_block + intelligent-assistant)
@@ -2344,6 +2354,7 @@ export function ChatScreen() {
   }, [
     materialCards,
     inputFiles,
+    removeMaterialCard,
     removeImage,
     compactionInfo,
     pendingQuestions,
@@ -2352,7 +2363,7 @@ export function ChatScreen() {
     t,
     tishiShow,
     tokenQuantity,
-    navigation,
+    onNavigate,
   ])
 
   const renderListFooter = useCallback((): React.ReactNode => {
@@ -2495,10 +2506,6 @@ export function ChatScreen() {
     setMaterialDetailError('')
     setMaterialDetailLoading(false)
   }, [])
-
-  const removeMaterialCard = (id: string): void => {
-    setMaterialCards((prev) => prev.filter((c) => c.id !== id))
-  }
 
   // ── Drawer 回调 ──
   const closeDrawer = (): void => setDrawerVisible(false)

@@ -427,7 +427,7 @@ export function AgentScreen() {
         title: agent?.name ?? full?.name,
       })
     },
-    [token, t, onNavigate, items, agents],
+    [token, t, onNavigate, items, agents, navigation],
   )
 
   // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
@@ -444,7 +444,7 @@ export function AgentScreen() {
       if (!id) return
       onNavigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
     },
-    [token, t, onNavigate],
+    [token, t, onNavigate, navigation],
   )
   /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
   const handleTeamPress = useCallback((): void => {
