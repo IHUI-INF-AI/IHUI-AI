@@ -36,6 +36,39 @@ import { __test__ as watermark } from './watermark.mjs'
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const R = (...p) => join(ROOT, ...p)
 const OUT_REL = 'apps/miniapp-taro/src/rn-compat/icons-generated.tsx'
+/**
+ * 归属闸 + 落点申报(2026-11-03 立,这是本器能挂守护自动档的**前置条件**)。
+ * 判据一律借单源,本文件不写第二份(§0.6 / 门 191):
+ *   · `ownershipGate`/`isCleanOwned` ← lib/git-paths.mjs(三枚 lander 与 fix-rn-color-literals 同尺);
+ *   · `worktreeBlobOid` 本文件自带局部包装,但**命令借单源** `lib/face-reader.mjs` 的 `gitRaw`
+ *     (与 gen-ui-mirror.mjs:99 同一形制:同一把 `hash-object -- <rel>`,自拼裸 git 或换参数
+ *      = 两侧算法不一致 ⇒ 收编侧永远 contested);
+ *     —— 原写法 import `auto-register-cross-end.mjs` 取同名 helper,实测**一 import 就跑批**
+ *     (它自己的 isDirectRun 守卫挡不住顶层副作用:未知旗那轮先打出了它的结论行),
+ *     被 import 的模块有写盘副作用 ⇒ 本器每次被调用(含守护腿、含门 251 的 --check 出口)都会
+ *     连带执行别人的主流程,这条依赖必须拆掉。
+ *   · `appendLanding` ← lib/cross-end-landing-ledger.mjs。
+ * 立因:本器写的是两份派生产物,而多会话共享工作区里这些产物常年被并发会话/守护轮持有现场;
+ * 没有归属闸就自动写档 = 覆盖别人的未提交工作(§12/§16 事故型),与本仓"提交链不代摘他人暂存"同条禁令。
+ */
+import { appendLanding } from './lib/cross-end-landing-ledger.mjs'
+import { isCleanOwned, ownershipGate } from './lib/git-paths.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
+
+/** 实测工作树 blob 的 oid;取不到返回 null(调用方不得把 null 当"已核验")。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root))
+      .trim()
+      .toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 在册短名:与 parity-auto 的 stage id / 守护腿标签同一族命名(逐字取既有自称,不自立新名)。 */
+export const CROSS_END_LEG = 'rn-compat'
+
 /** lucide PascalCase 名 → kebab-case 文件名(BarChart3 → bar-chart-3;数字前后都要断) */
 function kebab(name) {
   return name
@@ -644,6 +677,21 @@ function injectWatermark(relPath, opts = {}) {
 
 async function main() {
   const argv = process.argv.slice(2)
+  /**
+   * 旗必须逐根认:原实现是 `argv.includes(...)`,未知旗被**静默忽略** —— 而守护派发体的取结论
+   * 正则是 `/^.*landing=\d+.*$/m`,一旦哪天有人按同族惯例传 `--apply`/`--head`,本器会照默认走
+   * "预演不写盘",于是那条自动腿每轮都判"无变化",成为§0.9 禁的"看着有守卫其实空转"。
+   * 失效方向固定为"多要一次定向说明"(§0.10),不是"多放一次"。
+   */
+  const KNOWN_FLAGS = new Set(['--write', '--check', '--self-test'])
+  const unknown = argv.filter((a) => !KNOWN_FLAGS.has(a))
+  if (unknown.length > 0) {
+    console.error(
+      `❌ 未判定:未知参数 ${unknown.join(' ')} —— 本器只认 ${[...KNOWN_FLAGS].join(' / ')};` +
+        '不接受把未知旗当默认档(那会让自动腿静默退化成"什么都不做还报绿")。',
+    )
+    process.exit(2)
+  }
   const write = argv.includes('--write')
   const check = argv.includes('--check')
   let face
@@ -734,23 +782,90 @@ async function main() {
      * `--write` 于是栽在"正文已换、水印未落"或"正文都没写进去"这两格并以 exit 2 收场 —— 即 §0.8 禁止的"文档写了跑不通的出路"(门 251 的修复出口
      * 就是这条命令)。原子替换开的是**同目录新临时名**(不碰被占的目标),失败不留半成品、
      * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
+     *
+     * 归属闸(挂自动档的前置条件,2026-11-03):脏集取不到 ⇒ **一份都不写**并按未判定收场(§0.3);
+     * 某份产物在脏集里 ⇒ 只跳过那一枚、其余照写(收窄口径,与护栏③ 同一条判序)。
      */
-    if (iconsAlreadyCovered)
+    const gate = ownershipGate({ root: ROOT })
+    const held = []
+    const written = []
+    let unchanged = 0
+    const ownedOrNull = (rel) => {
+      if (!gate.ok) return false
+      return isCleanOwned(rel, gate.paths)
+    }
+    if (!gate.ok) {
+      held.push(OUT_REL, ROUTE_OUT_REL)
+      console.error(
+        `❌ 未判定:归属闸读不到脏集(${String(gate.why ?? '').slice(0, 120)})⇒ 两份产物一律不写`,
+      )
+    }
+    if (gate.ok && iconsAlreadyCovered) {
+      unchanged += 1
       console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
-    else {
+    } else if (gate.ok && !ownedOrNull(OUT_REL)) {
+      held.push(OUT_REL)
+      console.log(`🔒 held(工作树该路径归属未明 ⇒ 本轮不写):${OUT_REL}`)
+    } else if (gate.ok) {
       atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
       await formatWithPrettier(OUT_REL)
       injectWatermark(OUT_REL)
+      written.push(OUT_REL)
       console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
     }
-    if (routesAlreadyCovered)
+    if (gate.ok && routesAlreadyCovered) {
+      unchanged += 1
       console.log(`✓ 路由映射无变化(盘上已逐键覆盖现读 ${routeInfo.map.size} 条,含指向)`)
-    else {
+    } else if (gate.ok && !ownedOrNull(ROUTE_OUT_REL)) {
+      held.push(ROUTE_OUT_REL)
+      console.log(`🔒 held(工作树该路径归属未明 ⇒ 本轮不写):${ROUTE_OUT_REL}`)
+    } else if (gate.ok) {
       atomicWriteFileSync(routeOut, routeNext, { encoding: 'utf8' })
       await formatWithPrettier(ROUTE_OUT_REL)
       injectWatermark(ROUTE_OUT_REL)
+      written.push(ROUTE_OUT_REL)
       console.log(`✓ 已写 ${ROUTE_OUT_REL}(${routeInfo.map.size} 条路由,已归一 + 注水印)`)
     }
+    // 批末申报:写了盘的逐枚**实测 oid** 进落点账本 ⇒ 收编侧按 blob 核验才收(不凭"我写过")。
+    // 写了盘却没登记上 ⇒ 不得按成功交出去(与结论行同批点名)。
+    const entries = []
+    const unhashable = []
+    for (const rel of written) {
+      const oid = worktreeBlobOid(rel, ROOT)
+      if (oid)
+        entries.push({ at: new Date().toISOString(), leg: CROSS_END_LEG, path: rel, blobOid: oid })
+      else unhashable.push(rel)
+    }
+    let ap = { appended: 0, deduped: 0, rejected: [] }
+    try {
+      ap = appendLanding(entries, { root: ROOT })
+    } catch (e) {
+      ap = { appended: 0, deduped: 0, rejected: [], failed: String(e?.message ?? e).slice(0, 120) }
+    }
+    const landing = ap.appended + ap.deduped
+    const bad = []
+    if (ap.rejected?.length)
+      bad.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (ap.failed) bad.push(`账本写入异常:${ap.failed}`)
+    if (unhashable.length) bad.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    // `ledger=` 必须与事实同批出:派发体按这一维把整轮折成 unjudged-ledger(而不是"无漂移可落")。
+    const ledgerState = bad.length ? 'unjudged' : 'ok'
+    console.log('─'.repeat(64))
+    console.log(
+      `结论 landing=${landing}(新登记 ${ap.appended}/在册去重 ${ap.deduped})` +
+        ` 无变化=${unchanged}` +
+        ` held=${held.length}` +
+        (gate.ok ? '' : ' ownership=unjudged') +
+        ` 写出=${written.length}` +
+        ` leg=${CROSS_END_LEG}` +
+        ` ledger=${ledgerState}` +
+        ` landingPath=.ihui-agent/state/cross-end-landing.jsonl`,
+    )
+    if (bad.length) {
+      console.error(`❌ 写了盘但申报未竟全功 ⇒ 不按成功收场:${bad.join(' | ')}`)
+      process.exit(1)
+    }
+    if (!gate.ok) process.exit(2)
     return
   }
   console.log('(预演模式,未写盘;加 --write 落地)')
