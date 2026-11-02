@@ -40,6 +40,7 @@
  *   本器物碰出任何 diff;inject 后逐文件 `watermark verify` 复核,失败即回滚该文件原字节。
  *
  * 归属避让(多会话共享工作区):`git status --porcelain` 对该文件非空 ⇒ 跳过并点名(held)。
+ *   判据单源 = `scripts/lib/git-paths.mjs` 的 `ownershipDirtyPaths` + `isCleanOwned`(2026-11-03 提库)。
  *   不判"脏是谁的"—— 脏就说明有人在用,猜归属的代价比少改一个文件大得多。
  *
  * 幂等:已是 `rnSpacing.x` 的位置不会再命中数字正则 ⇒ 重跑改 0 处。
@@ -71,6 +72,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw } from './lib/face-reader.mjs'
 import { parseTokenTables } from './sync-css-tokens.mjs'
 import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 归属避让判据的唯一实现(2026-11-03 提库,§0.6):四枚写盘腿(本器 + web/miniapp lander +
+// gen-ui-mirror + fix-rn-color-literals)一起 import 这一份,不得再各写一份(门 191)。
+import { isCleanOwned, ownershipDirtyPaths } from './lib/git-paths.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
@@ -588,10 +592,8 @@ function watermark(cmd, file) {
   })
 }
 
-function isCleanOwned(file) {
-  const out = String(gitRaw(['status', '--porcelain', '--', file], ROOT))
-  return out.trim() === ''
-}
+// 归属避让:判据已提库(2026-11-03)⇒ `scripts/lib/git-paths.mjs` 的 `isCleanOwned` +
+// `ownershipDirtyPaths`,本器只在 run() 里取一次整树脏集。此处不再留第二份实现(§0.6/门 191)。
 
 // ─── 写盘凭据账本(cross-end-landing-ledger 接线,2026-11-03 立)──────────────────
 // 治两条根因:R1 无凭据(写盘没留"谁写的、写成什么 blob",收编器无从正当收编)、
@@ -727,6 +729,14 @@ function run() {
     else ledgerUnjudged = true
   }
   const landedBatch = []
+  // 归属避让(判据单源 = scripts/lib/git-paths.mjs,2026-11-03 提库):整树一次取回脏集
+  // (候选上千枚时逐路径派生 git 会把耗时顶穿,web/miniapp 两枚 lander 同规)。
+  // 取不到 ⇒ 未判定 exit 2,一条都不写(§0.3:失效方向恒为"少写一次",绝不把取不到当干净)。
+  const dirty = ownershipDirtyPaths({ root: ROOT })
+  if (dirty === null) {
+    console.error('❌ 未判定:归属脏集取不到(git status 问不动)⇒ 本轮一条都不写')
+    process.exit(2)
+  }
   let touched = 0
   for (const f of files) {
     if (touched >= limit) break
@@ -734,7 +744,7 @@ function run() {
       report.skipLanded += 1
       continue
     }
-    if (!isCleanOwned(f)) {
+    if (!isCleanOwned(f, dirty)) {
       report.held.push(f)
       continue
     }

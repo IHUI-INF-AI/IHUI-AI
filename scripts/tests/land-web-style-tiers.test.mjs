@@ -15,7 +15,7 @@
  *   ④ 颜色档 `text-sm-foreground` / 更长的 `text-smaller` 不被误伤;
  *   ⑤ className **之外**的同形文本不动(注释 / 普通字符串 / 测试断言 / 其它属性);
  *   ⑥ 幂等(改完再跑 0 处);
- *   ⑦ 归属避让在位(dirtySet / held 分支的结构断言);
+ *   ⑦ 归属避让在位(ownershipDirtyPaths 库出口 / held 分支的结构断言);
  *   ⑧ 权重锁档只改"已有 font-* 伴随"的类名串。
  */
 import { test } from 'node:test'
@@ -126,7 +126,7 @@ test('T9 权重锁档:只有"已有 font-* 权重"的类名串才改(权重恒�
 
 test('T10 归属避让在位:工作树脏的文件必须跳过而不是覆盖', () => {
   const src = readFileSync(SCRIPT, 'utf8')
-  assert.match(src, /const dirty = dirtySet\(\)/, '必须有归属检查')
+  assert.match(src, /const dirty = ownershipDirtyPaths\(/, '必须有归属检查(判据单源 lib/git-paths.mjs)')
   assert.match(src, /if \(dirty\.has\(f\)\) \{\s*\n\s*held\.push\(f\)/, '脏文件必须进 held 而不是被改')
   assert.match(src, /held\.push\(f\)[\s\S]*?continue/, 'held 之后必须 continue,不许继续写盘')
 })

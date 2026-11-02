@@ -32,7 +32,12 @@ import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 
-import { sweepCrossEndLandingLeg, sweepCssTokensSourceLeg } from '../git-guardian.mjs'
+import {
+  sweepCrossEndLandingLeg,
+  sweepCssTokensSourceLeg,
+  sweepRnColorLiteralLeg,
+  sweepUiMirrorLeg,
+} from '../git-guardian.mjs'
 import { __test__ as autoQuiet } from '../auto-commit-quiet.mjs'
 import { mkScratch } from '../lib/scratch-dir.mjs'
 
@@ -41,6 +46,8 @@ const CSS_SYNC = resolve(import.meta.dirname, '..', 'sync-css-tokens.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
 
 const fixture = () => ({ tickFile: join(mkScratch('cross-end-landing-'), 'tick.json') })
+/** 每条腿各用独立 scratch 内的独立戳名,避免同片测试互踩节流窗口 */
+const tick = (name) => join(mkScratch('cross-end-landing-'), name)
 const logsOf = () => {
   const logs = []
   return { logs, logger: (m) => logs.push(m) }
@@ -260,4 +267,80 @@ test('C1 契约锁:两条腿匹配的结论文案真存在于生产方源码(不
   const cssSrc = readFileSync(CSS_SYNC, 'utf8')
   assert.match(cssSrc, /零字节写回/, 'sync-css-tokens.mjs 的"一致"档文案变了 ⇒ sweepCssTokensSourceLeg 的 clean 臂失明')
   assert.match(cssSrc, /已写回 tokens\.css\(/, '「已写回 tokens.css(」文案变了 ⇒ written 臂失明')
+})
+
+// ── 第二批:两件存量落档器首次上链(sweepUiMirrorLeg / sweepRnColorLiteralLeg)────────────
+// 立因:两件器物早就存在,但 parity-auto 只被喂 `--json`、runner 里 255 只跑 `--check --staged`,
+// git-guardian 通篇零 `--apply` ⇒ 写档从未放行(§0.9)。挂周期前的前置是归属闸已就位。
+test('U1 落档腿:有产出 ⇒ 读数进计数且落日志', () => {
+  const seen = []
+  const r = sweepUiMirrorLeg({
+    tickFile: tick('u1.json'),
+    logger: (s) => seen.push(String(s)),
+    runner: () => ({
+      status: 0,
+      stdout: '结论 landing=2(新登记 2/在册去重 0) skipLanded=1 held=3 写出=2 ledger=ok',
+      stderr: '',
+    }),
+  })
+  assert.deepEqual({ ran: r.ran, ok: r.ok, landed: r.landed, held: r.held, skipped: r.skipped }, {
+    ran: true,
+    ok: true,
+    landed: 2,
+    held: 3,
+    skipped: 1,
+  })
+  assert.ok(seen.some((s) => s.includes('小程序↔RN 映射块落档')), '有产出必须点名到哪条腿')
+})
+
+test('U2 落档腿:landing=0 ∧ held=0 ⇒ 一声不出(clean 常态零噪声)', () => {
+  let hits = 0
+  const r = sweepUiMirrorLeg({
+    tickFile: tick('u2.json'),
+    logger: () => {
+      hits++
+    },
+    runner: () => ({ status: 0, stdout: '结论 landing=0 skipLanded=5 held=0 ledger=ok', stderr: '' }),
+  })
+  assert.equal(r.ok, true)
+  assert.equal(hits, 0, 'clean 常态不得落日志')
+})
+
+test('U3 落档腿:结论取不到 ⇒ undetermined,绝不折成"无漂移可落"(§0.3)', () => {
+  const seen = []
+  const r = sweepRnColorLiteralLeg({
+    tickFile: tick('u3.json'),
+    logger: (s) => seen.push(String(s)),
+    runner: () => ({ status: 0, stdout: '一句话里没有 landing=', stderr: '' }),
+  })
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.ok, false)
+  assert.ok(seen.some((s) => s.includes('未判定')), '未判定必须显式点名')
+})
+
+test('U4 落档腿:held>0 ⇒ 必须点名(拦截不能静默)', () => {
+  const seen = []
+  const r = sweepRnColorLiteralLeg({
+    tickFile: tick('u4.json'),
+    logger: (s) => seen.push(String(s)),
+    runner: () => ({ status: 0, stdout: '结论 landing=0 skipLanded=0 held=6 ledger=unjudged', stderr: '' }),
+  })
+  assert.equal(r.held, 6)
+  assert.equal(r.state, 'unjudged-ledger')
+  assert.ok(seen.length > 0, 'held=6 是"本应落档却被归属闸拦下",不点名等于静默放过')
+})
+
+test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 tickFile 可被 opts 覆盖', () => {
+  const src = readFileSync(GUARDIAN, 'utf8')
+  const at = (needle) => src.indexOf(needle)
+  const iCss = at('if (!CHECK_ONLY) sweepCssTokensSourceLeg()')
+  const iUi = at('if (!CHECK_ONLY) sweepUiMirrorLeg()')
+  const iColor = at('if (!CHECK_ONLY) sweepRnColorLiteralLeg()')
+  const iLand = at('if (!CHECK_ONLY) sweepCrossEndLandingLeg()')
+  const iCockpit = at('if (!CHECK_ONLY) sweepParityCockpit()')
+  assert.ok(iUi > 0 && iColor > 0, '两条落档腿必须真的挂在主串上(不是只在文件里出现过函数名)')
+  assert.ok(iCss < iUi && iUi < iLand && iColor < iLand, '源头 → 落档 → 落库,顺序颠倒就会收编到旧面')
+  assert.ok(iLand < iCockpit, '落库必须排在汇总面之前')
+  // tickFile 若没走 opts 解构,冒烟与镜像测试会互相踩生产节流戳(本轮实测踩过一次)
+  assert.match(src, /tickFile = defaultTickFile/, '共用派发体必须允许 opts 覆盖节流戳')
 })
