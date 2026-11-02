@@ -14,7 +14,8 @@
  *  ① A 读 B 的派单 ⇒ 404,响应体**不含** B 的原始消息内容字符串(不是"查了再过滤");
  *  ② 正例:B 读自己的 ⇒ 200 且内容在;B 读自己的 stats 也正常;
  *  ③ 不存在的 id ⇒ 404(取不到与不属于你同形,防枚举,不是 403);
- *  ④ 无归属旧记录(ownerUserId 缺失)⇒ 维持既有 fail-open 档(未标注照旧可见,不隐藏历史);
+ *  ④ 无归属旧记录(ownerUserId 缺失)⇒ **fail-closed**(2026-11-02 归属回填与 fail-open 收敛):
+ *     普通用户一律 404,仅系统管理员可见;回填成功的记录回到「本人可见」,不再走本档;
  *  ⑤ 判据同源:直接引 `utils/dispatch-ownership` 的 ownsDispatchById,与 /:id/messages 一份实现。
  *
  * 反向例(实测见交付报告):删掉 collaboration 里的 ownsDispatchById 闸 ⇒ ①②③ 立刻变红。
@@ -41,21 +42,33 @@ interface DispatchLike {
   messages: MessageLike[]
 }
 
-/** 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a) */
+/**
+ * 两个租户靠请求头切换:authenticate 把 request.userId 写成 x-probe-user(缺省 tenant-a);
+ * x-probe-role=1 时同时注入 jwtPayload.roleId,供 isAdminViewer 判管理面(2026-11-02 fail-closed)
+ */
 vi.mock('../src/plugins/auth.js', () => ({
-  authenticate: async (request: { userId?: string; headers: Record<string, unknown> }) => {
+  authenticate: async (request: {
+    userId?: string
+    jwtPayload?: { roleId?: number }
+    headers: Record<string, unknown>
+  }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
+    const role = request.headers['x-probe-role']
+    request.jwtPayload = typeof role === 'string' ? { roleId: Number(role) } : undefined
   },
   checkAuth: async () => true,
 }))
 
 // 管理员闸已在 subagent-roles-admin-gate.test.ts 单独覆盖;本票只验归属,放行并注入身份。
+// isSystemAdmin 必须一并给:dispatch-ownership 的 isAdminViewer 走的是这个唯一口径。
 vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdminRouteGuard: async (request: { userId?: string; headers: Record<string, unknown> }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
   },
+  isSystemAdmin: (request: { jwtPayload?: { roleId?: number } }) =>
+    (request.jwtPayload?.roleId ?? 0) >= 1,
 }))
 
 const { store } = vi.hoisted(() => ({
@@ -86,6 +99,7 @@ import { ownsDispatchById } from '../src/utils/dispatch-ownership.js'
 
 const asA = { 'x-probe-user': 'tenant-a' }
 const asB = { 'x-probe-user': 'tenant-b' }
+const asAdmin = { 'x-probe-user': 'tenant-admin', 'x-probe-role': '1' }
 
 /** 每个派单的消息里带一条**唯一可检索**的原始内容,便于断言它没出现在响应里 */
 function seed(
@@ -183,13 +197,24 @@ describe('P0-2 ③ 不存在的 id', () => {
   })
 })
 
-describe('P0-2 ④ 无归属旧记录:维持既有 fail-open 档', () => {
-  it('ownerUserId 缺失的派单:其他租户仍可读(未标注照旧可见,不隐藏历史)', async () => {
+describe('P0-2 ④ 无归属旧记录:fail-closed(仅管理面可见)', () => {
+  it('ownerUserId 缺失的派单:普通用户 404(不再按「未标注」公开)', async () => {
     const secret = seed('legacy-collab', { status: 'running' })
     const res = await app.inject({
       method: 'GET',
       url: '/api/subagents/legacy-collab/collaboration',
       headers: asB,
+    })
+    expect(res.statusCode).toBe(404)
+    expect(res.body).not.toContain(secret)
+  })
+
+  it('同一记录对系统管理员 200(orphan / 未回填档的独立管理面)', async () => {
+    const secret = seed('legacy-collab-admin', { status: 'running' })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/subagents/legacy-collab-admin/collaboration',
+      headers: asAdmin,
     })
     expect(res.statusCode).toBe(200)
     expect(res.body).toContain(secret)
@@ -202,6 +227,10 @@ describe('P0-2 ⑤ 判据同源', () => {
     expect(ownsDispatchById('b-collab-4', 'tenant-a')).toBe(false)
     expect(ownsDispatchById('b-collab-4', 'tenant-b')).toBe(true)
     expect(ownsDispatchById('missing-collab', 'tenant-a')).toBe(false)
+    // 无归属档同源:普通用户 false,管理员 true
+    seed('legacy-collab-5', { status: 'running' })
+    expect(ownsDispatchById('legacy-collab-5', 'tenant-a')).toBe(false)
+    expect(ownsDispatchById('legacy-collab-5', 'tenant-admin', true)).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

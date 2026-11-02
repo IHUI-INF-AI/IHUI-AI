@@ -50,7 +50,7 @@ import type { SubagentDispatch } from '@ihui/shared/subagents'
 import { isUuidString } from '../utils/uuid.js'
 // 归属判据唯一出口(2026-11-02):谓词与按 id 闸都住在 utils/dispatch-ownership.ts,
 // extended 插件与本插件共用同一份;本文件不得再自带第二份实现(§22c)。
-import { isDispatchVisibleTo, ownsDispatchById } from '../utils/dispatch-ownership.js'
+import { isAdminViewer, isDispatchVisibleTo, ownsDispatchById } from '../utils/dispatch-ownership.js'
 
 export { isDispatchVisibleTo }
 
@@ -655,7 +655,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
 
     const dispatches = subagentDispatchService
       .listActive()
-      .filter((d) => isDispatchVisibleTo(d, userId))
+      .filter((d) => isDispatchVisibleTo(d, userId, isAdminViewer(request)))
     return reply.send(success({ dispatches }))
   })
 
@@ -678,7 +678,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const offset = clampDispatchOffset(q.offset)
 
     let dispatches = subagentDispatchService.listAll().slice().reverse()
-    dispatches = dispatches.filter((d) => isDispatchVisibleTo(d, userId))
+    dispatches = dispatches.filter((d) => isDispatchVisibleTo(d, userId, isAdminViewer(request)))
     if (statuses) dispatches = dispatches.filter((d) => statuses.includes(d.status))
 
     // total = 过滤后、分页前(消费方据此判断"还有没有下一页");分页只切窗口,不改口径
@@ -707,7 +707,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在或已结束(无法取消)'))
     }
 
@@ -730,7 +730,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
     // resume 会重置状态并重新执行 ⇒ 与 cancel 同级,闸在调用之前
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -763,7 +763,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
     // 写操作:归属闸必须先于 service 调用(返回 404 不得暗地里改他人记录)
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -794,7 +794,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
     if (!userId) return
 
-    const topology = subagentDispatchService.getTopology((d) => isDispatchVisibleTo(d, userId))
+    const topology = subagentDispatchService.getTopology((d) => isDispatchVisibleTo(d, userId, isAdminViewer(request)))
     return reply.send(success({ topology }))
   })
 
@@ -818,7 +818,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
     if (!userId) return
 
-    const stats = subagentDispatchService.getStats((d) => isDispatchVisibleTo(d, userId))
+    const stats = subagentDispatchService.getStats((d) => isDispatchVisibleTo(d, userId, isAdminViewer(request)))
     return reply.send(success(stats))
   })
 
@@ -832,7 +832,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return
 
     // F2:读真队列(Redis zset),service 出口已改为异步
-    const queue = await subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId))
+    const queue = await subagentDispatchService.getQueue((d) => isDispatchVisibleTo(d, userId, isAdminViewer(request)))
     return reply.send(success({ queue }))
   })
 
@@ -847,14 +847,15 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   //   - 已上架(published)⇒ 公开资源,任何登录用户可读(维持详情页现状)。
   // 越权面收掉的是「知道一个 uuid 就能读别人未上架 agent 的运行时」。
   //
-  // 已知残余(如实标注,不写成已修):agent_tasks 行**没有**租户归属 ——
-  // service(2026-08-06 起)_createAgentTask 只写 agentId/name/description/payload,
-  // 从不写 createdBy;且历史行无法回溯。因此对**已上架** agent,汇总里的
-  // steps[].detail / checkpoints[].diff / agents[].result.output 仍可能带着其他租户
-  // 派单的 goal 与产出。出路二选一(下一张工单):
-  //   a) 在 _createAgentTask 落 createdBy = input.ownerUserId,再按调用方过滤任务行
-  //      (历史 NULL 行)按 isDispatchVisibleTo 同一档「未标注」处理);
-  //   b) 本端点降为「仅创建者可读」,把公开详情页的运行时 Tab 换成空态。
+  // 2026-11-02 已收口(归属回填与 fail-open 收敛):agent_tasks 行现在**有**租户归属 ——
+  //   - 写侧:_createAgentTask 落 createdBy = input.ownerUserId(新派单从此可归属);
+  //   - 存量:迁移 drizzle/20261102180000_ownership_backfill_before_tighten.sql 先把可推导行
+  //     回填为 agents.user_id,**最后**写 ownership_backfill_state 标记;
+  //   - 读侧:findAgentTasksByAgentId 按 `isAgentTaskVisibleTo` 单一判据过滤
+  //     (createdBy=本人 / NULL 行在标记写入后按 orphan 仅管理面 / 管理员恒可见)。
+  // 顺序契约:标记缺失 ⇒ 代码维持旧的「NULL 行可见」口径,不会出现「代码先收紧、数据未回填」
+  // 导致历史数据集体消失。因此对**已上架** agent,汇总里的 steps[].detail /
+  // checkpoints[].diff / agents[].result.output 不再带其他租户的派单产出。
 
   server.get('/subagents/by-agent/:agentId/summary', async (request, reply) => {
     await requireAuth(request, reply)
@@ -880,7 +881,11 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '派单不存在'))
       }
 
-      const tasks = await findAgentTasksByAgentId(agentId, 50)
+      const tasks = await findAgentTasksByAgentId(
+        agentId,
+        { userId, isAdmin: isAdminViewer(request) },
+        50,
+      )
       return reply.send(success(buildAgentRuntimeSummary(agentId, tasks)))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
@@ -898,7 +903,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -922,7 +927,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id || !stepId) {
       return reply.status(400).send(error(400, '派单 ID 与产物 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -944,7 +949,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在或无 DAG 配置'))
     }
 
@@ -966,7 +971,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -990,7 +995,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
     // 原实现对不存在/不可见的 id 都回 200 + 空数组(把「没有」与「不给你看」写成同一形状)
     // ⇒ 归属不符时明确 404,与其余 5 个按 id 端点同形。
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 

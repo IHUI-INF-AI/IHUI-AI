@@ -43,6 +43,8 @@ vi.mock('../src/plugins/require-permission.js', () => ({
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
   },
+  // dispatch-ownership 的 isAdminViewer 走这个唯一口径;本文件没有管理面用例,恒 false。
+  isSystemAdmin: () => false,
 }))
 
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({

@@ -36,7 +36,7 @@ import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
 // S-ACL 归属判据的唯一出口(与 subagent-dispatch.ts 共用同一份,不在本文件重写谓词)
-import { ownsDispatchById } from '../utils/dispatch-ownership.js'
+import { isAdminViewer, ownsDispatchById } from '../utils/dispatch-ownership.js'
 
 // ---------- 进程内存储(零迁移) ----------
 
@@ -683,7 +683,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     // S-ACL(2026-11-02):本端点此前按 id 直读 messages / dispatchStats —— 知道 id 就能跨租户
     // 读他人的协作消息与运行统计。闸必须在**读之前**,且与其余按 id 端点同源(ownsDispatchById):
     // 不存在与「不属于你」合并成同一个 404,不告诉调用方该 id 是否真实存在(防枚举,无 403)。
-    if (!ownsDispatchById(id, userId)) {
+    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 

@@ -37,11 +37,13 @@ vi.mock('../src/plugins/auth.js', () => ({
 }))
 
 // 管理员闸由 subagent-roles-admin-gate.test.ts 单独覆盖;本票只验归属,放行并注入身份。
+// isSystemAdmin 必须一并给:dispatch-ownership 的 isAdminViewer 走这个唯一口径(本文件无管理面用例)。
 vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdminRouteGuard: async (request: { userId?: string; headers: Record<string, unknown> }) => {
     const raw = request.headers['x-probe-user']
     request.userId = typeof raw === 'string' && raw.length > 0 ? raw : 'tenant-a'
   },
+  isSystemAdmin: () => false,
 }))
 
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
