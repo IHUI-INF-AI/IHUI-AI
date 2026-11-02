@@ -30,6 +30,13 @@ import { buildAlertIdentity, watchPushDivergence } from './lib/push-divergence-w
 import { decideDevDbRotation, DEV_DB_ROTATION_COOLDOWN_MS } from './lib/dev-db-rotation-policy.mjs'
 // 窗口探测判据单源(§0.6):巡检腿与被派生的器物必须问同一把尺,各写一份必然漂移。
 import { liveServicePorts } from './rotate-local-dev-db-password.mjs'
+// 轮级互斥(2026-11-02):daemon 与 2 分钟计划任务双跑的唯一闸。原子创建 + 死 pid 墓碑回收 +
+// mtime 心跳;活进程的锁绝不偷。`IHUI_GUARDIAN_LOCK_MODE=off` 可整体回滚。
+import {
+  acquireGuardianLock,
+  heartbeatGuardianLock,
+  releaseGuardianLock,
+} from './lib/guardian-lock.mjs'
 import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 // 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立)的过期回收:保留期判据全在 lib(单一真相源),本处只取盘 + 调判据 + 留声 + 删。
@@ -11411,14 +11418,22 @@ function acquireSingleInstance(pidFile = GUARDIAN_PID_FILE) {
 async function main() {
   // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
   const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
-  const inst = manual ? { ok: true } : acquireSingleInstance()
+  // 2026-11-02:一次性轮次也走轮级原子锁。旧的 acquireSingleInstance 是 pid 文件 read→write,
+  // 两个进程都能先读到"没锁"再各自写进去;新锁用 O_CREAT|O_EXCL,只有一个能赢。
+  // --check 保持零副作用;--notify-test 保持 manual —— 它是人工核验入口,不能被别的轮次
+  // 的持锁挡成假阴性,也不能被当轮去重窗口压住。
+  const inst = manual ? { ok: true } : acquireGuardianLock({ role: 'git-guardian:round' })
   if (!inst.ok) {
     if (
       legThrottle(join(dirname(LOG), 'guardian-overlap-last.json'), 30 * 60 * 1000, Date.now(), log)
     )
       log(
-        `ℹ️ 上一轮巡检仍在跑(pid=${inst.pid})⇒ 本轮静默退出:两轮并存会抢同一临时检出槽位(.worktrees/derived-heal),互相删对方的目录(本行 30 分钟最多一条)`,
+        `ℹ️ 上一轮巡检仍在跑(pid=${inst.pid || 0},${inst.kind || 'held'})⇒ 本轮静默退出:两轮并存会抢同一临时检出槽位(.worktrees/derived-heal),互相删对方的目录;kind=stale-alive 表示持有者仍活着但心跳停了 ⇒ 本进程不偷锁、只喊人(本行 30 分钟最多一条)`,
       )
+    // 不许静默跳过:stdout/stderr 给出可诊断原因(计划任务隐藏运行时这条进不了人眼,但人工/CI 能看见)。
+    console.error(
+      `[git-guardian] 本轮未取得轮级锁 kind=${inst.kind || 'held'} pid=${inst.pid || 0} :: ${inst.why || '无详情'}`,
+    )
     return
   }
   // 提交窗口期静默(2026-10-22):safe-commit 持写锁期间不做巡检,把 CPU 与索引锁全让给提交链。
@@ -11803,14 +11818,41 @@ async function main() {
 }
 
 /** 常驻守护模式:需自备托管(nssm/服务/计划任务);本机实际用的是 `--install` 注册的计划任务(每 2 分钟),此模式未启用 */
-function startDaemon() {
+function startDaemon(bootGuard = null) {
   const intervalMs = Number(process.env.GIT_GUARDIAN_INTERVAL_MS || 10000)
+  // 启动闸。调用点与函数入口各拿一次不是重复:任何未来新增调用点都不能绕过这一行。
+  // 拿不到 ⇒ 不启动任何轮次,30s 后重试;绝不带着"可能双跑"的假设开跑。daemon 此前
+  // 从不调用 acquireSingleInstance,正是双跑的根。
+  let boot = bootGuard ?? acquireGuardianLock({ role: 'git-guardian:daemon' })
+  if (!boot.ok) {
+    if (legThrottle(join(dirname(LOG), 'guardian-overlap-last.json'), 30 * 60 * 1000, Date.now(), log))
+      log(
+        `🛑 守护启动被拒(${boot.kind}${boot.pid ? ` pid=${boot.pid}` : ''})⇒ 本轮不启动,30s 后重试${boot.why ? ` ｜ ${boot.why}` : ''}`,
+      )
+    setTimeout(() => startDaemon(), 30_000)
+    return
+  }
   syncGitMeta()
   const bin = GIT_BIN
   log(`守护模式启动(间隔 ${intervalMs}ms) — 监控 ${POINTER} + ${GITDIR}`)
   log(`git=${bin || '(未找到!)'} ${GIT_VERSION || ''} safe.directory=* (每次调用显式传入)`)
   log(`嵌套 ref 存续守护: 清单 ${REFS_MANIFEST}(缺失即离线重建 + packed-refs 固化)`)
   const tick = () => {
+    // 锁覆盖整轮 tick:daemon 从启动起一直持有轮级锁,所有副作用都在锁内。
+    // 每轮先续心跳;续不上(文件被挪走 / 易主)⇒ 先 release 清掉本进程 held 表里的旧条目,
+    // 否则 acquire 会把"文件已不在"误判成可重入;重新取得失败则本轮不执行任何副作用。
+    const hb = heartbeatGuardianLock(boot)
+    if (!hb.ok) {
+      releaseGuardianLock(boot)
+      const re = acquireGuardianLock({ role: 'git-guardian:daemon' })
+      if (!re.ok) {
+        if (legThrottle(join(dirname(LOG), 'guardian-overlap-last.json'), 30 * 60 * 1000, Date.now(), log))
+          log(`🛑 轮级锁已失去(${hb.why})⇒ 本轮不执行任何副作用;下轮重试`)
+        setTimeout(tick, intervalMs)
+        return
+      }
+      boot = re
+    }
     // 提交窗口期静默(2026-10-22,与 main() 同一判据 inCommitWindow):
     // daemon 常驻时同样要在提交链跑的时候让路,否则它每轮派生的 git 派生会与提交抢锁。
     if (inCommitWindow()) {
@@ -12905,11 +12947,16 @@ const isDirectRun =
 
 if (isDirectRun) {
   if (DAEMON) {
-    startDaemon()
+    // 启动前先拿锁:服务一启动就与计划任务轮次错开;失败由 startDaemon 的重试循环兜住。
+    startDaemon(acquireGuardianLock({ role: 'git-guardian:daemon' }))
   } else {
     main()
-      .then((code) => process.exit(typeof code === 'number' ? code : 0))
+      .then((code) => {
+        releaseGuardianLock() // 退出路径显式释放;lib 的 process.on('exit') 是第二道保险
+        process.exit(typeof code === 'number' ? code : 0)
+      })
       .catch((e) => {
+        releaseGuardianLock()
         console.error(e)
         process.exit(1)
       })
@@ -12919,6 +12966,9 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  // 旧单实例闸(pid 文件 read→write)保留:main() 已改用轮级原子锁,但既有 S1–S4 镜像测试
+  // 仍按名 import 这一份取证;不登记进本台账会让那组锁结构上打不到这一格。
+  acquireSingleInstance,
   // 造页闭环的调度腿(§22c:镜像测试 import 这一份本体,不在测试里复算派发判据)
   sweepCrossEndShellPages,
   sweepRnStyleTiers,
