@@ -29,6 +29,7 @@ import {
   inspectGuardianLock,
   lockMode,
   releaseGuardianLock,
+  startHeartbeatGuardianLock,
 } from '../lib/guardian-lock.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -54,6 +55,17 @@ if (process.argv.includes('--child-hold')) {
     releaseGuardianLock(h)
     process.stdout.write('RELEASED\n')
   }
+  process.exit(h.ok ? 0 : 3)
+}
+
+// ── 「只试不持」臂:验证 stale-alive 是拒绝而不是接管 ───────────────────────────
+if (process.argv.includes('--child-acquire')) {
+  const at = process.argv.indexOf('--child-acquire')
+  const lockPath = process.argv[at + 1]
+  const h = acquireGuardianLock({ path: lockPath, env: {} })
+  process.stdout.write(
+    `RESULT ${JSON.stringify({ ok: h.ok, kind: h.ok ? 'acquired' : h.kind, pid: h.pid || 0 })}\n`,
+  )
   process.exit(h.ok ? 0 : 3)
 }
 
@@ -181,6 +193,24 @@ test('S9 IHUI_GUARDIAN_LOCK_MODE=off ⇒ 零副作用(不建文件)', () => {
   }
 })
 
+function runChildAcquire(lockPath) {
+  return new Promise((resolve) => {
+    const cp = spawn(process.execPath, [SELF, '--child-acquire', lockPath], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    let out = ''
+    let err = ''
+    cp.stdout.on('data', (d) => {
+      out += String(d)
+    })
+    cp.stderr.on('data', (d) => {
+      err += String(d)
+    })
+    cp.on('close', (code) => resolve({ code, out, err }))
+  })
+}
+
 test('S10 IHUI_GUARDIAN_LOCK_PATH 覆盖默认落点', () => {
   const dir = mkScratch('guardian-lock')
   try {
@@ -193,6 +223,74 @@ test('S10 IHUI_GUARDIAN_LOCK_PATH 覆盖默认落点', () => {
     assert.equal(seen.exists, true)
     assert.equal(seen.pid, process.pid)
     releaseGuardianLock(r)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S11 10 分钟长轮次(压缩模拟)⇒ 锁全程 held,heartbeatAge 不超声明阈值', () => {
+  const dir = mkScratch('guardian-lock')
+  try {
+    const f = join(dir, 'g11.lock')
+    const staleMs = 15 * 60 * 1000
+    const h = acquireGuardianLock({ path: f, env: {}, staleMs })
+    assert.equal(h.ok, true)
+    // 1s 真实续约 = 生产 30s 的加速形态;200 步 × 3s = 600s 轮次,靠注入 now 压缩到 20s。
+    const hb = startHeartbeatGuardianLock(h, { intervalMs: 1_000, env: {} })
+    assert.equal(hb.started, true)
+    assert.equal(hb.firstOk, true)
+    const startedAt = Date.now()
+    const samples = []
+    try {
+      for (let step = 1; step <= 200; step += 1) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+        const seen = inspectGuardianLock({
+          path: f,
+          env: {},
+          staleMs: 5 * 60 * 1000,
+          now: () => startedAt + step * 3_000,
+        })
+        assert.equal(seen.exists, true, `step=${step} 锁必须还在`)
+        assert.equal(seen.state, 'held', `step=${step} 实得 state=${seen.state}`)
+        assert.ok(
+          seen.heartbeatAgeMs < staleMs,
+          `step=${step} heartbeatAge=${seen.heartbeatAgeMs}ms ≥ 声明阈值 ${staleMs}ms`,
+        )
+        samples.push(seen.heartbeatAgeMs)
+      }
+    } finally {
+      hb.stop()
+      releaseGuardianLock(h)
+    }
+    assert.equal(samples.length, 200)
+    assert.ok(Math.max(...samples) < staleMs, `最大心跳年龄 ${Math.max(...samples)}ms 必须小于 ${staleMs}ms`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S12 心跳停 > 阈值且持有者活着 ⇒ stale-alive,不许静默接管', async () => {
+  const dir = mkScratch('guardian-lock')
+  try {
+    const f = join(dir, 'g12.lock')
+    const h = acquireGuardianLock({ path: f, env: {}, staleMs: 60_000 })
+    assert.equal(h.ok, true)
+    const before = readFileSync(f, 'utf8')
+    const old = new Date(Date.now() - 6 * 60 * 1000)
+    utimesSync(f, old, old)
+    const seen = inspectGuardianLock({ path: f, env: {}, staleMs: 5 * 60 * 1000 })
+    assert.equal(seen.exists, true)
+    assert.equal(seen.state, 'stale-alive')
+    assert.equal(seen.pid, process.pid)
+    // 真子进程来抢:活进程 + 陈旧心跳 ⇒ 只许拒绝,不许回收/接管。
+    const child = await runChildAcquire(f)
+    const r = parseChildResult(child)
+    assert.equal(r.ok, false)
+    assert.equal(r.kind, 'stale-alive')
+    assert.equal(readFileSync(f, 'utf8'), before, '活进程的锁文件不得被改写')
+    assert.equal(existsSync(f), true, '锁必须还在,不许被静默回收')
+    releaseGuardianLock(h)
+    assert.equal(existsSync(f), false)
   } finally {
     rmScratch(dir)
   }
