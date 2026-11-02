@@ -100,8 +100,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 3998 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 316 | `guardianGates` |
-| — blocking | 287 | `guardianBlocking` |
+| 工程守门 | 317 | `guardianGates` |
+| — blocking | 288 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 18864 | `trackedFiles` |
 
@@ -5448,6 +5448,39 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🚀 新功能/改进:把 RN 薄壳覆盖判据装上提交链(守门 283,blocking) (e8c610eadb)
+- 🔧 工程/其他:收编守护落档产出(4 件,凭落点账本) (5355177bb8)
+- 🐞 修复:落库器每条早退路径都必须出机读结论行(治"器物在跑但说不出话") (6178c8bdf7)
+- 🐞 修复:覆盖门把 evidence 纳入 needsManual 硬判据并补缺 evidence 镜像测试 (60df42dbf4)
+- 🔧 工程/其他:12 枚 needsManual 全量登记(3 语义不同/5 退役内联/4 手写壳挂账) (296be37c48)
+- 🐞 修复:补齐导航替身 getState 契约并保持 navigate 实参形状 (a7282ff7c4)
+- 🔧 工程/其他:给 web↔RN 缺口棘轮建真实基线件,脱离"首跑常量"锚 (03be228081)
+- 🐞 修复:修存量红:段宽期望与实际不一致 (1b172544c3)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5f728aca25)
+- 🚀 新功能/改进:新增门 282 web↔RN 覆盖缺口棘轮 (43fe135510)
+- 🚀 新功能/改进:派生链补 rn-host-shell 段,gen-rn-host-shell 真正上链 (c7339348b7)
+- 🐞 修复:映射块比对改判像素等值,止住 ui-mirror 腿回退他人已入库修复 (6dcfd1d601)
+- 🐞 修复:真 onRetry 取代别名（第 3 批） (8dca03cb7b)
+- 🚀 新功能/改进:新增小程序端口等价表与只读门禁(表/实现/类型键集合三向对账) (a0280a8b94)
+- 🐞 修复:A3 测试的 git 派生显式接管 stdio(门 193) (7f700f94c9)
+- 🐞 修复:真 onRetry 取代别名（第 2 批） (3fa6b98e7a)
+- 🐞 修复:replace 缺失走 CAPABILITY_OFF、tab 语义透传、空实现黑名单与小程序 toast 落地 (14038ab3e4)
+- 📚 文档:更正 P0-2/P0-3 头注里的门号引用 (0cf2b9ddc6)
+- 🚀 新功能/改进:新增写盘不变量库(六条断言) (00d9edda4b)
+- 🐞 修复:严格档把 dup 与租约同键重复判红 (c1300d59c7)
+- 🐞 修复:租约追加同键幂等,重复段拒绝再写 (ec34d3ab47)
+- 🐞 修复:真 onRetry 取代别名（第 1 批） (f8e651a83b)
+- 🐞 修复:回捞拒绝同号多候选,--pick 显式选一枚 (6ffe4b85b9)
+- 🐞 修复:补齐 getState 端口面并把 tabBar 名单收敛为唯一真相源 (27dfe8e87e)
+- 🚀 新功能/改进:放行两件"器物早已存在、写档从未被放行"的存量落档器,并把归属判据收成单源 (8096a3aff8)
+- 🐞 修复:P0-1/P0-2 新增脚本 lint 未用变量与 prettier 收口 (fb04a6e9ed)
+- 🚀 新功能/改进:新增非色档分叉 decision 账本对账 decide-style-tier-forks(P0-3) (1fd4311254)
+- 🚀 新功能/改进:新增 web↔RN 覆盖缺口棘轮 check-web-rn-gap-ratchet(P0-2) (7c799be026)
+- 🐞 修复:下载中心未上线平台改走显式「尚未上线」态,并收平平台清单多份真相 (097f73e73b)
+- 🔧 工程/其他:补齐摘权限插件的水印覆盖(HEAD 面唯一缺口,落地后复跑点名的那条 blocking 就是它) (dd715319dc)
+- 🚀 新功能/改进:新增 RN 薄壳直接 import 覆盖判据 check-rn-host-shell-coverage(P0-1) (01a900c030)
+
 **2026-11-03**
 - 🐞 修复:下载中心「尚未上线」态三键补齐五语言 (791b2bcf0e)
 - 📚 文档:补齐 ApkPure 与其余品牌的核实结论,并把 App 备案挂成法律级前置 (d333f3f82a)
@@ -15510,6 +15543,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 ## 守门脚本点名索引(内部参考)
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
+- 跨端 / web↔RN 覆盖缺口棘轮(2026-11-03 装车,blocking,runner id '282'): `check-web-rn-gap-ratchet.mjs`(把只读对账尺 `check-web-rn-screen-parity.mjs` 的读数包成提交链判据,**不重算第二份口径**——判据 import 其 `__test__` 出口,§0.6;四维 unmapped=0 ∧ judgedGap=0 ∧ prefixHits≤基线容量 ∧ prefixExpired=0,外加每条 aligned 必须带完整 `data.kind`(direct/indirect/static/missing);基线件 `scripts/data/web-rn-gap-baseline.json` 由本器 `--baseline` 现读生成,容量取 min(常量,基线) ⇒ **只收紧不抬闸**;现读 HEAD 面 total 423 · 容量 423 · 全维在闸内 ⇒ 判绿;单次耗时约 4.2s;应急放行 `HUSKY_SKIP_WEB_RN_GAP_RATCHET=1`;镜像 `check-web-rn-gap-ratchet.test.mjs`)
 - 跨端 / RN 薄壳覆盖(2026-11-03 装车,blocking,runner id '283'): `check-rn-host-shell-coverage.mjs`(判每枚共享屏是否被**至少一枚 RN 壳直接 import**——值 import 才算,`import type` 型边不计;三桶 covered / needsManual / seedableMissing;挂账出口 `scripts/data/rn-host-shell-manual.json`,三要素 owner + expires + reason 齐备才生效,到期即判红,在册面不再命中按 §0.7 判清单腐烂;现读 272 枚 · covered 260 · 12 枚在册在期 ⇒ 判绿;修法出口 `gen-rn-host-shell.mjs`(已由守护腿 `sweepRnHostShells` 30 分钟派发);镜像 `check-rn-host-shell-coverage.test.mjs`;应急放行 `HUSKY_SKIP_RN_HOST_SHELL_COVERAGE=1`)
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
 - 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
