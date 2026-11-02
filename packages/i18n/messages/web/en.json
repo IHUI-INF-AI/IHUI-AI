@@ -27275,7 +27275,6 @@
     "rateLabel": "Share ratio",
     "withdrawModal": {
       "title": "Withdraw",
-      "close": "Close",
       "subtitle": "Withdrawable amount",
       "wechat": "WeChat",
       "moreMethods": "More withdrawal methods coming soon",

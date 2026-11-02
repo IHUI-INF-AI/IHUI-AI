@@ -267,13 +267,6 @@
   "live": {
     "replay": "回放",
     "liveNow": "直播中",
-    "detail": {
-      "loadFailed": "直播加载失败",
-      "notStarted": "直播尚未开始",
-      "ended": "直播已结束",
-      "connecting": "正在连接直播间…",
-      "enter": "进入直播间"
-    },
     "subscribe": {
       "subscribe": "订阅提醒",
       "subscribeSuccess": "订阅成功",
@@ -1092,10 +1085,6 @@
     "detailEnter": "进入群聊",
     "detailMembers": "群成员",
     "detailRecent": "最近消息",
-    "enterChat": {
-      "message": "确定要进入该群聊?",
-      "title": "提示"
-    },
     "enterDiscover": "发现",
     "enterMine": "我的",
     "memberRole": "角色",
@@ -1358,37 +1347,11 @@
       "rulesTitle": "考试规则",
       "totalScore": "总分",
       "totalScoreValue": "{n} 分"
-    },
-    "answer": {
-      "judgmentOptions": [
-        "正确",
-        "错误"
-      ],
-      "answerPlaceholder": "输入你的答案",
-      "prev": "上一题",
-      "next": "下一题",
-      "submit": "交卷"
     }
   },
   "favorites": {
-    "cancel": "取消收藏",
-    "loadFailed": "加载失败",
     "empty": "暂无收藏",
-    "loadMore": "加载更多",
-    "noMore": "没有更多了",
-    "batchCancel": "批量取消收藏",
-    "items": "项",
-    "unsupported": "暂未支持跳转",
-    "itemsUnit": "项",
-    "done": "完成",
     "manage": "管理",
-    "selectAll": "全选",
-    "collectedAt": "收藏于",
-    "searchEmpty": "未找到匹配内容",
-    "goDiscover": "去发现",
-    "searchPlaceholder": "搜索收藏的内容",
-    "selectFirst": "请先选择",
-    "total": "已收藏",
     "title": "我的收藏"
   },
   "userFans": {
@@ -1447,10 +1410,7 @@
       "rule2": "邀请好友成为会员,您将获得会员费20%的佣金",
       "rule3": "佣金将在好友支付成功后24小时内自动结算到您的账户",
       "rule4": "账户余额满100元可申请提现到微信或支付宝",
-      "introTitle": "邀请好友,赚取佣金",
-      "totalEarnings": "累计收益",
-      "inviteCount": "邀请人数",
-      "rulesTitle": "分佣规则"
+      "totalEarnings": "累计收益"
     },
     "memberDetail": {
       "loading": "加载中…",
@@ -2365,14 +2325,6 @@
   "news": {
     "search": "搜索资讯",
     "empty": "暂无资讯",
-    "readCount": "{n}阅读",
-    "detail": {
-      "like": "点赞",
-      "comment": "评论",
-      "share": "分享",
-      "related": "相关推荐",
-      "commentSoon": "评论功能即将开放"
-    },
     "cat": {
       "announce": "公告",
       "activity": "活动",
@@ -2593,11 +2545,8 @@
     },
     "hello": "你好,我是 {name}",
     "justNow": "刚刚",
-    "search": "搜索聊天",
     "unnamedRoom": "未命名会话",
     "empty": "暂无消息",
-    "markedRead": "已标记为已读",
-    "pinned": "已置顶",
     "deleted": "已删除",
     "notFound": "未找到相关会话",
     "settings": "设置",
@@ -2609,8 +2558,6 @@
     "noInteraction": "暂无互动消息",
     "noPrivate": "暂无私信",
     "noSystem": "暂无系统通知",
-    "markRead": "标记已读",
-    "deleteConv": "删除会话",
     "pin": "置顶会话",
     "unpin": "取消置顶"
   },
@@ -2646,7 +2593,6 @@
       "notOpened": "未开通",
       "openVip": "开通 VIP 会员",
       "opened": "已开通",
-      "privileges": "会员特权",
       "share": "分享赚佣金"
     },
     "benefits": {
@@ -2830,10 +2776,7 @@
   "subscriptions": {
     "cancel": "取消订阅",
     "loadFailed": "加载失败",
-    "empty": "暂无订阅",
-    "delete": "删除",
-    "loadMore": "加载更多",
-    "noMore": "没有更多了"
+    "empty": "暂无订阅"
   },
   "teacher": {
     "list": {
@@ -2883,7 +2826,6 @@
       "followers": "{n} 人关注",
       "following": "已关注",
       "loadFailed": "加载失败",
-      "loading": "加载中…",
       "loadingMore": "加载中…",
       "noMore": "没有更多了",
       "publish": "发帖"
@@ -2906,8 +2848,7 @@
       "title": "我的智汇值",
       "agentConsume": "智能体消耗",
       "ordersConsume": "大模型消耗",
-      "costTime": "花费时间:",
-      "noMore": "没有更多了"
+      "costTime": "花费时间:"
     }
   },
   "user": {
@@ -5028,10 +4969,6 @@
     "rankEmpty": "该榜单暂无数据"
   },
   "aigcCover": {
-    "applied": {
-      "title": "封面已应用",
-      "message": "已为「{title}」应用封面:{label}"
-    },
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能开发中"

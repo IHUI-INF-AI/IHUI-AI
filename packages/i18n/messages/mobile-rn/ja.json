@@ -1219,10 +1219,6 @@
     "compactionToast": "コンテキストを自動圧縮しました({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "カバーを適用しました",
-      "message": "「{title}」にカバーを適用しました:{label}"
-    },
     "aiGen": {
       "title": "AI カバー生成",
       "message": "機能開発中"
@@ -1282,10 +1278,6 @@
     "detailMembers": "メンバー",
     "detailRecent": "最近",
     "empty": "グループがありません",
-    "enterChat": {
-      "message": "このグループに参加しますか?",
-      "title": "お知らせ"
-    },
     "enterDiscover": "発見",
     "enterMine": "マイ",
     "loadFailed": "グループの読み込みに失敗",
@@ -1458,15 +1450,6 @@
     "workflowTab": "ワークフロー"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "チャージ確認",
-      "message": "パッケージ:{tokens} Token · ¥{price}",
-      "payBtn": "今すぐ支払う",
-      "success": {
-        "title": "支払い成功",
-        "message": "{tokens} Token がチャージされました"
-      }
-    },
     "balanceLabel": "トークン残高",
     "bonus": "ボーナス",
     "empty": "データなし",
@@ -1486,9 +1469,7 @@
     "range7d": "7日間",
     "range1m": "1ヶ月",
     "range1y": "1年間",
-    "rangeAll": "すべて",
-    "unitYi": "{v}億",
-    "unitWan": "{v}万"
+    "rangeAll": "すべて"
   },
   "messageInput": {
     "document": "ドキュメント",
@@ -3490,8 +3471,7 @@
     "viewNow": "今すぐ見る"
   },
   "vipBenefit": {
-    "title": "会員権益",
-    "loadFailed": "会員特典の読み込みに失敗"
+    "title": "会員権益"
   },
   "vipTrader": {
     "title": "VIP トレーダー",
@@ -3949,7 +3929,6 @@
     "today": "本日",
     "withdrawBtn": "出金",
     "withdrawModal": {
-      "close": "キャンセル",
       "confirm": "確認",
       "moreMethods": "他の出金方法",
       "subtitle": "出金方法を選択",
