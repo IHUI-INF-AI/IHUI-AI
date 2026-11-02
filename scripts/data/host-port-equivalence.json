@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "note": "小程序端口等价层登记表：每个 entry 对应一条端口语义面；port 键必须能映回 packages/types/src/app-host-ports.ts 的端口类型（onNavigate→OnNavigate / onToast→OnToast / onAudio→AudioPort）。只读门禁见 scripts/check-host-port-equivalence.mjs。",
+  "ports": [
+    {
+      "port": "onNavigate",
+      "rnImpl": "apps/mobile-rn/src/host/use-host-ports.ts",
+      "miniappImpl": "apps/mobile-rn/src/host/use-host-ports.ts",
+      "semantics": "replace:true 表示用目标页替换当前栈顶；平台 replace 缺失时必须显式 CAPABILITY_OFF（dev 抛错 / prod 错误可见）并取消本次跳转，绝不回落 navigate 压栈冒充替换。",
+      "evidence": "apps/mobile-rn/tests/host-port-runtime.test.ts::replace 缺失 ⇒ CAPABILITY_OFF,绝不回落 navigate"
+    },
+    {
+      "port": "onNavigate",
+      "rnImpl": "apps/mobile-rn/src/host/use-host-ports.ts",
+      "miniappImpl": "apps/miniapp-taro/src/rn-compat/navigation.tsx",
+      "semantics": "tab:true 表示目标是 tabBar 页：小程序 navigate 第三参透传到 switchTabIfNeeded，命中 5 页名单走 Taro.switchTab（带 query 显式报 tab-params-dropped），声明 tab 却不在名单内走 tab-mismatch 失败；RN 由 tab navigator 消费第三参。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/navigation.test.ts::options.tab 经 switchTabIfNeeded 判定 + apps/mobile-rn/tests/host-port-runtime.test.ts::options.tab ⇒ 第三参透传 { tab: true }"
+    },
+    {
+      "port": "onToast",
+      "rnImpl": "apps/mobile-rn/src/host/host-toast.ts",
+      "miniappImpl": "apps/miniapp-taro/src/host/HostToastLayer.tsx",
+      "semantics": "kind:error 走端内既有错误样式（Taro.showToast icon:none），保证错误文案可见；通道为单订阅者事件流，空白文案丢弃，duration 透传。",
+      "evidence": "apps/miniapp-taro/src/host/__tests__/host-toast-layer.test.ts::kind=error 走端内错误样式(icon:none)"
+    },
+    {
+      "port": "onToast",
+      "rnImpl": "apps/mobile-rn/src/host/HostToastLayer.tsx",
+      "miniappImpl": "apps/miniapp-taro/src/host/HostToastLayer.tsx",
+      "semantics": "kind:success 走标准成功 toast（Taro.showToast icon:success）；kind:info 走无图标轻提示；两端都由唯一渲染层订阅 host-toast 事件，不允许静默丢弃。",
+      "evidence": "apps/miniapp-taro/src/host/__tests__/host-toast-layer.test.ts::kind=success 走标准成功 toast + host-toast 事件写入 → Taro.showToast"
+    },
+    {
+      "port": "onAudio",
+      "rnImpl": "apps/mobile-rn/src/components/VoiceBubble.tsx",
+      "miniappImpl": "apps/miniapp-taro/src/rn-compat/native-audio.ts",
+      "semantics": "play(url) 起播：先停旧源再创建/复用播放器；stop() 立即停止并归零进度，幂等且未起播时安全返回；不允许用 noop 冒充播放/停止能力。",
+      "evidence": "apps/miniapp-taro/src/rn-compat/native-audio.ts::AudioPlayer.play()/stop() + apps/mobile-rn/src/components/VoiceBubble.tsx::player.play()/pause()/remove()"
+    }
+  ]
+}

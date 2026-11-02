@@ -375,6 +375,50 @@ export function toDesktopLiveInfo(
   }
 }
 
+/**
+ * iOS 站点腿指针探测的落形判据。
+ * 读的是**线上 cdn-server 自己怎么答**(302 + `X-Release-Version*` 头 + 版本副本的
+ * Content-Length/Type),而不是让站点再抄一份落点路径 —— 那会造出第二个"腿在哪"的真相源。
+ * 三态:302 且头齐且能取到字节 ⇒ live;不是 302 / 缺头 / 类型不对 ⇒ 未判定(交调用方回落);
+ * 探测本身失败(超时/断网)⇒ 也是未判定,绝不读成"该端没包"。
+ */
+export function judgeIpaPointerProbe(
+  input: {
+    status?: number
+    location?: string | null
+    version?: string | null
+    sizeBytes?: number | null
+    contentType?: string | null
+  },
+  nowIso: string,
+): LivePlatformInfo {
+  const base: Omit<LivePlatformInfo, 'source'> = { platform: 'ios', resolvedAt: nowIso }
+  const status = Number(input.status ?? 0)
+  const loc = typeof input.location === 'string' ? input.location.trim() : ''
+  if (status !== 302 || loc === '' || !/^https?:/i.test(loc)) {
+    return { ...base, source: 'snapshot', reason: `ipa-pointer-not-resolved:${status || 'no-location'}` }
+  }
+  const version = typeof input.version === 'string' ? input.version.trim() : ''
+  if (version === '') {
+    return { ...base, source: 'snapshot', reason: 'ipa-pointer-missing-version-header' }
+  }
+  const size = Number(input.sizeBytes ?? 0)
+  const ct = String(input.contentType ?? '')
+  if (!Number.isFinite(size) || size <= 0 || !ct.includes('octet-stream')) {
+    return {
+      ...base,
+      source: 'snapshot',
+      reason: `ipa-version-copy-unverified:${size || 'no-size'}/${ct || 'no-type'}`,
+    }
+  }
+  return {
+    ...base,
+    source: 'live',
+    version,
+    assets: [{ href: loc, sizeBytes: size, format: 'iOS IPA (TrollStore)' }],
+  }
+}
+
 /** 镜像测试入口(AGENTS §22c:测试 import 这份判据,不得复制一份) */
 export const __test__ = {
   judgeAppVersionRow,
@@ -388,5 +432,6 @@ export const __test__ = {
   mergeLiveMeta,
   liveEntryView,
   toDesktopLiveInfo,
+  judgeIpaPointerProbe,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

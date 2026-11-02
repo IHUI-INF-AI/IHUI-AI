@@ -55,14 +55,15 @@ export function SecurityAuditScreen({
   error,
   onRefresh,
   onBack,
-  colorScheme = 'light',
-}: SecurityAuditScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: SecurityAuditScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading && items.length === 0) return <ScreenSkeleton colorScheme={colorScheme} />
   if (error && items.length === 0)
-    return <ErrorState message={error} onRetry={onRefresh} colorScheme={colorScheme} />
+    return <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
 
   return (
     <View style={styles.container}>

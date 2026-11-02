@@ -37,11 +37,11 @@ export function CourseDetailScreen({
   enrolling,
   onEnroll,
   onPlayLesson,
-  onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
   onToast,
-}: CourseDetailScreenProps) {
+}: CourseDetailScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
@@ -67,7 +67,7 @@ export function CourseDetailScreen({
     return (
       <ErrorState
         message={error || t('courseDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

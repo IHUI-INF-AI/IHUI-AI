@@ -30,8 +30,9 @@ export function CoursePlanetScreen({
   onCoursePress,
   onRefresh,
   onBack,
-  colorScheme = 'light',
-}: CoursePlanetScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: CoursePlanetScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -75,7 +76,7 @@ export function CoursePlanetScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel="重试"
           colorScheme={colorScheme}
         />

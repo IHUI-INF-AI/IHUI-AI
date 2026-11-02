@@ -46,8 +46,9 @@ export function ModelIncomeScreen({
   hasMore = true,
   onLoadMore,
   onBack,
-  colorScheme = 'light',
-}: ModelIncomeScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: ModelIncomeScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -77,7 +78,7 @@ export function ModelIncomeScreen({
     return (
       <ErrorState
         message={error || t('common.loadFailed')}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('modelIncome.retry')}
         colorScheme={colorScheme}
       />
