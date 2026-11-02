@@ -33580,3 +33580,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 - [x] P89 〔千段租约〕 本机=lichunchuan-96818d62 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
+
+- [ ] B69 [deploy-feedback] [deploy_outcome/alert_firing] rollback /deploy/rollback 部署异常 ⇒ 排查链路并修复（登记@2026-11-02/deploy-feedback;来源:deploy_outcome;证据:dims=web+llm action=rollback 窗口=1440min count=1 first=2026-10-31T05:58:08.165Z last=2026-10-31T05:58:08.165Z route=/deploy/rollback sample="deploy_outcome action=rollback sha=[hex:40] dim…"）
