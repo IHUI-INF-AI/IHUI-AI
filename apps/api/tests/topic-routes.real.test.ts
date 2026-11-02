@@ -30,6 +30,7 @@ async function createTopic(data: {
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('topic-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -48,6 +49,7 @@ async function createLesson(data: {
       price: data.price ?? '0',
     })
     .returning()
+  if (!row) throw new Error('topic-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

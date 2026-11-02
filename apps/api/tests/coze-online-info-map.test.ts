@@ -10,7 +10,26 @@ import { mapCozeOnlineInfo, type CozeOnlineInfoData } from '../src/lib/coze-onli
  * 2026-10-20 真跑 api.coze.cn `GET /v1/bot/get_online_info`(bot 7530528655878078473)取回的
  * data 原样节选(键序与取值按实测;长文本裁到能表达形状即可)。
  */
-const LIVE_DATA: CozeOnlineInfoData = {
+// 远端实际返回的字段比 `CozeOnlineInfoData` 声明的更多(未映射的 create_time/update_time、
+// model_info 里的 frequency_penalty/cache_type 等),这些键生产映射源刻意不读。
+// 这里按"实测线上形状"单独声明输入类型,再按结构赋给生产映射函数(不复制映射判据)。
+type LiveCozePayload = Omit<CozeOnlineInfoData, 'prompt_info' | 'model_info'> & {
+  create_time?: number
+  update_time?: number
+  prompt_info?: { prompt?: string; prompt_mode?: string }
+  model_info?: {
+    model_id?: string
+    model_name?: string
+    temperature?: number
+    top_p?: number
+    frequency_penalty?: number
+    context_round?: number
+    max_tokens?: number
+    cache_type?: string
+  }
+}
+
+const LIVE_DATA: LiveCozePayload = {
   bot_id: '7530528655878078473',
   name: '[图]书籍推荐知识卡-智汇AI',
   description: '我能为您生成您想要的书籍推荐师知识卡片',

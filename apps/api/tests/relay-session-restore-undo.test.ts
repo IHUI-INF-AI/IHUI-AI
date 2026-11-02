@@ -125,7 +125,7 @@ const opsRootOf = (fx: Fixture): string => join(fx.snapDir, 'restore-ops')
 function lastOpId(fx: Fixture): string {
   const runs = readRestoreOps(opsRootOf(fx)).filter((o) => o.type === 'restore-run')
   expect(runs.length).toBeGreaterThan(0)
-  return runs[runs.length - 1].op
+  return runs[runs.length - 1]!.op
 }
 
 /** 种一个"漂移的 transcript"(force 覆盖场景的留底对象) */
@@ -156,7 +156,7 @@ describe('apply 动前留底+记账', () => {
     expect(runOps[0]).toMatchObject({ files: 3, restored: 3, failed: 0 })
 
     // 留底:只有被覆盖的 transcript 有,missing 的两个没有
-    const beforeRoot = join(opsRoot, runOps[0].op, 'before')
+    const beforeRoot = join(opsRoot, runOps[0]!.op, 'before')
     expect(relsUnder(beforeRoot)).toEqual(['workspace/sess-1/transcript.jsonl'])
     const beforeAbs = join(beforeRoot, 'workspace', 'sess-1', 'transcript.jsonl')
     expect(readFileSync(beforeAbs, 'utf8')).toBe(DRIFTED)
@@ -220,8 +220,8 @@ describe('undo --op <opId>(--apply 才动)', () => {
     // undo 自身追加记账(type:'undo', refOp 指向被回退 op)
     const undoOps = readRestoreOps(opsRootOf(fx)).filter((o) => o.type === 'undo')
     expect(undoOps).toHaveLength(1)
-    expect(undoOps[0].refOp).toBe(opId)
-    expect(undoOps[0].entries.map((e) => e.action).sort()).toEqual([
+    expect(undoOps[0]!.refOp).toBe(opId)
+    expect(undoOps[0]!.entries.map((e) => e.action).sort()).toEqual([
       'delete',
       'delete',
       'restore-before',

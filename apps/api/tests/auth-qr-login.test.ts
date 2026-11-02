@@ -231,7 +231,10 @@ describe('QR 扫码登录 — generate/status/confirm', () => {
     redis.store.clear()
     mockAuthenticate.mockReset()
     mockAuthenticate.mockImplementation(
-      async (request: { userId?: string }, reply: { code: () => unknown }) => {
+      async (
+        request: { userId?: string; headers?: { authorization?: string } },
+        reply: { code: (status: number) => { send: (payload: unknown) => unknown } },
+      ) => {
         if (!request.headers?.authorization) {
           return reply.code(401).send({ code: 401, message: '未认证', data: null })
         }

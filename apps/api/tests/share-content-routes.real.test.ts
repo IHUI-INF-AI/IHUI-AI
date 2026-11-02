@@ -13,7 +13,7 @@ async function createContent(data: {
   userUuid: string
   agentId?: string
   gcType?: string
-  content?: string
+  content?: string | null
   status?: number
 }) {
   const [row] = await db
@@ -26,6 +26,7 @@ async function createContent(data: {
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('share-content-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

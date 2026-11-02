@@ -127,7 +127,7 @@ async function getDeviceList(): Promise<Record<string, unknown>> {
   await app.close()
   expect(body.code).toBe(0)
   expect(body.data.list).toHaveLength(1)
-  return body.data.list[0]
+  return body.data.list[0]!
 }
 
 describe('A: 命中集合小 ⇒ 既有键值逐字不变', () => {
@@ -192,7 +192,7 @@ describe('B: 命中集合超阈 ⇒ 不得当"同一设备"外发', () => {
     expect(note as string).toContain('Platform.OS')
     // 被 withheld 的那些 id 确实没有出现在响应里(而不是"少发了别的一些")
     const sent = new Set(entry.userIds as string[])
-    expect(sent.has(all[all.length - 1])).toBe(false)
+    expect(sent.has(all[all.length - 1]!)).toBe(false)
     // 既有键仍然在位且未被改动(状态码/键名不破坏)
     expect(entry.identifier).toBe(FP)
     expect(entry.type).toBe('device')

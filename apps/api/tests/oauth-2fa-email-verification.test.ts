@@ -24,7 +24,7 @@ vi.hoisted(() => {
 })
 
 vi.mock('../src/db/queries.js', async (importOriginal) => {
-  const mod = await importOriginal()
+  const mod = await importOriginal<typeof import('../src/db/queries.js')>()
   return {
     ...mod,
     findThirdPartyAccount: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock('../src/db/queries.js', async (importOriginal) => {
 })
 
 vi.mock('../src/db/oauth-queries.js', async (importOriginal) => {
-  const mod = await importOriginal()
+  const mod = await importOriginal<typeof import('../src/db/oauth-queries.js')>()
   return {
     ...mod,
     findThirdPartyAccount: vi.fn(),
@@ -49,7 +49,7 @@ vi.mock('../src/routes/user/ip-whitelist-guard.js', () => ({
 }))
 
 vi.mock('../src/services/totp-service.js', async (importOriginal) => {
-  const mod = await importOriginal()
+  const mod = await importOriginal<typeof import('../src/services/totp-service.js')>()
   return { ...mod, signChallengeToken: vi.fn().mockResolvedValue('challenge-token-test') }
 })
 

@@ -30,6 +30,7 @@ async function createItem(data: {
       likeCount: data.likeCount ?? 0,
     })
     .returning()
+  if (!row) throw new Error('ai-world-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

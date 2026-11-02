@@ -47,6 +47,7 @@ async function createUser(phone: string) {
     .insert(users)
     .values({ phone, nickname: `RBAC测试用户-${phone}` })
     .returning()
+  if (!row) throw new Error('edu-rbac-permission.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -114,6 +115,7 @@ describe('edu-rbac-permission — 教师角色 RBAC 权限链路(2026-08-30 教�
       .insert(roles)
       .values({ name: 'teacher', displayName: '教师', scope: 'self', isSystem: false })
       .returning()
+    if (!role) throw new Error('edu-rbac-permission.real.test.ts: 插入未返回行(role)')
     const [perm] = await db
       .insert(permissions)
       .values({
@@ -123,6 +125,7 @@ describe('edu-rbac-permission — 教师角色 RBAC 权限链路(2026-08-30 教�
         action: 'manage',
       })
       .returning()
+    if (!perm) throw new Error('edu-rbac-permission.real.test.ts: 插入未返回行(perm)')
     await db.insert(rolePermissions).values({ roleId: role.id, permissionId: perm.id })
     await db.insert(userRoles).values({ userId: teacher.id, roleId: role.id })
 
@@ -142,6 +145,7 @@ describe('edu-rbac-permission — 教师角色 RBAC 权限链路(2026-08-30 教�
       .insert(roles)
       .values({ name: 'fake-teacher', displayName: '伪教师', scope: 'self', isSystem: false })
       .returning()
+    if (!role) throw new Error('edu-rbac-permission.real.test.ts: 插入未返回行(role)')
     const [perm] = await db
       .insert(permissions)
       .values({
@@ -151,6 +155,7 @@ describe('edu-rbac-permission — 教师角色 RBAC 权限链路(2026-08-30 教�
         action: 'other',
       })
       .returning()
+    if (!perm) throw new Error('edu-rbac-permission.real.test.ts: 插入未返回行(perm)')
     await db.insert(rolePermissions).values({ roleId: role.id, permissionId: perm.id })
     await db.insert(userRoles).values({ userId: attacker.id, roleId: role.id })
 

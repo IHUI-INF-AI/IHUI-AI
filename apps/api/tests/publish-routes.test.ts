@@ -136,7 +136,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
   // ===========================================================================
   describe('PLATFORM_REGISTRY 元数据完整性', () => {
     it('13 平台已注册(platformId 唯一)', async () => {
-      await publishRoutes(buildMockServer().server)
+      await publishRoutes(buildMockServer().server, {})
       // 直接测 findPlatformEntry 间接验证注册表
       const ids = [
         'wordpress',
@@ -317,7 +317,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
   describe('GET /publish/adapters/status', () => {
     it('返回 14 项 + summary 统计 + 全部字段', async () => {
       const { server, handlers } = buildMockServer()
-      await publishRoutes(server)
+      await publishRoutes(server, {})
 
       const handler = handlers.get('GET /publish/adapters/status')
       expect(handler).toBeDefined()
@@ -367,7 +367,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
       // 验证字段完整性
       const first = payload.data.items[0]!
       expect(first.platformId).toBeDefined()
-      expect(first.platformName).toBeDefined()
+      expect(first).toHaveProperty('platformName')
       expect(first.status).toBeDefined()
       expect(typeof first.canPublish).toBe('boolean')
       expect(Array.isArray(first.supportedFormats)).toBe(true)
@@ -378,7 +378,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
 
     it('canPublish 仅对 implemented 状态为 true', async () => {
       const { server, handlers } = buildMockServer()
-      await publishRoutes(server)
+      await publishRoutes(server, {})
 
       const handler = handlers.get('GET /publish/adapters/status')
       const reply = makeReply()
@@ -403,7 +403,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
   describe('POST /publish/tasks dryRun 短路', () => {
     it('body.dryRun=true 时短路,返回 dry-run 结果(不调 fetch)', async () => {
       const { server, handlers } = buildMockServer()
-      await publishRoutes(server)
+      await publishRoutes(server, {})
 
       const handler = handlers.get('POST /publish/tasks')
       const reply = makeReply()
@@ -436,7 +436,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
 
     it('query.dryRun=true 也触发短路', async () => {
       const { server, handlers } = buildMockServer()
-      await publishRoutes(server)
+      await publishRoutes(server, {})
 
       const handler = handlers.get('POST /publish/tasks')
       const reply = makeReply()
@@ -451,7 +451,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
 
     it('body.platforms 指定子集时,只对子集做 dry-run', async () => {
       const { server, handlers } = buildMockServer()
-      await publishRoutes(server)
+      await publishRoutes(server, {})
 
       const handler = handlers.get('POST /publish/tasks')
       const reply = makeReply()
@@ -485,7 +485,7 @@ describe('publish-routes — 13 平台发布 adapter 可用性', () => {
 
     it('非 dryRun 请求正常转发 ai-service(调用 fetch)', async () => {
       const { server, handlers } = buildMockServer()
-      await publishRoutes(server)
+      await publishRoutes(server, {})
 
       mockFetch.mockResolvedValueOnce({
         ok: true,

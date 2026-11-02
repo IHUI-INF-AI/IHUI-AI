@@ -18,15 +18,15 @@ describe('db-failover — 数据库故障转移', () => {
       const f = new FailoverManager()
       f.add('s1')
       const s = f.status()
-      expect(s.s1.role).toBe(DbRole.SLAVE)
-      expect(s.s1.priority).toBe(100)
-      expect(s.s1.healthy).toBe(true)
+      expect(s.s1!.role).toBe(DbRole.SLAVE)
+      expect(s.s1!.priority).toBe(100)
+      expect(s.s1!.healthy).toBe(true)
     })
     it('自定义 role 和 priority', () => {
       const f = new FailoverManager()
       f.add('m1', DbRole.MASTER, 200)
-      expect(f.status().m1.role).toBe(DbRole.MASTER)
-      expect(f.status().m1.priority).toBe(200)
+      expect(f.status().m1!.role).toBe(DbRole.MASTER)
+      expect(f.status().m1!.priority).toBe(200)
     })
   })
 
@@ -36,9 +36,9 @@ describe('db-failover — 数据库故障转移', () => {
       f.add('m1', DbRole.MASTER)
       f.heartbeat('m1', false)
       f.heartbeat('m1', false)
-      expect(f.status().m1.healthy).toBe(true)
+      expect(f.status().m1!.healthy).toBe(true)
       f.heartbeat('m1', false)
-      expect(f.status().m1.healthy).toBe(false)
+      expect(f.status().m1!.healthy).toBe(false)
     })
     it('成功减少 failCount', () => {
       const f = new FailoverManager({ ...DEFAULT_FAILOVER_CONFIG, failThreshold: 3 })
@@ -46,13 +46,13 @@ describe('db-failover — 数据库故障转移', () => {
       f.heartbeat('m1', false)
       f.heartbeat('m1', false)
       f.heartbeat('m1', true)
-      expect(f.status().m1.failCount).toBe(1)
+      expect(f.status().m1!.failCount).toBe(1)
     })
     it('从库 lagSec 超阈值标记不健康', () => {
       const f = new FailoverManager({ ...DEFAULT_FAILOVER_CONFIG, maxLagSec: 10 })
       f.add('s1', DbRole.SLAVE)
       f.heartbeat('s1', true, 15)
-      expect(f.status().s1.healthy).toBe(false)
+      expect(f.status().s1!.healthy).toBe(false)
     })
     it('不存在的节点不抛错', () => {
       const f = new FailoverManager()
@@ -68,7 +68,7 @@ describe('db-failover — 数据库故障转移', () => {
       f.add('s2', DbRole.SLAVE, 150)
       f.heartbeat('m1', false) // 触发主库不健康 + maybeElect
       expect(f.getMasterId()).toBe('s1') // 优先级最高
-      expect(f.status().m1.role).toBe(DbRole.OFFLINE)
+      expect(f.status().m1!.role).toBe(DbRole.OFFLINE)
     })
     it('优先级相同选延迟最低的', () => {
       const f = new FailoverManager({ ...DEFAULT_FAILOVER_CONFIG, failThreshold: 1 })
@@ -86,7 +86,7 @@ describe('db-failover — 数据库故障转移', () => {
       f.add('s1', DbRole.SLAVE, 200)
       const newMaster = f.forceFailover()
       expect(newMaster).toBe('s1')
-      expect(f.status().m1.role).toBe(DbRole.OFFLINE)
+      expect(f.status().m1!.role).toBe(DbRole.OFFLINE)
     })
     it('无健康从库返回 null', () => {
       const f = new FailoverManager({ ...DEFAULT_FAILOVER_CONFIG, failThreshold: 1 })
@@ -98,7 +98,9 @@ describe('db-failover — 数据库故障转移', () => {
     })
     it('onChange 回调被调用', () => {
       const calls: Array<[string, DbRole, DbRole]> = []
-      const f = new FailoverManager({}, (id, oldR, newR) => calls.push([id, oldR, newR]))
+      const f = new FailoverManager(DEFAULT_FAILOVER_CONFIG, (id, oldR, newR) =>
+        calls.push([id, oldR, newR]),
+      )
       f.add('m1', DbRole.MASTER, 100)
       f.add('s1', DbRole.SLAVE, 200)
       f.forceFailover()

@@ -59,7 +59,7 @@ describe('工作簿面注册面(装车证明)', () => {
     const prefix = registeredPrefix('workbookRoutes')
     expect(prefix).toBeTruthy()
     const clientPaths = [...clientSrc.matchAll(/["'](\/api\/workbook\/[a-z_]+)["']/gu)].map(
-      (m) => m[1],
+      (m) => m[1]!,
     )
     expect(clientPaths.length, '客户端一个命令路径都没抽到 ⇒ 判据空转').toBeGreaterThanOrEqual(
       COMMANDS.length,

@@ -31,14 +31,11 @@ import { Button, Card } from '@ihui/ui-react'
 import { AppleIcon, AndroidIcon, WechatMiniIcon } from '@/lib/downloads'
 import {
   formatFileSize,
-  getPlatformMeta,
   type DownloadAsset,
   type DownloadPlatform,
   type PlatformMeta,
 } from '@/config/downloads.config'
 import { useDownloadTrack } from '@ihui/shared/hooks'
-import type { DesktopFeed } from '@/config/desktop-feed.generated'
-import type { LiveAndroidSource } from '@/config/desktop-feed-live'
 
 /** platform → 图标组件映射(与 downloads.tsx 的 DOWNLOADS 数组同源) */
 const PLATFORM_ICON: Record<DownloadPlatform, LucideIcon | React.FC<{ className?: string }>> = {
@@ -75,68 +72,22 @@ const PLATFORM_LABEL_KEY: Record<DownloadPlatform, string> = {
 /**
  * 详情页主内容(client component,使用 useTranslations + useParams)
  *
- * 2026-10-17:`liveDesktopFeed` 由 server page 运行期解析后注入(源 = 最新 desktop release
- * 自带的 latest.json)。只对 desktop 端生效 —— 这是当前唯一存在"版本已发到 → 线上仍显示旧号"
- * 的那一端(快照入库链被 main 分支保护挡死,见 @/config/desktop-feed-live 头注)。
- * 注入失败/缺 foreground 时静默回落到构建期快照,详情页形态不变。
+ * 2026-11-02 收口:`meta` 由 server page 传入,且已按「构建期底稿 ⊕ 运行期真值」合并完
+ * (合并判据单源 = @/config/downloads-live 的 `mergeLiveMeta`)。
+ * 此前这里按端各写一个 if 分支 —— 只有 desktop / android-apk 有分支,其余 6 端**结构上**
+ * 拿不到运行期值,于是"包已发出去、页面还写旧号"对它们长期成立。合并挪到服务端还顺带
+ * 保证客户端包里不出现 `node:fs`(扩展端要枚举实物文件)。
  */
 export function DownloadDetailContent({
-  platform: platformParam,
-  liveDesktopFeed,
-  liveAndroid,
+  platform,
+  meta,
 }: {
-  platform: string
-  liveDesktopFeed?: DesktopFeed | null
-  liveAndroid?: LiveAndroidSource | null
+  platform: DownloadPlatform
+  meta: PlatformMeta
 }) {
   const t = useTranslations('nav')
   const router = useRouter()
 
-  // 校验 platform 参数,无效则回退到 desktop
-  const validPlatforms: DownloadPlatform[] = [
-    'web',
-    'desktop',
-    'ios',
-    'android-apk',
-    'mobile',
-    'wechat-miniapp',
-    'extension',
-    'cli',
-  ]
-  const platform = (
-    validPlatforms.includes(platformParam as DownloadPlatform) ? platformParam : 'desktop'
-  ) as DownloadPlatform
-
-  // 构建期快照为底,运行期解析到新版本才覆盖 —— 覆盖只动「版本/日期/安装包」三个展示面,
-  // installGuideKey 等静态文案仍走快照,避免把两种来源混成一个类型。
-  const staticMeta: PlatformMeta = getPlatformMeta(platform)
-  let meta: PlatformMeta = staticMeta
-  if (platform === 'desktop' && liveDesktopFeed) {
-    meta = {
-      ...staticMeta,
-      version: liveDesktopFeed.version,
-      releaseDate: liveDesktopFeed.releaseDate || staticMeta.releaseDate,
-      assets: liveDesktopFeed.assets.length > 0 ? liveDesktopFeed.assets : staticMeta.assets,
-    }
-  } else if (platform === 'android-apk' && liveAndroid) {
-    // 版本号取不到时(如 nightly-<run_id> 这种 tag)保持快照值,**不编造**:
-    // 页面上写一个猜出来的版本号,比不写更糟。链接与体积仍用运行期真值。
-    meta = {
-      ...staticMeta,
-      version: liveAndroid.version ?? staticMeta.version,
-      releaseDate: liveAndroid.releaseDate || staticMeta.releaseDate,
-      assets:
-        liveAndroid.apkUrl.length > 0
-          ? [
-              {
-                href: liveAndroid.apkUrl,
-                sizeBytes: liveAndroid.sizeBytes,
-                format: 'Android APK',
-              },
-            ]
-          : staticMeta.assets,
-    }
-  }
   const Icon = PLATFORM_ICON[platform]
   const label = t(PLATFORM_LABEL_KEY[platform])
   const hasAssets = meta.assets.length > 0
@@ -149,7 +100,7 @@ export function DownloadDetailContent({
       <button
         type="button"
         onClick={() => router.back()}
-        className="mb-4 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:outline-none"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>{t('downloadBack')}</span>
@@ -171,7 +122,7 @@ export function DownloadDetailContent({
                   </span>
                 )}
               </h1>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 {meta.releaseDate && (
                   <span className="inline-flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -225,7 +176,7 @@ export function DownloadDetailContent({
             <h2 className="mb-1 text-base font-medium text-foreground">
               {t('downloadComingSoonTitle')}
             </h2>
-            <p className="mx-auto max-w-md text-body text-muted-foreground">
+            <p className="mx-auto max-w-md text-sm text-muted-foreground">
               {t('downloadComingSoonHint', { platform: label })}
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -250,7 +201,7 @@ export function DownloadDetailContent({
 
       {/* 代码签名声明:SignPath Foundation 要求下载页明确注明签名来源 */}
       {(platform === 'desktop' || platform === 'cli') && (
-        <p className="mb-6 flex items-start gap-2 text-label text-muted-foreground">
+        <p className="mb-6 flex items-start gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span>{t('downloadCodeSigningNotice')}</span>
         </p>
@@ -275,7 +226,7 @@ export function DownloadDetailContent({
             {t('downloadSystemRequirements')}
           </h2>
           <Card className="p-3">
-            <p className="whitespace-pre-line text-body text-muted-foreground">
+            <p className="whitespace-pre-line text-sm text-muted-foreground">
               {t(meta.systemRequirementsKey)}
             </p>
           </Card>
@@ -290,7 +241,7 @@ export function DownloadDetailContent({
               href={meta.githubReleasesUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               {t('downloadGithubReleases')}
@@ -301,7 +252,7 @@ export function DownloadDetailContent({
               href={meta.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               {t('downloadDocs')}
@@ -345,7 +296,7 @@ function DownloadAssetCard({
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-3 text-label text-muted-foreground">
+          <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">
               <HardDrive className="h-2.5 w-2.5" />
               {sizeLabel}
@@ -403,16 +354,16 @@ function InstallGuideContent({
     }
     return (
       <div className="space-y-3">
-        <p className="whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
+        <p className="whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-body text-foreground">
+          <code className="flex-1 rounded-md bg-muted px-3 py-2 font-mono text-sm text-foreground">
             {CLI_INSTALL_COMMAND}
           </code>
           <Button variant="outline" size="sm" onClick={handleCopy}>
             {copied ? t('downloadCopied') : t('downloadCopy')}
           </Button>
         </div>
-        <p className="text-label text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {t('downloadCliUsageHint')} <code className="font-mono">ihui --help</code>
         </p>
       </div>
@@ -423,8 +374,8 @@ function InstallGuideContent({
   if (platform === 'extension') {
     return (
       <div className="space-y-3">
-        <p className="whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
-        <ol className="ml-4 list-decimal space-y-1 text-body text-muted-foreground">
+        <p className="whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
+        <ol className="ml-4 list-decimal space-y-1 text-sm text-muted-foreground">
           <li>{t('downloadExtensionStep1')}</li>
           <li>{t('downloadExtensionStep2')}</li>
           <li>{t('downloadExtensionStep3')}</li>
@@ -435,8 +386,6 @@ function InstallGuideContent({
   }
 
   // 其他:纯文本
-  return (
-    <p className="px-4 py-4 whitespace-pre-line text-body text-muted-foreground">{guideText}</p>
-  )
+  return <p className="px-4 py-4 whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

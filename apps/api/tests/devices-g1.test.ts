@@ -36,6 +36,8 @@ const { mockConfig } = vi.hoisted(() => ({
     // G1 新增两键(与 src/config/index.ts 同形态,字符串档位)
     DEVICE_DELEGATION_ENABLED: 'true',
     DEVICE_TOKEN_SECRET: '',
+    // G1b 版本闸:空串 = 不启用(用例内会临时改成具体版本号再复位)
+    DEVICE_MIN_CLIENT_VERSION: '',
   },
 }))
 vi.mock('../src/config/index.js', () => ({ config: mockConfig }))
@@ -132,8 +134,8 @@ vi.mock('../src/db/index.js', async () => {
     let m: RegExpExecArray | null
     let p = 0
     while ((m = re.exec(text)) !== null) {
-      if (m[3]) preds.push({ key: snakeToCamel(m[2]), op: m[3], value: params[p++] })
-      else preds.push({ key: snakeToCamel(m[5]), op: 'is null' })
+      if (m[3]) preds.push({ key: snakeToCamel(m[2]!), op: m[3], value: params[p++] })
+      else preds.push({ key: snakeToCamel(m[5]!), op: 'is null' })
     }
     return preds
   }
@@ -187,7 +189,7 @@ vi.mock('../src/db/index.js', async () => {
     const row = { id: randomUUID(), createdAt: new Date(), ...v }
     if (conflictCfg) {
       const keys: string[] = conflictCfg.target.map((c: any) => snakeToCamel(c.name))
-      const found = rows.find((r) => keys.every((k) => String(r[k]) === String(v[k])))
+      const found = rows!.find((r) => keys.every((k) => String(r[k]) === String(v[k])))
       if (found) {
         for (const [sk, sv] of Object.entries(conflictCfg.set)) {
           // G1b:registerDevice 的 set 里出现 drizzle SQL 模板(如
@@ -203,7 +205,7 @@ vi.mock('../src/db/index.js', async () => {
         return [{ ...found }]
       }
     }
-    rows.push(row)
+    rows!.push(row)
     return [{ ...row }]
   }
 
@@ -278,7 +280,7 @@ vi.mock('../src/db/index.js', async () => {
     // 惰性过期清扫(claim / 列表查询前置)
     if (text.includes("'expired'")) {
       const [deviceId, cutoff] = params as [string, Date]
-      store.device_tasks.forEach((r) => {
+      store.device_tasks!.forEach((r) => {
         if (
           r.targetDeviceId === deviceId &&
           r.status === 'queued' &&
@@ -293,7 +295,7 @@ vi.mock('../src/db/index.js', async () => {
     // 原子认领:UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1)
     if (text.includes('FOR UPDATE SKIP LOCKED')) {
       const deviceId = params[0] as string
-      const cands = store.device_tasks
+      const cands = store.device_tasks!
         .filter((r) => r.targetDeviceId === deviceId && r.status === 'queued')
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       const pick = cands[0]
@@ -423,7 +425,7 @@ describe('G1 跨设备互联闭环', () => {
   })
 
   it('配对码过期:expires_at 已过 → 410', async () => {
-    store.device_pair_codes.push({
+    store.device_pair_codes!.push({
       id: randomUUID(),
       userId: USER_A,
       codeHash: hashPairCode('65432100'),
@@ -544,12 +546,12 @@ describe('G1 跨设备互联闭环', () => {
   it('delegate:到他用户设备 403;本人设备 queued;设备不存在 404', async () => {
     const reg = await asUser('POST', '/api/devices', USER_A, { name: 'PC-A' })
     const deviceId = reg.json().data.id as string
-    store.chat_conversations.push(
+    store.chat_conversations!.push(
       { id: randomUUID(), userId: USER_B },
       { id: randomUUID(), userId: USER_A },
     )
-    const sessionB = store.chat_conversations.find((c) => c.userId === USER_B)!.id
-    const sessionA = store.chat_conversations.find((c) => c.userId === USER_A)!.id
+    const sessionB = store.chat_conversations!.find((c) => c.userId === USER_B)!.id
+    const sessionA = store.chat_conversations!.find((c) => c.userId === USER_A)!.id
     // B 把 A 的设备当目标 → 403
     const forbidden = await asUser('POST', `/api/chat/sessions/${sessionB}/delegate`, USER_B, {
       target_device_id: deviceId,
@@ -577,7 +579,7 @@ describe('G1 跨设备互联闭环', () => {
   it('claim 原子性:两并发认领恰一个拿到任务', async () => {
     const { deviceToken, deviceId } = await pairNewDevice(USER_A)
     const session = randomUUID()
-    store.chat_conversations.push({ id: session, userId: USER_A })
+    store.chat_conversations!.push({ id: session, userId: USER_A })
     const delegated = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
       target_device_id: deviceId,
     })
@@ -610,7 +612,7 @@ describe('G1 跨设备互联闭环', () => {
 
   it('expired 惰性判定:queued 超 24h 在 claim 与列表查询时置 expired', async () => {
     const { deviceToken, deviceId } = await pairNewDevice(USER_A)
-    store.device_tasks.push({
+    store.device_tasks!.push({
       id: randomUUID(),
       sessionId: randomUUID(),
       targetDeviceId: deviceId,
@@ -636,7 +638,7 @@ describe('G1 跨设备互联闭环', () => {
     mockConfig.DEVICE_DELEGATION_ENABLED = 'false'
     const { deviceToken, deviceId } = await pairNewDevice(USER_A)
     const session = randomUUID()
-    store.chat_conversations.push({ id: session, userId: USER_A })
+    store.chat_conversations!.push({ id: session, userId: USER_A })
     const claim = await asDevice('GET', '/api/devices/claim', deviceToken)
     expect(claim.statusCode).toBe(503)
     const delegated = await asUser('POST', `/api/chat/sessions/${session}/delegate`, USER_A, {
