@@ -178,10 +178,22 @@ export interface SubagentDispatch {
   /**
    * 租户归属 = 发起派单的登录用户(request.userId)。
    * **只由服务端从鉴权结果写入**,不进 DispatchInput/请求体(schema 里没有 ⇒ 客户端无法自报)。
-   * 记录缺失该字段(本字段落地前创建 / Redis 里旧 hash 恢复)⇒ 归属「未标注」,
-   * 列表口径按既有行为公开,不新造隔离假象也不隐藏历史(细则见 routes/subagent-dispatch.ts)。
+   * 记录缺失该字段 = 未归属:**不再公开**。启动装载时会先按
+   * conversation 属主 → agent_tasks.created_by → 同会话 thread 兄弟 三级回填(见
+   * services/subagent-dispatch-service.ts 的 `_loadActiveDispatches`);三源都推不出的才标
+   * `ownership='orphan'`,并与"未回填旧档"同档:仅系统管理员可见(判据唯一出口
+   * utils/dispatch-ownership.ts)。**先回填、后收紧**的顺序由装载入口保证 ——
+   * 回填发生在 runtimes.set 之前,路由读不到尚未推导归属的记录。
    */
   ownerUserId?: string
+  /**
+   * 归属回填结果标记(2026-11-02,归属回填与 fail-open 收敛)。
+   *  `undefined` = 正常(有 ownerUserId 或无需标记);
+   *  `'orphan'` = 三级推导(conversation / agentTask / thread 兄弟)全部失败,
+   *  记录仍可读但**只对系统管理员可见**(普通用户按不存在处理,路由仍回 404,防枚举)。
+   * 该字段只作数据标记与管理面展示,不参与可见性分支(无 ownerUserId 已 fail-closed)。
+   */
+  ownership?: 'orphan'
   /**
    * 所属 thread 的上一条派单 id(F3 2026-11-02)。
    * 同一 conversationId 的后续派单默认挂到该会话最近一条派单上(会话连续的最小表达);
