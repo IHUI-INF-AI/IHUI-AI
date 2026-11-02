@@ -80,7 +80,7 @@ export function ReasoningEffortAxis({
       data-selectable={selectable ? 'true' : 'false'}
     >
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">{t('reasoningEffortLabel')}</span>
+        <span className="text-label text-muted-foreground">{t('reasoningEffortLabel')}</span>
         <div
           className="flex items-center gap-1"
           role="radiogroup"
@@ -100,7 +100,7 @@ export function ReasoningEffortAxis({
                 data-testid={`reasoning-effort-${effort}`}
                 data-disabled={blocked ? 'true' : 'false'}
                 className={
-                  'rounded-sm px-2 py-0.5 text-xs transition-colors ' +
+                  'rounded-sm px-2 py-0.5 text-label transition-colors ' +
                   (active
                     ? 'bg-cta font-medium text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent')
@@ -116,7 +116,7 @@ export function ReasoningEffortAxis({
       {/* 回落可见:后端把选定档位钉回时,轴上必须显式写出来 —— 静默降档是本票点名的病 */}
       {notice?.fallback ? (
         <p
-          className="text-xs text-amber-600 dark:text-amber-400"
+          className="text-label text-amber-600 dark:text-amber-400"
           data-testid="reasoning-effort-fallback"
           role="status"
         >
@@ -126,7 +126,7 @@ export function ReasoningEffortAxis({
           })}
         </p>
       ) : !selectable ? (
-        <p className="text-xs text-muted-foreground" data-testid="reasoning-effort-unsupported">
+        <p className="text-label text-muted-foreground" data-testid="reasoning-effort-unsupported">
           {t('reasoningEffortUnsupported')}
         </p>
       ) : null}

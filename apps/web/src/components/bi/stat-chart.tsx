@@ -186,7 +186,10 @@ export function StatChart({
   if (data.length === 0) {
     return (
       <div
-        className={cn('flex items-center justify-center text-sm text-muted-foreground', className)}
+        className={cn(
+          'flex items-center justify-center text-body text-muted-foreground',
+          className,
+        )}
         style={{ height: heightStyle }}
       >
         暂无数据

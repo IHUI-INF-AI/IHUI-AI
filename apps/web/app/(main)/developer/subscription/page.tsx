@@ -97,7 +97,7 @@ export default function SubscriptionPage() {
           <CreditCard className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -117,10 +117,10 @@ export default function SubscriptionPage() {
               <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">{t('currentPlan')}</p>
+                    <p className="text-label text-muted-foreground">{t('currentPlan')}</p>
                     <p className="mt-0.5 text-lg font-semibold">{data.planName}</p>
                     {data.price !== undefined && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-body text-muted-foreground">
                         {currencyFmt.format(data.price)} / {data.period ?? t('month')}
                       </p>
                     )}
@@ -141,14 +141,14 @@ export default function SubscriptionPage() {
                 </div>
 
                 {data.expireAt && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('expireTime')} {dateFmt.format(new Date(data.expireAt))}
                   </p>
                 )}
 
                 {data.quotaTotal !== undefined && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="text-muted-foreground">{t('quotaUsage')}</span>
                       <span className="font-medium">
                         {data.quotaUsed ?? 0} / {data.quotaTotal}
@@ -168,7 +168,7 @@ export default function SubscriptionPage() {
                     {data.features.map((f) => (
                       <span
                         key={f}
-                        className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                       >
                         <Check className="h-3 w-3" />
                         {f}
@@ -193,7 +193,7 @@ export default function SubscriptionPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-body font-semibold">{p.name}</p>
                         {p.isCurrent && (
-                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-label text-primary">
                             {t('current')}
                           </span>
                         )}
@@ -205,7 +205,7 @@ export default function SubscriptionPage() {
                           / {p.period}
                         </span>
                       </p>
-                      <ul className="space-y-1 text-xs text-muted-foreground">
+                      <ul className="space-y-1 text-label text-muted-foreground">
                         {p.features.map((f) => (
                           <li key={f} className="flex items-center gap-1">
                             <Check className="h-3 w-3 shrink-0" />

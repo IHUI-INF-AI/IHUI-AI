@@ -57,10 +57,12 @@ export default function PdfSplitPage() {
           label={t('uploadLabel')}
         />
       ) : (
-        <div className="flex items-center gap-3 rounded-lg border bg-card p-3 text-sm">
+        <div className="flex items-center gap-3 rounded-lg border bg-card p-3 text-body">
           <FileText className="h-4 w-4 shrink-0 text-primary" />
           <span className="flex-1 truncate">{file.name}</span>
-          <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+          <span className="text-label text-muted-foreground">
+            {(file.size / 1024).toFixed(1)} KB
+          </span>
           <Button
             variant="ghost"
             size="icon"
@@ -80,7 +82,7 @@ export default function PdfSplitPage() {
               type="button"
               onClick={() => setMode(key)}
               className={cn(
-                'rounded-sm border px-3 py-2 text-sm transition-colors',
+                'rounded-sm border px-3 py-2 text-body transition-colors',
                 mode === key
                   ? 'border-brand-accent-deep bg-primary/10 text-primary'
                   : 'hover:bg-accent',
@@ -115,7 +117,7 @@ export default function PdfSplitPage() {
         </div>
       )}
       {mode === 'bookmarks' && (
-        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed p-3 text-body text-muted-foreground">
           {t('bookmarksHint')}
         </p>
       )}
@@ -129,7 +131,7 @@ export default function PdfSplitPage() {
       {error && <NotAvailableAlert />}
       {result && (
         <div className="space-y-1 rounded-lg border bg-card p-3">
-          <p className="text-sm text-muted-foreground">{t('resultHint')}</p>
+          <p className="text-body text-muted-foreground">{t('resultHint')}</p>
           <DownloadLink url={result.url} filename={result.filename} />
         </div>
       )}

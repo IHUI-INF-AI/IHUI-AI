@@ -205,7 +205,7 @@ export default function AccountsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">{t('accounts.title')}</h2>
-          <p className="text-xs text-muted-foreground">{t('accounts.subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('accounts.subtitle')}</p>
           {/* 2026-09-29:Cookie 自动保活状态一行(守护跑在 ai-service,这里只读 stats) */}
           <CookieAutoRefreshChip />
         </div>
@@ -299,7 +299,7 @@ export default function AccountsPage() {
                 key={s.platformId}
                 type="button"
                 onClick={() => openScanLogin(s.platformId)}
-                className="inline-flex items-center gap-1 rounded-sm border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
+                className="inline-flex items-center gap-1 rounded-sm border border-input bg-background px-2 py-1 text-label hover:bg-accent"
               >
                 <span className="font-medium">{s.platformName}</span>
                 <span className="text-muted-foreground">+ 配置</span>
@@ -316,7 +316,7 @@ export default function AccountsPage() {
       ) : accounts.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <AlertCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('accounts.noAccounts')}</p>
+          <p className="text-body text-muted-foreground">{t('accounts.noAccounts')}</p>
           <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
             <Plus className="h-4 w-4" />
             {t('accounts.add')}
@@ -365,7 +365,7 @@ export default function AccountsPage() {
                               {nameParts.name || a.displayName}
                             </span>
                             {subtitle ? (
-                              <span className="truncate text-xs text-muted-foreground">
+                              <span className="truncate text-label text-muted-foreground">
                                 {subtitle}
                               </span>
                             ) : null}
@@ -513,7 +513,7 @@ export default function AccountsPage() {
               <DialogTitle>{editing ? t('accounts.edit') : t('accounts.add')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-1">
-              <Label className="text-xs">{t('accounts.platform')}</Label>
+              <Label className="text-label">{t('accounts.platform')}</Label>
               <Select
                 value={form.platform}
                 onValueChange={(v) => {
@@ -522,7 +522,7 @@ export default function AccountsPage() {
                 }}
                 disabled={!!editing}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 text-label">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -535,16 +535,16 @@ export default function AccountsPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('accounts.nickname')}</Label>
+              <Label className="text-label">{t('accounts.nickname')}</Label>
               <Input
                 value={form.nickname}
                 onChange={(e) => setForm({ ...form, nickname: e.target.value })}
                 required
-                className="h-8 text-xs"
+                className="h-8 text-label"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('accounts.credentials')}</Label>
+              <Label className="text-label">{t('accounts.credentials')}</Label>
               <CredentialGuide
                 platformId={form.platform}
                 value={credentials}
@@ -575,7 +575,7 @@ export default function AccountsPage() {
           <DialogHeader>
             <DialogTitle>{t('accounts.delete')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{t('accounts.deleteConfirm')}</p>
+          <p className="text-body text-muted-foreground">{t('accounts.deleteConfirm')}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               {tc('cancel')}

@@ -104,7 +104,7 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
           <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="flex min-w-0 flex-col">
             <span className="text-body font-medium leading-tight">{tTools('title')}</span>
-            <span className="truncate text-xs text-muted-foreground leading-tight">
+            <span className="truncate text-label text-muted-foreground leading-tight">
               {toolsPanelOpen ? t('toolsPanelClose') : t('toolsPanelOpen')}
             </span>
           </span>
@@ -124,7 +124,7 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
               <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="flex min-w-0 flex-col">
                 <span className="text-body font-medium leading-tight">{t(item.labelKey)}</span>
-                <span className="truncate text-xs text-muted-foreground leading-tight">
+                <span className="truncate text-label text-muted-foreground leading-tight">
                   {t(item.descKey)}
                 </span>
               </span>

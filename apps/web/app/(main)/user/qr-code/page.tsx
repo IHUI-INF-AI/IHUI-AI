@@ -83,7 +83,7 @@ export default function QrCodePage() {
         </div>
       ) : q.isError ? (
         <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
+          <p className="mb-3 text-body text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
             {t('retry')}
@@ -93,8 +93,8 @@ export default function QrCodePage() {
         <Card>
           <CardContent className="min-[640px]:p-3 flex flex-col items-center p-3 text-center">
             <QrPlaceholder content={q.data.content} />
-            <p className="mt-4 text-sm text-muted-foreground">{t('scanHint')}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-4 text-body text-muted-foreground">{t('scanHint')}</p>
+            <p className="mt-1 text-label text-muted-foreground">
               {t('inviteCode')}: {q.data.inviteCode}
             </p>
             <Button className="mt-4" onClick={() => void onShare()}>

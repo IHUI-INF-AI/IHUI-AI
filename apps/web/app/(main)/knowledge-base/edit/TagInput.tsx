@@ -42,7 +42,7 @@ export function TagInput({ tags, value, onChange, onAdd, onRemove }: Props) {
           {tags.map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary"
+              className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary"
             >
               {tag}
               <button type="button" onClick={() => onRemove(tag)}>

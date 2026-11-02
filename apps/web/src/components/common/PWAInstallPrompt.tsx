@@ -51,9 +51,9 @@ export function PWAInstallPrompt({ className, promptEvent }: PWAInstallPromptPro
   return (
     <div className={cn('flex items-center gap-3 rounded-lg border bg-card p-3 shadow', className)}>
       <Download className="h-5 w-5 shrink-0 text-primary" />
-      <div className="flex-1 min-w-0 text-sm">
+      <div className="flex-1 min-w-0 text-body">
         <p className="font-medium">{t('title')}</p>
-        <p className="text-xs text-muted-foreground">{t('body')}</p>
+        <p className="text-label text-muted-foreground">{t('body')}</p>
       </div>
       <button
         onClick={handleInstall}

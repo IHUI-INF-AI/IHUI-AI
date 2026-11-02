@@ -44,7 +44,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
         <div className="bg-muted/40 px-3 py-2 text-label font-semibold uppercase text-muted-foreground">
           {t('editor.properties')}
         </div>
-        <div className="p-3 text-center text-xs text-muted-foreground">
+        <div className="p-3 text-center text-label text-muted-foreground">
           {t('editor.selectNode')}
         </div>
       </div>
@@ -86,7 +86,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               id="prop-name"
               value={step.name}
               onChange={(e) => update({ name: e.target.value })}
-              className="h-8 text-xs"
+              className="h-8 text-label"
             />
           </div>
         )}
@@ -100,7 +100,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               value={step.input ?? ''}
               onChange={(e) => setStr('input', e.target.value)}
               rows={3}
-              className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
         )}
@@ -114,7 +114,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
                 value={step.skill ?? 'text-summary'}
                 onValueChange={(v) => setStr('skill', v)}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 text-label">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -133,7 +133,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
                 value={step.input ?? ''}
                 onChange={(e) => setStr('input', e.target.value)}
                 rows={3}
-                className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-2 py-1.5 text-label shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </>
@@ -147,7 +147,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               id="prop-condition"
               value={step.condition ?? ''}
               onChange={(e) => setStr('condition', e.target.value)}
-              className="h-8 text-xs font-mono"
+              className="h-8 text-label font-mono"
               placeholder='例如: status == "success"'
             />
             <p className="text-[10px] text-muted-foreground">支持: true / false / field==value</p>
@@ -165,7 +165,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               step={100}
               value={step.duration ?? 1000}
               onChange={(e) => setStr('duration', e.target.value)}
-              className="h-8 text-xs"
+              className="h-8 text-label"
             />
           </div>
         )}
@@ -181,7 +181,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               max={100}
               value={step.count ?? 3}
               onChange={(e) => setStr('count', e.target.value)}
-              className="h-8 text-xs"
+              className="h-8 text-label"
             />
           </div>
         )}
@@ -196,7 +196,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
               onChange={(e) => update({ continueOnFail: e.target.checked })}
               className="h-3.5 w-3.5 rounded-sm border-input"
             />
-            <Label htmlFor="prop-continue" className="text-xs">
+            <Label htmlFor="prop-continue" className="text-label">
               {t('editor.continueOnFail')}
             </Label>
           </div>

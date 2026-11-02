@@ -114,12 +114,12 @@ export default function ExamTakePage() {
         <button
           type="button"
           onClick={() => router.push('/exam')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>

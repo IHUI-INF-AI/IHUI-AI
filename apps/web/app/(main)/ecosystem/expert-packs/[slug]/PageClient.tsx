@@ -71,10 +71,10 @@ export default function ExpertPackDetailPageClient() {
   if (!pack) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-10 text-center">
-        <p className="text-sm text-muted-foreground">{t('packNotFound')}</p>
+        <p className="text-body text-muted-foreground">{t('packNotFound')}</p>
         <Link
           href={expertPackListHref()}
-          className="mt-3 inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-xs transition-colors hover:bg-accent"
+          className="mt-3 inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-label transition-colors hover:bg-accent"
         >
           <span>{t('packsListLink')}</span>
         </Link>
@@ -92,10 +92,10 @@ export default function ExpertPackDetailPageClient() {
           <h1 className="text-lg font-semibold">{t(`bundles.${pack.titleKey}.title`)}</h1>
           <ViewMoreLink label={more('more')} href={expertPackListHref()} className="ms-auto" />
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1 text-label leading-relaxed text-muted-foreground">
           {t(`bundles.${pack.titleKey}.desc`)}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">{t('packStepsHint')}</p>
+        <p className="mt-1 text-label text-muted-foreground">{t('packStepsHint')}</p>
       </header>
 
       <ol className="flex flex-col gap-2">
@@ -121,7 +121,7 @@ export default function ExpertPackDetailPageClient() {
                     </Link>
                     <CountBadge count={overview.counts[marketKey]} />
                   </div>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  <p className="mt-0.5 text-label leading-relaxed text-muted-foreground">
                     {t(`cards.${marketKey}.desc`)}
                   </p>
                   {sample ? (
@@ -129,7 +129,7 @@ export default function ExpertPackDetailPageClient() {
                       <span className="text-[10px] text-muted-foreground">{t('entrySample')}</span>
                       <Link
                         href={sample.href}
-                        className="rounded-md bg-muted px-2 py-1 text-xs transition-colors hover:bg-accent"
+                        className="rounded-md bg-muted px-2 py-1 text-label transition-colors hover:bg-accent"
                       >
                         <span>{sample.label}</span>
                       </Link>

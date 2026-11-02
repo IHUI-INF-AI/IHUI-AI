@@ -160,7 +160,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
         )}
       >
         <AlertCircle className="h-8 w-8" />
-        <p className="text-sm">{error}</p>
+        <p className="text-body">{error}</p>
       </div>
     )
   }
@@ -179,7 +179,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
               <ChevronLeft className="h-4 w-4" />
             </button>
           </Tooltip>
-          <span className="text-xs">
+          <span className="text-label">
             {page} / {numPages}
           </span>
           <Tooltip content={t('nextPage')}>
@@ -203,7 +203,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
               <ZoomOut className="h-4 w-4" />
             </button>
           </Tooltip>
-          <span className="w-12 text-center text-xs">{Math.round(scale * 100)}%</span>
+          <span className="w-12 text-center text-label">{Math.round(scale * 100)}%</span>
           <Tooltip content={t('zoomIn')}>
             <button
               onClick={() => setScale((s) => Math.min(3, s + 0.2))}
@@ -228,7 +228,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
       </div>
       <div className="relative flex-1 overflow-auto">
         {rendering && (
-          <div className="absolute right-3 top-3 z-10 rounded bg-black/60 px-2 py-1 text-xs text-white">
+          <div className="absolute right-3 top-3 z-10 rounded bg-black/60 px-2 py-1 text-label text-white">
             {t('rendering')}
           </div>
         )}

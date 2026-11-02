@@ -499,7 +499,7 @@ export function PermissionModePopover({
                     window.open('/docs/SECURITY', '_blank', 'noopener,noreferrer')
                   }
                 }}
-                className="inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex items-center gap-0.5 text-label text-muted-foreground transition-colors hover:text-foreground"
               >
                 <span className="underline-offset-2 hover:underline">{t('learnMore')}</span>
                 <ExternalLink className="h-3 w-3" />

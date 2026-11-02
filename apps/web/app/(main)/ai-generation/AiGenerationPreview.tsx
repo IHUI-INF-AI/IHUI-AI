@@ -28,7 +28,7 @@ export function AiGenerationPreview({ lastImage, lastVideo, onClear }: Props) {
           <button
             type="button"
             onClick={onClear}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="text-label text-muted-foreground transition-colors hover:text-foreground"
           >
             {t('clear')}
           </button>

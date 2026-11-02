@@ -137,13 +137,13 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
         {/* 内容 */}
         <div className="px-5 py-4">
           {loading ? (
-            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-40 items-center justify-center text-body text-muted-foreground">
               {t('trendChart.loading')}
             </div>
           ) : !hasData ? (
             <div className="flex h-40 flex-col items-center justify-center gap-2 text-center">
               <Minus className="h-6 w-6 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">{t('trendChart.noData')}</p>
+              <p className="text-body text-muted-foreground">{t('trendChart.noData')}</p>
               <p className="text-[10px] text-muted-foreground/60">{t('trendChart.noDataHint')}</p>
             </div>
           ) : (

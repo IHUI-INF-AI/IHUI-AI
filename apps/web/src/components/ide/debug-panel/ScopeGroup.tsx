@@ -29,7 +29,7 @@ export function ScopeGroup({ scope }: { scope: DebugScope }) {
         ((variables ?? []).length > 0 ? (
           (variables ?? []).map((v) => <VariableRow key={v.name} v={v} />)
         ) : (
-          <div className="px-3 py-1 text-xs text-muted-foreground">—</div>
+          <div className="px-3 py-1 text-label text-muted-foreground">—</div>
         ))}
     </div>
   )

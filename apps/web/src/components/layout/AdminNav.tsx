@@ -1209,7 +1209,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         href={item.href}
         className={cn(
           'flex items-center gap-2.5 rounded-md font-medium transition-colors',
-          compact ? 'px-3 py-1.5 text-xs' : 'px-3 py-2 text-sm',
+          compact ? 'px-3 py-1.5 text-label' : 'px-3 py-2 text-body',
           active
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',

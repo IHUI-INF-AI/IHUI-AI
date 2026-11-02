@@ -60,7 +60,7 @@ export default function ChatWorkbenchPage() {
             <MessageSquare className="h-7 w-7 text-primary" aria-hidden />
           </div>
           <h2 className="text-lg font-semibold tracking-tight">{t('loginRequiredTitle')}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-body leading-relaxed text-muted-foreground">
             {t('loginRequiredDesc')}
           </p>
           <Button type="button" onClick={() => open('login')} className="mt-6">

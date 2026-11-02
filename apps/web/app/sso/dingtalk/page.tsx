@@ -13,7 +13,7 @@ export default function SsoDingtalkCompatPage() {
         }}
       />
       <div className="px-4 py-4 flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">正在跳转到钉钉登录...</p>
+        <p className="text-body text-muted-foreground">正在跳转到钉钉登录...</p>
       </div>
     </>
   )

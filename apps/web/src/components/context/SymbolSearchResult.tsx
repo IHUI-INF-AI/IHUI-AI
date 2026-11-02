@@ -52,11 +52,11 @@ export function SymbolSearchResult({ symbol, selected, onSelect }: SymbolSearchR
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-body font-medium">{symbol.name}</p>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-label text-muted-foreground">
           {symbol.filePath}:{symbol.line}
         </p>
         {symbol.detail && (
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{symbol.detail}</p>
+          <p className="mt-1 line-clamp-2 text-label text-muted-foreground">{symbol.detail}</p>
         )}
       </div>
     </button>

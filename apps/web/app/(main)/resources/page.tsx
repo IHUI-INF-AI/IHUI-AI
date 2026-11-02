@@ -110,7 +110,7 @@ export default function ResourcesPage() {
           <BookOpen className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -151,13 +151,13 @@ export default function ResourcesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <FileText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -179,7 +179,7 @@ export default function ResourcesPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{item.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-label text-muted-foreground">
                   {item.fileType && <p>{item.fileType}</p>}
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
@@ -200,7 +200,7 @@ export default function ResourcesPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+          <span className="text-body text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -210,7 +210,7 @@ export default function ResourcesPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button

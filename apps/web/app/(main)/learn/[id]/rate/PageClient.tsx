@@ -78,7 +78,7 @@ export default function CourseRatePage() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Link
           href={`/learn/${id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToCourse')}
@@ -101,12 +101,12 @@ export default function CourseRatePage() {
         <button
           type="button"
           onClick={() => router.push(`/learn/${id}`)}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToCourse')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('loadFailed')}
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function CourseRatePage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/learn/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToCourse')}
@@ -156,7 +156,7 @@ export default function CourseRatePage() {
                     />
                   </button>
                 ))}
-                <span className="ml-2 text-sm text-muted-foreground">
+                <span className="ml-2 text-body text-muted-foreground">
                   {t('ratingValue', { rating })}
                 </span>
               </div>
@@ -171,11 +171,11 @@ export default function CourseRatePage() {
                 onChange={(e) => setContent(e.target.value)}
                 placeholder={t('contentPlaceholder')}
                 rows={4}
-                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             {submitMut.isError && (
-              <p className="text-xs text-destructive">{(submitMut.error as Error)?.message}</p>
+              <p className="text-label text-destructive">{(submitMut.error as Error)?.message}</p>
             )}
             <Button type="submit" disabled={submitMut.isPending || !content.trim()}>
               {submitMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -191,7 +191,7 @@ export default function CourseRatePage() {
         {list.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <MessageSquare className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noRates')}</p>
+            <p className="text-body text-muted-foreground">{t('noRates')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -206,7 +206,7 @@ export default function CourseRatePage() {
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-body font-medium">{name}</span>
-                        {time && <span className="text-xs text-muted-foreground">{time}</span>}
+                        {time && <span className="text-label text-muted-foreground">{time}</span>}
                       </div>
                       <div className="flex items-center gap-0.5">
                         {[1, 2, 3, 4, 5].map((n) => (
@@ -220,7 +220,7 @@ export default function CourseRatePage() {
                           />
                         ))}
                       </div>
-                      <p className="text-sm text-muted-foreground">{item.content}</p>
+                      <p className="text-body text-muted-foreground">{item.content}</p>
                     </div>
                   </CardContent>
                 </Card>

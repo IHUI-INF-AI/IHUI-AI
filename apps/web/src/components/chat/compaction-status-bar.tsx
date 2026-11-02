@@ -100,7 +100,7 @@ export function CompactionStatusBar() {
     >
       <div
         className={cn(
-          'relative mx-4 mb-2 flex items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-xs',
+          'relative mx-4 mb-2 flex items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-label',
           isCompacting
             ? 'bg-primary/10 text-primary'
             : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -284,12 +284,14 @@ function ArchiveViewerDialog({
               setDetailMessages(null)
             }}
             aria-label={t('archiveTitle')}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="text-label text-muted-foreground transition-colors hover:text-foreground"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           {detailLoading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t('archiveLoading')}</p>
+            <p className="py-6 text-center text-body text-muted-foreground">
+              {t('archiveLoading')}
+            </p>
           ) : (
             <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
               {(detailMessages ?? []).map((m, i) => (
@@ -302,7 +304,7 @@ function ArchiveViewerDialog({
                   >
                     {m.role}
                   </span>
-                  <p className="whitespace-pre-wrap break-words text-xs text-foreground/90">
+                  <p className="whitespace-pre-wrap break-words text-label text-foreground/90">
                     {m.content}
                   </p>
                 </div>
@@ -311,9 +313,9 @@ function ArchiveViewerDialog({
           )}
         </div>
       ) : listLoading ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">{t('archiveLoading')}</p>
+        <p className="py-6 text-center text-body text-muted-foreground">{t('archiveLoading')}</p>
       ) : !archives || archives.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">{t('archiveEmpty')}</p>
+        <p className="py-6 text-center text-body text-muted-foreground">{t('archiveEmpty')}</p>
       ) : (
         <ul className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
           {archives.map((a) => (
@@ -321,7 +323,7 @@ function ArchiveViewerDialog({
               <button
                 type="button"
                 onClick={() => openDetail(a.id)}
-                className="w-full rounded-sm border border-border px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+                className="w-full rounded-sm border border-border px-3 py-2 text-left text-label transition-colors hover:bg-muted/50"
               >
                 <span className="font-medium">{t('viewArchived', { count: a.messageCount })}</span>
                 <span className="ml-2 text-muted-foreground">

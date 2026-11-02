@@ -125,7 +125,7 @@ export default function ChatPage() {
           <h2 className="text-lg font-semibold tracking-tight">
             {t('loginRequiredTitle') || '登录后开始 AI 对话'}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-body leading-relaxed text-muted-foreground">
             {t('loginRequiredDesc') ||
               '登录后即可与 AI 智能体对话,支持多模型切换、附件上传、深度思考等功能'}
           </p>

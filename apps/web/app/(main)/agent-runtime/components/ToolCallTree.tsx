@@ -62,7 +62,7 @@ function TreeRow({
 
   return (
     <div>
-      <div className="flex items-center gap-1 px-1 py-0.5 font-mono text-xs hover:bg-muted/40 rounded-sm">
+      <div className="flex items-center gap-1 px-1 py-0.5 font-mono text-label hover:bg-muted/40 rounded-sm">
         <span className="select-none whitespace-pre text-muted-foreground">{prefix + branch}</span>
         {hasChildren ? (
           <button
@@ -90,7 +90,7 @@ function TreeRow({
         )}
       </div>
       {paramsOpen && node.params && (
-        <pre className="mb-1 ml-12 overflow-auto rounded bg-muted p-2 text-xs">
+        <pre className="mb-1 ml-12 overflow-auto rounded bg-muted p-2 text-label">
           {JSON.stringify(node.params, null, 2)}
         </pre>
       )}
@@ -156,7 +156,7 @@ export function ToolCallTree({ agentId, timeRange, refreshKey }: ToolCallTreePro
             加载中...
           </div>
         ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-body text-muted-foreground">
             {error ? '接口暂不可用,暂无数据' : '暂无工具调用记录'}
           </p>
         ) : (

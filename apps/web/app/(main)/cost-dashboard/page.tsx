@@ -131,7 +131,7 @@ export default function CostDashboardPage() {
             <button
               key={g}
               onClick={() => setGranularity(g)}
-              className={`rounded-sm border px-3 py-1 text-sm transition ${
+              className={`rounded-sm border px-3 py-1 text-body transition ${
                 granularity === g
                   ? 'border-primary/40 bg-primary/10 text-primary'
                   : 'hover:bg-muted'
@@ -142,26 +142,26 @@ export default function CostDashboardPage() {
           ))}
         </div>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <p className="mb-4 text-body text-muted-foreground">{t('subtitle')}</p>
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-body text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> {t('loading')}
         </div>
       )}
       {needLogin && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {error && (
-        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-body text-destructive">
           <XCircle className="h-4 w-4" /> {error}
         </p>
       )}
 
       {!loading && summary && summary.steps === 0 && !error && !needLogin && (
-        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-body text-muted-foreground">
           <Activity className="h-5 w-5" /> {t('empty')}
         </div>
       )}
@@ -171,39 +171,39 @@ export default function CostDashboardPage() {
           {/* 聚合卡片 */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border p-3">
-              <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1.5 text-label text-muted-foreground">
                 <Coins className="h-3.5 w-3.5" /> {t('totalCost')}
               </div>
               <div className="text-heading font-bold">{fmtUsd(summary.total_cost)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-label text-muted-foreground">
                 {t('estimatedCount', { count: summary.estimated_count })}
               </div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1.5 text-label text-muted-foreground">
                 <Cpu className="h-3.5 w-3.5" /> {t('totalToken')}
               </div>
               <div className="text-heading font-bold">{summary.total_tokens.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-label text-muted-foreground">
                 in {summary.total_tokens_in.toLocaleString()} / out{' '}
                 {summary.total_tokens_out.toLocaleString()}
               </div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1.5 text-label text-muted-foreground">
                 <Timer className="h-3.5 w-3.5" /> {t('totalDuration')}
               </div>
               <div className="text-heading font-bold">{fmtDur(summary.total_duration_ms)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 text-label text-muted-foreground">
                 {summary.window?.start ?? '—'} ~ {summary.window?.end ?? '—'}
               </div>
             </div>
             <div className="rounded-xl border p-3">
-              <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1.5 text-label text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" /> {t('steps')}
               </div>
               <div className="text-heading font-bold">{summary.steps}</div>
-              <div className="mt-1 text-xs">
+              <div className="mt-1 text-label">
                 <span className="text-emerald-600">ok {summary.ok_count}</span>
                 <span className="text-destructive"> · err {summary.error_count}</span>
               </div>
@@ -217,7 +217,7 @@ export default function CostDashboardPage() {
               {t('costTokenTrend', { granularity: granularity === 'day' ? t('day') : t('hour') })}
             </h2>
             {series.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
                 <Activity className="h-5 w-5" /> {t('noSeries')}
               </div>
             ) : (
@@ -225,7 +225,7 @@ export default function CostDashboardPage() {
                 {series.map((b) => (
                   <div
                     key={b.bucket}
-                    className="grid grid-cols-[7rem_1fr_1fr_5rem] items-center gap-2 text-xs"
+                    className="grid grid-cols-[7rem_1fr_1fr_5rem] items-center gap-2 text-label"
                   >
                     <Tooltip content={b.bucket}>
                       <span className="truncate text-muted-foreground">{b.bucket}</span>
@@ -262,18 +262,18 @@ export default function CostDashboardPage() {
                 <Wrench className="h-4 w-4" /> {t('byTool')}
               </h2>
               {byToolEntries.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">-</div>
+                <div className="py-6 text-center text-body text-muted-foreground">-</div>
               ) : (
                 <ul className="space-y-2">
                   {byToolEntries.map(([name, v]) => (
-                    <li key={name} className="flex items-center gap-3 text-sm">
+                    <li key={name} className="flex items-center gap-3 text-body">
                       <Tooltip content={name}>
                         <span className="w-40 truncate">{name}</span>
                       </Tooltip>
                       <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
                         {fmtUsd(v.cost)}
                       </span>
-                      <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">
+                      <span className="w-16 shrink-0 text-right text-label text-muted-foreground">
                         {v.tokens.toLocaleString()} tok
                       </span>
                     </li>
@@ -286,18 +286,18 @@ export default function CostDashboardPage() {
                 <Cpu className="h-4 w-4" /> {t('byModel')}
               </h2>
               {byModelEntries.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">-</div>
+                <div className="py-6 text-center text-body text-muted-foreground">-</div>
               ) : (
                 <ul className="space-y-2">
                   {byModelEntries.map(([name, v]) => (
-                    <li key={name} className="flex items-center gap-3 text-sm">
+                    <li key={name} className="flex items-center gap-3 text-body">
                       <Tooltip content={name}>
                         <span className="w-40 truncate">{name}</span>
                       </Tooltip>
                       <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
                         {fmtUsd(v.cost)}
                       </span>
-                      <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">
+                      <span className="w-16 shrink-0 text-right text-label text-muted-foreground">
                         {v.tokens.toLocaleString()} tok
                       </span>
                     </li>
@@ -321,7 +321,7 @@ export default function CostDashboardPage() {
             </Tooltip>
           </h2>
           {budgetEvents.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-10 text-body text-muted-foreground">
               <Activity className="h-5 w-5" /> {t('budgetEventsEmpty')}
             </div>
           ) : (
@@ -336,7 +336,7 @@ export default function CostDashboardPage() {
                 return (
                   <li
                     key={`${e.timestamp}-${i}`}
-                    className="flex flex-wrap items-center gap-2 border-l-2 border-muted pl-3 text-sm"
+                    className="flex flex-wrap items-center gap-2 border-l-2 border-muted pl-3 text-body"
                   >
                     <span
                       className={`shrink-0 rounded px-1.5 py-0.5 text-label font-medium ${badge.cls}`}
@@ -350,33 +350,33 @@ export default function CostDashboardPage() {
                     )}
                     {e.pillar && (
                       <Tooltip content={e.pillar}>
-                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label">
                           {e.pillar}
                         </span>
                       </Tooltip>
                     )}
                     {pct && (
                       <Tooltip content={t('budgetUsagePercent', { percent: pct })}>
-                        <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                        <span className="shrink-0 tabular-nums text-label text-muted-foreground">
                           {pct}
                         </span>
                       </Tooltip>
                     )}
                     {typeof e.daily_cost === 'number' && e.daily_cost > 0 && (
                       <Tooltip content={t('budgetDailyCost', { cost: fmtUsd(e.daily_cost) })}>
-                        <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                        <span className="shrink-0 tabular-nums text-label text-muted-foreground">
                           {fmtUsd(e.daily_cost)}
                         </span>
                       </Tooltip>
                     )}
                     {e.degrade_to && (
                       <Tooltip content={t('budgetDegradedTo', { model: e.degrade_to })}>
-                        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-label text-primary">
                           → {e.degrade_to}
                         </span>
                       </Tooltip>
                     )}
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">{ts}</span>
+                    <span className="ml-auto shrink-0 text-label text-muted-foreground">{ts}</span>
                   </li>
                 )
               })}

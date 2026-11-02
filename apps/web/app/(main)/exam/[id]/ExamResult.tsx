@@ -25,7 +25,7 @@ export function ExamResult({ paper, result }: Props) {
     <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/exam"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -42,7 +42,7 @@ export function ExamResult({ paper, result }: Props) {
           >
             {result.passed ? <Check className="h-7 w-7" /> : <X className="h-7 w-7" />}
           </div>
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-display">
             {t('score', { score: result.score, total: paper.totalScore })}
           </CardTitle>
           <p
@@ -60,7 +60,7 @@ export function ExamResult({ paper, result }: Props) {
             return (
               <div
                 key={r.questionId}
-                className="flex items-start justify-between rounded-md border px-3 py-2 text-sm"
+                className="flex items-start justify-between rounded-md border px-3 py-2 text-body"
               >
                 <span className="flex items-center gap-2">
                   {r.correct ? (
@@ -72,7 +72,7 @@ export function ExamResult({ paper, result }: Props) {
                     {i + 1}. {q?.title}
                   </span>
                 </span>
-                <span className="text-xs text-muted-foreground">{r.score}</span>
+                <span className="text-label text-muted-foreground">{r.score}</span>
               </div>
             )
           })}

@@ -80,7 +80,9 @@ export default function SignInPage() {
   if (!allow) {
     return (
       <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('title')}
+        </h1>
         <AuthGatePrompt message="请先登录后签到并查看记录" />
       </div>
     )
@@ -122,13 +124,15 @@ export default function SignInPage() {
               className="h-8 w-8 rounded-md object-cover"
               unoptimized
             />
-            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+            <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link
           href="/points"
-          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-3 py-1.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <ArrowLeft className="h-4 w-4 shrink-0" />
           {t('backToPoints')}
@@ -141,7 +145,7 @@ export default function SignInPage() {
           <span className="whitespace-nowrap">{t('loading')}</span>
         </div>
       ) : todayQ.error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(todayQ.error as Error).message}
         </div>
       ) : (
@@ -166,14 +170,14 @@ export default function SignInPage() {
                 <p className="truncate text-base font-semibold">
                   {signedIn ? t('signedIn') : t('notSignedIn')}
                 </p>
-                <div className="flex items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
+                <div className="flex items-center gap-1 whitespace-nowrap text-body text-muted-foreground">
                   <Flame className="h-4 w-4 shrink-0 text-orange-500" />
                   {t('consecutiveDays', { days: consecutive })}
                 </div>
               </div>
             </div>
             <div className="flex shrink-0 flex-col items-center gap-2 min-[640px]:items-end">
-              <div className="flex items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
+              <div className="flex items-center gap-1 whitespace-nowrap text-body text-muted-foreground">
                 <Gift className="h-4 w-4 shrink-0 text-primary" />
                 {t('todayReward')}:{' '}
                 <span className="font-semibold tabular-nums text-foreground">
@@ -200,12 +204,12 @@ export default function SignInPage() {
       )}
 
       {signMut.isError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(signMut.error as Error).message}
         </div>
       )}
       {signMut.isSuccess && (
-        <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-3 text-body text-emerald-600 dark:text-emerald-400">
           {t('signInSuccess', { points: signMut.data.points })}
         </div>
       )}
@@ -227,7 +231,7 @@ export default function SignInPage() {
                   isSigned ? 'border-primary/40 bg-primary/5' : 'hover:bg-accent/50',
                 )}
               >
-                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                <span className="whitespace-nowrap text-label text-muted-foreground">
                   {t(WEEKDAY_KEY[d] ?? 'dayUnknown')}
                 </span>
                 <span
@@ -244,7 +248,7 @@ export default function SignInPage() {
                     '-'
                   )}
                 </span>
-                <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                <span className="whitespace-nowrap text-label tabular-nums text-muted-foreground">
                   +{item?.reward ?? 0}
                 </span>
               </div>
@@ -264,14 +268,14 @@ export default function SignInPage() {
             <span className="whitespace-nowrap">{t('loading')}</span>
           </div>
         ) : historyQ.error ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(historyQ.error as Error).message}
           </div>
         ) : historyQ.data && historyQ.data.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs text-muted-foreground">
+              <table className="w-full text-body">
+                <thead className="bg-muted/40 text-label text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 text-left font-medium">{t('dateLabel')}</th>
                     <th className="px-4 py-2 text-right font-medium">{t('rewardLabel')}</th>
@@ -301,7 +305,7 @@ export default function SignInPage() {
         ) : (
           <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <Calendar className="h-8 w-8 shrink-0 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
           </div>
         )}
       </section>
