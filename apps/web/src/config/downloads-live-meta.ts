@@ -15,7 +15,7 @@
  *  - `snapshot`     拿不到输入(超时/非 200/形状不对)⇒ 不覆盖、也不说"该端没货"
  *  - `unavailable`  拿到了输入且判据不命中(该端确实没登记 / 无机器可读发布源)⇒ 不覆盖
  */
-import type { LiveDesktopSource } from './desktop-feed-live'
+import type { LiveDesktopSource, ReleaseScanSummary } from './desktop-feed-live'
 import type { DownloadAsset, DownloadPlatform, PlatformMeta } from './downloads.config'
 
 export type LiveSourceKind = 'live' | 'snapshot' | 'unavailable'
@@ -31,6 +31,8 @@ export interface LivePlatformInfo {
   assets?: DownloadAsset[]
   /** 本次解析时刻 ISO:端上可自证"这行是活的还是陈的" */
   resolvedAt: string
+  /** 枚举预算自证(只有需要翻页枚举的端才有):pages 顶到 maxPages ⇒ 下一枚 release 会被挤出射程 */
+  scan?: ReleaseScanSummary
 }
 
 export type LiveDownloads = Partial<Record<DownloadPlatform, LivePlatformInfo>>
@@ -355,6 +357,7 @@ export function liveEntryView(
 export function toDesktopLiveInfo(
   source: Pick<LiveDesktopSource, 'version' | 'releaseDate' | 'assets'>,
   nowIso: string,
+  scan?: ReleaseScanSummary,
 ): LivePlatformInfo {
   return {
     platform: 'desktop',
@@ -367,6 +370,7 @@ export function toDesktopLiveInfo(
       format: a.format,
       arch: a.arch,
     })),
+    ...(scan === undefined ? {} : { scan }),
     resolvedAt: nowIso,
   }
 }
