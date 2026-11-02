@@ -24,7 +24,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   margin-bottom: var(--spacing-sm-loose);
@@ -112,7 +112,7 @@
   line-height: 1;
 }
 .dc-entry-text {
-  font-size: 26rpx; /* RN devItemText 13dp=26rpx */
+  font-size: var(--text-body-sm); /* RN devItemText 13dp=26rpx */
   color: var(--color-foreground);
   text-align: center;
 }
@@ -144,13 +144,13 @@
 .dc-account-label {
   width: 152rpx;
   flex-shrink: 0;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 /* RN infoValue: flex 1,13dp=26rpx,text.primary,numberOfLines 1 */
 .dc-account-value {
   flex: 1;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -250,7 +250,7 @@
 }
 /* RN problemContext: 13dp=26rpx text.secondary,mb rpx(16) */
 .dc-faq-item-context {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 1.5;
   margin-bottom: var(--spacing-sm);
@@ -263,7 +263,7 @@
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
-  font-size: 26rpx; /* 13dp */
+  font-size: var(--text-body-sm); /* 13dp */
   font-weight: 500;
 }
 
@@ -272,7 +272,7 @@
   display: block;
   text-align: center;
   color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   padding: var(--spacing-xl) 0;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
