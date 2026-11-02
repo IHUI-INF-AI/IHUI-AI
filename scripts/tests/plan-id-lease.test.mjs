@@ -25,7 +25,7 @@
  *  T5  appendLeaseRows:只追加不删改;区在插区头、区不在文件尾新建。
  *  T6  源码形状锁:live-doc-edit 必须经 lib 取租约判据(抄第二份必漂),且 CAS 循环内取号带 machineId。
  *  T8  段窗选择:同面同轮确定、两机窗分离(claimOffset 混机器指纹,下标=hash|窗数%窗数)、
- *      段尺寸 50、无 machineId 恒取最小窗。
+ *      段尺寸 10、无 machineId 恒取最小窗。
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -115,19 +115,19 @@ test('T2 parseLeases:三读数齐且互洽才算;漂移行不认', () => {
 })
 
 test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑窗 + 池外旧段不可续 + baseMax 避让', () => {
-  // ① 无租约 ⇒ 池内最小空闲窗(无 machineId ⇒ off=0 恒取最小窗;blocked 只认 ≤999 的号)
+  // ① 无租约 ⇒ 池内最小空闲窗(无 machineId ⇒ off=0 恒取最小窗;blocked 只认 ≤99 的号)
   const c1 = leaseCursor({ usedNumbers: [700], leases: [], family: 'G' })
   assert.deepEqual(
     { mode: c1.mode, start: c1.start, end: c1.end },
-    { mode: 'claim', start: 1, end: 50 },
-    '池内首窗 = 1..50(段尺寸 50,end=start+49),700 只堵它自己',
+    { mode: 'claim', start: 1, end: 10 },
+    '池内首窗 = 1..10(段尺寸 10,end=start+9),700 是池外存量号,不占池',
   )
-  // ①b 碎窗:1/2/49 已占 ⇒ "连续 50 全空闲"的最小窗从 50 起(3..52 含 49,不构成窗)
-  const c1b = leaseCursor({ usedNumbers: [1, 2, 49], leases: [], family: 'G' })
+  // ①b 碎窗:1/2/9 已占 ⇒ "连续 10 全空闲"的最小窗从 10 起(3..12 含 9,不构成窗)
+  const c1b = leaseCursor({ usedNumbers: [1, 2, 9], leases: [], family: 'G' })
   assert.deepEqual(
     { start: c1b.start, end: c1b.end },
-    { start: 50, end: 99 },
-    '窗必须是连续空闲段,49 处的碎片把首窗顶到 50',
+    { start: 10, end: 19 },
+    '窗必须是连续空闲段,9 处的碎片把首窗顶到 10',
   )
   // ①c 池内仍有空闲号、却装不下一段 ⇒ 拒绝,绝不越界发号(这一型的真因是"无连续窗",不是"池已满")
   const c1c = leaseCursor({
@@ -157,44 +157,44 @@ test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑�
     '池内找不出连续 segmentSize 个空闲 ⇒ pool-exhausted(调用方必须拒绝发号);' +
       '空闲 2 枚却无 3 号窗 ⇒ reason 必须是 NO_CONTIGUOUS_LEASE_WINDOW,不得念成池已满',
   )
-  // ② 自有池内段段内连号:主键(段尾=50)剔除,1/2/3 已用 ⇒ 下一号 4
-  const mine = { primaryKeyNum: 50, primaryKey: 'G-50', machine: 'hostA-fp', start: 1, end: 50 }
+  // ② 自有池内段段内连号:主键(段尾=10)剔除,1/2/3 已用 ⇒ 下一号 4
+  const mine = { primaryKeyNum: 10, primaryKey: 'G-10', machine: 'hostA-fp', start: 1, end: 10 }
   const c2 = leaseCursor({
-    usedNumbers: [1, 2, 3, 50],
+    usedNumbers: [1, 2, 3, 10],
     leases: [mine],
     machineId: 'hostA-fp',
     family: 'G',
   })
   assert.equal(c2.mode, 'in-lease')
   assert.equal(c2.next, 4, '段内下一个 = 段内实号 max+1(主键是段尾不是实号)')
-  // ③ 段满 ⇒ 池内下一窗,不再越过 max:1..50 占满(自有段)、他机段 51..100 是保留位 ⇒
-  //    无 machineId 恒取最小窗 101..150;hostA-fp 按窗数 850 取模(下标 285,离线钉死)⇒ 386..435
+  // ③ 段满 ⇒ 池内下一窗,不再越过 max:1..10 占满(自有段)、他机段 11..20 是保留位 ⇒
+  //    无 machineId 恒取最小窗 21..30;hostA-fp 按窗数 70 取模(下标 17,离线钉死)⇒ 38..47
   const theirs = {
-    primaryKeyNum: 100,
-    primaryKey: 'G-100',
+    primaryKeyNum: 20,
+    primaryKey: 'G-20',
     machine: 'hostB-fp',
-    start: 51,
-    end: 100,
+    start: 11,
+    end: 20,
   }
-  const full50 = Array.from({ length: 50 }, (_, i) => i + 1)
+  const full20 = Array.from({ length: 20 }, (_, i) => i + 1)
   const c3 = leaseCursor({
-    usedNumbers: full50,
+    usedNumbers: full20,
     leases: [mine, theirs],
     machineId: 'hostA-fp',
     family: 'G',
   })
   assert.deepEqual(
     { mode: c3.mode, start: c3.start, end: c3.end },
-    { mode: 'claim', start: 386, end: 435 },
-    '段满滑到池内下一窗(他机段整段保留,窗只能落在 101 以后)',
+    { mode: 'claim', start: 38, end: 47 },
+    '段满滑到池内下一窗(他机段整段保留,窗只能落在 21 以后)',
   )
-  const c3b = leaseCursor({ usedNumbers: full50, leases: [mine, theirs], family: 'G' })
+  const c3b = leaseCursor({ usedNumbers: full20, leases: [mine, theirs], family: 'G' })
   assert.deepEqual(
     { start: c3b.start, end: c3b.end },
-    { start: 101, end: 150 },
-    '无 machineId ⇒ 恒取最小候选窗 101..150',
+    { start: 21, end: 30 },
+    '无 machineId ⇒ 恒取最小候选窗 21..30',
   )
-  // ④ 池外旧段(end>999)不可续:七位数旧段是历史定格,续发就突破三位数上限 ⇒ 结构上不认,
+  // ④ 池外旧段(end>99)不可续:七位数旧段是历史定格,续发就突破两位数上限 ⇒ 结构上不认,
   //    与无租约同径走池内新占(失效方向 = 多占一窗,安全侧)
   const legacy = {
     primaryKeyNum: 1060999,
@@ -212,21 +212,21 @@ test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑�
   assert.equal(c4.mode, 'claim')
   assert.equal(
     c4.start,
-    281,
-    '池外旧段不续(hostA-fp|G|900 下标 280 ⇒ candidates[280]=281,离线钉死)',
+    28,
+    '池外旧段不续(hostA-fp|G|90 下标 27 ⇒ candidates[27]=28,离线钉死)',
   )
-  // ⑤ baseMax(远端只抬高)≤999 参与避让:1..5 已用、远端 8 ⇒ 6..8 不发,首窗 9..58;
-  //    >999 是池外大号(存量债)⇒ 不参与避让、不挡新号 ⇒ 首窗 6..55
+  // ⑤ baseMax(远端只抬高)≤99 参与避让:1..5 已用、远端 8 ⇒ 6..8 不发,首窗 9..18;
+  //    >99 是池外大号(存量债)⇒ 不参与避让、不挡新号 ⇒ 首窗 6..15
   const c5 = leaseCursor({ usedNumbers: [1, 2, 3, 4, 5], leases: [], family: 'G', baseMax: 8 })
   assert.deepEqual(
     { start: c5.start, end: c5.end },
-    { start: 9, end: 58 },
+    { start: 9, end: 18 },
     '远端盲区段必须避让,否则宽面盲区里的号被重复发',
   )
   const c5b = leaseCursor({ usedNumbers: [1, 2, 3, 4, 5], leases: [], family: 'G', baseMax: 2000 })
   assert.deepEqual(
     { start: c5b.start, end: c5b.end },
-    { start: 6, end: 55 },
+    { start: 6, end: 15 },
     '池外大号不参与(双方号域不相交,结构性不撞)',
   )
 })
@@ -325,7 +325,7 @@ test('T3b pool-exhausted 两种成因分档:POOL_FULL vs NO_CONTIGUOUS_LEASE_WIN
 })
 
 test('T4a decideLease 胶水:真实台账面上解析+判定一次给全', () => {
-  const text = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 }), '', LEASE_SECTION_TITLE].join(
+  const text = ['- [ ] G-700 基准行。', row({ start: 1, end: 10 }), '', LEASE_SECTION_TITLE].join(
     '\n',
   )
   const used = usedIdsOfPrefix(text, 'G')
@@ -337,7 +337,7 @@ test('T4a decideLease 胶水:真实台账面上解析+判定一次给全', () =>
     machineId: 'hostA-fp',
   })
   assert.equal(cur.mode, 'in-lease')
-  assert.equal(cur.next, 1, '自有段 1..50 段首是第一个实号(段尾主键被剔除)')
+  assert.equal(cur.next, 1, '自有段 1..10 段首是第一个实号(段尾主键被剔除)')
   const curB = decideLease({
     baseContent: text,
     family: 'G',
@@ -348,19 +348,20 @@ test('T4a decideLease 胶水:真实台账面上解析+判定一次给全', () =>
   assert.equal(curB.mode, 'claim')
   assert.deepEqual(
     { start: curB.start, end: curB.end },
-    { start: 289, end: 338 },
-    '池内新占窗:blocked{50,700}∪保留位[1..50] ⇒ 候选 850 窗,hostB-fp 下标 238(离线钉死)⇒ 51+238',
+    { start: 78, end: 87 },
+    '池内新占窗:blocked{10}(700 是池外存量号不挡)∪保留位[1..10] ⇒ 候选 80 窗,' +
+      'hostB-fp 下标 67(离线钉死)⇒ 11+67',
   )
   const curC = decideLease({ baseContent: text, family: 'G', used, baseMax: used.max })
   assert.deepEqual(
     { mode: curC.mode, start: curC.start, end: curC.end },
-    { mode: 'claim', start: 51, end: 100 },
-    '无 machineId ⇒ 恒取最小候选窗(租约保留位 1..50 之后就是 51..100)',
+    { mode: 'claim', start: 11, end: 20 },
+    '无 machineId ⇒ 恒取最小候选窗(租约保留位 1..10 之后就是 11..20)',
   )
 })
 
 test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machineId 池内最小空闲 / 池满拒绝', () => {
-  const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 }), '', LEASE_SECTION_TITLE].join(
+  const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 10 }), '', LEASE_SECTION_TITLE].join(
     '\n',
   )
   // ① 自有池内段:令牌按段内空闲序连号(段尾主键剔除),leaseNotes 交读数,无新占
@@ -371,7 +372,7 @@ test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machine
     { machineId: 'hostA-fp' },
   )
   assert.equal(r1.ok, true)
-  assert.equal(r1.assigned, 'G-1,G-2', '自有段 1..50 段内空闲序连号,首号=段首(一个号不浪费)')
+  assert.equal(r1.assigned, 'G-1,G-2', '自有段 1..10 段内空闲序连号,首号=段首(一个号不浪费)')
   assert.ok(r1.leaseClaims.length === 0, '段内连号不得新占段')
   assert.ok(
     r1.leaseNotes.some((n) => n.includes('自有段')),
@@ -385,8 +386,8 @@ test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machine
   assert.equal(r2.ok, true)
   assert.equal(
     r2.assigned,
-    'G-549',
-    '新占窗 = 第 hash(hostB-fp|G|900)%900=548 个候选窗 ⇒ 549(离线钉死)',
+    'G-24',
+    '新占窗 = 第 hash(hostB-fp|G|90)%90=23 个候选窗 ⇒ 24(离线钉死)',
   )
   assert.equal(r2.leaseClaims.length, 1)
   assert.deepEqual(
@@ -395,7 +396,7 @@ test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machine
       start: r2.leaseClaims[0].start,
       end: r2.leaseClaims[0].end,
     },
-    { family: 'G', start: 549, end: 598 },
+    { family: 'G', start: 24, end: 33 },
   )
   // ③ 不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)
   const r3 = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], plain)
@@ -413,8 +414,8 @@ test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machine
   )
   assert.equal(r4.ok, false)
   assert.equal(r4.reason, 'pool-exhausted:G', '单次编辑令牌数超过可领空闲数必须拒绝,而不是静默跨段')
-  // ⑤ 整池占满(1..999 全被占)⇒ 池满拒绝,绝不发 1000+
-  const fullPool = Array.from({ length: 999 }, (_, i) => `- [ ] G-${i + 1} 占位行${i + 1}。`).join(
+  // ⑤ 整池占满(1..99 全被占)⇒ 池满拒绝,绝不发 100+
+  const fullPool = Array.from({ length: 99 }, (_, i) => `- [ ] G-${i + 1} 占位行${i + 1}。`).join(
     '\n',
   )
   const r5 = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], fullPool, null, {
@@ -661,15 +662,15 @@ test('T8 段窗选择(池式):同面同轮确定、两机窗分离、窗尺寸�
     '同输入恒定',
   )
   // 窗尺寸不变:候选窗都是连续 segmentSize 个 ⇒ end = start + segmentSize - 1
-  assert.equal(c1.end - c1.start, 49, '窗尺寸必须仍是段容量 50(平移不缩水)')
+  assert.equal(c1.end - c1.start, 9, '窗尺寸必须仍是段容量 10(平移不缩水)')
   assert.equal(
     c1.start,
-    281,
-    'blocked{700} ⇒ 候选 900 窗,hostA-fp|G|900 下标 280 ⇒ candidates[280]=281(离线钉死)',
+    28,
+    'blocked{700}(池外不挡)⇒ 候选 90 窗,hostA-fp|G|90 下标 27 ⇒ candidates[27]=28(离线钉死)',
   )
   // 两机同面同族:窗首(含主键=段尾号)分离 —— 下标 = hash(machineId|family|窗数) % 窗数
   const cB = leaseCursor({ usedNumbers: [700], leases: [], machineId: 'hostB-fp', family: 'G' })
-  assert.equal(cB.start, 549, 'hostB-fp 下标 548(离线钉死)')
+  assert.equal(cB.start, 24, 'hostB-fp 下标 23(离线钉死)')
   assert.notEqual(c1.start, cB.start, '两机同面新占窗首必须分离')
   assert.notEqual(c1.end, cB.end, '主键(段尾号)必须随之分离(F9 撞号面)')
   // 下标机理直钉:claimOffset(floor=窗数, segmentSize=窗数) 的返回值就是"第几个候选窗"的下标
@@ -685,7 +686,7 @@ test('T8 段窗选择(池式):同面同轮确定、两机窗分离、窗尺寸�
   const cLegacy = leaseCursor({ usedNumbers: [700], leases: [], family: 'G' })
   assert.deepEqual(
     { mode: cLegacy.mode, start: cLegacy.start, end: cLegacy.end },
-    { mode: 'claim', start: 1, end: 50 },
+    { mode: 'claim', start: 1, end: 10 },
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
