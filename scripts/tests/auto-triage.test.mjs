@@ -602,6 +602,12 @@ test('⑩ user-feedback:无导出件转直连取数(取不到才未判定并点�
     const read = tr.readUserFeedback({ jsonlPath: file })
     assert.equal(read.status, 'ok')
     assert.equal(read.records.length, 2, '已结反馈不得进候选')
+    // 配了路径但导出件不存在:生产者未判定档本就不落盘 ⇒ 显式「不存在/无数据」仍判未判定,
+    // 且不得把底层 ENOENT 文案原样刷进守护日志(2026-11-04 修长期未判定噪声)
+    const missing = tr.readUserFeedback({ jsonlPath: join(dir, 'no-export.jsonl') })
+    assert.equal(missing.status, 'undetermined', '缺件不得读成"0 条 = 无发现"')
+    assert.match(missing.why, /不存在/)
+    assert.doesNotMatch(missing.why, /ENOENT/)
     const buckets = tr.clusterRecords({
       source: 'user-feedback',
       records: read.records,
