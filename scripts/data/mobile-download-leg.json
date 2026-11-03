@@ -1,0 +1,10 @@
+{
+  "_comment": "Android 对外下载腿的唯一真源(2026-11-03 立)。改这里即改全仓;部署机/联调用 IHUI_MOBILE_DOWNLOAD_URL 覆盖,不得把覆盖值写回本文件。",
+  "downloadUrl": "https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk",
+  "siteLegPublicBase": "https://www.aizhs.top",
+  "siteLegUrlPrefix": "/remote-images/download",
+  "latestKey": "ihui-ai-latest.apk",
+  "minApkBytes": 52428800,
+  "releaseCertSha256": "62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514",
+  "releaseCertSha256Display": "62:B0:FF:0E…"
+}
