@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: eac4cac0c7776b44946ae3b6f9c422272d3ac34a
-// inputsSha256: 65902dcc0aff3885cdad94f3be180e8234555f8d7f323e7a9aead77a27208b21
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 291ca8db8bf9a11dc941161fc49ef7ddbac72720b46580f1c6026287d1cd0507
+// sourceCommit: 567732a749a90e997e4e90a69afbfc6cf73bdeba
+// inputsSha256: 8256e5ed05b7ec02dcca53798f05cc5d3e0796d16f3c43d035791dd3bc2c030a
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 7f4021ffc6ea8127adf74efdfb6c332c18ddcf3959d2407eb97b876640f649bb
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-02T14:22:49.220Z
+// generatedAt: 2026-11-03T00:36:01.202Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 336 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 335 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -95,7 +95,6 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'DeveloperConversations', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ModelsPrompts', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduAttendance', tab: false, requiresParams: false, requiredParams: [] },
-  { name: 'EduMyAttendance', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduGrades', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduParent', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduParentBind', tab: false, requiresParams: false, requiredParams: [] },
