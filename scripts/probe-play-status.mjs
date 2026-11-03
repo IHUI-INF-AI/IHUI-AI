@@ -18,6 +18,10 @@
  * 判别力靠对照:同一端点问别人的包得 403 PERMISSION_DENIED、问不存在的包得 404
  * `Package not found`,问本包得 200 ⇒ 三种形态可分,读数才算成立。
  *
+ * 签名身份**不在此探针**:官方 v3 的 appsigning 资源只有 enrollApp / rotateAppSigningKey,
+ * 没有读取方法(旧版曾探 `appSigningInfo`,该端点不存在,404 是路径错不是权限/应用状态)。
+ * 上传/应用签名证书须从 Play Console 或 Play 签名 APK 用 apksigner 量,量到后登记单源 JSON。
+ *
  * 活跃 edit 纪律:一枚应用只允许一枚活跃 edit,留着会顶掉别人正在用的那枚 ⇒ 本脚本
  * **无论中途成败都在 finally 里 DELETE**(204),绝不 commit、绝不写任何变更端点。
  *
@@ -51,7 +55,8 @@ function buildPaths(pkg) {
     listings: (id) => `${V3}/applications/${pkg}/edits/${id}/listings`,
     details: (id) => `${V3}/applications/${pkg}/edits/${id}/details`,
     testers: (id, track) => `${V3}/applications/${pkg}/edits/${id}/testers/${track}`,
-    signing: `${V3}/applications/${pkg}/appSigningInfo?packageName=${pkg}`,
+    // 签名身份不在本探针射程:官方 Android Publisher v3 的 appsigning 资源只有
+    // enrollApp / rotateAppSigningKey,没有读取方法(`appSigningInfo` 不是官方端点 ⇒ 404 是路径错)。
   }
 }
 
@@ -149,8 +154,8 @@ async function main() {
     out.details = { contactEmail: dt.j?.contactEmail, contactWebsite: dt.j?.contactWebsite, defaultLanguage: dt.j?.defaultLanguage }
     const tg = await GET(P.testers(id, 'alpha'))
     out.alphaTesters = { http: tg.status, count: Array.isArray(tg.j?.googleGroups) ? tg.j.googleGroups.length : undefined, raw: tg.j?.userCounts ?? undefined }
-    const sg = await GET(P.signing)
-    out.signing = sg.status === 200 ? { uploadCertSha1: sg.j?.uploadKeyCertificate?.sha1Fingerprint, appSigningCertSha1: sg.j?.appSigningKeyCertificate?.sha1Fingerprint } : { http: sg.status }
+    // 签名证书只能人工量:Play Console → 发布 → 设置 → 应用签名,或下载 Play 签名 APK 后 apksigner。
+    out.signing = { source: 'play-console', method: 'Play Console 应用签名页 / Play 签名 APK + apksigner --print-certs', reason: '公开 Android Publisher v3 无读取 app signing info 的端点' }
   } finally {
     try {
       const del = await fetch(P.edit(id), { method: 'DELETE', headers: AUTH })
@@ -170,7 +175,7 @@ async function main() {
     console.log(`listing ${out.listings.length} 种语言: ${out.listings.map((l) => `${l.language}:"${l.title}"(${l.shortLen}/${l.fullLen}B)`).join(' | ') || '(空)'}`)
     console.log(`详情: defaultLanguage=${out.details.defaultLanguage} contact=${out.details.contactEmail} site=${out.details.contactWebsite}`)
     console.log(`alpha 测试员: http=${out.alphaTesters.http}${out.alphaTesters.raw ? ' 计数=' + JSON.stringify(out.alphaTesters.raw) : ''}`)
-    console.log(`签名: ${JSON.stringify(out.signing)}`)
+    console.log(`签名:未由本探针读取(${out.signing.reason});量取入口=${out.signing.method}`)
     console.log(`cleanup: DELETE edit http=${out.cleanup.deleteEdit}`)
   }
   return 0
