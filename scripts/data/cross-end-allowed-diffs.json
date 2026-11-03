@@ -912,6 +912,24 @@
       "count": 1,
       "reason": "RN 用 fontSize 作图标/emoji/首字母的字形盒,web 侧同类元素由 SVG/图标组件承载,没有可对齐的排版档;登记为 RN 单侧展示元素,零观感改动。",
       "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/topup-success/TopupSuccessScreen.tsx 的 icon 为 fontSize=64(1 处);台账 scripts/data/cross-end-fork-decisions.json"
+    },
+    {
+      "component": "VoiceInput",
+      "key": "platform:voice-result-clear",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "showClear 是 RN 端「清空最近一次识别结果」的入口;小程序端 final 回调把整段结果交给父级后立即 setPartial(''),端内不保留可清结果,清空按钮无承载对象 → 架构差异,不造空 prop。",
+      "evidence": "check-cross-end-component-props-parity --json: VoiceInput onlyRn 含 showClear;对照 apps/miniapp-taro/src/components/VoiceInput.tsx final 分支(即清 partial) 与 apps/mobile-rn/src/components/VoiceInput.tsx 同键声明"
+    },
+    {
+      "component": "VoiceInput",
+      "key": "platform:voice-image-input",
+      "platform": "both",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-27",
+      "reason": "showImagePicker/onImageSelected 是 RN 语音条上的拍照/选图入口,RN 文件自述「全站无调用方接线」;小程序语音条不承载图像输入通道 → 宿主能力差异,登记而不实现死入口。",
+      "evidence": "check-cross-end-component-props-parity --json: VoiceInput onlyRn 含 showImagePicker/onImageSelected;对照 apps/mobile-rn/src/components/VoiceInput.tsx 该两键声明与注释"
     }
   ]
 }
