@@ -45,7 +45,9 @@
  *   同一把 `getSystemAccessToken()` 票),不自造 ai-service 不认的头。
  *
  * 手动触发:仅 bullmq 五项(sweep/trae/qoder/workbuddy-session-sync/relay-pool-gauge)有进程内
- * 直调口;guardian/schtasks/apscheduler 一律 triggerable:false 并给真实出路
+ * 直调口;其中 WorkBuddy 的定时注册已于 2026-11-03 撤除(服务身份读不到交互用户 auth 文件,
+ * 每轮必然失败),条目保留为「已停用」,手动一次性触发仍可用;guardian/schtasks/apscheduler
+ * 一律 triggerable:false 并给真实出路
  * (§0.8 文档不写跑不通的出路)——容量哨兵已有 CLI,凭据巡检由计划任务承载,
  * 签到调度开关在 ai-service env(CHECKIN_CRON_ENABLED 总闸,默认 false;
  * WorkBuddy 任务巡检另需 WORKBUDDY_TASKS_ENABLED,默认 false)。
@@ -73,6 +75,11 @@ export interface RelayTaskDef {
   jobName?: string
   /** 有无进程内手动触发口 */
   triggerable: boolean
+  /**
+   * 定时注册已撤除的原因(非空 = 该条目的定时腿已停用,观测面判成「已停用」而非「读不到」;
+   * 手动触发口若仍保留,照常可用)。
+   */
+  retired?: string
   /** 不可触发时的真实出路(§0.8) */
   note?: string
   /** guardian/schtasks:tick JSON 相对仓根路径 */
@@ -124,14 +131,15 @@ export const RELAY_POOL_TASKS: RelayTaskDef[] = [
   },
   {
     id: 'workbuddy-session-sync',
-    name: 'WorkBuddy 会话模板回灌',
+    name: 'WorkBuddy 会话模板回灌(定时已停用)',
     carrier: 'bullmq',
-    schedule: '每 10 分钟',
-    cron: '*/10 * * * *',
+    schedule: '已停用(原每 10 分钟;仅保留手动一次性触发)',
+    // 定时注册已移除 ⇒ 不再登记 schedulerId;保留 jobName 只用于读历史执行记录。
     queue: relayAccountPoolQueueName(),
-    schedulerId: 'workbuddy-session-sync-cron',
     jobName: 'workbuddy-session-sync',
     triggerable: true,
+    retired:
+      '定时注册已于 2026-11-03 撤除:API 进程以 LocalSystem 身份运行,结构上读不到交互用户的 auth 文件,每 10 分钟必然失败一次(纯噪声);WorkBuddy 续期由服务端 sweep 负责,脚本与手动触发口保留为一次性工具',
   },
   {
     id: 'relay-pool-gauge',
@@ -440,9 +448,9 @@ export function judgeTickCarrierRun(
       lastRunOk: fail === 0,
       stale,
       lastRunDetail:
-        (fail === 0
+        fail === 0
           ? `${opts.carrierLabel}心跳在位,器物自述本轮 fail=0(巡检项全部通过)`
-          : `${opts.carrierLabel}心跳在位,器物自述本轮失败项 ${fail} 个 ⇒ 本轮结果判负(明细见 tick 的 results)`),
+          : `${opts.carrierLabel}心跳在位,器物自述本轮失败项 ${fail} 个 ⇒ 本轮结果判负(明细见 tick 的 results)`,
     }
   }
   return {
@@ -626,6 +634,16 @@ export async function collectRelayTaskStates(
       if (def.carrier === 'bullmq') {
         if (!bullmqOk) {
           return { ...def, ...base, indeterminateReason: 'Redis 不可用,BullMQ 状态不可读' }
+        }
+        if (def.retired) {
+          // 已撤除的定时腿:状态源本身可读(注册表明确登记了停用),不冒"worker 未启动"的
+          // 假未判定;调度面判成 false,结论走 disabledReason(与 apscheduler 门关同栏)。
+          return {
+            ...def,
+            ...base,
+            sourceOk: true,
+            disabledReason: def.retired,
+          }
         }
         const next = await deps.getSchedulerNext(def.queue!, def.schedulerId!)
         const last = await deps.getLastJobRun(def.queue!, def.jobName!)
