@@ -18,7 +18,7 @@ import type {
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 import { assertRequiredPort } from '../../host/ports'
-import { MODEL_EDIT_READ_ONLY_FIELDS } from './model-edit-save'
+import { MODEL_EDIT_READ_ONLY_FIELDS } from '@ihui/shared/constants'
 
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
 export type {
