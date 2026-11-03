@@ -53,23 +53,6 @@ export function StudyIndexScreen(props: Record<string, unknown>) {
   return createElement('div', { 'data-testid': 'shared-study-index-screen' }, null)
 }
 
-/**
- * 2026-11-03 薄壳批:AgentReview 列表/详情走 props 捕获替身。
- * 判的是「RN 壳把 route item、导航端口与可点开关交给共享屏」这一层;渲染本身由
- * packages/app 套件负责。缺席则壳渲染 undefined。
- */
-export const agentReviewListScreenPropsCaptured: Array<Record<string, unknown>> = []
-export function AgentReviewListScreen(props: Record<string, unknown>) {
-  agentReviewListScreenPropsCaptured.push(props)
-  return createElement('div', { 'data-testid': 'shared-agent-review-list-screen' }, null)
-}
-
-export const agentReviewDetailScreenPropsCaptured: Array<Record<string, unknown>> = []
-export function AgentReviewDetailScreen(props: Record<string, unknown>) {
-  agentReviewDetailScreenPropsCaptured.push(props)
-  return createElement('div', { 'data-testid': 'shared-agent-review-detail-screen' }, null)
-}
-
 export type PlazaScreenProps = {
   t: (key: string) => string
   colorScheme?: 'light' | 'dark'
