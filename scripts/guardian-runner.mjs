@@ -6814,8 +6814,10 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
+  // 编号 286:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 已由同批入库的 props 对账门
+  // 占用 ⇒ 本门顺延 286,取号规则仍为「现读最大 + 1」。
   {
-    id: '282',
+    id: '286',
     label:
       '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
     script: 'check-web-rn-gap-ratchet.mjs',
@@ -6891,8 +6893,8 @@ const checks = [
     onFailHint:
       '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
   },
-  // 编号 285:注册前现读 `id: '285'` 在本文件与 HEAD 面均为 0(现读最大 284;取号规则 = 注册前现读
-  // 最大 + 1,撞号由门 89 R5/R13 反查)。立因(2026-11-03,机主"容器 hover 太重"二次定档):
+  // 编号 287:注册时 `id: '285'` 已被同批入库的 props 对账门占用(两门同号 ⇒ doc-numbers 判 1 个
+  // 重复 id),本门按「现读最大 + 1」顺延为 287。立因(2026-11-03,机主"容器 hover 太重"二次定档):
   // 全站浮起唯一数值源 = apps/web/app/globals.css 的 `--lift-*`(2026-10-22 定档、11-03 减淡),
   // 其头注铁律"端内不得再各写 hover:scale-105 / hover:shadow-xl / hover:-translate-y-*"**此前只是
   // 注释**(§0.9:判据不在真跑它的那一刻才成立 = 没有)。同日实测 24 个文件 30 处散写,营销定价卡
@@ -6900,7 +6902,7 @@ const checks = [
   // 所以"调了数值源还是重"。散写已于本枚前一批整体清零,非容器豁免族(按钮档/1px chip/图标箭头/
   // 工具 chrome)入具名台账 ⇒ D1 立门当次 HEAD 现读 = 0,按 §12e 可直接 blocking,非恒红门。
   {
-    id: '285',
+    id: '287',
     label:
       '🎈 容器 hover 浮起单一数值源(blocking;hover 变体段后的 translate-y/shadow 散写绝对零,豁免=具名台账带到期且逐文件计数配平)',
     script: 'check-hover-lift-single-source.mjs',
