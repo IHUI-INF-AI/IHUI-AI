@@ -8,7 +8,8 @@ import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { getSystemInfoCompat } from '@/utils/system-info'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
 // 对勾图标(对齐原项目 UserMembershipBenefits.vue 的 pigeona.png)
 const pigeonaImg = aizhsUrl('remote-images/pigeona.png')
 // 「服务」弹窗的名片图 + 二维码图:原先写死 `/static/images/…`,而该目录下的这两个 PNG
@@ -417,7 +418,7 @@ export default function VipBenefitsPopup({
       >
         <View
           className="w-full h-full flex flex-col relative"
-          style={{ padding: '40rpx 30rpx', boxSizing: 'border-box' }}
+          style={{ padding: `${rpx(taroSpacing.xl)} 30rpx`, boxSizing: 'border-box' }}
         >
           {/* level variant 顶部 0 级提示(对齐原项目 levelIndex.vue:level-text 在 benefits-list 之前) */}
           {variant === 'level' && (
@@ -485,7 +486,7 @@ export default function VipBenefitsPopup({
                   width: '356rpx',
                   height: 'var(--spacing-4xl)',
                   borderRadius: rnRadius['2xl'],
-                  margin: '20rpx auto',
+                  margin: `${rpx(taroSpacing['sm-loose'])} auto`,
                   fontSize: '30rpx',
                   fontWeight: 500,
                   color: 'var(--color-foreground)',
@@ -507,7 +508,7 @@ export default function VipBenefitsPopup({
                   width: '356rpx',
                   height: '80rpx',
                   borderRadius: rnRadius['2xl'],
-                  margin: '20rpx auto',
+                  margin: `${rpx(taroSpacing['sm-loose'])} auto`,
                   fontSize: '30rpx',
                   fontWeight: 500,
                   color: 'var(--color-card)',
