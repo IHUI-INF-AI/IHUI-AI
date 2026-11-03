@@ -21,9 +21,9 @@ import { docProbeHttpStatus, probeDocBySlug, type DocProbeOptions } from './docs
  *
  * 这些 slug 由各自的 page.tsx 直接渲染(内容写在仓库里,不查后端),后端未必有同名记录;
  * 若把它们也送去探针,后端一句「没有」就会把本来正常的页面判成 404。新增静态文档页时
- * 必须同步这里(目录名 = URL 段名)。
+ * 必须同步这里(目录名 = URL 段名)。导出仅供镜像测试对账目录树(§22c:不在测试里复算)。
  */
-const STATIC_DOC_SLUGS: ReadonlySet<string> = new Set([
+export const STATIC_DOC_SLUGS: ReadonlySet<string> = new Set([
   'agent',
   'api',
   'manual',
