@@ -32,8 +32,10 @@ permissions:
 #   排队中未开跑的旧 run 仍只保留最新一个 ⇒ 不烧历史 sha、不堆并发。
 concurrency:
   group: ci-monorepo-${{ github.ref }}
-  # ⚠️ 勿改回 true:多会话每 3-5min 推一次 main,改回即整条 main 验证链再次"永远没结论"。
-  cancel-in-progress: false
+  # ⚠️ main 恒为 false:多会话每 3-5min 推一次 main,true 即整条 main 验证链再次"永远没结论"。
+  # 2026-11-03:非 main 才允许砍 —— PR / 特性分支的 run 不会成为 main 的分支保护结论,砍掉
+  # 只是省排队(实测 run 41559672693 排队 5min);main 仍按上面的历史判据保住终态结论。
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   NODE_VERSION: '22'
@@ -255,6 +257,15 @@ jobs:
   test:
     needs: setup
     runs-on: ubuntu-latest
+    # 2026-11-03(CI 提速):Unit tests 单 job 实测 671s(run 41539163265),其中 apps/api /
+    # apps/web 两个包占大头。分片口径与 ci.yml 同源(scripts/ci-test-shards.mjs 从 workspace
+    # 现读"声明 scripts.test 的包"再装箱),不手抄清单;`--assert` 保证每个包恰好跑一次,
+    # 新增包不会被静默漏测。
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         id: checkout
@@ -266,9 +277,12 @@ jobs:
       - name: Install dependencies
         id: install
         run: pnpm install --frozen-lockfile
-      - name: Unit tests
+      - name: Assert test shard plan coverage (每个测试包恰好一次)
+        id: test-shard-coverage
+        run: node scripts/ci-test-shards.mjs --assert
+      - name: Unit tests (shard ${{ matrix.shard }}/4)
         id: test
-        run: pnpm run test
+        run: node scripts/ci-test-shards.mjs --shard ${{ matrix.shard }}/4
       # 观测档(2026-10-31 接线):mobile-rn vitest 里落在 tests/__mocks__ 的别名替身面 ——
       # 此前全仓四路调度点皆无,"替身面在扩张"没人看得见。按门体契约恒 RC=0(只报名不判红)。
       - name: mobile-rn vitest 替身面观测(只报名,不判红)
@@ -280,9 +294,10 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install test mrn-vitest-mocks
+          TRIAGE_IDS: checkout install test-shard-coverage test mrn-vitest-mocks
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
+          O_TEST_SHARD_COVERAGE: ${{ steps.test-shard-coverage.outcome }}
           O_TEST: ${{ steps.test.outcome }}
           O_MRN_VITEST_MOCKS: ${{ steps.mrn-vitest-mocks.outcome }}
         run: bash scripts/ci-failure-triage.sh
