@@ -2221,6 +2221,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 その他:收编停留≥3分钟的未提交改动 (153bf2b63d)
+
+**2026-11-03**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (f018abb84b)
 
 **2026-11-03**
@@ -2289,10 +2292,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🐞 修正:RP-35 后端健康页按归一化读取 /api/health 裸对象 (65102e7774)
 - 🚀 機能/改善:B4 Agent 会话 SSE 消费侧——共享 streamAgentChat 增量回调+abort,断线带 Last-Event-ID 重连一次,仍败回落 v2 分页读+一次性 POST;RN 宿主增量渲染/done 落库替换/失败显式报错;共享屏仅四枚可选 props(缺省显式关闭);新增 4+3 例测试,双端 typecheck 0,门273 --staged 零新增 (0335facba1)
 - 🐞 修正:build-fail 同题不再按 TS 号分身,证据补可定位失败原因(B87/B88/B91) (3c846ee8d5)
-
-**2026-11-02**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (f565869c64)
-- 🐞 修正:回补被并发归并折掉的 B69/B87/B88 三行;B69/B68 按已结清标注(B87/B88/B91 同题三登记只计一次) (eff8c8e869)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
