@@ -1261,7 +1261,10 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  * 无障碍名称不降级:两处都已把 aria-label/title 提到触发按钮上。 */
 @container (max-width: 551px) {
   .ai-input-toolbar .voice-note-label,
-  .ai-input-toolbar .agent-picker-label {
+  .ai-input-toolbar .agent-picker-label,
+  /* 加载态用 spinner 替位标签,若不一起收起,同一控件会比加载完成态宽 18px,
+     默认 480 面板会因这一瞬态多出一行(实测 C=430 高 80)。按钮本身已 disabled 置灰。 */
+  .ai-input-toolbar .agent-picker-loading {
     display: none;
   }
 }
@@ -1272,7 +1275,8 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
  * 模型名截没了;现在改成显式 icon-only,同一观感但不再产生重叠。 */
 @container (max-width: 465px) {
   .ai-input-toolbar .model-selector-text,
-  .ai-input-toolbar .mode-switcher-text {
+  .ai-input-toolbar .mode-switcher-text,
+  .ai-input-toolbar .model-selector-loading {
     display: none;
   }
 }
