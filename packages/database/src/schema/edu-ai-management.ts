@@ -11,6 +11,7 @@ import {
   boolean,
   jsonb,
   date,
+  time,
   timestamp,
   index,
   uniqueIndex,
@@ -246,6 +247,43 @@ export const eduAttendanceRecord = pgTable(
     studentDateIdx: index('ix_edu_att_student_date').on(t.studentId, t.date),
     classDateIdx: index('ix_edu_att_class_date').on(t.classId, t.date),
     statusIdx: index('ix_edu_att_status').on(t.status),
+    /**
+     * 部分唯一索引:未软删记录内 (student_id, class_id, date) 唯一。
+     * 批量签到与缺勤补录的幂等依据(onConflictDoNothing 的 conflict target)。
+     */
+    studentClassDateUqIdx: uniqueIndex('uq_edu_att_student_class_date')
+      .on(t.studentId, t.classId, t.date)
+      .where(sql`deleted_at is null`),
+  }),
+)
+
+/**
+ * 考勤规则表 (edu_attendance_rule)。
+ * 迟到/早退/缺勤判定阈值与扫码签到密钥的唯一落库处 —— 此前仓库内无任何判定依据,
+ * edu_attendance_record.status 的 late/early/absent 三值无人写入,本表即后端自动判定
+ * 与缺勤补录的数据源。一个班级只应有一条规则 ⇒ class_id 唯一。
+ * 三个时刻均为 time 型(每日重复的墙钟时刻,不含日期/时区);留空表示该项不判。
+ */
+export const eduAttendanceRule = pgTable(
+  'edu_attendance_rule',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    classId: uuid('class_id')
+      .notNull()
+      .unique()
+      .references(() => eduClass.id, { onDelete: 'cascade' }),
+    lateAfter: time('late_after'), // 超过该时刻签到判 late
+    earlyBefore: time('early_before'), // 早于该时刻签退判 early
+    absentAfter: time('absent_after'), // 当日过该时刻仍无记录则补 absent
+    qrSecret: varchar('qr_secret', { length: 64 }), // 扫码签到令牌密钥
+    enabled: boolean('enabled').default(true).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    classIdx: index('ix_edu_att_rule_class').on(t.classId),
+    enabledIdx: index('ix_edu_att_rule_enabled').on(t.enabled),
   }),
 )
 
@@ -303,6 +341,8 @@ export type EduPlanItem = typeof eduPlanItem.$inferSelect
 export type NewEduPlanItem = typeof eduPlanItem.$inferInsert
 export type EduAttendanceRecord = typeof eduAttendanceRecord.$inferSelect
 export type NewEduAttendanceRecord = typeof eduAttendanceRecord.$inferInsert
+export type EduAttendanceRule = typeof eduAttendanceRule.$inferSelect
+export type NewEduAttendanceRule = typeof eduAttendanceRule.$inferInsert
 /**
  * 家长-学生绑定表 (edu_parent_student_binding)。
  * 绑定了家长和学生用户的关联关系，支持多孩子绑定。

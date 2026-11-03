@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { BackButton } from '@/components/common'
 import { BookOpen, Rocket, Container, Wrench, Brain } from 'lucide-react'
 
@@ -18,7 +19,7 @@ const docsJsonLd = {
       name: '智汇 AI 文档中心 — 全栈 AI 操作系统指南',
       description:
         '智汇 AI(IHUI AI)官方文档中心:快速开始、自托管部署、API 参考、MCP 工具集成、Agent 开发、知识库 RAG、多模型调度等完整指南。',
-      inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+      inLanguage: ['zh-CN', 'en'],
       isPartOf: { '@id': 'https://aizhs.top/#website' },
       about: { '@id': 'https://aizhs.top/#organization' },
     },
@@ -116,12 +117,11 @@ export const metadata: Metadata = {
     '智汇 AI(IHUI AI)官方文档中心:快速开始、自托管部署、API 参考、MCP 工具集成、Agent 开发、知识库 RAG、多模型调度等完整指南。',
   alternates: {
     canonical: '/docs',
+    // hreflang 只声明真实存在的路由(2026-11-03 现读 curl):简体中文以外,
+    // 繁中/韩/日三种语言前缀的 docs 路由全部 404(app 根无语言前缀目录),已摘掉死声明。
+    // en 只声明到 /en/docs 这一层 —— en 下无 docs 子页,给子页声明 en 等于指 404。
     languages: {
-      'zh-CN': '/zh-cn/docs',
-      'zh-TW': '/zh-tw/docs',
       en: '/en/docs',
-      ko: '/ko/docs',
-      ja: '/ja/docs',
       'x-default': '/docs',
     },
   },
@@ -147,24 +147,24 @@ const docSections = [
     description: '面向终端用户的图文教程(无需技术背景)',
     icon: BookOpen,
     items: [
-      { name: '使用说明手册', href: '/docs/manual', desc: '7 章:注册 / 对话 / Agent / 知识库 / 积分 / 账户 / FAQ' },
+      {
+        name: '使用说明手册',
+        href: '/docs/manual',
+        desc: '7 章:注册 / 对话 / Agent / 知识库 / 积分 / 账户 / FAQ',
+      },
     ],
   },
   {
     title: '快速开始',
     description: '5 分钟从注册到发布',
     icon: Rocket,
-    items: [
-      { name: '快速开始', href: '/docs/quickstart', desc: '5 分钟上手,在线版 + 自托管' },
-    ],
+    items: [{ name: '快速开始', href: '/docs/quickstart', desc: '5 分钟上手,在线版 + 自托管' }],
   },
   {
     title: '部署与运维',
     description: '生产环境部署、监控、扩展',
     icon: Container,
-    items: [
-      { name: '自托管部署', href: '/docs/self-host', desc: 'Docker Compose + K8s Helm' },
-    ],
+    items: [{ name: '自托管部署', href: '/docs/self-host', desc: 'Docker Compose + K8s Helm' }],
   },
   {
     title: '核心能力',
@@ -202,24 +202,26 @@ export default function DocsIndexPage() {
         {docSections.map((section) => (
           <section key={section.title} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2">
-              <span className="text-display font-normal">
-                {typeof section.icon === 'string' ? section.icon : <section.icon className="h-6 w-6" />}
+              <span className="text-2xl">
+                {typeof section.icon === 'string' ? (
+                  section.icon
+                ) : (
+                  <section.icon className="h-6 w-6" />
+                )}
               </span>
               <h2 className="text-lg font-semibold">{section.title}</h2>
             </div>
-            <p className="mt-1 text-label text-muted-foreground">
-              {section.description}
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
             <ul className="mt-4 space-y-3">
               {section.items.map((item) => (
                 <li key={item.href}>
-                  <a
+                  <Link
                     href={item.href}
                     className="block rounded-lg border bg-background p-3 transition-colors hover:bg-accent"
                   >
                     <div className="font-medium text-body">{item.name}</div>
-                    <div className="text-label text-muted-foreground">{item.desc}</div>
-                  </a>
+                    <div className="text-xs text-muted-foreground">{item.desc}</div>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -227,13 +229,16 @@ export default function DocsIndexPage() {
         ))}
       </div>
 
-      <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <p className="text-body text-muted-foreground">
-          文档未覆盖到的问题?
-          {' '}
-          <a href="https://aizhs.top/faq" className="text-primary underline">查看 FAQ</a>
+      <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
+        <p className="text-sm text-muted-foreground">
+          文档未覆盖到的问题?{' '}
+          <a href="https://aizhs.top/faq" className="text-primary underline">
+            查看 FAQ
+          </a>
           {' 或 '}
-          <a href="mailto:support@aizhs.top" className="text-primary underline">联系技术支持</a>
+          <a href="mailto:support@aizhs.top" className="text-primary underline">
+            联系技术支持
+          </a>
         </p>
       </div>
     </div>
