@@ -108,7 +108,7 @@ export default function IntelligentAssistant({
               : t('ai.intelligentAssistant.loginRequired')}
           </Text>
           {isLoggedIn && (
-            <View style={RECHARGE_HIT_STYLE} onClick={onRecharge}>
+            <View style={RECHARGE_HIT_STYLE} hoverClass="opacity-60" onClick={onRecharge}>
               <Text className="ia-recharge-btn" style={RECHARGE_LABEL_STYLE}>
                 {t('ai.intelligentAssistant.recharge')}
               </Text>
