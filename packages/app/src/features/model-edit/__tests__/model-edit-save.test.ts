@@ -6,11 +6,11 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ModelEditFieldValues } from '../../../types'
 import {
   buildModelEditBillingPayload,
-  MODEL_EDIT_READ_ONLY_FIELDS,
   submitModelEdit,
   type ModelEditBillingPayload,
   type ModelEditUpdateResult,
-} from '../model-edit-save'
+} from '@ihui/shared/utils'
+import { MODEL_EDIT_READ_ONLY_FIELDS } from '@ihui/shared/constants'
 
 const FIELDS: ModelEditFieldValues = {
   categories: ['1'],
