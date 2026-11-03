@@ -729,6 +729,19 @@ test('B9 正圆豁免:正方盒 + 半径=边长一半 放行,非正方/量不出
     [],
     '正方盒 + 50% 同样按几何正圆放行(B9 不判百分比,也不得落 B1-capsule)',
   )
+  // 真实站点形态(StudyIndexScreen 的 FAB):宽高都取同一个具名档,半径走相对式正圆。
+  // 这里证的是**字面同形的几何关系**本身 —— 即便 rnGeometry.fabBox 在这张常量表里解不出数值,
+  // 两条边写成同一个字面就已经是"宽 = 高"的证明,不需要折算。
+  assert.deepEqual(
+    b9(`const s = StyleSheet.create({\n  fab: {\n    width: rnGeometry.fabBox,\n    height: rnGeometry.fabBox,\n    borderRadius: '50%',\n  },\n})`),
+    [],
+    '具名档正方盒 + 50% ⇒ 字面同形即几何正圆,不依赖数值解析',
+  )
+  assert.deepEqual(
+    b9(`const s = StyleSheet.create({\n  fab: {\n    width: rnGeometry.fabBox,\n    height: rnGeometry.fabBox,\n    borderRadius: rnGeometry.fabBox / 2,\n  },\n})`),
+    [],
+    '`<具名档> / 2` 是同一关系的另一种写法,同样不得判红',
+  )
   assert.equal(
     b9(`const s = StyleSheet.create({\n  card: {\n    width: 320,\n    height: 120,\n    borderRadius: 28,\n  },\n})`).length,
     1,
