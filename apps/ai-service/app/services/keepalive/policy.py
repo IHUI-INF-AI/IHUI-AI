@@ -24,9 +24,9 @@ from app.services.keepalive.models import (
     KIND_NETWORK,
     KIND_OK,
     KIND_UNSUPPORTED,
+    SOURCE_PUBLISH_COOKIE,
     PolicyConfig,
     ProbeOutcome,
-    SOURCE_PUBLISH_COOKIE,
     StateSnapshot,
     StateUpdate,
 )
