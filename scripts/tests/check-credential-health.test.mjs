@@ -647,28 +647,16 @@ test('T-PICK 凭据窄出口三态 + 生产腿接线(自检 109 条里那三句�
   assert.equal(pickKey('0'.repeat(31), re), '', '差一位也不算')
   // 第三臂:形状合 ⇒ 去空白取原值
   assert.equal(pickKey(' 0123456789abcdef0123456789abcdef\n', re), '0123456789abcdef0123456789abcdef')
-  // 2026-11-03 Gitee 发布目标下线:生产路径不得再读取/探活 Gitee token(它已无消费方);
-  // 但必须留一条"已停用"标记,不得静默删掉 —— 静默删除=把"已下线"写成"没判过"(§0.3)。
-  assert.doesNotMatch(
-    SRC,
-    /const giteeToken = pickKey\(/,
-    'Gitee 发布目标已下线 ⇒ 生产路径不得再读取/探活 Gitee token',
-  )
+  // 2026-11-03 复活:Gitee 为国内主通道 ⇒ 生产路径必须读取并探活 Gitee token;
+  // 探活只准走 Authorization 头,不得把 token 拼进 URL query(访问日志会原样记下)。
+  assert.match(SRC, /const giteeToken = pickKey\(/, 'Gitee 国内主通道必须读取/探活 token')
+  assert.match(SRC, /Authorization: 'token ' \+ giteeToken/, 'Gitee 探活必须走 Authorization 头')
   assert.doesNotMatch(
     SRC,
     /access_token=' \+ encodeURIComponent\(/,
     '任何 token 都不得拼进 URL query(访问日志会原样记下)',
   )
-  assert.match(
-    SRC,
-    /2026-11-03 下线:Gitee 发布目标/,
-    '下线说明必须留在源码里(可恢复),不得静默删掉',
-  )
-  assert.doesNotMatch(
-    SRC,
-    /name: 'Gitee token/,
-    '下线后不得每天上报常驻条目(否则只是把一种噪音换成另一种)',
-  )
+  assert.match(SRC, /name: 'Gitee token 有效性'/, 'Gitee 主通道必须上报 token 有效性')
 })
 
 function askedHasRepoNext(askedList) {

@@ -94,10 +94,16 @@ const devEnv = Object.fromEntries(
 
 const log = (msg) => console.log(`[desktop-dev-saas] ${msg}`)
 
+// netstat 必须是绝对路径(§5b 同型):受限 PATH 下裸名派生只会得到 `spawn netstat ENOENT`。
+// 推导优先 + 硬编码兜底 + 按当次存在性选在位者,与 check-tunnel-leg-health.mjs 的 NETSTAT_BIN 同一范式。
+const SYSTEM_ROOT = (process.env.SystemRoot || process.env.windir || 'C:\\Windows').replace(/[\\/]+$/, '')
+const pickBin = (candidates) => candidates.find((p) => existsSync(p)) ?? candidates[candidates.length - 1]
+const NETSTAT_BIN = pickBin([SYSTEM_ROOT + '\\System32\\netstat.exe', 'C:\\Windows\\System32\\netstat.exe'])
+
 /** 查询监听指定端口的 PID 列表(Windows netstat;Linux/macOS 用 lsof 兜底) */
 function listenersOfPort(port) {
   if (process.platform === 'win32') {
-    const r = spawnSync('netstat', ['-ano', '-p', 'TCP'], {
+    const r = spawnSync(NETSTAT_BIN, ['-ano', '-p', 'TCP'], {
       encoding: 'utf8',
       windowsHide: true,
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
