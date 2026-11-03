@@ -62,6 +62,8 @@ import {
   parseWaivers,
   todayIso,
   waiverVerdict,
+  normalizeFractionalSpacing,
+  fractionalToRpx,
   WAIVER_LEDGER_REL,
 } from './lib/ui-mirror-waivers.mjs'
 // 写盘申报账本(2026-11-03 立):落点判据/幂等/形状校验全在库内,本文件只调它(§0.6 单一真相源)。
@@ -374,15 +376,21 @@ export function comparePair(rnSrc, mpSrc, opts = {}) {
   const drifted = []
   const renamed = []
   for (const decl of rnDecls) {
-    const rnSig = mapSignatureOf(decl.text)
+    // 两端同一把等值尺:fractional 档与等值裸 rpx 是**同一像素**,不得判成漂移
+    // (判序单源 = lib/ui-mirror-waivers.mjs;本端写 fractional 会产不出可挂载规则,见该函数立因)。
+    const rnSig = mapSignatureOf(normalizeFractionalSpacing(decl.text))
     const peer = mpByName.get(decl.name)
     if (peer) {
-      const mpSig = mapSignatureOf(peer.text)
-      const same = rnSig && mpSig ? rnSig === mpSig : norm(peer.text) === norm(decl.text)
+      const mpSig = mapSignatureOf(normalizeFractionalSpacing(peer.text))
+      const same =
+        rnSig && mpSig
+          ? rnSig === mpSig
+          : normalizeFractionalSpacing(norm(peer.text)) ===
+            normalizeFractionalSpacing(norm(decl.text))
       if (!same) drifted.push(decl.name)
       continue
     }
-    if (rnSig && mpDecls.some((item) => mapSignatureOf(item.text) === rnSig)) {
+    if (rnSig && mpDecls.some((item) => mapSignatureOf(normalizeFractionalSpacing(item.text)) === rnSig)) {
       renamed.push(decl.name)
       continue
     }
@@ -651,6 +659,27 @@ function selfTest() {
   const mutated = mpOk.replace('24: "h-6"', '24: "h-7"')
   const cmpMut = comparePair(rn, mutated)
   ok('T4 取值漂移被判红', cmpMut.drifted.includes('TRACK_H_CLASS'))
+
+  // T4b 像素等值归一:小程序端 fractional 档在产物里产不出可挂载规则(门 C8 死规则族),
+  //   本端只能写等值裸 rpx ⇒ 这一型不是漂移。真仓 Badge/VipBadge 的 PADDING_Y_CLASS 即此型。
+  const rnFrac = rn.replace("sm: 'p-1'", "sm: 'p-1.5'")
+  const mpEquiv = mpOk.replace("sm: 'p-1'", "sm: 'p-[12rpx]'")
+  ok('T4b 等值裸 rpx 不判漂移', comparePair(rnFrac, mpEquiv).drifted.length === 0)
+  // T4c/T4c2 反向对照:等值尺不是豁免白名单 —— 像素不同必须仍判得出(否则这把尺自身是坏的)
+  ok('T4c 像素不同仍判漂移', comparePair(rnFrac, mpOk).drifted.includes('SIZING'))
+  ok(
+    'T4c2 rpx 写错值仍判漂移',
+    comparePair(rnFrac, mpOk.replace("sm: 'p-1'", "sm: 'p-[20rpx]'")).drifted.includes('SIZING'),
+  )
+  // T4d 算式钉死:(n+0.5) 档 × 4px × TARO_RPX_PER_PX(2) = (8n+4)rpx;非间距尺一律不碰
+  ok(
+    'T4d fractional→rpx 算式与非尺不碰',
+    ['0.5', '1.5', '2.5', '3.5']
+      .map((v) => fractionalToRpx(`py-${v}`))
+      .join(',') === 'py-[4rpx],py-[12rpx],py-[20rpx],py-[28rpx]' &&
+      fractionalToRpx('rounded-0.5') === 'rounded-0.5' &&
+      fractionalToRpx('text-0.5') === 'text-0.5',
+  )
 
   // T5 缺声明被判红,且 --apply 可补齐
   const shrunk = mpOk.replace(/const SIZING[\s\S]*?\n}\n/, '')

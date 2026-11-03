@@ -160,6 +160,10 @@ export const MINIAPP_SKIP_PREFIXES = [
   '--spacing-',
   '--text-',
   '--shadow-elevation-',
+  // --radius 同理(2026-11-03):只写 `@theme` 注册区、不写 :root 副本。
+  // 值在 tokens.css 的 @theme 块(rem),派生时逐字保留;进 v4 通道后产物里
+  // `--radius-*` 由 @theme static 输出为 :root 变量,运行期引用面不变。
+  '--radius',
 ]
 
 /** 本表是否覆盖该档(生成器不写它 ⇒ 守门也不得判它缺)。 */
@@ -229,12 +233,23 @@ export const THEME_SELECTORS = ['@theme', '@theme static']
  * 排除项:`--text-vcenter-offset`(0.3px 是 web 中文图标垂直补偿,不是字号档;
  * 进 @theme 会长出 `.text-vcenter-offset` 脏档)。`--font-weight-*` 不搬:值与 v4 默认
  * 逐字相同(400/500/600/700)且不随档表变化,搬它只会多一份要跟随的账。
+ *
+ * radius(2026-11-03 追加):6+1 档此前只在小程序 `:root` 手写、门 77 只对账值 ⇒ 源改档时
+ * app.css 得靠人跟着改。接进本条腿后与 spacing/text/shadow 同一条派生路径,手写副本删除;
+ * 值是 rem(0.125/0.25/0.375/0.5/0.75/1rem),与 tokens.css 逐字同值、不做 px→rpx 换算
+ * (rem 换算会改非 375 屏宽的观感,批 1 的验收就是零视觉变更)。
  */
 const THEME_SEMANTIC_EXCLUDE = new Set(['--text-vcenter-offset'])
 
 export function isThemeSemanticKey(name) {
   if (THEME_SEMANTIC_EXCLUDE.has(name)) return false
-  return name.startsWith('--spacing-') || name.startsWith('--text-') || name.startsWith('--shadow-elevation-')
+  return (
+    name === '--radius' ||
+    name.startsWith('--radius-') ||
+    name.startsWith('--spacing-') ||
+    name.startsWith('--text-') ||
+    name.startsWith('--shadow-elevation-')
+  )
 }
 
 /** px → rpx(唯一换算点;`0.05` 这类无单位成分不受影响,只吃 `<数>px`) */

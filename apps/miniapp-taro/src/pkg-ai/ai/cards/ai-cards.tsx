@@ -43,6 +43,7 @@ import {
 } from '@/pkg-ai/ai/cards/tool-line'
 import type { ToolSubjectKind } from '@ihui/shared/chat'
 import './ai-cards.css'
+import { onToast } from '@/host/on-toast'
 
 /** 对象等宽档:与 web stream-ui 的 STREAM_SUBJECT_MONO 同判据(路径 / URL / 命令用等宽体) */
 const MONO_SUBJECT_KINDS: ReadonlySet<ToolSubjectKind> = new Set(['path', 'url', 'command'])
@@ -218,7 +219,7 @@ function TerminalTaskItem({
       data: task.output,
       success: () => {
         setCopied(true)
-        Taro.showToast({ title: t('ai.cards.terminal.copied'), icon: 'none' })
+        onToast(t('ai.cards.terminal.copied'), { kind: 'info' })
         setTimeout(() => setCopied(false), 1500)
       },
     })

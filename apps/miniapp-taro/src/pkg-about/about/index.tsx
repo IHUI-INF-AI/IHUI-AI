@@ -20,6 +20,7 @@ import {
   ABOUT_VALUES,
   type AboutFeature,
 } from './aboutSections'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 小程序端「关于我们」—— 段落顺序与取词照 RN `AboutScreen.tsx`(其上游为 web AboutContent):
@@ -47,7 +48,15 @@ function Chip({ icon, label }: { icon: IconName; label: string }) {
   )
 }
 
-function FeatureCard({ feature, title, desc }: { feature: AboutFeature; title: string; desc: string }) {
+function FeatureCard({
+  feature,
+  title,
+  desc,
+}: {
+  feature: AboutFeature
+  title: string
+  desc: string
+}) {
   return (
     <View className="w-[calc(50%-10rpx)] bg-card rounded-lg p-[24rpx] space-y-[16rpx]">
       <View className="flex items-center gap-[16rpx]">
@@ -70,7 +79,7 @@ export default function AboutIndexPage() {
       setInfo(await getAbout())
     } catch (e) {
       logger.error('about/index', '获取关于信息', e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     }
   }, [t])
 
@@ -108,7 +117,7 @@ export default function AboutIndexPage() {
             <Text className="block text-center text-[length:56rpx] font-bold text-foreground">
               {t('about.heroTitle')}
             </Text>
-            <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-center text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.heroSubtitle')}
             </Text>
             {info.version ? (
@@ -124,10 +133,10 @@ export default function AboutIndexPage() {
             <Text className="block text-subtitle font-bold text-foreground">
               {t('about.storyTitle')}
             </Text>
-            <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.storyP1')}
             </Text>
-            <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.storyP2')}
             </Text>
           </View>
@@ -170,7 +179,7 @@ export default function AboutIndexPage() {
                   <Text className="text-display font-bold text-brand-accent-deep">
                     {t(s.valueKey)}
                   </Text>
-                  <Text className="text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+                  <Text className="text-center text-body-sm leading-[40rpx] text-muted-foreground">
                     {t(s.descKey)}
                   </Text>
                 </View>
@@ -184,7 +193,7 @@ export default function AboutIndexPage() {
             <Text className="block text-center text-subtitle font-bold text-foreground">
               {t('about.ctaTitle')}
             </Text>
-            <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-center text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.ctaDesc')}
             </Text>
             <View
@@ -220,9 +229,7 @@ export default function AboutIndexPage() {
                   onClick={() => Taro.navigateTo({ url: m.url })}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-strong text-foreground flex-1">
-                    {t(m.labelKey)}
-                  </Text>
+                  <Text className="text-strong text-foreground flex-1">{t(m.labelKey)}</Text>
                   <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
                 </View>
               ))}

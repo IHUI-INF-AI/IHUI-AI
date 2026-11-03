@@ -29,13 +29,14 @@
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
 import {
   sweepCrossEndLandingLeg,
   sweepCssTokensSourceLeg,
   sweepRnColorLiteralLeg,
+  sweepRnCompatLeg,
   sweepUiMirrorLeg,
 } from '../git-guardian.mjs'
 import { __test__ as autoQuiet } from '../auto-commit-quiet.mjs'
@@ -343,4 +344,67 @@ test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 ti
   assert.ok(iLand < iCockpit, '落库必须排在汇总面之前')
   // tickFile 若没走 opts 解构,冒烟与镜像测试会互相踩生产节流戳(本轮实测踩过一次)
   assert.match(src, /tickFile = defaultTickFile/, '共用派发体必须允许 opts 覆盖节流戳')
+})
+
+// ── 第三批:门 251 的修法出口首次上链(sweepRnCompatLeg)──────────────────────────────
+// 立因:守门 251 是提交链上的 blocking 门,其头注给出的两条修法出口都指向 `gen-rn-compat.mjs --write`,
+// 而该命令在全仓**零调度点**(git grep 只命中门体文案与自身)。上游发新图标名 / 登记表新增一条
+// rn↔miniapp 都不触发提交 ⇒ 没有这条腿,漂移要等下一个人恰好提交且恰好撞门才被发现(同门 260 的 CVE 型)。
+// 挂周期腿的前置是本器补齐了归属闸 + 未知旗拒绝 + 落点申报(2026-11-03),否则自动写档=覆盖他席现场。
+test('U6 RN兼容层腿:按本器真实结论行解析 landing/held,且 clean 一声不出', () => {
+  const seen = []
+  const r = sweepRnCompatLeg({
+    tickFile: tick('u6.json'),
+    logger: (s) => seen.push(String(s)),
+    runner: () => ({
+      status: 0,
+      // 逐字取自 2026-11-03 实跑 `node scripts/gen-rn-compat.mjs --write` 的末行(契约不手抄)
+      stdout:
+        '结论 landing=2(新登记 1/在册去重 1) 无变化=0 held=1 写出=2 leg=rn-compat ledger=ok landingPath=.ihui-agent/state/cross-end-landing.jsonl',
+      stderr: '',
+    }),
+  })
+  assert.deepEqual(
+    { ran: r.ran, ok: r.ok, state: r.state, landed: r.landed, held: r.held },
+    { ran: true, ok: true, state: 'ok', landed: 2, held: 1 },
+  )
+  assert.ok(seen.some((s) => s.includes('RN 兼容层派生产物落档')), '有产出必须点名到哪条腿')
+  // 反向对照:landing=0 ∧ held=0(幂等常态)⇒ 不得刷日志
+  const hits = []
+  const clean = sweepRnCompatLeg({
+    tickFile: tick('u6-clean.json'),
+    logger: (s) => hits.push(String(s)),
+    runner: () => ({
+      status: 0,
+      stdout: '结论 landing=0(新登记 0/在册去重 0) 无变化=2 held=0 写出=0 leg=rn-compat ledger=ok',
+      stderr: '',
+    }),
+  })
+  assert.equal(clean.landed, 0)
+  assert.equal(hits.length, 0, 'clean 档必须零输出(每 30 分钟一行"没问题"会把守护日志淹成噪声)')
+})
+
+test('U7 RN兼容层腿:结论行缺失 ⇒ 未判定,不得折成"无漂移可落"', () => {
+  const r = sweepRnCompatLeg({
+    tickFile: tick('u7.json'),
+    logger: () => {},
+    runner: () => ({ status: 1, stdout: '', stderr: 'boom' }),
+  })
+  assert.equal(r.ok, false, '取不到结论不得记绿')
+  assert.equal(r.state, 'undetermined')
+})
+
+test('U8 RN兼容层腿挂载与器内契约锁(改措辞即点名,防腿静默失明)', () => {
+  const src = readFileSync(GUARDIAN, 'utf8')
+  const iCompat = src.indexOf('if (!CHECK_ONLY) sweepRnCompatLeg()')
+  const iLand = src.indexOf('if (!CHECK_ONLY) sweepCrossEndLandingLeg()')
+  assert.ok(iCompat > 0, '新腿必须真挂在主串上(不是只在文件里出现过函数名)')
+  assert.ok(iCompat < iLand, '写盘腿必须排在落库腿之前,否则本轮产出收编不到')
+  // 本器结论行文案是派发体唯一的取数面:它改措辞 ⇒ 腿当场瞎成 undetermined(与 css 腿同一条锁法)
+  const gen = readFileSync(join(dirname(GUARDIAN), 'gen-rn-compat.mjs'), 'utf8')
+  assert.match(gen, /结论 landing=\$\{landing\}/, '本器结论行前缀变了 ⇒ 派发体再也量不到产出')
+  assert.match(gen, /held=\$\{held\.length\}/, 'held 维缺失 ⇒ 归属闸拦了几枚无人知道')
+  assert.match(gen, /ledger=\$\{ledgerState\}/, 'ledger 维缺失 ⇒ "写了盘没申报上"会被读成 clean')
+  // 未知旗必须拒绝:静默忽略会让周期腿把 --apply 当成"预演不写盘"而每轮报绿(空转守卫)
+  assert.match(gen, /未知参数 \$\{unknown\.join\(' '\)\}/, '本器不得静默忽略未知旗')
 })

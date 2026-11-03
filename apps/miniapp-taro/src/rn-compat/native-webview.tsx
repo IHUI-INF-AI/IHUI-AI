@@ -16,6 +16,7 @@
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { JSX } from 'react'
+import { onToast } from '@/host/on-toast'
 
 let warned = false
 
@@ -36,9 +37,7 @@ export default function WebView({
   }
   const open = (): void => {
     if (!uri) return
-    void Taro.setClipboardData({ data: uri }).then(() =>
-      Taro.showToast({ title: '链接已复制', icon: 'none' }),
-    )
+    void Taro.setClipboardData({ data: uri }).then(() => onToast('链接已复制', { kind: 'info' }))
   }
   return (
     <View style={{ ...(style as object), padding: 12 }}>

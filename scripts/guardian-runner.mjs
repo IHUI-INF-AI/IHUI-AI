@@ -6776,6 +6776,29 @@ const checks = [
   //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
   // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
   {
+    id: '282',
+    label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
+    script: 'check-docs-public-health.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/app/'],
+    skipEnv: 'HUSKY_SKIP_DOCS_PUBLIC_HEALTH',
+    onFailHint: [
+      '  💡 [D1 hreflang 死链] 某 docs 页 metadata.alternates.languages 声明了不存在的路由(如 /zh-tw/docs)。',
+      '     ① 现读逐条点名:node scripts/check-docs-public-health.mjs --worktree',
+      '     ② 两条合法出路:把该语言页真建出来(路由文件须落在 apps/web/app/ 下),或删掉这条声明;',
+      '        只留 canonical + x-default + 真实存在的语言版。禁止用注释把声明藏起来(判据读源码结构)。',
+      '  💡 [D2 sitemap 死链] app/sitemap.ts 收录了没有路由文件的 /docs* 路径。收录死链比不收录更糟,',
+      '     正解 = 从 sitemap 摘掉该条,或补出页面。',
+      '  💡 [D3 emoji 图标] docs 页的 icon: 字段用了 emoji ⇒ 换 lucide-react 矢量组件(web 侧唯一图标源,AGENTS.md §4)。',
+      '     注意本判据不吃"正文装饰"豁免:emoji 门(108 族)对 docs 正文装饰放行,但 icon: 字段两档都判。',
+      '     文档正文里展示给读者看的示例代码(<pre><code>{`…`}</code></pre> 模板字符串内)不算配置,已按字面量跨度排除。',
+      '  💡 取证:node scripts/check-docs-public-health.mjs --self-test(10 例,含 D3 成对夹具与反向牙)',
+      '     镜像:node --test scripts/tests/check-docs-public-health.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1 git commit ...(不推荐;跳过会留痕)',
+    ],
+  },
+  {
     id: '281',
     label: '🌳 全工作树未提交状态(blocking;主树残量阻断,其他工作树脏只告警)',
     script: 'check-worktree-status.mjs',
@@ -6790,6 +6813,62 @@ const checks = [
       '     ③ 其他工作树脏只告警不阻断:请在该树内自行提交后 git worktree remove。',
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
+  },
+  {
+    id: '282',
+    label:
+      '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
+    script: 'check-web-rn-gap-ratchet.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-web-rn-gap-ratchet.mjs',
+      'scripts/data/web-rn-gap-baseline.json',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'packages/shared/src/constants/web-portal.ts',
+      'packages/app/',
+      'apps/web/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_GAP_RATCHET',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-web-rn-gap-ratchet.mjs [--json|--gate];基线只降不升:node scripts/check-web-rn-gap-ratchet.mjs --baseline',
+  },
+  // --- 共享屏「至少被一枚 RN 壳直接 import」覆盖判据(P0-1,守门 283)---
+  {
+    id: '283',
+    label:
+      '🧩 共享屏 RN 薄壳覆盖(blocking;新增共享屏既无 RN 壳直接 import 又未在册认领 ⇒ 拦提交)',
+    script: 'check-rn-host-shell-coverage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-rn-host-shell-coverage.mjs',
+      'scripts/data/rn-host-shell-manual.json',
+      'packages/app/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_RN_HOST_SHELL_COVERAGE',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
+  },
+  // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
+  {
+    id: '284',
+    label:
+      '🪤 跨端声明承载 vs 真承载棘轮(blocking;差值只拦本次新增的假声明,存量逐条报数不拦)',
+    script: 'check-declared-carriage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-declared-carriage.mjs',
+      'scripts/data/cross-end-screen-registry.json',
+      'apps/miniapp-taro/src/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DECLARED_CARRIAGE',
+    onFailHint:
+      '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
   },
 ]
 

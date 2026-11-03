@@ -20,6 +20,7 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
+import { onToast } from '@/host/on-toast'
 
 type ExamDetail = ExamPaper & {
   questionCount: number
@@ -73,7 +74,7 @@ export default function ExamDetail() {
       setHistory(related)
     } catch (e) {
       logger.error('exam/detail', '考试详情加载', e)
-      Taro.showToast({ title: tt('exam.detail.loadFailed', '考试加载失败'), icon: 'none' })
+      onToast(tt('exam.detail.loadFailed', '考试加载失败'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -108,7 +109,7 @@ export default function ExamDetail() {
       Taro.navigateTo({ url: `/pages/exam/answer?id=${exam.id}&recordId=${record.id}` })
     } catch (e) {
       logger.error('exam/detail', '开始考试', e)
-      Taro.showToast({ title: tt('exam.detail.startFailed', '开始考试失败'), icon: 'none' })
+      onToast(tt('exam.detail.startFailed', '开始考试失败'), { kind: 'error' })
     } finally {
       setStarting(false)
     }

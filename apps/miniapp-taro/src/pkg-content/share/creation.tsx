@@ -13,6 +13,7 @@ import { NavBar } from '@/components'
 import ErrorView from '@/components/ErrorView'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 interface ShareAnswer {
   thinking?: string
@@ -92,7 +93,7 @@ export default function ShareCreationPage() {
 
   const onShareFriend = useCallback(() => {
     Taro.showShareMenu({ withShareTicket: true })
-    Taro.showToast({ title: t('share.creation.clickShare'), icon: 'none' })
+    onToast(t('share.creation.clickShare'), { kind: 'info' })
   }, [t])
 
   if (loading) {

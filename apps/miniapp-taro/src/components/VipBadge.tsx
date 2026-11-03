@@ -34,7 +34,7 @@ import {
  */
 const RADIUS_CLASS: Record<typeof VIP_BADGE_RADIUS_TIER, string> = { md: 'rounded-md' }
 const PADDING_X_CLASS: Record<number, string> = { 8: 'px-2', 10: 'px-2.5' }
-const PADDING_Y_CLASS: Record<number, string> = { 2: 'py-[4rpx]', 4: 'py-1' }
+const PADDING_Y_CLASS: Record<number, string> = { 2: 'py-0.5', 4: 'py-1' }
 const GAP_CLASS: Record<number, string> = { 2: 'gap-0.5', 4: 'gap-1' }
 const TEXT_CLASS: Record<typeof VIP_BADGE_TEXT_TIER, string> = { xs: 'text-xs' }
 

@@ -17,9 +17,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -575,5 +576,271 @@ test('T15 红线锁:白名单数组本体与 HEAD 面逐字节相同(一条都�
   const headSrc = String(gitRaw(['show', 'HEAD:scripts/auto-commit-quiet.mjs'], REPO))
   assert.ok(headSrc.length > 1000, 'HEAD 面必须取到原文(取不到 ⇒ 本条未判定,不得假绿)')
   assert.equal(slice(SRC), slice(headSrc), '白名单条目被改动 = 触碰本次任务的红线')
+})
+
+// ─── 结论行纪律(2026-11-03 追加;§0.3/§0.9:每一条退出路径都必须出声到 stdout)──
+// 立因:守护 sweepCrossEndLandingLeg 派 `node scripts/auto-commit-quiet.mjs` 后按
+// `COLLECT-RESULT` 前缀解析 stdout,而该器实测 `--dry-run` **stdout 0 行** —— 器物在工作,
+// 消费者却只能记"未判定"。以下用例全部走**直跑子进程**(结论行必须达 stdout 这一事实,
+// import 形态的结构断言替代不了);ROOT 由 IHUI_AUTO_COMMIT_QUIET_TEST_ROOT 钉到 mkScratch
+// 临时仓(生产/守护派发从不设置该变量 ⇒ 生产形态逐字节同形),绝不碰真实工作树。
+
+const SCRIPT = join(REPO, 'scripts', 'auto-commit-quiet.mjs')
+
+function subRun(dir, args = [], extraEnv = {}) {
+  return spawnSync(process.execPath, [SCRIPT, ...args], {
+    cwd: dir,
+    encoding: 'utf8',
+    timeout: 120_000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式 stdio
+    env: { ...process.env, IHUI_AUTO_COMMIT_QUIET_TEST_ROOT: dir, ...extraEnv },
+  })
+}
+
+/** stdout 上必须**恰有一行**以 COLLECT-RESULT 起头(不多不少;多行=消费者会读到串轮)。 */
+function onlyConclusion(stdout) {
+  const hits = String(stdout ?? '')
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith('COLLECT-RESULT'))
+  assert.equal(hits.length, 1, `stdout 必须恰有一行 COLLECT-RESULT,实得 ${hits.length} 行:\n${stdout}`)
+  return hits[0]
+}
+
+test('T16 直跑子进程 --dry-run 于"无事发生"面(干净仓+账本不存在)⇒ stdout 恰一行,reason 点名两型', () => {
+  const dir = newRepo()
+  try {
+    const p = subRun(dir, ['--dry-run'])
+    assert.equal(p.status, 0, `退出码必须仍为 0(本次红线:不改退出码语义),stderr:${p.stderr}`)
+    const line = onlyConclusion(p.stdout)
+    // 账本不存在 ⇒ ledger=unjudged(§0.3,不得折成"没有待收")
+    assert.match(line, /ledger=unjudged/)
+    assert.match(line, /reason=\S*not-found/, '未判定必须把 not-found 写进机读 reason')
+    // git status 干净 ⇒ 白名单族的具体形态码(不是"skipped"这种读不出的词)
+    assert.match(line, /reason=\S*no-changes/)
+    assert.match(line, /collected=0/)
+    assert.match(line, /dry=true/)
+    // 阳性对照(尺能读出非零):同一夹具登记一条真凭据 ⇒ quiet 桶立刻非零
+    declare(dir, BUSINESS_PATH, 'export const v = 1\n', agedIso(1)) // 1 分钟前 < 3 分钟静默期
+    const q = onlyConclusion(subRun(dir, ['--dry-run']).stdout)
+    assert.match(q, /ledger=ok/)
+    assert.match(q, /quiet=1/, '同一把尺必须能读出非零读数 ⇒ T16 的 0 是量出来的,不是哑的')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T17 guardBusy 让路(index.lock 真实构造)⇒ 仍恰出一行,reason 点名 busy-index-lock', () => {
+  const dir = newRepo()
+  try {
+    put(dir, '.git/index.lock', '') // 按 guardBusy 的判据真实造那一型(不注入替身)
+    const p = subRun(dir, ['--dry-run'])
+    assert.equal(p.status, 0)
+    const line = onlyConclusion(p.stdout)
+    assert.match(line, /reason=busy-index-lock/, '两型 busy 必须分得清是哪一路')
+    assert.match(line, /ledger=unjudged/, '让路轮没问账本 ⇒ 如实未判定,不冒 ok')
+    assert.match(line, /collected=0/)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+  // 另一型 busy(pre-commit.log 增长族)由同一把分类尺点名:guardBusy 的返回文案含
+  // "pre-commit.log" 不含 "index.lock" ⇒ 必须落 busy-pre-commit-log。
+  assert.equal(auto.classifyBusy('index.lock 在用'), 'busy-index-lock')
+  assert.equal(
+    auto.classifyBusy('守门批正在写(pre-commit.log 30秒内仍在增长:10→20)'),
+    'busy-pre-commit-log',
+  )
+})
+
+test('T18 直跑子进程非 dry 阳性对照:真凭据判 collectible ⇒ stdout 同一行读到 collected=1', () => {
+  const dir = newRepo()
+  try {
+    // 提交通道的桩只存在于临时仓(fam 的 commitBatch 按注入 root spawn,绝不碰真实仓)。
+    put(dir, 'scripts/safe-commit.mjs', 'process.stdout.write("stub ok\\n")\n')
+    declare(dir, BUSINESS_PATH, 'export const w = 1\n') // 10 分钟前 ⇒ 超静默期
+    const p = subRun(dir, [])
+    assert.equal(p.status, 0, `stderr:${p.stderr}`)
+    const line = onlyConclusion(p.stdout)
+    assert.match(line, /ledger=ok/)
+    assert.match(line, /collected=1/)
+    assert.match(line, /ledgerCollected=1/)
+    assert.match(line, /dry=false/)
+    assert.match(line, /reason=\S*no-whitelist-hits/, '白名单外让路型必须同轮点名(留给人清的枚数也在 held= 里)')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T19 stdout 闸只在直跑形态开:被 import 形态调用器物不得写调用方 stdout', () => {
+  const dir = newRepo()
+  try {
+    declare(dir, BUSINESS_PATH, 'export const z = 1\n')
+    const drv = [
+      `import { __test__ as auto } from ${JSON.stringify(pathToFileURL(SCRIPT).href)};`,
+      'if (process.env.DRV_ON === "1") auto.setConclusionStdout(true);',
+      'auto.runLedgerFamily({',
+      `  root: ${JSON.stringify(dir)},`,
+      '  now: new Date(),',
+      '  quietMs: 3 * 60 * 1000,',
+      '  dry: false,',
+      '  busyCheck: () => null,',
+      '  commit: () => {},',
+      '  logLine: () => {},',
+      '});',
+      '',
+    ].join('\n')
+    put(dir, 'drv.mjs', drv)
+    const off = spawnSync(process.execPath, [join(dir, 'drv.mjs')], {
+      cwd: dir,
+      encoding: 'utf8',
+      timeout: 120_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, DRV_ON: '0' },
+    })
+    assert.equal(off.status, 0, off.stderr)
+    assert.ok(
+      !String(off.stdout).includes('COLLECT-RESULT'),
+      'import 形态(闸未开)一行 stdout 都不许写 —— 否则是在污染调用方(§22d 同取向)',
+    )
+    const on = spawnSync(process.execPath, [join(dir, 'drv.mjs')], {
+      cwd: dir,
+      encoding: 'utf8',
+      timeout: 120_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, DRV_ON: '1' },
+    })
+    assert.equal(on.status, 0, on.stderr)
+    const line = onlyConclusion(on.stdout)
+    assert.match(line, /collected=1/, '闸开后的阳性对照:同一器物同一夹具必须读得出非零')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T20 两族合流的机读面:held 相加、reason 以 + 连接具体形态码(键集与前缀一字不改)', () => {
+  const dir = newRepo()
+  try {
+    declare(dir, BUSINESS_PATH, 'x\n')
+    const { r, lines } = runLedger(dir, {
+      whitelistHeld: 2,
+      whitelistReasons: ['no-whitelist-hits'],
+      busyCheck: () => 'index.lock 在用',
+    })
+    assert.equal(r.held, 1 + 2, '账本族 held + 白名单族 held 必须同键合计(不加新键)')
+    assert.equal(r.reason, 'no-whitelist-hits+busy-index-lock')
+    const conclusion = lines.find((l) => l.startsWith('COLLECT-RESULT'))
+    assert.match(conclusion, /^COLLECT-RESULT ledger=ok /, '前缀与首键顺序是消费者匹配面,不得动')
+    assert.match(conclusion, / held=3 /)
+    assert.match(conclusion, /reason=no-whitelist-hits\+busy-index-lock$/)
+    // 无让路形态时 reason 键必须整个缺席(与既有形态同形,消费者按 if (r.reason) 追加)
+    const plain = auto.ledgerConclusionLine(auto.baseConclusion({ dry: false }))
+    assert.ok(!plain.includes('reason='), plain)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+/**
+ * 形状锁的实现:剥掉 `=> {…}` 块体后逐个 return 调用点检查(行号邻近不算证据,
+ * §0.6/任务令)。允许前缀之外的任何 return 都视为"静默早退回潮"。
+ */
+function stripArrowBodies(body) {
+  let out = ''
+  let i = 0
+  while (i < body.length) {
+    if (body.startsWith('=>', i)) {
+      let j = i + 2
+      while (j < body.length && /\s/.test(body[j])) j++
+      if (body[j] === '{') {
+        let depth = 0
+        let k = j
+        for (; k < body.length; k++) {
+          if (body[k] === '{') depth++
+          else if (body[k] === '}') {
+            depth--
+            if (depth === 0) {
+              k++
+              break
+            }
+          }
+        }
+        i = k
+        continue
+      }
+    }
+    out += body[i]
+    i += 1
+  }
+  return out
+}
+
+function returnHeads(body) {
+  const heads = []
+  const re = /\breturn\b/g
+  let m
+  while ((m = re.exec(body))) {
+    heads.push(
+      body
+        .slice(m.index, m.index + 80)
+        .replace(/\s+/g, ' ')
+        .replace(/\(\s+/g, '(')
+        .trim(),
+    )
+  }
+  return heads
+}
+
+test('T21 形状锁:main/白名单族/账本族的每一条 return 都经由唯一出口(不得有静默早退)', () => {
+  const m = stripArrowBodies(bodyOf(SRC, 'function main()'))
+  const mh = returnHeads(m)
+  assert.ok(mh.length >= 1)
+  for (const h of mh) assert.ok(h.startsWith('return emitConclusion('), `main 的 return 未经由唯一结论出口:${h}`)
+
+  const wl = stripArrowBodies(bodyOf(SRC, 'function runWhitelistFamily('))
+  const wh = returnHeads(wl)
+  assert.ok(wh.length >= 6, `白名单族应至少 6 条让路出口,实得 ${wh.length}`)
+  for (const h of wh) assert.ok(h.startsWith('return exitWhitelist('), `白名单族静默 return 回潮:${h}`)
+  assert.ok(wl.includes('tally.held = held.length'), '白名单外的枚数必须计入轮级 held')
+  // 逐码点名:五型让路各有具体形态码,不得都写成"skipped"
+  for (const code of [
+    'no-changes',
+    'no-whitelist-hits',
+    'whitelist-conflicted',
+    'not-quiet',
+    'livedoc-held-empty',
+    'whitelist-dry-run',
+    'stale-copy-held-empty',
+  ])
+    assert.ok(wl.includes(`'${code}'`), `白名单族缺具体形态码:${code}`)
+
+  const famRaw = bodyOf(SRC, 'export function runLedgerFamily(')
+  const fam = stripArrowBodies(famRaw)
+  const fh = returnHeads(fam)
+  assert.ok(fh.length >= 6, `账本族应至少 6 条结论出口,实得 ${fh.length}`)
+  for (const h of fh) assert.ok(h.startsWith('return withCounts('), `账本族 return 未经由 withCounts:${h}`)
+  // emit 的唯一出口调用住在 `const emit = (r) => {…}` 块体内(stripArrowBodies 会剥掉它),
+  // 所以这一臂必须在**未剥离**的原始体上查;withCounts/joinReason 是表达式箭头,两版都在。
+  assert.ok(famRaw.includes('emitConclusion('), 'emit 必须经唯一出口(不得回退成只写文件日志)')
+  assert.ok(fam.includes('classifyBusy(busy)'), '账本族 busy 必须点名是哪一路')
+  assert.ok(fam.includes("held: (over.held ?? 0) + whitelistHeld"), 'held 两族合计必须同键')
+  assert.ok(fam.includes('reason: joinReason(over.reason)'), 'reason 两族合流必须经 joinReason')
+
+  const ec = bodyOf(SRC, 'function emitConclusion(')
+  assert.ok(ec.includes('ledgerConclusionLine('), '唯一出口必须复用既有拼装(§0.6,不得第二套)')
+  assert.ok(ec.includes('process.stdout.write'), '直跑形态必须达 stdout(消费者读 stdout)')
+  assert.ok(ec.includes('conclusionStdoutEnabled'), 'stdout 臂必须有闸(import 形态不写调用方)')
+  const ew = bodyOf(SRC, 'function exitWhitelist(')
+  assert.ok(ew.includes('reasons.push('), '让路形态码必须记账进 tally,由轮级结论行带出')
+
+  // 直跑块:先闸、后 try/catch,异常路径先行后抛(退出码语义不变)
+  const drStart = SRC.indexOf('if (isDirectRun)')
+  assert.ok(drStart >= 0, '直跑块消失 ⇒ 本锁要重写,不得静默失配')
+  const dr = SRC.slice(drStart, SRC.indexOf('export const __test__'))
+  assert.ok(dr.includes('setConclusionStdout(true)'))
+  assert.ok(/catch\s*\(/.test(dr), '异常路径必须有先行后抛的兜底')
+  assert.ok(dr.slice(dr.indexOf('catch')).includes('emitConclusion'), '异常兜底必须经同一唯一出口')
+  assert.ok(/throw\s+e/.test(dr), '兜底后必须重抛(不改退出码语义)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

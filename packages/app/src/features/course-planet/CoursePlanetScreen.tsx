@@ -3,15 +3,33 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import {
+  Image,
+  Pressable,
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+  type ImageSourcePropType,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BookOpen } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { BannerCarousel } from '../_shared/BannerCarousel'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { CoursePlanetScreenProps } from '@ihui/types'
 export type { CoursePlanetScreenProps }
+
+/** 课程菜单项（由薄壳注入 8 项分类；label 已是展示文案） */
+export interface CoursePlanetMenuEntry {
+  id: string
+  label: string
+  icon?: ImageSourcePropType
+}
 
 const TYPE_TABS = [
   { key: 'all', label: '全部' },
@@ -31,8 +49,16 @@ export function CoursePlanetScreen({
   onRefresh,
   onBack,
   onRetry,
+  bannerImages,
+  menuItems,
+  onMenuPress,
   colorScheme = 'light'
-}: CoursePlanetScreenProps & { onRetry?: () => void }) {
+}: CoursePlanetScreenProps & {
+  onRetry?: () => void
+  bannerImages?: readonly ImageSourcePropType[]
+  menuItems?: readonly CoursePlanetMenuEntry[]
+  onMenuPress?: (item: CoursePlanetMenuEntry) => void
+}) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -92,6 +118,11 @@ export function CoursePlanetScreen({
           }
           showsVerticalScrollIndicator={false}
         >
+          {bannerImages?.length ? (
+            <View style={styles.bannerWrap}>
+              <BannerCarousel images={bannerImages} />
+            </View>
+          ) : null}
           <View style={styles.typeTabsRow}>
             {TYPE_TABS.map((tab) => (
               <TouchableOpacity
@@ -107,6 +138,27 @@ export function CoursePlanetScreen({
               </TouchableOpacity>
             ))}
           </View>
+
+          {menuItems?.length ? (
+            <View style={styles.menuGrid}>
+              {menuItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.menuItem}
+                  onPress={() => onMenuPress?.(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                >
+                  {item.icon ? (
+                    <Image source={item.icon} style={styles.menuIcon} resizeMode="contain" />
+                  ) : null}
+                  <Text style={styles.menuLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
           {loading ? (
             <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
@@ -163,6 +215,27 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
+    bannerWrap: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      marginBottom: rnSpacing.md,
+    },
+    menuGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      marginBottom: rnSpacing.lg,
+    },
+    menuItem: {
+      width: '25%',
+      alignItems: 'center',
+      gap: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing.sm,
+    },
+    menuIcon: { width: 44, height: 44 },
+    menuLabel: {
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+    },
     typeTabsRow: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing['sm-loose'],

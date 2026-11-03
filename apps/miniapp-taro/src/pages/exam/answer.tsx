@@ -25,6 +25,7 @@ import {
   type ExamQuestion,
   type ShellQuestionType,
 } from '@/api'
+import { onToast } from '@/host/on-toast'
 
 export default function ExamAnswer() {
   const { t } = useI18n()
@@ -118,7 +119,7 @@ export default function ExamAnswer() {
       // 对齐 RN onSubmit 的失败面:失败必须让用户看见并留在本屏(可重交),
       // 不再像改前那样静默把 submittedRef 复位 —— 那会让"点了没反应"成为常态。
       submittedRef.current = false
-      Taro.showToast({ title: t('examQuestion.submitFailed'), icon: 'none' })
+      onToast(t('examQuestion.submitFailed'), { kind: 'error' })
     }
   }, [answers, questions, t])
 

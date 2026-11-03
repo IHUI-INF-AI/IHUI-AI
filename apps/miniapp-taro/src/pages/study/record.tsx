@@ -14,6 +14,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { RecordStats, type StudyStats } from './record-stats'
 import { RecordCard, statusOf, type RecordStatus, type StudyRecordRow } from './record-card'
+import { onToast } from '@/host/on-toast'
 
 type FilterTab = 'all' | RecordStatus
 
@@ -65,7 +66,7 @@ export default function StudyRecord() {
         pageRef.current++
       } catch {
         setError(true)
-        Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+        onToast(tt('common.failed', '加载失败'), { kind: 'error' })
       } finally {
         loadingRef.current = false
         setLoading(false)

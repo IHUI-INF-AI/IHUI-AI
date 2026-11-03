@@ -433,6 +433,15 @@ progress {
   --text-body-sm: 26rpx;
   --text-body-sm--line-height: 36rpx;
   --text-body-sm--font-weight: 400;
+
+  /* 以下 7 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --radius: 0.5rem;
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 }
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
@@ -595,13 +604,6 @@ iframe#webpack-dev-server-client-overlay {
   --color-brand-700: hsl(240 5% 21%);
   --color-brand-800: hsl(240 6% 16%);
   --color-brand-900: hsl(240 7% 11%);
-  --radius: 0.5rem;
-  --radius-xs: 0.125rem;
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
   --color-tag-inactive-bg: hsl(0 0% 88%);
   --color-pinned-tag-bg: hsl(0 0% 88%);
   --color-streamed-container-bg: hsl(0 0% 92%);
@@ -702,6 +704,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-success-text: hsl(142 71% 28%);
   --color-warning-text: hsl(38 92% 30%);
   --color-danger-text: #b91c1c;
+
   /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
      给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
   --color-foreground-rgb: 10, 10, 10;
