@@ -101,6 +101,11 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:把 WD Button 实测存量钉进 web 腿锚点(几何 12 / 圆角 2) (686ecc1db4)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (853d6aa959)
+- 🚀 Feature/Improvement:代码块接上语法高亮,复用对话流既有形态(票 D53) (3ca376e9c8)
+
+**2026-11-03**
 - 📚 Docs:登记 WD Button 几何与圆角两维为带到期的允许差异(到期 2026-11-17) (81051824fc)
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (a5d5975971)
 - 🚀 Feature/Improvement:文档中心文案抽进 docs.* 命名空间,五语言同批齐备(票 D53) (ef8a1a3f9c)
@@ -146,9 +151,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (5c8563bed1)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ab0f41ac16)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
