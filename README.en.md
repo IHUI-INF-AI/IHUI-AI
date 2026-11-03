@@ -60,8 +60,8 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **619 tables · 4683 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4006 test files ·
-303 engineering gates · 51 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4023 test files ·
+322 engineering gates · 52 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4023 | `testFiles` |
+| 测试文件 | 4025 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 322 | `guardianGates` |
 | — blocking | 293 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18941 | `trackedFiles` |
+| 跟踪文件 | 18943 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,12 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🚀 Feature/Improvement:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
+- 🚀 Feature/Improvement:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
+- 🔧 Chore/Other:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
+- ♻️ Refactor:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+
 **2026-11-03**
 - 🔧 Chore/Other:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
 - 🐞 Fix:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
@@ -159,9 +165,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ce45e49f3f)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

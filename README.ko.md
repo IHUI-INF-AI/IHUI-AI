@@ -2219,6 +2219,12 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🚀 기능/개선:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
+- 🚀 기능/개선:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
+- 🔧 기타:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
+- ♻️ 리팩터:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+
+**2026-11-03**
 - 🔧 기타:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
 - 🐞 수정:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
 - ♻️ 리팩터:常量/条件字面量与手工收尾字号落档 (89831e5034)
@@ -2324,9 +2330,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (ce45e49f3f)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

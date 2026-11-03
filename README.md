@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4023 | `testFiles` |
+| 测试文件 | 4025 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 322 | `guardianGates` |
 | — blocking | 293 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18941 | `trackedFiles` |
+| 跟踪文件 | 18943 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -4279,7 +4279,7 @@ A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extensi
 **Q: Does it support MCP? / 支持 MCP 协议吗?**
 A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
 **Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. ~14839+ tests / 3993 test files / 67 e2e spec / 4673 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 4023 test files / 67 e2e spec / 4683 API 路由 / 619 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 ## Keywords
 > SEO 关键词索引。完整长尾词清单(100+ 条,按 Primary / Long-tail / Question / Comparison / Platform-specific 分类)见 [docs/seo-keywords.md](docs/seo-keywords.md)。
 **Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 16 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0 | Multi-Platform Auto Publishing | Anti-Risk Framework | AI Conversation Visualization | Tool Call Summary Card
@@ -5327,7 +5327,7 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
   语言包落笔(miniapp 的离线语言包是派生产物,须按 §19/守门 105 的生成链重生成,不得手改)。
   | 168 | check-merge-deletion-resurrection.mjs | **合并复活已删文件对账(blocking,2026-09-30 立)**:守门 100 的另一半 —— 100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」(立项实测定型两次:端内那份零消费者、零深导入的 SectionHeader 副本(小程序腿,与 adapters 那条腿同名) 显式删除被并集合并写回两次)。**DR1**:P ∈ tree(共同基底) ∧ ∈ 对侧父 ∧ ∉ 本侧父 ∧ ∈ 结果 ⇒ 判红;**DR2** 补多轮「删除→复活」上 DR1 的结构性失明(第一轮复活后分叉点已推进,下一枚合并的基底里已没有它):P ∉ 本侧父 ∧ ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红;同一路径两条取证只计一条。正当豁免两条且都带证据:删除提交信息含 `intentional-delete:`,或 `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期。默认只判未入 origin/main 的合并,增量台账让每枚合并只判一次;`--strict` 下有未判定即拒绝出合格证。取证 `--self-test` 43 例 + 镜像 11 例(含 T1 方向锁);紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1` |
   | 168 | check-merge-deletion-resurrection.mjs | **合并复活已删文件对账(blocking,2026-09-30 立)**:守门 100 的另一半 —— 100 拦「合并吞掉对侧独有新增」,本门拦「**本侧显式删除的路径被合并整批写回**」(立项实测定型两次:`小程序端 components 目录那份同名未接线旧副本(非 adapters 腿)` 显式删除被并集合并写回两次)。**DR1**:P ∈ tree(共同基底) ∧ ∈ 对侧父 ∧ ∉ 本侧父 ∧ ∈ 结果 ⇒ 判红;**DR2** 补多轮「删除→复活」上 DR1 的结构性失明(第一轮复活后分叉点已推进,下一枚合并的基底里已没有它):P ∉ 本侧父 ∧ ∈ 结果 ∧ 本侧可达范围内存在一笔非合并提交删掉了它 ⇒ 判红;同一路径两条取证只计一条。正当豁免两条且都带证据:删除提交信息含 `intentional-delete:`,或 `scripts/data/deletion-survival-allowlist.json` 带 `path+reason+reviewBy` 且未过期。默认只判未入 origin/main 的合并,增量台账让每枚合并只判一次;`--strict` 下有未判定即拒绝出合格证。取证 `--self-test` 43 例 + 镜像 11 例(含 T1 方向锁);紧急跳过 `HUSKY_SKIP_MERGE_DELETION_RESURRECTION=1` |
-> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 619 张数据库表 · 4683 个 API 路由。**
 - **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":2026-10-10 机主拍板统一后,`outline` 基座 = `border border-input bg-background text-foreground`、`ghost` = `bg-transparent text-foreground`、`size lg` = `h-10 px-8`(取 web 定稿,RN 原 h-12 px-6 跟上来),两端的 hover/shadow/rounded 仍是各自在基座外追加;此前 `ghost` 与 `lg` 的共享值是空串 —— 那是用空串遮住一处真分叉(同档名两端不同串)。仍有三格未统一:圆角(web lg=rounded-sm 4px vs RN 基座 rounded-md 6px)、字号(RN 由组件内部 Text 固定 text-sm,size 只管盒)、默认档高度(RN 独占 md=h-10 而 web default=h-9,现读 RN 侧 size 显式传参 0 处 ⇒ 两端默认按钮仍差 4px),已登记台账归设计规范统一批。并由常驻锁 `scripts/tests/shared-button-tier-base.test.mjs` 的 T11/T12 钉住:统一其中任一格都会让 T11 红一次并要求同步本句与台账 G-1115908(T12 用构造面证明它有牙),不得静默演进。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
   | 200 | check-provider-health-vocabulary.mjs | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
   | 221 | check-mjs-syntax.mjs | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
@@ -5402,7 +5402,7 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - group 已统一为复数 `'notifications'`(取 `apps/api/src/db/user-preferences-queries.ts` 的 `USER_PREFERENCE_GROUPS` 常量,裸字面量不得再出现),compat 单数路径别名与 web 权威腿 `/settings/notifications` 读同一批行;历史写在单数 `'notification'` 的存量由迁移 `packages/database/drizzle/20261018150000_user_preferences_notification_group_plural.sql` 一次性并入(同 `(userId,key)` 冲突取 `updated_at` 较新者胜、败方删除,迁移以 `RAISE NOTICE` 现报迁移/冲突/删除三计数)。
 - GET 曾回 `{ settings }` 的 k/v,与端上声明的 `{ list }` 契约不符致 `data.list` 恒 undefined;现两端对齐为 `list` 单一形状。PUT 逐键 `.returning({ id, key })` 回库确认写入集合并带 `missedIds`,不把请求侧 `.length` 当 affected(守门 134)。`title` 承载存储键,不在服务端拼中文(§19)。
 | --- | --- | --- |
-> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 619 张数据库表 · 4683 个 API 路由。**
 | 200        | check-provider-health-vocabulary.mjs                                   | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
 | 221        | check-mjs-syntax.mjs                                                    | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
@@ -5448,6 +5448,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🚀 新功能/改进:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
+- 🚀 新功能/改进:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
+- 🔧 工程/其他:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
+- ♻️ 重构:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+
 **2026-11-03**
 - 🔧 工程/其他:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
 - 🐞 修复:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
