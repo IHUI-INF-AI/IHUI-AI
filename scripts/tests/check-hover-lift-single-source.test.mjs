@@ -5,7 +5,7 @@
 // @ihui-seat S-hover-lift 2026-11-03
 
 /**
- * check-hover-lift-single-source.test.mjs — 门 285 的镜像测试(2026-11-03)。
+ * check-hover-lift-single-source.test.mjs — 门 287 的镜像测试(2026-11-03;原 285 与 props 对账门撞号后顺延)。
  *
  * 纪律(§22c):判据一律从源脚本 `__test__` import,**不在此复制任何 regex**;
  * 本文件钉的是"判据有没有牙 + 接线有没有装实",不是"代码跑得动":
