@@ -23,7 +23,7 @@ export function VipLevelScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: VipLevelScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -84,7 +84,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: { padding: rnSpacing['md-loose'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    levelName: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
+    levelName: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',

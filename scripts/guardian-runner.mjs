@@ -6847,8 +6847,10 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
+  // 编号 289:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 被正号 docs 门占、286 被正号指标门占、
+  // 288 给同批 props 对账门 ⇒ 本门顺延 289,取号规则仍为「现读最大 + 1」。
   {
-    id: '282',
+    id: '289',
     label:
       '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
     script: 'check-web-rn-gap-ratchet.mjs',
@@ -6886,6 +6888,29 @@ const checks = [
     onFailHint:
       '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
   },
+  {
+    id: '288',
+    // 285 与正号 docs 公开面门撞号、286 与正号指标门撞号 ⇒ 本门(及下方 gap-ratchet)按现读最大 +1 顺延。
+    label:
+      '🦾 两端同名组件 props 行为对账(blocking,差值棘轮:同名配对组件的 props 键集/必选性只减不增 —— 缺腿是静默失效型,调用端传过去本端无声忽略)',
+    script: 'check-cross-end-component-props-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_PROPS_PARITY',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/components/',
+      'packages/app/src/components/',
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/components/',
+      'scripts/check-cross-end-component-props-parity.mjs',
+      'scripts/lib/component-props-parity.mjs',
+      'scripts/data/cross-end-props-parity-baseline.json',
+      'scripts/data/component-props-equivalence.json',
+      'scripts/lib/cross-end-screen-props.mjs',
+    ],
+    onFailHint:
+      '  💡 本门拦的是"两端腿差变大",不是"两端有腿差"(存量账在 scripts/data/cross-end-props-parity-baseline.json,与本次改动无关的旧差不拦你)。① 看差在哪:node scripts/check-cross-end-component-props-parity.mjs --json;② 修腿正路 = 两端消费同一份源(共享组件 + 平台 adapter),让差集只减;③ 确属平台机制的有意分形(无障碍通道/键盘通道这类),在 commit message 写明理由后 node scripts/check-cross-end-component-props-parity.mjs --update-baseline 落账 —— 拒写保护:未判定>50% 视为编译面瞬时故障不会落账。',
+  },
   // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
   {
     id: '284',
@@ -6902,6 +6927,119 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_DECLARED_CARRIAGE',
     onFailHint:
       '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
+  },
+  // 编号 287:注册时 `id: '285'` 已被同批入库的 props 对账门占用(两门同号 ⇒ doc-numbers 判 1 个
+  // 重复 id),本门按「现读最大 + 1」顺延为 287。立因(2026-11-03,机主"容器 hover 太重"二次定档):
+  // 全站浮起唯一数值源 = apps/web/app/globals.css 的 `--lift-*`(2026-10-22 定档、11-03 减淡),
+  // 其头注铁律"端内不得再各写 hover:scale-105 / hover:shadow-xl / hover:-translate-y-*"**此前只是
+  // 注释**(§0.9:判据不在真跑它的那一刻才成立 = 没有)。同日实测 24 个文件 30 处散写,营销定价卡
+  // 的 group-hover:-translate-y-2(8px,Tailwind translate 独立属性)与源 transform -2px **叠加**,
+  // 所以"调了数值源还是重"。散写已于本枚前一批整体清零,非容器豁免族(按钮档/1px chip/图标箭头/
+  // 工具 chrome)入具名台账 ⇒ D1 立门当次 HEAD 现读 = 0,按 §12e 可直接 blocking,非恒红门。
+  {
+    id: '287',
+    label:
+      '🎈 容器 hover 浮起单一数值源(blocking;hover 变体段后的 translate-y/shadow 散写绝对零,豁免=具名台账带到期且逐文件计数配平)',
+    script: 'check-hover-lift-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/ui-react/'],
+    skipEnv: 'HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE',
+    onFailHint: [
+      '  💡 红的意思是:某处又给**容器**手写了 hover 浮起(translate-y / shadow 族),而全站唯一数值源是',
+      '     apps/web/app/globals.css 的 `--lift-*`(2026-11-03 机主定档:稍微有点感觉)。',
+      '     Tailwind 的 translate 是独立属性、源用 transform,两支会**叠加**成双倍位移 —— 散写不是"多一个',
+      '     风格"而是"把全站调轻的数值源旁路掉"。',
+      '  💡 修法:① 普通容器卡 ⇒ 散写位移/浮起阴影删掉即可(Card 基座与 main 内 bg-card 容器由源自动接管,',
+      '        非 bg-card 的卡显式挂 `ui-lift`);bg/border 的 subtle 变色与静态 shadow 不在射程;',
+      '     ② 图片 hover 推开 / 图标微缩放 / 按钮档 / 1px chip 微动 ⇒ 属非容器身份,往',
+      '        scripts/data/hover-lift-single-source-allowlist.json 登记 file/liftCalls/reason(≥10字)/until,',
+      '        计数必须与被审面逐文件命中**配平**(多了判红,少了判清单腐烂);',
+      '     ③ 整页级大壳不该浮 ⇒ 挂 .ui-lift-off 退出,也不要回来散写。',
+      '     取证:node scripts/check-hover-lift-single-source.mjs --self-test(18 例,含变异自证)',
+      '     镜像:node --test scripts/tests/check-hover-lift-single-source.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 290:小程序交互卫生门(P2 自动化缺口,2026-11-03 立)。判据见脚本头部:
+  // A1 假可点(空 handler / undefined / pointer-events-none 死点击)blocking;A2 空端口
+  // (onNavigate/onToast/onPickFile 等被赋空实现,端口名与端口等价门同一份,不造第二套)
+  // blocking;A3 无按压反馈 advisory 不进退出码(A3 现读 174 处,大量是命中区铺满的合法结构,
+  // 静态判不出观感,判红就是拿误报逼人写冗余代码 ⇒ §12e);A4 showModal 纯提示误用 advisory。
+  // 台账 scripts/data/miniapp-interaction-allowlist.json 到期即红、认领差额双向点名。
+  // 首跑(2026-11-03):719 文件 / 8464 标签(847 个可点),blocking 0(A1/A2 现读 0,按 §12e 可直接 blocking)。
+  {
+    id: '290',
+    label:
+      '🧪 小程序交互卫生门(blocking:A1 假可点/A2 空端口 绝对零容忍;A3 无反馈/A4 modal 误用 出 advisory 不进退出码)',
+    script: 'check-miniapp-interaction-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/', 'scripts/check-miniapp-interaction-hygiene.mjs', 'scripts/data/miniapp-interaction-allowlist.json'],
+    skipEnv: 'HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE',
+    onFailHint: [
+      '  💡 A1 假可点:onClick/onLongClick/onTap 绑了空实现(() => {} / undefined / noop)或 className 带',
+      '     pointer-events-none 却挂 onClick —— 死可点,删 handler 或删空壳。A2 空端口:onNavigate/onToast/',
+      '     onPickFile 等端口回调被赋空实现 —— 端口与等价门同源,别造第二套黑名单。',
+      '  💡 A3/A4 只是 advisory(不进退出码):A3 = View/Text 挂 onClick 无 hoverClass/active 变体且非导航项',
+      '     (首读 174 处,不 blocking,理由见注册注释);A4 = Taro.showModal 无取消语义(单按钮提示)。',
+      '     取证:node scripts/check-miniapp-interaction-hygiene.mjs --self-test(12 例,含变异自证)',
+      '     镜像:node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs',
+      '     应急放行:HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 291:web↔RN 用户可见措辞一致性门(P2 自动化缺口,2026-11-03 立)。判据见脚本头部:
+  // B1 blocking —— 同屏 web 已走 i18n 键、RN 却硬编码与之逐字相同的中文(JSX 文本节点或
+  // placeholder/title/accessibilityLabel 等用户可见属性);B2 advisory —— 两侧键不同但译文同值。
+  // 台账 scripts/data/web-rn-copy-diffs.json 到期即红、B1 认领差额红、B2 差额只 advisory。
+  // 首跑(2026-11-03):aligned 屏 287 / web 文件 1062,B1 11 全部挂账、B2 113 记档。
+  {
+    id: '291',
+    label:
+      '🗣️ web↔RN 措辞一致性门(blocking:同屏同文案 RN 硬编码而 web 走 i18n;B2 同值异键只出 advisory)',
+    script: 'check-web-rn-copy-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/mobile-rn/src/',
+      'packages/app/src/features/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/check-web-rn-copy-parity.mjs',
+      'scripts/data/web-rn-copy-diffs.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_COPY_PARITY',
+    onFailHint: [
+      '  💡 B1 红 = 同一句话被写了两遍:web 该屏已用 i18n 键,RN 还手写中文。改法是把 RN 那处换成',
+      '     同一个键(跨端共享屏由宿主注入 t,直接 t(\'全键\'))。代码字符串/日志/样式类名不在射程。',
+      '  💡 若确属存量未清(改键会动观感或跨包),往 scripts/data/web-rn-copy-diffs.json 逐屏登记',
+      '     file(web 路由)/rule/count/owner/expires/evidence;到期即红,认领数少于现读即红。',
+      '  💡 B2 同值异键只出 advisory(合并键空间动 i18n 结构,裁决权归人),记档即可,不阻提交。',
+      '     取证:node scripts/check-web-rn-copy-parity.mjs --self-test(12 例);--json 看逐屏读数',
+      '     镜像:node --test scripts/tests/check-web-rn-copy-parity.test.mjs',
+      '     应急放行:HUSKY_SKIP_WEB_RN_COPY_PARITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 292:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。并入 origin/main 时原号 289
+  // 与既有 gap-ratchet 撞号,按现读最大 +1 顺延为 292。deferred 日当天放行,
+  // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
+  // 射程写 ['**/*'](= 任何提交都跑):到期与本次暂存了哪些文件无关;只在碰台账/文档时才跑
+  // 就退回"靠人记",而留空在两通道上语义相反(门 262 明令必须显式声明)。
+  {
+    id: '292',
+    label: '📆 台账 deferred@ 到期判据(blocking:到期未复评即红,逐条点名 行号|编号|日期|owner)',
+    script: 'check-plan-deferred-expiry.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_DEFERRED_EXPIRY',
+    stagedTriggers: ['**/*'],
+    onFailHint: [
+      '  💡 到期不是"再挂一天"的理由:复评后改 deferred@ 续期(写明为什么还要挂、何时再评),',
+      '     或结清并摘行;不许只删标记。宽限只在真要补复评时用 --grace N,别把它当续期。',
+      '     取证:node scripts/check-plan-deferred-expiry.mjs --as-of 2027-04-01 --json',
+      '     镜像:node --test scripts/tests/check-plan-deferred-expiry.test.mjs',
+      '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
   },
 ]
 

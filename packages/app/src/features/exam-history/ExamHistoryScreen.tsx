@@ -29,7 +29,7 @@ export function ExamHistoryScreen({
   onPressItem,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: ExamHistoryScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     title: {
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.md,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },

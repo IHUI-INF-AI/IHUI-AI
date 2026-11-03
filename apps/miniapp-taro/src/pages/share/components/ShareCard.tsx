@@ -72,7 +72,7 @@ export default function ShareCard() {
   return (
     <View className="mx-[20rpx] mt-[20rpx] bg-card border border-border rounded-lg p-[24rpx]">
       <Text className="block text-title font-semibold text-foreground">{t('share.title')}</Text>
-      <Text className="block mt-[16rpx] text-[length:26rpx] text-muted-foreground">
+      <Text className="block mt-[16rpx] text-body-sm leading-[normal] text-muted-foreground">
         {t('share.remark')}
       </Text>
       <View

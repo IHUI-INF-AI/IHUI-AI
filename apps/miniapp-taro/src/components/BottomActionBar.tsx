@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react'
 import { useTt, t } from '@/i18n'
 import { View, Text, type ITouchEvent } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
-import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
@@ -220,7 +220,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     border: '4rpx solid var(--color-card)',
                     borderRadius: rnRadius.md,
                     fontSize: toUnit(BOTTOM_ACTION_BAR_CHIP_FONT_PX),
-                    padding: '12rpx 0',
+                    padding: `${rpx(taroSpacing['xs-loose'])} 0`,
                     background: active ? 'var(--color-brand)' : 'var(--color-muted)',
                     color: active ? 'var(--color-primary-foreground)' : 'var(--color-foreground)',
                   }}

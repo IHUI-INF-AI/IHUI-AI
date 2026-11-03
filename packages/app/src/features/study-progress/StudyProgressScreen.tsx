@@ -109,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
@@ -130,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       alignItems: 'center',
     },
-    statValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     sectionTitle: {
       fontSize: rnType.subtitle.size,

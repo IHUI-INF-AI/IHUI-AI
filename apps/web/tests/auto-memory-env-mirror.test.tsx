@@ -97,6 +97,7 @@ vi.mock('@ihui/ui-react', () => {
   }
 })
 
+vi.mock('@/hooks/use-auth-gate', () => ({ useAuthGate: () => ({ allow: true }) }))
 vi.mock('@/components/memory/MemoryCard', () => ({ MemoryCard: () => null }))
 vi.mock('@/components/memory/MemoryScopeTabs', () => ({ MemoryScopeTabs: () => null }))
 vi.mock('@/components/memory/MemoryTypeFilter', () => ({ MemoryTypeFilter: () => null }))

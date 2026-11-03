@@ -17,7 +17,8 @@ const fileIcon = aizhsUrl('remote-images/file.png')
 const recordBackIcon = '/pkg-ai/assets/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
 import {
   chatStream,
   // G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(判据唯一实现住 api/index)
@@ -1882,7 +1883,10 @@ export default function ChatPage() {
 
       {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位;缺键用端内中文兜底) */}
       {workspaceTier !== null ? (
-        <View className="permission-tier" style={{ padding: '8rpx 24rpx' }}>
+        <View
+          className="permission-tier"
+          style={{ padding: `${rpx(taroSpacing.xs)} ${rpx(taroSpacing.md)}` }}
+        >
           <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
             {tierText.label}: {tierText.title} · {tierText.desc}
           </Text>

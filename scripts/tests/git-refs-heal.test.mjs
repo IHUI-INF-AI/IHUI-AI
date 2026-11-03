@@ -11,14 +11,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ } from '../git-refs-heal.mjs'
 
-const { splitDeadRefs, isNestedRef, objectExists } = __test__
+const { splitDeadRefs, isNestedRef, objectExists, parseRefsTable } = __test__
 const A = 'refs/remotes/origin/main'
 const B = 'refs/tags/backup/x'
 const ALIVE = 'a'.repeat(40)
 const DEAD = 'b'.repeat(40)
 
-test('源脚本必须 export __test__ 三个核心函数', () => {
-  for (const k of ['splitDeadRefs', 'isNestedRef', 'objectExists'])
+test('源脚本必须 export __test__ 的全部核心判据(本层不复制实现)', () => {
+  for (const k of ['splitDeadRefs', 'isNestedRef', 'objectExists', 'parseRefsTable'])
     assert.equal(typeof __test__[k], 'function', `缺少 ${k}`)
 })
 
@@ -109,5 +109,48 @@ test('装车证明:守护必须复用同一份死值分流,且写 ref 前自证�
   // 反向对照:不得有人把校验删掉后靠"调用方自觉"
   const writer = src.slice(src.indexOf('function writeLooseRef'))
   assert.ok(writer.indexOf('objectExists') < writer.indexOf('writeFileSync'), '校验必须在写盘之前')
+})
+
+/**
+ * 2026-11-03 实测的第二格:`currentRefs()` 的派生 git 没设 maxBuffer。`for-each-ref refs/heads
+ * refs/tags refs/remotes` 在本仓(23,031 枚 tag)输出 1,052,662 B,顶穿 execFileSync 默认 1 MiB
+ * ⇒ ENOBUFS ⇒ 旧代码把 null 折成空表 ⇒ `--status` 把清单 22,298 条期望项**全报成缺失**、
+ * currentCount 报 0。空表是这台工具 learning/prune 的底表,所以"问不到"绝不能与"一个都没有"并桶。
+ */
+test('ref 面三态:问不到⇒null、真空⇒{}、有行⇒表(三者不得并桶)', () => {
+  assert.equal(parseRefsTable(null), null, '问不到被折成空表 = 22,298 条假缺失的成因')
+  assert.equal(parseRefsTable(undefined), null, 'undefined 同样必须判"问不到"')
+  assert.deepEqual(parseRefsTable(''), {}, '真空输出应是空表,且形态要与"问不到"可区分')
+  assert.deepEqual(parseRefsTable(`${A} ${ALIVE}\n${B} ${DEAD}\n`), { [A]: ALIVE, [B]: DEAD })
+})
+
+test('形状锁:派生 git 带显式 maxBuffer,且 currentRefs 不把 null 折回空表', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'git-refs-heal.mjs'),
+    'utf8',
+  )
+  const gi = src.indexOf('function git(')
+  assert.ok(gi >= 0, '找不到 git() 实现')
+  assert.match(
+    src.slice(gi, gi + 900),
+    /maxBuffer:\s*GIT_MAX_BUFFER_BYTES/,
+    'git() 丢了显式 maxBuffer ⇒ 大输出静默变 null(与不设 stdio 报 EBUSY 同一族失效)',
+  )
+  assert.ok(__test__.GIT_MAX_BUFFER_BYTES >= 16 * 1024 * 1024, 'maxBuffer 余量小于 16 MiB')
+  const ci = src.indexOf('function currentRefs(')
+  assert.ok(ci >= 0, '找不到 currentRefs() 实现')
+  assert.doesNotMatch(
+    src.slice(ci, ci + 700),
+    /if \(!out\)\s*return\s+map/,
+    'currentRefs 又把"问不到"折成空表了(三态并桶回潮)',
+  )
+  // 写路径必须在拿不到 ref 面时整轮让路,而不是按空表纳管/摘除
+  // (锚点取 main() 那一处:`const cur = currentRefs()` 紧跟守卫;status() 那处后面接的是 readManifest,
+  //  不锚死就会把"删掉 status 守卫"这种变异当成没发生 —— 变异自证实测过这一点)
+  assert.match(
+    src,
+    /const cur = currentRefs\(\)\s*\n\s*if \(cur === null\)[\s\S]{0,400}?process\.exit\(2\)/,
+    'main() 未对"ref 面问不到"让路 ⇒ 空底表会抹掉全部期望项',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
