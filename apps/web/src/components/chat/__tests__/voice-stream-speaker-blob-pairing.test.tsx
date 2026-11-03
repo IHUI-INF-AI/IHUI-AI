@@ -122,12 +122,31 @@ describe('VoiceStreamSpeaker blob URL 成对释放', () => {
       revoked.push(url)
     })
     vi.stubGlobal('Audio', FakeAudio)
+    // TTS 传输已从"整包 blob"改为 SSE 逐帧流(voice-stream-speaker.tsx:568 读 body reader),
+    // 故 mock 给一个单帧 segment 的可读流;仍是真 Blob → createObjectURL 路径不变。
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        blob: async () => new Blob(['audio-bytes'], { type: 'audio/mpeg' }),
-      })),
+      vi.fn(async () => {
+        const encoder = new TextEncoder()
+        const frame = encoder.encode(
+          `${JSON.stringify({
+            type: 'segment',
+            audioBase64: 'YXVkaW8tYnl0ZXM=',
+            contentType: 'audio/mpeg',
+          })}\n`,
+        )
+        let sent = false
+        return {
+          ok: true,
+          status: 200,
+          body: {
+            getReader: () => ({
+              read: async (): Promise<{ done: boolean; value?: Uint8Array }> =>
+                sent ? { done: true } : ((sent = true), { done: false, value: frame }),
+            }),
+          },
+        }
+      }),
     )
   })
 
