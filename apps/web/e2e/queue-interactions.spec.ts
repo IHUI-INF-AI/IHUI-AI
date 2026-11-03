@@ -473,6 +473,19 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     await expect(bar(page).locator('[data-mode-degraded]')).toHaveCount(0)
 
     // 切 steer:偏好钮点亮,但生效模式仍 queue 且诚实渲染降级句(译文)
+    // 2026-11-04:点击命中自证 —— elementFromPoint(按钮中心)必须落在按钮自身子树内。
+    // 原实现(pip 设置节挂在面板固定头部)在会话面变矮时会溢出盖住队列条,点击被
+    // pip-empty-state 拦截;此断言把「命中区域由结构分离」固化为可回归的结构性判据,
+    // 比「click 不超时」更强:它证明命中的是目标元素而不是恰好可点的邻居。
+    await expect(steerBtn).toBeVisible()
+    expect(
+      await steerBtn.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return hit !== null && el.contains(hit)
+      }),
+      '模式钮中心点必须命中按钮自身子树(pip 卡片不得覆盖队列条)',
+    ).toBe(true)
     await steerBtn.click()
     await expect(steerBtn).toHaveAttribute('aria-pressed', 'true')
     await expect(queueBtn).toHaveAttribute('aria-pressed', 'false')
