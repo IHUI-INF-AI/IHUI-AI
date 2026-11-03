@@ -313,9 +313,10 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
           网页端知识库上传入口的可选文件当前只列出{' '}
           <span className="font-mono">.pdf .docx .md .txt .html .htm</span> 六种扩展名;其余类型(如
           .xlsx / .xls / .csv / .ppt / .pptx / .doc / .epub)需经 API
-          或其他上传面进入。预览侧能力另算一档:.docx / .xlsx / .pptx 由本地渲染器直接预览,.doc /
-          .xls / .ppt 由微软在线查看器渲染(要求文件 URL
-          公网可匿名访问,离线或内网地址会超时并只给下载), .odt / .rtf / .epub / .zip
+          或其他上传面进入。预览侧能力另算一档:.docx / .xlsx / .pptx 由本地渲染器直接预览;.doc /
+          .xls / .ppt 这三种旧二进制格式本仓没有本地渲染器,一律只给下载出口 —— 2026-11-03
+          整改起不再把文件地址交给
+          第三方在线查看器渲染(那条路要求地址公网匿名可达,等于把内容外发);.odt / .rtf / .epub / .zip
           仅在类型白名单中登记、暂无渲染器。
         </div>
       </section>
