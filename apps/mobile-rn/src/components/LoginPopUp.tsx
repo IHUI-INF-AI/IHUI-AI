@@ -93,8 +93,21 @@ export interface LoginPopUpSavePayload {
   phone?: string
 }
 
+/**
+ * 与小程序端 `userInfo` 入参同形(platform: 小程序默认字段拼写 identityTypy 保留,
+ * 对齐后端契约;RN 侧只读不写)。
+ */
+export interface LoginPopUpUserInfo {
+  nickname?: string
+  avatar?: string
+  /** 0=普通 1=VIP */
+  isVip?: number
+  /** 0=普通/会员 1=操盘手(原项目拼写) */
+  identityTypy?: number
+}
+
 export interface LoginPopUpProps {
-  visible: boolean
+  visible?: boolean
   title: string
   description: string
   primaryLabel: string
@@ -105,11 +118,17 @@ export interface LoginPopUpProps {
   agreeChecked?: boolean
   onAgreeChange?: (value: boolean) => void
   // ===== 业务资料(可选) =====
+  /** 用户资料包(与小程序端同形;与下列扁平字段同时传入时,扁平字段优先) */
+  userInfo?: LoginPopUpUserInfo
+  /** 无头像时的默认头像(与小程序端 defaultAvatar 同语义;不传则退回 initials) */
+  defaultAvatar?: string
   avatarUrl?: string
   nickname?: string
   role?: LoginPopUpRole
   phone?: string
   phoneDisabled?: boolean
+  /** 昵称输入变化回调(传已按两端同规则过滤后的值) */
+  onNicknameChange?: (nickname: string) => void
   // ===== 业务回调(可选,均待接后端/微信 SDK) =====
   onChooseAvatar?: () => void
   onBindPhone?: () => void
@@ -155,7 +174,7 @@ function roleLabelKey(role: LoginPopUpRole): string {
 }
 
 export function LoginPopUp({
-  visible,
+  visible = false,
   title,
   description,
   primaryLabel,
@@ -165,11 +184,14 @@ export function LoginPopUp({
   onClose,
   agreeChecked = false,
   onAgreeChange,
+  userInfo,
+  defaultAvatar,
   avatarUrl,
   nickname,
-  role = 'normal',
+  role,
   phone,
   phoneDisabled = false,
+  onNicknameChange,
   onChooseAvatar,
   onBindPhone,
   onSave,
@@ -184,6 +206,12 @@ export function LoginPopUp({
 
   const showAgreementRow = onAgreeChange !== undefined
 
+  // 小程序端资料包 → RN 扁平字段(扁平字段优先,保持既有单字段调用方语义不变)
+  const resolvedAvatarUrl = avatarUrl ?? userInfo?.avatar
+  const resolvedNickname = nickname ?? userInfo?.nickname
+  const resolvedRole: LoginPopUpRole =
+    role ?? (userInfo?.isVip === 1 ? (userInfo?.identityTypy === 1 ? 'trader' : 'vip') : 'normal')
+
   const showProfile = Boolean(
     onSave ||
     onLogout ||
@@ -191,9 +219,10 @@ export function LoginPopUp({
     onBindPhone ||
     onUpgrade ||
     onUpgradeTrader ||
-    avatarUrl !== undefined ||
-    nickname !== undefined ||
-    // role 有默认值 'normal' ⇒ 这一项恒真,不得当存在性判据:它曾把整支授权卡判成不可达
+    userInfo ||
+    resolvedAvatarUrl !== undefined ||
+    resolvedNickname !== undefined ||
+    // role 无默认值(由 userInfo 推导) ⇒ 不得当存在性判据:它曾把整支授权卡判成不可达
     // (唯一调用点 ProfileScreen.tsx:639 只传 title/primary/secondary ⇒ 屏上是空白资料表单)。
     phone !== undefined,
   )
@@ -220,11 +249,13 @@ export function LoginPopUp({
           </Tappable>
           {showProfile ? (
             <ProfileForm
-              avatarUrl={avatarUrl}
-              initialNickname={nickname}
-              role={role}
+              avatarUrl={resolvedAvatarUrl}
+              defaultAvatar={defaultAvatar}
+              initialNickname={resolvedNickname}
+              role={resolvedRole}
               initialPhone={phone}
               phoneDisabled={phoneDisabled}
+              onNicknameChange={onNicknameChange}
               onChooseAvatar={onChooseAvatar}
               onBindPhone={onBindPhone}
               onSave={onSave}
@@ -280,10 +311,12 @@ export function LoginPopUp({
 
 interface ProfileFormProps {
   avatarUrl?: string
+  defaultAvatar?: string
   initialNickname?: string
   role: LoginPopUpRole
   initialPhone?: string
   phoneDisabled?: boolean
+  onNicknameChange?: (nickname: string) => void
   onChooseAvatar?: () => void
   onBindPhone?: () => void
   onSave?: (payload: LoginPopUpSavePayload) => void
@@ -294,10 +327,12 @@ interface ProfileFormProps {
 
 function ProfileForm({
   avatarUrl,
+  defaultAvatar,
   initialNickname,
   role,
   initialPhone,
   phoneDisabled,
+  onNicknameChange,
   onChooseAvatar,
   onBindPhone,
   onSave,
@@ -307,6 +342,7 @@ function ProfileForm({
 }: ProfileFormProps) {
   const { t } = useI18n()
   const [nickname, setNickname] = useState(initialNickname ?? '')
+  const displayAvatar = avatarUrl ?? defaultAvatar
   const [phone, setPhone] = useState(initialPhone ?? '')
   const [nicknameError, setNicknameError] = useState('')
   const [phoneError, setPhoneError] = useState('')
@@ -314,7 +350,9 @@ function ProfileForm({
   const [bindPhoneLoading, setBindPhoneLoading] = useState(false)
 
   const handleNicknameChange = (raw: string) => {
-    setNickname(filterNickname(raw))
+    const next = filterNickname(raw)
+    setNickname(next)
+    onNicknameChange?.(next)
     if (nicknameError) setNicknameError('')
   }
 
@@ -385,8 +423,8 @@ function ProfileForm({
         >
           {({ pressed }) => (
             <View style={[styles.face, pressed ? styles.avatarPressed : null]}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} style={styles.avatarImage} />
               ) : (
                 <Text style={styles.avatarPlaceholder}>{nickname ? nickname[0] : '?'}</Text>
               )}
