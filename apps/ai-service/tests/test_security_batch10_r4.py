@@ -121,6 +121,11 @@ class TestRestrictedTokenFailClosed:
                 return 0, 0, 0  # 若回退原始令牌也会"成功"——正好证明是否回退
 
         monkeypatch.setattr(oss, "create_restricted_token", lambda: 424242)
+        # 2026-11-04:本用例在非 win32 CI 上也要验证"受限令牌失败不得回退"的控制流,
+        # 但 WinJobBackend.run 入口有 _require_windows 平台硬闸。这里的后端是纯替身
+        # (Job/fd/kernel32 全部无害化,不碰真实 Win32),平台闸不属于本用例靶面,
+        # 因此单独摘掉;真实平台的 CapabilityMissingError 语义由 test_os_sandbox 覆盖。
+        monkeypatch.setattr(oss, "_require_windows", lambda: None)
         monkeypatch.setattr(
             oss, "_kernel32", lambda: SimpleNamespace(CloseHandle=lambda h: 1)
         )
@@ -140,7 +145,15 @@ class TestRestrictedTokenFailClosed:
 
         real_open = _os.open
 
-        def _fake_open(path: Any, flags: int, mode: int = 0o666) -> int:
+        def _fake_open(
+            path: Any, flags: int, mode: int = 0o666, *, dir_fd: int | None = None
+        ) -> int:
+            # 2026-11-04:本替身挂在 os 模块本身(oss.os 即全局 os),因此也会接到
+            # shutil.rmtree 的调用。Linux 上 rmtree 走 *_safe_fd 分支,会带 dir_fd
+            # 关键字;不认这个关键字就把清理路径打成 TypeError(CI run 41696346132)。
+            # 带 dir_fd 的调用是标准库自身的清理动作,原样透传给真实 os.open。
+            if dir_fd is not None:
+                return real_open(path, flags, mode, dir_fd=dir_fd)
             if path == _os.devnull:
                 return real_open(_os.devnull, flags)
             return real_open(

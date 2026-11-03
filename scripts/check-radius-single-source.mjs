@@ -597,11 +597,15 @@ export function scanText(rel, text, table) {
           const halfForm = /^\s*\/\s*2\b/.test(line.slice(m.index + m[0].length))
           const effective = halfForm ? px / 2 : px
           /**
-           * B9 先于"几何放行"判:`48×48 盒上的 24` 数值上就是半边,旧口径把它当几何真圆放走,
-           * 而项目定档是**任何圆角半径 ≤ 最大档 16px**(用户 2026-09-29 裁决:不允许圆角过大,
-           * 圆形头像/圆形图标底板不再豁免)。放行支路因此必须带上这一道闸,否则它就是漏口。
+           * 正圆豁免(2026-11-04 用户裁定):**几何关系可证**的正圆不属于"圆角过大"的定档约束。
+           * 证据只有一种口径 —— 同一作用域量到两条边同值(正方盒)且半径恰好是边长的一半:
+           *  - `<边长> / 2`:分子必须与该对象的边长逐字同形(`isHalfOfDeclaredSide`);
+           *  - 裸数值:数值必须等于量到的短边一半(`classifyRadiusGeometry === 'circle'`)。
+           * 解析不出等值关系(边长来自无单源的变量、只量到一条边、写成邻居的尺寸)⇒ 不豁免,
+           * 照旧落 B9。MAX_STEP 不动:非正圆的 >16 仍是红。
            */
-          if (effective > MAX_STEP) {
+          const provenCircle = halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)
+          if (effective > MAX_STEP && !provenCircle) {
             bad.push({ line: i + 1, rule: 'B9', raw: `${raw}(=${effective}px)`, hint: B9_HINT })
             return
           }
@@ -617,8 +621,8 @@ export function scanText(rel, text, table) {
            * 单位折算口径不同(`w-[96rpx]` 折半、`width: 96rpx` 取原值),跨形态比数值会造出假方形。
            * 判不出来就不是放行 —— 落回下面的红,出路是写成相对式(`50%`)或把盒尺寸写进同一作用域。
            */
-          // 数值支路走到这里已经过了"折算后 > MAX_STEP"那道闸,所以半径必 ≤ 最大档 —— 几何放行不再叠上限闸。
-          if (halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)) return
+          // 数值支路走到这里已经过了"折算后 > MAX_STEP"那道闸(或已被几何正圆豁免),故不再叠上限闸。
+          if (provenCircle) return
           bad.push({
             line: i + 1,
             rule: isRpx ? 'B1-rpx' : 'B1',
@@ -1055,14 +1059,14 @@ async function selfTest() {
       s: 'const st = { a: { borderRadius: 20 / 2 } }',
       red: true,
     },
-    // 用户 2026-09-29 定档「任何圆角半径不得超过最大档 2xl=16px,圆形头像不再豁免」之后,
-    // 这一格的原期望("48×48 上的 24 按形状放行")**已被裁决推翻** —— 半径 24 超上限,必红。
-    // 留原样就是让自检替一条已废的口径背书,所以改判红,并补一条仍在上限内的几何真圆当放行对照。
+    // 2026-11-04 用户裁定:「正方盒(宽=高)且半径 = 边长一半」= 几何正圆,不属"圆角过大"定档约束。
+    // 这一格由 2026-09-29 的"圆形底板不豁免"翻转为几何豁免,判据仍要求**量得出**正方关系;
+    // 非正方/量不出的 24 仍红(见下方 10 vs 40×40、量不到盒形两格),MAX_STEP 未抬。
     {
-      name: 'B1 数值真圆 48×48 上的 24 ⇒ 形状是正圆但**半径超上限**,按 2026-09-29 定档判红',
+      name: 'B1 数值真圆 48×48 上的 24 ⇒ 几何正圆豁免(2026-11-04 裁定)',
       f: 'packages/app/src/x.tsx',
       s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }',
-      red: true,
+      red: false,
     },
     {
       name: 'B1 数值真圆 32×32 上的 16 ⇒ 既是几何真圆又不超上限 ⇒ 放行(上一条的放行对照)',
@@ -1071,10 +1075,10 @@ async function selfTest() {
       red: false,
     },
     {
-      name: 'B1 `<边长> / 2` 折算后才比上限:48 的盒写 `48 / 2`=24 ⇒ 红',
+      name: 'B1 `<边长> / 2` 且分子=正方边长:48 的盒写 `48 / 2`=24 ⇒ 几何正圆豁免(2026-11-04 裁定)',
       f: 'packages/app/src/x.tsx',
       s: 'const st = { a: { width: 48, height: 48, borderRadius: 48 / 2 } }',
-      red: true,
+      red: false,
     },
     {
       name: 'B1 `<边长> / 2` 折算是真半径:18 的盒写 `18 / 2`=9 ⇒ 几何放行(不得按分子 18 去比上限而误判)',
