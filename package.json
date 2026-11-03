@@ -38,6 +38,7 @@
     "format:check:all": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "typecheck": "node scripts/typecheck-full.mjs",
     "typecheck:full": "node scripts/typecheck-full.mjs",
+    "check:metric-existence": "node scripts/check-metric-existence.mjs",
     "typecheck:tests": "pnpm --filter @ihui/api run typecheck:tests",
     "check:image-placeholders": "node scripts/check-image-placeholders.mjs",
     "check:image-placeholders:list": "node scripts/check-image-placeholders.mjs --list",

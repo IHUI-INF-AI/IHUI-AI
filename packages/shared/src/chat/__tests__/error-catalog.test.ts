@@ -72,6 +72,16 @@ const RECENTLY_COVERED_CODES: ReadonlyArray<{ code: string; category: ErrorCateg
   { code: 'TOOL_MODE_UNAVAILABLE', category: 'capabilityNotOffered' },
 ]
 
+/** 守门 94(R1)补录的四层记忆端点族(6 码,产出点 apps/ai-service/app/api/memory.py)。 */
+const MEMORY_ERROR_CODES: ReadonlyArray<{ code: string; category: ErrorCategory }> = [
+  { code: 'MEMORY_DREAM_FAILED', category: 'runtimeException' },
+  { code: 'MEMORY_FORGET_FAILED', category: 'runtimeException' },
+  { code: 'MEMORY_PROCEDURAL_SAVE_FAILED', category: 'runtimeException' },
+  { code: 'MEMORY_RECALL_FAILED', category: 'runtimeException' },
+  { code: 'MEMORY_SAVE_FAILED', category: 'runtimeException' },
+  { code: 'MEMORY_TOPICS_FAILED', category: 'runtimeException' },
+]
+
 /** 我方实际产出的 errorCode 全集(守门脚本 --list 实测,97 个)。 */
 const PRODUCED_ERROR_CODES = [
   'API_BRIDGE_ERROR',
@@ -127,6 +137,12 @@ const PRODUCED_ERROR_CODES = [
   'IS_A_DIRECTORY',
   'LLM_ERROR',
   'LLM_FAILED',
+  'MEMORY_DREAM_FAILED',
+  'MEMORY_FORGET_FAILED',
+  'MEMORY_PROCEDURAL_SAVE_FAILED',
+  'MEMORY_RECALL_FAILED',
+  'MEMORY_SAVE_FAILED',
+  'MEMORY_TOPICS_FAILED',
   'MISSING_DATA',
   'MISSING_PARAMS',
   'MISSING_PATH_PARAM',
@@ -314,6 +330,50 @@ describe('D71 补录的两枚工具面错误码(llm.py V3 #53 / V3 #49)', () => 
 
   it('按码位量语种:ja 含假名 / ko 纯谚文 / en 无汉字 / 两支中文含汉字', () => {
     for (const { code } of RECENTLY_COVERED_CODES) {
+      for (const field of ['title', 'action'] as const) {
+        const tag = `${code}.${field}`
+        expect(KANA.test(catalogField('ja', code, field)), `ja ${tag} 没有假名`).toBe(true)
+        const koText = catalogField('ko', code, field)
+        expect(HANGUL.test(koText), `ko ${tag} 没有谚文`).toBe(true)
+        expect(HAN.test(koText), `ko ${tag} 混入汉字`).toBe(false)
+        expect(HAN.test(catalogField('en', code, field)), `en ${tag} 混入汉字`).toBe(false)
+        for (const zh of ['zh-CN', 'zh-TW'] as const) {
+          expect(HAN.test(catalogField(zh, code, field)), `${zh} ${tag} 没有汉字`).toBe(true)
+        }
+      }
+    }
+  })
+})
+
+// 2026-11-03 守门 94(R1)补录:apps/ai-service/app/api/memory.py 的六个 `except Exception` 兜底
+// 回包码。守门脚本已扫 apps/ai-service/app 的 .py 源码(R1 扫描面含 lang='py'),本组用例守的是
+// "收录之后"这一半:六枚逐条在唯一真源里、分类与服务端异常语义一致、五语言词包各就各位。
+describe('D71 补录的四层记忆端点族(ai-service memory.py)', () => {
+  it('六枚码都在唯一真源里,统一归 runtimeException', () => {
+    for (const { code, category } of MEMORY_ERROR_CODES) {
+      expect(isKnownErrorCode(code), code).toBe(true)
+      expect(resolveErrorCatalog(code)?.category, code).toBe(category)
+      expect(resolveErrorCatalog(code)?.titleKey, code).toBe(`${code}.title`)
+      expect(resolveErrorCatalog(code)?.actionKey, code).toBe(`${code}.action`)
+    }
+  })
+
+  it('五语言逐门取得到非空 title / action', () => {
+    for (const locale of LOCALES) {
+      for (const { code } of MEMORY_ERROR_CODES) {
+        const node = errorCatalogOf(locale)[code]
+        expect(node, `${locale} :: ${code} 缺整块`).toBeTruthy()
+        const fieldNames = Object.keys(node as Record<string, unknown>).sort()
+        expect(fieldNames, `${locale} :: ${code} 形状`).toEqual(['action', 'title'])
+        for (const field of ['title', 'action'] as const) {
+          expect(catalogField(locale, code, field).length).toBeGreaterThan(0)
+        }
+      }
+    }
+  })
+
+  it('按码位量语种:ja 含假名 / ko 纯谚文 / en 无汉字 / 两支中文含汉字', () => {
+    for (const { code } of MEMORY_ERROR_CODES) {
       for (const field of ['title', 'action'] as const) {
         const tag = `${code}.${field}`
         expect(KANA.test(catalogField('ja', code, field)), `ja ${tag} 没有假名`).toBe(true)

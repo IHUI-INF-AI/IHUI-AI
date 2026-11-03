@@ -4793,7 +4793,8 @@
       "active": "Active",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
-    }
+    },
+    "myAttendanceHint": "View & check in"
   },
   "eduChildAttendance": {
     "title": "Child's Attendance",
@@ -4819,7 +4820,15 @@
       "absent": "Absent",
       "leave": "Leave"
     },
-    "student": "Student"
+    "student": "Student",
+    "batchCheckIn": "Mark class",
+    "checkInFor": "Mark",
+    "checkedInToast": "Checked in",
+    "checkedOutToast": "Checked out",
+    "batchDoneToast": "Class marked",
+    "batchResult": "Class marked: {created} created, {skipped} skipped, {missed} not saved",
+    "noClassReason": "No class found, so class marking is unavailable",
+    "multiClass": "Multiple classes in the list; only {classId} will be marked"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",
@@ -7088,5 +7097,15 @@
   },
   "studyIndex": {
     "receiveFreeBody": "Link copied; paste it in a browser to open"
+  },
+  "eduMyAttendance": {
+    "title": "My Attendance",
+    "selfCheckIn": "Check in",
+    "selfDoneToast": "Checked in",
+    "classByBackendHint": "Class is resolved automatically from your enrollment",
+    "remarkPlaceholder": "Remark (optional)",
+    "scanCheckIn": "Scan to check in",
+    "scanDoneToast": "Scanned check-in succeeded",
+    "scanInvalidToast": "Not a check-in QR code of this system"
   }
 }

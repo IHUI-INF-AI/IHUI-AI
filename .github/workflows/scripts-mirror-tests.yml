@@ -57,6 +57,14 @@ on:
     - cron: '20 18 * * *'
   workflow_dispatch: {}
 
+# 2026-11-03(排队治理):原无 concurrency。push 面覆盖 scripts/** packages/** apps/** deploy/**,
+#   几乎每次 main 提交都会起一枚;实测 3 小时内 3 枚、单次执行 547s(median)。
+#   它不是 required check,按"同一 ref 只跑最新一次"收敛。schedule(18:20 UTC)与 dispatch
+#   的 ref 各自成组,夜间全量不受 main 提交影响 —— 全量仍是每晚必跑一次。
+concurrency:
+  group: scripts-mirror-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

@@ -31,6 +31,25 @@ export function AgentChatScreen(props: Record<string, unknown>) {
 }
 
 /**
+ * 2026-11-03 AgentReview 薄壳批:列表 / 详情两屏同 Plaza / Agent 型 —— 本替身只做 props 捕获,
+ * 判的是「RN 壳把取数结果 / route item / 回退 / 重试 / 条目点击交给共享屏」这一层;
+ * 共享屏渲染本身由 packages/app 的套件负责。真身 exports 见 packages/app/src/index.ts
+ * (AgentReviewListScreen:154 / AgentReviewDetailScreen:278),替身缺这两条出口时,
+ * 壳渲染即 "Element type is invalid: got: undefined",两套件收集期/类型检查同时红。
+ */
+export const agentReviewListScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentReviewListScreen(props: Record<string, unknown>) {
+  agentReviewListScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-review-list-screen' }, null)
+}
+
+export const agentReviewDetailScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentReviewDetailScreen(props: Record<string, unknown>) {
+  agentReviewDetailScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-review-detail-screen' }, null)
+}
+
+/**
  * 2026-11-03 薄壳批:CoursePlanet / MoreCourse / StudyIndex 三屏走 props 捕获替身。
  * 判的是「RN 壳把取数结果、分页态与导航端口交给共享屏」这一层;共享屏渲染本身
  * 由 packages/app 的套件负责。三枚名字若缺席,薄壳渲染即 "Element type is invalid"。
