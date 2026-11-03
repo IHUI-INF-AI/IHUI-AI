@@ -101,6 +101,12 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 📚 Docs:登记 WD Button 几何与圆角两维为带到期的允许差异(到期 2026-11-17) (81051824fc)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (a5d5975971)
+- 🚀 Feature/Improvement:文档中心文案抽进 docs.* 命名空间,五语言同批齐备(票 D53) (ef8a1a3f9c)
+- 🐞 Fix:面板 tooltip 字号脱离 11px 字面量,归到 caption 角色档 (259c615623)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (24ed9b91f5)
 
 **2026-11-03**
@@ -143,10 +149,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ab0f41ac16)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4743c6882e)
-- 🚀 Feature/Improvement:文档页内目录组件落地(仅组件与用例,挂载待页面席结清后同批) (50c62a2dd0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
