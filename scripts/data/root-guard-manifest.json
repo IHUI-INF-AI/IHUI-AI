@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-03T13:45:04.354Z",
+  "sealedAt": "2026-11-03T13:58:03.649Z",
   "sealedBy": "root-guard --seal",
-  "reason": "复核 6713541c20(收编 origin/main 224 笔的 union)对 scripts/guardian-runner.mjs 的净改动 +42/-7:内容是把号位撞车逐条让号(282/285/286/289 四组)并随行新增 P2 两道门的注册条目,零删除判据、零降档(现读该文件 6968 行,门 103 C1 的 EX-C1-2 豁免在册至 2026-11-10);落地后复跑门 89 接线 R1/R2/R4/R5 与门 103 均绿。清单按现面重封,部署环 fail-closed 由此解除",
+  "reason": "复核 6713541c20 对 guardian-runner 的净改动 +42/-7(号位让号 282/285/286/289 四组 + 随行两道 P2 门注册条目,零删除判据、零降档;文件现读 6968 行,门 103 C1 的 EX-C1-2 豁免在册至 2026-11-10;门 89 接线 R1/R2/R4/R5 现读 0)。本笔由**修好面口径后的 seal** 写出:封的是 HEAD blob 哈希,不再封滞后的工作树副本(那正是本清单与闸永远对不上的成因)",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "bf5502484c51df07e967098788cef98ebc8b4889fa76ddd16ccbf4f1e8ef7608"
+      "sha256": "a09208df939687cfc34babec5e86c520031e6a1b1d84fcbc02333c98ea3d2302"
     },
     {
       "id": "judgement-libs",
