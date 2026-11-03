@@ -667,7 +667,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       backgroundColor: tk.brandAccent.light,
     },
     headTexts: { flex: 1, gap: rnSpacing.xs },
-    wfTitle: { fontSize: 17, fontWeight: '700', color: tk.text.primary },
+    wfTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     wfDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 17 },
     metaRow: {
       flexDirection: 'row',

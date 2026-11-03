@@ -47,7 +47,7 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full overflow-hidden rounded-lg bg-[var(--color-black)]"
         style={STAGE_STYLE}
       >
-        <Text className="text-sm text-muted-foreground">
+        <Text className="text-body text-muted-foreground">
           {tt('common.loadingShort', '加载中...')}
         </Text>
       </View>

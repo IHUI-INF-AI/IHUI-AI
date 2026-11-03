@@ -147,7 +147,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
-    title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',
@@ -193,7 +193,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    amountText: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
+    amountText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
     minText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,

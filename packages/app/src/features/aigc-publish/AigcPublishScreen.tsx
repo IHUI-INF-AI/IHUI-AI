@@ -254,7 +254,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.lg,
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     subtitle: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -317,7 +322,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     urlAddText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
     pickerBtn: {
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: primary,
