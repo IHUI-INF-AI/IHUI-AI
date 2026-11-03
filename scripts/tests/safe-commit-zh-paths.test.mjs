@@ -168,10 +168,14 @@ test('D171 形状锁:safe-commit 的路径取值必须走 lib/git-paths 的 -z �
   }
   // 三处 → 四处(2026-10-15,G-920 前置护栏新增发令前复量)。钉的是"这几处**都**走 lib 出口":
   // 数量随合法新增点位走,但每次增加都必须在报告里点名新点是哪个,不许只改数字了事。
+  // 五处 → **六处**(2026-10-31,O67 commit `1a4be3bcb4f25d1bd3c64b2f21e0aa652e4d5dd4`):
+  // 新增点是 `reportUndeclaredStaged()` 的发令前只读点名(索引 ⊖ 声明集)。
+  // 它是**新能力不是重复**:只 warn 不拒发(dry-run 也点名),取材面与 Step 3 的"拒发"
+  // 判据是两件事,不能合并成一处 —— 所以这里如实计 6,不把 O67 那处误加回退。
   assert.equal(
     (src.match(/gitStagedPaths\(\{ root: repoRoot \}\)/g) ?? []).length,
-    5,
-    'Step 3 / 归因面 / 重暂存校验 / 4-pre 发令前复量 / **O43② 发令前基线快照**五处都必须走 lib 出口',
+    6,
+    'Step 3 / 归因面 / 重暂存校验 / 4-pre 发令前复量 / O43② 发令前基线快照 / O67 发令前只读点名六处都必须走 lib 出口',
   )
   assert.match(src, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单也必须走 -z 出口')
   assert.match(
