@@ -23,12 +23,12 @@ describe('P2 域入口:TDZ 与清单完整性', () => {
 
   it('条目数量与 P2 收敛前的规模相符(清单一条不能丢)', () => {
     // 收敛前实测(2026-10-19 逐条点算,非估算):
-    //  edu    = 14 条顶层 + EDU_ITEMS 27 条   = 41
-    //  content= 15 条顶层(其中 /messages 带 6 个 children,children 不计入本数)
+    //  edu    = 14 条顶层 + EDU_ITEMS 28 条   = 42(`286ce1da49` 票 B67/B70/B72 补 /edu/attendance)
+    //  content= 16 条顶层(其中 /messages 带 6 个 children,children 不计入本数;新增第 16 条来自 2026-11-03 内容域收口)
     //  trade  = 14 条顶层 + MEMBER_ITEMS 12 条 = 26
     // 注:三处数字均为本测试实跑读数;变更域清单时须同步更新本注释。
-    expect(EDU_HUB_ITEMS.length).toBe(41)
-    expect(CONTENT_HUB_ITEMS.length).toBe(15)
+    expect(EDU_HUB_ITEMS.length).toBe(42)
+    expect(CONTENT_HUB_ITEMS.length).toBe(16)
     expect(TRADE_HUB_ITEMS.length).toBe(26)
   })
 
