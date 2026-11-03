@@ -27,11 +27,18 @@
  *      单独列 `TICKET_NAMED_PORTS` 并注明来源(不在本门另立一份"完整端口集")。
  *      现读 HEAD 面 **0**。
  *
- *  A3 advisory —— 交互反馈缺失:
- *     `View`/`Text` 挂 onClick,却既无 `hoverClass`(Taro 原生按压态)也无 `active:`/`hover:`
- *     类变体,且 handler 不含导航意图 ⇒ 只报数。现读 174 处。
- *     **为什么不上 blocking**:这 174 处里包含大量"外层已有点击反馈、内层只负责命中区"的合法
- *     结构(命中区铺满整行是移动端惯例),静态判不出观感;把它判红就是拿误报逼人写冗余代码。
+ *  A3 advisory —— 交互反馈缺失(判据 2026-11-03 纠偏后):
+ *     `View`/`Text` 挂 onClick,反馈来源按下列顺序静态取证,能证就放行:
+ *       ① `hoverClass`;② `active:`/`hover:` 类变体;③ 样式表 `.cls:active` 声明 —— 但平台事实
+ *          (**weapp WXSS 的 `:active` 对 View/Text 不生效**,本仓 InputArea/MaterialPopup 注释自证)
+ *          下不构成有效反馈,故仍按缺陷报,并给出「声明在哪条 CSS」证据;
+ *       ④ 遮罩/蒙层:`inset-0`/`style inset:0` 铺满视口的命中层直接放行,仅 mask/overlay 类名者
+ *          还需 close/dismiss 语义;⑤ handler 体只有 `e.stopPropagation()` 的冒泡护栏;
+ *       ⑥ 祖先链上已有反馈(weapp 触摸起点命中子树即触发祖先 hover-class);⑦ 导航意图;
+ *       ⑧ className 非字面量(变量/`cn(...)`)⇒ 标 `A3-undetermined`(盲区),**不**当缺陷。
+ *     2026-11-03 纠偏前后读数:**174 → 80**(真缺陷 75 Text + 2 隐形命中条 + 3 盲区)。
+ *     **为什么不上 blocking**:残留多为 Text —— weapp `Text` 不支持 `hoverClass`,今日只能靠外层
+ *     View 承接;这类"命中区铺满整行"的合法结构静态判不出观感,判红就是拿误报逼人写冗余代码。
  *     自查口径:`--strict` 才把它折进退出码,提交门只出 advisory。
  *
  *  A4 advisory —— `Taro.showModal` 纯提示误用:
@@ -39,7 +46,7 @@
  *     ⇒ 用模态框做单按钮提示。这是交互规范问题(应该走 toast),不是崩溃,故只警告。
  *
  * 判不了的(静态盲区,写在这里而不是假装看过):自定义组件内部的反馈(如 `LessonListItem`
- * 自己渲染 Pressable)、`hoverClass` 通过变量传入、样式表里的 `active:` 变体、运行时拼出来的
+ * 自己渲染 Pressable)、`className={变量}/cn(...)` 透传(记 `A3-undetermined`)、运行时拼出来的
  * handler 名、`Image`/图标类标签的视觉反馈。
  *
  * 集成位置: scripts/guardian-runner.mjs 第 290 项(pre-commit blocking;staged 触发面 =
@@ -49,9 +56,12 @@
  *   全量档 = 审计报告(A1/A2 现读 0;A3/A4 只报数)。
  *   --staged = 只判暂存区触及的 miniapp 文件;A1/A2 绝对零容忍,A3/A4 advisory 不进退出码。
  *   --gate = 提交门形态(与 runner 的 --staged 组合使用,本身只表示"按提交门口径")。
- *   --self-test = 判据夹具(12 例,含变异自证)。
- *   台账 scripts/data/miniapp-interaction-allowlist.json:每条带 owner/expires/evidence/count,
- *   **到期即红**;认领数少于现读 ⇒ 红;多于现读 ⇒ advisory(清单腐烂)。
+ *   --self-test = 判据夹具(23 例;:active/祖先反馈/遮罩/冒泡护栏/非字面量 className 各带正反例,
+ *                另含 A3 挂账三态)。
+ *   台账 scripts/data/miniapp-interaction-allowlist.json:每条带
+ *   owner/expires/evidence(文件:行)/rationale/count —— **到期即红**;缺字段即红;
+ *   A3 条目的 expires 须 ≥ 2027-01-31。blocking 认领数少于现读 ⇒ 红;A3 少于现读 ⇒
+ *   advisory(逐条点名"未挂账",不折退出码);多于现读 ⇒ advisory(清单腐烂)。
  *
  * 用法:node scripts/check-miniapp-interaction-hygiene.mjs [--gate|--staged] [--json] [--strict] [--self-test]
  * 退出码:0 全绿(advisory 不折;--strict 时折) · 1 blocking 违规/账本到期 · 2 取不到输入(未判定)
@@ -143,6 +153,60 @@ export function scanTags(src) {
   return tags
 }
 
+/**
+ * 带父子栈的 JSX 标签走查(与 `scanTags` 同一套引号/花括号容错),返回 `{tag, props, line, parents}`。
+ * 只用于「祖先已有反馈」判据:扁平 `scanTags` 拿不到祖先链。
+ */
+export function scanTagTree(src) {
+  const nodes = []
+  const stack = []
+  const headRe = /<(\/?)([A-Za-z][\w.]*)/g
+  let h
+  while ((h = headRe.exec(src))) {
+    const isClose = h[1] === '/'
+    const start = h.index
+    const tag = h[2]
+    let j = start + h[0].length
+    let depth = 0
+    let quote = null
+    for (; j < src.length; j++) {
+      const c = src[j]
+      if (quote) {
+        if (c === quote && src[j - 1] !== '\\') quote = null
+        continue
+      }
+      if (c === '"' || c === "'") {
+        quote = c
+        continue
+      }
+      if (c === '{') depth += 1
+      else if (c === '}') depth -= 1
+      else if (c === '>' && depth === 0) break
+    }
+    const inner = src.slice(start + h[0].length, j)
+    const selfClosing = /\/\s*$/.test(inner)
+    if (isClose) {
+      for (let k = stack.length - 1; k >= 0; k--) {
+        if (stack[k].tag === tag) {
+          stack.length = k
+          break
+        }
+      }
+      headRe.lastIndex = j + 1
+      continue
+    }
+    nodes.push({
+      tag,
+      props: parseAttrs(inner.replace(/\/\s*$/, '')),
+      line: lineAt(src, start),
+      parents: stack.slice(),
+    })
+    if (!selfClosing) stack.push(nodes[nodes.length - 1])
+    headRe.lastIndex = j + 1
+  }
+  return nodes
+}
+
 /** 把标签属性区拆成 `{name: 值原文}`;值保留原文(引号/花括号都在),只去首尾空白。 */
 export function parseAttrs(attrsText) {
   const out = {}
@@ -156,7 +220,8 @@ export function parseAttrs(attrsText) {
     if (ch === '"' || ch === "'") {
       const end = attrsText.indexOf(ch, i + 1)
       const stop = end < 0 ? attrsText.length : end
-      value = attrsText.slice(i + 1, stop)
+      // 保留引号:调用方据此区分「字面量」与「表达式」(className 判据需要)
+      value = attrsText.slice(i, stop + 1)
       re.lastIndex = stop + 1
     } else if (ch === '{') {
       const end = matchBrace(attrsText, i)
@@ -197,12 +262,80 @@ export function emptyHandlerReason(value, noopNames = new Set()) {
   return null
 }
 
-/** 标签是否带按压反馈(Taro hoverClass / tailwind active:/hover: 变体)。 */
-export function feedbackOf(props) {
-  if (props.hoverClass || props['hover-class']) return 'hoverClass'
+/**
+ * 取 className/class 的「可静态读到的文本」:
+ *  - 字符串字面量 / 模板字面量 ⇒ 返回原文(模板里 `${}` 表达式保留,只做 token 提取);
+ *  - 标识符 / 函数调用 / 其它表达式(`className={className}`、`cn(...)`)⇒ null(静态盲区)。
+ */
+export function classTextOf(props) {
   for (const key of ['className', 'class']) {
-    const v = props[key]
-    if (typeof v === 'string' && /(?:^|[\s"'`])(?:active|hover):/.test(v)) return `${key}:variant`
+    if (!Object.hasOwn(props, key)) continue
+    const v = String(props[key] ?? '').trim()
+    if (!v) return ''
+    if (v.startsWith("'") || v.startsWith('"') || v.startsWith('`')) return v.slice(1, -1)
+    return null
+  }
+  return ''
+}
+
+/** 从 class 文本里提取 class token(只留字母数字/下划线/连字符,用于命中样式表选择器)。 */
+export function classTokens(text) {
+  return String(text || '')
+    .match(/[A-Za-z_][\w-]*/g) || []
+}
+
+/**
+ * 预扫被审面样式表,抽 `.cls:active` 声明 ⇒ Map<class, 证据 `file:line`>。
+ * 只做「声明存在」的静态取证;是否在 weapp 真生效由 CSS_ACTIVE_SUPPORTED 决定。
+ */
+export function buildActiveSelectors(rootRel = SRC_REL) {
+  const map = new Map()
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const abs = join(dir, name)
+      if (statSync(abs).isDirectory()) {
+        if (name === 'rn-compat' || name === '__tests__' || name === '__mocks__') continue
+        walk(abs)
+        continue
+      }
+      if (!name.endsWith('.css')) continue
+      const rel = relative(REPO, abs).replace(/\\/g, '/')
+      const text = readFileSync(abs, 'utf8').replace(/\r\n/g, '\n')
+      const re = /\.([A-Za-z_][\w-]*):active\b/g
+      let m
+      while ((m = re.exec(text))) {
+        if (!map.has(m[1])) map.set(m[1], `${rel}:${text.slice(0, m.index).split('\n').length}`)
+      }
+    }
+  }
+  const start = join(REPO, rootRel)
+  if (existsSync(start)) walk(start)
+  return map
+}
+
+/**
+ * 平台事实(2026-11-03,本仓自证):weapp 的 WXSS `:active` 伪类对 View/Text 不生效,
+ * 按压态只能用 `hover-Class`。证据:components/InputArea.tsx:803/819/885/901、
+ * components/MaterialPopup.tsx:82/121 的注释(原 `active:` / `:active` 写法被判为死样式后改 hoverClass)。
+ * 若平台后续支持,把此常量翻 true 即可让 A3 把「有 :active 声明」判为有反馈。
+ */
+export const CSS_ACTIVE_SUPPORTED = false
+
+/**
+ * 标签是否带按压反馈(Taro hoverClass / tailwind active:/hover: 变体 / 样式表 :active)。
+ * 返回 `{kind, evidence?}`;`kind='unknown'` 表示 className 非字面量(静态盲区,不判缺陷)。
+ */
+export function feedbackOf(props, { activeSelectors = new Map(), cssActiveSupported = CSS_ACTIVE_SUPPORTED } = {}) {
+  if (props.hoverClass || props['hover-class']) return { kind: 'hoverClass' }
+  const text = classTextOf(props)
+  if (text === null) return { kind: 'unknown' }
+  if (/(?:^|[\s"'`])(?:active|hover):/.test(text)) return { kind: 'variant' }
+  for (const token of classTokens(text)) {
+    if (activeSelectors.has(token))
+      return {
+        kind: cssActiveSupported ? 'css:active' : 'css:active-dead',
+        evidence: activeSelectors.get(token),
+      }
   }
   return null
 }
@@ -213,15 +346,58 @@ export function isNavHandler(value) {
 }
 
 /**
- * 判据 A1/A3(纯函数):喂标签数组,返回 blocking / advisory 清单。
- * @param {Array<{tag:string, attrs:string, line:number}>} tags
- * @param {{noopNames?:Set<string>}} opts
+ * 遮罩/蒙层:① className/style 静态可证「铺满视口」(inset-0 / inset:0)⇒ 全屏命中层,
+ * 不存在按压观感需求,直接放行;② 仅命中 mask/overlay 类名 ⇒ 还需关闭/护栏语义才放行。
  */
-export function judgeClickable(tags, { noopNames = new Set() } = {}) {
+export function isBackdrop(props, handler = '') {
+  const text = classTextOf(props)
+  if (text !== null && /(?:^|\s)inset-0(?:\s|$)/.test(text)) return true
+  const style = String(props.style || '')
+  if (/(?:^|[{;,\s])inset\s*:\s*0(?:[^0-9]|$)/.test(style)) return true
+  if (text !== null && /(?:^|\s)[^\s]*(?:mask|overlay)[^\s]*(?:\s|$)/i.test(text))
+    return isCloseHandler(handler) || isBubbleGuard(handler)
+  return false
+}
+
+/** 关闭语义 handler:onClose/onCancel/close 系/handleMaskClick,或直接 setXxx(false/null)。 */
+export function isCloseHandler(value) {
+  const v = String(value || '').replace(/\s+/g, ' ')
+  return (
+    /\bon(?:Close|Cancel|Dismiss|RequestClose)\b/.test(v) ||
+    /\bclose[A-Z]?\w*\s*\(/.test(v) ||
+    /^(?:on)?(?:close|dismiss)[A-Z]?\w*$/.test(v) ||
+    /\bhandleMaskClick\b/.test(v) ||
+    /\b[A-Za-z_$][\w$]*\s*\(\s*(?:false|null)\s*\)/.test(v) ||
+    /^(?:closePopup|close|dismiss)$/.test(v)
+  )
+}
+
+/** 冒泡护栏:handler 体只有一条 `e.stopPropagation()`(面板本体,不是点击目标)。 */
+export function isBubbleGuard(value) {
+  const v = String(value || '').trim()
+  return /^(?:\(\s*[A-Za-z_$][\w$]*\s*\)|[A-Za-z_$][\w$]*)\s*=>\s*(?:\{\s*)?[A-Za-z_$][\w$]*\s*\.\s*stopPropagation\s*\(\s*\)\s*;?\s*(?:\}\s*)?$/.test(v)
+}
+
+/**
+ * 判据 A1/A3(纯函数):喂标签数组,返回 blocking / advisory 清单。
+ * tags 若来自 `scanTagTree`,会带 `parents`(祖先链),用于「祖先已有反馈」放行;
+ * 扁平 `scanTags` 喂入时视为无祖先(不影响 A1)。
+ * @param {Array<{tag:string, attrs?:string, props?:object, line:number, parents?:Array}>} tags
+ * @param {{noopNames?:Set<string>, activeSelectors?:Map<string,string>, cssActiveSupported?:boolean}} opts
+ */
+export function judgeClickable(
+  tags,
+  { noopNames = new Set(), activeSelectors = new Map(), cssActiveSupported = CSS_ACTIVE_SUPPORTED } = {},
+) {
   const blocking = []
   const advisory = []
+  const ctx = { activeSelectors, cssActiveSupported }
+  const hasFeedback = (props) => {
+    const fb = feedbackOf(props, ctx)
+    return fb && (fb.kind === 'hoverClass' || fb.kind === 'variant' || fb.kind === 'css:active')
+  }
   for (const t of tags) {
-    const props = parseAttrs(t.attrs)
+    const props = t.props || parseAttrs(t.attrs || '')
     const clickProp = CLICK_PROPS.find((p) => Object.hasOwn(props, p))
     if (!clickProp) continue
     const value = props[clickProp]
@@ -234,7 +410,7 @@ export function judgeClickable(tags, { noopNames = new Set() } = {}) {
       blocking.push({ rule: 'A1-empty-handler', tag: t.tag, line: t.line, prop: clickProp, detail: reason })
       continue
     }
-    const cls = String(props.className || props.class || '')
+    const cls = classTextOf(props) ?? ''
     if (/(?:^|\s)pointer-events-none(?:\s|$)/.test(cls)) {
       blocking.push({ rule: 'A1-pointer-events-none', tag: t.tag, line: t.line, prop: clickProp, detail: '样式层已禁用点击' })
       continue
@@ -242,9 +418,30 @@ export function judgeClickable(tags, { noopNames = new Set() } = {}) {
     // A3 只判 Taro 语义原生面(View/Text):Button 自带 button-hover,自定义组件的反馈住在自己身上,
     // Image/图标类标签的反馈是视觉态而不是 hoverClass —— 都列盲区,不在此判。
     if (!/^(View|Text)$/.test(t.tag)) continue
-    if (feedbackOf(props)) continue
+    const fb = feedbackOf(props, ctx)
+    if (fb?.kind === 'hoverClass' || fb?.kind === 'variant' || fb?.kind === 'css:active') continue
+    // 遮罩/蒙层:点空白关闭的命中层,不存在按压观感需求 ⇒ 判据放行(静态可证)。
+    if (isBackdrop(props, value)) continue
+    // 冒泡护栏:面板本体只做 stopPropagation,不是可点目标 ⇒ 放行。
+    if (isBubbleGuard(value)) continue
+    // 祖先已有按压反馈:weapp 触摸起点命中子树即触发祖先 hover-class ⇒ 放行。
+    if ((t.parents || []).some((p) => hasFeedback(p.props || {}))) continue
+    // 导航项:反馈来自页面切换本身 ⇒ 放行(既有口径,不扩大词表)。
     if (isNavHandler(value)) continue
-    advisory.push({ rule: 'A3-no-feedback', tag: t.tag, line: t.line, prop: clickProp, detail: '无 hoverClass/active 变体' })
+    // className 非字面量:静态不可证,明确标 undetermined,不当缺陷。
+    if (fb?.kind === 'unknown' || (!Object.hasOwn(props, 'className') && !Object.hasOwn(props, 'class') && classTextOf(props) === null)) {
+      advisory.push({ rule: 'A3-undetermined', tag: t.tag, line: t.line, prop: clickProp, detail: 'className 非字面量,静态不可证' })
+      continue
+    }
+    const deadActive = fb?.kind === 'css:active-dead' ? `CSS :active 已声明于 ${fb.evidence} 但 weapp 不生效` : ''
+    advisory.push({
+      rule: 'A3-no-feedback',
+      tag: t.tag,
+      line: t.line,
+      prop: clickProp,
+      detail: deadActive || '无 hoverClass/active 变体',
+      ...(deadActive ? { evidence: fb.evidence } : {}),
+    })
   }
   return { blocking, advisory }
 }
@@ -327,24 +524,34 @@ export function matchBrace(src, openIdx) {
 
 const lineAt = (src, idx) => src.slice(0, idx).split('\n').length
 
+/** A3 台账(submitted 豁免)的最短挂账期:豁免不是销账,至少挂到该日再复核。 */
+export const ADVISORY_MIN_EXPIRES = '2027-01-31'
+
 /**
  * 台账判序(纯函数):到期即红;认领数少于现读 ⇒ 红(新增未挂账);多于现读 ⇒ advisory(腐烂)。
+ * A3(advisory 档)也接台账:差额不折退出码(与「A3 不进退出码」既有口径一致),但逐条点名;
+ * 到期 / 缺字段 / 挂账期过短 仍红。
  * @param {Array<{rule:string,file:string}>} violations
- * @param {Array<{rule:string,file:string,count?:number,owner?:string,expires?:string,evidence?:string}>} entries
- * @param {{today:string}} opts
+ * @param {Array<{rule:string,file:string,count?:number,owner?:string,expires?:string,evidence?:string,rationale?:string}>} entries
+ * @param {{today:string, advisories?:Array<{rule:string,file:string}>, scopeFiles?:Set<string>|null}} opts
+ *        scopeFiles 非 null 时(提交门只扫暂存文件),只对射程内文件做认领配平;射程外条目只验形制与到期。
  */
-export function judgeLedger(violations, entries, { today }) {
+export function judgeLedger(violations, entries, { today, advisories = [], scopeFiles = null }) {
   const red = []
   const advisory = []
   const expired = []
   const malformed = []
   for (const e of entries) {
     const label = `${e?.file || '?'} [${e?.rule || '?'}]`
+    const isAdvisoryRule = typeof e?.rule === 'string' && /^A3/.test(e.rule)
     if (typeof e?.owner !== 'string' || !e.owner.trim()) malformed.push(`条目缺 owner:${label}`)
     if (typeof e?.evidence !== 'string' || !e.evidence.trim()) malformed.push(`条目缺 evidence:${label}`)
+    if (typeof e?.rationale !== 'string' || !e.rationale.trim()) malformed.push(`条目缺 rationale:${label}`)
     if (typeof e?.expires !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.expires))
       malformed.push(`条目缺 expires(YYYY-MM-DD):${label}`)
     else if (e.expires < today) expired.push(`${label} 于 ${e.expires} 到期`)
+    else if (isAdvisoryRule && e.expires < ADVISORY_MIN_EXPIRES)
+      malformed.push(`${label} 挂账期须 ≥ ${ADVISORY_MIN_EXPIRES}(现 ${e.expires})`)
   }
   const keyOf = (file, rule) => `${file}::${rule}`
   const counts = new Map()
@@ -352,35 +559,57 @@ export function judgeLedger(violations, entries, { today }) {
     const k = keyOf(v.file, v.rule)
     counts.set(k, (counts.get(k) || 0) + 1)
   }
+  const advCounts = new Map()
+  for (const v of advisories) {
+    const k = keyOf(v.file, v.rule)
+    advCounts.set(k, (advCounts.get(k) || 0) + 1)
+  }
   const quota = new Map()
   for (const e of entries) {
     if (typeof e?.file !== 'string' || typeof e?.rule !== 'string') {
       malformed.push(`条目缺 file/rule:${JSON.stringify(e).slice(0, 80)}`)
       continue
     }
-    quota.set(keyOf(e.file, e.rule), Number.isInteger(e.count) ? e.count : 1)
+    quota.set(keyOf(e.file, e.rule), {
+      count: Number.isInteger(e.count) ? e.count : 1,
+      advisory: /^A3/.test(e.rule),
+    })
   }
   for (const [k, n] of counts) {
-    const q = quota.get(k) || 0
-    if (n > q) red.push(`${k.replace('::', ' [')}] 现读 ${n} 处,账本认领 ${q} 处`)
+    const q = quota.get(k)
+    if (q?.advisory) {
+      advisory.push(`${k.replace('::', ' [')}] 规则归 advisory 档,却被登记为 blocking 条目`)
+      continue
+    }
+    const claimed = q ? q.count : 0
+    if (n > claimed) red.push(`${k.replace('::', ' [')}] 现读 ${n} 处,账本认领 ${claimed} 处`)
+  }
+  for (const [k, n] of advCounts) {
+    const claimed = quota.get(k)?.count || 0
+    if (n > claimed) advisory.push(`${k.replace('::', ' [')}] 现读 ${n} 处,账本认领 ${claimed} 处 ⇒ 未挂账`)
   }
   for (const [k, q] of quota) {
-    const n = counts.get(k) || 0
-    if (n < q) advisory.push(`${k.replace('::', ' [')}] 账本认领 ${q} 处,现读 ${n} 处 ⇒ 清单腐烂(复核后下调或删除)`)
+    const file = k.slice(0, k.lastIndexOf('::'))
+    if (scopeFiles && !scopeFiles.has(file)) continue
+    const n = (q.advisory ? advCounts.get(k) : counts.get(k)) || 0
+    if (n < q.count) advisory.push(`${k.replace('::', ' [')}] 账本认领 ${q.count} 处,现读 ${n} 处 ⇒ 清单腐烂(复核后下调或删除)`)
     if (n === 0) advisory.push(`${k.replace('::', ' [')}] 已不再命中 ⇒ 条目可销账`)
   }
   return { red, advisory, expired, malformed }
 }
 
 /** 对单个文件跑 A1/A2/A3/A4;返回 `{blocking, advisory, tags}`(不含台账判序)。 */
-export function scanSource(text, { portNames = ALL_PORT_NAMES } = {}) {
+export function scanSource(
+  text,
+  { portNames = ALL_PORT_NAMES, activeSelectors = new Map(), cssActiveSupported = CSS_ACTIVE_SUPPORTED } = {},
+) {
   const masked = maskComments(text)
   const noopNames = collectNoopNames(masked)
-  const tags = scanTags(masked)
-  const c = judgeClickable(tags, { noopNames })
+  const nodes = scanTagTree(masked)
+  const c = judgeClickable(nodes, { noopNames, activeSelectors, cssActiveSupported })
   const ports = judgePortAssignments(masked, { portNames })
   const modal = judgeModalMisuse(masked)
-  return { blocking: [...c.blocking, ...ports], advisory: [...c.advisory, ...modal], tags: tags.length }
+  return { blocking: [...c.blocking, ...ports], advisory: [...c.advisory, ...modal], tags: nodes.length }
 }
 
 /** 台账读取:取不到/坏形状 ⇒ null(调用方按未判定 exit 2,不拿空表冒充"没有豁免")。 */
@@ -415,7 +644,7 @@ export function runSelfTest() {
       throw e
     }
   }
-  const scanOne = (src) => scanSource(src)
+  const scanOne = (src, opts) => scanSource(src, opts)
 
   ok('① 假可点:View 上 onClick 空实现 ⇒ 红', () => {
     const r = scanOne('const A = () => <View onClick={() => {}}>x</View>')
@@ -469,20 +698,70 @@ export function runSelfTest() {
       { file: 'a.tsx', rule: 'A1-empty-handler' },
       { file: 'a.tsx', rule: 'A1-empty-handler' },
     ]
-    const j = judgeLedger(
-      v,
-      [{ file: 'a.tsx', rule: 'A1-empty-handler', count: 1, owner: 'o', expires: '2099-01-01', evidence: 'e' }],
-      { today: '2026-11-03' },
-    )
+    const base = { owner: 'o', expires: '2099-01-01', evidence: 'e', rationale: 'r' }
+    const j = judgeLedger(v, [{ file: 'a.tsx', rule: 'A1-empty-handler', count: 1, ...base }], { today: '2026-11-03' })
     expect(j.red.length === 1, '认领数少于现读未判红')
-    const expired = judgeLedger(
-      [],
-      [{ file: 'b.tsx', rule: 'A1-empty-handler', count: 0, owner: 'o', expires: '2020-01-01', evidence: 'e' }],
-      { today: '2026-11-03' },
-    )
+    const expired = judgeLedger([], [{ file: 'b.tsx', rule: 'A1-empty-handler', count: 0, ...base, expires: '2020-01-01' }], {
+      today: '2026-11-03',
+    })
     expect(expired.expired.length === 1, '到期未点名')
     const malformed = judgeLedger([], [{ file: 'c.tsx', rule: 'A1-empty-handler' }], { today: '2026-11-03' })
-    expect(malformed.malformed.length === 3, `缺字段未点名(${malformed.malformed.length}/3)`)
+    expect(malformed.malformed.length === 4, `缺字段未点名(${malformed.malformed.length}/4)`)
+  })
+  const activeCtx = { activeSelectors: new Map([['state-btn', 'components/x.css:87']]) }
+  ok('⑬ :active 正例:样式表已声明 :active 且平台生效 ⇒ 不报', () => {
+    const r = scanOne('<View className="state-btn" onClick={() => open(id)}>x</View>', { ...activeCtx, cssActiveSupported: true })
+    expect(!r.advisory.some((v) => v.rule === 'A3-no-feedback'), 'CSS :active 未被识别为反馈')
+  })
+  ok('⑭ :active 反例:声明存在但 weapp 不生效 ⇒ 按缺陷报(带证据)', () => {
+    const r = scanOne('<View className="state-btn" onClick={() => open(id)}>x</View>', { ...activeCtx, cssActiveSupported: false })
+    const hit = r.advisory.find((v) => v.rule === 'A3-no-feedback')
+    expect(hit && /weapp 不生效/.test(hit.detail), 'weapp 死 :active 未被判为缺陷')
+    expect(hit.evidence === 'components/x.css:87', '缺声明证据')
+  })
+  ok('⑮ 祖先反馈正例:祖先 hoverClass + 子 Text 承接点击 ⇒ 不报', () => {
+    const r = scanOne('<View hoverClass="opacity-60"><Text onClick={() => open(id)}>x</Text></View>')
+    expect(!r.advisory.some((v) => v.rule === 'A3-no-feedback'), '祖先反馈未继承')
+  })
+  ok('⑯ 祖先反馈反例:祖先无反馈 ⇒ 仍报', () => {
+    const r = scanOne('<View className="row"><Text onClick={() => open(id)}>x</Text></View>')
+    expect(r.advisory.some((v) => v.rule === 'A3-no-feedback'), '无祖先反馈却未报')
+  })
+  ok('⑰ 遮罩正例:mask + 关闭语义 ⇒ 不报', () => {
+    const r = scanOne('<View className="fixed inset-0 pza-mask" onClick={() => setOpen(false)}>x</View>')
+    expect(!r.advisory.some((v) => v.rule === 'A3-no-feedback'), '遮罩误报未消')
+  })
+  ok('⑱ 遮罩反例:只命中 mask 名、未铺满视口且 handler 非关闭语义 ⇒ 仍报', () => {
+    const r = scanOne('<View className="pza-mask absolute top-0 left-0" onClick={() => open(id)}>x</View>')
+    expect(r.advisory.some((v) => v.rule === 'A3-no-feedback'), '非关闭语义的 mask 被放过')
+  })
+  ok('⑲ 冒泡护栏正例:仅 e.stopPropagation() ⇒ 不报', () => {
+    const r = scanOne('<View onClick={(e) => e.stopPropagation()}>x</View>')
+    expect(!r.advisory.some((v) => v.rule === 'A3-no-feedback'), '冒泡护栏被误报')
+  })
+  ok('⑳ 冒泡护栏反例:提及 stopPropagation 但仍做业务 ⇒ 仍报', () => {
+    const r = scanOne('<Text onClick={(e) => { e.stopPropagation(); open(id) }}>x</Text>')
+    expect(r.advisory.some((v) => v.rule === 'A3-no-feedback'), '带业务的 handler 被当成护栏')
+  })
+  ok('㉑ 非字面量 className 正例:变量/表达式 ⇒ 判 undetermined 不当缺陷', () => {
+    const r = scanOne('<View className={className} onClick={() => open(id)}>x</View>')
+    expect(r.advisory.some((v) => v.rule === 'A3-undetermined'), '盲区未被标 undetermined')
+    expect(!r.advisory.some((v) => v.rule === 'A3-no-feedback'), '盲区被误判成缺陷')
+  })
+  ok('㉒ 非字面量 className 反例:字面量无反馈 ⇒ 仍判缺陷', () => {
+    const r = scanOne('<View className="w-full" onClick={() => open(id)}>x</View>')
+    expect(r.advisory.some((v) => v.rule === 'A3-no-feedback'), '字面量无反馈未判缺陷')
+    expect(!r.advisory.some((v) => v.rule === 'A3-undetermined'), '字面量被误标盲区')
+  })
+  ok('㉓ A3 台账:可挂账/未挂账点名/挂账期低于 2027-01-31 ⇒ 红', () => {
+    const adv = [{ file: 'a.tsx', rule: 'A3-no-feedback' }]
+    const base = { file: 'a.tsx', rule: 'A3-no-feedback', count: 1, owner: 'o', expires: '2027-06-30', evidence: 'a.tsx:1', rationale: 'r' }
+    const covered = judgeLedger([], [base], { today: '2026-11-03', advisories: adv })
+    expect(covered.red.length === 0 && covered.advisory.length === 0, '正确挂账仍被判红/腐')
+    const uncovered = judgeLedger([], [], { today: '2026-11-03', advisories: adv })
+    expect(uncovered.advisory.some((s) => s.includes('未挂账')), '未登记未点名')
+    const shortExpiry = judgeLedger([], [{ ...base, expires: '2026-12-31' }], { today: '2026-11-03', advisories: adv })
+    expect(shortExpiry.malformed.some((s) => s.includes('≥ 2027-01-31')), '挂账期过短未红')
   })
 
   console.log('🧪 小程序交互卫生门自检')
@@ -528,8 +807,9 @@ export async function run({ mode = 'full', json = false, strict = false } = {}) 
   const violations = []
   const advisories = []
   let tagCount = 0
+  const activeSelectors = buildActiveSelectors()
   for (const rel of files) {
-    const r = scanSource(readText(rel))
+    const r = scanSource(readText(rel), { activeSelectors })
     tagCount += r.tags
     for (const v of r.blocking) violations.push({ ...v, file: rel })
     for (const v of r.advisory) advisories.push({ ...v, file: rel })
@@ -539,7 +819,12 @@ export async function run({ mode = 'full', json = false, strict = false } = {}) 
     console.error(`❌ 台账读不到或形状坏:${LEDGER_REL} ⇒ 未判定(不拿空表冒充"零豁免")`)
     process.exit(2)
   }
-  const ledger = judgeLedger(violations, entries, { today: todayStr() })
+  const ledger = judgeLedger(violations, entries, {
+    today: todayStr(),
+    advisories,
+    // 提交门只扫暂存文件:射程外条目只验形制/到期,不参与"清单腐烂"对账(否则每次提交刷几十条假腐)
+    scopeFiles: mode === 'staged' ? new Set(files) : null,
+  })
   const blockingRed = [...ledger.red, ...ledger.expired, ...ledger.malformed]
   const byRule = (arr) => {
     const m = new Map()
@@ -605,11 +890,20 @@ if (isDirectRun) {
 export const __test__ = {
   listSourceFiles,
   scanTags,
+  scanTagTree,
   parseAttrs,
   collectNoopNames,
   emptyHandlerReason,
+  classTextOf,
+  classTokens,
+  buildActiveSelectors,
+  CSS_ACTIVE_SUPPORTED,
   feedbackOf,
   isNavHandler,
+  isBackdrop,
+  isCloseHandler,
+  isBubbleGuard,
+  ADVISORY_MIN_EXPIRES,
   judgeClickable,
   judgePortAssignments,
   judgeModalMisuse,
