@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentSendBtn: {
     height: 38,
-    paddingHorizontal: 18,
+    paddingHorizontal: rnSpacing.lg,
     borderRadius: rnRadius.sm, // 发送按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
