@@ -43,7 +43,18 @@ function harness(dispatchImpl) {
     lines,
     stateFile: join(dir, 'state.json'),
     undelFile: join(dir, 'UNDELIVERED.json'),
-    opts: { dispatch, stateFile: join(dir, 'state.json'), undelFile: join(dir, 'UNDELIVERED.json'), logger: (l) => lines.push(l) },
+    opts: {
+      dispatch,
+      stateFile: join(dir, 'state.json'),
+      undelFile: join(dir, 'UNDELIVERED.json'),
+      logger: (l) => lines.push(l),
+      // 本文件钉的是**默认窗口**的去重契约(4h / 30min 退避 / 同类间隔)。生产降噪策略表
+      // (`scripts/data/alert-delivery-policy.json`)会把某些告警族拉到 8h/24h,若这里读生产表,
+      // 策略表一改就红在本文件 —— 红的不是产品而是夹具。注入不存在路径 ⇒ loadAlertDeliveryPolicy
+      // 读不到即 `{entries:[]}`,回到默认窗口。策略表自身行为由 alert-delivery-policy /
+      // alert-family-gate 两套测试覆盖,不在本文件重复。
+      policyFile: join(dir, 'no-such-policy.json'),
+    },
   }
 }
 

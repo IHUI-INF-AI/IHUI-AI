@@ -697,45 +697,45 @@
   },
   "admin": {
     "relayPoolPolicy": {
-        "title": "풀 선택 정책(전역 기본값)",
-        "refresh": "새로고침",
-        "loading": "정책을 불러오는 중…",
-        "loadFailed": "불러오기 실패",
-        "badgeAllDefault": "모두 기본값",
-        "badgeDeviated": "기본값에서 {n}개 다름",
-        "badgeInvalid": "잘못된 값 폴백 {n}개",
-        "badgeRegistryBroken": "등록표 불완전",
-        "readOnlyHint": "읽기 전용: .env 수정 후 apps/api 재시작",
-        "defaultIs": "기본 {v}",
-        "invalidFellBack": "잘못된 값이 기본으로 복귀",
-        "registryDiff": "미등록 노브:{missing}; 고립 등록:{orphan}"
+      "title": "풀 선택 정책(전역 기본값)",
+      "refresh": "새로고침",
+      "loading": "정책을 불러오는 중…",
+      "loadFailed": "불러오기 실패",
+      "badgeAllDefault": "모두 기본값",
+      "badgeDeviated": "기본값에서 {n}개 다름",
+      "badgeInvalid": "잘못된 값 폴백 {n}개",
+      "badgeRegistryBroken": "등록표 불완전",
+      "readOnlyHint": "읽기 전용: .env 수정 후 apps/api 재시작",
+      "defaultIs": "기본 {v}",
+      "invalidFellBack": "잘못된 값이 기본으로 복귀",
+      "registryDiff": "미등록 노브:{missing}; 고립 등록:{orphan}"
     },
     "relayTasks": {
-        "wbTitle": "WorkBuddy 작업 자동화",
-        "wbAccount": "계정",
-        "wbAccountEmpty": "WorkBuddy 계정 없음",
-        "wbDryRun": "미리보기(드라이런)",
-        "wbRefresh": "새로고침",
-        "wbNoAccount": "먼저 계정을 선택하세요",
-        "wbLoading": "작업을 불러오는 중…",
-        "wbReadFailed": "불러오기 실패",
-        "wbUnjudged": "미판정",
-        "wbNoTasks": "실행 가능한 작업 없음",
-        "wbColTask": "작업",
-        "wbColProgress": "진행률",
-        "wbColStatus": "상태",
-        "wbColReward": "보상",
-        "wbKindGrowth": "성장",
-        "wbKindTravel": "여행",
-        "wbKindActivity": "활동",
-        "wbKindBlackcat": "야간",
-        "wbRunOk": "작업이 실행되었습니다",
-        "wbRunFailed": "실행 실패",
-        "wbAccepted": "수락됨",
-        "wbClaimed": "수령됨",
-        "wbCreditDelta": "크레딧 변화",
-        "wbEnergyDelta": "에너지 변화",
-        "wbNeverRun": "아직 실행 안 됨"
+      "wbTitle": "WorkBuddy 작업 자동화",
+      "wbAccount": "계정",
+      "wbAccountEmpty": "WorkBuddy 계정 없음",
+      "wbDryRun": "미리보기(드라이런)",
+      "wbRefresh": "새로고침",
+      "wbNoAccount": "먼저 계정을 선택하세요",
+      "wbLoading": "작업을 불러오는 중…",
+      "wbReadFailed": "불러오기 실패",
+      "wbUnjudged": "미판정",
+      "wbNoTasks": "실행 가능한 작업 없음",
+      "wbColTask": "작업",
+      "wbColProgress": "진행률",
+      "wbColStatus": "상태",
+      "wbColReward": "보상",
+      "wbKindGrowth": "성장",
+      "wbKindTravel": "여행",
+      "wbKindActivity": "활동",
+      "wbKindBlackcat": "야간",
+      "wbRunOk": "작업이 실행되었습니다",
+      "wbRunFailed": "실행 실패",
+      "wbAccepted": "수락됨",
+      "wbClaimed": "수령됨",
+      "wbCreditDelta": "크레딧 변화",
+      "wbEnergyDelta": "에너지 변화",
+      "wbNeverRun": "아직 실행 안 됨"
     },
     "smsOperations": {
       "page": {
@@ -7949,7 +7949,7 @@
           "hookName": "Hook 이름",
           "event": "트리거 이벤트",
           "evidence": "증거 세부 정보",
-            "dismiss": "이 카드 닫기"
+          "dismiss": "이 카드 닫기"
         },
         "hint": {
           "retryScheduled": "잠시 후 자동으로 재시도됩니다. 별도 작업이 필요하지 않습니다.",
@@ -9117,6 +9117,30 @@
         "MEDIA_COUNT_EXCEEDED": {
           "title": "미디어 파일 개수가 제한을 초과했습니다",
           "action": "첨부를 줄이고 재시도"
+        },
+        "MEMORY_DREAM_FAILED": {
+          "title": "기억 통합에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "기억 정리에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "도구 사용 기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "기억 검색에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "기억 주제 생성에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
         },
         "MISSING_DATA": {
           "title": "필수 파라미터가 없습니다",
@@ -14823,6 +14847,86 @@
     "totalCount": "총 {count}명"
   },
   "docs": {
+    "common": {
+      "backToDocs": "문서 센터로 돌아가기",
+      "startReading": "읽기 시작",
+      "firstChapter": "첫 번째 장입니다",
+      "lastChapter": "마지막 장입니다",
+      "chapterBadge": "제 {num}장 · 사용 설명서"
+    },
+    "manual": {
+      "overview": {
+        "title": "사용 설명서",
+        "description": "기술 배경지식이 없어도 단계별로 따라 하면 됩니다."
+      },
+      "getting-started": {
+        "title": "시작하기"
+      },
+      "ai-chat": {
+        "title": "AI 대화"
+      },
+      "agent": {
+        "title": "Agent 사용법"
+      },
+      "knowledge-base": {
+        "title": "지식 베이스"
+      },
+      "billing": {
+        "title": "크레딧 및 구독"
+      },
+      "account": {
+        "title": "계정 설정"
+      },
+      "faq": {
+        "title": "자주 묻는 질문"
+      }
+    },
+    "meta": {
+      "overview": {
+        "title": "IHUI AI 문서 센터",
+        "description": "퀵스타트부터 심층 개발까지, IHUI AI의 모든 기능을 빠짐없이 다룹니다"
+      },
+      "quickstart": {
+        "title": "5분 퀵스타트 — IHUI AI",
+        "description": "가입부터 첫 AI Agent 공개까지 5분. Apache 2.0 오픈소스, 100개 이상의 모델, 6개 플랫폼을 하나의 코드베이스로 제공합니다."
+      },
+      "api": {
+        "title": "API 레퍼런스 — IHUI AI",
+        "description": "REST API + Webhook + OpenAPI 3.1, 모든 주요 언어의 SDK를 지원합니다."
+      },
+      "rag": {
+        "title": "지식 베이스 RAG — IHUI AI",
+        "description": "문서 파싱, 벡터 검색, BM25, 지식 그래프"
+      },
+      "mcp": {
+        "title": "MCP 도구 연동 — IHUI AI",
+        "description": "Anthropic MCP 프로토콜 네이티브 지원, 100개 이상 제공 서버 및 자체 개발."
+      },
+      "agent": {
+        "title": "Agent 개발 — IHUI AI",
+        "description": "시각적 오케스트레이션 + 템플릿 + 모범 사례, 6개 플랫폼에 배포합니다."
+      },
+      "self-host": {
+        "title": "자체 호스팅 배포 — IHUI AI",
+        "description": "Docker Compose / Kubernetes Helm Chart 배포 안내서"
+      },
+      "models": {
+        "title": "멀티 모델 라우팅 — IHUI AI",
+        "description": "100개 이상의 LLM을 통합 연결하고 자동 폴백과 Combo 체인 호출을 지원합니다."
+      },
+      "workflow": {
+        "title": "워크플로 오케스트레이션 — IHUI AI",
+        "description": "n8n 스타일 노드 캔버스로 복잡한 AI 흐름을 시각적으로 구성합니다."
+      },
+      "team": {
+        "title": "팀 협업 — IHUI AI",
+        "description": "RBAC, SSO, 감사 로그, 크레딧 공유 — 기업용 팀 AI 협업."
+      },
+      "manual": {
+        "title": "사용 설명서 — IHUI AI",
+        "description": "엔드 유저를 위한 그림 튜토리얼, 7개 장에서 모든 일반 기능을 다룹니다."
+      }
+    },
     "navAgent": "Agent 개발",
     "navApi": "API 문서",
     "navDevelopers": "개발자",
@@ -21027,7 +21131,8 @@
     "customNoResults": "일치하는 기능이 없습니다",
     "eduHubTitle": "교육",
     "contentHubTitle": "콘텐츠",
-    "tradeHubTitle": "거래"
+    "tradeHubTitle": "거래",
+    "eduMyAttendance": "내 출석"
   },
   "news": {
     "allCategories": "All categories",
@@ -29418,7 +29523,47 @@
     "days": "일수",
     "reason": "사유",
     "daysWithUnit": "{count}일",
-    "approveAction": "승인 처리"
+    "approveAction": "승인 처리",
+    "classLabel": "반",
+    "selectClass": "반 선택",
+    "batchCheckIn": "일괄 출석 호출",
+    "batchConfirm": "출석 호출 시작",
+    "batchResultCreated": "신규 체크인",
+    "batchResultSkipped": "건너뜀",
+    "batchResultMissed": "미체크인",
+    "batchFailed": "일괄 출석 호출에 실패했습니다",
+    "exportCsv": "CSV 내보내기",
+    "exportFailed": "내보내기에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "studentPageTitle": "내 출석",
+    "studentPageSubtitle": "본인의 출석 기록을 확인하고 셀프 체크인을 할 수 있습니다",
+    "selfCheckIn": "셀프 체크인",
+    "selfCheckInSuccess": "체크인이 완료되었습니다",
+    "selfCheckInFailed": "체크인에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "notLoggedIn": "로그인 후 본인의 출석 기록을 확인할 수 있습니다",
+    "rulePanelTitle": "출석 규칙",
+    "ruleClassHint": "반을 선택하면 해당 반의 규칙을 불러옵니다",
+    "ruleNotConfigured": "미설정",
+    "ruleLateAfter": "지각 판단 시각",
+    "ruleEarlyBefore": "조퇴 판단 시각",
+    "ruleAbsentAfter": "결석 판단 시각",
+    "ruleEnabledLabel": "규칙 사용",
+    "ruleTimeHint": "형식은 HH:MM, 비워 두면 변경하지 않습니다",
+    "ruleSave": "규칙 저장",
+    "ruleSaved": "규칙이 저장되었습니다",
+    "ruleQrSecretState": "QR 서명 키: ",
+    "ruleQrSecretOn": "설정됨",
+    "ruleQrSecretOff": "미설정",
+    "ruleQrSecretGuide": "QR 출석 체크 전에 아래에서 서명 키를 재발급하세요",
+    "qrPanelTitle": "QR 출석 체크",
+    "qrLoading": "QR 코드를 불러오는 중",
+    "qrExpiresIn": "{seconds}초 후 만료",
+    "qrExpired": "QR 코드가 만료되어 다시 불러오는 중",
+    "qrRefresh": "다시 불러오기",
+    "qrRotateSecret": "서명 키 재발급",
+    "qrRotated": "서명 키를 재발급했습니다(지문 {fingerprint})",
+    "qrSecretNote": "키 원문은 화면에 표시되지 않으며 지문만 확인할 수 있습니다",
+    "qrNeedSetup": "먼저 위에서 출석 규칙을 설정하고 서명 키를 재발급하세요",
+    "qrLoadFailed": "QR 코드 불러오기에 실패했습니다"
   },
   "eduCertificates": {
     "certificateNo": "번호: {no}",
