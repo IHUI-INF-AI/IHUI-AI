@@ -290,8 +290,13 @@ export interface ReleasesScan {
 /** 可以随解析结果一起交出去的预算形状(不含 release 明细) */
 export type ReleaseScanSummary = Omit<ReleasesScan, 'releases'>
 
-export function summarizeScan(scan: ReleasesScan): ReleaseScanSummary {
-  return { pages: scan.pages, maxPages: scan.maxPages, partial: scan.partial, scanned: scan.scanned }
+function summarizeScan(scan: ReleasesScan): ReleaseScanSummary {
+  return {
+    pages: scan.pages,
+    maxPages: scan.maxPages,
+    partial: scan.partial,
+    scanned: scan.scanned,
+  }
 }
 
 /**

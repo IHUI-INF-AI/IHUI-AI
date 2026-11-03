@@ -53,7 +53,7 @@ const TRADER_POWER = '1600W'
  * 购买时按该列算到期时间 endTime(apps/api/src/db/vip-queries.ts:109)。
  * 故判终身只能按时长档,不能照抄文案。
  */
-export const LIFETIME_DURATION_DAYS = 36500
+const LIFETIME_DURATION_DAYS = 36500
 
 /**
  * 有效期一行(2026-10-30 可达性取证施工):

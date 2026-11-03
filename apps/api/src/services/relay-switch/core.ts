@@ -484,11 +484,6 @@ export function collectSecretLiterals(
   return out
 }
 
-/** 兼容别名:core 早期按 IDE 语义命名,现语义已泛化(保留旧名以免调用方断裂) */
-export const planIdeSwitch = planSwitch
-/** 兼容别名:同 planIdeSwitch */
-export const applyIdeSwitch = applySwitch
-
 /* ------------------------------------------------------------------ *
  * 外部目标(用户自定义 profile)
  * ------------------------------------------------------------------ */
