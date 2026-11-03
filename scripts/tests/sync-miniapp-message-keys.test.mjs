@@ -148,6 +148,59 @@ ok('形状锁:五语言与三档基准侧次序钉死(少一语 = 搬出半套�
   assert.ok(resolve(SRC).endsWith('sync-miniapp-message-keys.mjs'))
 })
 
+ok('键级射程:显式 --key 只搬点名的那一枚,块内其余键一个不碰', () => {
+  const rn = () => ({ modelEdit: { readOnlyHint: '该字段暂不支持修改', headerTitle: '块内别的键' } })
+  const mini = () => ({ modelEdit: { headerTitle: '本端已有' } })
+  const { moves, unresolvable } = X.planMoves([{ ns: 'modelEdit', keys: ['readOnlyHint'] }], (p) =>
+    p === 'mobile-rn' ? rn() : p === 'miniapp-taro' ? mini() : {},
+  )
+  assert.equal(unresolvable.length, 0)
+  assert.equal(moves.length, 5) // 五语言各一枚
+  assert.ok(moves.every((m) => m.key === 'readOnlyHint'), '不得顺带把整块搬进来')
+})
+
+ok('键级射程:点名的键两端都查无 ⇒ 逐语点名,不静默数成 0 枚当搬过(§0.3)', () => {
+  const { moves, unresolvable } = X.planMoves([{ ns: 'modelEdit', keys: ['ghostKey'] }], (p) =>
+    p === 'mobile-rn' ? { modelEdit: { other: 'x' } } : { modelEdit: {} },
+  )
+  assert.equal(moves.length, 0)
+  assert.equal(unresolvable.length, 5)
+  assert.ok(unresolvable.includes('modelEdit.ghostKey@ko'))
+})
+
+ok('parseKeyArgs:形状不对当场拒绝(ns.key 恰一个点),不静默忽略', () => {
+  assert.deepEqual(X.parseKeyArgs(['--key', 'modelEdit.readOnlyHint']).items, [
+    { ns: 'modelEdit', keys: ['readOnlyHint'] },
+  ])
+  assert.deepEqual(X.parseKeyArgs(['--key', 'a.b', '--key', 'a.c']).items, [
+    { ns: 'a', keys: ['b', 'c'] },
+  ])
+  const bad = X.parseKeyArgs(['--key', 'nodot', '--key', 'trail.', '--key'])
+  assert.deepEqual(bad.items, [])
+  assert.deepEqual(bad.bad, ['nodot', 'trail.', 'undefined'])
+})
+
+ok('插入点只认顶层命名空间:同名嵌套块(devEnter.modelEdit)不得被写进去(2026-11-03 实测踩到)', () => {
+  const nested = `{
+  "devEnter": {
+    "modelEdit": {
+      "departmentLabel": "部门"
+    }
+  },
+  "modelEdit": {
+    "headerTitle": "模型编辑"
+  }
+}
+`
+  const out = X.insertIntoJson(nested, 'modelEdit', [['readOnlyHint', '该字段暂不支持修改']])
+  assert.ok(out)
+  const p = JSON.parse(out)
+  assert.equal(p.modelEdit.readOnlyHint, '该字段暂不支持修改')
+  assert.equal(p.devEnter.modelEdit.readOnlyHint, undefined, '嵌套同名块被写 = 值进了别人的命名空间')
+  assert.equal(p.devEnter.modelEdit.departmentLabel, '部门')
+  assert.equal(p.modelEdit.headerTitle, '模型编辑')
+})
+
 console.log(`\n✅ sync-miniapp-message-keys 镜像测试 ${n} 例通过`)
 export const runSelfTest = () => 0
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
