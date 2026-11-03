@@ -23,8 +23,18 @@
  *                   给 `check-egress-ip-drift.mjs --ledger` 用 —— 台账从"人工登记的真值"
  *                   降级为"EO 现配的投影",漂移判定不再依赖人去控制台抄数。
  *   --apply         漂移即改:调 ModifyAccelerationDomain 把源站改成现测出口(协议/端口/
- *                   回源 Host 头全部保持原值),改完**从公网入口验证** `/api/health`
+ *                   回源 Host 头全部保持原值),改完**直打源站验证** `/api/health`
  *                   返回 200 且 `status=ok`;验证不过 ⇒ **回滚**到原值并 exit 1。
+ *
+ * 验证靶(2026-11-03 修正,原先是假绿):旧默认走 `https://www.aizhs.top<verifyPath>` ——
+ *   www 的公网面现读走 Cloudflare,经 CDN 面的检查恒 200,量不到"EO 源站切换/应用本身是否健康",
+ *   回滚判据形同虚设。现默认 `http(s)://127.0.0.1:<EO 回源端口><verifyPath>`:本脚本与生产
+ *   同跑在源站机上,8801 只监听 127.0.0.1(公网面经 cloudflared 隧道),回环是唯一可靠靶;
+ *   回源 Host 头照 EO 配置一并带上,验证面与真实回源行为对齐。
+ *   覆盖:`--verify-url <url>` / `IHUI_EO_VERIFY_URL`(异机运行时显式给可达源站地址)。
+ *   第二检查(可选,不参与判定):`--check-cdn` / `IHUI_EO_VERIFY_CDN=1` 在源站验证通过后,
+ *   再走一次 `https://<加速域名><verifyPath>` —— 那是"公网入口面(现经 Cloudflare)"的判定,
+ *   只证明公共入口链路,不证明 EO 回源路径本身;两个 verdict 分开记录,绝不混成一个。
  *
  * 凭据解析顺序(密钥值绝不打印):IHUI_EO_SECRET_ID/KEY → TENCENT_EO_SECRET_ID/KEY →
  * `IHUI_EO_ENV_FILE`(默认生产 api 的 .env)里的 TENCENT_SMS_SECRET_ID/KEY → TENCENT_SES_*。
@@ -43,6 +53,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import https from 'node:https'
+import http from 'node:http'
 import crypto from 'node:crypto'
 import { analyze, isIPv4, normIp } from './check-egress-ip-drift.mjs'
 
@@ -173,14 +184,19 @@ function modifyPayload(zoneId, domain, originDetail, originIp, proto, httpPort, 
   }
 }
 
-/** 公网入口验证:只认 200 + JSON 里的 status=ok(EO 回源没切过来时这里会是 5xx/超时)。 */
-export function fetchHealth(url, timeoutMs = 12000) {
+/**
+ * 健康探针:只认 200 + JSON 里的 status=ok(源站没起来时这里是 5xx/超时)。
+ * 2026-11-03:按 URL 协议选模块 —— 验证靶默认是 http://127.0.0.1:<port>(直打源站),
+ * 旧实现恒用 https.get,对 http 靶会拿 TLS 去握 8801 而必判失败;headers 可传回源 Host。
+ */
+export function fetchHealth(url, timeoutMs = 12000, headers = null) {
   return new Promise((res) => {
     let done = false
     const finish = (v) => { if (!done) { done = true; res(v) } }
     let req
     try {
-      req = https.get(url, { family: 4, timeout: timeoutMs, headers: { 'User-Agent': 'ihui-eo-origin-repair/1.0', 'Cache-Control': 'no-cache' } }, (s) => {
+      const mod = String(url).startsWith('https:') ? https : http
+      req = mod.get(url, { family: 4, timeout: timeoutMs, headers: { 'User-Agent': 'ihui-eo-origin-repair/1.0', 'Cache-Control': 'no-cache', ...(headers || {}) } }, (s) => {
         let body = ''
         s.setEncoding('utf8')
         s.on('data', (d) => { body += d; if (body.length > 8192) req.destroy() })
@@ -192,11 +208,11 @@ export function fetchHealth(url, timeoutMs = 12000) {
   })
 }
 
-async function waitEntry(url, timeoutMs, intervalMs) {
+async function waitEntry(url, timeoutMs, intervalMs, headers = null) {
   const deadline = Date.now() + timeoutMs
   let lastCode = 0
   for (;;) {
-    const r = await fetchHealth(url)
+    const r = await fetchHealth(url, 12000, headers)
     lastCode = r.code
     if (r.ok) return { ok: true, lastCode, waitedMs: timeoutMs - Math.max(0, deadline - Date.now()) }
     if (Date.now() >= deadline) return { ok: false, lastCode, waitedMs: timeoutMs }
@@ -218,8 +234,10 @@ export function renderText(o) {
   const lines = [`判定面:EdgeOne 加速域名 ${o.domain} 的源站 IPv4 vs 本机现测出口(zone=${o.zoneId || '?'})`]
   if (o.sources?.length) lines.push(`出口探测:${o.sources.map((s) => `${s.url} => ${s.ok ? s.ip : `FAIL(${s.why})`}`).join(' | ')}`)
   lines.push(`现测出口:${o.wan || '(未取得)'}    EO 源站:${o.origin || '(未读到)'}${o.port ? `:${o.port}` : ''} (${o.protocol || '?'})`)
+  if (o.verifyTarget) lines.push(`源站验证靶:${o.verifyTarget}(直打源站,绕过 CDN;回滚判定只看这一条)`)
+  if (o.cdnTarget) lines.push(`CDN 面第二检查:${o.cdnTarget} => ${o.cdnVerified ? 'OK' : `FAIL(${o.cdnLastCode})`}(仅公网入口面判定,不参与源站 verdict)`)
   const tag = { ok: '✅', drift: '❌', repaired: '🛠', failed: '❌', unjudged: '❓' }[o.state] || '❓'
-  lines.push(`${tag} ${o.state}:${o.reason || 'none'}${o.verified ? ' [入口已验证]' : ''}${o.rolledBack === false ? ' [回滚也失败]' : ''}`)
+  lines.push(`${tag} ${o.state}:${o.reason || 'none'}${o.verified ? ' [源站已验证]' : ''}${o.rolledBack === false ? ' [回滚也失败]' : ''}`)
   lines.push(machineLine(o))
   return lines.join('\n')
 }
@@ -237,6 +255,8 @@ export async function run({
   verifyPath = String(env.IHUI_EO_VERIFY_PATH || '').trim() || DEFAULT_VERIFY_PATH,
   verifyTimeoutMs = Number(env.IHUI_EO_VERIFY_TIMEOUT_MS || VERIFY_TIMEOUT_MS),
   verifyIntervalMs = Number(env.IHUI_EO_VERIFY_INTERVAL_MS || VERIFY_INTERVAL_MS),
+  verifyUrl = String(env.IHUI_EO_VERIFY_URL || '').trim() || null,
+  verifyCdn = String(env.IHUI_EO_VERIFY_CDN || '').trim() === '1',
   cred = resolveCredentials(env, envFile),
   teo = teoCall,
   wanProbe = probeWan,
@@ -291,30 +311,62 @@ export async function run({
   if (base.wan === base.origin) return { ...base, state: 'ok', reason: 'in-sync' }
   if (mode !== 'apply') return { ...base, state: 'drift', reason: `wan ${base.wan} != origin ${base.origin}` }
 
-  // —— 自愈:改 → 验入口 → 失败回滚 ——
+  // —— 自愈:改 → 直打源站验证 → 失败回滚 ——
   const oldIp = base.origin
   const w1 = await teo(cred, 'ModifyAccelerationDomain', modifyPayload(z.zoneId, face, od, base.wan, dom.OriginProtocol, dom.HttpOriginPort, dom.HttpsOriginPort))
   if (!w1.ok) return { ...base, state: 'failed', reason: `modify-failed:${w1.error}`, oldOrigin: oldIp }
   base.origin = base.wan
-  const url = `https://${face}${verifyPath}`
-  const v = await entryFetch(url, verifyTimeoutMs, verifyIntervalMs)
-  if (v.ok) return { ...base, state: 'repaired', reason: 'modified-and-verified', verified: true, oldOrigin: oldIp, lastCode: v.lastCode, waitedMs: v.waitedMs }
+  // 验证靶:直打源站,绕过一切 CDN(判定逻辑与假绿教训见文件头"验证靶"段)。
+  // 回源 Host 头照 EO 配置带上,与真实回源行为对齐;显式覆盖走 verifyUrl。
+  const originProto = String(dom.OriginProtocol || '').toLowerCase() === 'https' ? 'https' : 'http'
+  const originPort = (originProto === 'https' ? dom.HttpsOriginPort : dom.HttpOriginPort) ?? 8801
+  const originTarget = verifyUrl || `${originProto}://127.0.0.1:${originPort}${verifyPath}`
+  const originHeaders = od.HostHeader ? { Host: String(od.HostHeader) } : null
+  base.verifyTarget = originTarget
+  const v = await entryFetch(originTarget, verifyTimeoutMs, verifyIntervalMs, originHeaders)
+  if (v.ok) {
+    // 可选第二检查:公网入口面(现经 Cloudflare)。它只证明公共入口链路可用,
+    // **不参与 repaired/回滚判定**(源站判定只看 originTarget);失败时如实记录,不改状态。
+    if (verifyCdn) {
+      const cdnTarget = `https://${face}${verifyPath}`
+      const c = await entryFetch(cdnTarget, verifyTimeoutMs, verifyIntervalMs)
+      base.cdnTarget = cdnTarget
+      base.cdnVerified = c.ok
+      base.cdnLastCode = c.lastCode
+    }
+    return { ...base, state: 'repaired', reason: 'modified-and-origin-verified', verified: true, oldOrigin: oldIp, lastCode: v.lastCode, waitedMs: v.waitedMs }
+  }
   const rb = await teo(cred, 'ModifyAccelerationDomain', modifyPayload(z.zoneId, face, od, oldIp, dom.OriginProtocol, dom.HttpOriginPort, dom.HttpsOriginPort))
   base.origin = oldIp
   base.rolledBack = rb.ok
-  return { ...base, state: 'failed', reason: `entry-unverified:last=${v.lastCode}`, verified: false, oldOrigin: oldIp, lastCode: v.lastCode, waitedMs: v.waitedMs }
+  return { ...base, state: 'failed', reason: `origin-unverified:${originTarget}?last=${v.lastCode}`, verified: false, oldOrigin: oldIp, lastCode: v.lastCode, waitedMs: v.waitedMs }
 }
 
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--help') || argv.includes('-h')) {
-    console.log('用法: node scripts/repair-eo-origin.mjs [--apply|--print-ledger] [--json]')
-    console.log('活读 EdgeOne 源站 IPv4 vs 本机现测出口;--apply 漂移即改并从公网入口验证(失败回滚)。')
+    console.log('用法: node scripts/repair-eo-origin.mjs [--apply|--print-ledger] [--json] [--verify-url <url>] [--check-cdn]')
+    console.log('活读 EdgeOne 源站 IPv4 vs 本机现测出口;--apply 漂移即改并**直打源站**验证(失败回滚)。')
+    console.log('验证靶:默认 http(s)://127.0.0.1:<EO 回源端口><verifyPath>(本脚本跑在源站机上,绕过一切 CDN;')
+    console.log('  8801 只监听 127.0.0.1,公网面经 cloudflared —— 经 CDN 面验证恒 200,量不到源站,2026-11-03 起弃用)。')
+    console.log('  --verify-url <url> / IHUI_EO_VERIFY_URL:异机运行或改打其它源站地址时显式覆盖。')
+    console.log('  --check-cdn / IHUI_EO_VERIFY_CDN=1:源站验证通过后再走一次 https://<加速域名><verifyPath> ——')
+    console.log('  那是"公网入口面(现经 Cloudflare)"的第二检查,只作参考,不参与 repaired/回滚判定。')
+    console.log('  IHUI_EO_VERIFY_PATH(默认 /api/health)/ IHUI_EO_VERIFY_TIMEOUT_MS / IHUI_EO_VERIFY_INTERVAL_MS 照旧。')
     console.log('退出码: 0=ok/repaired 1=drift/failed 2=unjudged')
     return 0
   }
   const mode = argv.includes('--print-ledger') ? 'print-ledger' : argv.includes('--apply') ? 'apply' : 'check'
-  const out = await run({ mode })
+  let cliVerifyUrl
+  const vi = argv.indexOf('--verify-url')
+  if (vi >= 0) {
+    cliVerifyUrl = argv[vi + 1]
+    if (!cliVerifyUrl || cliVerifyUrl.startsWith('-')) {
+      console.error('[repair-eo-origin] --verify-url 必须带 URL 值')
+      return 2
+    }
+  }
+  const out = await run({ mode, ...(cliVerifyUrl ? { verifyUrl: cliVerifyUrl } : {}), ...(argv.includes('--check-cdn') ? { verifyCdn: true } : {}) })
   if (argv.includes('--json')) console.log(JSON.stringify(out))
   else if (mode === 'print-ledger' && out.ledger) console.log(JSON.stringify(out.ledger))
   else console.log(renderText(out))
