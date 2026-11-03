@@ -1,0 +1,71 @@
+# 对照探针(旧配对 upload v4 -> download v4):用于证明 v7/v8 相对 v4/v4 不改变合并布局。
+name: Artifact Probe v4 to v4
+on:
+  push:
+    branches: [probe/artifacts-v7v8]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: win-x64, os: windows-latest }
+          - { label: macos-universal, os: macos-latest }
+          - { label: linux-x64, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: make bundles
+        shell: bash
+        run: |
+          v=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          b=apps/desktop/src-tauri/target/release/bundle
+          mkdir -p "$b/nsis" "$b/deb" "$b/appimage" "$b/dmg"
+          case '${{ matrix.label }}' in
+            win-x64) printf x > "$b/nsis/IHUI-AI-Setup-${v}-x64.exe" ;;
+            macos-universal) printf x > "$b/dmg/IHUI-AI_${v}_universal.dmg" ;;
+            linux-x64) printf x > "$b/deb/ihui-ai_${v}_amd64.deb"; printf x > "$b/appimage/ihui-ai_${v}_amd64.AppImage" ;;
+          esac
+      - name: upload
+        id: u
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-bundle-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn
+          retention-days: 7
+      - name: assert artifact-id
+        shell: bash
+        run: test -n "${{ steps.u.outputs.artifact-id }}" && echo "id=${{ steps.u.outputs.artifact-id }}"
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: download pattern merge
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: .
+          pattern: desktop-bundle-*
+          merge-multiple: true
+      - name: assert merged layout
+        shell: bash
+        run: |
+          v=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          echo '=== merged tree ==='
+          find . -maxdepth 2 -type f -path './nsis/*' -o -maxdepth 2 -type f -path './dmg/*' -o -maxdepth 2 -type f -path './deb/*' -o -maxdepth 2 -type f -path './appimage/*' | sort
+          test -f "./nsis/IHUI-AI-Setup-${v}-x64.exe"
+          test -f "./dmg/IHUI-AI_${v}_universal.dmg"
+          test -f "./deb/ihui-ai_${v}_amd64.deb"
+          test -f "./appimage/ihui-ai_${v}_amd64.AppImage"
+          n=$(find . -maxdepth 2 -type f \( -path './nsis/*' -o -path './dmg/*' -o -path './deb/*' -o -path './appimage/*' \) | wc -l)
+          echo "merged_files=$n"
+          test "$n" -eq 4
