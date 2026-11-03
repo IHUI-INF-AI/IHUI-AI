@@ -128,13 +128,26 @@ test('T5 边界1:加宽只喂降级判据,定向快通道仍只看原始改动�
   )
 })
 
-test('T6 建图失败不得静默:必须退回未加宽 scope 并留下可见理由', () => {
-  // 这一格是"判据增强失败"与"类型结论失败"的边界:前者退回改前行为并出声,
-  // 后者才按失败处理(§22b)。不许把前者升级成硬拦,也不许静默关掉判据。
+test('T6 建图失败不得静默、也不得放行:降级判据必须 fail-closed', () => {
+  // 2026-11-02 P3:改前建图失败只出声,降级判据照旧生效 ⇒ 他席噪音仍能洗白本次报错(假绿)。
+  // 现取向:建图失败 = "这些报错都在范围外"这条路不可证明 ⇒ 降级判据关闭(宁可拦)。
+  // 不选 exit 2:shouldDegrade 是纯判定点,一个参数即可;tsc 全绿的正常推送在判降级前已 exit 0。
   assert.match(SRC, /建图失败/, '源码应保留"建图失败"这一可见告警分支')
   assert.match(
     SRC,
-    /退回未加宽 scope\(=改前逐字行为\)/,
-    '建图失败必须明写"退回未加宽 scope",让人看得见判据被跳过',
+    /if \(closureOk === false\) return false/,
+    'shouldDegrade 必须在闭包失败时提前返回 false(fail-closed 的唯一实现点)',
   )
+  // 只钉**主流程两处降级调用点**(快通道 fastErrorFiles / 全量 errorFiles),不数 self-test 里的纯函数样例。
+  const callLines = SRC.split(/\r?\n/).filter((l) =>
+    /shouldDegrade\((?:fastErrorFiles|errorFiles), scopeFiles/.test(l),
+  )
+  assert.equal(callLines.length, 2, `预期两处主流程降级调用点,实测 ${callLines.length}`)
+  for (const line of callLines) {
+    assert.match(
+      line,
+      /closureOk: _widen\.ok/,
+      `降级调用点必须传入闭包成败,否则 fail-closed 是死代码: ${line.trim()}`,
+    )
+  }
 })

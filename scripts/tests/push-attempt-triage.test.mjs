@@ -29,6 +29,7 @@ import { __test__ as T } from '../lib/push-attempt-triage.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const LIB_SRC = readFileSync(join(here, '..', 'lib', 'push-attempt-triage.mjs'), 'utf8')
+const GUARD_SRC = readFileSync(join(here, '..', 'git-push-guard.mjs'), 'utf8')
 const CONVERGE_SRC = readFileSync(join(here, '..', 'git-push-converge.mjs'), 'utf8')
 const CONVERGE_PATH = join(here, '..', 'git-push-converge.mjs')
 const SELF_SRC = readFileSync(fileURLToPath(import.meta.url), 'utf8')
@@ -87,6 +88,7 @@ test('T1 §22c 出口在位:__test__ 必须真的导出被使用的判据(摘线
     'UP_TO_DATE_RE',
     'CREDENTIALS_UNAVAILABLE_RE',
     'HOOK_TRACE_RE',
+    'SCOPE_DEGRADE_EVIDENCE_RE',
   ]) {
     assert.ok(T[name] instanceof RegExp, `__test__.${name} 必须是 RegExp`)
   }
@@ -436,6 +438,67 @@ test('T14 向后兼容:只给等值(旧调用方形态)时结论一字不动', (
     T.triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: false })
       .terminalStatus,
     'failed',
+  )
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// 2026-11-02 P4:--no-verify 不再 blanket 放行(反向验证两条 + 装车锁)
+// ══════════════════════════════════════════════════════════════════════
+
+test('T15 反向①:钩子因 in-scope 类型错误失败 ⇒ 必须拒绝 --no-verify', () => {
+  const inScopeFailure = [
+    '❌ 全量 typecheck 失败,推送已阻止(exit 1)',
+    'ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):',
+    '   - scripts/lib/push-attempt-triage.mjs',
+    '❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)',
+  ].join('\n')
+  const v = T.triagePushAttempt({ status: 1, stderr: inScopeFailure })
+  assert.equal(v.kind, 'hook-failed', `应仍认出钩子失败,实得 ${v.kind}`)
+  assert.equal(v.allowNoVerifyRetry, false, '没有范围外降级证据 ⇒ 不得跳门(旧形态在这里会 true)')
+  assert.match(v.why, /没有/, 'why 必须点名"没有显式证据"')
+  // 反向对照:同样的钩子痕迹 + 真证据 ⇒ 放行(否则本条会退化成"永不跳门"的恒红)
+  const withEvidence = T.triagePushAttempt({
+    status: 1,
+    stderr: `${inScopeFailure}\n[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)`,
+  })
+  assert.equal(withEvidence.allowNoVerifyRetry, true, '显式签名证据在 ⇒ 仍须放行')
+})
+
+test('T16 反向②:确实全是范围外噪音 ⇒ 仍放行 --no-verify(人类可读行与签名行各一条)', () => {
+  const human = T.triagePushAttempt({
+    status: 1,
+    stderr:
+      'ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告\n🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项',
+  })
+  assert.equal(human.allowNoVerifyRetry, true, '人类可读降级行就是证据')
+  const signed = T.triagePushAttempt({
+    status: 1,
+    stderr:
+      '❌ push 门校验失败,推送已阻止\n[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+  })
+  assert.equal(signed.allowNoVerifyRetry, true, '[IHUI-SCOPE-DEGRADE] 签名行就是证据')
+  // 反向:无证据的 other / credentials 一律拒绝(两类都曾是 blanket true)
+  assert.equal(T.triagePushAttempt({ status: 1, stderr: 'fatal: unable to access' }).allowNoVerifyRetry, false)
+  assert.equal(
+    T.triagePushAttempt({ status: 128, stderr: "fatal: could not read Username for 'x'" })
+      .allowNoVerifyRetry,
+    false,
+  )
+})
+
+test('T17 装车锁:guard 不得再写"自验通过"兜底,且拒绝时必须点名缺证据', () => {
+  assert.match(GUARD_SRC, /attempt\.allowNoVerifyRetry/, 'guard 必须按分诊结论决定是否跳门')
+  assert.doesNotMatch(
+    GUARD_SRC,
+    /本任务代码已自验通过 typecheck,其他 agent 的代码 hook 失败不阻塞/,
+    'guard 仍保留无证据自述 ⇒ 假绿文案还在',
+  )
+  assert.match(GUARD_SRC, /\[IHUI-SCOPE-DEGRADE\]/, 'guard 的允许/拒绝文案必须点名唯一通行证')
+  // 判据本体:默认值必须是 false(否则 guard 忘了传证据时又会 blanket 放行)
+  assert.match(
+    LIB_SRC,
+    /allowNoVerifyRetry: false,/,
+    'verdict() 默认 allowNoVerifyRetry 必须为 false',
   )
 })
 

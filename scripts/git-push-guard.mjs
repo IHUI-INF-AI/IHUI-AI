@@ -1080,6 +1080,10 @@ if (attempt.kind === 'non-fast-forward') {
 // ── 4.2 其余失败:仅当真解析到钩子痕迹才走"带 hook 重试 → --no-verify 兜底"链 ──
 // (2026-09-18 中断分类:exit 75 标记 = 门被杀,不是类型检查结论 ⇒ 先带 hook 重试拿真实
 //  结论。这条链一个字不动,§5b ⑤ 依赖它。)
+// 2026-11-02 P4:--no-verify **不再 blanket 放行**。唯一通行证是钩子输出里的
+// 「全部报错文件均不在本次推送范围…降级为警告」/ `[IHUI-SCOPE-DEGRADE]` 签名 ——
+// 那意味着 check-typecheck 已经证明本次报错全是范围外噪音。hook-failed / other /
+// credentials 一律按 allowNoVerifyRetry 走,没有证据就停在失败(宁可拦,不可假绿)。
 if (pushResult.status !== 0) {
   log('warn', `git push 首次失败(exit ${pushResult.status})— ${describeVerdict(attempt)}`)
   if (attempt.kind === 'secret-scan-blocked') {
@@ -1099,7 +1103,10 @@ if (pushResult.status !== 0) {
     }
 
     if (pushResult.status !== 0 && attempt.allowNoVerifyRetry) {
-      log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
+      log(
+        'info',
+        '钩子输出含「全部报错文件均不在本次推送范围,降级为警告」/ [IHUI-SCOPE-DEGRADE] 显式证据 ⇒ 按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...',
+      )
 
       pushResult = pushOnce(true)
       attempt = triageOf(pushResult)
@@ -1112,12 +1119,19 @@ if (pushResult.status !== 0) {
           log('warn', `⚠️  首次 push 因 pre-push hook 失败,已用 --no-verify 重试成功`)
           log(
             'warn',
-            `   本任务代码已自验通过 typecheck,其他 agent 的代码 hook 失败不阻塞本任务 push`,
+            `   证据:门日志写明「全部报错文件均不在本次推送范围,降级为警告」⇒ 本次失败是其他 agent 的范围外代码,不阻塞本任务 push`,
           )
         }
       }
     } else if (pushResult.status !== 0) {
-      log('err', `分诊判为 ${attempt.kind} ⇒ 本次**不**使用 --no-verify(旧形态在这里会无条件跳门)`)
+      log(
+        'err',
+        `分诊判为 ${attempt.kind} ⇒ 本次**不**使用 --no-verify(旧形态在这里会无条件跳门)`,
+      )
+      log(
+        'err',
+        '  缺少唯一通行证:钩子输出里没有「全部报错文件均不在本次推送范围,降级为警告」或 [IHUI-SCOPE-DEGRADE] 签名 ⇒ 不能证明报错是范围外噪音,维持失败',
+      )
     }
   }
 }

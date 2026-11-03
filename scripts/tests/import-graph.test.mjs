@@ -398,6 +398,7 @@ test('L14546 改有下游的契约 ⇒ 闭包含种子+直接+传递 importer(�
     buildGraph: () => WIDEN_FAKE,
   })
   assert.equal(w.widened, true)
+  assert.equal(w.ok, true, '闭包成功必须显式 ok:true(降级判据据此放行)')
   assert.ok(w.files.includes('packages/shared/src/ctx.ts'), '闭包必须 ⊇ 种子本身')
   assert.ok(w.files.includes('apps/web/src/a.tsx'), '含直接 importer')
   assert.ok(w.files.includes('apps/web/src/b.tsx'), '含传递 importer(一跳图等于没有)')
@@ -450,6 +451,7 @@ test('L14546 建图抛错 ⇒ 退回未加宽 + 可见 reason,不崩也不静默
     },
   })
   assert.equal(w.widened, false)
+  assert.equal(w.ok, false, '建图失败必须 ok:false(fail-closed 信号;只有出声不够)')
   assert.deepEqual(w.files, ['apps/web/src/a.ts'])
   assert.match(w.reason, /建图失败/)
 })
@@ -459,6 +461,7 @@ test('L14546 闭包计算抛错(图缺 reverse Map) ⇒ 退回未加宽 + 可见
     buildGraph: () => ({}),
   })
   assert.equal(w.widened, false)
+  assert.equal(w.ok, false, '闭包计算失败必须 ok:false(与建图失败同档)')
   assert.deepEqual(w.files, ['apps/web/src/a.ts'])
   assert.match(w.reason, /闭包计算失败/)
 })
