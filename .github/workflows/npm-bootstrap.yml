@@ -112,7 +112,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -121,10 +121,24 @@ jobs:
           pnpm install --frozen-lockfile --filter ihui-cli...
           pnpm --filter "ihui-cli^..." run build
           pnpm --filter ihui-cli build:npm
+      - name: Write npm auth (.npmrc)
+        # NODE_AUTH_TOKEN 只有写在 .npmrc 的 //<registry>/:_authToken 行、由 npm 运行时插值才生效;
+        # 本 job 此前既无 .npmrc 生成步、setup-node 也未带 registry-url ⇒ 那枚 env 是死配置
+        # (npm publish 落到 ENEEDAUTH/401)。选"补 .npmrc 生成"而不是"删 env 升 v7":发布本身
+        # 必须带 granular token(secrets.NPM_PUBLISH_TOKEN),删掉等于让 publish 腿必红。
+        # 不选 setup-node 的 registry-url:它会把默认 registry 一并改成 npmjs 并写 userconfig,
+        # 连带影响前面的 pnpm install;此处只落一条 auth 行,与 release-sdk.yml 的 token 腿同形。
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::NPM_PUBLISH_TOKEN 未配置,发布无凭据,拒绝空跑"
+            exit 1
+          fi
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NODE_AUTH_TOKEN" > "$HOME/.npmrc"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
       - name: Publish ihui-cli to npm
         run: |
           cd apps/cli/npm-dist
           npm publish --registry=https://registry.npmjs.org/ --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
