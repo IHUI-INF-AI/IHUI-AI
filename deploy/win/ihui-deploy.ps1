@@ -1969,6 +1969,16 @@ function Build-Web {
             }
             $errTail = @(Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)
             $outTail = @(Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)
+            # 报错的**message 行在栈之上**:`-Tail 8` 恰好把 message 挤出窗口,只剩
+            # `at finalizeResolution ...` 这类栈 ⇒ 2026-11-03 实测 15:47 那 4 次失败"红了却报不出是哪一条",
+            # 归因只能靠人猜。这里额外取**头部**第一批错误行(与各流各取尾部同纪律:不跨流合并、不重排)。
+            $errHead = @(
+                Get-Content $bldErr -TotalCount 60 -ErrorAction SilentlyContinue |
+                    Select-String -Pattern 'Error|ERR_|error TS|\[plugin|Cannot find|Failed to|✖' |
+                    Select-Object -First 4 |
+                    ForEach-Object { $_.Line }
+            )
+            foreach ($l in $errHead) { Log "[build-err-head] $l" }
             foreach ($l in $errTail) { Log "[build-err] $l" }
             foreach ($l in $outTail) { Log "[build-out] $l" }
             # G-21:取"末次报错指纹" —— 同一份坏源码每轮复现同一行 ⇒ 病因身份稳定(同因照旧去重);
