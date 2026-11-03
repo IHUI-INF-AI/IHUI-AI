@@ -29,11 +29,28 @@
  * 所以本尺 = **台账制差值棘轮**:基线快照登记当下账,只拦**新增退化**(新键/新对/必选性
  * 漂移变多);键集缩小 = 向统一收敛,放行。升绝对零的前置 = 存量归零,归零前不判那种红。
  */
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript'
 import { pathToFileURL } from 'node:url'
 
 import { INJECTABLE } from './cross-end-screen-props.mjs'
+
+/** 语义等价映射表(命名差异 → mapped 类,不计漂移存量;行为缺口不得入此表) */
+export const EQUIVALENCE_REL = 'scripts/data/component-props-equivalence.json'
+
+/** 读映射表(盘上现值;表坏 ⇒ undetermined,不回落空表冒充"无命名差") */
+export function loadEquivalence(rootDir) {
+  const p = join(rootDir, EQUIVALENCE_REL)
+  if (!existsSync(p)) return { state: 'ok', entries: [], reason: '映射表未建(0 条目)' }
+  try {
+    const j = JSON.parse(readFileSync(p, 'utf8'))
+    if (!Array.isArray(j?.entries)) return { state: 'undetermined', reason: '映射表缺少 entries 数组', entries: [] }
+    return { state: 'ok', entries: j.entries }
+  } catch (e) {
+    return { state: 'undetermined', reason: `映射表 JSON 坏:${String(e?.message ?? e).slice(0, 120)}`, entries: [] }
+  }
+}
 
 /** 两端编译面(七类机器事实之外的仓内真相源;路径漂移会在 undetermined 里点名) */
 export const END_TSCONFIG = {
@@ -143,7 +160,7 @@ export function componentPropsOf(rootDir, fileRel, end, program) {
  * 任一侧 undetermined ⇒ state=undetermined(不产出差集,不冒充"没有差")。
  * zero-props 一侧对 ok 一侧 ⇒ 差 = 对端全部键(零 props ≠ 无缺口,是整族未接)。
  */
-export function pairDelta(name, rnRes, miniRes) {
+export function pairDelta(name, rnRes, miniRes, equivalenceEntries = []) {
   if (rnRes.state === 'undetermined' || miniRes.state === 'undetermined')
     return {
       name,
@@ -155,8 +172,8 @@ export function pairDelta(name, rnRes, miniRes) {
     return { name, state: 'undetermined', reason: `未知解析形态 rn=${rnRes.state} mini=${miniRes.state}` }
   const rnMap = new Map(rnRes.props.filter((x) => !INJECTABLE.has(x.name)).map((x) => [x.name, x]))
   const miniMap = new Map(miniRes.props.filter((x) => !INJECTABLE.has(x.name)).map((x) => [x.name, x]))
-  const onlyRn = [...rnMap.keys()].filter((k) => !miniMap.has(k)).sort()
-  const onlyMini = [...miniMap.keys()].filter((k) => !rnMap.has(k)).sort()
+  let onlyRn = [...rnMap.keys()].filter((k) => !miniMap.has(k)).sort()
+  let onlyMini = [...miniMap.keys()].filter((k) => !rnMap.has(k)).sort()
   const reqDrift = []
   for (const k of rnMap.keys()) {
     if (!miniMap.has(k)) continue
@@ -164,12 +181,39 @@ export function pairDelta(name, rnRes, miniRes) {
       reqDrift.push(`${k}(${rnMap.get(k).optional ? 'op' : 'req'}/${miniMap.get(k).optional ? 'op' : 'req'})`)
   }
   reqDrift.sort()
+  /* 语义等价映射:同一槽位两端命名不同 ⇒ 命中条目归 mapped,不计存量;
+     行为缺口不得入表(见 EQUIVALENCE_REL 头注)。条目只在"至少一侧此刻确实漂移"时生效,
+     两端已自然对齐的条目记 mappedStale 供门体检,不静默留白。 */
+  const rnAll = new Set(rnRes.props.map((x) => x.name))
+  const miniAll = new Set(miniRes.props.map((x) => x.name))
+  const mapped = []
+  const mappedStale = []
+  const mappedRn = new Set()
+  const mappedMini = new Set()
+  for (const e of equivalenceEntries.filter((x) => x && x.pair === name)) {
+    const oursOnRn = rnAll.has(e.ours)
+    const theirsOnMini = miniAll.has(e.theirs)
+    const oursDrift = onlyRn.includes(e.ours)
+    const theirsDrift = onlyMini.includes(e.theirs)
+    if (!oursOnRn || !theirsOnMini || (!oursDrift && !theirsDrift)) {
+      mappedStale.push({ ours: e.ours, theirs: e.theirs, why: !oursOnRn || !theirsOnMini ? 'declaration-missing' : 'no-longer-drift' })
+      continue
+    }
+    mapped.push({ ours: e.ours, theirs: e.theirs, kind: e.kind })
+    if (oursDrift) mappedRn.add(e.ours)
+    if (theirsDrift) mappedMini.add(e.theirs)
+  }
+  if (mappedRn.size) onlyRn = onlyRn.filter((k) => !mappedRn.has(k))
+  if (mappedMini.size) onlyMini = onlyMini.filter((k) => !mappedMini.has(k))
   return {
     name,
     state: 'ok',
     onlyRn,
     onlyMini,
     reqDrift,
+    mapped,
+    mappedStale,
+    mappedKeyCount: mappedRn.size + mappedMini.size,
     driftTotal: onlyRn.length + onlyMini.length + reqDrift.length,
   }
 }
@@ -205,14 +249,16 @@ export async function computeParity(rootDir, face = 'head') {
   } catch {
     /* 单端程序建不起 ⇒ 逐对落 undetermined(componentPropsOf 各自点名),不整批冒充读过 */
   }
+  const equiv = loadEquivalence(rootDir)
+  if (equiv.state !== 'ok') return { state: 'undetermined', reason: equiv.reason }
   const deltas = []
   for (const p of pairs) {
     const rnRes = componentPropsOf(rootDir, p.rn, 'rn', rnProgram ?? undefined)
     const miniRes = componentPropsOf(rootDir, p.miniapp, 'miniapp', miniProgram ?? undefined)
-    deltas.push(pairDelta(p.name, rnRes, miniRes))
+    deltas.push(pairDelta(p.name, rnRes, miniRes, equiv.entries))
   }
-  return { state: 'ok', face, deltas }
+  return { state: 'ok', face, deltas, equivalence: { entryCount: equiv.entries.length } }
 }
 
-export const __test__ = { componentPropsOf, pairDelta, computeParity, END_TSCONFIG }
+export const __test__ = { componentPropsOf, pairDelta, computeParity, loadEquivalence, END_TSCONFIG, EQUIVALENCE_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

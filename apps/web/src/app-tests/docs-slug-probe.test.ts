@@ -8,7 +8,14 @@
 //   'missing' 才允许 notFound();'unknown' 绝不判 404(否则后端一抖就把整片文档页打死)。
 import { describe, expect, it } from 'vitest'
 
-import { classifyDocResponse, probeDocBySlug, serverApiOrigin } from '../lib/docs-slug-probe'
+import {
+  DOC_PROBE_REVALIDATE_SECONDS,
+  classifyDocResponse,
+  docProbeHttpStatus,
+  probeDocBySlug,
+  serverApiOrigin,
+} from '../lib/docs-slug-probe'
+import { docsDetailGateStatus, extractDocsDetailSlug } from '../lib/docs-detail-gate'
 
 /** 造一枚 fetch 桩:固定状态码 + 文本体 */
 function stubFetch(status: number, body: string): typeof fetch {
@@ -19,7 +26,15 @@ function stubFetch(status: number, body: string): typeof fetch {
 const HIT_BODY = JSON.stringify({
   code: 0,
   message: 'success',
-  data: { doc: { slug: 'intro', title: '入门', content: '# 入门' } },
+  data: {
+    doc: {
+      slug: 'intro',
+      title: '入门',
+      content: '# 入门',
+      category: 'guide',
+      updatedAt: '2026-11-03',
+    },
+  },
 })
 
 describe('classifyDocResponse 三态', () => {
@@ -35,10 +50,11 @@ describe('classifyDocResponse 三态', () => {
     expect(classifyDocResponse(200, { code: 0, message: 'success', data: {} })).toBe('missing')
   })
 
-  it('反向牙:5xx / 401 / 非 2xx 一律 unknown,不得冒充"不存在"', () => {
+  it('反向牙:5xx / 401 一律不明说,不得冒充"不存在"(401 单列 unauthorized)', () => {
     expect(classifyDocResponse(500, null)).toBe('unknown')
     expect(classifyDocResponse(503, { code: 503, message: 'unavailable' })).toBe('unknown')
-    expect(classifyDocResponse(401, { code: 401, message: 'unauthorized' })).toBe('unknown')
+    expect(classifyDocResponse(401, { code: 401, message: 'unauthorized' })).toBe('unauthorized')
+    expect(classifyDocResponse(403, { code: 403, message: 'forbidden' })).toBe('unauthorized')
     expect(classifyDocResponse(200, { code: 500, message: 'boom' })).toBe('unknown')
   })
 
@@ -95,6 +111,77 @@ describe('probeDocBySlug', () => {
     expect(serverApiOrigin({ IHUI_API_PROXY_TARGET: 'http://api.internal:8802' })).toBe(
       'http://api.internal:8802',
     )
+  })
+
+  it('后端 5xx ⇒ unknown(页面据此抛错回 500,不得被伪装成 404)', async () => {
+    const r = await probeDocBySlug('intro', {
+      fetchImpl: stubFetch(500, JSON.stringify({ code: 500, message: 'boom' })),
+    })
+    expect(r.state).toBe('unknown')
+    expect(r.detail).toBeNull()
+  })
+
+  it('探针 fetch 必须可缓存(force-cache + revalidate):no-store 会把预渲染打成 DYNAMIC_SERVER_USAGE 500', async () => {
+    let init: RequestInit | undefined
+    const spy = (async (_input: unknown, options?: RequestInit) => {
+      init = options
+      return new Response(HIT_BODY, { status: 200 })
+    }) as unknown as typeof fetch
+    await probeDocBySlug('intro', { fetchImpl: spy })
+    expect(init?.cache, '回退成 no-store 会复现 2026-11-03 生产 500').toBe('force-cache')
+    expect((init as RequestInit & { next?: { revalidate?: number } })?.next?.revalidate).toBe(
+      DOC_PROBE_REVALIDATE_SECONDS,
+    )
+  })
+
+  it('Proxy 面(dataCache:false)不得带 Next 数据缓存参数:每次请求按当次答复判状态码', async () => {
+    let init: RequestInit | undefined
+    const spy = (async (_input: unknown, options?: RequestInit) => {
+      init = options
+      return new Response(HIT_BODY, { status: 200 })
+    }) as unknown as typeof fetch
+    await probeDocBySlug('intro', { fetchImpl: spy, dataCache: false })
+    expect(init?.cache).toBeUndefined()
+    expect((init as RequestInit & { next?: unknown })?.next).toBeUndefined()
+  })
+})
+
+describe('docs-detail-gate 三个反向例(404 / 200 / 500 语义分开)', () => {
+  it('不存在 slug ⇒ 404', async () => {
+    const r = await docsDetailGateStatus('/docs/no-such-slug-zz9', {
+      fetchImpl: stubFetch(404, JSON.stringify({ code: 404, message: '文档不存在' })),
+    })
+    expect(r).toBe(404)
+  })
+
+  it('真实 slug ⇒ null(放行,页面 200)', async () => {
+    const r = await docsDetailGateStatus('/docs/intro', { fetchImpl: stubFetch(200, HIT_BODY) })
+    expect(r).toBeNull()
+  })
+
+  it('反向牙:后端 5xx ⇒ 500(不得被伪装成 404)', async () => {
+    const r = await docsDetailGateStatus('/docs/intro', {
+      fetchImpl: stubFetch(500, JSON.stringify({ code: 500, message: 'boom' })),
+    })
+    expect(r).toBe(500)
+  })
+
+  it('鉴权面(401/403)⇒ null:判不出就不冒充 404,也不冒充 500', async () => {
+    const r = await docsDetailGateStatus('/docs/intro', {
+      fetchImpl: stubFetch(401, JSON.stringify({ code: 401, message: 'unauthorized' })),
+    })
+    expect(r).toBeNull()
+    expect(docProbeHttpStatus('unauthorized')).toBeNull()
+  })
+
+  it('只认文档详情单段路径:静态文档页 / 索引 / 多段路径一律不探针', () => {
+    expect(extractDocsDetailSlug('/docs/no-such-slug')).toBe('no-such-slug')
+    expect(extractDocsDetailSlug('/docs/no-such-slug/')).toBe('no-such-slug')
+    expect(extractDocsDetailSlug('/docs/quickstart')).toBeNull()
+    expect(extractDocsDetailSlug('/docs/manual')).toBeNull()
+    expect(extractDocsDetailSlug('/docs/manual/faq')).toBeNull()
+    expect(extractDocsDetailSlug('/docs')).toBeNull()
+    expect(extractDocsDetailSlug('/blog/no-such-slug')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
