@@ -172,7 +172,7 @@ export default function VipDetailsPage() {
                     </Text>
                   </View>
                   <View className="flex items-start mb-[20rpx]">
-                    <Text className="text-[length:26rpx] text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
+                    <Text className="text-body-sm text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
                       ¥
                     </Text>
                     <Text className="text-heading text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
@@ -188,9 +188,7 @@ export default function VipDetailsPage() {
                           color="var(--color-muted-foreground)"
                           className="mr-[12rpx]"
                         />
-                        <Text className="flex-1 text-label text-foreground leading-[1.4]">
-                          {b}
-                        </Text>
+                        <Text className="flex-1 text-label text-foreground leading-[1.4]">{b}</Text>
                       </View>
                     ))}
                   </View>

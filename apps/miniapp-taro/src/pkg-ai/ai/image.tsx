@@ -165,7 +165,7 @@ export default function ImagePage() {
       ) : (
         <View className="flex-1 flex flex-col items-center justify-center">
           <LineIcon name="palette" size={120} color="var(--color-text-tertiary)" />
-          <Text className="text-[length:26rpx] text-muted-foreground mt-[24rpx]">
+          <Text className="text-body-sm leading-[normal] text-muted-foreground mt-[24rpx]">
             {t('ai.image.emptyHint')}
           </Text>
         </View>

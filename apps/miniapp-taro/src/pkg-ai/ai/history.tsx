@@ -748,7 +748,7 @@ export default function HistoryPage() {
         />
         {list.length > 0 ? (
           <Text
-            className="text-[length:26rpx] text-destructive flex-shrink-0"
+            className="text-body-sm leading-[normal] text-destructive flex-shrink-0"
             onClick={source === 'server' ? () => void onClearServerAll() : onClearAll}
           >
             {tt('ai.historyPage.clearAll', '清空全部')}

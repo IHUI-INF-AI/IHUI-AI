@@ -78,7 +78,7 @@ export function TraderHero({ amount, durationDays }: { amount: number; durationD
         <Text className="block text-heading font-bold text-foreground">
           {tt('vipTrader.title', 'VIP 操盘手')}
         </Text>
-        <Text className="block mt-[8rpx] text-[length:26rpx] text-muted-foreground">
+        <Text className="block mt-[8rpx] text-body-sm leading-[normal] text-muted-foreground">
           {tt('vipTrader.subtitle', '尊享操盘手专属权益')}
         </Text>
       </View>
@@ -91,7 +91,7 @@ export function TraderHero({ amount, durationDays }: { amount: number; durationD
             </Text>
           </View>
         </View>
-        <Text className="block mt-[16rpx] text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+        <Text className="block mt-[16rpx] text-body-sm leading-[40rpx] text-muted-foreground">
           {tt(
             'vipTrader.heroDesc',
             '限时 ¥{price} 开通,赠送 {power} 算力,尊享大额分销与专属定制权益',
@@ -138,7 +138,7 @@ export function TraderEntries() {
           onClick={() => Taro.navigateTo({ url: e.url })}
         >
           <LineIcon name={e.icon} size={40} color="var(--color-text-medium)" />
-          <Text className="mt-[8rpx] text-[length:26rpx] text-[var(--color-text-medium)]">
+          <Text className="mt-[8rpx] text-body-sm leading-[normal] text-[var(--color-text-medium)]">
             {e.label}
           </Text>
         </View>

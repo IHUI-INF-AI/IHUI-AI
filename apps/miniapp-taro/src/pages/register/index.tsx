@@ -180,7 +180,7 @@ export default function RegisterIndex() {
             </View>
           </View>
           {form.error === 'register.sendCodeFailed' ? (
-            <Text className="block mt-[12rpx] text-[length:26rpx] text-[color:var(--color-danger)]">
+            <Text className="block mt-[12rpx] text-body-sm leading-[normal] text-[color:var(--color-danger)]">
               {t('register.sendCodeFailed')}
             </Text>
           ) : null}

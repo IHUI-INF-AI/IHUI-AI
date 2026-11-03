@@ -200,7 +200,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
             >
               <Text className="block text-body font-semibold text-foreground">{item.title}</Text>
               <View className="mt-[12rpx] flex flex-row items-center justify-between">
-                <Text className="text-[length:26rpx] font-semibold text-[var(--color-success)]">
+                <Text className="text-body-sm leading-[normal] font-semibold text-[var(--color-success)]">
                   ¥{item.salePrice}
                 </Text>
                 <Text className="text-caption text-muted-foreground">

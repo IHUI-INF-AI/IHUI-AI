@@ -21,9 +21,9 @@ type FilterTab = 'all' | RecordStatus
 const PAGE_SIZE = 20
 
 const TAB_BASE =
-  'flex-1 flex items-center justify-center h-[96rpx] text-[length:28rpx] rounded-xl text-muted-foreground'
+  'flex-1 flex items-center justify-center h-[96rpx] text-body leading-[normal] rounded-xl text-muted-foreground'
 const TAB_ACTIVE = 'bg-cta text-cta-foreground font-semibold'
-const STATE_TEXT = 'block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]'
+const STATE_TEXT = 'block text-center text-body leading-[normal] text-muted-foreground py-[96rpx]'
 
 export default function StudyRecord() {
   const tt = useTt()

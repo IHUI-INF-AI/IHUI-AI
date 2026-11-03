@@ -73,7 +73,7 @@ export function FilterChips({
           onClick={() => onChange(f)}
         >
           <Text
-            className={`text-[length:26rpx] ${
+            className={`text-body-sm leading-[normal] ${
               filter === f ? 'text-primary-foreground' : 'text-muted-foreground'
             }`}
           >

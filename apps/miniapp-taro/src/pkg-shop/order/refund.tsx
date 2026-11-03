@@ -135,7 +135,7 @@ export default function OrderRefund() {
                 hoverClass="opacity-60"
                 onClick={() => loadOrder(orderNo)}
               >
-                <Text className="text-[length:26rpx] font-semibold text-cta-foreground">
+                <Text className="text-body-sm leading-[normal] font-semibold text-cta-foreground">
                   {tt('orderRefund.retry', '重试')}
                 </Text>
               </View>
