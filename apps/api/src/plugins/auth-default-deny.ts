@@ -97,6 +97,14 @@ const PUBLIC_EXACT: ReadonlySet<string> = new Set([
   '/api/configs',
   '/api/announcements',
   '/api/ai-education/teacher-certification',
+  // 2026-11-03 按证据补入:文档中心两条读面。
+  //   routes/content.ts:395(`GET /docs` 注释自述「公开：文档列表」)与 :426(`GET /docs/:slug`
+  //   注释自述「公开：文档详情」)全文件零 preHandler,handler 内也不读 request.userId。
+  //   线上匿名实测(2026-11-03):`GET https://www.aizhs.top/api/docs/quickstart` = 401,
+  //   而消费方是公开页面(web 详情页 + web 端服务端存在性探针),兜底闸把它当私面拦了。
+  //   `/api/admin/docs` 住在 adminContentRoutes(content.ts:446 起,插件级 requireAdmin),
+  //   不在这两条前缀下,鉴权不受影响。
+  '/api/docs',
 ])
 
 const PUBLIC_PREFIXES: readonly string[] = [
@@ -132,6 +140,9 @@ const PUBLIC_PREFIXES: readonly string[] = [
   '/api/landing',
   '/api/voice/',
   '/api/crash-reports',
+  // 文档详情 `/api/docs/:slug`(见上面 PUBLIC_EXACT 的 `/api/docs` 条目注释)。
+  // 带尾斜杠是段边界:不会顺带放过 `/api/docs-xyz` 之类的将来路径。
+  '/api/docs/',
   // 2026-10-29 主动探测(无凭据 GET,只认 200)与 observe 实测补入:
   // 门户落地页 / 首页内容聚合 / 分类字典缓存。三者都是渲染首页所需,漏了会让首页空屏。
   '/landing',
