@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scoreCardPassed: { borderColor: tk.brandAccent.deep, backgroundColor: tk.success.light },
     scoreCardFailed: { borderColor: tk.border.light },
-    scoreText: { fontSize: 36, fontWeight: '700', color: tk.text.primary },
+    scoreText: { fontSize: rnType.displayLg.size, fontWeight: '700', color: tk.text.primary },
     passedText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
