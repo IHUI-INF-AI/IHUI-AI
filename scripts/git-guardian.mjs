@@ -12754,7 +12754,6 @@ async function main() {
     if (!CHECK_ONLY) dispatchAutoTriage()
     if (!CHECK_ONLY) dispatchDeployOutcomeIntake()
     if (!CHECK_ONLY) dispatchDeployFeedback()
-    if (!CHECK_ONLY) dispatchExportUserFeedback()
     if (!CHECK_ONLY) dispatchE2eAutofill()
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
     if (!CHECK_ONLY) dispatchAutoEvolve()
@@ -13665,62 +13664,6 @@ export function dispatchDeployFeedback(opts = {}) {
   return { ran: true, ok: r.ok }
 }
 
-export function dispatchExportUserFeedback(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = Number(process.env.IHUI_USER_FEEDBACK_EXPORT_INTERVAL_MS || 20 * 60 * 1000),
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'user-feedback-export-dispatch-last.json'),
-    logger = log,
-    exists = existsSync,
-    runner = null,
-  } = opts
-  if (process.env.IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT === '1') {
-    logger('⏸ 用户反馈导出派发:IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT=1 ⇒ 跳过')
-    return { ran: false, why: '被 env 关闭' }
-  }
-  const script = join(GUARDIAN_SCRIPTS_DIR, 'export-user-feedback.mjs')
-  if (!exists(script)) {
-    logger('ℹ 用户反馈导出派发:器物不在位(scripts/export-user-feedback.mjs)⇒ 本轮跳过')
-    return { ran: false, why: '器物缺席' }
-  }
-  if (!dispatchDue(tickFile, now, intervalMs)) return { ran: false, why: '未到节流窗口' }
-  stampDispatchTick(tickFile, now, logger)
-  const run =
-    runner ??
-    (() => {
-      try {
-        const out = execFileSync(process.execPath, [script], {
-          cwd: WORKTREE,
-          encoding: 'utf8',
-          windowsHide: true,
-          timeout: 10 * 60 * 1000,
-          maxBuffer: 1 << 22,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        })
-        return { ok: true, out: String(out ?? '') }
-      } catch (e) {
-        return {
-          ok: false,
-          out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`,
-          err: String(e?.message ?? e),
-        }
-      }
-    })
-  const r = run()
-  beatRoundLock()
-  logger(
-    `${r.ok ? '✅' : '⚠️'} 用户反馈导出派发:${r.ok ? '完成(只读查库→导出件)' : '异常'}｜${String(
-      r.out ?? '',
-    )
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .slice(-1)
-      .join('')
-      .slice(0, 200)}${r.ok ? '' : ` ｜ ${String(r.err ?? '').slice(0, 120)}`}`,
-  )
-  return { ran: true, ok: r.ok }
-}
-
 export function dispatchE2eAutofill(opts = {}) {
   const {
     now = Date.now(),
@@ -14147,7 +14090,6 @@ export const __test__ = {
   dispatchAutoTriage,
   dispatchDeployOutcomeIntake,
   dispatchDeployFeedback,
-  dispatchExportUserFeedback,
   dispatchE2eAutofill,
   dispatchDepAdvisoryRadar,
   dispatchGateRot,

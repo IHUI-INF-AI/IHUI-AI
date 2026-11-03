@@ -105,7 +105,7 @@ P4 可审计治理                                →  让无人状态可控可�
 | 器物 | 载体（谁在调度） | 频率 | 读写面 | 备注 |
 |---|---|---|---|---|
 | `auto-evolve.mjs` | `scripts/git-guardian.mjs` → `dispatchAutoEvolve()` | 60min（`IHUI_AUTO_EVOLVE_INTERVAL_MS`） | 写：派单台账 / 派发子会话 | 前置闸：`auto-evolve-gates.json` 的 `enabled` / 日预算 / 成本熔断 / 单实例锁 |
-| `auto-triage.mjs` | `dispatchAutoTriage()` | 30min（`IHUI_AUTO_TRIAGE_INTERVAL_MS`） | 写：台账登记（经 `live-doc-edit`） | 五源分诊（邮件失败 / 索引未合 / API 日志 / 告警 / 用户反馈） |
+| `auto-triage.mjs` | `dispatchAutoTriage()` | 30min（`IHUI_AUTO_TRIAGE_INTERVAL_MS`） | 写：台账登记（经 `live-doc-edit`） | 四源分诊（邮件失败 / 索引未合 / API 日志 / 告警；用户反馈源已于 2026-11-04 退役） |
 | `dep-advisory-radar.mjs` | `dispatchDepAdvisoryRadar()` | 24h（`IHUI_DEP_RADAR_INTERVAL_MS`） | 写：通告台账 + `--register` 登票 | 依赖树升级本身仍是人工阀面（本器只派票，不跑 install/update） |
 | `check-gate-rot.mjs` | `dispatchGateRot()` | 6h（`IHUI_GATE_ROT_INTERVAL_MS`） | 只读 | `--ratchet` 差值档：只把相对基线**新增**的腐烂喊人；基线只能人工 `--write-baseline` 认账 |
 | `evolution-retro.mjs` | 被 `auto-evolve.mjs` 以 `--apply` 调用 | 随自进化轮 | 写：`lessons.jsonl` + digest | 失败票归因沉淀；决策台账缺失时如实记「未判定」，不冒充 |
