@@ -4,10 +4,64 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Monitor, Coins } from 'lucide-react'
+import {
+  BookOpen,
+  Bot,
+  Brain,
+  Coins,
+  Flag,
+  Globe,
+  Lightbulb,
+  Monitor,
+  Pin,
+  Shuffle,
+  Wrench,
+} from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
+
+/**
+ * Provider 健康档位 → 徽章配色(文档页只读展示,取本仓既有状态色档:
+ * healthy 绿 / degraded 琥珀 / down 红 / 未配置 中性 / 本地·免费 信息蓝·正向绿)。
+ * 值档逐字沿用 `admin/monitor` 与 `settings/llm/ProviderCardV2` 已落地的 token 组合,
+ * 不自创新档、不写字面色值。
+ */
+const STATUS_TONE_CLASS = {
+  healthy: 'bg-success/10 text-success-deep-text',
+  degraded: 'bg-warning/10 text-warning-amber-text',
+  down: 'bg-danger/10 text-danger-text',
+  unconfigured: 'bg-muted text-muted-foreground',
+  local: 'bg-info/10 text-info-text',
+  free: 'bg-success/10 text-success-deep-text',
+} as const
+
+type ProviderStatusTone = keyof typeof STATUS_TONE_CLASS
+
+/** Provider 健康档位行:机器名 + 色档 + 中文标签 + 含义(色档键受封闭联合约束,漏档即 tsc 红) */
+const PROVIDER_HEALTH_ROWS: {
+  status: string
+  tone: ProviderStatusTone
+  label: string
+  desc: string
+}[] = [
+  { status: 'healthy', tone: 'healthy', label: '健康', desc: '正常服务,延迟 < 2s' },
+  {
+    status: 'degraded',
+    tone: 'degraded',
+    label: '降级',
+    desc: '可用但慢(延迟 > 5s)或部分模型异常',
+  },
+  {
+    status: 'down',
+    tone: 'down',
+    label: '不可用',
+    desc: '402 余额不足 / 403 无权限 / 超时 / 网络错误',
+  },
+  { status: 'not_configured', tone: 'unconfigured', label: '未配置', desc: 'Admin 未填 API Key' },
+  { status: 'local', tone: 'local', label: '本地', desc: 'Ollama / vLLM 等本地部署,不走云端' },
+  { status: 'zero_cost', tone: 'free', label: '免费额度', desc: '厂商提供免费 quota,不消耗积分' },
+]
 
 const modelsJsonLd = {
   '@context': 'https://schema.org',
@@ -74,7 +128,7 @@ export default function ModelsDocsPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
-          <span>🧠</span>
+          <Brain className="h-3.5 w-3.5" />
           多模型调度
         </div>
         <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -91,7 +145,10 @@ export default function ModelsDocsPage() {
         <h2 className="text-display font-bold tracking-tight">支持的模型(100+)</h2>
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-body font-semibold">🌍 国际厂商</p>
+            <p className="flex items-center text-body font-semibold">
+              <Globe className="mr-1.5 inline h-4 w-4" />
+              国际厂商
+            </p>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -135,7 +192,10 @@ export default function ModelsDocsPage() {
           </div>
 
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-body font-semibold">🇨🇳 国产模型</p>
+            <p className="flex items-center text-body font-semibold">
+              <Flag className="mr-1.5 inline h-4 w-4" />
+              国产模型
+            </p>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -241,17 +301,16 @@ export default function ModelsDocsPage() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ['healthy', '✅ 健康', '正常服务,延迟 < 2s'],
-                  ['degraded', '🟡 降级', '可用但慢(延迟 > 5s)或部分模型异常'],
-                  ['down', '🔴 不可用', '402 余额不足 / 403 无权限 / 超时 / 网络错误'],
-                  ['not_configured', '⚪ 未配置', 'Admin 未填 API Key'],
-                  ['local', '🖥️ 本地', 'Ollama / vLLM 等本地部署,不走云端'],
-                  ['zero_cost', '🆓 免费额度', '厂商提供免费 quota,不消耗积分'],
-                ].map(([status, label, desc], i) => (
+                {PROVIDER_HEALTH_ROWS.map(({ status, tone, label, desc }, i) => (
                   <tr key={status} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
                     <td className="p-3 font-mono text-xs whitespace-nowrap">{status}</td>
-                    <td className="p-3 font-medium whitespace-nowrap">{label}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      <span
+                        className={`inline-flex h-4 items-center justify-center rounded-md px-1 text-[10px] font-semibold leading-none ${STATUS_TONE_CLASS[tone]}`}
+                      >
+                        {label}
+                      </span>
+                    </td>
                     <td className="p-3 text-xs text-muted-foreground">{desc}</td>
                   </tr>
                 ))}
@@ -289,7 +348,8 @@ export default function ModelsDocsPage() {
 - 200 成功 → 不切`}
           />
           <p className="text-xs text-muted-foreground">
-            💡 <strong>跨厂商 fallback</strong>:OpenAI 挂了切 Anthropic,Anthropic 挂了切通义,
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>跨厂商 fallback</strong>:OpenAI 挂了切 Anthropic,Anthropic 挂了切通义,
             三大厂商同时挂的概率几乎为 0,服务可用性达 99.95%。
           </p>
         </div>
@@ -304,7 +364,10 @@ export default function ModelsDocsPage() {
           </p>
           <div className="space-y-3">
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">📌 串联(Priority 策略)</p>
+              <p className="flex items-center text-body font-semibold">
+                <Pin className="mr-1.5 inline h-4 w-4" />
+                串联(Priority 策略)
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 按顺序尝试,前一个失败才用下一个 — <strong>等价于 fallback</strong>
               </p>
@@ -327,7 +390,10 @@ export default function ModelsDocsPage() {
               />
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">🔀 并联(Fusion 策略)</p>
+              <p className="flex items-center text-body font-semibold">
+                <Shuffle className="mr-1.5 inline h-4 w-4" />
+                并联(Fusion 策略)
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 多模型同时回答,Judge 模型打分选最佳 — <strong>质量最高但贵</strong>
               </p>
@@ -426,15 +492,21 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
             href="/docs/agent"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🤖 Agent 开发 →<br />
+            <Bot className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>Agent 开发 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">为 Agent 选模型</span>
           </Link>
           <Link href="/docs/rag" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            📚 知识库 RAG →<br />
+            <BookOpen className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>知识库 RAG →</span>
+            <br />
             <span className="text-xs text-muted-foreground">Embedding 模型选择</span>
           </Link>
           <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            🛠️ API 参考 →<br />
+            <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>API 参考 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">通过 API 调用模型</span>
           </Link>
         </div>

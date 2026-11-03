@@ -401,7 +401,15 @@ export default function QuickstartPage() {
                   页面上传文档,系统自动处理:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-                  <li>支持格式:PDF、Word、Excel、Markdown、HTML、TXT、CSV</li>
+                  <li>
+                    上传入口可选格式:PDF、Word(.docx)、Markdown、TXT、HTML(.html/.htm)
+                    —即文件选择框列出的 6 种扩展名;Excel / CSV / PPT 等当前不经此入口,需走 API
+                    上传。解析与预览能力分级见
+                    <a href="/docs/rag" className="text-primary underline">
+                      知识库 RAG
+                    </a>
+                    的「支持的文档类型」。
+                  </li>
                   <li>混合检索:向量 + BM25 + 知识图谱</li>
                   <li>中文友好分词(jieba、BPE)</li>
                   <li>自动实体识别和关系抽取</li>

@@ -5,7 +5,7 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { Database, FolderOpen, MessageCircle, Monitor } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
@@ -104,7 +104,10 @@ export default function McpDocsPage() {
         <h2 className="text-display font-bold tracking-tight">100+ 预置 MCP Server</h2>
         <div className="grid grid-cols-1 gap-4">
           <div className="rounded-lg border bg-card p-3">
-            <h3 className="text-lg font-semibold">📁 文件与存储</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <FolderOpen className="mr-1.5 inline h-5 w-5" />
+              文件与存储
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>本地文件系统(读/写/搜索)</li>
               <li>S3 / OSS / MinIO 对象存储</li>
@@ -113,7 +116,10 @@ export default function McpDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <h3 className="text-lg font-semibold">💻 开发工具</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Monitor className="mr-1.5 inline h-5 w-5" />
+              开发工具
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>GitHub(GitLab/Bitbucket)— PR/Issue/代码搜索</li>
               <li>GitLab CI / GitHub Actions</li>
@@ -134,7 +140,10 @@ export default function McpDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <h3 className="text-lg font-semibold">🗄️ 数据库</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Database className="mr-1.5 inline h-5 w-5" />
+              数据库
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>PostgreSQL / MySQL / SQLite</li>
               <li>MongoDB / Redis / Elasticsearch</li>
