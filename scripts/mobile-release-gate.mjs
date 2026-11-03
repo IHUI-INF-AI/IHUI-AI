@@ -70,7 +70,7 @@ function runGate(g) {
   const opts = { cwd: ROOT, stdio: 'inherit', windowsHide: true, env: process.env }
   const r =
     g.cmd === 'node'
-      ? spawnSync(process.execPath, g.args, opts)
+      ? spawnSync(process.execPath, g.args, { ...opts, windowsHide: true })
       : spawnSync(g.cmd, g.args, { ...opts, shell: true })
   return r.status === null ? -1 : r.status
 }

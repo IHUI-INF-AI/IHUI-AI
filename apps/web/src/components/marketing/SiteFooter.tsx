@@ -349,7 +349,7 @@ export function SiteFooter({ className }: { className?: string }) {
               </p>
               <p className="text-[11px] leading-snug text-muted-foreground">{t('companyEmail')}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <Link
                 href="/about"
                 className={FOOTER_BTN}
@@ -482,7 +482,7 @@ export function SiteFooter({ className }: { className?: string }) {
             - 只保留 ICP 图标 + ICP 文字 + 版权
             2026-08-12 改:Row 2 mt-2 pt-2 → mt-0 pt-1.5(配合外层 gap-0),让 Row 1/Row 2 真正贴合
             (用户反馈"两 div 没挨上")。 */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-0 pt-1.5 text-label text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-0 pt-1.5 text-xs text-muted-foreground">
           <Image
             src="/footer/erweima/footer-icon-1.png"
             alt={t('icp')}
@@ -491,12 +491,18 @@ export function SiteFooter({ className }: { className?: string }) {
             className="h-5 w-5 object-contain"
             {...IMG_LAZY}
           />
-          <Link
-            href="/settings/icp-record"
+          {/* 备案号合规(工信部要求:页脚展示备案号并链接 https://beian.miit.gov.cn/):
+              i18n 值是**主体**备案号,站点实际备案是网站号 = 主体号 + "-2" 后缀(2026-11-03 核实为真)。
+              后缀是纯 ASCII 法定标识,5 语言一致,故在组件侧拼接、不进语言包;
+              此前链接指向站内页 /settings/icp-record,不满足"链接工信部",已改外链。 */}
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="whitespace-nowrap transition-colors hover:text-primary"
           >
-            {t('icp')}
-          </Link>
+            {t('icp') + '-2'}
+          </a>
           <span className="text-border">·</span>
           <Link
             href="/settings/model-record"
