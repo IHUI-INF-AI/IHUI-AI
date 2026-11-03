@@ -120,6 +120,30 @@ describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
     assert.equal(v.adjudicated.length, 0)
     assert.ok(v.warn.some((w) => w.pair === 'ScreenStates' && w.kind === 'undetermined' && /owner|expires|evidence/.test(w.why)))
   })
+  it('可测对(同名不同物整对)有效裁决 ⇒ 已裁决并剔除存量;证据不足/缺 owner ⇒ 判红', () => {
+    const ruling = {
+      state: 'not-applicable',
+      owner: 'cross-end-props-parity',
+      expires: '2027-06-30',
+      evidence: ['packages/app/src/components/ScreenStates.tsx:70', 'apps/miniapp-taro/src/components/ScreenStates.taro.tsx:47'],
+      why: '两端同名不同物:一侧整对是浮动入口组,另一侧是顶部 toast,不构成同一组件的 props 对账',
+    }
+    const opts = { now: new Date('2026-11-03T00:00:00'), rootDir: ROOT }
+    const okv = verifyAgainstBaseline([d('FB', { onlyRn: ['a'], onlyMini: ['b'], driftTotal: 2 })], { pairs: { FB: ruling } }, opts)
+    assert.equal(okv.bad.length, 0)
+    assert.equal(okv.adjudicated[0].measurable, true)
+    assert.equal(okv.adjudicated[0].driftKeys, 2)
+    const fewEv = verifyAgainstBaseline(
+      [d('FB', { onlyRn: ['a'], driftTotal: 1 })],
+      { pairs: { FB: { ...ruling, evidence: [ruling.evidence[0]] } } },
+      opts,
+    )
+    assert.equal(fewEv.bad.length, 1)
+    assert.equal(fewEv.bad[0].kind, 'invalid-not-applicable-ruling')
+    const noOwner = verifyAgainstBaseline([d('FB', { onlyMini: ['b'], driftTotal: 1 })], { pairs: { FB: { ...ruling, owner: '' } } }, opts)
+    assert.equal(noOwner.bad.length, 1)
+    assert.equal(noOwner.bad[0].kind, 'invalid-not-applicable-ruling')
+  })
   it('映射表扩容无同轮收敛=红;同轮收敛=绿(防拿映射洗白真缺口)', () => {
     const booked = { pairs: base.pairs, counts: { equivalenceEntries: 0, driftKeysTotal: 2 } }
     const red = verifyAgainstBaseline([d('Foo', { onlyRn: ['onBar'], driftTotal: 2 })], booked, { equivalenceEntryCount: 1 })

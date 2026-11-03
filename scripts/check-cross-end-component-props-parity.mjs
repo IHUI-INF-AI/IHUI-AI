@@ -20,9 +20,12 @@
  *   · 键集缩小 = 向统一收敛 ⇒ 绿并提示可收紧台账;
  *   · undetermined 一律 warn 点名(判红=把类型面一时解析不出冒成违规;判绿=把没量冒成量过,§0.3);
  *   · 唯一例外 = 台账里已裁决的 `not-applicable`:必须 owner + expires + evidence(仓库内 文件:行)
- *     + why 四件齐全、未到期、证据行真落在文件内,该对的 undetermined 才计"已裁决"(读数仍逐条打印)。
- *     缺字段/过期/证据指空 ⇒ 裁决无效,该对照旧按 undetermined 点名 —— 禁止用它把"没读到"洗成"判过了";
- *     裁决也不会被 --update-baseline 冲回 undetermined,只能显式撤销(删条目或改成可测的 ok)。
+ *     + why 四件齐全、未到期、证据行真落在文件内,该对才计"已裁决(整对不构成对账对象)"(读数仍逐条打印)。
+ *     裁决可用于两种对:① undetermined(把"没读到"显式裁决掉);② 已能量出的同名不同物整对
+ *     (ui 完全不同,如 FloatBox=RN 顶部 toast vs mini 悬浮入口组)—— 后者至少要 2 条证据覆盖双端,
+ *     且该对存量从"漂移键总数"里剔除、不进新键棘轮(整对已判过)。缺字段/过期/证据指空/证据不足
+ *     ⇒ 裁决无效:undetermined 照旧点名,可测对直接判红 invalid-not-applicable-ruling —— 禁止用它把
+ *     单键缺口洗成"整对不适用";裁决也不会被 --update-baseline 冲成 ok,只能显式撤销。
  *   · 升绝对零的唯一前置 = 存量归零(数字现读,不写死在本文件)。
  *
  * 取材面(§0.4 横向口径):默认 HEAD blob;--staged 判索引;两面旗同给 exit 2;
@@ -92,10 +95,12 @@ const RULING_WHY_MIN = 24
 
 /**
  * 台账 not-applicable 裁决校验:三字段(owner/expires/evidence)+ why + 证据落点。
- * 只有 ok 才允许把对应配对的 undetermined 记成"已裁决";否则裁决无效、仍按 undetermined 点名
- * (§0.3:不得把"没读到"洗成"判过了")。evidence 形如 `仓库相对路径:行`(可带 `-行` 区间)。
+ * 只有 ok 才允许把该对记成"已裁决";可测对(measurable)还要求 ≥2 条证据覆盖双端。
+ * 否则裁决无效、仍按 undetermined 点名 / 可测对直接判红
+ * (§0.3:不得把"没读到"洗成"判过了",也不得把单键缺口洗成整对不适用)。
+ * evidence 形如 `仓库相对路径:行`(可带 `-行` 区间)。
  */
-export function validateNotApplicable(entry, { now = new Date(), rootDir = ROOT } = {}) {
+export function validateNotApplicable(entry, { now = new Date(), rootDir = ROOT, measurable = false } = {}) {
   const problems = []
   if (!entry || entry.state !== 'not-applicable') problems.push('state 必须是 not-applicable')
   const owner = typeof entry?.owner === 'string' ? entry.owner.trim() : ''
@@ -109,6 +114,8 @@ export function validateNotApplicable(entry, { now = new Date(), rootDir = ROOT 
   else if (why.length < RULING_WHY_MIN) problems.push(`why 过短(< ${RULING_WHY_MIN} 字):不得只写一句理由`)
   const evidence = Array.isArray(entry?.evidence) ? entry.evidence : []
   if (evidence.length === 0) problems.push('缺 evidence(仓库内 文件:行)')
+  else if (measurable && evidence.length < 2)
+    problems.push('已能量出的对至少要 2 条证据(整对不适用必须双端落点,单条不足以否掉一个可测对)')
   for (const raw of evidence) {
     const m = typeof raw === 'string' ? raw.match(/^([^\s:]+):(\d+)(?:-(\d+))?$/) : null
     if (!m) {
@@ -162,19 +169,37 @@ export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
   const book = baseline?.pairs ?? {}
   for (const d of deltas) {
     const e = book[d.name]
-    if (d.state === 'undetermined') {
-      // 台账已判 not-applicable 且裁决有效 ⇒ 记"已裁决",不再计入未判定;无效裁决仍要点名(不许洗绿)
-      if (e?.state === 'not-applicable') {
-        const v = validateNotApplicable(e, { now: opts.now, rootDir: opts.rootDir })
-        if (v.ok) adjudicated.push({ pair: d.name, owner: e.owner, expires: e.expires, why: e.why })
-        else
-          warn.push({
-            pair: d.name,
-            kind: 'undetermined',
-            why: `${d.reason} · 台账 not-applicable 裁决无效:${v.problems.join(';')}`,
-          })
+    const measured = d.state !== 'undetermined'
+    // pair-level 裁决优先:有效 ⇒ 已裁决(可测对也整对剔除存量);无效 ⇒ undetermined 点名 / 可测对判红
+    if (e?.state === 'not-applicable') {
+      const v = validateNotApplicable(e, { now: opts.now, rootDir: opts.rootDir, measurable: measured })
+      if (v.ok) {
+        adjudicated.push({
+          pair: d.name,
+          owner: e.owner,
+          expires: e.expires,
+          why: e.why,
+          measurable: measured,
+          driftKeys: measured ? (d.driftTotal ?? 0) : 0,
+        })
         continue
       }
+      if (!measured) {
+        warn.push({
+          pair: d.name,
+          kind: 'undetermined',
+          why: `${d.reason} · 台账 not-applicable 裁决无效:${v.problems.join(';')}`,
+        })
+        continue
+      }
+      bad.push({
+        pair: d.name,
+        kind: 'invalid-not-applicable-ruling',
+        detail: `台账 not-applicable 裁决无效(${v.problems.join(';')});本轮已能量出 ${d.driftTotal ?? 0} 处差 —— 裁决不得洗绿,先修裁决或改回 ok`,
+      })
+      continue
+    }
+    if (!measured) {
       warn.push({ pair: d.name, kind: 'undetermined', why: d.reason })
       continue
     }
@@ -191,23 +216,6 @@ export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
     }
     if (e.state === 'undetermined') {
       warn.push({ pair: d.name, kind: 'booked-undetermined-now-parseable', why: '台账记的是未判定,本轮已能量出 —— 可收紧台账' })
-      continue
-    }
-    if (e.state === 'not-applicable') {
-      // 判过"不构成对账对象",本轮却能量出 props ⇒ 裁决前提变了,交人复核,不静默沿用
-      const driftish = (d.onlyRn?.length ?? 0) + (d.onlyMini?.length ?? 0) + (d.reqDrift?.length ?? 0)
-      if (driftish > 0)
-        bad.push({
-          pair: d.name,
-          kind: 'booked-not-applicable-now-drifted',
-          detail: `台账判过"不构成对账对象",本轮却已能量出 ${driftish} 处差 —— 裁决失效,按新对复核并重落台账`,
-        })
-      else
-        warn.push({
-          pair: d.name,
-          kind: 'booked-not-applicable-now-measurable',
-          why: '台账判过不适用,本轮已能量出且无差 —— 复核后可改为 ok',
-        })
       continue
     }
     const baseRn = new Set(e.onlyRn ?? [])
@@ -234,7 +242,9 @@ export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
   const prevEntries = baseline?.counts?.equivalenceEntries ?? 0
   const grow = nowEntries - prevEntries
   if (grow > 0) {
-    const nowDrift = deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0)
+    // 已裁决不适用对不计入存量口径(与计数口径一致,否则整对剔除会被误读成"漂移下降")
+    const adj = new Set(adjudicated.map((a) => a.pair))
+    const nowDrift = deltas.reduce((s, d) => s + (adj.has(d.name) ? 0 : (d.driftTotal ?? 0)), 0)
     const prevDrift = baseline?.counts?.driftKeysTotal
     const drop = typeof prevDrift === 'number' ? prevDrift - nowDrift : 0
     if (drop < grow)
@@ -300,34 +310,54 @@ async function main() {
     }
   }
   if (updateMode) {
-    // 裁决有效的 not-applicable 不算"未判定",且必须原样保留;无效/过期裁决照旧按 undetermined 拦写保护
+    // 有效 pair-level 裁决(undetermined 或 已能量出的整对不适用)都不算"未判定",且必须原样保留;
+    // 可测对的坏裁决拒写(不许借重落账把坏裁决冲成 ok)
     const keptRulings = new Set(
       par.deltas
-        .filter((d) => d.state === 'undetermined' && prior?.pairs?.[d.name]?.state === 'not-applicable')
-        .filter((d) => validateNotApplicable(prior.pairs[d.name]).ok)
+        .filter((d) => prior?.pairs?.[d.name]?.state === 'not-applicable')
+        .filter((d) => validateNotApplicable(prior.pairs[d.name], { measurable: d.state !== 'undetermined' }).ok)
         .map((d) => d.name),
     )
-    const unresolvedUndet = par.deltas.filter((d) => d.state === 'undetermined').length - keptRulings.size
+    const brokenRulings = par.deltas.filter(
+      (d) =>
+        d.state !== 'undetermined' &&
+        prior?.pairs?.[d.name]?.state === 'not-applicable' &&
+        !validateNotApplicable(prior.pairs[d.name], { measurable: true }).ok,
+    )
+    if (brokenRulings.length)
+      die(
+        `拒写基线:${brokenRulings.map((d) => d.name).join(', ')} 的 not-applicable 裁决无效 —— 不得用重落账把坏裁决冲成 ok`,
+        2,
+      )
+    const undetAdjudicated = [...keptRulings].filter(
+      (n) => par.deltas.find((d) => d.name === n)?.state === 'undetermined',
+    ).length
+    const unresolvedUndet = par.deltas.filter((d) => d.state === 'undetermined').length - undetAdjudicated
     if (par.deltas.length > 0 && unresolvedUndet / par.deltas.length > 0.5)
       die(`拒写基线:${unresolvedUndet}/${par.deltas.length} 对未判定 —— 多半是编译面瞬时取不到,不得把"没读到"誊进台账冒充"判过"`, 2)
+    const live = par.deltas.filter((d) => !keptRulings.has(d.name))
     const out = {
       generatedAt: new Date().toISOString(),
       face,
-      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。升绝对零前置=存量归零。',
+      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。升绝对零前置=存量归零。',
       pairs: {},
       counts: {
         pairs: par.deltas.length,
-        drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
-        aligned: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal === 0).length,
+        drifted: live.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
+        aligned: live.filter((d) => d.state === 'ok' && d.driftTotal === 0).length,
         undetermined: unresolvedUndet,
         notApplicable: keptRulings.size,
-        maxKeyDrift: Math.max(0, ...par.deltas.map((d) => d.driftTotal ?? 0)),
-        driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+        maxKeyDrift: live.length ? Math.max(0, ...live.map((d) => d.driftTotal ?? 0)) : 0,
+        driftKeysTotal: live.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+        adjudicatedDriftKeys: par.deltas
+          .filter((d) => keptRulings.has(d.name))
+          .reduce((s, d) => s + (d.driftTotal ?? 0), 0),
         equivalenceEntries: equivalenceEntryCount,
         mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
       },
     }
-    for (const d of par.deltas) out.pairs[d.name] = buildBaselineEntry(d, prior?.pairs?.[d.name])
+    for (const d of par.deltas)
+      out.pairs[d.name] = keptRulings.has(d.name) ? prior.pairs[d.name] : buildBaselineEntry(d, prior?.pairs?.[d.name])
     writeFileSync(join(ROOT, BASELINE_REL), JSON.stringify(out, null, 2) + '\n', 'utf8')
     log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 裁决不适用=${out.counts.notApplicable} 漂移键总数=${out.counts.driftKeysTotal})`)
     process.exit(0)
@@ -342,13 +372,15 @@ async function main() {
   }
 
   const { bad, warn, shrunk, adjudicated } = verifyAgainstBaseline(par.deltas, baseline, { equivalenceEntryCount })
-  const undetTotal = par.deltas.filter((d) => d.state === 'undetermined').length
+  const adj = new Set(adjudicated.map((a) => a.pair))
+  const live = par.deltas.filter((d) => !adj.has(d.name))
   const counts = {
     pairs: par.deltas.length,
-    drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
-    undetermined: undetTotal - adjudicated.length,
+    drifted: live.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
+    undetermined: par.deltas.filter((d) => d.state === 'undetermined' && !adj.has(d.name)).length,
     notApplicable: adjudicated.length,
-    driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+    adjudicatedDriftKeys: adjudicated.reduce((s, a) => s + (a.driftKeys ?? 0), 0),
+    driftKeysTotal: live.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
     mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
     equivalenceEntries: equivalenceEntryCount,
     newBad: bad.length,
@@ -359,11 +391,12 @@ async function main() {
   else {
     log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
     log(
-      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}` : ''} · 本轮新增退化 ${bad.length}`,
+      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}(另 ${counts.adjudicatedDriftKeys} 键整对外置)` : ''} · 本轮新增退化 ${bad.length}`,
     )
     for (const d of par.deltas)
       for (const m of d.mapped ?? []) log(`  ≡ 语义等价 ${d.name}:rn[${m.ours}]↔mini[${m.theirs}](${m.kind})`)
-    for (const a of adjudicated) log(`  ⚪ ${a.pair}(not-applicable): owner=${a.owner} expires=${a.expires} —— ${a.why}`)
+    for (const a of adjudicated)
+      log(`  ⚪ ${a.pair}(not-applicable${a.measurable ? `,整对外置 ${a.driftKeys} 键` : ''}): owner=${a.owner} expires=${a.expires} —— ${a.why}`)
     for (const b of bad) log(`  🔴 ${b.pair}(${b.kind}):${b.detail ?? b.why ?? ''}`)
     for (const w of warn) log(`  ⚠️ ${w.pair}(${w.kind}):${w.why ?? ''}`)
     for (const s of shrunk) log(`  ✅ 收敛 ${s.pair}: 已消键 rn[${s.goneRn}] mini[${s.goneMini}] —— 复核后可 --update-baseline 收紧`)
@@ -432,6 +465,28 @@ function selfTest() {
       fixedNow,
     )
     return v.adjudicated.length === 0 && v.warn.some((w) => w.pair === 'NA' && w.kind === 'undetermined' && /owner|expires|evidence/.test(w.why))
+  })())
+  // 可测对(同名不同物整对)的 pair-level 裁决:有效 ⇒ 已裁决且剔除存量;无效 ⇒ 判红,不得洗绿
+  const measuredRuling = { ...ruling, evidence: [ruling.evidence[0], 'apps/miniapp-taro/src/components/ScreenStates.taro.tsx:47'] }
+  t('可测对 + 有效整对裁决 ⇒ 已裁决,存量剔除且不判红', (() => {
+    const v = verifyAgainstBaseline([d('FB', { onlyRn: ['a'], onlyMini: ['b'], driftTotal: 2 })], { pairs: { FB: measuredRuling } }, fixedNow)
+    return v.bad.length === 0 && v.adjudicated.length === 1 && v.adjudicated[0].measurable === true && v.adjudicated[0].driftKeys === 2
+  })())
+  t('可测对 + 裁决仅 1 条证据 ⇒ 判红 invalid-not-applicable-ruling', (() => {
+    const v = verifyAgainstBaseline(
+      [d('FB', { onlyRn: ['a'], driftTotal: 1 })],
+      { pairs: { FB: { ...measuredRuling, evidence: [measuredRuling.evidence[0]] } } },
+      fixedNow,
+    )
+    return v.bad.length === 1 && v.bad[0].kind === 'invalid-not-applicable-ruling'
+  })())
+  t('可测对 + 裁决缺 owner ⇒ 判红(不许把单键缺口洗成整对不适用)', (() => {
+    const v = verifyAgainstBaseline(
+      [d('FB', { onlyMini: ['b'], driftTotal: 1 })],
+      { pairs: { FB: { ...measuredRuling, owner: '' } } },
+      fixedNow,
+    )
+    return v.bad.length === 1 && v.bad[0].kind === 'invalid-not-applicable-ruling'
   })())
   let fails = 0
   for (const [label, cond] of checks) {
