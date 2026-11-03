@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ModelEditFieldValues } from '../../../types'
 import {
   buildModelEditBillingPayload,
+  MODEL_EDIT_READ_ONLY_FIELDS,
   submitModelEdit,
+  type ModelEditBillingPayload,
   type ModelEditUpdateResult,
 } from '../model-edit-save'
 
@@ -105,6 +107,65 @@ describe('submitModelEdit — 成功只在真实请求成功之后出现', () =>
     await submitModelEdit(updateBilling, 'agent-1', FIELDS)
 
     expect(updateBilling).toHaveBeenCalledWith('agent-1', { price: 9.9, isFree: false })
+  })
+})
+
+describe('MODEL_EDIT_READ_ONLY_FIELDS — 置灰字段不进请求 body', () => {
+  it('清单恰为后端无列/无法忠实映射的 6 项,且不含 price / saleType', () => {
+    expect([...MODEL_EDIT_READ_ONLY_FIELDS]).toEqual([
+      'categories',
+      'dept',
+      'cycle',
+      'freeDur',
+      'audience',
+      'discount',
+    ])
+    expect(MODEL_EDIT_READ_ONLY_FIELDS).not.toContain('price')
+    expect(MODEL_EDIT_READ_ONLY_FIELDS).not.toContain('saleType')
+  })
+
+  it('payload 只含后端真实两列,置灰字段全部缺席', () => {
+    const payload = buildModelEditBillingPayload(FIELDS)
+
+    expect(Object.keys(payload).sort()).toEqual(['isFree', 'price'])
+    for (const field of MODEL_EDIT_READ_ONLY_FIELDS) {
+      expect(payload).not.toHaveProperty(field)
+    }
+  })
+
+  it('改动全部置灰字段后,驱动层提交仍是 {price, isFree}', async () => {
+    let submitted: ModelEditBillingPayload | undefined
+    const updateBilling = vi.fn(
+      async (_agentId: string, payload: ModelEditBillingPayload): Promise<ModelEditUpdateResult> => {
+        submitted = payload
+        return { success: true }
+      },
+    )
+    const changed: ModelEditFieldValues = {
+      ...FIELDS,
+      categories: ['2', '3'],
+      dept: 'd4',
+      cycle: 'permanent',
+      freeDur: '三个月',
+      audience: 'member',
+      discount: '2',
+    }
+
+    await submitModelEdit(updateBilling, 'agent-1', changed)
+
+    expect(updateBilling).toHaveBeenCalledTimes(1)
+    expect(submitted).toEqual({ price: 9.9, isFree: false })
+    for (const field of MODEL_EDIT_READ_ONLY_FIELDS) {
+      expect(submitted).not.toHaveProperty(field)
+    }
+  })
+
+  it('saleType 是唯一接真实接口的表单项:free ⇒ isFree=true、price=0', async () => {
+    const updateBilling = vi.fn(async (): Promise<ModelEditUpdateResult> => ({ success: true }))
+
+    await submitModelEdit(updateBilling, 'agent-1', { ...FIELDS, saleType: 'free' })
+
+    expect(updateBilling).toHaveBeenCalledWith('agent-1', { price: 0, isFree: true })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

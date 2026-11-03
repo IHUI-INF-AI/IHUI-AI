@@ -29,6 +29,20 @@ export interface ModelEditUpdateResult {
 
 export type ModelEditSaveOutcome = { ok: true } | { ok: false; error: Error }
 
+/**
+ * 只读字段清单:后端没有对应列,或形态无法忠实表达(categories 多选 vs 单值 categoryId)。
+ * UI 据此置灰,驱动层 payload 只出现 price/isFree —— 两边共用同一份清单,避免「能改但不生效」。
+ * saleType 不在清单内:它由 buildModelEditBillingPayload 映射为真实列 isFree。
+ */
+export const MODEL_EDIT_READ_ONLY_FIELDS = [
+  'categories',
+  'dept',
+  'cycle',
+  'freeDur',
+  'audience',
+  'discount',
+] as const
+
 /** 表单 → PUT /agents/:agentId 的可落库两列(与 web 编辑页字段名一致) */
 export function buildModelEditBillingPayload(
   fields: ModelEditFieldValues,
