@@ -14,8 +14,9 @@
  *   ④ 留痕缺失 / 坏行 ⇒ `undetermined`,**exit 0**(取不到输入不许给绿灯,但也不许拦提交);
  *   ⑤ 反向例两条:直接改判据源码再跑同一批夹具,证明 ①③ 的红是判据挣来的,不是断言写死的。
  *
- * 端口占用纪律:开发库(5432 的消费面)可能真在 8801/8802/8803 上跑,所以占口只在**一个 test 内**
- * 且 `finally` 立刻 close();8801 若已被真服务占用则退化为临时口(判据一样成立,只是口号不同)。
+ * 端口占用纪律:占口只在**一个 test 内**且 `finally` 立刻 close();口号一律由 `listen(0)` 现取,
+ * 不写死本机端口 —— 本机 8801 被生产 WEB-ROUTER 真实占用(绑定时 Windows 给 EACCES 而非 EADDRINUSE),
+ * 写死会让本测试依赖本机服务状态。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -62,25 +63,18 @@ function ledgerWith(days, name) {
   return p
 }
 
-/** 起一个临时监听;8801 被真服务占着时退到 :0(返回实际口号)。 */
-async function occupy(preferred) {
-  const attempt = (port) =>
-    new Promise((resolve, reject) => {
-      const srv = createServer()
-      srv.once('error', (e) => reject(e))
-      srv.listen(port, '127.0.0.1', () => resolve({ srv, port: srv.address().port }))
-    })
-  try {
-    return await attempt(preferred)
-  } catch (e) {
-    if (String(e?.code) !== 'EADDRINUSE') throw e
-    return await attempt(0)
-  }
+/** 起一个临时监听(:0 由内核分配),返回实际口号;不写死本机端口,与任何服务状态无关。 */
+async function occupy() {
+  return await new Promise((resolve, reject) => {
+    const srv = createServer()
+    srv.once('error', reject)
+    srv.listen(0, '127.0.0.1', () => resolve({ srv, port: srv.address().port }))
+  })
 }
 
 // ① 端口有占用 ⇒ deferred,且点名端口
 test('① 端口有占用 ⇒ deferred 且点名该端口', async () => {
-  const held = await occupy(8801)
+  const held = await occupy()
   try {
     const win = await probeWindow({ ports: [held.port] })
     assert.deepEqual(win.live, [held.port], '占住的口必须被探成 live')
@@ -208,4 +202,15 @@ test('⑥ CLI 冒烟:现盘/临时留痕任一情形都 exit 0', () => {
   assert.match(r.stdout, /\[dev-db-rotation-window\] state=skip/)
   assert.ok(existsSync(SCRIPT))
 })
+// ⑦ 结构锁:本文件不得再写死 8801 的绑定/URL(端口必须由 listen(0) 现取)
+test('⑦ 结构锁:不得再写死 8801 绑定/URL,且检测器本身有牙', () => {
+  const PORT = '88' + '01'
+  const needles = [`:${PORT}`, `listen(${PORT}`, `listen( ${PORT}`, `port: ${PORT}`, `ports: [${PORT}]`]
+  const hitsIn = (src) => needles.filter((n) => src.includes(n))
+  // 检测器自检:合成样本必须命中;若这条自检被删/改坏,锁就退化成空转
+  assert.deepEqual(hitsIn(`srv.listen(${PORT}, '127.0.0.1')\nconst u = 'http://127.0.0.1:${PORT}/api'`), [`:${PORT}`, `listen(${PORT}`], '检测器失灵')
+  const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  assert.deepEqual(hitsIn(src), [], `端口须由 listen(0) 现取,实得命中:${hitsIn(src).join(' | ')}`)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

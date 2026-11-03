@@ -65,7 +65,7 @@ export function readFaceText(rel, face = FACE_SEL.face, root = ROOT) {
 }
 
 /** 按被审面取闸门配置;取不到抛 Undetermined,由调用方折成 exit 2 —— 不回落另一个面。 */
-export function readGatesFace(face = FACE_SEL, root = ROOT) {
+export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
   if (face === 'worktree') {
     const t = readWorktreeFile(root, GATES_REL)
     if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${GATES_REL}`)
@@ -387,18 +387,22 @@ async function selfTest() {
     return r.state === 'drift' && r.next.includes('Nope-Repo-ZZZ')
   })())
   ok('H3 空模板 ⇒ unjudged(不冒充"健康")', judgePreflight('  ', root).state === 'unjudged')
+  // 封票夹具必须用相对时间:绝对时刻一过期,判据就必然落到"已解封"分支,用例永久红(H4)
+  // 或空转假绿(H5)。语义是"此刻仍在封禁中",故取 now+1h。
   ok('H4 冤封识别:ERR_MODULE_NOT_FOUND 的失败 + 同键 quarantined ⇒ drift', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
     const ev = [
       { action: 'session-failed', ticketKey: 'k1', exitCode: 1, why: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'G:/x'" },
-      { action: 'quarantined', ticketKey: 'k1', until: '2026-11-03T00:00:00.000Z', ticketLine: 'X-1 某票' },
+      { action: 'quarantined', ticketKey: 'k1', until: future, ticketLine: 'X-1 某票' },
     ]
     const r = judgeMisattribution(ev)
     return r.state === 'drift' && r.readout.includes('1')
   })())
   ok('H5 变异:真·会话失败的封票不算冤(分型不得把票的失败也免掉)', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
     const ev = [
       { action: 'session-failed', ticketKey: 'k2', exitCode: 1, why: 'typecheck failed' },
-      { action: 'quarantined', ticketKey: 'k2', until: '2026-11-03T00:00:00.000Z', ticketLine: 'X-2' },
+      { action: 'quarantined', ticketKey: 'k2', until: future, ticketLine: 'X-2' },
     ]
     return judgeMisattribution(ev).state === 'ok'
   })())
@@ -463,6 +467,13 @@ async function selfTest() {
     } catch {
       return false
     }
+  })())
+  ok('H19b 不传 face ⇒ 默认取 FACE_SEL.face,而不是整个选面对象', (() => {
+    // 默认值是对象时 `face === 'staged'/'worktree'` 全落空 ⇒ 一律静默按 HEAD 读;
+    // 本机 --self-test 的 FACE_SEL.face 恰好也是 head,行为上看不出差别,故同时钉默认表达式本身
+    // (写死断言,不读环境变量;回归到对象写法即红)。
+    const defaultExpr = /face\s*=\s*FACE_SEL\.face\s*(?:,|\))/.test(readGatesFace.toString())
+    return defaultExpr && typeof FACE_SEL.face === 'string' && readGatesFace(undefined, ROOT) === readGatesFace(FACE_SEL.face, ROOT)
   })())
   const wiredSrc = 'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
   ok('H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)', judgeValveGate([], { mode: 'observe', headSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')

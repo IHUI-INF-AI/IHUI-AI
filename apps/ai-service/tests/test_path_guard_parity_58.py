@@ -262,11 +262,14 @@ def test_reject_message_wording_is_identical_across_paths(tmp_path, monkeypatch)
     assert mcp_msg == fe_msg
 
 
-async def test_read_paths_deliberately_not_gated(tmp_path, monkeypatch):
-    """刻意边界:写路径加固**不扩到读路径**。
+async def test_read_paths_git_dir_is_now_gated_by_sensitive_denylist(tmp_path, monkeypatch):
+    """2026-11-01 安全强化后的读边界:`.git/` 下路径必须被目录级 denylist 拒。
 
-    agent 需要读取仓库状态(如 .git/config)与依赖源码,读行为保持不变。
-    这条断言是为了防止后人把"统一策略"误解成"给所有入口都加一层"。
+    旧口径曾把"读路径不加黑名单"钉成刻意边界;但 read_file 敏感面加固
+    (`data`/`.uploads`/`logs`/`.ihui-agent`/`.git` 整目录拒)已证明读侧同样会被
+    一条 tools/call 拉到 `.git/config`(含远端凭据/URL)。本用例改为**更严**断言:
+    同一路径从"可读"翻转为 SENSITIVE_FILE_BLOCKED 且内容为空,防止后人以
+    "统一策略"为名把黑名单从读入口摘掉;普通文本文件仍由本文件其余用例覆盖可读性。
     """
     monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
     d = tmp_path / ".git"
@@ -274,8 +277,9 @@ async def test_read_paths_deliberately_not_gated(tmp_path, monkeypatch):
     f = d / "config"
     f.write_text("[core]\n\trepositoryformatversion = 0\n", encoding="utf-8")
     out = await _tool_read_file({"path": str(f)})
-    assert out["ok"] is True
-    assert "repositoryformatversion" in out["content"]
+    assert out["ok"] is False
+    assert out.get("errorCode") == "SENSITIVE_FILE_BLOCKED"
+    assert out["content"] == ""
 
 
 def test_media_save_path_deliberately_not_gated(tmp_path, monkeypatch):

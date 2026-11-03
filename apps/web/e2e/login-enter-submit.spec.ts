@@ -36,11 +36,28 @@ import { ADMIN_USER } from './fixtures'
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
 
-const test = base.extend<{ freshPage: Page }>({
+const test = base.extend<{ freshPage: Page; freshPageDomestic: Page }>({
   freshPage: async ({ browser }, providePage) => {
     // 不带 storageState 的全新 context,确保未登录态
     const context = await browser.newContext()
     // 隐藏 Next.js dev overlay,避免拦截点击
+    await context.addInitScript(() => {
+      // @ts-expect-error - 全局变量
+      window.__NEXT_DEV_INDICATOR_DISMISSED = true
+    })
+    const page = await context.newPage()
+    await providePage(page)
+    await context.close()
+  },
+  // 2026-11-03:手机验证码 tab 只在**国内 geo** 的登录布局里存在(region-priority 2026-10-26:
+  // 海外登录面移除短信 tab,phone 表单在海外是产品上不可达的入口)。本 spec 自建 context
+  // (browser.newContext 不继承 playwright.config 的 extraHTTPHeaders),CI runner 又被
+  // 判成海外 ⇒ login-tab-phone 恒缺失,用例空转 60s。此夹具显式声明国内,让 phone 表单
+  // 以真实可用的产品形态出现;协议自动弹窗由 openLoginDialog 统一按「不同意」收起。
+  freshPageDomestic: async ({ browser }, providePage) => {
+    const context = await browser.newContext({
+      extraHTTPHeaders: { 'CF-IPCountry': 'CN' },
+    })
     await context.addInitScript(() => {
       // @ts-expect-error - 全局变量
       window.__NEXT_DEV_INDICATOR_DISMISSED = true
@@ -118,6 +135,15 @@ async function openLoginDialog(
   const dialog = page.getByTestId('login-dialog')
   await ensureLoginDialogOpen(page)
   await expect(dialog).toBeVisible({ timeout: 5000 })
+
+  // 2026-11-03:国内 geo 首屏主推扫码 tab,进面板即自动弹协议窗(region-priority 方案①);
+  // freshPageDomestic 的用例必须先收起它,否则 tab 点击被判被 agreement-notice 拦截。
+  // 海外 geo 下不弹,guard 跳过。
+  const autoAgreementDisagree = page.getByTestId('agreement-notice-disagree')
+  if (await autoAgreementDisagree.isVisible().catch(() => false)) {
+    await autoAgreementDisagree.click()
+    await expect(autoAgreementDisagree).toBeHidden({ timeout: 2000 })
+  }
 
   await page.getByTestId(tabTestId).click()
   // 2026-08-26 修复:enableCredentialPersistence 后账号框为 AccountHistoryInput
@@ -197,7 +223,8 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
   })
 
   test.describe('手机验证码登录 tab', () => {
-    test('手机框 Enter → form submit', async ({ freshPage: page }) => {
+    // 手机验证码 tab 仅国内 geo 提供(海外登录面已移除短信入口);统一走 domestic 夹具。
+    test('手机框 Enter → form submit', async ({ freshPageDomestic: page }) => {
       test.setTimeout(60000)
       await openLoginDialog(page, 'login-tab-phone', '#login-form-phone')
       await installSubmitListener(page)
@@ -210,7 +237,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       expect(count, '手机框 Enter 应触发 form submit').toBeGreaterThanOrEqual(1)
     })
 
-    test('验证码框 Enter → form submit', async ({ freshPage: page }) => {
+    test('验证码框 Enter → form submit', async ({ freshPageDomestic: page }) => {
       test.setTimeout(60000)
       await openLoginDialog(page, 'login-tab-phone', '#login-form-phone')
       await installSubmitListener(page)

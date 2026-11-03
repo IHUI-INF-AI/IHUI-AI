@@ -433,4 +433,46 @@ test('⑤ 形状锁:封与解都不再拿工作树哈希当绑定值(反向断�
     'unlock 又回到绑工作树哈希(会造出"放了锁仍然红")',
   )
 })
+
+/**
+ * ⑥ 未知旗标必须当场失败(2026-11-03 本会话实踩)。写成 `--check --rev <sha>`(真名 `--against-rev`)
+ * 时旧实现把它当不存在,静默判**自己那枚 HEAD** 并报绿 —— 同一时刻生产签出对同一 sha 判红。
+ * 假绿比红贵得多:它会让人顺着错方向去改别的格子。失效方向固定为"多要一次定向说明"(§0.10)。
+ */
+test('⑥ CLI 白名单:未知旗标/缺值/游离参数一律判用法错,已知组合照常通过', () => {
+  const bad = rg.parseCliArgs(['--check', '--rev', 'f'.repeat(40)])
+  assert.equal(bad.ok, false, '--rev 不存在,必须被点名而不是被忽略')
+  assert.ok(
+    bad.unknown.includes('--rev') || bad.unknown.some((u) => u.startsWith('--rev')),
+    `未知清单要含 --rev,实得 ${JSON.stringify(bad.unknown)}`,
+  )
+  assert.equal(rg.parseCliArgs(['--reason']).ok, false, '值旗标后面没有值 ⇒ 必须判缺值')
+  assert.equal(
+    rg.parseCliArgs(['--seal']).ok,
+    true,
+    '--seal 单独出现是合法形态(空理由由 seal() 自己拒,不靠 CLI 白名单冒充)',
+  )
+  assert.equal(rg.parseCliArgs(['--check', '--json']).ok, true, '合法组合不得被误拦')
+  assert.equal(
+    rg.parseCliArgs(['--check', '--against-rev', 'f'.repeat(40)]).ok,
+    true,
+    '真名旗标照常通过',
+  )
+  assert.equal(
+    rg.parseCliArgs(['--check', '--against-rev', '--json']).ok,
+    false,
+    '值位上出现另一个旗标 ⇒ 判缺值,不能把 --json 当成 rev 吃掉',
+  )
+  assert.equal(rg.parseCliArgs(['--self-test']).ok, true, '自检档照常通过')
+})
+
+test('⑥ 形状锁:main() 必须在任何动作之前拒绝未知旗标(拒绝早于分派才可能拦住假绿)', () => {
+  const src = readFileSync(new URL('../root-guard.mjs', import.meta.url), 'utf8')
+  const m = src.slice(src.indexOf('function main(argv)'))
+  const guardAt = m.indexOf('parseCliArgs(argv)')
+  const dispatchAt = m.indexOf("has('--self-test')")
+  assert.ok(guardAt > 0 && dispatchAt > 0, '找不到拒绝器或分派点')
+  assert.ok(guardAt < dispatchAt, '拒绝必须排在任何 --flag 分派之前')
+  assert.ok(/process\.exitCode = EXIT_UNKNOWN/.test(m.slice(0, guardAt + 900)), '用法错必须顶未判定/失败退出码')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

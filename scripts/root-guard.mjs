@@ -550,7 +550,68 @@ function selfTest() {
   console.log(`self-test: 全绿(9 组断言;必备目标 ${REQUIRED_TARGET_IDS.join('/')})`)
 }
 
+/**
+ * CLI 参数白名单(2026-11-03 立)。为什么必须有这一格——本器当天实测踩中:
+ * `node scripts/root-guard.mjs --check --rev <40位sha>` 里的 `--rev` **不是**本器的旗标(真名是
+ * `--against-rev`),而旧实现只按 `has('--check')` 之类分支挑动作,未知旗标被静默忽略 ⇒ 它判的是
+ * **自己那枚 HEAD** 却让人以为判的是指定面,当场给出一个假绿(我据此差点判"清单没问题、红在别处",
+ * 而同一时刻生产签出对同一枚 sha 判红)。这正是台账票 RP-79/RP-91 那一族("未知旗标⇒用法错 exit 2")
+ * 在闸面上的形态:失效方向必须是"当场失败并给真名",绝不能是"照默认跑一遍还报绿"。
+ */
+const CLI_SWITCHES = new Set([
+  '--check',
+  '--json',
+  '--seal',
+  '--unlock',
+  '--self-test',
+  '--help',
+  '-h',
+])
+const CLI_VALUE_FLAGS = new Set([
+  '--reason',
+  '--target',
+  '--ttl-min',
+  '--against-rev',
+  '--against-remote',
+])
+/** 纯函数(自检与镜像都问它):返回 `{ ok, unknown, values }`,`values` 是已知值旗标取到的值。 */
+export function parseCliArgs(argv) {
+  const unknown = []
+  const values = {}
+  const list = Array.from(argv ?? [])
+  for (let i = 0; i < list.length; i++) {
+    const t = String(list[i])
+    if (CLI_SWITCHES.has(t)) continue
+    if (CLI_VALUE_FLAGS.has(t)) {
+      const v = list[i + 1]
+      if (v === undefined || String(v).startsWith('-')) {
+        unknown.push(`${t}(缺值)`)
+        continue
+      }
+      values[t] = v
+      i++
+      continue
+    }
+    if (t.startsWith('-')) unknown.push(t)
+    else unknown.push(`游离参数:${t}`)
+  }
+  return { ok: unknown.length === 0, unknown, values }
+}
+
 function main(argv) {
+  const usage = new Set(['--help', '-h'])
+  const cli = parseCliArgs(argv)
+  if (!cli.ok && !argv.some((a) => usage.has(a))) {
+    console.error(
+      `❌ 未知参数:${cli.unknown.join(' ')}\n` +
+        '   本器只认 --check / --json / --seal / --unlock / --self-test / --help,值旗标只有\n' +
+        '   --reason / --target / --ttl-min / --against-rev / --against-remote。\n' +
+        '   想指定被审面请写 `--check --against-rev <40位全量sha>`(`--rev` 不存在);\n' +
+        '   拼错若被忽略,这一轮判的就不是你点名的那一面,而账面看不出来(§0.4 同面同轮)。',
+    )
+    process.exitCode = EXIT_UNKNOWN
+    return
+  }
   const has = (f) => argv.includes(f)
   const val = (f, d = null) => {
     const i = argv.indexOf(f)
@@ -703,6 +764,7 @@ export const __test__ = {
   checkAll,
   exitCodeOf,
   faceDiagnosis,
+  parseCliArgs,
   seal,
   unlock,
 }

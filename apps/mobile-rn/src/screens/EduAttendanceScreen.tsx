@@ -20,7 +20,7 @@
  * 三屏(教师/本人/孩子)共用本文件导出的 attendanceBizDay / attendanceStatusTone /
  * attendanceStatusLabel(§0.6 单一真相源:第二份映射必然与新契约漂移)。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { QrCode } from 'lucide-react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
@@ -144,11 +144,18 @@ function EduAttendanceScreen() {
     void load()
   }, [load])
 
-  /** 行 id → 原始记录(发起写操作时取 studentId/classId/date,不复算、不本地造) */
-  const recordById = new Map(records.map((r) => [r.id, r]))
+  /**
+   * 行 id → 原始记录(发起写操作时取 studentId/classId/date,不复算、不本地造)。
+   * useMemo 是必需而非性能优化:它是下面 useCallback(依赖 recordById)的引用稳定前提,
+   * 每次渲染新建 Map 会让该回调的依赖逐渲染变化(exhaustive-deps 实测告警,且破坏 memo 语义)。
+   */
+  const recordById = useMemo(() => new Map(records.map((r) => [r.id, r])), [records])
 
-  /** 整班点名候选班级 = 当日列表里去重后的 classId(不新增取数端点) */
-  const classIds = [...new Set(records.map((r) => r.classId).filter((c): c is string => !!c))]
+  /** 整班点名候选班级 = 当日列表里去重后的 classId(不新增取数端点);用 useMemo 的理由同上(依赖 classIds)。 */
+  const classIds = useMemo(
+    () => [...new Set(records.map((r) => r.classId).filter((c): c is string => !!c))],
+    [records],
+  )
 
   /**
    * 教师代签/签退:成功后重新 GET 列表,以服务端回读为准(不做本地乐观更新)。

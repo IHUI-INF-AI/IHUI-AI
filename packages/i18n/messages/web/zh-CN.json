@@ -29577,7 +29577,9 @@
     "trendCountAxisLabel": "人次",
     "trendChartAria": "{scope}在所选时段的每日出勤率折线与状态构成堆叠柱",
     "statusOther": "其他",
-    "scopeAllClasses": "全部班级"
+    "scopeAllClasses": "全部班级",
+    "checkInAt": "签到时刻",
+    "backfillNeedsTime": "回填非当日考勤须给出该日内的签到时刻"
   },
   "eduCertificates": {
     "certificateNo": "编号：{no}",

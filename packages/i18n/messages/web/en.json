@@ -29573,7 +29573,9 @@
     "trendCountAxisLabel": "Records",
     "trendChartAria": "Daily attendance rate line with stacked status bars for {scope} in the selected period",
     "statusOther": "Other",
-    "scopeAllClasses": "All classes"
+    "scopeAllClasses": "All classes",
+    "checkInAt": "Check-in time",
+    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day"
   },
   "eduCertificates": {
     "certificateNo": "No.: {no}",
