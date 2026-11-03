@@ -65,9 +65,9 @@
 - `DOCKER_REGISTRY` — Docker 镜像仓库地址
 - `DOCKER_USERNAME` — Docker 仓库用户名
 - `DOCKER_PASSWORD` — Docker 仓库密码
-- `DEPLOY_SSH_PRIVATE_KEY` — 部署服务器 SSH 私钥(工作流 `blue-green-deploy.yml:34` 读的就是这个名字;旧文档写的 `DEPLOY_SSH_KEY` 不存在,照它配了也不会生效)
-- `DEPLOY_HOST` — 部署服务器地址 —— **2026-10-22 现读 `gh api repos/<owner>/<repo>/actions/secrets` 三枚里只注册了私钥这一枚,`DEPLOY_HOST`/`DEPLOY_USER` 均缺 ⇒ `ssh-keyscan -H ""` 当场 exit 1,蓝绿部署结构性跑不起来(不是构建问题)**
-- `DEPLOY_USER` — 部署服务器用户名 —— 同上,未注册
+- `DEPLOY_SSH_PRIVATE_KEY` — 部署服务器 SSH 私钥 —— **仅服务已退役的 `blue-green-deploy.yml`(2026-09-07 退役,目标 Linux/Docker 蓝绿架构已不存在),可不再维护;生产部署走生产机 `IHUI-DEPLOYLOOP`,不需要任何 SSH secret**
+- `DEPLOY_HOST` — 部署服务器地址 —— **仅服务已退役的 `blue-green-deploy.yml`,可不再维护**。2026-11-03 实测该值非空但公网 DNS 解析不到(`getaddrinfo ***`),工作流首个 fail-fast 闸已阻止误跑;生产部署与它无关
+- `DEPLOY_USER` — 部署服务器用户名 —— **仅服务已退役的 `blue-green-deploy.yml`,可不再维护**(同上)
 
 ### 代码签名（SignPath Foundation）
 
