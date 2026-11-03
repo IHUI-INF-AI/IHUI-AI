@@ -5763,6 +5763,7 @@
   },
   "ia": {
     "remainingPoints": "Remaining points",
+    "loginRequired": "Please log in first to use",
     "recharge": "Top up"
   },
   "uiCard": {

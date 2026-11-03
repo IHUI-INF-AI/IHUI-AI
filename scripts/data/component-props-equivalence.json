@@ -36,6 +36,18 @@
         "mini": "apps/miniapp-taro/src/components/ScrollJumpButton.tsx:64"
       },
       "rationale": "同一无障碍名称槽位:RN 由调用方给本地化字面量(屏幕阅读器只会念这一个字符串),小程序给 i18n 键由端内取词;两端都只喂 ariaLabel/accessibilityLabel,不参与可见渲染。"
+    },
+    {
+      "pair": "IntelligentAssistant",
+      "ours": "tokenQuantity",
+      "theirs": "tokenBalance",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/IntelligentAssistant.tsx:46",
+        "mini": "apps/miniapp-taro/src/components/IntelligentAssistant.tsx:69"
+      },
+      "rationale": "同一数据槽位:两端都只吃「剩余智汇值」这一个数字并喂给同一行余额文案,命名随端历史词汇(tokenQuantity/tokenBalance),不承载任何额外语义。"
     }
   ]
 }
