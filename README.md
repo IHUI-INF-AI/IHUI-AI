@@ -41854,3 +41854,8 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 | 边界条件缺失     | 4036 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **4036 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| API 路由 | 4685 | `apiRoutes` |
+| 测试文件 | 4038 | `testFiles` |
+| 跟踪文件 | 19026 | `trackedFiles` |
+- 小程序交互卫生(2026-11-03 立,blocking,runner id '290'): `check-miniapp-interaction-hygiene.mjs`(A1 假可点(View/Text 绑空实现 handler,或 className 带 pointer-events-none 却挂 onClick)与 A2 空端口(onNavigate/onToast/onPickFile 等端口被赋空实现)绝对零容忍;A3 无交互反馈(首读 174 处)与 A4 showModal 纯提示误用只出 advisory、不进退出码(§12e)。豁免只走具名台账 `scripts/data/miniapp-interaction-allowlist.json`。自检 `node scripts/check-miniapp-interaction-hygiene.mjs --self-test`(12 例)+ 镜像 `node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs`;应急放行 `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1`(留痕)。)
+- 跨端 / web↔RN 措辞一致性(2026-11-03 立,blocking,runner id '291'): `check-web-rn-copy-parity.mjs`(只比对 `scripts/data/web-rn-screen-map.jsonl` 里 aligned 的同屏映射;B1 = web 该屏已走 i18n 键而 RN 仍硬编码逐字相同的中文(JSX 文本节点与 placeholder/title/accessibilityLabel 等用户可见属性)⇒ 判红;B2 同值异键只出 advisory(合并键空间归人裁决,§12e)。存量认领走 `scripts/data/web-rn-copy-diffs.json`(owner/expires/evidence/count,到期即红、认领数少于现读即红)。自检 `node scripts/check-web-rn-copy-parity.mjs --self-test`(12 例)+ 镜像 `node --test scripts/tests/check-web-rn-copy-parity.test.mjs`;应急放行 `HUSKY_SKIP_WEB_RN_COPY_PARITY=1`(留痕)。)
