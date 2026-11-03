@@ -6974,7 +6974,8 @@
     "labelFreeDur": "Free duration",
     "labelSaleType": "Sale type",
     "submit": "Save",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "readOnlyHint": "This field can't be changed yet"
   },
   "modelIncome": {
     "accumulated": "Total earnings",

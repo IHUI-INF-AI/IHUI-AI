@@ -6974,7 +6974,8 @@
     "labelFreeDur": "免費時長",
     "labelSaleType": "販售類型",
     "submit": "儲存",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "readOnlyHint": "此欄位暫不支援修改"
   },
   "modelIncome": {
     "accumulated": "累計收入",

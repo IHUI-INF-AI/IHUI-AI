@@ -6974,7 +6974,8 @@
     "labelFreeDur": "免费时长",
     "labelSaleType": "售卖类型",
     "submit": "保存",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "readOnlyHint": "该字段暂不支持修改"
   },
   "modelIncome": {
     "accumulated": "累计收入",
