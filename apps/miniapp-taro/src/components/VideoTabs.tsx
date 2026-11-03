@@ -40,11 +40,11 @@ export default function VideoTabs(props: VideoTabsProps) {
             hoverClass="opacity-60"
           >
             <Text
-              className={`text-sm ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}`}
+              className={`text-body ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <Text className="text-xs ml-1 text-muted-foreground">{tab.count}</Text>
+                <Text className="text-label ml-1 text-muted-foreground">{tab.count}</Text>
               )}
             </Text>
             {isActive && (

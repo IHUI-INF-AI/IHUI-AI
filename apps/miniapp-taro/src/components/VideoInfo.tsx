@@ -24,28 +24,28 @@ export default function VideoInfo({ info = {} }: VideoInfoProps) {
   const tt = useTt()
   return (
     <View className="bg-card px-4 py-3">
-      <Text className="block text-base font-medium text-foreground">
+      <Text className="block text-title font-medium text-foreground">
         {info.title || tt('VideoInfo.p1', '视频详情')}
       </Text>
       <View className="flex items-center mt-2">
         {info.teacher && (
-          <Text className="text-xs text-muted-foreground mr-3">
+          <Text className="text-label text-muted-foreground mr-3">
             {tt('video.teacher', '讲师')}: {info.teacher}
           </Text>
         )}
         {info.duration && (
-          <Text className="text-xs text-muted-foreground">
+          <Text className="text-label text-muted-foreground">
             {tt('video.duration', '时长')}: {info.duration}
           </Text>
         )}
         {info.chapterCount !== undefined && info.chapterCount > 0 && (
-          <Text className="text-xs text-muted-foreground ml-3">
+          <Text className="text-label text-muted-foreground ml-3">
             {t('video.chapterCount', { n: info.chapterCount })}
           </Text>
         )}
       </View>
       {info.description && (
-        <Text className="block text-sm text-muted-foreground mt-2 leading-relaxed">
+        <Text className="block text-body text-muted-foreground mt-2 leading-relaxed">
           {info.description}
         </Text>
       )}

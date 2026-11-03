@@ -33,15 +33,15 @@ export default function LearningStreak({
     <View className="bg-card rounded-lg px-4 py-4">
       <View className="flex items-center justify-between mb-3">
         <View className="flex items-center">
-          <Text className="text-base font-semibold text-foreground">
+          <Text className="text-title font-semibold text-foreground">
             {tt('streak.title', '学习连签')}
           </Text>
-          <View className="ml-2 flex items-center gap-1 text-xs text-warning">
+          <View className="ml-2 flex items-center gap-1 text-label text-warning">
             <LineIcon name="flame" size={24} color="var(--color-warning)" />
             <Text>{t('streak.continuousDays', { n: streakDays })}</Text>
           </View>
         </View>
-        <Text className="text-xs text-muted-foreground">
+        <Text className="text-label text-muted-foreground">
           {t('streak.totalDays', { n: totalSigned })}
         </Text>
       </View>
@@ -69,14 +69,14 @@ export default function LearningStreak({
             {day.signed ? (
               <LineIcon name="check" size={28} color="var(--color-warning)" className="mt-[4rpx]" />
             ) : (
-              <Text className="text-sm mt-[4rpx] text-muted-foreground">·</Text>
+              <Text className="text-body mt-[4rpx] text-muted-foreground">·</Text>
             )}
           </View>
         ))}
       </View>
 
       <View
-        className={`w-full py-2 rounded-md text-center text-sm ${
+        className={`w-full py-2 rounded-md text-center text-body ${
           signedToday
             ? 'bg-muted text-muted-foreground'
             : 'bg-gradient-to-r from-[var(--color-brand-accent)] to-[var(--color-danger)] text-[var(--color-brand-accent-foreground)]'
