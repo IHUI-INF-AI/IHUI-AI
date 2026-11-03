@@ -1,0 +1,74 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+*/
+
+/*
+ * 营销首页专用窄字体子集(2026-11-03 立,字体 FEO 落地)
+ *
+ * 背景:全站 'HarmonyOS Sans SC'(app/globals.css @font-face)是 2,952 码位子集,
+ * 400/500/700 三字重合计 1,082,248 B;首页去重汉字 481 个(含拉丁/数字/标点)已实测
+ * 子集化零新增缺字,三字重合计 213,768 B(−80.2%)。
+ *
+ * 生效范围:仅 (marketing) 路由组(首页 /)通过 .font-scope-marketing 启用;
+ * 后台/用户路由继续用原 'HarmonyOS Sans SC',原字体文件保留不删(回滚路径)。
+ *
+ * 设计决策:
+ * 1. 新家族名单独起名('HarmonyOS Sans SC Home'),不改写原 @font-face ⇒ 浏览器只在
+ *    页面实际渲染该家族时下载窄子集,其余路由零影响。
+ * 2. 回退链刻意**不含** 'HarmonyOS Sans SC'(全量子集):@font-face 未声明 unicode-range,
+ *    浏览器不下载就无法得知其 cmap;首页若出现 哩/巴/哔 + 韩文 + emoji(全量子集本身也缺
+ *    这些字),会把 358KB×3 的全量字体拉下来,子集收益归零。缺字经通用链落 PingFang SC /
+ *    Microsoft YaHei,与现状渲染行为一致(现状这些字同样由系统字体渲染)。
+ * 3. 文件名带 home-subset-v1 版本段:浏览器/边缘缓存按 URL 键控,字符集变更时重做 v2
+ *    并改 src 即可强制刷新,无需依赖缓存过期策略。
+ * 4. 只声明 400/500/700 三字重:首页无 font-light/thin/extralight 用法(已 grep 核实);
+ *    font-semibold(600)按 CSS 字体匹配规则落 700 字面,与原家族(最接近 700)行为一致。
+ */
+
+@font-face {
+  font-family: 'HarmonyOS Sans SC Home';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_home-subset-v1-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'HarmonyOS Sans SC Home';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_home-subset-v1-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'HarmonyOS Sans SC Home';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/HarmonyOS_SansSC_home-subset-v1-700.woff2') format('woff2');
+}
+
+/*
+ * 营销容器字体作用域:覆盖 --font-sans / --font-sans-sc 并在容器上重新声明 font-family。
+ *
+ * 为什么必须重新声明 font-family:body 的 .font-sans 工具类在 body 上就把
+ * var(--font-sans) 解析成了计算值,后代继承的是这个**计算值**而非变量本身;
+ * 只在容器覆盖变量而不重新声明 font-family,容器及其子树不会有任何变化。
+ * 重新声明后,容器子树(含子树内显式带 .font-sans 的元素)都会按容器作用域里的
+ * 变量覆盖值解析,统一落窄子集。
+ *
+ * --font-sans-sc 一并防御性覆盖:当前首页子树无 font-sans-sc 用法(已 grep 核实),
+ * 但共享组件后续若经该变量引用字族,不会把全量字体带回首页。
+ */
+.font-scope-marketing {
+  --font-sans:
+    'HarmonyOS Sans SC Home', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji';
+  --font-sans-sc:
+    'HarmonyOS Sans SC Home', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC',
+    'Source Han Sans SC', 'Hiragino Sans GB', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+}
