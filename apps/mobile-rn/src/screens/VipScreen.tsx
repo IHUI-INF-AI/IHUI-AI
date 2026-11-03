@@ -43,6 +43,7 @@ import { useI18n } from '../i18n'
 import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { navigateAfterVipPay } from './vip-pay-exit'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -416,8 +417,9 @@ export function VipScreen() {
                   setToast(t('vipScreen.payFailed'))
                   return
                 }
-                setToast(t('vipScreen.pay.success'))
-                void load(true)
+                // nav-B:支付成功统一落支付结果页(replace:不可回退到已支付的待付页);
+                // 取消/未确认支付留在本页,仅提示,不产生跳转
+                navigateAfterVipPay(orderNo, onNavigate)
               } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err)
                 if (errMsg === 'WECHAT_NOT_INSTALLED') {
@@ -435,7 +437,7 @@ export function VipScreen() {
         ],
       )
     },
-    [t, load],
+    [t, onNavigate],
   )
 
   // indexs 变体「加入我们」:直接拉起支付
@@ -611,9 +613,9 @@ export function VipScreen() {
       <Pressable
         style={styles.levelBanner}
         onPress={() => {
-          // 孤儿路由修复:VipLevel 注册无入口,点击等级横幅进入等级详情
+          // nav-B:等级横幅走跨端逻辑名 VipUpgrade(落 VipLevel 同一壳,参数 id 一致)
           const firstLevel = levels[0]
-          if (firstLevel) onNavigate('VipLevel', { id: firstLevel.id })
+          if (firstLevel) onNavigate('VipUpgrade', { id: firstLevel.id })
         }}
         accessibilityRole="button"
         accessibilityLabel={t('vipScreen.banner.level')}
