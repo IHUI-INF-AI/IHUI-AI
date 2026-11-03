@@ -432,7 +432,7 @@ export default function MessageIndex() {
           />
           {/* 会话区标题(对齐 RN MessageCenterScreen convSection.convTitle) */}
           {!loading && filtered.length ? (
-            <Text className="block text-[length:26rpx] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
+            <Text className="block text-body-sm leading-[normal] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
               {t('messageCenter.conversations')}
             </Text>
           ) : null}
@@ -465,7 +465,7 @@ export default function MessageIndex() {
                     <Text className="text-strong font-semibold text-foreground truncate">
                       {room.name || t('message.unnamedRoom')}
                     </Text>
-                    <Text className="mt-[4rpx] text-[length:26rpx] text-muted-foreground truncate">
+                    <Text className="mt-[4rpx] text-body-sm leading-[normal] text-muted-foreground truncate">
                       {room.lastMessage || t('message.empty')}
                     </Text>
                   </View>

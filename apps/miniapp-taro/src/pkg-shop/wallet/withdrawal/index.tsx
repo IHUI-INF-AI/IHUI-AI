@@ -130,7 +130,7 @@ export default function WithdrawalPage() {
                 hoverClass="opacity-60"
               >
                 <View
-                  className={`w-[56rpx] h-[56rpx] rounded-lg flex items-center justify-center text-[length:26rpx] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
+                  className={`w-[56rpx] h-[56rpx] rounded-lg flex items-center justify-center text-body-sm leading-[normal] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
                 >
                   {m.icon}
                 </View>

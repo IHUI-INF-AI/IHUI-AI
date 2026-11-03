@@ -137,7 +137,7 @@ export function ImportAnalysisPanel({
             {tt('conversationImport.analysisTitle', '用场景分析')}
           </Text>
           <View onClick={onClose} hoverClass="opacity-60" className="py-[8rpx] px-[16rpx]">
-            <Text className="text-[length:26rpx] text-muted-foreground">
+            <Text className="text-body-sm leading-[normal] text-muted-foreground">
               {tt('conversationImport.analysisClose', '关闭')}
             </Text>
           </View>
@@ -166,7 +166,7 @@ export function ImportAnalysisPanel({
           {catalog.phase === 'ready' && (
             <View>
               {/* ① 选场景:推荐区(按来源给默认)+ 全库浏览 */}
-              <Text className="block text-[length:26rpx] text-foreground font-semibold mb-[12rpx]">
+              <Text className="block text-body-sm leading-[normal] text-foreground font-semibold mb-[12rpx]">
                 {tt('conversationImport.analysisScenarioLabel', '① 选择分析场景')}
               </Text>
               {catalog.recommended.length > 0 && (
@@ -240,7 +240,7 @@ export function ImportAnalysisPanel({
               {/* ② 填 variables */}
               {selected && (
                 <View className="mb-[20rpx]">
-                  <Text className="block text-[length:26rpx] text-foreground font-semibold mb-[12rpx]">
+                  <Text className="block text-body-sm leading-[normal] text-foreground font-semibold mb-[12rpx]">
                     {tt('conversationImport.analysisVariablesLabel', '② 填写变量：{title}', {
                       title: selected.title,
                     })}
@@ -256,7 +256,7 @@ export function ImportAnalysisPanel({
                           {name}
                         </Text>
                         <FocusInput
-                          className="h-[72rpx] px-[20rpx] text-[length:26rpx] text-foreground bg-card rounded-sm border border-border"
+                          className="h-[72rpx] px-[20rpx] text-body-sm leading-[normal] text-foreground bg-card rounded-sm border border-border"
                           value={variables[name] ?? ''}
                           placeholder={tt(
                             'conversationImport.analysisVarPlaceholder',
@@ -333,11 +333,11 @@ function ScenarioRow({
       }`}
     >
       <View onClick={onClick} hoverClass="opacity-80">
-        <Text className="block text-[length:26rpx] text-foreground font-semibold">{title}</Text>
+        <Text className="block text-body-sm leading-[normal] text-foreground font-semibold">
+          {title}
+        </Text>
         {subtitle !== '' && (
-          <Text className="block text-caption text-muted-foreground mt-[6rpx]">
-            {subtitle}
-          </Text>
+          <Text className="block text-caption text-muted-foreground mt-[6rpx]">{subtitle}</Text>
         )}
       </View>
     </ThemeRoot>

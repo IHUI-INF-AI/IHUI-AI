@@ -594,7 +594,7 @@ export default function AgentDetailPage() {
                       src={r.avatar || '/static/default-agent.png'}
                       mode="aspectFill"
                     />
-                    <Text className="block text-[length:26rpx] text-foreground font-medium mt-[8rpx] truncate">
+                    <Text className="block text-body-sm leading-[normal] text-foreground font-medium mt-[8rpx] truncate">
                       {r.name}
                     </Text>
                     {r.description && (
