@@ -219,7 +219,12 @@ function createStyles(tk: AppThemeTokens) {
     avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
     userMeta: { flex: 1, gap: rnSpacing.xs },
     nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    nickname: { flexShrink: 1, fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    nickname: {
+      flexShrink: 1,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
     realnameBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
