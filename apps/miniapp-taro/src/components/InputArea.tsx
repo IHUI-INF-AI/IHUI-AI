@@ -406,6 +406,7 @@ export default function InputArea({
                     <View
                       className="imgs-list-close"
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      hoverClass="opacity-60"
                       onClick={() => handleRemoveImage(index)}
                     >
                       <LineIcon name="x" size={toUnit(INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX)} />
@@ -871,7 +872,8 @@ export default function InputArea({
           {mode === 'text' ? (
             // 开关钮载体 = 矢量(AGENTS §4「UI 图标一律用矢量图标库,禁止 emoji 充当图标」);命中盒 w-9 h-9 / 圆角档 rounded-sm / 开合两态色档与原字符实现同档,墨迹取本文件既有具名档 ⇒ 不新增端内数字
             <View
-              className={`w-9 h-9 flex items-center justify-center rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
+              className={`min-w-[88rpx] min-h-[88rpx] flex items-center justify-center rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
+              hoverClass="opacity-60"
               onClick={toggleEmoji}
             >
               <LineIcon
