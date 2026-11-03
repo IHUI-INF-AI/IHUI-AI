@@ -30,13 +30,25 @@
  * --worktree 仅人工逃生舱,取不到不回落另一个面。
  *
  * 用法：node scripts/check-root-guard-manifest-sync.mjs [--staged|--worktree|--self-test|--json]
+ *       node scripts/check-root-guard-manifest-sync.mjs --against-remote origin [--json]
+ *       # 后者把被审面换成「远端 main 的当次 tip」—— 部署环真正会去构建的那一面。
  * 调度器：scripts/git-guardian.mjs 的 `auditRootGuardManifestSync()`(守护 tick,节流 + 跨档重报)
+ *
+ * 为什么要另开 --against-remote 这一档(2026-11-03 实测的盲区)：默认档判 HEAD,而 HEAD 是**本机
+ * 签出**的那枚。本机 main 长期落后 origin 时(实测 11-03 12:01 现读 44 枚本地独有 / 落后 317 枚),
+ * HEAD 面自洽与 origin 面自洽是两件事:origin 上「改了 guardian-runner 没同批 --seal」的提交,
+ * 本机 HEAD 根本不含它 ⇒ 巡检连判 12 轮「✅ 自洽」(03:54Z/04:09Z 逐条在日志),而部署环同时在
+ * 12:01/12:03/12:06 三轮 FAIL(rev=35bddefbd9 / 71672c409f)。判据在、调度在、**面取错了** ⇒
+ * 墙立了 4.7 小时无人从守护侧发现。
+ * tip 只认 `git ls-remote` 的当次回答,不读 `origin/main` 这个嵌套 ref —— 理由逐字记在
+ * `root-guard.mjs` 的取面注释(2026-09-13 与 09-28 两次实测该 ref 会被宿主清理层吞掉、永不更新)。
+ * ls-remote 取不到 / tip 的对象本地没有且补取一趟仍取不到 ⇒ 一律「未判定」,不冒绿(§0.3)。
  */
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import {
   ADVISORY_TARGET_IDS,
   MANIFEST_PATH,
@@ -57,6 +69,63 @@ function git(args) {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
+}
+
+const SHA40 = /^[0-9a-f]{40}$/
+
+/**
+ * 远端 main 的当次 tip:只认 `git ls-remote` 的回答,**不**读 `origin/main` 这个嵌套 ref。
+ * 不读 ref 的理由逐字记在 `root-guard.mjs` 的取面注释(2026-09-13 / 09-28 两次实测:该 ref 会被
+ * 宿主清理层吞掉、永不更新 ⇒ 拿它当被审面会在"旧面恰好自洽"时冒绿,比自锁更坏)。
+ *
+ * `run` 是注入缝(镜像测试用它构造三种答案,绝不在测试里碰网络);生产默认走 `lib/face-reader.mjs`
+ * 的 `gitRaw` —— 代理腿退化的换腿判据住在那一处,本器不另写一份(§0.6)。
+ * @returns {{ok:true,sha:string}|{ok:false,why:string}}
+ */
+export function resolveRemoteTip({ remote = 'origin', branch = 'main', run = (a) => gitRaw(a, ROOT) } = {}) {
+  let out = ''
+  try {
+    out = String(run(['ls-remote', remote, `refs/heads/${branch}`]) ?? '')
+  } catch (e) {
+    return { ok: false, why: `ls-remote ${remote} 失败:${String(e?.message ?? e).slice(0, 150)}` }
+  }
+  const sha = (out.split('\t')[0] ?? '').trim()
+  if (!SHA40.test(sha)) {
+    return {
+      ok: false,
+      why: `远端 ${remote}/${branch} 没答出 40 位 sha(回显「${out.trim().slice(0, 80) || '(空)'}」)`,
+    }
+  }
+  return { ok: true, sha }
+}
+
+/**
+ * 被审面 = 远端 tip,并且**对象得在本地拿得着**(否则 `git show <sha>:<path>` 结构上读不到)。
+ * 拿不到 ⇒ 补取一趟;补取后仍拿不到 ⇒ ok:false,由调用方落未判定 —— 不回落 HEAD 面(§0.4)。
+ * @returns {{ok:true,sha:string,fetched:boolean}|{ok:false,why:string}}
+ */
+export function resolveDeployFace({ remote = 'origin', branch = 'main', run = (a) => gitRaw(a, ROOT) } = {}) {
+  const tip = resolveRemoteTip({ remote, branch, run })
+  if (!tip.ok) return tip
+  const has = () => {
+    try {
+      run(['cat-file', '-e', `${tip.sha}^{commit}`])
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (has()) return { ok: true, sha: tip.sha, fetched: false }
+  try {
+    run(['fetch', remote, branch])
+  } catch {
+    /* 失败原因由下面第二次 has() 定论,不在这里猜网络 */
+  }
+  if (has()) return { ok: true, sha: tip.sha, fetched: true }
+  return {
+    ok: false,
+    why: `tip ${tip.sha.slice(0, 12)} 的对象本地取不到(ls-remote 答得出,cat-file -e 与补取一趟之后仍取不到)⇒ 该面无从取材`,
+  }
 }
 
 /**
@@ -107,30 +176,42 @@ export function judge({ manifestRaw, readRel }) {
 }
 
 /** 按判定面读单文件正文;取不到返回 null(不回落另一个面,§0.4)。 */
-function readFace(face, rel) {
+function readFace(face, rel, rev = '') {
   if (face === 'worktree') return readWorktreeFile(ROOT, rel)
-  const key = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
+  const key = face === 'staged' ? `:${rel}` : face === 'remote' ? `${rev}:${rel}` : `HEAD:${rel}`
   return catBatch(ROOT, [key]).get(key) ?? null
 }
 
-const faceReader = (face) => (rel) => readFace(face, rel)
+const faceReader = (face, rev = '') => (rel) => readFace(face, rel, rev)
 
 /** 点名「是谁把清单落下的」:取该规则文件最近一次改动(读不到就写未判定,不猜)。 */
-function blameLastCommit(rel) {
+function blameLastCommit(rel, rev = '') {
   try {
-    return (git(['log', '-1', '--format=%h %s', '--', rel]).trim().split('\n')[0] ?? '').trim()
+    const argv = rev
+      ? ['log', '-1', '--format=%h %s', rev, '--', rel]
+      : ['log', '-1', '--format=%h %s', '--', rel]
+    return (git(argv).trim().split('\n')[0] ?? '').trim()
   } catch {
     return ''
   }
 }
 
 /** 主判定:--staged 比「索引 vs HEAD」两面;全量档只判 HEAD(⇒ 存量档,报数不拦)。 */
-export function decide(face = 'head') {
-  if (face !== 'staged' && face !== 'head' && face !== 'worktree') {
-    return { exit: 2, lines: [`未知判定面 ${face}(只认 staged / head / worktree)`] }
+export function decide(face = 'head', rev = '') {
+  if (!['staged', 'head', 'worktree', 'remote'].includes(face)) {
+    return { exit: 2, lines: [`未知判定面 ${face}(只认 staged / head / worktree / remote)`] }
+  }
+  if (face === 'remote' && !SHA40.test(String(rev))) {
+    return {
+      exit: 2,
+      lines: [
+        `remote 面必须交一张 40 位 sha 的入场券(现收「${String(rev).slice(0, 20) || '(空)'}」)`,
+        '不冒绿也不冒红(§0.3):面都没定,判出来的自洽与不自洽都不算数。',
+      ],
+    }
   }
   const lines = []
-  const cur = judge({ manifestRaw: readFace(face, MANIFEST_REL), readRel: faceReader(face) })
+  const cur = judge({ manifestRaw: readFace(face, MANIFEST_REL, rev), readRel: faceReader(face, rev) })
   if (cur.state === 'undetermined') {
     return { exit: 2, lines: [`未判定:${cur.reason}`, '不冒绿也不冒红(§0.3):取不到输入不是「没问题」。'] }
   }
@@ -141,6 +222,20 @@ export function decide(face = 'head') {
     return { exit: 0, lines: [`✅ 根护栏清单与规则文件同面自洽(${face} 面)`, ...lines] }
   }
   const detail = cur.drift.map((d) => `  ✗ ${d.id} (${d.path}) 清单绑 ${d.expected} / 面上 ${d.actual}`)
+  if (face === 'remote') {
+    // 这一档不是"本次提交的错",而是"部署环下一轮就会撞的墙"—— 挂守护巡检,交到人通道(§5e)。
+    const blame = cur.drift.map((d) => `  · ${d.id} 最近一次改动:${blameLastCommit(d.path, rev) || '(未判定)'}`)
+    return {
+      exit: 1,
+      lines: [
+        `❌ 远端 tip ${String(rev).slice(0, 12)} 面上根护栏清单与规则文件脱钩 ⇒ 部署环一 ff 到这枚就 fail-closed,此后任何提交都不上线。`,
+        ...detail,
+        ...blame,
+        '出路:复核那一枚对规则文件的改动 → `node scripts/root-guard.mjs --seal --reason "<复核结论>"` → **清单与规则文件同枚提交并推送**。',
+        ...lines,
+      ],
+    }
+  }
   if (face === 'head' || face === 'worktree') {
     const blame = cur.drift.map((d) => `  · ${d.id} 最近一次改动:${blameLastCommit(d.path) || '(未判定)'}`)
     return {
@@ -233,15 +328,49 @@ function runSelfTest() {
 
 export async function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return runSelfTest()
-  const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
+  const remoteIdx = argv.indexOf('--against-remote')
+  const remoteName = remoteIdx >= 0 ? String(argv[remoteIdx + 1] ?? '').trim() : ''
+  if (argv.includes('--against-remote') && remoteName === '') {
+    // 给了旗却没人署名 ⇒ 面没定 ⇒ 未判定(不许默默退回 HEAD 面,那是另一张脸)
+    process.stdout.write(
+      `${JSON.stringify({ state: 'unjudged', face: 'remote', rev: null, drift: [], advisory: [], reason: '--against-remote 后面没给远端名(不默默回落 HEAD 面 —— §0.4)' })}\n`,
+    )
+    return 2
+  }
+  let rev = ''
+  let face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
+  if (remoteName !== '') {
+    face = 'remote'
+    const r = resolveDeployFace({ remote: remoteName })
+    if (!r.ok) {
+      const doc = {
+        state: 'unjudged',
+        face,
+        rev: null,
+        drift: [],
+        advisory: [],
+        reason: r.why,
+      }
+      if (argv.includes('--json')) {
+        process.stdout.write(`${JSON.stringify(doc)}\n`)
+      } else {
+        console.log(`❌ 未判定:${r.why}(不回落 HEAD 面,也不记绿 —— §0.3/§0.4)`)
+      }
+      return 2
+    }
+    rev = r.sha
+  }
   if (argv.includes('--json')) {
     // 守护派发档:结论走 stdout 的一行 JSON(形状由镜像测试钉住,不在派发侧复写)
-    const cur = judge({ manifestRaw: readFace(face, MANIFEST_REL), readRel: faceReader(face) })
+    const cur = judge({ manifestRaw: readFace(face, MANIFEST_REL, rev), readRel: faceReader(face, rev) })
     const base =
-      face === 'head' ? cur : judge({ manifestRaw: readFace('head', MANIFEST_REL), readRel: faceReader('head') })
+      face === 'head' || face === 'remote'
+        ? cur
+        : judge({ manifestRaw: readFace('head', MANIFEST_REL, ''), readRel: faceReader('head', '') })
     const out = {
       state: cur.state === 'undetermined' ? 'unjudged' : cur.state === 'drift' ? 'drift' : 'ok',
       face,
+      rev: face === 'remote' ? rev : null,
       drift: cur.drift ?? [],
       advisory: cur.advisory ?? [],
       baseState: base.state === 'undetermined' ? 'unjudged' : base.state,
@@ -250,15 +379,23 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(JSON.stringify(out) + '\n')
     return out.state === 'drift' ? 1 : out.state === 'unjudged' ? 2 : 0
   }
-  const r = decide(face)
+  const r = decide(face, rev)
   for (const l of r.lines) console.log(l)
   console.log(
-    `判定面:${face === 'staged' ? '索引 blob(git ls-files + :<path>)' : face === 'head' ? 'HEAD blob' : '工作树(仅人工逃生舱)'}`,
+    `判定面:${
+      face === 'staged'
+        ? '索引 blob(git ls-files + :<path>)'
+        : face === 'head'
+          ? 'HEAD blob'
+          : face === 'remote'
+            ? `远端 tip blob(${rev.slice(0, 12)})`
+            : '工作树(仅人工逃生舱)'
+    }`,
   )
   return r.exit
 }
 
-export const __test__ = { judge, decide, MANIFEST_REL, blameLastCommit }
+export const __test__ = { judge, decide, MANIFEST_REL, blameLastCommit, resolveRemoteTip, resolveDeployFace, SHA40 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
