@@ -132,6 +132,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 ## 9. 多端同步开发强制规则(强制)
 - 每个任务默认 8 端同步开发:"匹配连通好" = 代码同步 + 链路打通 + 验证齐绿;禁止只改一端交付、单端验证、分期交付。平台独占豁免须在 PROJECT_PLAN 显式标注。主 agent 用 §11 按端拆 subagent,跨端契约对齐不下放。
 - **登录/SSO 链路跨端自动同步**:共享登录 UI 只覆盖 mobile-rn,miniapp 登录页独立实现,两端都要动;deep-link scheme:mobile-rn/desktop `ihui://sso/callback`、miniapp `ihui-miniapp://sso/callback`,新增 scheme 同步登记 `SSO_ALLOWED_DEEP_LINK_SCHEMES`;web OAuth 中转页 + `apps/web/app/sso/*` 出口页。
+- **新增共享屏必须壳或台账二选一**:`packages/app/src/features/**` 新增 `*Screen.tsx` 时,同一提交内必须给 `apps/mobile-rn/src/screens/` 落对应薄壳(可先 `node scripts/gen-rn-shell-scaffold.mjs --screen <spec> --write` 生成骨架再人工补数据源),或在 `scripts/data/rn-host-shell-manual.json` 登记 owner/expires/evidence;两者都没有 ⇒ `check-rn-host-shell-coverage.mjs` 判红并打印造壳命令。
 - 守门(warn):`check-multi-end-sync.mjs`(pre-commit 第 21 项)。
 ## 9b. 单分支开发强制规则(强制)
 - 除 main 外禁止新建分支;普通功能/修复/重构/文档一律 main 直接 commit。豁免(逐条点名不静默):`/goal` 的 `goal/*` 临时分支(完成立即删)、48h 在飞窗口内的 PR 分支、linked worktree checkout 分支及其 origin 镜像、镜像远端与幻影引用、stale 远程跟踪引用(出路 `--refresh-remote`)、**`backup/` 与 `ihui-backup/` 引用永不判红**。已合并分支本会话内删净;删未合并分支前必须 tag 备份(§22)。日常 `git fetch origin --prune`。守门:`check-single-branch.mjs`(41,blocking;在飞窗口 `IHUI_SINGLE_BRANCH_GRACE_HOURS`)。
