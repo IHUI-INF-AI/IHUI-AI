@@ -142,7 +142,7 @@ export function currentActivityIsExploring(parts: readonly ToolCall[]): boolean 
 // ─── 行的构造(单条消息 / 单个轮次)─────────────────────────────────────────
 
 /** 该消息是否带"中间过程"(只有带过程的消息才值得被容器聚合)。 */
-export function hasIntermediateActivity(message: ChatMessage): boolean {
+function hasIntermediateActivity(message: ChatMessage): boolean {
   if ((message.toolCalls?.length ?? 0) > 0) return true
   if (message.reasoning && message.reasoning.length > 0) return true
   if ((message.planSteps?.length ?? 0) > 0) return true
@@ -158,7 +158,7 @@ export function hasIntermediateActivity(message: ChatMessage): boolean {
  * 额度动作族,收进折叠容器就等于把"该点哪儿"藏起来(与 `NEVER_FOLD_TOOLS` 同一判断口径)。
  * system 条目与用户消息天然不聚合(它们不是助手轮次),由分组层先分流。
  */
-export function isUnaggregatableAssistantMessage(message: ChatMessage): boolean {
+function isUnaggregatableAssistantMessage(message: ChatMessage): boolean {
   return message.role === 'assistant' && message.error === true
 }
 
@@ -310,7 +310,7 @@ function segmentRefs(segment: Segment): readonly ChatMessage[] {
 }
 
 /** 单个轮次 → 行序列(纯函数;缓存层按段复用,本函数是无缓存的对照基准)。 */
-export function buildTurnRows(turn: Turn): PresentationRow[] {
+function buildTurnRows(turn: Turn): PresentationRow[] {
   const rows: PresentationRow[] = []
   let runIndex = 0
   for (const segment of turn.segments) {

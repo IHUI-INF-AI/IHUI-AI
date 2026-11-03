@@ -28,7 +28,7 @@ type LogLevel = (typeof LOG_LEVELS)[number]
  * 经 `response-sanitizer → utils/crypto → config` 引回 logger,接上去即成 ESM 环。
  * 规则仍只有共享层那一份(`redactUrl` + `SECRET_RULES`),本文件不再有第二处实现。
  */
-export { redactCredentialText, redactCredentialStrings } from '../utils/redact-credential-text.js'
+export { redactCredentialText } from '../utils/redact-credential-text.js'
 import { redactCredentialStrings } from '../utils/redact-credential-text.js'
 
 function wrapLogger(log: FastifyBaseLogger, keys: Set<string>): FastifyBaseLogger {

@@ -220,14 +220,12 @@ export {
   type TypeStepName,
   type FontWeightName,
 } from './typography.js'
-// 阴影 / 层级档位唯一真相源(全端共用):RN 取 rnElevation(ShadowStyle 四元组),
-// 小程序 / web 取 taroElevation / ELEVATION_CSS(box-shadow 字符串)。
+// 阴影 / 层级档位唯一真相源(全端共用):RN 取 ELEVATION_STEPS(ShadowStyle 四元组),
+// 小程序 / web 取 ELEVATION_CSS / ELEVATION_CSS_VAR(box-shadow 字符串)。
 export {
   ELEVATION_STEPS,
   ELEVATION_CSS,
   ELEVATION_CSS_VAR,
-  rnElevation,
-  taroElevation,
   type RnElevation,
   type ElevationStep,
 } from './elevation.js'

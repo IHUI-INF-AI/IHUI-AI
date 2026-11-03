@@ -67,7 +67,7 @@ const SERVER_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟超时(用户登录可能耗
  * `http://127.0.0.1:1738` 这个 origin 上执行脚本(反射型 XSS)。回环不等于可信源 ——
  * 浏览器里那页与本 CLI 的回调页同源,能读到回调流程。
  */
-export function escapeHtmlText(value: string): string {
+function escapeHtmlText(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

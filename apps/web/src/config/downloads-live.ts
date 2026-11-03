@@ -67,7 +67,7 @@ const MINIAPP_QR_RELATIVE = join('public', 'images', 'common', 'miniapp-qr.png')
  * 用 127.0.0.1 而不是 localhost:入口 router 现读只绑 127.0.0.1,`localhost` 在双栈机上
  * 先解析 ::1 会 ECONNREFUSED —— 那种失败长得像"注册表没数据",会被误判成 unavailable。
  */
-export function localApiBase(envValue: string | undefined = process.env.API_URL): string {
+function localApiBase(envValue: string | undefined = process.env.API_URL): string {
   const raw = typeof envValue === 'string' ? envValue.trim() : ''
   return raw === '' ? 'http://127.0.0.1:8802' : raw.replace(/\/+$/, '')
 }
@@ -90,7 +90,7 @@ async function fetchJsonWithTimeout<T>(
 }
 
 /** 读 manifest 里扩展端那一格;文件缺失/形状不对一律 null(不算错,只是没有对账输入) */
-export function readExtensionManifest(dirRoot: string): ExtensionManifestEntry | null {
+function readExtensionManifest(dirRoot: string): ExtensionManifestEntry | null {
   const file = join(dirRoot, EXTENSION_MANIFEST_RELATIVE)
   if (!existsSync(file)) return null
   try {
@@ -111,7 +111,7 @@ export interface ExtensionDiskInputs {
 }
 
 /** 扩展端:枚举实物取最新一枚 —— 版本与体积都来自文件本身,换包即生效,不需要重新构建站点 */
-export function resolveExtensionFromDisk(inputs: ExtensionDiskInputs = {}): LivePlatformInfo {
+function resolveExtensionFromDisk(inputs: ExtensionDiskInputs = {}): LivePlatformInfo {
   const dirRoot = inputs.dirRoot ?? process.cwd()
   const nowIso = inputs.nowIso ?? new Date().toISOString()
   const dir = join(dirRoot, EXTENSION_DIR_RELATIVE)
@@ -137,7 +137,9 @@ export function resolveExtensionFromDisk(inputs: ExtensionDiskInputs = {}): Live
 }
 
 /** 小程序那一端:码是实物文件,读它就比写死"未接入"诚实(字节不够 = 占位图,仍算未接入) */
-export function resolveMiniappQrFromDisk(inputs: { dirRoot?: string; nowIso?: string } = {}): LivePlatformInfo {
+export function resolveMiniappQrFromDisk(
+  inputs: { dirRoot?: string; nowIso?: string } = {},
+): LivePlatformInfo {
   const dirRoot = inputs.dirRoot ?? process.cwd()
   const nowIso = inputs.nowIso ?? new Date().toISOString()
   const file = join(dirRoot, MINIAPP_QR_RELATIVE)
@@ -145,7 +147,12 @@ export function resolveMiniappQrFromDisk(inputs: { dirRoot?: string; nowIso?: st
     if (!existsSync(file)) return judgeMiniappQr({ exists: false, sizeBytes: 0 }, nowIso)
     return judgeMiniappQr({ exists: true, sizeBytes: statSync(file).size }, nowIso)
   } catch {
-    return { platform: 'wechat-miniapp', source: 'snapshot', reason: 'miniapp-qr-unreadable', resolvedAt: nowIso }
+    return {
+      platform: 'wechat-miniapp',
+      source: 'snapshot',
+      reason: 'miniapp-qr-unreadable',
+      resolvedAt: nowIso,
+    }
   }
 }
 
@@ -161,7 +168,7 @@ async function resolveAndroid(nowIso: string): Promise<LivePlatformInfo> {
 }
 
 /** RN 源码端与 Android 端是同一个包:只借版本/日期做标注,不给安装包(那格属 android-apk) */
-export function asMobileEnd(info: LivePlatformInfo): LivePlatformInfo {
+function asMobileEnd(info: LivePlatformInfo): LivePlatformInfo {
   return { ...info, platform: 'mobile', assets: undefined }
 }
 
@@ -184,7 +191,8 @@ function githubHeaders(): Record<string, string> {
 const IPA_POINTER_URL = `${siteLegBase()}/remote-images/download/${IOS_LATEST_KEY}`
 
 function siteLegBase(): string {
-  const raw = typeof process.env.IHUI_SITE_LEG_BASE === 'string' ? process.env.IHUI_SITE_LEG_BASE.trim() : ''
+  const raw =
+    typeof process.env.IHUI_SITE_LEG_BASE === 'string' ? process.env.IHUI_SITE_LEG_BASE.trim() : ''
   return (raw === '' ? 'https://www.aizhs.top' : raw).replace(/\/+$/, '')
 }
 
@@ -219,7 +227,12 @@ async function probeIpaSiteLeg(nowIso: string): Promise<LivePlatformInfo> {
     )
   } catch {
     // 探测失败 ≠ 该端没包:交调用方回落,并把原因带出去(两态不并桶,§0.3)
-    return { platform: 'ios', source: 'snapshot', reason: 'ipa-pointer-probe-failed', resolvedAt: nowIso }
+    return {
+      platform: 'ios',
+      source: 'snapshot',
+      reason: 'ipa-pointer-probe-failed',
+      resolvedAt: nowIso,
+    }
   }
 }
 
@@ -252,7 +265,8 @@ async function resolveCli(nowIso: string): Promise<LivePlatformInfo> {
  */
 async function resolveDesktop(nowIso: string): Promise<LivePlatformInfo> {
   const resolved = await resolveLiveDesktopFeed()
-  if (resolved.source === 'live') return toDesktopLiveInfo(resolved.data, nowIso, resolved.data.scan)
+  if (resolved.source === 'live')
+    return toDesktopLiveInfo(resolved.data, nowIso, resolved.data.scan)
   return {
     platform: 'desktop',
     source: 'snapshot',
