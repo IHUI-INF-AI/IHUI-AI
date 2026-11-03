@@ -1,0 +1,518 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import fs from 'node:fs'
+import 'dotenv/config'
+import { isProductionGuard } from './config/index.js'
+import type { Worker } from 'bullmq'
+import type { FastifyInstance } from 'fastify'
+import { buildServer } from './server.js'
+import { createShutdownSignalHandler } from './lib/shutdown-signals.js'
+import { startWorkers } from './workers/index.js'
+import { startSchedulerWorker } from './workers/scheduler-worker.js'
+import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
+import { initOtel } from './plugins/otel.js'
+import { isWechatPayConfigured, isPlatformCertConfigured } from './services/wechat-pay.js'
+import {
+  startAiWorldSyncScheduler,
+  stopAiWorldSyncScheduler,
+  stopRankingScheduler,
+  stopTrendingScheduler,
+} from './jobs/ai-world-sync.js'
+import { startHotWordsScheduler, stopHotWordsScheduler } from './jobs/hot-words-sync.js'
+import { startSourceProbeScheduler, stopSourceProbeScheduler } from './jobs/portal-source-probe.js'
+import {
+  startPiiRetentionScheduler,
+  stopPiiRetentionScheduler,
+} from './jobs/pii-retention-cleanup.js'
+// 86D(2026-09-28)审计证据链保留清理:结构行 180 天档只报数、原文 0 天档清墓碑(只 UPDATE 不 DELETE)。
+import {
+  startAuditEvidenceRetentionScheduler,
+  stopAuditEvidenceRetentionScheduler,
+} from './jobs/audit-evidence-retention.js'
+import {
+  startRelayAlertEvaluationScheduler,
+  stopRelayAlertEvaluationScheduler,
+} from './jobs/relay-alert-rules-evaluation.js'
+// 门 121 接线(2026-11-01):四族「写了保留策略却从未有人执行」的清理作业 ——
+// 过期验证码 / 到期·已撤销临时分享 / USAGE_RETENTION_DAYS 天前的渠道日用量 / 过期文件缓存。
+// 四族共用一枚日批 cron(每天 05:30,错开 03:30 PII 与 04:xx 那几档),outbox 那一族不在此面:
+// 它挂既有 outbox-drain-every-30s 轮询(见 plugins/scheduler.ts 的 pruneProcessedOutboxDue)。
+import {
+  startOpsRetentionScheduler,
+  stopOpsRetentionScheduler,
+} from './jobs/ops-retention-cleanup.js'
+import { startImageTaskWorker, stopImageTaskWorker } from './workers/image-task-worker.js'
+import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
+// G-916430③(机主拍板 2026-10-07):mail 欠投递读方 + :80 CDN 视野并入 API 进程内定时读方,
+// 不新增服务拓扑。UNDELIVERED 标记此前除提交链守门外无运行时消费者,:80 不在任何值守班眼里。
+import {
+  startOpsWatchReaderScheduler,
+  stopOpsWatchReaderScheduler,
+} from './jobs/ops-watch-reader.js'
+import {
+  startLiteLLMPriceSyncScheduler,
+  stopLiteLLMPriceSyncScheduler,
+} from './services/litellm-price-sync.js'
+// 中继出网代理分流(被墙 host 走本地代理,其余直连;未配置 RELAY_PROXY_URL 时 no-op)
+import { installRelayOutboundProxy } from './services/relay-outbound-proxy.js'
+import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
+// 访客链路测速 + 边缘缓存预热(同一形态:进程内定时读方,不新增服务拓扑,2026-10-19 立)
+import { startEdgeAccessProbe } from './services/edge-access.js'
+import {
+  startAgentAutomationScheduler,
+  stopAgentAutomationScheduler,
+} from './services/agent-automation-scheduler.js'
+// G2 结果推送(2026-10-30):把 server.pushNotification 注入自动化通知出口(调度器本身无 server)
+import { setAutomationNotificationPusher } from './services/automations/goal-loop.js'
+import { startPatrolScheduler, stopPatrolScheduler } from './services/patrol-scheduler.js'
+import { startQoderBridge, stopQoderBridge } from './services/qoder-bridge-client.js'
+import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
+import { routineManager } from './services/workspace-ai-service.js'
+import { stopScheduledWarmup } from './services/cache-warmup-service.js'
+import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
+import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
+import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
+import { logger } from './utils/logger.js'
+import { runShutdownPhases, type ShutdownPhase } from './utils/shutdown-phases.js'
+
+const PORT = Number(process.env.PORT ?? 8802)
+// 2026-10-28 安全加固:默认只监听回环地址,杜绝源站 8802 被公网直击
+// (Cloudflare/EO 隧道与 web→api 反代均走 127.0.0.1,无需 0.0.0.0 暴露)。
+// 需要跨机访问时在 .env 显式写 HOST=0.0.0.0 才放开。
+const HOST = process.env.HOST ?? '127.0.0.1'
+
+// ── 关停相位超时档位(取值依据,2026-09-27 有序相可靠性票)──────────────────
+// SYNC_STOP_MS=1s:以下 stop* 全部是 clearInterval / cron.stop 级别的同步收尾,
+//   正常耗时 <1ms;若某相跑满 1s 即已是挂死而非"慢"。
+//   (诚实登记:同步函数真死循环时事件循环被占死,任何 JS 超时都救不了 ——
+//    本档只对"返回 promise / 未来变异步"的 disposer 有牙,取值只为预算有界。)
+// QUEUE_WORKER_MS=5s:BullMQ worker.close() 需与 Redis 往返并等当前 job 结算。
+// SERVER_CLOSE_MS=8s:Fastify close 是最重的一步 —— 所有 onClose 钩子(WS 连接、
+//   DB 连接池、Redis、poolTracker 等)都挂在它身上统一释放,不拆plugins(禁改面)。
+// 总预算 = Σ各相 + 最大单相档(见 defaultShutdownBudgetMs)⇒ 当前组合 ≈ 44s,
+// 只有多相同时挂死才会顶到;正常关停 <3s。
+const SYNC_STOP_MS = 1_000
+const QUEUE_WORKER_MS = 5_000
+const SERVER_CLOSE_MS = 8_000
+
+/**
+ * listen 的上界。必须大于 server.ts 的 pluginTimeout(120s),否则一次正常的
+ * 慢启动会被本守卫误杀。
+ */
+const LISTEN_DEADLINE_MS = Number(process.env.API_STARTUP_LISTEN_DEADLINE_MS ?? 180_000)
+/** listen 失败后留给 shutdown 的时间;到点无条件退出。 */
+const SHUTDOWN_DEADLINE_MS = 10_000
+
+/** listen 成功之后置真:此后任何启动尾部异常都不该杀掉一个正在服务的进程。 */
+let isListening = false
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms).unref()
+  })
+}
+
+/**
+ * 2026-09-26 07:58 线上哑火:路由插件在**注册期**执行的建表 DDL 抛错,之后的 46 分钟里
+ * `sc query` 显示 RUNNING、ws-auto-recovery 照常每分钟写一行日志,8802 却从未 bind,
+ * 而日志里既没有 'Failed to start server'(listen 的 catch 没被命中)也没有
+ * 'Server listening' —— 即 listen() 这条 promise 既不 resolve 也不 reject。
+ * 所以 bind 必须有上界:无论异常是以拒绝形态落进下面的 catch,还是把 avvio 的
+ * ready 队列吊住,到点都要带着原因退出非零,交给服务管理器重启。
+ * 不许有"进程在、端口没有"这一格。
+ */
+async function listenWithinDeadline(server: FastifyInstance): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`server.listen() 未在 ${LISTEN_DEADLINE_MS}ms 内完成`)),
+      LISTEN_DEADLINE_MS,
+    )
+  })
+  try {
+    await Promise.race([server.listen({ port: PORT, host: HOST }), deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 启动期生产环境安全检查:
+ * - 微信支付私钥未配置 → 所有支付走 mock,真实支付无法完成(阻塞)
+ * - 微信支付平台证书未配置 → 所有支付回调验签失败,订单无法自动标记为 paid(阻塞)
+ *
+ * 仅在 NODE_ENV=production 触发,开发/测试环境允许降级。
+ * 阻塞策略:process.exit(1) 立即退出,避免带病运行。
+ */
+function checkProductionConfig(): void {
+  // 档位判定走 config.isProductionGuard 单源(守门语义见 config/index.ts 头注)
+  if (!isProductionGuard) return
+  const errors: string[] = []
+  if (!isWechatPayConfigured()) {
+    errors.push('WX_PAY_PRIVATE_KEY / WX_PAY_PRIVATE_KEY_PATH 至少配置一项')
+  }
+  if (!isPlatformCertConfigured()) {
+    errors.push('WX_PAY_PLATFORM_CERT / WX_PAY_PLATFORM_CERT_PATH 至少配置一项')
+  }
+  if (errors.length === 0) return
+  logger.error('❌ 生产环境微信支付配置不完整,启动中止:')
+  for (const e of errors) logger.error(`   - ${e}`)
+  logger.error('   参考 .env.production.example 补齐证书配置(证书放置项目内 cert/ 目录)')
+  process.exit(1)
+}
+
+// ── 蓝绿实例角色:进程内定时任务只由「当前活跃色」运行(2026-10-28 立)────────────
+// 为什么:部署时新旧两色并存(新色先起、健康后才切流,旧色再排空 20s 才停),两色都跑 cron
+// 会让告警规则评估(5min)/巡逻(60s)/Agent 自动化(60s)/图片 worker(30s)在同一 tick 各跑
+// 一遍 —— 代价是重复告警、重复自动化动作、重复上游生图计费。
+// 判据就是 ihui-api-bluegreen.ps1 原子写的状态文件(router 与部署脚本读的同一份)。
+// 未设 IHUI_API_COLOR 的实例(开发机 / 回滚成单实例)不启用这道门,行为与从前一致。
+const INSTANCE_COLOR = (() => {
+  const raw = (process.env.IHUI_API_COLOR ?? '').trim().toLowerCase()
+  return raw === 'blue' || raw === 'green' ? raw : null
+})()
+const BG_STATE_FILE =
+  process.env.IHUI_API_BG_STATE?.trim() || 'D:\\DevEnv\\ihui-prod\\deploy\\run\\api-bluegreen.json'
+const SCHEDULER_OWNER_POLL_MS = 2_000
+// 切流后旧色还要排空 20s(DrainSec)才停,这段它仍在跑 cron ⇒ 等到它停干净再接手。
+const SCHEDULER_OWNER_GRACE_MS = 30_000
+// 判定不出角色时的上界:到点 fail-open 启动(宁可重复跑一轮,也不让定时任务静默停摆)。
+const SCHEDULER_OWNER_TIMEOUT_MS = Number(
+  process.env.IHUI_API_SCHEDULER_OWNER_TIMEOUT_MS ?? 300_000,
+)
+
+type SchedulerOwnershipVerdict = 'single' | 'active' | 'became-active' | 'timeout' | 'no-state'
+
+/** 读状态文件里的活跃色;文件缺失/损坏一律 null(判定不出)。 */
+function readBgActiveColor(): string | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(BG_STATE_FILE, 'utf8')) as { active?: unknown }
+    return parsed.active === 'blue' || parsed.active === 'green' ? parsed.active : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 等到本实例成为活跃色。
+ * - single:未设 IHUI_API_COLOR ⇒ 单实例,立即启动
+ * - active:启动时状态文件已指向本色(开机常态,没有旧色要排空)
+ * - became-active:等到切流完成,并已留出旧色排空时间
+ * - timeout / no-state:判定不出角色 ⇒ 调用方 fail-open 启动
+ */
+async function waitForSchedulerOwnership(log: {
+  info: (obj: Record<string, unknown>, msg: string) => void
+}): Promise<SchedulerOwnershipVerdict> {
+  const color = INSTANCE_COLOR
+  if (!color) return 'single'
+  const first = readBgActiveColor()
+  if (first === color) return 'active'
+  let sawState = first !== null
+  log.info(
+    { color, active: first, state: BG_STATE_FILE },
+    '蓝绿待命:等本色成为活跃色后再启动进程内定时任务',
+  )
+  const deadline = Date.now() + SCHEDULER_OWNER_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    // delay 的定时器带 unref:进程若因其它原因退出,不会被这条轮询吊住
+    await delay(SCHEDULER_OWNER_POLL_MS)
+    const active = readBgActiveColor()
+    if (active) sawState = true
+    if (active === color) {
+      await delay(SCHEDULER_OWNER_GRACE_MS)
+      return 'became-active'
+    }
+  }
+  return sawState ? 'timeout' : 'no-state'
+}
+
+/**
+ * 启动全部进程内定时任务(cron / 轮询 worker / 常驻子进程)。
+ *
+ * 2026-10-28 从 start() 内联块提为模块级函数:启动时机改由 waitForSchedulerOwnership 判定
+ * (蓝绿活跃色独占),内容与顺序逐字保留 —— 这些 stop* 在 shutdown 相位里的顺序与之对应。
+ */
+function startBackgroundSchedulers(server: Awaited<ReturnType<typeof buildServer>>): void {
+  // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
+  if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
+    startAiWorldSyncScheduler()
+  }
+
+  // 启动热搜词采集定时任务(每 3 小时一次,默认开启,ENABLE_HOT_WORDS_SYNC=false 禁用)
+  if (process.env.ENABLE_HOT_WORDS_SYNC !== 'false') {
+    startHotWordsScheduler()
+  }
+
+  // 启动门户信源「恢复探测」定时任务(每天 04:30 探测网易/搜狐/36氪等,
+  // 一旦恢复公开 feed 自动入源;默认开启,ENABLE_SOURCE_PROBE=false 禁用)
+  if (process.env.ENABLE_SOURCE_PROBE !== 'false') {
+    startSourceProbeScheduler()
+  }
+
+  // 启动 PII 保留期清理定时任务(每天 03:30 滚动删除过期的 crash/behavior/visit 日志类 PII;
+  // 默认开启,ENABLE_PII_RETENTION=false 禁用)
+  if (process.env.ENABLE_PII_RETENTION !== 'false') {
+    startPiiRetentionScheduler()
+  }
+
+  // 启动 86D 审计证据链保留任务(每天 04:45):默认 dry-run 只报数;改写哈希属高危,
+  // 须显式 AUDIT_EVIDENCE_RETENTION_APPLY=true 才执行清理。ENABLE_AUDIT_EVIDENCE_RETENTION=false 禁用。
+  if (process.env.ENABLE_AUDIT_EVIDENCE_RETENTION !== 'false') {
+    startAuditEvidenceRetentionScheduler()
+  }
+
+  // 启动零星保留策略清理定时任务(每天 05:30:过期验证码 / 到期·已撤销临时分享 /
+  // 90 天前渠道日用量 / 过期文件缓存;默认开启,ENABLE_OPS_RETENTION=false 禁用)
+  if (process.env.ENABLE_OPS_RETENTION !== 'false') {
+    startOpsRetentionScheduler()
+  }
+
+  // 启动中转站告警规则评估(每 5 分钟,2026-09-16 立;ENABLE_RELAY_ALERT_EVALUATION=false 禁用)
+  if (process.env.ENABLE_RELAY_ALERT_EVALUATION !== 'false') {
+    startRelayAlertEvaluationScheduler()
+  }
+
+  // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
+  void startBackupCronScheduler()
+
+  // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
+  // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
+  if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
+    startOpsWatchReaderScheduler()
+  }
+
+  // 启动访客链路测速(每 5 分钟访问一次首页与三条对照腿:访问本身就是边缘缓存预热
+  // —— 首页 HIT 0.13s / MISS 实测 4~7s,夜间无人访问时缓存过期后第一个访客要付 7 秒;
+  // 量到的耗时与命中率由 /api/admin/ops-wallboard/overview 直接读。
+  // EDGE_PROBE_INTERVAL_MS 覆盖节奏,ENABLE_EDGE_ACCESS_PROBE=false 禁用,2026-10-19 立)
+  if (process.env.ENABLE_EDGE_ACCESS_PROBE !== 'false') {
+    startEdgeAccessProbe()
+  }
+
+  // 启动异步图片任务 worker(每 30 秒扫描 pending,2026-09-17 立)
+  startImageTaskWorker()
+
+  // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
+  // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
+  if (process.env.AI_LITELLM_PRICE_SYNC_ENABLED !== 'false') {
+    startLiteLLMPriceSyncScheduler()
+  }
+
+  // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
+  // G2 结果推送(2026-10-30):先注 WS 出口再起调度器 —— 终态通知落库后同步推 WS,
+  // Web 侧栏 NotificationCenter 才能即时收到并带出「查看会话」深链(侧栏不读 REST 列表)。
+  setAutomationNotificationPusher((userId, payload) => server.pushNotification(userId, payload))
+  startAgentAutomationScheduler()
+
+  // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
+  startPatrolScheduler()
+
+  // 预热本机 Qoder chat 桥(2026-10-23):chat 真实端点要求 umid 设备签名,只能由
+  // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
+  // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
+  // 首次 chat 仍会懒启动兜底。
+  // QODER_BRIDGE_ENABLED=0 是 chat 总开关(见 qoder-adapter 的 QODER_CHAT_DISABLED),
+  // 此时不必白拉起 Electron 冷启动。
+  if (
+    process.env.QODER_BRIDGE_AUTOSTART !== 'false' &&
+    process.env.QODER_BRIDGE_ENABLED?.trim() !== '0'
+  ) {
+    startQoderBridge()
+  }
+
+  // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
+  // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
+  if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
+    startAlgorithmRecordScheduler()
+  }
+}
+
+async function start() {
+  // OpenTelemetry 追踪：在 buildServer 之前初始化，最大化 instrument 覆盖（含启动期代码）
+  // 未配置 OTEL_EXPORTER_OTLP_ENDPOINT 且 OTEL_ENABLED!=true 时为 no-op，不阻塞启动
+  initOtel()
+
+  // 中继出网代理分流:必须早于任何出站 fetch(健康巡检/上游转发都吃全局 dispatcher)。
+  // 未配置 RELAY_PROXY_URL 时为 no-op,行为与从前逐字节一致。
+  installRelayOutboundProxy()
+
+  // 生产环境微信支付配置完整性检查(失败立即退出)
+  checkProductionConfig()
+
+  const server = await buildServer()
+
+  // 启动 BullMQ Worker（异步消费者）
+  // 通过 ENABLE_WORKER=false 可禁用（用于纯生产者实例）
+  const enableWorker = process.env.ENABLE_WORKER !== 'false'
+  const workers = enableWorker ? startWorkers(server) : null
+  const schedulerWorker: Worker | null = enableWorker ? startSchedulerWorker(server) : null
+
+  // R4 重构产物：启动后异步初始化 AI 厂商配置（不阻塞 listen）
+  // 数据库不可用或表未创建时静默降级，不影响服务启动
+  void initVendorConfigs(server.log).catch((err) => {
+    server.log.warn({ err }, 'AI 厂商配置初始化跳过（数据库/表未就绪）')
+  })
+
+  // P1 修复(2026-08-02):加 shuttingDown 守卫,防 SIGTERM/SIGINT 重复触发 shutdown;
+  // 配合下方 once 注册,二次信号直接走默认行为(强制退出)。
+  let shuttingDown = false
+  // 2026-09-27 有序相改造(运行期可靠性票):原"一串 try/catch 平铺 + 无超时 await"改为
+  // 经 runShutdownPhases 唯一出口执行 —— disposer 顺序**逐字保留**(语义不变),
+  // 差别有三:① 每相独立超时,挂死不再阻塞后续相;② 失败/超时/未跑记入清单并由
+  // exitCode 承担(旧路径抛错被吞、信号路径仍 exit 0);③ awaited disposer 的 reject
+  // 不再冒成 unhandledRejection(旧形状 ⇒ 进程存活不 exit 的假死)。
+  const syncStopPhase = (name: string, fn: () => unknown): ShutdownPhase => ({
+    name,
+    timeoutMs: SYNC_STOP_MS,
+    run: fn,
+  })
+  const shutdown = async (signal: string, requestedExitCode = 0): Promise<void> => {
+    if (shuttingDown) return
+    shuttingDown = true
+    server.log.info({ signal }, 'Shutting down...')
+    const phases: ShutdownPhase[] = [
+      syncStopPhase('stopAiWorldSyncScheduler', stopAiWorldSyncScheduler),
+      syncStopPhase('stopRankingScheduler', stopRankingScheduler),
+      syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
+      syncStopPhase('stopSourceProbeScheduler', stopSourceProbeScheduler),
+      syncStopPhase('stopLiteLLMPriceSyncScheduler', stopLiteLLMPriceSyncScheduler),
+      syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
+      syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
+      syncStopPhase('stopAuditEvidenceRetentionScheduler', stopAuditEvidenceRetentionScheduler),
+      syncStopPhase('stopOpsRetentionScheduler', stopOpsRetentionScheduler),
+      syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
+      syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
+      syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
+      syncStopPhase('stopOpsWatchReaderScheduler', stopOpsWatchReaderScheduler),
+      syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
+      syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
+      // Qoder chat 桥是独立 Electron 子进程:不显式杀会在 API 重启后留孤儿占端口
+      syncStopPhase('stopQoderBridge', stopQoderBridge),
+      // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
+      syncStopPhase('stopAutoRollbackMonitor', stopAutoRollbackMonitor),
+      syncStopPhase('routineManager.stopScheduler', () => routineManager.stopScheduler()),
+      syncStopPhase('stopScheduledWarmup', stopScheduledWarmup),
+      // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
+      syncStopPhase('stopRelayChannelRouterSweep', stopRelayChannelRouterSweep),
+      syncStopPhase('stopRegistryRateLimitSweep', stopRegistryRateLimitSweep),
+      syncStopPhase('stopPoolTracker', stopPoolTracker),
+    ]
+    if (workers) {
+      phases.push({
+        name: 'bullmq-workers-close',
+        timeoutMs: QUEUE_WORKER_MS,
+        run: () => Promise.allSettled(workers.map((w) => w.close())),
+      })
+    }
+    if (schedulerWorker) {
+      phases.push({
+        name: 'scheduler-worker-close',
+        timeoutMs: QUEUE_WORKER_MS,
+        run: () => schedulerWorker.close(),
+      })
+    }
+    phases.push({
+      name: 'http-close-pools-release',
+      timeoutMs: SERVER_CLOSE_MS,
+      run: () => server.close(),
+    })
+    let exitCode = requestedExitCode
+    try {
+      const result = await runShutdownPhases({ phases })
+      // listen-failure 路径带 1 进来必须保留;相位清单的非零结论与之取 max
+      exitCode = Math.max(requestedExitCode, result.exitCode)
+    } catch (e) {
+      // 相位执行器设计上不应 reject(所有失败已收进清单);兜底再接一层,
+      // 防 shutdown() 自身冒成 unhandledRejection ⇒ 复刻"存活不 exit"假死。
+      logger.warn('runShutdownPhases unexpected failure', { err: e })
+      if (exitCode === 0) exitCode = 1
+    }
+    process.exit(exitCode)
+  }
+
+  try {
+    // 2026-08-02 修复:注册 poolTracker onClose 清理,防进程不退出
+    registerPoolTrackerCleanup(server)
+    await listenWithinDeadline(server)
+    isListening = true
+    server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)
+  } catch (err) {
+    // P0 修复(2026-07-31):listen 失败时必须清理已启动的 workers / schedulers,
+    // 否则 BullMQ worker 持有的 ioredis 连接、scheduler cron 句柄会泄露,
+    // tsx watch 重启时会累积(死进程句柄 3791 的事故根因之一)。
+    server.log.error({ err }, 'Failed to start server')
+    // 但清理不能挡住退出:worker.close() / server.close() 自己也要用 Redis·DB,
+    // 依赖不可用时它们会挂住,挂住就等于回到"进程在、端口没有"那一格。
+    await Promise.race([
+      shutdown('listen-failure', 1).catch((e: unknown) => {
+        logger.warn('shutdown after listen failure itself failed', { err: e })
+      }),
+      delay(SHUTDOWN_DEADLINE_MS),
+    ])
+    process.exit(1)
+  }
+
+  // 进程内定时任务:蓝绿切换期间由活跃色独占(取舍与判据见 waitForSchedulerOwnership 头注)。
+  // 等待发生在 listen 之后 —— 定时任务不参与就绪判定,延迟启动不影响健康门禁。
+  const ownershipVerdict = await waitForSchedulerOwnership(server.log).catch((err: unknown) => {
+    server.log.warn({ err }, '蓝绿角色判定异常 ⇒ 按 fail-open 启动进程内定时任务')
+    return 'no-state' as SchedulerOwnershipVerdict
+  })
+  if (shuttingDown) {
+    // 等角色的过程中已收到 SIGTERM:此刻再起 cron 就没人负责停了
+    server.log.warn({ verdict: ownershipVerdict }, '关停已开始 ⇒ 跳过进程内定时任务启动')
+  } else {
+    if (ownershipVerdict === 'timeout' || ownershipVerdict === 'no-state') {
+      server.log.warn(
+        { verdict: ownershipVerdict, color: INSTANCE_COLOR, state: BG_STATE_FILE },
+        '蓝绿角色判定失败 ⇒ 按 fail-open 启动进程内定时任务(可能与另一色短暂重复执行)',
+      )
+    }
+    startBackgroundSchedulers(server)
+  }
+
+  // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出
+  // —— 但"默认强制退出"的死法**不产出任何退出码**(G-611,2026-09-29):本仓消费侧
+  // (scripts/lib/signal-exit.mjs 的 128+N 族)已经按码区分"被杀 ≠ 结论",而我方作为
+  // 被监管/被派生的一方从不产出它。现改回带闩的 on:第一下照常有序停机(shutdown 内部
+  // 的 shuttingDown 守卫仍在,双保险),第二下立即产出 128+N(SIGTERM→143 / SIGINT→130)。
+  // 注意:装了 on 就不许把第二下折进 no-op —— 那等于进程永不退出,比旧行为更糟;
+  // 闩的第二支必须显式 exit,由 apps/api/tests/shutdown-signals.test.ts 钉住。
+  const onShutdownSignal = createShutdownSignalHandler({
+    shutdown: (signal) => shutdown(signal),
+    exit: (code) => process.exit(code),
+    warn: (message, fields) => server.log.warn(fields ?? {}, message),
+  })
+  process.on('SIGTERM', () => onShutdownSignal('SIGTERM'))
+  process.on('SIGINT', () => onShutdownSignal('SIGINT'))
+}
+
+// P0 修复(2026-07-31):全局未捕获错误处理 — 记录明确日志便于诊断,
+// 避免进程静默卡死导致 tsx watch 主进程残留(死进程持续占用文件监听句柄)。
+process.on('unhandledRejection', (err) => {
+  logger.error('Unhandled promise rejection (process still alive, investigate)', { err })
+})
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception, exiting to let tsx watch / pm2 restart', { err })
+  process.exit(1)
+})
+
+start().catch((err: unknown) => {
+  // 2026-09-26 线上哑火收口。start() 此前是一个裸 promise:它一 reject 只会命中上面
+  // 那个 "process still alive, investigate" 处理器(只记日志、不退出),于是 listen
+  // 从未被调用而进程照样活着 —— NSSM 报 RUNNING、健康面零响应。
+  // (07:58 那次的日志形态正是这样:只有一行 unhandledRejection,既没有
+  //  'Failed to start server' 也没有 'Server listening' —— 说明异常根本没落到下面
+  //  listen 的 catch,所以光给 listen 加兜底是不够的,start() 自身这条链必须有人收。)
+  // 已经 bind 成功的进程不因尾部异常自杀(那会把可用服务打死);还没 bind 的必须退出
+  // 非零交给服务管理器重启 —— 启动阶段只允许"在监听"与"已退出"两种状态。
+  if (isListening) {
+    logger.error('Startup tail failed after listen (serving continues)', { err })
+    return
+  }
+  logger.error('Startup failed before listen, exiting to let the service manager restart', { err })
+  process.exit(1)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

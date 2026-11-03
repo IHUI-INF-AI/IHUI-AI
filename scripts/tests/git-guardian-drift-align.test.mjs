@@ -1,0 +1,249 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 幻影漂移周期自愈「装车证明」+ 守护所依赖的 CLI 契约回归
+//
+// 成因(2026-09-24 实测):§5b 的三层工作区存续自愈里,第二层 `--align-drift`(幻影漂移对齐)
+// 只挂在 `git-sync-converge` 的成功出口 —— 而 converge 仅在真有分叉要收敛时才跑。共享工作区
+// 里 HEAD 每被并发会话推进一次,不 checkout 的提交方式就多一批"内容==祖先版本"的落后文件,
+// 实测一次积到 262 个(其中含在役守门脚本本体,导致该脚本在运行态**根本没有** alignDrift 层,
+// 即"修漂移的工具自己就是漂移的"）。故把对齐层挂进 git-guardian 的 2 分钟周期。
+//
+// 本测试钉三件事:
+//   ① 装车证明 —— guardian 的 healWorktreeTracked() 体内真的调了 `--align-drift`,且 spawn 带
+//      windowsHide(§5b:漏此参数在计划任务下必弹控制台窗)。
+//   ② CLI 契约 —— 守护是"取 stdout 最后一行 JSON.parse",所以 `--align-drift --json` 必须在
+//      **有漂移/无漂移**两种态下都以 exit 0 收场且最后一行可解析(曾因把人类可读行混在 JSON
+//      之后而让守护每轮记一条"自愈失败")。
+//   ③ 逃生舱 —— IHUI_SKIP_DRIFT_ALIGN=1 在对齐层生效(与恢复层的 IHUI_SKIP_WORKTREE_HEAL 分开,
+//      紧急停一侧不得连带停另一侧)。
+import { execFileSync, spawnSync } from 'node:child_process'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, join, normalize, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const REPO = resolve(HERE, '..', '..')
+const GUARDIAN = join(REPO, 'scripts', 'git-guardian.mjs')
+const HEAL_DIR = join(REPO, 'scripts')
+
+/** 取函数体(按大括号配平,不用正则猜行) */
+function funcBody(src, name) {
+  const start = src.indexOf(`function ${name}(`)
+  assert.ok(start >= 0, `源文件里找不到 ${name}()`)
+  const open = src.indexOf('{', start)
+  let depth = 0
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1)
+  }
+  assert.fail(`${name}() 花括号未配平`)
+}
+
+test('装车证明:git-guardian 周期守护真的调用 --align-drift', () => {
+  const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
+  assert.match(body, /run\(\['--json'\]\)/, '恢复层调用丢失 —— 对齐层不得顶掉缺失恢复')
+  assert.match(body, /run\(\['--align-drift',\s*'--json'\]\)/, '对齐层没装车 = §5b 第二层形同虚设')
+  assert.match(body, /windowsHide:\s*true/, 'spawn 漏 windowsHide ⇒ 计划任务下必弹控制台窗(§5b)')
+})
+
+test('逃生舱只对对齐层生效,不影响恢复层', () => {
+  const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
+  const atSkip = body.indexOf('IHUI_SKIP_DRIFT_ALIGN')
+  const atAlign = body.indexOf("'--align-drift'")
+  assert.ok(atSkip > 0 && atAlign > atSkip, 'IHUI_SKIP_DRIFT_ALIGN 必须早于对齐层调用')
+  assert.ok(body.indexOf("run(['--json'])") < atSkip, '跳过开关不得挡在恢复层之前')
+})
+
+/**
+ * 造一个最小仓:v1 → v2(HEAD),再把工作区写回 v1(索引==HEAD ⇒ 幻影漂移)。
+ * 自愈 CLI 的 repoRoot 由**脚本自身位置**推导(`resolve(dirname(import.meta.url),'..')`),
+ * 所以必须把 CLI 连同它的**整条相对 import 闭包**复制进演练仓再执行 ——
+ * 直接跑仓内 CLI 会去对齐真实工作区(第一版就犯了这个错,断言读到的是真仓漂移数 2)。
+ *
+ * 闭包是**推导**出来的而不是手抄的:CLI 原先只依赖 check-stale-revert.mjs,2026-09-25 把
+ * git 派生收口进 scripts/lib/face-reader.mjs 后又多了两跳(face-reader → gitdir)。手抄清单
+ * 晚了一拍的后果就是子进程 ERR_MODULE_NOT_FOUND、exit 1、stdout 空 —— 下面两条 CLI 契约测试
+ * 会红在一件与被测行为完全无关的事上(清单腐烂,与本仓多道门登记过的同型缺陷一致)。
+ */
+function localImportClosure(entryRel, seen = new Set()) {
+  if (seen.has(entryRel)) return seen
+  seen.add(entryRel)
+  let text = ''
+  try {
+    text = readFileSync(join(HEAL_DIR, entryRel), 'utf8')
+  } catch {
+    return seen // 复制面之外的文件(不该发生):闭包就此收住,由调用方的存在性断言去报
+  }
+  for (const m of text.matchAll(/^\s*import\b[^'"]*from\s*'(\.[^']+)'/gm)) {
+    const next = normalize(join(dirname(entryRel), m[1])).replace(/\\/g, '/')
+    localImportClosure(next, seen)
+  }
+  return seen
+}
+
+function makeDrillRepo() {
+  const tmp = mkScratch('gk-drift-')
+  mkdirSync(join(tmp, 'scripts'), { recursive: true })
+  for (const rel of localImportClosure('heal-worktree-tracked.mjs')) {
+    const dst = join(tmp, 'scripts', rel)
+    mkdirSync(dirname(dst), { recursive: true })
+    copyFileSync(join(HEAL_DIR, rel), dst)
+  }
+  // 反向哨兵:闭包里必须真的含收口后的共用层,否则本测试又变回"跑得通但拷错了东西"
+  assert.ok(
+    existsSync(join(tmp, 'scripts', 'lib', 'face-reader.mjs')),
+    '演练仓未拷到 scripts/lib/face-reader.mjs —— CLI 的 git 派生已收口到共用层,少一跳就是 ERR_MODULE_NOT_FOUND',
+  )
+  const g = (args) =>
+    execFileSync('git', ['-c', 'safe.directory=*', '-C', tmp, ...args], {
+      encoding: 'utf8',
+      // 2026-10-04 补:本调用点**缺 stdio**,而本机派生 git 命中 EBUSY 面 ⇒ 这两条 CLI 契约测试
+      // 自落地起就一直崩在 `spawnSync git EBUSY`,**从未真正跑过 CLI**(症状与判据无关,
+      // 失败信息里完全看不出是派生问题,极易被当成"环境不稳"放过)。
+      // 无 input ⇒ ignore 三态;若将来要喂 stdin,改用 openSync 的数字 fd(见 MEMORY 同条判据)。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+  g(['init', '-q', '--initial-branch=main'])
+  g(['config', 'core.autocrlf', 'false']) // 否则 restore 写回 CRLF,断言随本机 git 配置漂移(与本仓自愈自检同法)
+  g(['config', 'user.email', 't@t'])
+  g(['config', 'user.name', 't'])
+  writeFileSync(join(tmp, 'a.ts'), 'v1\n')
+  g(['add', '-A'])
+  g(['commit', '-qm', 'A: v1'])
+  writeFileSync(join(tmp, 'a.ts'), 'v2\n')
+  g(['add', '-A'])
+  g(['commit', '-qm', 'B: v2'])
+  return { tmp, g }
+}
+
+function runAlign(tmp, env = {}) {
+  const r = spawnSync(
+    process.execPath,
+    [join(tmp, 'scripts', 'heal-worktree-tracked.mjs'), '--align-drift', '--json'],
+    {
+      cwd: tmp,
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04 补:同型第三处(前两处在 makeDrillRepo 的 g() 与本调用)。缺 stdio 时本机
+      // 派生命中 EBUSY 面,症状是 status=null(进程没能起来),而断言里写的是
+      // "实得 null;stdout 末行=" —— 读起来像"CLI 自己没输出",与真正的派生故障毫无关系。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        // 活工作保护窗在演练里默认关闭:下面两条契约用"刚写的文件"造漂移,
+        // 不关的话会被新护栏正确地挡下(护栏自身的正控见下一条测试)。
+        IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '0',
+        ...env,
+      },
+    },
+  )
+  return { status: r.status, last: (r.stdout || '').trim().split('\n').pop() }
+}
+
+test('CLI 契约:有漂移时 exit 0 且最后一行是 aligned>=1 的 JSON,文件回到 HEAD', () => {
+  const { tmp, g } = makeDrillRepo()
+  try {
+    writeFileSync(join(tmp, 'a.ts'), 'v1\n') // 写回祖先版本 = 静默回滚的形态
+    // 2026-10-29 必改:mtime 必须**早于** HEAD 那一版的提交时刻,否则这条用例是侥幸通过。
+    // 新增的活工作二审(见 heal-worktree-tracked 的 splitLiveRestorePaths)把"盘上那份晚于
+    // HEAD 那一版被提交"判为在飞编辑/正当恢复 ⇒ 不还原。真幻影漂移的成因是 HEAD 被并发推进后
+    // 工作树落后,盘上那份必然**早于** HEAD 那一版的提交时刻 —— 夹具必须造出这个真实形态。
+    // 不拨的话本条只在"提交与写盘落在同一秒"时通过(秒级精度),跨秒即红,红得与被测行为无关。
+    const ct = Number(g(['-C', tmp, 'log', '-1', '--format=%ct', 'HEAD', '--', 'a.ts']).trim())
+    const stale = new Date((ct - 30) * 1000)
+    utimesSync(join(tmp, 'a.ts'), stale, stale)
+    const { status, last } = runAlign(tmp)
+    assert.equal(status, 0, `--align-drift 应 exit 0,实得 ${status};stdout 末行=${last}`)
+    const r = JSON.parse(last) // 守护正是这样解析的
+    assert.equal(r.aligned, 1, `应识别并对齐 1 个漂移文件,实得 ${JSON.stringify(r)}`)
+    assert.deepEqual(r.paths, ['a.ts'])
+    assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v2\n', '对齐后内容必须等于 HEAD')
+    assert.equal(g(['status', '--porcelain']).trim(), '', '对齐后工作区应干净')
+  } finally {
+    rmScratch(tmp)
+  }
+})
+
+test('活工作保护窗:窗口内的漂移文件不还原,超过窗口后照常对齐', () => {
+  const { tmp, g } = makeDrillRepo()
+  try {
+    writeFileSync(join(tmp, 'a.ts'), 'v1\n') // 回潮内容 = 与祖先版本逐字节相同
+    // 2026-10-29 补:窗内那一档的 mtime 取"提交时刻前 5 秒",而不是"刚写完那一刻"。
+    // 新增的活工作二审(见 heal-worktree-tracked 的 splitLiveRestorePaths)会把"盘上那份
+    // 晚于 HEAD 那一版被提交"判为活工作 —— 而"刚写完"恰好落在它射程里,于是本条 aligned=0
+    // 会由二审造成而非窗口造成,两句断言就都不再各自可归因。拨到提交时刻之前 5 秒后:
+    // 对墙钟窗仍是"刚写过"(now-mtime ≈ 5s ≪ 600s),对二审则是"旧的"(mtime < ct)。
+    const ct = Number(g(['-C', tmp, 'log', '-1', '--format=%ct', 'HEAD', '--', 'a.ts']).trim())
+    const justBefore = new Date((ct - 5) * 1000)
+    utimesSync(join(tmp, 'a.ts'), justBefore, justBefore)
+    const r = JSON.parse(runAlign(tmp, { IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '600' }).last)
+    assert.equal(r.aligned, 0, '窗口内的路径不得被还原')
+    assert.deepEqual(r.recentlySkipped, ['a.ts'], '被护栏挡下的路径必须逐条点名')
+    assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v1\n', '在飞编辑被覆盖 = 本护栏失效')
+
+    const old = new Date(Date.now() - 601_000)
+    utimesSync(join(tmp, 'a.ts'), old, old)
+    const r2 = JSON.parse(runAlign(tmp, { IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '600' }).last)
+    assert.equal(r2.aligned, 1, '窗口外的真漂移仍必须自愈')
+    assert.deepEqual(r2.recentlySkipped, [])
+    assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v2\n')
+  } finally {
+    rmScratch(tmp)
+  }
+})
+
+test('CLI 契约:无漂移时同样 exit 0 + 最后一行可解析(守护不得每轮记失败)', () => {
+  const { tmp } = makeDrillRepo()
+  try {
+    const { status, last } = runAlign(tmp)
+    assert.equal(status, 0, `干净仓应 exit 0,实得 ${status}`)
+    const r = JSON.parse(last)
+    assert.equal(r.aligned, 0)
+    // 真编辑(非祖先版本)不得被覆盖 —— 这一条把"对齐层=无差别 checkout"的误解钉死
+    writeFileSync(join(tmp, 'a.ts'), 'mine\n')
+    const r2 = JSON.parse(runAlign(tmp).last)
+    assert.equal(r2.aligned, 0, '独有编辑内容被误判为漂移并覆盖')
+    assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'mine\n')
+  } finally {
+    rmScratch(tmp)
+  }
+})
+
+test('装车证明(2026-11-03 补):两层派生都必须带 timeout,超时只记失败不拖死整轮守护', () => {
+  const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
+  // 当日实测:`--align-drift` 从 13:11:44 挂到 16:22:55(3h11m)才被人杀掉,期间整轮守护静默。
+  assert.match(
+    body,
+    /timeout:\s*Number\(process\.env\.IHUI_WORKTREE_HEAL_TIMEOUT_MS\s*\|\|[^)]*\)/,
+    'run() 的 execFileSync 必须带 timeout(env 可覆盖)——缺它=守护整轮可被一次派生无限期挂住',
+  )
+  // 反向锁:摘掉 timeout 这一行,上面即翻红;而"只判有没有 windowsHide"那种旧断言拦不住这一型。
+  const withoutTimeout = body.replace(/timeout:[^\n]*\n/, '')
+  assert.ok(withoutTimeout !== body, 'timeout 行形态与断言不符(替换没命中 ⇒ 断言是空的)')
+  assert.doesNotMatch(
+    withoutTimeout,
+    /timeout:\s*Number\(process\.env\.IHUI_WORKTREE_HEAL_TIMEOUT_MS/,
+    '去掉 timeout 后本断言必须判不出通过(证明这条锁真的有牙)',
+  )
+  // 失效方向:两条调用各自 catch,失败只落一行日志,不得把整轮 tick 带走
+  assert.equal(
+    (body.match(/不阻断其余守护/g) ?? []).length,
+    2,
+    '恢复层与对齐层各要有一条"失败不阻断其余守护"—— 超时被读成守护死了才是更坏的结果',
+  )
+  assert.match(body, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/, '§12g 派生必须显式接管 stdio(2026-10-04 补的那一手)')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

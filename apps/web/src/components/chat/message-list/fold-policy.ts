@@ -1,0 +1,242 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 中间步骤折叠策略(D21,2026-09-19 立)。
+ *
+ * 对话流折叠收口:竞品已分化(Trae 默认折叠摘要 vs Qoder 0.2.1 起默认展开),
+ * 故不可强制默认,须留用户配置开关(对标 Codex auto recap)。
+ *
+ * 三层判定(优先级从高到低):
+ *   1. 用户显式操作(展开/收起)永远最优先,策略不覆盖
+ *   2. 用户配置模式:
+ *      · 'auto'  自适应(默认)— 按字数/工具数/耗时三维阈值判定折叠
+ *      · 'collapsed' 强制折叠(承载体量大的会话)
+ *      · 'expanded'  强制展开(参考 Qoder 0.2.1,偏好全程可见)
+ *   3. 'auto' 模式下的纯函数判定(**语义优先于阈值**,2026-10-29 对标 Qoder 0.4.11):
+ *      · 本轮含"永不折叠"工具(例外集见 tool-category.ts 的 NEVER_FOLD_TOOLS /
+ *        类目级 neverFold)⇒ **一律不折叠**,三维读数再大也不例外
+ *      · 否则按三维阈值:正文(或 reasoning)字数 ≥ AUTO_COLLAPSE_CHARS → 折叠(中间步骤让位正文)
+ *      · 工具调用数 > AUTO_COLLAPSE_TOOL_CALLS → 折叠(体量大,默认收起防淹没)
+ *      · 总耗时 ≥ AUTO_COLLAPSE_DURATION_MS → 折叠(长任务默认收起)
+ *      三维全不满足(轻量任务:字数少 + 工具少 + 快)→ 默认展开,
+ *      即"轻查询展开、重任务折叠;等人回话/子代理/独立 UI 永不折叠"。
+ *
+ * 配置持久化复用 voice-toolbar 模板:localStorage 写入 + window 事件广播,
+ * 跨组件(FoldPolicyButton ↔ MessageItem)同步,无需引入额外状态库。
+ */
+
+/** localStorage key(与 'ihui_voice_playback' / 'ihui:thinking-expanded' 同族命名) */
+export const FOLD_POLICY_KEY = 'ihui_fold_policy'
+/** 配置变更广播事件名 */
+export const FOLD_POLICY_EVENT = 'ihui-fold-policy-changed'
+
+/** 用户配置模式:自适应 / 强制折叠 / 强制展开 */
+export type FoldPolicyMode = 'auto' | 'collapsed' | 'expanded'
+
+/** 自适应阈值:正文字数达到此值 → 折叠中间步骤(轻量阈值,经验值 200 字) */
+export const AUTO_COLLAPSE_CHARS = 200
+/** 自适应阈值:工具调用数超过此值 → 折叠(3 个以内视为轻任务) */
+export const AUTO_COLLAPSE_TOOL_CALLS = 3
+/** 自适应阈值:本轮总耗时达到此毫秒数 → 折叠(30 秒内视为轻任务) */
+export const AUTO_COLLAPSE_DURATION_MS = 30_000
+
+const VALID_MODES: readonly FoldPolicyMode[] = ['auto', 'collapsed', 'expanded']
+
+/** 读取用户配置(非法值/未设置 → 'auto');SSR 安全 */
+export function readFoldPolicyMode(): FoldPolicyMode {
+  if (typeof window === 'undefined') return 'auto'
+  const raw = window.localStorage.getItem(FOLD_POLICY_KEY)
+  if (raw && (VALID_MODES as readonly string[]).includes(raw)) return raw as FoldPolicyMode
+  return 'auto'
+}
+
+/** 写入用户配置并广播变更事件(跨组件同步) */
+export function writeFoldPolicyMode(mode: FoldPolicyMode): void {
+  window.localStorage.setItem(FOLD_POLICY_KEY, mode)
+  window.dispatchEvent(new Event(FOLD_POLICY_EVENT))
+}
+
+export interface FoldPolicyInput {
+  /** 已到达正文字数(assistant m.content.length;用户消息不适用策略恒 false) */
+  contentChars: number
+  /** 工具调用数 */
+  toolCallCount: number
+  /** 本轮累计耗时毫秒(工具卡 durationMs 求和;缺省 0) */
+  durationMs: number
+  /**
+   * 本轮工具名(2026-10-29 新增,**可选**,缺省即旧语义)。
+   *
+   * 存在的唯一理由:让"语义例外集"能压过三维阈值 —— 需要用户确认的、子代理的、
+   * 独立 UI 的工具体量再大也不许被自动折叠(详见 `tool-category.ts` 的 `isNeverFoldTool`)。
+   * 不传 ⇒ 只看三维阈值,既有调用方与用例零回归。
+   *
+   * 接线状态(2026-10-29 二次登记,**两个消费面均已接**):
+   *  - **已接**:类目卡(`tool-call-summary-card.tsx` 的 `CategoryCard`,传 `run.tools` 的工具名);
+   *  - **已接**:消息级「中间步骤」开关(`MessageItem.tsx` 的 `stepDims`,
+   *    传 `(m.toolCalls ?? []).map(tc => tc.toolName)`)。
+   *    上一轮登记里这一步是"未接"(当时该文件被他席未提交改动占用、本票禁改);
+   *    2026-10-29 该文件已回到 HEAD 干净态,故补齐 —— **注释与事实不一致本身就是缺陷**,
+   *    这里如实改写而不是留旧登记。接线锁:
+   *    `message-list/__tests__/message-item-step-dims-wiring.test.tsx`(组件级读
+   *    `StreamGroup` trigger 的 `aria-expanded`,成对:含例外工具 ⇒ 展开 / 不含 ⇒ 折叠)。
+   */
+  toolNames?: readonly string[]
+}
+
+/**
+ * 本轮是否含"永不折叠"的工具(语义维)。
+ *
+ * 判据**只经** `tool-category.ts` 的 `isNeverFoldTool`(§0.6 单一真相源),
+ * 本处零名单、零复制:名单加一枚工具只改 `tool-category.ts` 一处。
+ */
+export function hasNeverFoldTool(input: FoldPolicyInput): boolean {
+  const names = input.toolNames
+  if (!names || names.length === 0) return false
+  return names.some((name) => isNeverFoldTool(name))
+}
+
+/**
+ * 自适应模式纯函数判定:轻查询(字数少 + 工具少 + 快)→ 展开,其余折叠。
+ * 任何一维达到重任务阈值即折叠;三维全轻才展开。
+ *
+ * **语义优先于阈值**(2026-10-29 对标 Qoder 0.4.11):本轮只要含一枚永不折叠的工具,
+ * 无论三维读数多大都**不折叠** —— 理由不是"体积小",而是"折了会丢掉等人回话的入口
+ * 或一整块自成一体的 UI"(子代理树 / 图 / 思考块 / 计划模式确认)。
+ * 这条优先级在用户显式档位之下(FoldPolicyMode 由 resolve* 先判,不在本函数射程内)。
+ */
+export function shouldCollapseSteps(input: FoldPolicyInput): boolean {
+  if (hasNeverFoldTool(input)) return false
+  if (input.contentChars >= AUTO_COLLAPSE_CHARS) return true
+  if (input.toolCallCount > AUTO_COLLAPSE_TOOL_CALLS) return true
+  if (input.durationMs >= AUTO_COLLAPSE_DURATION_MS) return true
+  return false
+}
+
+/**
+ * 综合策略:配置模式 + 自适应判定 → 初始「展开」布尔(消费方直接作 open 态)。
+ * 'collapsed' 恒 false;'expanded' 恒 true;'auto' 取 shouldCollapseSteps 的反
+ * (轻任务 → 展开,重任务 → 折叠)。
+ */
+export function resolveInitialStepsOpen(mode: FoldPolicyMode, input: FoldPolicyInput): boolean {
+  if (mode === 'collapsed') return false
+  if (mode === 'expanded') return true
+  return !shouldCollapseSteps(input)
+}
+
+// ─── 差距⑥ 追加类目:终态确认后过程文本折叠(2026-10-30 立,对标 Qoder
+//     finalTextConfirmed→process_text 折叠规则;Qoder-vs-IHUI-深度对比.md §3-6)──
+//
+// **追加,不是替换**:本类目不进入 `resolveInitialStepsOpen` / `shouldCollapseSteps`
+// 的判定链 —— D21 三维阈值类目的判定顺序与行为零变化(任务书红线:阈值模式是
+// IHUI 用户可配项,Qoder 无此形态)。两条类目在策略链上的组合方式是**并列分域**:
+//   · D21 阈值类目管「中间步骤区」(工具卡/plan/终端任务/子代理)的开合;
+//   · 本类目管「过程叙述文本段」(最终答复定稿前的中间过程叙述)的开合。
+// 判定的对象不同,互不改写对方的读数与结论;共享的是 D21 规则①/②的纪律 ——
+// 用户显式操作(消费侧 override,规则①)永远最优先,用户配置档位(规则②)压过
+// 类目默认。顺序裁定(读码结论):类目射程门 > 用户档位 > 终态位 ——
+// 最终答复段不在本类目射程内(与 D21 只折"中间步骤"、从不折正文同一口径),
+// 故 'collapsed' 档也不会把最终答复折起来。
+
+/** 差距⑥ 过程文本折叠类目的输入 */
+export interface ProcessTextFoldInput {
+  /** 该段是否为**过程叙述文本**(回合内非最终答复的助手消息段;最终答复段恒 false) */
+  isProcessText: boolean
+  /**
+   * 回合终态是否已确认(finalTextConfirmed 对位)。
+   * 信号源用 IHUI 既有事实,不造新状态:流收口(store `isStreaming` 为假,
+   * 即 done/错误/中断收尾后)且本轮不再有正在流式的消息 ——
+   * 接线判据见 MessageList `renderMessageBlock` 与 MessageItem 的 `streamingThis` 注释。
+   */
+  finalTextConfirmed: boolean
+}
+
+/**
+ * 过程文本折叠类目:回合进入终态后,过程叙述段默认折叠;流式进行中不折叠
+ * (活动块纪律保持 —— 未确认时恒展开,与 Qoder `unconfirmed_text` 同一语义)。
+ * 用户手动展开/收起态由消费侧 override 承载(回合生命周期内保持,规则①),
+ * 本纯函数只回答"没有 override 时的默认开合"。
+ */
+export function resolveProcessTextInitialOpen(
+  mode: FoldPolicyMode,
+  input: ProcessTextFoldInput,
+): boolean {
+  if (!input.isProcessText) return true
+  if (mode === 'expanded') return true
+  if (mode === 'collapsed') return false
+  return !input.finalTextConfirmed
+}
+
+// ─── D58 工具类目聚合层接入(2026-09-23 · G-71/G-72) ─────────────────
+// 不新建第二套分组逻辑:类目映射与纯函数全部来自唯一入口 tool-category.ts,
+// 此处仅做"展开策略与 D21 折叠策略联动"的整合,供 tool-call-summary-card.tsx 复用。
+
+export {
+  CATEGORY_TABLE,
+  CATEGORY_TABLE_BY_KEY,
+  resolveToolCategory,
+  aggregateCategoryRuns,
+  summarizeCategoriesByTool,
+  sortRuns,
+  type CategoryKey,
+  type CategoryDef,
+  type ExpandStrategy,
+  type CategoryRun,
+  type ToolNameCount,
+} from '@/components/ai/progress-sections/tool-category'
+
+// 语义例外集的判定入口与名单:本模块只**转出**共享实现,不复制(§0.6)。
+// 转出的理由:类目卡渲染(expandStrategy 已提升)与三维判定(shouldCollapseSteps)
+// 都要问同一件事,让调用方都从这里拿,免得各自去猜该 import 哪个文件。
+import {
+  NEVER_FOLD_TOOLS as NEVER_FOLD_TOOLS_IMPL,
+  isNeverFoldTool as isNeverFoldToolImpl,
+} from '@/components/ai/progress-sections/tool-category'
+import type { ExpandStrategy } from '@/components/ai/progress-sections/tool-category'
+
+/** 永不折叠工具名集合(原样转出,判据仍在 tool-category.ts) */
+export const NEVER_FOLD_TOOLS = NEVER_FOLD_TOOLS_IMPL
+/** 永不折叠判定(原样转出,判据仍在 tool-category.ts) */
+export const isNeverFoldTool = isNeverFoldToolImpl
+
+/**
+ * 类目卡的"默认展开态"决策(与 shouldCollapseSteps 同源,不另起判定)。
+ * - 'expand'   → 恒展开(对标 Qoder 全程可见偏好)
+ * - 'collapse' → 恒收起(思考/结束等阶段标记,默认让位正文)
+ * - 'auto'     → 跟随 D21 自适应策略(轻任务展开、重任务折叠)
+ *
+ * 返回的是"默认初值";用户显式操作(D21 规则①)永远最高优先,此处结果不被用于覆盖它。
+ * 纯函数,可单测。
+ *
+ * 2026-10-29 补 `mode`(用户折叠模式)入参:此前本函数只吃类目自身档位,
+ * 于是用户在 FoldPolicyButton 里选"强制展开/强制折叠"对类目卡**完全无效** ——
+ * 15 个 'auto' 档类目一律按自适应走,用户意志落不了地。
+ *
+ * 优先级(D21 规则①/②的展开):**用户模式 > 类目档位 > 自适应**。
+ * - 'expanded'  → 恒展开(用户要全程可见,类目卡也不例外)
+ * - 'collapsed' → 恒收起
+ * - 'auto'      → 落到类目自身档位('expand'/'collapse' 恒值、'auto' 走自适应)
+ *
+ * `mode` 缺省不传 ⇒ 沿用旧语义(只按类目档位),既有调用方与用例零回归。
+ *
+ * 2026-10-29 补"语义维":`input.toolNames` 里出现永不折叠的工具 ⇒ 恒展开。
+ * 位置在**用户模式之后、类目档位之前** —— 用户显式选「强制折叠」仍然赢(D21 规则①
+ * 说的是用户意志最高),但类目的 'auto'/'collapse' 档位与三维阈值都压不过语义例外:
+ * `user_interaction` 这类"等人回话"的卡一旦折起来,用户就看不见该点哪儿了。
+ * 类目级语义(`CategoryDef.neverFold`)已由 `makeRun` 提升成 'expand' 档位,
+ * 故两个入口说的是同一件事,不产生第二套判据。
+ */
+export function resolveCategoryInitialOpen(
+  strategy: ExpandStrategy,
+  input: FoldPolicyInput,
+  mode?: FoldPolicyMode,
+): boolean {
+  if (mode === 'expanded') return true
+  if (mode === 'collapsed') return false
+  if (hasNeverFoldTool(input)) return true
+  if (strategy === 'expand') return true
+  if (strategy === 'collapse') return false
+  return !shouldCollapseSteps(input)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

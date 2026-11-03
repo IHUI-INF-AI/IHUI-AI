@@ -1,0 +1,148 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { MessageGroupItem, MessageGroupScreenProps } from '@ihui/types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 群聊列表/Props 类型 re-export(单一来源 @ihui/types) */
+export type { MessageGroupItem, MessageGroupScreenProps }
+
+/**
+ * 群聊列表共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题)+ 错误提示 + loading 态
+ * + 群聊卡片列表(groupName + 未读红色 badge + lastMessage[2 行] + lastMessageTime)
+ * + 下拉刷新 + 空态。不显示 "from:" 前缀。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function MessageGroupScreen({
+  t,
+  items,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onPressItem,
+  onBack,
+  colorScheme = 'light',
+}: MessageGroupScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('messageGroup.title')}</Text>
+      </View>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {loading && items.length === 0 ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      ) : (
+        <FlatList<MessageGroupItem>
+          data={items}
+          keyExtractor={(item) => item.groupId}
+          contentContainerStyle={styles.listBody}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <EmptyState title={t('messageGroup.empty')} colorScheme={colorScheme} />
+          }
+          renderItem={({ item }) => (
+            <PressableCard
+              onPress={() => onPressItem(item)}
+              style={styles.card}
+              colorScheme={colorScheme}
+            >
+              <View style={styles.card}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.groupName}
+                  </Text>
+                  {item.unreadCount > 0 ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {item.unreadCount > 99 ? '99+' : String(item.unreadCount)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.cardMessage} numberOfLines={2}>
+                  {item.lastMessage}
+                </Text>
+                <Text style={styles.cardTime}>{item.lastMessageTime}</Text>
+              </View>
+            </PressableCard>
+          )}
+        />
+      )}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: {
+      gap: rnSpacing['sm-loose'],
+      padding: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
+    },
+    card: {
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.light,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    cardName: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginRight: rnSpacing.sm,
+    },
+    badge: {
+      minWidth: 18,
+      paddingHorizontal: 5,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.danger.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badgeText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.surface.light },
+    cardMessage: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 20,
+    },
+    cardTime: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,115 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* 企业微信扫码登录 iframe 自定义样式
+ * 用途:隐藏 SDK 默认顶部"企业微信登录"标题 + 底部提示,二维码垂直水平居中
+ * 引用方式:WwLogin({ href: `${window.location.origin}/qr-styles/wecom-qr.css` })
+ *
+ * 2026-07-25 v4:通过实际访问企微 OAuth 页面获取真实 DOM 结构
+ * 实际层级:#js_single_page_container → .frame_wrap.frame_sso → .main.impowerBox
+ *          → .normalPanel.card.loginPanel → .waiting.panelContent → .wrp_code → img.qrcode.lightBorder
+ *
+ * 偏上根因(实测):
+ *   1. body 默认 padding-top: 120px(企微 SDK 默认样式)
+ *   2. .normalPanel.card.loginPanel 默认 padding-top: 36px
+ *   3. .wrp_code 默认 margin-top: 6px
+ */
+
+/* 隐藏顶部标题栏(含企业微信图标) */
+.impowerBox .title,
+.normalPanel .title,
+.loginPanel .title,
+.main .title {
+  display: none !important;
+}
+
+/* 隐藏底部提示文字 */
+.impowerBox .info,
+.normalPanel .info,
+.loginPanel .info,
+.panelContent .info,
+.waiting .info,
+.impowerBox .desc,
+.normalPanel .desc,
+.panelContent .desc,
+.waiting .desc {
+  display: none !important;
+}
+
+/* 2026-07-25 v4:html/body 撑满 iframe 视口 + flex 居中
+ * 关键:覆盖企微 SDK 默认 body padding-top: 120px
+ */
+html,
+body {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+}
+
+/* 所有容器层 flex 居中 + 清除默认 padding/margin
+ * 覆盖 .normalPanel.card.loginPanel 的 padding-top: 36px
+ */
+#js_single_page_container,
+.frame_wrap,
+.frame_sso,
+.main,
+.impowerBox,
+.normalPanel,
+.card,
+.loginPanel,
+.waiting,
+.panelContent {
+  padding: 0 !important;
+  margin: 0 auto !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* 二维码区域居中 - 覆盖 .wrp_code 的 margin-top: 6px */
+.wrp_code {
+  margin: 0 auto !important;
+  padding: 0 !important;
+  text-align: center !important;
+  display: block !important;
+  float: none !important;
+}
+
+/* 二维码图片本身居中,去掉边框。
+ *
+ * 2026-10-27 关键修正 —— 二维码尺寸必须与外框联动,否则必然溢出/被裁:
+ * 企微 SDK 生成的 iframe 尺寸在源码里写死为 300×400(已抓 wwLogin-1.2.7.js 验证),
+ * 而官方 CSS 里 `.impowerBox .qrcode{width:100%;max-width:280px}`:
+ *   - 外框 280 宽时 iframe 被压到 280 ⇒ 二维码取到上限 280 ⇒ 左右零边距、紧贴边框;
+ *   - 外框 260 高时 iframe 400 高被裁 140px ⇒ 二维码上下被切。
+ * 现用 vw(=iframe 视口宽,恒等于外框边长)把二维码锁在视口的 88%,
+ * 于是「二维码边长 q = min(280, 0.88×边长S) ≤ S」恒成立 ——
+ * 配合上文的垂直居中,裁掉的永远是 iframe 上下那 60px 空白,不是码本身。
+ */
+img.qrcode,
+img.qrcode.lightBorder {
+  border: none !important;
+  margin: 0 auto !important;
+  display: block !important;
+  float: none !important;
+  width: 280px !important;
+  max-width: 88vw !important;
+  min-height: 0 !important;
+  height: auto !important;
+  /* 官方 .frame_twxg 分支会给二维码加 8px padding + 1px border;
+     border-box 保证这些不会把「88vw」再撑出视口 */
+  box-sizing: border-box !important;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

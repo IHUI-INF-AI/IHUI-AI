@@ -1,0 +1,248 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+.favorites-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: var(--spacing-md);
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部:统计 + 搜索 + 管理 ===== */
+.favorites-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.favorites-stats {
+  display: flex;
+  align-items: baseline;
+}
+.favorites-stats-label {
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+}
+.favorites-stats-num {
+  margin: 0 8rpx;
+  font-size: var(--text-heading);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.favorites-stats-suffix {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+}
+.favorites-manage-btn {
+  margin-left: auto;
+  padding: var(--spacing-xs) 20rpx;
+  font-size: var(--text-label);
+  color: var(--color-primary);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.favorites-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  padding: 0 20rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.favorites-search-icon {
+  margin-right: var(--spacing-xs-loose);
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.favorites-search-input {
+  flex: 1;
+  font-size: var(--text-body);
+  color: var(--color-foreground);
+}
+
+/* ===== 分类 Tab(横向滚动) ===== */
+.favorites-tabs {
+  margin-top: var(--spacing-sm-loose);
+  white-space: nowrap;
+  width: 100%;
+}
+.favorites-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 60rpx;
+  padding: 0 24rpx;
+  margin-right: var(--spacing-xs-loose);
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.favorites-tab-active {
+  color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
+  font-weight: 600;
+}
+
+/* ===== 批量操作栏 ===== */
+.favorites-batch-bar {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) 20rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.favorites-batch-check {
+  display: flex;
+  align-items: center;
+}
+.favorites-batch-text {
+  margin-left: var(--spacing-xs-loose);
+  font-size: var(--text-body-sm);
+  color: var(--color-foreground);
+}
+.favorites-check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-xl);
+  height: var(--spacing-xl);
+  font-size: var(--text-label);
+  color: transparent;
+  background: var(--color-background);
+  border: 2rpx solid var(--color-ring);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.favorites-check-box-checked {
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
+  border-color: var(--color-cta);
+}
+.favorites-batch-btn {
+  padding: var(--spacing-xs) 20rpx;
+  font-size: var(--text-label);
+  color: var(--color-foreground);
+  background: var(--color-destructive);
+  border-radius: var(--radius-sm);
+}
+.favorites-batch-btn-disabled {
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+}
+
+/* ===== 收藏列表 ===== */
+.favorites-list {
+  margin-top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.favorites-card {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.favorites-cover {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  margin-right: var(--spacing-sm-loose);
+  flex-shrink: 0;
+}
+.favorites-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.favorites-cover-text {
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
+}
+.favorites-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.favorites-title {
+  font-size: var(--text-strong);
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.favorites-source {
+  font-size: var(--text-caption);
+  color: var(--color-muted-foreground);
+}
+.favorites-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.favorites-time {
+  font-size: var(--text-caption);
+  color: var(--color-muted-foreground);
+}
+.favorites-cancel-btn {
+  padding: var(--spacing-xs) 20rpx;
+  font-size: var(--text-label);
+  color: var(--color-destructive);
+  background: var(--color-danger-tint);
+  border: 2rpx solid var(--color-danger-tint-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* ===== 空状态 ===== */
+.favorites-empty {
+  margin-top: 120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.favorites-empty-icon {
+  font-size: 80rpx;
+}
+.favorites-empty-text {
+  margin-top: var(--spacing-sm-loose);
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+}
+.favorites-empty-btn {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 40rpx;
+  background: var(--color-cta);
+  border-radius: var(--radius-sm);
+}
+.favorites-empty-btn-text {
+  color: var(--color-cta-foreground);
+  font-size: var(--text-body-sm);
+}
+
+/* ===== 加载状态 ===== */
+.favorites-loading,
+.favorites-loading-more,
+.favorites-no-more {
+  text-align: center;
+  padding: var(--spacing-xl) 0;
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

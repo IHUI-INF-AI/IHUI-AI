@@ -1,0 +1,830 @@
+{
+  "version": 1,
+  "_readme": [
+    "i18n 死键审计器(scripts/scan-dead-i18n-keys.mjs)的契约键声明清单。",
+    "登记条件:该键在本端确实无静态引用(否则扫描器不会报它),但它不是孤儿 —— 而是跨端词包契约的一部分,",
+    "或被某条测试钉住的形状键。静态扫描只能看见「本端有没有人取这个词」,看不见「这个词是不是契约的一部分」。",
+    "组织形态:targets.<端>.<键> = { reason, evidence[] }。evidence 每条 = { file, line, contains }。",
+    "硬约束一:逐端登记。同一契约若覆盖多端,就按各端各自的证据逐端写,不得为了少写条目而放宽到多个端。",
+    "硬约束二:依据必须可核验 —— file 必须在 HEAD 里真实存在、line 必须在文件行数范围内、该行必须真含 contains,",
+    "不成立即判红(未经核验的豁免等于第二条「藏在数字里」的口子)。",
+    "硬约束三:本清单只免除「死键」这一项判据,不影响 parity / 翻译不完整 / 语言纯度。",
+    "硬约束四:条目过期(键已被本端静态引用,或键不在本端语言包里)同样判红,防止清单腐烂。",
+    "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
+  ],
+  "targets": {
+    "web": {
+      "eduCertificates.certificateNo": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.empty": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.statusRevoked": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.statusValid": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.subtitle": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.title": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      },
+      "eduCertificates.view": {
+        "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 217,
+            "contains": "eduCertificates.* (7 leaves)"
+          },
+          {
+            "file": "apps/web/tests/family-i18n-contract.test.ts",
+            "line": 219,
+            "contains": "the entry is repointed, never deleted"
+          }
+        ]
+      }
+    },
+    "miniapp-taro": {
+      "ai.stream.subagent": {
+        "reason": "D64④(2026-10-14)把 subagent 三帧改聚进 aiCards.subagentTasks 八态卡(chat.tsx:831-848 现读),旧的 pushStreamActivity(t(\"ai.stream.subagent\")) 消费点随之摘除 ⇒ 本端无静态引用;但本端测试 sse-subagent-consumption.test.ts 仍把\"五语言该键齐且带 {phase}\"钉成契约形状键(零删除口径),所以它不是孤儿。删键必须与该测试同批,归该线持有人;本席不改他人测试。",
+        "evidence": [
+          {
+            "file": "apps/miniapp-taro/tests/sse-subagent-consumption.test.ts",
+            "line": 132,
+            "contains": "五语言 ai.stream.subagent 键齐且带 phase 占位符"
+          },
+          {
+            "file": "apps/miniapp-taro/tests/sse-subagent-consumption.test.ts",
+            "line": 142,
+            "contains": "ai.stream.subagent 为非空字符串且含 {phase} 占位符"
+          },
+          {
+            "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+            "line": 960,
+            "contains": "subagent 三帧聚合进 aiCards.subagentTasks"
+          }
+        ]
+      },
+      "byok.step1Title": {
+        "reason": "llm-settings/index.tsx:195 用 t(`byok.step${step + 1}Title`) 动态拼接,step∈{0,1,2,3} 故产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键,删之即让 BYOK 向导第 1 步标题变空白。与 cli 端 undo* 同型动态拼接盲区。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step2Title": {
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step3Title": {
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step4Title": {
+        "reason": "llm-settings/index.tsx:195 动态拼接 byok.step${step + 1}Title(step∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。〔2026-10-30 依据重锚:本端该页已壳化(渲染 = 共享屏,数据/交互 = RN 壳),原依据所指的页内动态取词随之上移;消费点现读在 packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171(壳在运行时渲染它,取词仍落本端词包),故依据改指该真实消费点,键名与判定一条未动。〕",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      }
+    },
+    "mobile-rn": {
+      "byok.step1Title": {
+        "reason": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx:171 用 t(`byok.step${wizardStep + 1}Title`) 动态拼接,wizardStep∈{0,1,2,3} ⇒ 产出 byok.step1Title..step4Title;静态扫描看不见整串字面量,但属真实渲染键(BYOK 向导步骤标题),删之即让第 1 步标题空白。与 miniapp-taro / cli 端同型动态拼接盲区。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step2Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step2Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step3Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step3Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "byok.step4Title": {
+        "reason": "LlmSettingsScreen.tsx:171 动态拼接 byok.step${wizardStep + 1}Title(wizardStep∈{0,1,2,3})产出 byok.step4Title;静态扫描盲区,真实渲染键。",
+        "evidence": [
+          {
+            "file": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+            "line": 171,
+            "contains": "byok.step${wizardStep + 1}Title"
+          }
+        ]
+      },
+      "appUpdate.installingHint": {
+        "reason": "本键与 appUpdate 族同一裁定(2026-10-28 机主:RN 不复用 web 的刷新页面文案，就绪态/兜底各自成键);依据见 packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:84 逐字 'installingHint')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(渲染位取的是 appUpdate.installing),而该键是 2026-10-28 机主「重启迟迟不回来时的兜底说明同理只在 RN 出现」那一批补的 RN 独占文案,单摘本端词包即让该测试翻红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 84,
+            "contains": "'installingHint'"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 133,
+            "contains": "RN 独占键五语言齐备且非空"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 137,
+            "contains": "缺 RN 独占键"
+          }
+        ]
+      },
+      "appUpdate.restartNow": {
+        "reason": "本键与 appUpdate 族同一裁定(2026-10-28 机主:RN 不复用 web 的刷新页面文案，就绪态/兜底各自成键);依据见 packages/i18n/tests/app-update-copy-parity.test.ts 的 RN_ONLY_KEYS(:75 起,:85 逐字 'restartNow')钉成形状键,该测试对 mobile-rn 五语言逐键断言取到非空字符串(:133/:137)。本端无静态 t() 引用属实(RN 更新卡当前按钮位取 appUpdate.action/restart 族文案),但该键属 2026-10-28 那批 RN 独占补文,删键须与该测试同批、单删本端词包即判红。故本端保留该键、登记为形状键契约,不作孤儿处理。",
+        "evidence": [
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 85,
+            "contains": "'restartNow'"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 133,
+            "contains": "RN 独占键五语言齐备且非空"
+          },
+          {
+            "file": "packages/i18n/tests/app-update-copy-parity.test.ts",
+            "line": 137,
+            "contains": "缺 RN 独占键"
+          }
+        ]
+      },
+      "topic.detail.loading": {
+        "reason": "形状键契约:生产端**当前无静态取词点**(2026-11-01 现读 packages/app/src/features/topic-detail/TopicDetailScreen.tsx 只取 pageTitle/following/publish/loadingMore/noMore/anonymous 等,不含本键;小程序 pkg-content/topic/detail.tsx 已从 200+ 行重构为 43 行,旧依据「detail.tsx:200 static 取」不再成立,故本轮把它从证据里摘掉而不是留在账上冒充核验过)。本键由 apps/mobile-rn/tests/topic-detail-screen-render.test.tsx 的 USED 清单逐语言钉住(topic.detail.* 15 键取到非空且不等于键名)—— 单删本端词包即 5 红,删键必须与该测试同批。c72a93dda9 立它时的跨端同屏同字前提已随重构变化,现按实测重述。",
+        "evidence": [
+          {
+            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
+            "line": 175,
+            "contains": "'loading'"
+          },
+          {
+            "file": "apps/mobile-rn/tests/topic-detail-screen-render.test.tsx",
+            "line": 192,
+            "contains": "15 键全部取到非空字符串"
+          }
+        ]
+      }
+    },
+    "cli": {
+      "cliEntry.undoSucceeded": {
+        "reason": "取词点真实存在但静态扫描看不见:undo-claim-copy.ts:91 用常量相加 t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count }) 渲染,而 :41 才把前缀写成 'cliEntry.' ⇒ 全仓没有一处把 'cliEntry.undoSucceeded' 整串写成字面量。摘键等于让 CLI 回退成功时报出一句空白;补字面引用要改他人已入库的纯函数与 :62 的反向锁注释,归该线持有人。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 130,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count });"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 112,
+            "contains": "return 'undoSucceeded';"
+          }
+        ]
+      },
+      "cliEntry.undoPartialWarning": {
+        "reason": "同族:selectUndoClaimKey 在 :71 按票面状态返回叶名,再由 :98 的 t(UNDO_CLAIM_KEY_PREFIX + key) 拼出整串 ⇒ 本端零字面引用是拼接的必然结果,不是孤儿。「部分文件没撤成」这句是票面六态之一,摘键即把不完整结果报成干净成功。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 137,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 111,
+            "contains": "if (input.partial) return 'undoPartialWarning';"
+          }
+        ]
+      },
+      "cliEntry.undoUnavailable": {
+        "reason": "同族::72 返回叶名、:98 拼前缀成串,静态扫描无值流分析能力 ⇒ 'cliEntry.undoUnavailable' 从不以字面出现属工具盲区而非死文案。该态说的是「没有可回滚的项」,摘键即让无事可做被读成有结果。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 137,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 109,
+            "contains": "if (input.attemptedSteps === 0) return 'undoUnavailable';"
+          }
+        ]
+      },
+      "cliEntry.undoFailedChanged": {
+        "reason": "同族::70 返回叶名、:98 拼前缀成串。这一态是「确证工作区已变」的事实陈述,:58 的反向锁写明它与「判不了」互斥且顺序不得对调 ⇒ 摘键会把确证事实降级成沉默,属票面禁的那类谎,不是清理死文案。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 137,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 101,
+            "contains": "if (input.verdict === 'changed') return 'undoFailedChanged';"
+          }
+        ]
+      },
+      "cliEntry.undoFailed": {
+        "reason": "selectUndoClaimKey 在 :110 按 undoneSteps===0 返回 'undoFailed',再由 :137 的 t(UNDO_CLAIM_KEY_PREFIX + key) 拼出整串渲染;本端零字面引用是拼接的必然结果,非孤儿。该态说「有快照但一条也没撤成」,摘键即把全失败读成成功。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 137,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 110,
+            "contains": "if (input.undoneSteps === 0) return 'undoFailed';"
+          }
+        ]
+      },
+      "cliEntry.undoDone": {
+        "reason": "renderUndoSucceededLines 在 :181 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoDone', { undoneSteps, remaining }) 渲染成功改动清单;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 181,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoDone'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedFilesTitle": {
+        "reason": "UNDO_FAILURE_LIST_KEYS(:154) 含该叶名,renderUndoFailureLines 在 :219 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesTitle', ...) 渲染失败清单标题;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 154,
+            "contains": "'undoFailedFilesTitle'"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 219,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesTitle'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedFileLine": {
+        "reason": "UNDO_FAILURE_LIST_KEYS(:155) 含该叶名,renderUndoFailureLines 在 :226 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFileLine', ...) 渲染逐条「文件—原因」;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 155,
+            "contains": "'undoFailedFileLine'"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 226,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFileLine'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedFilesMore": {
+        "reason": "UNDO_FAILURE_LIST_KEYS(:156) 含该叶名,renderUndoFailureLines 在 :234 用 t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesMore', ...) 渲染截断尾句;零字面引用是拼接结果,非孤儿。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 156,
+            "contains": "'undoFailedFilesMore'"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 234,
+            "contains": "t(UNDO_CLAIM_KEY_PREFIX + 'undoFailedFilesMore'"
+          }
+        ]
+      },
+      "cliEntry.undoFailedUnverifiable": {
+        "reason": "同族::69 返回叶名、:98 拼前缀成串。这一态专管「判不了就不声称」——摘掉它,失败三拆少一条,无法核实的回退会被读成成功;:59 的顺序契约已把这一格钉成互斥,所以键必须留在五语言词包里。",
+        "evidence": [
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 44,
+            "contains": "export const UNDO_CLAIM_KEY_PREFIX = 'cliEntry.';"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 137,
+            "contains": "return t(UNDO_CLAIM_KEY_PREFIX + key);"
+          },
+          {
+            "file": "apps/cli/src/commands/undo-claim-copy.ts",
+            "line": 102,
+            "contains": "if (input.verdict === 'unknown') return 'undoFailedUnverifiable';"
+          }
+        ]
+      },
+      "cli.failureOutcomeRetryable": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:194-196 的 AGENT_FAILURE_OUTCOME_LABEL_KEYS 用 Object.fromEntries(AGENT_FAILURE_OUTCOMES.map((o) => `cli.failureOutcome${toPascalSegment(o)}`)) 推导键名(成员 'retryable' 在 :44 登记),cli 端按登记表取值渲染;全仓无 'cli.failureOutcomeRetryable' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让结局播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 194,
+            "contains": "export const AGENT_FAILURE_OUTCOME_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 195,
+            "contains": "cli.failureOutcome${toPascalSegment(o)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 44,
+            "contains": "['retryable', 'terminal', 'undetermined']"
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 149,
+            "contains": "'cli.failureOutcomeUndetermined'"
+          }
+        ]
+      },
+      "cli.failureOutcomeTerminal": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:194-196 的 AGENT_FAILURE_OUTCOME_LABEL_KEYS 用 Object.fromEntries(AGENT_FAILURE_OUTCOMES.map((o) => `cli.failureOutcome${toPascalSegment(o)}`)) 推导键名(成员 'terminal' 在 :44 登记),cli 端按登记表取值渲染;全仓无 'cli.failureOutcomeTerminal' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让结局播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 194,
+            "contains": "export const AGENT_FAILURE_OUTCOME_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 195,
+            "contains": "cli.failureOutcome${toPascalSegment(o)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 44,
+            "contains": "['retryable', 'terminal', 'undetermined']"
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 149,
+            "contains": "'cli.failureOutcomeUndetermined'"
+          }
+        ]
+      },
+      "cli.failureOutcomeUndetermined": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:194-196 的 AGENT_FAILURE_OUTCOME_LABEL_KEYS 用 Object.fromEntries(AGENT_FAILURE_OUTCOMES.map((o) => `cli.failureOutcome${toPascalSegment(o)}`)) 推导键名(成员 'undetermined' 在 :44 登记),cli 端按登记表取值渲染;全仓无 'cli.failureOutcomeUndetermined' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让结局播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 194,
+            "contains": "export const AGENT_FAILURE_OUTCOME_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 195,
+            "contains": "cli.failureOutcome${toPascalSegment(o)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 44,
+            "contains": "['retryable', 'terminal', 'undetermined']"
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 149,
+            "contains": "'cli.failureOutcomeUndetermined'"
+          }
+        ]
+      },
+      "cli.agentStallLlmRequest": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'llm_request' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallLlmRequest' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallToolExecution": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'tool_execution' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallToolExecution' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallApprovalWait": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'approval_wait' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallApprovalWait' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallElicitationWait": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'elicitation_wait' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallElicitationWait' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallStreamChannel": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'stream_channel' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallStreamChannel' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallQueueDispatch": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'queue_dispatch' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallQueueDispatch' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallPermissionGate": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'permission_gate' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallPermissionGate' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallBudgetGovernance": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'budget_governance' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallBudgetGovernance' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallHookPipeline": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'hook_pipeline' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallHookPipeline' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallDoomLoopGuard": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'doom_loop_guard' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallDoomLoopGuard' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      },
+      "cli.agentStallUndetermined": {
+        "reason": "动态拼接键:packages/types/src/agent-failure-vocabulary.ts:199-201 的 AGENT_STALL_STAGE_LABEL_KEYS 用 Object.fromEntries(AGENT_STALL_STAGES.map((s) => `cli.agentStall${toPascalSegment(s)}`)) 推导键名(成员 'undetermined' 在 :49-61 登记),cli 端按登记表取值渲染;全仓无 'cli.agentStallUndetermined' 字面量属拼接的必然结果,不是孤儿。测试 packages/types/tests/agent-failure-vocabulary.test.ts:146-171 断言五语言逐条齐备且不回显键名,摘键即让停摆播报丢这一档。",
+        "evidence": [
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 199,
+            "contains": "export const AGENT_STALL_STAGE_LABEL_KEYS = Object.fromEntries("
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 200,
+            "contains": "cli.agentStall${toPascalSegment(s)}"
+          },
+          {
+            "file": "packages/types/src/agent-failure-vocabulary.ts",
+            "line": 49,
+            "contains": "export const AGENT_STALL_STAGES = ["
+          },
+          {
+            "file": "packages/types/tests/agent-failure-vocabulary.test.ts",
+            "line": 151,
+            "contains": "'cli.agentStallLlmRequest'"
+          }
+        ]
+      }
+    }
+  }
+}

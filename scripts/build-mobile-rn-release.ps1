@@ -1,0 +1,594 @@
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+#requires -Version 7
+<#
+.SYNOPSIS
+  mobile-rn release APK 一键构建(签名流水线, 2026-09-03 P2 落地)
+.DESCRIPTION
+  流程:
+    0. 出包门链(任一红即中止,不产出可发布产物): node scripts/mobile-release-gate.mjs --worktree
+       ⇒ RN 依赖闭包 typecheck / RN 依赖闭包测试 / check-mobile-version-code / check-mobile-api-base-bake
+       与 CI 共用同一份实现(.github/workflows/mobile-apk-build.yml 调同一脚本),失败信息点名是哪道门
+    1. 幂等注入 release 签名配置(node scripts/patch-rn-release-signing.mjs,
+       android/ 为 Expo prebuild 生成物, prebuild 后必须重打)
+    2. 前置检查: keystore(~/.android/ihui-release.keystore) + 签名凭据(~/.gradle/gradle.properties)
+       **缺凭据直接拒绝构建** —— 不再产出 debug 签名的"正式包"(2026-11-03 立)
+    2.5 后端基址对账:烤进包的 API/WEB/WS 基址必须是显式的;含回环地址而没给 -AllowLocalBackend 即拒绝构建
+    3. gradlew :app:assembleRelease :app:bundleRelease(前台执行——后台任务会被环境 ~2min 终结)
+       同时产出 APK 与 AAB(Gradle 共享 JS bundle 任务,一次构建两件产物)
+    3.5 从产出的 APK 里读回 assets/index.android.bundle,确认三个基址真在里面、且无回环残留
+    4. 产物验收 node scripts/mobile-release-artifact-check.mjs:
+       APK apksigner 验签 + 证书指纹必须等于正式 keystore;AAB jarsigner 验签 + 同指纹;
+       debug 签名/换签名一律判失败;APK/AAB 体积对 scripts/data/mobile-release-size-baseline.json
+       比较(超 +15% 告警、超 +30% 判红;首次/更新基线须显式 -UpdateSizeBaseline)
+    5. 发布到固定下载地址(-NoPublish 可跳过):node scripts/publish-mobile-apk.mjs
+       落版本名副本 + 翻指针 ⇒ 用户链接恒定,不必跟着版本号换地址
+
+  签名凭据设计(不入库):
+    - keystore: C:/Users/Administrator/.android/ihui-release.keystore(仓库外)
+    - 密码:    用户级 ~/.gradle/gradle.properties 的 IHUI_RELEASE_* 属性(Gradle 自动读取)
+    - build.gradle 的 debug 回退只留给 CI 的 dev 包(dev 包禁发布到 Release);
+      本脚本在缺凭据时于构建前抛错,产物验收还会再按证书指纹判死(双保险)
+
+  用法:
+    pwsh -File scripts/build-mobile-rn-release.ps1                  # 默认双 ABI(arm64-v8a+x86_64)
+    pwsh -File scripts/build-mobile-rn-release.ps1 -VersionCode 2   # 指定版本号(上架必须递增)
+    pwsh -File scripts/build-mobile-rn-release.ps1 -Abi x86_64      # 单 ABI(模拟器/快速验证)
+    pwsh -File scripts/build-mobile-rn-release.ps1 -FullAbi         # 含 x86(32位, 一般不必要)
+    pwsh -File scripts/build-mobile-rn-release.ps1 -ApiBaseUrl https://www.aizhs.top -WebBaseUrl https://www.aizhs.top -WsBaseUrl https://api.aizhs.top   # 生产包(REST 走 www 快臂,WS 必须钉 api 臂)
+    pwsh -File scripts/build-mobile-rn-release.ps1 -ApiBaseUrl http://192.168.1.7:8802 -WebBaseUrl http://192.168.1.7:8801   # 局域网真机联调
+    pwsh -File scripts/build-mobile-rn-release.ps1 -AllowLocalBackend   # 本机回环 + adb reverse(不给这旗会被 2.5 拒绝)
+.PARAMETER VersionCode
+  Android versionCode(上架递增)。缺省 0 = **自动**:有机身时取"机上已装版本 + 1",无机身/取不到时回落 1 并大声说明。
+  为什么默认不能是 1:装机取证时 `adb install -r` 遇 versionCode 低于机上值会直接
+  `INSTALL_FAILED_VERSION_DOWNGRADE` —— 装不上又不报错到底,于是那一轮"实测"量的仍是旧包,
+  而账面看起来"构建成功"(2026-09-27 实测撞在这一步)。
+.PARAMETER ShowVersionCode
+  只解析并打印本次会用的 versionCode 与依据,不构建(给取证脚本与人工先确认落点用)
+.PARAMETER Abi
+  目标 ABI(逗号分隔, 如 arm64-v8a,x86_64); 缺省为 arm64-v8a,x86_64(32 位真机已放弃, 见 PROJECT_PLAN G-977963)
+.PARAMETER FullAbi
+  构建全部 ABI(含 x86 32 位)
+.PARAMETER SkipVerify
+  跳过签名验签(仅应急;体积基线仍会记录/判定)。常态不许给 —— debug 签名正是这条链之前的隐患。
+.PARAMETER UpdateSizeBaseline
+  显式改写 scripts/data/mobile-release-size-baseline.json 的 APK/AAB 体积基线(签名全部通过后才写)。
+.PARAMETER ApiBaseUrl
+  烤进包的 API 基址(写 EXPO_PUBLIC_API_BASE_URL)。缺省 = 沿用当前环境/ apps/mobile-rn/.env 的值。
+  为什么必须由脚本管:release 走的是 `gradlew assembleRelease`,**不经过 eas**,所以 eas.json 的
+  `build.production.env` 那三个值在这条链上**从不生效**;而 apps/mobile-rn/.env 是 gitignored 的、
+  换机/重装就没有 ⇒ 不显式传参时 Metro 会把 `src/lib/config.ts:28` 的缺省值 `http://localhost:8802`
+  烤进包,产出一个"构建成功、装到真机上连不通任何后端"的 APK。
+  现状如实登记(2026-10-10 现测,别把这条读成本机已发生的事故):本机用户级
+  `EXPO_PUBLIC_API_BASE_URL=https://aizhs.top` 在位,所以**当前**产出包扫 `assets/index.android.bundle`
+  读到的是 `aizhs.top` 在位、`8802` 零命中 —— 这一型在**这台机上尚未发生**,是 env 缺失时才成立的路径
+  (CI / 换机 / 清空用户环境变量)。守卫防的是那条路径,不是已经烧出来的事故。
+.PARAMETER WebBaseUrl
+  烤进包的 Web 基址(写 EXPO_PUBLIC_WEB_URL)。同上,SSO mobile-auth 与 WebView 域名都取自它。
+.PARAMETER WsBaseUrl
+  烤进包的 WebSocket 基址(写 EXPO_PUBLIC_WS_BASE_URL)。缺省 = 回落到 ApiBaseUrl
+  (与 `src/lib/config.ts` 的 `WS_BASE_URL = process.env.EXPO_PUBLIC_WS_BASE_URL || API_BASE_URL` 同语义)。
+  为什么必须由脚本管(2026-10-28 真机实测事故):REST 切到 www 快臂后,WS 跟着回落 www,
+  而 `wss://www.aizhs.top/ws/notifications` 全程拿不到 101 —— EdgeOne 那一跳把 Upgrade 剥掉,
+  api 侧只看到一条普通 GET ⇒ 404 ⇒ 客户端按 1/1/3/25 秒的节奏无限换票重连(实测 1 小时内
+  每 30 秒 4 次 `/ws/ticket`),通知通道一条都没连上。产物里没有第二处能表达这条分域,
+  所以它必须与 API/WEB 一起显式烤入并在构建后回读复核。
+.PARAMETER AllowLocalBackend
+  显式允许产出连回环地址(localhost/127.0.0.1/10.0.2.2)的包,配 `adb reverse` 用。
+  **不给这个旗就不许产出连回环的包** —— 缺省直接拒绝构建,而不是等人装到手机上才发现全不通。
+.PARAMETER NoPublish
+  只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
+  默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 发到站点 CDN 腿
+  (固定地址的唯一真源 = `scripts/data/mobile-download-leg.json`,本文不再复制字面量;
+  这条不是实物文件,而是 cdn-server 读旁边指针转出的 no-cache 302,真正长缓存的是带版本号那份)。
+  固定地址 ⇒ 用户不用换链接;发布末尾还要从公网回读一次(302 目标 + 大小 + Content-Type),
+  再由 `scripts/check-mobile-download-leg.mjs --apk` 复核证书基准,任一不绿即整条链失败 ——
+  不许"包好了但没发出去"或"发出去但不是正式签名"读成成功。
+  腾讯云 COS 备用腿(dl.aizhs.top)已于 2026-10-30 整桶下线:按外网下行流量计费,建桶当天被
+  下载 3.48GB 就扣了 1.54 元并把账户打成欠费,而它只是冗余(实测比站点腿慢两个数量级)。
+#>
+param(
+  [int]$VersionCode = 0,
+  [string]$Abi = '',
+  [switch]$FullAbi,
+  [switch]$SkipVerify,
+  [switch]$UpdateSizeBaseline,
+  [switch]$ShowVersionCode,
+  [switch]$NoPublish,
+  [string]$ApiBaseUrl = '',
+  [string]$WebBaseUrl = '',
+  [string]$WsBaseUrl = '',
+  [switch]$AllowLocalBackend,
+  [string]$SelfTestApk = ''
+)
+
+$ErrorActionPreference = 'Stop'
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+$AndroidDir = Join-Path $RepoRoot 'apps/mobile-rn/android'
+$Gradle = Join-Path $AndroidDir 'gradlew.bat'
+
+# ---- 后端基址:解析 → 拒绝静默连回环 → 构建后从包里回读复核 ----------------------------------
+# 三条不可漂的写法:
+#  ① 取值顺序必须与 Metro 实际生效顺序一致(显式参数 > 进程环境 > apps/mobile-rn/.env > config.ts 缺省),
+#     少一档就会"脚本以为烤的是 A、包里其实是 B"。
+#  ② 判"烤没烤对"不许拿"我传了 env"当证据 —— 必须从产出的 APK 里把 assets/index.android.bundle 读回来
+#     查字面量(与"产物存在 ≠ 能力在线"同一条纪律)。
+#  ③ 拒绝的出路只有一条:显式传 -ApiBaseUrl/-WebBaseUrl,或明确 -AllowLocalBackend;
+#     不许把这一维降级成 warning(那等于把"装到手机上什么都连不通"留给下一个人重新发现)。
+function Resolve-DotEnvValue {
+  param([string]$EnvFile, [string]$Key)
+  if (-not (Test-Path $EnvFile)) { return '' }
+  foreach ($line in Get-Content -LiteralPath $EnvFile -Encoding UTF8) {
+    $t = $line.Trim()
+    if ($t -eq '' -or $t.StartsWith('#')) { continue }
+    # .NET 正则不认 Perl 的 \Q…\E(实测抛 "Unrecognized escape sequence \Q"),必须走 [regex]::Escape。
+    # 本机 .env 是 gitignored 的,旧自检从没走到这一行 ⇒ 这条缺陷能一路活到真换机/CI 上才炸。
+    $m = [regex]::Match($t, '^\s*' + [regex]::Escape($Key) + '\s*=\s*(.*)$')
+    if ($m.Success) { return ($m.Groups[1].Value.Trim().Trim('"', "'")) }
+  }
+  return ''
+}
+
+function Resolve-BakedBackend {
+  $envFile = Join-Path $RepoRoot 'apps/mobile-rn/.env'
+  $api = if ($ApiBaseUrl) { $ApiBaseUrl } elseif ($env:EXPO_PUBLIC_API_BASE_URL) { $env:EXPO_PUBLIC_API_BASE_URL } else { Resolve-DotEnvValue -EnvFile $envFile -Key 'EXPO_PUBLIC_API_BASE_URL' }
+  $web = if ($WebBaseUrl) { $WebBaseUrl } elseif ($env:EXPO_PUBLIC_WEB_URL) { $env:EXPO_PUBLIC_WEB_URL } else { Resolve-DotEnvValue -EnvFile $envFile -Key 'EXPO_PUBLIC_WEB_URL' }
+  $ws = if ($WsBaseUrl) { $WsBaseUrl } elseif ($env:EXPO_PUBLIC_WS_BASE_URL) { $env:EXPO_PUBLIC_WS_BASE_URL } else { Resolve-DotEnvValue -EnvFile $envFile -Key 'EXPO_PUBLIC_WS_BASE_URL' }
+  $apiSrc = if ($ApiBaseUrl) { '参数' } elseif ($env:EXPO_PUBLIC_API_BASE_URL) { '进程环境' } elseif ($api) { '.env' } else { 'config.ts 缺省' }
+  $webSrc = if ($WebBaseUrl) { '参数' } elseif ($env:EXPO_PUBLIC_WEB_URL) { '进程环境' } elseif ($web) { '.env' } else { 'config.ts 缺省' }
+  $wsSrc = if ($WsBaseUrl) { '参数' } elseif ($env:EXPO_PUBLIC_WS_BASE_URL) { '进程环境' } elseif ($ws) { '.env' } else { 'config.ts 回落 API' }
+  if (-not $api) { $api = 'http://localhost:8802' }
+  if (-not $web) { $web = 'http://localhost:8801' }
+  # WS 缺省跟 API 走:这就是 config.ts 的回落语义,脚本显式写出来而不是留给 Metro 猜。
+  if (-not $ws) { $ws = $api }
+  return [pscustomobject]@{ Api = $api; Web = $web; Ws = $ws; ApiSrc = $apiSrc; WebSrc = $webSrc; WsSrc = $wsSrc }
+}
+
+function Test-LoopbackUrl {
+  param([string]$Url)
+  return ($Url -match '://(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|10\.0\.2\.2)(:|/|$)')
+}
+
+# 裸 apex 基址检测(2026-10-21 真机实测):`https://aizhs.top` 对 POST 回 301 跳 `www.aizhs.top`,
+# 而 301 会把 POST 改写成 GET ⇒ /api/auth/login 之类只注册 POST 的路由全 404(真机现象:
+# 点登录后提示 `Route GET:/api/auth/login not found`)。`www` 与 `api` 两个别名都不跳,只有裸 apex 跳。
+# 不许给旗放行:这是测出来的服务端行为,不是本地联调偏好(对照 -AllowLocalBackend 的正当例外)。
+function Test-ApexRedirectUrl {
+  param([string]$Url)
+  try { $host_ = ([uri]$Url).Host } catch { return $false }
+  return ($host_ -eq 'aizhs.top')
+}
+
+# WS 握手实测承载不了的那条臂(2026-10-28 立):`wss://www.aizhs.top/ws/notifications` 带 Upgrade 头
+# 反复拿到 **404**,响应头却是 api 自己的签名(x-api-version / x-trace-id / x-ratelimit-*)
+# ⇒ 请求到了 api、但升级语义在 EdgeOne 那一跳被剥成了普通 GET(api 侧看到的是没有 Upgrade 的 GET,
+# 于是 websocket 路由不匹配 → 404)。同一时刻 `wss://api.aizhs.top/ws/notifications` 101。
+# 判据只认"这一跳今天承载不了握手"这条实测,不判是哪一层剥的、也不许照猜去改 —— 与 apex 那条同理,
+# 不给旗放行;真要换臂,出路是改这条函数并附新的实测,而不是加一个 env 开关把事故放回产物里。
+function Test-WsArmCannotUpgrade {
+  param([string]$Url)
+  try { $host_ = ([uri]$Url).Host } catch { return $false }
+  return ($host_ -eq 'aizhs.top' -or $host_ -eq 'www.aizhs.top')
+}
+
+function Get-BundleText {
+  param([string]$ApkPath)
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $zip = [System.IO.Compression.ZipFile]::OpenRead($ApkPath)
+  try {
+    $entry = $zip.GetEntry('assets/index.android.bundle')
+    if (-not $entry) { throw "APK 里没有 assets/index.android.bundle(打包形态变了?拒绝猜)" }
+    $ms = New-Object System.IO.MemoryStream
+    $s = $entry.Open()
+    try { $s.CopyTo($ms) } finally { $s.Dispose() }
+    # 逐字节取回再按 Latin1 解:JS bundle 里的 URL 是 ASCII 字面量,Latin1 无损且不会因为
+    # Metro 产物里的任意字节序列而解错(解错的表现是"查不到",而"查不到"会被读成"没烤进去")。
+    return [System.Text.Encoding]::GetEncoding('ISO-8859-1').GetString($ms.ToArray())
+  } finally { $zip.Dispose() }
+}
+
+# 目标 ABI 的缺省值只住这一处(本文件在版本树里;机主拍板 2026-10-09,G-977963:收成 arm64-v8a,x86_64,
+# 放弃 32 位真机与 x86 32 位模拟器)。
+# 为什么**不**拿 apps/mobile-rn/android/gradle.properties 当缺省源:那条路径被
+# apps/mobile-rn/.gitignore 的 /android 规则整目录忽略,属 Expo prebuild 的产物 —— 重跑 prebuild 就回到
+# 模板四档,刚被放弃的 armeabi-v7a 那一路自己长回来,而它在本机必挂
+# (:configureCMakeRelWithDebInfo[armeabi-v7a] 报 unsupported argument 'armv7-a')。
+# 所以对那一行只做**一致性判定并大声报**,不取它的值;判据抽成纯函数,自检用构造面逐臂证。
+$DefaultAbi = 'arm64-v8a,x86_64'
+function Resolve-AbiArg {
+  param([string]$Abi, [switch]$FullAbi, [string]$DefaultAbi, [string]$PropsAbi)
+  if ($FullAbi) { return @{ Arg = '-PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64'; Drift = ''; Note = 'FullAbi(显式全量)' } }
+  if ($Abi)     { return @{ Arg = "-PreactNativeArchitectures=$Abi"; Drift = ''; Note = '显式 -Abi(不比一致性)' } }
+  if (-not $PropsAbi) { return @{ Arg = "-PreactNativeArchitectures=$DefaultAbi"; Drift = ''; Note = '生成工程里读不到该行 ⇒ 一致性未判定(仍按缺省构建)' } }
+  if ($PropsAbi -ne $DefaultAbi) { return @{ Arg = "-PreactNativeArchitectures=$DefaultAbi"; Drift = $PropsAbi; Note = "与生成工程不一致:它写 $PropsAbi" } }
+  return @{ Arg = "-PreactNativeArchitectures=$DefaultAbi"; Drift = ''; Note = '与生成工程同值' }
+}
+
+if ($SelfTestApk -ne '') {
+  # 自检档:只量新加的两段判据,不构建。为什么要有它而不是"下次构建顺便看":拒绝臂与回读臂都是
+  # "红才有意义"的判据,而一条永不红的判据与一条根本没跑到的判据,在账面上长得一模一样。
+  $script:Fail = 0
+  function Chk([string]$name, [bool]$cond) {
+    if ($cond) { Write-Host "  ok   $name" -ForegroundColor Green }
+    else { Write-Host "  FAIL $name" -ForegroundColor Red; $script:Fail += 1 }
+  }
+  # 标签一律 ASCII:本机控制台代码页是 GBK,中文经重定向会变乱码(CI/取证读到的就是不可判定的一堆方块),
+  # 而"跑完了但读不懂"与"没跑"在账面上必须可区分。
+  Chk 'loopback-localhost-detected' (Test-LoopbackUrl 'http://localhost:8802')
+  Chk 'loopback-10.0.2.2-detected' (Test-LoopbackUrl 'http://10.0.2.2:8801')
+  Chk 'loopback-127.0.0.1-detected' (Test-LoopbackUrl 'http://127.0.0.1:8802')
+  Chk 'lan-ip-not-loopback' (-not (Test-LoopbackUrl 'http://192.168.1.7:8802'))
+  Chk 'prod-domain-not-loopback' (-not (Test-LoopbackUrl 'https://aizhs.top'))
+  Chk 'hostname-prefix-localhost-not-loopback' (-not (Test-LoopbackUrl 'https://localhost8802.example/'))
+  Chk 'apex-host-detected' (Test-ApexRedirectUrl 'https://aizhs.top')
+  Chk 'apex-host-with-path-detected' (Test-ApexRedirectUrl 'https://aizhs.top/api')
+  Chk 'api-subdomain-not-apex' (-not (Test-ApexRedirectUrl 'https://api.aizhs.top'))
+  Chk 'www-subdomain-not-apex' (-not (Test-ApexRedirectUrl 'https://www.aizhs.top'))
+  # WS 臂判据:www/apex 实测拿不到 101,api 臂 101,本地联调臂不判。
+  Chk 'ws-www-arm-refused' (Test-WsArmCannotUpgrade 'https://www.aizhs.top')
+  Chk 'ws-apex-arm-refused' (Test-WsArmCannotUpgrade 'https://aizhs.top')
+  Chk 'ws-api-arm-allowed' (-not (Test-WsArmCannotUpgrade 'https://api.aizhs.top'))
+  Chk 'ws-loopback-arm-not-refused' (-not (Test-WsArmCannotUpgrade 'http://127.0.0.1:8802'))
+  Chk 'ws-lan-arm-not-refused' (-not (Test-WsArmCannotUpgrade 'http://192.168.1.7:8802'))
+  # 取值优先级:参数 > 进程环境 > .env > config.ts 缺省。这一维错了的表现是「我传了参数却烤了别人的值」。
+  $ApiBaseUrl = 'https://param.example'; $WebBaseUrl = 'https://param.example'; $WsBaseUrl = 'https://param-ws.example'
+  $env:EXPO_PUBLIC_API_BASE_URL = 'https://env.example'; $env:EXPO_PUBLIC_WEB_URL = 'https://env.example'; $env:EXPO_PUBLIC_WS_BASE_URL = 'https://env-ws.example'
+  $b1 = Resolve-BakedBackend
+  Chk 'precedence-param-over-env' ($b1.Api -eq 'https://param.example' -and $b1.ApiSrc -eq '参数')
+  Chk 'precedence-param-over-env-ws' ($b1.Ws -eq 'https://param-ws.example' -and $b1.WsSrc -eq '参数')
+  $ApiBaseUrl = ''; $WebBaseUrl = ''; $WsBaseUrl = ''
+  $b2 = Resolve-BakedBackend
+  Chk 'precedence-env-when-no-param' ($b2.Api -eq 'https://env.example' -and $b2.ApiSrc -eq '进程环境')
+  Chk 'precedence-env-when-no-param-ws' ($b2.Ws -eq 'https://env-ws.example' -and $b2.WsSrc -eq '进程环境')
+  $env:EXPO_PUBLIC_API_BASE_URL = ''; $env:EXPO_PUBLIC_WEB_URL = ''; $env:EXPO_PUBLIC_WS_BASE_URL = ''
+  $b3 = Resolve-BakedBackend
+  Chk 'fallback-to-config-default-not-empty-string' ($b3.Api.Length -gt 0 -and $b3.Web.Length -gt 0)
+  # WS 缺省必须显式复刻 config.ts 的 `|| API_BASE_URL` 回落语义(否则脚本以为没烤、包里却烤了别的)。
+  Chk 'ws-falls-back-to-api-like-config-ts' ($b3.Ws -eq $b3.Api -and $b3.WsSrc -eq 'config.ts 回落 API')
+  $tmpEnv = Join-Path ([System.IO.Path]::GetTempPath()) ("ihui-dotenv-probe-" + [guid]::NewGuid().ToString('N') + '.env')
+  @(
+    '# 注释里也写着同名键 EXPO_PUBLIC_API_BASE_URL=should-not-match',
+    'OTHER_KEY=zzz',
+    'EXPO_PUBLIC_API_BASE_URL="https://env.example/api"',
+    'EXPO_PUBLIC_WEB_URL=http://env.example'
+  ) | Set-Content -LiteralPath $tmpEnv -Encoding UTF8
+  try {
+    $got = Resolve-DotEnvValue -EnvFile $tmpEnv -Key 'EXPO_PUBLIC_API_BASE_URL'
+    Chk 'dotenv-reader-quoted-value-unwrapped' ($got -eq 'https://env.example/api')
+    Chk 'dotenv-reader-ignores-comment-line' ($got -notlike '*should-not-match*')
+    Chk 'dotenv-reader-prefix-key-not-confused' (
+      (Resolve-DotEnvValue -EnvFile $tmpEnv -Key 'EXPO_PUBLIC_WEB_URL') -eq 'http://env.example'
+    )
+
+  Chk 'dotenv-reader-missing-key-returns-empty' (
+      (Resolve-DotEnvValue -EnvFile $tmpEnv -Key 'NO_SUCH_KEY') -eq ''
+    )
+  } finally {
+    Remove-Item -LiteralPath $tmpEnv -Force -ErrorAction SilentlyContinue
+  }
+  Chk 'config-default-counts-as-loopback' ((Test-LoopbackUrl $b3.Api) -and (Test-LoopbackUrl $b3.Web))
+  Chk 'default-abi-is-the-two-approved-tiers' ($DefaultAbi -eq 'arm64-v8a,x86_64')
+  $a1 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'arm64-v8a,x86_64'
+  Chk 'abi-arm-consistent-no-drift' (($a1.Drift -eq '') -and ($a1.Arg -like '*arm64-v8a,x86_64'))
+  $a2 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'armeabi-v7a,arm64-v8a,x86,x86_64'
+  Chk 'abi-drift-detected-and-named' (($a2.Drift -like 'armeabi-v7a*') -and ($a2.Arg -like "*$DefaultAbi*"))
+  $a3 = Resolve-AbiArg -Abi 'arm64-v8a' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi 'armeabi-v7a,x86'
+  Chk 'abi-explicit-Abi-skips-consistency' (($a3.Arg -like '*=arm64-v8a') -and ($a3.Drift -eq ''))
+  $a4 = Resolve-AbiArg -Abi '' -FullAbi:$false -DefaultAbi $DefaultAbi -PropsAbi ''
+  Chk 'abi-missing-props-line-is-undetermined-not-silent' (($a4.Drift -eq '') -and ($a4.Note -like '*未判定*'))
+  $a5 = Resolve-AbiArg -Abi '' -FullAbi:$true -DefaultAbi $DefaultAbi -PropsAbi ''
+  Chk 'abi-fullabi-still-offers-32bit-exit' ($a5.Arg -like '*armeabi-v7a*')
+  if (Test-Path $SelfTestApk) {
+    $text = Get-BundleText -ApkPath $SelfTestApk
+    Chk 'bundle-readable-from-real-apk' ($text.Length -gt 100000)
+    Chk 'baked-prod-url-found-in-bundle(positive-control)' ($text.Contains('https://aizhs.top'))
+    Chk 'unbaked-url-not-found(negative-control)' (-not $text.Contains('https://not-baked-9f3a2b.example'))
+  } else {
+    Write-Host "  FAIL apk-unreadable:$SelfTestApk (readback arm did not run; not a pass)" -ForegroundColor Red
+    $script:Fail += 1
+  }
+  Write-Host "`n===== SELFTEST FAILURES=$script:Fail =====" -ForegroundColor ($(if ($script:Fail) { 'Red' } else { 'Green' }))
+  exit ($(if ($script:Fail) { 1 } else { 0 }))
+}
+
+# 包名解析:先读 app.json 的 android.package,取不到再回落到 android/app/build.gradle 的
+# applicationId(android/ 是 Expo prebuild 生成物,但 gradle 真正用的就是它,所以它是权威落点)。
+# ⚠️ 2026-09-29 实测修掉的缺陷:apps/mobile-rn/app.json 的 android 段是空的 {} ⇒ 旧写法恒得
+# $null,于是下面 `adb shell dumpsys package <空>` 变成 dump **全部应用**,而正则取的是第一个
+# versionCode= 匹配 ⇒ 拿到的是机上某个无关 app 的版本号(实测读到 41503031,而本 app 实为
+# 41503032),于是"自动定档"从来没对过、且会产出重号或降级的包。两个来源都取不到时必须 throw,
+# 绝不允许带空包名去查 —— 静默查错对象比直接失败贵得多。
+$RnPackage = $null
+$AppJsonPath = Join-Path $RepoRoot 'apps/mobile-rn/app.json'
+if (Test-Path -LiteralPath $AppJsonPath) {
+  $RnPackage = (Get-Content -Raw -LiteralPath $AppJsonPath | ConvertFrom-Json).android.package
+}
+if (-not $RnPackage) {
+  $GradleApp = Join-Path $AndroidDir 'app/build.gradle'
+  if (Test-Path -LiteralPath $GradleApp) {
+    $m = Select-String -Path $GradleApp -Pattern "applicationId\s+'([^']+)'" | Select-Object -First 1
+    if (-not $m) { $m = Select-String -Path $GradleApp -Pattern 'applicationId\s+"([^"]+)"' | Select-Object -First 1 }
+    if ($m) { $RnPackage = $m.Matches[0].Groups[1].Value }
+  }
+}
+if (-not $RnPackage) {
+  throw '无法解析 Android 包名:app.json 的 android.package 与 build.gradle 的 applicationId 都取不到。拒绝继续 —— 带空包名跑 dumpsys 会 dump 全部应用,把无关 app 的 versionCode 当成本 app 的。'
+}
+Write-Host "  包名(现读):$RnPackage" -ForegroundColor DarkGray
+
+function Resolve-AutoVersionCode {
+  <#
+    返回 @{ Value = <int>; Source = <string> }。
+    三条失败路径一律回落 1 但**必须喊出原因** —— 静默用 1 等于把"装不上"重新藏回构建成功里。
+  #>
+  param([string]$Package)
+  # 第二道锁:即使调用方漏判,空包名也绝不进 dumpsys。
+  if ([string]::IsNullOrWhiteSpace($Package)) {
+    return @{ Value = 1; Source = '包名为空 ⇒ 拒绝查 dumpsys(空包名会 dump 全部应用,把无关 app 的 versionCode 当成本 app 的),回落 1 并在此大声说明' }
+  }
+  $adb = Get-Command adb.exe -ErrorAction SilentlyContinue
+  if (-not $adb) { return @{ Value = 1; Source = 'PATH 里没有 adb.exe ⇒ 无法问机上版本,回落 1' } }
+  $devOut = (& $adb.Source devices 2>$null) -join "`n"
+  $serials = @([regex]::Matches($devOut, '(?m)^(\S+)\s+device$') | ForEach-Object { $_.Groups[1].Value })
+  if ($serials.Count -eq 0) { return @{ Value = 1; Source = '没有已授权设备在线 ⇒ 无法问机上版本,回落 1' } }
+  # 多设备必须逐个 -s 问:不带 -s 的 adb shell 在 >1 台时直接报 "more than one device",dump 为空 ⇒ 静默回落 1
+  # (实测 2026/10/21:模拟器+真机同连,产出 versionCode=1 的包,装上去是降级)。
+  $installed = @()
+  $unreadable = @()
+  foreach ($s in $serials) {
+    try { $dump = (& $adb.Source -s $s shell "dumpsys package $Package" 2>$null) -join "`n" } catch { $dump = '' }
+    $m = [regex]::Match($dump, 'versionCode=(\d+)')
+    if ($m.Success) { $installed += [int]$m.Groups[1].Value } else { $unreadable += $s }
+  }
+  if ($installed.Count -eq 0) {
+    return @{ Value = 1; Source = "在线设备($($serials -join ', '))上都查不到 $Package 的 versionCode(未装或 dumpsys 形态变) ⇒ 回落 1" }
+  }
+  $max = ($installed | Measure-Object -Maximum).Maximum
+  $where = if ($installed.Count -eq 1) { '单机' } else { "$($installed.Count) 台都有,OEM 取最大" }
+  return @{ Value = $max + 1; Source = "机上 $Package 现装 versionCode=$($installed -join '/')($where;查不到:$($unreadable.Count) 台)⇒ 取 $max +1" }
+}
+
+if ($VersionCode -le 0) {
+  $auto = Resolve-AutoVersionCode -Package $RnPackage
+  $VersionCode = $auto.Value
+  Write-Host "  versionCode 自动定档:$VersionCode —— $($auto.Source)" -ForegroundColor Cyan
+}
+
+if ($ShowVersionCode) {
+  Write-Host "本次将使用的 versionCode = $VersionCode(未构建)" -ForegroundColor Green
+  return
+}
+
+Write-Host "`n===== [门链] 出包前置门链(任一红即中止) =====" -ForegroundColor Cyan
+Push-Location $RepoRoot
+try {
+  # 与 CI 共用 scripts/mobile-release-gate.mjs 这一份实现,禁止在本脚本另写一份清单(两处清单必然漂移)。
+  # --worktree:审的是"将要构建的这份盘上内容",不是 HEAD blob。
+  node scripts/mobile-release-gate.mjs --worktree
+  if ($LASTEXITCODE -ne 0) {
+    throw "出包门链失败(exit=$LASTEXITCODE)—— 见上一行点名的门;本次不构建、不产出任何可发布产物。"
+  }
+} finally { Pop-Location }
+
+Write-Host "`n===== [1/5] 幂等注入 release 签名配置 =====" -ForegroundColor Cyan
+Push-Location $RepoRoot
+try {
+  node scripts/patch-rn-release-signing.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'patch-rn-release-signing.mjs 失败' }
+} finally { Pop-Location }
+
+Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
+$Keystore = "$env:USERPROFILE\.android\ihui-release.keystore"
+$GradleProps = "$env:USERPROFILE\.gradle\gradle.properties"
+$hasKs = Test-Path $Keystore
+$hasProps = (Test-Path $GradleProps) -and (Select-String -Path $GradleProps -Pattern 'IHUI_RELEASE_STORE_FILE' -Quiet)
+if (-not $hasKs -or -not $hasProps) {
+  # 2026-11-03 立:缺凭据不再"回退 debug 签名继续出包"。debug 签名的包一旦被发到固定下载地址,
+  # 用户装上去与正式包签名不一致 ⇒ 覆盖安装失败 / 商店拒收,而构建账面上却是"成功"。
+  # 要 debug 包请走 CI 的 dev 包或 assembleDebug,不要把 release 入口变成 debug 出口。
+  Write-Warning "release 签名凭据缺失: keystore=$hasKs, gradle.properties=$hasProps"
+  Write-Warning '生成凭据参考(仅首次):'
+  Write-Warning "  1) keytool -genkeypair -keystore `"$Keystore`" -alias ihui-release -keyalg RSA -keysize 2048 -validity 10000"
+  Write-Warning '  2) 在 ~/.gradle/gradle.properties 写入 IHUI_RELEASE_STORE_FILE/STORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD'
+  throw '拒绝构建:release 签名凭据缺失。本入口只产出正式签名包;debug 签名产物按判据直接判失败。'
+} else {
+  Write-Host "  keystore OK: $Keystore" -ForegroundColor Green
+  Write-Host '  签名凭据 OK (~/.gradle/gradle.properties)' -ForegroundColor Green
+}
+
+# 缺省 ABI 只住 $DefaultAbi 一处(见文件上方函数定义处的注释:为什么不读 gradle.properties 那一行)。
+$PropsAbi = Resolve-DotEnvValue -EnvFile (Join-Path $AndroidDir 'gradle.properties') -Key 'reactNativeArchitectures'
+$AbiDecision = Resolve-AbiArg -Abi $Abi -FullAbi:$FullAbi -DefaultAbi $DefaultAbi -PropsAbi $PropsAbi
+$abiArg = $AbiDecision.Arg
+if ($AbiDecision.Drift) {
+  Write-Warning $AbiDecision.Note
+} else {
+  Write-Host "  ABI 依据: $($AbiDecision.Note)" -ForegroundColor DarkGray
+}
+
+Write-Host "`n===== [2.5/5] 后端基址对账(烤进包里的那个) =====" -ForegroundColor Cyan
+$Backend = Resolve-BakedBackend
+Write-Host "  API = $($Backend.Api)   (来源:$($Backend.ApiSrc))" -ForegroundColor Gray
+Write-Host "  WEB = $($Backend.Web)   (来源:$($Backend.WebSrc))" -ForegroundColor Gray
+Write-Host "  WS  = $($Backend.Ws)   (来源:$($Backend.WsSrc))" -ForegroundColor Gray
+$loop = @()
+if (Test-LoopbackUrl $Backend.Api) { $loop += "API=$($Backend.Api)" }
+if (Test-LoopbackUrl $Backend.Web) { $loop += "WEB=$($Backend.Web)" }
+if ($loop.Count -gt 0 -and -not $AllowLocalBackend) {
+  # 这条拒绝必须自带一行 ASCII:本机控制台代码页是 GBK,中文经重定向会被吃掉(AGENTS §26 实测同型),
+  # 而"拒绝得看不懂"等于没给出路 —— 出路必须是任何人、任何码页下都能照着敲的。
+  Write-Error ("REFUSED: release build would bake a loopback backend: " + ($loop -join ', ') +
+    " | why: this path runs gradlew assembleRelease (NOT eas), so eas.json production env never applies." +
+    " | fix: pass -ApiBaseUrl/-WebBaseUrl explicitly, or add -AllowLocalBackend together with 'adb reverse'.")
+  throw (
+    "拒绝产出连回环后端的 release 包:$($loop -join ', ')。" +
+    "这条链走 gradlew assembleRelease、不经 eas,所以 eas.json 的 production env 不会生效;" +
+    "取值来源为「$($Backend.ApiSrc)/$($Backend.WebSrc)」说明没人显式给过。" +
+    "两种正解:① 显式传 -ApiBaseUrl/-WebBaseUrl(生产或局域网地址);② 真要做本机联调就加 -AllowLocalBackend 并配 adb reverse。" +
+    "禁止的出路:删掉这一步、或把它降级成 warning —— 那等于把「装上手机才发现全不通」留给下一个人。"
+  )
+}
+$apex = @()
+if (Test-ApexRedirectUrl $Backend.Api) { $apex += "API=$($Backend.Api)" }
+if (Test-ApexRedirectUrl $Backend.Web) { $apex += "WEB=$($Backend.Web)" }
+if ($apex.Count -gt 0) {
+  Write-Error ("REFUSED: release build would bake an apex host that 301-redirects to www: " + ($apex -join ', ') +
+    " | why: 301 rewrites POST into GET, so POST-only routes (/api/auth/login ...) return 404 on device." +
+    " | fix: pass -ApiBaseUrl https://api.aizhs.top (-WebBaseUrl https://www.aizhs.top).")
+  throw (
+    "拒绝产出基址为裸 apex 的 release 包:$($apex -join ', ')。" +
+    "2026-10-21 真机实测:aizhs.top 对 POST 回 301 → www.aizhs.top,301 把 POST 改写成 GET," +
+    "于是 /api/auth/login 这类只注册 POST 的路由一律 404(真机提示 `Route GET:/api/auth/login not found`)。" +
+    "正解:显式传 -ApiBaseUrl https://api.aizhs.top(或 https://www.aizhs.top/api),Web 用 https://www.aizhs.top。" +
+    "禁止的出路:加旗放行 —— 这是服务端实测行为,不是本地联调偏好。"
+  )
+}
+# WS 分域拒绝(2026-10-28 真机实测):REST 走 www、WS 也回落 www ⇒ 换票永远换到、握手永远 404,
+# 客户端按退避无限重连(实测每 30 秒 4 次 /ws/ticket,一小时没连上一条)。这条只在"WS 落在那条实测
+# 承载不了握手的臂"时红,所以本地联调(127.0.0.1 / 192.168.x)与正常生产组合都不受影响。
+if (-not $AllowLocalBackend -and (Test-WsArmCannotUpgrade $Backend.Ws)) {
+  Write-Error ("REFUSED: release build would bake a WS arm that cannot complete the handshake: WS=" + $Backend.Ws +
+    " | why: wss://www.aizhs.top/ws/notifications returns 404 while wss://api.aizhs.top returns 101 (EdgeOne hop drops Upgrade)." +
+    " | fix: pass -WsBaseUrl https://api.aizhs.top (REST may stay on https://www.aizhs.top).")
+  throw (
+    "拒绝产出 WS 基址落在 $($Backend.Ws) 的 release 包(来源:$($Backend.WsSrc))。" +
+    "2026-10-28 真机实测:同一条 www 臂上 `/ws/ticket` 200、`/ws/notifications` 404 —— 换票换得到、" +
+    "握手永远握不上,客户端于是按 1/1/3/25 秒退避无限重连(每小时 ~480 次换票),通知通道一条都不通。" +
+    "正解:显式传 -WsBaseUrl https://api.aizhs.top(REST 可以继续走 www 快臂)。" +
+    "禁止的出路:把这一维降级成 warning,或加旗放行 —— 那等于把「装上手机、看着能登录、收不到任何通知」留给下一个人。"
+  )
+}
+
+# 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
+$env:EXPO_PUBLIC_API_BASE_URL = $Backend.Api
+$env:EXPO_PUBLIC_WEB_URL = $Backend.Web
+$env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
+if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
+
+Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
+Write-Host "  ABI: $($abiArg -replace '^.*=','')"
+if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
+
+Push-Location $AndroidDir
+try {
+  # 先停 daemon:打包期的 `EXPO_PUBLIC_*` 内联读的是 **gradle daemon 进程**的环境,而 daemon 复用旧环境
+  # ⇒ 本脚本刚设的值到不了打包器(2026-10-21 实测:参数是 api.aizhs.top,包里却是 env 里的 apex)。
+  # --stop 后新 daemon 继承本进程 env,回读臂仍会兜底核对。
+  & .\gradlew.bat --stop | Out-Null
+  # 逗号列表必须经 env 传:gradlew.bat 是批处理,裸 `-P...=a,b` 会被 cmd 按逗号再切一刀,
+  # 实测只装进一个 ABI(x86_64),构建照样 BUILD SUCCESSFUL、装真机才 NO_MATCHING_ABIS。
+  # ORG_GRADLE_PROJECT_* 不走命令行解析,A 与 :app 两侧同取一份。
+  $prevAbiEnv = $env:ORG_GRADLE_PROJECT_reactNativeArchitectures
+  $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = ($abiArg -replace '^-PreactNativeArchitectures=', '')
+  try {
+    # AAB 与 APK 一次构建:createBundleReleaseJsAndAssets 是两者共享的任务,不会把 JS bundle 打两遍。
+    & .\gradlew.bat :app:assembleRelease :app:bundleRelease "-PversionCode=$VersionCode" --console=plain
+    if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease/bundleRelease 失败 (exit=$LASTEXITCODE)" }
+  } finally {
+    $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = $prevAbiEnv
+  }
+} finally { Pop-Location }
+
+$Apk = Join-Path $AndroidDir 'app/build/outputs/apk/release/app-release.apk'
+$Aab = Join-Path $AndroidDir 'app/build/outputs/bundle/release/app-release.aab'
+if (-not (Test-Path $Apk)) { throw "APK 产物未找到: $Apk" }
+if (-not (Test-Path $Aab)) { throw "AAB 产物未找到: $Aab —— bundleRelease 没产出,不许只交 APK" }
+$SizeMB = [math]::Round((Get-Item $Apk).Length / 1MB, 1)
+$AabSizeMB = [math]::Round((Get-Item $Aab).Length / 1MB, 1)
+
+# 产物 ABI 对账:BUILD SUCCESSFUL ≠ 目标 ABI 真在包里。2026-10-21 实测:逗号列表经 gradlew.bat(批处理)
+# 被 cmd 再切一刀 ⇒ 只打进 x86_64,arm64 真机安装报 INSTALL_FAILED_NO_MATCHING_ABIS。
+# AAB 的 native lib 落在 base/lib/<abi>/,APK 落在 lib/<abi>/,所以按 `(^|/)lib/<abi>/*.so` 统一取。
+function Get-NativeAbis {
+  param([string]$ArchivePath)
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $zip = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+  try {
+    return @($zip.Entries |
+      Where-Object { $_.FullName -match '(^|/)lib/([^/]+)/[^/]+\.so$' } |
+      ForEach-Object { ($_.FullName -split '/')[-2] } |
+      Sort-Object -Unique)
+  } finally { $zip.Dispose() }
+}
+$wantAbis = if ($FullAbi) { @('armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64') } elseif ($Abi) { @($Abi -split ',') } else { @($DefaultAbi -split ',') }
+$wantAbis = @($wantAbis | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+foreach ($artifact in @(@{ Name = 'APK'; Path = $Apk; Abis = (Get-NativeAbis $Apk) }, @{ Name = 'AAB'; Path = $Aab; Abis = (Get-NativeAbis $Aab) })) {
+  $missingAbis = @($wantAbis | Where-Object { $artifact.Abis -notcontains $_ })
+  Write-Host "  $($artifact.Name) ABI 实装:$($artifact.Abis -join ',')  期望:$($wantAbis -join ',')" -ForegroundColor Gray
+  if ($missingAbis.Count -gt 0) {
+    throw "$($artifact.Name) 缺目标 ABI:$($missingAbis -join ', ') —— 构建成功但装不上对应真机。不要看 BUILD SUCCESSFUL 就交付。"
+  }
+}
+
+Write-Host "`n===== [3.5/5] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
+$bundle = Get-BundleText -ApkPath $Apk
+Write-Host "  bundle 字节:$($bundle.Length)(Latin1 计数,用于字符串包含判定)" -ForegroundColor Gray
+$miss = @()
+foreach ($pair in @(@{ k = 'API'; v = $Backend.Api }, @{ k = 'WEB'; v = $Backend.Web }, @{ k = 'WS'; v = $Backend.Ws })) {
+  if (-not $bundle.Contains($pair.v)) { $miss += "$($pair.k)=$($pair.v)" }
+}
+if ($miss.Count -gt 0) {
+  throw "包里找不到应被烤入的后端基址:$($miss -join ', ') —— 期望与实际分叉了,不能当构建成功交付。"
+}
+# 反向对照:非本机联调的包,绝不允许残留 config.ts 的回环缺省值。
+if (-not $AllowLocalBackend) {
+  $stray = @('http://localhost:8802', 'http://localhost:8801', 'http://10.0.2.2:8802', 'http://10.0.2.2:8801') |
+    Where-Object { $bundle.Contains($_) }
+  if ($stray.Count -gt 0) {
+    throw "包里残留回环缺省基址:$($stray -join ', ')(生产包不得含这些)—— 说明有第二处把缺省值写进了产物。"
+  }
+}
+Write-Host "  回读一致:API/WEB/WS 三个基址都真在包里,且无回环残留 ✓" -ForegroundColor Green
+
+Write-Host "`n===== [4/5] 产物验收:签名一致性 + 体积基线 =====" -ForegroundColor Cyan
+Push-Location $RepoRoot
+try {
+  $checkArgs = @(
+    'scripts/mobile-release-artifact-check.mjs',
+    '--apk', $Apk,
+    '--aab', $Aab,
+    '--version-code', "$VersionCode"
+  )
+  if ($SkipVerify) { $checkArgs += '--skip-signature' }
+  if ($UpdateSizeBaseline) { $checkArgs += '--update-baseline' }
+  node @checkArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "产物验收失败(exit=$LASTEXITCODE)—— 签名不一致 / debug 签名 / 体积超 +30% 均在此判死,禁止发布。"
+  }
+} finally { Pop-Location }
+
+Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
+$VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+# 站点 CDN 腿(EdgeOne,2026-10-29 实测国内 1–4MB/s);这是唯一出口,
+# COS/CF 备用腿已于 2026-10-30 下线(按流量计费且比站点腿慢两个数量级)。
+# 地址不在本脚本复制:唯一真源 = scripts/data/mobile-download-leg.json(部署机可用 env 覆盖)。
+$MobileLeg = Get-Content (Join-Path $RepoRoot 'scripts/data/mobile-download-leg.json') -Raw | ConvertFrom-Json
+$PublishUrl = if ($env:IHUI_MOBILE_DOWNLOAD_URL) { $env:IHUI_MOBILE_DOWNLOAD_URL } else { $MobileLeg.downloadUrl }
+if ($NoPublish) {
+  Write-Warning 'NoPublish: 本次只出包,未发布到公网(固定地址仍是上一版)'
+} else {
+  Push-Location $RepoRoot
+  try {
+    node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
+    if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    node scripts/check-mobile-download-leg.mjs --apk $Apk
+    if ($LASTEXITCODE -ne 0) {
+      throw "下载腿门失败 (exit=$LASTEXITCODE) —— 公网地址/体积/证书基准未全绿(2=skipped/未判定也不是绿),不许当成发布成功"
+    }
+  } finally { Pop-Location }
+}
+
+Write-Host "`n========== BUILD RELEASE DONE ==========" -ForegroundColor Green
+Write-Host "  APK:      $Apk"
+Write-Host "  大小:     ${SizeMB} MB"
+Write-Host "  AAB:      $Aab"
+Write-Host "  AAB 大小: ${AabSizeMB} MB"
+Write-Host "  version:  $VersionName (code=$VersionCode)"
+if (-not $NoPublish) {
+  Write-Host "  下载地址: $PublishUrl" -ForegroundColor Green
+}
+Write-Host "  安装测试: adb install -r `"$Apk`""
+Write-Host "========================================"
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

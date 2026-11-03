@@ -1,0 +1,230 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  Image,
+  StyleSheet,
+} from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { FollowScreenProps, FollowTab, FollowUserItem } from '@ihui/types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
+
+/** 关注/粉丝列表/Props 类型 re-export(单一来源 @ihui/types) */
+export type { FollowScreenProps, FollowTab, FollowUserItem }
+
+/** 取昵称首字符(用作头像占位文字) */
+function initials(name: string): string {
+  if (!name) return '?'
+  return name.slice(0, 1).toUpperCase()
+}
+
+const TABS: FollowTab[] = ['following', 'fans']
+
+/**
+ * 关注/粉丝列表共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题)+ tabs(following/fans)
+ * + 用户卡片列表(Avatar[Image 或首字母占位] + nickname/username + bio + followedAt
+ * + 取关按钮[仅 following tab 显示])+ 下拉刷新 + 上拉加载更多。
+ * 平台特定(导航 / API 调用 / Alert 确认)由 wrapper 通过 props 注入。
+ */
+export function FollowScreen({
+  t,
+  items,
+  activeTab,
+  onSelectTab,
+  loading,
+  refreshing,
+  loadingMore,
+  error,
+  onRefresh,
+  onLoadMore,
+  onUnfollow,
+  onBack,
+  onRetry,
+  colorScheme = 'light',  
+  onNavigate,
+  onToast,
+}: FollowScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const tabLabel = (tab: FollowTab) => {
+    return tab === 'following' ? t('follow.following') : t('follow.fans')
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('follow.title')}</Text>
+      </View>
+
+      <View style={styles.tabs}>
+        {TABS.map((tab) => {
+          const active = tab === activeTab
+          return (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => onSelectTab(tab)}
+              style={[styles.tab, active && styles.tabActive]}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{tabLabel(tab)}</Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+
+      {error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : null}
+
+      <FlatList<FollowUserItem>
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listBody}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.3}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('follow.empty')} colorScheme={colorScheme} />
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>{t('common.loading')}</Text>
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => {
+          const displayName = item.nickname || item.username
+          return (
+            <View style={styles.card}>
+              <View style={styles.avatar}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatarImg} />
+                ) : (
+                  <Text style={styles.avatarInitial}>{initials(displayName)}</Text>
+                )}
+              </View>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardName} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                {item.bio ? (
+                  <Text style={styles.cardBio} numberOfLines={1}>
+                    {item.bio}
+                  </Text>
+                ) : null}
+                <Text style={styles.cardMeta}>{item.followedAt}</Text>
+              </View>
+              {activeTab === 'following' ? (
+                <TouchableOpacity
+                  onPress={() => onUnfollow(item)}
+                  style={styles.unfollowBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                >
+                  <Text style={styles.unfollowBtnText}>{t('follow.unfollow')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          )
+        }}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    tabs: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.card,
+      alignItems: 'center',
+    },
+    tabActive: { backgroundColor: tk.brand.cta },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    tabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    listBody: { padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
+    separator: { height: 12 },
+    footer: { alignItems: 'center', paddingVertical: rnSpacing.lg },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.bg,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: rnRadius['2xl'],
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.muted,
+      overflow: 'hidden',
+    },
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
+    avatarInitial: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.secondary },
+    cardInfo: { flex: 1, marginLeft: rnSpacing.md },
+    cardName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    cardBio: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    unfollowBtn: {
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['xs-loose'],
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.bg,
+    },
+    unfollowBtnText: { fontSize: rnType.body.size, color: tk.text.primary },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

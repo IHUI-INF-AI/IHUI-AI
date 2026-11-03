@@ -1,0 +1,137 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+
+import { useMemo } from 'react'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AnnouncementItem, AnnouncementScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 公告/Props 类型 re-export(单一来源 @ihui/types) */
+export type { AnnouncementItem, AnnouncementScreenProps }
+
+/**
+ * 公告列表共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题)+ 错误提示(可选)+ loading 态
+ * + 公告卡片列表(pinned 徽章[如有] + title[2行] + content[3行] + publishTime,可点击)
+ * + 下拉刷新 + 空态。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function AnnouncementScreen({
+  t,
+  items,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onPressItem,
+  onBack,
+  colorScheme = 'light',
+}: AnnouncementScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('announcement.title')}</Text>
+      </View>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {loading && items.length === 0 ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      ) : (
+        <FlatList<AnnouncementItem>
+          data={items}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listBody}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <EmptyState title={t('announcement.empty')} colorScheme={colorScheme} />
+          }
+          renderItem={({ item }) => (
+            <PressableCard
+              style={styles.card}
+              onPress={() => onPressItem(item)}
+              colorScheme={colorScheme}
+            >
+              <View style={styles.titleRow}>
+                {item.pinned ? (
+                  <View style={styles.pinnedBadge}>
+                    <Text style={styles.pinnedText}>{t('announcement.pinned')}</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+              </View>
+              <Text style={styles.cardContent} numberOfLines={3}>
+                {item.content}
+              </Text>
+              <Text style={styles.publishTime}>
+                {t('announcement.publishTime')}: {item.publishTime}
+              </Text>
+            </PressableCard>
+          )}
+        />
+      )}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: { padding: rnSpacing['sm-loose'], gap: rnSpacing.sm }, // §4 禁分割线:列表用间距 + 卡面底色对比分隔
+    card: {
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.light,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+    },
+    pinnedBadge: {
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.warning.amberLight,
+    },
+    pinnedText: { fontSize: rnType.badge.size, color: tk.warning.amberText },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    cardContent: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
+    publishTime: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

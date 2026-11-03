@@ -1,0 +1,98 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { defineConfig, devices } from '@playwright/test'
+
+/**
+ * Playwright E2E 配置。
+ *
+ * 本地运行:`pnpm test:e2e`(自动起 dev server)
+ * CI 运行:`pnpm test:e2e`(用 build + start,更接近生产)
+ * 复用已有 server:`PLAYWRIGHT_REUSE_SERVER=1 pnpm test:e2e`
+ *
+ * globalSetup 在所有 spec 前自动 seed test@aizhs.top 用户,globalTeardown 在所有 spec 后
+ * 自动 cleanup(回到只有 admin 状态),保证 E2E 自包含、CI 无需手动干预。
+ * - 跳过 seed:`E2E_SKIP_SEED=1`(本地复用已 seed 的数据库)
+ * - 跳过 cleanup:`E2E_AUTO_CLEANUP=0`(调试时保留 test@aizhs.top)
+ */
+export default defineConfig({
+  // 覆盖默认 testDir + testMatch:同时发现 e2e/ 与 tests/visual/ 两个目录下的 spec。
+  // - e2e/ 已有 ~50 case(主 e2e 套件)
+  // - tests/visual/ 5 个 visual 回归 spec(login-dialog / model-selector / prompt-templates /
+  //   sidebar-height-verify / sidebar-history)。这两个目录之前需要切换不同 config 才能跑,
+  //   统一到默认 config 后,`pnpm test:e2e` 与 `playwright test tests/visual/` 都能发现。
+  testDir: '.',
+  testMatch: ['e2e/**/*.spec.ts', 'e2e/**/*.setup.ts', 'tests/visual/**/*.spec.ts'],
+  fullyParallel: true,
+  // 本地默认 workers=undefined 时 Playwright 取 CPU/2(本机 20 线程 → 10 worker),
+  // 10 个并发 chromium 压单线程 Turbopack dev server → 每请求 10-15s → 30s 超时雪崩
+  // (2026-08-29 实锤,20 用例全部 beforeEach goto 超时)。固定 2 worker,可用
+  // PLAYWRIGHT_WORKERS 覆盖。
+  // 2026-09-14 CI 复评(2-18 第 3 步):CI 跑的是 next start 生产服务器 + 4c runner,
+  // workers=1 的教训只适用于本地 Turbopack dev;CI 1 worker 全量 27m+ 直接撞 30min
+  // 硬顶(400+ 次 cancelled 根因之一),改 CI=2(本地 2 workers 实测 13.6m 全绿)。
+  workers: process.env.CI ? 2 : Number(process.env.PLAYWRIGHT_WORKERS ?? 2),
+  // 本地也加 1 次重试兜底环境抖动(dev 模式首访编译/后台进程抢占 CPU 导致
+  // 偶发超时;重试时页面 chunk 已编译,基本必过)。CI 保持 2。
+  retries: process.env.CI ? 2 : 1,
+  forbidOnly: !!process.env.CI,
+  reporter: 'html',
+  // globalSetup 自动 seed test@aizhs.top,失败只 warn 不 throw(与 fixtures.ts ensureStorageState 兜底兼容);
+  // globalTeardown 自动 cleanup,失败只 warn 不阻塞测试报告生成。详见 e2e/global-setup.ts / global-teardown.ts。
+  globalSetup: 'e2e/global-setup.ts',
+  globalTeardown: 'e2e/global-teardown.ts',
+  use: {
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    // 2026-10-31:CI runner 的出网地址是回环/私网,API 的 login-region 判不出国家
+    // (apps/api/src/services/login-region.ts:125 读 cf-ipcountry,取不到再落 geoip),
+    // 前端按 locale 兜底 domestic ⇒ 登录首屏主推 tab=qr ⇒ login-form 自动弹协议对话框
+    // 拦死后续点击(实测 37/51 例失败,日志原文 dialog ... intercepts pointer events)。
+    // 显式声明海外:让首屏走非 qr 分支,用例才测的是产品逻辑而不是 CI 的出网位置。
+    extraHTTPHeaders: { 'CF-IPCountry': 'US' },
+  },
+  projects: [
+    {
+      name: 'chromium',
+      // 2026-09-14 CI 实锤(2-18):setup 不挂依赖时,storageState 首登全部挤在
+      // worker 测试内 → CI 慢机(全量 45.6m vs 本地 13.6m)下 28 例死于登录
+      // 竞争(fixture setup 30s 超时 ×18 + storage 锁 45s 超时 ×10)。
+      // 挂 dependencies 后 chromium 前先串行完成双账号 API 预登录,
+      // fixtures.ts ensureStorageState 仍保留作本地/兜底路径。
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        // 2026-10-20 加:GitHub runner 的 /dev/shm 只有 64MB,CI 下两个 chromium 并发时
+        // 渲染进程共享内存被挤爆 → "browser has been closed"(publish-scan-login.spec.ts 实测
+        // 同型;e2e/fixtures.ts:318 也记过同一形状的 "Target page closed" 假崩溃)。
+        // --disable-dev-shm-usage 让 chromium 把共享内存落到普通临时目录,不再撞 64MB 上限。
+        launchOptions: { args: ['--disable-dev-shm-usage'] },
+      },
+    },
+    // 登录态 setup：仅匹配 *.setup.ts，预先登录并写入 e2e/.auth/*.json
+    // 不挂 dependencies 到 chromium，避免后端不可用时拖垮现有 34 个 spec
+    // 需要 storageState 的测试通过 fixtures.ts 的 authenticatedPage/adminPage 使用，
+    // 它们在文件缺失时会自动 API 登录兜底
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: {
+    // 本地用 dev(CI 用 build+start 更接近生产)
+    command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
+    // 探活 url 跟随 PLAYWRIGHT_BASE_URL(默认 8801 不变)。并发隔离第二台 web 时
+    // 设 IHUI_DEV_PORT + PLAYWRIGHT_BASE_URL,webServer 就不会拿 8801 判就绪。
+    url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
+    // 本地默认复用已运行的 dev server,避免开发时反复重启;CI 模式下显式设置 PLAYWRIGHT_REUSE_SERVER=1 也可复用
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER
+      ? process.env.PLAYWRIGHT_REUSE_SERVER !== '0'
+      : !process.env.CI,
+    // CI build 较慢,给 240s;本地 dev 启动快,120s 够用
+    timeout: process.env.CI ? 240000 : 120000,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

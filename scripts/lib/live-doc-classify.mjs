@@ -1,0 +1,221 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 「一行丢了没有 / 丢了算什么」判据的**唯一实现**(纯函数,零副作用,零 git)。
+ *
+ * 为什么必须有这一层(2026-09-29 立):AGENTS §12 那条「提交活文档前必须做工作树 ⊇ HEAD
+ * 行级对账」过去**只有散文、没有门** —— 而散文在本仓的失效形态永远是安静。新增的常驻判据
+ * `scripts/check-live-doc-pathspec.mjs` 要问的是同一个问题("要被提交进去的那一份内容是否
+ * 逐字含住 HEAD 已有的非空行,丢的那几行算什么"),如果它在门里另写一份"什么算丢了",
+ * 就会出现两个都自洽的答案:归并器判 lost 而行不插回,或门判 stale 而归并器插回去 ——
+ * §22c「两处算同一件事必漂移」正是这一族。所以实现从 `scripts/merge-live-doc.mjs` **搬**到这里,
+ * 原文件改为一行转发(`export { classifyMissing, anchorKey } from './lib/live-doc-classify.mjs'`),
+ * 对外符号名与行为一字不变。镜像测试有一道形状锁禁止第二份实现回来。
+ *
+ * 三态语义(与 merge-live-doc 自测的 ⑰/⑰b/⑰c/⑰d 四组夹具逐字同形,断言方向未改):
+ *   lost       = 整行在候选面里真的不见了 ⇒ 唯一参与判红的一档(要归并/回补)
+ *   superseded = 有人把这一行就地改写了   ⇒ **不得**插回,也不判红
+ *   stale      = 候选面停在**更旧的前缀**(HEAD 侧翻了勾并追加了注记),或停在**同一正文的
+ *                未勾旧态**(HEAD 已勾/工作树未勾同正文;2026-10-01 D209 补,D203 实证整文件
+ *                提交会把翻勾静默退回)⇒ 不判红、不插回,但必须喊出来:提交会把这一行退回
+ *                旧形态,处置动作是人工取 HEAD 形态。
+ *   archived   = 第四态(2026-10-25 立,守门 207 第二刀①):该行**已被本侧按"整区逐字移入
+ *                archive + 原位留指针"这条合法出路移出**,且归档凭据可核(原文在已入库归档件里
+ *                逐字找到,归属与该文档对应)⇒ 不判红、绝不插回。
+ *                立因:AGENTS 的重复登记副本搬走后,归并侧没有这一档 ⇒ `merge-live-doc --apply`
+ *                把有意移出的 34 行整段插回(实测 407 → 442 行),20 KB 清偿成果一轮被吞回。
+ *                凭据判据不自写:由调用方把 `lib/live-doc-archive-drops.mjs`(唯一实现)的
+ *                命中结果传进来 —— 本函数零 git、零磁盘的既有承诺一字不动。
+ *                (早一版注释写的是 `check-plan-line-loss.archivedCopy`,那一把的射程只有
+ *                 `PROJECT_PLAN_*` / `plan-pointer-purge-*`,结构上给不出 AGENTS 的凭据;
+ *                 照它接出来的接线是"看着接好、实际一条也不生效"的那种,2026-10-25 当场改掉。)
+ *                取不到凭据函数 / 名录为空 ⇒ **一律退回 lost**(宁可多插回一份让人复核,
+ *                绝不把真吃掉洗成"已归档";与 §0.10 失效方向同禁令)。
+ * `classifyMissing` 只吃两侧的行数组,不碰 git、不碰磁盘 —— 取哪一面是调用方的事(见 face-reader)。
+ */
+import {
+  CONTAIN_MIN,
+  SIM_THRESHOLD,
+  jaccard,
+  squash,
+  stripState,
+  tokenize,
+} from './live-doc-similarity.mjs'
+
+const trim = (l) => String(l ?? '').trim()
+
+/**
+ * 登记锚点:这三份文档里「一件事一行」的写法都有稳定头部(`- **名称**` / `### 标题`),
+ * 所以同一锚点在「HEAD 缺失集」与「候选独有集」里各出现**一次** ⇒ 那是就地改写,不是吃掉。
+ *
+ * 为什么必须有它(2026-09-25 实测):容器短路只管"HEAD 行逐字存活在更长的新行里",
+ * 而改守门 84 那行时改的是**中段**,旧行并不逐字存活,长行大改后 Jaccard 又掉到阈值下 ⇒
+ * 被判真丢失、跑 --apply 会把旧行原样插回 ⇒ 新旧两行并存,正是本仓已出现三次的重复登记行。
+ * 唯一性是本条规则的生命线:锚点在任一侧出现不止一次 ⇒ 不猜,退回原判据(宁可多报一行,
+ * 也不能把"整段登记被人删掉"洗成"他改写了")。
+ */
+export function anchorKey(line) {
+  const s = trim(line)
+  if (!s.length) return null
+  let m = /^[-*]\s+\*\*(.{2,80}?)\*\*/.exec(s)
+  if (m) return `B#${m[1].trim()}`
+  m = /^#{2,4}\s+(.{2,140}?)(?=[(（:：—-]|$)/.exec(s)
+  if (m) return `H#${m[1].trim()}`
+  // 表格行:守门速查表就是「一行一件事」,行身份 = 前两格(编号 + 脚本文件名)。
+  // 没有这一条,改写 README 里某道门的描述会被判成"真丢失"⇒ --apply 把旧的补齐空格那一行
+  // 原样插回 ⇒ 同一个编号留下两行(本节上面那段讲的正是这个形态)。
+  // 只认「第二格是个 ASCII 标识符形状」的行 ⇒ 分隔行 `| --- |` 与中文表头天然不匹配。
+  m = /^\|\s*([^|]{1,40}?)\s*\|\s*([^|]{1,60}?)\s*\|/.exec(s)
+  if (m && /^[\w.@\-]{2,60}$/.test(m[2].trim()) && /\w/.test(m[2].trim())) {
+    // 数字值列退位(2026-10-31):README 生成块是「| 名称 | 数值 | 键名 |」三列形态,
+    // gen-doc-numbers 每轮翻新数值(safe-commit Step 2b 的「README 生成数字对齐现算」),
+    // 旧锚点 T#名|73 与新锚点 T#名|72 永不相遇 ⇒ 改写被误判 lost、--apply 又把旧数字行
+    // 插回,与活文档闸形成"补回→翻新→再补回"的自咬(2026-10-31 实测死循环)。
+    // 行身份改取名称 + 键名(第 3 格);仅当第 2 格是纯数字且第 3 格存在键名形状才走此路,
+    // 两列表(无第 3 格)与自由文本第 3 格维持旧锚点,行为不变。
+    const m3 = /^\|\s*([^|]{1,40}?)\s*\|\s*[^|]*\|\s*([\w.@\-]{2,60}?)\s*\|/.exec(s)
+    if (/^\d+$/.test(m[2].trim()) && m3 && /\w/.test(m3[2]))
+      return `T#${m[1].trim()}|${m3[2].trim()}`
+    return `T#${m[1].trim()}|${m[2].trim()}`
+  }
+  return null
+}
+
+/**
+ * 文档 ↔ 归档件族的归属对应(唯一实现,消费点不得各写一份正则 —— §0.6)。
+ * 返回 null 表示"这份文档没有归档豁免通道" ⇒ 调用方一律按 lost 处置(最严方向)。
+ *   PROJECT_PLAN.md ← PROJECT_PLAN_* / plan-pointer-purge-*(2026-10-16 立族)
+ *   AGENTS.md / README*.md ← AGENTS_*(2026-10-25 补,守门 207 清偿族的落点)
+ * 未登记的文档名 ⇒ null(不猜;宁可让归并器多插回一份交人工)。
+ */
+export function archiveOwnerFor(docPath) {
+  const base = String(docPath ?? '')
+    .split('/')
+    .pop()
+  if (!base) return null
+  if (base === 'PROJECT_PLAN.md') return /^(?:PROJECT_PLAN_|plan-pointer-purge-)/
+  if (base === 'AGENTS.md' || /^README(\.[a-z-]+)?\.md$/.test(base)) return /^AGENTS_/
+  return null
+}
+
+/**
+ * 给每个「HEAD 有而候选面无」的行定性 lost / superseded / stale / archived。
+ * @param headLines 基准面(HEAD blob)的行
+ * @param candidateLines 要被提交/被审的那一份的行
+ * @param threshold Jaccard 阈值
+ * @param {{archived?:Set<string>|((trimmedHeadLine:string)=>boolean)}} opts
+ *   `archived` = 归档凭据的裁决(Set 为 trim 后行集;函数则自行调 archivedCopy)。缺省/取不到 ⇒ 无第四态。
+ * @returns {Map<string,'lost'|'superseded'|'stale'|'archived'>} 键 = trim 后的 HEAD 行
+ */
+export function classifyMissing(headLines, candidateLines, threshold = SIM_THRESHOLD, opts = {}) {
+  const isArchived =
+    opts.archived instanceof Set
+      ? (t) => opts.archived.has(t)
+      : typeof opts.archived === 'function'
+        ? (t) => {
+            try {
+              return opts.archived(t) === true
+            } catch {
+              return false // 凭据取不到 ⇒ 不豁免(退回 lost),不冒充
+            }
+          }
+        : () => false
+  const wtLines = candidateLines
+  const wtSet = new Set(wtLines.map(trim).filter(Boolean))
+  const headSet = new Set(headLines.map(trim).filter(Boolean))
+  const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
+  const localTok = localOnly.map(tokenize)
+  const localSquashed = localOnly.map(squash)
+  const bump = (map, k) => {
+    if (k) map.set(k, (map.get(k) || 0) + 1)
+  }
+  const localAnchor = new Map()
+  for (const l of localOnly) bump(localAnchor, anchorKey(l))
+  const missingAnchor = new Map()
+  for (const raw of headLines) {
+    const t = trim(raw)
+    if (t.length && !wtSet.has(t)) bump(missingAnchor, anchorKey(t))
+  }
+  // 翻勾会改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`),不剥掉它就永远"不逐字包含",
+  // 于是把刚翻勾的那行判成真丢失、`--apply` 再插回一遍 —— 双态行就是这么造出来的。
+  const localBare = localOnly.map((l) => squash(stripState(l)))
+  const verdict = new Map()
+  for (const raw of headLines) {
+    const t = trim(raw)
+    if (!t.length || wtSet.has(t)) continue
+    /**
+     * 第四态优先判(它比"容器短路/翻勾/锚点"都更具决定性:行不在候选面**且**归档凭据可核 ⇒
+     * 这是本侧行使过的处置权,与"谁改写了这行"无关)。本侧还留着该行的情况已被上一行 continue
+     * 挡掉 ⇒「处置权未行使绝不豁免」这条纪律不需要在这里另写一遍(与 declaredDropCaps 同形)。
+     */
+    if (isArchived(t)) {
+      verdict.set(t, 'archived')
+      continue
+    }
+    const tt = tokenize(t)
+    const sq = squash(t)
+    const bare = squash(stripState(t))
+    /**
+     * 第四种「不是丢」的形态(D209,2026-10-01 D203 实证):工作树停在**同一正文的未勾旧态**
+     * (HEAD 侧已翻勾,正文剥态后逐字相同,只差行首勾选态)。bare 相等会让下面的容器短路把它
+     * 吞进 superseded —— 而 superseded 的语义是「别人改写了,以工作树文字落地」,对这一形态
+     * 意味着整文件 pathspec 提交会把 HEAD 的翻勾**静默退回**(实测链 1405976722 回退
+     * c1bb06a84b,守门 130 自愈层也没接住)。处置与 stale 同向:人工取 HEAD 形态。
+     * 判据同样保守到每一条:HEAD 已勾 + 候选未勾 + bare 逐字相等 + 唯一候选 + 长度门槛;
+     * 孪生候选不止一条 ⇒ 不猜,退回容器短路(唯一性是生命线,与 ⑰c 同向)。
+     */
+    if (/^- \[x\]/i.test(t) && bare.length >= CONTAIN_MIN) {
+      let eq = 0
+      for (let i = 0; i < localOnly.length; i++) {
+        if (/^- \[ \]/.test(localOnly[i]) && localBare[i] === bare && ++eq > 1) break
+      }
+      if (eq === 1) {
+        verdict.set(t, 'stale')
+        continue
+      }
+    }
+    if (
+      (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) ||
+      (bare.length >= CONTAIN_MIN && localBare.some((w) => w.includes(bare)))
+    ) {
+      verdict.set(t, 'superseded')
+      continue
+    }
+    const ak = anchorKey(t)
+    if (ak && localAnchor.get(ak) === 1 && missingAnchor.get(ak) === 1) {
+      verdict.set(t, 'superseded')
+      continue
+    }
+    /**
+     * 第三种"不是丢"的形态:**候选那一行是 HEAD 同一行的更旧前缀**(翻勾 + 追加注记都发生在
+     * HEAD 侧)。它既不满足容器短路(旧行不是新行的超集),大改时也会掉到 Jaccard 阈值之下,
+     * 于是过去被并入 `superseded` —— 而 superseded 的语义是"别人改写了这行",这一种的语义是
+     * "我这副本落后了,提交会把这行退回旧态"。两者处置动作不同,必须分开报。
+     * 判据保守到只做**一条**、且方向唯一:剥掉勾选态后候选是 HEAD 的严格前缀 + 唯一候选 +
+     * HEAD 已勾而候选未勾。任何一条不成立就退回原判据(宁可交人工,绝不把真删除洗成"旧态")。
+     */
+    if (/^- \[x\]/i.test(t)) {
+      const cands = []
+      for (let i = 0; i < localOnly.length; i++) {
+        const w = localOnly[i]
+        if (!/^- \[ \]/.test(w)) continue
+        const wb = squash(stripState(w))
+        if (wb.length >= CONTAIN_MIN && bare.length > wb.length && bare.startsWith(wb))
+          cands.push(w)
+      }
+      if (cands.length === 1) {
+        verdict.set(t, 'stale')
+        continue
+      }
+    }
+    let best = 0
+    for (const lt of localTok) {
+      const s = jaccard(tt, lt)
+      if (s > best) best = s
+    }
+    verdict.set(t, best >= threshold ? 'superseded' : 'lost')
+  }
+  return verdict
+}

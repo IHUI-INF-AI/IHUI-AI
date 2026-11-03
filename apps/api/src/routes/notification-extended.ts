@@ -1,0 +1,453 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { sql, type SQL } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
+import { authenticate } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
+
+// =============================================================================
+// 渠道 config 脱敏 + 掩码更新语义
+// =============================================================================
+
+/** 掩码占位符:GET/POST/PUT 响应里敏感字段统一显示为该值 */
+const MASKED_CONFIG_VALUE = '***'
+/** 命中即掩码的键名(SMTP 口令 / 短信 API Key / Webhook secret 等) */
+const SENSITIVE_CONFIG_KEY = /(password|pass|secret|token|api[_-]?key)/i
+
+function maskConfigValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(maskConfigValue)
+  if (value !== null && typeof value === 'object') {
+    return maskConfigObject(value as Record<string, unknown>)
+  }
+  return value
+}
+
+function maskConfigObject(config: Record<string, unknown>): Record<string, unknown> {
+  const masked: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(config)) {
+    if (SENSITIVE_CONFIG_KEY.test(key) && value !== null && value !== undefined) {
+      masked[key] = MASKED_CONFIG_VALUE
+    } else {
+      masked[key] = maskConfigValue(value)
+    }
+  }
+  return masked
+}
+
+function parseChannelConfig(config: unknown): Record<string, unknown> | null {
+  if (config === null || config === undefined) return null
+  if (typeof config === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(config)
+      return parsed !== null && typeof parsed === 'object'
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  return typeof config === 'object' ? (config as Record<string, unknown>) : null
+}
+
+/** 响应侧脱敏:保留键名,敏感值替换为 '***' */
+function maskChannelRow(row: Record<string, unknown>): Record<string, unknown> {
+  const config = parseChannelConfig(row.config)
+  if (!config) return row
+  return { ...row, config: maskConfigObject(config) }
+}
+
+/**
+ * 写入侧掩码语义:PUT 提交的 config 中值为 '***' 的键表示"保持原值不变"。
+ * 原配置里没有该键时丢掉落位符,绝不把 '***' 写进库。
+ */
+function mergeMaskedConfig(
+  next: Record<string, unknown>,
+  existing: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(next)) {
+    if (value === MASKED_CONFIG_VALUE) {
+      if (existing && key in existing) merged[key] = existing[key]
+      continue
+    }
+    merged[key] = value
+  }
+  return merged
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const paginationQuery = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+}
+
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+const channelTypes = ['email', 'sms', 'push', 'in_app', 'webhook'] as const
+
+const createChannelSchema = z.object({
+  name: z.string().min(1, '渠道名称不能为空').max(100),
+  type: z.enum(channelTypes),
+  config: z.record(z.string(), z.unknown()).optional(),
+  isActive: z.boolean().optional(),
+  remark: z.string().max(255).optional(),
+})
+
+const updateChannelSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  type: z.enum(channelTypes).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+  isActive: z.boolean().optional(),
+  remark: z.string().max(255).optional(),
+})
+
+const updatePreferencesSchema = z.object({
+  emailEnabled: z.boolean().optional(),
+  smsEnabled: z.boolean().optional(),
+  pushEnabled: z.boolean().optional(),
+  inAppEnabled: z.boolean().optional(),
+  types: z
+    .array(z.string())
+    .optional()
+    .describe('订阅通知类型列表,如 system/order/project/comment/mention'),
+  // 扩展 5 字段(0088):静默时段 + 频率限制
+  quietHoursEnabled: z.boolean().optional(),
+  quietHoursStart: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, '静默开始时间需为 HH:mm 格式')
+    .optional()
+    .nullable(),
+  quietHoursEnd: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, '静默结束时间需为 HH:mm 格式')
+    .optional()
+    .nullable(),
+  maxPerHour: z.number().int().min(0).max(1000).optional(),
+  maxPerDay: z.number().int().min(0).max(10000).optional(),
+})
+
+const listLogsQuery = z.object({
+  ...paginationQuery,
+  type: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  channel: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
+})
+
+import { parsePaging } from '../utils/paging.js'
+
+// =============================================================================
+// 路由
+// =============================================================================
+
+export const notificationExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // -------------------------------------------------------------------------
+  // GET /notifications/channels - 通知渠道列表
+  // -------------------------------------------------------------------------
+  server.get('/notifications/channels', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        type: z.string().optional(),
+        isActive: z.string().optional(),
+      })
+      .parse(request.query)
+    const { page, pageSize } = parsePaging(q)
+    const offset = (page - 1) * pageSize
+    const conds: SQL[] = []
+    if (q.type) conds.push(sql`"type" = ${q.type}`)
+    if (q.isActive !== undefined) {
+      conds.push(sql`"is_active" = ${q.isActive === 'true'}`)
+    }
+    const where = conds.length > 0 ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``
+    try {
+      const rows = await db.execute(
+        sql`SELECT id, name, type, config, is_active, remark, created_at, updated_at
+            FROM notification_channels
+            ${where}
+            ORDER BY created_at DESC
+            LIMIT ${pageSize} OFFSET ${offset}`,
+      )
+      const countRows = await db.execute(
+        sql`SELECT count(*)::int AS count FROM notification_channels ${where}`,
+      )
+      const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+      return reply.send(
+        success({
+          list: (rows as Record<string, unknown>[]).map(maskChannelRow),
+          total,
+          page,
+          pageSize,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询通知渠道列表失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /notifications/channels - 新增渠道
+  // -------------------------------------------------------------------------
+  server.post('/notifications/channels', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
+    const parsed = createChannelSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { name, type, config, isActive, remark } = parsed.data
+    try {
+      const rows = await db.execute(
+        sql`INSERT INTO notification_channels (name, type, config, is_active, remark, created_at, updated_at)
+            VALUES (${name}, ${type}, ${config ? JSON.stringify(config) : null}, ${isActive ?? true},
+                    ${remark ?? null}, NOW(), NOW())
+            RETURNING id, name, type, config, is_active, remark, created_at, updated_at`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      return reply.status(201).send(success(row ? maskChannelRow(row) : row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建通知渠道失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PUT /notifications/channels/:id - 修改渠道
+  // -------------------------------------------------------------------------
+  server.put('/notifications/channels/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
+    }
+    const parsed = updateChannelSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { id } = paramParsed.data
+    const body = parsed.data
+    const sets: SQL[] = []
+    if (body.name !== undefined) sets.push(sql`"name" = ${body.name}`)
+    if (body.type !== undefined) sets.push(sql`"type" = ${body.type}`)
+    if (body.isActive !== undefined) sets.push(sql`"is_active" = ${body.isActive}`)
+    if (body.remark !== undefined) sets.push(sql`"remark" = ${body.remark}`)
+    if (sets.length === 0 && body.config === undefined) {
+      return reply.status(400).send(error(400, '无更新字段'))
+    }
+    sets.push(sql`"updated_at" = NOW()`)
+    try {
+      if (body.config !== undefined) {
+        // 掩码更新语义:config 中值为 '***' 的键保持库中原值不变
+        const existingRows = await db.execute(
+          sql`SELECT config FROM notification_channels WHERE id = ${id} LIMIT 1`,
+        )
+        const existingRow = (existingRows as Record<string, unknown>[])[0]
+        if (!existingRow) return reply.status(404).send(error(404, '通知渠道不存在'))
+        const mergedConfig = mergeMaskedConfig(
+          body.config,
+          parseChannelConfig(existingRow.config),
+        )
+        sets.push(sql`"config" = ${JSON.stringify(mergedConfig)}`)
+      }
+      const rows = await db.execute(
+        sql`UPDATE notification_channels
+            SET ${sql.join(sets, sql`, `)}
+            WHERE id = ${id}
+            RETURNING id, name, type, config, is_active, remark, created_at, updated_at`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(404).send(error(404, '通知渠道不存在'))
+      return reply.send(success(maskChannelRow(row)))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新通知渠道失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // DELETE /notifications/channels/:id - 删除渠道
+  // -------------------------------------------------------------------------
+  server.delete('/notifications/channels/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
+    }
+    const { id } = parsed.data
+    try {
+      const rows = await db.execute(
+        sql`DELETE FROM notification_channels WHERE id = ${id} RETURNING id`,
+      )
+      if ((rows as Record<string, unknown>[]).length === 0) {
+        return reply.status(404).send(error(404, '通知渠道不存在'))
+      }
+      return reply.send(success({ id, deleted: (rows as Record<string, unknown>[]).length > 0 }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除通知渠道失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // GET /notifications/preferences - 用户通知偏好
+  // -------------------------------------------------------------------------
+  server.get('/notifications/preferences', async (request, reply) => {
+    await authenticate(request)
+    const userId = request.userId!
+    try {
+      const rows = await db.execute(
+        sql`SELECT id, user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types,
+                   quiet_hours_enabled, quiet_hours_start, quiet_hours_end, max_per_hour, max_per_day,
+                   created_at, updated_at
+            FROM notification_preferences
+            WHERE user_id = ${userId}
+            LIMIT 1`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) {
+        // 返回默认偏好
+        return reply.send(
+          success({
+            userId,
+            emailEnabled: true,
+            smsEnabled: false,
+            pushEnabled: true,
+            inAppEnabled: true,
+            types: ['system', 'order', 'project', 'comment', 'mention'],
+            quietHoursEnabled: false,
+            quietHoursStart: null,
+            quietHoursEnd: null,
+            maxPerHour: 20,
+            maxPerDay: 100,
+          }),
+        )
+      }
+      return reply.send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '获取通知偏好失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PUT /notifications/preferences - 更新通知偏好
+  // -------------------------------------------------------------------------
+  server.put('/notifications/preferences', async (request, reply) => {
+    await authenticate(request)
+    const parsed = updatePreferencesSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const {
+      emailEnabled,
+      smsEnabled,
+      pushEnabled,
+      inAppEnabled,
+      types,
+      quietHoursEnabled,
+      quietHoursStart,
+      quietHoursEnd,
+      maxPerHour,
+      maxPerDay,
+    } = parsed.data
+    const sets: SQL[] = []
+    if (emailEnabled !== undefined) sets.push(sql`"email_enabled" = ${emailEnabled}`)
+    if (smsEnabled !== undefined) sets.push(sql`"sms_enabled" = ${smsEnabled}`)
+    if (pushEnabled !== undefined) sets.push(sql`"push_enabled" = ${pushEnabled}`)
+    if (inAppEnabled !== undefined) sets.push(sql`"in_app_enabled" = ${inAppEnabled}`)
+    if (types !== undefined) sets.push(sql`"types" = ${JSON.stringify(types)}`)
+    if (quietHoursEnabled !== undefined)
+      sets.push(sql`"quiet_hours_enabled" = ${quietHoursEnabled}`)
+    if (quietHoursStart !== undefined) sets.push(sql`"quiet_hours_start" = ${quietHoursStart}`)
+    if (quietHoursEnd !== undefined) sets.push(sql`"quiet_hours_end" = ${quietHoursEnd}`)
+    if (maxPerHour !== undefined) sets.push(sql`"max_per_hour" = ${maxPerHour}`)
+    if (maxPerDay !== undefined) sets.push(sql`"max_per_day" = ${maxPerDay}`)
+    sets.push(sql`"updated_at" = NOW()`)
+    try {
+      const rows = await db.execute(
+        sql`INSERT INTO notification_preferences (
+              user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types,
+              quiet_hours_enabled, quiet_hours_start, quiet_hours_end, max_per_hour, max_per_day,
+              created_at, updated_at
+            )
+            VALUES (${userId},
+                    ${emailEnabled ?? true},
+                    ${smsEnabled ?? false},
+                    ${pushEnabled ?? true},
+                    ${inAppEnabled ?? true},
+                    ${JSON.stringify(types ?? ['system', 'order', 'project', 'comment', 'mention'])},
+                    ${quietHoursEnabled ?? false},
+                    ${quietHoursStart ?? null},
+                    ${quietHoursEnd ?? null},
+                    ${maxPerHour ?? 20},
+                    ${maxPerDay ?? 100},
+                    NOW(), NOW())
+            ON CONFLICT (user_id) DO UPDATE
+            SET ${sql.join(sets, sql`, `)}
+            RETURNING id, user_id, email_enabled, sms_enabled, push_enabled, in_app_enabled, types,
+                      quiet_hours_enabled, quiet_hours_start, quiet_hours_end, max_per_hour, max_per_day,
+                      created_at, updated_at`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      return reply.send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新通知偏好失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // GET /notifications/logs - 通知发送日志（分页）
+  // -------------------------------------------------------------------------
+  server.get('/notifications/logs', async (request, reply) => {
+    await authenticate(request)
+    const parsed = listLogsQuery.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, type, channel, status, startDate, endDate } = parsed.data
+    const offset = (page - 1) * pageSize
+    const conds: SQL[] = []
+    // 仅查询当前用户的通知日志
+    conds.push(sql`"user_id" = ${request.userId!}`)
+    if (type) conds.push(sql`"type" = ${type}`)
+    if (channel) conds.push(sql`"channel" = ${channel}`)
+    if (status) conds.push(sql`"status" = ${status}`)
+    if (startDate) conds.push(sql`"created_at" >= ${startDate}::timestamp`)
+    if (endDate) conds.push(sql`"created_at" <= ${`${endDate} 23:59:59`}::timestamp`)
+    const where = sql`WHERE ${sql.join(conds, sql` AND `)}`
+    try {
+      const rows = await db.execute(
+        sql`SELECT id, user_id, type, title, content, channel, status, error_message, created_at
+            FROM notification_logs
+            ${where}
+            ORDER BY created_at DESC
+            LIMIT ${pageSize} OFFSET ${offset}`,
+      )
+      const countRows = await db.execute(
+        sql`SELECT count(*)::int AS count FROM notification_logs ${where}`,
+      )
+      const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+      return reply.send(
+        success({
+          list: rows as Record<string, unknown>[],
+          total,
+          page,
+          pageSize,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询通知日志失败'))
+    }
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

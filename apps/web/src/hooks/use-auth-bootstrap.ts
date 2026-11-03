@@ -1,0 +1,317 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+
+import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
+import { getAuthCookie, getSessionHintCookie } from '@/lib/cookie-utils'
+import { getDesktopRefreshToken } from '@/lib/desktop-token-vault'
+import { isDesktopAuthVaultEnabled } from '@/lib/api-base-url'
+import { fetchApi, getLastRefreshFailure } from '@/lib/api'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
+import {
+  canSilentlyReLogin,
+  classifyRefreshFailureStatus,
+  shouldExpireSession,
+} from '@ihui/shared/auth/auto-login-policy'
+import { hasSessionEstablished, isSessionLoggedOut } from '@/lib/session-marker'
+
+export interface UseAuthBootstrapReturn {
+  ready: boolean
+  isAuthenticated: boolean
+  error: string | null
+}
+
+export interface UseAuthBootstrapOptions {
+  /**
+   * 强制尝试一次静默刷新,忽略本地"看得见的凭据"准入(2026-10-26)。
+   *
+   * 用于**服务端守卫已经证明 refresh cookie 在场**的场景:`/sso/login` 的 redirect 落在
+   * 受保护路径时,说明用户刚从 307 打回回来。此时 httpOnly cookie 在 JS 里看不见,而
+   * `ihui-session-established` 标记可能已被上一次被动失效(`expireSession`)清掉 ——
+   * 不强制就会被判成匿名、连 `/auth/refresh` 都不发,用户明明有 30 天会话却被要求重登。
+   *
+   * 匿名首访不传它(保持 2026-10-14 的"无凭据即不发请求、控制台零噪声")。
+   */
+  forceAttempt?: boolean
+}
+
+/**
+ * 用 httpOnly refresh_token cookie 调 /api/auth/refresh 获取新 accessToken。
+ * 成功返回 { accessToken, refreshToken },失败返回 null。
+ * P2-18 修复(2026-08-06):refresh_token 已 httpOnly,前端 JS 读不到 cookie,
+ * 不再从 document.cookie 读取,改为无参调用刷新接口(不带 refreshToken body),
+ * 由浏览器自动附带 httpOnly cookie。
+ *
+ * 2026-08-14 修复:复用 api-client 导出的 refreshAccessTokenOnce 全局单例,
+ * 与 401 自动续期拦截器共享同一 in-flight 请求。此前这里用独立单例,
+ * React 19 StrictMode 双 mount 与 401 拦截器并发各发一次 /auth/refresh:
+ * 后端 refresh token 单次轮转,后到的旧 token 401 → RFC 6749 §10.4 重用检测
+ * → 吊销整个 family → 刷新后自动登录丢失。
+ */
+async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: string } | null> {
+  const accessToken = await refreshAccessTokenOnce()
+  if (!accessToken) return null
+  // tokenProvider(api.ts)内部 refresh 成功时已 setToken 最新 pair,
+  // 这里从 store 取回最新 refreshToken(内存),避免覆盖成 null。
+  return { accessToken, refreshToken: useAuthStore.getState().refreshToken ?? undefined }
+}
+
+/**
+ * 是否存在可用的 refresh 凭据(2026-10-14 控制台清零整改)。
+ *
+ * 无任何凭据时**不发** /auth/refresh:后端对无凭据刷新回 400,
+ * 浏览器会把 "Failed to load resource: 400 (Bad Request)" 打进控制台。
+ * 判据(任一成立即认为"可能有会话可恢复"):
+ * - 持久化 isAuthenticated 标志位(仅 UI 状态,无 token,安全;覆盖"标志位在、cookie 在"的主流回访);
+ * - 可读 auth cookie(旧版本降级通道,e2e storageState 注入即走此路);
+ * - 后端下发的会话提示 cookie(非 httpOnly,值恒 '1';JS 唯一看得见、且跨冷启动存活的
+ *   "这台浏览器有过 30 天会话"信号,2026-10-27);
+ * - 桌面 Tauri vault 里有 refreshToken(body 模式刷新)—— 覆盖 persist 解密失败时
+ *   桌面自动登录不丢(D48′ 信封链路;浏览器模式与**桌面 dev 壳**恒不启用,后者 REST 已同源、
+ *   凭据走第一方 httpOnly cookie,不再读写与生产壳共享的那颗键);
+ * - localStorage 的 `ihui-session-established` 标记(2026-10-20 立;它会被 expireSession()
+ *   清掉,所以从"唯一退路"降为兜底正向信号之一,不再是最后一道)。
+ * 唯一被跳过的场景:四条全空 = 这台设备从没建立过会话 ⇒ 真匿名,不发请求、控制台零噪声。
+ */
+async function hasUsableRefreshCredential(): Promise<boolean> {
+  if (useAuthStore.getState().isAuthenticated) return true
+  if (getAuthCookie()) return true
+  // 提示 cookie 排在 vault 那一支之前:vault 那支会 early-return,"cookie 还在、vault 被清"
+  // 这一型(桌面 persist 解密失败的真实形态)就再也读不到提示信号。带着它发一次无 body 的
+  // /auth/refresh,由浏览器/webview 自动附带第一方 cookie,是能自己接回来的。
+  if (getSessionHintCookie()) return true
+  if (isDesktopAuthVaultEnabled()) return (await getDesktopRefreshToken()) !== null
+  if (hasSessionEstablished()) return true
+  return false
+}
+
+/**
+ * 认证引导 Hook
+ *
+ * 应用启动时尝试用已有 token 恢复登录态并拉取用户资料，
+ * 供根布局/Provider 调用以完成"静默登录"。
+ *
+ * 自动登录闭环(2026-07-22 完善,2026-08-06 P2-18 修订):
+ *  1. 无内存 token 时,直接无参调 /api/auth/refresh(httpOnly refresh_token cookie 自动附带)
+ *  2. 刷新成功 → setToken 恢复登录态
+ *  3. 刷新失败(401) → 保持未登录(静默,不弹登录框)
+ */
+export function useAuthBootstrap(options?: UseAuthBootstrapOptions): UseAuthBootstrapReturn {
+  const forceAttempt = options?.forceAttempt === true
+  const token = useAuthStore((s) => s.token)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const setUser = useAuthStore((s) => s.setUser)
+  const setToken = useAuthStore((s) => s.setToken)
+  const expireSession = useAuthStore((s) => s.expireSession)
+  const logout = useAuthStore((s) => s.logout)
+  const fetchProfile = useUserStore((s) => s.fetchProfile)
+
+  const [ready, setReady] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function bootstrap() {
+      // 用户主动登出后,冷启动**不得**再用 httpOnly refresh cookie 静默登回。
+      // 判据住在 @ihui/shared/auth/auto-login-policy(登出标记优先),这里只注入 web 的落盘实现;
+      // 标记由 stores/auth.ts 的 logout() 写入,由下一次真正的登录写入凭据清除。
+      // 会话被动失效(refresh 被拒)不写标记,所以它不会走到这一支 —— 账密自动登录仍可接管。
+      // 没有这一道:刷新页面后内存 refreshToken 为空 ⇒ logout 拿不到 rt ⇒ 不调 /auth/logout ⇒
+      // 服务端 cookie 仍有效 ⇒ 下面的 tryRefresh() 成功,用户"退出去了又自己回来"。
+      if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) {
+        // 与"会话已结束"同处置:清掉持久化的幽灵 isAuthenticated 标志位后停在未登录态。
+        // 这一支是**用户已显式登出**的收尾(不是被动失效),所以仍走显式登出那条出口:
+        // 它会重写标记(幂等),并在拿得到 refreshToken 时顺手吊销服务端会话。
+        logout()
+        setReady(true)
+        return
+      }
+      // P2-18 修复(2026-08-06):auth_token 已 httpOnly,前端 JS 读不到 cookie,
+      // 不再从 document.cookie 恢复 token。改为无内存 token 时直接静默刷新
+      // (POST /api/auth/refresh 不带 refreshToken body,靠 httpOnly cookie 自动附带)。
+      let storedToken = token
+
+      // 无内存 accessToken:尝试静默刷新恢复登录态(自动登录闭环)
+      if (!storedToken) {
+        // 2026-08-26 修复:先尝试从 cookie 直接恢复(非 httpOnly 场景)。
+        // 生产/真实浏览器 auth_token 为 httpOnly(JS 读不到)→ getAuthCookie() 返回 null
+        // → 走下方 refresh(行为不变,注释 P2-18 语义保持)。
+        // e2e/测试 storage 注入的是非 httpOnly cookie(Playwright storageState)→ 可直接恢复,
+        // 避免 bootstrap 每次页面加载消费单次轮转的 refresh_token —— 多 worker 共享同一
+        // storage 文件时,一个 context 消费后其余全部 401 → logout → "请先登录" 全量失败
+        // (2026-08-26 e2e 全量 244 失败中 ~80 个 aria-hidden/登录框的根因链)。
+        const cookieToken = getAuthCookie()
+        if (cookieToken) {
+          storedToken = cookieToken
+          setToken(cookieToken, useAuthStore.getState().refreshToken)
+        } else if (forceAttempt || (await hasUsableRefreshCredential())) {
+          // 仅当存在可用 refresh 凭据时才发 /auth/refresh:用 httpOnly refresh cookie
+          // (或桌面 vault body 模式)静默续期恢复会话。
+          // 否则冷启动未登录态(无任何 refresh 凭据)白白 POST /auth/refresh → 后端回 400 →
+          // 浏览器打印 "Failed to load resource: 400 (Bad Request)" 控制台噪声
+          // (2026-10-14 控制台清零整改:无凭据即不发此请求)。
+          // forceAttempt 是唯一例外:受保护页 307 打回的现场由服务端守卫证明过 refresh cookie
+          // 在场,而本地标记可能已被 expireSession 清掉(2026-10-26)。
+          const refreshed = await tryRefresh()
+          if (cancelled) return
+          if (refreshed) {
+            storedToken = refreshed.accessToken
+            setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
+          } else {
+            // 刷新失败(2026-10-09 分型修复:不再把一切失败都当凭据失效):
+            // - rejected(401/403,服务端明确否定凭据):清理幽灵登录态(2026-08-07 修复)——
+            //   persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后标志位残留 →
+            //   前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败",必须 expireSession() 清掉;
+            //   **不落持久登出标记**(2026-10-20):会话被动失效若也落标记,用户的 30 天
+            //   自动登录会被永久压制 —— 表现为"每次冷启动都要手点登录"。
+            // - transient(网络错误/超时/5xx,api 重启窗口):凭据没有被否定,绝不能 expireSession()
+            //   —— 那会清掉仍可用的凭据,用户被迫反复手动登录
+            //   (2026-10-09 根治「自动登录总被清掉」)。保持现状收束,下一次冷启动自然重试;
+            //   即便此处留着 isAuthenticated 残留位,api 恢复后首个 401 会走拦截器静默续期接回。
+            if (shouldExpireSession(getLastRefreshFailure())) {
+              expireSession()
+            } else {
+              console.info(
+                '[web-auth] silent refresh hit transient failure (network/5xx), ' +
+                  'keeping session state; auto-login marker NOT written',
+              )
+            }
+            setReady(true)
+            return
+          }
+        } else {
+          // 完全无会话(首次冷启动 / 已登出未记住):不发 /auth/refresh,直接收束未登录态,
+          // 避免无凭据的刷新请求污染控制台(2026-10-14 控制台清零整改)。
+          setReady(true)
+          return
+        }
+      } else {
+        // 内存已有 token(本会话登录过):补 setToken 保持状态一致。
+        // P2-18:原实现传 null 会清掉内存 refreshToken,而 httpOnly 后无法再从 cookie 恢复,
+        // 将导致页面刷新后自动续期(startAutoRefresh)与登出吊销失效,故改为保留。
+        setToken(storedToken, useAuthStore.getState().refreshToken)
+      }
+
+      // 2026-10-15 加速门收敛:到此 storedToken 已确立(内存/cookie/刷新任一成功),
+      // 登录态已经确定 → 立即翻 ready,让鉴权页面(如签到助手)马上渲染、跳过
+      // /auth/me + fetchProfile 的串行等待(走隧道时常 1-2s)。用户资料为补充信息,
+      // 后台继续拉取即可,不必阻塞「是否登录」的判定(否则墙会挂满整个确认窗口,
+      // 已登录用户误以为被踢出 → 投诉「已登录还显示请先登录 / 授权慢」)。
+      setReady(true)
+
+      try {
+        const res = await fetchApi<{
+          user: {
+            id: string
+            nickname: string
+            avatar?: string
+            phone?: string
+            roleId?: number
+            username?: string
+            status?: number
+          }
+        }>('/auth/me')
+        if (cancelled) return
+        if (res.success) {
+          const u = res.data.user
+          // 保留 roleId(后端 publicUser 已返回),admin layout 守卫需用它判断权限
+          setUser({
+            id: u.id,
+            nickname: u.nickname,
+            avatar: u.avatar,
+            phone: u.phone,
+            roleId: u.roleId,
+            username: u.username,
+            status: u.status,
+          })
+          await fetchProfile()
+        } else {
+          // token 失效:尝试 refreshToken 自动续期(自动登录闭环)
+          const refreshed = await tryRefresh()
+          if (cancelled) return
+          if (refreshed) {
+            setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
+            const retry = await fetchApi<{
+              user: {
+                id: string
+                nickname: string
+                avatar?: string
+                phone?: string
+                roleId?: number
+                username?: string
+                status?: number
+              }
+            }>('/auth/me')
+            if (!cancelled && retry.success) {
+              const u = retry.data.user
+              setUser({
+                id: u.id,
+                nickname: u.nickname,
+                avatar: u.avatar,
+                phone: u.phone,
+                roleId: u.roleId,
+                username: u.username,
+                status: u.status,
+              })
+              await fetchProfile()
+            } else if (!cancelled) {
+              // retry(/auth/me)失败 ≠ refresh 失败:分型看 **retry** 的状态码 ——
+              // 401 = 新凭据也被拒(会话真死,结束本地会话、不落登出标记);网络/5xx = 瞬时。
+              // 顺带堵住原漏洞:`!cancelled && success` 的 else 会把「已卸载」也当失败
+              // 走 expireSession()(StrictMode/布局切换卸载时误杀自动登录)。
+              const retryFailure = classifyRefreshFailureStatus(
+                retry.status,
+                retry.success ? undefined : retry.errorCode,
+              )
+              if (shouldExpireSession(retryFailure)) {
+                expireSession()
+              } else {
+                console.info(
+                  '[web-auth] /auth/me retry failed transiently after refresh, ' +
+                    'keeping session state; auto-login marker NOT written',
+                )
+              }
+            }
+          } else if (!cancelled) {
+            // refresh 失败:仅当服务端明确拒绝凭据(401/403)才 expireSession() 结束本地会话;
+            // 瞬时失败(api 重启/网络抖动)保持现状,下一次冷启动自然重试(2026-10-09 根治)。
+            if (shouldExpireSession(getLastRefreshFailure())) {
+              expireSession()
+            } else {
+              console.info(
+                '[web-auth] silent refresh hit transient failure (network/5xx), ' +
+                  'keeping session state; auto-login marker NOT written',
+              )
+            }
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '引导失败')
+        }
+      } finally {
+        if (!cancelled) setReady(true)
+      }
+    }
+    bootstrap()
+    return () => {
+      cancelled = true
+    }
+    // 仅在挂载时执行一次
+  }, [])
+
+  return { ready, isAuthenticated, error }
+}
+
+/**
+ * 测试入口:冷启动"要不要试一次 /auth/refresh"的准入判据。
+ * 浏览器侧凭据全 httpOnly,这条判据曾把有 cookie 的老用户判成匿名(2026-10-20 修),
+ * 必须有独立用例钉住 —— 只测 hook 的失败分型测不到它。
+ */
+export const __test__ = { hasUsableRefreshCredential }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

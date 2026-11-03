@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.ihui-agent\\tmp\\archify-qoder-trae-gap\\candidate.json",
+    "sha256": "bbd8121e8090fc6602c626560c4dbe61f4db11a9a788c0b24fc3390e139e4027",
+    "bytes": 22695
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html",
+    "sha256": "e1bf375101bed368deee3306ccc79461d7c959b99268d167f1e75d929050c39f",
+    "bytes": 928475
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\review-1\\qoder-trae-agent-gap-map.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\review-1\\qoder-trae-agent-gap-map.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\review-1\\qoder-trae-agent-gap-map.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 8282,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 4,
+      "routesOverSuggestedBends": 2,
+      "routesOverSuggestedStretch": 2
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "q-6",
+            "from": "q-model",
+            "to": "q-compact",
+            "label": "专用模型",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "right": {
+            "id": "q-7",
+            "from": "q-compact",
+            "to": "q-cbi",
+            "label": "",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "point": [90.5, 807],
+          "sharedNode": "q-compact"
+        },
+        {
+          "left": {
+            "id": "t-7",
+            "from": "t-compact",
+            "to": "t-ckg",
+            "label": "",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "right": {
+            "id": "i-model-compact",
+            "from": "i-model",
+            "to": "i-compact",
+            "label": "",
+            "collectionIndex": 30,
+            "artifactIndex": 31
+          },
+          "point": [457.5, 807]
+        },
+        {
+          "left": {
+            "id": "t-7",
+            "from": "t-compact",
+            "to": "t-ckg",
+            "label": "",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "right": {
+            "id": "i-model-modelcap",
+            "from": "i-model",
+            "to": "i-modelcap",
+            "label": "",
+            "collectionIndex": 31,
+            "artifactIndex": 32
+          },
+          "point": [538, 846]
+        },
+        {
+          "left": {
+            "id": "t-7",
+            "from": "t-compact",
+            "to": "t-ckg",
+            "label": "",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "right": {
+            "id": "i-model-index",
+            "from": "i-model",
+            "to": "i-index",
+            "label": "",
+            "collectionIndex": 33,
+            "artifactIndex": 34
+          },
+          "point": [457.5, 906]
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "q-7",
+            "from": "q-compact",
+            "to": "q-cbi",
+            "label": "",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "bends": 4,
+          "stretch": 1.989,
+          "directCorridorBlockers": [
+            {
+              "id": "q-model",
+              "label": "dynamic-text 文案",
+              "box": [20, 810, 155, 58]
+            }
+          ]
+        },
+        {
+          "relationship": {
+            "id": "t-7",
+            "from": "t-compact",
+            "to": "t-ckg",
+            "label": "",
+            "collectionIndex": 15,
+            "artifactIndex": 16
+          },
+          "bends": 4,
+          "stretch": 3.683,
+          "directCorridorBlockers": [
+            {
+              "id": "t-model",
+              "label": "模型供给字段面",
+              "box": [200, 810, 155, 58]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "q-model → q-compact and q-compact → q-cbi cross next to q-compact: move node q-model or q-cbi so the two reach q-compact from different sides (for example one level with it, one directly above or below it).",
+      "t-compact → t-ckg crosses i-model → i-compact: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "t-compact → t-ckg crosses i-model → i-modelcap: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "t-compact → t-ckg crosses i-model → i-index: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

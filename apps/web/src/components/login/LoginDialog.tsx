@@ -1,0 +1,254 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+
+import { Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
+import { ExternalLink } from 'lucide-react'
+import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useAuthStore } from '@/stores/auth'
+import { toast } from 'sonner'
+import { AuthShell } from '@/components/auth/AuthShell'
+import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
+import { resolvePostLoginLanding } from '@/lib/post-login-landing'
+import { openEmbeddedBrowser, openExternalUrl } from '@/lib/tauri-bridge'
+import { rememberSsoEmbeddedWindow } from '@/lib/sso-desktop-bridge'
+import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
+import { useDesktop } from '@/hooks/use-desktop'
+import { useIsMobile } from '@/hooks/use-media-query'
+import { LoginFormContent } from './LoginFormContent'
+import { RegisterFormContent } from './RegisterFormContent'
+import { ForgotPasswordForm } from './ForgotPasswordForm'
+import { LoginWithTurnstile } from './LoginWithTurnstile'
+import { WallboardChoiceDialog, requestWallboardChoice } from './WallboardChoiceDialog'
+
+/**
+ * 主站统一登录/注册/找回密码弹窗(2026-07-20 重做 / 2026-07-20 修订 / 2026-07-31 优化)
+ *
+ * 改动:
+ * - 复用 AuthShell 共享外壳(顶部 logo + welcome 并排 + 标题 + 副标题)
+ * - 与 /sso/login、/sso/register 视觉完全统一
+ * - DialogContent 内置 Close(已统一视觉) 负责 onClose,AuthShell 不再渲染关闭按钮
+ * - 2026-07-20:恢复 M-66/M-68/M-69 logo+welcome 并排方案,DialogContent max-w 同步 420→460
+ * - 2026-07-31:移除 DialogContent 自身 min-[640px]:rounded-xl(AuthShell 内部已 rounded-xl),
+ *   避免小屏双层圆角叠加视觉割裂;移除 pointer-events-none [&>div]:pointer-events-auto
+ *   旧 Radix 策略(2026 Radix UI 已不需要,新版默认全启用,旧策略会导致子元素事件穿透)
+ */
+export function LoginDialog() {
+  const t = useTranslations('auth')
+  const router = useRouter()
+  const isOpen = useLoginDialogStore((s) => s.isOpen)
+  const mode = useLoginDialogStore((s) => s.mode)
+  const close = useLoginDialogStore((s) => s.close)
+  const setMode = useLoginDialogStore((s) => s.setMode)
+
+  const { isDesktop } = useDesktop()
+  // 2026-09-06 立:App/移动端(<1024px)登录/注册/找回密码改为独立全屏页形态,桌面保留居中弹窗。
+  // 判定复用 useIsMobile()(max-width:1023px),与 useDesktop() 的 768px 阈值无重叠冲突。
+  const isMobile = useIsMobile()
+
+  const showDesktopSso = isDesktop
+
+  const handleDesktopSso = React.useCallback(async () => {
+    // Dev: desktop webview loads from http://localhost:8801 → 外部浏览器可访问同一 dev server
+    // Prod: desktop webview loads from tauri://localhost → 用 WEB_BASE (https://aizhs.top)
+    const webBase =
+      typeof window !== 'undefined' &&
+      (window.location.origin.startsWith('http://') ||
+        window.location.origin.startsWith('https://'))
+        ? window.location.origin
+        : WEB_BASE
+    const ssoUrl = buildSsoLoginUrl(webBase, 'ihui://sso', SSO_CLIENT_IDS.DESKTOP)
+    // 2026-10-13 二轮(用户反馈"弹的不是用户自己电脑的默认浏览器的真实使用窗口"):主路径改回
+    // 系统默认浏览器 —— 日常 profile、已有登录态/扩展/书签全在,登录完成后 OS 经 ihui://sso
+    // 深链派发回桌面端换 token(关弹窗链路 desktop-sso-success 不变)。登录标签页留在用户
+    // 自己的浏览器里(那是他的日常窗口,不该也不可由我们代关)。
+    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用**项目内嵌浏览器**,
+    // 并记住会话以便登录成功后关窗(内嵌窗是临时的、用完即收)。
+    // 2026-10-16 改:兜底窗从"外部 Chrome"换成内嵌浏览器 —— 与签到助手网页登录同
+    // 一套窗口(单一真相源);同一类缺陷不留第二处。
+    const opened = await openExternalUrl(ssoUrl)
+    if (opened) return
+    console.warn('[sso] 默认浏览器打开失败,兜底项目内嵌浏览器')
+    try {
+      await openEmbeddedBrowser(ssoUrl, '登录智汇AI')
+      rememberSsoEmbeddedWindow()
+      return
+    } catch {
+      // 落到这里 = 内嵌窗也没开起来,继续走下面的可见反馈
+    }
+    // 2026-10-13(实测"按钮又没反应"期间立):两条外开路径全失败时必须给用户
+    // 可见反馈 —— 此前开窗失败只有 console.warn,用户感知就是"点了没反应"。
+    // 常见根因是壳内页面加载失败(见 auto_refresh 的 chrome-error 自愈),
+    // 提示里给出可自救动作。
+    toast.error(t('desktopSsoOpenFailed'))
+  }, [t])
+
+  const handleLoginSuccess = React.useCallback(() => {
+    const redirectUrl = useLoginDialogStore.getState().redirectUrl
+    close()
+    // 2026-10-17(用户要求"admin 账号登录时第一时间切换到监控大屏"):没被登录守卫带回具体目标
+    // (redirectUrl 为空)的分支此前只是静默关弹窗 —— 管理员在此改为落到生产在线监控大屏。
+    // 2026-10-18 改(用户要求"弹一个窗口问我要不要看数据大屏,让我自己选择"):不再自动跳,
+    // 落点交给 WallboardChoiceDialog 二选一(「看大屏」/「先不用」),由用户自己决定。
+    // 带明确目标的登录(如 /chat/history 的守卫带回)仍按下方的安全判据跳转,不被此处旁路。
+    if (!redirectUrl) {
+      const landing = resolvePostLoginLanding(useAuthStore.getState().user)
+      if (!landing) return
+      if (landing === window.location.pathname + window.location.search) return
+      requestWallboardChoice(landing)
+      return
+    }
+    // G-413②:redirectUrl 的来源是 `?redirect=`(客户端可整写的查询参数),裸喂 router.push 会让
+    // `/\evil.com`(WHATWG 解析成外站)、`javascript:` 一族与跨站绝对地址在"会话刚落地"那一刻
+    // 被执行。判据走 sso-redirect-guard 的 allowedOrigins 档(与 /sso/* 同一份实现,端内不再写
+    // 一条 origin 比对),不安全的值在这里已被换成站内 '/',下面比较与跳转拿到的都是判据认过的值。
+    const target = resolveSafeRedirectTarget(redirectUrl, {
+      allowedOrigins: [window.location.origin],
+    })
+    if (target === window.location.pathname + window.location.search) return
+    // 2026-09-18:路由跳转推迟到弹窗遮罩淡出(~150ms)结束后(250ms 余量),
+    // 根治"登录成功后灰→亮渐渐显示且卡顿"(用户反馈):router.push 触发的
+    // RSC 拉取 + 新页面树渲染是主线程长任务,原实现与遮罩淡出同窗口执行,
+    // 淡出动画逐帧掉队。token 写入与弹窗关闭不受影响,仅延后跳转本身。
+    setTimeout(() => {
+      router.push(target)
+    }, 250)
+  }, [close, router])
+
+  // 2026-10-13 桌面端"在浏览器中登录"闭环收尾:深链换 token 成功后 use-desktop 会 dispatch
+  // `desktop-sso-success`,而弹窗此前**没有任何**订阅者 —— 登录已完成、登录框却原地留着
+  // (用户感知正是"点了没反应")。落点与表单登录成功同一条 handleLoginSuccess:
+  // 关弹窗 + 有 redirectUrl 时按同一把判据跳转;弹窗没开过时 close 是 no-op、redirectUrl 为 null。
+  React.useEffect(() => {
+    const onSuccess = () => {
+      // 2026-10-13(用户实测反馈"登录上后没有任何已登录成功的提示"):深链换 token 成功后
+      // 弹窗只是静默关闭,主页面.auth store 虽已同步但无任何可见反馈。全局常驻 LoginDialog
+      // (root layout)的监听里补一声成功 toast,闭环有了"落地音"。
+      toast.success(t('desktopSsoSuccess'))
+      handleLoginSuccess()
+    }
+    window.addEventListener('desktop-sso-success', onSuccess)
+    return () => window.removeEventListener('desktop-sso-success', onSuccess)
+  }, [handleLoginSuccess, t])
+
+  const title =
+    mode === 'login'
+      ? t('loginTitle')
+      : mode === 'register'
+        ? t('registerTitle')
+        : t('forgotPassword')
+  const subtitle =
+    mode === 'login'
+      ? t('loginSubtitle')
+      : mode === 'register'
+        ? t('registerSubtitle')
+        : t('forgotSubtitle')
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
+        <DialogContent
+          data-testid="login-dialog"
+          hideCloseButton
+          className={
+            isMobile
+              ? // 移动/App:全屏全出血(背景 surface,无圆角/阴影/边框),登录/注册/找回三态统一
+                // 必须显式 left-0 top-0 translate-x-0 translate-y-0 抵消 DialogContent 基类
+                // 的 left-[50%] top-[50%] translate-x/y-[-50%] 居中,否则全屏盒被平移出屏只露左上角。
+                'fixed left-0 top-0 translate-x-0 translate-y-0 h-dvh w-full max-w-none max-h-none overflow-y-auto gap-0 p-0 border-0 bg-background rounded-none shadow-none'
+              : // 桌面:保持原居中卡片。content 的 open/closed 淡入淡出实测为 animate-in/out 自带的
+                // 150ms(tw-animate-css 默认;基类 duration-(--duration-unified) 对 animation-duration
+                // 并不生效,勿再试图用 duration-* 同步),远快于卡片 500ms pop → 底座瞬间到位,
+                // 卡片弹出不受半透明拖累,视觉由 login-dialog-pop 主导,无需任何干预。
+                /* 2026-09-18:overflow-y-auto → overflow-visible(用户反馈"翻转的时候卡片超出容器后被裁剪了边缘"):
+                 翻转动画中卡片绕 Y 轴旋转,perspective(800px) 会放大转出屏幕方向的边缘,
+                 投影宽度超过 460px 容器,overflow-y-auto(隐含 overflow-x 也 auto)把超出部分裁掉。
+                 2026-09-19:恢复滚动能力但挪到内层 AuthShell 卡片自身(用户反馈"账号分类登录页上下都超出屏幕")——
+                 账号登录 tab(桌面 SSO 按钮 + 8 个第三方登录)高度超 95vh,DialogContent overflow-visible
+                 且居中定位导致超出部分从上下两端溢出屏幕且无滚动条。滚动放在 AuthShell 上:
+                 元素自身 overflow 不裁自身的翻转投影(外层 DialogContent 仍 overflow-visible),
+                 9-18 的翻转动效裁边修复不受影响;内容超高时卡片内部出滚动条,静止态完全容纳。
+                 同日第二轮(用户要求"禁止滚动、内容必须完整显示"):配合 AuthShell/LoginForm
+                 紧凑化(卡片 padding pb-6→pb-3、welcome 32px、表单 space-y-3、第三方 4 列),
+                 账号 tab 总高 732→约 515px,常规视口(≥540px 高)完全容纳不出滚动条;
+                 overflow-y-auto 降级为极端矮窗的安全兜底。 */
+                'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-visible border-0 bg-transparent shadow-none'
+          }
+        >
+          <DialogTitle className="sr-only">{title}</DialogTitle>
+          <DialogDescription className="sr-only">{subtitle}</DialogDescription>
+
+          {isMobile ? (
+            // 移动/App 全屏形态:垂直居中 + 安全区 padding + 透明全出血 AuthShell
+            <div className="flex min-h-full flex-col justify-center px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),1rem)]">
+              <AuthShell
+                onClose={close}
+                hideCloseButton
+                className="w-full max-w-none rounded-none border-0 bg-transparent p-3 shadow-none"
+              >
+                {mode === 'login' ? (
+                  <LoginWithTurnstile>
+                    <LoginFormContent
+                      tabs={['email', 'phone', 'password']}
+                      onSuccess={handleLoginSuccess}
+                    />
+                  </LoginWithTurnstile>
+                ) : mode === 'register' ? (
+                  <RegisterFormContent onSuccess={() => setMode('login')} />
+                ) : (
+                  <ForgotPasswordForm />
+                )}
+              </AuthShell>
+            </div>
+          ) : (
+            // 2026-09-18 卡片翻转入场:Y 轴 3D 全周翻转(360°)+ 弹性过冲
+            // (@keyframes login-dialog-flip,globals.css)。
+            // 加在内层卡片而非 DialogContent——Content 的居中 translate 不能被关键帧
+            // transform 碰(dialog.tsx 2026-07-28 残留 bug 教训)。移动全屏页/SSO 独立页不套用。
+            // 2026-09-19:max-h-[inherit](继承 DialogContent 的 max-h-[95vh])+ overflow-y-auto
+            // ——滚动放卡片自身,超高内容在卡片内滚动,不再上下溢出屏幕(见上方 DialogContent 注释);
+            // 元素自身 overflow 裁子内容、不裁自身投影,翻转动画放大出的边缘仍由外层
+            // overflow-visible 放行,9-18 裁边修复不受影响。
+            <AuthShell
+              onClose={close}
+              className="max-h-[inherit] animate-login-dialog-flip overflow-y-auto"
+            >
+              {showDesktopSso && mode === 'login' && (
+                <div className="pb-3">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full px-4"
+                    onClick={handleDesktopSso}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    <span>{t('loginInBrowser')}</span>
+                  </Button>
+                </div>
+              )}
+              {mode === 'login' ? (
+                <LoginWithTurnstile>
+                  <LoginFormContent onSuccess={handleLoginSuccess} />
+                </LoginWithTurnstile>
+              ) : mode === 'register' ? (
+                <RegisterFormContent onSuccess={() => setMode('login')} />
+              ) : (
+                <ForgotPasswordForm />
+              )}
+            </AuthShell>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* 管理员登录成功后的「要不要看数据大屏」选择窗:本组件常驻根布局,选择状态放这里才能
+        在登录弹窗 close() 之后稳定存活(AppQrPanel 随登录弹窗卸载,存不住)。 */}
+      <WallboardChoiceDialog />
+    </>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

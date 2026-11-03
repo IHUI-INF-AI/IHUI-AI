@@ -1,0 +1,575 @@
+{
+  "$schemaNote": "check-merge-deletion-resurrection 的唯一豁免台账(第二条例出口;第一条是删除提交信息里的 `intentional-delete:` 短语,那个不住在这里)。每条必须有 path + reason + reviewBy 三字段,缺任一即判『字段不齐』,不得当空表用。path 是**仓库相对路径逐字**(不做归一化:归一化会把两个不同元素并成一对,那比漏配更糟)。reason 必须成句并写明『为什么这一枚合并把它带回来是可接受的』——加条目的前提是逐条读过那枚合并两侧的内容,不得为消红而填。reviewBy 是 ISO 日期,过期一律判红(到期处置只有两条:续期并补证据,或删除条目并同时修好实现)。字段与判据的唯一定义在 scripts/lib/deletion-intent.mjs(ALLOWLIST_FIELDS / entryDefect / rotEntries),本文件不另立规则。另:『路径已不在复活面』这一型(清单腐烂)只在 --strict 档判红,默认档只报名字与条数 —— 理由写在 deletion-intent.mjs 的 rotEntries 注释里(豁免条目对应的合并被推走之后会永久退出提交链窗口,当场判红就是一台与任何提交都无关的恒红门,AGENTS §12e 同型)。",
+  "entries": [
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-08-15_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-12_archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-23_bulk-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-25_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-09-29_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-08_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_RENUMBER_2026-10-14.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_adjudicated-2026-10-15.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-08.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_cross-machine-id-race-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_dedup-2026-09-26.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_dup-declaration-2026-10-14.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_folded-twins-2026-09-28.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_renumber-2026-09-30.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_superseded-numbering-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_worktree-residue-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-10-07.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-10-07_1079151.md",
+      "reason": "本侧已由提交 7a77c44d86c 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-694a78bf-2.md",
+      "reason": "本侧已由提交 988a243cd12 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/permissions/autogenerated/close_in_chrome.toml",
+      "reason": "本侧已由提交 2087031d3c4 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/permissions/autogenerated/open_in_chrome.toml",
+      "reason": "本侧已由提交 2087031d3c4 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 7993d74940d 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-694a78bf.md",
+      "reason": "本侧已由提交 988a243cd12 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 4617fc0d301 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/tests/fenlei-overlay-statusbar.test.tsx",
+      "reason": "本侧已由提交 2ddd180933b 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data.ts",
+      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins.ts",
+      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/types.ts",
+      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/observability/grafana/dashboards/agent-runtime.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/observability/grafana/provisioning/dashboards/dashboards.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/observability/grafana/provisioning/datasources/datasources.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/dashboards/tenant-comparison.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/dashboards/tenant-overview.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/provisioning/dashboards/dashboards.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "deploy/saas/grafana/provisioning/datasources/prometheus.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-agent.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-cost.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-deep-pipeline.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-latency.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ai-logs.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/alert_history.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/app-golden-signals.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/auth-security.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/bullmq.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/business-funnel.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/cache.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/cloudflared-tunnel.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/exam-usage.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/hls.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ihui-ai-overview.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/live-room.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/log-stack-health.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/monitor_health.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/oss-storage.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/payment-flow.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/pg_deploy.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/postgresql.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/redis-cluster.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/tenant-usage.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/windows-host.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/dashboards/ws.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/grafana.ini",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/provisioning/dashboards/dashboards.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "monitoring/grafana/provisioning/datasources/datasources.yml",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-datasource-wiring.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-metric-exists.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/grafana-external-metrics.json",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/sync-grafana-live-provisioning.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-datasource-wiring.test.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-metric-exists.test.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-logql-panels.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-panel-data.mjs",
+      "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62.md",
+      "reason": "活跃临时流水文件:plan-pointer-purge 会话持续写入同族文件(本日仍在更新),删除会破坏在飞清账工作;合并 ede80b6337d 的复活属该工作流正常产物,故可接受。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-2.md",
+      "reason": "活跃临时流水文件:plan-pointer-purge 会话持续写入同族文件(本日仍在更新),删除会破坏在飞清账工作;合并 ede80b6337d 的复活属该工作流正常产物,故可接受。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-3.md",
+      "reason": "对侧远端 tip 仍持有该路径;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件)早于本次合并基线,合并带回=与远端现状对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/static/images/icons/image.svg",
+      "reason": "对侧 5828ca478c0(G-924 六条线上取不到的图标 URL 改走本仓 lucide SVG)有意重入库;本侧删除为 CDN 外置轮 399aaef9035,早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-5.md",
+      "reason": "对侧 87f9eebffb1(plan-pointer-purge 归并批重落地,票面自证「被删行原文进 .ihui-agent/tmp/ 下的 plan-pointer-purge-* 台账」)有意重入库;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件),早于对侧重入库;合并带回=与对侧有意重入库对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "path": "apps/api/src/routes/auth-carrier.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/api/src/services/carrier-login.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/api/scripts/verify-carrier.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/plugins/withCarrier.cjs",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/plugins/templates/carrier/android/CarrierOneClickModule.java",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/plugins/templates/carrier/ios/CarrierOneClickTurboModule.swift",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/src/lib/carrier-one-click.ts",
+      "reason": "机主 2026-10-29 明确要求把运营商一键登录(carrier)重新接入,推翻 1442baa1e0e(2026-10-27 22:23「登录仅保留短信验证码」)的整条移除;本票除带回实现件外已把接线腿逐腿补全并现读复量:routes/index.ts 注册 2 处、app.config.js 登记 withCarrier 1 处、.env.example 供值键 1 处、packages/app 共享屏消费 6 处、apps/mobile-rn 屏消费 66 处、api-client 出口 8 处、types 出口 1 处、i18n 五语言各 4-5 处;pnpm turbo typecheck(api/rn-app/web/mobile-rn/api-client/types)与 node scripts/openapi-check.mjs、node scripts/check-i18n-keys.mjs 均绿。reviewBy 随下次登录链路(短信+一键)整体审计复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/ai-service/app/core/background_tasks.py",
+      "reason": "不是回潮,是修 9fdbc207ba2e(2026-10-25 19:03「chore: 清理功能回退残留」)那笔批量误删:该枚把 spawn 强引用登记处当残留摘掉,却留下两处活消费者 —— apps/ai-service/app/routers/llm.py 与 apps/ai-service/app/services/model_sync.py 都 from ..core.background_tasks import spawn,而 apps/ai-service/app/main.py 顶层 from app.routers import (…) 在启动路径上就含 llm ⇒ ai-service 任何一次启动都 ModuleNotFoundError,这个状态在 HEAD 上从 10-25 19:03 一直持续到 10-29 19:28(4 天)。f7d269568cf083f004c79dd464b12e0651f55163 逐字节补回(blob d8145bfd4d,与被删版同一枚对象)。两侧内容已逐条读过:模块 55 行 = asyncio.create_task + _pending 强引用集 + done 回调自摘 + 无 running loop 抛 RuntimeError(与 create_task 同语义);它同时是守门 247 check-ai-task-background-reference.mjs 的落点面(该门仍在 scripts/guardian-runner.mjs 注册),摘掉本文件等于把「ai-service 内每个 create_task/ensure_future 必须走 spawn 唯一出口」这条单一真相源判据架空。同批被 9fdbc207ba 误删的路径本仓已按「误删但仍被引用」逐批恢复:a5c7e209a8(守门 247 本体与镜像)、60668e4c25(四组 web 功能面)、f33f7b82a3(WorkPanel 第五组 props)。reviewBy 随 9fdbc207ba 批量误删家族的整体对账一并复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/ai-service/tests/test_background_tasks_spawn.py",
+      "reason": "与被裁的 apps/ai-service/app/core/background_tasks.py 同批、同因:该枚是它唯一的行为锁(实测 3 例:强引用登记防 fire-and-forget 任务被 GC 静默回收、完成后自摘不反向泄漏、无 running loop 抛 RuntimeError),由同一枚 f7d269568cf083f004c79dd464b12e0651f55163 逐字节补回(blob b5e43b5870,与被 9fdbc207ba2e 删掉的那份同一枚对象)。留它的理由是判据面而不是观感:守门 247 要求 spawn 为唯一出口,而没有这把行为锁时「强引用」这件事一旦被人改回裸 create_task 就无人响应(本仓在账的「蒸馏偶尔什么都没发生」「workflow 实例永逝」症状族正是该缺陷)。两侧内容已逐条读过。reviewBy 与上一条同步,随 9fdbc207ba 批量误删家族的整体对账复核。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/distribution/commission-overview.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 分销佣金总览分段;②无等价实现(消费方 apps/miniapp-taro/src/pages/distribution/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/exam/review-list.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 错题/复习列表页;②无等价实现(消费方 apps/miniapp-taro/src/app.config.ts(路由注册页,Taro 页面机制无 import) 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/exam/wrong-list/header.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 错题列表页头分段;②无等价实现(消费方 apps/miniapp-taro/src/app.config.ts(路由注册页) 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/setting/parts.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 设置页分段;②无等价实现(消费方 apps/miniapp-taro/src/app.config.ts(路由注册页) 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/share/components/ShareCard.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 分享卡片组件;②无等价实现(消费方 apps/miniapp-taro/src/pages/share/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-ai/aigc/publish-form.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 AIGC 发布表单分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/aigc/publish.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-ai/aigc/publish-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 AIGC 发布分段组;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/aigc/publish-form.tsx 与 publish.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/list-view.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 n8n 模型列表视图分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-learn/course/detail-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 课程详情分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-learn/course/detail.tsx 与 live/detail.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-learn/live/detail-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 直播详情分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-learn/live/detail.tsx 与 course/detail.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-shop/token/token-packages.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 Token 套餐分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-shop/token/balance.tsx 与 token-balance-card.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-shop/vip-trader/index/trader-sections.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 VIP 商户分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-shop/vip-trader/index/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-shop/vip/compare-table.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 VIP 对比表分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-shop/vip/details.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pkg-user/message/in-site-messages.tsx",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 站内消息分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-user/message/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/ensure-silent-tasks.test.mjs",
+      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:行级误配销账。被删方 504f863717(10-21 21:29 机主裁定收口 B 批)摘除的是 ensure-silent-tasks ①③ 段(reaper 链路监视,AGENTS §12h 明文不得复活);现文件是 **幽灵任务判据测试**(④ 段,2026-10-30 AGENTS §12h 补刀② 登记的合法新段,全文唯一 test 即「④ 幽灵任务:IHUI 任务目标已删 ⇒ 违规」),不含被摘 ①③ 段的任何用例。与被删件同文的行仅为测试壳行(import/结构骨架),非内容回潮;①③ 段测试无复活。问责复跑:node scripts/check-verbatim-resurrection.mjs;grep -n \"reaper\\|回收链路\" scripts/tests/ensure-silent-tasks.test.mjs 应零命中。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/mobile-rn/src/screens/aboutPageSections.ts",
+      "reason": "门 30c+39 双红件,2026-10-31 复核按【摘除】处置(非豁免):共享真相源 packages/app/src/features/about/(AboutScreen.tsx/about-icons.ts/about-styles.ts)在位,apps/mobile-rn/src/screens/AboutScreen.tsx:24 注释明说「富版提升为真相源,端内实现与分段数据表(aboutPageSections.ts)一并删除」;端内无任何真实 import(grep 命中均为注释文字);c247b0a7f7 已第三次删除此死件(检出滞后把轮 55 的正当删除带回),7a47524b07 自动收编第四次带回。按门 30c 修法①(走本仓唯一删除档 LAND_REMOVE_PATHS)摘除;门 39 的 V1 红同源同消。问责复跑:node scripts/check-verbatim-resurrection.mjs 与 node scripts/check-rn-app-migration.mjs;若需重建,先消费共享真相源 packages/app 出口,不得在端内重建。",
+      "reviewBy": "2027-06-30"
+    }
+  ]
+}

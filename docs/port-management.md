@@ -1,0 +1,200 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# IHUI-AI 端口管理规则(强制,2026-08-15 更新)
+
+> 本文件是 IHUI-AI 项目**唯一端口注册表**。所有端口的分配、变更、新增必须以此文件为准。
+> 守门脚本:`scripts/check-port-registry.mjs`(pre-commit 第 24 项)。
+
+---
+
+## 1. 设计原则
+
+1. **统一前缀 88**:所有 dev/宿主映射端口以 `88` 开头,便于辨识和管理。
+2. **千位段映射**:按服务类别分段,端口号即服务类别标识。8840-8849 段位语义:CLI Agent(8841)+ 蓝绿部署预留(8840/8842-8849)。
+3. **strictPort 防漂移**:应用端 dev server 必须配置 `strictPort: true`,端口被占时**报错退出**而非自动漂移。
+4. **全项目 88xx**:所有服务(含容器内部端口)统一使用 88xx 体系,无豁免。
+5. **单一注册表**:端口分配唯一权威来源是本文件,代码中不得自行定义新端口。
+
+---
+
+## 2. 端口注册表
+
+### 2.1 应用服务(8801-8809)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 8801 | Web(Next.js) | apps/web | `apps/web/package.json` `-p 8801` | ✅ |
+| 8802 | API 入口路由(蓝绿 router,`deploy/win/ihui-api-router.mjs`;按状态文件转 8842/8843) | apps/api | 生产 NSSM 服务 `IHUI-API-ROUTER`(源站唯一入口,开发态由 api 直接占用 8802) | ✅ |
+| 8842 | API 蓝实例(blue) | apps/api | 生产 NSSM 服务 `IHUI-API-BLUE`,`PORT=8842 IHUI_API_COLOR=blue` | ✅ 仅绑 127.0.0.1 |
+| 8843 | API 绿实例(green) | apps/api | 生产 NSSM 服务 `IHUI-API-GREEN`,`PORT=8843 IHUI_API_COLOR=green` | ✅ 仅绑 127.0.0.1 |
+| 8803 | AI Service(FastAPI) | apps/ai-service | `apps/ai-service/.env` `PORT=8803` | ✅ |
+| 8804 | 小程序 Taro H5 | apps/miniapp-taro | `apps/miniapp-taro/config/dev.ts` `port: 8804` | ✅ `strictPort:true` |
+| 8805 | Metro Bundler(RN/App) | apps/mobile-rn | `apps/mobile-rn/package.json` `--port 8805` | ✅ |
+| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 薄壳:Desktop 的 `tauri.conf.json` `devUrl:8801` 只在**开发期**加载 web dev server;打包态**不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点,2026-09-17 `f10258c8f6`「终极薄壳」定稿,详见 D148/G-723。因此不再需要独立 Vite 端口。启动:`node scripts/run-start-dev.mjs -Desktop`(经包装器,自动定位 PowerShell 7)= api+ai-service+desktop,desktop 自带 web 8801,与 web 互斥。桌面端工具链前置是两件事、缺一不可:脚本自动注入 cargo PATH;MSVC 工具链不在该脚本注入(由仓内构建/dev 入口承担 —— 本 dev 入口缺工具链时脚本只告警,见 `apps/desktop/README.md` §Windows 工具链前置)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |
+| 8807 | 网页预览→生产 CORS 注入反代(`scripts/dev-prod-proxy.mjs`,127.0.0.1:8807 → `https://aizhs.top`,由 dev-stack 作为可选服务托管) | scripts | `scripts/dev-port-registry.json` `prod-proxy.port: 8807` | ✅ 仅绑 127.0.0.1 |
+| 8808 | Extension(预留) | apps/extension | — | — |
+| 8809 | API 私有验证实例(O17 外部 Agent 接入端到端证明,临时只读探测用;库指向隔离 `ihui_e2e`、Redis 走 db12,不占 `apps/api/.env`) | apps/api | 启动时环境变量 `PORT=8809` | ✅ |
+
+> 8806 = mobile-rn 的 Expo Web 预览(浏览器打开手机 App),由 `scripts/dev-stack.mjs` 作为可选服务 `web-preview` 常驻托管:API 出口固定指向 8807 反代,若继承本机用户级 `EXPO_PUBLIC_API_BASE_URL=https://aizhs.top` 会被浏览器 CORS 拦死(表现为顶部「网络已断开」红条)。原占用者 Desktop 已废弃,见上一行说明。
+
+### 2.2 基础设施(8810-8819)
+
+| 端口 | 服务 | 容器内端口 | 配置文件 |
+|------|------|-----------|----------|
+| 8810 | PostgreSQL | 8810 | `docker-compose.yml` `${DB_PORT:-8810}:8810` |
+| 8811 | Redis | 8811 | `docker-compose.yml` `${REDIS_PORT:-8811}:8811` |
+| 8812 | OTel Collector gRPC | 8812 | `deploy/observability/docker-compose.observability.yml` `8812:8812` |
+| 8813 | OTel Collector HTTP | 8813 | `docker-compose.yml` `${OTEL_COLLECTOR_PORT:-8813}:8813` |
+| 8814 | Jaeger UI | 8814 | `docker-compose.yml` `${JAEGER_UI_PORT:-8814}:8814` |
+| 8815 | Prometheus | 8815 | `docker-compose.yml` `${PROMETHEUS_PORT:-8815}:8815` |
+| 8816 | 大屏 | 8816 | `docker-compose.yml` `${GRAFANA_PORT:-8816}:8816` |
+| 8817 | Node Exporter | 8817 | `docker-compose.yml` `${NODE_EXPORTER_PORT:-8817}:8817` |
+| 8818 | Loki | 8818 | `docker-compose.yml` `${LOKI_PORT:-8818}:8818` |
+| 8819 | (预留扩展) | — | — |
+
+### 2.3 辅助工具(8820-8829)
+
+| 端口 | 服务 | 配置文件 |
+|------|------|----------|
+| 8820 | (预留扩展) | — |
+| 8821 | Promtail(内部健康检查) | `monitoring/promtail/promtail-config.yml` |
+| 8822-8829 | (预留扩展) | — |
+
+### 2.4 SaaS 部署(8830-8839)
+
+| 端口 | 服务 | 配置文件 |
+|------|------|----------|
+| 8830 | Admin API | `deploy/saas/admin-api/src/config.ts` `PORT: 8830` |
+| 8831-8839 | (预留扩展) | — |
+
+### 2.5 CLI Agent(8840-8849)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 8841 | CLI Agent Server(HTTP/WS) | apps/cli | `apps/cli/src/commands/serve.ts:24` `--port 8841` | ✅ |
+| 8842/8843 | API 蓝绿双实例(见 2.1:生产由 8802 router 切流) | apps/api | NSSM `IHUI-API-BLUE/GREEN` | ✅ |
+| 8840/8844-8849 | (蓝绿部署预留) | — | — | — |
+
+**预留空槽说明(2026-07-25 立)**:8806-8808/8819/8822-8829/8831-8839/8840/8842-8849 共 18 个空槽为未来 3 年扩展预留,非当前债务。当前实际占用率 15/33 = 45%,符合 monorepo 中型项目预期。(2026-09-21:8809 由「预留」改派为 O17 API 私有验证实例;2026-10-28:8842/8843 由 API 蓝绿实例占用,空槽相应减 2)
+
+### 2.6 e2e 私有 dev 端口(8850-8899 段内认领)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 8861 | 桌面端「加载本地 web 构建」时窗口指向的本地 devUrl(刻意不用 8801,避免与生产 web 构建互踩) | apps/desktop | `apps/desktop/README.md` §本地开发 记的 dev 覆盖流程 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs` 运行时生成临时 config,经 wrapper 注入 MSVC 后 `tauri dev --config`）;旧配方 .ihui-agent/tmp/desktop-dev-override.json 仓内已不存在,该覆盖口当前指向 8801,本槽保留为认领 | ❌(不 bind,由调用方自备本地 web 服务) |
+| 8877 | 桌面遮罩 e2e 的私有 dev server(刻意不用 8801,避免与生产构建互踩) | apps/web | `apps/web/e2e/desktop-window-controls-dim.spec.ts` 头注跑法 `next dev --turbopack -p 8877` | ❌(手动起的临时 dev) |
+
+**为什么是"认领"而不是"豁免"**:这两处都是文档里真会指向宿主 88xx 端口的用法(一处在 spec 头注的跑法里,一处在 README 的本地 dev 覆盖流程里),按 §3.1 走"填端口 + 服务名 + 配置文件 + 同 commit 更新本文件"才是正解;把它塞进 `EXEMPT_PORTS` 等于给整个段开一张全仓通行证,以后谁真在这些端口上起服务都不会被拦。8850-8899 其余槽位仍为预留。
+
+### 2.7 本地 SSO 源站(8850-8899 段内认领)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 8850 | 本地 Keycloak SSO 源站(分域 SSO:sso.aizhs.top 的隧道 ingress 指向它;刻意不用 Keycloak 默认 8543,端口铁律,2026-10-19 立) | — | `scripts/start-cloudflared-tunnel.ps1:21` ingress 注释 + Cloudflare 控制台 tunnel「ihui-local」路由(仓外,切换须三处同步,见该脚本头注) | —(第三方 IdP,非本仓 dev server) |
+
+### 2.8 号池网关单机档(88xx 铁律的**具名例外**,显式认领)
+
+| 端口 | 服务 | 端 | 配置文件 | strictPort |
+|------|------|------|----------|------------|
+| 7864 | 号池网关单机档(relay-standalone)唯一对外入口 —— 对标竞品 `workbuddy2api-panel` 的固定对外口,客户侧 `base_url` 里的端口号属**对外契约**,换口即换契约;它是部署态的宿主发布口,不是 dev/宿主开发映射口(容器内部仍监听 web 8801 / api 8802,88xx 段内语义未被侵占) | deploy/relay-standalone | `deploy/relay-standalone/docker-compose.yml` 的 `gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864'`,同文件的 `healthz` 探针与 `CORS_ORIGIN` 默认值也都钉在这个口上 | ✅(容器内 nginx 固定 7864,单一入口) |
+
+**为什么是"认领"而不是"豁免"**:这一条与 §2.6 同一口径 —— 走「注册表 `registered_ports` + 本节表格 + 同笔更新」的双向对账,而**不进** `scripts/check-port-registry.mjs` 的 `EXEMPT_PORTS`;后者的射程是整段,等于给 78xx/88xx 全段开一张全仓通行证,以后谁在这些口上起服务都不会被拦。
+
+**双向锚点(改一处必须同笔改另一处)**:若该档改挂统一入口、撤掉独立发布口,必须**同笔**删掉 `scripts/dev-port-registry.json` 里 `port: 7864` 那一条与本节这一行 —— 只删一侧会让 P1 双向对账当场点名(文档多报 / 注册表多认领)。
+
+> **为什么落在 §2 而不是进豁免面**(2026-10-30 补齐双向对账):`scripts/check-port-registry.mjs` 的 P1 判据是「派生认领集 ↔ 本文件 §2」两侧逐槽对账,注册表认领了 7864 而本节此前没有对应行 ⇒ 派生 53 槽 vs 文档 52 槽不一致(门只报 ⚠️ 不判红,但双向对账就不成立)。按 §3.1 走「填端口 + 服务名 + 配置文件 + 同 commit 更新本文件」才是正解;把 7864 塞进 `EXEMPT_PORTS` 等于给一段开全仓通行证。7864 在 88xx 段**外**,本条只声明它与本仓 dev 端口不冲突,不放宽 88xx 铁律。
+
+> **并档留痕(2026-10-30)**:本节两版并行落地过(标题与表格两格不一致)。并档时以「端 / 配置文件」两格的事实为准 ——
+> 仓内现读 `deploy/relay-standalone/` 实存(含 `docker-compose.yml`),故取对侧那版;两版其余声明逐字保留(上一条是本侧说明,
+> 本节末尾是本侧初版原文逐字留痕,仅作溯源,不再作为现行口径)。
+
+```text
+### 2.8 号池网关单机档(88xx 段外显式认领)
+
+| 7864 | 号池网关单机档(relay-standalone)唯一对外入口 —— 对标 workbuddy2api-panel 的固定对外口 7864:客户侧 `base_url` 里的端口号属**对外契约**,换口即换契约;它是**部署态宿主发布口**,不是 dev/宿主开发映射口(容器内部监听仍是 web 8801 / api 8802,88xx 段语义未被侵占) | 仓外独立部署件(本仓无 `apps/relay-standalone`) | `scripts/dev-port-registry.json` 的 `registered_ports` 内 7864 条(含完整认领理由与边界) | —(宿主发布口) |
+```
+
+---
+
+## 3. 端口分配规则(强制)
+
+### 3.1 新增端口流程
+
+1. 在本文件 §2 注册表中找到对应类别的预留槽位。
+2. 填写端口、服务名、端、配置文件路径。
+3. 运行 `node scripts/check-port-registry.mjs` 验证无冲突。
+4. 同 commit 提交代码改动 + 本文件更新。
+
+### 3.2 禁止行为
+
+- ❌ **禁止**使用 88xx 范围以外的端口(dev/宿主映射/容器内部)。
+- ❌ **禁止**自行定义新端口不更新本文件。
+- ❌ **禁止**修改已分配的端口(需团队评审 + 全项目 grep 替换)。
+- ❌ **禁止**关闭 `strictPort`(应用端 dev server)。
+- ❌ **禁止**在生产 docker-compose 中暴露非 88xx 端口到宿主。
+
+### 3.3 端口分配段位规则
+
+```
+8800-8809  → 应用服务(8 端)
+8810-8819  → 基础设施(PG/Redis/OTel/Jaeger/Prom/Grafana/NodeExporter/Loki)
+8820-8829  → 辅助工具(Storybook/Promtail)
+8830-8839  → SaaS 部署(Admin API)
+8840-8899  → 预留扩展(未来新服务)
+```
+
+---
+
+## 4. 跨端引用链路
+
+```
+extension/desktop/mobile-rn/miniapp-taro
+        ↓ (调用 web proxy)
+        web(8801)
+        ↓ (rewrite /api/* )
+        api(8802) ←──── ai-service(8803) 调 api /execute
+        ↓                    ↓
+    postgres(8810)     redis(8811)
+        ↓
+    otel-collector(8813) → jaeger(8814) / prometheus(8815) → grafana(8816)
+```
+
+---
+
+## 5. 守门机制
+
+### 5.1 守门脚本
+
+`scripts/check-port-registry.mjs`(pre-commit 第 24 项):
+
+- 扫描 staged 文件中的 `localhost:PORT` 引用。
+- 校验 PORT 是否在注册表 §2 中。
+- 检测到非 88xx 端口→ **warn** 提醒确认是否注册。
+
+### 5.2 strictPort 守门
+
+- Taro H5:`config/dev.ts` `strictPort: true`
+- Desktop Vite:`vite.config.ts` `strictPort: true`
+- Web Next.js:`-p 8801`(端口被占报错)
+- API/AI Service:`.env` `PORT=88xx`(端口被占报错)
+- Metro:唯一 Metro 端口 = **8806**(web-preview,浏览器预览与手机 dev client 共用;端口被占=复用,不得另起)
+  - **2026-10-15 单 Metro 铁律(用户明令禁止双实例)**:dev-stack 已删除独立 metro(8081)服务槽,`start-mobile-rn-android.ps1` 也不再起 8081 —— 两者都只认 8806:已在监听则复用,缺失才起。手机 dev client 的 bundle 地址是 RN 硬编码 localhost:8081,经 `adb reverse tcp:8081 tcp:8806` 复用 8806(dev-stack `--device` 与 ps1 安装步均已内置);8807 反代一并转发(dev-stack 出的 bundle 内嵌 API 基址 8807)。
+  - 事故背景:8081 与 8806 双 Metro 并存,各自缓存文件监听结果,同一份代码两端编译结果不一致(8806 已含修复、8081 恒旧),用户 Ctrl+F5 也刷不出 ⇒ 排障成本高。8081/8805 从此仅作为 reverse 映射端口号与仓库脚本端口保留,不再是 Metro 进程监听位。
+
+---
+
+## 6. 变更记录
+
+| 日期 | 变更 | 负责人 |
+|------|------|--------|
+| 2026-07-22 | 立规:全项目端口统一 88xx,8 端 + 基础设施 + 辅助 | AI Agent |
+| 2026-07-22 | 补充:蓝绿部署段位 8840-8849 | AI Agent |
+| 2026-07-25 | 修复:Storybook 端口不一致(改 docs 承认 6006 豁免)+ 注册 CLI 8841 + 预留空槽说明 | AI Agent |
+| 2026-08-15 | 全项目无豁免:所有服务(含容器内部)统一 88xx,删除豁免场景 | AI Agent |
+| 2026-10-15 | 单 Metro 铁律:删除 dev-stack metro(8081)服务槽,ps1 同步停启 8081,手机 dev client 经 reverse 8081→8806 复用唯一 Metro(用户明令禁止双实例) | AI Agent |
+| 2026-10-28 | 生产 API 改蓝绿零停机:8802 = `IHUI-API-ROUTER`(按 `api-bluegreen.json` 转 8842/8843),8842 = BLUE / 8843 = GREEN;部署由 `ihui-api-bluegreen.ps1` 切流,不再 `sc stop` 硬重启 | AI Agent |
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

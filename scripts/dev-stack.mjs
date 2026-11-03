@@ -1,0 +1,1065 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// scripts/dev-stack.mjs — 本地开发栈「体检 + 自愈 + 守护」
+//
+// 目标(2026-09-22 根治):杜绝「网络不通 / 服务没起」导致的 App 白屏、接口超时、OAuth 失败。
+// 三个已确认根因,本脚本逐一封堵:
+//   根因1: apps/api/.env 缺失 → DATABASE_URL/JWT_SECRET 未定义,API 拒绝启动
+//          → canStart('api') 强制预检 .env,缺失时给出明确指引而非盲启动
+//   根因2: 脚本派生的子进程随父会话退出被回收(实测 Metro/API 均这样死过)
+//          → 统一走 Start-Process 真正脱离父进程 + 日志落盘(.tmp-sync/dev-stack-*.log)
+//   根因3: 手机重启后 adb reverse 丢失 → --device 建转发,watch 模式周期性重建
+//
+// 端口真值(2026-10-12 更正 ⇒ 以 apps/api/.env 的 DSN 为权威,勿再抄约定端口):
+//   postgres / redis 的探活端口**从 DSN 解析**(DATABASE_URL / REDIS_URL):本机实况
+//   PG=5432(postgresql-x64-18)、Redis=6379(Memurai),而 docs/port-management.md §2.2
+//   与本脚本旧注写的 8810/8811 是 docker-compose 那套**约定端口 / 另一台机的形态** ——
+//   拿它当引擎存在性判据必然假阴性(端口从未通 ⇒ 每轮体检都判 down ⇒ 每 30s 反复
+//   `sc start` 一个不存在的服务名)。同族裁决见 AGENTS.md「判某引擎在不在必须先读被
+//   审应用自己那份 DSN」与 README.md 端口段落,勿改回固定 8810/8811。
+//   应用端口不受影响:api 8802(/health)· web 8801 · ai-service 8803(/health)(约定=实况)。
+//   Metro 单实例铁律(2026-10-15 立,用户明令禁止双实例):全仓库唯一 Metro = web-preview
+//   8806(手机 dev client 与浏览器共用)。手机默认 bundle 地址 localhost:8081(RN 硬编码)
+//   经 adb reverse tcp:8081 tcp:8806 复用 8806,任何脚本不得再启动第二个 Expo/Metro
+//   进程(8081/8805 端口号仅作为 reverse 映射与仓库脚本端口保留,不再是进程监听位)。
+//   事故背景:8081 与 8806 双 Metro 并存且文件监听各自缓存,同一份代码两端编译结果
+//   不一致(8806 已含修复、8081 恒旧),用户 Ctrl+F5 也刷不出 ⇒ 排障半小时起。
+//   web-preview 8806(浏览器打开手机 App + 手机 dev client 唯一 bundle 源)
+//   prod-proxy 8807(它的 API 出口 → aizhs.top;手机经 reverse tcp:8807 同源直连生产)
+//
+// 用法:
+//   node scripts/dev-stack.mjs                 体检,缺失的按依赖顺序拉起,必需全就绪才退出 0
+//   node scripts/dev-stack.mjs --check         只体检不自愈(未就绪 exit 1),适合开工自检
+//   node scripts/dev-stack.mjs --device        起完后把 8081→8806(Metro 复用)/8807/8802/8801 反向转发到已连接手机
+//   node scripts/dev-stack.mjs --watch         前台守护,每 30s 复检,挂了自动重拉(Ctrl+C 退出)
+//   node scripts/dev-stack.mjs --only=api,redis
+//   node scripts/dev-stack.mjs --json          机器可读输出
+//
+// 测试缝:`DEV_STACK_HEARTBEAT_FILE=<路径>` 可把守护心跳重定向到别处(镜像测试用它
+//   避免碰线上那枚)。dev-stack-watchdog.mjs 认同一个变量名,两侧必须一起设,
+//   否则巡检读默认路径会把"写在别处"的健康守护判成死。
+//
+// npm scripts: pnpm dev:stack / dev:stack:check / dev:stack:device / dev:stack:watch
+
+import { spawn, spawnSync } from 'node:child_process';
+import net from 'node:net';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const LOG_DIR = path.join(ROOT, '.tmp-sync');
+const ADB = path.join(ROOT, '.android-toolchain', 'android-sdk', 'platform-tools', 'adb.exe');
+// 直连 node + js 入口启动各服务:绕过 pnpm.cmd shim(实测 shim 在 detached+重定向链路
+// 里输出会凭空丢失,日志 0 字节),且少一层 cmd 包装,进程树更干净。
+const NODE_EXE = process.execPath;
+const TSX_ENTRY = path.join(ROOT, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs');
+const EXPO_ENTRY = path.join(ROOT, 'apps', 'mobile-rn', 'node_modules', 'expo', 'bin', 'cli');
+const NEXT_ENTRY = path.join(ROOT, 'apps', 'web', 'node_modules', 'next', 'dist', 'bin', 'next');
+const REDIS_EXE = 'D:\\ihui-redis-6.2\\Redis-6.2.24-Windows-x64-msys2\\redis-server.exe';
+const REDIS_DIR = 'D:\\ihui-redis-6.2\\data';
+const PG_SERVICE = 'PostgreSQL16IHUI';
+const API_DIR = path.join(ROOT, 'apps', 'api');
+const AI_DIR = path.join(ROOT, 'apps', 'ai-service');
+const RN_DIR = path.join(ROOT, 'apps', 'mobile-rn');
+
+// —— DSN 派生的基础设施端口 ——
+// 权威源是应用自己的连接串(.env 的 DATABASE_URL / REDIS_URL),不是端口注册表:
+// 端口表记的是"约定形态",回答不了"这台机上引擎在哪个端口"。解析不出(缺 key /
+// URL 不合法)才回退协议默认端口 —— 5432 / 6379,而非 8810 / 8811(那两位本机从不成立)。
+function dsnPort(envKey, fallbackPort) {
+  try {
+    const text = fs.readFileSync(path.join(API_DIR, '.env'), 'utf8');
+    const m = text.match(new RegExp(`^${envKey}=(.+)$`, 'm'));
+    if (!m) return fallbackPort;
+    const u = new URL(m[1].trim());
+    const port = Number(u.port);
+    return Number.isInteger(port) && port > 0 ? port : fallbackPort;
+  } catch {
+    return fallbackPort;
+  }
+}
+const PG_PORT = dsnPort('DATABASE_URL', 5432);
+const REDIS_PORT = dsnPort('REDIS_URL', 6379);
+
+// Windows 服务名按本机实况探测,不手抄:PG 的服务名在不同机器上是
+// postgresql-x64-17/18/postgresql(本机实为 postgresql-x64-18),写死一个历史名
+// 会让"服务真没起"那一档永远拉不起来(sc start 一个不存在的名字)。
+// 结果缓存一次:watch 每 30s 复检,不该每轮 spawn 一次 sc。
+let winServicesCache = null;
+function listWindowsServices() {
+  if (winServicesCache) return winServicesCache;
+  try {
+    const r = spawnSync('sc', ['query', 'type=', 'service', 'state=', 'all'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20000,
+      // 不吃的子进程必须给 stdio(本仓记过 spawnSync EBUSY)
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    // SERVICE_NAME 段是 ASCII,中文系统的 OEM 乱码只影响描述文字,不影响这一段
+    winServicesCache = [...`${r.stdout ?? ''}`.matchAll(/SERVICE_NAME:\s*(\S+)/g)].map((m) => m[1]);
+  } catch {
+    winServicesCache = [];
+  }
+  return winServicesCache;
+}
+const findWindowsService = (re) => listWindowsServices().find((n) => re.test(n)) || null;
+
+// 日志落盘:服务启动失败时能直接看到原因,避免「无输出盲等」
+function logPaths(name) {
+  return { out: path.join(LOG_DIR, `dev-stack-${name}.log`), err: path.join(LOG_DIR, `dev-stack-${name}.err.log`) };
+}
+
+function tail(file, lines = 15) {
+  try {
+    const s = fs.readFileSync(file, 'utf8').trimEnd().split(/\r?\n/);
+    return s.slice(-lines).join('\n');
+  } catch {
+    return '';
+  }
+}
+
+// 启动链自检失败的可判定分支(2026-10-31):
+// 启动中间层(dev-stack-launch.mjs)在「wscript 被安全策略拦截、已降级 cmd」或
+// 「强制 wscript 但链不可用」时会往 err 日志写一行 `[dev-stack-launch:<name>] …`。
+// 有这个标记就说明**不是服务自己起不来,是启动链压根没把进程拉出来** —— 必须与普通
+// 冷启动超时分开报,否则 hint 把人往 apps/api 上引(真实事故:本地 API 长期没拉起,
+// 号池巡检停摆 7 天,而日志里其实只有一条降级/失败诊断)。
+// 读全文而不是 tail(15):诊断行写在下一次服务输出之前,长日志会把它挤出尾部窗口;
+// 每次启动都会截断日志,这里的读取只发生在 start-timeout 分支,不构成常态开销。
+function errHasLaunchDiag(file) {
+  try {
+    return fs.readFileSync(file, 'utf8').includes('[dev-stack-launch:');
+  } catch {
+    return false;
+  }
+}
+
+// Windows 下必须真正脱离父进程:非 detached 的子进程会随本脚本/会话退出被回收
+// (实测 Metro/API 均这样死过)。
+// 日志方案(2026-09-22 实测定型):detached 链路里 cmd 重定向对外部 exe 的输出
+// 继承损坏(输出凭空消失),node→node 的 fd stdio 直传才可靠 → 经
+// scripts/dev-stack-launch.mjs 中间层拉起服务并落盘日志。
+function launchDetached(exe, argList, cwd, name, envs = {}) {
+  const { out, err } = logPaths(name);
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+  for (const f of [out, err]) {
+    try {
+      fs.writeFileSync(f, ''); // 每次启动截断,tail 看到的总是本次尝试
+    } catch {
+      /* 旧日志删不掉不阻塞启动 */
+    }
+  }
+  return spawn(
+    process.execPath,
+    [path.join(ROOT, 'scripts', 'dev-stack-launch.mjs'), name, LOG_DIR, cwd, exe, ...argList],
+    {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      env: (() => {
+        const env = { ...process.env, ...envs };
+        // 防泄漏:CI=true 会把 next/expo 等切到 CI 模式(Metro 实测 "reloads are
+        // disabled"),dev 服务永远不该以 CI 模式跑
+        delete env.CI;
+        delete env.CI_ENABLED;
+        return env;
+      })(),
+    },
+  );
+}
+
+// —— 进程清理与守护自保(2026-09-22 根治「网络断开复发」三层防线之一) ——
+// pidAlive:tasklist CSV 判定 PID 是否仍是指定进程名。不按 INFO 文本判断
+// (中文系统本地化文案),只认首个引号段是否等于进程名。
+function pidAlive(pid, expectName = 'node.exe') {
+  const p = Number(pid);
+  if (!p || p <= 0) return false;
+  try {
+    const r = spawnSync('tasklist', ['/FI', `PID eq ${p}`, '/FO', 'CSV', '/NH'], {
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 8000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const m = (r.stdout || '').match(/^\s*"([^"]+)"/m);
+    return !!m && m[1].toLowerCase() === expectName.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function killTree(pid) {
+  try {
+    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10000 });
+  } catch {
+    /* 杀不掉不阻塞重拉(端口已被假死进程让出时无碍) */
+  }
+}
+
+// —— 守护心跳判据(2026-10-31 立,治「冷启动窗口被巡检误判为死 ⇒ 无效复活 ⇒ 截日志/多头」)——
+// 一手现场(全部读自当时的真实文件与进程):守护 pid 26048 创建于 22:11:13,而
+// .tmp-sync/dev-stack-watcher.log 里第一条带时刻的行是 [22:13:53](进入 watch 块后的
+// 首轮 rawTick)⇒ 初始启动阶段这 160s 一个心跳字节都没写。于是
+// .tmp-sync/dev-stack-watchdog.log 记 `14:12:04.627Z 心跳缺失,需要复活`(=22:12:04 本地),
+// revive 出第二个守护头;同一秒 dev-stack-watcher.err.log 被 'w' 截成 0 字节、
+// dev-stack-watcher.pid 被改写成 4204(mtime 22:12:04.702/.709),而那个头也要跑完
+// 一整轮初始启动(实测 22:12:04→22:13:53 共 109s)才走到锁检查、然后自杀退场。
+// 更要命的是守护侧那把单实例锁**读的就是这枚心跳**——它在冷启动期压根不存在,
+// 所以锁在这个窗口里结构性失明,只能靠"新实例自己再写一次心跳"收敛,代价就是
+// 诊断日志被截、两头的 ensure/startSvc/killStale 同写一批 dev-stack-<腿>.log/pid。
+//
+// 修法(判据语义:心跳 = 守护**活着并且在推进**):
+//   ① 心跳与锁检查都排在 `await run()`(初始启动阶段)**之前** —— 冷启动第 0 秒就落第一枚;
+//   ② 之后由「真推进事件」续写:每条腿的探活轮询、每轮 tick、每次外部命令前后各记一次,
+//      落盘按 HEARTBEAT_REFRESH_MS 节流(不每探一次打一次盘);
+//   ③ 反向兜底没被放宽:进程真死 / 事件循环真卡住 ⇒ 推进事件停止 ⇒ 心跳立刻停更,
+//      巡检口径(FRESH_MS=90s、每 2 分钟一轮)一个字节都没动,自愈速度不变。
+// 纯判据挂 __test__,镜像测试 scripts/tests/dev-stack-watchdog-coldstart.test.mjs 直接
+// import(§22c:测试里不得复写第二份判据)。
+const HEARTBEAT_FILE_NAME = 'dev-stack-watcher.heartbeat.json';
+const HEARTBEAT_FILE_ENV = 'DEV_STACK_HEARTBEAT_FILE';
+// 与 dev-stack-watchdog.mjs 的 FRESH_MS 同值(测试逐值对账;任何一边改大都等于把自愈改松)
+const HEARTBEAT_FRESH_MS = 90_000;
+// 续写节律:必须明显小于新鲜窗口(现 1/4.5),否则"在推进"也会被判过期——本仓的冷启动
+// 实测 160s,期间最长单步(一次探活)≈5s,20s 节律留足余量又不打盘成灾。
+const HEARTBEAT_REFRESH_MS = 20_000;
+const HEARTBEAT_PHASE_STARTUP = 'startup'; // 初始启动阶段(旧实现这一整段没有心跳 = 病理本体)
+const HEARTBEAT_PHASE_WATCH = 'watch'; // 常驻复检循环
+
+/** 心跳落点:默认线上那枚;测试用 DEV_STACK_HEARTBEAT_FILE 重定向,免得碰在用的心跳文件 */
+function heartbeatPath(env = process.env) {
+  const override = String(env?.[HEARTBEAT_FILE_ENV] ?? '').trim();
+  return override || path.join(LOG_DIR, HEARTBEAT_FILE_NAME);
+}
+
+/** 读心跳:读不到/坏 JSON ⇒ null(巡检侧把 null 判成「缺失,需要复活」,与旧实现一致) */
+function readHeartbeat(env = process.env) {
+  try {
+    return JSON.parse(fs.readFileSync(heartbeatPath(env), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** 心跳是否仍算新鲜(纯判据;ts 缺/坏 ⇒ 不判新鲜,§0.3 不猜健康) */
+function heartbeatIsFresh({ ts, now, freshMs = HEARTBEAT_FRESH_MS } = {}) {
+  const t = Number(ts);
+  const n = Number(now);
+  if (!Number.isFinite(t) || t <= 0) return false;
+  if (!Number.isFinite(n)) return false;
+  return n - t < freshMs;
+}
+
+/** 单实例锁命中:心跳新鲜 ∧ 记录进程仍活着 ⇒ 已有守护在跑,本实例该退出(防双开) */
+function secondInstanceLockHit({ hb, now, freshMs = HEARTBEAT_FRESH_MS, pidAliveOf = () => false } = {}) {
+  if (!hb || typeof hb !== 'object') return false;
+  if (!heartbeatIsFresh({ ts: hb.ts, now, freshMs })) return false;
+  const pid = Number(hb.pid);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  return !!pidAliveOf(pid);
+}
+
+/**
+ * 本刻该不该落一枚新心跳(纯判据)。
+ * 第一枚无条件(锁检查通过后立刻落地 ⇒ 冷启动窗口不再失明);之后按节律节流。
+ * 时钟/输入取不到 ⇒ 不写(不冒充健康);写方只在「真推进事件」上被调用,所以
+ * 进程死或事件循环卡住时这里自然不再被调用 ⇒ 心跳停更 ⇒ 巡检照旧 revive。
+ */
+function heartbeatShouldRefresh({ lastTs, now, refreshMs = HEARTBEAT_REFRESH_MS } = {}) {
+  const n = Number(now);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  const l = Number(lastTs);
+  if (!Number.isFinite(l) || l <= 0) return true;
+  return n - l >= refreshMs;
+}
+
+// 本实例的心跳态(常驻单例自己用;判据一律走上面的纯函数)
+const heartbeatState = { lastTs: 0, phase: HEARTBEAT_PHASE_STARTUP };
+// 心跳**只在守护形态(--watch)下写**:一次性体检 / --check 不是守护,若也写心跳,
+// 就等于用一把注定要退场的 pid 冒充守护 —— 它一退出,巡检判死,反而多派一个头。
+let heartbeatEnabled = false;
+
+/**
+ * 落一枚心跳(节流由 heartbeatShouldRefresh 判)。返回是否真写了盘。
+ * 调用点只允许出现在「真推进事件」上(锁检查后第一枚 / 每条腿 / 每次探活轮询 /
+ * 每轮 tick / 每次外部命令前后),这样进程真死或事件循环真卡住时心跳自然停更 ——
+ * 巡检口径不变,自愈不许降速。阶段标签交接(phase≠当前标签)无条件落一枚,免得
+ * 标签滞后于实际阶段。写失败不抛(与旧实现同:心跳写失败不阻塞守护),但 lastTs
+ * 不前进,下一个推进事件再试。
+ */
+function writeHeartbeat(phase = heartbeatState.phase) {
+  if (!heartbeatEnabled) return false;
+  const now = Date.now();
+  const forced = phase !== heartbeatState.phase; // 阶段交接:不受节律节流
+  if (!heartbeatShouldRefresh({ lastTs: heartbeatState.lastTs, now, refreshMs: forced ? 0 : HEARTBEAT_REFRESH_MS })) {
+    return false;
+  }
+  try {
+    const file = heartbeatPath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ pid: process.pid, ts: now, phase }));
+    heartbeatState.lastTs = now;
+    heartbeatState.phase = phase;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 探活身份判据(纯函数,挂 __test__ 供镜像测试 import,不复制逻辑)。
+// 为什么要它:端口有人应答 ≠ 那是我们的服务。实测 8802 被另一个会话的假 API 桩
+// (.ihui-agent/tmp/mobile-walk/capture-8802.cjs,对任何请求回 200)占着时,旧探活
+// 只看 statusCode<500 ⇒ dev-stack 报 api「up」,真 API 死了也无人察觉(号池巡检随之停摆)。
+function healthMatches(body, expect) {
+  if (!expect) return true;
+  return typeof body === 'string' && body.includes(expect);
+}
+
+// 重拉前清掉同名服务的旧进程树:tsx watch/expo/next 父进程在子服务死后仍存活且
+// 不占端口(isUp 探不到),不清就无限堆积(实测 API 假死后父进程残留半日)。
+// postgres 走 Windows 服务无 pid 文件,天然跳过。
+// 2026-10-12 零弹窗第四阶段起,pid 文件记的是隐藏控制台链的树根(wscript,见
+// dev-stack-launch.mjs);2026-10-31 起 wscript 被安全策略拦截时会降级成 cmd 直启,
+// 此时 pid 文件记的是 cmd(它持隐藏控制台并等 exe 退出)。旧基线存的还可能是服务
+// node 本体(直启链)。三种形态都必须认,否则降级形态的旧树永远杀不到:端口被旧
+// 树的孤儿占着 ⇒ 新树绑不上 ⇒ 每轮 start-timeout,而 killStale 还"看不见"它。
+const STALE_ROOT_NAMES = ['wscript.exe', 'cmd.exe', path.basename(process.execPath)];
+
+function killStale(svc) {
+  const pidFile = path.join(LOG_DIR, `dev-stack-${svc.name}.pid`);
+  try {
+    const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+    if (STALE_ROOT_NAMES.some((n) => pidAlive(pid, n))) killTree(pid);
+    fs.rmSync(pidFile, { force: true });
+  } catch {
+    /* 无 pid 文件 = 旧启动方式拉起的,无从清理,不影响 */
+  }
+}
+
+// ensure(首轮)与 tick(重拉)统一经此启动:先清僵尸再拉新
+function startSvc(svc) {
+  killStale(svc);
+  return svc.start();
+}
+
+const SERVICES = [
+  {
+    name: 'postgres',
+    port: PG_PORT,
+    required: true,
+    probe: 'tcp',
+    describe: `PostgreSQL(Windows 服务,端口 ${PG_PORT} ← apps/api/.env 的 DATABASE_URL)`,
+    start: () => {
+      // 服务名现探(不同机器是 postgresql-x64-17/18 等),探不到才退回历史名 PG_SERVICE
+      const svc = findWindowsService(/^PostgreSQL/i) || PG_SERVICE;
+      return spawn('sc', ['start', svc], { stdio: 'ignore', windowsHide: true });
+    },
+    hint: `PG 未监听 :${PG_PORT} 且未能自动拉起:到 services.msc 确认服务(名形如 postgresql-x64-18),或核对 apps/api/.env 的 DATABASE_URL 端口`,
+  },
+  {
+    name: 'redis',
+    port: REDIS_PORT,
+    required: true,
+    probe: 'tcp',
+    describe: `Redis/Memurai(队列 / 会话,端口 ${REDIS_PORT} ← apps/api/.env 的 REDIS_URL)`,
+    start: () => {
+      // 首选 Windows 服务(本机 Memurai / redis 均 Running+Automatic),便携版 exe 只作回退:
+      // 旧形态直奔 REDIS_EXE,而该路径在本机已不存在 ⇒ canStart 恒假 ⇒ 永远 cannot-start。
+      const svc = findWindowsService(/^(Memurai|redis)$/i);
+      if (svc) return spawn('sc', ['start', svc], { stdio: 'ignore', windowsHide: true });
+      return launchDetached(REDIS_EXE, ['redis-6.2.conf'], REDIS_DIR, 'redis');
+    },
+    hint: `Redis 未监听 :${REDIS_PORT} 且未能自动拉起:确认 Windows 服务(Memurai / redis)已安装,或便携版是否存在 ${REDIS_EXE}`,
+  },
+  {
+    name: 'api',
+    port: 8802,
+    required: true,
+    probe: 'http',
+    path: '/health',
+    // 身份标记取自 apps/api 的 /health 应答({"status":"ok","service":"@ihui/api"});
+    // 没有它就分不清"真 API"与"占着 8802 的任意 200 桩"(2026-10-31 实测踩过)
+    healthExpect: '@ihui/api',
+    describe: 'Fastify API(移动端 / web 主依赖)',
+    // 2026-10-31 换掉 `tsx watch`(实测两种形态在本机都不成立,逐条有据):
+    //  ① `node <tsx cli> watch src/index.ts` ⇒ 子进程落到系统 node v24.19.0,启动即
+    //     `ERR_MODULE_NOT_FOUND .../routes/miniapp-pay-routes.js`(文件真实存在,.ts→.js
+    //     的 ESM 解析在 watch 链里没生效)⇒ 进程秒退 ⇒ dev-stack 每轮判 down,日志被截断,
+    //     看起来像"启动链静默失败"(这正是本地 API 长期没人拉起、号池巡检停摆 7 天的直接原因)。
+    //  ② `node --import tsx --watch src/index.ts` ⇒ 启动后反复 `Restarting 'src/index.ts'`,
+    //     永远到不了就绪(Node 原生 watch 与 tsx loader 在本机互踢)。
+    // 实测唯一稳定形态:`node --import tsx src/index.ts`(以 apps/api 为 cwd),冷启动约 75s。
+    // 代价是没有文件热重载 —— 改完代码重跑 `node scripts/dev-stack.mjs --only=api` 即可
+    // (killStale 会先杀掉旧树);这比"看起来在跑其实一直在崩"划算得多。
+    start: () =>
+      launchDetached(NODE_EXE, ['--import', 'tsx', 'src/index.ts'], API_DIR, 'api', {
+        NODE_ENV: 'development',
+      }),
+    hint: 'apps/api 启动失败:先看 .tmp-sync/dev-stack-api.err.log 头部(那段才是真错误);常见两种:ERR_MODULE_NOT_FOUND(启动形态/依赖)与 EADDRINUSE(端口被占)',
+  },
+  {
+    // Metro 单实例铁律(头注「2026-10-15 立」):不再有独立 metro(8081)服务槽。
+    // 手机 dev client 的 bundle 改由下方 web-preview(8806)统一供给,8081 仅作为
+    // 手机侧端口号经 adb reverse tcp:8081 tcp:8806 复用(见 adbReverse)。
+    // 双 Metro 各自缓存文件监听结果曾导致「8806 新代码、8081 恒旧」的排障事故,勿回加。
+    name: 'web',
+    port: 8801,
+    required: false,
+    probe: 'http',
+    path: '/',
+    describe: 'Next.js Web(OAuth 回调宿主,可选)',
+    start: () => {
+      // pnpm install 会重链 next dist、抹掉 dev 预取补丁(unlock-dev-prefetch.mjs 头注),
+      // 故每次启动 web 前幂等重打(毫秒级,失败不阻塞,脚本内部自行告警)
+      try {
+        spawnSync(NODE_EXE, [path.join(ROOT, 'scripts', 'unlock-dev-prefetch.mjs')], { stdio: 'ignore', windowsHide: true });
+      } catch {
+        /* 补丁失败不阻塞启动 */
+      }
+      return launchDetached(NODE_EXE, [NEXT_ENTRY, 'dev', '--turbopack', '-p', '8801'], path.join(ROOT, 'apps', 'web'), 'web', {
+        // 本机 node_modules 经 junction 隔离到 D:\nm,turbopack 默认根(仓库根)容不下
+        // 解析后的 realpath,需抬到盘根(见 next.config.ts turbopack.root 注释)。
+        // 2026-10-14 修复:仅在该 junction 实际存在时才抬根。此前无条件注入,而
+        // D:\nm 已不存在(node_modules 已是普通目录),turbopack 解析根被抬到 D:\
+        // 盘根后扫不到 apps/web/app 路由 → 8801 恒 500
+        // (Cannot find module for page: route not found /(marketing)/page),
+        // 桌面端窗口因此显示"网络无法加载"。
+        ...(fs.existsSync('D:\\nm') ? { IHUI_TURBOPACK_ROOT: 'D:\\' } : {}),
+      });
+    },
+    hint: 'apps/web 启动失败(OAuth 网页回调会不可用,不影响 App 主链路),看 .tmp-sync/dev-stack-web.log',
+  },
+  {
+    name: 'ai-service',
+    port: 8803,
+    required: false,
+    probe: 'http',
+    path: '/health',
+    describe: 'FastAPI AI 服务(可选)',
+    start: () =>
+      launchDetached(
+        path.join(AI_DIR, '.venv', 'Scripts', 'python.exe'),
+        ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8803'],
+        AI_DIR,
+        'ai-service',
+      ),
+    hint: 'apps/ai-service 的 .venv 未就绪,AI 能力不可用(不影响登录 / 主链路)',
+  },
+  {
+    // 网页预览连生产专用:CORS 注入反代(mobile-rn Expo web 的 API 地址指向这里,
+    // 流量经回环转到 https://aizhs.top;浏览器跨源拦截靠它注入的头放行,头注见脚本)
+    name: 'prod-proxy',
+    port: 8807,
+    required: false,
+    probe: 'tcp',
+    describe: '网页预览→生产 CORS 反代(可选,8807→aizhs.top)',
+    start: () => launchDetached(NODE_EXE, [path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs')], ROOT, 'prod-proxy'),
+    hint: '网页预览连生产需要它(:8806 的 API 请求经此转发到 aizhs.top)',
+  },
+  {
+    // 浏览器打开手机 App:同一套 RN 代码换 react-native-web 渲染层,UI 改动即时可见。
+    // 必须强制覆盖 EXPO_PUBLIC_API_BASE_URL:本机用户级环境变量是生产域名,浏览器直连
+    // 必被 CORS 拦死(表现为顶部「网络已断开」红条),指向 8807 反代才通。
+    name: 'web-preview',
+    port: 8806,
+    required: false,
+    probe: 'tcp',
+    describe: 'Expo Web 预览 + 全仓库唯一 Metro(浏览器与手机 dev client 共用,可选,API 走 8807 反代到生产)',
+    start: () => {
+      const child = launchDetached(
+        NODE_EXE,
+        [EXPO_ENTRY, 'start', '--web', '--port', '8806'],
+        RN_DIR,
+        'web-preview',
+        { EXPO_PUBLIC_API_BASE_URL: 'http://localhost:8807' },
+      );
+      // 自动刷新看守(台账 G-977963 第②半):订阅 Metro 的 /hot 重编译事件,改动后经
+      // /message 广播 reload 让预览页整页重载。桥自带单实例(pid 文件判重),
+      // web-preview 反复重启也不会堆积;拉起失败不阻塞主服务。
+      try {
+        launchDetached(
+          NODE_EXE,
+          [path.join(ROOT, 'scripts', 'web-preview-live-reload.mjs'), '--port', '8806'],
+          ROOT,
+          'web-preview-reload',
+        );
+      } catch {
+        /* 桥起不来由 check-web-preview-live-reload.mjs 的 E 轴点名 */
+      }
+      return child;
+    },
+    hint: '浏览器打开 http://localhost:8806;手机 dev client 亦指向它(经 reverse tcp:8081 tcp:8806,单 Metro 铁律)。微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验。看 .tmp-sync/dev-stack-web-preview.log',
+  },
+];
+
+// —— 参数取值器:--name=value 与 --name value 两形态,等号形优先 ——
+// 2026-10-27 修复:旧实现只认等号形(startsWith('--name=')),`--timeout 600`(空格形)
+// 被静默回落默认 120s;叠加 api(Fastify tsx watch)本机冷启动实测 >120s ⇒ 启动判
+// 「start-timeout」假失败。空格形读 argv 下一项;下一项不存在或以 `--` 开头不算值。
+function getVal(argv, n, def) {
+  const eq = argv.find((x) => x.startsWith(`--${n}=`));
+  if (eq) return eq.slice(n.length + 3);
+  const i = argv.indexOf(`--${n}`);
+  if (i !== -1 && i + 1 < argv.length && !argv[i + 1].startsWith('--')) return argv[i + 1];
+  return def;
+}
+
+// 数值参数防御解析:NaN / ≤0 ⇒ 抛错(调用方 exit 2 并打印参数名与原值),绝不静默回落
+// (§0.3 铁律:取不到 ⇒ 未判定,静默回落等于假绿)。
+function parsePositiveInt(n, raw, def) {
+  if (raw === null || raw === undefined) return def;
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v <= 0) {
+    throw new Error(`参数 --${n} 收到无法解析的值 "${raw}"(需要正数),拒绝静默回落;正确示例:--${n}=${def}`);
+  }
+  return v;
+}
+
+// main() 内赋值的运行形态位(模块层 let,供 ensure/report/run/watch 闭包引用)
+let wantDevice = false;
+let checkOnly = false;
+let watchMode = false;
+let asJson = false;
+let intervalMs = 30_000;
+let readyTimeoutMs = 120_000;
+let targets = SERVICES;
+
+async function main() {
+  const args = process.argv.slice(2);
+  const a = new Set(args);
+  wantDevice = a.has('--device') || a.has('--with-device');
+  checkOnly = a.has('--check');
+  watchMode = a.has('--watch');
+  asJson = a.has('--json');
+  const onlyArg = getVal(args, 'only', null);
+  const onlyList = onlyArg ? onlyArg.split(',').map((s) => s.trim()) : null;
+  try {
+    intervalMs = parsePositiveInt('interval', getVal(args, 'interval', null), 30) * 1000;
+    readyTimeoutMs = parsePositiveInt('timeout', getVal(args, 'timeout', null), 120) * 1000;
+  } catch (e) {
+    console.error(`❌ ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(2);
+  }
+
+  targets = onlyList ? SERVICES.filter((s) => onlyList.includes(s.name)) : SERVICES;
+
+// 双栈探活:Windows 上 dev server 常只绑 IPv6([::1])或只绑 IPv4,必须两个都试。
+// 返回实际可达的 host,供 http 探针复用,避免 TCP 通了 HTTP 却探错栈。
+function tcpOpen(port, timeout = 1200) {
+  const tryHost = (host) =>
+    new Promise((resolve) => {
+      const sock = net.connect({ port, host });
+      const done = (ok) => {
+        sock.destroy();
+        resolve(ok ? host : null);
+      };
+      sock.setTimeout(timeout);
+      sock.once('connect', () => done(true));
+      sock.once('timeout', () => done(false));
+      sock.once('error', () => done(false));
+    });
+  return (async () => (await tryHost('127.0.0.1')) || (await tryHost('::1')))();
+}
+
+// 2026-10-31:探活不只判"有人应答",还要判"应答的是不是我们自己"。
+// 事故:8802 被另一个会话的假 API 桩(.ihui-agent/tmp/mobile-walk/capture-8802.cjs,
+// 对任何请求回 200)占用 ⇒ 旧 httpOk 只看 statusCode<500 ⇒ dev-stack 判 api「up」,
+// 真 API 早已死掉却无人知道(号池巡检随之停摆)。凡是"端口有人占着就算健康"的探活,
+// 都会把占位者当成服务本体 —— 所以声明了 healthExpect 的服务必须校验应答体身份标记。
+function httpProbe(host, port, urlPath = '/health', timeout = 2500) {
+  return new Promise((resolve) => {
+    const req = http.get({ host, port, path: urlPath, timeout }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        if (body.length < 8192) body += chunk;
+      });
+      res.on('end', () => resolve({ ok: res.statusCode < 500, status: res.statusCode, body }));
+      res.once('error', () => resolve({ ok: false, status: 0, body: '' }));
+    });
+    req.once('timeout', () => {
+      req.destroy();
+      resolve({ ok: false, status: 0, body: '' });
+    });
+    req.once('error', () => resolve({ ok: false, status: 0, body: '' }));
+  });
+}
+
+// 身份判据独立成纯函数(挂 __test__),镜像测试直接 import,不复制逻辑
+
+// 端口被"不是本服务"的东西占着时记在这里:ensure 据此给准确诊断,而不是盲启动+干等超时
+const FOREIGN_PORT_HOLDERS = new Map();
+
+async function isUp(svc) {
+  const host = await tcpOpen(svc.port);
+  if (!host) return false;
+  if (svc.probe !== 'http') return true;
+  const r = await httpProbe(host, svc.port, svc.path || '/health');
+  if (!r.ok) return false;
+  if (healthMatches(r.body, svc.healthExpect)) {
+    FOREIGN_PORT_HOLDERS.delete(svc.name);
+    return true;
+  }
+  FOREIGN_PORT_HOLDERS.set(svc.name, { status: r.status, sample: r.body.slice(0, 200) });
+  return false;
+}
+
+async function waitReady(svc, timeoutMs = readyTimeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    // 推进事件:每轮探活续写一次心跳(落不落盘由 heartbeatShouldRefresh 的节律判)。
+    // 冷启动期这枚心跳就是"守护活着并在推进"的证据 —— 旧实现只在进入 watch 块后才写,
+    // 于是 160s 初始启动阶段在巡检眼里等于"死了"。
+    writeHeartbeat();
+    if (await isUp(svc)) return true;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return isUp(svc);
+}
+
+function canStart(svc) {
+  if (svc.name === 'postgres') return true; // 走 Windows 服务,缺失由 sc 报错
+  if (svc.name === 'redis') return fs.existsSync(REDIS_EXE) || !!findWindowsService(/^(Memurai|redis)$/i);
+  if (svc.name === 'api') {
+    // 根因封堵:.env 缺失或 tsx 入口缺失时 API 必然起不来,不盲启动,直接给出指引
+    return fs.existsSync(path.join(API_DIR, '.env')) && fs.existsSync(TSX_ENTRY);
+  }
+  if (svc.name === 'ai-service') return fs.existsSync(path.join(AI_DIR, '.venv'));
+  if (svc.name === 'prod-proxy') return fs.existsSync(path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs'));
+  // 兜底那行按 apps/<name> 判目录,web-preview 实际目录是 apps/mobile-rn
+  if (svc.name === 'web-preview') return fs.existsSync(RN_DIR) && fs.existsSync(EXPO_ENTRY);
+  return fs.existsSync(path.join(ROOT, 'apps', svc.name));
+}
+
+// 手机 dev client 的 bundle/API 地址全走 localhost,依赖 adb reverse;
+// 设备重启后转发丢失是已发生过的事故,所以这些映射都要。
+// 8081→8806:单 Metro 铁律 —— 手机默认 bundle 地址(8081,RN 硬编码)复用 8806 唯一 Metro;
+// 8807→8807:8806 出的 bundle 内嵌 EXPO_PUBLIC_API_BASE_URL=8807,手机须能回源本机反代;
+// 8802/8801:API 与 web OAuth,原样直转。
+async function adbReverse() {
+  if (!fs.existsSync(ADB)) return { ok: false, msg: `未找到 adb:${ADB}` };
+  const dev = await runCapture([ADB, 'devices']);
+  const lines = dev.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('List of devices'));
+  const online = lines.filter((l) => /\bdevice\b/.test(l) && !/\brecovery\b|\bunauthorized\b|\boffline\b/.test(l));
+  if (!online.length) {
+    return { ok: false, msg: '无已授权设备(服务已就绪;手机 USB 连上后重跑 --device 即可转发)' };
+  }
+  const out = [];
+  for (const [devicePort, hostPort] of [
+    [8081, 8806],
+    [8807, 8807],
+    [8802, 8802],
+    [8801, 8801],
+  ]) {
+    // 推进事件:每条转发都要跑一次 adb(单条上限 5s),逐条续写心跳
+    writeHeartbeat();
+    await runCapture([ADB, 'reverse', `tcp:${devicePort}`, `tcp:${hostPort}`]);
+    out.push(`${devicePort}→${hostPort}`);
+  }
+  return { ok: true, msg: `${online[0].split('\t')[0]} | ${out.join(', ')}` };
+}
+
+function runCapture(cmdArr) {
+  // 仅用于 adb 这类探测短命令;数组传参、不走 shell,无注入面
+  const [cmd, ...rest] = cmdArr;
+  return new Promise((resolve) => {
+    let out = '';
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        resolve(out);
+      }
+    };
+    const child = spawn(cmd, rest, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    child.stdout.on('data', (d) => (out += d.toString()));
+    child.stderr.on('data', (d) => (out += d.toString()));
+    child.once('close', finish);
+    child.once('error', finish);
+    setTimeout(finish, 5000);
+  });
+}
+
+async function ensure(svc, results) {
+  if (await isUp(svc)) {
+    results.push({ name: svc.name, port: svc.port, status: 'up', action: 'none' });
+    return true;
+  }
+  // 端口有人占着,但应答的不是本服务(身份标记对不上) ⇒ 盲启动只会撞 EADDRINUSE 干等超时,
+  // 而且排障会被引到「服务自身起不来」的错方向。这里直接指名占位者该被清掉。
+  const foreign = FOREIGN_PORT_HOLDERS.get(svc.name);
+  if (foreign) {
+    results.push({
+      name: svc.name,
+      port: svc.port,
+      status: 'down',
+      action: 'port-foreign',
+      hint: [
+        `端口 :${svc.port} 被"不是本服务"的进程占着(HTTP ${foreign.status || '?'},应答片段: ${JSON.stringify(foreign.sample)})`,
+        `      本服务身份标记=${JSON.stringify(svc.healthExpect)},应答里没有 ⇒ 不盲启动。`,
+        `      定位占位者:Get-NetTCPConnection -LocalPort ${svc.port} -State Listen | Select OwningProcess → Get-Process -Id <pid>`,
+        `      占位者若是抓包桩/临时夹具,先停掉它再来;真 API 起不来再看 .tmp-sync/dev-stack-${svc.name}.log`,
+      ].join('\n'),
+    });
+    return false;
+  }
+  if (checkOnly) {
+    results.push({ name: svc.name, port: svc.port, status: 'down', action: 'skipped(check)', hint: svc.hint });
+    return false;
+  }
+  if (!canStart(svc)) {
+    results.push({ name: svc.name, port: svc.port, status: 'down', action: 'cannot-start', hint: svc.hint });
+    return false;
+  }
+  let child;
+  try {
+    child = startSvc(svc);
+  } catch (e) {
+    results.push({
+      name: svc.name,
+      port: svc.port,
+      status: 'down',
+      action: 'start-error',
+      hint: `${svc.hint} (spawn 异常: ${e instanceof Error ? e.message : String(e)})`,
+    });
+    return false;
+  }
+  if (child && typeof child.unref === 'function') child.unref();
+  const ok = await waitReady(svc);
+  const { out: outLog, err: errLog } = logPaths(svc.name);
+  // 启动链自检失败 ≠ 服务起不来:前者连进程都没有,后者至少写了几行启动输出。
+  // 两者混报会把排障引向 apps/*(真实事故:本地 API 长期没拉起却一直按"API 慢"查)。
+  const chainDiag = errHasLaunchDiag(errLog);
+  results.push({
+    name: svc.name,
+    port: svc.port,
+    status: ok ? 'up' : 'down',
+    action: ok ? 'started' : 'start-timeout',
+    hint: ok
+      ? ''
+      : [
+          svc.hint,
+          `当前启动等待上限 readyTimeoutMs=${readyTimeoutMs}(${Math.round(readyTimeoutMs / 1000)}s)内未探到就绪。冷启动较慢(如 api tsx watch 首编译 >120s)时加 --timeout=600 重跑`,
+          chainDiag
+            ? '启动链自检失败(可能 wscript 被安全策略拦截),见该 err 日志;可用 DEV_STACK_LAUNCH_MODE=cmd 强制降级'
+            : '',
+          `最近日志:\n${tail(errLog) || tail(outLog) || '(空)'}`,
+        ]
+          .filter(Boolean)
+          .join('\n      '),
+  });
+  return ok;
+}
+
+function report(results, device) {
+  if (asJson) {
+    console.log(JSON.stringify({ results, device }, null, 2));
+    return;
+  }
+  console.log('\n=== IHUI-AI 本地服务栈 ===');
+  const pad = (s, n) => String(s).padEnd(n);
+  console.log(pad('服务', 12) + pad('端口', 8) + pad('状态', 10) + pad('动作', 16) + '说明');
+  for (const r of results) {
+    const svc = SERVICES.find((s) => s.name === r.name);
+    const required = svc?.required === true;
+    const icon = r.status === 'up' ? '✅' : required ? '❌' : '⚠️';
+    const note = r.action === 'skipped(check)' ? svc?.describe || '' : r.hint || svc?.describe || '';
+    console.log(pad(`${icon} ${r.name}`, 12) + pad(r.port, 8) + pad(r.status, 10) + pad(r.action, 16) + note);
+  }
+  if (device) console.log(`\n手机转发: ${device.ok ? '✅ ' : '⚠️ '}${device.msg}`);
+  console.log('');
+}
+
+async function run() {
+  const results = [];
+  // 推进事件:每条腿开始都续写一次心跳(腿内的 waitReady 轮询另有一份;节流在上游判)
+  for (const svc of targets) {
+    writeHeartbeat(HEARTBEAT_PHASE_STARTUP);
+    await ensure(svc, results);
+  }
+  const device = wantDevice ? await adbReverse() : null;
+  report(results, device);
+
+  const downRequired = results.filter((r) => r.status !== 'up' && SERVICES.find((s) => s.name === r.name)?.required);
+  const downOptional = results.filter((r) => r.status !== 'up' && !SERVICES.find((s) => s.name === r.name)?.required);
+
+  if (downOptional.length) {
+    console.log('可选服务未就绪(不阻塞主链路): ' + downOptional.map((d) => d.name).join(', '));
+  }
+  if (downRequired.length) {
+    console.error('必需服务未就绪: ' + downRequired.map((d) => `${d.name}(:${d.port})`).join(', '));
+    return 1;
+  }
+  console.log('全部必需服务就绪 ✅');
+  return 0;
+}
+
+// —— 守护身份:锁检查 + 第一枚心跳都排在「初始启动阶段」之前(2026-10-31 冷启动误判根治)——
+// 判据与立因见文件心 heartbeat* 一段。旧实现把这两步放在 `await run()` **之后**,而
+// 实测 run() 要跑 160s(api 首编译 75s + web 就绪 + ai-service 干等 readyTimeoutMs=120s),
+// 于是这 160s 内既没有心跳(巡检判死 → 无效复活 → 截日志/多头),单实例锁也失明。
+if (watchMode) {
+  const hb0 = readHeartbeat();
+  if (secondInstanceLockHit({ hb: hb0, now: Date.now(), pidAliveOf: (p) => pidAlive(p) })) {
+    console.log(`已有 dev-stack 守护进程(pid ${hb0.pid})在运行,本实例退出(防双开)`);
+    process.exit(0);
+  }
+  // 锁未命中 = 本实例就是守护 → 打开心跳开关,冷启动第 0 秒落第一枚(lastTs=0 ⇒ 无条件)
+  heartbeatEnabled = true;
+  writeHeartbeat(HEARTBEAT_PHASE_STARTUP);
+}
+
+const code = await run();
+
+if (watchMode) {
+  // —— 单实例锁+心跳(2026-09-22 根治三层防线之二;2026-10-31 起写点前移到初始启动阶段之前) ——
+  // 曾实测两个守护实例并发重拉互相打架(日志双份输出、互相截断);守护自身死亡后
+  // vbs 只在开机跑一次、无人复活 → 心跳文件兼任「锁」与「watchdog 巡检依据」:
+  // 心跳新鲜(<90s)且 pid 存活 = 已有实例在守护,本实例退出(防双开);
+  // 否则接管,推进事件续写心跳。watchdog(scripts/dev-stack-watchdog.mjs)靠同一
+  // 文件判死活,心跳停更 → 2 分钟内自动复活本守护。
+  writeHeartbeat(HEARTBEAT_PHASE_WATCH); // 阶段标签翻成 watch(可能落在 20s 节律内被节流,无碍)
+  // 无论首轮成败都进入守护:首轮挂了更要盯着重拉,这才是「根治」。
+  console.log(`守护中:每 ${intervalMs / 1000}s 复检,挂了自动重拉(Ctrl+C 退出)`);
+  let lastDeviceMsg = null;
+  // canStart 不过的服务(如 ai-service .venv 缺失)每个 tick 都报会刷爆日志:
+  // 首次或状态由"能启动"变回"不能启动"时才报一次
+  const cannotStartNotified = new Set();
+  // 「桌面零弹窗」全盘审计(2026-09-22 用户铁律"不允许出现任何窗口"):git-guardian 曾漂移成
+  // 直跑 node.exe 每 2 分钟闪黑窗;除其自身自检外,本守护每 10 分钟全盘扫一遍计划任务/
+  // 启动项/Run 键,交互会话直跑控制台程序的 IHUI 任务自动包成隐藏 VBS(保留触发器)。
+  // 异步派生不阻塞体检 tick;--check 不跑审计(CI 无副作用)。
+  const SILENT_AUDIT = path.join(ROOT, 'scripts', 'ensure-silent-tasks.mjs');
+  const SILENT_AUDIT_EVERY_TICKS = Math.max(1, Math.round(600000 / intervalMs)); // ≈10 分钟
+  let silentAuditTicks = 0;
+  const runSilentAudit = () => {
+    if (!fs.existsSync(SILENT_AUDIT)) return;
+    try {
+      const c = spawn(process.execPath, [SILENT_AUDIT], { stdio: 'ignore', windowsHide: true });
+      c.unref();
+    } catch {
+      /* 审计失败不阻塞守护 */
+    }
+  };
+  /** 每条腿最近一次重拉的时刻(冷却判据,见重拉处的注释) */
+  const lastStartAt = new Map();
+  /** 重拉冷却 = 2× 就绪等待(45s),足够覆盖 api 冷启动超过 45s 的实测值 */
+  const RELAUNCH_COOLDOWN_MS = 120_000;
+  const rawTick = async () => {
+    // 推进事件:每轮 tick 起点一枚(阶段标签在此翻成 watch)
+    writeHeartbeat(HEARTBEAT_PHASE_WATCH);
+    silentAuditTicks++;
+    if (silentAuditTicks % SILENT_AUDIT_EVERY_TICKS === 1) runSilentAudit();
+    for (const svc of targets) {
+      // 推进事件:每轮复检的每条腿都续写一次(节流由 heartbeatShouldRefresh 判)
+      writeHeartbeat(HEARTBEAT_PHASE_WATCH);
+      if (!(await isUp(svc))) {
+        try {
+          if (!canStart(svc)) {
+            if (!cannotStartNotified.has(svc.name)) {
+              cannotStartNotified.add(svc.name);
+              console.error(`[${new Date().toLocaleTimeString()}] 无法拉起 ${svc.name}:${svc.hint}`);
+            }
+            continue;
+          }
+          cannotStartNotified.delete(svc.name);
+          // 2026-10-29: 重拉冷却。就绪等待最长 45s 而 tick 间隔 30s,上一轮刚 spawn 的树
+          // 还没监听时下一轮就会判它 down 再拉一棵 ⇒ 两棵树抢同一个端口,双双失败。
+          // 冷却期内的"掉线"只记录不重拉(startedAt 由本轮写入,与重入锁配合兜底)。
+          const nowMs = Date.now();
+          if (nowMs - (lastStartAt.get(svc.name) ?? 0) < RELAUNCH_COOLDOWN_MS) {
+            console.log(
+              `[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,仍在启动冷却期内,本轮不重拉`,
+            );
+            continue;
+          }
+          lastStartAt.set(svc.name, nowMs);
+          console.log(`[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,重拉中...`);
+          const child = startSvc(svc);
+          if (child && typeof child.unref === 'function') child.unref();
+          const ok = await waitReady(svc, 45000);
+          console.log(`  ${svc.name} 重拉${ok ? '成功 ✅' : '失败 ❌(日志见 .tmp-sync)'}`);
+        } catch (e) {
+          console.error(`  重拉失败: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+    if (wantDevice) {
+      // 手机重插 / 重启后 reverse 丢失,周期性重建;状态不变时不刷屏
+      const d = await adbReverse();
+      if (d.msg !== lastDeviceMsg) {
+        console.log(`手机转发: ${d.ok ? '✅' : '⚠️'} ${d.msg}`);
+        lastDeviceMsg = d.msg;
+      }
+    }
+  };
+  // 2026-10-29: tick 重入锁。setInterval(30s) 不等上一轮结束,而单轮最坏 7×45s(waitReady)
+  // 远大于 30s ⇒ 多轮 tick 并发在飞;每轮的 startSvc → killStale 都会按 pid 文件 taskkill,
+  // 而 pid 只有一槽 ⇒ 后写覆盖前写、前一棵树成孤儿占住端口、新树绑不上 ⇒ 永久「重拉失败」
+  // (实测末 200 行:api 掉41/成12/败30、web 掉45/成8/败37、web-preview 掉8/成1/败7)。
+  let ticking = false;
+  const tick = async () => {
+    if (ticking) return;
+    ticking = true;
+    try {
+      await rawTick();
+    } finally {
+      ticking = false;
+    }
+  };
+  reclaimForeignLegs();
+  await tick();
+  setInterval(tick, intervalMs);
+  } else {
+    process.exit(code);
+  }
+}
+
+// ── 外来 dev 腿对账(2026-10-29 立,治"开机抢跑把回灌腿结构性打死")───────────────
+// 立因(本机现读):8801/8802/8803 曾被第三方 AI IDE 的沙箱以 NT AUTHORITY\SYSTEM 身份
+// 在开机后 27 秒抢跑,比 `IHUI-DevStack` 计划任务(09:31:24)早 2 秒。端口被占 ⇒ 本守护的
+// api/web 腿每 30s 一轮 EADDRINUSE 崩溃循环;更糟的是 SYSTEM 身份解不开当前用户的 DPAPI
+// 会话,号池"客户端→池"回灌腿每轮 code=2 未判定,池内票与客户端票从此各走各的。
+// 夺回判据三条同时成立,缺一无动作:① 端口属于本守护目标腿;② 占位进程命令行含本仓根路径
+// (即"同一台机上以别的身份跑着的本仓 dev 腿",不是任何别的服务);③ 占位身份 ≠ 当前用户
+// (同用户的手工实例绝不动 —— 那是别席的在飞交付)。取不到身份/命令行 ⇒ 一律不动(未判定)。
+// 关档:`DEV_STACK_NO_FOREIGN_LEG_PREEMPT=1`;只看不动:`node scripts/dev-stack.mjs --preempt-check`。
+const FOREIGN_LEG_DISABLED_FLAG = 'DEV_STACK_NO_FOREIGN_LEG_PREEMPT';
+
+function currentUser() {
+  return String(process.env.USERNAME || process.env.USER || '').trim().toLowerCase();
+}
+
+/** 纯判据(镜像测试直读):见上注三条 */
+function shouldPreemptForeignLeg({ repoRoot, holder, selfUser }) {
+  const cmd = String(holder?.cmdline ?? '');
+  const owner = String(holder?.ownerUser ?? '').trim().toLowerCase();
+  const me = String(selfUser ?? '').trim().toLowerCase();
+  const root = String(repoRoot ?? '').trim().toLowerCase();
+  if (!cmd || !owner || !me || !root) return false;
+  if (owner === me) return false;
+  return cmd.toLowerCase().includes(root);
+}
+
+function collectForeignLegHolders(ports) {
+  const ps = [
+    '$ErrorActionPreference="SilentlyContinue";',
+    '$out=@();',
+    `foreach($p in @(${ports.join(',')})){`,
+    '$c=Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -First 1;',
+    'if($null -eq $c){continue};',
+    '$pr=Get-CimInstance Win32_Process -Filter "ProcessId=$($c.OwningProcess)" -ErrorAction SilentlyContinue;',
+    'if($null -eq $pr){continue};',
+    '$o=Invoke-CimMethod -InputObject $pr -MethodName GetOwner -ErrorAction SilentlyContinue;',
+    '$out+=[pscustomobject]@{port=[int]$p;pid=[int]$pr.ProcessId;user=(""+$o.User);cmdline=(""+$pr.CommandLine)}',
+    '};',
+    'ConvertTo-Json -InputObject $out -Compress',
+  ].join(' ');
+  const r = spawnSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
+    encoding: 'utf8',
+    // §12g:派生必须显式接管 stdio(不给 stdin 用 ignore,stdout 要回读)
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    timeout: 45000,
+  });
+  if (r.error || r.status !== 0 || !r.stdout || !r.stdout.trim()) return null;
+  try {
+    const parsed = JSON.parse(r.stdout.trim());
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') return [parsed];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function reclaimForeignLegs({ dryRun = false } = {}) {
+  if (process.platform !== 'win32') return { ran: false, why: '非 Windows,不判', actions: [] };
+  const flag = String(process.env[FOREIGN_LEG_DISABLED_FLAG] || '').trim().toLowerCase();
+  if (['1', 'true', 'on'].includes(flag)) {
+    return { ran: false, why: `${FOREIGN_LEG_DISABLED_FLAG} 已设 ⇒ 不夺回`, actions: [] };
+  }
+  const ports = SERVICES.filter((s) => Number.isInteger(s.port)).map((s) => s.port);
+  const holders = collectForeignLegHolders(ports);
+  if (holders === null) {
+    console.warn('外来 dev 腿对账:未判定(取不到端口属主身份)⇒ 本守护不动任何进程');
+    return { ran: false, why: '未判定', actions: [] };
+  }
+  const me = currentUser();
+  const actions = [];
+  for (const h of holders) {
+    const holder = { pid: h.pid, port: h.port, ownerUser: h.user, cmdline: h.cmdline };
+    if (!shouldPreemptForeignLeg({ repoRoot: ROOT, holder, selfUser: me })) {
+      actions.push({ ...holder, act: '保留(同用户或非本仓进程或取不到身份)' });
+      continue;
+    }
+    if (dryRun) {
+      actions.push({ ...holder, act: '将会夺回(--preempt-check 只检不杀)' });
+      continue;
+    }
+    const k = spawnSync('taskkill', ['/F', '/T', '/PID', String(h.pid)], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 30000,
+    });
+    // 推进事件:taskkill 单条上限 30s,多个占位者串起来能吃掉新鲜窗口 ⇒ 逐条续写心跳
+    writeHeartbeat();
+    actions.push({ ...holder, act: k.status === 0 ? '已夺回' : `夺回失败 rc=${k.status}` });
+  }
+  const killed = actions.filter((a) => a.act === '已夺回').length;
+  console.log(
+    `外来 dev 腿对账:本守护目标端口占位 ${holders.length} 个 / 夺回 ${killed} 个(当前身份=${me || '?'})`,
+  );
+  for (const a of actions) console.log(`  · pid=${a.pid} :${a.port} 身份=${a.ownerUser || '?'} ⇒ ${a.act}`);
+  return { ran: true, holders: holders.length, killed, actions };
+}
+
+// §22d 双形态守卫:CLI 直跑才执行 main(),被 import(测试/工具)零副作用
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+// 只看不动:打印每个目标端口的占位者与本守护的裁决(运维取证口)。
+// 单独成一条守卫(不嵌在 main 的分支里),保持 `if (isDirectRun) { main()… }` 的形状
+// —— 那条形状是 dev-stack-timeout.test.mjs 的形状锁,嵌一层 nested if 就会把它判红。
+if (isDirectRun && process.argv.includes('--preempt-check')) {
+  console.log(JSON.stringify(reclaimForeignLegs({ dryRun: true }), null, 2));
+  process.exit(0);
+}
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`);
+    process.exit(2);
+  });
+}
+
+export const __test__ = {
+  getVal,
+  parsePositiveInt,
+  shouldPreemptForeignLeg,
+  FOREIGN_LEG_DISABLED_FLAG,
+  // 2026-10-31 启动链降级(新增键,既有键不动)
+  STALE_ROOT_NAMES,
+  errHasLaunchDiag,
+  // 2026-10-31 探活身份校验:纯判据供镜像测试 import(不复制逻辑)
+  healthMatches,
+  // 2026-10-31 冷启动期心跳(镜像测试 scripts/tests/dev-stack-watchdog-coldstart.test.mjs):
+  // 判据与常量都只在这一份里,测试与巡检侧都读它,不许另立第二份
+  heartbeatIsFresh,
+  secondInstanceLockHit,
+  heartbeatShouldRefresh,
+  heartbeatPath,
+  HEARTBEAT_FILE_ENV,
+  HEARTBEAT_FILE_NAME,
+  HEARTBEAT_FRESH_MS,
+  HEARTBEAT_REFRESH_MS,
+  HEARTBEAT_PHASE_STARTUP,
+  HEARTBEAT_PHASE_WATCH,
+};
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

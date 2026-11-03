@@ -1,0 +1,282 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { ChevronRight } from 'lucide-react-native'
+import { useFontMultiplier } from '../../components/MoreLink'
+import { ScreenSkeleton } from '../../components/ScreenStates'
+import { isCapabilityOff, resolveOptionalPort } from '../../host/ports'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+
+/**
+ * ProfileScreen — 跨端共享「个人资料」页。
+ *
+ * 平台无关:数据(user/stats/orderCount)、状态(loading/error)、导航(onNavigate/onLogout/onBack)
+ * 全部通过 props 注入,组件只负责渲染。web/RN wrapper 各自实现数据获取与导航。
+ * 配色:由 colorScheme prop('light' | 'dark',默认 'light')经 getTokens 解析为明/暗 token 集。
+ *
+ * 页头归属(2026-09-27,双层页头收敛,同 SettingsScreen 先例):本组件**不渲染内置页头/返回键**,
+ * 页头(标题 + 返回 + 右侧动作)由宿主提供 —— RN 端生产页(apps/mobile-rn/src/screens/ProfileScreen.tsx)
+ * 渲染 NavBar(标题 + 反馈 + Drawer 菜单入口),demo 页(SharedDemoScreen)有常驻 tab 栏。
+ * 此前组件自带 BackChevron + 标题,在生产页里悬在滚动区中段、与宿主 NavBar 同屏两条返回键
+ * (守门 102 GA7 / 守门 145 DH2 判定型)。onBack 仍留在 ProfileScreenProps 契约中
+ * (packages/types,本轮不可改),运行时不再消费。
+ */
+export function ProfileScreen({
+  t,
+  user,
+  stats,
+  orderCount = 0,
+  loading = false,
+  error = '',
+  menuSections = [],
+  onNavigate,
+  onLogout,
+  onToast,
+  realnameStatus,
+  colorScheme = 'light',
+}: ProfileScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const fontMultiplier = useFontMultiplier()
+  // 端口闸:导航缺省时不再 `?.()` 静默吞掉点击;能提示就把原因上屏,提示腿也缺省则保持可见降级。
+  const navigate = resolveOptionalPort(onNavigate)
+  const toast = resolveOptionalPort(onToast)
+  // 实名徽标配色(见 realnameBadgeTone;取不到状态 ⇒ null ⇒ 不渲染,不猜默认态)
+  const badgeTone = realnameStatus ? realnameBadgeTone(tk, realnameStatus) : null
+
+  if (loading) {
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+  }
+
+  const statsCells = buildStatsCells(t, stats, orderCount)
+
+  return (
+    <View style={styles.container}>
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.body}>
+        <View style={styles.userCard}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials(user?.nickname)}</Text>
+          </View>
+          <View style={styles.userMeta}>
+            <View style={styles.nicknameRow}>
+              <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
+              {badgeTone && realnameStatus ? (
+                <View style={[styles.realnameBadge, badgeTone.container]}>
+                  <Text style={[styles.realnameBadgeText, badgeTone.text]}>
+                    {t(`realNameAuth.status_${realnameStatus}`)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
+            {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
+          </View>
+        </View>
+
+        <View style={styles.statsGrid}>
+          {statsCells.map((cell) => (
+            <View key={cell.key} style={styles.statsCell}>
+              <Text style={styles.statsValue}>{cell.value}</Text>
+              <Text style={styles.statsLabel}>{cell.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {menuSections.map((section) => (
+          <View key={section.title} style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.menuCard}>
+              {section.items.map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={styles.menuItem}
+                  onPress={() => {
+                    if (isCapabilityOff(navigate)) {
+                      if (!isCapabilityOff(toast)) {
+                        toast(t('common.failed'), { kind: 'error' })
+                      }
+                      return
+                    }
+                    navigate(item.key)
+                  }}
+                >
+                  {typeof item.icon === 'string' ? (
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                  ) : item.icon ? (
+                    <item.icon size={20} color={tk.text.primary} />
+                  ) : null}
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ))}
+
+        {onLogout ? (
+          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+            <Text style={styles.logoutText}>{t('profile.logout')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  )
+}
+
+function initials(name?: string): string {
+  if (!name) return 'U'
+  return name.trim().charAt(0).toUpperCase()
+}
+
+type RealnameStatus = NonNullable<ProfileScreenProps['realnameStatus']>
+
+/**
+ * 实名徽标配色(只用既有令牌,不新增色值/不做发光):
+ * - verified(后端 approved) = 品牌强调档:brandAccent.light 底 + brandAccent.deep 字
+ * - rejected = 错误档:error.bg 底 + error.text 字
+ * - pending / unverified(unknown 同档)= 中性档:surface.muted 底 + text.tertiary 字
+ */
+function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
+  if (status === 'verified') {
+    return {
+      container: { backgroundColor: tk.brandAccent.light },
+      text: { color: tk.brandAccent.deep },
+    }
+  }
+  if (status === 'rejected') {
+    return {
+      container: { backgroundColor: tk.error.bg },
+      text: { color: tk.error.text },
+    }
+  }
+  return {
+    container: { backgroundColor: tk.surface.muted },
+    text: { color: tk.text.tertiary },
+  }
+}
+
+function buildStatsCells(
+  t: ProfileScreenProps['t'],
+  stats: SharedUserStatistics | null | undefined,
+  orderCount: number,
+) {
+  return [
+    { key: 'courses', label: t('profile.myCourses'), value: stats?.courseCount ?? 0 },
+    { key: 'favorites', label: t('profile.myFavorites'), value: stats?.favoriteCount ?? 0 },
+    { key: 'following', label: t('community.follow'), value: stats?.followingCount ?? 0 },
+    { key: 'fans', label: t('community.follower'), value: stats?.fansCount ?? 0 },
+    { key: 'orders', label: t('profile.myOrders'), value: orderCount },
+    { key: 'points', label: t('wallet.points'), value: stats?.points ?? 0 },
+  ]
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    errorBar: {
+      marginHorizontal: rnSpacing.lg,
+      marginBottom: rnSpacing.sm,
+      padding: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.error.bg,
+    },
+    errorText: { fontSize: rnType.body.size, color: tk.error.text },
+    body: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.lg,
+      gap: rnSpacing.md,
+    },
+    userCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      gap: rnSpacing.md,
+    },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.brandAccent.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
+    userMeta: { flex: 1, gap: rnSpacing.xs },
+    nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    nickname: {
+      flexShrink: 1,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    realnameBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    realnameBadgeText: { fontSize: rnType.label.size, fontWeight: '600' },
+    subText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    statsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+    },
+    statsCell: {
+      minWidth: 96,
+      width: '31%',
+      flexGrow: 1,
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+    },
+    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    statsLabel: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
+    menuSection: { gap: rnSpacing.sm },
+    sectionTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.medium },
+    menuCard: {
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      overflow: 'hidden',
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 60,
+      paddingVertical: rnSpacing.lg,
+      paddingHorizontal: rnSpacing.lg,
+      gap: rnSpacing['sm-loose'],
+    },
+    menuIcon: { fontSize: rnType.title.size },
+    menuLabel: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
+    logoutBtn: {
+      marginTop: rnSpacing.sm,
+      height: 50,
+      paddingHorizontal: rnSpacing['md-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.error.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoutText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.error.text },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

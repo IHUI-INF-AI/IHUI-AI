@@ -1,0 +1,6 @@
+{
+  "okAtoms": 11,
+  "totalAtoms": 11,
+  "setAt": "2026-10-27",
+  "note": "阶段1/2/3 收官基线(口径已校正):视觉原子 card/input/badge/tabs/dialog/tooltip/vip-badge/switch/sheet/avatar/button 双端消费各自单一源(avatar=RN 现吃 avatar-spec;button=共享 @ihui/design-tokens button-variants)。collapsible 重分类为 EXEMPT(行为包裹组件,无盒模型几何可单一源)不计入分母。棘轮只拦退化、不拦存量。"
+}

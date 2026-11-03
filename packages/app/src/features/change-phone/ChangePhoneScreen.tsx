@@ -1,0 +1,199 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { ChangePhoneScreenProps } from '../../types'
+import { ChevronDown } from 'lucide-react-native'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
+import { Tappable } from '@ihui/ui-native'
+
+/** 换绑手机共享屏 — props 注入式跨端组件(wrapper 负责 fetchApi + setInterval 倒计时)。
+ *  原屏硬编码中文(无 i18n),共享层保持原样不接入 t()。 */
+export type { ChangePhoneScreenProps }
+
+export function ChangePhoneScreen({
+  phoneNumber,
+  codeValue,
+  phoneHead,
+  nationShow,
+  codeMin,
+  sendCodeShow,
+  tip,
+  submitting,
+  nations,
+  onPhoneChange,
+  onCodeChange,
+  onToggleNationShow,
+  onSelectNation,
+  onSendCode,
+  onSubmit,
+  colorScheme = 'light',
+}: ChangePhoneScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.title}>绑定手机号</Text>
+
+      <View style={styles.inputWbox}>
+        <View style={styles.inputBox}>
+          <Tappable
+            style={styles.areaBox}
+            onPress={onToggleNationShow}
+            accessibilityLabel="选择区号"
+          >
+            <Text style={styles.areaText}>{phoneHead}</Text>
+            <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: rnSpacing.sm }} />
+          </Tappable>
+          <TextField
+            colorScheme={colorScheme}
+            style={styles.input}
+            value={phoneNumber}
+            onChangeText={onPhoneChange}
+            placeholder="手机号码"
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="phone-pad"
+            maxLength={11}
+          />
+        </View>
+        {nationShow ? (
+          <View style={styles.nationBox}>
+            {nations.map((n) => (
+              <Tappable
+                key={n.id}
+                style={styles.nationItem}
+                onPress={() => onSelectNation(n)}
+                accessibilityLabel={`${n.title} ${n.content}`}
+              >
+                <Text style={styles.nationTitle}>{n.title}</Text>
+                <Text style={styles.nationCode}>{n.content}</Text>
+              </Tappable>
+            ))}
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.inputWbox}>
+        <View style={styles.inputBox}>
+          <TextField
+            colorScheme={colorScheme}
+            style={styles.input}
+            value={codeValue}
+            onChangeText={onCodeChange}
+            placeholder="验证码"
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+          {sendCodeShow ? (
+            <Tappable style={styles.sendBtn} onPress={onSendCode} accessibilityLabel="发送验证码">
+              <Text style={styles.sendText}>发送验证码</Text>
+            </Tappable>
+          ) : codeMin > 0 ? (
+            <Text style={styles.countdownText}>{codeMin}秒后重新获取</Text>
+          ) : (
+            <Tappable
+              style={styles.sendBtn}
+              onPress={onSendCode}
+              accessibilityLabel="重新获取验证码"
+            >
+              <Text style={styles.sendText}>获取验证码</Text>
+            </Tappable>
+          )}
+        </View>
+      </View>
+
+      {tip ? <Text style={styles.tipText}>{tip}</Text> : null}
+
+      <Tappable
+        style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+        onPress={onSubmit}
+        disabled={submitting}
+        accessibilityLabel="确定"
+      >
+        <Text style={styles.submitText}>{submitting ? '提交中...' : '确定'}</Text>
+      </Tappable>
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    content: { padding: rnSpacing['2xl'] },
+    title: {
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      textAlign: 'center',
+      marginBottom: rnSpacing['2xl'],
+    },
+    inputWbox: { width: '100%', marginBottom: rnSpacing.lg },
+    inputBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.xl,
+      paddingHorizontal: rnSpacing.md,
+      height: 50,
+      backgroundColor: tk.surface.muted,
+    },
+    areaBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingRight: rnSpacing.md,
+      marginRight: rnSpacing.md,
+    },
+    areaText: { fontSize: rnType.title.size, color: tk.text.medium },
+    areaArrow: { fontSize: rnType.badge.size, color: tk.text.tertiary, marginLeft: rnSpacing.sm },
+    input: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary, padding: 0 },
+    sendBtn: { paddingLeft: rnSpacing.md },
+    sendText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.brand.DEFAULT },
+    countdownText: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      paddingLeft: rnSpacing.md,
+    },
+    nationBox: {
+      marginTop: rnSpacing.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.light,
+      overflow: 'hidden',
+    },
+    nationItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['md-loose'],
+      paddingVertical: rnSpacing['sm-loose'],
+      gap: rnSpacing.md,
+    },
+    nationTitle: { fontSize: rnType.body.size, color: tk.text.primary },
+    nationCode: { fontSize: rnType.body.size, color: tk.text.tertiary },
+    tipText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.md },
+    submitBtn: {
+      height: 50,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: rnSpacing.sm,
+    },
+    submitBtnDisabled: { opacity: 0.6 },
+    submitText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.brand.ctaForeground },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

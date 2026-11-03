@@ -1,0 +1,336 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
+import {
+  ArrowLeft,
+  PlayCircle,
+  Loader2,
+  Send,
+  NotebookPen,
+  HelpCircle,
+  Check,
+  Clock,
+} from 'lucide-react'
+
+import { apiOrThrow } from '@/lib/api'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
+import { Alert } from '@/components/feedback'
+import { AuthGatePrompt } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AiTutorPanel } from '@/components/learn/ai-tutor-panel'
+import { cn } from '@/lib/utils'
+
+interface Section {
+  id: string
+  title: string
+  duration?: string
+  completed?: boolean
+  // G-921 ①:付费小节未报名/匿名时为 null(服务端不裸发 CDN 地址);
+  // 已报名则是带 ?uid&rid&exp&sig 的短时签名播放 URL。
+  videoUrl?: string | null
+}
+interface QAItem {
+  id: string
+  question: string
+  answer?: string
+  author: string
+  createdAt: string
+}
+
+export default function EduCourseLearnPage() {
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const locale = useLocale()
+  const t = useTranslations('eduCourseLearnPage')
+  const qc = useQueryClient()
+  const [currentSec, setCurrentSec] = React.useState<Section | null>(null)
+  // G-921 ①:付费小节走服务端短时签名播放 URL(302 到真源);链接过期/被拒时
+  // <video> 触发 error,必须可见(复用本命名空间既有 loadFailed 键,不新增文案)。
+  const [playError, setPlayError] = React.useState(false)
+  const [noteText, setNoteText] = React.useState('')
+  const [qaText, setQaText] = React.useState('')
+
+  // 2026-09-30 登录态门:未登录不发注定 401 的请求
+  const { allow } = useAuthGate()
+
+  // 章节+小节与 videoUrl 取自课程权威端点(/api/learn/lessons/:id);
+  // 此前读的是 /api/edu/courses/:id/sections,那个端点返回 {list:[{chapter,sections}],total},
+  // 与此处期望的 {sections,title} 不同形 ⇒ 章节恒空、播放器恒退化成图标占位。
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['edu', 'course', id, 'learn'],
+    queryFn: () =>
+      apiOrThrow<{
+        lesson: { id: string; title: string }
+        chapters: { id: string; title: string; sections: Section[] }[]
+      }>(`/api/learn/lessons/${id}`),
+    enabled: allow,
+  })
+
+  const { data: qaList } = useQuery({
+    queryKey: ['edu', 'course', id, 'qa'],
+    queryFn: () =>
+      apiOrThrow<{ list: QAItem[] }>(`/api/edu/courses/${id}/qa`).then((d) => d.list ?? []),
+    enabled: allow,
+  })
+
+  const noteMut = useMutation({
+    mutationFn: () =>
+      apiOrThrow(`/api/edu/courses/${id}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ content: noteText, sectionId: currentSec?.id }),
+      }),
+    onSuccess: () => {
+      setNoteText('')
+      qc.invalidateQueries({ queryKey: ['edu', 'notes'] })
+    },
+  })
+
+  const qaMut = useMutation({
+    mutationFn: () =>
+      apiOrThrow(`/api/edu/courses/${id}/qa`, {
+        method: 'POST',
+        // 同一个 createQASchema:必填 title(max 200)。原实现发 {question: …} ⇒ 必 400,
+        // 用户在课程学习页的提问一直发不出去。
+        body: JSON.stringify({
+          title: qaText.trim().slice(0, 200),
+          content: qaText.trim().length > 200 ? qaText.trim() : undefined,
+        }),
+      }),
+    onSuccess: () => {
+      setQaText('')
+      qc.invalidateQueries({ queryKey: ['edu', 'course', id, 'qa'] })
+    },
+  })
+
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const fmt = (v: string) => {
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
+  }
+
+  if (!allow)
+    return (
+      <div className="space-y-4">
+        <Link
+          href={`/edu/courses/${id}`}
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToDetail')}
+        </Link>
+        <AuthGatePrompt message="请先登录后继续学习" />
+      </div>
+    )
+
+  if (isLoading)
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        {t('loading')}
+      </div>
+    )
+
+  if (error || !data) {
+    return (
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => router.push(`/edu/courses/${id}`)}
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('backToDetail')}
+        </button>
+        <Alert variant="danger" description={(error as Error)?.message ?? t('loadFailed')} />
+      </div>
+    )
+  }
+
+  const sections = data?.chapters?.flatMap((c) => c.sections ?? []) ?? []
+  const courseTitle = data?.lesson?.title ?? ''
+  const active = currentSec ?? sections[0] ?? null
+
+  return (
+    <div className="space-y-4">
+      <Link
+        href={`/edu/courses/${id}`}
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t('backToDetail')}
+      </Link>
+
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_280px]">
+        <div className="space-y-4">
+          <div className="flex aspect-video items-center justify-center rounded-lg bg-black">
+            {active?.videoUrl ? (
+              <video
+                key={active.id}
+                src={active.videoUrl}
+                controls
+                onError={() => setPlayError(true)}
+                className="h-full w-full rounded-lg"
+              >
+                <track kind="captions" />
+              </video>
+            ) : (
+              <PlayCircle className="h-16 w-16 text-white/30" />
+            )}
+          </div>
+          {active?.videoUrl && playError && (
+            <p className="text-label text-destructive">{t('loadFailed')}</p>
+          )}
+          <div className="space-y-1">
+            <h1 className="text-lg font-semibold">{active?.title ?? courseTitle}</h1>
+            {active?.duration && (
+              <p className="flex items-center gap-1 text-label text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                {active.duration}
+              </p>
+            )}
+          </div>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-body">
+                <NotebookPen className="h-4 w-4 text-primary" />
+                {t('notes')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="note" className="text-label">
+                  {t('noteLabel')}
+                </Label>
+                <textarea
+                  id="note"
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder={t('notePlaceholder')}
+                />
+              </div>
+              <Button
+                size="sm"
+                disabled={!noteText.trim() || noteMut.isPending}
+                onClick={() => noteMut.mutate()}
+              >
+                {noteMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('saveNote')}
+              </Button>
+              {noteMut.isError && (
+                <p className="text-label text-destructive">{(noteMut.error as Error)?.message}</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-body">{t('sections')}</CardTitle>
+            </CardHeader>
+            <CardContent className="min-[640px]:p-2 space-y-0.5 p-2">
+              {sections.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setCurrentSec(s)
+                    setPlayError(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors',
+                    active?.id === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent',
+                  )}
+                >
+                  {s.completed ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  ) : (
+                    <span className="w-3.5 shrink-0 text-center text-label text-muted-foreground">
+                      {i + 1}
+                    </span>
+                  )}
+                  <span className="line-clamp-1 flex-1">{s.title}</span>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* 2026-08-07 AI 助教:接入学习页侧栏(讲解/提示/出题);2026-09-30 起把课程/章节
+              标题作为 context 注入 persona prompt(此前无 props 挂载,上下文注入形同虚设) */}
+          <AiTutorPanel
+            chapterTitle={
+              courseTitle
+                ? currentSec
+                  ? `${courseTitle} · ${currentSec.title}`
+                  : courseTitle
+                : undefined
+            }
+          />
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-body">
+                <HelpCircle className="h-4 w-4 text-primary" />
+                {t('qa')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={qaText}
+                  onChange={(e) => setQaText(e.target.value)}
+                  placeholder={t('qaPlaceholder')}
+                  className="h-8 text-label"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!qaText.trim() || qaMut.isPending}
+                  onClick={() => qaMut.mutate()}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="max-h-64 space-y-2 overflow-y-auto">
+                {(qaList ?? []).length === 0 ? (
+                  <p className="py-4 text-center text-label text-muted-foreground">
+                    {t('qaEmpty')}
+                  </p>
+                ) : (
+                  (qaList ?? []).map((qa) => (
+                    <div key={qa.id} className="rounded-md border p-2">
+                      <p className="text-label font-medium">{qa.question}</p>
+                      {qa.answer && (
+                        <p className="mt-1 text-label text-muted-foreground">{qa.answer}</p>
+                      )}
+                      <p className="mt-1 text-label text-muted-foreground">
+                        {qa.author} · {fmt(qa.createdAt)}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

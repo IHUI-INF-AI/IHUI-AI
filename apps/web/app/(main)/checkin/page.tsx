@@ -1,0 +1,3653 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+// 签到助手(Phase1b,2026-10-03 立):账号服务端化管理页面。
+// 后端:apps/ai-service /api/checkin/*(经 next.config.ts rewrites 同形转发到 8803);
+// API 封装:@ihui/api-client(endpoints/checkin.ts,fetchAiServiceJson 裸 JSON);
+// 类型契约:@ihui/types(checkin.ts,账号形态脱敏无 jwt 字段)。
+// 结构:账号列表(分组徽章与筛选/启停开关/手动签到/更新JWT/删除/JWT与冷却徽章)
+// + 调度状态徽章 + 一键全部签到(跳过今日已签 + 进度)
+// + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组/设备头对话框。
+
+import { safeDecodeURIComponent } from '@ihui/shared/utils/safe-decode-uri'
+import type {
+  CheckinCreditsDailyResponse,
+  CheckinDeviceMapUpdateResponse,
+  UpdateCheckinDeviceMapIn,
+} from '@ihui/types'
+import { rnRadius } from '@ihui/design-tokens'
+
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import {
+  CalendarCheck,
+  CheckCheck,
+  ChevronDown,
+  FolderPen,
+  Globe,
+  KeyRound,
+  Laptop,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Wrench,
+} from 'lucide-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@ihui/ui-react'
+import {
+  createCheckinAccount,
+  deleteCheckinAccount,
+  fetchAiServiceJson,
+  getCheckinSchedulerStatus,
+  listCheckinAccounts,
+  listCheckinCreditsDaily,
+  listCheckinCreditsHistory,
+  listCheckinRecords,
+  manualCheckinAccount,
+  queryCheckinAccountCredits,
+  setCheckinAccountEnabled,
+  updateCheckinAccountGroup,
+  updateCheckinAccountJwt,
+  updateCheckinAccountName,
+  type CheckinAccount,
+  type CheckinCreditsHistoryItem,
+  type CheckinRecord,
+} from '@ihui/api-client'
+import { EChart } from '@/components/charts/EChart'
+import { TruncatedText } from '@/components/common/TruncatedText'
+import { AuthGatePrompt } from '@/components/common'
+import { Container } from '@/components/layout/Container'
+import { WorkbuddyTaskPanel } from '@/components/checkin/WorkbuddyTaskPanel'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  checkinAuditTraeResidual,
+  checkinCaptureJwts,
+  checkinCaptureQoder,
+  checkinCaptureWorkbuddy,
+  checkinCaptureMinimax,
+  openExternalUrl,
+  openEmbeddedBrowser,
+  closeEmbeddedBrowser,
+  WB_WEB_LOGIN_URL,
+  checkinWorkbuddyWebLoginProbe,
+  checkinWorkbuddyWebLoginProbeCookie,
+  checkinDetectTraeDir,
+  checkinGetPublicIp,
+  checkinOneClickResetAll,
+  checkinResetDeviceIds,
+  checkinSnapshotBackup,
+  checkinSnapshotDelete,
+  checkinSnapshotList,
+  checkinSnapshotRestore,
+  type CapturedQoderSession,
+  type CapturedTraeAccount,
+  type CapturedWorkbuddySession,
+  type CapturedMinimaxSession,
+  type CheckinResidualAuditReport,
+  type CheckinSnapshotSummary,
+} from '@/lib/tauri-bridge'
+
+// 分页步长与上限(records 后端 limit le=200,credits 后端 le=1000)。
+const RECORDS_LIMIT_STEP = 100
+const RECORDS_LIMIT_MAX = 200
+const CREDITS_LIMIT_STEP = 200
+const CREDITS_LIMIT_MAX = 1000
+const DAY_MS = 86_400_000
+
+/**
+ * 更新账号设备头(PATCH /accounts/{id}/device_map;2026-10-11 立)。
+ * 端点封装暂置页面本地(@ihui/api-client/endpoints/checkin.ts 本期不扩),形态与
+ * updateCheckinAccountGroup 同款:fetchAiServiceJson 裸 JSON + unwrap 抛错。
+ * 422 = device_map 超 16KB;404 = 账号不存在或非属主(错误文案由后端 detail 透出)。
+ */
+async function updateCheckinDeviceMap(
+  accountId: number,
+  deviceMap: Record<string, unknown>,
+): Promise<CheckinDeviceMapUpdateResponse> {
+  const body: UpdateCheckinDeviceMapIn = { device_map: deviceMap }
+  const res = await fetchAiServiceJson<CheckinDeviceMapUpdateResponse>(
+    `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/device_map`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  )
+  if (!res.success || res.data === undefined) throw new Error(res.error || '请求失败')
+  return res.data
+}
+
+export default function CheckinPage() {
+  const t = useTranslations('checkin')
+  // 2026-10-14 登录态门(与 /chat/favorites、/business-card/favorites 同型):
+  // 冷启动时 bootstrap 的静默刷新与本页挂载请求赛跑,未拿到 access token 就发 GET
+  // ⇒ 注定 401 ⇒ 整页被「加载失败」块替换。门先把挂载请求压到登录态确定之后。
+  // 2026-10-15 改判撤掉 hasToken/booting 二型门:该形态实测源自 ai-service 失效把
+  // 有效 token 也 401(机器故障误诊为代码缺陷);且 `ready && isAuthenticated && !token`
+  // 正是 bootstrap「transient 刷新失败刻意保留登录态」的收束态,其恢复机制 = 首个 401
+  // 走拦截器静默续期 —— 那要求页面真的发请求。按 token 卡门会永转 spinner 饿死该路径
+  // (真机 dev 壳实测)。凭据被明确否定时会话结束(expireSession)→ allow 翻假 → 登录引导,
+  // 红块同样不会出现。
+  // 2026-10-15 修复:把「登录态确认中」与「确未登录」分开。
+  // ready=false 仅是 bootstrap 还在跑(静默刷新/拉资料),此时绝不能显示「请先登录」——
+  // 已登录用户会误以为被踢出;应显示转圈,等 ready 翻 true 后再按 isAuthenticated 判定。
+  const { ready, allow } = useAuthGate()
+  const canLoad = allow
+  // 复用已接线的通用文案(chatHistory.loginRequired =「请先登录」),不为本页另开一组五语言键
+  const tGate = useTranslations('chatHistory')
+
+  const [accounts, setAccounts] = React.useState<CheckinAccount[]>([])
+  const [records, setRecords] = React.useState<CheckinRecord[]>([])
+  const [credits, setCredits] = React.useState<CheckinCreditsHistoryItem[]>([])
+  const [creditsTotal, setCreditsTotal] = React.useState(0)
+  const [loading, setLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+
+  // 录入表单
+  const [addOpen, setAddOpen] = React.useState(false)
+  const [name, setName] = React.useState('')
+  const [jwt, setJwt] = React.useState('')
+  const [deviceMapText, setDeviceMapText] = React.useState('')
+  const [groupText, setGroupText] = React.useState('')
+  const [submitting, setSubmitting] = React.useState(false)
+  const [formError, setFormError] = React.useState<string | null>(null)
+
+  // 行内操作态
+  const [checkingId, setCheckingId] = React.useState<number | null>(null)
+  // 行内重命名(2026-10-16):点名称直接改,Enter 存 / Esc 弃 / 失焦存
+  const [renamingId, setRenamingId] = React.useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = React.useState('')
+  const [renaming, setRenaming] = React.useState(false)
+  // 行内重命名输入框的焦点用 ref + effect,不用 autoFocus:后者在本文件属「新增裸 lint
+  // 抑制」(守门 103 DC 棘轮 = 该文件 HEAD 存量 0,守门 108 E5 要求带到期豁免),而这一路
+  // 输入框只在用户点名称之后才挂载 —— 焦点随之移入是交互预期、不是页面加载抢焦点,
+  // 因此用等价的命令式聚焦替代,行为不变且不留豁免债。
+  const renameInputRef = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => {
+    if (renamingId !== null) renameInputRef.current?.focus()
+  }, [renamingId])
+  const [deleteTarget, setDeleteTarget] = React.useState<CheckinAccount | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
+  const [actionError, setActionError] = React.useState<string | null>(null)
+
+  // 一键全部签到(顺序执行 enabled 账号,跳过今日已签,实时进度)
+  const [allChecking, setAllChecking] = React.useState(false)
+  const [allProgress, setAllProgress] = React.useState<{ done: number; total: number } | null>(null)
+  const [batchNotice, setBatchNotice] = React.useState<string | null>(null)
+
+  // 分组(Phase1d):账号表筛选 + 分组编辑对话框
+  const [groupFilter, setGroupFilter] = React.useState<string>('all')
+  // 勾选批量:对齐参考项目「按分组/手动勾选」——勾选后可只签勾选账号(配合分组筛选即"按组签")
+  const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
+
+  // 积分每日快照(WP-B):三线趋势数据 + 手动刷新全部账号余额
+  const [creditsDaily, setCreditsDaily] = React.useState<CheckinCreditsDailyResponse | null>(null)
+  const [refreshingCredits, setRefreshingCredits] = React.useState(false)
+  const [groupTarget, setGroupTarget] = React.useState<CheckinAccount | null>(null)
+  const [groupValue, setGroupValue] = React.useState('')
+  const [groupSubmitting, setGroupSubmitting] = React.useState(false)
+  const [groupFormError, setGroupFormError] = React.useState<string | null>(null)
+
+  // 本机捕获(桌面端专属,WP-C):useTauriIpcReady 抗 IPC 异步注入竞态 + 免水合不一致
+  const desktop = useTauriIpcReady()
+  const [captureOpen, setCaptureOpen] = React.useState(false)
+  const [capturing, setCapturing] = React.useState(false)
+  const [captured, setCaptured] = React.useState<CapturedTraeAccount[]>([])
+  const [capturedSelected, setCapturedSelected] = React.useState<Set<string>>(new Set())
+  const [captureError, setCaptureError] = React.useState<string | null>(null)
+  const [importing, setImporting] = React.useState(false)
+  const [traeDir, setTraeDir] = React.useState<string | null>(null)
+
+  // Qoder 本机捕获(2026-10-10 平台化):复用 capturing/importing/captureError,
+  // 对话框与 TRAE 捕获互斥(同一时间只开一个)
+  const [qoderCaptureOpen, setQoderCaptureOpen] = React.useState(false)
+  const [qoderCaptured, setQoderCaptured] = React.useState<CapturedQoderSession[]>([])
+  const [qoderCapturedSelected, setQoderCapturedSelected] = React.useState<Set<string>>(new Set())
+
+  // 平台筛选(平台化,2026-10-10;2026-10-12 增 workbuddy):'all' | 'trae' | 'workbuddy' | 'qoder'
+  const [platformFilter, setPlatformFilter] = React.useState<
+    'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax'
+  >('all')
+  // 录入对话框的平台选择(默认 trae 与存量语义一致)
+  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'workbuddy' | 'qoder' | 'minimax'>(
+    'trae',
+  )
+
+  // WorkBuddy 本机捕获(2026-10-12 第三平台):复用 capturing/importing/captureError。
+  // 5.8+ 登录态加密 ⇒ encrypted 行 token 为空,wbTokenDrafts 保存每行的手动粘贴值。
+  const [wbCaptureOpen, setWbCaptureOpen] = React.useState(false)
+  const [wbCaptured, setWbCaptured] = React.useState<CapturedWorkbuddySession[]>([])
+  const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
+  const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
+
+  // WorkBuddy 网页登录(2026-10-18 自动闭环版,李总口径「登录后要自动获取授权与
+  // 信息并跳回我们程序」):默认浏览器登录后应用读不到它的 cookie jar(浏览器安全
+  // 隔离),流程只能停在「用户手动粘 Cookie」,既拿不到账号信息也回不来 —— 那是
+  // 2026-10-17 旧版的形态。本版主入口改走**项目内嵌浏览器**(WebView2 cookie jar
+  // 归我们):开登录页 → 主窗轮询 probe(有 IPC,2.5s 同拍)→ 服务端
+  // /console/accounts 验登录态取 uid/昵称 → 自动关登录窗 + 入库(记录好账号)
+  // → 回到签到页。默认浏览器那条路保留下级入口(需手动粘 Cookie,粘贴时同样先
+  // 探测账号再入库,账号信息不缺位)。
+  // 嵌入模式(签到页跑在内嵌浏览器内容页里)不受影响:无 IPC,仍走哨兵导航 +
+  // Rust 看护 cookie jar 自动回填(startWbWebLoginEmbed),自动导入能力保留。
+  const [wbWebLoginState, setWbWebLoginState] = React.useState<
+    'idle' | 'waiting' | 'importing' | 'done' | 'closed'
+  >('idle')
+  const [wbWebLoginMsg, setWbWebLoginMsg] = React.useState('')
+  /** 用户粘贴的登录 Cookie(waiting 态展示输入框) */
+  const [wbPasteDraft, setWbPasteDraft] = React.useState('')
+
+  // 取消网页登录(改主意时的出口):清空粘贴草稿 + 复位状态 + 关掉可能开着的
+  // 内嵌登录窗(主窗模式;嵌入页无 IPC,close 静默失败不影响复位)。
+  const cancelWbWebLogin = React.useCallback(() => {
+    setWbPasteDraft('')
+    setWbWebLoginState('closed')
+    setWbWebLoginMsg(t('captureWbWebCancelled'))
+    void closeEmbeddedBrowser()
+  }, [t])
+
+  // 内嵌浏览器内容页检测(2026-10-17):内嵌浏览器的工具条注入脚本(BAR_JS)只
+  // 注入内容 webview,它定义的 window.__ihuiNav 是「本页跑在内嵌浏览器里」的
+  // 权威判据 —— 主窗/普通浏览器都没有它。不能用 desktop 区分:Tauri 会给内容
+  // webview 注入 __TAURI_INTERNALS__(只是 capability 未放行,invoke 全被拒),
+  // useTauriIpcReady 在嵌入页里可能仍为 true。注入脚本是 document-start 执行,
+  // 早于本组件水合,effect 里判一次即为终值。
+  const [embedBrowser, setEmbedBrowser] = React.useState(false)
+  React.useEffect(() => {
+    if (typeof (window as unknown as { __ihuiNav?: unknown }).__ihuiNav === 'function') {
+      setEmbedBrowser(true)
+    }
+  }, [])
+
+  // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
+  const [maintOpen, setMaintOpen] = React.useState(false)
+  const [maintBusy, setMaintBusy] = React.useState(false)
+  const [maintIncludeGuid, setMaintIncludeGuid] = React.useState(false)
+  const [maintIncludeBrowser, setMaintIncludeBrowser] = React.useState(false)
+  const [maintDeepReset, setMaintDeepReset] = React.useState(false)
+  const [maintIncludeMac, setMaintIncludeMac] = React.useState(false)
+
+  // 一键解决风控向导(傻瓜式 3 步:重置 → 换网络 → 冷却提醒)
+  const [wizardStep, setWizardStep] = React.useState<0 | 2 | 3>(0)
+  const [wizardIpBefore, setWizardIpBefore] = React.useState('')
+  const [wizardIpLoc, setWizardIpLoc] = React.useState('')
+  const [wizardIpNow, setWizardIpNow] = React.useState('')
+  const [wizardBusy, setWizardBusy] = React.useState(false)
+  const [wizardMsg, setWizardMsg] = React.useState<string[]>([])
+  // 残留指纹审计(2026-10-10 立):重置后拿旧身份黑名单回扫 TRAE 现场,把
+  // "到底干净了没有"变成面板上可读的结论,而不是靠用户猜。
+  const [wizardAudit, setWizardAudit] = React.useState<CheckinResidualAuditReport | null>(null)
+  const [wizardAuditing, setWizardAuditing] = React.useState(false)
+  // 是否出现"非可选层失败":用于动态判定下方提示语(可选层失败才说"不影响",否则警告)
+  const [wizardCriticalFail, setWizardCriticalFail] = React.useState(false)
+  // IP 验证连续失败次数(未变/获取失败都计):≥3 自动高亮引导走"直接完成"旁路
+  const [wizardIpFailCount, setWizardIpFailCount] = React.useState(0)
+  // 上次一键重置时间(冷却提醒用):24h 内再登录会续期风控
+  const [lastResetAt, setLastResetAt] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    try {
+      const v = localStorage.getItem('checkin-oneclick-at')
+      if (v) setLastResetAt(Number(v))
+    } catch {
+      /* 隐私模式降级:无提醒 */
+    }
+  }, [])
+  const [maintReport, setMaintReport] = React.useState<string[]>([])
+  const [maintError, setMaintError] = React.useState<string | null>(null)
+  const [maintUserId, setMaintUserId] = React.useState('')
+  const [snapshots, setSnapshots] = React.useState<CheckinSnapshotSummary[]>([])
+
+  // 更新 JWT 对话框
+  const [jwtTarget, setJwtTarget] = React.useState<CheckinAccount | null>(null)
+  const [jwtText, setJwtText] = React.useState('')
+  const [jwtSubmitting, setJwtSubmitting] = React.useState(false)
+  const [jwtFormError, setJwtFormError] = React.useState<string | null>(null)
+  const [jwtNotice, setJwtNotice] = React.useState<string | null>(null)
+
+  // 编辑设备头对话框(device_map 手动编辑;Qoder refresh_token/Cosy-* 风控头族、TRAE 设备态)
+  const [deviceMapTarget, setDeviceMapTarget] = React.useState<CheckinAccount | null>(null)
+  const [deviceMapEditText, setDeviceMapEditText] = React.useState('')
+  const [deviceMapSubmitting, setDeviceMapSubmitting] = React.useState(false)
+  const [deviceMapFormError, setDeviceMapFormError] = React.useState<string | null>(null)
+
+  // 调度状态(拉取失败静默不显示)
+  const [scheduler, setScheduler] = React.useState<{
+    enabled: boolean
+    started: boolean
+    next_run: string | null
+    next_run_qoder: string | null
+  } | null>(null)
+
+  // 按账号过滤 + 加载更多(返回条数 < 请求量即无更多)
+  const [recordFilter, setRecordFilter] = React.useState<number | null>(null)
+  const [creditFilter, setCreditFilter] = React.useState<number | null>(null)
+  const [recordHasMore, setRecordHasMore] = React.useState(false)
+  const [creditHasMore, setCreditHasMore] = React.useState(false)
+  const [loadingMoreRecords, setLoadingMoreRecords] = React.useState(false)
+  const [loadingMoreCredits, setLoadingMoreCredits] = React.useState(false)
+
+  const loadAll = React.useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const [accountsRes, recordsRes, creditsRes, dailyRes] = await Promise.all([
+        listCheckinAccounts(),
+        listCheckinRecords({ accountId: recordFilter ?? undefined, limit: RECORDS_LIMIT_STEP }),
+        listCheckinCreditsHistory({
+          accountId: creditFilter ?? undefined,
+          limit: CREDITS_LIMIT_STEP,
+        }),
+        // 三线序列非关键数据:失败静默降级为本地累计趋势
+        listCheckinCreditsDaily({ days: 30 }).catch(() => null),
+      ])
+      setAccounts(accountsRes.accounts)
+      setRecords(recordsRes.records)
+      setRecordHasMore(recordsRes.records.length >= RECORDS_LIMIT_STEP)
+      setCredits(creditsRes.history)
+      setCreditHasMore(creditsRes.history.length >= CREDITS_LIMIT_STEP)
+      setCreditsTotal(creditsRes.total_credits_delta)
+      setCreditsDaily(dailyRes)
+    } catch (e) {
+      setLoadError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [recordFilter, creditFilter])
+
+  // 手动刷新全部启用账号的积分快照(逐个查询,单个失败不中断;WP-B)
+  const refreshCreditsSnapshots = async () => {
+    const targets = accounts.filter((a) => a.enabled)
+    if (targets.length === 0 || refreshingCredits) return
+    setRefreshingCredits(true)
+    setActionError(null)
+    try {
+      for (const account of targets) {
+        try {
+          await queryCheckinAccountCredits(account.id)
+        } catch {
+          // 单账号查询失败(网络/JWT 失效)不阻断其余账号
+        }
+        // 逐个错峰(风控:避免批量快照瞬时并发直打官方接口)
+        if (account !== targets[targets.length - 1]) {
+          await new Promise((r) => setTimeout(r, 600))
+        }
+      }
+      await loadAll()
+    } finally {
+      setRefreshingCredits(false)
+    }
+  }
+
+  // ================== 本机捕获(桌面端专属,WP-C) ==================
+
+  const openCapture = async () => {
+    setCaptureOpen(true)
+    setCaptureError(null)
+    setCaptured([])
+    setCapturedSelected(new Set())
+    try {
+      setTraeDir(await checkinDetectTraeDir())
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    }
+  }
+
+  const runCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureJwts()
+      setCaptured(found)
+      // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,本机捕获可能只回收 opaque uid
+      // (jwt 空,source 带「需网页登录换发」注记)。服务端录入要求 jwt 可解析,
+      // 空 jwt 账号只展示不可导入 ⇒ 仅预选带 jwt 的账号。
+      setCapturedSelected(new Set(found.filter((a) => a.jwt).map((a) => a.user_id)))
+      if (found.length === 0) setCaptureError(t('captureEmpty'))
+      else if (found.every((a) => !a.jwt)) setCaptureError(t('captureOpaqueOnly'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:勾选账号同步为服务端账号;group 沿用当前筛选(非 all 时)
+  const importCaptured = async () => {
+    const picked = captured.filter((a) => capturedSelected.has(a.user_id))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      try {
+        await createCheckinAccount({
+          name: item.nickname || item.user_id,
+          jwt: item.jwt,
+          // account 原始 profile 落库(含 phone/email/username):服务端按
+          // 「手机>邮箱>账号>用户名」重取名用;无则空对象(tc 通道才有)
+          device_map: traeDeviceMap(item),
+          group: groupFilter !== 'all' ? groupFilter : '',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.user_id}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // ================== Qoder 本机捕获(桌面端专属,2026-10-10) ==================
+
+  // qoder 会话去重键(uid 空时退回 app_dir)
+  const qoderKey = (s: CapturedQoderSession) => s.uid || s.app_dir
+
+  // 会话 → 录入 device_map(Qoder 引擎契约:refresh_token / expires_at / cosy 风控头)
+  // 2026-10-12:uid 一并落库 —— Qoder token 是 opaque 非 JWT(真机实证),
+  // 服务端/引擎的账号 uid 标识只能从 device_map 读(桌面端从 user.id 提取)。
+  const qoderDeviceMap = (s: CapturedQoderSession): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (s.uid) dm.uid = s.uid
+    if (s.refreshToken) dm.refresh_token = s.refreshToken
+    if (s.expires_at > 0) dm.expires_at = s.expires_at
+    const cosy: Record<string, string> = { client_type: '10' }
+    if (s.machine_id) cosy.machine_id = s.machine_id
+    if (s.machine_os) cosy.machine_os = s.machine_os
+    if (s.machine_hostname) cosy.machine_hostname = s.machine_hostname
+    if (s.machine_token) cosy.machine_token = s.machine_token
+    if (s.machine_code) cosy.machine_code = s.machine_code
+    if (s.machine_type) cosy.machine_type = s.machine_type
+    if (s.version) cosy.version = s.version
+    dm.cosy = cosy
+    return dm
+  }
+
+  // TRAE → device_map(2026-10-16 立):tc 通道捕获的 account 原始对象整体落库。
+  // 服务端首次录入若 name 为 UUID 编码形态,会优先从这里按「手机>邮箱>账户名>
+  // 用户名」重取名;非 tc 通道(account=null)保持空对象,行为与旧版一致。
+  const traeDeviceMap = (a: CapturedTraeAccount): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (a.account && typeof a.account === 'object') dm.account = a.account
+    if (a.nickname) dm.nickname = a.nickname
+    return dm
+  }
+
+  const openQoderCapture = () => {
+    setQoderCaptureOpen(true)
+    setCaptureError(null)
+    setQoderCaptured([])
+    setQoderCapturedSelected(new Set())
+  }
+
+  const runQoderCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureQoder()
+      setQoderCaptured(found)
+      setQoderCapturedSelected(new Set(found.map(qoderKey)))
+      if (found.length === 0) setCaptureError(t('captureQoderEmpty'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:platform='qoder',jwt 字段=accessToken,refresh_token 进 device_map
+  const importQoderCaptured = async () => {
+    const picked = qoderCaptured.filter((s) => qoderCapturedSelected.has(qoderKey(s)))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      try {
+        await createCheckinAccount({
+          name: item.nickname || item.uid || item.app_dir,
+          jwt: item.access_token,
+          device_map: qoderDeviceMap(item),
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'qoder',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.uid || item.app_dir}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setQoderCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // ================== WorkBuddy 本机捕获(桌面端专属,2026-10-12) ==================
+
+  // 会话去重键(uid 空时退回源文件路径)
+  const wbKey = (s: CapturedWorkbuddySession) => s.uid || s.auth_file
+
+  // 登录态 → 录入 device_map(WorkBuddy 引擎契约:uid / domain / expires_at)
+  const wbDeviceMap = (s: CapturedWorkbuddySession): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (s.uid) dm.uid = s.uid
+    if (s.domain) dm.domain = s.domain
+    if (s.expires_at > 0) dm.expires_at = s.expires_at
+    return dm
+  }
+
+  // MiniMax → device_map(引擎契约:uid 必填;expires_at 供预检)
+  const minimaxDeviceMap = (m: CapturedMinimaxSession): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (m.uid) dm.uid = m.uid
+    if (m.expires_at > 0) dm.expires_at = m.expires_at
+    // 每账号独立设备指纹(与独立 IP 代理组合成完整画像)
+    if (m.uuid) dm.uuid = m.uuid
+    if (m.device_id) dm.device_id = m.device_id
+    return dm
+  }
+
+  // ================== MiniMax Code 本机捕获(2026-10-17 补齐下拉入口)==================
+  // 与「添加账号」智能扫描(runSmartScan)同一条 IPC 通道、同一份 device_map 契约,只换入口。
+  // 这里刻意**不开对话框**:第四平台的本机登录态是单账号单文件形态
+  // (~/.minimax/auth/prod/<region>/<client>/auth.json + %APPDATA%\MiniMax\*.json 的
+  // sharedUser),既没有多账号可选,也不需要勾选,点一下捕获即入库(傻瓜式零选择);
+  // Qoder/WorkBuddy 那套「列表 + 勾选 + 导入」对它纯属多余一次点击。
+  // 未登录不另兜文案:MiniMax 命令在捕获为空时直接抛 not_found(带中文原因),照原样上屏。
+  // 直采没有对话框 ⇒ 失败必须落页面级出口(actionError/batchNotice),captureError 只在
+  // 三个捕获对话框内渲染,用它等于静默吞掉失败原因。
+  const runMinimaxCapture = async () => {
+    setImporting(true)
+    setActionError(null)
+    setBatchNotice(null)
+    try {
+      const found = await checkinCaptureMinimax()
+      const usable = found.filter((m) => m.access_token)
+      if (usable.length === 0) {
+        setActionError(t('captureMinimaxNoToken'))
+        return
+      }
+      let okCount = 0
+      const failures: string[] = []
+      for (const item of usable) {
+        try {
+          await createCheckinAccount({
+            name: item.nickname || item.uid || item.auth_file,
+            jwt: item.access_token,
+            device_map: minimaxDeviceMap(item),
+            group: groupFilter !== 'all' ? groupFilter : '',
+            platform: 'minimax',
+          })
+          okCount += 1
+        } catch (e) {
+          // 重复导入同名账号由服务端唯一约束 409 兜住(账号名已存在),这里逐条照实报
+          failures.push(`${item.nickname || item.uid || item.auth_file}: ${(e as Error).message}`)
+        }
+      }
+      if (failures.length > 0) {
+        setActionError(failures.join('；'))
+      } else {
+        setBatchNotice(t('captureImported', { count: okCount }))
+      }
+      await loadAll()
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const openWbCapture = () => {
+    setWbCaptureOpen(true)
+    setCaptureError(null)
+    setWbCaptured([])
+    setWbCapturedSelected(new Set())
+    setWbTokenDrafts({})
+    setWbWebLoginState('idle')
+    setWbWebLoginMsg('')
+  }
+
+  const runWbCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureWorkbuddy()
+      setWbCaptured(found)
+      setWbCapturedSelected(new Set(found.map(wbKey)))
+      // 加密行 token 为空,预填空草稿等用户粘贴
+      const drafts: Record<string, string> = {}
+      for (const s of found) if (s.encrypted) drafts[wbKey(s)] = ''
+      setWbTokenDrafts(drafts)
+      if (found.length === 0) setCaptureError(t('captureWbEmpty'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:platform='workbuddy',jwt 字段=token(加密行取用户粘贴的草稿)
+  const importWbCaptured = async () => {
+    const picked = wbCaptured.filter((s) => wbCapturedSelected.has(wbKey(s)))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      const token = item.access_token || (wbTokenDrafts[wbKey(item)] || '').trim()
+      if (!token) {
+        failures.push(`${item.nickname || item.uid}: ${t('captureWbTokenRequired')}`)
+        continue
+      }
+      try {
+        await createCheckinAccount({
+          name: item.nickname || item.uid || item.auth_file,
+          jwt: token,
+          device_map: wbDeviceMap(item),
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'workbuddy',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.nickname || item.uid || item.auth_file}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setWbCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // WorkBuddy probe 导入共用体:嵌入模式 hash 导入(#wb_import=)的入库体。
+  // (主窗口默认浏览器流程改走 importWbPastedCookie 手动粘贴导入,不经此处。)
+  // 返回是否全部成功,调用方据此收尾(关登录窗/关对话框)。
+  const importWbProbeAccounts = async (probe: {
+    cookie: string
+    accounts: { uid: string; nickname: string }[]
+    cookie_checkin_ok?: boolean
+  }) => {
+    setWbWebLoginState('importing')
+    setWbWebLoginMsg(t('captureWbWebImporting'))
+    const failures: string[] = []
+    let okCount = 0
+    for (const acc of probe.accounts) {
+      try {
+        await createCheckinAccount({
+          name: acc.nickname || acc.uid.slice(0, 8),
+          jwt: probe.cookie,
+          device_map: { login_type: 'web', uid: acc.uid, nickname: acc.nickname },
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'workbuddy',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
+      }
+    }
+    if (failures.length > 0) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(failures.join('；'))
+      return false
+    }
+    setWbWebLoginState('done')
+    setWbWebLoginMsg('')
+    setBatchNotice(
+      probe.cookie_checkin_ok === false
+        ? `${t('captureWbWebDone', { count: okCount })} ${t('captureWbWebCheckinUncertain')}`
+        : t('captureWbWebDone', { count: okCount }),
+    )
+    await loadAll()
+    return true
+  }
+
+  // WorkBuddy 网页登录(2026-10-18 自动闭环版,李总口径「登录后要自动获取授权与
+  // 信息并跳回我们程序」):默认浏览器登录后应用读不到它的 cookie jar(浏览器安全
+  // 隔离),流程只能停在「用户手动粘 Cookie」,既拿不到账号信息也回不来 —— 那是
+  // 2026-10-17 旧版的形态。本版主入口改走**项目内嵌浏览器**(WebView2 cookie jar
+  // 归我们):开登录页 → 主窗轮询 probe(有 IPC,2.5s 同拍)→ 服务端
+  // /console/accounts 验登录态取 uid/昵称 → 自动关登录窗 + 入库(记录好账号)
+  // → 回到签到页。默认浏览器那条路保留下级入口(需手动粘 Cookie,粘贴时同样先
+  // 探测账号再入库,账号信息不缺位)。
+  const startWbWebLogin = async () => {
+    setCaptureError(null)
+    setWbWebLoginState('waiting')
+    setWbWebLoginMsg(t('captureWbWebWaiting'))
+    const err = await openEmbeddedBrowser(WB_WEB_LOGIN_URL, 'WorkBuddy 网页登录')
+    if (err) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(err)
+    }
+  }
+
+  // 主窗内嵌浏览器登录看护(2026-10-18):waiting 态下轮询内嵌窗 cookie jar,
+  // 登录成功即自动关窗 + 入库;用户关窗(no_window)即结束等待,不无限转圈。
+  // 嵌入模式(签到页本身在内嵌浏览器里)没有 IPC,不走本 effect,由 Rust 看护 +
+  // 哨兵导航那条链路闭环(见 embedded_browser.rs)。
+  // importWbProbeAccounts 走 ref 取最新:它是每次渲染的新闭包,直接进依赖会让
+  // effect 随每次渲染重建、轮询 timer 反复清零(铁律:禁引用依赖进 effect)。
+  const importWbProbeRef = React.useRef(importWbProbeAccounts)
+  React.useEffect(() => {
+    importWbProbeRef.current = importWbProbeAccounts
+  })
+  React.useEffect(() => {
+    if (!desktop || embedBrowser || wbWebLoginState !== 'waiting') return
+    let stopped = false
+    const poll = async () => {
+      if (stopped) return
+      try {
+        const probe = await checkinWorkbuddyWebLoginProbe()
+        if (stopped) return
+        if (probe.status === 'ok') {
+          stopped = true
+          await closeEmbeddedBrowser()
+          const ok = await importWbProbeRef.current(probe)
+          if (ok) setWbCaptureOpen(false)
+        } else if (probe.status === 'no_window') {
+          stopped = true
+          setWbWebLoginState('closed')
+          setWbWebLoginMsg(t('captureWbWebCancelled'))
+        }
+      } catch {
+        // 瞬态(窗口未建好/网络抖动):下一轮再试
+      }
+    }
+    const timer = setInterval(() => void poll(), 2500)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [desktop, embedBrowser, wbWebLoginState, t])
+
+  // 系统默认浏览器打开登录页(下级入口,2026-10-18):浏览器安全隔离 ⇒ 应用读不到
+  // 它的 cookie,登录完成后由用户把 Cookie 粘贴进下方输入框导入(importWbPastedCookie)。
+  const startWbWebLoginSystemBrowser = async () => {
+    setCaptureError(null)
+    setWbWebLoginMsg(t('captureWbWebWaiting'))
+    const opened = await openExternalUrl(WB_WEB_LOGIN_URL)
+    if (!opened) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(t('captureWbWebOpenFailed'))
+      return
+    }
+    setWbWebLoginState('waiting')
+  }
+
+  // 粘贴 Cookie 导入(2026-10-18:默认浏览器下级入口的收尾一步,李总口径
+  // 「记录好账号」):宽容清洗(去「Cookie:」前缀)后,先用该 Cookie 走服务端
+  // /console/accounts 探测 uid/昵称 —— 探测得到 ⇒ 按账号逐条入库(name=昵称、
+  // device_map 带 uid/nickname);探测不到账号(未登录/已过期)⇒ 如实拒绝入库,
+  // 不落无名账号;IPC 不可用(非桌面/嵌入页)⇒ 回落单条入库并明说账号未记录。
+  const importWbPastedCookie = async () => {
+    const cookie = wbPasteDraft
+      .trim()
+      .replace(/^cookie\s*:\s*/i, '')
+      .trim()
+    if (!cookie) {
+      setWbWebLoginMsg(t('captureWbWebPasteRequired'))
+      return
+    }
+    setWbWebLoginState('importing')
+    setWbWebLoginMsg(t('captureWbWebImporting'))
+    if (desktop) {
+      try {
+        const probe = await checkinWorkbuddyWebLoginProbeCookie(cookie)
+        if (probe.status === 'ok' && probe.accounts.length > 0) {
+          const ok = await importWbProbeAccounts({
+            cookie: probe.cookie,
+            accounts: probe.accounts,
+            cookie_checkin_ok: probe.cookie_checkin_ok,
+          })
+          if (ok) {
+            setWbPasteDraft('')
+            setWbCaptureOpen(false)
+          }
+          return
+        }
+        // 探测不到账号:Cookie 无效/过期/服务端结构变化,拒绝落无名账号
+        setWbWebLoginState('closed')
+        const reason =
+          probe.status === 'not_logged_in' || probe.status === 'error' ? probe.message : ''
+        setWbWebLoginMsg(
+          reason ? `${t('captureWbWebPasteInvalid')}(${reason})` : t('captureWbWebPasteInvalid'),
+        )
+        return
+      } catch {
+        // IPC 异常:回落单条入库(账号信息缺位,明说)
+      }
+    }
+    try {
+      await createCheckinAccount({
+        name: t('captureWbPasteName'),
+        jwt: cookie,
+        device_map: { login_type: 'web' },
+        group: groupFilter !== 'all' ? groupFilter : '',
+        platform: 'workbuddy',
+      })
+      setWbWebLoginState('done')
+      setWbWebLoginMsg('')
+      setWbPasteDraft('')
+      setBatchNotice(`${t('captureWbWebDone', { count: 1 })} ${t('captureWbWebAccountMissing')}`)
+      await loadAll()
+      setWbCaptureOpen(false)
+    } catch (e) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg((e as Error).message)
+    }
+  }
+
+  // 嵌入模式启动(2026-10-17):签到页跑在内嵌浏览器内容 webview 里,没有 IPC,
+  // 走哨兵导航把「浏览器登录 WorkBuddy」的意图带给 Rust —— 由 Rust 建登录页
+  // 标签 + 轮询 cookie jar,登录成功后把登录标签导航回本页(#wb_import=<json>),
+  // 由下方 hash 导入收尾。waiting 态不提供「取消」:取消命令也是 IPC(嵌入页调
+  // 不动),且 Rust 看护已在跑、本地复位是假象(登录成功后结果照样送回来)。
+  const startWbWebLoginEmbed = () => {
+    setCaptureError(null)
+    setWbWebLoginState('waiting')
+    setWbWebLoginMsg(t('captureWbWebWaiting'))
+    const nav = (window as unknown as { __ihuiNav?: (action: string) => void }).__ihuiNav
+    nav?.('wb-checkin-login')
+  }
+
+  // 嵌入模式等待超时:Rust 看护 6 分钟静默放弃且无法通知本页(无 IPC),
+  // 页面等 6.5 分钟仍无下文就复位按钮态,避免永远卡在「等待登录」。
+  React.useEffect(() => {
+    if (!embedBrowser || wbWebLoginState !== 'waiting') return
+    const timer = setTimeout(() => {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg(t('captureWbWebSlowHint'))
+    }, 390_000)
+    return () => clearTimeout(timer)
+  }, [embedBrowser, wbWebLoginState, t])
+
+  // 工具栏「网页登录」下拉的 WorkBuddy 项入口(2026-10-18 四平台收口):
+  // 桌面主窗 = 开捕获对话框 + 唤起默认浏览器登录页;嵌入模式 = 走哨兵导航
+  // (无 IPC),把流程归到一处,免得两个入口各写一份分支。
+  const openWbWebLoginEntry = () => {
+    if (embedBrowser) {
+      startWbWebLoginEmbed()
+      return
+    }
+    openWbCapture()
+    void startWbWebLogin()
+  }
+
+  // 嵌入模式结果接收(2026-10-17):Rust 登录成功后把登录标签导航到
+  // /checkin#wb_import=<percent-encoded JSON>(fragment 不发往服务端,纯页面内
+  // 消费),这里解析后走共用导入体入库,再清 hash 防刷新重导。
+  // ready/allow 门:导入走 Web 会话鉴权,压到登录态确定之后,别撞 bootstrap 空窗。
+  React.useEffect(() => {
+    if (!ready || !allow) return
+    const importFromHash = async () => {
+      const raw = window.location.hash
+      if (!raw.startsWith('#wb_import=')) return
+      const clearHash = () =>
+        history.replaceState(null, '', window.location.pathname + window.location.search)
+      let probe: {
+        cookie: string
+        accounts: { uid: string; nickname: string }[]
+        cookie_checkin_ok?: boolean
+      }
+      try {
+        probe = JSON.parse(safeDecodeURIComponent(raw.slice('#wb_import='.length)))
+      } catch {
+        clearHash()
+        return
+      }
+      // 先清 hash 再入库:导入中途再触发(importing 重渲染等)不会重复导入
+      clearHash()
+      await importWbProbeRef.current(probe)
+    }
+    void importFromHash()
+    window.addEventListener('hashchange', importFromHash)
+    return () => window.removeEventListener('hashchange', importFromHash)
+    // importFromHash 闭包随渲染取最新的 importWbProbeAccounts(走 ref,禁引用依赖
+    // 进 effect 数组:它是每次渲染的新闭包,会让本 effect 反复重建);hash 即清 ⇒
+    // 重复执行空转,其余依赖从宽不致错。
+  }, [ready, allow, t, groupFilter, loadAll])
+
+  // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
+
+  const refreshSnapshots = async () => {
+    try {
+      // 防御:后端异常通道返回 undefined 时按空数组处理,不让列表渲染崩整树
+      setSnapshots((await checkinSnapshotList()) ?? [])
+    } catch (e) {
+      setMaintError((e as Error).message)
+    }
+  }
+
+  const openMaint = async () => {
+    setMaintOpen(true)
+    setMaintError(null)
+    setMaintReport([])
+    setMaintUserId('')
+    await refreshSnapshots()
+  }
+
+  // 统一 busy 闸门:动作抛错归一为 maintError,成功行进 maintReport
+  const runMaintAction = async (action: () => Promise<string[]>) => {
+    setMaintBusy(true)
+    setMaintError(null)
+    setMaintReport([])
+    try {
+      setMaintReport(await action())
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setMaintBusy(false)
+    }
+  }
+
+  const resetDeviceIds = () =>
+    runMaintAction(async () => {
+      const report = await checkinResetDeviceIds(
+        maintIncludeGuid,
+        maintIncludeBrowser,
+        maintDeepReset,
+        maintIncludeMac,
+      )
+      return report.layers.map(
+        (l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`,
+      )
+    })
+
+  // 残留指纹审计:与"重置"解耦的独立动作,失败只在向导消息里落一行,不拦流程
+  // (审计是**取证**不是**处置**,扫不动不代表重置没做)。
+  const runResidualAudit = async () => {
+    setWizardAuditing(true)
+    try {
+      const report = await checkinAuditTraeResidual()
+      setWizardAudit(report)
+      setWizardMsg((m) => [
+        report.ok ? t('wizardAuditClean') : t('wizardAuditResidual', { n: report.hard_hits }),
+        ...m,
+      ])
+    } catch {
+      setWizardMsg((m) => [t('wizardAuditFail'), ...m])
+    } finally {
+      setWizardAuditing(false)
+    }
+  }
+
+  // 一键解决风控 Step1(2026-10-16 全平台聚合):TRAE 14 层 + Qoder/WorkBuddy/MiniMax
+  // 登出重置(未安装平台照实 skipped),成功即进 Step2(IP 采集失败不回退,
+  // 防止"重置已完成却显示可再点按钮"引发二次重置;基准 IP 可在 Step2 内重取)
+  const startOneClickReset = async () => {
+    setWizardBusy(true)
+    setWizardMsg([])
+    try {
+      const all = await checkinOneClickResetAll()
+      const report = all.trae
+      const okCount = report.layers.filter((l) => l.ok).length
+      const fails = report.layers.filter((l) => !l.ok)
+      setWizardIpFailCount(0)
+      // 可选层(需管理员 UAC 的 5、动浏览器的 7、动网卡的 13)失败属预期降级,不影响主体;
+      // 其它层(如 1/2/3/4/6 文件级)失败才是真问题 —— 据此动态决定下方提示语,
+      // 杜绝"非可选层挂了还说不影响"的误导(2026-10-11 UX 修正)。
+      const critical = fails.some((l) => ![5, 7, 13].includes(l.layer))
+      setWizardCriticalFail(critical)
+      // 全平台摘要:TRAE 之外的三平台逐行透出(executed/ok/skipped 照实)
+      const platformLines = all.platforms.map((p) => {
+        const label =
+          p.platform === 'qoder'
+            ? 'Qoder'
+            : p.platform === 'workbuddy'
+              ? 'WorkBuddy'
+              : p.platform === 'minimax'
+                ? 'MiniMax'
+                : 'TRAE'
+        if (!p.executed) return `${label}: ${p.detail}`
+        return `${label}: ${p.ok ? '✅' : '❌'} ${p.detail}`
+      })
+      setWizardMsg([
+        t('wizardResetDone', { ok: okCount, total: report.layers.length }),
+        ...platformLines,
+        ...fails.map((l) => `${l.name}: ${l.detail}`),
+      ])
+      try {
+        localStorage.setItem('checkin-oneclick-at', String(Date.now()))
+        setLastResetAt(Date.now())
+      } catch {
+        /* 隐私模式下 localStorage 不可用,冷却提醒仅当次会话有效 */
+      }
+      setWizardStep(2)
+      try {
+        const before = await checkinGetPublicIp()
+        setWizardIpBefore(before.ip)
+        setWizardIpLoc(before.location)
+        if (!before.location) {
+          setWizardMsg((m) => [t('wizardNoLoc'), ...m])
+        }
+      } catch {
+        setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
+      }
+      // 重置完就地验证:常态自动跑一次审计,用户不必另找入口确认"是否彻底"
+      await runResidualAudit()
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setWizardBusy(false)
+    }
+  }
+
+  // 一键解决风控 Step2:验证用户已换网络出口(IP 必须真的变了)
+  const verifyIpChanged = async () => {
+    setWizardBusy(true)
+    try {
+      // 基准 IP 缺失(Step1 采集失败)时,此次采集先补基准——重置本身不动网络,
+      // 用户尚未换出口前采集到的仍是"重置前出口"
+      if (!wizardIpBefore) {
+        const base = await checkinGetPublicIp()
+        setWizardIpBefore(base.ip)
+        setWizardIpLoc(base.location)
+        setWizardMsg((m) => [t('wizardRefetch', { ip: base.ip }), ...m])
+        return
+      }
+      const now = await checkinGetPublicIp()
+      setWizardIpNow(now.ip)
+      if (now.ip !== wizardIpBefore) {
+        setWizardIpFailCount(0)
+        setWizardStep(3)
+      } else {
+        // IP 没变 ⇒ 计一次失败;连续 ≥3 次在界面自动高亮引导走"直接完成"旁路
+        setWizardIpFailCount((c) => c + 1)
+        setWizardMsg((m) => [t('wizardIpUnchanged'), ...m])
+      }
+    } catch (e) {
+      setWizardIpFailCount((c) => c + 1)
+      setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
+      setMaintError((e as Error).message)
+    } finally {
+      setWizardBusy(false)
+    }
+  }
+
+  // P0-1 旁路:用户确实无法更换网络时,允许直接跳到 Step3(进入 24h 冷却),避免单向死路
+  const skipIpVerify = () => {
+    setWizardIpFailCount(0)
+    setWizardStep(3)
+  }
+
+  // 向导状态归零(Step3 完成后的重新开始入口)
+  const restartWizard = () => {
+    setWizardStep(0)
+    setWizardIpBefore('')
+    setWizardIpLoc('')
+    setWizardIpNow('')
+    setWizardMsg([])
+    // P2-7:必须把上一轮审计结论也清掉,否则旧"残留/干净"结论会误导新一轮判断
+    setWizardAudit(null)
+    setWizardCriticalFail(false)
+    setWizardIpFailCount(0)
+  }
+
+  const backupSnapshot = () =>
+    runMaintAction(async () => {
+      const uid = maintUserId.trim()
+      if (!uid) throw new Error(t('maintUserIdRequired'))
+      const report = await checkinSnapshotBackup(uid)
+      await refreshSnapshots()
+      return [
+        t('maintBackupDone', { count: report.copied.length, missing: report.missing.length }),
+        ...report.copied,
+      ]
+    })
+
+  const restoreSnapshot = (uid: string) =>
+    runMaintAction(async () => {
+      const report = await checkinSnapshotRestore(uid)
+      return [
+        t('maintRestoreDone', {
+          count: report.restored.length,
+          missing: report.missing_in_backup.length,
+        }),
+        ...report.restored,
+      ]
+    })
+
+  const deleteSnapshot = async (uid: string) => {
+    setMaintBusy(true)
+    setMaintError(null)
+    try {
+      await checkinSnapshotDelete(uid)
+      await refreshSnapshots()
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setMaintBusy(false)
+    }
+  }
+
+  React.useEffect(() => {
+    if (!canLoad) return
+    void loadAll()
+  }, [loadAll, canLoad])
+
+  // 调度状态:失败静默,不阻塞页面
+  React.useEffect(() => {
+    let cancelled = false
+    getCheckinSchedulerStatus()
+      .then((status) => {
+        if (!cancelled) setScheduler(status)
+      })
+      .catch(() => {
+        // 静默:调度徽章缺失不影响主流程
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 添加账号对话框「智能导入」(2026-10-13 升级,取代按平台选的「一键获取」):
+  // 打开对话框即自动并行检测本机 Trae / Qoder 全部登录态,勾选后一键批量入库;
+  // 2026-10-15 重构:弹窗内 WorkBuddy 跳转按钮已移除 —— 与工具栏「从本机捕获」下拉
+  // 的 WorkBuddy 入口重复,WorkBuddy 统一从捕获对话框(网页登录 / 本机扫描)走。
+  // 普通用户全程不接触 token、不用选平台 —— 傻瓜式一条路。
+  const [scanScanning, setScanScanning] = React.useState(false)
+  const [scanTrae, setScanTrae] = React.useState<CapturedTraeAccount[]>([])
+  const [scanQoder, setScanQoder] = React.useState<CapturedQoderSession[]>([])
+  const [scanTraeSel, setScanTraeSel] = React.useState<Set<string>>(new Set())
+  const [scanQoderSel, setScanQoderSel] = React.useState<Set<string>>(new Set())
+  const [scanMinimax, setScanMinimax] = React.useState<CapturedMinimaxSession[]>([])
+  const [scanMinimaxSel, setScanMinimaxSel] = React.useState<Set<string>>(new Set())
+  const [scanImporting, setScanImporting] = React.useState(false)
+  const [scanMsg, setScanMsg] = React.useState('')
+
+  const runSmartScan = React.useCallback(async () => {
+    setScanScanning(true)
+    setScanMsg('')
+    const results = await Promise.all([
+      checkinCaptureJwts().catch(() => [] as CapturedTraeAccount[]),
+      checkinCaptureQoder().catch(() => [] as CapturedQoderSession[]),
+      checkinCaptureMinimax().catch(() => [] as CapturedMinimaxSession[]),
+    ])
+    setScanTrae(results[0]!)
+    setScanQoder(results[1]!)
+    setScanMinimax(results[2]!)
+    // 2026-10-15:Trae 新版 Cloud-IDE-JWT 不再落盘,捕获可能只回收 opaque uid(jwt 空)
+    // —— 服务端录入要求 jwt 可解析,空 jwt 账号只展示提示、不预选不导入。
+    setScanTraeSel(new Set(results[0]!.filter((a) => a.jwt).map((a) => a.user_id)))
+    setScanQoderSel(new Set(results[1]!.map((s) => s.uid || s.app_dir)))
+    setScanMinimaxSel(new Set(results[2]!.map((m) => m.uid || m.auth_file)))
+    setScanScanning(false)
+  }, [])
+
+  // 对话框打开(桌面端)即自动检测一轮 —— 用户什么都不用点
+  React.useEffect(() => {
+    if (!addOpen || !desktop) return
+    void runSmartScan()
+  }, [addOpen, desktop, runSmartScan])
+
+  const toggleSmartSel = (
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+    key: string,
+    checked: boolean,
+  ) => {
+    setter((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }
+
+  // 智能导入:勾选的 Trae/Qoder 账号逐个入库;分组沿用当前筛选(与捕获对话框口径一致)
+  const importSmart = async () => {
+    const jobs: Array<{
+      name: string
+      jwt: string
+      device_map: Record<string, unknown>
+      platform?: 'qoder' | 'minimax'
+    }> = []
+    for (const item of scanTrae) {
+      if (!scanTraeSel.has(item.user_id)) continue
+      if (!item.jwt) continue // opaque 账号无凭据,录入必被服务端拒(400),跳过
+      jobs.push({
+        name: item.nickname || item.user_id,
+        jwt: item.jwt,
+        device_map: traeDeviceMap(item),
+      })
+    }
+    for (const item of scanQoder) {
+      const key = item.uid || item.app_dir
+      if (!scanQoderSel.has(key)) continue
+      jobs.push({
+        name: item.nickname || item.uid || item.app_dir,
+        jwt: item.access_token,
+        device_map: qoderDeviceMap(item),
+        platform: 'qoder',
+      })
+    }
+    for (const item of scanMinimax) {
+      const key = item.uid || item.auth_file
+      if (!scanMinimaxSel.has(key)) continue
+      if (!item.access_token) continue
+      jobs.push({
+        name: item.nickname || item.uid || item.auth_file,
+        jwt: item.access_token,
+        device_map: minimaxDeviceMap(item),
+        platform: 'minimax',
+      })
+    }
+    if (jobs.length === 0) return
+    setScanImporting(true)
+    setScanMsg('')
+    let okCount = 0
+    const failures: string[] = []
+    for (const job of jobs) {
+      try {
+        await createCheckinAccount({
+          name: job.name,
+          jwt: job.jwt,
+          device_map: job.device_map,
+          group: groupFilter !== 'all' ? groupFilter : '',
+          ...(job.platform ? { platform: job.platform } : {}),
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${job.name}: ${(e as Error).message}`)
+      }
+    }
+    setScanImporting(false)
+    if (failures.length > 0) {
+      setScanMsg(failures.join('；'))
+    } else {
+      setAddOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // 2026-10-15 重构:移除弹窗内「网页登录 WorkBuddy」按钮(与工具栏「从本机捕获」下拉
+  // 的 WorkBuddy 入口完全重复);平台/名称/分组等手动字段全部收进「手动填写」折叠区,
+  // 弹窗主体只留智能导入一块,砍掉装饰性说明文字。
+
+  const submitAdd = async () => {
+    const trimmedName = name.trim()
+    const trimmedJwt = jwt.trim()
+    if (!trimmedName || !trimmedJwt) return
+    let deviceMap: Record<string, unknown> = {}
+    if (deviceMapText.trim()) {
+      try {
+        const parsed: unknown = JSON.parse(deviceMapText)
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          setFormError(t('deviceMapInvalid'))
+          return
+        }
+        deviceMap = parsed as Record<string, unknown>
+      } catch {
+        setFormError(t('deviceMapInvalid'))
+        return
+      }
+    }
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      await createCheckinAccount({
+        name: trimmedName,
+        jwt: trimmedJwt,
+        device_map: deviceMap,
+        group: groupText.trim(),
+        platform: addPlatform,
+      })
+      setAddOpen(false)
+      setName('')
+      setJwt('')
+      setDeviceMapText('')
+      setGroupText('')
+      await loadAll()
+    } catch (e) {
+      setFormError((e as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ================== 官方积分实时查询(2026-10-13) ==================
+  // 用户诉求:「签到后积分有没有变化、签没签上,得能实时看到」。
+  // 后端 POST /accounts/{id}/query_credits 按平台分流查官方余额并落当日快照;
+  // 前端此前从未调用 ⇒ 积分列只有签到记录的静态快照。现补齐:
+  // 手动签到成功后自动查、一键签到结束后批量查、工具栏手动一键刷新;
+  // delta(较上次查询的变化)显示在余额下方,签到是否生效一眼可见。
+  const [creditsInfo, setCreditsInfo] = React.useState<
+    Record<number, { remaining: number | null; error?: string; delta?: number; ts: number }>
+  >({})
+  const [creditsRefreshing, setCreditsRefreshing] = React.useState<Set<number>>(new Set())
+
+  const refreshCredits = async (ids: number[]) => {
+    if (ids.length === 0) return
+    setCreditsRefreshing((prev) => new Set([...prev, ...ids]))
+    // 风控:逐个错峰串行查询(原 Promise.all 并发直打官方接口,批量号时瞬时并发过高)
+    for (const id of ids) {
+      try {
+        const res = await queryCheckinAccountCredits(id)
+        setCreditsInfo((prev) => {
+          const old = prev[id]?.remaining
+          const delta =
+            res.ok && typeof old === 'number' && typeof res.remaining === 'number'
+              ? res.remaining - old
+              : undefined
+          return {
+            ...prev,
+            [id]: {
+              remaining: res.ok ? res.remaining : null,
+              error: res.ok ? undefined : res.error || '',
+              delta,
+              ts: Date.now(),
+            },
+          }
+        })
+      } catch (e) {
+        setCreditsInfo((prev) => ({
+          ...prev,
+          [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
+        }))
+      } finally {
+        setCreditsRefreshing((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+      // 账号间错峰(最后一个不空等);后端闸门另有全局节流,此处双保险
+      if (id !== ids[ids.length - 1]) await new Promise((r) => setTimeout(r, 600))
+    }
+  }
+
+  const toggleEnabled = async (account: CheckinAccount, enabled: boolean) => {
+    setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, enabled } : a)))
+    try {
+      await setCheckinAccountEnabled(account.id, enabled)
+    } catch (e) {
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === account.id ? { ...a, enabled: account.enabled } : a)),
+      )
+      setActionError((e as Error).message)
+    }
+  }
+
+  const runManualCheckin = async (account: CheckinAccount) => {
+    setCheckingId(account.id)
+    setActionError(null)
+    try {
+      const record = await manualCheckinAccount(account.id)
+      await loadAll()
+      if (record && record.ok === false) {
+        // 200 + ok=false(挑战页熔断/平台拒绝等):当场可见,不静默
+        if (record.message) setActionError(record.message)
+        return
+      }
+      // 签到成功即查官方余额,变化实时可见
+      void refreshCredits([account.id])
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setCheckingId(null)
+    }
+  }
+
+  const startRename = (account: CheckinAccount) => {
+    setRenamingId(account.id)
+    setRenameDraft(account.name)
+    setActionError(null)
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameDraft('')
+  }
+
+  const commitRename = async (account: CheckinAccount) => {
+    if (renamingId !== account.id || renaming) return
+    const name = renameDraft.trim()
+    // 空值或未改动:直接退出编辑态,不发请求
+    if (!name || name === account.name) {
+      cancelRename()
+      return
+    }
+    setRenaming(true)
+    try {
+      await updateCheckinAccountName(account.id, name)
+      setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, name } : a)))
+      setActionError(null)
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setRenaming(false)
+      cancelRename()
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteCheckinAccount(deleteTarget.id)
+      setDeleteTarget(null)
+      await loadAll()
+    } catch (e) {
+      setActionError((e as Error).message)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // 本地时区的 YYYY-MM-DD(后端 created_at 是 UTC ISO,签到「今天」按本地日历日算)
+  const localDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  // 今日是否已签到(2026-10-16):最近一次记录成功且发生在本地今天。
+  // 与「一键全部签到」的跳过判据同口径(last.ok===true && 本地日==今天);
+  // 今日签到失败(ok=false)不算已签,按钮仍可点,允许当天重试。
+  const isCheckedInToday = (account: CheckinAccount) => {
+    const last = account.last_record
+    if (!last || last.ok !== true || !last.created_at) return false
+    return localDateStr(new Date(last.created_at)) === localDateStr(new Date())
+  }
+
+  // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸),账号间随机错峰;
+  // 跳过今日已签 / JWT 过期 / 冷却中账号,命中全局限流(429)立即中止整批,
+  // 实时汇报进度,结束后统一刷新
+  const runCheckinAll = async (scope?: Set<number>) => {
+    const today = localDateStr(new Date())
+    const targets = accounts.filter(
+      (account) => account.enabled && (!scope || scope.has(account.id)),
+    )
+    if (targets.length === 0) return
+    // 对齐参考项目「跳过已签/过期」:JWT 已过期的账号直接跳过(带过期 JWT 签到只会中途 401 报错)
+    const now = Date.now()
+    const expiredCount = targets.filter(
+      (account) => !!account.jwt_exp && new Date(account.jwt_exp).getTime() <= now,
+    ).length
+    const pending = targets.filter((account) => {
+      if (account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) return false
+      // 冷却中的账号直接跳过(后端手动入口已尊重冷却,预筛避免无谓 429 往返)
+      if (account.cooldown_until && new Date(account.cooldown_until).getTime() > now) return false
+      const last = account.last_record
+      if (!last || last.ok !== true || !last.created_at) return true
+      return localDateStr(new Date(last.created_at)) !== today
+    })
+    const cooldownCount = targets.filter(
+      (account) =>
+        !(account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) &&
+        !!account.cooldown_until &&
+        new Date(account.cooldown_until).getTime() > now,
+    ).length
+    const skipped = targets.length - expiredCount - cooldownCount - pending.length
+    setAllChecking(true)
+    setActionError(null)
+    setBatchNotice(null)
+    setAllProgress({ done: 0, total: pending.length })
+    const okIds: number[] = []
+    // 全局限流命中判据:后端 RateLimitedError → HTTP 429 detail 含「限流冷却中」;
+    // 单账号冷却(CooldownActiveError)只跳过该账号,不中止整批
+    const isGlobalRateLimit = (msg: string) => /限流冷却中|HTTP 429|限流/.test(msg)
+    const isCooldownRejection = (msg: string) => /冷却期/.test(msg)
+    try {
+      let done = 0
+      let skippedCooldownRun = 0
+      let rateLimited = false
+      let fusedCount = 0
+      for (const account of pending) {
+        try {
+          const record = await manualCheckinAccount(account.id)
+          // 200 + ok=false 也是「没签上」(如挑战页熔断/平台拒绝):不得计成功,
+          // 否则批量提示谎报、且把账号推进 okIds 触发对暂停期账号的查余额 429。
+          if (record && record.ok === false) {
+            fusedCount += 1
+          } else {
+            okIds.push(account.id)
+          }
+        } catch (e) {
+          const msg = (e as Error).message
+          if (isGlobalRateLimit(msg)) {
+            // 命中平台/出站限流:立即中止整批(继续打只会加深风控)
+            rateLimited = true
+            setActionError(msg)
+            break
+          }
+          if (isCooldownRejection(msg)) {
+            // 预筛后仍冷却(近期刚失败进入冷却):跳过该账号继续
+            skippedCooldownRun += 1
+            continue
+          }
+          throw e
+        }
+        done += 1
+        setAllProgress({ done, total: pending.length })
+        // 账号间错峰(后端闸门另有全局节流,前端双保险,避免机器化连发)
+        if (account !== pending[pending.length - 1]) {
+          await new Promise((r) => setTimeout(r, 500))
+        }
+      }
+      const cooldownSkipped = cooldownCount + skippedCooldownRun
+      const notices = [
+        skipped > 0 ? t('skippedToday', { count: skipped }) : null,
+        expiredCount > 0 ? t('skippedExpired', { count: expiredCount }) : null,
+        cooldownSkipped > 0 ? t('skippedCooldown', { count: cooldownSkipped }) : null,
+        fusedCount > 0 ? t('checkinFailedCount', { count: fusedCount }) : null,
+        rateLimited ? t('checkinRateLimited') : null,
+      ].filter((part): part is string => !!part)
+      if (notices.length > 0) setBatchNotice(notices.join('；'))
+      if (!rateLimited) setActionError(null)
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setAllChecking(false)
+      setAllProgress(null)
+      setSelectedIds(new Set())
+      await loadAll()
+      // 结束后批量查官方余额(含中途失败前已成功的),积分变化实时可见
+      if (okIds.length > 0) void refreshCredits(okIds)
+    }
+  }
+
+  const openGroupDialog = (account: CheckinAccount) => {
+    setGroupTarget(account)
+    setGroupValue(account.group ?? '')
+    setGroupFormError(null)
+  }
+
+  const submitGroup = async () => {
+    if (!groupTarget) return
+    setGroupSubmitting(true)
+    setGroupFormError(null)
+    try {
+      await updateCheckinAccountGroup(groupTarget.id, groupValue.trim())
+      setGroupTarget(null)
+      setBatchNotice(t('groupUpdated'))
+      await loadAll()
+    } catch (e) {
+      setGroupFormError((e as Error).message)
+    } finally {
+      setGroupSubmitting(false)
+    }
+  }
+
+  const openJwtDialog = (account: CheckinAccount) => {
+    setJwtTarget(account)
+    setJwtText('')
+    setJwtFormError(null)
+  }
+
+  const submitJwt = async () => {
+    if (!jwtTarget) return
+    const trimmedJwt = jwtText.trim()
+    if (!trimmedJwt) return
+    setJwtSubmitting(true)
+    setJwtFormError(null)
+    try {
+      await updateCheckinAccountJwt(jwtTarget.id, trimmedJwt)
+      setJwtTarget(null)
+      setJwtNotice(t('jwtUpdated'))
+      await loadAll()
+    } catch (e) {
+      setJwtFormError((e as Error).message)
+    } finally {
+      setJwtSubmitting(false)
+    }
+  }
+
+  const openDeviceMapDialog = (account: CheckinAccount) => {
+    setDeviceMapTarget(account)
+    setDeviceMapEditText(JSON.stringify(account.device_map ?? {}, null, 2))
+    setDeviceMapFormError(null)
+  }
+
+  const submitDeviceMap = async () => {
+    if (!deviceMapTarget) return
+    // 校验与录入表单同口径:合法 JSON 且必须是 plain object(Array/null 一律拒),不合法不请求
+    let parsed: Record<string, unknown>
+    try {
+      const value: unknown = JSON.parse(deviceMapEditText)
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        setDeviceMapFormError(t('deviceMapInvalid'))
+        return
+      }
+      parsed = value as Record<string, unknown>
+    } catch {
+      setDeviceMapFormError(t('deviceMapInvalid'))
+      return
+    }
+    setDeviceMapSubmitting(true)
+    setDeviceMapFormError(null)
+    try {
+      await updateCheckinDeviceMap(deviceMapTarget.id, parsed)
+      setDeviceMapTarget(null)
+      setBatchNotice(t('deviceMapUpdated'))
+      await loadAll()
+    } catch (e) {
+      setDeviceMapFormError((e as Error).message)
+    } finally {
+      setDeviceMapSubmitting(false)
+    }
+  }
+
+  // 加载更多:limit 增量重拉,按 id 去重追加;返回不足请求量即无更多
+  const loadMoreRecords = async () => {
+    const requested = Math.min(records.length + RECORDS_LIMIT_STEP, RECORDS_LIMIT_MAX)
+    if (requested <= records.length) return
+    setLoadingMoreRecords(true)
+    setActionError(null)
+    try {
+      const res = await listCheckinRecords({
+        accountId: recordFilter ?? undefined,
+        limit: requested,
+      })
+      setRecords((prev) => {
+        const seen = new Set(prev.map((r) => r.id))
+        return [...prev, ...res.records.filter((r) => !seen.has(r.id))]
+      })
+      setRecordHasMore(res.records.length >= requested && requested < RECORDS_LIMIT_MAX)
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setLoadingMoreRecords(false)
+    }
+  }
+
+  const loadMoreCredits = async () => {
+    const requested = Math.min(credits.length + CREDITS_LIMIT_STEP, CREDITS_LIMIT_MAX)
+    if (requested <= credits.length) return
+    setLoadingMoreCredits(true)
+    setActionError(null)
+    try {
+      const res = await listCheckinCreditsHistory({
+        accountId: creditFilter ?? undefined,
+        limit: requested,
+      })
+      setCredits((prev) => {
+        const seen = new Set(prev.map((c) => c.id))
+        return [...prev, ...res.history.filter((c) => !seen.has(c.id))]
+      })
+      setCreditHasMore(res.history.length >= requested && requested < CREDITS_LIMIT_MAX)
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setLoadingMoreCredits(false)
+    }
+  }
+
+  const formatTime = (iso: string | null) => (iso ? iso.replace('T', ' ').slice(0, 19) : t('none'))
+
+  // 短时间:MM-DD HH:mm
+  const formatShortTime = (iso: string) => iso.slice(5, 16).replace('T', ' ')
+
+  const truncate = (text: string, max: number) =>
+    text.length > max ? `${text.slice(0, max)}…` : text
+
+  // JWT 到期徽章:过期红色 / 7 天内琥珀(含剩余天数) / 正常灰色小字到期日 / null 不显示
+  const renderJwtBadge = (jwtExp: string | null) => {
+    if (!jwtExp) return null
+    const expMs = Date.parse(jwtExp)
+    if (Number.isNaN(expMs)) return null
+    const remainingMs = expMs - Date.now()
+    if (remainingMs <= 0) {
+      return (
+        <span className="inline-flex items-center rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+          {t('jwtExpired')}
+        </span>
+      )
+    }
+    const days = Math.ceil(remainingMs / DAY_MS)
+    if (days <= 7) {
+      return (
+        <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+          {t('jwtExpiresSoon', { days })}
+        </span>
+      )
+    }
+    return <span className="text-[10px] text-muted-foreground">{jwtExp.slice(0, 10)}</span>
+  }
+
+  // 冷却徽章:cooldown_until 为未来时间时显示琥珀色到期时刻
+  const renderCooldownBadge = (cooldownUntil: string | null) => {
+    if (!cooldownUntil) return null
+    const untilMs = Date.parse(cooldownUntil)
+    if (Number.isNaN(untilMs) || untilMs <= Date.now()) return null
+    return (
+      <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+        {t('cooldownUntil', { time: formatShortTime(cooldownUntil) })}
+      </span>
+    )
+  }
+
+  // 记录/积分 tab 的按账号过滤下拉
+  const renderAccountFilter = (
+    testId: string,
+    value: number | null,
+    onChange: (value: number | null) => void,
+  ) => (
+    <select
+      data-testid={testId}
+      aria-label={t('filterAll')}
+      value={value ?? 'all'}
+      onChange={(e) => onChange(e.target.value === 'all' ? null : Number(e.target.value))}
+      className="h-8 rounded-sm border bg-background px-2 text-label"
+    >
+      <option value="all">{t('filterAll')}</option>
+      {accounts.map((account) => (
+        <option key={account.id} value={account.id}>
+          {account.name}
+        </option>
+      ))}
+    </select>
+  )
+
+  const renderResult = (ok: boolean | null) =>
+    ok === true ? t('resultOk') : ok === false ? t('resultFail') : t('resultUnknown')
+
+  // 分组筛选:去重分组名(未分组 = 空串),客户端过滤账号表
+  const distinctGroups = React.useMemo(
+    () => Array.from(new Set(accounts.map((a) => a.group ?? '').filter((g) => g !== ''))).sort(),
+    [accounts],
+  )
+  const visibleAccounts = React.useMemo(
+    () =>
+      accounts.filter(
+        (a) =>
+          (groupFilter === 'all' ? true : (a.group ?? '') === groupFilter) &&
+          (platformFilter === 'all' ? true : (a.platform ?? 'trae') === platformFilter),
+      ),
+    [accounts, groupFilter, platformFilter],
+  )
+
+  // 勾选辅助:单行勾选 + 表头全选当前列表(配合分组筛选 = 按组签)
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allVisibleSelected =
+    visibleAccounts.length > 0 && visibleAccounts.every((a) => selectedIds.has(a.id))
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) visibleAccounts.forEach((a) => next.delete(a.id))
+      else visibleAccounts.forEach((a) => next.add(a.id))
+      return next
+    })
+  }
+
+  // 积分看板:排行(按最近积分)+ 累计趋势 + 今日新增
+  const board = React.useMemo(() => {
+    const ranked = visibleAccounts
+      .map((a) => ({ name: a.name, credits: a.last_record?.credits ?? null }))
+      .filter((r): r is { name: string; credits: number } => r.credits !== null)
+      .sort((x, y) => y.credits - x.credits)
+    const today = localDateStr(new Date())
+    const asc = [...credits].sort(
+      (x, y) => Date.parse(x.created_at ?? '') - Date.parse(y.created_at ?? ''),
+    )
+    const byDay = new Map<string, number>()
+    let todayGain = 0
+    for (const item of asc) {
+      if (!item.created_at) continue
+      const day = localDateStr(new Date(item.created_at))
+      byDay.set(day, (byDay.get(day) ?? 0) + item.credits_delta)
+      if (day === today) todayGain += item.credits_delta
+    }
+    let running = 0
+    const trend = Array.from(byDay.entries()).map(([day, delta]) => {
+      running += delta
+      return { day, cumulative: running }
+    })
+    return { ranked, trend, todayGain, hasData: ranked.length > 0 || trend.length > 0 }
+  }, [visibleAccounts, credits])
+
+  // 是否有三线快照数据(任一日 total 非空即启用三线图,否则降级本地累计)
+  const hasDailySeries = !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
+
+  // 平台徽章(品牌名不进 i18n):qoder 紫 / trae 橙 / workbuddy 绿,与分组徽章同形态
+  const renderPlatformBadge = (platform: string | undefined) => (
+    <span
+      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium ${
+        platform === 'qoder'
+          ? 'border-purple-500/40 bg-purple-500/10 text-purple-600'
+          : platform === 'workbuddy'
+            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+            : platform === 'minimax'
+              ? 'border-teal-500/40 bg-teal-500/10 text-teal-600'
+              : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
+      }`}
+    >
+      {platform === 'qoder'
+        ? 'Qoder'
+        : platform === 'workbuddy'
+          ? 'WorkBuddy'
+          : platform === 'minimax'
+            ? 'MiniMax'
+            : 'TRAE'}
+    </span>
+  )
+
+  const renderGroupBadge = (group: string) =>
+    group ? (
+      <span className="inline-flex items-center rounded-md border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+        {group}
+      </span>
+    ) : null
+
+  return (
+    // 宽度跟随工作区:maxWidth="full" 与同类表格页(api-keys/privacy/notifications 等)同档,
+    // 此前 max-w-5xl 硬上限 1024px,工作区更宽时两侧大片死白、内容不铺满(2026-10-15 修)。
+    // checkin-page = 容器查询锚点(列降级阶梯见 globals.css 同名区块,按内容区宽度而非视口断点)。
+    <Container maxWidth="full" padding={false} className="checkin-page px-4 py-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5 text-primary" />
+            <h1 className="text-display font-bold">{t('title')}</h1>
+          </div>
+          {scheduler && (
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  scheduler.enabled && scheduler.started ? 'bg-green-500/70' : 'bg-amber-500/70'
+                }`}
+              />
+              {scheduler.enabled && scheduler.started
+                ? t('schedulerEnabled')
+                : t('schedulerDisabled')}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void loadAll()}
+            aria-label={t('refresh')}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={allChecking || checkingId !== null}
+            onClick={() => void runCheckinAll()}
+          >
+            {allChecking ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : (
+              <CheckCheck className="mr-1 h-4 w-4" />
+            )}
+            {allChecking
+              ? t('checkinAllProgress', {
+                  done: allProgress?.done ?? 0,
+                  total: allProgress?.total ?? 0,
+                })
+              : t('checkinAll')}
+          </Button>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={allChecking || checkingId !== null}
+              onClick={() => void runCheckinAll(selectedIds)}
+            >
+              {allChecking ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCheck className="mr-1 h-4 w-4" />
+              )}
+              {t('checkinSelected', { count: selectedIds.size })}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => {
+              setScanMsg('')
+              setFormError(null)
+              setAddOpen(true)
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            {t('addAccount')}
+          </Button>
+          {/* 官方积分一键刷新:对所有 enabled 账号实时查官方余额(2026-10-13) */}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={creditsRefreshing.size > 0 || accounts.length === 0}
+            onClick={() => void refreshCredits(accounts.filter((a) => a.enabled).map((a) => a.id))}
+          >
+            {creditsRefreshing.size > 0 && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            {t('creditRefreshAll')}
+          </Button>
+          {/* 四平台总入口(2026-10-18 李总口径:「网页登录」下拉要能选平台)。
+              一个下拉收口全部添加通道,菜单项右侧标注该平台实际走的通道 ——
+              WorkBuddy 走网页登录(系统默认浏览器打开登录页 → 粘 Cookie 导入),
+              TRAE/Qoder/MiniMax Code 走各自的本机捕获。
+              **为什么不给那三家也做网页登录**:它们的签到凭据是客户端本地的
+              设备级 token(TRAE 的 Cloud-IDE-JWT 存在客户端库、Qoder 的 device
+              token 在 auth.v1.dat、MiniMax 的 access_token 在客户端 auth 文件),
+              网页端登录不产生同款凭据 ⇒ 网页登录那条路对它们根本不成立。
+              与其给三个点进去才发现走不通的死按钮,不如在菜单里就把真实
+              通道标出来(失效方向必须是「多要一次定向说明」,不能是「多放一次
+              跳门」)。waiting 态不展开菜单:整条入口收束成一个「取消」按钮,
+              与对话框内的取消同语义(嵌入模式无 IPC 取消通道 ⇒ 禁用)。 */}
+          {(desktop || embedBrowser) &&
+            (wbWebLoginState === 'waiting' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                // 嵌入模式 waiting 不可再点:没有「取消」IPC 通道(见 startWbWebLoginEmbed)
+                disabled={embedBrowser}
+                onClick={() => void cancelWbWebLogin()}
+              >
+                {embedBrowser ? t('captureWbWebWaiting') : t('captureWbWebCancel')}
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={wbWebLoginState === 'importing'}>
+                    {wbWebLoginState === 'importing' && (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    )}
+                    <Globe className="mr-1 h-4 w-4" />
+                    {t('captureWebLogin')}
+                    <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="p-1">
+                  {/* 平台名是品牌名,与平台徽章同规矩:不进 i18n(见 renderPlatformBadge) */}
+                  <DropdownMenuItem onClick={openWbWebLoginEntry}>
+                    <span>WorkBuddy</span>
+                    <span className="ml-auto pl-3 text-label text-muted-foreground">
+                      {t('captureMethodWeb')}
+                    </span>
+                  </DropdownMenuItem>
+                  {desktop && !embedBrowser && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => void openCapture()}>
+                        <span>TRAE</span>
+                        <span className="ml-auto pl-3 text-label text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={openQoderCapture}>
+                        <span>Qoder</span>
+                        <span className="ml-auto pl-3 text-label text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={importing}
+                        onClick={() => void runMinimaxCapture()}
+                      >
+                        <span>MiniMax Code</span>
+                        <span className="ml-auto pl-3 text-label text-muted-foreground">
+                          {t('captureMethodLocal')}
+                        </span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ))}
+          {desktop && !embedBrowser && (
+            <Button variant="outline" size="sm" onClick={() => void openMaint()}>
+              <Wrench className="mr-1 h-4 w-4" />
+              {t('maintTitle')}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {actionError && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-body text-destructive"
+        >
+          {actionError}
+        </div>
+      )}
+
+      {jwtNotice && (
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-green-600 bg-green-500/10 p-3 text-body text-green-600"
+        >
+          {jwtNotice}
+        </div>
+      )}
+
+      {batchNotice && (
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-blue-500/40 bg-blue-500/10 p-3 text-body text-blue-600"
+        >
+          {batchNotice}
+        </div>
+      )}
+
+      {!ready ? (
+        // 登录态确认中:转圈,绝不误显「请先登录」(已登录用户会误判被踢出)
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : !allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : loading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : loadError ? (
+        <div className="py-16 text-center">
+          <p className="mb-3 text-body text-destructive">
+            {t('loadFailed')}
+            {loadError ? `: ${loadError}` : ''}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void loadAll()}>
+            {t('retry')}
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* WorkBuddy 任务中心六族:一键巡检(领任务/达标领奖/兑换/抽奖/猫猫旅行/夜猫子)。
+              面板自带账号选择与 dry-run,只在有 WorkBuddy 账号时出现(自判空,不外泄空态)。 */}
+          <div className="mb-3">
+            <WorkbuddyTaskPanel accounts={accounts} />
+          </div>
+          {/* 账号列表 */}
+          {accounts.length === 0 ? (
+            <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
+              {t('emptyAccounts')}
+            </div>
+          ) : (
+            <>
+              {/* 平台筛选(恒显)+ 分组筛选(有分组才显示);窄工作区换行不溢出 */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <select
+                  data-testid="platform-filter"
+                  aria-label={t('platformAll')}
+                  value={platformFilter}
+                  onChange={(e) =>
+                    setPlatformFilter(
+                      e.target.value as 'all' | 'trae' | 'workbuddy' | 'qoder' | 'minimax',
+                    )
+                  }
+                  className="h-8 rounded-sm border bg-background px-2 text-label"
+                >
+                  <option value="all">{t('platformAll')}</option>
+                  <option value="trae">{t('platformTrae')}</option>
+                  <option value="workbuddy">{t('platformWorkbuddy')}</option>
+                  <option value="qoder">{t('platformQoder')}</option>
+                  <option value="minimax">{t('platformMinimax')}</option>
+                </select>
+                {distinctGroups.length > 0 && (
+                  <select
+                    data-testid="group-filter"
+                    aria-label={t('filterGroupAll')}
+                    value={groupFilter}
+                    onChange={(e) => setGroupFilter(e.target.value)}
+                    className="h-8 rounded-sm border bg-background px-2 text-label"
+                  >
+                    <option value="all">{t('filterGroupAll')}</option>
+                    {distinctGroups.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                    <option value="">{t('groupUngrouped')}</option>
+                  </select>
+                )}
+              </div>
+              <div className="rounded-xl border">
+                {/* min-w only floors the narrowest usable width; column show/hide is driven by the container-query ladder in globals.css. table-fixed pins declared widths so an overlong UUID account name no longer squeezes the rest into slivers. */}
+                <Table className="min-w-[380px] table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
+                        <input
+                          type="checkbox"
+                          aria-label={t('selectAllVisible')}
+                          checked={allVisibleSelected}
+                          onChange={toggleSelectAllVisible}
+                          className="h-3.5 w-3.5 accent-primary"
+                        />
+                      </TableHead>
+                      <TableHead>{t('colName')}</TableHead>
+                      <TableHead className="w-[72px]">{t('colEnabled')}</TableHead>
+                      <TableHead className="checkin-col-last-checkin w-[148px]">
+                        {t('colLastCheckin')}
+                      </TableHead>
+                      <TableHead className="checkin-col-credits w-[88px]">
+                        {t('colCredits')}
+                      </TableHead>
+                      <TableHead className="checkin-col-actions w-[272px] text-right">
+                        {t('colActions')}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleAccounts.map((account) => (
+                      <TableRow key={account.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            aria-label={t('selectAccount', { name: account.name })}
+                            checked={selectedIds.has(account.id)}
+                            onChange={() => toggleSelected(account.id)}
+                            className="h-3.5 w-3.5 accent-primary"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {/* UUID-shaped account name: truncate + hover;点击即行内重命名 */}
+                          {renamingId === account.id ? (
+                            <Input
+                              ref={renameInputRef}
+                              value={renameDraft}
+                              aria-label={t('rename')}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void commitRename(account)
+                                if (e.key === 'Escape') cancelRename()
+                              }}
+                              onBlur={() => void commitRename(account)}
+                              disabled={renaming}
+                              className="h-7 max-w-[420px] text-body"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              title={t('rename')}
+                              aria-label={t('rename')}
+                              onClick={() => startRename(account)}
+                              className="block max-w-full cursor-text text-left"
+                            >
+                              <TruncatedText
+                                value={account.name}
+                                className="max-w-[420px] font-medium"
+                              />
+                            </button>
+                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {renderPlatformBadge(account.platform)}
+                            {renderGroupBadge(account.group)}
+                            {renderJwtBadge(account.jwt_exp)}
+                            {renderCooldownBadge(account.cooldown_until)}
+                            {isCheckedInToday(account) && (
+                              <span className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                                {t('checkedInToday')}
+                              </span>
+                            )}
+                          </div>
+                          {/* Fallback slot for the last-checkin column: strictly complementary to that column's visibility, never duplicated nor lost. See globals.css .checkin-page block. */}
+                          <div className="checkin-name-last-checkin mt-1 text-[10px] text-muted-foreground">
+                            {account.last_record
+                              ? `${renderResult(account.last_record.ok)} · ${formatTime(account.last_record.created_at)}`
+                              : t('none')}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={account.enabled}
+                            onCheckedChange={(checked) => void toggleEnabled(account, checked)}
+                            aria-label={t('colEnabled')}
+                          />
+                        </TableCell>
+                        <TableCell className="checkin-col-last-checkin">
+                          {account.last_record ? (
+                            <div className="text-label">
+                              <div>{renderResult(account.last_record.ok)}</div>
+                              <div className="text-muted-foreground">
+                                {formatTime(account.last_record.created_at)}
+                              </div>
+                              {account.last_record.ok === false && account.last_record.message && (
+                                <TruncatedText
+                                  value={account.last_record.message}
+                                  className="mt-0.5 text-[10px] text-muted-foreground"
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-label text-muted-foreground">{t('none')}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="checkin-col-credits">
+                          {(() => {
+                            const info = creditsInfo[account.id]
+                            if (creditsRefreshing.has(account.id)) {
+                              return (
+                                <span className="flex items-center gap-1 text-label text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  {t('creditRefreshing')}
+                                </span>
+                              )
+                            }
+                            if (info) {
+                              return (
+                                <div className="text-label">
+                                  {info.error ? (
+                                    <span className="text-amber-600">{t('creditQueryFail')}</span>
+                                  ) : (
+                                    <>
+                                      <div className="font-medium">{info.remaining ?? '-'}</div>
+                                      {typeof info.delta === 'number' && info.delta !== 0 && (
+                                        <div
+                                          className={
+                                            info.delta > 0 ? 'text-green-600' : 'text-destructive'
+                                          }
+                                        >
+                                          {info.delta > 0 ? `+${info.delta}` : info.delta}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              )
+                            }
+                            return (
+                              account.last_record?.credits ?? (
+                                <span className="text-label text-muted-foreground">
+                                  {t('none')}
+                                </span>
+                              )
+                            )
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                checkingId !== null || allChecking || isCheckedInToday(account)
+                              }
+                              aria-label={
+                                isCheckedInToday(account)
+                                  ? t('checkedInToday')
+                                  : checkingId === account.id
+                                    ? t('checking')
+                                    : t('manualCheckin')
+                              }
+                              onClick={() => void runManualCheckin(account)}
+                            >
+                              {checkingId === account.id && (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              )}
+                              {/* Label hidden below 459px content width by container query; accessible name comes from aria-label */}
+                              <span className="checkin-manual-label">
+                                {isCheckedInToday(account)
+                                  ? t('checkedInToday')
+                                  : checkingId === account.id
+                                    ? t('checking')
+                                    : t('manualCheckin')}
+                              </span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('editJwt')}
+                              onClick={() => openJwtDialog(account)}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('editGroup')}
+                              onClick={() => openGroupDialog(account)}
+                            >
+                              <FolderPen className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('editDeviceMap')}
+                              onClick={() => openDeviceMapDialog(account)}
+                            >
+                              <Laptop className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('delete')}
+                              onClick={() => setDeleteTarget(account)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {/* 记录 / 积分历史 */}
+          <Tabs defaultValue="records" className="mt-6">
+            <TabsList>
+              <TabsTrigger value="records">{t('recordsTab')}</TabsTrigger>
+              <TabsTrigger value="credits">{t('creditsTab')}</TabsTrigger>
+              <TabsTrigger value="board">{t('boardTab')}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="records" className="mt-3">
+              <div className="mb-3">
+                {renderAccountFilter('record-filter', recordFilter, setRecordFilter)}
+              </div>
+              {records.length === 0 ? (
+                <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
+                  {t('emptyRecords')}
+                </div>
+              ) : (
+                <div className="rounded-xl border">
+                  <Table className="table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[140px]">{t('colTime')}</TableHead>
+                        <TableHead className="w-[76px]">{t('colResult')}</TableHead>
+                        <TableHead className="checkin-col-action w-[104px]">
+                          {t('colAction')}
+                        </TableHead>
+                        <TableHead className="checkin-col-message">{t('colMessage')}</TableHead>
+                        <TableHead className="w-[96px]">{t('colCreditsDelta')}</TableHead>
+                        <TableHead className="checkin-col-error-class w-[148px]">
+                          {t('colErrorClass')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {records.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell className="text-label">
+                            {formatTime(record.created_at)}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={
+                                record.ok === true
+                                  ? 'text-green-600'
+                                  : record.ok === false
+                                    ? 'text-destructive'
+                                    : 'text-muted-foreground'
+                              }
+                            >
+                              {renderResult(record.ok)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="checkin-col-action text-label">
+                            {record.action ?? '-'}
+                          </TableCell>
+                          <TableCell className="checkin-col-message text-label">
+                            {record.message ? (
+                              <TruncatedText
+                                value={truncate(record.message, 60)}
+                                className="max-w-full"
+                              />
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-label">
+                            {record.credits_delta === null ? '-' : record.credits_delta}
+                          </TableCell>
+                          <TableCell className="checkin-col-error-class text-label">
+                            {record.classified_error ?? '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {recordHasMore && (
+                <div className="mt-3 text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingMoreRecords}
+                    onClick={() => void loadMoreRecords()}
+                  >
+                    {loadingMoreRecords && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                    {t('loadMore')}
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="credits" className="mt-3">
+              <div className="mb-3">
+                {renderAccountFilter('credit-filter', creditFilter, setCreditFilter)}
+              </div>
+              <p className="mb-3 text-body text-muted-foreground">
+                {t('totalCreditsDelta', { delta: creditsTotal })}
+              </p>
+              {credits.length === 0 ? (
+                <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
+                  {t('emptyCredits')}
+                </div>
+              ) : (
+                <div className="rounded-xl border">
+                  <Table className="table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[180px]">{t('colTime')}</TableHead>
+                        <TableHead>{t('colAction')}</TableHead>
+                        <TableHead className="w-[120px]">{t('colCreditsDelta')}</TableHead>
+                        <TableHead className="checkin-col-current-credits w-[120px]">
+                          {t('colCurrentCredits')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {credits.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-label">
+                            {formatTime(item.created_at)}
+                          </TableCell>
+                          <TableCell className="text-label">{item.action}</TableCell>
+                          <TableCell className="text-label">
+                            <span
+                              className={
+                                item.credits_delta >= 0 ? 'text-green-600' : 'text-destructive'
+                              }
+                            >
+                              {item.credits_delta >= 0
+                                ? `+${item.credits_delta}`
+                                : item.credits_delta}
+                            </span>
+                          </TableCell>
+                          <TableCell className="checkin-col-current-credits text-label">
+                            {item.credits ?? '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {creditHasMore && (
+                <div className="mt-3 text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingMoreCredits}
+                    onClick={() => void loadMoreCredits()}
+                  >
+                    {loadingMoreCredits && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                    {t('loadMore')}
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* 积分看板(Phase1d,对标参考项目:排行 + 趋势 + 今日新增) */}
+            <TabsContent value="board" className="mt-3">
+              {!board.hasData ? (
+                <div className="rounded-xl border p-10 text-center text-body text-muted-foreground">
+                  {t('boardEmpty')}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div className="rounded-xl border p-3">
+                      <p className="mb-2 text-body font-medium">{t('boardRankingTitle')}</p>
+                      <EChart
+                        height={260}
+                        option={{
+                          tooltip: { trigger: 'axis' },
+                          grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
+                          xAxis: { type: 'value' },
+                          yAxis: {
+                            type: 'category',
+                            data: board.ranked.map((r) => r.name),
+                            inverse: true,
+                          },
+                          series: [
+                            {
+                              type: 'bar',
+                              data: board.ranked.map((r) => r.credits),
+                              itemStyle: { borderRadius: rnRadius.sm },
+                            },
+                          ],
+                        }}
+                      />
+                    </div>
+                    <div className="rounded-xl border p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-body font-medium">
+                          {hasDailySeries
+                            ? t('boardTrendTitle')
+                            : t('boardTodayGain', { delta: board.todayGain })}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={refreshingCredits || allChecking}
+                          onClick={() => void refreshCreditsSnapshots()}
+                          aria-label={t('refreshCredits')}
+                        >
+                          {refreshingCredits ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          {t('refreshCredits')}
+                        </Button>
+                      </div>
+                      <EChart
+                        height={260}
+                        option={
+                          hasDailySeries
+                            ? {
+                                // 三线:总数/获得/消耗(消耗=|今日总-获得-昨日总|,对齐参考项目)
+                                tooltip: { trigger: 'axis' },
+                                legend: { top: 0 },
+                                grid: {
+                                  left: 8,
+                                  right: 16,
+                                  top: 28,
+                                  bottom: 8,
+                                  containLabel: true,
+                                },
+                                xAxis: { type: 'category', data: creditsDaily!.days },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  {
+                                    name: t('boardLineTotal'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.total,
+                                    smooth: true,
+                                    connectNulls: false,
+                                  },
+                                  {
+                                    name: t('boardLineGained'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.gained,
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.15 },
+                                  },
+                                  {
+                                    name: t('boardLineConsumed'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.consumed,
+                                    smooth: true,
+                                    connectNulls: false,
+                                  },
+                                ],
+                              }
+                            : {
+                                // 无快照数据时降级:本地签到记录累计趋势
+                                tooltip: { trigger: 'axis' },
+                                grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+                                xAxis: { type: 'category', data: board.trend.map((p) => p.day) },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  {
+                                    type: 'line',
+                                    data: board.trend.map((p) => p.cumulative),
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.15 },
+                                  },
+                                ],
+                              }
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
+
+      {/* 录入对话框 */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('addAccountTitle')}</DialogTitle>
+            <DialogDescription>{t('addAccountDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* 智能导入(2026-10-13):打开即自动检测本机全部平台登录态,勾选一键导入,零 token 零平台选择 */}
+            {desktop ? (
+              <div
+                data-testid="smart-scan-block"
+                className="space-y-2 rounded-sm border bg-muted/40 p-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-body font-medium">{t('addSmartTitle')}</p>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    disabled={scanScanning}
+                    onClick={() => void runSmartScan()}
+                  >
+                    {t('addSmartRescan')}
+                  </Button>
+                </div>
+                {scanScanning ? (
+                  <p className="flex items-center gap-1.5 text-label text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {t('addSmartScanning')}
+                  </p>
+                ) : scanTrae.length === 0 && scanQoder.length === 0 && scanMinimax.length === 0 ? (
+                  <p data-testid="smart-scan-none" className="text-label text-amber-600">
+                    {t('addSmartNone')}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-label text-muted-foreground">{t('deviceMapProxyHint')}</p>
+
+                    {scanTrae.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-label font-medium">
+                          {t('addSmartTraeFound', { count: scanTrae.length })}
+                        </p>
+                        {scanTrae.map((item) => (
+                          <label key={item.user_id} className="flex items-center gap-2 text-body">
+                            <input
+                              type="checkbox"
+                              aria-label={`smartScanTrae:${item.user_id}`}
+                              checked={scanTraeSel.has(item.user_id)}
+                              disabled={!item.jwt}
+                              onChange={(e) =>
+                                toggleSmartSel(setScanTraeSel, item.user_id, e.target.checked)
+                              }
+                            />
+                            {renderPlatformBadge('trae')}
+                            <span className="font-mono">{item.nickname || item.user_id}</span>
+                            {!item.jwt && (
+                              <span className="text-label text-muted-foreground">
+                                {item.source}
+                              </span>
+                            )}
+                          </label>
+                        ))}
+                        {scanTrae.every((a) => !a.jwt) && (
+                          <p className="text-label text-amber-600">{t('captureOpaqueOnly')}</p>
+                        )}
+                      </div>
+                    )}
+                    {scanQoder.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-label font-medium">
+                          {t('addSmartQoderFound', { count: scanQoder.length })}
+                        </p>
+                        {scanQoder.map((item) => {
+                          const key = item.uid || item.app_dir
+                          return (
+                            <label key={key} className="flex items-center gap-2 text-body">
+                              <input
+                                type="checkbox"
+                                aria-label={`smartScanQoder:${key}`}
+                                checked={scanQoderSel.has(key)}
+                                onChange={(e) =>
+                                  toggleSmartSel(setScanQoderSel, key, e.target.checked)
+                                }
+                              />
+                              {renderPlatformBadge('qoder')}
+                              <span className="font-mono">
+                                {item.nickname || item.uid || '本机'}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {scanMinimax.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-label font-medium">
+                          {t('addSmartMinimaxFound', { count: scanMinimax.length })}
+                        </p>
+                        {scanMinimax.map((item) => {
+                          const key = item.uid || item.auth_file
+                          return (
+                            <label key={key} className="flex items-center gap-2 text-body">
+                              <input
+                                type="checkbox"
+                                aria-label={`smartScanMinimax:${key}`}
+                                checked={scanMinimaxSel.has(key)}
+                                disabled={!item.access_token}
+                                onChange={(e) =>
+                                  toggleSmartSel(setScanMinimaxSel, key, e.target.checked)
+                                }
+                              />
+                              {renderPlatformBadge('minimax')}
+                              <span className="font-mono">
+                                {item.nickname || item.uid || '本机'}
+                              </span>
+                              {!item.access_token && (
+                                <span className="text-label text-muted-foreground">
+                                  {t('captureMinimaxNoToken')}
+                                </span>
+                              )}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <Button size="sm" disabled={scanImporting} onClick={() => void importSmart()}>
+                      {scanImporting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {scanImporting ? t('addSmartImporting') : t('addSmartImport')}
+                    </Button>
+                  </div>
+                )}
+                {scanMsg && (
+                  <p data-testid="smart-scan-msg" className="text-label text-amber-600">
+                    {scanMsg}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-label text-muted-foreground">{t('addSmartDesktopOnly')}</p>
+            )}
+            {/* 手动填写(高级):平台/名称/JWT/设备头/分组全部收进折叠区,平时不占版面 */}
+            <details className="group">
+              <summary className="cursor-pointer text-label text-muted-foreground">
+                {t('addManualAdvanced')}
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-platform">{t('platformLabel')}</Label>
+                  <select
+                    id="checkin-platform"
+                    data-testid="platform-select"
+                    value={addPlatform}
+                    onChange={(e) =>
+                      setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder' | 'minimax')
+                    }
+                    className="h-9 w-full rounded-sm border bg-background px-2 text-body"
+                  >
+                    <option value="trae">{t('platformTrae')}</option>
+                    <option value="workbuddy">{t('platformWorkbuddy')}</option>
+                    <option value="qoder">{t('platformQoder')}</option>
+                    <option value="minimax">{t('platformMinimax')}</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-name">{t('name')}</Label>
+                  <Input
+                    id="checkin-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('namePlaceholder')}
+                    maxLength={100}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-jwt">{t('jwt')}</Label>
+                  <textarea
+                    id="checkin-jwt"
+                    value={jwt}
+                    onChange={(e) => setJwt(e.target.value)}
+                    rows={4}
+                    placeholder={t('jwtPlaceholder')}
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-device-map">{t('deviceMap')}</Label>
+                  <textarea
+                    id="checkin-device-map"
+                    value={deviceMapText}
+                    onChange={(e) => setDeviceMapText(e.target.value)}
+                    rows={3}
+                    placeholder={t('deviceMapPlaceholder')}
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-group">{t('groupLabel')}</Label>
+                  <Input
+                    id="checkin-group"
+                    value={groupText}
+                    onChange={(e) => setGroupText(e.target.value)}
+                    placeholder={t('groupPlaceholder')}
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+            </details>
+            {formError && (
+              <p role="alert" className="text-body text-destructive">
+                {formError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={submitting}>
+              {t('cancel')}
+            </Button>
+            <Button
+              onClick={() => void submitAdd()}
+              disabled={submitting || !name.trim() || !jwt.trim()}
+            >
+              {submitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {submitting ? t('submitting') : t('submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 更新 JWT 对话框 */}
+      <Dialog open={jwtTarget !== null} onOpenChange={(open) => !open && setJwtTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('editJwtTitle')}</DialogTitle>
+            <DialogDescription>{t('editJwtDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="checkin-jwt-update">{t('jwt')}</Label>
+              <textarea
+                id="checkin-jwt-update"
+                value={jwtText}
+                onChange={(e) => setJwtText(e.target.value)}
+                rows={4}
+                placeholder={t('jwtPlaceholder')}
+                className="w-full resize-y rounded-sm border bg-background p-2 text-label outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            {jwtFormError && (
+              <p role="alert" className="text-body text-destructive">
+                {jwtFormError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJwtTarget(null)} disabled={jwtSubmitting}>
+              {t('cancel')}
+            </Button>
+            <Button onClick={() => void submitJwt()} disabled={jwtSubmitting || !jwtText.trim()}>
+              {jwtSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {jwtSubmitting ? t('submitting') : t('submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 更新分组对话框(空串 = 移出分组) */}
+      <Dialog open={groupTarget !== null} onOpenChange={(open) => !open && setGroupTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('editGroupTitle')}</DialogTitle>
+            <DialogDescription>{t('editGroupDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="checkin-group-update">{t('colGroup')}</Label>
+              <Input
+                id="checkin-group-update"
+                value={groupValue}
+                onChange={(e) => setGroupValue(e.target.value)}
+                placeholder={t('groupPlaceholder')}
+                maxLength={50}
+              />
+            </div>
+            {groupFormError && (
+              <p role="alert" className="text-body text-destructive">
+                {groupFormError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setGroupTarget(null)}
+              disabled={groupSubmitting}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={() => void submitGroup()} disabled={groupSubmitting}>
+              {groupSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {groupSubmitting ? t('submitting') : t('submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑设备头对话框(device_map 手动编辑;TRAE/Qoder 通用;整体替换语义) */}
+      <Dialog
+        open={deviceMapTarget !== null}
+        onOpenChange={(open) => !open && setDeviceMapTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('editDeviceMapTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('editDeviceMapDescription', { platform: deviceMapTarget?.platform ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-label text-muted-foreground">{t('deviceMapProxyHint')}</p>
+            <div className="space-y-1.5">
+              <Label htmlFor="checkin-device-map-update">{t('deviceMap')}</Label>
+              <textarea
+                id="checkin-device-map-update"
+                value={deviceMapEditText}
+                onChange={(e) => setDeviceMapEditText(e.target.value)}
+                rows={10}
+                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-label outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            {deviceMapFormError && (
+              <p role="alert" className="text-body text-destructive">
+                {deviceMapFormError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeviceMapTarget(null)}
+              disabled={deviceMapSubmitting}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={() => void submitDeviceMap()} disabled={deviceMapSubmitting}>
+              {deviceMapSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {deviceMapSubmitting ? t('submitting') : t('submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('deleteTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('deleteDescription', { name: deleteTarget?.name ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              {t('cancel')}
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting}>
+              {deleting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {t('confirmDelete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 本机捕获对话框(桌面端专属,WP-C) */}
+      {desktop && (
+        <Dialog open={captureOpen} onOpenChange={setCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureTitle')}</DialogTitle>
+              <DialogDescription>
+                {traeDir ? t('captureDirFound', { dir: traeDir }) : t('captureDirMissing')}
+              </DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-body text-destructive">
+                {captureError}
+              </p>
+            )}
+            {captured.length > 0 && (
+              <div className="max-h-60 space-y-2 overflow-y-auto">
+                {captured.map((item) => (
+                  <label key={item.user_id} className="flex items-center gap-2 text-body">
+                    <input
+                      type="checkbox"
+                      aria-label={`captureAccount:${item.user_id}`}
+                      checked={capturedSelected.has(item.user_id)}
+                      disabled={!item.jwt}
+                      onChange={(e) => {
+                        setCapturedSelected((prev) => {
+                          const next = new Set(prev)
+                          if (e.target.checked) next.add(item.user_id)
+                          else next.delete(item.user_id)
+                          return next
+                        })
+                      }}
+                    />
+                    <span className="font-mono">{item.nickname || item.user_id}</span>
+                    <span className="truncate text-label text-muted-foreground">{item.source}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={capturing}
+                onClick={() => void runCapture()}
+              >
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || capturedSelected.size === 0}
+                onClick={() => void importCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: capturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 Qoder 捕获对话框(桌面端专属,2026-10-10 平台化) */}
+      {desktop && (
+        <Dialog open={qoderCaptureOpen} onOpenChange={setQoderCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureQoderTitle')}</DialogTitle>
+              <DialogDescription>{t('captureQoderDescription')}</DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-body text-destructive">
+                {captureError}
+              </p>
+            )}
+            {qoderCaptured.length > 0 && (
+              <div className="max-h-60 space-y-2 overflow-y-auto">
+                {qoderCaptured.map((item) => {
+                  const key = qoderKey(item)
+                  return (
+                    <label key={key} className="flex items-center gap-2 text-body">
+                      <input
+                        type="checkbox"
+                        aria-label={`captureQoderAccount:${key}`}
+                        checked={qoderCapturedSelected.has(key)}
+                        onChange={(e) => {
+                          setQoderCapturedSelected((prev) => {
+                            const next = new Set(prev)
+                            if (e.target.checked) next.add(key)
+                            else next.delete(key)
+                            return next
+                          })
+                        }}
+                      />
+                      <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
+                      <span className="truncate text-label text-muted-foreground">
+                        {item.edition}
+                        {item.version ? ` · v${item.version}` : ''}
+                        {item.machine_id ? ` · ${item.machine_id}` : ''}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={capturing}
+                onClick={() => void runQoderCapture()}
+              >
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureQoderScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || qoderCapturedSelected.size === 0}
+                onClick={() => void importQoderCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: qoderCapturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 WorkBuddy 捕获对话框(桌面端专属,2026-10-12 第三平台);
+          加密行(5.8+ 信封)展示 token 粘贴框,明文行直接导入 */}
+      {desktop && (
+        <Dialog open={wbCaptureOpen} onOpenChange={setWbCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureWbTitle')}</DialogTitle>
+              <DialogDescription>{t('captureWbDescription')}</DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-body text-destructive">
+                {captureError}
+              </p>
+            )}
+            {/* 网页登录(2026-10-18 自动闭环版):主入口 = 项目内嵌浏览器打开
+                登录页 → 登录成功后自动获取授权与账号信息(uid/昵称)并自动回到
+                本页入库(cookie jar 归应用,无需粘贴);下级入口 = 系统默认浏览器
+                打开(浏览器安全隔离,应用读不到它的 Cookie,需手动粘贴导入,
+                粘贴时同样先探测账号再入库) */}
+            <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-body font-medium">{t('captureWbWebTitle')}</p>
+                  <p className="text-label text-muted-foreground">{t('captureWbWebDescription')}</p>
+                </div>
+                {wbWebLoginState === 'waiting' ? (
+                  // 等待态仍保留「系统浏览器打开」:内嵌窗里登录嫌麻烦(扫码/风控)时
+                  // 不必先取消再换入口,一键切默认浏览器 + 粘贴导入(2026-10-18)。
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={cancelWbWebLogin}>
+                      {t('captureWbWebCancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void startWbWebLoginSystemBrowser()}
+                    >
+                      {t('captureWbWebOpen')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={wbWebLoginState === 'importing'}
+                      onClick={() => void startWbWebLogin()}
+                    >
+                      {wbWebLoginState === 'importing' && (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      )}
+                      {t('captureWbWebEmbed')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={wbWebLoginState === 'importing'}
+                      onClick={() => void startWbWebLoginSystemBrowser()}
+                    >
+                      {t('captureWbWebOpen')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {wbWebLoginState === 'waiting' && (
+                // 系统浏览器路径的收尾一步:把浏览器里的登录 Cookie 粘进来导入
+                // (内嵌浏览器自动路径不显示此框:登录成功即自动入库)
+                <div className="flex items-center gap-2">
+                  <Input
+                    data-testid="wb-paste-input"
+                    value={wbPasteDraft}
+                    onChange={(e) => setWbPasteDraft(e.target.value)}
+                    placeholder={t('captureWbWebPastePlaceholder')}
+                    className="h-8 min-w-0 flex-1 text-label"
+                  />
+                  <Button size="sm" onClick={() => void importWbPastedCookie()}>
+                    {t('captureWbWebPasteImport')}
+                  </Button>
+                </div>
+              )}
+              {wbWebLoginMsg && (
+                <p
+                  data-testid="wb-web-login-msg"
+                  className={`text-label ${
+                    wbWebLoginState === 'done' ? 'text-emerald-600' : 'text-amber-600'
+                  }`}
+                >
+                  {wbWebLoginMsg}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-1 text-label text-muted-foreground">
+              <span>{t('captureWbManualDivider')}</span>
+            </div>
+            {wbCaptured.length > 0 && (
+              <div className="max-h-72 space-y-2 overflow-y-auto">
+                {wbCaptured.map((item) => {
+                  const key = wbKey(item)
+                  return (
+                    <div key={key} className="space-y-1">
+                      <label className="flex items-center gap-2 text-body">
+                        <input
+                          type="checkbox"
+                          aria-label={`captureWbAccount:${key}`}
+                          checked={wbCapturedSelected.has(key)}
+                          onChange={(e) => {
+                            setWbCapturedSelected((prev) => {
+                              const next = new Set(prev)
+                              if (e.target.checked) next.add(key)
+                              else next.delete(key)
+                              return next
+                            })
+                          }}
+                        />
+                        <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
+                        <span className="truncate text-label text-muted-foreground">
+                          {item.domain}
+                          {item.expires_at > 0
+                            ? ` · ${new Date(item.expires_at * 1000).toLocaleString()}`
+                            : ''}
+                        </span>
+                        {item.encrypted && (
+                          <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                            {t('captureWbEncrypted')}
+                          </span>
+                        )}
+                      </label>
+                      {item.encrypted && wbCapturedSelected.has(key) && (
+                        <input
+                          data-testid={`wb-token-input:${key}`}
+                          type="password"
+                          autoComplete="off"
+                          value={wbTokenDrafts[key] ?? ''}
+                          onChange={(e) =>
+                            setWbTokenDrafts((prev) => ({ ...prev, [key]: e.target.value }))
+                          }
+                          placeholder={t('captureWbTokenPlaceholder')}
+                          className="ml-6 h-8 w-[calc(100%-1.5rem)] rounded-sm border bg-background px-2 font-mono text-label"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={capturing}
+                onClick={() => void runWbCapture()}
+              >
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureWbScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || wbCapturedSelected.size === 0}
+                onClick={() => void importWbCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: wbCapturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 TRAE 维护对话框(桌面端专属,WP-C);busy 中禁止关闭防中途失控 */}
+      {desktop && (
+        <Dialog
+          open={maintOpen}
+          onOpenChange={(open) => {
+            if (!open && (maintBusy || wizardBusy)) return
+            setMaintOpen(open)
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('maintTitle')}</DialogTitle>
+              <DialogDescription>{t('maintDescription')}</DialogDescription>
+            </DialogHeader>
+            {maintError && (
+              <p role="alert" className="text-body text-destructive">
+                {maintError}
+              </p>
+            )}
+            <div className="space-y-3">
+              {/* 一键解决风控向导(傻瓜式主入口,2026-10-10) */}
+              <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
+                <p className="text-body font-medium">{t('wizardTitle')}</p>
+                {/* 24h 冷却常驻条:只要处于冷却期(无论哪个 Step)都显示,反复提醒"别登录" */}
+                {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
+                  <p className="text-label text-amber-700 dark:text-amber-400">
+                    {t('wizardCooldownActive', {
+                      hours: Math.max(
+                        1,
+                        Math.ceil((24 * 3600_000 - (Date.now() - lastResetAt)) / 3600_000),
+                      ),
+                    })}
+                  </p>
+                )}
+                {wizardStep === 0 && (
+                  <>
+                    <p className="text-label text-muted-foreground">{t('wizardIntro')}</p>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={wizardBusy || maintBusy}
+                      onClick={() => void startOneClickReset()}
+                    >
+                      {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardStart')}
+                    </Button>
+                  </>
+                )}
+                {wizardStep === 2 && (
+                  <>
+                    {wizardIpBefore ? (
+                      <p className="text-label text-muted-foreground">
+                        {wizardIpLoc
+                          ? t('wizardIpBefore', { ip: wizardIpBefore, location: wizardIpLoc })
+                          : t('wizardIpBeforeNoLoc', { ip: wizardIpBefore })}
+                      </p>
+                    ) : (
+                      <p className="text-label text-muted-foreground">{t('wizardRefetchHint')}</p>
+                    )}
+                    <p className="text-label text-muted-foreground">{t('wizardGuide')}</p>
+                    {wizardIpFailCount >= 3 && (
+                      <p className="text-label font-medium text-amber-700 dark:text-amber-400">
+                        {t('wizardIpFailMany')}
+                      </p>
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={wizardBusy || maintBusy}
+                      onClick={() => void verifyIpChanged()}
+                    >
+                      {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardVerify')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={wizardBusy || maintBusy}
+                      onClick={skipIpVerify}
+                    >
+                      {t('wizardSkipIp')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={wizardBusy || wizardAuditing || maintBusy}
+                      onClick={() => void runResidualAudit()}
+                    >
+                      {wizardAuditing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardAuditRerun')}
+                    </Button>
+                  </>
+                )}
+                {wizardStep === 3 && (
+                  <>
+                    <p className="text-label text-green-600 dark:text-green-400">
+                      {t('wizardIpChanged', { ip: wizardIpNow })}
+                    </p>
+                    <p className="text-label text-muted-foreground">{t('wizardCooldown')}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={wizardBusy || wizardAuditing || maintBusy}
+                      onClick={restartWizard}
+                    >
+                      {t('wizardRestart')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={wizardBusy || wizardAuditing || maintBusy}
+                      onClick={() => void runResidualAudit()}
+                    >
+                      {wizardAuditing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardAuditRerun')}
+                    </Button>
+                  </>
+                )}
+                {wizardMsg.length > 0 && (
+                  <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2 text-label">
+                    {wizardMsg.join('\n')}
+                  </pre>
+                )}
+                {/* 残留指纹审计面板:只在真的扫过之后出现(未扫过时 wizardAudit 为 null) */}
+                {wizardAudit && (
+                  <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
+                    <p className="text-label font-medium">{t('wizardAuditTitle')}</p>
+                    {wizardAuditing && (
+                      <p className="text-label text-muted-foreground">{t('wizardAuditScanning')}</p>
+                    )}
+                    <p className="text-label text-muted-foreground">
+                      {t('wizardAuditScope', {
+                        files: wizardAudit.scanned_files,
+                        mb: Math.round(wizardAudit.scanned_mb * 10) / 10,
+                        sites: wizardAudit.sites_present,
+                      })}
+                    </p>
+                    {wizardAudit.blacklist_size === 0 ? (
+                      <p className="text-label text-muted-foreground">
+                        {t('wizardAuditNoHistory')}
+                      </p>
+                    ) : wizardAudit.ok ? (
+                      <p className="text-label text-green-600 dark:text-green-400">
+                        {t('wizardAuditClean')}
+                      </p>
+                    ) : (
+                      <p className="text-label text-amber-600 dark:text-amber-400">
+                        {t('wizardAuditResidual', { n: wizardAudit.hard_hits })}
+                      </p>
+                    )}
+                    {!wizardAudit.ok && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={wizardBusy || wizardAuditing || maintBusy}
+                        onClick={() => void startOneClickReset()}
+                      >
+                        {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                        {t('wizardResidualReclean')}
+                      </Button>
+                    )}
+                    {wizardAudit.hard_hit_files.length > 0 && (
+                      <ul className="space-y-0.5 text-label">
+                        {wizardAudit.hard_hit_files.slice(0, 8).map((hit) => (
+                          <li key={hit.file} className="truncate font-mono">
+                            {hit.file} ×{hit.count} {hit.sample}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {wizardAudit.suspect_hits > 0 && (
+                      <p className="text-label text-amber-600 dark:text-amber-400">
+                        {t('wizardAuditSuspect', { n: wizardAudit.suspect_hits })}
+                      </p>
+                    )}
+                    {wizardAudit.registry.length > 0 && (
+                      <details className="text-label">
+                        <summary className="cursor-pointer text-muted-foreground">
+                          {t('wizardAuditRegistry')}
+                        </summary>
+                        <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2">
+                          {wizardAudit.registry.join('\n')}
+                        </pre>
+                      </details>
+                    )}
+                    {wizardAudit.hardware.length > 0 && (
+                      <details className="text-label">
+                        <summary className="cursor-pointer text-muted-foreground">
+                          {t('wizardAuditHardware')}
+                        </summary>
+                        <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2">
+                          {wizardAudit.hardware.join('\n')}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
+                {wizardStep === 2 &&
+                  (wizardCriticalFail ? (
+                    <p className="text-label font-medium text-destructive">
+                      {t('wizardCriticalFailNote')}
+                    </p>
+                  ) : (
+                    <p className="text-label text-muted-foreground">{t('wizardOptionalNote')}</p>
+                  ))}
+              </div>
+              <div>
+                <Label htmlFor="checkin-maint-user-id">{t('maintUserIdLabel')}</Label>
+                <Input
+                  id="checkin-maint-user-id"
+                  value={maintUserId}
+                  onChange={(e) => setMaintUserId(e.target.value)}
+                  placeholder="user_id"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={maintBusy || wizardBusy}
+                  onClick={() => void resetDeviceIds()}
+                >
+                  {t('maintReset')}
+                </Button>
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    disabled={maintBusy || wizardBusy}
+                    checked={maintIncludeGuid}
+                    onChange={(e) => setMaintIncludeGuid(e.target.checked)}
+                  />
+                  {t('maintIncludeGuid')}
+                </label>
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    disabled={maintBusy || wizardBusy}
+                    checked={maintIncludeBrowser}
+                    onChange={(e) => setMaintIncludeBrowser(e.target.checked)}
+                  />
+                  {t('maintIncludeBrowser')}
+                </label>
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    disabled={maintBusy || wizardBusy}
+                    checked={maintDeepReset}
+                    onChange={(e) => setMaintDeepReset(e.target.checked)}
+                  />
+                  {t('maintDeepReset')}
+                </label>
+                <label className="flex items-center gap-1 text-label text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    disabled={maintBusy || wizardBusy}
+                    checked={maintIncludeMac}
+                    onChange={(e) => setMaintIncludeMac(e.target.checked)}
+                  />
+                  {t('maintIncludeMac')}
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={maintBusy}
+                  onClick={() => void backupSnapshot()}
+                >
+                  {t('maintBackup')}
+                </Button>
+              </div>
+              {maintReport.length > 0 && (
+                <pre className="max-h-40 overflow-y-auto rounded bg-muted p-2 text-label">
+                  {maintReport.join('\n')}
+                </pre>
+              )}
+              <div>
+                <p className="mb-1 text-body font-medium">{t('snapshotsTitle')}</p>
+                {snapshots.length === 0 ? (
+                  <p className="text-label text-muted-foreground">{t('snapshotsEmpty')}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {snapshots.map((s) => (
+                      <li
+                        key={s.user_id}
+                        className="flex items-center justify-between gap-2 text-body"
+                      >
+                        <span className="truncate font-mono text-label">{s.user_id}</span>
+                        <span className="text-label text-muted-foreground">{s.kinds.length}</span>
+                        <span className="flex shrink-0 gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={maintBusy}
+                            onClick={() => void restoreSnapshot(s.user_id)}
+                          >
+                            {t('maintRestore')}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={maintBusy}
+                            onClick={() => void deleteSnapshot(s.user_id)}
+                          >
+                            {t('maintDelete')}
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setMaintOpen(false)}>
+                {t('maintClose')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </Container>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

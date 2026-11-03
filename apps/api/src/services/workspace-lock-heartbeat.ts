@@ -1,0 +1,307 @@
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * 工作区锁心跳管理 + 统一释放(2-2 P0-1/P0-2 修复)。
+ *
+ * P0-1 心跳续期:
+ *   原状:transition 端点抢锁后即返回,生产代码零续期调用方;长任务超过
+ *        TTL(120s)后锁静默过期,可被其他任务抢走,原持有者仍以为独占工作区。
+ *   方案:抢锁成功后启动 per-task 定时续期(间隔 = TTL/3 = 40s,与 ai-service
+ *        workspace_lock.py 的 WORKSPACE_LOCK_HEARTBEAT_INTERVAL 同款);续期
+ *        失败(锁已丢)时把任务回写 blocked 并 SSE 告警;离开 in_progress /
+ *        删除 / dispatch 终态时停止。
+ *
+ * P0-2 释放收敛:
+ *   原状:admin PUT/DELETE 与 subagent dispatch 终态直接写库,不释放锁、
+ *        不清 lockedBy、不广播 SSE → 锁与任务状态脱节。
+ *   方案:所有"任务离开 in_progress"的写路径统一经过本模块的释放原语。
+ */
+import { eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { agentTasks } from '@ihui/database'
+import { logger } from '../utils/logger.js'
+import { renewWorkspaceLock, releaseWorkspaceLock, WORKSPACE_LOCK_TTL } from './workspace-lock.js'
+import { broadcastSSEEvent } from './agent-sse-bus.js'
+import type { AgentTaskStatus } from '@ihui/types'
+import type { ExtendedDispatchStatus } from '@ihui/shared/subagents'
+
+/**
+ * G-672(2026-10-01):释放/结算原语的 outcome 形参 —— 两个登记域各剔除本域"未到终点"的档:
+ * dispatch 域(ExtendedDispatchStatus)剔 pending/running/paused,kanban 域(AgentTaskStatus)剔 in_progress。
+ * 仍持有工作区锁的任务被当成已结算释放 = 锁悬挂 —— 这一档现在**结构上装不进来**;
+ * 字符串调用点(如 dispatch 的 as-cast 强转态)先经 {@link toLockReleaseOutcome} 收窄再传。
+ * `deleted` 是删除路径的结算档:行被移除本身即结算事实,不属于任何状态词汇表。
+ */
+export type LockReleaseOutcome =
+  // interrupted(F1 2026-11-02)是启动恢复的**过渡态**(随即自动转 pending 重跑);
+  // queued(F2 2026-11-02)是**等槽位**的排队态,尚未执行;
+  // 两者都不是终态 ⇒ 不释放工作区锁,也不进 agent_tasks 结算(与 pending/running/paused 同档排除)。
+  | Exclude<ExtendedDispatchStatus, 'pending' | 'running' | 'paused' | 'interrupted' | 'queued'>
+  | Exclude<AgentTaskStatus, 'in_progress'>
+  | 'deleted'
+
+/** outcome 合法档运行时登记表(与 LockReleaseOutcome 同源,缺员由下方编译期断言钉住) */
+const LOCK_RELEASE_OUTCOME_VALUES = [
+  'completed',
+  'failed',
+  'cancelled',
+  'preempted',
+  'quota_exceeded',
+  'triage',
+  'todo',
+  'ready',
+  'blocked',
+  // G-462(2026-10-07):kanban 域拆出四个独立终态档;cancelled/preempted/quota_exceeded
+  // 与 dispatch 域同拼写(表内已有),execution_failed 是新拼写,必须同枚进表
+  'execution_failed',
+  'done',
+  'deleted',
+] as const satisfies readonly LockReleaseOutcome[]
+
+/** 编译期钉:登记表缺员 ⇒ 非 never 报错(任何域加档必须同批进表);void 引用绕开 noUnusedLocals */
+type _OutcomeTableCoversUnion =
+  LockReleaseOutcome extends (typeof LOCK_RELEASE_OUTCOME_VALUES)[number] ? true : never
+const _outcomeTableCoversUnion: _OutcomeTableCoversUnion = true
+
+/** 字符串状态 → 合法 outcome;未到终点的档返回 null(调用方据此走自己的分支,不进释放原语)。 */
+export function toLockReleaseOutcome(status: string): LockReleaseOutcome | null {
+  void _outcomeTableCoversUnion
+  return (LOCK_RELEASE_OUTCOME_VALUES as readonly string[]).includes(status)
+    ? (status as LockReleaseOutcome)
+    : null
+}
+
+/** 心跳间隔 = TTL/3(与 ai-service WORKSPACE_LOCK_HEARTBEAT_INTERVAL 一致) */
+export const LOCK_HEARTBEAT_INTERVAL_MS = Math.max(
+  1000,
+  Math.floor((WORKSPACE_LOCK_TTL * 1000) / 3),
+)
+
+type AgentTaskRow = typeof agentTasks.$inferSelect
+
+interface HeartbeatEntry {
+  workspace: string
+  token: string
+  timer: NodeJS.Timeout
+}
+
+const heartbeats = new Map<string, HeartbeatEntry>()
+
+function extractWorkspace(row: AgentTaskRow): string | undefined {
+  const payload = row.payload ?? {}
+  return (
+    row.workspacePath ??
+    (typeof payload.workspacePath === 'string' ? payload.workspacePath : undefined)
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 心跳管理
+// ---------------------------------------------------------------------------
+
+/** 启动 per-task 锁心跳(重复调用以最后一次为准,先清旧定时器) */
+export function startLockHeartbeat(taskId: string, workspace: string, token: string): void {
+  stopLockHeartbeat(taskId)
+  const timer = setInterval(() => {
+    void _tick(taskId)
+  }, LOCK_HEARTBEAT_INTERVAL_MS)
+  timer.unref?.()
+  heartbeats.set(taskId, { workspace, token, timer })
+  logger.info('[workspace-lock-heartbeat] 心跳已启动', {
+    taskId,
+    workspace,
+    intervalMs: LOCK_HEARTBEAT_INTERVAL_MS,
+  })
+}
+
+/** 停止心跳(不释放锁;释放走 releaseLockToken / releaseTaskLockFromRow) */
+export function stopLockHeartbeat(taskId: string): void {
+  const entry = heartbeats.get(taskId)
+  if (!entry) return
+  clearInterval(entry.timer)
+  heartbeats.delete(taskId)
+}
+
+async function _tick(taskId: string): Promise<void> {
+  const entry = heartbeats.get(taskId)
+  if (!entry) return
+  let ok = false
+  try {
+    ok = await renewWorkspaceLock(entry.workspace, entry.token)
+  } catch (e) {
+    // 瞬时异常(Redis 抖动等):不立刻判死,下一轮再试
+    logger.warn('[workspace-lock-heartbeat] renew 异常(下轮重试)', { taskId, error: e })
+    return
+  }
+  if (ok) return
+
+  // 驱逐前身份判(G-21 格⑤ 同族纪律「按记录本体做 CAS 身份判,不按 key 一刀切」,2026-10-28):
+  // 本次 tick 读到的登记必须**仍是**当前登记,才轮得到它判死。反例(修复前按 key 无条件停):
+  // 旧 token 的 renew 在途 → re-dispatch 已 startLockHeartbeat 换上新 token/新计时器 → 旧 tick
+  // 回来读到 ok=false,`stopLockHeartbeat(taskId)` 把**新的**心跳一并停掉;此后新锁无人续期,
+  // TTL 到点静默过期,而这条路径连一行日志都不会留(失效方向是安静)。判断权只归同一次登记。
+  if (heartbeats.get(taskId) !== entry) {
+    logger.debug('[workspace-lock-heartbeat] 旧 tick 续期失败但登记已被新一次启动取代,不判死', {
+      taskId,
+      workspace: entry.workspace,
+    })
+    return
+  }
+
+  // 锁已丢失:停心跳 → 回写 blocked → SSE 告警
+  stopLockHeartbeat(taskId)
+  logger.error('[workspace-lock-heartbeat] 续期失败,锁已丢失', {
+    taskId,
+    workspace: entry.workspace,
+  })
+  try {
+    const [row] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
+    if (!row) return
+    // 仅当任务仍持有同一把锁时回写(避免覆盖并发 transition 的结果)
+    const payload = row.payload ?? {}
+    if (payload.workspaceLockToken !== entry.token) return
+    const { workspaceLockToken: _removed, ...restPayload } = payload
+    await db
+      .update(agentTasks)
+      .set({
+        status: 'blocked',
+        errorMessage: `工作区锁心跳续期失败(TTL ${WORKSPACE_LOCK_TTL}s 内未续上,可能被其他任务抢占),任务自动转 blocked`,
+        payload: restPayload,
+        lockedBy: null,
+        lockedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(agentTasks.id, taskId))
+    broadcastSSEEvent({
+      type: 'workspace_lock_released',
+      taskId,
+      payload: {
+        workspace: entry.workspace,
+        task: taskId,
+        teamId: row.teamId ?? undefined,
+        released: false,
+        reason: 'heartbeat_lost',
+      },
+      timestamp: new Date().toISOString(),
+    })
+    broadcastSSEEvent({
+      type: 'task_status_changed',
+      taskId,
+      payload: {
+        fromStatus: 'in_progress',
+        toStatus: 'blocked',
+        reason: 'workspace_lock_heartbeat_lost',
+        task: { id: taskId, status: 'blocked', teamId: row.teamId ?? undefined },
+      },
+      timestamp: new Date().toISOString(),
+    })
+  } catch (err) {
+    logger.error('[workspace-lock-heartbeat] 锁丢失回写失败', { taskId, error: err })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 统一释放原语(P0-2 收敛点)
+// ---------------------------------------------------------------------------
+
+/**
+ * 释放锁原语:停心跳 → 凭 token 释放 → 广播 workspace_lock_released。
+ * 不写 DB(调用方自行决定如何更新任务行,transition 已有整行更新)。
+ * outcome(G-672)是本次释放归属的结算档 —— 未到终点的档在类型上进不来。
+ */
+export async function releaseLockToken(
+  taskId: string,
+  workspace: string,
+  token: string,
+  teamId: string | null | undefined,
+  outcome: LockReleaseOutcome,
+): Promise<boolean> {
+  stopLockHeartbeat(taskId)
+  const released = await releaseWorkspaceLock(workspace, token)
+  logger.debug('[workspace-lock-heartbeat] 释放工作区锁(G-672 outcome 类型闸)', {
+    taskId,
+    workspace,
+    outcome,
+  })
+  broadcastSSEEvent({
+    type: 'workspace_lock_released',
+    taskId,
+    payload: {
+      workspace,
+      task: taskId,
+      teamId: teamId ?? undefined,
+      released,
+    },
+    timestamp: new Date().toISOString(),
+  })
+  return released
+}
+
+export interface ReleaseTaskLockResult {
+  /** 是否持有锁(payload 中有 token) */
+  hadLock: boolean
+  /** 释放是否真正生效(token 匹配) */
+  released: boolean
+  workspace?: string
+}
+
+/**
+ * 行级统一释放:停心跳 → 释放锁 → 清 payload token / lockedBy / lockedAt → 广播。
+ * 调用方已持有任务行时用这个(admin PUT/DELETE、transition 备份路径),避免二次查询。
+ * 无锁但审计字段残留(历史 dispatch 写的 lockedBy)时仅清理审计字段。
+ * outcome(G-672):本次释放归属的结算档,未到终点/执行中的档结构上传不进来。
+ */
+export async function releaseTaskLockFromRow(
+  row: AgentTaskRow,
+  outcome: LockReleaseOutcome,
+): Promise<ReleaseTaskLockResult> {
+  stopLockHeartbeat(row.id)
+  const payload = row.payload ?? {}
+  const token =
+    typeof payload.workspaceLockToken === 'string' ? payload.workspaceLockToken : undefined
+  const workspace = extractWorkspace(row)
+
+  if (!token || !workspace) {
+    if (row.lockedBy || row.lockedAt) {
+      await db
+        .update(agentTasks)
+        .set({ lockedBy: null, lockedAt: null, updatedAt: new Date() })
+        .where(eq(agentTasks.id, row.id))
+    }
+    return { hadLock: false, released: false }
+  }
+
+  const released = await releaseLockToken(row.id, workspace, token, row.teamId, outcome)
+  const { workspaceLockToken: _removed, ...restPayload } = payload
+  await db
+    .update(agentTasks)
+    .set({
+      payload: restPayload,
+      lockedBy: null,
+      lockedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(agentTasks.id, row.id))
+  return { hadLock: true, released, workspace }
+}
+
+/** 按 id 查行后统一释放(dispatch 终态 / 兜底路径);任务不存在返回未持有 */
+export async function releaseTaskLockByTaskId(
+  taskId: string,
+  outcome: LockReleaseOutcome,
+): Promise<ReleaseTaskLockResult> {
+  stopLockHeartbeat(taskId)
+  const [row] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
+  if (!row) return { hadLock: false, released: false }
+  return releaseTaskLockFromRow(row, outcome)
+}
+
+/** 测试隔离:停掉全部心跳定时器并清空注册表 */
+export function _resetLockHeartbeats(): void {
+  for (const entry of heartbeats.values()) clearInterval(entry.timer)
+  heartbeats.clear()
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

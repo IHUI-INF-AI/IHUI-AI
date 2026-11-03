@@ -1,0 +1,716 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""WorkBuddy(腾讯 AI 办公台)Buddy 加油站每日签到引擎 — 第三平台引擎(2026-10-12 立)。
+
+与 checkin_engine(TRAE)/ checkin_qoder 平级,API 契约平移自社区公开逆向成果
+(MIT 授权,原始版权与来源声明在此保留):
+- cat-xierluo/legal-skills 的 workbuddy-checkin skill(原始 v1.0.3)
+- Coco-katarina/workbuddy-checkin(Windows 适配修复版,checkin.sh 为准)
+
+接口契约(逆向自客户端,以 checkin.sh 实测为准):
+1. 鉴权是 Bearer token(WorkBuddy 桌面端登录态,本机
+   %LOCALAPPDATA%\\CodeBuddyExtension\\Data\\Public\\auth\\workbuddy-desktop.info);
+2. 查状态 POST https://copilot.tencent.com/billing/meter/checkin-status,空体 {},
+   响应 data.today_checked_in(**实测不可靠**:2026-10-17 生产实证账号实际已签
+   —— daily-checkin 返回 code=10001 —— 该字段仍报 false;active=false 时该响应
+   为默认空态)。余额字段为 data.**total_credits**(下划线+复数);
+3. 领取 POST https://copilot.tencent.com/billing/meter/daily-checkin,空体 {},
+   响应 {code, msg, data}:code==0 成功(data.credit / data.streak_days),
+   code==10001 今日已签(幂等,视为成功;**实测 HTTP 状态码为 400**,
+   响应体 {"code":10001,"msg":"今天已签到，请明天再来"} —— 必须按 code 判,
+   不能按 HTTP>=400 一律判失败);每日 00:00(UTC+8)后随时可领。
+4. 鉴权失败一律按 HTTP 状态码判定(401/403),不扫响应体(响应体含随机
+   requestId,子串匹配会随机误判 —— 上游 issue 实证)。
+
+本机登录态加密(2026-10-12 真机实证):WorkBuddy 桌面端 5.8+ 把
+auth.accessToken/refreshToken 包进 {$wbEncrypted:1, envelope:<base64>} 信封
+(suite 1 = AES-256-GCM,密钥经 WORKBUDDY_AT_REST_ENCRYPTION 注入,只存在于
+客户端进程内,磁盘/环境块/堆扫描均不可得)⇒ 桌面端抓取对加密形态返回明确
+指引(见 checkin_capture.rs workbuddy 段),token 亦可由用户手动粘贴。
+token 本体是标准 JWT(Keycloak 风格,sub=uid、exp 过期)。
+
+结构化 dict 契约与 checkin_engine.checkin_account / checkin_qoder 完全一致
+(ok/status/action/user_id/code/message/http_status/credits/credits_delta/
+classified_error/warning),供同一套 records/冷却/积分流水消费。
+"""
+
+from __future__ import annotations
+
+import base64
+import datetime
+import json
+from typing import Any, Final
+
+import httpx
+
+from app.core.logging import get_logger
+
+# `DEFAULT_TIMEOUT as DEFAULT_TIMEOUT` 是**显式再导出**:checkin_scheduler 按
+# `checkin_workbuddy.DEFAULT_TIMEOUT` 取值,而 mypy --strict 的 no_implicit_reexport
+# 不把裸 import 当导出(HEAD 实测 1 error 挡住全队提交)。
+from app.services.checkin_codes import PLATFORM_WORKBUDDY, is_already_checked_in
+from app.services.checkin_engine import DEFAULT_TIMEOUT as DEFAULT_TIMEOUT
+from app.services.checkin_engine import get_http_client
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
+
+logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# 常量(平移自参考实现 checkin.sh)
+# ---------------------------------------------------------------------------
+
+WB_BASE: Final = "https://copilot.tencent.com"
+PATH_CHECKIN_STATUS: Final = "/billing/meter/checkin-status"
+PATH_DAILY_CHECKIN: Final = "/billing/meter/daily-checkin"
+_USER_AGENT: Final = "WorkBuddy/checkin"
+
+# 网页会话必须伪装成真实浏览器:2026-10-24 实测,本域 WAF 对自定义 UA
+# (IHUI-Desktop-Checkin)一律 401;同一 cookie 换 Chrome UA 立即 200(连测 3/3)。
+# 优先用抽取时记下的浏览器 UA(会话可能绑 UA),缺失才回落此值。
+_WEB_UA_FALLBACK: Final = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
+)
+PATH_WEB_ACCOUNT: Final = "/console/account"
+
+# Web Cookie 模式(2026-10-12 立「网页登录自动添加」):签到接口本域双网关同服务
+# (asar 实证 /v2/billing/meter/daily-checkin 与 copilot.tencent.com 并存),
+# 网页版全 Cookie 认证(asar 原话「Web 端已由浏览器 Cookie 保持登录态」)。
+# 桌面端 WebView 登录后 cookie jar 全量(含 HttpOnly)落库到 jwt 字段(加密),
+# device_map.login_type="web" 标记模式。
+WB_WEB_BASE: Final = "https://www.workbuddy.cn"
+PATH_WEB_CHECKIN_STATUS: Final = "/v2/billing/meter/checkin-status"
+PATH_WEB_DAILY_CHECKIN: Final = "/v2/billing/meter/daily-checkin"
+
+# 业务码:0=成功;「今日已签」码值(实测 10001)的判据单源在 checkin_codes,
+# 本文件不再直写。其余非零按失败处理。
+_CODE_OK: Final = 0
+
+# 余额字段候选键(checkin-status 响应 data 内)。**顺序即优先级**。
+# 2026-10-17 生产实测:官方字段名是 `total_credits`(下划线+复数),
+# 此前只列了 total_credit/totalCredit/credits 三个错形 ⇒ 永远解析不到 ⇒ 官方积分列全报
+# 「状态响应不含积分余额字段」。穷举 /billing/meter/{credits,balance,quota,...} 全 404,
+# checkin-status 是唯一余额来源,故 total_credits 必须列首位。
+_BALANCE_KEYS: Final = (
+    "total_credits",
+    "total_credit",
+    "totalCredit",
+    "remaining",
+    "credit",
+    "balance",
+    "credits",
+)
+EXPIRY_WARN_HOURS: Final = 24  # token 剩余有效期低于该值时发出告警(与 TRAE/Qoder 一致)
+
+
+# ---------------------------------------------------------------------------
+# token 解析(WorkBuddy token 是标准 JWT,uid 在 sub;非 JWT 串不作硬拒绝)
+# ---------------------------------------------------------------------------
+
+
+def workbuddy_extract_uid(jwt: str) -> str | None:
+    """从 WorkBuddy JWT payload 里取 uid(sub/uid/user_id/userId/id),不校验签名。"""
+    parts = (jwt or "").strip().split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    for key in ("sub", "uid", "user_id", "userId", "id"):
+        val = payload.get(key)
+        if isinstance(val, (str, int)) and str(val):
+            return str(val)
+    return None
+
+
+def workbuddy_device_map_uid(device_map: dict[str, Any]) -> str | None:
+    """从 device_map 取账号 uid(桌面端捕获落库的 uid/user_id/userId)。"""
+    for key in ("uid", "user_id", "userId"):
+        val = device_map.get(key)
+        if isinstance(val, (str, int)) and str(val).strip():
+            return str(val).strip()
+    return None
+
+
+def workbuddy_is_web_mode(device_map: dict[str, Any]) -> bool:
+    """device_map.login_type == "web" ⇒ 网页登录 Cookie 模式(jwt 字段存 Cookie 串)。"""
+    return str((device_map or {}).get("login_type") or "").strip().lower() == "web"
+
+
+def workbuddy_web_ua(device_map: dict[str, Any]) -> str:
+    """网页请求用的 UA:优先抽取时记下的浏览器 UA,缺失回落 Chrome UA。"""
+    ua = (device_map or {}).get("user_agent")
+    return ua.strip() if isinstance(ua, str) and ua.strip() else _WEB_UA_FALLBACK
+
+
+def workbuddy_web_cookie(jwt: str, device_map: dict[str, Any]) -> str:
+    """取网页会话 Cookie 串。
+
+    两种落库形态:
+    - device_map.web_cookie(推荐,可与 Bearer 并存,凭证失效时可互相回退);
+    - login_type=web 时 jwt 字段即 Cookie 串(旧形态,继续支持)。
+    """
+    val = (device_map or {}).get("web_cookie")
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    if workbuddy_is_web_mode(device_map) and isinstance(jwt, str) and jwt.strip():
+        return jwt.strip()
+    return ""
+
+
+def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
+    """过期值 → naive 本地 datetime。
+
+    接受三种落库形态:ISO 8601 字符串、epoch 秒、epoch 毫秒(workbuddy-desktop.info
+    的 auth.expiresAt 是毫秒,如 1794225169853)。>1e12 视为毫秒。
+    坏格式返回 None,绝不抛栈。
+    """
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        if text.isdigit():
+            return _parse_expiry_value(int(text))
+        try:
+            exp_dt = datetime.datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if exp_dt.tzinfo is not None:
+            exp_dt = exp_dt.astimezone().replace(tzinfo=None)
+        return exp_dt
+    if isinstance(raw, (int, float)):
+        if raw <= 0:
+            return None
+        try:
+            if raw > 1e12:  # epoch 毫秒
+                return datetime.datetime.fromtimestamp(raw / 1000.0)
+            return datetime.datetime.fromtimestamp(raw)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def workbuddy_session_expiry(
+    device_map: dict[str, Any],
+) -> tuple[datetime.datetime | None, float | None]:
+    """从 device_map 读会话过期时间,返回 (exp_datetime, remaining_hours) 或 (None, None)。
+
+    键候选:expires_at / expiresAt / expiry_ms(workbuddy-desktop.info 原文键
+    auth.expiresAt 经桌面端落库的投影)。
+    """
+    for key in ("expires_at", "expiresAt", "expiry_ms"):
+        exp_dt = _parse_expiry_value(device_map.get(key))
+        if exp_dt is not None:
+            remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+            return exp_dt, remaining
+    return None, None
+
+
+def workbuddy_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
+    """从 WorkBuddy JWT payload 取 exp,返回 (exp_datetime, remaining_hours) 或 (None, None)。"""
+    parts = (jwt or "").strip().split(".")
+    if len(parts) < 2:
+        return None, None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        exp = payload.get("exp")
+        if not isinstance(exp, (int, float)):
+            return None, None
+        exp_dt = datetime.datetime.fromtimestamp(exp)
+        remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+        return exp_dt, remaining
+    except Exception:
+        return None, None
+
+
+# ---------------------------------------------------------------------------
+# HTTP(单 base,无端点回退;错误分类契约与 TRAE/Qoder 一致)
+# ---------------------------------------------------------------------------
+
+
+def workbuddy_classify_error(http_status: int | None) -> tuple[str, int]:
+    """WorkBuddy 版错误分类(cooldown_seconds: -1=永久, 0=不冷却, >0=冷却秒数)。
+
+    401/403 = token 过期(SessionDead,永久);429 限流;5xx 服务端;4xx 客户端。
+    """
+    if http_status is None:
+        return "Unknown", 0
+    if http_status in (401, 403):
+        return "SessionDead", -1
+    if http_status == 429:
+        return "SoftRate", 60
+    if 500 <= http_status < 600:
+        return "Server", 600
+    if 400 <= http_status < 500:
+        return "Client", 600
+    return "Unknown", 0
+
+
+async def _wb_post(
+    path: str,
+    token: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[int, Any]:
+    """POST copilot.tencent.com,Bearer 鉴权 + 空 JSON 体。返回 (http_status, parsed_json)。
+
+    网络异常(含超时)→ (0, None);非 JSON 响应 → (status, None)。
+    鉴权失败按 HTTP 状态码判定,不扫响应体(上游 issue:响应体含随机 requestId)。
+    """
+    headers: dict[str, str] = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": _USER_AGENT,
+        "authorization": f"Bearer {token}",
+    }
+    http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
+    try:
+        resp = await http.post(
+            WB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout
+        )
+    except httpx.TimeoutException:
+        return 0, None
+    except Exception as e:
+        return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
+    try:
+        return resp.status_code, json.loads(resp.text)
+    except Exception:
+        return resp.status_code, None
+
+
+async def _wb_post_web(
+    path: str,
+    cookie_header: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+    user_agent: str | None = None,
+) -> tuple[int, Any]:
+    """POST www.workbuddy.cn 本域 /v2 网关,Cookie 鉴权 + 空 JSON 体(与网页版同机制)。
+
+    返回契约与 _wb_post 完全一致:(0/-1, None)=网络异常;(status, None)=非 JSON。
+    """
+    headers: dict[str, str] = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": user_agent or _WEB_UA_FALLBACK,
+        "cookie": cookie_header,
+    }
+    http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
+    try:
+        resp = await http.post(
+            WB_WEB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout
+        )
+    except httpx.TimeoutException:
+        return 0, None
+    except Exception as e:
+        return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
+    try:
+        return resp.status_code, json.loads(resp.text)
+    except Exception:
+        return resp.status_code, None
+
+
+async def workbuddy_check_session(
+    cookie: str,
+    device_map: dict[str, Any] | None = None,
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, str | None, int | None]:
+    """校验网页会话是否仍有效:GET /console/account。
+
+    返回 (ok, uid, http_status):
+    - ok=True:uid 取响应 data.uid(取不到按 None,不伪造);
+    - 302/401/403:会话过期(ok=False,status 原样回传,供调用方决定是否重抽);
+    - 网络异常/非 JSON:未判定(ok=False,status None 或非 200),绝不冒充过期。
+    """
+    tok = (cookie or "").strip()
+    if not tok:
+        return False, None, None
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "user-agent": workbuddy_web_ua(device_map or {}),
+        "cookie": tok,
+    }
+    http = client if client is not None else get_http_client()
+    await checkin_outbound_gate.before_request("workbuddy")
+    try:
+        resp = await http.get(
+            WB_WEB_BASE.rstrip("/") + PATH_WEB_ACCOUNT,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=False,
+        )
+    except Exception:
+        return False, None, None
+    checkin_outbound_gate.note_status(resp.status_code, "workbuddy")
+    if resp.status_code != 200:
+        return False, None, resp.status_code
+    try:
+        body = resp.json()
+    except Exception:
+        return False, None, resp.status_code
+    data = body.get("data") if isinstance(body, dict) else None
+    uid = data.get("uid") if isinstance(data, dict) else None
+    return True, (str(uid) if isinstance(uid, (str, int)) and str(uid) else None), 200
+
+
+async def _post_with_fallback(
+    path_token: str,
+    path_web: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[int, Any, str]:
+    """Bearer 优先;401/403 且存在网页 Cookie 时改用 Cookie 重试。
+
+    返回 (http_status, payload, mode),mode ∈ {"token", "web"}。
+    网络异常(0/-1)不重试 —— 重试只会放大故障。
+    """
+    web_cookie = workbuddy_web_cookie(jwt, device_map)
+    bearer = (jwt or "").strip()
+    if workbuddy_is_web_mode(device_map) or not bearer:
+        status, data = await _wb_post_web(
+            path_web, web_cookie or bearer, timeout, client, workbuddy_web_ua(device_map)
+        )
+        return status, data, "web"
+    status, data = await _wb_post(path_token, bearer, timeout, client)
+    if status in (401, 403) and web_cookie:
+        status2, data2 = await _wb_post_web(
+            path_web, web_cookie, timeout, client, workbuddy_web_ua(device_map)
+        )
+        if status2 not in (0, -1):
+            return status2, data2, "web"
+    return status, data, "token"
+
+
+# ---------------------------------------------------------------------------
+# 编排:单账号签到流程(契约与 checkin_engine.checkin_account 一致)
+# ---------------------------------------------------------------------------
+
+
+def _pick_balance(payload: dict[str, Any]) -> int | None:
+    """从 checkin-status 响应的 data 里按 _BALANCE_KEYS 顺序取积分余额。
+
+    2026-10-17:官方字段名 `total_credits`(下划线+复数)列首位 —— 此前漏列导致
+    官方积分列全报「状态响应不含积分余额字段」。返回首个 int 值,全缺返回 None。
+    """
+    for key in _BALANCE_KEYS:
+        val = payload.get(key)
+        if isinstance(val, int):
+            return val
+    return None
+
+
+def _base_result(name: str, user_id: str | None) -> dict[str, Any]:
+    return {
+        "name": name,
+        "ok": False,
+        "status": "fail",
+        "action": "checkin",
+        "user_id": user_id,
+        "code": None,
+        "message": "",
+        "http_status": None,
+        "credits": None,
+        "credits_delta": None,
+        "classified_error": None,
+        "warning": None,
+    }
+
+
+def _expired_warning(jwt: str, device_map: dict[str, Any]) -> str | None:
+    """过期预检告警:JWT exp 与 device_map 会话 expiresAt 取**较早者**;只告警不阻断
+    (服务端幂等 code=10001 兜底,预检只是省一次无效请求 + 给人可读原因)。"""
+    candidates: list[tuple[datetime.datetime | None, float | None]] = [
+        workbuddy_jwt_exp(jwt),
+        workbuddy_session_expiry(device_map),
+    ]
+    exp_dt, remaining = None, None
+    for c_dt, c_rem in candidates:
+        if c_rem is None:
+            continue
+        if remaining is None or c_rem < remaining:
+            exp_dt, remaining = c_dt, c_rem
+    if remaining is None:
+        return None
+    if remaining < 0:
+        return f"token 已过期({exp_dt:%Y-%m-%d %H:%M}),请重新提取"
+    if remaining < EXPIRY_WARN_HOURS:
+        return f"token 将于 {remaining:.1f}h 后过期({exp_dt:%Y-%m-%d %H:%M})"
+    return None
+
+
+async def workbuddy_checkin_account(
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """对单个 WorkBuddy 账号执行每日签到,返回结构化 dict(契约见模块 docstring)。
+
+    双凭据模式(按 device_map.login_type 分流):
+    - token(默认):jwt 字段 = Bearer token → copilot.tencent.com;
+    - web:jwt 字段 = 网页登录 Cookie 串 → www.workbuddy.cn /v2 网关
+      (桌面端 WebView 登录自动获取,普通用户零 token)。
+    流程:过期预检告警(web 模式无 exp 声明,跳过)→ POST daily-checkin →
+    code 0=成功(credit/streak_days)/ 10001=今日已签(幂等成功)/
+    401/403=SessionDead。令牌续期不在引擎内做:由调度器只读采集桌面客户端
+    内存里的当前 Bearer(见 checkin_workbuddy_local),引擎只管用。
+    """
+    result = _base_result(name, None)
+    web_mode = workbuddy_is_web_mode(device_map)
+    web_cookie = workbuddy_web_cookie(jwt, device_map)
+    bearer = (jwt or "").strip()
+
+    if not bearer and not web_cookie:
+        result["message"] = (
+            "未配置 token" if not web_mode else "未配置网页登录 Cookie,请重新网页登录"
+        )
+        return result
+
+    user_id = workbuddy_device_map_uid(device_map) or (
+        None if web_mode else workbuddy_extract_uid(jwt)
+    )
+    result["user_id"] = user_id
+    if not user_id:
+        if web_mode:
+            result["message"] = "无法解析账号 uid(device_map.uid 缺失),请重新网页登录获取"
+        else:
+            result["message"] = "无法解析账号 uid(device_map.uid 缺失且 token 非 JWT),请重新抓取"
+        return result
+
+    if not web_mode and bearer:
+        result["warning"] = _expired_warning(bearer, device_map)
+
+    status, data, used_mode = await _post_with_fallback(
+        PATH_DAILY_CHECKIN,
+        PATH_WEB_DAILY_CHECKIN,
+        jwt,
+        device_map,
+        timeout=timeout,
+        client=client,
+    )
+    web_ctx = web_mode or used_mode == "web"
+    result["http_status"] = status if status > 0 else None
+    if status in (0, -1):
+        result["message"] = (
+            "网络异常" if status == 0 else (f"网络异常: {data}" if data else "网络异常")
+        )
+        return result
+    if status in (401, 403):
+        error_type, cooldown_secs = workbuddy_classify_error(status)
+        if web_ctx:
+            result["message"] = f"网页登录已过期(HTTP {status}),请重新点「网页登录 WorkBuddy」获取"
+        else:
+            result["message"] = (
+                f"token 已过期或无权限(HTTP {status}),请打开 WorkBuddy 桌面端刷新登录态后重新抓取"
+            )
+        result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
+        return result
+    # 已签幂等:官方 daily-checkin 对「今天已签到」返回 **HTTP 400 + code 10001**
+    # (2026-10-17 生产实测:400 响应体 {"code":10001,"msg":"今天已签到，请明天再来"})。
+    # 必须在 status>=400 分支**之前**识别 —— 否则幂等成功被误报成「签到失败: HTTP 400」,
+    # 正是李总报的「一键签到失败」根因。此处先掏 code,命中已签标志即幂等成功。
+    # 判据单源在 checkin_codes(本文件不直写码值)。
+    already_code = data.get("code") if isinstance(data, dict) else None
+    if is_already_checked_in(PLATFORM_WORKBUDDY, already_code):
+        result["code"] = already_code
+        result.update(
+            ok=True, status="already", action="skip_already", message="今日已签到,无需重复领取"
+        )
+        return result
+    if status >= 400:
+        # 其余 4xx/5xx:HTTP 层即失败,不进业务码解析(响应体可能非我们的契约)
+        error_type, cooldown_secs = workbuddy_classify_error(status)
+        result["message"] = f"签到失败: HTTP {status}"
+        if error_type not in ("Unknown",):
+            result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
+        return result
+    if not isinstance(data, dict):
+        result["message"] = f"签到失败: 响应非 JSON(HTTP {status})"
+        # 第五件套(2026-10-16):2xx 非 JSON = WAF/挑战页插页,即时熔断
+        # (403 保持本平台既有 SessionDead 永久冷却语义,比 Challenge 更保守)
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        checkin_outbound_gate.note_challenge("workbuddy")
+        return result
+
+    code = data.get("code")
+    result["code"] = code if isinstance(code, int) else None
+    if code != _CODE_OK:
+        msg = data.get("msg") or data.get("message") or ""
+        result["message"] = f"签到未成功: code={code}" + (f" {msg}" if msg else "")
+        # 业务失败:HTTP 层正常,不落 HTTP 冷却;SessionDead 级语义由 401/403 分支承载
+        return result
+
+    payload = data.get("data")
+    payload = payload if isinstance(payload, dict) else {}
+    credit = payload.get("credit")
+    streak = payload.get("streak_days")
+    result["credits"] = credit if isinstance(credit, int) else None
+    result["credits_delta"] = credit if isinstance(credit, int) else None
+    detail = ""
+    if isinstance(credit, int):
+        detail = f"credit={credit}"
+        if isinstance(streak, int):
+            detail += f" streak_days={streak}"
+    result.update(ok=True, status="ok", message="签到成功" + (f"({detail})" if detail else ""))
+    return result
+
+
+async def workbuddy_probe_status(
+    token: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, str]:
+    """探针:判定「今日是否已签」,供 06:00 状态探针在主窗口前同步。
+
+    2026-10-17 生产实证:官方 checkin-status 的 `today_checked_in` **不可靠** ——
+    账号实际今日已签(daily-checkin 返回 code=10001),该字段仍报 false
+    (active=false 时该响应为默认空态)。故唯一可靠的已签判定 = daily-checkin 的
+    幂等语义:已签 ⇒ code=10001(HTTP 400),未签 ⇒ code=0 并顺带领取(官方幂等,
+    不重复发分)。本探针因此走幂等 claim(与 MiniMax 同策略),而非只读 status。
+
+    返回 (ok, checked_in|None, credits|None, message):
+    - ok=True,  checked_in=True : 今日已签(含顺带领取);
+    - ok=False, checked_in=None : 网络/会话/契约异常,判定失败(宁缺勿假,不误报)。
+    """
+    web_mode = workbuddy_is_web_mode(device_map)
+    web_cookie = workbuddy_web_cookie(token, device_map)
+    if not (token or "").strip() and not web_cookie:
+        return False, None, None, "未配置网页登录 Cookie" if web_mode else "未配置 token"
+    status, data, used_mode = await _post_with_fallback(
+        PATH_DAILY_CHECKIN,
+        PATH_WEB_DAILY_CHECKIN,
+        token,
+        device_map,
+        timeout=timeout,
+        client=client,
+    )
+    web_ctx = web_mode or used_mode == "web"
+    if status in (0, -1):
+        return False, None, None, "网络异常"
+    if status in (401, 403):
+        return (
+            False,
+            None,
+            None,
+            f"网页登录已过期(HTTP {status})" if web_ctx else f"token 已过期或无权限(HTTP {status})",
+        )
+    if not isinstance(data, dict):
+        if status == 200:
+            checkin_outbound_gate.note_challenge("workbuddy")
+            return False, None, None, "签到响应非 JSON(挑战页,已熔断)"
+        return False, None, None, f"签到判定失败(HTTP {status})"
+    code = data.get("code")
+    if is_already_checked_in(PLATFORM_WORKBUDDY, code):
+        # HTTP 400 + code 10001(实测):今天已签 —— 幂等成功,零副作用
+        return True, True, None, "今日已签到,无需重复领取"
+    if code == _CODE_OK:
+        # 未签 ⇒ 顺带领取成功(daily-checkin 官方幂等,不重复发分)
+        payload = data.get("data")
+        payload = payload if isinstance(payload, dict) else {}
+        credit = payload.get("credit")
+        return True, True, credit if isinstance(credit, int) else None, "签到成功"
+    msg = data.get("msg") or data.get("message") or ""
+    return False, None, None, f"签到判定失败: code={code}" + (f" {msg}" if msg else "")
+
+
+async def workbuddy_query_credits(
+    jwt: str,
+    device_map: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """查询账号积分余额(POST checkin-status 的 data),返回
+    {"remaining": int|None, "error": str|None}。
+
+    契约对齐 checkin_credits.query_remaining_credits / qoder_query_credits:
+    调度器积分快照按 result["remaining"] 是否为 int 判成败。
+
+    2026-10-17 修正:官方字段名是 `total_credits`(下划线+复数),此前只列
+    total_credit/totalCredit/credits 三个错形 ⇒ 永远解析不到 ⇒ 官方积分列
+    全报「状态响应不含积分余额字段」。现按 _BALANCE_KEYS 顺序取,首位即
+    total_credits。穷举 /billing/meter/{credits,balance,quota,usage,...} 全 404,
+    checkin-status 是唯一余额来源。缺字段仍如实报 error,不编造(宁缺勿假)。
+    """
+    token = (jwt or "").strip()
+    web_mode = workbuddy_is_web_mode(device_map)
+    web_cookie = workbuddy_web_cookie(jwt, device_map)
+    if not token and not web_cookie:
+        return {
+            "remaining": None,
+            "error": "未配置网页登录 Cookie,请重新网页登录" if web_mode else "未配置 token",
+        }
+    if not web_mode:
+        exp_dt, remaining = workbuddy_session_expiry(device_map)
+        if remaining is not None and remaining < 0:
+            return {"remaining": None, "error": f"会话已过期({exp_dt:%Y-%m-%d %H:%M})"}
+    status, data, used_mode = await _post_with_fallback(
+        PATH_CHECKIN_STATUS,
+        PATH_WEB_CHECKIN_STATUS,
+        jwt,
+        device_map,
+        timeout=timeout,
+        client=client,
+    )
+    web_ctx = web_mode or used_mode == "web"
+    if status in (0, -1):
+        return {"remaining": None, "error": "网络异常"}
+    if status in (401, 403):
+        return {
+            "remaining": None,
+            "error": (
+                f"网页登录已过期(HTTP {status}),请重新网页登录"
+                if web_ctx
+                else f"token 已过期或无权限(HTTP {status})"
+            ),
+            # 第五件套(2026-10-16):与签到主路同语义(401/403=SessionDead),
+            # 供消费方观测;本平台 403 不比 Challenge 软——永久冷却更保守
+            "classified_error": {"type": "SessionDead", "cooldown_seconds": -1},
+        }
+    if status == 200 and not isinstance(data, dict):
+        # 第五件套:2xx 非 JSON = WAF 挑战页插页(与签到主路同款熔断)
+        checkin_outbound_gate.note_challenge("workbuddy")
+        return {
+            "remaining": None,
+            "error": "状态查询返回非 JSON(挑战页,已熔断)",
+            "classified_error": {
+                "type": "Challenge",
+                "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+            },
+        }
+    if status != 200 or not isinstance(data, dict):
+        return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
+    payload = data.get("data")
+    payload = payload if isinstance(payload, dict) else {}
+    val = _pick_balance(payload)
+    if isinstance(val, int):
+        return {"remaining": val, "error": None}
+    return {"remaining": None, "error": "状态响应不含积分余额字段"}
+
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

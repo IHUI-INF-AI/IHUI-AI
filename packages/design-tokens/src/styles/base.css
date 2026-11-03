@@ -1,0 +1,79 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/**
+ * 共享基础样式 — web / extension / miniapp-taro 三端 html/body/page 根节点统一(2026-07-27 立)。
+ *
+ * 作用:消除三端 globals.css 的 body/page 基础样式重复副本。
+ * 各端 globals.css 只需 @import 本文件,改基础样式改这一处全端生效。
+ *
+ * 内容:
+ * - margin/padding/width/height reset(html/body 100% height 用于 flex 布局)
+ * - font-family(统一字体回退栈,优先 var(--font-sans),降级中文优先栈)
+ * - font-size: 14px(仅 body/page,不含 html — web/extension 的 html font-size 不同,
+ *   web 16px(browser default)/extension 14px(本地 override),统一 html font-size 会破坏 rem 单位)
+ * - background-color / color(绑定 --color-background / --color-foreground)
+ *
+ * 选择器:html, body, page
+ * - web/extension 用 html, body(标准 DOM)
+ * - miniapp-taro 用 page(小程序根节点)
+ * - CSS 容错:page 在 web 中无效但不会报错,html/body 在小程序中无效但不会报错
+ *
+ * 各端需自行声明:
+ * - @import 'tailwindcss' 或 @tailwind base/components/utilities
+ * - @import tokens.css(web/extension)或同步 :root 块(miniapp-taro,Tailwind v3 不识别 @theme)
+ * - 端独占样式(web 滚动条隐藏 / extension html font-size: 14px / miniapp-taro 工具类)
+ */
+
+html,
+body,
+page {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: var(
+    --font-sans,
+    'HarmonyOS Sans SC',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif
+  );
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+body,
+page {
+  font-size: 14px;
+}
+
+/**
+ * 原生表单控件的选中色必须显式钉死。
+ *
+ * 立因与"输入框凭空多出一圈橙"是同一条因果律:**没设不等于没色** —— `accent-color` 的初值
+ * 是 `auto`,由宿主决定;Chromium / WebView2 在 Windows 上取的是「设置 → 个人化 → 配色 →
+ * 强调色」,那是**用户机器上的任意色**。项目里一个字都没写,却能把用户抱怨的那个颜色渲染出来。
+ * 2026-10-21 实测:全仓 `accent-color` 声明 0 处,而 `type=checkbox|radio|range` 的裸原生控件
+ * 有 31 个文件在用(桌面端是薄壳直连线上站,web 缺口原样进 WebView2)。
+ *
+ * 取值走墨档 primary(亮纯黑 / 暗纯白),与输入框聚焦描边同一条例外位;`progress` 一并钉,
+ * 免得将来有人用原生进度条又落在这一维之外。
+ *
+ * ⚠️ **必须包 `:where()` —— 这是兜底,不是覆盖。** 本仓另有 31 处按控件显式钉档的
+ * `accent-*` 工具类(含 2 处高风险确认框的 `accent-amber-500`、1 处 `accent-green-600`)。
+ * 而 `input[type='checkbox']` 的特异性是 (0,2,1),**高于** 单类选择器的 (0,1,0) ——
+ * 不包 `:where()` 就会把这些既有语义档全部压成墨档,等于一次"修 bug"顺手改掉别人的配色设计。
+ * `:where()` 特异性恒为 0 ⇒ 只给裸控件兜底,任何显式档照样赢。
+ */
+:where(input[type='checkbox'], input[type='radio'], input[type='range'], progress) {
+  accent-color: var(--color-primary);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

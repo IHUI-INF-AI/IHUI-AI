@@ -1,0 +1,50 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { notFound } from 'next/navigation'
+
+// D 盘历史路径兼容:通用 provider 别名路由
+// 将 dt/wx/wechat/feishu/lark/github/google/apple/alipay 等别名映射到 /sso/auth?platform=<canonical>
+// output:'export' 模式:generateStaticParams 预生成已知别名,服务端组件渲染静态 HTML + 内联 JS 重定向
+
+const PROVIDER_ALIASES: Record<string, string> = {
+  dt: 'dingtalk',
+  wx: 'enterpriseWechat',
+  wechat: 'wechat',
+  feishu: 'feishu',
+  lark: 'feishu',
+  github: 'github',
+  google: 'google',
+  apple: 'apple',
+  alipay: 'alipay',
+}
+
+export function generateStaticParams() {
+  return Object.keys(PROVIDER_ALIASES).map((provider) => ({ provider }))
+}
+
+interface PageProps {
+  params: Promise<{ provider: string }>
+}
+
+export default async function SsoProviderCompatPage({ params }: PageProps) {
+  const { provider } = await params
+  // 别名必须逐字命中常量表。原先的 `|| provider` 把 URL 路径段原样插进下面那段内联脚本:
+  // `%27` 解码后即可闭合字符串往页面里注入 JS(公开缓存分支的 script-src 含 'unsafe-inline')。
+  const canonical = PROVIDER_ALIASES[provider]
+  if (!canonical) notFound()
+  return (
+    <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){var sp=new URLSearchParams(location.search);sp.set('platform','${canonical}');location.replace('/sso/auth?'+sp.toString());})();`,
+        }}
+      />
+      <div className="px-4 py-4 flex min-h-screen items-center justify-center bg-background">
+        <p className="text-body text-muted-foreground">正在跳转...</p>
+      </div>
+    </>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,89 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getPlazaDetail } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
+import { PostDetailScreen as SharedPostDetailScreen, type PostDetailItem } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
+
+type Route = RouteProp<RootStackParamList, 'PostDetail'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+export function PostDetailScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const route = useRoute<Route>()
+  const navigation = useNavigation<NavigationProp>()
+  const { id } = route.params
+  const [post, setPost] = useState<PostDetailItem | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((k) => k + 1)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLoading(true)
+      setError('')
+      const res = await getPlazaDetail(id)
+      if (cancelled) return
+      if (res.success) {
+        const item = res.data
+        setPost({
+          id: item.id,
+          title: item.title,
+          content: item.description ?? '',
+          author: item.creator ?? t('ranking.anonymous'),
+          createdAt: item.createdAt ?? '',
+          likes: 0,
+          comments: 0,
+          status: item.status,
+          taskStatus: item.taskStatus,
+          imgs: item.imgs,
+          types: item.types,
+          categories: item.categories,
+          lowestPrice: item.lowestPrice,
+          peakPrice: item.peakPrice,
+          contact: item.contact,
+          cycle: item.cycle,
+          cycleUnit: item.cycleUnit,
+          closingTime: item.closingTime,
+        })
+      } else setError(apiFailureToText(res, t('postDetail.loadFailed')))
+      setLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [id, t, reloadKey])
+
+  // 回屏即重取(对齐小程序 useDidShow 的每次显示刷新):bump reloadKey 让上面的 effect 重跑
+  useRefreshOnFocus(() => setReloadKey((k) => k + 1))
+
+  const { onNavigate, onToast } = useHostPorts()
+
+  return (
+    <SharedPostDetailScreen
+      t={t}
+      item={post}
+      loading={loading}
+      error={error}
+      onRetry={reload}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
+      onToast={onToast}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

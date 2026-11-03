@@ -1,0 +1,828 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { aizhsUrl } from '@/constants/icon-urls'
+import { useI18n } from '@/i18n'
+import { View, Text, Image, Video, Button } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+import { StreamActivityCards, SteerNoticeCard } from './cards/ai-cards'
+import { isErrorTurn } from '@ihui/shared/chat'
+import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
+import { taroPreviewChatImages, taroSaveChatImageToAlbum } from '@/lib/image-preview-pack'
+import Taro from '@tarojs/taro'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import type { ChatMessage } from '@/api'
+import { rateChatMessage, sendToolApprovalResponse } from '@/api'
+import { APPROVAL_ACTIONS } from './permission-tier-text'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
+import { onToast } from '@/host/on-toast'
+const sikaoIcon = aizhsUrl('remote-images/sikao_icon.png')
+const downloadIcon = aizhsUrl('remote-images/download.png')
+const copyIcon = aizhsUrl('remote-images/copy.png')
+const reuseBtnPng = aizhsUrl('remote-images/fuyong_btn.png')
+const agentsharePng = aizhsUrl('remote-images/agentshare.png')
+
+export interface ChatMessageItemProps {
+  msg: ChatMessage
+  onReuse?: (question: string) => void
+  /** 票59:必须把"点的是哪一条"原样传下去 —— 只接 `() => void` 时宿主拿不到目标行,
+   *  重新生成只会落在最后一条助手消息上,给旧回答开的新版本就会挂错版本族。 */
+  onRegenerate?: (msg: ChatMessage) => void
+  onLongPress?: () => void
+  onEdit?: () => void
+  /** 是否已收藏(仅 AI 消息,对标原 ai_assistant.vue 收藏状态) */
+  isFavorited?: boolean
+  /** 切换收藏状态(仅 AI 消息,对标原 ai_assistant.vue toggleFavorite) */
+  onToggleFavorite?: () => void
+  /** TTS 朗读(仅 AI 消息,对标原 ai_assistant.vue 朗读功能) */
+  onSpeak?: (content: string) => void
+  /** 打开思考过程独立浮层(仅 AI 消息含 reasoning) */
+  onOpenReasoning?: () => void
+  /** 分享消息(仅 AI 消息,对标原 ai_assistant.vue share(index):按钮点击前置写入待分享消息) */
+  onShare?: () => void
+}
+
+/** 内容段类型(对标原 ai_assistant.vue formatContentSegments) */
+interface ContentSegment {
+  type: 'header' | 'link' | 'text'
+  value: string
+  url?: string
+}
+
+/**
+ * 内容段格式化(对标原 ai_assistant.vue formatContentSegments)
+ * 将纯文本拆分为:标题(###) / 链接(http) / 普通文本 三类段
+ */
+function formatContentSegments(str: string): ContentSegment[] {
+  if (!str) return []
+  const segments: ContentSegment[] = []
+  const lines = str.split('\n')
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    // 标题段:### 开头
+    const headerMatch = line.match(/^\s*#{1,6}\s*(.*)$/)
+    if (headerMatch) {
+      segments.push({
+        type: 'header',
+        value: headerMatch[1] + (i < lines.length - 1 ? '\n' : ''),
+      })
+      continue
+    }
+    // 链接段:提取 URL
+    const urlMatch = line.match(urlRegex)
+    if (urlMatch && urlMatch.length > 0) {
+      urlMatch.forEach((url) => {
+        segments.push({ type: 'link', value: url, url })
+      })
+      const textPart = line.replace(urlRegex, '').trim()
+      if (textPart) {
+        segments.push({ type: 'text', value: textPart })
+      }
+      continue
+    }
+    // 普通文本段
+    segments.push({ type: 'text', value: line + (i < lines.length - 1 ? '\n' : '') })
+  }
+  return segments
+}
+
+/** 移除特殊字符(对标原 ai_assistant.vue removeSpecialChars,保留 # 号以识别标题) */
+function removeSpecialChars(str: string): string {
+  if (!str) return ''
+  // 移除 * 号(加粗/斜体标记),保留 # 号(formatContentSegments 依赖 # 识别标题)
+  str = str.replace(/\*+/g, '')
+  // 横线 → 列表符号 •
+  str = str.replace(/(^|\n)\s*[-–—_]+/g, '$1•')
+  // 圆点 → 列表符号 •
+  str = str.replace(/(^|\n)\s*[·⚫・]/g, '$1•')
+  return str
+}
+
+/** 格式化 token 消耗(对标原 ai_assistant.vue total_tokens 显示) */
+function formatTokenDisplay(count: number): string {
+  if (count >= 1000) return (count / 1000).toFixed(1) + 'K'
+  return String(count)
+}
+
+/** 运行时判"这条消息带不带音频字段"(字段本身住 ChatMessage 基类,这里不再声明第二份形状) */
+function hasAudio(msg: ChatMessage): boolean {
+  return 'audioUrl' in msg || 'audioDuration' in msg
+}
+
+export default function ChatMessageItem({
+  msg,
+  onReuse,
+  onRegenerate,
+  onLongPress,
+  onEdit,
+  isFavorited,
+  onToggleFavorite,
+  onSpeak,
+  onOpenReasoning,
+  onShare,
+}: ChatMessageItemProps) {
+  const { t } = useI18n()
+  const [codeCollapsed, setCodeCollapsed] = useState(true)
+  const [codeCopied, setCodeCopied] = useState(false)
+  // TTS 朗读状态(对标原 ai_assistant.vue 朗读/停止)
+  const [speaking, setSpeaking] = useState(false)
+  // 语音气泡播放状态(对标原 ai_assistant.vue 语音消息播放)
+  const [voicePlaying, setVoicePlaying] = useState(false)
+  // 显示/隐藏答案(对标原 ai_assistant.vue toggleAnswerVisibility + eye-closed/eye-open.svg)
+  const [answerHidden, setAnswerHidden] = useState(false)
+  // 失败轮:与 web 端 D22 同一形态走错误卡片,不再把错误文案伪装成一次正常回答
+  const isFailed = isErrorTurn(msg)
+  // #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端)折叠态
+  const [cardsExpanded, setCardsExpanded] = useState(true)
+
+  // 音频上下文 ref(避免每次播放创建新实例导致资源泄漏)
+  const audioContextRef = useRef<Taro.InnerAudioContext | null>(null)
+  useEffect(() => {
+    return () => {
+      audioContextRef.current?.destroy()
+      audioContextRef.current = null
+    }
+  }, [])
+
+  const toggleAnswer = useCallback(() => setAnswerHidden((v) => !v), [])
+
+  /** 内容段(对标原 ai_assistant.vue formatContentSegments) */
+  const segments = useMemo(
+    () => formatContentSegments(removeSpecialChars(msg.content)),
+    [msg.content],
+  )
+
+  /** 数字人关键词检测(对标原 ai_assistant.vue 数字人跳转) */
+  const hasDigitalHuman = useMemo(
+    () => /数字人|虚拟人|avatar|digital\s*human/i.test(msg.content || ''),
+    [msg.content],
+  )
+
+  /** 语音消息 audioUrl(类型安全访问,对标原 ai_assistant.vue 语音消息字段) */
+  const audioUrl = hasAudio(msg) ? msg.audioUrl : undefined
+  /** 语音时长(可选,秒) */
+  const audioDuration = hasAudio(msg) ? msg.audioDuration : undefined
+
+  /** 点击朗读(对标原 ai_assistant.vue 朗读按钮,触发父级 TTS 跳转) */
+  function handleSpeak() {
+    if (!onSpeak || !msg.content) return
+    if (speaking) {
+      setSpeaking(false)
+      return
+    }
+    setSpeaking(true)
+    onSpeak(msg.content)
+  }
+
+  /** 播放语音气泡(对标原 ai_assistant.vue 语音消息播放,复用 audioContextRef 避免泄漏) */
+  function playVoice() {
+    if (!audioUrl) return
+    // 销毁旧实例再创建新实例,避免重复播放
+    audioContextRef.current?.destroy()
+    const audio = Taro.createInnerAudioContext()
+    audioContextRef.current = audio
+    audio.src = audioUrl
+    setVoicePlaying(true)
+    audio.onEnded(() => setVoicePlaying(false))
+    audio.onError(() => setVoicePlaying(false))
+    audio.play()
+  }
+
+  /** 跳转数字人页(对标原 ai_assistant.vue 数字人跳转) */
+  function goDigitalHuman() {
+    Taro.navigateTo({ url: '/pkg-ai/ai/agent' })
+  }
+
+  /** 复制内容到剪贴板(对标原 ai_assistant.vue copyHandle) */
+  function copyContent(content: string) {
+    if (!content || !content.trim()) {
+      onToast(t('ai.chatMessageItem.noContent'), { kind: 'info' })
+      return
+    }
+    Taro.setClipboardData({
+      data: content,
+      success: () => onToast(t('success.copied'), { kind: 'info' }),
+    })
+  }
+
+  /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
+  function handleReuse() {
+    if (msg.role === 'user' && onReuse) {
+      onReuse(msg.content)
+    }
+  }
+
+  function copyCode() {
+    if (!msg.codeContent) return
+    Taro.setClipboardData({
+      data: msg.codeContent,
+      success: () => {
+        setCodeCopied(true)
+        onToast(t('success.copied'), { kind: 'info' })
+        setTimeout(() => setCodeCopied(false), 1500)
+      },
+    })
+  }
+
+  function handleLongPress() {
+    if (onLongPress) onLongPress()
+  }
+
+  /** D49① 消息评价(点赞/点踩):经 @ihui/api-client 共享端点 rateChatMessage,不另起传输层(§3 共享层优先) */
+  async function handleRate(next: 'like' | 'dislike') {
+    const messageId = msg.id
+    if (!messageId) return
+    await rateChatMessage({ messageId, rating: next })
+  }
+
+  /** D111 审批三键回传:经 @ihui/api-client 共享端点 sendToolApprovalResponse,不另起传输层(§3 共享层优先) */
+  async function handleApproval(actionId: string) {
+    const action = APPROVAL_ACTIONS.find((a) => a.id === actionId)
+    if (!action || !msg.id) return
+    await sendToolApprovalResponse({
+      approvalId: msg.id,
+      decision: action.decision,
+      ...(action.scope !== undefined ? { scope: action.scope } : {}),
+    })
+  }
+
+  function handleEdit() {
+    if (msg.role === 'user' && onEdit) onEdit()
+  }
+
+  /** 预览图片(D64② 接线:空列表/非法入参防御与共享判定口径一致,真相源 @ihui/shared/chat/element-pack,经端内 adapter 出口) */
+  function previewImage(currentUrl: string, urlList: string[]) {
+    taroPreviewChatImages(currentUrl, urlList)
+  }
+
+  /** 处理段点击(对标原 ai_assistant.vue handleSegmentClick) */
+  function handleSegmentClick(seg: ContentSegment) {
+    if (seg.type === 'link' && seg.url) {
+      copyContent(seg.url)
+    }
+  }
+
+  /** 下载图片到相册(D64② 接线:保存成败判定改走共享层 imageTransferView 出口(taroSaveChatImageToAlbum),
+   *  端内不再自行 try/catch 定成败;相册权限被拒的引导保留,探测方式由 errMsg 串改为 getSetting 权限态
+   *  —— adapter 不裸露 errMsg,成败归共享判定,权限归平台 API,各管各的) */
+  async function downloadImages() {
+    const urls = msg.images || []
+    if (!urls.length) return
+    Taro.showLoading({ title: t('ai.chatMessageItem.downloading') })
+    let labelKey = ''
+    let failed = false
+    for (const url of urls) {
+      let filePath = ''
+      try {
+        const res = await Taro.downloadFile({ url })
+        if (res.statusCode === 200) filePath = res.tempFilePath
+      } catch {
+        filePath = ''
+      }
+      const out = await taroSaveChatImageToAlbum(filePath)
+      labelKey = out.labelKey
+      if (out.result === 'failed') {
+        failed = true
+        break
+      }
+    }
+    Taro.hideLoading()
+    if (!failed) {
+      onToast(t(labelKey), { kind: 'success' })
+      return
+    }
+    const setting = await Taro.getSetting().catch(() => null)
+    if (setting?.authSetting?.['scope.writePhotosAlbum'] === false) {
+      Taro.showModal({
+        title: t('common.hint'),
+        content: t('ai.chatMessageItem.needAlbumAuth'),
+        confirmText: t('common.goSettings'),
+        success: (res) => {
+          if (res.confirm) Taro.openSetting()
+        },
+      })
+    } else {
+      onToast(t(labelKey), { kind: 'info' })
+    }
+  }
+
+  return (
+    <View onLongPress={handleLongPress}>
+      {/* 用户消息:.question-container 右浮,复用按钮在气泡外左侧(对标原 ai_assistant.vue) */}
+      {msg.role === 'user' ? (
+        <View className="question-container">
+          {/* 复用按钮 fuyong-btn:100rpx×40rpx,在气泡外左侧 */}
+          {onReuse ? (
+            <View
+              style={{
+                marginRight: '10rpx',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <Image
+                src={reuseBtnPng}
+                className="fuyong-btn"
+                mode="widthFix"
+                onClick={handleReuse}
+              />
+              <Text
+                style={{
+                  fontSize: '20rpx',
+                  color: 'var(--color-link)',
+                  marginTop: 'var(--spacing-2xs)',
+                }}
+                onClick={handleReuse}
+              >
+                {t('ai.chatMessageItem.reuse')}
+              </Text>
+            </View>
+          ) : null}
+          {/* 用户消息图片列表(若有) */}
+          {msg.images && msg.images.length > 0 ? (
+            <View
+              className="agent-content-item-question"
+              style={{ marginTop: 'var(--spacing-sm-loose)' }}
+            >
+              {msg.images.map((imgUrl, i) => (
+                <Image
+                  key={i}
+                  src={imgUrl}
+                  className="agent-question-item-img"
+                  style={{
+                    width: '100rpx',
+                    height: '100rpx',
+                    display: 'block',
+                    marginBottom: '10rpx',
+                  }}
+                  mode="aspectFill"
+                />
+              ))}
+            </View>
+          ) : null}
+          {/* 用户气泡 agent-content-item-question:紫色渐变右浮 */}
+          <View
+            className="agent-content-item-question"
+            style={{ position: 'relative', maxWidth: 'calc(100% - 110rpx)' }}
+          >
+            {/* 发送者"我"标签 + 编辑按钮(增强功能,历史项目无,保留) */}
+            <View
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '6rpx',
+              }}
+            >
+              <Text style={{ fontSize: '20rpx', color: 'var(--color-foreground)', opacity: 0.7 }}>
+                {t('ai.chatMessageItem.me')}
+              </Text>
+              {onEdit ? (
+                <Text
+                  style={{ fontSize: '20rpx', color: 'var(--color-foreground)', opacity: 0.7 }}
+                  onClick={handleEdit}
+                >
+                  {t('ai.chatMessageItem.edit')}
+                </Text>
+              ) : null}
+            </View>
+            <Text>{msg.content}</Text>
+          </View>
+        </View>
+      ) : (
+        /* AI 消息:.agent-content-item 全宽灰色气泡(对标原 ai_assistant.vue) */
+        <View className="agent-content-item">
+          {/* 失败轮 → 错误卡片(警示头 + 正文 + 重试出口),整块替换正文:失败不产出内容。
+              与 web 端 MessageItem D22 同一形态,跨端视觉一致。 */}
+          {isFailed ? (
+            <View className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
+              <View className="flex items-center bg-destructive/10 px-3 py-2">
+                <LineIcon
+                  name="triangle-alert"
+                  size={28}
+                  color="var(--color-destructive)"
+                  style={{ marginRight: 'var(--spacing-xs)' }}
+                />
+                <Text className="text-xs font-medium text-destructive">
+                  {t('ai.chatMessageItem.errorCardTitle')}
+                </Text>
+              </View>
+              <Text className="block whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive">
+                {msg.content}
+              </Text>
+              {onRegenerate ? (
+                <View className="px-3 pb-2">
+                  <View
+                    className="inline-flex items-center"
+                    onClick={() => onRegenerate(msg)}
+                    hoverClass="opacity-60"
+                  >
+                    <LineIcon
+                      name="refresh-cw"
+                      size={24}
+                      color="var(--color-destructive)"
+                      style={{ marginRight: '6rpx' }}
+                    />
+                    <Text className="text-xs text-destructive">
+                      {t('ai.chatMessageItem.retry')}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : !answerHidden ? (
+            <View className="content_agent_nei">
+              {/* 段渲染:link 色 #1888ee,header 加粗块级 */}
+              {segments.map((seg, idx) => {
+                if (seg.type === 'link') {
+                  return (
+                    <Text
+                      key={idx}
+                      style={{ color: 'var(--color-link)' }}
+                      onClick={() => handleSegmentClick(seg)}
+                    >
+                      {seg.url}
+                    </Text>
+                  )
+                }
+                if (seg.type === 'header') {
+                  return (
+                    <Text
+                      key={idx}
+                      style={{
+                        fontWeight: 'bold',
+                        display: 'block',
+                        marginBottom: 'var(--spacing-sm-loose)',
+                      }}
+                    >
+                      {seg.value}
+                    </Text>
+                  )
+                }
+                return (
+                  <Text key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                    {seg.value}
+                  </Text>
+                )
+              })}
+              {/* 代码块(保留当前 codeCollapsed 逻辑;2026-09-03 浅色化:对齐 web oneLight,代码块 bg=var(--color-muted)) */}
+              {msg.codeContent ? (
+                <View style={{ marginTop: 'var(--spacing-xs-loose)' }}>
+                  <View
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing.sm)}`,
+                      background: 'var(--color-muted)',
+                      borderTopLeftRadius: rnRadius.sm,
+                      borderTopRightRadius: rnRadius.sm,
+                      borderBottomRightRadius: 0,
+                      borderBottomLeftRadius: 0,
+                    }}
+                    onClick={() => setCodeCollapsed((v) => !v)}
+                    hoverClass="opacity-60"
+                  >
+                    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                      {/* 折叠箭头:原 '▸'/'▾' 字符 → 矢量。size/color 取该字符实际渲染档:
+                          同行内联 fontSize 24rpx / color var(--color-muted-foreground);
+                          收起 = chevron-right、展开 = chevron-down(与字符指向一致)。
+                          与 'code' 文案的 8rpx 间距沿用本文件既有的 8rpx 档(见上面的
+                          marginRight: '8rpx'),不是新数。 */}
+                      <LineIcon
+                        name={codeCollapsed ? 'chevron-right' : 'chevron-down'}
+                        size={24}
+                        color="var(--color-muted-foreground)"
+                      />
+                      <Text
+                        style={{
+                          marginLeft: 'var(--spacing-xs)',
+                          fontSize: '24rpx',
+                          color: 'var(--color-muted-foreground)',
+                        }}
+                      >
+                        code
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
+                      {t('ai.chatMessageItem.collapse')}
+                    </Text>
+                    <Text
+                      style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
+                      onClick={copyCode}
+                    >
+                      {codeCopied ? t('success.copied') : t('ai.chatMessageItem.copy')}
+                    </Text>
+                  </View>
+                  {!codeCollapsed ? (
+                    <Text
+                      style={{
+                        display: 'block',
+                        padding: 'var(--spacing-sm)',
+                        fontFamily: 'monospace',
+                        fontSize: '24rpx',
+                        color: 'var(--color-foreground)',
+                        background: 'var(--color-muted)',
+                        borderTopLeftRadius: 0,
+                        borderTopRightRadius: 0,
+                        borderBottomRightRadius: rnRadius.sm,
+                        borderBottomLeftRadius: rnRadius.sm,
+                        borderTop: '1rpx solid var(--color-border)',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      {msg.codeContent}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {/* 语音气泡(若有 audioUrl) */}
+              {audioUrl ? (
+                <View
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginTop: 'var(--spacing-xs-loose)',
+                    padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing['sm-loose'])}`,
+                    background: 'var(--color-muted)',
+                    borderRadius: rnRadius['2xl'],
+                    color: 'var(--color-foreground)',
+                  }}
+                  onClick={playVoice}
+                  hoverClass="opacity-60"
+                >
+                  <LineIcon
+                    name={voicePlaying ? 'pause' : 'play'}
+                    size={32}
+                    color="var(--color-muted-foreground)"
+                    style={{ marginRight: 'var(--spacing-xs-loose)' }}
+                  />
+                  <Text style={{ fontSize: '24rpx', marginRight: 'var(--spacing-xs-loose)' }}>
+                    {t('ai.chatMessageItem.voiceMessage')}
+                  </Text>
+                  {audioDuration ? (
+                    <Text style={{ fontSize: '24rpx' }}>{`${audioDuration}''`}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {/* 数字人关键词检测 */}
+              {hasDigitalHuman ? (
+                <View
+                  style={{
+                    marginTop: 'var(--spacing-xs-loose)',
+                    padding: '10rpx 20rpx',
+                    background: 'var(--color-link)',
+                    borderRadius: rnRadius.lg,
+                    color: 'var(--color-card)',
+                    display: 'inline-block',
+                  }}
+                  onClick={goDigitalHuman}
+                  hoverClass="opacity-60"
+                >
+                  <Text style={{ fontSize: '24rpx', display: 'block' }}>
+                    {t('ai.chatMessageItem.viewDigitalHuman')}
+                  </Text>
+                  <Text style={{ fontSize: '20rpx', opacity: 0.9, display: 'block' }}>
+                    {t('ai.chatMessageItem.digitalHuman')}
+                  </Text>
+                </View>
+              ) : null}
+              {/* D106:引导已生效(Steer 中途引导交代),独立于执行过程折叠区,badge 语义常显 */}
+              {msg.aiCards?.steerNotices?.length ? (
+                <SteerNoticeCard notices={msg.aiCards.steerNotices} />
+              ) : null}
+              {/* #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端 / 子任务八态 / 注入交代),由 assistant 消息 aiCards 累积渲染 */}
+              {msg.aiCards &&
+              msg.aiCards.planSteps.length +
+                msg.aiCards.toolCalls.length +
+                msg.aiCards.terminalTasks.length +
+                (msg.aiCards.subagentTasks?.length ?? 0) +
+                (msg.aiCards.injections?.length ?? 0) +
+                (msg.aiCards.citations?.length ?? 0) >
+                0 ? (
+                <StreamActivityCards
+                  planSteps={msg.aiCards.planSteps}
+                  toolCalls={msg.aiCards.toolCalls}
+                  terminalTasks={msg.aiCards.terminalTasks}
+                  subagentTasks={msg.aiCards.subagentTasks}
+                  injections={msg.aiCards.injections ?? []}
+                  citations={msg.aiCards.citations ?? []}
+                  expanded={cardsExpanded}
+                  onToggleExpand={() => setCardsExpanded((v) => !v)}
+                />
+              ) : null}
+            </View>
+          ) : (
+            <View style={{ padding: 'var(--spacing-sm-loose)', textAlign: 'center' }}>
+              <Text style={{ color: 'var(--color-muted-foreground)', fontSize: '24rpx' }}>···</Text>
+            </View>
+          )}
+
+          {/* AI 图片列表 agent-content-item-img */}
+          {msg.images && msg.images.length > 0 && !answerHidden ? (
+            <View>
+              {msg.images.map((imgUrl, i) => (
+                <Image
+                  key={i}
+                  src={imgUrl}
+                  className="agent-content-item-img"
+                  mode="widthFix"
+                  onClick={() => previewImage(imgUrl, msg.images || [imgUrl])}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {/* AI 视频列表(若有) */}
+          {msg.videos && msg.videos.length > 0 && !answerHidden ? (
+            <View>
+              {msg.videos.map((videoUrl, i) => (
+                <Video
+                  key={`video-${i}`}
+                  src={videoUrl}
+                  style={{ width: '100%', marginTop: '10rpx' }}
+                  controls
+                  showPlayBtn
+                  showCenterPlayBtn
+                  enableProgressGesture
+                  objectFit="contain"
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {/* 操作按钮行 action-buttons:左侧 token 信息 + 右侧图标组 */}
+          <View className="action-buttons" style={{ justifyContent: 'space-between' }}>
+            {/* 左侧:智汇AI生成 + 消耗智汇值 */}
+            <View
+              style={{
+                opacity: answerHidden ? 0 : 1,
+                marginRight: '10rpx',
+                fontSize: '24rpx',
+                color: 'var(--color-muted-foreground)',
+                lineHeight: '40rpx',
+              }}
+            >
+              <Text>{t('ai.chatMessageItem.aiGenerated')}</Text>
+              {typeof msg.tokenCount === 'number' ? (
+                <Text style={{ marginLeft: '10rpx' }}>
+                  {t('ai.chatMessageItem.tokenCost', { n: formatTokenDisplay(msg.tokenCount) })}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* 右侧:图标按钮组 */}
+            <View style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              {/* 答案显隐 eye-closed/eye-open */}
+              <LineIcon
+                className="action-btn"
+                name={answerHidden ? 'eye-off' : 'eye'}
+                size={40}
+                color="var(--color-muted-foreground)"
+                onClick={toggleAnswer}
+              />
+              {/* D64③ 双态(判定唯一入口 thinkingTitleView,端内不再自行「有 reasoning 才显示」):
+                  有思考 → 思考过程图标(交互保持既有 onOpenReasoning 浮层);
+                  无思考但本轮带引用 → 「使用了 N 个引用」文本。
+                  本组件没有引用浮层入口(onOpenCitations 不存在),refs 态只出标题、不挂死按钮。 */}
+              {(() => {
+                const titleView = thinkingTitleView(
+                  Boolean(msg.reasoning),
+                  msg.aiCards?.citations?.length ?? 0,
+                )
+                if (!titleView) return null
+                if (titleView.variant === 'thinking') {
+                  return <Image className="action-btn" src={sikaoIcon} onClick={onOpenReasoning} />
+                }
+                return (
+                  <Text
+                    className="action-btn"
+                    style={{
+                      fontSize: '24rpx',
+                      color: 'var(--color-muted-foreground)',
+                      lineHeight: '40rpx',
+                    }}
+                  >
+                    {/* 键在 ai.pane 域(element-pack.ts:251 注释口径),完整路径 = ai.pane.thinkingRefsTitle */}
+                    {t(`ai.pane.${titleView.titleKey}`, titleView.values)}
+                  </Text>
+                )
+              })()}
+              {/* 复制 */}
+              <Image
+                className="action-btn"
+                src={copyIcon}
+                onClick={() => copyContent(msg.content)}
+              />
+              {/* 下载(有图片时) */}
+              {msg.images && msg.images.length > 0 ? (
+                <Image className="action-btn" src={downloadIcon} onClick={downloadImages} />
+              ) : null}
+              {/* 分享(对标原 ai_assistant.vue .share-btn:Button openType=share 触发原生分享,View onClick 前置写入待分享消息)
+                  失败轮不给分享(它不是内容);复制保留,报错排查要用那段文字 */}
+              {isFailed ? null : (
+                <View className="share-btn" onClick={onShare} hoverClass="opacity-60">
+                  <Button openType="share" className="share-button">
+                    {t('ai.chatMessageItem.share')}
+                  </Button>
+                  <Image className="share-icon" src={agentsharePng} mode="widthFix" />
+                </View>
+              )}
+              {/* 朗读 TTS(增强功能,历史项目无,保留) */}
+              {onSpeak ? (
+                <View
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontSize: '24rpx',
+                    color: 'var(--color-link)',
+                    marginLeft: 'var(--spacing-sm-loose)',
+                    lineHeight: '40rpx',
+                  }}
+                  onClick={handleSpeak}
+                  hoverClass="opacity-60"
+                >
+                  <LineIcon
+                    name={speaking ? 'pause' : 'volume-2'}
+                    size={24}
+                    color="var(--color-muted-foreground)"
+                    style={{ marginRight: '6rpx' }}
+                  />
+                  <Text>
+                    {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
+                  </Text>
+                </View>
+              ) : null}
+              {/* 重新生成(增强功能,历史项目无,保留) */}
+              {onRegenerate ? (
+                <Text
+                  style={{
+                    fontSize: '24rpx',
+                    color: 'var(--color-link)',
+                    marginLeft: 'var(--spacing-sm-loose)',
+                    lineHeight: '40rpx',
+                  }}
+                  onClick={() => onRegenerate(msg)}
+                >
+                  ↻ {t('ai.chatMessageItem.regenerate')}
+                </Text>
+              ) : null}
+              {/* 收藏(增强功能,历史项目无,保留) */}
+              {onToggleFavorite ? (
+                <View
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginLeft: 'var(--spacing-sm-loose)',
+                    lineHeight: '40rpx',
+                  }}
+                  onClick={onToggleFavorite}
+                  hoverClass="opacity-60"
+                >
+                  <LineIcon
+                    name="heart"
+                    size={24}
+                    color={isFavorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
+                  />
+                </View>
+              ) : null}
+              {/* D49① + D111:评价(点赞/点踩)+ 审批三键接线(经 @ihui/api-client 共享端点,不另起传输层) */}
+              <LineIcon
+                className="action-btn"
+                name="check-success"
+                size={40}
+                color="var(--color-muted-foreground)"
+                onClick={() => void handleRate('like')}
+              />
+              <LineIcon
+                className="action-btn"
+                name="x-error"
+                size={40}
+                color="var(--color-muted-foreground)"
+                onClick={() => void handleRate('dislike')}
+              />
+              {APPROVAL_ACTIONS.map((action) => (
+                <View
+                  key={action.id}
+                  className="action-btn"
+                  onClick={() => void handleApproval(action.id)}
+                >
+                  <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
+                    {t(action.key) || action.fallback}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

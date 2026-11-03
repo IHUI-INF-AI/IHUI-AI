@@ -1,0 +1,70 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import * as TooltipPrimitive from '@radix-ui/react-tooltip'
+import { cn } from '@/lib/utils'
+
+interface TooltipProps {
+  content: React.ReactNode
+  children: React.ReactElement
+  side?: 'top' | 'right' | 'bottom' | 'left'
+  align?: 'start' | 'center' | 'end'
+  delayDuration?: number
+  className?: string
+}
+
+export function TooltipProvider({ children }: { children: React.ReactNode }) {
+  return <TooltipPrimitive.Provider delayDuration={300}>{children}</TooltipPrimitive.Provider>
+}
+
+export function Tooltip({
+  content,
+  children,
+  side = 'top',
+  align = 'center',
+  delayDuration,
+  className,
+}: TooltipProps) {
+  const tipId = React.useId()
+  return (
+    <TooltipPrimitive.Root delayDuration={delayDuration}>
+      {/* suppressHydrationWarning(2026-07-19 根因修复):
+          Radix UI 内部 TooltipPrimitive.Trigger 会再生成一个自己的 useId 作为 aria-describedby 指向 TooltipContent。
+          当同一个 Sidebar 在桌面/移动两个 aside 树内各渲染一次 TooltipProvider 时,useId 的 SSR/CSR 序号会发生漂移:
+            SSR: 桌面 aside 树先调用 useId → _R_8vbabmiplb_,移动 aside 后调用 → _R_13td9eqplb_
+            CSR (hydration): React 调和器按组件实例顺序重新算 useId → 序号可能反转
+          结果就是 Radix 注入的 aria-describedby 在 SSR/CSR 字节级不一致,React 报 hydration mismatch warning。
+          该属性是 Radix 内部 a11y 增强,不影响功能,只在这一行压制 hydration 检查即可彻底根除 warning。 */}
+      <TooltipPrimitive.Trigger asChild aria-describedby={tipId}>
+        {React.cloneElement(children, {
+          suppressHydrationWarning: true,
+        } as React.HTMLAttributes<HTMLElement>)}
+      </TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
+          id={tipId}
+          role="tooltip"
+          side={side}
+          align={align}
+          sideOffset={4}
+          className={cn(
+            // 不带 overflow-hidden:Radix 把 Arrow 包在 translateY(100%) 的外溢 wrapper 里,
+            // 裁剪会把箭头整枚切掉。同源的 package/ui-react 已在 batch-7 实证并修复(8801 现网 7/7
+            // 悬停样本箭头落在气泡盒外被判裁,气泡与目标之间留一段空白、相邻图标看不出指哪一个)。
+            'z-popover rounded-md border bg-popover px-2 py-1 text-label text-popover-foreground shadow-md',
+            'data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 duration-(--duration-unified) ease-unified',
+            className,
+          )}
+        >
+          {content}
+          <TooltipPrimitive.Arrow className="fill-popover" />
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

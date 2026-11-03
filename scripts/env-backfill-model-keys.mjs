@@ -1,0 +1,768 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
+/**
+ * env-backfill-model-keys.mjs — 从本机密钥目录回填项目根 .env 的模型 API key(2026-09-12 立)
+ *
+ * 背景:
+ *   本机模型密钥维护在百度网盘同步目录 `密钥/模型/` 下,每个厂商一个 txt,内容为裸 token。
+ *   新机器 / 重装 / 换目录后,根 `.env` 里这些键常为空,导致 ai-service 静默降级。
+ *   手工粘贴既慢又容易粘错位,明文 key 还会进终端历史与聊天记录。
+ *
+ * 本脚本做四件事:
+ *   1. 只读巡检:列出每个 .env 键 -> 源文件 -> 候选数量 -> 将选用的 token(脱敏)
+ *   2. 消歧(可选):同一源文件里有多把 key 时,逐把发一次最小鉴权请求,选**真能用**的那把
+ *   3. 精确回填:只写「值为空」的键,已有值一律跳过,**绝不覆盖**
+ *   4. 自动备份:apply 前把 .env 整体复制到备份目录,失败可一键还原
+ *
+ * 受管面 ≠ 本机生效面(2026-10-28 实测钉清,别再按"填了根 .env 就算配好"办事):
+ *   本器默认目标是**仓库根 .env**,而根 .env 在本机没有任何常驻进程读它 —— 读它的只有部署腿
+ *   (`scripts/pre-deploy.mjs` 的生产必填清单、docs/RELEASE.md 的 `docker run --env-file .env`)。
+ *   本机运行面上,apps/api 与 apps/ai-service 都是 `cd` 进各自目录再启动(nssm 服务路径与
+ *   dev-stack 的 cwd 同形),dotenv / pydantic-settings 只读 **cwd 下**的 .env ⇒ 生效面是
+ *   `apps/api/.env` 与 `apps/ai-service/.env`,web 端另有 `.env.local`。
+ *   所以"往根 .env 填完就以为服务能用"是错的:那 7 枚已填值的键在本机服务面上同样不生效。
+ *   要填本机生效面必须显式带面:`--env apps/api/.env`(本器已支持,无需改代码)。
+ *   另:巡检档 `--verify` 只报**源侧**候选,不判目标面有没有这一行;"(.env 无此键,如需新增请手动
+ *   添加)"这条跳过只出现在 apply 档 —— 即目标面缺键时 verify 读数看起来一切正常、apply 却一枚不填。
+ *   本仓台账里那张"归机主凭据交付面"的票写的是**按需**填写(原文「只在做对应功能时才需填」),
+ *   所以批量把几十枚键一次填满并不符合票面意图,补哪一枚由对应功能开工时决定。
+ *
+ * 安全约定(硬性):
+ *   - 任何输出都不打印完整 key,只打印 `前6位***后2位 (len=N)` 用于人工核对
+ *   - `.env` 已被 .gitignore 忽略(见 .gitignore 第 98 行的 env 忽略规则),回填后不会入库
+ *   - `--verify` 的鉴权探测只打各厂商官方 `/models` 端点,不发业务请求、不落盘 token
+ *
+ * 用法:
+ *   node scripts/env-backfill-model-keys.mjs                       # 默认 dry-run,只巡检
+ *   node scripts/env-backfill-model-keys.mjs --verify              # 巡检 + 联网验活(含消歧)
+ *   node scripts/env-backfill-model-keys.mjs --apply               # 实际回填(自动备份)
+ *   node scripts/env-backfill-model-keys.mjs --verify --apply       # 验活后回填(推荐)
+ *   node scripts/env-backfill-model-keys.mjs --key-dir "D:/xxx/密钥/模型"
+ *
+ * 退出码:
+ *   0 = 巡检/回填完成(含"跳过"情形)
+ *   1 = 前置条件不满足(密钥目录或 .env 不存在)
+ */
+
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolveKeyDir } from './lib/key-dir.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+/** 默认密钥目录(可用 --key-dir 或 IHUI_MODEL_KEY_DIR 覆盖)。
+ *  盘符按"存在即真"解析:本机真实库在 F 盘而文档写的是 D 盘,写死会让巡检把
+ *  "读不到文件"报成"key 无效"(同 scripts/lib/key-dir.mjs 立项原因)。 */
+const DEFAULT_KEY_DIR =
+  process.env.IHUI_MODEL_KEY_DIR || resolveKeyDir('模型') || 'D:/BaiduSyncdisk/密钥/模型'
+
+/** 探测超时(ms):超时视为「本机网络不可达」,不据此否定 key 本身 */
+const PROBE_TIMEOUT_MS = 8000
+
+/**
+ * .env 键 -> 源文件 / 宽松格式 / 鉴权探测方式。
+ *   expect  仅用于在多个裸 token 里筛掉明显不是 key 的行(如说明文字),不做严格格式断言
+ *   baseEnv .env 里存 base URL 的键名(优先取运行时真值,保证与线上配置一致)
+ *   base    兜底 base URL
+ *   probe   'bearer'(Authorization: Bearer) | 'query'(?key=) | null(无法探测)
+ */
+const MAP = [
+  {
+    key: 'STEPFUN_API_KEY',
+    vendor: 'StepFun',
+    file: 'step apikey.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'STEPFUN_API_BASE',
+    base: 'https://api.stepfun.com/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'AGNES_API_KEY',
+    vendor: 'AGNES',
+    file: 'agnes apikey.txt',
+    expect: /^sk-[A-Za-z0-9]{20,}$/,
+    baseEnv: 'AGNES_API_BASE',
+    base: 'https://api.agnes-ai.cn/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'GROQ_API_KEY',
+    vendor: 'Groq',
+    file: 'groq.txt',
+    expect: /^gsk_[A-Za-z0-9]{30,}$/,
+    baseEnv: 'GROQ_API_BASE',
+    base: 'https://api.groq.com/openai/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'OPENROUTER_API_KEY',
+    vendor: 'OpenRouter',
+    file: 'openrouter api key.txt',
+    expect: /^sk-or-v1-[a-z0-9]{40,}$/,
+    baseEnv: 'OPENROUTER_API_BASE',
+    base: 'https://openrouter.ai/api/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'GEMINI_API_KEY',
+    vendor: 'Google Gemini',
+    file: 'Google AI studio.txt',
+    expect: /^(AQ\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,})$/,
+    baseEnv: 'GEMINI_API_BASE',
+    base: 'https://generativelanguage.googleapis.com/v1beta',
+    probe: 'query',
+  },
+  // ─── 2026-10-28 扩容(台账票「回填器映射表盖不到密钥目录已有素材」)───────────
+  // 键名与 baseUrl 一律对齐运行时消费侧权威表 apps/api/src/routes/ai-vendors/_shared.ts
+  // 的 VENDORS(keyEnv/baseUrl),不自立第二套命名(§0.6);probe 只给文档确认存在
+  // GET /models 的 OpenAI 兼容端点(§5d:404 不得被读成「key 无效」)⇒ 专有 REST 端点
+  // 全部 null,多候选时落「待人工」而不是瞎探。
+  {
+    key: 'ANTHROPIC_API_KEY',
+    vendor: 'Anthropic',
+    file: 'Anthropic api key.txt',
+    expect: /^sk-ant-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'ANTHROPIC_API_BASE',
+    base: 'https://api.anthropic.com',
+    probe: null,
+  },
+  {
+    key: 'AI360_API_KEY',
+    vendor: '360智脑',
+    file: '360 api key.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'AI360_API_BASE',
+    base: 'https://api.360.cn/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'ASSEMBLYAI_API_KEY',
+    vendor: 'AssemblyAI',
+    file: 'AssemblyAI api key.txt',
+    expect: /^[A-Za-z0-9]{20,}$/,
+    baseEnv: 'ASSEMBLYAI_API_BASE',
+    base: 'https://api.assemblyai.com',
+    probe: null,
+  },
+  {
+    key: 'CARTESIA_API_KEY',
+    vendor: 'Cartesia',
+    file: 'Cartesia api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'CARTESIA_API_BASE',
+    base: 'https://api.cartesia.ai',
+    probe: null,
+  },
+  {
+    key: 'DEEPINFRA_API_KEY',
+    vendor: 'DeepInfra',
+    file: 'DeepInfra api key.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'DEEPINFRA_API_BASE',
+    base: 'https://api.deepinfra.com/v1/openai',
+    probe: 'bearer',
+  },
+  {
+    key: 'DEEPGRAM_API_KEY',
+    vendor: 'Deepgram',
+    file: 'Deepgram api key.txt',
+    expect: /^[A-Za-z0-9_]{20,}$/,
+    baseEnv: 'DEEPGRAM_API_BASE',
+    base: 'https://api.deepgram.com',
+    probe: null,
+  },
+  {
+    key: 'DEEPSEEK_API_KEY',
+    vendor: 'DeepSeek',
+    file: 'Deepseek api key.txt',
+    expect: /^sk-[A-Za-z0-9]{20,}$/,
+    baseEnv: 'DEEPSEEK_API_BASE',
+    base: 'https://api.deepseek.com/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'ELEVENLABS_API_KEY',
+    vendor: 'ElevenLabs',
+    file: 'ElevenLabs api key.txt',
+    expect: /^[A-Za-z0-9_]{20,}$/,
+    baseEnv: 'ELEVENLABS_API_BASE',
+    base: 'https://api.elevenlabs.io',
+    probe: null,
+  },
+  {
+    key: 'FISHAUDIO_API_KEY',
+    vendor: 'Fish Audio',
+    file: 'FishAudio api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'FISHAUDIO_API_BASE',
+    base: 'https://api.fish.audio',
+    probe: null,
+  },
+  {
+    key: 'FLUX_API_KEY',
+    vendor: 'FLUX(BFL)',
+    file: 'Flux BFL api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'FLUX_API_BASE',
+    base: 'https://api.bfl.ai',
+    probe: null,
+  },
+  {
+    key: 'HYPERBOLIC_API_KEY',
+    vendor: 'Hyperbolic',
+    file: 'Hyperbolic api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'HYPERBOLIC_API_BASE',
+    base: 'https://api.hyperbolic.xyz/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'IDEOGRAM_API_KEY',
+    vendor: 'Ideogram',
+    file: 'Ideogram api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'IDEOGRAM_API_BASE',
+    base: 'https://api.ideogram.ai',
+    probe: null,
+  },
+  {
+    key: 'MOONSHOT_API_KEY',
+    vendor: 'Kimi(Moonshot)',
+    file: 'Kimi api key.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'MOONSHOT_API_BASE',
+    base: 'https://api.moonshot.cn/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'LUMA_API_KEY',
+    vendor: 'Luma',
+    file: 'Luma api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'LUMA_API_BASE',
+    base: 'https://api.lumalabs.ai',
+    probe: null,
+  },
+  {
+    key: 'MIMO_API_KEY',
+    vendor: 'MIMO(小米)',
+    file: 'MIMO apikey.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'MIMO_API_BASE',
+    base: 'https://api.xiaomimimo.com/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'MINIMAX_API_KEY',
+    vendor: 'MiniMax',
+    file: 'MiniMax api key.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'MINIMAX_API_BASE',
+    base: 'https://api.minimax.chat/v1',
+    probe: 'bearer',
+  },
+  {
+    // 源文件名实况就是少一个 I(NVDIA),按盘上原名逐字节登记,不纠正文件名。
+    key: 'NVIDIA_API_KEY',
+    vendor: 'NVIDIA NIM',
+    file: 'NVDIA API KEY.txt',
+    expect: /^nvapi-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'NVIDIA_API_BASE',
+    base: 'https://integrate.api.nvidia.com/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'NOVITA_API_KEY',
+    vendor: 'Novita AI',
+    file: 'Novita api key.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'NOVITA_API_BASE',
+    base: 'https://api.novita.ai/v3/openai',
+    probe: 'bearer',
+  },
+  {
+    // 网关侧另有 REPLICATE_API_KEY 形态(llm_gateway VENDOR_ENV_KEYS,仅用于 stub 判定);
+    // 运行时消费侧(_shared.ts VENDORS.replicate)读的是 REPLICATE_API_TOKEN,回填按消费侧。
+    key: 'REPLICATE_API_TOKEN',
+    vendor: 'Replicate',
+    file: 'Replicate api key.txt',
+    expect: /^r8_[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'REPLICATE_API_BASE',
+    base: 'https://api.replicate.com/v1',
+    probe: null,
+  },
+  {
+    key: 'RUNWAY_API_KEY',
+    vendor: 'Runway',
+    file: 'Runway api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'RUNWAY_API_BASE',
+    base: 'https://api.dev.runwayml.com',
+    probe: null,
+  },
+  {
+    key: 'SAMBANOVA_API_KEY',
+    vendor: 'SambaNova',
+    file: 'SambaNova api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'SAMBANOVA_API_BASE',
+    base: 'https://api.sambanova.ai/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'SKYWORK_API_KEY',
+    vendor: 'Skywork',
+    file: 'Skywork api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'SKYWORK_API_BASE',
+    base: 'https://api.skywork.ai/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'STABILITY_API_KEY',
+    vendor: 'Stability AI',
+    file: 'Stability ai api key.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'STABILITY_API_BASE',
+    base: 'https://api.stability.ai',
+    probe: null,
+  },
+  {
+    key: 'VIDU_API_KEY',
+    vendor: 'Vidu(生数科技)',
+    file: 'Vidu api key.txt',
+    expect: /^[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'VIDU_API_BASE',
+    base: 'https://api.vidu.com',
+    probe: null,
+  },
+  {
+    key: 'OPENCODE_ZEN_KEY',
+    vendor: 'OpenCode Zen',
+    file: 'opencode apikey.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'OPENCODE_ZEN_BASE',
+    base: 'https://opencode.ai/zen/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'PERPLEXITY_API_KEY',
+    vendor: 'Perplexity',
+    file: 'Perplexity api key.txt',
+    expect: /^pplx-[A-Za-z0-9]{20,}$/,
+    baseEnv: 'PERPLEXITY_API_BASE',
+    base: 'https://api.perplexity.ai',
+    probe: null,
+  },
+  {
+    key: 'XAI_API_KEY',
+    vendor: 'xAI(Grok)',
+    file: 'xAI api key.txt',
+    expect: /^xai-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'XAI_API_BASE',
+    base: 'https://api.x.ai/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'SENSENOVA_API_KEY',
+    vendor: '商汤日日新',
+    file: '商汤日日新 api key.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'SENSENOVA_API_BASE',
+    base: 'https://api.sensenova.cn/compatible-mode/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'BAIDU_API_KEY',
+    vendor: '百度千帆',
+    file: '百度千帆 api key.txt',
+    expect: /^bce[v3]?.[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'BAIDU_API_BASE',
+    base: 'https://qianfan.baidubce.com/v2',
+    probe: 'bearer',
+  },
+  {
+    // 网关别名 SILICONCLOUD_API_KEY(llm_gateway VENDOR_ENV_KEYS)同平台同端点;
+    // 回填按消费侧 _shared.ts VENDORS.siliconflow 的 SILICONFLOW_API_KEY。
+    key: 'SILICONFLOW_API_KEY',
+    vendor: '硅基流动',
+    file: '硅基流动.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'SILICONFLOW_API_BASE',
+    base: 'https://api.siliconflow.cn/v1',
+    probe: 'bearer',
+  },
+  {
+    // 2026-10-10 机主拍板 A:此键现为腾讯云 TokenHub(MaaS)密钥,端点已切 TokenHub 网关。
+    key: 'HUNYUAN_API_KEY',
+    vendor: '腾讯混元(TokenHub)',
+    file: '腾讯混元 api key.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'HUNYUAN_API_BASE',
+    base: 'https://tokenhub.tencentmaas.com/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'SPARK_API_KEY',
+    vendor: '讯飞星火',
+    file: '讯飞 api key.txt',
+    expect: /^[A-Za-z0-9._-]{20,}$/,
+    baseEnv: 'SPARK_API_BASE',
+    base: 'https://spark-api-open.xf-yun.com/v1',
+    probe: 'bearer',
+  },
+  {
+    key: 'DASHSCOPE_API_KEY',
+    vendor: '阿里云百炼',
+    file: '阿里云百炼key.txt',
+    expect: /^sk-[A-Za-z0-9_-]{20,}$/,
+    baseEnv: 'DASHSCOPE_API_BASE',
+    base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    probe: 'bearer',
+  },
+  // 密钥目录下以下文件【刻意不映射,待人工确认】(§0.3:推断不出不瞎猜):
+  //   '1 new api.txt' / 'api.txt' —— 厂商无法从文件名判定,键名无从推断;
+  //   '腾讯云 api key.txt' —— 疑为 TENCENT_SECRET_ID/SECRET_KEY(或 TENCENT_SMS_*)一对,
+  //     单文件双键且键名集不唯一;
+  //   'Kling api key.txt' —— 需 KLING_ACCESS_KEY+KLING_SECRET_KEY 一对,且两处消费侧
+  //     命名不一(_shared.ts 用 KLING_API_KEY,网关/Provider 用 KLING_ACCESS_KEY);
+  //   'perplexity ai.txt' —— 与 'Perplexity api key.txt' 同厂商第二源文件,何者为新需人工裁决。
+  // (讯飞 api key.txt 不在此列:其凭据本就是 `id:secret` 整串形态,tokens() 对非泛用
+  //  键名的冒号行整行保留,SPARK_API_KEY 直接取用整行。)
+]
+
+/** 解析 CLI 参数(--k v 与 --k=v 两种写法) */
+function parseArgs(argv) {
+  const out = { apply: false, verify: false }
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (a === '--apply') out.apply = true
+    else if (a === '--dry-run') out.apply = false
+    else if (a === '--verify') out.verify = true
+    else if (a === '--help' || a === '-h') out.help = true
+    else if (a.startsWith('--')) {
+      const eq = a.indexOf('=')
+      const name = eq === -1 ? a.slice(2) : a.slice(2, eq)
+      out[name] = eq === -1 ? argv[(i += 1)] : a.slice(eq + 1)
+    }
+  }
+  return out
+}
+
+/**
+ * 取一行中所有「裸 token」:整行即 token、长度 >= 20、无空白、非 URL、非注释。
+ * 2026-10-28 扩容批:密钥目录里多枚文件实况是 `键名=值` 的 env 式单行
+ * (Cartesia/DeepInfra/Deepgram/ElevenLabs/FishAudio/Flux/Hyperbolic/Ideogram/
+ * Novita/Replicate/SambaNova/Stability/Vidu 为大写键名,NVIDIA/xAI/Skywork 为 `key:` 前缀)。
+ * 整行当 token 会把键名一起回填进值里;故仅对两类形态剥左段、只取右值:
+ *   ① `大写env键名=值`(如 CARTESIA_API_KEY=…);
+ *   ② 泛用键名(key/apikey/token/secret)接 `=`/`:`/`：`(可跟一个空格,如 key: …)。
+ * 其余「标签:值」整行保留 —— 讯飞 Spark 的凭据本来就是 `id:secret` 整串形态,剥右段反而错。
+ * 含 '://' 的行(说明/URL)照旧整行剔除,裸 token 行为逐字不变。
+ */
+const GENERIC_KEY_LABELS = new Set(['key', 'apikey', 'token', 'secret'])
+function tokens(text) {
+  const out = []
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.trim()
+    if (!l || l.startsWith('#')) continue
+    const m = /^([A-Za-z][A-Za-z0-9_]{1,})([=:：]) ?(\S{20,})$/.exec(l)
+    const envStyle = m && m[2] === '=' && /^[A-Z][A-Z0-9_]{1,}$/.test(m[1])
+    const genericStyle = m && GENERIC_KEY_LABELS.has(m[1].toLowerCase())
+    const cand = m && (envStyle || genericStyle) ? m[3] : l
+    if (cand.length >= 20 && !/\s/.test(cand) && !cand.includes('://')) out.push(cand)
+  }
+  return out
+}
+
+/** 脱敏描述:只露前 6 位与后 2 位,足够人工核对又不泄露 */
+function describe(t) {
+  return `${t.slice(0, 6)}***${t.slice(-2)} (len=${t.length})`
+}
+
+/** 从 .env 文本读某个键的值(仅用于取 base URL,不是密钥) */
+function readEnvValue(envText, key) {
+  const m = envText.match(new RegExp(`^${key}=(.*)$`, 'm'))
+  return m ? m[1].trim() : ''
+}
+
+/** 从单个源文件读候选 token(先严格筛,严格为空则退回全部裸 token) */
+function candidatesOf(keyDir, entry) {
+  const raw = readFileSync(resolve(keyDir, entry.file), 'utf8')
+  const all = tokens(raw)
+  const strict = all.filter((t) => entry.expect.test(t))
+  return strict.length ? strict : all
+}
+
+/** 带超时的 fetch,永不抛错,统一返回 {ok, status, note} */
+async function probeToken(entry, token, base) {
+  if (!entry.probe) return { ok: null, note: '该厂商无可用探测端点' }
+  const url =
+    entry.probe === 'query' ? `${base}/models?key=${encodeURIComponent(token)}` : `${base}/models`
+  const headers = entry.probe === 'query' ? {} : { Authorization: `Bearer ${token}` }
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), PROBE_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { headers, signal: ac.signal })
+    return {
+      ok: res.ok,
+      status: res.status,
+      note: res.ok ? '鉴权通过' : `HTTP ${res.status}`,
+    }
+  } catch (err) {
+    const msg = String((err && err.cause && err.cause.code) || (err && err.name) || err)
+    return { ok: null, note: `网络不可达(${msg})` }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 选出将使用的 token。
+ *   单候选 -> 直接用;多候选 + --verify -> 逐把验活,取第一把通过者;
+ *   多候选但无法验活/全部失败 -> 返回 null,留给人工决策(绝不瞎猜)。
+ */
+async function pickToken(entry, cands, base) {
+  if (cands.length === 1) return { pick: cands[0], reason: '唯一候选' }
+  if (!args.verify) return { pick: null, reason: `${cands.length} 个候选,需 --verify 消歧` }
+
+  const results = []
+  for (const t of cands) {
+    const r = await probeToken(entry, t, base)
+    results.push({ t, r })
+    if (r.ok === true) {
+      return {
+        pick: t,
+        reason: `验活通过(第 ${results.length} 把候选)`,
+        probeLog: results,
+      }
+    }
+  }
+  const networkDead = results.every((x) => x.r.ok === null)
+  return {
+    pick: null,
+    reason: networkDead ? '候选全部无法探测(本机网络不可达)' : '候选全部鉴权失败',
+    probeLog: results,
+  }
+}
+
+/** 解析路径:相对路径按仓库根解析,统一正斜杠便于 git-bash 下传参 */
+function toAbs(p) {
+  if (!p) return null
+  return (isAbsolute(p) ? p : resolve(ROOT, p)).replace(/\\/g, '/')
+}
+
+/**
+ * 写盘并按"读回"(read-back)确认写入 ≠ 生效(2026-09-26 票引入)。
+ * 旧实现写盘后只拿内存串比较就打印"✅ 回填完成" —— 文件只读、被外部进程持有
+ * 或被并发改写时,写入可能没发生或内容不符,而内存比较永远看不见(AGENTS §13
+ * "文件修改后必须立即用 Read 验证"对 CLI 脚本是同一条规矩)。
+ * 读回不一致只点名行号与两侧的**键名**,绝不回显值 —— 输出恒为脱敏态(§5d):
+ * 被外部改坏的行可能整行就是裸 token,按"行前缀"回显等于把值倒进日志。
+ * fsImpl 是测试注入缝(默认真实 fs),让镜像测试能离线构造"盘上被外部改动"
+ * 场景而不碰真盘;生产调用方一律不传。
+ * @returns {{attempted: boolean, writeErr: string|null, mismatch: string|null}}
+ */
+function writeEnvWithReadBack(envPath, expected, fsImpl = { writeFileSync, readFileSync }) {
+  if (expected === null || expected === undefined) {
+    return { attempted: false, writeErr: null, mismatch: null }
+  }
+  try {
+    fsImpl.writeFileSync(envPath, expected)
+  } catch (e) {
+    return { attempted: true, writeErr: String((e && e.code) || e), mismatch: null }
+  }
+  let onDisk
+  try {
+    onDisk = fsImpl.readFileSync(envPath, 'utf8')
+  } catch (e) {
+    return { attempted: true, writeErr: null, mismatch: `读回失败(${String((e && e.code) || e)})` }
+  }
+  if (onDisk === expected) return { attempted: true, writeErr: null, mismatch: null }
+  const want = expected.split(/\r?\n/)
+  const got = onDisk.split(/\r?\n/)
+  let line = -1
+  for (let i = 0; i < Math.max(want.length, got.length); i += 1) {
+    if (want[i] !== got[i]) {
+      line = i
+      break
+    }
+  }
+  // 只认 `KEY=` 前缀;不匹配就整行省略 —— 绝不回显任何可能是值的字符
+  const keyOf = (s) => {
+    if (s === undefined) return '(行缺失)'
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)=/.exec(s)
+    return m ? m[1] : '(非键值行,内容省略)'
+  }
+  return {
+    attempted: true,
+    writeErr: null,
+    mismatch: `第 ${line + 1} 行与盘上内容不一致(期望键 ${keyOf(want[line])},实读 ${keyOf(got[line])})—— 值已省略`,
+  }
+}
+
+const args = parseArgs(process.argv.slice(2))
+
+// 2026-09-26:以下全部是真正的 CLI 流程,收进 main() 并由 §22d isDirectRun 守卫触发 ——
+// 镜像测试 scripts/tests/env-backfill-readback.test.mjs 需要 import 本模块直接跑
+// writeEnvWithReadBack(§22c:不复制实现);没有守卫,import 就会触发整轮巡检甚至
+// process.exit。函数体曾为零缩进(2026-09-26 收拢时为最小化 diff),2026-10-28 映射表
+// 扩容批随 prettier 归一化恢复常规缩进,行为与原顶层代码逐字一致。
+async function main() {
+  if (args.help) {
+    console.log(
+      [
+        '用法: node scripts/env-backfill-model-keys.mjs [--verify] [--apply] [选项]',
+        '',
+        '  --verify             联网验活每个候选 key(推荐,可自动消解同文件多 key 歧义)',
+        '  --apply              实际回填(默认仅巡检 dry-run)',
+        '  --key-dir <path>     密钥目录,默认按盘符探测 F:/D:/E:/G:/C: 下存在的 BaiduSyncdisk/密钥/模型',
+        '  --env <path>         .env 路径,默认 <仓库根>/.env',
+        '  --backup-dir <path>  .env 备份目录,默认 <仓库根>/.ihui-agent/env-backup',
+        '',
+        '环境变量: IHUI_MODEL_KEY_DIR 可替代 --key-dir',
+        '注: 只回填空值键,已有值一律跳过,绝不覆盖;始终不打印完整 key。',
+      ].join('\n'),
+    )
+    process.exit(0)
+  }
+
+  const KEY_DIR = toAbs(args['key-dir'] || DEFAULT_KEY_DIR)
+  const ENV = toAbs(args.env) || `${ROOT.replace(/\\/g, '/')}/.env`
+  // 备份必须落在仓库内且被 .gitignore 覆盖(.ihui-agent/ 已在 .gitignore:132),
+  // 否则会污染项目父目录 —— 违反 AGENTS.md §15,并触发门禁 #26 父目录污染巡查。
+  const BACKUP_DIR =
+    toAbs(args['backup-dir']) || `${ROOT.replace(/\\/g, '/')}/.ihui-agent/env-backup`
+
+  if (!existsSync(KEY_DIR)) {
+    console.error(`❌ 密钥目录不存在: ${KEY_DIR}`)
+    console.error('   请用 --key-dir <path> 指定,或设置环境变量 IHUI_MODEL_KEY_DIR。')
+    process.exit(1)
+  }
+  if (!existsSync(ENV)) {
+    console.error(`❌ .env 不存在: ${ENV}`)
+    console.error('   请先从 .env.example 复制一份再执行回填。')
+    process.exit(1)
+  }
+
+  const envText = readFileSync(ENV, 'utf8')
+
+  console.log(`密钥目录: ${KEY_DIR}`)
+  console.log(`目标 .env: ${ENV}`)
+  console.log(`模式: ${args.apply ? 'APPLY(实际写入,自动备份)' : 'DRY-RUN(只巡检,不写入)'}`)
+  console.log(`验活: ${args.verify ? 'ON(联网探测各厂商 /models)' : 'OFF'}`)
+  console.log('')
+
+  // ─── 一、巡检 + 消歧 ───────────────────────────────────────────
+  const plan = []
+  for (const entry of MAP) {
+    if (!existsSync(resolve(KEY_DIR, entry.file))) {
+      console.log(`${entry.key.padEnd(22)} 源=${entry.file}  ⏭ 源文件不存在`)
+      plan.push({ entry, pick: null, reason: '源文件不存在' })
+      continue
+    }
+    const cands = candidatesOf(KEY_DIR, entry)
+    const base = readEnvValue(envText, entry.baseEnv) || entry.base
+    const { pick, reason, probeLog } = await pickToken(entry, cands, base)
+
+    const verdict = pick ? `${describe(pick)}  — ${reason}` : `(不确定:${reason})`
+    console.log(`${entry.key.padEnd(22)} 源=${entry.file}  候选=${cands.length}  选用=${verdict}`)
+    if (cands.length > 1 && probeLog) {
+      for (const { t, r } of probeLog) {
+        console.log(`    候选 ${describe(t)} → ${r.note}`)
+      }
+    }
+    plan.push({ entry, pick, reason })
+  }
+
+  console.log('')
+  if (!args.apply) {
+    console.log('✅ 巡检完成(未写入任何文件)。确认无误后加 --apply 实际回填。')
+    process.exit(0)
+  }
+
+  // ─── 二、回填:先备份,再只替换空值键 ───────────────────────────
+  if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true })
+  const backupPath = resolve(BACKUP_DIR, `env-backup-${Date.now()}.env`)
+  copyFileSync(ENV, backupPath)
+
+  let out = envText
+  const report = []
+
+  for (const { entry, pick, reason } of plan) {
+    if (!pick) {
+      report.push(`${entry.key}: 跳过(${reason})`)
+      continue
+    }
+    const r = fillEmptyKeyLine({ out, key: entry.key, value: pick })
+    if (!r.ok) {
+      report.push(
+        r.why === 'no-such-key'
+          ? `${entry.key}: 跳过(.env 无此键,如需新增请手动添加)`
+          : `${entry.key}: 跳过(已有值,不覆盖)`,
+      )
+      continue
+    }
+    out = r.out
+    report.push(`${entry.key}: 已回填 ${describe(pick)}`)
+  }
+
+  // 写盘 + 读回确认(2026-09-26):旧写法 `if (out !== envText) writeFileSync(ENV, out)` 后
+  // 直接拿内存串决定打不打"回填完成" —— 写入未生效时照样报成功。现在只有
+  // writeEnvWithReadBack 判"写成功且盘上内容与预期逐字节一致"才允许出现完成字样。
+  const wb =
+    out !== envText
+      ? writeEnvWithReadBack(ENV, out)
+      : { attempted: false, writeErr: null, mismatch: null }
+
+  console.log(`备份: ${backupPath.replace(/\\/g, '/')}`)
+  console.log(report.map((r) => `  - ${r}`).join('\n'))
+  console.log('')
+  if (wb.attempted && (wb.writeErr || wb.mismatch)) {
+    console.log(`❌ 写入未生效:${wb.writeErr ? `写盘异常(${wb.writeErr})` : wb.mismatch}`)
+    console.log(
+      '   回填**未完成** —— 磁盘上的 .env 与回填预期不一致,修好文件权限/外部写入后重跑;本输出不含任何 key 值。',
+    )
+    process.exitCode = 1
+  } else {
+    console.log(wb.attempted ? '✅ 回填完成(读回比对一致)' : '⏭ 无键需要回填')
+  }
+  console.log(
+    '注: .env 改动须重启对应服务(ai-service 等)才生效 —— 进程在启动时把它读进内存,改文件不动运行中的进程(AGENTS §5e)。',
+  )
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+/**
+ * 把 `KEY=` 那一行的空值填上候选值(全仓唯一替换出口,2026-10-28 立)。
+ *
+ * 抽成函数不是为了整洁,是因为这一条**必须能被真跑到**:replacement 若写成模板字符串
+ * (`out.replace(re, \`${key}=${value}\`)`),replacement 里的 `$&` / `` $` `` / `$'` / `$n`
+ * 会被当成替换模式解释 —— 而第三方 API token 含 `$` 是正常形态。咬中就是**静默写坏密钥**:
+ * 落盘值≠候选值,下一行照打"已回填",要等下次 ai-service 静默降级才暴露,而 §5d 的判读口径
+ * 是"只有鉴通过才算有效"。返回函数形式即不解释任何 `$` 模式。
+ * 只填空值、绝不覆盖既有值(与巡检档同一口径)。
+ */
+export function fillEmptyKeyLine({ out, key, value }) {
+  const re = new RegExp(`^${key}=(.*)$`, 'm')
+  const m = out.match(re)
+  if (!m) return { ok: false, why: 'no-such-key', out }
+  if (m[1].trim() !== '') return { ok: false, why: 'already-set', out }
+  return { ok: true, why: '', out: out.replace(re, () => `${key}=${value}`) }
+}
+
+export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens, fillEmptyKeyLine }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

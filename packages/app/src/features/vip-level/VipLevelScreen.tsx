@@ -1,0 +1,111 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * VIP 等级详情共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题)+ levelName + price/duration 行 + benefits,
+ * 以及 loading / error 态。平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { useMemo } from 'react'
+import { ScrollView, Text, View, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { VipLevelScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+
+export function VipLevelScreen({
+  t,
+  item,
+  loading,
+  error,
+  onBack,
+  onRetry,
+  colorScheme = 'light',
+}: VipLevelScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+      </View>
+    )
+  }
+
+  if (error || !item) {
+    return (
+      <ErrorState
+        message={error || t('vipLevel.empty')}
+        onRetry={onRetry}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
+    )
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('vipLevel.title')}</Text>
+      </View>
+      <View style={styles.body}>
+        <Text style={styles.levelName}>{item.levelName}</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>{t('vipLevel.price')}</Text>
+          <Text style={styles.price}>¥{item.price.toFixed(2)}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>{t('vipLevel.duration')}</Text>
+          <Text style={styles.value}>
+            {item.durationDays} {t('vipLevel.days')}
+          </Text>
+        </View>
+        <Text style={styles.benefitsTitle}>{t('vipLevel.benefits')}</Text>
+        <Text style={styles.benefits}>{item.benefits}</Text>
+      </View>
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    body: { padding: rnSpacing['md-loose'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    levelName: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: rnSpacing['sm-loose'],
+    },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
+    price: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    value: { fontSize: rnType.body.size, color: tk.text.primary, fontWeight: '500' },
+    benefitsTitle: {
+      marginTop: rnSpacing.lg,
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    benefits: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,2446 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 镜像 packages/app/src/features/chat/ChatScreen.tsx
+
+import { aizhsUrl } from '@/constants/icon-urls'
+import { useI18n, useTt } from '@/i18n'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+const tishiIcon = aizhsUrl('remote-images/tishi_icon.png')
+const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
+const fileIcon = aizhsUrl('remote-images/file.png')
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到产物而非打包进 common.js(对齐原项目 aigc/index.vue)
+// 2026-09-26 主包余量治理:与 `pages/study/index.tsx` 同一张图,各自下沉进所在子包,
+// 主包不再承载(实测 36,542 B)。图片字节逐字未变(md5 97fef424f841ab997b161bc4ead93cbe)。
+const recordBackIcon = '/pkg-ai/assets/record_back.png'
+import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
+import {
+  chatStream,
+  // G-425:done 帧 finishReason 判"输出被 max_tokens 截断"(判据唯一实现住 api/index)
+  isMaxTokensTruncatedFinishReason,
+  postToolApprovalResponse,
+  type ChatMessage,
+  fetchModels,
+  getAigcList,
+  getAgentDetail,
+  getAgentList,
+} from '@/api'
+import {
+  formatSSEError,
+  getModelContextCapacity,
+  getWorkspacePermissionDefault,
+  // D20 服务端会话回放:消息体唯一出口(端内不得裸 Taro.request,守门 73)
+  getMessages,
+  // 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏的写链同样只走 api-client ——
+  // 端内不重写第二份 fetch,归属与错误码分流都在服务端那一条判据里。
+  setMessageFlags,
+  // 票59 小程序腿(2026-11-01):regenerate 的 sibling 契约写链 —— 与 web
+  // use-chat/send-message.ts 的 regenerateMessage 同一端点同一载荷键(POST
+  // /api/chat/conversations/:id/regenerate,响应 rootId/nextSiblingIndex)。
+  regenerateConversation,
+  // D77(2026-10-17):业务表单应答上行 —— 唯一装配/传输出口(buildFormResponseEvent +
+  // postFormResponse 从 @ihui/api-client 导出,端内不另起传输层)。
+  buildFormResponseEvent,
+  postFormResponse,
+} from '@ihui/api-client'
+import { formatTokenCount } from '@ihui/shared/utils'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+// 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
+// 本屏只做两件事 —— 用投影决定「这条族消息当前显示哪一版」、把版本菜单挂在该条之后;
+// 判族/位置读数一律不在此复算(§3 共享层优先 + §4 跨端禁两份对账)。
+import { projectActiveMessages } from '@ihui/shared/chat/message-version-family'
+import MessageVersionMenu from './message-version-menu'
+import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
+import { useSideQueue } from './side-queue-host'
+import QueueInteractionBar from './queue-interaction-bar'
+// 255fa96933 摘除端内手写轻对话页时的能力安置腿(§7:删除不得静默丢弃):
+// 正文媒资抽取 / 分享问答快照还原,判据都在同目录子模块,主文件只接线。
+import { applyAnswerMedia, extractAnswerMedia, hasAnyMedia } from './answer-media-extract'
+import {
+  buildShareSnapshotMessages,
+  buildShareSnapshotPath,
+  shareSnapshotForMessage,
+  shareSnapshotFromParams,
+} from './qa-share-snapshot'
+// D77(2026-10-17 落地小程序腿):form_request 帧的投影纯函数单源在共享层
+// (@ihui/shared/chat/form-request-frame,由 apps/web 迁入共用,端内不抄第二份)。
+import { projectFormRequestFrame } from '@ihui/shared/chat/form-request-frame'
+import type { BusinessFormFrameEntry } from '@ihui/shared/chat/form-request-frame'
+import type { BusinessFormActionPayload } from '@ihui/shared/chat/business-forms'
+import type { Agent } from '@ihui/api-client'
+import {
+  type ModelItem,
+  InputArea,
+  SkillsPopup,
+  MaterialPopup,
+  IntelligentAssistant,
+  type AgentItem,
+  type MaterialTab,
+  type InputFileItem,
+} from '@/components'
+import { useUserStore } from '@/stores/user'
+import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
+import { logger } from '@/utils/logger'
+import ChatMessageItem from './ChatMessageItem'
+import ContextUsageStrip from './context-usage-strip'
+import McpStatusStrip from './mcp-status-strip'
+import { resolvePermissionTierText } from './permission-tier-text'
+// 台账票 68:流式中切换模型 → 先终止当前这一轮,再让本轮/下一轮自动带入新模型。
+// 终止动作只允许一份实现(「停止」按钮与换档 effect 共用 ./model-switch 的出口),判据表照 web。
+import {
+  resolveRoundModel,
+  shouldTerminateForModelSwitch,
+  terminateActiveStream,
+} from './model-switch'
+// D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 卡片(三档/批准/拒绝/人工放行)
+// 与纯逻辑层(队列/记录/决议载荷)都在端内同目录,三档口径逐档对齐 web。
+import ToolApprovalCard, { type ApprovalDecisionPayload } from './tool-approval-card'
+import {
+  appendApprovalRecord,
+  dequeueApprovalRequest,
+  enqueueApprovalRequest,
+  type ApprovalRecord,
+  type ApprovalRequestView,
+} from './tool-approval-text'
+// D77(2026-10-17 落地小程序腿):业务表单卡(可填表单 + 批准/拒绝 + 拒绝理由),
+// 判定层/状态机/字段表全走 @ihui/shared/chat/business-forms(端内零自判)。
+import BusinessFormCard from '@/components/BusinessFormCard'
+import TaskStatusBar from './task-status-bar'
+import {
+  applyToolCallStart,
+  applyToolDelta,
+  applySubagentEnd,
+  applySubagentProgress,
+  appendCitations,
+  appendSteerNotice,
+  appendTerminalDelta,
+  // D151:命令在等键盘输入的两个纯归并器(标记 / 清除),与 appendTerminalDelta 同一纪律
+  clearTerminalWaiting,
+  markTerminalWaiting,
+  backfillSteerNoticesFromMetadata,
+  toSteerNotice,
+  upsertSubagentSpawn,
+  type AICardsData,
+} from './cards/types'
+import { toolActivityText } from './cards/tool-line'
+// D152(2026-09-29 立):goal_updated 的取词/措辞层(端内唯一入口;六档词汇取自 @ihui/types)。
+import { describeGoalNotice, type GoalNotice } from './cards/goal-line'
+import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
+import {
+  replayServerConversation,
+  fetchEarlierPage,
+  prependEarlierMessages,
+} from './server-chat-replay'
+import AgentTipDialog from './AgentTipDialog'
+import './chat.css'
+import ThemeRoot from '@/components/ThemeRoot'
+
+import { AI_CHAT_HISTORY_KEY, AI_FAVORITE_MESSAGES_KEY } from '@/constants/storage'
+import { onToast } from '@/host/on-toast'
+
+const HISTORY_STORAGE_KEY = AI_CHAT_HISTORY_KEY
+const FAVORITE_STORAGE_KEY = AI_FAVORITE_MESSAGES_KEY
+const MAX_HISTORY_COUNT = 50
+
+interface MaterialItem {
+  id: string
+  title: string
+  coverUrl?: string
+  content?: string
+  createdAt?: string
+}
+/**
+ * 本地视图模型(非 api-client Agent 直投):
+ * - id 由 @/api 的 getAgentDetail/getAgentList 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id)
+ * - systemPrompt 取后端 agentPrompt(@/api 映射为 prompt);契约 Agent 从未含此字段
+ */
+type AgentInfo = Pick<Agent, 'name' | 'description'> & {
+  id: string
+  systemPrompt: string
+  avatar?: string
+  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  prologue?: string
+}
+
+const MATERIAL_PAGE_SIZE = 20
+
+export default function ChatPage() {
+  const router = useRouter()
+  // G-933 冷启动抢跑门:服务端会话回放(getMessages → GET /api/chat/conversations/:id/messages,
+  // chat.ts 处理器 requireAuth + 属主过滤)需鉴权;本机快照命中/展示逻辑与 agent 详情(公开接口)
+  // 不挡,只把回放那一句延后到鉴权判定落定。
+  const { waitUntilReady } = useAuthReadyGate()
+  const { t, tList } = useI18n()
+  const tt = useTt()
+  const suggestions = tList('ai.suggestions')
+  const user = useUserStore((s) => s.user)
+  const routeAgentId = router.params.agentId || ''
+  // 支持从历史页(/pkg-ai/ai/history?sessionId=)与首页抽屉(/pkg-ai/ai/chat?id=)跳转恢复会话
+  const routeSessionId = router.params.sessionId || router.params.id || ''
+  /**
+   * D28 补齐层(2026-10-03):导入页「用场景分析」跳进来时带 prompt。
+   *
+   * 语义 = 进入并**恢复该会话**后,把这段文字作为下一条用户消息自动发出。
+   * 走既有 sendMessage(→ api/index 的 chatStream),不新造 LLM 调用链;
+   * 历史里的导入记录即本轮上下文(另起会话会让"基于这份记录分析"失去依据)。
+   */
+  const routeAutoSendPrompt = router.params.prompt || ''
+  const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [thinking, setThinking] = useState(false)
+  // 思考进度条(对标原 ai_assistant.vue thinkingProgress:120ms 定时器 +Math.random()*1,上限 99,完成时设 100)
+  const [thinkingProgress, setThinkingProgress] = useState(0)
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [sessionId, setSessionId] = useState('')
+  // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
+  // activeVersionByRoot 同语义;失效指针由投影层回落最新版本(判族唯一源在共享层)。
+  // 纯本地读投影态:切换不写库、不发请求(与 web 同一口径)。
+  const [activeVersionByRoot, setActiveVersionByRoot] = useState<Record<string, string>>({})
+  // D20 留尾2:超长会话向前翻页。cursor 走 ref(不驱动渲染);hasMore/loading 走 state(驱动顶部入口)
+  const [earlierHasMore, setEarlierHasMore] = useState(false)
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
+  const earlierCursorRef = useRef<string | null>(null)
+  // D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):服务端那份目标主副本经
+  // 下行帧 `goal_updated` 到达 ⇒ 本端**看得见状态**(胶囊 + 活动行读同一份数据)。
+  // 刻意不做输入口、不做操作按钮:本端没有 /goal 的发起面,给一个"看得见却改不了"的控件是
+  // 假 affordance(与 D151 本端不接代答输入框同一条理由)。cleared 单帧 ⇒ 胶囊整体消失。
+  // 声明排在 resetEarlierPaging **之前**:下面那个收口要在会话切换时清掉它,顺序倒了就是
+  // "用了还没声明的绑定"。
+  const [goalNotice, setGoalNotice] = useState<GoalNotice | null>(null)
+  // ── D136(2026-10-01 立,承 V4 #94/D84):高危工具审批状态 ──
+  // 队列:待决策请求(同 approvalId 去重,上限在 enqueueApprovalRequest);当前展示 [0]。
+  // 记录:本轮已处理的审批,**住在页级 state** —— 卡片随队列清空而消失,记录必须留在卡外
+  //(关掉卡什么痕迹都不剩 = 用户不知道发生过一次决策,RN 那一版同一条教训)。
+  const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
+  const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
+  const [approvalSending, setApprovalSending] = useState(false)
+  // D38 侧边队列宿主(小程序端):队列是会话态;W27 出队只有一个出口(下方流结束 effect)
+  const sideQueue = useSideQueue()
+  const sideQueueRef = useRef(sideQueue)
+  // ── D77(2026-10-17 落地小程序腿):对话流业务表单(form_request → 可填卡 → form_response)──
+  // 形状 = 共享投影的 BusinessFormFrameEntry + 宿主级 status/error(web store 同构,
+  // 本端用页级 useState 承载 —— 表单是会话内状态,不进消息体也不另起全局 store)。
+  // 会话级收口:resetEarlierPaging(会话切换/清空)一并清掉,旧会话的待填卡不得挂到新会话。
+  // 用 Omit 而非交叉:FrameEntry.status 恒 'pending',直接 & 会把联合收窄回 'pending'。
+  type BusinessFormView = Omit<BusinessFormFrameEntry, 'status'> & {
+    status: 'pending' | 'sent' | 'failed'
+    error?: string
+  }
+  const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
+  // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
+  const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
+  // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
+  // 三态口径与 web 端 store 一致:数字(含 0)= 上游真回报;null = 没采到(未知),
+  // 归因条据此显示"不可得"而非 0(G-394 同令)。发送新流时重置 null —— 上一轮
+  // 的缓存读数挂到本轮消息上就是把别人的账记到这一页。
+  const [latestCacheTokens, setLatestCacheTokens] = useState<{
+    cacheReadTokens: number | null
+    cacheWriteTokens: number | null
+  }>({ cacheReadTokens: null, cacheWriteTokens: null })
+
+  /**
+   * D136:审批决议回传(卡片 onDecision 的唯一出口)。
+   * 载荷已由卡层按三档构造好(批准必带 scope,拒绝不带),这里只补齐寻址信息并送出:
+   *  - 人工放行出口的载荷只带 approvalId(卡层没有 sessionId),从队列/记录补 sessionId;
+   *  - 成功:写记录(approved/rejected)+ 出队;
+   *  - 失败:写 send-failed 记录,**条目留在队列**可重试(不静默当"已处理",§30 出口仍在)。
+   */
+  const handleApprovalDecision = useCallback(
+    async (payload: ApprovalDecisionPayload) => {
+      const approvalId = payload.approvalId
+      if (!approvalId || approvalSending) return
+      const queued = approvalQueue.find((r) => r.approvalId === approvalId)
+      const record = approvalRecords.find((r) => r.approvalId === approvalId)
+      const sessionId = payload.sessionId || queued?.sessionId || record?.sessionId || ''
+      const toolName = queued?.toolName ?? record?.toolName ?? ''
+      const recordBase = {
+        approvalId,
+        ...(sessionId ? { sessionId } : {}),
+        toolName,
+        overrideCount: record ? record.overrideCount + 1 : 0,
+      }
+      setApprovalSending(true)
+      try {
+        await postToolApprovalResponse({ ...payload, sessionId })
+        setApprovalRecords((prev) =>
+          appendApprovalRecord(prev, {
+            ...recordBase,
+            decision: payload.decision,
+            ...(payload.decision === 'approve' && payload.scope ? { scope: payload.scope } : {}),
+            outcome: payload.decision === 'approve' ? 'approved' : 'rejected',
+          }),
+        )
+        setApprovalQueue((prev) => dequeueApprovalRequest(prev, approvalId))
+      } catch {
+        setApprovalRecords((prev) =>
+          appendApprovalRecord(prev, {
+            ...recordBase,
+            decision: payload.decision,
+            outcome: 'send-failed',
+          }),
+        )
+      } finally {
+        setApprovalSending(false)
+      }
+    },
+    [approvalSending, approvalQueue, approvalRecords],
+  )
+  /**
+   * D77:业务表单应答上行(卡片 onAction 的唯一出口,对标 web business-form-section)。
+   * 装配走 api-client 的 buildFormResponseEvent(snake 上行口径唯一源),传输走
+   * postFormResponse(失败必抛)。无 sessionId = 无回传通道 ⇒ 如实置 failed,
+   * 绝不"本地当成已批准"(那是把用户应答丢掉)。
+   */
+  const handleBusinessFormAction = useCallback(
+    async (entry: BusinessFormView, payload: BusinessFormActionPayload & { reason?: string }) => {
+      if (formSendingRequestId) return
+      if (!entry.sessionId) {
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId
+              ? { ...f, status: 'failed' as const, error: 'form-response-no-session-channel' }
+              : f,
+          ),
+        )
+        return
+      }
+      const event = buildFormResponseEvent({
+        requestId: entry.requestId,
+        kind: entry.kind,
+        action: payload.action,
+        ...(payload.values ? { values: { ...payload.values } } : {}),
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        messageId: entry.messageId,
+      })
+      setFormSendingRequestId(entry.requestId)
+      try {
+        await postFormResponse(entry.sessionId, event)
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId ? { ...f, status: 'sent' as const } : f,
+          ),
+        )
+      } catch (e) {
+        setBusinessForms((prev) =>
+          prev.map((f) =>
+            f.requestId === entry.requestId
+              ? { ...f, status: 'failed' as const, error: (e as Error).message }
+              : f,
+          ),
+        )
+      } finally {
+        setFormSendingRequestId(null)
+      }
+    },
+    [formSendingRequestId],
+  )
+  /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
+  const resetEarlierPaging = useCallback(() => {
+    setEarlierHasMore(false)
+    setLoadingEarlier(false)
+    // D152:目标态是**会话级**的 —— 会话切换/清空时必须一起收掉,否则上一会话的「进行中」
+    // 会挂在下一会话头上,而那正是本票要消灭的分叉形态(声明见 goalNotice 上方注释)。
+    setGoalNotice(null)
+    // D77:表单待填/终态同样是会话级 —— 旧会话的卡不得挂到新会话头上。
+    setBusinessForms([])
+    setFormSendingRequestId(null)
+    earlierCursorRef.current = null
+  }, [])
+  const [currentModel, setCurrentModel] = useState('')
+  const [currentModelName, setCurrentModelName] = useState('')
+  const [modelDrawerVisible, setModelDrawerVisible] = useState(false)
+  const [models, setModels] = useState<ModelItem[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [materialDrawerVisible, setMaterialDrawerVisible] = useState(false)
+  const [materials, setMaterials] = useState<MaterialItem[]>([])
+  const [materialsLoading, setMaterialsLoading] = useState(false)
+  const [materialPage, setMaterialPage] = useState(1)
+  const [materialHasMore, setMaterialHasMore] = useState(true)
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null)
+  const [materialTab, setMaterialTab] = useState<MaterialTab>(1)
+  const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
+  const [agent, setAgent] = useState<AgentInfo | null>(null)
+  // 智能体引导说明(对标原 ai_assistant.vue tishi_show + tishi_content)
+  const [tishiShow, setTishiShow] = useState(false)
+  const [skillsPopupVisible, setSkillsPopupVisible] = useState(false)
+  const [agents, setAgents] = useState<AgentItem[]>([])
+  const [agentsLoading, setAgentsLoading] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+  // G-248 R2:本轮帧级 traceId(undefined = 本轮没见过,这一态不得折成空串)
+  const roundTraceIdRef = useRef<string | undefined>(undefined)
+  // 票 68:档位「最新值」的两个出口。`currentModelRef` 给 sendMessage 在把 payload 交出去之前
+  // 复核一次(web 同一条竞态收口:入口取到的是快照,而 chatStream 触达网关前还有 await);
+  // `previousModelRef` 给换档 effect 判「这一次是真的换了档,还是首帧/持久化回填」。
+  const currentModelRef = useRef(currentModel)
+  const previousModelRef = useRef(currentModel)
+  // 待分享消息(对标原 ai_assistant.vue 分享对话,长按消息后存入,useShareAppMessage 动态读取)
+  const shareMsgRef = useRef<ChatMessage | null>(null)
+  // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
+  const [inputValue, setInputValue] = useState('')
+  // 附件列表(受控模式由父组件管理,对标原项目 imgs_list)
+  const [imgsList, setImgsList] = useState<InputFileItem[]>([])
+  // 全屏放大态(隐藏导航栏,对标原项目 InputArea.vue fangda)
+  const [navBarHidden, setNavBarHidden] = useState(false)
+  // 收藏消息(对标原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
+  const [favoritedMsgs, setFavoritedMsgs] = useState<Set<string>>(new Set())
+  // 历史对话(对标原 ai_assistant.vue 历史抽屉)
+  const [chatHistories, setChatHistories] = useState<ChatHistoryEntry[]>([])
+  const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
+  // 智能体提示说明弹窗(对标原 ai_index.vue,首次进入自动弹 + "?" 手动触发)
+  const [agentTipVisible, setAgentTipVisible] = useState(false)
+  // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
+  const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
+  const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        /* 取数失败:保持 null,该行隐藏 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
+  const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
+  const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
+  const activitySeqRef = useRef(0)
+  const pushStreamActivity = useCallback((text: string) => {
+    activitySeqRef.current += 1
+    const id = `act_${activitySeqRef.current}`
+    // 仅保留最近 20 条,避免长会话列表无限增长
+    setStreamActivities((prev) => [...prev, { id, text }].slice(-20))
+  }, [])
+
+  /**
+   * #12 小程序 AI 增强:把 SSE 工具事件(计划 / 工具 / 终端)累积写入最后一条 assistant 消息的
+   * aiCards 字段,使其随消息气泡渲染并随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks。
+   */
+  const upsertCard = useCallback((mutate: (cards: AICardsData) => AICardsData) => {
+    setMessages((prev) => {
+      const idx = prev.length - 1
+      if (idx < 0) return prev
+      const m = prev[idx]
+      if (!m || m.role !== 'assistant') return prev
+      const cur: AICardsData = m.aiCards ?? {
+        planSteps: [],
+        toolCalls: [],
+        terminalTasks: [],
+        injections: [],
+        citations: [],
+      }
+      const next = mutate(cur)
+      const copy = prev.slice()
+      copy[idx] = { ...m, aiCards: next }
+      return copy
+    })
+  }, [])
+
+  const activeAgentId = currentAgentId || routeAgentId
+
+  // 任务进度状态条数据源:最后一条 assistant 消息的 aiCards(plan_updated / 工具事件由 upsertCard 累积写入)
+  const lastAssistantCards = useMemo<AICardsData | undefined>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.aiCards
+    }
+    return undefined
+  }, [messages])
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
+  }, [])
+
+  /** 启动思考进度定时器(对标原 ai_assistant.vue:120ms +Math.random()*1,上限 99) */
+  const startThinkingProgress = useCallback(() => {
+    setThinkingProgress(0)
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current)
+    progressTimerRef.current = setInterval(() => {
+      setThinkingProgress((p) => (p < 99 ? p + Math.random() * 1 : p))
+    }, 120)
+  }, [])
+
+  /** 停止思考进度定时器(对标原 ai_assistant.vue:完成时设 100,然后清理) */
+  const stopThinkingProgress = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    setThinkingProgress(100)
+    setTimeout(() => setThinkingProgress(0), 500)
+  }, [])
+
+  // 组件卸载时清理定时器,避免内存泄漏
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+        progressTimerRef.current = null
+      }
+    }
+  }, [])
+
+  // 首次进入页面自动弹出智能体提示说明(对标原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
+  useEffect(() => {
+    try {
+      const shown = Taro.getStorageSync(AI_AGENT_TIP_SHOWN_KEY)
+      if (!shown) setAgentTipVisible(true)
+    } catch {
+      // 存储读取失败忽略
+    }
+  }, [])
+
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true)
+    try {
+      const res = await fetchModels()
+      setModels(res?.models || [])
+    } catch {
+      onToast(t('ai.modelLoadFailed'), { kind: 'error' })
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [t])
+
+  const loadMaterials = useCallback(
+    async (page = 1, append = false) => {
+      setMaterialsLoading(true)
+      try {
+        const res = (await getAigcList({ page, pageSize: MATERIAL_PAGE_SIZE })) as {
+          list?: MaterialItem[]
+          total?: number
+        }
+        const list = res?.list || []
+        const total = res?.total ?? 0
+        setMaterials((prev) => (append ? [...prev, ...list] : list))
+        setMaterialPage(page)
+        setMaterialHasMore(page * MATERIAL_PAGE_SIZE < total)
+      } catch {
+        onToast(t('ai.materialLoadFailed'), { kind: 'error' })
+      } finally {
+        setMaterialsLoading(false)
+      }
+    },
+    [t],
+  )
+
+  const handleLoadMore = useCallback(async () => {
+    if (materialsLoading || !materialHasMore) return
+    await loadMaterials(materialPage + 1, true)
+  }, [materialsLoading, materialHasMore, materialPage, loadMaterials])
+
+  const loadAgents = useCallback(async () => {
+    setAgentsLoading(true)
+    try {
+      const res = await getAgentList()
+      setAgents(
+        (res.list || []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          description: a.desc,
+          avatar: a.avatar,
+          useCount: a.uses,
+        })),
+      )
+    } catch {
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
+    } finally {
+      setAgentsLoading(false)
+    }
+  }, [t])
+
+  const loadAgent = useCallback(async () => {
+    if (!activeAgentId) return
+    try {
+      const a = await getAgentDetail(activeAgentId)
+      setAgent({
+        id: a.id,
+        name: a.name,
+        description: a.desc,
+        avatar: a.avatar,
+        systemPrompt: a.prompt,
+        prologue: a.prologue,
+      })
+    } catch {
+      onToast(t('ai.agentLoadFailed'), { kind: 'error' })
+    }
+  }, [activeAgentId, t])
+
+  const captureScreenHandlerRef = useRef<(() => void) | null>(null)
+
+  /**
+   * D20 服务端会话回放(小程序端剩下的三格之一)。
+   *
+   * 历史页 86ef4ab06e3 起,`?sessionId=` 带的是 chat_conversations 主键;本机快照的 id
+   * 形如 hist_<ts>,结构上匹配不到 ⇒ 点进去是新会话。这里在本机快照没命中时改走服务端。
+   *
+   * 判序与提示:
+   * - 只按 routeSessionId 跑一次(replayedSessionRef)—— 页面每次 didShow 都重放会把
+   *   用户正在输入的这一屏抹掉;
+   * - 失败**不动消息区**(取不到就显示"没有消息"等于把故障洗成空数据),
+   *   改为弹窗点名原因 + 给「重试」出口 —— 与历史页兜底条同一条 fail-closed 规矩。
+   */
+  const replayedSessionRef = useRef('')
+  /**
+   * D28 补齐层(2026-10-03):两个 ref 把"回放 → 自动发出"这条边接起来。
+   *
+   * `autoSendDoneRef` 保证同一段分析指令只发一次(本页每次 didShow 都会走回放那段);
+   * `sendMessageRef` 解决声明顺序 —— sendMessage 定义在下方,runServerReplay 在上方,
+   * 直接引用会撞 TDZ。用 ref 间接调用,与本文件既有的 captureScreenHandlerRef 同款。
+   */
+  const autoSendDoneRef = useRef(false)
+  const sendMessageRef = useRef<
+    (overrideText?: string, baseHistory?: readonly ChatMessage[]) => Promise<void>
+  >(async () => {})
+  const runServerReplay = useCallback(() => {
+    if (!routeSessionId || replayedSessionRef.current === routeSessionId) return
+    replayedSessionRef.current = routeSessionId
+    // 新会话回放前先清掉上一会话的翻页游标(防串会话前插)
+    resetEarlierPaging()
+    void replayServerConversation({
+      fetchMessages: () => getMessages(routeSessionId, { direction: 'initial', pageSize: 100 }),
+    }).then((outcome) => {
+      if (outcome.ok) {
+        setMessages(outcome.messages)
+        // D20 留尾2:首页响应自带头部分页游标 —— hasMore=true 才亮「加载更早消息」入口
+        setEarlierHasMore(outcome.hasMore)
+        earlierCursorRef.current = outcome.nextCursor
+        setImgsList([])
+        setInputValue('')
+        setSelectedMaterial(null)
+        scrollToBottom()
+        // D28 补齐层(2026-10-03):导入页「用场景分析」带来的分析指令,在**回放落定后**发出。
+        // 门必须落在回放成功分支内(而不是 didShow 末尾):sendMessage 用的是闭包里的
+        // messages,历史未回填就发 ⇒ 本轮上下文里没有导入记录,提示词里那句
+        // "以上是本次导入的会话记录全文"会指向不存在的上文,分析退化成凭空生成。
+        // setTimeout(0) 让 setMessages 先落一轮渲染,sendMessage 闭包才拿到回放后的 messages。
+        // autoSendDoneRef 保证只发一次(页面每次 didShow 都会走到这段)。
+        if (routeAutoSendPrompt && !autoSendDoneRef.current) {
+          autoSendDoneRef.current = true
+          setTimeout(() => {
+            void sendMessageRef.current(routeAutoSendPrompt)
+          }, 0)
+        }
+        return
+      }
+      // 半个租约都比没有更危险 —— 允许下一次 didShow 重新尝试前先清掉"已试"标记
+      replayedSessionRef.current = ''
+      Taro.showModal({
+        title: t('common.hint'),
+        content: t('ai.chat.replayFailed'),
+        confirmText: t('common.retry'),
+        cancelText: t('common.cancel'),
+        success: (res) => {
+          if (res.confirm) runServerReplay()
+        },
+      })
+    })
+  }, [routeSessionId, routeAutoSendPrompt, scrollToBottom, t, resetEarlierPaging])
+
+  /**
+   * D20 留尾2:加载更早一页(向前翻)。
+   *
+   * - 只在服务端回放态可用:cursor 由首页响应原样带回,`hist_` 本机快照没有分页;
+   * - 成功 → 前插(按 id 去重)+ 推进游标;失败 → **不清已回放内容**,toast 后入口仍在,可点重试;
+   * - 刻意**不调用 scrollToBottom**:前插发生在视口上方,强制滚底会把用户的阅读位置拽走。
+   *   (像素级锚点保持需要量内容高度,Taro ScrollView 无可靠测量口,本票如实不做。)
+   */
+  const handleLoadEarlier = useCallback(async () => {
+    if (loadingEarlier || !earlierHasMore) return
+    const cursor = earlierCursorRef.current
+    if (!cursor || !routeSessionId || routeSessionId.startsWith('hist_')) return
+    setLoadingEarlier(true)
+    const outcome = await fetchEarlierPage({
+      fetchMessages: () =>
+        getMessages(routeSessionId, { cursor, direction: 'older', pageSize: 100 }),
+    })
+    setLoadingEarlier(false)
+    if (!outcome.ok) {
+      onToast(t('ai.chat.earlierLoadFailed'), { kind: 'error' })
+      return
+    }
+    setMessages((prev) => prependEarlierMessages(prev, outcome.messages))
+    earlierCursorRef.current = outcome.nextCursor
+    setEarlierHasMore(outcome.hasMore)
+  }, [loadingEarlier, earlierHasMore, routeSessionId, t])
+
+  useDidHide(() => {
+    try {
+      if (captureScreenHandlerRef.current) {
+        Taro.offUserCaptureScreen(captureScreenHandlerRef.current)
+        captureScreenHandlerRef.current = null
+      }
+    } catch {
+      // ignore
+    }
+  })
+
+  useDidShow(() => {
+    if (routeAgentId) loadAgent()
+    Taro.showShareMenu({ withShareTicket: true })
+    // [能力安置@255fa96933] 分享问答快照还原(承接被摘端内页的 ?souce=share 链):
+    // 命中即把一问一答直接铺成消息,不请求后端;必须先于本机历史恢复/服务端回放返回,
+    // 否则回放成功分支会把快照覆盖掉。
+    const shareSnapshot = shareSnapshotFromParams(
+      router.params as Record<string, string | undefined>,
+    )
+    if (shareSnapshot) {
+      setMessages(buildShareSnapshotMessages(shareSnapshot))
+      scrollToBottom()
+      return
+    }
+    // P3 #46 阶段3-b 截屏理解引导(2026-09-17 立):微信平台不在截屏事件里
+    // 提供截图文件,标准做法是监听动作后引导用户从相册选择发送(聊天页已
+    // 支持图片选择走视觉模型链路);离开页面时解除监听防重复提示。
+    try {
+      captureScreenHandlerRef.current = () => {
+        Taro.showToast({ title: t('ai.screenshotHint'), icon: 'none', duration: 3000 })
+      }
+      Taro.onUserCaptureScreen(captureScreenHandlerRef.current)
+    } catch {
+      // 部分平台不支持截屏监听,静默跳过
+    }
+    // 加载历史对话(对标原 ai_assistant.vue 加载历史)
+    let restoredFromLocal = false
+    try {
+      const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)
+      if (Array.isArray(savedHistory)) {
+        setChatHistories(savedHistory)
+        // 带 sessionId/id 参数进入时恢复对应会话(参照 history.tsx:146 / index.tsx:207 传参格式)
+        if (routeSessionId) {
+          const target = (savedHistory as ChatHistoryEntry[]).find(
+            (h) => h.id === routeSessionId && Array.isArray(h.messages) && h.messages.length > 0,
+          )
+          if (target) {
+            restoredFromLocal = true
+            // D106 收尾:历史恢复时从 metadata.steerApplied 重建 aiCards.steerNotices
+            // (live 已写的不覆盖;无 metadata 不写空数组,不渲染空态)
+            setMessages(backfillSteerNoticesFromMetadata(target.messages))
+            setSessionId('')
+            // 本机快照没有服务端分页,旧会话游标必须清掉
+            resetEarlierPaging()
+            setImgsList([])
+            setInputValue('')
+            setSelectedMaterial(null)
+            scrollToBottom()
+          }
+        }
+      }
+    } catch {
+      // 存储读取失败忽略
+    }
+    // D20:本机快照没命中 ⇒ 走服务端回放。`hist_` 前缀是本文件写入快照时自造的 id 命名空间
+    // (见 clearChat 的 `hist_${Date.now()}`),它不是 chat_conversations 主键 —— 拿它去问
+    // 服务端必 404,那种失败不该弹给用户看。
+    if (routeSessionId && !restoredFromLocal && !routeSessionId.startsWith('hist_')) {
+      waitUntilReady(() => {
+        runServerReplay()
+      })
+    }
+    // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
+    try {
+      const savedFav = Taro.getStorageSync(FAVORITE_STORAGE_KEY)
+      if (Array.isArray(savedFav)) setFavoritedMsgs(new Set(savedFav))
+    } catch {
+      // 存储读取失败忽略
+    }
+  })
+
+  useShareAppMessage(() => {
+    // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对标原 ai_assistant.vue 分享)
+    const shareMsg = shareMsgRef.current
+    // [能力安置@255fa96933] 分享 path 带上问答快照(?souce=share&question=&content=),
+    // 被分享方进入即还原一问一答不请求后端 —— 与被摘端内页的产出形态同键。
+    const snapshot = shareSnapshotForMessage(messages, shareMsg)
+    return {
+      title: shareMsg
+        ? (shareMsg.content || '').slice(0, 50) || t('ai.share.title')
+        : t('ai.share.title'),
+      path: snapshot ? buildShareSnapshotPath(snapshot) : '/pkg-ai/ai/chat',
+    }
+  })
+
+  /**
+   * 语义匹配:识别用户是否在请求「图片 / 语音 / 视频」类任务,命中后引导跳转对应 AIGC 页面。
+   * 注意:下方三个正则中的中文属于「用户输入语义匹配」逻辑,并非 UI 展示文案,
+   * 因此刻意不做 i18n;若替换为翻译文本会导致中文提问匹配失效。
+   */
+  const checkSpecialModel = useCallback(
+    (text: string): boolean => {
+      if (/画|生成图|画图|绘图|画一个|画张|画幅/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pkg-ai/ai/image?prompt=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      if (/语音|朗读|说一段|读一段|播报/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      if (/生成视频|做个视频|视频生成/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pkg-ai/ai/video?prompt=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      return false
+    },
+    [t],
+  )
+
+  const sendMessage = useCallback(
+    async (
+      overrideText?: string,
+      baseHistory?: readonly ChatMessage[],
+      /** 票59 小程序腿:sibling 入族坐标(由 handleRegenerate 从 /regenerate 响应取)。
+       *  存在时**不追加新用户消息、不截断旧回复** —— 旧回复留在列表被读投影压成
+       *  "上一版",新回复带坐标按族尾插入(与 web mergeVersionMessage 同形)。 */
+      siblingVersion?: { rootId: string; siblingIndex: number },
+    ) => {
+      const text = (overrideText ?? '').trim()
+      if (!text && !siblingVersion) return
+      // W27:流式中发送 ⇒ 入队而不是丢弃(出队由下方流结束 effect 统一负责)
+      if (thinking) {
+        if (!siblingVersion && text) {
+          sideQueueRef.current.enqueue(text)
+          setInputValue('')
+        }
+        return
+      }
+      if (checkSpecialModel(text)) return
+      const userMsg: ChatMessage | null = siblingVersion
+        ? null
+        : { role: 'user', content: text, timestamp: Date.now() }
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        ...(siblingVersion
+          ? {
+              // 本地占位 id:本轮结束后下一次历史水合会用服务端行(带真 id 同坐标)替换
+              id: `ver_${Date.now()}`,
+              parentMessageId: siblingVersion.rootId,
+              siblingIndex: siblingVersion.siblingIndex,
+            }
+          : {}),
+      }
+      // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
+      // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
+      // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
+      const history: ChatMessage[] = [
+        ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
+        ...(userMsg ? [userMsg] : []),
+      ]
+      if (siblingVersion) {
+        // 族根指针回落默认:重新生成后激活版本 = 新插入的这一条
+        setActiveVersionByRoot((prev) => {
+          if (!(siblingVersion.rootId in prev)) return prev
+          const next = { ...prev }
+          delete next[siblingVersion.rootId]
+          return next
+        })
+        setMessages((prev) => [...prev, assistantMsg])
+      } else {
+        setMessages(
+          baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg!, assistantMsg],
+        )
+      }
+      setThinking(true)
+      // W5:新一轮对话开始,清空上一轮的执行过程列表
+      setStreamActivities([])
+      // G-403:新一轮开始,重置上一轮的缓存读数(旧账不得挂到新消息上)
+      setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
+      roundTraceIdRef.current = undefined
+      startThinkingProgress()
+      scrollToBottom()
+      const controller = new AbortController()
+      abortRef.current = controller
+      // 票 68:把 payload 交出去之前复核一次档位 —— chatStream 内部在触达网关前仍有 await,
+      // 这期间用户换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空则退回入口档。
+      const roundModel = resolveRoundModel(currentModel, currentModelRef.current)
+      try {
+        await chatStream(
+          history,
+          sessionId,
+          {
+            model: roundModel || undefined,
+            agentId: activeAgentId || undefined,
+            materialContent: selectedMaterial?.content || undefined,
+            // 票59 小程序腿:sibling 新回复的族坐标经请求体 metadata 透传(键与 web 同形)
+            parentMessageId: siblingVersion?.rootId,
+            siblingIndex: siblingVersion?.siblingIndex,
+            // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
+            contextLimit: roundModel ? getModelContextCapacity(roundModel) : 0,
+          },
+          (delta) => {
+            // [能力安置@255fa96933] 正文媒资抽取(承接被摘端内页逐 delta extractImageUrls 口径,
+            // 扩展到图/视频/音频):抽到的 URL 合并进本轮助手消息,渲染腿在 ChatMessageItem。
+            const media = extractAnswerMedia(delta)
+            setMessages((prev) =>
+              prev.map((m, i) => {
+                if (i !== prev.length - 1) return m
+                const appended = { ...m, content: m.content + delta }
+                return hasAnyMedia(media) ? applyAnswerMedia(appended, media) : appended
+              }),
+            )
+            scrollToBottom()
+          },
+          (reasoningDelta) => {
+            setMessages((prev) =>
+              prev.map((m, i) =>
+                i === prev.length - 1
+                  ? { ...m, reasoning: (m.reasoning || '') + reasoningDelta }
+                  : m,
+              ),
+            )
+          },
+          (meta) => {
+            if (meta.sessionId) setSessionId(meta.sessionId)
+          },
+          controller.signal,
+          (info) => {
+            // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
+            // W5:i18n 化,文案与参数映射见 ai.stream.compact
+            onToast(
+              t('ai.stream.compact', {
+                before: formatTokenCount(info.tokensBefore),
+                after: formatTokenCount(info.tokensAfter),
+              }),
+              { kind: 'info', duration: 2500 },
+            )
+          },
+          // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
+          // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
+          (doneInfo) => {
+            if (typeof doneInfo.totalTokens === 'number') {
+              setMessages((prev) =>
+                prev.map((m, i) =>
+                  i === prev.length - 1 && m.role === 'assistant'
+                    ? { ...m, tokenCount: doneInfo.totalTokens! }
+                    : m,
+                ),
+              )
+            }
+          },
+          // W5:新增流式事件回调(第 10 个参数),为 tool-call / subagent / 计划 / 终端 /
+          // fallback / usage / 断线重连等事件提供最小可用渲染(统一压入执行过程列表)
+          {
+            onToolCallStart: (evt) => {
+              const startedAt = Date.now()
+              // D83:MCP server 名回落口径留在调用方(serverId 只在这一支存在)
+              const serverName = evt.serverName ?? evt.serverId
+              // 重复 start 帧保留已有流中预览;纯函数与选择理由见 types.ts 的 applyToolCallStart
+              upsertCard((c) => ({
+                ...c,
+                toolCalls: applyToolCallStart(
+                  c.toolCalls,
+                  {
+                    toolCallId: evt.toolCallId,
+                    toolName: evt.toolName,
+                    serverSource: evt.serverSource,
+                    serverName,
+                    args: evt.args,
+                  },
+                  startedAt,
+                ),
+              }))
+              pushStreamActivity(
+                toolActivityText(
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status: 'running',
+                    serverSource: evt.serverSource,
+                    serverName: evt.serverName ?? evt.serverId,
+                    args: evt.args,
+                  },
+                  t,
+                ),
+              )
+            },
+            onToolResult: (evt) => {
+              // result / isError 只存在于 tool-result 变体,先收窄再取(另一变体不给结果)
+              const resultEvent = evt.type === 'tool-result' ? evt : null
+              const isError = resultEvent?.isError === true
+              const status = isError ? 'error' : 'done'
+              upsertCard((c) => ({
+                ...c,
+                toolCalls: c.toolCalls.map((x) =>
+                  x.id === evt.toolCallId
+                    ? {
+                        ...x,
+                        status,
+                        // result 是结果度量(行数 / 命中数)与写类工具 ± 行数的唯一数据源
+                        args: evt.args ?? x.args,
+                        result: resultEvent?.result ?? x.result,
+                        isError,
+                        // D113:tool-result 到达即清流中预览 —— 最终 diff 以 result 为准,
+                        // 留着预览会让"已完成的工具"同时显示预览与结果两份内容(对齐 web)
+                        partialDiff: undefined,
+                        partialSeq: undefined,
+                        durationMs:
+                          typeof x.startedAt === 'number' ? Date.now() - x.startedAt : x.durationMs,
+                      }
+                    : x,
+                ),
+              }))
+              pushStreamActivity(
+                toolActivityText(
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status,
+                    serverSource: evt.serverSource,
+                    serverName: evt.serverName ?? evt.serverId,
+                    args: evt.args,
+                    result: resultEvent?.result,
+                  },
+                  t,
+                  { withMetric: true },
+                ),
+              )
+            },
+            // D113:工具流中 diff 预览 —— 共享 parser 认领帧后端内此前无分支 = 静默丢帧。
+            // partialText 是增量正文,按 toolCallId 以 seq 收敛追加(evt.seq<=已存 partialSeq 即丢弃);
+            // start 帧未到时不凭空造条目,空 toolCallId 整帧丢弃(见 applyToolDelta)。
+            onToolDelta: (evt) =>
+              upsertCard((c) => ({ ...c, toolCalls: applyToolDelta(c.toolCalls, evt) })),
+            // D64④(2026-10-14):subagent 三帧聚合进 aiCards.subagentTasks 八态卡 ——
+            // 状态词汇/语义判据(tone/titleKey/hint/busy)全部走共享 element-pack
+            // backgroundTaskView,端内零自写状态表(此前三帧只有活动行文本,状态不可视)。
+            // 归并纯函数见 cards/types.ts;upsert/progress/end 各自幂等(同 id 重放不回退终态)。
+            onSubagentSpawn: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                subagentTasks: upsertSubagentSpawn(c.subagentTasks ?? [], evt),
+              })),
+            onSubagentProgress: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                subagentTasks: applySubagentProgress(c.subagentTasks ?? [], evt),
+              })),
+            onSubagentEnd: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                subagentTasks: applySubagentEnd(c.subagentTasks ?? [], evt),
+              })),
+            onToolSummary: (evt) =>
+              pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
+            onToolDelegate: (evt) =>
+              pushStreamActivity(
+                toolActivityText(
+                  { id: '', name: evt.tool_name, status: 'running', args: evt.args },
+                  t,
+                ),
+              ),
+            onPlanUpdate: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                // plan 为权威快照,整体替换(对齐 web 端 message.planSteps 写入方式)
+                planSteps: (evt.plan ?? []).map((p, i) => ({
+                  id: String(i),
+                  step: p.step,
+                  status: p.status,
+                  explanation: evt.explanation,
+                  durationMs: p.durationMs,
+                  error: false,
+                })),
+              }))
+              pushStreamActivity(t('ai.stream.planUpdate'))
+            },
+            onTerminalStart: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: [
+                  ...c.terminalTasks.filter((x) => x.id !== evt.terminalId),
+                  { id: evt.terminalId, command: evt.command, status: 'running' },
+                ],
+              }))
+              pushStreamActivity(t('ai.stream.terminal', { status: evt.command }))
+            },
+            // D19(本票):terminal_delta 实时增量 —— 共享 parser(D19-A1)早已产出该帧,
+            // 端内 dispatch 此前无分支 = 静默丢帧,这是本票补的接线。累加到 running 任务的
+            // output(上限与 web 同值 20000 字符,超限保尾部);start 帧缺失时按帧内 command
+            // 自建任务(载荷自带 terminalId+command,帧自洽)。
+            onTerminalDelta: (evt) => {
+              if (!evt.terminalId || !evt.text) return
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: appendTerminalDelta(c.terminalTasks, evt),
+              }))
+            },
+            // D151(2026-09-29 立):命令在等键盘输入。此前**该帧在共享解析器上无人认领**,
+            // 被泛化 sessionId 兜底折成 meta ⇒ 本端结构上看不见"它在等人"(认领见
+            // packages/shared/src/utils/sse-parse.ts 的 terminal_interaction 分支)。
+            // 本端**不接输入口**:手机键盘送不进 ai-service 那条进程,给一个按了没反应的
+            // 输入框是假 affordance;只标状态,文案见 ai-cards.tsx 的 chat.terminal.* 两行。
+            onTerminalInteraction: (evt) => {
+              if (!evt.terminalId) return
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: markTerminalWaiting(c.terminalTasks, evt.terminalId),
+              }))
+            },
+            onTerminalEnd: (evt) => {
+              upsertCard((c) => ({
+                ...c,
+                // D151:终态归并后再过一道 clearTerminalWaiting —— 命令都结束了还挂着
+                // "在等你输入"就是假态,而把它写进上面那个对象字面量里会有第二种真相;
+                // 清除只有一处出口。
+                terminalTasks: clearTerminalWaiting(
+                  c.terminalTasks.map((x) =>
+                    x.id === evt.terminalId
+                      ? {
+                          ...x,
+                          status: evt.status,
+                          // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
+                          // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
+                          output: evt.output ?? x.output,
+                          // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                          truncated: evt.truncated ?? x.truncated,
+                          totalChars: evt.totalChars ?? x.totalChars,
+                          exitCode: evt.exitCode,
+                          durationMs: evt.durationMs,
+                        }
+                      : x,
+                  ),
+                  evt.terminalId,
+                ),
+              }))
+              pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
+            },
+            // D34/D39 第 45 轮:交代帧进 aiCards(随历史持久化)。injections 在旧历史里不存在,
+            // 类型上必填但运行时可能为 undefined,故保留 ?? [] 兜底。
+            // #11 引用溯源(第 49 轮):parser 与回调表都给了通道,端内不注册 = 静默丢帧
+            onCitations: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                citations: appendCitations(
+                  c.citations,
+                  evt.citations.map((x) => ({ source: x.source, label: x.label })),
+                ),
+              })),
+            onInjectionApplied: (evt) =>
+              upsertCard((c) => {
+                const items = c.injections ?? []
+                if (items.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+                  return { ...c, injections: items }
+                }
+                return {
+                  ...c,
+                  injections: [
+                    ...items,
+                    {
+                      kind: evt.kind,
+                      collapsed: evt.collapsed,
+                      fullText: evt.fullText,
+                      count: evt.count,
+                    },
+                  ],
+                }
+              }),
+            // D106 Steer(中途引导):交代帧进 aiCards.steerNotices(随历史持久化)。
+            // 空文本在 toSteerNotice 拦截(不渲染空提示);上限 8 条对齐后端 _STEER_QUEUE_LIMIT。
+            onSteer: (evt) => {
+              const notice = toSteerNotice(evt)
+              if (!notice) return
+              upsertCard((c) => ({
+                ...c,
+                steerNotices: appendSteerNotice(c.steerNotices, notice),
+              }))
+            },
+            // D152(2026-09-29 立):会话目标的服务端主副本变了 ⇒ 一行活动 + 一行胶囊。
+            // 取词/判档全在 cards/goal-line.ts(六档词汇取自 @ihui/types,认不出的档 ⇒ 不上屏);
+            // 本端**不给输入口、不给操作按钮** —— 手机上没有 /goal 的发起面,给了就是假 affordance。
+            onGoalUpdate: (evt) => {
+              const notice = describeGoalNotice(evt, t)
+              setGoalNotice(notice)
+              if (!notice) return
+              pushStreamActivity(
+                notice.objective ? `${notice.objective} · ${notice.label}` : notice.label,
+              )
+            },
+            // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批请求帧。载荷已在 api/index.ts
+            // 的认领层(parseToolApprovalLine)按 api-client 口径解析好,这里只入队去重;
+            // 卡片渲染/三档/决议回传见 ToolApprovalCard(tool-approval-card.tsx)。
+            onToolApproval: (evt) => {
+              // D-07(2026-10-26):失效留痕帧不弹审批卡 —— 该 approvalId 已无活等待者,
+              // 只给用户一条可读提示(与 web/RN 同一条共享键)。
+              if (evt.expired) {
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: tt(
+                    'chat.approvalExpiredNotice',
+                    '工具 {toolName} 的审批已因连接中断失效,该操作未执行;如需继续请重新发起',
+                    { toolName: evt.toolName },
+                  ),
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
+                })
+                return
+              }
+              const view: ApprovalRequestView = {
+                approvalId: evt.approvalId,
+                toolName: evt.toolName,
+                toolCallId: evt.toolCallId,
+                argsPreview: evt.argsPreview,
+                dangerLevel: evt.dangerLevel,
+                ...(evt.sessionId ? { sessionId: evt.sessionId } : {}),
+              }
+              setApprovalQueue((prev) => enqueueApprovalRequest(prev, view))
+            },
+            // D77(2026-10-17 落地小程序腿):form_request 帧 → 投影 → 消息流内可填卡。
+            // 投影判据单源在共享层(projectFormRequestFrame);本端 buildBody 不发 metadata
+            // ⇒ ai-service 不带 messageId ⇒ fallbackMessageId = 本轮流消息锚点(与 web
+            // assistantId 同构)。同 requestId 幂等覆盖(断线重连回放不重复渲染两张卡)。
+            onFormRequest: (frame) => {
+              const entry = projectFormRequestFrame(frame, String(assistantMsg.timestamp))
+              if (!entry) return
+              setBusinessForms((prev) => {
+                const existing = prev.find((f) => f.requestId === entry.requestId)
+                if (existing) {
+                  // 幂等覆盖:保留宿主已写入的 status/error(上行在途/已终态不被回放帧打回 pending)
+                  return prev.map((f) =>
+                    f.requestId === entry.requestId
+                      ? { ...entry, status: f.status, ...(f.error ? { error: f.error } : {}) }
+                      : f,
+                  )
+                }
+                return [...prev, entry]
+              })
+            },
+            onRetryScheduled: (evt) =>
+              pushStreamActivity(
+                t('ai.stream.gatewayRetry', {
+                  attempt: evt.attempt,
+                  max: evt.maxRetries,
+                  seconds: Math.max(1, Math.round(evt.retryInMs / 1000)),
+                }),
+              ),
+            onFallback: (evt) =>
+              pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
+            onUsage: (info) => {
+              if (typeof info.totalTokens === 'number') {
+                pushStreamActivity(t('ai.stream.usage', { n: info.totalTokens }))
+              }
+              // G-403(2026-10-07):缓存两维接住 —— `?? null` 把"缺席(旧帧)"与"显式
+              // null(没采到)"都归 null = 未知;数字(含 0=真没命中)原样保留,不造 0。
+              setLatestCacheTokens({
+                cacheReadTokens: info.cacheReadTokens ?? null,
+                cacheWriteTokens: info.cacheWriteTokens ?? null,
+              })
+            },
+            onReconnect: (attempt, delayMs) =>
+              pushStreamActivity(
+                t('ai.stream.reconnect', { attempt, seconds: Math.round(delayMs / 1000) }),
+              ),
+            // G-248 R2:帧级 traceId 进客户端日志(非视觉消费,不上屏)。
+            // 值由共享 sse-parse 认领、api/index 的 dispatch 透传,端内不再解帧、不再判合法性。
+            onTraceId: (traceId) => {
+              if (roundTraceIdRef.current !== undefined) return
+              roundTraceIdRef.current = traceId
+              logger.info('pkg-ai/ai/chat', 'stream traceId', traceId)
+            },
+            // G-425(2026-10-07 立,web 腿先行):done 帧携带上游 finish/stop reason
+            // (api/index onFinishReason,缺席不触发)。判"输出被 max_tokens 截断"用
+            // api/index 的唯一助手(口径见其注释),提示用与 onCompaction/onPartialDone
+            // 同款 Taro.showToast;其余 reason 不提示,不自动续写。
+            onFinishReason: (evt) => {
+              if (isMaxTokensTruncatedFinishReason(evt.finishReason)) {
+                Taro.showModal({
+                  title: t('common.hint'),
+                  content: t('chat.truncation.maxLengthNotice'),
+                  showCancel: false,
+                  confirmText: t('common.confirm'),
+                })
+              }
+            },
+          },
+          // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
+          // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
+          () => {
+            onToast(t('chat.partialDoneTitle'), { kind: 'info', duration: 2500 })
+          },
+        )
+      } catch (e) {
+        if ((e as Error)?.name !== 'AbortError') {
+          const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
+          // G-248 R2:失败轮把本轮帧级 trace 一起进日志(与 api-client 错误上报体同纪律:
+          // 没见过 ⇒ 不写这个键,绝不写空串/unknown 顶掉"无键"这一态)
+          const roundTraceId = roundTraceIdRef.current
+          logger.error(
+            'pkg-ai/ai/chat',
+            'stream failed',
+            roundTraceId === undefined
+              ? { code: formatted.code, message: formatted.message }
+              : { code: formatted.code, message: formatted.message, traceId: roundTraceId },
+          )
+          // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
+          setMessages((prev) => applyStreamError(prev, formatted.message))
+          onToast(formatted.title, { kind: 'info', duration: 2500 })
+        }
+      } finally {
+        abortRef.current = null
+        setThinking(false)
+        stopThinkingProgress()
+        scrollToBottom()
+      }
+    },
+    [
+      thinking,
+      sessionId,
+      messages,
+      scrollToBottom,
+      startThinkingProgress,
+      stopThinkingProgress,
+      currentModel,
+      activeAgentId,
+      selectedMaterial,
+      t,
+      tt,
+      checkSpecialModel,
+      pushStreamActivity,
+      upsertCard,
+    ],
+  )
+
+  // D28 补齐层(2026-10-03):把 sendMessage 挂到 ref,供上方 runServerReplay 的
+  // 「回放落定后自动发出分析指令」调用(声明顺序在那条边之上,直接引用会撞 TDZ)。
+  useEffect(() => {
+    sendMessageRef.current = sendMessage
+    sideQueueRef.current = sideQueue
+  })
+
+  /**
+   * D38:流结束 ⇒ 出队队首补答(队列不会自己发消息)。
+   * effectiveMode 只在这里判一次:Runtime 不支持插话时 steer 偏好降级为 queue,
+   * 出队语义不变(W27:恒取队首,选择逻辑不在队列模块里)。
+   */
+  const prevThinkingRef = useRef(false)
+  useEffect(() => {
+    const wasThinking = prevThinkingRef.current
+    prevThinkingRef.current = thinking
+    if (!wasThinking || thinking) return
+    const host = sideQueueRef.current
+    const resolution = effectiveMode(host.mode, false)
+    if (resolution.mode !== 'queue') return
+    const head = host.takeHead()
+    if (head) void sendMessageRef.current(head.text)
+  }, [thinking])
+
+  // 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
+  // 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
+  // 注意:此处刻意不把 abortRef 置 null,控制器由该流自己的 finally 回收(见 sendMessage)。
+  const terminateStream = useCallback(
+    (notice?: string): boolean =>
+      terminateActiveStream({
+        abortRef,
+        clearThinkingProgress: stopThinkingProgress,
+        ...(notice
+          ? {
+              notice,
+              showNotice: (message: string) => onToast(message, { kind: 'info', duration: 2500 }),
+            }
+          : {}),
+      }),
+    [stopThinkingProgress],
+  )
+
+  const stopGeneration = useCallback(() => {
+    terminateStream()
+  }, [terminateStream])
+
+  // 票 68(语义照 web `use-chat.ts` 的换档 effect):流式中切换模型 → 终止当前这一轮,
+  // 并让本轮/下一轮自动带入新模型(用户不必重发、也不必重开对话)。
+  // 首帧与持久化回填时 previous/current 相同 ⇒ 判据不成立 ⇒ 什么都不做(不该凭空打断)。
+  useEffect(() => {
+    const previousModel = previousModelRef.current
+    currentModelRef.current = currentModel
+    previousModelRef.current = currentModel
+    if (
+      !shouldTerminateForModelSwitch({
+        previousModel,
+        currentModel,
+        hasLiveStream: Boolean(abortRef.current),
+      })
+    ) {
+      return
+    }
+    // 与 web 腿同一条:终止要给用户看得见的理由(键 chat.modelSwitchStopped 2026-10-18 随本票补进五语言包);
+    // 无在途流 = 纯换档,静默生效,不打扰。
+    terminateStream(t('chat.modelSwitchStopped', { model: currentModel }))
+  }, [currentModel, terminateStream, t])
+
+  const handleSuggestion = useCallback(
+    (text: string) => {
+      sendMessage(text)
+    },
+    [sendMessage],
+  )
+
+  const clearChat = useCallback(() => {
+    Taro.showModal({
+      title: t('common.hint'),
+      content: t('ai.clearConfirm'),
+      success: (res) => {
+        if (res.confirm) {
+          // 清空前把当前对话存入历史(对标原 ai_assistant.vue 存历史)
+          // 失败轮不是内容:排除后再存,否则错误文案会被当回答持久化并出现在历史预览里
+          const contentMsgs = messages.filter((m) => !isErrorTurn(m))
+          if (contentMsgs.length > 0) {
+            const firstUserMsg = contentMsgs.find((m) => m.role === 'user')
+            const lastMsg = contentMsgs[contentMsgs.length - 1]
+            const title = (firstUserMsg?.content || '').slice(0, 20) || t('ai.history.title')
+            const preview = (lastMsg?.content || '').slice(0, 30)
+            const entry: ChatHistoryEntry = {
+              id: `hist_${Date.now()}`,
+              title,
+              preview,
+              timestamp: Date.now(),
+              messages: [...contentMsgs],
+            }
+            setChatHistories((prev) => {
+              const next = [entry, ...prev].slice(0, MAX_HISTORY_COUNT)
+              try {
+                Taro.setStorageSync(HISTORY_STORAGE_KEY, next)
+              } catch {
+                // 存储写入失败忽略
+              }
+              return next
+            })
+          }
+          setMessages([])
+          setSessionId('')
+          resetEarlierPaging()
+        }
+      },
+    })
+  }, [t, messages, resetEarlierPaging])
+
+  const selectModel = useCallback((m: ModelItem) => {
+    setCurrentModel(m.id)
+    setCurrentModelName(m.name)
+    setModelDrawerVisible(false)
+  }, [])
+
+  const selectMaterial = useCallback((m: MaterialItem) => {
+    setSelectedMaterial(m)
+    setMaterialDrawerVisible(false)
+  }, [])
+
+  const selectSkill = useCallback(
+    (a: AgentItem) => {
+      if (messages.length > 0 && a.id !== activeAgentId) {
+        Taro.showModal({
+          title: t('common.hint'),
+          content: t('ai.switchAgent.confirm'),
+          success: (res) => {
+            if (!res.confirm) return
+            setMessages([])
+            setSessionId('')
+            resetEarlierPaging()
+            setCurrentAgentId(a.id)
+            setSkillsPopupVisible(false)
+            setAgent({
+              id: a.id,
+              name: a.name,
+              description: a.description || '',
+              avatar: a.avatar,
+              systemPrompt: '',
+            })
+            loadAgent()
+          },
+        })
+        return
+      }
+      setCurrentAgentId(a.id)
+      setSkillsPopupVisible(false)
+      setAgent({
+        id: a.id,
+        name: a.name,
+        description: a.description || '',
+        avatar: a.avatar,
+        systemPrompt: '',
+      })
+      loadAgent()
+    },
+    [loadAgent, messages.length, activeAgentId, t, resetEarlierPaging],
+  )
+
+  const openSkillsPopup = useCallback(() => {
+    setSkillsPopupVisible(true)
+    if (!agents.length) loadAgents()
+  }, [agents.length, loadAgents])
+
+  const handleUpload = useCallback(
+    (files: string[]) => {
+      const newItems: InputFileItem[] = files.map((filePath) => {
+        // 根据扩展名判断文件类型
+        const ext = filePath.split('.').pop()?.toLowerCase() || ''
+        if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+          return { imgUrl: filePath, fileType: 'video', video_url: filePath }
+        }
+        if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) {
+          const filename = filePath.split('/').pop() || filePath
+          return { imgUrl: filePath, fileType: 'document', filename }
+        }
+        return { imgUrl: filePath, fileType: 'image' }
+      })
+      setImgsList((prev) => [...prev, ...newItems])
+      onToast(t('ai.fileSelected', { count: files.length }), { kind: 'info' })
+    },
+    [t],
+  )
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setImgsList((prev) => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const handleVoicePress = useCallback(() => {
+    Taro.vibrateShort({ type: 'light' })
+  }, [])
+
+  const handleVoiceRelease = useCallback(
+    (filePath: string) => {
+      if (!filePath) return
+      // 简化版:直接用本地路径发送(生产环境应上传服务器获取 URL)
+      // sendMessage 当前签名只接受 text 参数,附带 filePath 信息发送
+      sendMessage(`[voice]${filePath}`)
+    },
+    [sendMessage],
+  )
+
+  const handleMaterialUpload = useCallback(
+    (tab: MaterialTab) => {
+      onToast(t('ai.uploadMaterialTab', { tab }), { kind: 'info' })
+    },
+    [t],
+  )
+
+  /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
+  const handleReuse = useCallback((question: string) => {
+    if (!question) return
+    setInputValue(question)
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
+  const handleRecharge = useCallback(() => {
+    Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
+  }, [])
+
+  /** TTS 朗读(对标原 ai_assistant.vue 朗读,简化实现:跳转 voice 页传 text 参数) */
+  const handleSpeak = useCallback((content: string) => {
+    if (!content) return
+    Taro.navigateTo({ url: '/pkg-ai/ai/voice?text=' + encodeURIComponent(content) })
+  }, [])
+
+  /** 票59 小程序腿(2026-11-01):regenerate 改接服务端 sibling 契约 ——
+   *  POST /api/chat/conversations/:id/regenerate(后端**不再物理删除**,旧回复保留为
+   *  版本族根)→ 拿 rootId/nextSiblingIndex → 新回复带坐标按族尾流式生成,旧回复被
+   *  读投影压成"上一版",切换器 ← n/N → 可回看。与 web regenerateMessage 同链同载荷键。
+   *  降级路径(如实标注,不是暗桩):会话主键或目标回复的服务端 id 尚未落地
+   *  (纯本地新聊、流式行未回写 id)⇒ 无从入族,回退旧的本地截断+普通重发。 */
+  const handleRegenerate = useCallback(
+    async (target?: ChatMessage) => {
+      if (thinking) return
+      const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+      const text = resendTargetText(messages)
+      if (lastUserIdx < 0 || !text) return
+      const root =
+        target && target.role === 'assistant' && target.id
+          ? target
+          : [...messages].reverse().find((m) => m.role === 'assistant' && m.id)
+      if (!sessionId || !root?.id) {
+        const base = messages.slice(0, lastUserIdx)
+        setMessages(base)
+        void sendMessage(text, base)
+        return
+      }
+      try {
+        const res = await regenerateConversation(sessionId, root.id)
+        if (!res.success || !res.data) throw new Error(res.error || 'regenerate rejected')
+        const { rootId, nextSiblingIndex } = res.data
+        // 族根本地补坐标 siblingIndex=0(服务端已同步行;投影/rootInSet 防御同 web
+        // mergeVersionMessage 口径 —— 不带坐标的族根会被当成非族行,切换器就配不齐)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === rootId && m.siblingIndex === undefined
+              ? { ...m, siblingIndex: 0, parentMessageId: null }
+              : m,
+          ),
+        )
+        // 上行历史截到**族根之前**(与 web send-message.ts 的 historySource 同口径):
+        // 被重生成那一版的旧正文与其后的轮次都不得混进新回复的上下文。
+        // 族根不在本地列表(分页切割/局部回放)⇒ 回落截到最后一次用户提问(含) ——
+        // 宁可多带一轮上下文,不可无声丢半段历史(同读投影"族根缺席则整族保留"的失效方向)。
+        const rootCut = messages.findIndex((m) => m.id === rootId)
+        void sendMessage(
+          undefined,
+          rootCut === -1 ? messages.slice(0, lastUserIdx + 1) : messages.slice(0, rootCut),
+          {
+            rootId,
+            siblingIndex: nextSiblingIndex,
+          },
+        )
+      } catch (e) {
+        logger.warn(
+          'pkg-ai/ai/chat',
+          'regenerate.sibling-failed',
+          String((e as Error)?.message ?? e),
+        )
+        onToast(t('ai.messageVersion.regenerateFailed'), { kind: 'error' })
+      }
+    },
+    [messages, sendMessage, sessionId, thinking, t],
+  )
+
+  /** 票64 格②(2026-10-19 落小程序腿):消息级钉选/收藏。形态以 RN 那份为准 ——
+   *  一次点击只动它点的那一把(两个维度都给,等于顺手取消另一个没打算动的标记),
+   *  成功态取服务端回写的时刻而不是本地翻转;写链走 @ihui/api-client 的 setMessageFlags。 */
+  const toggleMessageFlag = useCallback(
+    async (msg: ChatMessage, kind: 'pinned' | 'bookmarked'): Promise<void> => {
+      // 端内流式行在拿到落库 id 之前无处可写,调用侧已按有无 id 决定给不给这两项
+      if (!msg.id) return
+      const res = await setMessageFlags({
+        messageId: msg.id,
+        ...(kind === 'pinned' ? { pinned: !msg.pinnedAt } : { bookmarked: !msg.bookmarkedAt }),
+      })
+      if (!res.success) {
+        onToast(t('ai.messageAction.flagFailed'), { kind: 'error' })
+        return
+      }
+      const written = res.data?.message
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id
+            ? {
+                ...m,
+                pinnedAt: written?.pinnedAt ?? null,
+                bookmarkedAt: written?.bookmarkedAt ?? null,
+              }
+            : m,
+        ),
+      )
+    },
+    [t],
+  )
+
+  const handleLongPress = useCallback(
+    (msg: ChatMessage, idx: number) => {
+      // 失败轮不给"分享"(它不是内容),复制保留 —— 报错排查要用那段文字
+      const failed = isErrorTurn(msg)
+      const actions: { label: string; run: () => void }[] = []
+      actions.push({
+        label: t('ai.messageAction.copy'),
+        run: () => Taro.setClipboardData({ data: msg.content }),
+      })
+      if (msg.role === 'user') {
+        actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
+      }
+      // 票64 格②:钉选/收藏对 user 与 assistant 同渲染(web `MessageItem` 与 RN 都是这个口径,
+      // 标记语义与"谁能被点赞"不是一回事);但没有服务端 id 就无处可写 ⇒ 不给死入口。
+      if (msg.id) {
+        actions.push(
+          {
+            label: t(msg.pinnedAt ? 'ai.messageAction.unpin' : 'ai.messageAction.pin'),
+            run: () => void toggleMessageFlag(msg, 'pinned'),
+          },
+          {
+            label: t(
+              msg.bookmarkedAt ? 'ai.messageAction.unbookmark' : 'ai.messageAction.bookmark',
+            ),
+            run: () => void toggleMessageFlag(msg, 'bookmarked'),
+          },
+        )
+      }
+      actions.push({
+        label: t('ai.messageAction.delete'),
+        run: () => setMessages((prev) => prev.filter((_, i) => i !== idx)),
+      })
+      if (!failed) {
+        actions.push({
+          label: t('ai.chatMessageItem.share'),
+          run: () => {
+            // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
+            shareMsgRef.current = msg
+            Taro.showShareMenu({ withShareTicket: true })
+            onToast(t('ai.chatMessageItem.share'), { kind: 'info' })
+          },
+        })
+      }
+      if (failed) {
+        actions.unshift({ label: t('ai.chatMessageItem.retry'), run: handleRegenerate })
+      }
+      Taro.showActionSheet({
+        itemList: actions.map((a) => a.label),
+        success: (res) => actions[res.tapIndex]?.run(),
+      })
+    },
+    [t, handleReuse, handleRegenerate, toggleMessageFlag],
+  )
+
+  const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
+    if (msg.role !== 'user') return
+    setInputValue(msg.content)
+    setMessages((prev) => prev.slice(0, idx))
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
+  /** 恢复选中的历史对话(对标原 ai_assistant.vue 恢复历史)
+   *  恢复时清空当前输入态(附件/输入框/选中素材),开始新对话上下文 */
+  const handleSelectHistory = useCallback(
+    (h: ChatHistoryEntry) => {
+      // D106 收尾:同上,历史恢复链路统一走 metadata.steerApplied 读回
+      setMessages(backfillSteerNoticesFromMetadata(h.messages || []))
+      setSessionId('')
+      // 本机快照没有服务端分页,旧会话游标必须清掉
+      resetEarlierPaging()
+      setImgsList([])
+      setInputValue('')
+      setSelectedMaterial(null)
+      setHistoryDrawerVisible(false)
+      scrollToBottom()
+    },
+    [scrollToBottom, resetEarlierPaging],
+  )
+
+  /** 清空所有历史对话(对标原 ai_assistant.vue clearHistory) */
+  const handleClearHistory = useCallback(() => {
+    setChatHistories([])
+    try {
+      Taro.removeStorageSync(HISTORY_STORAGE_KEY)
+    } catch {
+      // 存储删除失败忽略
+    }
+  }, [])
+
+  /** 切换收藏状态(对标原 ai_assistant.vue toggleFavorite,持久化到本地) */
+  const toggleFavorite = useCallback(
+    (msg: ChatMessage) => {
+      if (!msg.timestamp) return
+      const id = String(msg.timestamp)
+      setFavoritedMsgs((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+          onToast(t('ai.chatMessageItem.favorited'), { kind: 'info' })
+        }
+        try {
+          Taro.setStorageSync(FAVORITE_STORAGE_KEY, Array.from(next))
+        } catch {
+          // 存储写入失败忽略
+        }
+        return next
+      })
+    },
+    [t],
+  )
+
+  const openModelDrawer = useCallback(() => {
+    setModelDrawerVisible(true)
+    if (!models.length) loadModels()
+  }, [models.length, loadModels])
+
+  const openMaterialDrawer = useCallback(() => {
+    setMaterialDrawerVisible(true)
+    if (!materials.length) loadMaterials()
+  }, [materials.length, loadMaterials])
+
+  /** 关闭智能体提示说明弹窗(对标原 ai_index.vue,关闭后设置 localStorage 标记 ai_agent_tip_shown=1) */
+  const closeAgentTip = useCallback(() => {
+    setAgentTipVisible(false)
+    try {
+      Taro.setStorageSync('ai_agent_tip_shown', '1')
+    } catch {
+      // 存储写入失败忽略
+    }
+  }, [])
+
+  // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
+  const tierText = resolvePermissionTierText(workspaceTier, tt)
+
+  // 票59 小程序腿:切换激活版本 —— 只改读投影的指针,不写库、不发请求(与 web
+  // stores/chat.ts 的 setActiveMessageVersion 同语义);同值不回写(省一次整树重渲染)。
+  const handleSwitchMessageVersion = useCallback((rootId: string, messageId: string): void => {
+    setActiveVersionByRoot((prev) =>
+      prev[rootId] === messageId ? prev : { ...prev, [rootId]: messageId },
+    )
+  }, [])
+
+  // 票59 小程序腿:族内只渲染激活版本。回调仍按**原始下标**切片(handleEdit 截断、
+  // handleLongPress 分享定位都吃 messages 的下标),所以这里同时带出可见行和它的原始下标。
+  //
+  // 为什么族投影吃 `familyRows` 而不是 `messages`:端内 ChatMessage.id 可选(流式行拿到
+  // 落库 id 前为空),而共享判族基类要求 id 必填 —— 参与族判定的行必然来自服务端历史水合
+  // 或本屏 regenerate 占位(两条路都写了 id),按 id 收窄是**等价**的,无 id 的行一律原样保留。
+  const versionList = useMemo(() => {
+    const familyRows = messages.filter((m): m is ChatMessage & { id: string } => !!m.id)
+    const visibleIds = new Set(
+      projectActiveMessages(familyRows, activeVersionByRoot).map((m) => m.id),
+    )
+    return {
+      familyRows,
+      items: messages
+        .map((msg, idx) => ({ msg, idx }))
+        .filter(({ msg }) => !msg.id || visibleIds.has(msg.id)),
+    }
+  }, [messages, activeVersionByRoot])
+
+  return (
+    <ThemeRoot className="page">
+      <View
+        className="nav-bar safe-area-bottom"
+        style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
+      >
+        <View className="nav-left" onClick={openModelDrawer} hoverClass="opacity-60">
+          {/* 对齐 RN ChatScreen modelBar 的「{模型}: {当前模型}」:选择器此前没有字段名,只有值 */}
+          <Text
+            style={{
+              fontSize: '22rpx',
+              color: 'var(--color-muted-foreground)',
+              marginRight: 'var(--spacing-xs)',
+            }}
+          >
+            {t('chat.modelLabel')}:
+          </Text>
+          <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
+          <LineIcon
+            name="chevron-down"
+            size={24}
+            color="var(--color-muted-foreground)"
+            className="nav-arrow"
+          />
+        </View>
+        {/* 顶栏标题位(共享屏 header 第一行是产品名,本端此前整块缺失):
+            与共享屏同一视觉层级——标题居左组与入口组之间、弱化字号。
+            取共享屏同一个键,端内不再自立标题文案。 */}
+        <Text className="min-w-0 flex-1 truncate px-[8rpx] text-center text-body font-semibold text-foreground">
+          {t('chat.title')}
+        </Text>
+        <View className="nav-right">
+          {agent ? (
+            <Text className="nav-agent" onClick={() => setAgentDrawerVisible(true)}>
+              {agent.name}
+            </Text>
+          ) : null}
+          <Text
+            className="nav-history"
+            style={{ fontSize: '30rpx', fontWeight: '600' }}
+            onClick={() => setAgentTipVisible(true)}
+          >
+            ?
+          </Text>
+          <Image
+            src={fileIcon}
+            className="nav-history w-[30rpx] h-[30rpx]"
+            mode="aspectFit"
+            onClick={() => setHistoryDrawerVisible(true)}
+          />
+          {messages.length ? (
+            <Text className="nav-clear" onClick={clearChat}>
+              {t('ai.clear')}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位;缺键用端内中文兜底) */}
+      {workspaceTier !== null ? (
+        <View
+          className="permission-tier"
+          style={{ padding: `${rpx(taroSpacing.xs)} ${rpx(taroSpacing.md)}` }}
+        >
+          <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
+            {tierText.label}: {tierText.title} · {tierText.desc}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* 上下文占用归因条(消费共享引擎,tailPreview 语义与 web 端一致)。
+          G-403:缓存两维由 onUsage 帧落到页级 state 后传入 —— 没采到时组件收 null,
+          归因条显示"不可得"而非 0(与 web 端同一口径)。 */}
+      {messages.length ? (
+        <ContextUsageStrip
+          messages={messages}
+          maxTokens={currentModel ? getModelContextCapacity(currentModel) : 0}
+          cacheReadTokens={latestCacheTokens.cacheReadTokens}
+          cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
+        />
+      ) : null}
+
+      <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
+        {/* D20 留尾2:加载更早消息入口(仅服务端回放且首页 hasMore=true 时出现;
+            失败不清已回放内容,入口保留可重试;前插后不强制滚底,不拽走阅读位置) */}
+        {earlierHasMore ? (
+          <View className="load-earlier" onClick={handleLoadEarlier} hoverClass="opacity-60">
+            <Text className="load-earlier-text">
+              {loadingEarlier ? t('ai.chat.earlierLoading') : t('ai.chat.loadEarlier')}
+            </Text>
+          </View>
+        ) : null}
+        {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
+        {agent ? (
+          <View
+            className="tishi-block"
+            onClick={() => setTishiShow((v) => !v)}
+            hoverClass="opacity-60"
+          >
+            {tishiShow ? (
+              <LineIcon
+                name="x"
+                size={28}
+                color="var(--color-muted-foreground)"
+                className="tishi-block-icon"
+              />
+            ) : (
+              <Image
+                src={tishiIcon}
+                className="tishi-block-icon w-[28rpx] h-[28rpx]"
+                mode="aspectFit"
+              />
+            )}
+            <Text className="tishi-block-text">
+              {tishiShow ? t('ai.tishi.close') : t('ai.tishi.view')} {t('ai.tishi.title')}
+            </Text>
+          </View>
+        ) : null}
+        {agent && tishiShow && agent.prologue ? (
+          <View className="tishi-box">
+            <View className="tishi-title">
+              <Image
+                src={recordBackIcon}
+                className="tishi-title-icon w-[32rpx] h-[32rpx]"
+                mode="aspectFit"
+              />
+              <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
+            </View>
+            <View className="tishi-content">
+              {/* 对标原 v-html tishi_content,prologue 中的 \n 替换为换行展示 */}
+              {agent.prologue
+                .replace(/\\n/g, '\n')
+                .replace(/<br\s*\/?>/g, '\n')
+                .split('\n')
+                .map((line, i) => (
+                  <Text key={i} className="tishi-content-line">
+                    {line}
+                    {'\n'}
+                  </Text>
+                ))}
+            </View>
+          </View>
+        ) : null}
+
+        {!messages.length ? (
+          <View className="welcome">
+            <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
+            <Text className="welcome-desc">{t('ai.welcomeDesc')}</Text>
+            {!agent ? (
+              <IntelligentAssistant
+                tokenBalance={(user as Record<string, unknown>)?.tokenBalance as number | undefined}
+                isLoggedIn={!!user}
+                onRecharge={handleRecharge}
+              />
+            ) : null}
+            <View className="suggest-list">
+              {suggestions.map((s, i) => (
+                <View
+                  key={i}
+                  className="suggest-item"
+                  onClick={() => handleSuggestion(s)}
+                  hoverClass="opacity-60"
+                >
+                  <Text>{s}</Text>
+                </View>
+              ))}
+            </View>
+            <Text className="welcome-tip">{t('ai.thinkingTip')}</Text>
+          </View>
+        ) : null}
+
+        {versionList.items.map(({ msg, idx }) => (
+          <Fragment key={idx}>
+            <ChatMessageItem
+              msg={msg}
+              onReuse={handleReuse}
+              // 票59:把"点的是哪一条"传下去 —— 不给 target 时 handleRegenerate 只会
+              // 落到最后一条助手消息上,给旧回答重生成就会挂错版本族。
+              onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg) : undefined}
+              onLongPress={() => handleLongPress(msg, idx)}
+              onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
+              isFavorited={
+                msg.role === 'assistant' && !msg.error && msg.timestamp
+                  ? favoritedMsgs.has(String(msg.timestamp))
+                  : undefined
+              }
+              onToggleFavorite={
+                msg.role === 'assistant' && !msg.error && msg.timestamp
+                  ? () => toggleFavorite(msg)
+                  : undefined
+              }
+              onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
+              onOpenReasoning={
+                msg.role === 'assistant' && msg.reasoning
+                  ? () => {
+                      setReasoningPopupContent(msg.reasoning || '')
+                      setReasoningPopupVisible(true)
+                    }
+                  : undefined
+              }
+            />
+            {/* 票59 小程序腿:版本切换器锚在当前激活的那一条 assistant 消息之后(与 web
+                MessageItem 把 MessageVersionMenu 挂在气泡尾部同一位置语义)。
+                判族/位置读数唯一源 = @ihui/shared/chat/message-version-family,
+                端内零第二份实现;族内只有一条时组件自身返回 null(不渲染 1/1 骗点击)。 */}
+            {msg.role === 'assistant' && msg.id ? (
+              <MessageVersionMenu
+                messages={versionList.familyRows}
+                messageId={msg.id}
+                onSwitch={handleSwitchMessageVersion}
+              />
+            ) : null}
+            {/* D77:业务表单卡锚定在对应 assistant 消息之后(messageId =
+                msg.id ?? timestamp;仅 assistant 侧匹配,防同毫秒时间戳撞上 user 消息) */}
+            {msg.role === 'assistant'
+              ? businessForms
+                  .filter((f) => f.messageId === String(msg.id ?? msg.timestamp))
+                  .map((entry) => (
+                    <View
+                      key={entry.requestId}
+                      className="business-form-block"
+                      data-form-request={entry.requestId}
+                    >
+                      <BusinessFormCard
+                        kind={entry.kind}
+                        mode={entry.mode}
+                        requestId={entry.requestId}
+                        sending={formSendingRequestId === entry.requestId}
+                        onAction={(payload) => void handleBusinessFormAction(entry, payload)}
+                      />
+                      {entry.status === 'failed' ? (
+                        <Text
+                          className="business-form-send-failed"
+                          data-form-send-failed={entry.requestId}
+                        >
+                          {tt('ai.businessForms.status.failed', '提交失败,请重试')}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ))
+              : null}
+          </Fragment>
+        ))}
+        {/* D77:未锚定任何消息的表单(帧带了本端认不出的 messageId)兜底渲染在列表尾,
+            不丢弃 —— 与 web BusinessFormSection 的 per-message 宿主不同,本端按消息身份
+            锚定;锚不上的落尾比消失诚实。 */}
+        {(() => {
+          const messageIds = new Set(messages.map((m) => String(m.id ?? m.timestamp)))
+          const orphanForms = businessForms.filter((f) => !messageIds.has(f.messageId))
+          if (orphanForms.length === 0) return null
+          return orphanForms.map((entry) => (
+            <View
+              key={entry.requestId}
+              className="business-form-block"
+              data-form-request={entry.requestId}
+            >
+              <BusinessFormCard
+                kind={entry.kind}
+                mode={entry.mode}
+                requestId={entry.requestId}
+                sending={formSendingRequestId === entry.requestId}
+                onAction={(payload) => void handleBusinessFormAction(entry, payload)}
+              />
+              {entry.status === 'failed' ? (
+                <Text className="business-form-send-failed" data-form-send-failed={entry.requestId}>
+                  {tt('ai.businessForms.status.failed', '提交失败,请重试')}
+                </Text>
+              ) : null}
+            </View>
+          ))
+        })()}
+
+        {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
+        {streamActivities.length > 0 ? (
+          <View className="msg-item assistant">
+            <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
+            <View className="bubble">
+              <Text
+                className="bubble-text"
+                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
+                onClick={() => setStreamActivityExpanded((v) => !v)}
+              >
+                {t('ai.stream.title')} ({streamActivities.length}){' '}
+                {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
+              </Text>
+              {streamActivityExpanded ? (
+                <View style={{ marginTop: 'var(--spacing-xs)' }}>
+                  {streamActivities.map((a) => (
+                    <Text
+                      key={a.id}
+                      className="bubble-text"
+                      style={{ display: 'block', fontSize: '22rpx', lineHeight: '1.6' }}
+                    >
+                      · {a.text}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* 与共享屏同一条判据(item.content || (isLastAi ? t('chat.thinking') : '')):
+            「思考中」只在最后一条 AI 消息还没有正文时出现 —— 原来整轮 thinking 期间都挂这一句,
+            于是内容已经开始流式输出后,屏上同时有「正在生成的回答」和「AI 生成中…/思考中…」两坨。 */}
+        {thinking &&
+        messages[messages.length - 1]?.role === 'assistant' &&
+        !messages[messages.length - 1]?.content ? (
+          <View className="msg-item assistant">
+            <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
+            <View className="bubble">
+              <Text className="bubble-text">{t('ai.generating')}</Text>
+              {/* 流式占位文案:共享屏气泡在「最后一条 AI 消息还没内容」时显示的就是这一句,
+                  端内此前挂的是端自造的同义键,现改取共享屏同一个键 */}
+              <Text
+                className="bubble-text"
+                style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}
+              >
+                {t('chat.thinking')}
+              </Text>
+              {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
+              <View
+                className="thinking-progress-container"
+                style={{ position: 'relative', marginTop: 'var(--spacing-xs)', height: '36rpx' }}
+              >
+                <View
+                  className="thinking-progress-bar"
+                  style={{
+                    width: `${Math.floor(thinkingProgress)}%`,
+                    height: '100%',
+                    background: 'var(--color-primary)',
+                    borderRadius: rnRadius.xs,
+                    transition: 'width 120ms linear',
+                  }}
+                />
+                <Text
+                  style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: '0',
+                    lineHeight: '36rpx',
+                    transform: 'translateX(-50%)',
+                    color: 'var(--color-foreground)',
+                    fontSize: '24rpx',
+                  }}
+                >
+                  {Math.floor(thinkingProgress)}%
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
+
+      {selectedMaterial ? (
+        <View className="material-tag">
+          <Text className="material-tag-text">{selectedMaterial.title}</Text>
+          <LineIcon
+            name="x"
+            size={32}
+            color="var(--color-muted-foreground)"
+            className="material-tag-close"
+            onClick={() => setSelectedMaterial(null)}
+          />
+        </View>
+      ) : null}
+
+      {/* 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container,suggestedQuestions 横向滚动)
+          仅无消息或当前 Agent 提供 suggestedQuestions 时显示 */}
+      {messages.length === 0 && suggestions.length > 0 ? (
+        <View className="quick-actions-container">
+          <ScrollView scrollX showScrollbar={false} className="quick-actions-scroll">
+            <View className="quick-actions-wrapper">
+              {suggestions.map((q, i) => (
+                <View
+                  key={`qa-${i}`}
+                  className="quick-action-btn"
+                  onClick={() => handleSuggestion(q)}
+                  hoverClass="opacity-60"
+                >
+                  <Text>{q}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位) */}
+      <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />
+
+      {/*
+        D154(2026-10-01 收口渲染面):MCP 连接状态行。数据源是共享层那一份 `mcpStatusLedger`
+        (帧怎么进表由 `src/lib/user-broadcast.ts` 那条唯一接线负责,本端渲染侧只读表 ⇒ 无第二条连接)。
+        票面要求的是「至少显示状态行 + 桌面端管理提示」:toast 会过期,这一行不会。
+        空表 ⇒ 组件返回 null、零占位(连上不是要提示的事,与 TaskStatusBar 同一纪律)。
+      */}
+      <McpStatusStrip />
+
+      {/*
+        D152(2026-09-29 立):会话目标(goal)的服务端主副本经下行帧 `goal_updated` 到达后,
+        本端以一行胶囊呈现「目标原文 + 状态档」——票面要求的是**看得见状态**这一档,
+        刻意不给输入口/操作按钮(本端没有 /goal 的发起面,"看得见却改不了"是假 affordance,
+        与本端 onTerminalInteraction 拒绝代答同口径)。`status:'cleared'` ⇒ describeGoalNotice
+        返回 null ⇒ 整行消失(幂等)。取词与判档的唯一出口见 cards/goal-line.ts。
+      */}
+      {goalNotice ? (
+        <View
+          data-testid="goal-notice-strip"
+          className="mx-[20rpx] mt-[8rpx] flex flex-row items-center rounded-md bg-muted px-[16rpx] py-[8rpx]"
+        >
+          <Text className="text-caption font-semibold text-muted-foreground">
+            {goalNotice.label}
+          </Text>
+          {goalNotice.objective ? (
+            <Text className="ml-[12rpx] flex-1 text-caption text-foreground">
+              {goalNotice.objective}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/*
+        D136(2026-10-01 立,承 V4 #94/D84):高危工具审批确认卡(渲染位)。
+        三档 once/session/always 逐档对齐 web,默认 once 最小特权;拒绝不带 scope;
+        卡上没有"关闭"出口(审批不能被关掉绕过)。已处理记录渲染在卡体外(records),
+        被拒/未生效的条目留人工放行出口(§30)。队列空且无记录 ⇒ 组件返回 null、零占位。
+      */}
+      <ToolApprovalCard
+        request={approvalQueue[0] ?? null}
+        queueCount={Math.max(0, approvalQueue.length - 1)}
+        records={approvalRecords}
+        sending={approvalSending}
+        tt={tt}
+        onDecision={(payload) => void handleApprovalDecision(payload)}
+      />
+
+      {/* D38:队列交互条(空队列返回 null,零占位);打断只停流,出队交给流结束 effect */}
+      <QueueInteractionBar
+        items={sideQueue.items}
+        streaming={thinking}
+        mode={sideQueue.mode}
+        // G-171a:待决审批事实喂入许可门(真实来源 = approvalQueue 非空)
+        awaitingApproval={approvalQueue.length > 0}
+        onReorder={sideQueue.reorder}
+        onUndo={(itemId) => {
+          const removed = sideQueue.remove(itemId)
+          if (removed) setInputValue(removed)
+        }}
+        onEdit={sideQueue.edit}
+        onInterruptAndRun={(plan) => {
+          if (plan.stopFirst) terminateStream()
+        }}
+        onModeChange={sideQueue.setMode}
+      />
+
+      <View className="input-box-content safe-area-bottom">
+        <View className="tool-icons">
+          <Image
+            src={floderInputIcon}
+            className="tool-icon w-[40rpx] h-[40rpx]"
+            mode="aspectFit"
+            onClick={openMaterialDrawer}
+          />
+          <LineIcon
+            name="brain"
+            size={40}
+            color="var(--color-muted-foreground)"
+            className="tool-icon w-[40rpx] h-[40rpx]"
+            onClick={openSkillsPopup}
+          />
+        </View>
+        <InputArea
+          variant="ai-home"
+          value={inputValue}
+          onInput={(text) => setInputValue(text)}
+          placeholder={t('ai.inputPlaceholder')}
+          imgsList={imgsList}
+          onSend={(text) => sendMessage(text)}
+          onUpload={handleUpload}
+          onRemoveImage={handleRemoveImage}
+          onVoicePress={handleVoicePress}
+          onVoiceRelease={handleVoiceRelease}
+          onFangdaChange={(active) => setNavBarHidden(active)}
+          onKeyboardHeightChange={(h) => {
+            if (h > 0) {
+              // 键盘弹起时滚动到底部
+              setTimeout(() => scrollToBottom(), 100)
+            }
+          }}
+        />
+        {thinking ? (
+          <View className="send-btn" onClick={stopGeneration} hoverClass="opacity-60">
+            <Text>{t('ai.stop')}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <ModelDrawer
+        visible={modelDrawerVisible}
+        onClose={() => setModelDrawerVisible(false)}
+        models={models}
+        selectedId={currentModel}
+        loading={modelsLoading}
+        onSelect={selectModel}
+      />
+      <MaterialPopup
+        visible={materialDrawerVisible}
+        tab={materialTab}
+        items={materials.map((m) => ({
+          id: m.id,
+          title: m.title,
+          thumbnail: m.coverUrl,
+          content: m.content,
+          createdAt: m.createdAt,
+          tab: materialTab,
+        }))}
+        loading={materialsLoading}
+        hasMore={materialHasMore}
+        selectedId={selectedMaterial?.id}
+        onTabChange={setMaterialTab}
+        onSelect={(item) =>
+          selectMaterial({
+            id: item.id,
+            title: item.title,
+            coverUrl: item.thumbnail,
+            content: item.content,
+            createdAt: item.createdAt,
+          })
+        }
+        onClose={() => setMaterialDrawerVisible(false)}
+        onUpload={handleMaterialUpload}
+        onLoadMore={handleLoadMore}
+      />
+      <SkillsPopup
+        visible={skillsPopupVisible}
+        agents={agents}
+        loading={agentsLoading}
+        selectedId={activeAgentId}
+        onSelect={selectSkill}
+        onClose={() => setSkillsPopupVisible(false)}
+      />
+      <AgentDrawer
+        visible={agentDrawerVisible}
+        onClose={() => setAgentDrawerVisible(false)}
+        agent={agent}
+      />
+      <HistoryDrawer
+        visible={historyDrawerVisible}
+        onClose={() => setHistoryDrawerVisible(false)}
+        histories={chatHistories}
+        onSelect={handleSelectHistory}
+        onClear={handleClearHistory}
+      />
+      <AgentTipDialog visible={agentTipVisible} onClose={closeAgentTip} />
+      {reasoningPopupVisible ? (
+        <View
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'var(--color-black-50)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setReasoningPopupVisible(false)}
+          hoverClass="opacity-60"
+        >
+          <View
+            style={{
+              width: 'calc(100% - 80rpx)',
+              maxHeight: '50vh',
+              background: 'var(--color-card)',
+              borderRadius: rnRadius.lg,
+              padding: 'var(--spacing-sm-loose)',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            hoverClass="opacity-60"
+          >
+            <View
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 'var(--spacing-xs-loose)',
+              }}
+            >
+              <Text
+                style={{ fontSize: '28rpx', fontWeight: '600', color: 'var(--color-foreground)' }}
+              >
+                {t('ai.chatMessageItem.thinkingProcess')}
+              </Text>
+              <LineIcon
+                name="x"
+                size={32}
+                color="var(--color-muted-foreground)"
+                onClick={() => setReasoningPopupVisible(false)}
+              />
+            </View>
+            <Text
+              style={{
+                fontSize: '24rpx',
+                color: 'var(--color-foreground)',
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {reasoningPopupContent}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

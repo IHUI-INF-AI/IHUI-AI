@@ -1,0 +1,81 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt } from '@/i18n'
+import { View, Text } from '@tarojs/components'
+import ProgressCircle from './ProgressCircle'
+
+export interface StudyStatsData {
+  totalMinutes?: number
+  totalLessons?: number
+  streakDays?: number
+  weekMinutes?: number
+  weekTarget?: number
+}
+
+export interface StudyStatsProps {
+  data?: StudyStatsData
+}
+
+export default function StudyStats({ data = {} }: StudyStatsProps) {
+  const {
+    totalMinutes = 0,
+    totalLessons = 0,
+    streakDays = 0,
+    weekMinutes = 0,
+    weekTarget = 300,
+  } = data
+
+  const tt = useTt()
+
+  const weekPercent = weekTarget > 0 ? (weekMinutes / weekTarget) * 100 : 0
+
+  return (
+    <View className="bg-card mx-md my-md rounded-lg p-lg">
+      <Text className="block text-body font-medium text-foreground mb-md">
+        {tt('study.statsTitle', '学习数据')}
+      </Text>
+
+      <View className="flex items-center mb-lg">
+        <ProgressCircle percent={weekPercent} size={70} showText text={`${weekMinutes}m`} />
+        <View className="ml-lg flex-1">
+          <Text className="block text-label text-muted-foreground">
+            {tt('study.weeklyStudy', '本周学习')}
+          </Text>
+          <Text className="text-title font-medium text-foreground">
+            {Math.floor(weekMinutes / 60)}h {weekMinutes % 60}m
+          </Text>
+          <Text className="block text-label text-muted-foreground mt-xs">
+            目标 {tt('StudyStats.y1', 'h,已完成')}
+            {Math.floor(weekTarget / 60)} {Math.floor(weekPercent)}%
+          </Text>
+        </View>
+      </View>
+
+      <View className="grid grid-cols-3 gap-sm pt-md">
+        <View className="text-center">
+          <Text className="block text-title font-medium text-primary">{totalLessons}</Text>
+          <Text className="block text-label text-muted-foreground">
+            {tt('study.completedLessons', '完成课时')}
+          </Text>
+        </View>
+        <View className="text-center">
+          <Text className="block text-title font-medium text-warning">
+            {Math.floor(totalMinutes / 60)}h
+          </Text>
+          <Text className="block text-label text-muted-foreground">
+            {tt('study.totalDuration', '累计时长')}
+          </Text>
+        </View>
+        <View className="text-center">
+          <Text className="block text-title font-medium text-destructive">{streakDays}</Text>
+          <Text className="block text-label text-muted-foreground">
+            {tt('study.streakDays', '连续天数')}
+          </Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.turbo/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env*.local
+.uploads/
+
+# MCP 应用商店安装状态持久化(P2-1,运行时数据,不入库)
+data/
+# 例外:app/data/ 是入库的权威输入(command_policy.json / default_models.json,被生成链与
+# 测试当判据消费),被上面 data/ 整目录规则顺带吞成"已跟踪却被忽略"(G-926 台账 A 档)。
+# 放例外 = 回到正常跟踪态,不动 data/ 判据也不摘跟踪(同根 .gitignore uploads/ 例外先例)。
+!app/data/
+!app/data/**
+
+# e2e 验收脚本的落盘产物(2026-10-06 补)。
+# 起因:`scripts/e2e_token6688.py --free` 的 F2 把 mp3 写在**仓内** `scripts/`,
+# 跑一次就在 `git status` 里多一条 `?? apps/ai-service/scripts/.e2e_free_tts.mp3`,
+# 而此前根 .gitignore 与本文件都没有 e2e 产物这一档。
+# 脚本侧已加 finally 清理(失败项也删),这一条是第二道:脚本被 Ctrl-C 掐掉、
+# 或换别的 e2e 脚本再落产物时兜底。点开头=只在仓根生效,不误伤别处的同名文件。
+/scripts/.e2e_*

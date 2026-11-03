@@ -1,0 +1,203 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+.developer-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+}
+.page-header {
+  padding: var(--spacing-sm-loose) 30rpx;
+  background: var(--color-card);
+}
+.page-title {
+  font-size: var(--text-subtitle);
+  font-weight: bold;
+  color: var(--color-foreground);
+}
+.subscribe-entry {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-muted));
+  /* custom color: 原蓝紫渐变 rgba(78,140,255)→rgba(106,92,255) 靛渣,已收敛为品牌 secondary/muted */
+  margin: var(--spacing-sm-loose);
+  padding: var(--spacing-md-loose) 30rpx;
+  border-radius: var(--radius-lg);
+}
+.subscribe-entry-body {
+  flex: 1;
+}
+.subscribe-entry-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  color: var(--color-foreground);
+  display: block;
+}
+.subscribe-entry-desc {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+  display: block;
+  margin-top: var(--spacing-xs);
+}
+.subscribe-entry-arrow {
+  font-size: var(--text-heading);
+  color: var(--color-foreground);
+  opacity: 0.8;
+}
+
+/* 状态 tab */
+.status-tabs {
+  display: flex;
+  margin: 0 20rpx;
+  padding: var(--spacing-xs);
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
+}
+.status-tab {
+  flex: 1;
+  height: 56rpx;
+  line-height: 56rpx;
+  text-align: center;
+  font-size: var(--text-body);
+  color: var(--color-foreground);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.status-tab.active {
+  background: var(--color-card);
+  font-weight: 600;
+}
+
+/* 子 tab */
+.sub-tabs {
+  display: flex;
+  margin: 0 20rpx 12rpx;
+  gap: 36rpx;
+}
+.sub-tab {
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+  padding: var(--spacing-xs) 0;
+}
+.sub-tab.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 智能体滚动列表 */
+.agent-scroll {
+  flex: 1;
+  height: 0;
+  padding: 0 20rpx 20rpx;
+}
+.agent-item {
+  display: flex;
+  align-items: center;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+.agent-avatar {
+  width: var(--spacing-4xl);
+  height: var(--spacing-4xl);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  flex-shrink: 0;
+}
+.agent-body {
+  flex: 1;
+  margin-left: var(--spacing-sm-loose);
+  min-width: 0;
+}
+.agent-name {
+  font-size: var(--text-strong);
+  color: var(--color-foreground);
+  font-weight: 500;
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-desc {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-type {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+}
+.agent-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-xs-loose);
+  flex-shrink: 0;
+  margin-left: var(--spacing-sm);
+}
+.agent-status {
+  font-size: var(--text-label);
+  padding: var(--spacing-2xs) 16rpx;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+}
+.agent-status.status-1 {
+  color: var(--color-warning);
+  background: var(--color-warning-tint);
+}
+.agent-status.status-2 {
+  color: var(--color-success);
+  background: var(--color-success-tint);
+}
+.agent-status.status-4 {
+  color: var(--color-destructive);
+  background: var(--color-danger-tint);
+}
+.agent-status.status-5 {
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+}
+.agent-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+.agent-action {
+  font-size: var(--text-label);
+  padding: 6rpx 20rpx;
+  border-radius: var(--radius-sm);
+}
+.agent-action.edit {
+  color: var(--color-primary);
+  background: var(--color-info-tint);
+}
+.agent-action.delete {
+  color: var(--color-destructive);
+  background: var(--color-danger-tint);
+}
+.loading-text,
+.empty-text {
+  text-align: center;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-body);
+  display: block;
+  padding: 60rpx 0;
+}
+.list-end {
+  text-align: center;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-label);
+  display: block;
+  padding: var(--spacing-md) 0;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

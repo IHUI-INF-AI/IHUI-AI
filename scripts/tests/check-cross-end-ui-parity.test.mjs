@@ -1,0 +1,2398 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// §22c 镜像测试 —— 直接 import 源脚本的 `__test__`,不复制判据(两份真相必然漂移)。
+// 三条"只有源码级锁能防"的东西:
+//   ① 本门编号在 runner 里必须恰好出现一次,且全 runner 无重复号(撞号会串 skipEnv 与失败归属);
+//   ② 台账必须真在被审面上才算存在 —— 只躺工作树的台账等于没有台账(G-183 同型);
+//   ③ 判据不得退回按磁盘读(工作树档被拒),且文档必须点名(守门 89 R4 同一条要求)。
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import test from 'node:test'
+
+import { __test__ as src } from '../check-cross-end-ui-parity.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { bareRoundedOccurrences, radiusItemsInLine, radiusSetOf } from '../lib/radius-tokens.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const RUNNER = resolve(ROOT, 'scripts/guardian-runner.mjs')
+const SELF = resolve(ROOT, 'scripts/check-cross-end-ui-parity.mjs')
+const LEDGER_REL = 'scripts/cross-end-ui-parity-baseline.json'
+const LEDGER = resolve(ROOT, LEDGER_REL)
+
+/**
+ * 在"出处面"(某枚历史提交的整棵树)上跑同一把尺子 —— 阳性对照钉出处而不是钉 HEAD(AGENTS 已把这条
+ * 立成规矩:账还清那天,"HEAD 上还能量到存量"这句话当场失效,而判据失效的表现永远是安静)。
+ * 返回 {ok, json, why}:ok=false 时 why 必须写清是跑不动还是解不出 ⇒ 调用方不得把"没跑到"读成"没有"。
+ */
+function runAtRef(ref) {
+  const dir = mkScratch('g128-pin-')
+  const idx = resolve(dir, 'side.idx')
+  try {
+    const rt = gitWithEnv(['read-tree', ref], { GIT_INDEX_FILE: idx })
+    if (rt.status !== 0)
+      return { ok: false, why: `read-tree ${ref} 失败:${String(rt.stderr).trim().slice(0, 120)}` }
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, GIT_INDEX_FILE: idx },
+      timeout: 600000,
+      maxBuffer: 128 * 1024 * 1024,
+    })
+    // rc 0 与 rc 1 **都算"跑出了结论"**:退出码里的 1 是"相对当今天台账的棘轮红了",而出处面的锚点
+    // 本就不是为那一棵树校准的(给 web 腿装上首锚之后,任何一枚早于它的 ref 都会超锚 ⇒ 旧写法把
+    // "有结论"读成"跑不动")。只有 rc≥2(故障/无法判定)或 JSON 解不出才算没跑到 —— 那才是本函数
+    // 存在的理由:调用方不得把"没判"读成"没有"。放宽 rc 不影响被钉的那半句(断言读的是 json.exitNotes)。
+    if (r.status !== 0 && r.status !== 1)
+      return {
+        ok: false,
+        why: `尺子在 ${ref} 面 rc=${r.status}:${String(r.stdout || r.stderr).slice(-160)}`,
+      }
+    let json
+    try {
+      json = JSON.parse(r.stdout)
+    } catch (e) {
+      return { ok: false, why: `${ref} 面的 --json 不可解析:${e.message}` }
+    }
+    return { ok: true, json, rc: r.status }
+  } finally {
+    rmScratch(dir)
+  }
+}
+
+const gitWithEnv = (args, env) =>
+  spawnSync('C:/Program Files/Git/bin/git.exe', ['-c', 'safe.directory=*', ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+    timeout: 180000,
+  })
+
+const git = (args) =>
+  spawnSync('git', ['-c', 'safe.directory=*', ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+const headHasLedger = () => git(['cat-file', '-e', `HEAD:${LEDGER_REL}`]).status === 0
+
+/** runner 里定位本门注册块:label 与 script 之间会被 prettier 折行,所以不吃换行。 */
+function runnerBlock() {
+  const txt = readFileSync(RUNNER, 'utf8')
+  const m = txt.match(/id: '(\d+)',[\s\S]{0,400}?script: 'check-cross-end-ui-parity\.mjs',/)
+  assert.ok(m, 'guardian-runner 里没有本门(造好没装车)')
+  const start = txt.indexOf(m[0])
+  return { id: m[1], block: txt.slice(start, start + 1600) }
+}
+
+const finding = (name, miniapp = [], rn = []) => ({
+  name,
+  named: [],
+  geometry: { onlyMiniapp: miniapp, onlyRn: rn },
+  waived: false,
+})
+
+test('T1 装车证明:runner 里必须有本门,且 blocking + skipEnv + stagedTriggers 齐备', () => {
+  const { block } = runnerBlock()
+  assert.match(block, /mode:\s*'blocking'/, '本门必须是 blocking')
+  assert.match(
+    block,
+    /skipEnv:\s*'HUSKY_SKIP_CROSS_END_UI_PARITY'/,
+    '无应急出口的 blocking 门只会逼人 --no-verify',
+  )
+  assert.match(
+    block,
+    /stagedTriggers:/,
+    '必须只在触及两端组件面时问责,否则与改动无关的提交也被钉红',
+  )
+  assert.match(block, /apps\/miniapp-taro\/src\/components\//, '触发面必须含小程序组件面')
+  assert.match(block, /packages\/app\/src\/components\//, '触发面必须含 RN 组件面')
+})
+
+test('T2 编号成套:本门在 runner 恰好一次,且全 runner 任何编号不得出现两次', () => {
+  const { id } = runnerBlock()
+  const txt = readFileSync(RUNNER, 'utf8')
+  const all = [...txt.matchAll(/^\s*id: '([^']+)',$/gm)].map((x) => x[1])
+  assert.equal(all.filter((x) => x === id).length, 1, `本门编号 ${id} 出现不止一次`)
+  const dupes = [...new Set(all.filter((x, i) => all.indexOf(x) !== i))]
+  assert.equal(dupes.length, 0, `runner 存在重复编号:${dupes.join(',')} —— 会串 skipEnv 与失败归属`)
+})
+
+test('T3 AGENTS.md 与 README.md 必须点名本门(守门 89 R4 的同一条要求)', () => {
+  for (const f of ['AGENTS.md', 'README.md'])
+    assert.match(
+      readFileSync(resolve(ROOT, f), 'utf8'),
+      /check-cross-end-ui-parity/,
+      `${f} 未点名本门`,
+    )
+})
+
+test('T4 棘轮两侧都有牙:超锚点红 / 等锚点绿 / 无台账则锚点为 0 / 变好只提示', () => {
+  const f = [finding('X', [8, 9])] // diffCount = 2
+  assert.equal(src.verdictOf(f, { counts: { X: 2 } }).red.length, 0, '等于锚点不算回潮')
+  assert.equal(src.verdictOf(f, { counts: { X: 1 } }).red.length, 1, '超过锚点必须红')
+  assert.equal(src.verdictOf(f, {}).red.length, 1, '台账缺该组件 ⇒ 锚点 0 ⇒ 新差异直接红')
+  assert.equal(
+    src.verdictOf([finding('Y', [8])], { counts: { Y: 5 } }).shrunk.length,
+    1,
+    '变好只提示下调,不自动改账',
+  )
+  assert.equal(
+    src.verdictOf([finding('Z', [8])], { waivers: { Z: { reason: '平台 chrome 负责顶距' } } }).red
+      .length,
+    0,
+  )
+})
+
+test('T5 台账必须在索引里且非空(不在被审面上 = 判据退化成全红)', () => {
+  assert.ok(existsSync(LEDGER), '台账文件必须在仓内')
+  assert.ok(
+    git(['ls-files', '--', LEDGER_REL]).stdout.trim().length > 0,
+    '台账未进索引 ⇒ 它不构成被审面的一部分',
+  )
+  const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  assert.ok(Object.keys(led.counts).length > 0, '台账不得为空表(空表 = 把全部存量判红)')
+  /**
+   * 原来这条断言的是 `deepEqual(led.waivers, {})` —— 它的含义是"建门那一枚提交不预先豁免任何组件",
+   * 不是"永远不许有豁免"。票⑬ 把 13 族差异逐条登记了带理由的豁免(AGENTS O81:静默不同形算违规),
+   * 于是那条锁从"防滥用"退化成了"禁止合规"。改成判它真正在乎的东西:
+   * **每一条豁免都必须带可读的理由**,空理由/缺理由一律红 —— 比"必须为空"严格更强。
+   */
+  for (const [name, w] of Object.entries(led.waivers ?? {}))
+    assert.ok(
+      typeof w?.reason === 'string' && w.reason.trim().length >= 6,
+      `豁免 ${name} 没有可复核的理由(豁免是登记,不是消红通道)`,
+    )
+})
+
+test('T5b 台账一旦进 HEAD,全量面必须认它(存量锚点永不生效 = 台账白装)', () => {
+  if (!headHasLedger()) return // 首次装车那一枚提交尚未落地,由 T8 在 --staged 面证明
+  /**
+   * "同一枚提交里既收紧判据、又按新口径重锚台账"是本仓的正当形态(与本门 `--staged` 索引优先、
+   * 守门 89 的文档面 HEAD∪索引例外同一条理由)。此刻索引里的台账**比 HEAD 新**,
+   * 拿旧台账去判新判据必然红 —— 那一红不是在说"锚点没被读到",而是在说"这枚提交还没落地"。
+   * 判据失效的表现必须是红,不是"逼人绕钩子",所以这里按面分流:索引与 HEAD 的台账不一致 ⇒ 走 `--staged`
+   * (审的就是这枚待落地的状态);两面一致 ⇒ 照旧要求全量面绿。
+   */
+  const ledgerDirty =
+    git(['diff', '--cached', '--name-only', '--', LEDGER_REL]).stdout.trim().length > 0
+  const args = ledgerDirty ? [SELF, '--staged'] : [SELF]
+  const r = spawnSync(process.execPath, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(
+    r.status,
+    0,
+    `台账已在 HEAD 而${ledgerDirty ? '索引' : '全量'}面仍判红 ⇒ 存量锚点没被读到:\n${r.stdout.slice(-500)}`,
+  )
+})
+
+test('T6 判据有牙:同一份差异在 .jsx 与 .tsx 上必须同判', () => {
+  assert.equal(src.scan(['a/NavBar.tsx'], ['b/NavBar.tsx']).pairs.length, 1)
+  assert.equal(
+    src.scan(['a/NavBar.jsx'], ['b/NavBar.tsx']).pairs.length,
+    1,
+    '换成 .jsx 就看不见 = 该形态零判据',
+  )
+})
+
+test('T6b 空扫不得记通过(判据失明必须与"没有差异"可分)', () => {
+  assert.equal(src.scan([], []).undetermined, true)
+  assert.equal(src.scan(['a/X.tsx'], []).undetermined, true, '一端为空同样是失明')
+})
+
+test('T7 工作树档必须被拒(按磁盘判会把错数写回棘轮台账)', () => {
+  assert.throws(() => src.faceFromArgv(['--worktree']), /工作树/)
+  assert.throws(() => src.faceFromArgv(['--staged', '--worktree']), /不得同用|互斥/)
+})
+
+test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐条相等', () => {
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${r.stdout.slice(-600)}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(j.pairCount > 0, '配对数 0 = 判据失明')
+  const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  for (const f of j.findings)
+    assert.equal(f.diffCount, led.counts[f.name], `${f.name} 实测与台账不符`)
+  for (const k of Object.keys(led.counts))
+    assert.ok(
+      j.findings.some((f) => f.name === k),
+      `台账挂着一条已不存在的账:${k}(清单腐烂)`,
+    )
+})
+
+/**
+ * 形状锁一律**比归一化后的文本**:本仓的提交链跑 prettier,参数列表一长就被折成多行,
+ * 而"字节形匹配"会在一次与正确性完全无关的重排上判红(实测 T9/T10 就是这么红的)。
+ * 正解是让尺子不吃换行,不是把代码缩回一行去喂锁 —— 后者只是把下一次假红推迟到 prettier
+ * 再折一次的时候。
+ */
+const flat = (s) => s.replace(/\s+/g, ' ')
+
+test('T9 主判定不得被摘线(函数在但没人调 = 提交链上一路绿灯)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(/export function collect\(/.test(txt), 'collect 被摘线')
+  assert.ok(/audit\(\s*collected\.pairs/.test(txt), 'main 不再调用主判定 ⇒ 门形同虚设')
+})
+
+test('T10 具名档、单侧档与圆角三维都必须真接进 main(算出来又丢掉 = 判据没装车)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  /**
+   * 取实参列表再判"含不含",不写死完整签名:签名会因尾随逗号、折行、加参数而变形,
+   * 而本锁要防的失效型是**少喂一个档表**,不是"签名长得跟某一次提交一样"。
+   * (第一版在这里写了 `specLegAudit\( collected\.` 这种"`(` 后带空格"的形 —— `flat()` 只折叠
+   *  已有空白、不会插入空白,所以真源码 `specLegAudit(collected.pairs` 永不匹配:锁自己假红。)
+   */
+  const argsAfter = (fn) => {
+    const m = new RegExp(`\\b${fn}\\(([^)]*)\\)`).exec(txt)
+    return m ? m[1] : null
+  }
+  const auditArgs = argsAfter('const res = audit')
+  assert.ok(auditArgs, '找不到 main 里的 audit 调用(判据被搬走 ⇒ 本锁失效,必须同步本测试)')
+  for (const need of ['collected.pairs', 'collected.tiers', 'collected.radius'])
+    assert.ok(auditArgs.includes(need), `collect 算了 ${need} 而 audit 没收到 ⇒ 那一整维隐身`)
+  assert.ok(/export function specLegAudit\(/.test(txt), 'specLegAudit 被摘线')
+  const slArgs = argsAfter('const sl = specLegAudit')
+  assert.ok(
+    slArgs && slArgs.includes('collected.tiers'),
+    'main 没调用 specLegAudit(或没喂 tiers)⇒ SL 只是自检里的摆设',
+  )
+  assert.ok(
+    /res\.red\.length \+ icRed\.length \+ slRed\.length/.test(txt),
+    'slRed 没进退出码 ⇒ SL 判红了也不拦提交',
+  )
+})
+
+test('T12 拆对声明必须成套:进配对层、被打印、坏声明与双记账都进退出码', () => {
+  // 本组钉的是**门体源码的写法**(装车是否成套),不是被审对象长什么样 ⇒ 整组走守门 191 的 P2
+  //   形状锁通道:`assert.match(<某文件正文>, /…/)`,主语按惯例命名 `*Src`(混用 `assert.ok(re.test())`
+  //   会让前一处的调用窗口吃掉本行的形状,认不出这是形状锁 ⇒ 落命中)。
+  const gateSrc = readFileSync(SELF, 'utf8')
+  assert.match(gateSrc, /export function rejectProblem\(/, 'rejectProblem 被摘线')
+  assert.match(gateSrc, /rejected:\s*rejNames/, 'collect 没收到拆对名单 ⇒ 声明形同注释')
+  assert.match(gateSrc, /rejected: rejectedHits/, 'collect 算出被拆族却不交回调用方 ⇒ 静默消失')
+  assert.match(
+    gateSrc,
+    /rejInvalid\.length \+ rejStillAnchored\.length \+ rejGhosted\.length/,
+    '三条红少算任何一条 ⇒ 坏声明可以静默存在',
+  )
+  assert.match(
+    gateSrc,
+    /if \(prior && prior\.pairingRejects\)/,
+    'emitBaseline 不带走 pairingRejects ⇒ 重生成台账会冲掉他人的拆对声明(守门 83 同型)',
+  )
+})
+
+test('T11 G 维必须把 geometry.d.ts 一起取进被审面(只对表 ⇒ 类型那份真相永不在尺子上)', () => {
+  // 同上:钉的是门体取面写法(P2 形状锁),路径本身的真值住在门体里,本文件不另立一份。
+  const gateSrc = readFileSync(SELF, 'utf8')
+  assert.match(
+    gateSrc,
+    /packages\/design-tokens\/src\/geometry\.d\.ts/,
+    '几何表的类型声明没被取面 ⇒ 表↔类型漂移只能靠有人手跑 typecheck',
+  )
+  assert.match(
+    gateSrc,
+    /hasGeo && !hasGeoDts/,
+    '有表而无类型声明必须判"未判定",不得当成一致(把失明写成通过)',
+  )
+})
+
+test('T13 --emit-baseline 的 stdout 只能是 JSON(说明行走 stderr)', () => {
+  // 这一枚台账模板的既定用法就是 `--emit-baseline > <台账文件>`。
+  // 实测把说明行打进 stdout 会把一句散文追加进 JSON 文件,后果不是"报告难看",
+  // 而是 lint-staged 在**下一次提交当场**崩(JSON 坏了)+ 门自己从此 exit 2 无法判定。
+  const src = readFileSync(SELF, 'utf8')
+  const m = src.match(/if \(argv\.includes\('--emit-baseline'\)\)\s*\{([\s\S]*?)\n  \}/)
+  assert.ok(m, '找不到 --emit-baseline 分支(判据被改名/搬走 ⇒ 本锁失效,必须同步本测试)')
+  const body = m[1]
+  assert.equal(
+    (body.match(/console\.log\(/g) ?? []).length,
+    1,
+    'console.log 只能出现一次(那一次必须是 JSON.stringify)',
+  )
+  assert.ok(/console\.log\(JSON\.stringify/.test(body), '唯一的 console.log 必须是打 JSON 那一条')
+  assert.ok(/console\.error\(/.test(body), '说明行必须走 console.error(stderr)')
+})
+
+/* ── RD 维(2026-09-27 补):圆角跨端同档。立项时本门用一条正则把圆角整族排除,
+ *    注释称"守门 77 会管",而 77 判的是值的源头、不判同一元素跨端取档 —— 这一型因此
+ *    一路报绿到用户实拍。下面四枚锁钉的是"这一维不可能再被静默摘掉"。 ── */
+
+test('T14 圆角档位表必须从被审面读,不得 import 磁盘版(抄了就是对着旧表打分)', () => {
+  const txt = readFileSync(SELF, 'utf8')
+  assert.ok(
+    /radiusLookup\(specSources\[radiusPath\]\)/.test(txt),
+    '档位表没走 specSources(被审面)⇒ 门会在档位改值后继续用旧数打分',
+  )
+  assert.ok(
+    !/from\s+['"][^'"]*design-tokens[^'"]*radius/.test(txt),
+    '禁止直接 import 磁盘版 radius.js —— 与"清单来自磁盘、内容来自 git 会造出自洽却错位的尺子"同型',
+  )
+  // 取不到表必须喊失明,不得退化成"没有差异"
+  assert.ok(/圆角维判据失明/.test(txt), '缺"圆角维判据失明"的 Undetermined 出口')
+})
+
+test('T15 radiusCounts 必须由 emitBaseline 写出且恒含全部配对(缺键=锚点 0,会把存量判成新增)', () => {
+  const out = src.emitBaseline(
+    [
+      {
+        name: 'A',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [8], onlyRn: [12] },
+      },
+      {
+        name: 'B',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+      },
+    ],
+    { pairingRejects: { FloatBox: { reason: '同名不同物', until: '2099-01-01' } } },
+  )
+  assert.equal(out.radiusCounts.A, 2, 'RD 差异没进台账 ⇒ 下一次提交把它当新增判红')
+  assert.equal(
+    out.radiusCounts.B,
+    0,
+    '同档的组件也必须留 0 键 ⇒ 否则"没配账"与"已同值"在账面上同形',
+  )
+  assert.ok(out.pairingRejects?.FloatBox, '重写台账冲掉了别人的拆对声明(守门 83 同型)')
+  assert.equal(out.counts.A, 0, '几何锚点被圆角污染 ⇒ 两维互相顶掉')
+})
+
+test('T16 豁免判据不得有第二份实现(radius-exempt 语义必须走共享 lib)', () => {
+  const txt = readFileSync(SELF, 'utf8')
+  assert.ok(
+    /from '\.\/lib\/radius-tokens\.mjs'/.test(txt),
+    '没引共享 lib ⇒ 与守门 77 各写一遍豁免,同一处标记会一边认一边判红',
+  )
+  assert.ok(
+    !/\/radius-exempt\//.test(txt),
+    '本门里又写了一份 radius-exempt 正则 ⇒ 两处算同一件事必漂移',
+  )
+})
+
+test('T17 RD 判据端到端有牙:同一对文件,表里改一档必须让结论翻红', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const mini = 'className="rounded-lg"\n'
+  const rnSame = 'borderRadius: rnRadius.lg,\n'
+  const rnOff = 'borderRadius: rnRadius.xl,\n'
+  assert.deepEqual(radiusSetOf(mini, tbl), radiusSetOf(rnSame, tbl), '同档两种写法被判不同 ⇒ 假红')
+  assert.notDeepEqual(radiusSetOf(mini, tbl), radiusSetOf(rnOff, tbl), '差一档被判相同 ⇒ 判据无牙')
+  // 反第二真相锁:表改值,读数必须跟着改(证明表是输入而不是抄死的数字)
+  assert.deepEqual(
+    radiusSetOf(mini, { ...tbl, lg: 10 }),
+    [10],
+    '档位表改了而判据不跟 ⇒ 对着旧表打分',
+  )
+})
+
+test('T13 配对射程必须自己报数,且只报数不进退出码', () => {
+  const src = readFileSync(SELF, 'utf8')
+  assert.match(
+    src,
+    /配对射程:仅小程序成文件/,
+    '射程边界不出声 ⇒ "N 对全绿"会被读成"两端界面全一致"',
+  )
+  assert.match(src, /零判据\(报数,不判红\)/, '必须明写它对这批元素零判据')
+  // 反向锁:这一维不得被顺手接进 red 聚合 —— 75/50 个未配对名是**结构边界**不是违规,
+  // 把它判红就是一台谁也修不动的恒红门(§12e 同型),唯一结局是各会话跳门。
+  const iPrint = src.indexOf('配对射程:仅小程序成文件')
+  assert.ok(iPrint > 0, '打印点不见')
+  const window = src.slice(iPrint - 1200, iPrint + 400)
+  assert.ok(
+    !/\breturn\b[^\n]*icRed|\bred\.push\([^\n]*onlyMiniapp/.test(window),
+    '射程报数不得进红聚合',
+  )
+})
+
+/* ── RE 维(2026-09-27 补):圆角按**同名元素**配对,而非按文件内档值集合。
+ *    立项依据是一条实测读数:RD 报的 10 对"圆角跨端不同档",按元素名去查一对都不成立 ——
+ *    `NavBar` 的「仅小程序 4」对面那一侧根本没有圆角声明。照那种读数补数字 = 制造视觉回归,
+ *    所以 RE 必须（a）真接进 audit、（b）有自己的锚点、（c）红能单独归因、
+ *    (d)报名而不判红的那一格不得被顺手接进退出码。下面各锁按 flat() 比归一化文本 ——
+ *    prettier 一折行,字节形匹配就会在一次与正确性无关的重排上假红(T9/T10 的旧教训)。 ── */
+
+test('T18 RE 判据必须真接进 audit():函数在、自检过,而 audit 没调 = 提交链上一路绿灯', () => {
+  const raw = readFileSync(SELF, 'utf8')
+  const from = raw.indexOf('export function audit(')
+  const to = raw.indexOf('export function verdictOf(')
+  assert.ok(from >= 0 && to > from, '找不到 audit 函数体(被改名/搬走 ⇒ 本锁失效,必须同步本测试)')
+  // 先切范围(需要换行做锚点)再归一化 —— 顺序反过来等于拿 flat() 之后的文本去找 `\n`,
+  // 那把锁会对任何正确写法恒假(与本门 T9/T10 撞过的字节形假红同一条教训,只是方向相反)。
+  const a = flat(raw.slice(from, to))
+  for (const need of [
+    'radiusEntriesOf(aAll, radiusTable)',
+    'radiusEntriesOf(bAll, radiusTable)',
+    'elementRadiusDiff(erA.entries, erB.entries)',
+  ])
+    assert.ok(a.includes(need), `audit 体内缺 ${need} ⇒ RE 只是自检里的摆设`)
+  // 三态必须各自落地:红走 mismatched,报名走 onlyMiniapp/onlyRn
+  assert.ok(
+    a.includes('elementRadius.mismatched.length'),
+    'skip 条件未纳入 RE ⇒ RE 永远进不了 findings',
+  )
+})
+
+test('T19 RE 锚点必须第三家独立:写得出(含 0)、读得到、且不与 RD/几何 互相顶名额', () => {
+  const out = src.emitBaseline(
+    [
+      {
+        name: 'A',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+        elementRadius: { mismatched: [{ name: 'card', miniapp: [8], rn: [12] }] },
+      },
+      {
+        name: 'B',
+        named: [],
+        geometry: { onlyMiniapp: [], onlyRn: [] },
+        radius: { onlyMiniapp: [], onlyRn: [] },
+        elementRadius: { mismatched: [] },
+      },
+    ],
+    { pairingRejects: { FloatBox: { reason: '同名不同物', until: '2099-01-01' } } },
+  )
+  assert.equal(out.elementRadiusCounts.A, 1, 'RE 差异没进台账 ⇒ 下一次提交把它当新增判红')
+  assert.equal(out.elementRadiusCounts.B, 0, '同档也要留 0 键 ⇒ 否则"没配账"与"已同值"同形')
+  assert.equal(out.radiusCounts.A, 0, 'RE 污染了 RD 锚点 ⇒ 两维互相顶掉')
+  assert.equal(out.counts.A, 0, 'RE 污染了几何锚点')
+  assert.ok(out.pairingRejects?.FloatBox, 'emitBaseline 必须原样带走他人的拆对声明')
+  // 三维各自只减不增:RE 上升而另两维下降 ⇒ 必须仍红(净零逃逸是本锚点分家的全部理由)
+  const f = out && {
+    name: 'A',
+    named: [],
+    geometry: { onlyMiniapp: [], onlyRn: [] },
+    radius: { onlyMiniapp: [], onlyRn: [] },
+    elementRadius: { mismatched: [{ name: 'card', miniapp: [8], rn: [12] }] },
+  }
+  const v = src.verdictOf([f], {
+    counts: { A: 5 },
+    radiusCounts: { A: 4 },
+    elementRadiusCounts: { A: 0 },
+  })
+  assert.equal(v.red.length, 1, '另两维下调就把 RE 的新分叉顶掉 ⇒ 锚点没分家')
+  assert.match(v.red[0].over.join(' '), /同名元素圆角 1 > 锚点 0/)
+})
+
+test('T20 重出台账必须先过单调性闸,且拒绝走 stderr(stdout 只能是 JSON)', () => {
+  assert.deepEqual(
+    src.anchorRegression({ counts: { A: 2 } }, { counts: { A: 3 } }).length,
+    1,
+    '锚点上升必须被点名',
+  )
+  assert.equal(src.anchorRegression({ counts: { A: 2 } }, { counts: {} }).length, 1)
+  assert.equal(src.anchorRegression({ counts: { A: 2 } }, { counts: { A: 1 } }).length, 0)
+  const txt = readFileSync(SELF, 'utf8')
+  const m = txt.match(/if \(argv\.includes\('--emit-baseline'\)\)\s*\{([\s\S]*?)\n  \}/)
+  assert.ok(m, '找不到 --emit-baseline 分支')
+  const body = m[1]
+  assert.ok(/anchorRegression\(baseline, next\)/.test(body), '闸没接进重锚出口 ⇒ 只是散文规矩')
+  assert.ok(/console\.error\(/.test(body) && /return 1/.test(body), '拒绝必须走 stderr 并非零退出')
+  assert.equal(
+    (body.match(/console\.log\(/g) ?? []).length,
+    1,
+    'stdout 只能有那一处 JSON(散文进 stdout 会砸碎 `--emit-baseline > 台账`)',
+  )
+})
+
+test('T21 RE 射程边界必须报名且不得进退出码(覆盖面不是违规,判红就是谁也修不动的恒红门)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.match(txt, /本维零判据/, '射程边界不出声 ⇒ "RE 报 0" 会被读成"两端圆角全一致"')
+  assert.match(txt, /无元素名可归的取用/, 'must 连"多少取用无处归属"一起报,否则缺口被藏')
+  assert.match(txt, /RE 对 \$\{res\.radiusUnpaired\?\.length \?\? 0\} 族零判据/)
+  // 反向锁:radiusUnpaired 不得被接进红聚合或退出码求和
+  const iPrint = txt.indexOf('本维零判据')
+  const window = txt.slice(Math.max(0, iPrint - 1500), iPrint + 1200)
+  assert.ok(
+    !/red\.push\([^)]*radiusUnpaired|radiusUnpaired[^|]*\+ res\.red\.length/.test(window),
+    '射程报名不得进红聚合(§12e 同型:恒红门的唯一结局是各会话跳门)',
+  )
+})
+
+test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别处再写一遍必然漂移)', () => {
+  const gate = readFileSync(SELF, 'utf8')
+  // 锁按归一化文本比:长 import 会被 prettier 折成多行,而这条锁在乎的是"从共享 lib 引"这一事实。
+  // 取该模块**全部** import 语句的说明符并集(2026-10-11):符号分两条语句写是合法书写,
+  // 只取第一条会把"另起一行导"读成"不再由 lib 供给"⇒ 形状锁必须钉不变量,不能钉语句条数。
+  const specifiers = [
+    ...flat(gate).matchAll(/import \{([^}]*)\} from '\.\/lib\/radius-tokens\.mjs'/g),
+  ]
+    .map((m) => m[1])
+    .join(',')
+  assert.ok(specifiers.length > 0, '门不再从 radius-tokens 引实现 ⇒ 圆角解析退回各写一套')
+  for (const sym of ['radiusEntriesOf', 'radiusSetOf', 'bareRoundedOccurrences'])
+    assert.ok(
+      new RegExp(`\\b${sym}\\b`).test(specifiers),
+      `${sym} 不再由 lib 供给 ⇒ 同一处写法一边认一边漏(裸档识别尤其如此)`,
+    )
+  assert.ok(
+    !/function radiusEntriesOf|function blockOwnerOf|maskComments/.test(gate),
+    '门内不得再有第二份圆角解析或遮罩实现(与守门 77 各写一遍 = 同一处标记一边认一边判红)',
+  )
+  const lib = readFileSync(resolve(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8')
+  assert.equal((lib.match(/function maskComments\(/g) ?? []).length, 1, 'lib 内的遮罩只能有一份')
+})
+
+/**
+ * T20 方向与角形态(`rounded-t-2xl` / `rounded-tr-sm`)必须在圆角尺子的射程内。
+ * 立票理由不是"多认一种写法":小程序把底部弹层写成方向形态、RN 写成整格形态时,
+ * 旧尺子只在小程序那一侧读不到那一档,于是 RD 产出**凭空造出的跨端分叉** ——
+ * 漏读一侧的表现不是少几个数,而是把同一档报成两端不同值。
+ * 阳性对照刻意取真仓 HEAD 的实际站点而非夹具:夹具只能证明函数会给答案,
+ * 证不了这条判据在真仓上不是恒空。
+ */
+test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 造出假分叉)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  // 现役站点:票㉜ 把 DrawerComponent 的档位从 xl 收到 lg(角色表 card→lg),方向形态本身没变;
+  // 这一族里 `rounded-t-2xl` 仍在的两处是弹层底,取第一个。**阳性对照要的是"这一型还在射程内",
+  // 不是某一行**——所以要换现役站点而不是把测试删掉。
+  const drawer = git(['show', 'HEAD:apps/miniapp-taro/src/components/VipBenefitsPopup.tsx']).stdout
+  assert.ok(
+    drawer.includes('rounded-t-2xl'),
+    '真仓那一处站点搬家了 ⇒ 本对照失效,要换成现役站点而不是删测试',
+  )
+  assert.ok(
+    radiusSetOf(drawer, tbl).includes(16),
+    'rounded-t-2xl 读不出 16 ⇒ 门会把小程序的 16 报成"仅 RN 有 16",凭空一对分叉',
+  )
+  const libSrc = readFileSync(resolve(ROOT, 'scripts/lib/radius-tokens.mjs'), 'utf8')
+  assert.match(
+    libSrc,
+    /tr\|tl\|br\|bl/,
+    '方向分支被退回窄正则 ⇒ 整族底部弹层再次隐身,而账面只会变好看',
+  )
+  assert.deepEqual(
+    radiusSetOf('<View className="rounded-full" />', tbl),
+    [],
+    'rounded-full 归守门 11,不得被这一维计成档',
+  )
+  assert.deepEqual(
+    radiusSetOf('<View className="rounded-none" />', tbl),
+    [],
+    'rounded-none 是 0,不是"该取哪档"的判断',
+  )
+  // 反向回归锁:门自检里那条方向用例被整文件回写抹掉时,本测试必须红(否则下一个人只会看到读数变少、账面变好看)。
+  // 自检/fixture 段已拆到 scripts/lib/cross-end-ui-parity-selftest.mjs ⇒ 锁读两份拼面:
+  // 用例搬家不算被抹,判据仍要求它在门的源码面里存在。
+  const gateSrc = [
+    readFileSync(SELF, 'utf8'),
+    readFileSync(resolve(ROOT, 'scripts/lib/cross-end-ui-parity-selftest.mjs'), 'utf8'),
+  ]
+    .join('\n')
+    .replace(/\s+/g, ' ')
+  assert.match(gateSrc, /方向与角形态必须与整格形态同判/, '自检里的方向用例不见了 ⇒ 判据被回退')
+})
+
+/**
+ * T23~T25 配对源扩面(O81 票⑭)的装车锁。
+ * 立票理由不是"多扫一个目录":`packages/app/src/features/**` 此前不在配对源里,而
+ * `packages/app/src/index.ts` 的 `UserInfoCard` 出口指向的正是 `features/cards/` 那一份 ——
+ * 同族三份活实现,改真正被导出的那一份**不移动任何读数**,绿灯建立在另外两份身上。
+ * 所以这三条锁各自钉一个失效型:
+ *   T23 面扩了但判据没扩(SIDES 加一行、scan/prune 不喂出口指向 = 白扩);
+ *   T24 候选点名与"一份族一条腿"(静默选一份 / 同一族记两次账 都在这里翻红);
+ *   T25 两侧都扫 + 选腿比较器只许一份(配对层与换腿各写一套序 = 同一族两处选到不同份)。
+ * 形状锁一律比归一化文本、取实参列表再判"含不含"(T10 同一课:锁死字节形会在一次
+ * 与正确性无关的 prettier 重排上假红)。
+ */
+test('T23 扩面装车锁:features 必须在 rn 配对源里,出口指向必须真接进 scan 与换腿', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  const sides = /const SIDES = \{[^}]*rn: \[([^\]]*)\]/.exec(txt)
+  assert.ok(sides, '找不到 SIDES 的 rn 配对源清单(整块搬家了要同步改本锁,不得删锁)')
+  for (const d of [
+    'apps/mobile-rn/src/components',
+    'packages/app/src/components',
+    'packages/app/src/features',
+  ])
+    assert.ok(sides[1].includes(`'${d}'`), `rn 配对源缺 ${d} ⇒ 那一整面改名不移动任何读数`)
+  const argsAfter = (label) => {
+    const m = new RegExp(`\\b${label}\\(([^)]*)\\)`).exec(txt)
+    return m ? m[1] : null
+  }
+  assert.ok(
+    /const probe = scan\(/.test(txt),
+    '缺"扩面后先探一遍同侧多候选"⇒ 出口指向算不出来,三序退化成平台后缀 + 目录序',
+  )
+  const scanArgs = argsAfter('let pairs = scan')
+  assert.ok(
+    scanArgs && /exit\.maps/.test(scanArgs),
+    'collect 探到出口指向却不喂给 scan ⇒ 出口链是算了丢掉的第二份真相',
+  )
+  const pruneArgs = argsAfter('const pruned = pruneUnreachableLegs')
+  assert.ok(
+    pruneArgs && /preferMaps/.test(pruneArgs),
+    '可达性换腿没收到 preferMaps ⇒ 换完腿就把"出口指的是哪一份"抹平了',
+  )
+})
+
+test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真仓阳性对照)', () => {
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-600)}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(
+    Array.isArray(j.multiCandidates),
+    '--json 不暴露 multiCandidates ⇒ 人读报告的点名无源可查',
+  )
+  const mc = j.multiCandidates
+  assert.ok(mc.length > 0, '同侧多候选在真仓恒空 ⇒ 披露半边没人看过,自检过不等于装车')
+  for (const e of mc) {
+    assert.ok(
+      e.chosen && Array.isArray(e.others) && e.others.length > 0,
+      `多候选腿没点名未选:${e.name}`,
+    )
+    assert.ok(!e.others.includes(e.chosen), `${e.name} 选中的那份又出现在未选名单里`)
+    assert.ok(
+      ['suffix', 'own-end', 'exit', 'order'].includes(e.by),
+      `${e.name} 的依据不在"后缀 > 同端自绘层 > 出口 > 目录序"里`,
+    )
+    assert.ok(['rn', 'miniapp'].includes(e.side), `${e.name} 报不出是哪一侧的多候选`)
+  }
+  const keys = mc.map((e) => `${e.name}@${e.side}`)
+  assert.equal(new Set(keys).size, keys.length, '同一族同一侧被点名两次 ⇒ 候选没有收敛成一个桶')
+  const found = j.findings.map((f) => f.name)
+  assert.equal(
+    new Set(found).size,
+    found.length,
+    '同名族被拆成多条腿 ⇒ 同一族差异记两次账、锚点虚高',
+  )
+  const ui = mc.find((e) => e.name === 'UserInfoCard')
+  assert.ok(ui, '真仓不再有三份同名的 UserInfoCard 腿 ⇒ 换成现役的多候选族继续钉,别把锁删掉')
+  // 票#9(2026-09-29):RN 侧 UserInfoCard 有三份活实现,而 `apps/mobile-rn/src/components/` 那份
+  // 才是 ProfileScreen 直接 import、与小程序端 `apps/miniapp-taro/src/components/` 对位的那一张脸;
+  // 出口指向(features/cards)那份被别的屏用 —— 按出口选会拿两个不同元素互相记账。
+  // 所以这一格的现行期望是"同端自绘层胜";若它改回 'exit',说明新序被摘掉,选腿重新按包出口走。
+  assert.equal(ui.by, 'own-end', '三候选的裁决不再是"同端自绘层" ⇒ 票#9 那一序被摘掉或改了形')
+  assert.match(
+    ui.chosen,
+    /^apps\/mobile-rn\/src\/components\//,
+    '选中的腿不是该端屏幕真渲染的那一份(端内自绘层)',
+  )
+  // 出口链判据的阳性对照**改钉出处,不钉 HEAD**(2026-09-30 O92 票④)。
+  // 原判据要求"HEAD 面 exitNotes 必须 >0",而 notes 记的是这条判据**不生效时的报名**
+  // (链上取不到文件 / 解到多份定义 / 解不到定义),不是"成功解到了"。O92 票④ 摘除
+  // packages/app/src/components/SectionHeader.tsx 及其出口行后,真仓最后一个"解不到定义"的点消失
+  // ⇒ HEAD 归零是清账的正当结果,把它读成"出口链被摘线"是错的,而把锁钉在任何一天的 HEAD 上,
+  // 等于让下一个合法清账的人被迫拆锁(本仓为这一刻记过的正解:对照钉出处 ref + 反向锁)。
+  assert.ok(Array.isArray(j.exitNotes), '--json 不暴露 exitNotes ⇒ 判据不生效时无从报名(真恒绿)')
+  const PINNED_EXIT_REF = '4f1f7e84d4^'
+  const pinned = runAtRef(PINNED_EXIT_REF)
+  assert.ok(pinned.ok, `出处面 ${PINNED_EXIT_REF} 跑不出结论(未判定,不等于没有):${pinned.why}`)
+  // 允许 rc=1 的代价由这一条兜住:出了红必须同时拿出**结构完整**的判定 —— 空对象/半截输出不算跑到。
+  // (只放宽退出码、不加这一句,等于让"崩在半路而恰好打了点字"冒充结论。)
+  assert.ok(
+    Array.isArray(pinned.json.findings) && pinned.json.findings.length > 0,
+    `出处面 ${PINNED_EXIT_REF} 报了退出码却没有配对 ⇒ "跑出了结论"是假的,不得拿 rc 冒充判定`,
+  )
+  assert.ok(
+    Array.isArray(pinned.json.exitNotes) && pinned.json.exitNotes.length > 0,
+    `出处面 ${PINNED_EXIT_REF} 的出口链报名归零 ⇒ "判不出必须报名"这一半真被摘线了(不是账清了)`,
+  )
+  assert.ok(
+    ui.others.includes('packages/app/src/components/UserInfoCard.tsx'),
+    '未选名单漏了 components 那一份 ⇒ 点名只点一半',
+  )
+})
+
+test('T24b 出处面跑不动时仍须判"没跑到"(放宽 rc 的反向锁:不得变成无条件接受)', () => {
+  const r = runAtRef('0000000000000000000000000000000000000000')
+  assert.equal(r.ok, false, '一个根本不存在的 ref 被读成"跑出了结论" ⇒ 本函数的失败分支没牙')
+  assert.match(
+    r.why,
+    /read-tree/,
+    `失败原因没落到实际那一步(得让人看出是取不到面还是尺子崩了):${r.why}`,
+  )
+})
+
+test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一份实现', () => {
+  const mini = [
+    'apps/miniapp-taro/src/components/Foo.tsx',
+    'apps/miniapp-taro/src/components/Foo.taro.tsx',
+  ]
+  const rn = ['packages/app/src/features/cards/Foo.tsx']
+  const s = src.scan(mini, rn, {}, {})
+  const m = s.multiCandidates.filter((e) => e.name === 'Foo')
+  assert.equal(m.length, 1, '小程序侧的同名多候选没被点名 ⇒ 披露只覆盖一半侧面')
+  assert.equal(m[0].side, 'miniapp')
+  assert.equal(m[0].by, 'suffix', '平台后缀是第一顺位,不得被出口指向或目录序抢走')
+  assert.match(m[0].chosen, /Foo\.taro\.tsx$/, '构建期实际解析的那一份必须赢')
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(/export function pickCandidate\(/.test(txt), 'pickCandidate 被摘线 ⇒ 选腿退回各写一套')
+  assert.equal(
+    (txt.match(/const pick = pickCandidate\(/g) || []).length,
+    2,
+    '配对层与可达性换腿必须共用这一份比较器:少一处就是又一处各写各的序(同一族两处选到不同份)',
+  )
+  assert.ok(!/cands\.reduce\(/.test(txt), '"取候选里最后一个"还留着 ⇒ 同一族在两处能选到不同份')
+  assert.ok(/EXIT_BARRELS/.test(txt), '出口桶被摘线 ⇒ 第二顺位凭空消失,退化成猜')
+  // 锁的是**语义**而非某个字面写法:出口链只认"再导出"与"星号导出"两种形态。
+  // 上一版把断言写成 `k === 're' || k === 'star'` 这一具体形状,而实现是两个分支各判一次
+  // —— 于是这条锁在 HEAD 上就恒红(过拟合的锁不但不防回归,还会让下一个改这里的人以为门坏了)。
+  assert.ok(
+    /=== 're'/.test(txt) && /=== 'star'/.test(txt),
+    '出口链的两种形态被削弱 ⇒ "被 import 过"会被当成出口',
+  )
+  // 重出台账不得把判断类登记表冲掉:waivers 是"这一族为什么允许不同形"的记录
+  // (AGENTS O81:waivers 恒空本身就是违规),ledgerVersion 是格式版本。
+  assert.ok(
+    /out\.waivers = waivers/.test(txt) && /prior\.waivers/.test(txt),
+    'emitBaseline 又回到 waivers: {} 清零 —— 一次重锚会冲掉全部带理由的豁免登记',
+  )
+  assert.ok(
+    /prior\.ledgerVersion/.test(txt),
+    'ledgerVersion 未随重出带过 ⇒ 台账不再自述它是哪一版格式',
+  )
+  // 属性名必须整体取(允许连字符),不得退回"跳过连字符前缀"那版过头修法:
+  // 那会把 `max-width: 320rpx` 这类合法长度档一起跳掉,凭空造出分叉(实测 CategoryBar 1→4)。
+  assert.ok(
+    txt.includes('[a-z][\\w]*(?:-[a-z0-9]+)*'),
+    '连字符属性不再整体取键 ⇒ line-height 会被读成 height、max-width 会被跳掉(两个方向都错过)',
+  )
+})
+
+/**
+ * ── 票 G-978049 三格的镜像锁(2026-10-11 值守席)────────────────────────────────
+ * 三格各自的"复裁判据"必须各有一把常驻尺子,否则下一次读数变化时台账里那句话又只剩散文。
+ * 每条都配了"摘掉新判据必读红"的构造面 / 形状锁,而不是只钉今天恰好是绿的读数。
+ */
+
+/** 构一条 finding:`verdictOf` 只读 named / geometry / radius / elementRadius 四个计数源。 */
+const legFinding = (name, { geo = [], radius = [], element = 0 }) => ({
+  name,
+  named: [],
+  geometry: { onlyMiniapp: [], onlyRn: geo },
+  radius: { onlyMiniapp: [], onlyRn: radius },
+  elementRadius: { mismatched: Array.from({ length: element }, (_, i) => ({ name: `e${i}` })) },
+})
+const MAIN_KEYS = {
+  counts: 'counts',
+  radius: 'radiusCounts',
+  element: 'elementRadiusCounts',
+  waivers: 'waivers',
+}
+
+test('T26 两把尺子不得互相顶账:主腿下降不得放行 web 腿上升,反向同理,主腿豁免不得免 web', () => {
+  const ledger = {
+    counts: { Foo: 2 },
+    radiusCounts: { Foo: 1 },
+    elementRadiusCounts: { Foo: 0 },
+    webCounts: { Foo: 0 },
+    webRadiusCounts: { Foo: 0 },
+    webElementRadiusCounts: { Foo: 0 },
+    waivers: {},
+    webWaivers: {},
+  }
+  // 这一族主腿从锚点 2 掉到 0(真变好了),web 腿同时新出 1 档分叉。
+  const mainVerdict = src.verdictOf([legFinding('Foo', {})], ledger, MAIN_KEYS)
+  const webVerdict = src.verdictOf([legFinding('Foo', { radius: [8] })], ledger, src.WEB_LEDGER)
+  assert.equal(mainVerdict.red.length, 0, '主腿这一轮是变好,不该红')
+  assert.ok(
+    mainVerdict.shrunk.some((s) => s.name === 'Foo'),
+    '主腿下降必须报名(台账要靠它收紧),不得静默吞掉',
+  )
+  assert.deepEqual(
+    webVerdict.red.map((r) => r.name),
+    ['Foo'],
+    'web 锚点是 0 而主腿锚点是 1/2 ⇒ 两腿一旦共用锚点,这次 web 上升会被主腿的宽名额顶掉(净零逃逸)',
+  )
+  // 反向对照:web 下降不得替主腿上升顶名额。
+  const flip = { ...ledger, counts: { Foo: 0 }, webRadiusCounts: { Foo: 2 } }
+  assert.equal(
+    src.verdictOf([legFinding('Foo', { geo: [4] })], flip, MAIN_KEYS).red.length,
+    1,
+    '主腿新增一档而 web 恰好下降 ⇒ 主腿必须红,否则"两腿互相抵账"成为常态',
+  )
+  assert.equal(
+    src.verdictOf([legFinding('Foo', { radius: [8] })], flip, src.WEB_LEDGER).red.length,
+    0,
+    'web 这一轮在锚点内,不该被主腿的红连坐(连坐会让人学会忽略整条腿)',
+  )
+  // 豁免也分腿:主腿记了理由,web 腿的上升照旧问责。
+  const waivedMain = {
+    ...ledger,
+    waivers: { Foo: { reason: '主腿这一族已逐条裁过', until: '2099-01-01' } },
+  }
+  assert.equal(src.verdictOf([legFinding('Foo', {})], waivedMain, MAIN_KEYS).waived.length, 1)
+  assert.equal(
+    src.verdictOf([legFinding('Foo', { radius: [8] })], waivedMain, src.WEB_LEDGER).red.length,
+    1,
+    '拿主腿的豁免表去免 web 腿 = 给这条腿写个理由就能让那条腿的债凭空蒸发',
+  )
+})
+
+test('T27 整腿未判定不得借另两腿的绿出合格证(失明必须折进退出码)', () => {
+  const pairs = [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }]
+  const text = {
+    'a/Foo.tsx': '<View className="rounded-lg" />',
+    'b/Foo.tsx': '<div className="rounded-xl" />',
+  }
+  // 行为半边:档位表取不到 ⇒ 这一腿一条 findings 都不许产出,而每一对都要落"未判定"。
+  const blind = src.webRadiusAudit(pairs, text, null, {})
+  assert.equal(blind.findings.length, 0, '档表失明还产出档差 = 拿猜出来的表打分')
+  assert.equal(blind.undetermined.length, pairs.length, '整腿失明必须逐对报名,不得读成"没有差异"')
+  assert.match(
+    blind.undetermined[0].why,
+    /失明|不得记/,
+    `未判定的措辞要让人看出是尺子瞎了:${blind.undetermined[0].why}`,
+  )
+  // 两侧都读不出档 ⇒ 未判定,不是"两端同值";两侧都读到而集合不同,才叫差异。
+  const emptyBoth = src.webRadiusAudit(
+    pairs,
+    { 'a/Foo.tsx': 'x', 'b/Foo.tsx': 'y' },
+    { lg: 8, xl: 12 },
+    {},
+  )
+  assert.equal(emptyBoth.undetermined.length, 1, '两侧零档被记成"同值"就是把没判写成判过了')
+  assert.equal(
+    src.webRadiusAudit(pairs, text, { lg: 8, xl: 12 }, {}).findings.length,
+    1,
+    '两端都读到档而集合不同,必须是差异',
+  )
+  // 半边"不得借绿":台账钉着 web 锚点而本轮零记录 ⇒ webGhostRed 必须存在,且**先于**主腿求和折进退出码。
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /const webGhostRed = webPriorKeys\.length && !web\.findings\.length/.test(txt),
+    '整腿消失的判据被摘掉 ⇒ 把 web 腿目录改名就能让这一维安静,而账面只是少几行字',
+  )
+  assert.ok(
+    /if \(webVerdict\.red\.length \|\| webGhostRed\) \{[\s\S]{0,400}?return 1 \}/.test(txt),
+    'web 腿的红/整腿消失没有独立折进退出码 ⇒ 主腿绿会把这一维的失效读成通过',
+  )
+  assert.ok(/消失不是销账/.test(txt), '整腿消失必须把结论印在报告上,只改退出码没人看得见')
+})
+
+test('T28 ① 的复裁判据:VideoPlayer 的 web 残档必须由带理由豁免接管,残档集合一变就得重裁', () => {
+  const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  const w = led[src.WEB_LEDGER.waivers]?.VideoPlayer
+  assert.ok(w, '① 的结案条件是"归零 或 被 webWaivers 带理由接管" —— 两者都没有,这一格就还开着')
+  assert.equal(src.waiverProblem(w), null, '接管式豁免必须带可复核理由(空理由等于没接管)')
+  assert.match(w.reason, /git show|git grep|HEAD:/, '理由必须给出跑得动的现读命令,转述不算取证')
+  assert.match(
+    String(w.until ?? ''),
+    /^\d{4}-\d{2}-\d{2}$/,
+    '豁免必须有到期日(守门 108 同一条要求)',
+  )
+  assert.ok(
+    new Date(String(w.until)).getTime() > Date.now(),
+    `① 的接管已过期(${w.until})⇒ 该族回到"锚点还在、理由失效"的状态,必须重新裁`,
+  )
+  // 真值半边(阳性对照):裁决只覆盖"web 自绘控制条的那一档";残档集合一变,豁免就得撤下来重裁。
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-500)}`)
+  const j = JSON.parse(r.stdout)
+  const f = (j.web?.findings ?? []).find((x) => x.name === 'VideoPlayer')
+  assert.ok(f, 'web 腿不再产出 VideoPlayer 配对 ⇒ ① 换了载体,请改这一格而不是删掉断言')
+  assert.deepEqual(
+    f.radius.onlyRn,
+    [4],
+    '残档集合变了(尤其舞台档又分叉)⇒ 必须撤下豁免重新裁,不得让整族豁免遮住新的分叉',
+  )
+  assert.deepEqual(f.radius.onlyMiniapp, [], '小程序侧出现新档 = 这一族不再是"单侧 chrome"')
+  for (const v of f.radius.onlyRn)
+    assert.ok(
+      w.reason.includes(String(v)),
+      `豁免理由点名的档与实际残档不一致(${v})⇒ 理由不再是这条读数的取证`,
+    )
+  const v = src.verdictOf(
+    [legFinding('VideoPlayer', { radius: [...f.radius.onlyMiniapp, ...f.radius.onlyRn] })],
+    led,
+    src.WEB_LEDGER,
+  )
+  assert.equal(v.red.length, 0, '① 接管后这一族不该红')
+  assert.ok(
+    v.waived.some((x) => x.name === 'VideoPlayer'),
+    '必须落在"带理由豁免"而不是"没扫到" —— 后者是覆盖面消失,不是债务清偿',
+  )
+})
+
+test('T29 ② 的裸档探针:裸档字形取用点两腿分记、值取档位表 DEFAULT、取不到落未判定(具名/full/任意值/注释不成对)', () => {
+  const table = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, DEFAULT: 8 }
+  const pairs = [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }]
+  const text = {
+    'a/Foo.tsx': '<View className="rounded-lg" />\n',
+    'b/Foo.tsx': '<div className="rounded bg-card" />\n// rounded 写在注释里不该算\n',
+  }
+  const web = src.bareRoundedAudit(pairs, text, table, 'web')
+  assert.equal(
+    web.total,
+    1,
+    'web 腿那份裸档必须被点名(裸档已并进取用集合,本探针报的是"有几处 8 靠裸档字形认来")',
+  )
+  assert.equal(web.sites[0].side, 'web', 'web 腿的 rn 槽位必须报成 web,报成 rn 就是替另一条腿记账')
+  assert.equal(web.sites[0].px, 8, '裸档的值必须从档位表 DEFAULT 取,取不到要落 null 而不是猜')
+  assert.equal(web.defaultResolved, true)
+  assert.equal(
+    src.bareRoundedAudit(pairs, text, { lg: 8 }, 'web').defaultResolved,
+    false,
+    '表里没有 DEFAULT 时必须报"值未判定" —— 冒充成 8 就是把没判写成判过了',
+  )
+  assert.equal(
+    src.bareRoundedAudit(pairs, text, table, 'main').sites[0].side,
+    'rn',
+    '主腿的同一槽位必须仍报成 rn —— 改名只发生在 web 腿,两腿的名单不得并成一个数',
+  )
+  // 成对反向:具名档 / full / 任意值 / 注释形态一律不算裸档。
+  const named = { 'z/Foo.tsx': 'className="rounded-full rounded-[6px] rounded-lg"' }
+  assert.equal(
+    src.bareRoundedAudit([{ name: 'Foo', miniapp: '', rn: 'z/Foo.tsx' }], named, table, 'web')
+      .total,
+    0,
+  )
+  assert.equal(bareRoundedOccurrences('// rounded 只是说明文字', table).count, 0)
+  assert.equal(
+    bareRoundedOccurrences('const a = "rounded"', table).count >= 1,
+    true,
+    '串里的裸档仍是一个真实取用点',
+  )
+  // 装车锁:两腿都算、进 json、跟人读面同印 —— 少一处就是"有判据而没人调度"。
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /web: bareRoundedAudit\(webPairs, text, radiusTable, 'web'\)/.test(txt) &&
+      /main: bareRoundedAudit\(pairs\?\.pairs \?\? \[\], text, radiusTable, 'main'\)/.test(txt),
+    '裸档探针只剩一条腿 ⇒ 另一条腿的"看不见多少"又回到无人报名',
+  )
+  assert.ok(
+    /bareRounded: collected\.bareRounded/.test(txt),
+    '探针不进 --json ⇒ 下一票只能抄终端输出当数据源',
+  )
+  assert.ok(
+    /裸档取用\(已计进档集合/.test(txt),
+    '探针不跟人读读数同印 ⇒ "配对文件里读到 0 处"会被读成"全仓没有裸档"',
+  )
+  /**
+   * 正向锁(G-277② 落地,替换 2026-10-11 立的那条反向锁):裸档**必须**并进取用集合。
+   * 反向锁当时的理由是"补认会同时移动 77 的 HEAD 棘轮与 150 的角色档台账,须同枚提交各自重锚";
+   * 本票按 import 面复裁该理由不成立 ⇒ 反向锁一并改写,不留旧声称当口径:
+   *  - 守门 77(check-radius-single-source.mjs)不 import lib/radius-tokens.mjs,读不到也判不了裸档;
+   *  - 守门 150 走 lib/radius-roles.mjs 自带提取式,其 1b) 支早已认裸 rounded(同样取档位表 DEFAULT),
+   *    它只共享 radiusOperandPx 那一份算术;
+   *  - 真会移动的只有本门 128 的 RD/RE 与守门 11 的 radiusPxInLine 消费面,而 11 无锚点台账
+   *    (全量档 warn-only、暂存档只看新增行)。
+   * 真仓 HEAD 现读:锚点零位移(唯一带裸档的配对文件 ModelList 小程序侧 2 处折进去后 8 早已在集合内),
+   * 所以三本 baseline 里只有本门这本**有账可记**(记在 ledgerVersion 的复裁笔),锚点数字一位未动;
+   * 读数没动却去改锚点 = 本仓禁的"为过门补数字"。
+   * 成对反证留在下面两格:表里没有 DEFAULT 不得凭空记 8,已认具名档不得被再补一个 8。
+   */
+  assert.deepEqual(
+    radiusSetOf('<View className="rounded bg-card" />', table),
+    [8],
+    '裸档没有并进 radiusItemsInLine ⇒ 一端写裸档、另一端写具名档仍会被读成"那一端没写档"(G-277② 未落地)',
+  )
+  assert.deepEqual(
+    radiusSetOf('<View className="rounded bg-card" />', { lg: 8 }),
+    [],
+    '档表取不到 DEFAULT 却记了一档 ⇒ 把"没判"写成"判过"(§0.3),宁可读不出',
+  )
+  assert.equal(
+    radiusItemsInLine('<View className="rounded-md bg-card" />', table, {}).length,
+    1,
+    '具名档被裸档支双计 ⇒ 同一处贡献两个取用点,集合会把多计折成一个数、账面看不出漂移',
+  )
+  const j = JSON.parse(
+    spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 180000,
+    }).stdout,
+  )
+  assert.ok(
+    j.bareRounded && j.bareRounded.web && j.bareRounded.main,
+    '真仓面读不到 bareRounded ⇒ 探针没装车',
+  )
+  assert.equal(
+    j.bareRounded.web.total,
+    j.bareRounded.web.sites.reduce((s, x) => s + x.count, 0),
+    '计数与名单不自洽 ⇒ 报名本身不可复核',
+  )
+  assert.equal(
+    j.bareRounded.web.sites.every(
+      (x) => typeof x.file === 'string' && Array.isArray(x.lines) && x.lines.length === x.count,
+    ),
+    true,
+    '站点没有逐条行号 ⇒ 下一票拿到总数也找不到地方',
+  )
+})
+
+test('T30 ③ 的机制复核:web 腿端入口剔除必须真在判,且剔掉的族逐条点名(不得退回个案拆对)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /web: \['apps\/web\/app'\]/.test(txt),
+    'web 种子面被摘 ⇒ 可达性判据对整条腿静默失效(票 G-978049③ 的落地形态消失)',
+  )
+  assert.ok(
+    /export function pruneUnreachableLegs\(/.test(txt) &&
+      /const pruned = pruneUnreachableLegs\(/.test(txt),
+    '剔除函数在而没人调 = 提交链上一路绿灯(守门 70/76/81 同型)',
+  )
+  assert.ok(
+    !/未做端入口可达性剔除\(rn 腿那套图是从 RN 入口走的/.test(txt),
+    '门内头注仍声称"未做剔除" ⇒ 文档与代码分叉,下一个人会照旧文去补一个已经存在的机制',
+  )
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-500)}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(
+    Array.isArray(j.web?.webUnreachable),
+    '--json 不暴露 webUnreachable ⇒ 人读面的点名无源可查',
+  )
+  assert.ok(
+    'webReachSuspended' in (j.web ?? {}),
+    '挂起半边没有出口 ⇒ "这一轮没剔"与"都活着"在机器面上同形',
+  )
+  for (const u of j.web.webUnreachable) {
+    assert.ok(
+      u.name && Array.isArray(u.legs) && u.legs.length > 0,
+      `剔除条目没点名腿:${JSON.stringify(u)}`,
+    )
+  }
+  // 剔除不得静默:json 里每一条被剔的族,人读面必须有一行点名它的 ⊘ WD 条目。
+  const human = spawnSync(process.execPath, [SELF, '--staged'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  for (const u of j.web.webUnreachable)
+    assert.ok(
+      human.stdout.includes(`⊘ WD ${u.name} ——`),
+      `json 剔了 ${u.name} 而人读面没点名 ⇒ 判据输入被改动而账面只少一行字(静默删族)`,
+    )
+  // 个案拆对不得反过来吃掉机制:web 腿的 pairingRejects 若还在钉"死副本",就是③该接管的那一类。
+  const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  for (const [name, w] of Object.entries(led[src.WEB_LEDGER.waivers] ?? {}))
+    assert.ok(
+      typeof w?.reason === 'string' && w.reason.trim().length >= 6,
+      `web 腿豁免 ${name} 没有可复核的理由(接管式登记也是登记,不是消红通道)`,
+    )
+})
+
+/**
+ * T31 —— G-629 的核心断言(镜像 KW,但在**判据单元 + 差值棘轮**这一层):
+ * 票面那个错误推断是"两端文件级档集合相等 ⇒ 两端同值"。这里构造的正是那一型 ——
+ * 两个文件的圆角**集合**逐字相等(都是 {8,16}),而同一个元素的圆角一端声明在组件根、
+ * 另一端声明在组件内层(屏幕上并不一样)。RS 必须点名,棘轮必须把它判成新增红。
+ */
+test('T31 核心正向:两端档集合逐字相等而同一元素声明于不同层 ⇒ RS 必须点名,差值棘轮判新增红', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const pairs = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+  const text = {
+    // 小程序:2xl 在组件根(屏幕上就是圆角容器);RN:根是素 View,2xl 落在内层。
+    'a/Foo.tsx':
+      'export default function Foo() {\n  return (\n    <View className="rounded-2xl">\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n',
+    'b/Foo.tsx':
+      'export default function Foo() {\n  return (\n    <View>\n      <View className="rounded-2xl" />\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n',
+  }
+  // 前提必须成立:RD(文件级集合差)读 0 —— 否则这条用例根本没在测"集合相等"那一型。
+  const rd = src.audit(pairs, text, {}, {}, tbl)
+  assert.equal(
+    rd.findings.some((f) => f.name === 'Foo'),
+    false,
+    'RD 前提失守:两侧集合不相等 ⇒ 这条用例退回成普通差异用例,票面那一型没被覆盖',
+  )
+  const rs = src.rootSlotAudit(pairs, text, tbl)
+  assert.equal(rs.undetermined.length, 0, '这一族必须读得出(读不出=没看,不得当一致)')
+  assert.deepEqual(
+    rs.findings,
+    [{ name: 'Foo', miniapp: [16], rn: [] }],
+    'RS 必须点名:同一元素的圆角在一端声明于组件根、另一端只在内层 —— 这正是"集合相等但不同层"',
+  )
+  // 差值棘轮:HEAD 面没有这一族 ⇒ 新增红并点名;HEAD 面已有 ⇒ 不重复红(存量纪律,门不恒红)。
+  assert.deepEqual(
+    src.rootSlotDelta(rs.findings, []).map((f) => f.name),
+    ['Foo'],
+    '新增的层分叉必须判红(只打印不判红 = 提交链上一路绿灯)',
+  )
+  assert.equal(
+    src.rootSlotDelta(rs.findings, rs.findings).length,
+    0,
+    'HEAD 面已有这一族 ⇒ 不得再算新增(存量当场判红就是一台恒红门)',
+  )
+})
+
+/**
+ * T32 —— 阳性对照的可复跑形态(G-629 立票读数):真仓 HEAD 的 Carousel 两侧。
+ * 票面登记的现状是"RS 整维零读数(15 对全部未判定)",修法必须让它读得出:
+ * 两侧都 anchored + 非间接 + tiers [16](组件根同层同档);而从业务文件 import 的同名组件
+ * 仍必须判"读不出" —— 放宽成"读得出"就会把代渲染当根槽位,原投诉会被再判一次绿。
+ */
+test('T32 阳性对照(真仓 HEAD Carousel):参数解构 + 平台宿主 import 两侧必须读出同层 [16];业务 import 仍判读不出', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const show = (p) => {
+    const r = git(['show', `HEAD:${p}`])
+    assert.equal(r.status, 0, `读不到 HEAD:${p} —— 阳性对照的前提是真仓面还在`)
+    return r.stdout
+  }
+  const mp = src.rootSlotRadiiOf(show('apps/miniapp-taro/src/components/Carousel.tsx'), tbl)
+  const rn = src.rootSlotRadiiOf(show('apps/mobile-rn/src/components/Carousel.tsx'), tbl)
+  assert.deepEqual(
+    [mp.anchored, mp.indirect, mp.tiers],
+    [true, false, [16]],
+    '小程序 Carousel(参数解构 + @tarojs/components)必须读得出根槽位 = 16 —— 读不出就是 G-629 立票时的零读数',
+  )
+  assert.deepEqual(
+    [rn.anchored, rn.indirect, rn.tiers],
+    [true, false, [16]],
+    'RN Carousel(参数解构 + react-native)必须读得出根槽位 = 16:两端同层 [16]/[16],现存量已同层',
+  )
+  // 反向:同名组件从业务文件 import ⇒ 根由子组件代渲染,必须仍是"没看"而不是"根上无档"。
+  const indirect = src.rootSlotRadiiOf(
+    'import { View } from \'./view\'\nexport default function Foo() {\n  return <View className="rounded-2xl" />\n}\n',
+    tbl,
+  )
+  assert.deepEqual(
+    [indirect.anchored, indirect.indirect, indirect.tiers],
+    [true, true, null],
+    '业务 import 放行成"读得出" ⇒ 代渲染组件的内层会被当根槽位比,收紧变成放宽',
+  )
+  // 真仓面读数:RS 不得再整维零读数(未判定族必须显著少于配对总数),且人读面要点名未判定原因。
+  const r = spawnSync(process.execPath, [SELF, '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 600000,
+    maxBuffer: 128 * 1024 * 1024,
+  })
+  assert.ok(r.status === 0 || r.status === 1, `真仓面跑不动 rc=${r.status}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(j.rootSlot, '--json 必须暴露 rootSlot(不暴露 ⇒ 点名无源可查)')
+  assert.ok(
+    j.rootSlot.undetermined.length < j.pairCount,
+    `RS 仍整维零读数:未判定 ${j.rootSlot.undetermined.length} / 配对 ${j.pairCount} —— 判据致盲没修`,
+  )
+  assert.ok(
+    !j.rootSlot.undetermined.some((u) => u.name === 'Carousel'),
+    'Carousel 仍读不出 ⇒ 参数解构/宿主 import 两型致盲回归',
+  )
+  // 用例①(同槽位同值 ⇒ 过)在**审计层**的显式断言:存量 Carousel 两端已同层 [16]/[16],
+  // rootSlotAudit 不得点名它 —— 只断言"读得出"不断言"读出后不报",分不开
+  // "过"与"读出来了但被误判红"两种状态(与本维自己"三态分开"的纪律同一条)。
+  assert.ok(
+    !j.rootSlot.findings.some((f) => f.name === 'Carousel'),
+    'Carousel 两端同层 [16]/[16] 而 RS 点名 ⇒ 同槽位同值被误判成层分叉(用例①失守)',
+  )
+})
+
+/**
+ * T32b —— 本地定义追一跳(2026-10-31):同文件委托/复用层(`export default function X(){
+ * return <XNew/> }` + `function XNew(){…}`)是正当架构形态,旧判据一概报"间接" ⇒ RN 腿
+ * 整族"没看"(BottomActionBar/UserInfoCard 的实仓成因)。追跳后根是宿主元素 ⇒ 必须判出;
+ * 追跳后的根若仍是**业务 import** 组件 ⇒ 合成文本里的 import 区必须照旧生效,不得把
+ * 代渲染误判成宿主根(否则 T32 的反向用例会在追跳路径上被绕过)。
+ */
+test('T32b 根槽位追跳:同文件本地代渲染必须追到宿主根;追跳后的业务 import 仍判读不出', () => {
+  const tbl = { sm: 4, lg: 8 }
+  // 委托壳 → 本地 XNew → 宿主 View(根档 8 在壳标签上,XNew 根无档)
+  const shell = [
+    "import { View, Text } from 'react-native'",
+    "import { Helper } from './helper'",
+    'export default function Foo(props: { a?: string }) {',
+    '  return <FooNew {...props} />',
+    '}',
+    'function FooNew(props: { a?: string }) {',
+    '  if (!props.a) {',
+    '    return (',
+    '      <View style={s.logged}>',
+    '        <Text>login</Text>',
+    '      </View>',
+    '    )',
+    '  }',
+    '  return (',
+    '    <View style={s.card} className="rounded-lg">',
+    '      <Helper />',
+    '    </View>',
+    '  )',
+    '}',
+  ].join('\n')
+  const jumped = src.rootSlotRadiiOf(shell, tbl, 'Foo')
+  assert.deepEqual(
+    [jumped.anchored, jumped.indirect, jumped.tiers],
+    [true, false, [8]],
+    '同文件本地代渲染必须追一跳到宿主根(仍报间接 ⇒ BottomActionBar/UserInfoCard 型致盲回归)',
+  )
+  // 追跳后的根若来自业务 import(不在本地定义、import 自相对路径)⇒ 仍必须"读不出":
+  // 放宽成"读得出"就会把代渲染组件的内层当根槽位比(G-629 立票的那次投诉原样复发)。
+  const viaImport = [
+    "import { View } from 'react-native'",
+    "import { Proxy } from './proxy'",
+    'export default function Bar() {',
+    '  return <BarNew />',
+    '}',
+    'function BarNew() {',
+    '  return <Proxy className="rounded-lg" />',
+    '}',
+  ].join('\n')
+  const stillIndirect = src.rootSlotRadiiOf(viaImport, tbl, 'Bar')
+  assert.deepEqual(
+    [stillIndirect.anchored, stillIndirect.indirect, stillIndirect.tiers],
+    [true, true, null],
+    '追跳终点的业务 import 组件被当成宿主根 ⇒ 代渲染误判(放宽即 T32 反向用例在追跳路径失守)',
+  )
+  // 防环:两个本地组件互相委托必须在限深处如实"读不出",不得栈溢出也不得误判。
+  const cyclic = [
+    "import { View } from 'react-native'",
+    'export default function C() {',
+    '  return <D />',
+    '}',
+    'function D() {',
+    '  return <C className="rounded-lg" />',
+    '}',
+  ].join('\n')
+  const cycled = src.rootSlotRadiiOf(cyclic, tbl, 'C')
+  assert.equal(cycled.anchored, true, '循环委托仍必须锚得到')
+  assert.equal(cycled.indirect, true, '循环委托必须如实"读不出"(限深防环)')
+})
+
+/**
+ * T32c —— 跨端同源核心构造判定(2026-10-31):两端壳的根都是**同一个共享核心组件**
+ * (import 说明符逐字相同且非相对路径 ⇒ 同一物理文件)⇒ 根档按构造一致,审计层判"同源"
+ * 而不是"未判定"(BackChevron 两端壳都吐 @ihui/shared/ui 的 BackChevronCore 就是这一型)。
+ * 反向:说明符不同(一端包路径一端相对路径)⇒ 不得判同源,仍进未判定。
+ */
+test('T32c 同源核心:两端根=同一共享核心 ⇒ 判 rootAliasSame;说明符不同 ⇒ 仍未判定', () => {
+  const tbl = { lg: 8 }
+  const mkShell = (importSpec) =>
+    [
+      `import { View } from 'react-native'`,
+      `import { FooCore } from '${importSpec}'`,
+      'export default function Shell() {',
+      '  return <FooCore title="x" />',
+      '}',
+    ].join('\n')
+  const pairs = [
+    {
+      name: 'SameCore',
+      miniapp: 'apps/miniapp-taro/src/components/SameCore.tsx',
+      rn: 'apps/mobile-rn/src/components/SameCore.tsx',
+    },
+    {
+      name: 'DiffCore',
+      miniapp: 'apps/miniapp-taro/src/components/DiffCore.tsx',
+      rn: 'apps/mobile-rn/src/components/DiffCore.tsx',
+    },
+  ]
+  const text = {
+    'apps/miniapp-taro/src/components/SameCore.tsx': mkShell('@ihui/shared/ui/foo-core'),
+    'apps/mobile-rn/src/components/SameCore.tsx': mkShell('@ihui/shared/ui/foo-core'),
+    'apps/miniapp-taro/src/components/DiffCore.tsx': mkShell('@ihui/shared/ui/foo-core'),
+    'apps/mobile-rn/src/components/DiffCore.tsx': mkShell('./foo-core-local'),
+  }
+  // rootSlotAudit 的第一参是 **{pairs:[…]}**(collect 的产出形态),不是裸数组。
+  const rs = src.rootSlotAudit({ pairs }, text, tbl)
+  assert.deepEqual(
+    (rs.rootAliasSame ?? []).map((a) => a.name),
+    ['SameCore'],
+    '两端同一共享核心必须判同源(报未判定 ⇒ BackChevron 型永远没看)',
+  )
+  assert.ok(
+    rs.undetermined.some((u) => u.name === 'DiffCore'),
+    '说明符不同的两腿不得判同源(相对路径两端各指各的文件,构造一致性不成立)',
+  )
+})
+
+/**
+ * T33 —— 同批登记的读数矛盾(G-629 票面"14 与 20 不在档位表内"):
+ * 现读实测 14/20 只出现在**几何维**(text-sm/text-xl 字号折 px),圆角集合两侧都与 14/20 无关;
+ * 人读面之所以被误读成"圆角档",是几何段没有维度前缀而 RD 段有。修法是给几何段加 `几何` 前缀
+ * (判据更准:不删任何命中、子串保留),并用形状锁钉住,防退回混读。
+ */
+test('T33 读数矛盾:14/20 是字号折出的几何档不是圆角档;几何段必须带维度前缀(RD 段前缀不动)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const line = '<View className="text-sm text-xl rounded-2xl" />'
+  // 圆角维:只有 rounded-2xl ⇒ 16,14/20 从不进圆角集合(票面怀疑"当圆角档收进集合"不成立)。
+  const rs = radiusSetOf(line, tbl)
+  assert.deepEqual(rs, [16], '圆角集合只该有 16 —— 14/20 若进来,就是把字号/盒档当圆角档')
+  assert.equal(rs.includes(14) || rs.includes(20), false)
+  // 几何维:同一行的 text-sm/text-xl 折出 14/20(TW_FONT_PX)⇒ 14/20 归几何,不归圆角。
+  const geo = src.readGeometry(line, 'miniapp')
+  assert.ok(geo.values.has(14) && geo.values.has(20), '几何维收 14/20(字号档)—— 两维各说各话')
+  // 形状锁:几何段必须带 `几何` 前缀、RD 段前缀原样、子串 `仅小程序档` 保留(runner 帮助文本按子串匹配)。
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /bits\.push\(`几何仅小程序档 \$\{f\.geometry\.onlyMiniapp\.join\('\/'\)\}`\)/.test(txt),
+    '几何段没有维度前缀 ⇒ 14/20 又会被当圆角档去对档位表(G-629 登记的读数矛盾)',
+  )
+  assert.ok(
+    /bits\.push\(`几何仅 RN 档 \$\{f\.geometry\.onlyRn\.join\('\/'\)\}`\)/.test(txt),
+    '几何 RN 段同样要带前缀(只修一侧 = 混读原样留在另一半)',
+  )
+  assert.ok(
+    /bits\.push\(\s*`RD 仅小程序 \$\{f\.radius\.onlyMiniapp\.join\('\/'\)\}/.test(txt),
+    'RD 段前缀不得被顺手改掉(它是这行读数唯一的维度标识)',
+  )
+  assert.ok(
+    txt.includes('仅小程序档') && txt.includes('仅 RN 档'),
+    '前缀化必须保留子串 —— guardian-runner 帮助文本按子串引用这两个词',
+  )
+})
+
+/**
+ * T34 web 腿的几何维必须**真判**(票 G-1108372 之后的样式收敛批)。
+ * 立因:web 腿此前把 `geometry`/`named` 硬写成空,而 AGENTS §4 跨端铁律第一句就是
+ * "web 与 miniapp-taro 视觉必须完全一致" —— 于是"同名组件的盒档两端不同"这一型只在
+ * 一次性盘点脚本里量得到、提交链上永远 0。接线之后必须留一把"它真的在判"的锁,
+ * 否则下一个人把 geometry 改回常量 [] 时,账面仍然全绿。
+ * 正反成对:分叉要报出来、同值不得报;并且 json 面每条 finding 必须带与主腿同形的标量,
+ * 否则机器消费者读 `web.findings[i].geometry` 得到 undefined,而 `web.red[i].geometry` 有值
+ * —— 同一份输出自相矛盾。
+ */
+test('T34 web 腿几何维真判:分叉必点名 / 同值不误伤 / json 与 red 同形', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const pairs = [{ name: 'Bar', miniapp: 'a/Bar.tsx', rn: 'b/Bar.tsx' }]
+  const diverging = {
+    'a/Bar.tsx': '<View className="h-2" />', // miniapp:h-2 = 8px(2 倍率折 4px)
+    'b/Bar.tsx': '<div className="h-10" />', // web:h-10 = 40px
+  }
+  const agree = {
+    'a/Bar.tsx': '<View className="h-2" />',
+    'b/Bar.tsx': '<div className="h-2" />',
+  }
+  const d = src.webRadiusAudit(pairs, diverging, tbl, {})
+  assert.equal(d.findings.length, 1, '几何分叉却被剔出 findings ⇒ 这一维又变成不判了')
+  const g = d.findings[0].geometry
+  assert.ok(
+    g.onlyMiniapp.length + g.onlyRn.length > 0,
+    `web 腿没量到几何差(两侧读数=${JSON.stringify(g)})—— 说明 readGeometry 没接进这一腿`,
+  )
+  const a = src.webRadiusAudit(pairs, agree, tbl, {})
+  assert.equal(
+    a.findings[0].geometry.onlyMiniapp.length + a.findings[0].geometry.onlyRn.length,
+    0,
+    '两端同值却报分叉 = 把尺子的读法差当成了仓库差异',
+  )
+  // json 面与 red 面同形:findings 必须带 diffCount / geometry(不能只递 radius)
+  const srcTxt = flat(readFileSync(SELF, 'utf8'))
+  const webJson = srcTxt.slice(srcTxt.indexOf('dimension:'))
+  for (const key of [
+    'diffCount: diffCount(f)',
+    'geometry: f.geometry',
+    'elementRadius: f.elementRadius',
+  ])
+    assert.ok(webJson.includes(key), `web 腿 json 少了 ${key} ⇒ 机器面读不出这一维判过没有`)
+})
+
+test('T35 具名导出与卫语句不得冒充"根槽位读不出"(本轮把 9 族未判定读到 4 族的那两处提取式洞)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  // ① 具名导出 + 文件末 `export default 标识符`(本仓 RN 侧最常见写法)，且组件体第一句是卫语句早退。
+  const named = src.rootSlotRadiiOf(
+    [
+      "import { View } from 'react-native'",
+      'export function Foo({ ok }) {',
+      '  if (!ok) return null',
+      '  return <View style={{ borderRadius: 8 }} />',
+      '}',
+      'export default Foo',
+      '',
+    ].join('\n'),
+    tbl,
+    'Foo',
+  )
+  assert.deepEqual(
+    [named.anchored, named.indirect, named.tiers],
+    [true, false, [8]],
+    '具名导出 + 卫语句早退必须读出根槽位 = 8 —— 旧写法在这里报"锚不到"或"读不出"，整族这一维等于没看',
+  )
+  // ② 反向锁：卫语句之后仍是条件式根(根不唯一)时，必须继续报"读不出"，不得被放宽成"根上有档"。
+  const cond = src.rootSlotRadiiOf(
+    [
+      "import { View } from 'react-native'",
+      'export default function Bar({ a }) {',
+      '  if (!a) return null',
+      '  return a > 1 ? <View style={{ borderRadius: 12 }} /> : <View style={{ borderRadius: 8 }} />',
+      '}',
+      '',
+    ].join('\n'),
+    tbl,
+    'Bar',
+  )
+  assert.equal(cond.indirect, true, '条件式根被读成"有根" ⇒ 本维从分辨退化成猜测')
+  // ③ 反向锁：本文件里没有该标识符的定义时，不得瞎锚到别的组件上(张冠李戴比没看更糟)。
+  const absent = src.rootSlotRadiiOf(
+    ["import { Baz } from './baz'", 'export default Baz', ''].join('\n'),
+    tbl,
+    'Baz',
+  )
+  assert.deepEqual(
+    [absent.anchored, absent.indirect, absent.tiers],
+    [true, true, null],
+    '定义在别的文件 ⇒ 必须仍报"读不出"',
+  )
+  // ④ 真仓阳性对照：AgentRuntimePanel 两端现在都必须读得出(此前小程序侧因卫语句报"读不出")。
+  const show = (p) => {
+    const r = git(['show', `HEAD:${p}`])
+    assert.equal(r.status, 0, `读不到 HEAD:${p} —— 阳性对照的前提是真仓面还在`)
+    return r.stdout
+  }
+  const mpReal = src.rootSlotRadiiOf(
+    show('apps/miniapp-taro/src/components/AgentRuntimePanel.tsx'),
+    tbl,
+    'AgentRuntimePanel',
+  )
+  assert.deepEqual(
+    [mpReal.anchored, mpReal.indirect],
+    [true, false],
+    '真仓 AgentRuntimePanel 小程序侧仍报"读不出" ⇒ 卫语句那条洞没真修掉',
+  )
+})
+
+test('T36 ALIAS 跨名配对的族,RS 必须按"本文件名"再锚一次;锚不到仍点名未判定(不得记成一致)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  // 配对层认得这对(CategoryBar.tsx ↔ CategoryInlineBar.tsx),但 RS 只认族名 ⇒ 别名腿这一维又"没看"。
+  // 判据必须覆盖它自己产出的那种配对形态,所以第二次锚定用文件 stem(不是"第一个 export")。
+  const aliasPairs = {
+    pairs: [{ name: 'CategoryBar', miniapp: 'a/CategoryBar.tsx', rn: 'p/CategoryInlineBar.tsx' }],
+  }
+  const text = {
+    'a/CategoryBar.tsx':
+      'import { View } from "@tarojs/components"\nexport default function CategoryBar() {\n  return <View className="rounded-lg" />\n}\n',
+    'p/CategoryInlineBar.tsx':
+      'import { View } from "react-native"\nexport function CategoryInlineBar() {\n  return <View style={{ borderRadius: 8 }} />\n}\n',
+  }
+  const got = src.rootSlotAudit(aliasPairs, text, tbl)
+  assert.deepEqual(
+    got.undetermined,
+    [],
+    'ALIAS 族两侧都该读得出根槽位 —— 读不出就说明第二次锚定没接上,这一维又被记成"没看"',
+  )
+  assert.deepEqual(got.findings, [], '两端都是 lg(8) ⇒ 无差异,但这条用例断的是"看过了"')
+
+  // 反向:stem 也不是导出名时,必须继续报未判定(修洞不许顺手变成放宽)
+  const wrongName = {
+    pairs: [{ name: 'FooBar', miniapp: 'a/FooBar.tsx', rn: 'b/NotTheExport.tsx' }],
+  }
+  const text2 = {
+    'a/FooBar.tsx':
+      'import { View } from "@tarojs/components"\nexport default function FooBar() {\n  return <View className="rounded-lg" />\n}\n',
+    'b/NotTheExport.tsx':
+      'import { View } from "react-native"\nexport const SomethingElse = () => <View style={{ borderRadius: 8 }} />\n',
+  }
+  const got2 = src.rootSlotAudit(wrongName, text2, tbl)
+  assert.equal(
+    got2.undetermined.length,
+    1,
+    '族名与文件名都锚不到 ⇒ 必须仍报未判定;把它读成"两端根上无档/一致"就是放宽',
+  )
+  assert.match(
+    got2.undetermined[0].why,
+    /族名或本文件名/,
+    '未判定要点名"两次锚定都试过",否则下一步的人不知道该往哪补',
+  )
+})
+
+// ── T37–T40(2026-10-19 立,票 G-16 那格):SL 认几何投影别名 ──────────────────────────
+//   立因实测:INPUT_AREA_IN_SHELL_BTN_PX 是 GEOMETRY_PX.controlBox 的投影,小程序腿直取
+//   `taroGeometry.controlBox`(HEAD 面现读),RN 腿引常数名 —— 改前 SL 把这条已收口的腿算成
+//   "仅 RN 引用",读数里混着假账;下一个人按它去"给单端补数字"就是单方面改观感。
+//   夹具全部构造,不读真仓(真仓那份对照由 T40 拿 HEAD 面点名)。
+const GEO_SRC = [
+  'export const GEOMETRY_PX = {',
+  '  controlBox: 32,',
+  '  otherBox: 20',
+  '}',
+  '',
+].join('\n')
+const SPEC_SRC = [
+  'export const FOO_PX = GEOMETRY_PX.controlBox;',
+  'export const PLAIN_PX = 14;',
+  '',
+].join('\n')
+const SPEC_SOURCES = {
+  'packages/design-tokens/src/geometry.js': GEO_SRC,
+  'packages/app/src/features/x/spec.ts': SPEC_SRC,
+}
+const slRun = (miniappSrc, rnSrc) => {
+  const tiers = src.specTiers(SPEC_SOURCES)
+  const pairs = { pairs: [{ name: 'Fixture', miniapp: 'm/Mini.tsx', rn: 'r/Rn.tsx' }] }
+  const text = { 'm/Mini.tsx': miniappSrc, 'r/Rn.tsx': rnSrc }
+  return { sl: src.specLegAudit(pairs, text, tiers), aliases: src.specProjectionAliases(tiers) }
+}
+
+test('T37 别名归一正向:一侧引常数名、另一侧直取同一几何档 ⇒ 不再算单侧(假账消除)', () => {
+  const { sl, aliases } = slRun(
+    'const s = { width: rpx(taroGeometry.controlBox) }\n',
+    'const s = { width: FOO_PX }\n',
+  )
+  assert.equal(aliases.FOO_PX, 'controlBox', '投影表没记下 ⇒ 归一无从谈起')
+  assert.equal(sl.length, 0, `FOO_PX 两侧都已走单一源,不该再出单侧条目:${JSON.stringify(sl)}`)
+})
+
+test('T38 反向对照:另一侧取的是**不同**的几何档 ⇒ 照判单侧(别名不许把两个档并成一个)', () => {
+  const { sl } = slRun('const s = { width: rpx(taroGeometry.otherBox) }\n', 'const s = { width: FOO_PX }\n')
+  assert.equal(sl.length, 1)
+  assert.deepEqual(sl[0].onlyRn, ['FOO_PX'], '投影源不同 ⇒ 这条必须仍然判单侧,归一不得遮账')
+})
+
+test('T39 无投影的常数档口径不变;一侧只引几何档而另一侧两者皆无 ⇒ 不新报单侧(别名只许消账)', () => {
+  const a = slRun('const s = { a: 1 }\n', 'const s = { width: PLAIN_PX }\n')
+  assert.deepEqual(a.sl[0].onlyRn, ['PLAIN_PX'], '非投影档仍按档名比(旧口径一字不动)')
+  const b = slRun('const s = { width: rpx(taroGeometry.controlBox) }\n', 'const s = { a: 1 }\n')
+  // 反向不成立:同一个 step 可以被多枚组件各自的常数引用(真仓实测 controlBox 同挂
+  // INPUT_AREA_IN_SHELL_BTN_PX 与 BOTTOM_ACTION_BAR_CONTROL_BOX_PX)。按 step 反向定罪
+  // = 把别处组件的档算到这个组件头上 —— 与 unresolvedClassNames 头注那条教训同型。
+  assert.equal(b.sl.length, 0, `按 step 反向造账了:${JSON.stringify(b.sl)}`)
+})
+
+test('T41 单调性锁:SL 报出的每一条都必须由**具名引用**产生(别名只用于划掉假账)', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const aliases = src.specProjectionAliases(c.tiers)
+  const sl = src.specLegAudit(c.pairs, c.text, c.tiers)
+  const bad = []
+  for (const x of sl) {
+    const pair = c.pairs.pairs.find((p) => p.name === x.name)
+    if (!pair) continue
+    const idsOf = (t) => new Set(String(t).match(/[A-Za-z_$][\w$]*/g) || [])
+    const ia = idsOf(src.stripComments(c.text[pair.miniapp] ?? ''))
+    const ib = idsOf(src.stripComments(c.text[pair.rn] ?? ''))
+    for (const n of x.onlyMiniapp) if (!ia.has(n)) bad.push(`${x.name}/M:${n}`)
+    for (const n of x.onlyRn) if (!ib.has(n)) bad.push(`${x.name}/R:${n}`)
+  }
+  assert.deepEqual(bad, [], `出现"只靠 step 反向定罪"的条目:${bad.join(' , ')}`)
+  assert.ok(Object.keys(aliases).length > 0, '真仓投影表为空 ⇒ 这条锁是在空转')
+})
+
+test('T40 真仓对照:票面点名的 INPUT_AREA_IN_SHELL_BTN_PX 假账在 HEAD 面已消除', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const sl = src.specLegAudit(c.pairs, c.text, c.tiers)
+  const all = sl.flatMap((x) => [...x.onlyMiniapp, ...x.onlyRn])
+  assert.ok(!all.includes('INPUT_AREA_IN_SHELL_BTN_PX'), '改前该档被算成仅 RN 引用(实测假账),现必须不再出现')
+  assert.ok(Object.keys(src.specProjectionAliases(c.tiers)).length > 0, '真仓 spec 面投影表为空 ⇒ 这一腿没接到真数据')
+})
+
+/**
+ * 形状锁(2026-10-22):WD 判红行必须印**真超锚的那一维**,不得写死"圆角"。
+ * 立因:实测 VoiceInput 的几何分叉被念成 `圆角 0 > 锚点 0` —— 数学上不成立的断言会把
+ * 下一个人引去查错的那一维(§0.8 文档/命令面不许有说错的话)。
+ * 锁法:先定位打印语句本身(不搜全文 —— `圆角` 这个词在 audit 的 over[] 里合法出现),
+ * 再断言它逐字取 `r.over`、且不再自带 `圆角 ${...radiusCount}` 这种第二份维度计算。
+ */
+test("T- WD 判红文案取单源 over[],不得复算维度", () => {
+  const txt = flat(readFileSync(SELF, "utf8"))
+  const head = txt.indexOf("for (const r of webVerdict.red)")
+  assert.ok(head >= 0, "找不到 WD 判红循环(被摘线?)")
+  const at = txt.indexOf("console.log(", head)
+  assert.ok(at > head && at - head < 500, "循环体里找不到打印语句")
+  const win = txt.slice(at, at + 320)
+  assert.ok(/r.over.join/.test(win), "打印语句不再引用单源 over[] ⇒ 又会自算维度:" + win.slice(0, 120))
+  assert.ok(!/圆角 ${r.radiusCount}/.test(win), "打印层复算了圆角维度 ⇒ 会把几何分叉念成圆角分叉")
+})
+
+/**
+ * G-16(ii) 类臂解析维(2026-10-24,只报数档)。
+ * 立因:门此前只比"两端取值",className 写了个**谁也没定义**的名字仍照样对账通过 ——
+ * 它被 `blindClasses` 一并归成"落在全局表",与"真的定义在 app.css"长得一模一样。
+ * 三条用例互为对照:查无定义必须点名 / 唯一单类定义必须通过 / 判不出的形态必须未判定
+ * (未判定不是通过,也不是查无定义 —— 用 `!==` 型断言会把三者混成一个)。
+ */
+test('T42 类臂解析维:查无定义必点名 / 已定义必通过 / 判不出必未判定(不折成过)', () => {
+  const css = '.box-shell { height: 80rpx; }'
+  const defs = src.classDefScan(css, new Set(['box-shell', 'box-ghost']))
+  // a) 取用未定义 class ⇒ 点名
+  const miss = src.classArmVerdicts(
+    new Map([['box-ghost', { conditional: false }]]),
+    new Map(),
+    new Map(),
+    'miniapp',
+  )
+  assert.equal(miss.length, 1)
+  assert.equal(miss[0].verdict, 'undefined', `未定义类名必须点名,实得 ${JSON.stringify(miss)}`)
+  // b) 取用已定义(唯一单类选择器 + 无条件) ⇒ 通过
+  const hit = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    defs,
+    new Map(),
+    'miniapp',
+  )
+  assert.equal(hit[0].verdict, 'resolved', `已定义类名必须通过,实得 ${JSON.stringify(hit)}`)
+  // c) 判不出的形态 ⇒ 未判定(三型各一:多处定义 / !important 状态覆盖 / 条件取用)
+  const multi = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    new Map(),
+    new Map([['box-shell', { count: 2, important: false, complex: 0 }]]),
+    'miniapp',
+  )
+  const imp = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    new Map([['box-shell', { count: 1, important: true, complex: 0 }]]),
+    new Map(),
+    'miniapp',
+  )
+  const cond = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: true }]]),
+    defs,
+    new Map(),
+    'miniapp',
+  )
+  // web 侧查不到不得记成"查无定义"(工具类由构建期生成,本门无 Tailwind 配置可解析)
+  const web = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    new Map(),
+    new Map(),
+    'web',
+  )
+  for (const [label, r] of [
+    ['多处定义', multi],
+    ['!important', imp],
+    ['条件取用', cond],
+    ['web 未建模', web],
+  ])
+    assert.equal(r[0].verdict, 'undetermined', `${label} 必须判未判定,不得折成通过:${JSON.stringify(r)}`)
+  // 枚举值(`mode === 'voice'`)不是类名 —— 它会让"查无定义"喊错
+  const refs = src.usedClassRefs("<View className={cn('a-box', mode === 'voice' ? 'b-box' : '')} />")
+  assert.ok(refs.has('a-box') && refs.has('b-box'), '条件分支里的类名仍须被看见')
+  assert.ok(!refs.has('voice'), '比较运算符后的字面量被当成类名 ⇒ 会喊错的披露')
+  // 装车锁:算出来必须真接进 collect 并被人读面打印(算完丢掉 = 提交链上一路绿灯)
+  const gate = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(/classArmVerdicts\(l\.refs/.test(gate), 'collect 未调用 classArmVerdicts ⇒ 新维没接线')
+  assert.ok(/collected\.classArm/.test(gate), 'collect 未登记 classArm ⇒ 打印面读不到')
+  assert.ok(/类臂解析/.test(gate), '人读面没有类臂解析读数 ⇒ "0"与"没看见"分不开')
+})
+
+/**
+ * 票 O67(2026-11-01):web 腿的 Tailwind 工具类此前**逐枚未判定**(门没有可解析的取源)。
+ * 这条是**真仓端到端**:不看函数在不在,直接跑门读它自己的 JSON 面。
+ * 三条边界必须在场,缺一条就会把某一型折成"通过":
+ *  ① 模型可用(不可用时全部回落未判定 —— 那是正确行为,但本仓 HEAD 上没有工具链缺席的借口);
+ *  ② web 腿的未判定名单里**不得**再出现"工具类模型未生效"以外的整片沉默 —— 具体到本票,
+ *     两族那七枚类必须已被判定(modeled/resolved),只留名字不落判决就是新的假绿;
+ *  ③ 小程序侧 `ui-card` 这类**样式源里根本没有**的标记名仍必须逐枚点名(§0.3:没有就是没有,
+ *     不许因为"另一侧判过了"顺手把它也算成判过)。
+ */
+test('T47 web 工具类判定真装车(票 O67):真 HEAD 面两族七枚类必须已被判定,小程序侧静默不可吞', () => {
+  const r = spawnSync(process.execPath, [SELF, '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+    maxBuffer: 64 * 1024 * 1024,
+  })
+  assert.equal(r.status, 0, `HEAD 面判红:\n${r.stdout.slice(-600)}`)
+  const j = JSON.parse(r.stdout)
+  const wu = j.classArm?.webUtility
+  assert.ok(wu, 'json 面没有 classArm.webUtility ⇒ "模型没建起来"与"这一维没跑"分不开')
+  assert.equal(wu.available, true, `web 工具类模型没建起来:${wu.why}`)
+  assert.ok(wu.candidates >= 7, `候选面缩了(现读 ${wu.candidates} 枚)⇒ 该判的类没进尺子`)
+  assert.deepEqual(wu.missing, ['thin-scroll'], `编译器产出面变了:${JSON.stringify(wu.missing)}`)
+  const webLegs = (j.classArm.legs ?? []).filter((l) => l.side === 'web')
+  const blind = webLegs.flatMap((l) => l.undetermined.map((u) => `${l.name}:${u.class}(${u.reason})`))
+  assert.deepEqual(blind, [], `web 腿仍有未判定 ⇒ 取源没接上这一族:${blind.join(' ')}`)
+  const judged = webLegs.flatMap((l) => [
+    ...(l.modeled ?? []).map((x) => x.class),
+    ...(l.undefined ?? []),
+  ])
+  for (const cls of ['min-h-0', 'min-w-0', 'resize-none', 'accent-primary', 'appearance-none', 'underline'])
+    assert.ok(judged.includes(cls), `${cls} 不在任何判定桶里(既没判过也没点名)`)
+  const mini = (j.classArm.legs ?? []).find((l) => l.name === 'AgentRuntimePanel' && l.side === 'miniapp')
+  assert.ok(
+    mini?.undetermined?.some((u) => u.class === 'ui-card'),
+    '小程序侧 ui-card(样式源里没有定义)被静默吞掉 —— §0.3 要求逐枚点名',
+  )
+  // 几何口径未被带偏:本票七枚全是 0 档 / 无盒档,不许给 web 腿凭空添几何读数
+  assert.deepEqual(j.web.red, [], `web 腿判红面变了:${JSON.stringify(j.web.red)}`)
+  assert.deepEqual(j.web.undetermined, [], `web 腿整腿未判定:${JSON.stringify(j.web.undetermined)}`)
+})
+
+/**
+ * G-16 第(i)格(2026-10-24):**同档异名**的两枚投影常数。
+ * 旧口径只认"一端引常数名、另一端直取它投影的几何 step"(单向消账);两枚**不同的常数名**
+ * 投影到同一个 step 时仍各算一条单侧 —— 而它们其实是同一档,两端都已走单一源。
+ * 归属边界取"声明它的那份 spec 文件":跨 spec 按 step 配对会把别处组件的档算到当前组件头上
+ * (T41 单调性锁记过的那一型),所以同 step 但不同 spec 仍必须照判单侧。
+ */
+test('T43 同档异名正向:同一份 spec 里两枚投影常数各走一端 ⇒ 不再算两条单侧', () => {
+  const sources = {
+    'packages/design-tokens/src/geometry.js':
+      'export const GEOMETRY_PX = {\n  controlBox: 32\n}\n',
+    'packages/app/src/features/x/spec.ts':
+      'export const FOO_PX = GEOMETRY_PX.controlBox;\nexport const BAR_PX = GEOMETRY_PX.controlBox;\n',
+  }
+  const tiers = src.specTiers(sources)
+  const aliases = src.specProjectionAliases(tiers)
+  assert.equal(aliases.FOO_PX, 'controlBox', '前提:两枚常数都必须是同一 geometry step 的投影')
+  assert.equal(aliases.BAR_PX, 'controlBox')
+  const pairs = { pairs: [{ name: 'Fixture', miniapp: 'm/Mini.tsx', rn: 'r/Rn.tsx' }] }
+  const sl = src.specLegAudit(
+    pairs,
+    {
+      'm/Mini.tsx': 'const s = { width: FOO_PX }\n',
+      'r/Rn.tsx': 'const s = { width: BAR_PX }\n',
+    },
+    tiers,
+  )
+  assert.deepEqual(sl, [], `同一几何档的两枚投影常数被算成两条单侧:${JSON.stringify(sl)}`)
+})
+
+test('T44 同档异名反向:跨 spec 文件 / 不同几何档 ⇒ 照判单侧(归属边界不是名字相似度)', () => {
+  const sources = {
+    'packages/design-tokens/src/geometry.js':
+      'export const GEOMETRY_PX = {\n  controlBox: 32,\n  otherBox: 20\n}\n',
+    'packages/app/src/features/a/spec.ts': 'export const FOO_PX = GEOMETRY_PX.controlBox;\n',
+    'packages/app/src/features/b/spec.ts':
+      'export const BAR_PX = GEOMETRY_PX.controlBox;\nexport const BAZ_PX = GEOMETRY_PX.otherBox;\n',
+  }
+  const tiers = src.specTiers(sources)
+  const pairs = { pairs: [{ name: 'Fixture', miniapp: 'm/Mini.tsx', rn: 'r/Rn.tsx' }] }
+  const cross = src.specLegAudit(
+    pairs,
+    {
+      'm/Mini.tsx': 'const s = { width: FOO_PX }\n',
+      'r/Rn.tsx': 'const s = { width: BAR_PX }\n',
+    },
+    tiers,
+  )
+  assert.deepEqual(cross[0]?.onlyMiniapp, ['FOO_PX'], '跨 spec 的同一 step 不是同一档,不得被配对划掉')
+  assert.deepEqual(cross[0]?.onlyRn, ['BAR_PX'])
+  const diffTier = src.specLegAudit(
+    pairs,
+    {
+      'm/Mini.tsx': 'const s = { width: FOO_PX }\n',
+      'r/Rn.tsx': 'const s = { width: BAZ_PX }\n',
+    },
+    tiers,
+  )
+  assert.deepEqual(diffTier[0]?.onlyRn, ['BAZ_PX'], '同一 owner 但投影源不同 ⇒ 仍判单侧')
+})
+
+/**
+ * G-16 第(ii)格(2026-10-24):盒档落在 `app.css` 类臂上时,几何维必须真读样式表。
+ * 取数只认判定层已放行的 `resolved`(唯一无覆盖定义 + 无条件使用);多处定义 / !important /
+ * 条件取用仍是未裁定档,不得在取材层选边。并入的**只给几何**,RD / RE 的取面不动。
+ */
+const ARM_TEXT = {
+  'm/Box.tsx': '<View className="box-shell" />\n',
+  'r/Box.tsx': '<View style={{ height: 40 }} />\n',
+}
+const ARM_PAIRS = { pairs: [{ name: 'Box', miniapp: 'm/Box.tsx', rn: 'r/Box.tsx' }] }
+const armBodyOf = (css) =>
+  src.classDefScan(css, new Set(['box-shell'])).get('box-shell')?.bodies.join('\n') ?? ''
+
+test('T45 类臂盒档正向:app.css 类臂的已判定声明体并入几何,同值不再报分叉', () => {
+  const body = armBodyOf('.box-shell { height: 80rpx; }')
+  assert.ok(body.includes('80rpx'), '前提:classDefScan 必须留下声明体,否则并入几何无从谈起')
+  const without = src.audit(ARM_PAIRS, ARM_TEXT, {}, {}, null, {})
+  assert.deepEqual(without.findings[0]?.geometry?.onlyRn, [40], '前提:不并类臂时这一档确实读不到')
+  const withArm = src.audit(ARM_PAIRS, ARM_TEXT, {}, {}, null, {}, { 'm/Box.tsx': body })
+  assert.deepEqual(withArm.findings, [], `类臂已并进几何,同值不该再报分叉:${JSON.stringify(withArm.findings)}`)
+  // 只给几何:同名类臂里的圆角不得被 RD / RE 看见(并入 styles 会让圆角维跟着移动)
+  const tbl = { DEFAULT: 6, sm: 4, md: 6, lg: 8, xl: 12 }
+  const textWithRadius = {
+    'm/Box.tsx': '<View className="box-shell" />\n',
+    'r/Box.tsx': '<View style={{ height: 40, borderRadius: 12 }} />\n',
+  }
+  const radiusArm = src.audit(
+    ARM_PAIRS,
+    textWithRadius,
+    {},
+    {},
+    tbl,
+    {},
+    { 'm/Box.tsx': '{ height: 80rpx; border-radius: 8px; }' },
+  )
+  const f = radiusArm.findings[0]
+  assert.ok(f, '前提:RN 侧 12 应当被 RD 读到,才能证明类臂里的 8 没被算进去')
+  assert.ok(
+    !f.radius.onlyMiniapp.includes(8),
+    `类臂声明体漏进 RD/RE 取面 ⇒ 圆角维被同一段文本双计:${JSON.stringify(f.radius)}`,
+  )
+})
+
+test('T46 类臂盒档反向:确实不等价的档必须判红,且接线锁住 collect → audit', () => {
+  const body = armBodyOf('.box-shell { height: 88rpx; }')
+  const res = src.audit(ARM_PAIRS, ARM_TEXT, {}, {}, null, {}, { 'm/Box.tsx': body })
+  assert.deepEqual(res.findings[0]?.geometry?.onlyMiniapp, [44], '88rpx 必须折成 44px 进几何集')
+  assert.equal(res.red.length, 1, `确实不等价的档必须进判红:${JSON.stringify(res.red)}`)
+  assert.match(res.red[0].over.join(' | '), /几何/, '红必须归因到几何维,不得只报圆角或无名目')
+  // 装车锁:算出声明体却丢掉 = 提交链上一路绿灯
+  const gate = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(/classArmCss\[l\.file\]/.test(gate), 'collect 未登记类臂声明体')
+  assert.ok(
+    /withGeometryStyles\(text, styles, armStyles, p\.miniapp\)/.test(gate),
+    '几何维未从类臂声明体取数(只登记不消费)',
+  )
+  assert.ok(/collected\.classArmCss \?\? \{\}/.test(gate), 'main 未把类臂声明体喂进 audit / webRadiusAudit')
+})
+
+/**
+ * T43–T46(2026-10-25,票 G-16 第(i)格残留):**具名档 → 具名档**的投影别名。
+ *
+ * 立因:门此前只认 `= <数字>` 与 `= GEOMETRY_PX.<step>` 两种右值,于是
+ * `export const A_PX = B_PX` 这一型**整枚从档表消失** —— 两端写的是同一个数的两个名字,
+ * 却被报成"仅一侧引用 / 仅一侧档"。这就是票面那句"按档名计数不认几何投影别名"在真仓的
+ * 现存实例(HEAD 面 `packages/shared/src/ui/tab-bar-spec.ts` 两枚)。四条用例互为对照:
+ * 等价必须不报 / 真不同档必须报 / 摘掉判据必须翻红(变异自证)/ 派生量不得被认成同值。
+ */
+const ALIAS_GEO_SRC = ['export const GEOMETRY_PX = {', '  controlBox: 32,', '  otherBox: 20', '}', ''].join(
+  '\n',
+)
+const ALIAS_SOURCES = {
+  'packages/design-tokens/src/geometry.js': ALIAS_GEO_SRC,
+  'packages/shared/src/ui/alias-spec.ts': [
+    'export const FOO_PX = GEOMETRY_PX.controlBox;',
+    'export const BAR_PX = FOO_PX;',
+    'export const DEEP_PX = GEOMETRY_PX.otherBox;',
+    'export const DERIVED_PX = FOO_PX + 4;',
+    '',
+  ].join('\n'),
+}
+const aliasSlRun = (miniappSrc, rnSrc, sources = ALIAS_SOURCES) => {
+  const tiers = src.specTiers(sources)
+  const pairs = { pairs: [{ name: 'Fixture', miniapp: 'm/Mini.tsx', rn: 'r/Rn.tsx' }] }
+  const text = { 'm/Mini.tsx': miniappSrc, 'r/Rn.tsx': rnSrc }
+  return { sl: src.specLegAudit(pairs, text, tiers), tiers, eq: src.specTierEquivalence(tiers) }
+}
+
+test('T49 负控(本票核心):同值异名(具名档投影)⇒ 不报单侧', () => {
+  const { sl, tiers, eq } = aliasSlRun(
+    'const s = { width: FOO_PX }\n',
+    'const s = { width: BAR_PX }\n',
+  )
+  assert.equal(tiers.BAR_PX, tiers.FOO_PX, 'BAR_PX 是 FOO_PX 的显式别名 ⇒ 必须进档表且同值')
+  assert.equal(eq.keyOf.get('FOO_PX'), eq.keyOf.get('BAR_PX'), '两枚必须落在同一个等价类')
+  assert.equal(sl.length, 0, `两端引的是同一个数,不该出单侧:${JSON.stringify(sl)}`)
+})
+
+test('T50 正控:真不同档 ⇒ 必须报(别名不许把两个档并成一个)', () => {
+  const { sl } = aliasSlRun(
+    'const s = { width: FOO_PX }\n',
+    'const s = { width: DEEP_PX }\n',
+  )
+  assert.equal(sl.length, 1, `不同几何档必须仍判单侧:${JSON.stringify(sl)}`)
+  assert.deepEqual(sl[0].onlyMiniapp, ['FOO_PX'])
+  assert.deepEqual(sl[0].onlyRn, ['DEEP_PX'])
+})
+
+test('T51 变异自证:摘掉具名档投影判据 ⇒ 夹具①当场翻红', () => {
+  const noAlias = {
+    'packages/design-tokens/src/geometry.js': ALIAS_GEO_SRC,
+    'packages/shared/src/ui/alias-spec.ts': [
+      'export const FOO_PX = GEOMETRY_PX.controlBox;',
+      'export const BAR_PX = 32;',
+      '',
+    ].join('\n'),
+  }
+  const { sl, tiers } = aliasSlRun(
+    'const s = { width: FOO_PX }\n',
+    'const s = { width: BAR_PX }\n',
+    noAlias,
+  )
+  assert.equal(tiers.BAR_PX, 32, '字面量档本身仍可读(对照组不是空场景)')
+  assert.equal(sl.length, 1, '没有声明式同值关系 ⇒ 按档名比,必须报出来')
+  assert.deepEqual(sl[0].onlyMiniapp, ['FOO_PX'])
+  assert.deepEqual(sl[0].onlyRn, ['BAR_PX'])
+})
+
+test('T52 派生量不得被认成同值:`A_PX = B_PX + 4` 不是别名', () => {
+  const { tiers } = aliasSlRun('const s = { a: 1 }\n', 'const s = { a: 1 }\n')
+  assert.equal(tiers.DERIVED_PX, undefined, '右值含算术 ⇒ 值未判定,不得按别名入表')
+  assert.notEqual(
+    src.specTierEquivalence(tiers).keyOf.get('DERIVED_PX'),
+    src.specTierEquivalence(tiers).keyOf.get('FOO_PX'),
+    '派生量与它的被除数不是同一个数',
+  )
+})
+
+test('T53 真仓对照:tab-bar 两枚具名档投影在 HEAD 面被认成同一档(值可解的那枚同值,不可解的仍登记等价)', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const alias = src.specProjectionAliases(c.tiers)
+  assert.equal(
+    c.tiers.TAB_BAR_MARGIN_H_PX,
+    c.tiers.INPUT_AREA_CONTAINER_PADDING_X_PX,
+    'TAB_BAR_MARGIN_H_PX = INPUT_AREA_CONTAINER_PADDING_X_PX 必须同值入表',
+  )
+  assert.equal(
+    alias.TAB_BAR_HEIGHT_PX,
+    'INPUT_AREA_SHELL_HEIGHT_PX',
+    '目标本身是算术派生(值未判定)⇒ 不许猜值,但等价关系必须登记',
+  )
+  assert.equal(
+    c.tiers.TAB_BAR_HEIGHT_PX,
+    undefined,
+    '值解不出就不入表(§0.3:没判不写判过)',
+  )
+})
+
+/* ================= web↔RN 五维几何腿(Phase 2,2026-11-02) ================= */
+
+test('T60 五维分类:键名 → 宽高/内边距/间距/字号,圆角留给圆角档表', () => {
+  assert.equal(src.dimOfKey('paddingHorizontal'), 'padding')
+  assert.equal(src.dimOfKey('padding-top'), 'padding')
+  assert.equal(src.dimOfKey('px'), 'padding')
+  assert.equal(src.dimOfKey('gap'), 'spacing')
+  assert.equal(src.dimOfKey('marginTop'), 'spacing')
+  assert.equal(src.dimOfKey('inset'), 'spacing')
+  assert.equal(src.dimOfKey('width'), 'widthHeight')
+  assert.equal(src.dimOfKey('iconSize'), 'widthHeight')
+  assert.equal(src.dimOfKey('fontSize'), 'fontSize')
+  assert.equal(src.dimOfKey('text'), 'fontSize')
+  assert.equal(src.dimOfKey('borderRadius'), null, '圆角走 radiusSetOf,不得混进五维分类')
+  assert.equal(src.dimOfKey('opacity'), null, '不在五维的词归 null,不得硬塞一类')
+})
+
+test('T61 web 路由反解:剥分组目录,重复路由进 duplicates', () => {
+  const { map, duplicates } = src.webRouteIndex([
+    'apps/web/app/(main)/settings/page.tsx',
+    'apps/web/app/(auth)/login/page.tsx',
+    'apps/web/app/settings/page.tsx',
+    'apps/web/app/(main)/settings/nested/page.tsx',
+    'apps/web/app/(main)/not-a-page.tsx',
+  ])
+  assert.equal(map.get('settings'), 'apps/web/app/(main)/settings/page.tsx')
+  assert.equal(map.get('login'), 'apps/web/app/(auth)/login/page.tsx')
+  assert.equal(map.get('settings/nested'), 'apps/web/app/(main)/settings/nested/page.tsx')
+  assert.equal(duplicates.length, 1, '同一路由两份 page 必须点名,不得静默选一份')
+  assert.equal(duplicates[0].route, 'settings')
+})
+
+test('T62 配对的唯一锚点是 data.evidence:锚不上的行进待确认清单,不猜', () => {
+  const rn = 'packages/app/src/features/settings/SettingsScreen.tsx'
+  const rnProfile = 'packages/app/src/features/profile/ProfileScreen.tsx'
+  const rnOrphan = 'packages/app/src/features/orphan/OrphanScreen.tsx'
+  const ledger = [
+    JSON.stringify({
+      web: 'settings',
+      rn,
+      status: 'aligned',
+      data: { evidence: `${rn}:12` },
+    }),
+    JSON.stringify({
+      web: 'profile',
+      rn: rnProfile,
+      status: 'aligned',
+      data: { evidence: 'README:1' },
+    }),
+    JSON.stringify({
+      web: 'orphan',
+      rn: rnOrphan,
+      status: 'aligned',
+      data: { evidence: `${rnOrphan}:1` },
+    }),
+    JSON.stringify({ web: 'home', rn: 'packages/app/src/features/home/HomeScreen.tsx', status: 'pending' }),
+    'not-json',
+  ].join('\n')
+  const webFiles = [
+    'apps/web/app/(main)/settings/page.tsx',
+    'apps/web/app/(main)/profile/page.tsx',
+    'apps/web/app/(main)/orphan/page.tsx',
+  ]
+  const built = src.buildWebRnPairs(ledger, webFiles, [rn, rnProfile])
+  assert.equal(built.pairs.length, 1, '只有锚点命中且两端文件都在被审面的行才配对')
+  assert.equal(built.pairs[0].web, 'apps/web/app/(main)/settings/page.tsx')
+  assert.equal(built.pairs[0].rn, rn)
+  assert.equal(built.problems.length, 1, '坏行必须报,不得当成"没有这一行"')
+  const why = built.pending.map((p) => p.why).join(' | ')
+  assert.match(why, /未锚定 rn 文件/, 'evidence 未锚定 ⇒ 待确认')
+  assert.match(why, /RN 屏文件不在被审面/, 'RN 文件不在被审面 ⇒ 待确认')
+  assert.ok(!built.pending.some((p) => p.web === 'home'), '非 aligned 行不参与推导(也没被判成配上了)')
+})
+
+test('T63 五维读数:两侧都有读数才判;一侧空进 one-sided,两侧空进 no-data', () => {
+  const webSrc = 'const s = { width: 40, paddingHorizontal: 16, gap: 8, fontSize: 14 }\n'
+  const rnSrc = 'const s = { width: 50, paddingHorizontal: 16, gap: 8, fontSize: 14 }\n'
+  const audit = src.webRnGeometryAudit(
+    [{ name: 'settings', web: 'w.tsx', rn: 'r.tsx', evidence: 'r.tsx:1' }],
+    { 'w.tsx': webSrc, 'r.tsx': rnSrc },
+    null,
+    {},
+    null,
+  )
+  assert.equal(audit.pairCount, 1)
+  assert.equal(audit.judgedPairs, 1, '四个可判维都不为空 ⇒ 这一对判了')
+  assert.equal(audit.findings.length, 1)
+  const dims = audit.findings[0].dims
+  assert.deepEqual(dims.widthHeight.webOnly, [40])
+  assert.deepEqual(dims.widthHeight.rnOnly, [50])
+  assert.equal(dims.padding.status, 'same')
+  assert.equal(dims.spacing.status, 'same')
+  assert.equal(dims.fontSize.status, 'same')
+  assert.equal(dims.radius.status, 'no-data', '圆角表缺席 ⇒ 没量到,不得记成同档')
+
+  const oneSided = src.webRnGeometryAudit(
+    [{ name: 'half', web: 'w2.tsx', rn: 'r2.tsx', evidence: 'r2.tsx:1' }],
+    { 'w2.tsx': 'const s = { padding: 16 }\n', 'r2.tsx': 'const s = { color: 1 }\n' },
+    null,
+    {},
+    null,
+  )
+  assert.equal(oneSided.findings.length, 0, '一侧没有读数 ⇒ 不许冒充"有差"')
+  assert.equal(oneSided.oneSided.length, 1)
+  assert.equal(oneSided.oneSided[0].dim, 'padding')
+
+  const nothing = src.webRnGeometryAudit(
+    [{ name: 'empty', web: 'w3.tsx', rn: 'r3.tsx', evidence: 'r3.tsx:1' }],
+    { 'w3.tsx': 'const s = { color: 1 }\n', 'r3.tsx': 'const s = { color: 1 }\n' },
+    null,
+    {},
+    null,
+  )
+  assert.equal(nothing.undetermined.length, 1, '零判据必须点名,不得读成"两端同值"')
+})
+
+test('T64 误报由允许差异承接:未登记只报数,登记且在期内才核销', () => {
+  const findings = [{ name: 'settings', diffCount: 2 }]
+  const base = {
+    component: 'settings',
+    key: 'webRnGeometry',
+    platform: 'web',
+    owner: 'web-ui',
+    expires: '2027-03-27',
+    count: 2,
+    reason: 'web 屏壳与 RN 屏壳在调度层承担不同职责,几何读数跨层比较属已知误报',
+    evidence: 'settings/page.tsx vs SecuritySettingsScreen.tsx',
+  }
+  const empty = src.webRnAllowedVerdict(findings, [], { today: '2026-11-02' })
+  assert.equal(empty.unregistered.length, 1, '没登记 ⇒ 必须报未登记数(advisory 不进退出码)')
+  const ok = src.webRnAllowedVerdict(findings, [base], { today: '2026-11-02' })
+  assert.equal(ok.matched.length, 1)
+  assert.equal(ok.unregistered.length, 0)
+  const expired = src.webRnAllowedVerdict(findings, [{ ...base, expires: '2026-11-01' }], {
+    today: '2026-11-02',
+  })
+  assert.equal(expired.expired.length, 1, '到期必须重报,不得当永久豁免')
+  const over = src.webRnAllowedVerdict(findings, [{ ...base, count: 1 }], { today: '2026-11-02' })
+  assert.equal(over.over.length, 1, '实测读数超过登记额度 ⇒ 超量')
+})
+
+test('T65 真仓 HEAD:web↔RN 配对 ≥50 屏,五维都真有可判对数', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const audit = src.webRnGeometryAudit(
+    c.webRnPairs,
+    c.text,
+    c.radius,
+    c.tiers,
+    c.cssVars ?? null,
+  )
+  assert.equal(src.WEB_RN_GEOMETRY_DIMS.length, 5)
+  assert.ok(audit.pairCount >= 50, `配对 ${audit.pairCount} 屏,低于验收线 50`)
+  for (const d of src.WEB_RN_GEOMETRY_DIMS)
+    assert.ok(audit.dimCoverage[d] > 0, `${d} 维零可判对数 ⇒ 这一维等于没判`)
+})
+
+test('T54 圆角:档名 / 角色名 / 像素值是同一个档(取源 = HEAD 面 radius.js 的 RADIUS_STEPS)', () => {
+  const c = src.collect(ROOT, 'head', { pairAll: false })
+  const table = c.radius
+  assert.ok(table, 'HEAD 面圆角档表取不到 ⇒ 这一腿没接到真数据')
+  const byName = radiusSetOf('const s = { card: { borderRadius: rnRadius.lg } }', table)
+  const byRole = radiusSetOf('const s = { card: { borderRadius: rnRadiusFor.card } }', table)
+  const byPx = radiusSetOf('const s = { card: { borderRadius: 8 } }', table)
+  const byClass = radiusSetOf('const el = <View className="rounded-lg" />', table)
+  assert.deepEqual(byName, byPx, `档名与像素值必须同档:${JSON.stringify(byName)} vs ${JSON.stringify(byPx)}`)
+  assert.deepEqual(byRole, byPx, `角色名与像素值必须同档:${JSON.stringify(byRole)} vs ${JSON.stringify(byPx)}`)
+  assert.deepEqual(byClass, byPx, `Tailwind 档名与像素值必须同档:${JSON.stringify(byClass)} vs ${JSON.stringify(byPx)}`)
+  assert.equal(byPx[0], table.lg, '判等依据必须是 RADIUS_STEPS 解析出的值(不是门里另抄的像素表)')
+  const other = radiusSetOf('const s = { card: { borderRadius: rnRadius.xl } }', table)
+  assert.notDeepEqual(other, byPx, '真不同档必须仍被判出差异')
+})
+
+/**
+ * T55/T56 —— 允许差异登记表的两条底线(跨端对齐 Phase 1「允许差异」地基):
+ *   ① 未登记差异必须报红(否则登记表只是注释,删掉它也不会有人发现);
+ *   ② 到期项必须重新报红(否则白名单一旦写进去就永久放行,即"白名单腐化")。
+ * 判据只走 `src.allowedDiffVerdict`(§22c:测试不复制判据),构造面即全部输入。
+ */
+const allowedFinding = (name, onlyMiniapp, onlyRn = []) => ({
+  name,
+  named: [],
+  geometry: { onlyMiniapp, onlyRn, mismatched: [] },
+  radius: null,
+  elementRadius: null,
+})
+
+const allowedEntry = (over = {}) => ({
+  component: 'Foo',
+  key: 'geometry',
+  platform: 'both',
+  owner: 'test',
+  expires: '2027-03-27',
+  count: 1,
+  reason: '测试用登记理由必须足够长,确保形状判据不被误判为坏条目。',
+  evidence: 'fixture.ts',
+  ...over,
+})
+
+test('T55 允许差异:未登记即报红;登记在期内且不超额度才放行', () => {
+  const finding = allowedFinding('Foo', ['4'])
+  const empty = src.allowedDiffVerdict([finding], [], { today: '2026-11-02' })
+  assert.equal(empty.unregistered.length, 1, '未登记差异必须进 unregistered')
+  assert.equal(empty.red.length, 1, '未登记差异必须判红(否则登记表只是注释)')
+  assert.equal(src.allowedDiffProblem(allowedEntry()), null, '合法条目不得被形状判据误杀')
+  const ok = src.allowedDiffVerdict([finding], [allowedEntry()], { today: '2026-11-02' })
+  assert.equal(ok.red.length, 0, '登记在期内且读数等于额度 ⇒ 不得报红')
+  assert.equal(ok.matched.length, 1, '放行项必须记账,不能静默吞掉')
+  const over = src.allowedDiffVerdict([allowedFinding('Foo', ['4', '8'])], [allowedEntry()], {
+    today: '2026-11-02',
+  })
+  assert.equal(over.over.length, 1, '读数超过登记额度必须单独报名')
+  assert.equal(over.red.length, 1, '超量必须判红(登记额度不是无限信用)')
+  const bad = src.allowedDiffVerdict([], [allowedEntry({ reason: '短' })], { today: '2026-11-02' })
+  assert.equal(bad.invalid.length, 1, '条目坏(理由不足)必须进 invalid')
+  assert.equal(bad.red.length, 1, '条目坏必须判红,不得当成"没登记"悄悄跳过')
+})
+
+test('T56 允许差异:到期项必须重新报红(白名单不得自动续期)', () => {
+  const finding = allowedFinding('Foo', ['4'])
+  const expired = src.allowedDiffVerdict([finding], [allowedEntry({ expires: '2026-01-01' })], {
+    today: '2026-11-02',
+  })
+  assert.equal(expired.expired.length, 1, '到期且差异仍在必须进 expired')
+  assert.equal(expired.red.length, 1, '到期项必须重新报红,防止白名单腐化')
+  // 平台差异条目没有逐档读数,同样必须受到期约束 —— 否则支付/分享/安全区那 9 类会变成永久豁免。
+  const platform = {
+    component: 'Share',
+    key: 'platform:share-channel',
+    platform: 'both',
+    owner: 'test',
+    expires: '2026-01-01',
+    reason: '测试用平台差异理由必须足够长,确保形状判据不被误判为坏条目。',
+    evidence: 'apps/miniapp-taro/src/rn-compat/apis.ts',
+  }
+  const pv = src.allowedDiffVerdict([], [platform], { today: '2026-11-02' })
+  assert.equal(pv.expired.length, 1, '平台差异到期同样必须进 expired')
+  assert.equal(pv.red.length, 1, '平台差异到期必须重新报红')
+})
+
+/**
+ * T57 —— 非色档允许差异(`styleTier:`)委托账(跨端对齐 Phase 4「fork 字号元素级归类」)。
+ * 本门 findings 不含样式档,故只核到期、不核处数;但"换了一本账"不等于"豁免到期失效"。
+ * 形状判据同一条:kind / prop / value / count 任一坏都必须进 invalid,不得悄悄跳过。
+ */
+test('T57 非色档允许差异:合法条目进 delegated;到期折进 red;形状坏进 invalid', () => {
+  const base = {
+    component: 'UserInfoCard.avatarFallbackText',
+    key: 'styleTier:fontSize:fontSize:32',
+    platform: 'rn',
+    owner: 'cross-end-ui',
+    expires: '2027-03-27',
+    count: 1,
+    reason: 'RN 头像首字母兜底字形盒,web 侧由 SVG 承载,无同款排版档,零观感改动登记。',
+    evidence: 'apps/mobile-rn/src/components/UserInfoCard.tsx: avatarFallbackText',
+  }
+  assert.equal(src.allowedDiffProblem(base), null, '合法 styleTier 条目不得被形状判据误杀')
+  const ok = src.allowedDiffVerdict([], [base], { today: '2026-11-02' })
+  assert.equal(ok.red.length, 0, '在期内不得报红')
+  assert.equal(ok.delegated.length, 1, '委托账必须点名,不能静默吞掉')
+  assert.equal(ok.delegated[0].key, base.key, 'delegated 必须带 key 供下游核销')
+  assert.equal(ok.unregistered.length, 0, 'styleTier 不是本门 findings 的键,不得进 unregistered')
+  assert.equal(ok.platform.length, 0, '平台账与样式账必须分开,不得混桶')
+
+  // 到期与平台条目同一条约束:白名单不得腐化(§12e)
+  const expired = src.allowedDiffVerdict([], [{ ...base, expires: '2026-01-01' }], { today: '2026-11-02' })
+  assert.equal(expired.expired.length, 1, 'styleTier 到期必须进 expired')
+  assert.equal(expired.red.length, 1, 'styleTier 到期必须回红(消费方换账不等于豁免到期失效)')
+  assert.equal(expired.delegated.length, 0, '到期项不得同时出现在 delegated(否则下游会以为还有额度)')
+
+  // 形状:kind / 结构 / 量纲 / 额度任一坏都必须判坏
+  const badKeys = [
+    'styleTier:lineHeight:fontSize:32', // kind 不在 spacing|fontSize|radius
+    'styleTier:fontSize:32', // 缺 prop
+    'styleTier:fontSize:fontSize:32px', // value 带单位(本表登记的是纯数字档)
+    'styleTier:fontSize:font-size:32', // prop 不得带连字符
+    'geometry-styleTier:fontSize:fontSize:32', // 前缀拼错
+  ]
+  for (const key of badKeys) assert.ok(src.allowedDiffProblem({ ...base, key }), `非法 key 必须判坏:${key}`)
+  assert.ok(src.allowedDiffProblem({ ...base, count: 0 }), 'count=0 必须判坏(登记的是实测处数,不是无限额度)')
+  assert.ok(src.allowedDiffProblem({ ...base, count: undefined }), 'styleTier 必须带 count')
+  assert.equal(src.allowedDiffProblem({ ...base, count: 2 }), null, '正整数 count 必须接受(逐处登记)')
+})
+
+/**
+ * T66 —— 档引用必须与字面量同一口径(跨端对齐 Phase 3「几何判据识别 token 引用」)。
+ * 立因:落档后 RN 屏只剩 `fontSize: rnType.bodySm.size` / `...rnType.body`,几何维词汇表此前
+ * 只认字面量 ⇒ 该侧 fontSize 读成空集,已对齐的屏被读成 one-sided(web↔RN 覆盖 80→68)。
+ * 钉法:同一张档表下,引用写法与字面量写法必须读出**同一集合**;表外成员逐枚未判定,不静默。
+ */
+test('T66 档引用与字面量等价(rnType / rnSpacing / rnRadius)', () => {
+  const tiers = {
+    'rnType.bodySm.size': 13,
+    'rnType.bodySm.lineHeight': 18,
+    'rnSpacing.md': 16,
+    'rnRadius.lg': 8,
+  }
+  const dims = (code) => [...src.readGeometry(code, 'rn', tiers).dims.fontSize]
+  assert.deepEqual(dims('const s = { fontSize: rnType.bodySm.size }'), dims('const s = { fontSize: 13 }'))
+  assert.deepEqual(
+    dims('const s = { title: { ...rnType.bodySm, color: 1 } }'),
+    [13],
+    '整对象展开等价于 fontSize:size(行高/字重不入几何维)',
+  )
+  assert.deepEqual(dims('const s = { lineHeight: rnType.bodySm.lineHeight }'), [], '行高引用与字面量同一口径:不入字号维')
+  const spacing = (code) => [...src.readGeometry(code, 'rn', tiers).dims.spacing]
+  assert.deepEqual(spacing('const s = { gap: rnSpacing.md }'), spacing('const s = { gap: 16 }'))
+  const box = (code) => [...src.readGeometry(code, 'rn', tiers).dims.widthHeight]
+  assert.deepEqual(box('const s = { width: rnRadius.lg }'), box('const s = { width: 8 }'))
+  assert.deepEqual(box('const s = { borderRadius: rnRadius.lg }'), [], 'borderRadius 是圆角维地盘,不进几何维')
+  const g = src.readGeometry('const s = { fontSize: rnType.ghost.size }', 'rn', tiers)
+  assert.ok(
+    g.unreadable.some((u) => u.raw === 'rnType.ghost.size'),
+    '表外字号档必须逐枚点名(不得折成"该侧无字号档")',
+  )
+  /**
+   * 小程序投影面(`taroType.<step>.fontSize`,同表 ×2 rpx):读出的逻辑 px 必须与 rnType 同值。
+   * 不钉这一条,`ScreenStates` 的 taroType.strong.fontSize(30rpx=15) 在小程序侧隐形,
+   * 已对齐的 15 会被读成"仅 RN 档"假分叉。
+   */
+  const taroTiers = { 'taroType.strong.fontSize': 15, 'taroType.strong.lineHeight': 22 }
+  const taroDims = (code) => [...src.readGeometry(code, 'miniapp', taroTiers).dims.fontSize]
+  assert.deepEqual(taroDims('const s = { fontSize: taroType.strong.fontSize }'), [15])
+  assert.deepEqual(
+    taroDims('const s = { lineHeight: taroType.strong.lineHeight }'),
+    [],
+    '行高投影与字面量同一口径:不入字号维',
+  )
+})
+
+/**
+ * T67 —— 同值下"写引用"与"写字面量"的可判对数必须一致(口径一致的端到端锁)。
+ * 只钉口径,不碰取值:两侧 same ⇒ 零分叉、零 one-sided;引用写法不得让覆盖面塌掉。
+ */
+test('T67 引用写法不得把 web↔RN 覆盖数读塌(与字面量夹具同数)', () => {
+  const tiers = { 'rnType.bodySm.size': 13, 'rnType.body.size': 14 }
+  const webSrc = 'const s = { fontSize: 13, gap: 8 }\n'
+  const run = (rnSrc) =>
+    src.webRnGeometryAudit(
+      [{ name: 'x', web: 'w.tsx', rn: 'r.tsx', evidence: 'r.tsx:1' }],
+      { 'w.tsx': webSrc, 'r.tsx': rnSrc },
+      null,
+      tiers,
+      null,
+    )
+  const lit = run('const s = { fontSize: 13, gap: 8 }\n')
+  const ref = run('const s = { fontSize: rnType.bodySm.size, gap: 8 }\n')
+  assert.equal(ref.dimCoverage.fontSize, lit.dimCoverage.fontSize, '引用写法不得让可判对数塌掉')
+  assert.equal(ref.oneSided.length, lit.oneSided.length, '引用不得把"已对齐"读成 one-sided')
+  assert.equal(ref.findings.length, 0, '同值时引用写法不得报分叉')
+})
+
+/**
+ * T68 —— 间距档引用必须**按紧邻键名归维**(2026-11-02 修 `rnSpacing.*` 无条件记 spacing)。
+ * 立因:间距档最常坐的键恰是 `padding` / `paddingHorizontal` / `paddingVertical`,旧口径把它们
+ * 全记进 spacing ⇒ padding 维整族读成 0,web↔RN 报出的是"RN 侧没读数"(假 one-sided),不是两端不同。
+ * 钉法:同一档表下,引用写法与字面量写法在**每一维**读出同一集合;无几何键语境维持旧口径 spacing
+ * (不丢档值、也不猜某维)。
+ */
+test('T68 间距档引用与字面量逐维同读数(padding / spacing)', () => {
+  const tiers = { 'rnSpacing.md': 16, 'rnSpacing.sm-loose': 12, 'rnSpacingFor.gap': 8 }
+  const dims = (code, d) => [...src.readGeometry(code, 'rn', tiers).dims[d]]
+  assert.deepEqual(
+    dims('const s = { padding: rnSpacing.md }', 'padding'),
+    dims('const s = { padding: 16 }', 'padding'),
+    'padding 键上的档引用必须与字面量同读进 padding 维',
+  )
+  assert.deepEqual(
+    dims("const s = { paddingHorizontal: rnSpacing['sm-loose'] }", 'padding'),
+    dims('const s = { paddingHorizontal: 12 }', 'padding'),
+    'paddingHorizontal 的方括号取档与字面量同口径',
+  )
+  assert.deepEqual(
+    dims('const s = { paddingVertical: rnSpacing.md }', 'padding'),
+    dims('const s = { paddingVertical: 16 }', 'padding'),
+  )
+  assert.deepEqual(
+    dims('const s = { gap: rnSpacing.md }', 'spacing'),
+    dims('const s = { gap: 16 }', 'spacing'),
+    'gap/margin 语境仍归 spacing',
+  )
+  assert.deepEqual(
+    dims('const s = { gap: rnSpacingFor.gap }', 'spacing'),
+    dims('const s = { gap: 8 }', 'spacing'),
+    'rnSpacingFor 与 rnSpacing 同一归维口径',
+  )
+  assert.deepEqual(
+    dims('const s = { padding: rnSpacing.md }', 'spacing'),
+    dims('const s = { padding: 16 }', 'spacing'),
+    'padding 档不得同时记进 spacing(否则一档双计)',
+  )
+  assert.deepEqual(
+    dims('const s = { color: rnSpacing.md }', 'spacing'),
+    [16],
+    '无几何键语境维持旧口径 spacing:档值不丢,也不猜某一维',
+  )
+})
+
+/**
+ * T69 —— `data.webEvidence` 锚(2026-11-02):只认 `<web 路径>:<行>` 且路径在 web 取证件面内的;
+ * 读数按 `page.tsx ∪ 取证件` 并集(屏壳读数不得被取证件顶掉)。锚上之后,原先 web 零读数的维度
+ * 从 one-sided 变成可判 —— 这条锁的正是"补锚不是换锚,更不是把缺口涂成同值"。
+ */
+test('T69 webEvidence 锚:形态/面内校验 + 读数并集', () => {
+  const rn = 'packages/app/src/features/x/XScreen.tsx'
+  const comp = 'apps/web/src/components/x/XCard.tsx'
+  const pages = ['x', 'y', 'z'].map((r) => `apps/web/app/(main)/${r}/page.tsx`)
+  const row = (route, data) =>
+    JSON.stringify({ web: route, rn, status: 'aligned', data: { evidence: `${rn}:1`, ...data } })
+  const ledger = [
+    row('x', { webEvidence: `${comp}:9` }),
+    row('y', { webEvidence: 'no-line' }),
+    row('z', { webEvidence: 'apps/web/nowhere.tsx:3' }),
+  ].join('\n')
+  const built = src.buildWebRnPairs(ledger, pages, [rn], [comp])
+  assert.equal(built.pairs.length, 1, '只有形态合法且路径在取证件面内的行才配对')
+  assert.equal(built.pairs[0].webEvidence, comp, '配对行携带取证件路径(行号只作人读证据)')
+  const why = built.pending.map((p) => p.why).join(' | ')
+  assert.match(why, /不是 <web 路径>:<行> 形态/, '缺行号 ⇒ 待确认,不猜')
+  assert.match(why, /不在 web 取证件面/, '面外文件 ⇒ 待确认,不猜')
+
+  const rnSrc = 'const s = { padding: 16 }'
+  const plainPage = 'const s = { color: 1 }'
+  const anchorPage = 'const s = { padding: 8 }'
+  const compSrc = 'const s = { paddingHorizontal: 16 }'
+  const run = (webEvidence, pageSrc) =>
+    src.webRnGeometryAudit(
+      [{ name: 'x', web: pages[0], rn, evidence: `${rn}:1`, webEvidence }],
+      { [pages[0]]: pageSrc, [comp]: compSrc, [rn]: rnSrc },
+      null,
+      {},
+      null,
+    )
+  const bare = run(null, plainPage)
+  assert.equal(bare.oneSided.length, 1, '无锚且 page 该维零读数 ⇒ one-sided(数据缺口如实报)')
+  assert.equal(bare.oneSided[0].dim, 'padding')
+  const anchored = run(comp, plainPage)
+  assert.equal(anchored.oneSided.length, 0, '补锚后同一维必须变成可判(而不是继续报缺口)')
+  assert.equal(anchored.findings.length, 0, '两侧同档 ⇒ 零分叉')
+  assert.equal(anchored.dimCoverage.padding, 1, 'padding 维可判对数 +1')
+  assert.deepEqual(
+    [...bare.findings, ...anchored.findings].length,
+    0,
+    '没有新增分叉(并集口径下同档不造假分叉)',
+  )
+  const union = run(comp, anchorPage)
+  assert.deepEqual(
+    union.findings[0].dims.padding.rnOnly,
+    [],
+    '并集:page 的 padding 8 与取证件 16 都在 web 侧 ⇒ 只报 RN 独有的档',
+  )
+  assert.deepEqual(union.findings[0].dims.padding.webOnly, [8], '屏壳读数不得被取证件顶掉')
+  assert.equal(union.findings[0].webEvidence, comp, '分叉明细必须点名取证件')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

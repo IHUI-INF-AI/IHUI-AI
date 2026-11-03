@@ -1,0 +1,550 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 镜像测试:守门 `scripts/check-miniapp-mirror-fidelity.mjs`(2026-10-25 立)。
+// §22c:判据函数**直接 import 源符号**,不在测试里复制第二份实现(复制的那份最先腐烂)。
+//
+// 这把尺子要治的是「对齐全绿、体验全无」——小程序页首行写着镜像某共享屏,正文却只渲染
+// 两行文案。所以成对的取证方向很明确:
+//   · 生成器造出来的页**必须能被计到还原度**(T1/T4):键以 PAIR_KEYS 数组字面量声明、
+//     JSX 里 t(titleKey) 间接消费,只认 t('…') 字面量会把刚生成的页读成 0% ⇒ 尺子当场失去意义;
+//   · 通用键**必须不进分母**(T3):共享屏普遍引用 common.save 之类,算进分母会让还原度恒低,
+//     进而逼出恒红门 —— 恒红门的唯一结局是逼人 --no-verify,连带废掉全部守门(§12e/§12f);
+//   · 棘轮**只拦倒退**(T5 正面 / T6/T7 反面):存量只报数、HEAD 面尚无镜像对的新增页不拦。
+//     方向钉反的话,要么把收口判成倒退(拦死进步),要么把倒退判成收口(形同虚设)。
+//   · 真仓冒烟走 `--worktree`(T8):共享工作树常年并行,拿 HEAD 面断言会把别人未提交的改动
+//     冒充成本仓债务。T8 只钉「跑得起来、结论行成形」,不钉死任何计数(§0.1 数字一律现读)。
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { __test__ as gate } from '../check-miniapp-mirror-fidelity.mjs'
+import { __test__ as cov } from '../check-cross-end-screen-coverage.mjs'
+import { shellRefsOf } from '../lib/rn-shell-refs.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const GATE = join(HERE, '..', 'check-miniapp-mirror-fidelity.mjs')
+
+const SPEC = 'packages/app/src/features/settings/SettingsScreen.tsx'
+const ROUTE = 'pages/setting/index'
+
+/** 一行共享屏正文中常见的通用键 + 业务键混合文本。 */
+const SHARED_TEXT = `
+  const s = t('common.save')
+  const c = t('app.cancel')
+  const a = t('settings.title')
+  const b = t('settings.desc')
+`
+
+/** gen-miniapp-mirror 生成形制:键以字符串数组声明,JSX 里间接消费(不在 t('…') 字面量里)。 */
+const GENERATED_PAGE = `// 镜像 ${SPEC}
+const PAIR_KEYS: readonly (readonly [string, string])[] = [
+  ['settings.title', 'settings.desc'],
+]
+const SINGLE_KEYS: readonly string[] = [
+  'settings.extra',
+]
+export default function P() {
+  return PAIR_KEYS.map(([titleKey, bodyKey]) => t(titleKey))
+}`
+
+test('T1 通道②:键表数组里声明的键必须被抽到(生成器造的页还原度才不为 0)', () => {
+  const keys = gate.extractDeclaredKeys(GENERATED_PAGE)
+  assert.deepEqual(keys, ['settings.title', 'settings.desc', 'settings.extra'])
+})
+
+test('T2 通道②反面:没有键表块时返回空(合法形态,不是未判定)', () => {
+  assert.deepEqual(gate.extractDeclaredKeys("const t = useI18n(); t('a.b')"), [])
+  assert.deepEqual(gate.extractDeclaredKeys(''), [])
+  assert.deepEqual(gate.extractDeclaredKeys(null), [])
+})
+
+test('T3 通用键不进分母(common/app 等 GENERIC_NS 首段被滤)', () => {
+  assert.equal(gate.isBusinessKey('common.save'), false)
+  assert.equal(gate.isBusinessKey('app.cancel'), false)
+  assert.equal(gate.isBusinessKey('settings.title'), true)
+  assert.deepEqual(gate.businessKeys(['common.save', 'app.cancel', 'settings.title']), [
+    'settings.title',
+  ])
+})
+
+test('T3b 共享屏正文通用键与业务键混排:分母只剩业务键(还原度才不会被系统性压低)', () => {
+  const keys = [...gate.consumedKeys(SHARED_TEXT)]
+  assert.deepEqual(gate.businessKeys(keys), ['settings.title', 'settings.desc'])
+})
+
+test('T4 两通道并集:t() 直调与键表声明都算消费', () => {
+  const keys = gate.consumedKeys(`${GENERATED_PAGE}\nconst z = t('settings.zzz')`)
+  for (const k of ['settings.title', 'settings.desc', 'settings.extra', 'settings.zzz']) {
+    assert.ok(keys.has(k), `缺键 ${k}`)
+  }
+})
+
+test('T5 棘轮正面:本次又丢掉一个 HEAD 上已还原的键 ⇒ 必须记倒退', () => {
+  const base = {
+    rows: [{ spec: SPEC, route: ROUTE, sharedKeys: 3, covered: 2, missing: ['settings.c'] }],
+  }
+  const now = {
+    rows: [
+      {
+        spec: SPEC,
+        route: ROUTE,
+        sharedKeys: 3,
+        covered: 1,
+        missing: ['settings.c', 'settings.b'],
+      },
+    ],
+  }
+  const reg = gate.regressions(now, base)
+  assert.equal(reg.length, 1)
+  assert.deepEqual(reg[0].added, ['settings.b'])
+})
+
+test('T6 棘轮反面:缺口与 HEAD 完全一致(存量)⇒ 不得拦', () => {
+  const row = {
+    spec: SPEC,
+    route: ROUTE,
+    sharedKeys: 3,
+    covered: 1,
+    missing: ['settings.b', 'settings.c'],
+  }
+  assert.deepEqual(gate.regressions({ rows: [row] }, { rows: [row] }), [])
+})
+
+test('T7 棘轮反面:HEAD 面尚无镜像对的新增页(收口)⇒ 不得拦', () => {
+  const now = {
+    rows: [{ spec: SPEC, route: ROUTE, sharedKeys: 9, covered: 1, missing: ['a', 'b', 'c'] }],
+  }
+  assert.deepEqual(gate.regressions(now, { rows: [] }), [])
+})
+
+test('T9 还原度单调:补回一个键 ⇒ 缺口减少且不算倒退', () => {
+  const base = {
+    rows: [
+      {
+        spec: SPEC,
+        route: ROUTE,
+        sharedKeys: 3,
+        covered: 1,
+        missing: ['settings.b', 'settings.c'],
+      },
+    ],
+  }
+  const now = {
+    rows: [{ spec: SPEC, route: ROUTE, sharedKeys: 3, covered: 2, missing: ['settings.c'] }],
+  }
+  assert.deepEqual(gate.regressions(now, base), [])
+})
+
+test('T8 真仓冒烟:--worktree 面跑得起来且结论行成形(不钉死计数)', () => {
+  const r = spawnSync(process.execPath, [GATE, '--worktree', '--quiet'], {
+    cwd: join(HERE, '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.ok(!/未判定\(异常\)/.test(out), `异常堆栈:${out.slice(0, 400)}`)
+  assert.ok(/FIDELITY-RESULT|未判定:/.test(out), `结论行缺失:${out.slice(0, 400)}`)
+  assert.ok([0, 1, 2].includes(r.status), `退出码越界:${r.status}`)
+})
+
+// —— --base=<ref>(CI 问责腿,2026-10-26 立)——
+// 三档面在干净检出上全部退化(staged/worktree==HEAD ⇒ 倒退恒空),CI 必须走显式基线;
+// 而 faceList/faceRead 把坏 ref 吞成空清单 ⇒ 若无基线护栏,"基线空 ⇒ 无倒退"会静默冒绿。
+// T10/T11 一正一反钉死这两格。
+test('T10 --base=HEAD 自比 ⇒ 倒退恒空、exit 0、结论行带 base= 字段', () => {
+  const r = spawnSync(process.execPath, [GATE, '--base=HEAD', '--quiet'], {
+    cwd: join(HERE, '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 0, `退出码应为 0:${out.slice(0, 400)}`)
+  assert.match(out, /FIDELITY-RESULT face=head base=HEAD /)
+})
+
+test('T11 --base=坏 ref ⇒ 显式出声 exit 2(不可解析的基线不得回落读盘冒绿)', () => {
+  const r = spawnSync(process.execPath, [GATE, '--base=__definitely_not_a_ref__'], {
+    cwd: join(HERE, '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 2, `应为未判定 exit 2:${out.slice(0, 400)}`)
+  assert.match(out, /未判定:基线面 __definitely_not_a_ref__ 不可解析/)
+})
+
+// —— 壳承载形制(2026-10-27 立,治「把委托读成丢失」的量具假分叉)——
+// 小程序页 import `@rn-shells/<同名壳>`,壳再 import `@ihui/rn-app` 的共享屏本体 ⇒ 页面自己不写
+// 文案是设计如此,分母那份文件就是它渲染的那份文件。旧尺按「页面正文有没有那些键」数,
+// 把这批页读成 0% 还原(现读 122 枚承载页撑出 missing=1703),失效方向是逼人回去手抄
+// 已经在渲染的文案 —— 与「自动化、减少开发」正相反,所以这一格是必修而不是可选项。
+const SHELL_REL = 'apps/mobile-rn/src/screens/SettingsScreen.tsx'
+const HOSTED_PAGE = `// 镜像 ${SPEC}
+import ThemeRoot from '@/components/ThemeRoot'
+import SettingsScreenShell from '@rn-shells/SettingsScreen'
+export default function P() {
+  return (
+    <ThemeRoot>
+      <SettingsScreenShell />
+    </ThemeRoot>
+  )
+}`
+/** 合格的 RN 壳:同名符号 + 取自 @ihui/rn-app(= cov.rnConsumes 的两条腿)。 */
+const GOOD_SHELL = `
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
+export default function SettingsScreen() {
+  return SharedSettingsScreen
+}`
+const readFrom = (map) => (rel) => map[rel] ?? null
+
+test('T12 承载正例:三腿齐 ⇒ hosted 且无键可缺(旧尺在这一对上报全缺)', () => {
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: HOSTED_PAGE,
+    readShell: readFrom({ [SHELL_REL]: GOOD_SHELL }),
+  })
+  assert.equal(f.form, 'hosted')
+  assert.equal(f.why, '')
+})
+
+test('T13 手写正例:不引壳 ⇒ 仍是 hand,逐键数的判据一分不宽', () => {
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: GENERATED_PAGE, readShell: readFrom({}) })
+  assert.equal(f.form, 'hand')
+})
+
+test('T14 断链反面一:壳在面上不存在 ⇒ broken(引了不存在的壳,编不过)', () => {
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: HOSTED_PAGE, readShell: readFrom({}) })
+  assert.equal(f.form, 'broken')
+  assert.match(f.why, /不存在/)
+})
+
+test('T15 断链反面二:壳存在但没消费这一屏 ⇒ broken(壳指错源不顶包)', () => {
+  const other = `
+import { OtherScreen } from '@ihui/rn-app'
+export default function OtherShell() { return OtherScreen }`
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: HOSTED_PAGE,
+    readShell: readFrom({ [SHELL_REL]: other }),
+  })
+  assert.equal(f.form, 'broken')
+  assert.match(f.why, /未消费共享屏/)
+})
+
+test('T16 断链反面三:页面默认导入而壳只有具名导出 ⇒ broken(运行时拿到 undefined)', () => {
+  const namedOnly = `
+import { SettingsScreen as Shared } from '@ihui/rn-app'
+export function SettingsScreen() { return Shared }`
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: HOSTED_PAGE,
+    readShell: readFrom({ [SHELL_REL]: namedOnly }),
+  })
+  assert.equal(f.form, 'broken')
+  assert.match(f.why, /默认导入/)
+})
+
+test('T17 声明与承载不符:引的壳都不消费这一屏 ⇒ other(声明镜像的那一屏并没渲染,旧尺对这一型无感)', () => {
+  const page = `// 镜像 ${SPEC}
+import NewsShell from '@rn-shells/NewsScreen'
+export default function P() { return NewsShell }`
+  const otherShell = `
+import { OtherScreen } from '@ihui/rn-app'
+export default function NewsScreen() { return OtherScreen }`
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: page,
+    readShell: readFrom({ 'apps/mobile-rn/src/screens/NewsScreen.tsx': otherShell }),
+  })
+  assert.equal(f.form, 'other')
+  assert.match(f.why, /NewsScreen/)
+})
+
+test('T17b 壳名与共享屏名不同但真的消费了这一屏 ⇒ hosted(仓内既有形态:NewsScreen 渲染 SquareScreen)', () => {
+  const page = `// 镜像 ${SPEC}
+import NewsShell from '@rn-shells/NewsScreen'
+export default function P() { return NewsShell }`
+  const carrier = `
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
+export default function NewsScreen() { return SharedSettingsScreen }`
+  const f = gate.hostingFormOf({
+    spec: SPEC,
+    pageText: page,
+    readShell: readFrom({ 'apps/mobile-rn/src/screens/NewsScreen.tsx': carrier }),
+  })
+  assert.equal(f.form, 'hosted')
+})
+
+test('T17c 引了别的壳而那壳在本面不存在 ⇒ broken(编不过,不是"声明未渲染"这种轻账)', () => {
+  const page = `// 镜像 ${SPEC}
+import NewsShell from '@rn-shells/NewsScreen'
+export default function P() { return NewsShell }`
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: page, readShell: readFrom({}) })
+  assert.equal(f.form, 'broken')
+  assert.match(f.why, /不存在/)
+})
+
+test('T17d 直载共享屏(不经壳)且真渲染 ⇒ hosted/ via=direct', () => {
+  const page = `// 镜像 ${SPEC}
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
+export default function P() { return <SharedSettingsScreen t={(k) => k} /> }`
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: page, readShell: readFrom({}) })
+  assert.equal(f.form, 'hosted')
+  assert.equal(f.via, 'direct')
+})
+
+test('T17e 只 import 共享屏而没渲染它 ⇒ 仍是 hand(失效方向恒为多算一份手写)', () => {
+  const page = `// 镜像 ${SPEC}
+import { SettingsScreen } from '@ihui/rn-app'
+export default function P() { return <div>自己写的</div> }`
+  const f = gate.hostingFormOf({ spec: SPEC, pageText: page, readShell: readFrom({}) })
+  assert.equal(f.form, 'hand')
+})
+
+test('T21 同 spec 双路由:锚点按 spec+route 配对,一张 hosted 一张 hand 不得报自我倒退', () => {
+  const rows = (formA, missA, formB, missB) => ({
+    rows: [
+      { spec: SPEC, route: 'pages/setting/index', form: formA, missing: missA },
+      { spec: SPEC, route: 'pkg-user/setting-shared/index', form: formB, missing: missB },
+    ],
+  })
+  const base = rows('hand', ['settings.title'], 'hosted', [])
+  const now = rows('hand', ['settings.title'], 'hosted', [])
+  assert.deepEqual(gate.regressions(now, base), [])
+  assert.equal(
+    gate.regressions(rows('hand', ['settings.title', 'settings.new'], 'hosted', []), base).length,
+    1,
+  )
+})
+
+test('T22 新增的镜像页是端内手写形制 ⇒ 判红(不许再写第二份重复实现)', () => {
+  const base = { rows: [] }
+  const now = {
+    rows: [{ spec: SPEC, route: 'pages/new/index', form: 'hand', missing: ['settings.title'] }],
+  }
+  const reg = gate.regressions(now, base)
+  assert.equal(reg.length, 1)
+  assert.equal(reg[0].kind, 'new-hand')
+})
+
+test('T23 新增的镜像页是壳承载/直载形制 ⇒ 不拦(那是收口,不是新债)', () => {
+  const base = { rows: [] }
+  for (const form of ['hosted', 'broken', 'other']) {
+    const now = { rows: [{ spec: SPEC, route: 'pages/new/index', form, missing: [] }] }
+    assert.deepEqual(gate.regressions(now, base), [], `${form} 不该被拦`)
+  }
+})
+
+test('T18 真仓冒烟(HEAD 面):引壳的页一律不得判成手写,且 hosted 桶非空', () => {
+  const res = gate.computeFidelity('head')
+  assert.ok(res.hosted > 0, `HEAD 面 hosted 桶为空 ⇒ 承载判据没装车(现读 hosted=${res.hosted})`)
+  assert.equal(
+    res.hosted + res.hand + res.other + res.broken,
+    res.pairs,
+    '四形制之和必须等于对数(漏分即有形态没人判)',
+  )
+  const miniapp = cov.collectMiniapp('head')
+  const shellRoutes = new Set(
+    miniapp.filter((p) => p.file && shellRefsOf(p.text || '').size > 0).map((p) => p.route),
+  )
+  const misjudged = res.rows.filter((r) => shellRoutes.has(r.route) && r.form === 'hand')
+  assert.deepEqual(misjudged, [], '引壳页被判手写 ⇒ 委托又被读成丢失(本门立尺之初的那把坏尺)')
+})
+
+test('T19 新棘轮牙:承载页退化回手写 ⇒ 键从 0 缺翻成全缺 ⇒ 必须判倒退', () => {
+  const base = {
+    rows: [{ spec: SPEC, route: ROUTE, form: 'hosted', sharedKeys: 2, covered: 2, missing: [] }],
+  }
+  const now = {
+    rows: [
+      {
+        spec: SPEC,
+        route: ROUTE,
+        form: 'hand',
+        sharedKeys: 2,
+        covered: 0,
+        missing: ['settings.title', 'settings.desc'],
+      },
+    ],
+  }
+  const reg = gate.regressions(now, base)
+  assert.equal(reg.length, 1)
+  assert.deepEqual(reg[0].added, ['settings.title', 'settings.desc'])
+})
+
+test('T20 形制桶齐全:结论行必须报出 hosted/hand/other/broken 四维(缺维即有形态没人点名)', () => {
+  const r = spawnSync(process.execPath, [GATE, '--worktree', '--quiet'], {
+    cwd: join(HERE, '..', '..'),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  for (const dim of ['hosted=', 'hand=', 'other=', 'broken=', 'packAbsentRows='])
+    assert.ok(out.includes(dim), `结论行缺维度 ${dim}:${out.slice(0, 300)}`)
+})
+
+/* ── 端词包命名空间维(2026-10-29 立)──────────────────────────────
+ * 立因:hosted 行按构造判 100%、无键可缺,而逐键那把尺数的是"键在不在页面文本里"——
+ * 壳页文本本来就没有键。于是"共享源要取的那整块命名空间根本没搬进本端词包"这一型,
+ * 两把尺同时看不见,账面一路绿(实测撞出 pdfToolsPage 54 键 × 5 语言全缺,以及同族 16 个命名空间)。
+ * 判据一律 import 生产出口(§22c),测试不复制一份。 */
+test('P1 正控:命名空间不在本端词包 ⇒ 必须报出来', () => {
+  const gap = gate.packNamespaceGap({
+    usedKeys: ['pdfToolsPage.title', 'pdfToolsPage.unitKb', 'common.ok'],
+    available: new Set(['common']),
+  })
+  assert.deepEqual(gap, ['pdfToolsPage'], '缺的那块要逐字点名,不能只报个数')
+})
+
+test('P2 反控:词包取不到 ⇒ 返回 null,绝不折成"零缺口"(§0.3)', () => {
+  assert.equal(
+    gate.packNamespaceGap({ usedKeys: ['any.leaf'], available: null }),
+    null,
+    '取不到输入必须与"判过且为 0"分家',
+  )
+  assert.equal(gate.packNamespaceGap({ usedKeys: ['any.leaf'], available: new Set() }), null)
+})
+
+test('P3 动态拼键:整段是模板的(${ns})跳过,"固定 ns + 动态 leaf"照报(后者确实要那块词包)', () => {
+  const gap = gate.packNamespaceGap({
+    usedKeys: ['${ns}', 'legalDocs.${id}.title', 'realPage.title'],
+    available: new Set(['other']),
+  })
+  // `${ns}` 这一段根本取不到命名空间 ⇒ 本维量不到,跳过而不是编一个缺;
+  // `legalDocs.${id}.title` 的 ns 段是固定的 ⇒ 它真需要 legalDocs 这块词包,漏报就是假绿。
+  assert.deepEqual(gap, ['legalDocs', 'realPage'])
+})
+
+test('T21 载体面:同目录相对 import 的模块必须计入(拆子模块的页否则被读成缺 16 键)', () => {
+  const rels = gate.localModuleRels(
+    'apps/miniapp-taro/src/a/b.tsx',
+    "import { X } from './b-parts'\nimport Y from './b-core.ts'\nimport Z from '@/x'\nimport W from '../w'",
+  )
+  assert.ok(rels.includes('apps/miniapp-taro/src/a/b-parts.tsx'), '缺 .tsx 候选')
+  assert.ok(rels.includes('apps/miniapp-taro/src/a/b-core.ts'), '已带扩展名的不得再补第二次')
+  assert.ok(!rels.some((r) => r.endsWith('/w.tsx')), '../ 越目录的一律不取')
+  assert.ok(!rels.some((r) => r.includes('@/x')), '别名 import 不是相对路径,不取')
+})
+
+test('T22 装车锁:computeFidelity 的 mpKeys 必须并入同目录模块(只读主文件 = 拆模块页恒假缺口)', () => {
+  const src = gate
+    .batchReadTexts('worktree', ['scripts/check-miniapp-mirror-fidelity.mjs'])
+    .get('scripts/check-miniapp-mirror-fidelity.mjs')
+  assert.ok(/localModulesOf\(p\)/.test(src || ''), 'mpKeys 未并入同目录模块,载体面退回只读主文件')
+})
+
+test('T23 同值别名:两套命名空间同一句译文 ⇒ 记已还原;译文不同或取不到值 ⇒ 一律不减免', () => {
+  const values = {
+    'settings.version': '版本',
+    'settings.logoutConfirm': '确认退出当前账号?',
+    'settings.x': '',
+  }
+  const mp = {
+    'setting.version': '版本',
+    'setting.logoutConfirm': '确定要退出登录吗?',
+    'setting.y': '版本 ',
+  }
+  const hit = gate.aliasSameKeys(
+    ['settings.version', 'settings.logoutConfirm', 'settings.x', 'settings.unknown'],
+    new Set(['setting.version', 'setting.logoutConfirm', 'setting.y']),
+    (k) => values[k] || null,
+    mp,
+  )
+  assert.deepEqual(hit, ['settings.version'], '只认逐字相同;空值与词包缺键都不减免')
+  assert.deepEqual(
+    gate.aliasSameKeys(['a.b'], new Set(['x.y']), () => 'v', null),
+    [],
+    '词包取不到 ⇒ 零减免',
+  )
+})
+
+test('T24 flattenPack:嵌套命名空间按点拼回,与 t 的键形态一致', () => {
+  const flat = gate.flattenPack({
+    settings: { version: '版本', pwd: { tooShort: '太短' } },
+    top: '顶',
+  })
+  assert.equal(flat['settings.version'], '版本')
+  assert.equal(flat['settings.pwd.tooShort'], '太短')
+  assert.equal(flat.top, '顶')
+})
+
+test('T25 原生标题载体:config 的 navigationBarTitleText 也是页面真实文案', () => {
+  assert.equal(
+    gate.localConfigRel('apps/miniapp-taro/src/pages/study/plan.tsx'),
+    'apps/miniapp-taro/src/pages/study/plan.config.ts',
+  )
+  assert.equal(
+    gate.configTitleOf(
+      "export default definePageConfig({\n  navigationBarTitleText: '学习计划',\n})",
+    ),
+    '学习计划',
+  )
+  assert.equal(gate.configTitleOf('export default {}'), null, '没有标题 ⇒ null,不减免')
+  const hit = gate.aliasSameKeys(
+    ['studyPlan.title'],
+    new Set(['common.back']),
+    () => '学习计划',
+    { 'common.back': '返回' },
+    ['学习计划'],
+  )
+  assert.deepEqual(hit, ['studyPlan.title'], '标题在 config 里也应当算作页面已还原')
+})
+
+test('P4 并集语义:住在 messages/shared 里的命名空间不算缺(少算它会凭空报出 200+)', () => {
+  const gap = gate.packNamespaceGap({
+    usedKeys: ['settings.pwdTooShort', 'profile.logout'],
+    available: new Set(['settings', 'profile']), // 调用方传的是 本端包 ∪ shared
+  })
+  assert.deepEqual(gap, [])
+})
+
+// ── 键级撤除台账(gapOfPair)──────────────────────────────────────────────
+const G4 = {
+  sharedKeys: ['a.one', 'a.two', 'a.three', 'a.four'],
+  mpKeys: new Set(['a.one']),
+}
+
+test('G1 三档互斥:页面有键=还原;同值别名=还原;撤除=出射程;剩下的才是缺', () => {
+  const r = gate.gapOfPair({
+    ...G4,
+    aliasSame: ['a.two'],
+    retractedOf: (k) => k === 'a.three',
+  })
+  assert.deepEqual(r.missing, ['a.four'])
+  assert.deepEqual(r.retracted, ['a.three'])
+  // 撤除那一枚既不在 missing 也不在 covered:它出射程。写成 covered 就是本台账要治的假绿。
+  assert.equal(r.scope, 3)
+  assert.equal(r.covered, 2)
+  assert.equal(r.scope - r.covered - r.missing.length, 0)
+})
+
+test('G2 方向锁:台账不认(返 false)⇒ 一分不宽,那一枚照旧算缺', () => {
+  const r = gate.gapOfPair({ ...G4, aliasSame: [], retractedOf: () => false })
+  assert.deepEqual(r.missing, ['a.two', 'a.three', 'a.four'])
+  assert.equal(r.scope, 4)
+  assert.equal(r.covered, 1)
+})
+
+test('G3 撤除不能盖掉页面真有的键:retractedOf 只对"未还原"那一集生效', () => {
+  const r = gate.gapOfPair({ ...G4, aliasSame: [], retractedOf: () => true })
+  assert.deepEqual(r.missing, [])
+  assert.deepEqual(r.retracted, ['a.two', 'a.three', 'a.four'], 'a.one 页面自己有,不进撤除集')
+  assert.equal(r.scope, 1)
+})
+
+test('G4 同值别名优先于撤除:别名已经算还原的键不该被台账"再免一次"而虚增射程', () => {
+  const r = gate.gapOfPair({
+    ...G4,
+    aliasSame: ['a.two'],
+    retractedOf: () => true,
+  })
+  assert.deepEqual(r.retracted, ['a.three', 'a.four'])
+  assert.equal(r.scope, 2)
+  assert.equal(r.covered, 2, 'a.one 真还原 + a.two 同值别名')
+})
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,1958 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""签到助手服务端化测试(Phase1b,2026-10-03 立)。
+
+覆盖:录入 → 列表脱敏(jwt 字段绝不出现)→ 过期 jwt 拒收 →
+手动签到(mock checkin_engine,不打外网)→ 记录/积分流水回显 → 删除,
+外加调度器冷却累积语义(Server 连击 3 次触发冷却 + 成功清零)。
+
+Phase1c 增强(2026-10-08):PATCH jwt(成功/404/400/属主隔离)、
+列表 jwt_exp + cooldown_until 字段、GET scheduler/status 三字段形态。
+
+DB 隔离:仓库无 PG testcontainer fixture,按 conftest 既有惯例
+(monkeypatch 仓储层)把 checkin_store 的全部 DB 函数换成进程内假实现;
+checkin_engine.checkin_account 用假实现替换,绝无真实网络 IO。
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import time
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from app.core.jwt_auth import require_request_user_id
+from app.routers import checkin as checkin_router_mod
+from app.services import checkin_scheduler as checkin_scheduler_mod
+from app.services import checkin_store
+from app.services.checkin_engine import get_jwt_exp
+
+# ---------------------------------------------------------------------------
+# 工具:构造可解析的假 JWT(不校验签名,引擎只 base64 解 payload)
+# ---------------------------------------------------------------------------
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+
+def make_jwt(user_id: str = "u-1001", exp_offset_seconds: float = 86400) -> str:
+    payload = {
+        "data": {"id": user_id},
+        "exp": int(time.time() + exp_offset_seconds),
+    }
+    return f"{_b64url(b'{}')}.{_b64url(json.dumps(payload).encode())}.sig"
+
+
+# ---------------------------------------------------------------------------
+# 进程内假数据层(签名与 checkin_store 真函数一一对应)
+# ---------------------------------------------------------------------------
+
+
+def _day_iso(day: str | date | datetime) -> str:
+    """替身 day 键收口成 ISO str(与真 store `day: str | date` 契约对齐)。
+
+    2026-10-17 _coerce_day 修复后,路由层/调度器改传 date 对象(asyncpg date 列
+    绑参要求 date,str 必抛 DataError)。替身若直接 date.fromisoformat(day) 或
+    拿 date 当 dict 键,与测试断言的 ISO str 键错位 ⇒ 必炸(与线上 500 同款机制)。
+    """
+    if isinstance(day, str):
+        return day
+    if isinstance(day, datetime):
+        return day.date().isoformat()
+    return day.isoformat()
+
+
+class FakeStore:
+    def __init__(self) -> None:
+        self.accounts: dict[int, dict[str, Any]] = {}
+        self.records: dict[int, dict[str, Any]] = {}
+        self.counts: dict[int, dict[str, int]] = {}
+        self.credits_daily: dict[tuple[int, str], dict[str, Any]] = {}
+        self.next_account_id = 1
+        self.next_record_id = 1
+
+    # --- 账号 ---
+
+    async def create_account(self, owner, name, jwt, device_map, account_group="", platform="trae"):
+        # 镜像真实现去重语义(2026-10-17):同 owner+platform+身份uid ⇒ 合并刷新既有行
+        identity = checkin_store.derive_account_identity(platform, jwt, device_map) or ""
+        if identity:
+            for acc in self.accounts.values():
+                if (
+                    acc["owner_user_id"] == owner
+                    and acc["platform"] == platform
+                    and acc.get("identity_key") == identity
+                ):
+                    acc["jwt"] = jwt
+                    acc["device_map"] = dict(device_map)
+                    acc["updated_at"] = datetime.now(UTC)
+                    return self._account_out(acc)
+        for acc in self.accounts.values():
+            if acc["owner_user_id"] == owner and acc["name"] == name:
+                raise ValueError(f"账号名已存在: {name}")
+        aid = self.next_account_id
+        self.next_account_id += 1
+        self.accounts[aid] = {
+            "id": aid,
+            "owner_user_id": owner,
+            "name": name,
+            "jwt": jwt,
+            "device_map": dict(device_map),
+            "group": account_group,
+            "platform": platform,
+            "identity_key": identity,
+            "enabled": True,
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
+        }
+        return self._account_out(self.accounts[aid])
+
+    async def list_accounts(self, owner):
+        rows = [a for a in self.accounts.values() if a["owner_user_id"] == owner]
+        rows.sort(key=lambda a: a["id"])
+        return [self._account_out(a) for a in rows]
+
+    async def delete_account(self, account_id, owner):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return False
+        del self.accounts[account_id]
+        self.records = {k: v for k, v in self.records.items() if v["account_id"] != account_id}
+        self.counts.pop(account_id, None)
+        return True
+
+    async def set_enabled(self, account_id, owner, enabled):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return False
+        acc["enabled"] = enabled
+        return True
+
+    async def get_account_platform(self, account_id, owner):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return None
+        return acc.get("platform", "trae")
+
+    async def update_jwt(self, account_id, owner, jwt):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return False
+        acc["jwt"] = jwt
+        acc["updated_at"] = datetime.now(UTC)
+        return True
+
+    async def update_group(self, account_id, owner, group):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return False
+        acc["group"] = group
+        acc["updated_at"] = datetime.now(UTC)
+        return True
+
+    async def get_decrypted_jwt(self, account_id, owner):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return None
+        return {
+            "id": acc["id"],
+            "name": acc["name"],
+            "jwt": acc["jwt"],
+            # 真实现在 SELECT 里就带了 platform(checkin_store.py 的
+            # `SELECT id, name, jwt_enc, device_map, enabled, platform`),替身此前漏回吐
+            # ⇒ WorkBuddy 任务两条入口的平台闸在替身上恒判「非 workbuddy」,用例无从落地
+            # (2026-10-31 席位 F 补:替身必须与真面同形,否则测的是替身)。
+            "platform": acc.get("platform", "trae"),
+            "device_map": dict(acc["device_map"]),
+            "enabled": acc["enabled"],
+        }
+
+    async def list_enabled_accounts(self):
+        return [
+            {
+                "id": a["id"],
+                "name": a["name"],
+                "jwt": a["jwt"],
+                "device_map": dict(a["device_map"]),
+                "platform": a.get("platform", "trae"),
+            }
+            for a in self.accounts.values()
+            if a["enabled"]
+        ]
+
+    async def save_device_map(self, account_id, device_map):
+        if account_id in self.accounts:
+            self.accounts[account_id]["device_map"] = dict(device_map)
+
+    # --- 记录 ---
+
+    async def insert_record(self, account_id, *, ok, action, http_status, code,
+                            message, classified_error, cooldown_until, credits, credits_delta):
+        rid = self.next_record_id
+        self.next_record_id += 1
+        rec = {
+            "id": rid,
+            "account_id": account_id,
+            "ok": ok,
+            "action": action,
+            "http_status": http_status,
+            "code": code,
+            "message": message,
+            "classified_error": classified_error,
+            "cooldown_until": cooldown_until,
+            "credits": credits,
+            "credits_delta": credits_delta,
+            "created_at": datetime.now(UTC),
+        }
+        self.records[rid] = rec
+        return self._record_out(rec)
+
+    async def list_records(self, owner, account_id=None, limit=50):
+        owned = {a["id"] for a in self.accounts.values() if a["owner_user_id"] == owner}
+        if account_id is not None:
+            owned &= {account_id}
+        rows = [r for r in self.records.values() if r["account_id"] in owned]
+        rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
+        return [self._record_out(r) for r in rows[:limit]]
+
+    async def credits_history(self, owner, account_id=None, limit=200):
+        rows = [
+            r
+            for r in await self.list_records(owner, account_id=account_id, limit=limit)
+            if r["credits_delta"] is not None
+        ]
+        return [
+            {
+                "id": r["id"],
+                "account_id": r["account_id"],
+                "ok": r["ok"],
+                "action": r["action"],
+                "credits": r["credits"],
+                "credits_delta": r["credits_delta"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    # --- 冷却计数 ---
+
+    async def get_error_counts(self, account_id):
+        c = self.counts.get(account_id, {})
+        return c.get("server_errors", 0), c.get("client_errors", 0)
+
+    async def bump_error_count(self, account_id, column):
+        c = self.counts.setdefault(account_id, {"server_errors": 0, "client_errors": 0})
+        c[column] += 1
+        return c[column]
+
+    async def reset_error_count(self, account_id, column):
+        c = self.counts.setdefault(account_id, {"server_errors": 0, "client_errors": 0})
+        c[column] = 0
+
+    async def reset_all_error_counts(self, account_id):
+        self.counts[account_id] = {"server_errors": 0, "client_errors": 0}
+
+    async def get_active_cooldowns(self):
+        now = datetime.now(UTC)
+        out: dict[int, datetime] = {}
+        for r in self.records.values():
+            cd = r["cooldown_until"]
+            if cd is not None and cd > now and cd > out.get(r["account_id"], datetime.min.replace(tzinfo=UTC)):
+                out[r["account_id"]] = cd
+        return out
+
+    async def ensure_tables(self) -> None:
+        return None
+
+    # --- 积分每日快照(WP-B) ---
+
+    async def upsert_credits_daily(self, account_id, owner_user_id, day, remaining, gained):
+        day = _day_iso(day)
+        key = (account_id, day)
+        row = self.credits_daily.get(key)
+        if row is None:
+            self.credits_daily[key] = {
+                "account_id": account_id,
+                "owner_user_id": owner_user_id,
+                "day": day,
+                "remaining": remaining,
+                "gained": gained,
+            }
+            return None
+        if remaining is not None:  # remaining None 不覆盖旧值
+            row["remaining"] = remaining
+        row["gained"] = gained
+        return None
+
+    async def get_credits_daily_range(self, owner_user_id, days):
+        """稀疏行:仅含有数据的日子(与真实现的 UNION 聚合语义一致)。"""
+        cn = ZoneInfo("Asia/Shanghai")
+        start = datetime.now(cn).date() - timedelta(days=days - 1)
+        out: dict[str, dict[str, Any]] = {}
+        for row in self.credits_daily.values():
+            if row["owner_user_id"] != owner_user_id:
+                continue
+            if date.fromisoformat(_day_iso(row["day"])) < start:
+                continue
+            agg = out.setdefault(row["day"], {"day": row["day"], "total": None, "gained": None})
+            if row["remaining"] is not None:
+                agg["total"] = (agg["total"] or 0) + row["remaining"]
+        owned = {a["id"] for a in self.accounts.values() if a["owner_user_id"] == owner_user_id}
+        for r in self.records.values():
+            if r["account_id"] not in owned or r["credits_delta"] is None:
+                continue
+            day = r["created_at"].astimezone(cn).date().isoformat()
+            if date.fromisoformat(day) < start:
+                continue
+            agg = out.setdefault(day, {"day": day, "total": None, "gained": None})
+            agg["gained"] = (agg["gained"] or 0) + r["credits_delta"]
+        return [out[k] for k in sorted(out)]
+
+    async def sum_credits_delta_for_day(self, account_id, owner_user_id, day):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner_user_id:
+            return 0
+        cn = ZoneInfo("Asia/Shanghai")
+        target = date.fromisoformat(_day_iso(day))
+        return sum(
+            r["credits_delta"]
+            for r in self.records.values()
+            if r["account_id"] == account_id
+            and r["credits_delta"] is not None
+            and r["created_at"].astimezone(cn).date() == target
+        )
+
+    async def list_enabled_accounts_full(self):
+        return [
+            {
+                "id": a["id"],
+                "owner_user_id": a["owner_user_id"],
+                "name": a["name"],
+                "jwt": a["jwt"],
+                "device_map": dict(a["device_map"]),
+            }
+            for a in self.accounts.values()
+            if a["enabled"]
+        ]
+
+    # --- 输出投影 ---
+
+    def _account_out(self, acc):
+        exp_dt, _remaining = get_jwt_exp(acc["jwt"])
+        return {
+            "id": acc["id"],
+            "name": acc["name"],
+            "group": acc.get("group", ""),
+            "platform": acc.get("platform", "trae"),
+            "device_map": dict(acc["device_map"]),
+            "enabled": acc["enabled"],
+            "created_at": acc["created_at"].isoformat(),
+            "updated_at": acc["updated_at"].isoformat(),
+            "jwt_exp": exp_dt.isoformat() if exp_dt is not None else None,
+        }
+
+    def _record_out(self, rec):
+        out = dict(rec)
+        cd = out["cooldown_until"]
+        out["cooldown_until"] = cd.isoformat() if cd else None
+        out["created_at"] = out["created_at"].isoformat()
+        return out
+
+
+@pytest.fixture
+def fake_store(monkeypatch):
+    """把 checkin_store 的全部 DB 函数替换为进程内假实现(不连真实 PG)。"""
+    store = FakeStore()
+    for name in [
+        "create_account",
+        "list_accounts",
+        "delete_account",
+        "set_enabled",
+        "get_account_platform",
+        "update_jwt",
+        "update_group",
+        "get_decrypted_jwt",
+        "list_enabled_accounts",
+        "save_device_map",
+        "insert_record",
+        "list_records",
+        "credits_history",
+        "get_error_counts",
+        "bump_error_count",
+        "reset_error_count",
+        "reset_all_error_counts",
+        "get_active_cooldowns",
+        "ensure_tables",
+        "upsert_credits_daily",
+        "get_credits_daily_range",
+        "sum_credits_delta_for_day",
+        "list_enabled_accounts_full",
+    ]:
+        monkeypatch.setattr(checkin_store, name, getattr(store, name))
+    return store
+
+
+@pytest.fixture(autouse=True)
+def probe_noop(monkeypatch):
+    """导入探针默认打桩为 no-op:单测绝不触真网(2026-10-16 导入即探针配套)。
+
+    需要验证探针真行为的用例在本用例内再 monkeypatch 覆盖即可(fixture 先跑,
+    用例内 setattr 后生效)。
+    """
+    async def _noop(account_id: int, owner: str):
+        return None
+
+    monkeypatch.setattr(checkin_router_mod, "_import_probe", _noop)
+
+
+def make_engine_result(name: str, *, ok: bool = True, classified_error=None) -> dict[str, Any]:
+    """与 checkin_account 返回结构对齐的假结果。"""
+    return {
+        "ok": ok,
+        "status": "success" if ok else "fail",
+        "action": "claim_ok" if ok else "claim",
+        "user_id": "u-1001",
+        "name": name,
+        "code": 0 if ok else 500,
+        "message": "签到成功" if ok else "Internal Server Error",
+        "http_status": 200 if ok else 500,
+        "credits": 20 if ok else None,
+        "credits_delta": 20 if ok else None,
+        "classified_error": classified_error,
+        "warning": None,
+    }
+
+
+@pytest.fixture
+def mock_engine_success(monkeypatch):
+    calls: list[tuple[str, str]] = []
+
+    async def fake_checkin_account(name, jwt, device_map, **kwargs):
+        device_map.setdefault("u-1001", {"device_id": "d1", "gen": 2})
+        calls.append((name, jwt))
+        return make_engine_result(name, ok=True)
+
+    monkeypatch.setattr(checkin_scheduler_mod, "checkin_account", fake_checkin_account)
+    return calls
+
+
+# ---------------------------------------------------------------------------
+# 用例
+# ---------------------------------------------------------------------------
+
+
+async def test_create_and_list_masked(client, fake_store):
+    """录入 → 列表脱敏:响应绝不含 jwt / jwt_enc 字段。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "主号", "jwt": make_jwt(), "device_map": {"u-1001": {"device_id": "d1"}}},
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["name"] == "主号"
+    assert created["enabled"] is True
+
+    resp = await client.get("/api/checkin/accounts")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 1
+    acc = body["accounts"][0]
+    assert "jwt" not in acc
+    assert "jwt_enc" not in acc
+    # 本用例的原意是"脱敏":钉凭据族不出现在响应里(含 device_map 内层)。
+    # 不锁 device_map 的键集精确等值之外再多要什么 —— 号池同步旁路会往里写簿记键,
+    # 那族键的契约由 test_internal_checkin_pool.py 管,凭据外泄由本行管。
+    for _secret in ("jwt", "jwt_enc", "refresh_token", "proxy", "cosy"):
+        assert _secret not in acc, f"凭据族键外泄:{_secret}"
+        assert _secret not in acc["device_map"], f"device_map 内层外泄凭据:{_secret}"
+    assert acc["device_map"] == {"u-1001": {"device_id": "d1"}}
+
+
+async def test_create_duplicate_name_conflict(client, fake_store):
+    """身份不同的同名录入仍 409(名字约束兜底);同身份不同名走合并(见下)。"""
+    resp1 = await client.post(
+        "/api/checkin/accounts", json={"name": "dup", "jwt": make_jwt(user_id="u-1001")}
+    )
+    assert resp1.status_code == 200
+    resp2 = await client.post(
+        "/api/checkin/accounts", json={"name": "dup", "jwt": make_jwt(user_id="u-9999")}
+    )
+    assert resp2.status_code == 409
+
+
+async def test_create_same_account_different_name_merges(client, fake_store):
+    """去重(2026-10-17 李总报障):同一真实账号(同身份 uid)换个名重复录入
+    ⇒ 合并刷新既有行(id 不变、设备态以本次为准),绝不建第二行。"""
+    jwt = make_jwt()
+    resp1 = await client.post("/api/checkin/accounts", json={"name": "旧名", "jwt": jwt})
+    assert resp1.status_code == 200
+    first = resp1.json()
+
+    resp2 = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "另一个名字", "jwt": jwt, "device_map": {"nickname": "fresh"}},
+    )
+    assert resp2.status_code == 200
+    second = resp2.json()
+    assert second["id"] == first["id"]
+    assert second["device_map"] == {"nickname": "fresh"}
+
+    body = (await client.get("/api/checkin/accounts")).json()
+    assert body["count"] == 1
+    assert body["accounts"][0]["id"] == first["id"]
+
+
+def test_derive_account_identity_platforms():
+    """身份派生纯函数:各平台 uid 真源与兜底顺序(去重键的真源)。"""
+    # trae:jwt payload data.id
+    assert checkin_store.derive_account_identity("trae", make_jwt(user_id="u-77"), {}) == "u-77"
+    # qoder:JWT sub 优先,opaque token 退 device_map.uid(桌面捕获落库)
+    qjwt = f"{_b64url(b'{}')}.{_b64url(json.dumps({'sub': 'q-1'}).encode())}.sig"
+    assert checkin_store.derive_account_identity("qoder", qjwt, {}) == "q-1"
+    assert checkin_store.derive_account_identity("qoder", "opaque-token", {"uid": "q-2"}) == "q-2"
+    # workbuddy:网页 Cookie 串(非 JWT)退 device_map.uid
+    assert checkin_store.derive_account_identity("workbuddy", "cookie-str", {"uid": "w-1"}) == "w-1"
+    # minimax:token opaque,uid 只在 device_map
+    assert checkin_store.derive_account_identity("minimax", "mmoat_x", {"user_id": 42}) == "42"
+    # 派生不出 ⇒ None(退回名字约束,不影响录入)
+    assert checkin_store.derive_account_identity("trae", "not-a-jwt", {}) is None
+    assert checkin_store.derive_account_identity("minimax", "mmoat_x", {}) is None
+
+
+async def test_create_import_probe_records_already_checked(client, fake_store, monkeypatch):
+    """导入即探针(2026-10-16 李总报障):账号在平台侧今日已签 ⇒ 录入响应直接带
+    last_record(ok=True / skip_already),首屏「今日已签到」亮、按钮置灰,
+    不必等调度或手动签到落记录。"""
+
+    async def fake_already(name, jwt, device_map, **kwargs):
+        return {
+            "ok": True,
+            "status": "already",
+            "action": "skip_already",
+            "user_id": "u-1001",
+            "name": name,
+            "code": 0,
+            "message": "已签到",
+            "http_status": 200,
+            "credits": 20,
+            "credits_delta": None,
+            "classified_error": None,
+            "warning": None,
+        }
+
+    monkeypatch.setattr(checkin_scheduler_mod, "checkin_account", fake_already)
+    # 解除 autouse 的探针打桩:本用例走真实 run_checkin_now 全路径(fake_store 兜底)
+    monkeypatch.setattr(
+        checkin_router_mod,
+        "_import_probe",
+        checkin_scheduler_mod.checkin_scheduler.run_checkin_now,
+    )
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "外签号", "jwt": make_jwt(), "device_map": {"u-1001": {"device_id": "d1"}}},
+    )
+    assert resp.status_code == 200
+    last = resp.json().get("last_record")
+    assert last is not None
+    assert last["ok"] is True
+    assert last["action"] == "skip_already"
+    assert last["message"] == "已签到"
+
+
+async def test_daily_status_probe_syncs_already_checked(client, fake_store, monkeypatch):
+    """06:00 状态探针(2026-10-16 李总需求):半夜已在平台手动签完的账号,探针
+    只读 status 查到 checked_in=true ⇒ 落 skip_already 记录,UI 即时亮「今日
+    已签到」、主窗口不重复签;未签账号不落记录。非 TRAE 平台不探。"""
+    store = fake_store
+    acc1 = await store.create_account(
+        "owner-a", "已签号", make_jwt(), {"u-1001": {"device_id": "d1"}}, platform="trae"
+    )
+    acc2 = await store.create_account(
+        "owner-a", "未签号", make_jwt(user_id="u-2002"), {"u-2002": {"device_id": "d2"}}, platform="trae"
+    )
+    acc3 = await store.create_account(
+        "owner-a", "Qoder号", "opaque-token", {}, platform="qoder"
+    )
+
+    status_calls: list[str] = []
+
+    async def fake_status_check(name, jwt, device_map, timeout=30, client=None):
+        status_calls.append(name)
+        if name == "已签号":
+            return True, True, 20, 0, "已签到"
+        return True, False, 10, 0, ""
+
+    async def fake_qoder_probe(name, jwt, device_map, timeout=30, client=None):
+        return True, False, None, ""  # 已领判据未命中
+
+    monkeypatch.setattr(checkin_scheduler_mod, "status_check", fake_status_check)
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_qoder, "qoder_probe_status", fake_qoder_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_outbound_gate, "paused_remaining", lambda: 0
+    )
+
+    await checkin_scheduler_mod.checkin_scheduler._daily_status_probe()
+
+    assert status_calls == ["已签号", "未签号"]
+    recs1 = [r for r in store.records.values() if r["account_id"] == acc1["id"]]
+    recs2 = [r for r in store.records.values() if r["account_id"] == acc2["id"]]
+    recs3 = [r for r in store.records.values() if r["account_id"] == acc3["id"]]
+    assert len(recs1) == 1
+    assert recs1[0]["action"] == "skip_already" and recs1[0]["ok"] is True
+    assert recs1[0]["credits"] == 20
+    assert recs2 == []  # 未签不落记录(留给主窗口签)
+    assert recs3 == []  # qoder 探到未领 ⇒ 不落记录
+
+
+async def test_daily_status_probe_all_platforms(client, fake_store, monkeypatch):
+    """06:00 探针全平台覆盖(2026-10-17 李总点名「官方没有不是借口」):
+    trae / workbuddy / qoder 走各自只读查询口,minimax 官方无只读口走幂等
+    claim;四型命中已签都落 skip_already 记录。"""
+    store = fake_store
+    accs = {}
+    for plat in ("trae", "workbuddy", "qoder", "minimax"):
+        accs[plat] = await store.create_account(
+            "owner-a", f"{plat}-号", make_jwt(), {"u-1": {"device_id": "d1"}}, platform=plat
+        )
+
+    async def fake_status_check(name, jwt, device_map, timeout=30, client=None):
+        return True, True, 20, 0, "已签到"
+
+    async def fake_wb_probe(token, device_map, timeout=30, client=None):
+        return True, True, 30, "今日已签到"
+
+    async def fake_qoder_probe(name, jwt, device_map, timeout=30, client=None):
+        return True, True, None, "今日已领取"
+
+    async def fake_mm_probe(name, token, device_map, timeout=30, client=None):
+        return True, True, 5, "今日已签到,无需重复领取"
+
+    monkeypatch.setattr(checkin_scheduler_mod, "status_check", fake_status_check)
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_workbuddy, "workbuddy_probe_status", fake_wb_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_qoder, "qoder_probe_status", fake_qoder_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_minimax, "minimax_probe_status", fake_mm_probe
+    )
+    monkeypatch.setattr(
+        checkin_scheduler_mod.checkin_outbound_gate, "paused_remaining", lambda: 0
+    )
+
+    await checkin_scheduler_mod.checkin_scheduler._daily_status_probe()
+
+    for plat in ("trae", "workbuddy", "qoder", "minimax"):
+        recs = [r for r in store.records.values() if r["account_id"] == accs[plat]["id"]]
+        assert len(recs) == 1, f"{plat} 应落 1 条记录"
+        assert recs[0]["action"] == "skip_already" and recs[0]["ok"] is True
+
+
+async def test_probe_platform_parsers(monkeypatch):
+    """四平台探针解析层(2026-10-17):命中已签的判据与「宁缺勿假」的
+    失败形态 —— HTTP 异常/字段缺失一律 ok=False + checked_in=None。
+
+    WorkBuddy 已于 2026-10-17 改为幂等 claim 判定(checkin-status 的
+    today_checked_in 生产实测不可靠:已签仍报 false)。
+    """
+    from app.services import (
+        checkin_minimax as mm_mod,
+    )
+    from app.services import (
+        checkin_qoder as qoder_mod,
+    )
+    from app.services import (
+        checkin_workbuddy as wb_mod,
+    )
+
+    # WorkBuddy:walk daily-checkin 幂等语义
+    #   code=10001(HTTP 400)=今天已签 ⇒ ok=True/checked_in=True
+    #   code=0  =未签→顺带领取成功   ⇒ ok=True/checked_in=True
+    #   401/403 =会话失效            ⇒ ok=False/checked_in=None
+    #   网络异常/非 JSON/未知 code    ⇒ ok=False/checked_in=None(宁缺勿假)
+    async def wb_already(path, token, timeout, client=None):
+        return 400, {"code": 10001, "msg": "今天已签到，请明天再来"}
+
+    async def wb_claimed(path, token, timeout, client=None):
+        return 200, {"code": 0, "data": {"credit": 5, "streak_days": 1}}
+
+    async def wb_dead(path, token, timeout, client=None):
+        return 401, {"code": 401}
+
+    async def wb_net(path, token, timeout, client=None):
+        return 0, None
+
+    async def wb_unknown_code(path, token, timeout, client=None):
+        return 200, {"code": 50000, "msg": "活动已结束"}
+
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_already)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is True and chk is True  # HTTP 400 + code 10001 = 幂等已签(核心修复点)
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_claimed)
+    assert await wb_mod.workbuddy_probe_status("tok", {}) == (True, True, 5, "签到成功")
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_dead)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and chk is None
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_net)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and chk is None
+    monkeypatch.setattr(wb_mod, "_wb_post", wb_unknown_code)
+    ok, chk, _c, _m = await wb_mod.workbuddy_probe_status("tok", {})
+    assert ok is False and chk is None  # 未知 code 不误报已签
+    assert await wb_mod.workbuddy_probe_status("", {}) == (False, None, None, "未配置 token")
+
+    # Qoder:campaigns 已领(CLAIMED 落窗口内)/ 未领 / 活动未下发
+    now = time.time()
+    claimed = {
+        "campaigns": [
+            {
+                "actionType": "CLAIM_BENEFIT",
+                "claimStatus": "CLAIMED",
+                "startAt": now - 60,
+                "endAt": now + 3600,
+            }
+        ]
+    }
+    claimable = {
+        "campaigns": [
+            {
+                "actionType": "CLAIM_BENEFIT",
+                "claimStatus": "CLAIMABLE",
+                "startAt": now - 60,
+                "endAt": now + 3600,
+            }
+        ]
+    }
+
+    async def q_claimed(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
+        return 200, claimed
+
+    async def q_claimable(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
+        return 200, claimable
+
+    async def q_empty(path, method, token=..., device_map=..., body=None, timeout=30, client=None):
+        return 200, {"campaigns": []}
+
+    monkeypatch.setattr(qoder_mod, "_api_call", q_claimed)
+    # _probe 内 _claimable_campaigns 用 time.time();startAt/endAt 已按 now 给窗口
+    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
+    assert ok is True and chk is True
+    monkeypatch.setattr(qoder_mod, "_api_call", q_claimable)
+    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
+    assert ok is True and chk is False
+    monkeypatch.setattr(qoder_mod, "_api_call", q_empty)
+    ok, chk, _c, _m = await qoder_mod.qoder_probe_status("n", "tok", {})
+    assert ok is True and chk is False  # 活动未下发≠已签(不误报,防漏签)
+
+    # MiniMax:官方无只读口 ⇒ 幂等 claim 自报 skip_already
+    async def mm_already(name, token, device_map, *, timeout=30, client=None):
+        return {
+            "ok": True,
+            "action": "skip_already",
+            "credits_delta": None,
+            "message": "今日已签到,无需重复领取",
+        }
+
+    async def mm_claimed(name, token, device_map, *, timeout=30, client=None):
+        return {"ok": True, "action": "claim_ok", "credits_delta": 5, "message": "签到成功"}
+
+    monkeypatch.setattr(mm_mod, "minimax_checkin_account", mm_already)
+    ok, chk, _c, msg = await mm_mod.minimax_probe_status("n", "tok", {})
+    assert ok is True and chk is True and "已签到" in msg
+    monkeypatch.setattr(mm_mod, "minimax_checkin_account", mm_claimed)
+    ok, chk, cr, _m = await mm_mod.minimax_probe_status("n", "tok", {})
+    assert ok is True and chk is True and cr == 5
+
+
+async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
+    """jwt 无法解析 → 400;已声明 exp 且已过期 → 400。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "bad", "jwt": "not-a-jwt"})
+    assert resp.status_code == 400
+
+    expired = make_jwt(exp_offset_seconds=-3600)
+    resp = await client.post("/api/checkin/accounts", json={"name": "expired", "jwt": expired})
+    assert resp.status_code == 400
+    assert "过期" in resp.json()["detail"]
+
+
+async def test_create_qoder_accepts_opaque_token(client, fake_store):
+    """Qoder 平台(2026-10-12 真机实证):token 是 27 字符 opaque 非 JWT,
+    uid 在 device_map;旧实现对所有平台走 TRAE extract_user_id ⇒ 必 400。
+    分流后:opaque token + 未来 epoch expires_at → 200,platform/device_map 落库。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "Qoder-cn-019f17c6",
+            "jwt": "qoder_opaque_token_27chars",
+            "platform": "qoder",
+            "device_map": {
+                "uid": "019f17c6-0eca-7510-a4f5-5b22e8305ed4",
+                # 时间戳是时间的函数:写死的"未来"会过期(实测 1793422576 已过去 ⇒
+                # 生产按 expires_at 判过期回 400,与"接受 opaque token"这条断言无关)。
+                "expires_at": int(time.time()) + 86400,
+                "cosy": {"client_type": "10"},
+            },
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["platform"] == "qoder"
+    stored = fake_store.accounts[created["id"]]
+    assert stored["device_map"]["uid"] == "019f17c6-0eca-7510-a4f5-5b22e8305ed4"
+
+
+async def test_create_qoder_rejects_expired_session(client, fake_store):
+    """Qoder token 非空但会话已过期(device_map ISO expiresAt 在过去)→ 400。"""
+    expired = (datetime.now(UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "Qoder-expired",
+            "jwt": "qoder_opaque_token_27chars",
+            "platform": "qoder",
+            "device_map": {"uid": "u-x", "expires_at": expired},
+        },
+    )
+    assert resp.status_code == 400
+    assert "已过期" in resp.json()["detail"]
+
+
+async def test_create_qoder_rejects_blank_token(client, fake_store):
+    """Qoder token 空/过短 → 400(空串进不了 Field min_length,这里钉过短分支)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "Qoder-blank", "jwt": "short", "platform": "qoder"},
+    )
+    assert resp.status_code == 400
+
+
+async def test_create_workbuddy_accepts_token_with_uid(client, fake_store):
+    """WorkBuddy 平台(2026-10-12 立):token 本体是 JWT 但 5.8+ 登录态加密可能
+    取不到 ⇒ 只校验非空 + uid 走 device_map;auth.expiresAt(毫秒)落 expires_at。"""
+    future_ms = int(time.time() * 1000) + 24 * 3600 * 1000
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-main",
+            "jwt": "wb_opaque_token_placeholder_12345",
+            "platform": "workbuddy",
+            "device_map": {"uid": "14f939c3-889b", "expires_at": future_ms},
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["platform"] == "workbuddy"
+    stored = fake_store.accounts[created["id"]]
+    assert stored["device_map"]["uid"] == "14f939c3-889b"
+
+
+async def test_create_workbuddy_rejects_expired_session(client, fake_store):
+    """WorkBuddy 会话已过期(device_map 毫秒 expiresAt 在过去)→ 400。"""
+    past_ms = int(time.time() * 1000) - 3600 * 1000
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-expired",
+            "jwt": "wb_opaque_token_placeholder_12345",
+            "platform": "workbuddy",
+            "device_map": {"uid": "u-x", "expires_at": past_ms},
+        },
+    )
+    assert resp.status_code == 400
+    assert "已过期" in resp.json()["detail"]
+
+
+async def test_create_workbuddy_rejects_blank_token(client, fake_store):
+    """WorkBuddy token 过短 → 400。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "WorkBuddy-blank", "jwt": "short", "platform": "workbuddy"},
+    )
+    assert resp.status_code == 400
+
+
+async def test_create_rejects_unknown_platform(client, fake_store):
+    """未登记平台 → 400(白名单三平台:trae/workbuddy/qoder)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "x", "jwt": "whatever-token", "platform": "cursor"},
+    )
+    assert resp.status_code == 400
+    assert "不支持的平台" in resp.json()["detail"]
+
+
+async def test_create_workbuddy_web_mode_accepts_cookie(client, fake_store):
+    """Web 模式(2026-10-12「网页登录自动添加」):login_type=web 时 jwt 字段存
+    Cookie 串,无 expiresAt 声明也放行(网页 Cookie 服务端滚动刷新)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-web",
+            "jwt": "session_id=abc123; wb_uid=u-9; other=v",
+            "platform": "workbuddy",
+            "device_map": {
+                "login_type": "web",
+                "uid": "14f939c3-889b-4ea2-88b7-ca4582f3b435",
+                "nickname": "李总",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["platform"] == "workbuddy"
+    stored = fake_store.accounts[created["id"]]
+    assert stored["device_map"]["login_type"] == "web"
+    assert stored["device_map"]["uid"] == "14f939c3-889b-4ea2-88b7-ca4582f3b435"
+
+
+async def test_create_workbuddy_web_mode_rejects_blank_cookie(client, fake_store):
+    """Web 模式 Cookie 过短 → 400(文案指回网页登录)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-web-blank",
+            "jwt": "short",
+            "platform": "workbuddy",
+            "device_map": {"login_type": "web", "uid": "u-1"},
+        },
+    )
+    assert resp.status_code == 400
+    assert "网页登录" in resp.json()["detail"]
+
+
+async def test_update_jwt_qoder_platform_split(client, fake_store):
+    """PATCH /jwt 按账号平台分流:qoder 账号换 opaque token 不被 TRAE 判据误杀。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "Qoder-cn-019f17c6",
+            "jwt": "qoder_opaque_token_27chars",
+            "platform": "qoder",
+            "device_map": {"uid": "019f17c6"},
+        },
+    )
+    account_id = resp.json()["id"]
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/jwt",
+        json={"jwt": "qoder_opaque_token_27chars_new"},
+    )
+    assert resp.status_code == 200
+    assert fake_store.accounts[account_id]["jwt"] == "qoder_opaque_token_27chars_new"
+
+
+async def test_manual_checkin_records_and_credits(client, fake_store, mock_engine_success):
+    """手动签到(mock 引擎,不打外网)→ 记录回显 → 积分流水聚合。"""
+    resp = await client.post(
+        "/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()}
+    )
+    account_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/checkin")
+    assert resp.status_code == 200
+    record = resp.json()
+    assert record["ok"] is True
+    assert record["credits_delta"] == 20
+    assert record["account_id"] == account_id
+    assert len(mock_engine_success) == 1
+
+    resp = await client.get("/api/checkin/records", params={"account_id": account_id})
+    assert resp.status_code == 200
+    records = resp.json()["records"]
+    assert len(records) == 1
+    assert records[0]["ok"] is True
+
+    resp = await client.get("/api/checkin/credits/history", params={"account_id": account_id})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 1
+    assert body["total_credits_delta"] == 20
+
+
+async def test_checkin_account_not_found(client, fake_store, mock_engine_success):
+    resp = await client.post("/api/checkin/accounts/9999/checkin")
+    assert resp.status_code == 404
+
+
+async def test_set_enabled_and_delete(client, fake_store, mock_engine_success):
+    resp = await client.post(
+        "/api/checkin/accounts", json={"name": "tmp", "jwt": make_jwt()}
+    )
+    account_id = resp.json()["id"]
+
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/enabled", json={"enabled": False}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["enabled"] is False
+    assert fake_store.accounts[account_id]["enabled"] is False
+
+    resp = await client.delete(f"/api/checkin/accounts/{account_id}")
+    assert resp.status_code == 200
+    resp = await client.delete(f"/api/checkin/accounts/{account_id}")
+    assert resp.status_code == 404
+    assert await fake_store.list_accounts("dev-anonymous") == []
+
+
+async def test_update_jwt_roundtrip(client, fake_store):
+    """PATCH jwt 成功:响应含 ok/jwt_exp,store 里 jwt 已换新。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    assert resp.status_code == 200
+    account_id = resp.json()["id"]
+    old_jwt = fake_store.accounts[account_id]["jwt"]
+
+    new_jwt = make_jwt(user_id="u-2002", exp_offset_seconds=7200)
+    resp = await client.patch(f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": new_jwt})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["id"] == account_id
+    exp_dt, _ = get_jwt_exp(new_jwt)
+    assert body["jwt_exp"] == exp_dt.isoformat()
+    assert fake_store.accounts[account_id]["jwt"] == new_jwt
+    assert old_jwt != new_jwt
+
+
+async def test_update_jwt_not_found(client, fake_store):
+    resp = await client.patch("/api/checkin/accounts/9999/jwt", json={"jwt": make_jwt()})
+    assert resp.status_code == 404
+    assert "账号不存在" in resp.json()["detail"]
+
+
+async def test_update_jwt_rejects_unparseable(client, fake_store):
+    """无法解析的 jwt → 400,且不得落库。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    original_jwt = fake_store.accounts[account_id]["jwt"]
+
+    resp = await client.patch(f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": "not-a-jwt"})
+    assert resp.status_code == 400
+    assert fake_store.accounts[account_id]["jwt"] == original_jwt
+
+
+async def test_update_jwt_owner_isolation(client, fake_store):
+    """属主隔离:换身份 PATCH 别人的账号 → 404,jwt 不被改动。"""
+    from app.main import fastapi_app  # client fixture 已触发惰性导入,此处仅取引用
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "mine", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    original_jwt = fake_store.accounts[account_id]["jwt"]
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.patch(
+            f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": make_jwt(user_id="u-evil")}
+        )
+        assert resp.status_code == 404
+        assert fake_store.accounts[account_id]["jwt"] == original_jwt
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+
+
+async def test_list_accounts_jwt_exp_and_cooldown_until(client, fake_store):
+    """列表增强:jwt_exp 与该账号 jwt 的 exp 一致;cooldown_until 无冷却为 null、
+    有未来冷却记录时合并进行内,且 jwt/jwt_enc 依旧不出现。"""
+    jwt = make_jwt()
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": jwt})
+    account_id = resp.json()["id"]
+
+    resp = await client.get("/api/checkin/accounts")
+    assert resp.status_code == 200
+    acc = resp.json()["accounts"][0]
+    exp_dt, _ = get_jwt_exp(jwt)
+    assert acc["jwt_exp"] == exp_dt.isoformat()
+    assert "jwt" not in acc
+    assert "jwt_enc" not in acc
+    assert acc["cooldown_until"] is None
+
+    # 写入一条未来冷却记录 → 列表行合并出 cooldown_until
+    cd = datetime.now(UTC) + timedelta(hours=1)
+    fake_store.records[9001] = {"id": 9001, "account_id": account_id, "cooldown_until": cd}
+    resp = await client.get("/api/checkin/accounts")
+    acc = resp.json()["accounts"][0]
+    assert acc["cooldown_until"] == cd.isoformat()
+
+
+async def test_group_create_list_and_patch(client, fake_store):
+    """Phase1d 分组:创建带 group → 列表回吐;PATCH 换组/清空(空串)均生效。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "主号", "jwt": make_jwt(), "group": "主力"},
+    )
+    assert resp.status_code == 200
+    account_id = resp.json()["id"]
+    assert resp.json()["group"] == "主力"
+
+    resp = await client.get("/api/checkin/accounts")
+    assert resp.json()["accounts"][0]["group"] == "主力"
+
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/group", json={"group": "备用"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body == {"ok": True, "id": account_id, "group": "备用"}
+    assert fake_store.accounts[account_id]["group"] == "备用"
+
+    # 空串 = 移出分组
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/group", json={"group": ""}
+    )
+    assert resp.status_code == 200
+    assert fake_store.accounts[account_id]["group"] == ""
+
+    # 不带 group 的创建回落空串
+    resp = await client.post("/api/checkin/accounts", json={"name": "散号", "jwt": make_jwt()})
+    assert resp.status_code == 200
+    assert resp.json()["group"] == ""
+
+
+async def test_update_group_not_found(client, fake_store):
+    resp = await client.patch("/api/checkin/accounts/9999/group", json={"group": "x"})
+    assert resp.status_code == 404
+    assert "账号不存在" in resp.json()["detail"]
+
+
+async def test_update_group_owner_isolation(client, fake_store):
+    """属主隔离:换身份 PATCH 别人的账号分组 → 404,原分组不被改动。"""
+    from app.main import fastapi_app
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "mine", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.patch(
+            f"/api/checkin/accounts/{account_id}/group", json={"group": "入侵"}
+        )
+        assert resp.status_code == 404
+        assert fake_store.accounts[account_id]["group"] == ""
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+
+
+async def test_scheduler_status_shape(client, monkeypatch):
+    """GET /scheduler/status:四字段形态(测试进程无 lifespan → 未启动,next_run 双 null)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    resp = await client.get("/api/checkin/scheduler/status")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enabled"] is True
+    assert body["started"] is False
+    assert body["next_run"] is None
+    assert body["next_run_qoder"] is None
+
+
+def test_scheduler_status_next_run_when_started(monkeypatch):
+    """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动五字段缺省。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
+    sched = checkin_scheduler_mod.CheckinScheduler()
+    st0 = sched.status()
+    assert st0["enabled"] is False
+    assert st0["started"] is False
+    assert st0["next_run"] is None
+    assert st0["next_run_qoder"] is None
+    assert st0["next_run_probe"] is None
+    # 2026-10-31:WorkBuddy 任务巡检 job 也进 status(未启动同样为 None)
+    assert st0["next_run_wb_tasks"] is None
+    assert isinstance(st0["wb_tasks"], dict)
+
+    nrt = datetime(2026, 10, 9, 8, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
+    nrt_q = datetime(2026, 10, 9, 10, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
+    nrt_p = datetime(2026, 10, 9, 6, 0, tzinfo=checkin_scheduler_mod._CN_TZ)
+
+    class _FakeJob:
+        next_run_time: datetime | None = nrt
+
+    class _FakeJobQoder:
+        next_run_time: datetime | None = nrt_q
+
+    class _FakeJobProbe:
+        next_run_time: datetime | None = nrt_p
+
+    class _FakeApscheduler:
+        def get_job(self, job_id: str):
+            if job_id == checkin_scheduler_mod._JOB_ID:
+                return _FakeJob()
+            if job_id == checkin_scheduler_mod._JOB_ID_QODER:
+                return _FakeJobQoder()
+            if job_id == checkin_scheduler_mod._JOB_ID_PROBE:
+                return _FakeJobProbe()
+            return None
+
+    sched._scheduler = _FakeApscheduler()  # 模拟已 start 的单例,不真起事件循环调度
+    sched._started = True
+    st = sched.status()
+    assert st["started"] is True
+    assert st["enabled"] is False
+    assert st["next_run"] == "2026-10-09T08:05:00+08:00"
+    assert st["next_run_qoder"] == "2026-10-09T10:05:00+08:00"
+    assert st["next_run_probe"] == "2026-10-09T06:00:00+08:00"
+
+
+async def test_cooldown_semantics_server_trip_and_success_reset(fake_store):
+    """Server 错误连击 <3 不冷却只计数,≥3 触发冷却并清零;成功 → 两计数清零。"""
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = 1
+    fail_result = make_engine_result("a", ok=False, classified_error={"type": "Server", "cooldown_seconds": 600})
+
+    r1 = await sched.record_result(aid, fail_result)
+    assert r1["cooldown_until"] is None
+    s, c = await fake_store.get_error_counts(aid)
+    assert (s, c) == (1, 0)
+
+    r2 = await sched.record_result(aid, fail_result)
+    assert r2["cooldown_until"] is None
+
+    r3 = await sched.record_result(aid, fail_result)
+    assert r3["cooldown_until"] is not None  # 第 3 次触发冷却
+    assert datetime.fromisoformat(r3["cooldown_until"]) > datetime.now(UTC)
+    s, c = await fake_store.get_error_counts(aid)
+    assert (s, c) == (0, 0)  # 触发冷却后计数清零
+
+    cooldowns = await fake_store.get_active_cooldowns()
+    assert aid in cooldowns  # 冷却中,每日任务应跳过
+
+    # 成功 → 两计数清零
+    ok_result = make_engine_result("a", ok=True)
+    await sched.record_result(aid, ok_result)
+    s, c = await fake_store.get_error_counts(aid)
+    assert (s, c) == (0, 0)
+
+
+async def test_cooldown_semantics_client_independent(fake_store):
+    """Client 类错误独立计数,不影响 Server 计数。"""
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = 2
+    fail = make_engine_result("b", ok=False, classified_error={"type": "Client", "cooldown_seconds": 600})
+    await sched.record_result(aid, fail)
+    await sched.record_result(aid, fail)
+    s, c = await fake_store.get_error_counts(aid)
+    assert (s, c) == (0, 2)
+
+    server_fail = make_engine_result("b", ok=False, classified_error={"type": "Server", "cooldown_seconds": 600})
+    await sched.record_result(aid, server_fail)
+    s, c = await fake_store.get_error_counts(aid)
+    assert (s, c) == (1, 2)
+
+
+async def test_daily_run_skips_cooldown_account(fake_store, mock_engine_success):
+    """冷却中的账号每日任务跳过(引擎不被调用)。"""
+    aid = 1
+    fake_store.accounts[aid] = {
+        "id": aid,
+        "owner_user_id": "dev-anonymous",
+        "name": "冷却号",
+        "jwt": make_jwt(),
+        "device_map": {},
+        "enabled": True,
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+    fake_store.records[1] = {
+        "id": 1,
+        "account_id": aid,
+        "ok": False,
+        "action": "claim",
+        "http_status": 500,
+        "code": None,
+        "message": "err",
+        "classified_error": json.dumps({"type": "Server", "cooldown_seconds": 600}),
+        "cooldown_until": datetime.now(UTC) + timedelta(hours=1),
+        "credits": None,
+        "credits_delta": None,
+        "created_at": datetime.now(UTC),
+    }
+    await checkin_scheduler_mod.checkin_scheduler._daily_run()
+    assert mock_engine_success == []  # 冷却中被跳过,未打引擎
+
+
+# ---------------------------------------------------------------------------
+# WP-B(2026-10-09)积分每日快照
+# ---------------------------------------------------------------------------
+
+
+def _make_packs_result(remaining: int) -> dict[str, Any]:
+    return {
+        "remaining": remaining,
+        "packs": [{"limit": 200, "used": 200 - remaining, "expire_time": None, "charge_amount": 0}],
+        "error": None,
+    }
+
+
+async def test_query_credits_success_writes_snapshot(client, fake_store, monkeypatch):
+    """query_credits 成功:返回 ok/remaining,且落当日快照(gained 取当日 delta 合计)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return _make_packs_result(150)
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["remaining"] == 150
+
+    day = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+    row = fake_store.credits_daily[(account_id, day)]
+    assert row["remaining"] == 150
+    assert row["gained"] == 0
+
+    # 当日已有签到 delta 时,gained 合计进快照
+    await fake_store.insert_record(
+        account_id,
+        ok=True,
+        action="claim_ok",
+        http_status=200,
+        code=0,
+        message="签到成功",
+        classified_error=None,
+        cooldown_until=None,
+        credits=20,
+        credits_delta=20,
+    )
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    assert fake_store.credits_daily[(account_id, day)]["gained"] == 20
+    assert fake_store.credits_daily[(account_id, day)]["remaining"] == 150  # 旧值不丢
+
+
+async def test_query_credits_owner_isolation_404(client, fake_store, monkeypatch):
+    """属主隔离:换身份查别人的账号 → 404,不落任何快照。"""
+    from app.main import fastapi_app
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return _make_packs_result(999)
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "mine", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+        assert resp.status_code == 404
+        assert "账号不存在" in resp.json()["detail"]
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+    assert fake_store.credits_daily == {}
+
+
+async def test_query_credits_error_no_snapshot(client, fake_store, monkeypatch):
+    """查询失败:error 透传且不落快照,不抛栈(200 + ok=false)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return {"remaining": None, "packs": [], "error": "积分余额接口 HTTP 401: expired"}
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert "401" in body["error"]
+    assert fake_store.credits_daily == {}
+
+
+async def test_credits_daily_series_and_consumed_formula(client, fake_store):
+    """credits/daily 聚合形状:total/gained/consumed 三线,consumed 公式
+    |total[i] − gained[i] − total[i−1]|,首日 0,断档日 null。"""
+    cn = ZoneInfo("Asia/Shanghai")
+    today = datetime.now(cn).date()
+    d_minus2 = (today - timedelta(days=2)).isoformat()
+    d_minus1 = (today - timedelta(days=1)).isoformat()
+    today_iso = today.isoformat()
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    # 前天快照 160;昨天快照 140;今天快照 100 + 当日签到 delta 20(相邻日构成公式链)
+    await fake_store.upsert_credits_daily(account_id, "dev-anonymous", d_minus2, 160, 0)
+    await fake_store.upsert_credits_daily(account_id, "dev-anonymous", d_minus1, 140, 0)
+    await fake_store.upsert_credits_daily(account_id, "dev-anonymous", today_iso, 100, 0)
+    await fake_store.insert_record(
+        account_id,
+        ok=True,
+        action="claim_ok",
+        http_status=200,
+        code=0,
+        message="签到成功",
+        classified_error=None,
+        cooldown_until=None,
+        credits=20,
+        credits_delta=20,
+    )
+
+    resp = await client.get("/api/checkin/credits/daily", params={"days": 3})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["days"] == [d_minus2, d_minus1, today_iso]
+    series = body["series"]
+    assert series["total"] == [160, 140, 100]
+    assert series["gained"] == [0, 0, 20]
+    # consumed = |total[i] − gained[i] − total[i−1]|,首日 0
+    assert series["consumed"] == [0, abs(140 - 0 - 160), abs(100 - 20 - 140)]
+
+    # 窗口拉长到 5 天:前两天无数据 → total/consumed 置 null(断档断线)
+    resp = await client.get("/api/checkin/credits/daily", params={"days": 5})
+    series = resp.json()["series"]
+    assert series["total"] == [None, None, 160, 140, 100]
+    assert series["gained"] == [0, 0, 0, 0, 20]
+    assert series["consumed"] == [None, None, None, 20, 60]
+
+
+# ---------------------------------------------------------------------------
+# 风控第四件套(2026-10-16):出站节流 / 即时冷却 / 手动 429
+# ---------------------------------------------------------------------------
+
+
+async def _seed_account(store, name="风控号", platform="trae") -> int:
+    aid = store.next_account_id
+    store.next_account_id += 1
+    store.accounts[aid] = {
+        "id": aid,
+        "owner_user_id": "dev-anonymous",
+        "name": name,
+        "jwt": make_jwt(),
+        "device_map": {},
+        "group": "",
+        "platform": platform,
+        "enabled": True,
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+    return aid
+
+
+async def test_record_result_session_dead_instant_cooldown(fake_store):
+    """非计数类分类(SessionDead/-1)即时落冷却 —— 死号不再每天被重打。"""
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = await _seed_account(fake_store, name="死号")
+    res = make_engine_result("死号", ok=False, classified_error={"type": "SessionDead", "cooldown_seconds": -1})
+    rec = await sched.record_result(aid, res)
+    assert rec["cooldown_until"] is not None
+    assert datetime.fromisoformat(rec["cooldown_until"]) > datetime.now(UTC) + timedelta(days=3000)
+    cooldowns = await fake_store.get_active_cooldowns()
+    assert aid in cooldowns
+
+
+async def test_record_result_soft_rate_instant_cooldown_and_global_pause(fake_store):
+    """SoftRate(429)→ 即时冷却 60s + 触发出站全局暂停(整批/手动立即停手)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = await _seed_account(fake_store, name="限流号")
+    res = make_engine_result("限流号", ok=False, classified_error={"type": "SoftRate", "cooldown_seconds": 60})
+    rec = await sched.record_result(aid, res)
+    assert rec["cooldown_until"] is not None
+    assert datetime.fromisoformat(rec["cooldown_until"]) <= datetime.now(UTC) + timedelta(seconds=65)
+    assert checkin_outbound_gate.paused_remaining() > 0  # 全局暂停已挂起
+    checkin_outbound_gate.reset()
+
+
+async def test_record_result_plan_limit_instant_cooldown(fake_store):
+    """PlanLimit(配额尽)12h 即时冷却;0/None 不冷却。"""
+    sched = checkin_scheduler_mod.checkin_scheduler
+    aid = await _seed_account(fake_store, name="配额尽")
+    rec = await sched.record_result(
+        aid,
+        make_engine_result("配额尽", ok=False, classified_error={"type": "PlanLimit", "cooldown_seconds": 43200}),
+    )
+    assert rec["cooldown_until"] is not None
+    # cooldown_seconds=0 → 不冷却
+    rec2 = await sched.record_result(
+        aid, make_engine_result("配额尽", ok=False, classified_error={"type": "BusinessError", "cooldown_seconds": 0})
+    )
+    assert rec2["cooldown_until"] is None
+
+
+async def test_batch_aborts_on_outbound_pause(fake_store, mock_engine_success, monkeypatch):
+    """批内第一个账号 429 → 出站全局暂停 → 整批中止,后续账号不再被打。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    await _seed_account(fake_store, name="A")
+    await _seed_account(fake_store, name="B")
+
+    # 打散 → 确定性顺序;错峰延迟与出站间隔归零免真实睡眠
+    monkeypatch.setattr(checkin_scheduler_mod.random, "shuffle", lambda x: None)
+    monkeypatch.setattr(checkin_scheduler_mod.random, "uniform", lambda a, b: 0)
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
+
+    # 假引擎真实过闸门:第一发 429 → record_result 挂起全局暂停 →
+    # 第二发 before_request 抛 OutboundPaused → _run_batch 整批中止
+    calls = []
+
+    async def fake_engine_429(name, jwt, device_map, **kwargs):
+        await checkin_outbound_gate.before_request("trae")
+        calls.append(name)
+        return make_engine_result(name, ok=False, classified_error={"type": "SoftRate", "cooldown_seconds": 60})
+
+    monkeypatch.setattr(checkin_scheduler_mod, "checkin_account", fake_engine_429)
+
+    sched = checkin_scheduler_mod.checkin_scheduler
+    await sched._run_batch(list(fake_store.accounts.values()), {}, "主窗口")
+    assert calls == ["A"]  # 第二个账号不再被打(整批中止)
+    # 429 号已落即时冷却
+    assert await fake_store.get_active_cooldowns()
+    checkin_outbound_gate.reset()
+
+
+async def test_manual_checkin_429_when_outbound_paused(client, fake_store, mock_engine_success):
+    """出站全局暂停中:手动签到 429 快速失败(引擎不被调用)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "手签号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/checkin")
+    assert resp.status_code == 429
+    assert "限流冷却中" in resp.json()["detail"]
+    assert mock_engine_success == []  # 未打引擎
+    checkin_outbound_gate.reset()
+
+
+async def test_manual_checkin_429_when_account_in_cooldown(client, fake_store, mock_engine_success):
+    """账号冷却中:手动签到 429(尊重冷却,不给绕过后门)。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "冷却号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    await fake_store.insert_record(
+        account_id,
+        ok=False,
+        action="claim",
+        http_status=401,
+        code=None,
+        message="unauthorized",
+        classified_error='{"type": "SessionDead", "cooldown_seconds": -1}',
+        cooldown_until=datetime.now(UTC) + timedelta(hours=1),
+        credits=None,
+        credits_delta=None,
+    )
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/checkin")
+    assert resp.status_code == 429
+    assert "冷却期" in resp.json()["detail"]
+    assert mock_engine_success == []
+
+
+async def test_query_credits_429_when_outbound_paused(client, fake_store, monkeypatch):
+    """出站暂停中:query_credits 统一 429(Trae 路径底层会转 error dict,预检拦在前面)。"""
+    from app.services import checkin_credits
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    async def fake_query(jwt):
+        raise AssertionError("暂停预检应在查询前拦下")
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "查分号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 429
+    assert "限流冷却中" in resp.json()["detail"]
+    checkin_outbound_gate.reset()
+
+
+async def test_scheduler_cron_triggers_carry_jitter():
+    """日级起批漂移:三个 CronTrigger 均带 jitter(不再每天同一秒起批)。"""
+    from apscheduler.triggers.cron import CronTrigger
+
+    assert checkin_scheduler_mod._CRON_JITTER > 0
+    for hour, minute in ((8, 5), (10, 5), (8, 10)):
+        t = CronTrigger(
+            hour=hour,
+            minute=minute,
+            timezone=checkin_scheduler_mod._CN_TZ,
+            jitter=checkin_scheduler_mod._CRON_JITTER,
+        )
+        assert t.jitter == checkin_scheduler_mod._CRON_JITTER
+    # 调度器源码三处 add_job 均显式带 jitter=(防回退)
+    import inspect
+
+    src = inspect.getsource(type(checkin_scheduler_mod.checkin_scheduler))
+    assert src.count("jitter=_CRON_JITTER") >= 3
+
+
+async def test_query_credits_429_when_account_on_cooldown(client, fake_store, monkeypatch):
+    """第五件套配套:账号冷却中(如 401 死号 10 年冷却)手动查余额统一 429,
+    绝不拿死 token 打平台鉴权点(与积分快照跳冷却同口径)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        raise AssertionError("冷却预检应在查询前拦下")
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "死号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    # 直接往 records 里塞一条未来冷却(模拟 SessionDead 已落冷却)
+    fake_store.records[fake_store.next_record_id] = {
+        "id": fake_store.next_record_id,
+        "account_id": account_id,
+        "cooldown_until": datetime.now(UTC) + timedelta(days=3650),
+    }
+    fake_store.next_record_id += 1
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 429
+    assert "冷却期" in resp.json()["detail"]
+
+
+async def test_query_credits_passes_classified_error_through(client, fake_store, monkeypatch):
+    """查询失败时 classified_error 透传给调用方(观测面:挑战/死号可见)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return {
+            "remaining": None,
+            "packs": [],
+            "error": "余额接口 HTTP 403: 挑战墙/WAF 拦截,已熔断",
+            "classified_error": {"type": "Challenge", "cooldown_seconds": 1800},
+        }
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "挑战号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert body["classified_error"] == {"type": "Challenge", "cooldown_seconds": 1800}
+
+
+# ---------------------------------------------------------------------------
+# O68 WorkBuddy 任务两条入口(2026-10-31 立,席位 F)
+#
+# GET  /accounts/{id}/tasks 与 POST /accounts/{id}/task-run 是签到页「读取任务 /
+# 预演 / 一键做任务」三按钮的唯一后端入口,此前在本仓**零用例**,且只做属主校验 +
+# 平台闸,既不查「出站全局暂停」也不查「账号冷却」—— 而手动签到(run_checkin_now)
+# 与手动查余额(query_credits)都已定档:"401 死号 / 429 限流账号被手动连点只会把
+# 风险放大到同 IP 全部账号"。本块补齐同一条预检,并把两条路由的判定面钉住。
+#
+# 隔离口径:上游出口一律换成记录桩或 httpx.MockTransport,绝无真实网络。
+# ---------------------------------------------------------------------------
+
+
+def _stub_wb_upstream(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """把 workbuddy_tasks 的两个上游出口换成记录桩(返回生产构造器的合同形状)。"""
+    from app.services import workbuddy_tasks
+
+    calls: list[str] = []
+
+    async def fake_list(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        calls.append("list_growth_tasks")
+        return workbuddy_tasks._list_result([], None, False, True)
+
+    async def fake_run(
+        kind: str, jwt: str, device_map: dict[str, Any], **_kw: Any
+    ) -> dict[str, Any]:
+        calls.append(f"run_family:{kind}")
+        return workbuddy_tasks._run_result(kind, ok=True)
+
+    monkeypatch.setattr(workbuddy_tasks, "list_growth_tasks", fake_list)
+    monkeypatch.setattr(workbuddy_tasks, "run_family", fake_run)
+    return calls
+
+
+def _seed_cooldown(fake_store, account_id: int, until: datetime) -> None:
+    """往替身 records 里塞一条未来冷却(与 query_credits 冷却用例同一手法)。"""
+    fake_store.records[fake_store.next_record_id] = {
+        "id": fake_store.next_record_id,
+        "account_id": account_id,
+        "cooldown_until": until,
+    }
+    fake_store.next_record_id += 1
+
+
+async def test_wb_list_tasks_429_when_outbound_paused(client, fake_store, monkeypatch):
+    """出站全局暂停中:任务列表入口 429 快速失败,**一个上游请求都不发**;
+    不暂停时同一请求确实打到上游(正向对照,防"预检把门焊死"的假绿)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB列表号", platform="workbuddy")
+
+    checkin_outbound_gate.reset()  # 基线:上一条用例若中途失败,不把暂停带进本用例
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    try:
+        resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+        assert resp.status_code == 429
+        assert "限流冷却中" in resp.json()["detail"]
+        assert calls == []  # 副作用没发生
+    finally:
+        checkin_outbound_gate.reset()
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    assert calls == ["list_growth_tasks"]  # 正向对照:未暂停时确实上了上游
+
+
+async def test_task_run_429_when_outbound_paused(client, fake_store, monkeypatch):
+    """出站全局暂停中:一键做任务入口 429,执行链一次都没进(连只读探针都不发)。"""
+    from app.services.checkin_outbound import checkin_outbound_gate
+
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB执行号", platform="workbuddy")
+
+    checkin_outbound_gate.reset()
+    checkin_outbound_gate.pause(seconds=60, reason="test")
+    try:
+        resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+        assert resp.status_code == 429
+        assert "限流冷却中" in resp.json()["detail"]
+        assert calls == []
+    finally:
+        checkin_outbound_gate.reset()
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+    assert resp.status_code == 200
+    assert calls == ["run_family:growth"]
+
+
+async def test_wb_list_tasks_429_when_account_in_cooldown(client, fake_store, monkeypatch):
+    """账号冷却中:任务列表入口 429,detail 点名解冻时刻;冷却过去后放行。"""
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB死号", platform="workbuddy")
+    until = datetime.now(UTC) + timedelta(days=3650)
+    _seed_cooldown(fake_store, aid, until)
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 429
+    detail = resp.json()["detail"]
+    assert "冷却期" in detail
+    assert until.isoformat() in detail  # 解冻时刻可核对,不是一句"稍后再试"
+    assert calls == []
+
+    # 正向对照:冷却表里没这一枚 ⇒ 同一请求照常上上游
+    fake_store.records.clear()
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    assert calls == ["list_growth_tasks"]
+
+
+async def test_task_run_429_when_account_in_cooldown(client, fake_store, monkeypatch):
+    """账号冷却中:一键做任务入口 429(不给"手动点一下就绕过冷却"的后门)。"""
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB限流号", platform="workbuddy")
+    until = datetime.now(UTC) + timedelta(hours=2)
+    _seed_cooldown(fake_store, aid, until)
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "all"})
+    assert resp.status_code == 429
+    detail = resp.json()["detail"]
+    assert "冷却期" in detail
+    assert until.isoformat() in detail
+    assert calls == []
+
+
+async def test_wb_task_routes_fail_open_when_cooldown_read_fails(
+    client, fake_store, monkeypatch
+):
+    """读冷却失败 ⇒ fail-open 按"无冷却"放行(与 query_credits 样板同口径):
+    预检的失效方向是"多放一次正常操作",绝不能把两条入口焊死。"""
+    from app.services import checkin_store as checkin_store_mod
+
+    async def boom() -> dict[int, datetime]:
+        raise RuntimeError("冷却表读不动(假故障)")
+
+    monkeypatch.setattr(checkin_store_mod, "get_active_cooldowns", boom)
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="WB放行号", platform="workbuddy")
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+    assert resp.status_code == 200
+    assert calls == ["list_growth_tasks", "run_family:growth"]
+
+
+async def test_task_run_all_kind_follows_production_sweep_order(client, fake_store, monkeypatch):
+    """kind="all" 的族顺序取自生产模块的 SWEEP_ORDER(测试不抄第二份常量,§22c),
+    并且 activity 族**真的在生产调用链里被派发**(不是只存在于测试注入面)。
+
+    手法:只把 _FAMILY_RUNNERS 的六枚族执行器换成记录桩 —— run_family → run_all_families
+    这条生产派发链一步都没被替换,替身只发生在最末端。
+    """
+    from app.services import workbuddy_tasks
+
+    aid = await _seed_account(fake_store, name="WB全族号", platform="workbuddy")
+    dispatched: list[str] = []
+
+    def make_stub(kind: str):
+        async def stub(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+            dispatched.append(kind)
+            return workbuddy_tasks._run_result(kind, ok=True)
+
+        return stub
+
+    for family in workbuddy_tasks.SWEEP_ORDER:
+        monkeypatch.setitem(workbuddy_tasks._FAMILY_RUNNERS, family, make_stub(family))
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "all"})
+    assert resp.status_code == 200
+    body = resp.json()
+    # 派发序列 == 生产顺序(activity 打头,与调度器共用同一张表)
+    assert dispatched == list(workbuddy_tasks.SWEEP_ORDER)
+    assert "activity" in dispatched
+    # 聚合回执的 families 明细也覆盖全部族,顺序与 SWEEP_ORDER 同
+    assert list(body["families"]) == list(workbuddy_tasks.SWEEP_ORDER)
+    assert body["kind"] == "all" and body["ok"] is True
+
+
+async def test_task_run_dry_run_emits_only_read_only_requests(client, fake_store, monkeypatch):
+    """dry_run=true ⇒ HTTP 面只出现只读探针、零写侧请求;
+    正向对照 = 同一账号同一族去掉 dry_run,accept 的 POST 确实发出。
+
+    这条走真执行链(路由 → run_family → run_growth),上游以 httpx.MockTransport 记账,
+    所以"零写侧"量的是真请求单,不是桩的自我声明。
+    """
+    import httpx
+
+    from app.services import checkin_engine
+    from app.services.checkin_outbound import checkin_outbound_gate
+    from app.services.workbuddy_tasks import (
+        PATH_GROWTH_STREAK,
+        PATH_GROWTH_TASKS,
+        PATH_GROWTH_TASKS_ACCEPT,
+    )
+
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MIN", "0")
+    monkeypatch.setenv("CHECKIN_OUTBOUND_MAX", "0")
+    checkin_outbound_gate.reset()
+
+    calls: list[tuple[str, str]] = []
+
+    def ok_env(data: Any) -> dict[str, Any]:
+        return {"code": 0, "msg": "ok", "data": data}
+
+    # 路由表按插入序前缀匹配:"/activity/growth/tasks" 是 accept 路径的前缀,长者在前
+    routes: dict[str, Any] = {
+        PATH_GROWTH_TASKS_ACCEPT: ok_env({}),
+        PATH_GROWTH_TASKS: ok_env(
+            {
+                "tasks": [
+                    {
+                        "task_id": 1,
+                        "code": "first_chat",
+                        "title": "完成一次对话",
+                        "description": "使用 WorkBuddy 完成至少一次对话交互",
+                        "icon_url": "",
+                        "level_name": "养虾尝试",
+                        "status": "available",
+                        "url": "",
+                    }
+                ]
+            }
+        ),
+        PATH_GROWTH_STREAK: ok_env({"streak": {"days": 5, "next_tier": "7d"}}),
+        "/billing/meter/checkin-status": ok_env({"total_credits": 100}),
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        calls.append((request.method, request.url.path))
+        for frag, resp_body in routes.items():
+            if frag in url:
+                return httpx.Response(200, json=resp_body)
+        return httpx.Response(404, json={"code": 404, "msg": "unmapped"})
+
+    # 路由与 workbuddy_tasks 都经 checkin_engine.client_for 取共享出口 ⇒ 换这一处即可
+    monkeypatch.setattr(checkin_engine, "_shared_client", httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), trust_env=False
+    ))
+
+    aid = await _seed_account(fake_store, name="WB预演号", platform="workbuddy")
+
+    resp = await client.post(
+        f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth", "dry_run": True}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    paths = [p for _m, p in calls]
+    assert PATH_GROWTH_TASKS in paths  # 只读列表确实打了
+    assert all(m == "GET" for m, _p in calls), calls
+    assert PATH_GROWTH_TASKS_ACCEPT not in paths
+    assert "/billing/meter/checkin-status" not in paths  # dry-run 连余额探针都不发
+
+    # 正向对照:同族非 dry_run ⇒ accept 的写侧 POST 真的发出(预演/实跑不是同一张脸)
+    calls.clear()
+    resp = await client.post(
+        f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth", "dry_run": False}
+    )
+    assert resp.status_code == 200
+    accept_calls = [(m, p) for m, p in calls if PATH_GROWTH_TASKS_ACCEPT in p]
+    assert accept_calls and all(m == "POST" for m, _p in accept_calls), calls
+
+    checkin_outbound_gate.reset()
+
+
+async def test_wb_task_routes_non_workbuddy_account_never_touches_upstream(
+    client, fake_store, monkeypatch
+):
+    """平台闸:非 WorkBuddy 账号 ⇒ 两条入口都给可判定失败(ok=false + reason),
+    而不是未判定,且一个上游请求都不发。"""
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="Trae号", platform="trae")
+
+    resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False and body["kind"] == "list"
+    assert body["reason"] and "WorkBuddy" in body["reason"]
+
+    resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False and body["kind"] == "growth"
+    assert body["reason"]
+
+    assert calls == []
+
+
+async def test_wb_task_routes_owner_mismatch_is_404(client, fake_store, monkeypatch):
+    """属主不匹配 ⇒ 两条入口一律 404(_wb_tasks_account_or_404 真的在 WHERE 里带上属主),
+    且早于任何上游动作。"""
+    from app.main import fastapi_app
+
+    calls = _stub_wb_upstream(monkeypatch)
+    aid = await _seed_account(fake_store, name="别人的 WB 号", platform="workbuddy")
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.get(f"/api/checkin/accounts/{aid}/tasks")
+        assert resp.status_code == 404
+        assert "账号不存在" in resp.json()["detail"]
+
+        resp = await client.post(f"/api/checkin/accounts/{aid}/task-run", json={"kind": "growth"})
+        assert resp.status_code == 404
+        assert "账号不存在" in resp.json()["detail"]
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+
+    assert calls == []
+
+# ⁠[IHUI-AI-PROVENANCE-TAIL]
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,130 @@
+{
+  "$schema_version": 1,
+  "_comment": "IHUI-AI dev 服务端口 + 命令注册表(与 docs/port-management.md §2 同步)。start-dev.ps1 读取此表按需启动 8 端。修改时同步更新 docs/port-management.md。",
+  "services": {
+    "web": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/web", "dev"],
+      "cwd": "apps/web",
+      "port": 8801,
+      "health": "http://localhost:8801",
+      "timeout_sec": 60
+    },
+    "api": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/api", "dev"],
+      "cwd": "apps/api",
+      "port": 8802,
+      "health": "http://localhost:8802/api/health",
+      "timeout_sec": 120
+    },
+    "ai-service": {
+      "cmd": "uv",
+      "args": ["run", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8803"],
+      "cwd": "apps/ai-service",
+      "port": 8803,
+      "health": "http://localhost:8803/health",
+      "timeout_sec": 240
+    },
+    "miniapp-taro": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/miniapp-taro", "dev:h5"],
+      "cwd": "apps/miniapp-taro",
+      "port": 8804,
+      "health": "http://localhost:8804",
+      "timeout_sec": 90
+    },
+    "mobile-rn": {
+      "_note": "本表 8805 仅对应仓库 start 脚本(expo --port 8805);手机 dev client 实际指向 8081(RN 默认),scripts/dev-stack.mjs --device 显式以 8081 启 Metro 并 adb reverse 转发到手机。详见 docs/port-management.md §5。",
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/mobile-rn", "start"],
+      "cwd": "apps/mobile-rn",
+      "port": 8805,
+      "health": "http://localhost:8805/status",
+      "timeout_sec": 90
+    },
+    "desktop": {
+      "_note": "tauri dev 不自占端口:beforeDevCommand 自起 web(8801),devUrl 指向 localhost:8801。port=8801 仅用于冲突检测+探活,禁止与 web 同组启动(next dev 会端口冲突)。首次 cargo 编译约 10 分钟,timeout 给 900s。工具链前置是两件事,缺一不可:①cargo 在 PATH(见 start-dev.ps1 自动注入);②MSVC 工具链已加载 —— build 与 pnpm dev:desktop:saas 入口由仓内脚本注入(scripts/desktop-build.mjs / scripts/desktop-dev-saas.mjs,判据唯一真相源 scripts/lib/msvc-env.mjs);本条目这条 pnpm --filter @ihui/desktop dev 同样已接注入(package.json 的 dev = node ../../scripts/desktop-build.mjs --dev),start-dev.ps1 的 link.exe 遮蔽诊断在经 wrapper 拉起时只记 info 不告警;只有绕过 wrapper 裸跑 tauri dev / tauri build / cargo build 时才会真撞上遮蔽,须自行在开发 shell 里加载 vcvars/vsdevcmd。②不能省的原因:src-tauri/.cargo/config.toml 的 linker = \"link.exe\" 是裸名,原样按 PATH 解析;本机系统 PATH 上有 Git 自带的 C:\\Program Files\\Git\\usr\\bin\\link.exe(GNU coreutils 同名程序)会顶掉 MSVC 链接器,未加载工具链时链接阶段报 link: missing operand after '\\377\\376',而该报错只字不提工具链 ⇒ 照它排查只会误查 cargo/PATH(cargo 其实一直在 PATH 里)。",
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/desktop", "dev"],
+      "cwd": "apps/desktop",
+      "port": 8801,
+      "health": "http://localhost:8801",
+      "timeout_sec": 900
+    },
+    "extension": {
+      "cmd": "pnpm",
+      "args": ["--filter", "@ihui/extension", "dev"],
+      "cwd": "apps/extension",
+      "port": 8808,
+      "health": null,
+      "timeout_sec": 60
+    },
+    "prod-proxy": {
+      "_note": "网页预览(mobile-rn Expo web :8806)连生产专用:CORS 注入反代,127.0.0.1:8807 → https://aizhs.top。由 scripts/dev-stack.mjs 作为可选服务托管(prod-proxy),node scripts/dev-prod-proxy.mjs。头注见脚本。",
+      "cmd": "node",
+      "args": ["scripts/dev-prod-proxy.mjs"],
+      "cwd": ".",
+      "port": 8807,
+      "health": "http://localhost:8807/api/health",
+      "timeout_sec": 30
+    },
+    "web-preview": {
+      "_note": "浏览器打开手机 App(mobile-rn 同一套代码走 react-native-web),由 scripts/dev-stack.mjs 作为可选服务托管(web-preview)。EXPO_PUBLIC_API_BASE_URL 须覆盖为 http://localhost:8807(prod-proxy),否则继承本机用户级生产域名而被浏览器 CORS 拦死。",
+      "cmd": "node",
+      "args": ["node_modules/expo/bin/cli", "start", "--web", "--port", "8806"],
+      "cwd": "apps/mobile-rn",
+      "port": 8806,
+      "health": "http://localhost:8806",
+      "timeout_sec": 120
+    },
+    "cli": {
+      "cmd": "pnpm",
+      "args": ["--filter", "ihui-cli", "dev"],
+      "cwd": "apps/cli",
+      "port": 8841,
+      "health": "http://localhost:8841/health",
+      "timeout_sec": 60
+    }
+  },
+  "all": ["web", "api", "ai-service", "miniapp-taro", "mobile-rn", "desktop", "extension", "cli"],
+  "default": ["web", "api", "ai-service"],
+  "_default_note": "2026-08-07 根治:默认组必须含 ai-service。此前仅 web+api,导致前端 /api/llm/* 代理到 8803 连接失败 → '模型连接失败'反复出现。",
+  "port_ranges": {
+    "app": [8801, 8809],
+    "infra": [8810, 8819],
+    "helper": [8820, 8829],
+    "saas": [8830, 8839],
+    "extension": [8840, 8849]
+  },
+  "_registered_ports_note": "本键是「哪些端口算已认领」的唯一清单(legal slot = 已占用 ∪ §2 明写的预留槽)。`scripts/check-port-registry.mjs` 必须从这里派生 REGISTERED_PORTS,**不得再在代码里手抄一份端口清单** —— 票 G-409 实测:手抄那份与 docs/port-management.md §2、本文件 `port_ranges` 三处各写各的,并且已经漂了一格(手抄面漏 8840,而 docs §2.5/§3.3 与本文件 extension 段起点都是 8840)。同一脚本另判 docs §2 表 ↔ 本清单**双向**对账(文档多报/漏报都点名),所以新增端口只有「改这一处 + 改 docs §2」一条路。`port_ranges` 仍是段位语义(给 start-dev/人读),不是认领清单。",
+  "registered_ports": [
+    {
+      "range": [8801, 8809],
+      "why": "§2.1 应用服务段(8806 由 Desktop 废弃后改派 mobile-rn Expo Web 预览)"
+    },
+    { "range": [8810, 8819], "why": "§2.2 基础设施段(8819 为 §2 明写的预留槽)" },
+    { "range": [8820, 8829], "why": "§2.3 辅助工具段(8822-8829 为预留槽)" },
+    { "range": [8830, 8839], "why": "§2.4 SaaS 部署段(8831-8839 为预留槽)" },
+    {
+      "range": [8840, 8849],
+      "why": "§2.5 CLI Agent(8841)+ 蓝绿部署预留(8840/8842-8849);段位起点 8840 见 §3.3"
+    },
+    {
+      "port": 8861,
+      "why": "§2.6 桌面端「加载本地 web 构建」的 devUrl 覆盖口 —— 旧配方 .ihui-agent/tmp/desktop-dev-override.json 已失效(该文件仓内不存在,也无任何脚本生成它);现存覆盖流程 = pnpm dev:desktop:saas,scripts/desktop-dev-saas.mjs 运行时把 config 生成进 scratch 临时目录(用完即删)后经 tauri dev --config 注入(带 MSVC 工具链),其覆盖目标是 8801 而非本槽;本槽保留为「认领」,便于日后把覆盖口改指 8861 时落在已注册集合内。命令形态见该脚本头注。"
+    },
+    {
+      "port": 8877,
+      "why": "§2.6 桌面遮罩 e2e 的私有 dev server —— 8850-8899 段内按 §3.1「认领」而非「豁免」的两枚之一"
+    },
+    {
+      "port": 8850,
+      "why": "§2.7 本地 Keycloak SSO 源站 —— 分域 SSO 架构里 sso.aizhs.top 的隧道 ingress 指向它(原 Keycloak 默认口 8543,按端口铁律改认领);切换须 CF 控制台 ingress 与本机 Keycloak 同步,见 scripts/start-cloudflared-tunnel.ps1 头注"
+    },
+    {
+      "port": 7864,
+      "why": "§2.8 号池网关单机档(relay-standalone)唯一对外入口 —— 88xx 铁律的「显式认领」例外(理由与边界写在 docs/port-management.md §2.8):对标竞品 workbuddy2api-panel 的固定对外口 7864,客户侧 base_url 的端口号属对外契约,换口即换契约;且它是部署态的宿主发布口,不是 dev/宿主开发映射口 —— 容器内部监听仍是 web 8801 / api 8802,88xx 段内语义未被侵占。认领而非豁免:走本清单 + docs §2 双向对账,不进 scripts/check-port-registry.mjs 的 EXEMPT_PORTS(那等于给整段开一张全仓通行证,同 §2.6 口径)。来源 deploy/relay-standalone/docker-compose.yml 的 gateway.ports: '${RELAY_STANDALONE_PORT:-7864}:7864';若该档改挂统一入口、撤掉独立发布口,须同笔删本条与 §2.8 那一行"
+    }
+  ]
+}

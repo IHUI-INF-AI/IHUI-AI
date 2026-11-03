@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "1ffe6baf-11fb-448d-aaa8-8ea64ea988ee",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\candidate.json",
+  "output": "G:\\IHUI-AI\\.archify\\architecture-goal-b42-g7-20261031-1235\\goal-b42-g7.html",
+  "specification": {
+    "sha256": "92ced3ebdfbdfd5779253a2079e65af43e75e797a1811aa8a4fea0fcadabb19a",
+    "bytes": 5520
+  },
+  "artifact": {
+    "sha256": "359f5d49f1c04a424d6229b93e32d6f72a68f0dfe452bc334ce14bc57df12229",
+    "bytes": 855130
+  }
+}

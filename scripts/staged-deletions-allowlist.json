@@ -1,0 +1,87 @@
+{
+  "$schemaNote": "本清单是守门 99(check-staged-deletions)的显式豁免面。每条必须写 reason —— 没有理由的条目等于把'删除'伪装成'已核实'。",
+  "paths": [
+    {
+      "path": "apps/ai-service/app/services/sandbox/models.py",
+      "reason": "G-1111920(2026-10-12)有意删除:该文件是 PEP 420 命名空间死载体 —— sandbox/ 目录无 __init__.py,CPython FileFinder 同路径条目先认文件模块,app.services.sandbox 恒解析到 sandbox.py,app.services.sandbox.models 结构上永不可达;HEAD 面零消费者(唯一 import 方在未合入的 WIP 27a102cdd7),已随整目录删除。引用方 scripts/tests/check-mypy-coverage-diff.test.mjs:268 的 REAL_SANDBOX_MODELS 常量不是在役依赖,而是 T8 重钉后的『面自洽锁』:镜像测试断言 pkg-dir 遮蔽记录与该死载体在 mypy 覆盖面里必须同进同退(faceHasModels ⇔ pkgEntry 在场),删除入库前走 pkgEntry 分支、入库后两者皆消失断言仍绿 —— 常量保留正是为了锁住『同名包目录遮蔽』这一型在门 35 覆盖面自证里的可判性,防止回滚删除或将来同型复发时静默失明。问责复跑:node scripts/check-staged-deletions.mjs --staged 与 pnpm 侧 node --test scripts/tests/check-mypy-coverage-diff.test.mjs(10/10)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/components/PageLoading.tsx",
+      "reason": "唯一引用方 apps/miniapp-taro/scripts/i18n-migration/codemod-i18n-10.py:23 是一条**已完成使命的一次性 codemod 的规则表项**,不构成在役依赖:该脚本 SRC 指向 `G:/IHUI-AI/apps/miniapp-taro/src`,此路径本机不存在(实测 fs.existsSync=false)⇒ 脚本根本不可执行;同目录 18 个迁移脚本对 `git grep -l i18n-migration`(排除自身目录)零命中 ⇒ 无任何在役调用方;其 RULES 里多个目标文件早于本枚就不存在。被删件自身的存续性已由守门 99 另一条证据排除:全仓 6642 个非测试文件按 import/barrel/JSX 三形态解析后消费者为 0(阳性对照 BackChevron=5、CategoryBar=8、NavBar=5 均 >0,证明尺子有效)。该件的语言包键 tail.8 与其同批删除。⇒ 该 codemod 的归档清理另计,不以本条豁免为终点。"
+    },
+    {
+      "path": "packages/app/src/components/SectionHeader.tsx",
+      "reason": "O92 票④(2026-09-30)有意删除,不是宿主清理层删的。三条证据同时成立:\n① 零消费者 —— 该名只被同目录 barrel(packages/app/src/components/index.ts:5-6)再导出;packages/app/src/index.ts 从 ./components 的值/类型出口里摘掉它之后,全仓(HEAD 面 git grep)没有任何一处按名从 @ihui/rn-app 取 SectionHeader。apps/web/app/(main)/plugins/PluginMarketplace.tsx 里的 <SectionHeader>(:416/:447)用的是**同文件 :490 自绘的局部函数**,与本件无引用关系。\n② 不是等价载体 —— 小程序端真正的渲染腿是 apps/miniapp-taro/src/components/adapters/SectionHeader.taro.tsx(pkg-learn/course-planet:243、pkg-learn/course/list:117、pkg-shop/wallet/commission:100 三处经 @/components/adapters 具名取用并渲染),它与被删件同取 packages/shared/src/ui/section-header-spec 的档值;RN 侧区段头部至今没有单一源(9+ 屏各自自绘),删掉本件不改变任何一屏的渲染。\n③ 形态孤岛 —— 本件是 RN 形态却从包公开出口不可达,门 128 在本票落地前的假设面预跑里对它的判定正是\"从端入口不可达\"。\n\n本条之所以必须登记(而不是让门 99 自己放过):它的 E2「替代路径」判据只认**同名同后缀**文件,而真替代腿叫 SectionHeader.taro.tsx(后缀不同)⇒ 认不出来;它 E1 点名的两处\"引用方\"逐条读原文均为**其他守门的测试夹具字符串**,不是对本报删件的引用 —— scripts/check-cross-end-ui-parity.mjs:3992 是自检里构造的假想路径表(表内写的是 apps/miniapp-taro/... 那一份),scripts/check-glyph-arrow-icon.mjs:1822 是内存夹具 packages/app/consumer.tsx 的源码串里的 import SectionHeader from '@/components/SectionHeader'(该夹具不落盘)。处置口径:登记本条并留取证,**不改别人守门的取证面**(那等于替他们的判据做裁决)。\n\n随本笔同改的清算面:packages/app/src/components/index.ts 去掉两条 export;packages/app/src/index.ts 从值与类型出口摘掉该名并就地写明摘除依据;packages/shared/src/ui/section-header-spec.ts 把\"RN 端本表零渲染腿\"里对本件的指认改成\"已于 2026-09-30 摘除\"。\n问责复跑:node scripts/check-staged-deletions.mjs。日后若要把 RN 侧区段头接进单一源,正确动作是按那份 spec 改 9+ 屏头部(属产品决策),而不是把本件加回来。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/components/SectionHeader.tsx",
+      "reason": "台账 L9142 P1-① 判定的落地动作(2026-10-09 **复删**):本件首次由枚 f04590afb8(2026-09-29)删除,随后被并发 union 合并 26537d0fca 按\"本侧整棵树\"整份带回(union-converge 的构造刻意不传播对侧删除 —— 那是为\"零丢失\"付的代价;守门 100 的 A1 只管\"新增文件被吞\",单文件删除复活对它结构失明),自那至今一直在 HEAD 里。三条证据同时成立(全部 HEAD 面现读):\n① 零 specifier 消费者 —— 用区段头的三个页面(pkg-learn/course-planet:14、pkg-learn/course/list:17、pkg-shop/wallet/commission:11)取用说明符逐条都是 `@/components/adapters`,全仓没有任何一处按 `…/components/SectionHeader` 说明符取本件;`apps/miniapp-taro/src/components/index.ts` 不递它;端内 config/constants 两面只在 ui-routes 产物的钉 input 清单里出现该路径(那是产物记账,不是在役引用,本门 ACCOUNTING 判据同口径)。\n② 与适配层**不等价** —— 真渲染腿 adapters/SectionHeader.taro.tsx 接 `colorScheme` 注入(:41 prop、:94 解构、:98 `colorScheme ?? appTheme`),本件不接 ⇒ 谁按名字误接它,拿到的是一份静默脱主题的区段头;这正是票面写死的删除正当性(不是\"没人用\",而是\"改了会静默错\")。\n③ 零独有内容 —— 落地前实测 `git hash-object <磁盘副本>` 与 `git rev-parse HEAD:<该路径>` 同为 7b876e216f6d0da6f8d40d3452a8f4cb16dcdca4。\n\n本条之所以必须登记(而不是让门 99 自己放过):它 E2「替代路径」只认同名同后缀文件,而真替代腿叫 SectionHeader.taro.tsx ⇒ 认不出来;packages/app 那份(同名的另一件)已于 O92 票④ 删除,所以现在两面都够不上 E2。它 E1 本次点名的两处\"引用方\"逐条读原文均为**其他守门的测试夹具字符串** —— scripts/check-cross-end-ui-parity.mjs 自检㊪「平台后缀必须能配对」传的是构造路径数组(不落盘、不读真仓),scripts/check-glyph-arrow-icon.mjs 的 only() 辅助里那句 `import SectionHeader from '@/components/SectionHeader'` 是内存夹具 packages/app/consumer.tsx 的源码串。处置口径与 packages/app 那条一致:登记本条并留取证,**不改别人守门的取证面**(那等于替他们的判据做裁决)。\n\n随本笔同改的清算面:packages/shared/src/ui/section-header-spec.ts 的\"这条删除需要每次合并后复核\"段续写第二次复活的出处(不留这一笔,后来人只会看到\"删过两次\"而不知道为什么);apps/miniapp-taro/src/constants/ui-routes.generated.ts 重跑生成器,使钉的输入集合与删除后一致(否则守门 105 G5 当场判陈旧)。\n问责复跑:`node scripts/check-staged-deletions.mjs` 与 `git cat-file -e HEAD:apps/miniapp-taro/src/components/SectionHeader.tsx`(后者应当失败)。日后若要给该端补一条\"页面直连腿\",正确动作是接进 adapters 那份的 colorScheme 契约,而不是把本件加回来。"
+    },
+    {
+      "path": "packages/app/src/components/Selecter.tsx",
+      "reason": "2026-10-15 有意删除(与本台账 SectionHeader 两条同型、同判据)。四条证据全部按当次 HEAD 面现读:\n① 零具名消费者 — 全仓按说明符解析后,指向本件的只有同包 barrel packages/app/src/components/index.ts 那一条(随本笔一并摘除);packages/app/src/index.ts 的值/类型出口同批摘除后,apps/mobile-rn、apps/desktop、packages/app/src/features 三面不存在任何从 @ihui/rn-app 取 Selecter 的调用点(实测 0 行)。\n② 两端各有现役腿,本件不是等价载体 — 小程序端走 apps/miniapp-taro/src/components/adapters/Selecter.taro.tsx(ModelConfigDialog.tsx:37 具名取用,:690/:785/:830/:843 四处渲染);RN 端走 apps/mobile-rn/src/components/ModelConfigDialog.tsx 自绘的 ModelSelecterDialog(:475 按 variant 分派)。删本件不改变任何一屏的渲染。\n③ 阴性结论配了阳性对照 — 同一次 git grep 里,说明符形态对 adapters/SectionHeader.taro 命中 1 条、对 DrawerComponent 命中 6 条,均大于 0,证明这条按名找说明符的尺子在跑;它第一版曾因把 git grep -l 的输出再按冒号切第二段而恒 0(坏尺子,不是没人用),已修后重取。\n④ 零独有内容 — 落地前实测 git rev-parse HEAD:本件 与磁盘副本 hash-object 同值,原文永久留在提交历史(本条上一枚提交即含它)。\nE2 为何不够:门 99 的\"替代路径\"只认同名同后缀文件,真替代腿叫 Selecter.taro.tsx(多一段 .taro),结构上认不出来,所以必须登记本条而不是等它自己放过。\n日后若要给 RN 侧接单一源,正确动作是把 ModelSelecterDialog 与 taro 腿一起收敛成一份平台无关源 + adapter 注入(AGENTS §3),而不是把本件加回来。\n问责复跑:node scripts/check-staged-deletions.mjs --staged;git grep -n Selecter HEAD -- packages/app(应只剩本台账与注释里的说明文字)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/components/Loading.tsx",
+      "reason": "2026-10-15 有意删除。三条证据按当次 HEAD 面现读:\n① 端内零消费者 — apps/miniapp-taro/src 全树没有任何说明符指向本件,components/index.ts 也不递它;唯一\"提及\"是派生产物 apps/miniapp-taro/src/constants/ui-routes.generated.ts 的 input 钉清单,那是生成器记账(门 99 ACCOUNTING 同口径,不是在役引用),已随本笔重跑生成器使该行消失。\n② 命中同名文件的 import 全是别端自己的实现 — apps/mobile-rn 四屏写的是 ../components/common/Loading,apps/web 的 ./Loading,各自解析到本端文件,与本件无引用关系。\n③ 端内现役加载载体是 LoadingSpinner.tsx(页面里被具名取用)。本件是门 128 跨端配对里\"同名不同腿\"的那一型:删除后该族配对自然消失,不需要为它写豁免,也不得反过来给单端补数字。\nE2 为何不够:apps/mobile-rn/src/components/common/Loading.tsx 虽同名同后缀,但在另一端,不构成本端替代腿 —— 按 E2 放行等于让\"别端有同名\"变成永久免检,那正是本门要防的伪装。\n删除的存续性由提交信息里的 intentional-delete: 短语交给门 168 记账(它的 DR1/DR2 正是为\"本侧显式删除被并发合并带回\"这一型而立)。\n问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-miniapp-generated.mjs(产物钉集合须与删除后一致)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/components/Menu.tsx",
+      "reason": "2026-10-15 有意删除。三条证据按当次 HEAD 面现读:\n① 端内零消费者 — 小程序菜单抽屉的真实现是 DrawerComponent.tsx(MaterialPopup:10、SkillsPopup:11、pages/community:19、pages/index:48、pages/user:23、pkg-ai/ai/ChatDrawers:9、pkg-ai/ranking/detail:11 等处具名取用并渲染);本件无任何说明符指向,components/index.ts 不递它。\n② 唯一同名命中的 import 在别端 — apps/mobile-rn/src/screens/CoursePlanetScreen.tsx:40 的 ../components/Menu 解析到 mobile-rn 自己的组件。\n③ 本件与 DrawerComponent 不等价:它的 DEFAULT_ITEMS 硬编码旧 tabbar 外链图标路径(bspapp CDN),而现役抽屉走 DrawerMenuItem + 主题注入 —— 谁按名字误接它,拿到是一份不跟主题、图标走外链的菜单。\"改了会静默错\"才是本条的删除正当性,不是\"没人用\"。\nE2 为何不够:apps/mobile-rn/src/components/Menu.tsx 同名同后缀但在另一端,不构成小程序侧替代腿。\n问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-glyph-arrow-icon.mjs --staged(该端返回键/菜单箭头唯一实现不得被这次删除摘线)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/login/login.tsx",
+      "reason": "2026-10-23 机主定档\"小程序端不该有登录页\"⇒ 有意删除登录页整族。删除的正当性不是\"没人用\",而是登录能力已经**逐条真机验过**地迁到唯一宿主:apps/miniapp-taro/src/pages/user/index.tsx 上的 LoginPopUp,内含 ① 微信手机号一键验证(2184a846a9f 之前已入库)② 收起态「密码登录」兜底(2184a846a9f 搬入)。拦着弹窗的那道登录墙也在 ad737b04ada 拆掉(401 分型:游客打到鉴权端点不再被 reLaunch 到登录页)。去登录界面的路由已收成单一出口 utils/auth.ts 的 goToLogin()(原先这条路由串被硬编码在 8 处)。真机取证(微信开发者工具 Stable 2.02.2608080,启动页 pages/user/index,未登录):「我的」页正常渲染、页面路径 = pages/user/index、点「点击登录」弹窗打开且两个入口都在;产物面 dist/pages/login 目录不存在、dist/app.json 里 pages/login 命中 0 条。随页面一起去掉的能力(机主看过取舍后决定,不是遗漏):邮箱验证码登录、手机号验证码登录、以及页面上\"没有账号?立即注册\"的自动回跳(注册页本身还在)。 唯一剩余\"引用方\" apps/miniapp-taro/scripts/i18n-migration/nav-title-i18n.py:17 是**已完成使命的一次性 i18n 迁移脚本的路由别名表项**,不是在役依赖(同清单 PageLoading.tsx 那条已确立同型口径:该目录下的 codemod 规则表项不构成引用)。不得为了让门变绿去改那个迁移脚本的历史规则表 ——那是替别人的取证面做裁决。问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-miniapp-generated.mjs(产物钉集合须与删除后一致)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/login/login.css",
+      "reason": "2026-10-23 随登录页同批删除。本件里的**登录字段样式不是被丢掉,而是被提到全局**:app.css 的\"登录字段(全局唯一一份)\"块持有 .login-field / .login-label / .login-label-row / .login-input,由登录页与「我的」弹窗两个宿主共用(§0.6 不在端内出现第二套输入框视觉);页面私有表里只保留 .login-phone-row .login-input 这类**复合覆盖**选择器,特异度更高、与加载顺序无关。锁:apps/miniapp-taro/tests/login-popup-password-fallback.test.tsx 断言 app.css 必须定义这四个类(正例,防\"两处都没有\"的假绿)。引用方同上:一次性迁移脚本的别名表项 + 本条豁免自述。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/login/login.config.ts",
+      "reason": "2026-10-23 随登录页同批删除(页面级路由配置,只服务本页面,页面没了它不可能有消费者)。app.config.ts 里的 `root: 'pages/login'` 子包注册同批摘除,并由测试锁住\"不许再注册回来\"(判据遮注释后再判,免得把\"历史注记讲过这件事\"误判成\"还在做这件事\")。"
+    },
+    {
+      "path": "apps/miniapp-taro/tests/login-thirdparty-entries.test.tsx",
+      "reason": "2026-10-23 随其被测对象(登录页)删除。**它锁的性质没有跟着删** —— \"登录界面不许挂点了拿不回登录态的假入口\"已迁到弹窗侧继续锁:tests/login-popup-password-fallback.test.tsx 断言① 弹窗不渲染 oauth 图标格、不引 Google 素材;② 弹窗源码不往 /pages/webview 那条死路导航(那条路从没有一方接管 sso 回传);③ 7 个原硬编码登录页路由的调用点全部归零。登记本条而不是让门自己放过:门 99 的替代路径判据只认同名同后缀文件,而新载体住在另一个文件名里。"
+    },
+    {
+      "path": "candidates2.txt",
+      "reason": "2026-10-23 摘除根目录一次性扫描草稿。三条实测凭据:① 零消费方 —— git grep -l 现读命中文件数 0;② 成因是收集器误收 —— 入库枚 411646ee58 的提交信息自述 chore(auto): 收编停留≥3分钟的未提交改动,即 §15 要求落 .ihui-agent/tmp/<任务名>/ 的临时件被整目录收编器顺手带回 HEAD;③ 它此刻正顶着一道 blocking 门 —— node scripts/check-root-dir-clean.mjs 现读末行『根目录整洁守门失败:一级目录存在白名单外条目 · candidates2.txt (文件)』。内容不是资产而是可再生产物:同形态的调用点↔后端在册对照由守门 8(check-api-routes.mjs)每次现算,不靠盘上一枚快照;正解按门 44 的处置档是删除而非进白名单(白名单只收配置/标准文档/标准目录)。"
+    },
+    {
+      "path": "apps/cli/src/tools/argument-repair-loop.ts",
+      "reason": "随本批有意退役(2026-10-31):修复预算的唯一在役实现是 apps/cli/src/tools/index.ts 的 telemetry 连续窗(TOOL_ARG_REPAIR_MAX_ATTEMPTS 单源为 3),被删件是『坐着没人 import』的等宿主死载体。本门 E1 点名的唯一引用方 apps/cli/tests/argument-repair-loop-adjudication.test.ts:134 不是在役依赖,而是退役锁用例本体 —— 该用例断言 existsSync(该路径)===false(文件必须不存在),与同文件 :7 头注、:115『src/**/*.ts 不再出现 argument-repair-loop / createArgumentRepairSession』共同构成退役锁三件套;vitest 现跑 tests/argument-repair-loop-adjudication.test.ts + tests/danger-confirm-contract.test.ts 共 10/10 绿。本条豁免仅记录这一『否定断言』引用形态,不改门 99 判据;日后同型(测试断言文件不存在被 E1 点名)按本条口径办理。问责复跑:node scripts/check-staged-deletions.mjs --staged。"
+    },
+    {
+      "path": "apps/cli/tests/argument-repair.test.ts",
+      "reason": "随被测件同批退役(2026-10-31):本测试的被测符号 normalizeSubmit / createArgumentRepairSession / REPAIR_ATTEMPTS / NUDGE_ATTEMPTS 全部住在同批删除的 apps/cli/src/tools/argument-repair-loop.ts(证据:git grep 这四个符号 HEAD -- apps/cli/src 只命中该文件;本批改写后的工作树 src 零命中),修复行为锁由 tests/argument-repair-loop-adjudication.test.ts 的『② 留存实现:telemetry 连续窗』段承接(TOOL_ARG_REPAIR_MAX_ATTEMPTS 常量单源为 3 + 时序断言)。本门 E1『它测的模块仍在 apps/cli/src/tools/index.ts』是误判形态:该测试对 index.js 只 import 了 type ToolSchema 类型标注,并非被测主体;门按 import 文件存在即判『被测模块仍在』,识别不出『仅类型 import + 被测符号全数退役』。本条豁免记录该形态,不改门判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;承接锁 apps/cli 内 pnpm exec vitest run tests/argument-repair-loop-adjudication.test.ts(4/4)。"
+    },
+    {
+      "path": "scripts/tests/check-monitor-vocabulary-single-source.test.mjs",
+      "reason": "2026-10-31 有意删除:本文件测的实现在同一枚里一并删除 —— 它是本席 19:20 落地的词表尺子(未注册、头注自称尚未接提交链),而并席 19:53 已落地等价的 check-monitor-alert-vocabulary.mjs(编号 268、blocking、差值棘轮、已注册进 guardian-runner、已完成 AGENTS 点名)⇒ 两份实现同一件事违反 §0.6「同类判据全仓只许一份,第二份必然漂移」。被删源文件在门 99 自身结论里判 [no-reference](不计红),本测试随之删除。关于门报的「它测的模块仍在 ../lib/face-reader.mjs 与 ../lib/scratch-dir.mjs」:那两个是**被它使用的公共 lib**,不是仍在引用它的消费者 —— 门 99 对被删件取的是「谁 import 我」这一反向,而本轮取证行给的是「我 import 了谁」,该维对被删测试恒成立、不构成存续证据(判据方向问题另记,不在本枚削判据)。保留方 268 的镜像与自检:node scripts/check-monitor-alert-vocabulary.mjs --self-test。"
+    },
+    {
+      "path": "scripts/tests/check-cross-end-ui-parity-cssvar.test.mjs",
+      "reason": "有意摘除重复镜像锁(2026-11-01):本席为门 128 几何维加的 CSS 命名档腿(var(--spacing-*)/var(--text-*))与间距档键长修复,已被并席票 O67(88bd07c0c0)以更贴实现落点的方式重做并入库 —— 解值住在 lib/radius-tokens.cssVarItemsInSrc + 门体经 lib/design-token-blocks.collectVars 直读 tokens.css 受管块(浏览器真正解析的那一份),并互证小程序派生副本、失明扫描面含类臂声明体。那 9 例(var 解值成同档 / 解不到逐枚点名 / 行高字重圆角不串味 / 0 值不入集 / 键长回归 / CategoryBar 端到端零分叉)在对面那套 C14/C15/C16/C17/C9/C13/C8b 里逐条有更贴实现落点的版本,两把并留必然按 §0.6 漂开。",
+      "ticket": "O67",
+      "until": "2027-05-01"
+    },
+    {
+      "path": "apps/api/tests/agent-tasks-createdby-isolation.test.ts",
+      "reason": "2026-11-02 有意删除:本文件是 ef1c716616 自动收编时随 fail-open 归属面半成品一并带上主干的 3 个新测试之一。按 ef1c716616~1 基线恢复归属面(fail-closed)后,它测的 findAgentTasksByAgentId 三参 viewer 语义不在基线,实测对基线红。删除不是丢锁:基线归属面的 fail-closed 锁由 tests/subagents-ownership-backfill.test.ts(9/9)与 tests/subagents-id-ownership.test.ts(8/8)承接,本枚复跑 40/40 全绿。"
+    },
+    {
+      "path": "apps/api/tests/subagent-dispatch-restart-recovery.test.ts",
+      "reason": "2026-11-02 有意删除:同属 ef1c716616 收编带回的 fail-open/E1 半成品测试。它锁的 INSTANCE_HEARTBEAT_MS 心跳与重启队列恢复在 ef1c716616~1 基线不存在(基线服务无该常量),实测对基线红。该能力若要落地应作为独立票重新实现并配锁,不以把主干恢复到 fail-open 的方式回填。"
+    },
+    {
+      "path": "apps/api/tests/subagents-collaboration-ownership.test.ts",
+      "reason": "2026-11-02 有意删除:同属 ef1c716616 收编带回的半成品测试。它锁的 :id/collaboration 租户闸不在 ef1c716616~1 基线(基线路由无此闸),实测 ③ 未标注记录用例实得 404/应为 200 ⇒ 文件红。S-ACL-COLLAB 的协作面归属收窄应独立成票重新落地,不以把主干恢复到 fail-open 的方式回填。"
+    },
+    {
+      "path": "deploy/cf-preferred-ip.mjs",
+      "reason": "2026-11-02 有意删除(整链退役收尾):本件早由 7c02b0fb48 删除,但该枚不是 HEAD 祖先,自动收编只带回了配套测试口径而未带回删除,导致 check-plan-claims-vs-head 期待 retired 而文件仍在 HEAD。本门 E1 点名的唯一引用方 scripts/tests/check-plan-claims-vs-head.test.mjs:127 不是消费者,而是退役锁的判据目标字面量 —— 该用例断言本路径必须不在 HEAD 且删除证据带枚 sha;同口径记载在 PROJECT_PLAN.md(整链退役:脚本与 .env.example 删除、.gitignore 条目摘除)。本条豁免仅记录『否定断言引用』这一形态,不改门 99 判据。问责复跑:node --test scripts/tests/check-plan-claims-vs-head.test.mjs。"
+    }
+  ]
+}

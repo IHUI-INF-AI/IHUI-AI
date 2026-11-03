@@ -1,0 +1,108 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Sync Downloads
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 每天凌晨 3 点 UTC(北京时间 11 点)定时同步 extension 下载包
+    - cron: '0 3 * * *'
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  sync:
+    name: Sync Download Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Configure npm registry
+        run: pnpm config set registry https://registry.npmmirror.com
+
+      - name: Install pnpm deps
+        # 2026-11-01 供应链强化:本作业把产物同步到**对外下载面**,故与 release-desktop
+        # 同批收口到 `--frozen-lockfile`(依据同处注释:ci.yml 一直在用 frozen 且为绿;
+        # pnpm-lock.yaml 不存 tarball 主机名 ⇒ 镜像源不影响锁有效性)。
+        run: pnpm install --frozen-lockfile
+
+      # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建(api-client 产物化后入口 → dist,
+      # 全新 checkout 不先构建依赖,wxt/vite 解析报 "Failed to resolve entry",
+      # desktop-v0.1.43 run 35561898979 实测同病,两处一起根治)
+      - name: Build extension
+        run: pnpm --filter @ihui/extension... build
+
+      - name: Sync downloads
+        run: node scripts/sync-downloads.mjs
+
+      # 动态刷新桌面下载快照(幂等;主要刷新时机在 release-desktop.yml,
+      # 本步骤兜底 release workflow 提交失败或手动发布等情况)
+      # 桌面下载快照:只做**漂移核对**,不再试图 push 回 main。
+      #
+      # 2026-10-17 实测(这一格是整条自动化链的真实断点,不要"再修一遍 push"):
+      #   main 开了 required status check「CI / lint-typecheck-test (push)」;而 GitHub 规定
+      #   用 GITHUB_TOKEN 推送产生的 commit **不会触发新的 workflow run** ⇒ 该 check 在 bot
+      #   提交上永远缺席 ⇒ push 恒被拒:
+      #       remote: error: GH006: Protected branch update failed for refs/heads/main.
+      #       remote: - Required status check "CI / lint-typecheck-test (push)" is expected.
+      #   后果:自 2026-10-11 起本 workflow 连日 failure,线上下载页与更新器长期停在 0.1.54。
+      #
+      #   版本号这条线已经不再依赖"生成物入库"了 —— 站点运行期直接读发布源
+      #   (apps/web/src/config/desktop-feed-live.ts)。所以这里改成:
+      #     · 有漂移 ⇒ 上传解析结果当 artifact 供人取用,并把 workflow 标红(仍是有用的信号);
+      #     · 绝不 push ⇒ 不再制造"每天一个必然失败的 run",那正是问题被掩盖四天的推手。
+      #   想让快照入库,需要的是"能触发 check 的身份"(PAT / GitHub App token),不是改命令。
+      - name: Resolve desktop download feed (drift check only)
+        run: node scripts/resolve-desktop-download.mjs
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain apps/web/public/downloads/ apps/web/src/config/desktop-feed.generated.ts)" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload resolved feed snapshot (not pushed)
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-feed-snapshot
+          path: apps/web/src/config/desktop-feed.generated.ts
+
+      - name: Report snapshot drift
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          echo "::warning::桌面下载快照与线上不一致,但**不会**被 push(main 分支保护拒收 GITHUB_TOKEN 推送)。解析结果已上传为 artifact:desktop-feed-snapshot。"
+
+      - name: Summary
+        run: |
+          echo "### Downloads 同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "触发方式: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "extension 下载包已同步到 apps/web/public/downloads/" >> $GITHUB_STEP_SUMMARY
+          echo "桌面下载快照漂移核对完成(2026-10-17 起不再 push 回 main,原因见 workflow 内注释)" >> $GITHUB_STEP_SUMMARY
+          echo "变更状态: ${{ steps.changes.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "线上下载页/更新器已改为运行期直读发布源,不依赖本快照" >> $GITHUB_STEP_SUMMARY
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

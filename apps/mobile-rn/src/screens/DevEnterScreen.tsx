@@ -1,0 +1,603 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * DevEnterScreen 我的智能体管理页(mobile-rn 端)
+ *
+ * 对齐历史项目 pagesA/dev_enter/index.vue(标题「我的智能体」):
+ * - 原页面 = 智能体审核/发布状态管理列表页(非"开发者申请表单"——申请表单语义由 DevEnterCoverScreen 承载)
+ * - 一级 Tab(headTypes):待发布(draft) / 审核中(pending) / 已发布(published)
+ * - 二级 Tab(tabbarList,仅待发布状态组显示):全部(draft) / 审核失败(rejected) / 已下架(offline)
+ * - SearchInput 搜索框(keyword → agent_name 语义,getAgents keyword 参数)
+ * - 智能体卡片列表(StateCard):头像 184rpx + 名称(#517BFF 32rpx) + 简介(#414141 24rpx 6 行截断)
+ *   - 待发布:右侧「设置」按钮 → ModelEdit(对齐 toDevEdit('edit'))
+ *   - 审核中:右侧「审核中」文字
+ *   - 已发布:右下「下架」按钮(紫色下划线) → 下架确认弹窗 → PUT /agents/:id status=offline(对齐 deleteZntCharge)
+ * - 分页加载(page/pageSize=10)+ 下拉刷新 + 触底加载更多
+ * - 空列表:Empty 组件提示
+ *
+ * 数据源:getAgents({ userId, status, keyword, page, pageSize })(api-client 已有封装,
+ * AgentStatus 枚举 draft/pending/published/rejected/offline 与 Uniapp headTypes/tabbarList 一一对应)
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  FlatList,
+  Image,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { appAlert } from '../components/BottomPops'
+import { getAgents, fetchApi, type Agent, type AgentStatus } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { tokens } from '../theme/active-tokens'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { NavBar } from '../components/NavBar'
+import Empty from '../components/common/Empty'
+import { SearchInput } from '@ihui/rn-app'
+import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** 一级 Tab(对齐 Uniapp headTypes:待发布/审核中/已发布;label 存 i18n 键) */
+const HEAD_TABS: readonly { id: AgentStatus; labelKey: string }[] = [
+  { id: 'draft', labelKey: 'devEnter.tabDraft' },
+  { id: 'pending', labelKey: 'devEnter.tabPending' },
+  { id: 'published', labelKey: 'devEnter.tabPublished' },
+]
+
+/** 二级 Tab(对齐 Uniapp tabbarList:全部/审核失败/已下架,仅待发布状态组显示) */
+const SUB_TABS: readonly { id: AgentStatus; labelKey: string }[] = [
+  { id: 'draft', labelKey: 'devEnter.tabAll' },
+  { id: 'rejected', labelKey: 'devEnter.tabRejected' },
+  { id: 'offline', labelKey: 'devEnter.tabOffline' },
+]
+
+const PAGE_SIZE = 10
+
+/** 状态 → i18n 键(卡片右侧操作文案;消费处 t 解析) */
+const STATUS_TEXT: Record<AgentStatus, string> = {
+  draft: 'devEnter.tabDraft',
+  pending: 'devEnter.tabPending',
+  published: 'devEnter.tabPublished',
+  rejected: 'devEnter.tabRejected',
+  offline: 'devEnter.tabOffline',
+}
+
+/** 时间格式化(YYYY-MM-DD HH:mm) */
+function formatTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+export default function DevEnterScreen() {
+  const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
+  const { user } = useAuth()
+  const { resolvedTheme } = useTheme()
+
+  const [headTab, setHeadTab] = useState<AgentStatus>('draft')
+  const [subTab, setSubTab] = useState<AgentStatus>('draft')
+  const [keyword, setKeyword] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [list, setList] = useState<Agent[]>([])
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [total, setTotal] = useState(0)
+  // 下架确认弹窗(对齐 Uniapp prompt_dialog)
+  const [offlineTarget, setOfflineTarget] = useState<Agent | null>(null)
+  const [offlining, setOfflining] = useState(false)
+
+  /** 当前生效状态:已发布/审核中直接映射;待发布组走二级 Tab 映射 */
+  const activeStatus: AgentStatus =
+    headTab === 'published' ? 'published' : headTab === 'pending' ? 'pending' : subTab
+
+  const load = useCallback(
+    async (pageNum: number, replace: boolean, showRefresh: boolean): Promise<void> => {
+      if (showRefresh) setLoading(true)
+      try {
+        const res = await getAgents({
+          userId: user?.id ?? undefined,
+          status: activeStatus,
+          keyword: keyword.trim() || undefined,
+          page: pageNum,
+          pageSize: PAGE_SIZE,
+        })
+        if (res.success) {
+          const items = res.data?.list ?? []
+          setList((prev) => (replace ? items : [...prev, ...items]))
+          setTotal(res.data?.total ?? items.length)
+          setHasMore(items.length >= PAGE_SIZE)
+          setPage(pageNum)
+        } else {
+          appAlert(t('common.hint'), res.error || t('devEnter.loadFailRetry'))
+        }
+      } catch (e: unknown) {
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+        appAlert(
+          t('common.hint'),
+          detail.trim() ? toUserFriendlyMessage(e) : t('devEnter.loadFailNet'),
+        )
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [activeStatus, keyword, t, user?.id],
+  )
+
+  // 状态/搜索变化 → 重置并加载第一页
+  useEffect(() => {
+    setList([])
+    setPage(1)
+    setHasMore(true)
+    void load(1, true, true)
+  }, [activeStatus, load])
+
+  const onRefresh = useCallback((): void => {
+    setRefreshing(true)
+    void load(1, true, false)
+  }, [load])
+
+  const onLoadMore = useCallback((): void => {
+    if (loading || refreshing || !hasMore) return
+    void load(page + 1, false, false)
+  }, [loading, refreshing, hasMore, load, page])
+
+  const handleSearch = useCallback((): void => {
+    setKeyword(searchInput.trim())
+  }, [searchInput])
+
+  /** 下架确认(对齐 Uniapp showWindow → deleteZntCharge:PUT /agents/:id status=offline) */
+  const confirmOffline = useCallback(async (): Promise<void> => {
+    if (!offlineTarget) return
+    setOfflining(true)
+    try {
+      const res = await fetchApi<Agent>(`/agents/${offlineTarget.agentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'offline' }),
+      })
+      if (res.success) {
+        setList((prev) => prev.filter((a) => a.agentId !== offlineTarget.agentId))
+        setTotal((n) => Math.max(0, n - 1))
+        setOfflineTarget(null)
+      } else {
+        appAlert(t('common.hint'), res.error || t('devEnter.offlineFailRetry'))
+      }
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      appAlert(
+        t('common.hint'),
+        detail.trim() ? toUserFriendlyMessage(e) : t('devEnter.offlineFailNet'),
+      )
+    } finally {
+      setOfflining(false)
+    }
+  }, [offlineTarget, t])
+
+  const renderCard = useCallback(
+    ({ item }: { item: Agent }) => {
+      const isPublished = item.status === 'published'
+      const isPending = item.status === 'pending'
+      return (
+        <View style={styles.card}>
+          <View style={styles.cardTop}>
+            <View style={styles.avatarWrap}>
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.avatar} resizeMode="cover" />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <Text style={styles.avatarFallbackText}>{item.name.slice(0, 1)}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.cardDesc} numberOfLines={2}>
+                {item.description || t('devEnter.noDesc')}
+              </Text>
+              <View style={styles.cardFooter}>
+                {isPublished ? (
+                  <TouchableOpacity onPress={() => setOfflineTarget(item)} activeOpacity={0.7}>
+                    <Text style={styles.offlineBtn}>{t('devEnter.offlineBtn')}</Text>
+                  </TouchableOpacity>
+                ) : isPending ? (
+                  <Text style={styles.statusText}>{t('devEnter.tabPending')}</Text>
+                ) : (
+                  <>
+                    {item.status === 'draft' ? (
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('ModelEdit', { agentId: item.agentId })}
+                        activeOpacity={0.7}
+                        style={styles.setBtn}
+                      >
+                        <Text style={styles.setBtnText}>{t('devEnter.setBtn')}</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.statusText}>{t(STATUS_TEXT[item.status])}</Text>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+          {isPublished ? (
+            <View style={styles.publishedMeta}>
+              <Text style={styles.metaLine}>
+                {t('devEnter.categoryLabel')}
+                {item.categoryId || t('devEnter.uncategorized')}
+              </Text>
+              <Text style={styles.metaLine}>
+                {t('devEnter.publishTimeLabel')}
+                {formatTime(item.createdAt) || '—'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      )
+    },
+    [navigation, t],
+  )
+
+  const items = useMemo(() => list, [list])
+
+  return (
+    <View style={styles.shell}>
+      <NavChrome>
+        <NavBar title={t('devEnter.myAgents')} onBack={() => navigation.goBack()} />
+      </NavChrome>
+
+      {/* 一级 Tab(对齐 Uniapp models_bar headTypes) */}
+      <View style={styles.headTabBar}>
+        {HEAD_TABS.map((tab) => {
+          const active = headTab === tab.id
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.headTab, active ? styles.headTabActive : null]}
+              onPress={() => setHeadTab(tab.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={active ? styles.headTabTextActive : styles.headTabText}>
+                {t(tab.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+
+      {/* SearchInput 搜索框(对齐 Uniapp SearchInput → searchChange;原 UI 无语音入口故 voiceEnabled 关闭) */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchField}>
+          <SearchInput
+            value={searchInput}
+            onChangeText={setSearchInput}
+            placeholder={t('devEnter.searchPh')}
+            onSubmit={handleSearch}
+            colorScheme={resolvedTheme}
+            voiceEnabled={false}
+          />
+        </View>
+        <TouchableOpacity style={styles.searchBtn} onPress={handleSearch} activeOpacity={0.8}>
+          <Text style={styles.searchBtnText}>{t('devEnter.searchBtn')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 二级 Tab(仅待发布组显示,对齐 Uniapp models_bar2 tabbarList) */}
+      {headTab === 'draft' ? (
+        <View style={styles.subTabBar}>
+          {SUB_TABS.map((tab) => {
+            const active = subTab === tab.id
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.subTab, active ? styles.subTabActive : null]}
+                onPress={() => setSubTab(tab.id)}
+                activeOpacity={0.8}
+              >
+                <Text style={active ? styles.subTabTextActive : styles.subTabText}>
+                  {t(tab.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      ) : null}
+
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.agentId}
+        renderItem={renderCard}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onEndReachedThreshold={0.3}
+        onEndReached={onLoadMore}
+        ListEmptyComponent={
+          loading ? null : (
+            <Empty text={keyword ? t('devEnter.emptyNoMatch') : t('devEnter.emptyAgents')} />
+          )
+        }
+        ListFooterComponent={
+          list.length > 0 ? (
+            <Text style={styles.footerText}>
+              {loading ? t('devEnter.loading') : hasMore ? '' : t('devEnter.footerDone', { total })}
+            </Text>
+          ) : null
+        }
+      />
+
+      {/* 下架确认弹窗(对齐 Uniapp prompt_dialog:是否确定下架此智能体) */}
+      <Modal
+        visible={offlineTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOfflineTarget(null)}
+      >
+        <View style={styles.mask}>
+          <View style={styles.promptDialog}>
+            <Text style={styles.promptContent}>{t('devEnter.offlineConfirmBody')}</Text>
+            <View style={styles.promptFooter}>
+              <Tappable
+                style={[styles.promptBtn, styles.promptCancel]}
+                onPress={() => setOfflineTarget(null)}
+                disabled={offlining}
+              >
+                <Text style={styles.promptCancelText}>{t('common.cancel')}</Text>
+              </Tappable>
+              <Tappable
+                style={[styles.promptBtn, styles.promptConfirm]}
+                onPress={() => void confirmOffline()}
+                disabled={offlining}
+              >
+                <Text style={styles.promptConfirmText}>
+                  {offlining ? t('devEnter.processing') : t('devEnter.confirmOk')}
+                </Text>
+              </Tappable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+  } as ViewStyle,
+  headTabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(16),
+    gap: rpx(16),
+  } as ViewStyle,
+  headTab: {
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(10),
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.muted,
+  } as ViewStyle,
+  headTabActive: {
+    backgroundColor: tokens.brand.cta,
+  } as ViewStyle,
+  headTabText: {
+    fontSize: rnType.body.size,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  headTabTextActive: {
+    fontSize: rnType.body.size,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '600',
+  } as TextStyle,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(12),
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(8),
+  } as ViewStyle,
+  searchField: {
+    flex: 1,
+  } as ViewStyle,
+  searchBtn: {
+    height: 38,
+    paddingHorizontal: rpx(20),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  searchBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.brand.ctaForeground,
+  } as TextStyle,
+  subTabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(12),
+    gap: rpx(12),
+  } as ViewStyle,
+  subTab: {
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(6),
+    borderRadius: rnRadius.md,
+  } as ViewStyle,
+  subTabActive: {
+    backgroundColor: tokens.surface.muted,
+  } as ViewStyle,
+  subTabText: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  subTabTextActive: {
+    fontSize: 13,
+    color: tokens.brand.DEFAULT,
+    fontWeight: '600',
+  } as TextStyle,
+  listContent: {
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(32),
+    flexGrow: 1,
+  } as ViewStyle,
+  card: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.gray[300],
+    borderRadius: rnRadius.lg,
+    marginTop: rpx(18),
+    backgroundColor: tokens.surface.card,
+    padding: rpx(20),
+  } as ViewStyle,
+  cardTop: {
+    flexDirection: 'row',
+  } as ViewStyle,
+  avatarWrap: {
+    marginRight: rpx(18),
+  } as ViewStyle,
+  avatar: {
+    width: rpx(184) / 2,
+    height: rpx(184) / 2,
+    borderRadius: rnRadius.lg,
+  } as ImageStyle,
+  avatarFallback: {
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  avatarFallbackText: {
+    fontSize: rnType.display.size,
+    fontWeight: '600',
+    color: tokens.text.secondary,
+  } as TextStyle,
+  cardContent: {
+    flex: 1,
+  } as ViewStyle,
+  cardTitle: {
+    fontSize: rnType.title.size,
+    color: tokens.agentName.DEFAULT,
+  } as TextStyle,
+  cardDesc: {
+    fontSize: rnType.label.size,
+    color: tokens.text.medium,
+    lineHeight: 18,
+    marginTop: rnSpacing.xs,
+  } as TextStyle,
+  cardFooter: {
+    marginTop: rpx(10),
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  } as ViewStyle,
+  setBtn: {
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(6),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+  } as ViewStyle,
+  setBtnText: {
+    fontSize: rnType.label.size,
+    color: tokens.brand.ctaForeground,
+    fontWeight: '500',
+  } as TextStyle,
+  statusText: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  offlineBtn: {
+    fontSize: rnType.body.size,
+    color: tokens.brandAccent.deep,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  } as TextStyle,
+  publishedMeta: {
+    marginTop: rpx(16),
+    paddingTop: rpx(14),
+    gap: rpx(6),
+  } as ViewStyle,
+  metaLine: {
+    fontSize: rnType.label.size,
+    color: tokens.text.medium,
+  } as TextStyle,
+  footerText: {
+    textAlign: 'center',
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+    paddingVertical: rpx(16),
+  } as TextStyle,
+  mask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  promptDialog: {
+    width: rpx(431) / 2,
+    borderRadius: rnRadius.xl,
+    backgroundColor: tokens.surface.muted,
+    paddingVertical: rpx(36),
+    paddingHorizontal: rpx(24),
+    alignItems: 'center',
+  } as ViewStyle,
+  promptContent: {
+    fontSize: 13,
+    fontWeight: '500',
+    // 强调文字取 brandAccent.deep(rn-tokens 注:deep=浅底上的文字/图标变体;同族先例 BottomPopup 提示文字)
+    color: tokens.brandAccent.deep,
+    letterSpacing: 1,
+    textAlign: 'center',
+  } as TextStyle,
+  promptFooter: {
+    flexDirection: 'row',
+    marginTop: rpx(28),
+    gap: rpx(24),
+  } as ViewStyle,
+  promptBtn: {
+    width: rpx(143) / 2,
+    height: rpx(54) / 2,
+    borderRadius: rnRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  promptCancel: {
+    backgroundColor: tokens.surface.card,
+  } as ViewStyle,
+  promptConfirm: {
+    // 强调底色取 brandAccent.DEFAULT(同族先例 BottomPopup:DEFAULT 仅作底色,前景另用 deep)
+    backgroundColor: tokens.brandAccent.DEFAULT,
+  } as ViewStyle,
+  promptCancelText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.medium,
+  } as TextStyle,
+  promptConfirmText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.primary,
+  } as TextStyle,
+})
+
+export { DevEnterScreen }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

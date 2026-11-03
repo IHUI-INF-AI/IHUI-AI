@@ -1,0 +1,138 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+
+import { useMemo } from 'react'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { FeedbackDetailItem, FeedbackDetailScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 反馈详情/Props 类型 re-export(单一来源 @ihui/types) */
+export type { FeedbackDetailItem, FeedbackDetailScreenProps }
+
+/**
+ * 反馈详情共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题)+ badgeRow(type/status 徽章)
+ * + 内容 + 创建时间 + 回复(空态斜体)+ loading / error 态。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function FeedbackDetailScreen({
+  t,
+  item,
+  loading,
+  error,
+  onBack,
+  onRetry,
+  colorScheme = 'light'
+}: FeedbackDetailScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+      </View>
+    )
+  }
+
+  if (error || !item) {
+    return (
+      <ErrorState
+        message={error || t('feedbackDetail.empty')}
+        onRetry={onRetry}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
+    )
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('feedbackDetail.title')}</Text>
+      </View>
+      <View style={styles.body}>
+        <View style={styles.badgeRow}>
+          <Text style={styles.typeBadge}>{item.type}</Text>
+          <Text style={styles.statusBadge}>{item.status}</Text>
+        </View>
+        <Text style={styles.labelTitle}>{t('feedbackDetail.content')}</Text>
+        <Text style={styles.content}>{item.content}</Text>
+        <Text style={styles.createdAt}>{item.createdAt}</Text>
+        <Text style={styles.labelTitle}>{t('feedbackDetail.reply')}</Text>
+        {item.reply ? (
+          <Text style={styles.reply}>{item.reply}</Text>
+        ) : (
+          <Text style={styles.replyEmpty}>{t('common.empty')}</Text>
+        )}
+      </View>
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    body: { padding: rnSpacing['md-loose'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    badgeRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
+    typeBadge: {
+      fontSize: rnType.caption.size,
+      color: tk.surface.light,
+      backgroundColor: tk.success.DEFAULT,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+      overflow: 'hidden',
+    },
+    statusBadge: {
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+      backgroundColor: tk.surface.muted,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    labelTitle: {
+      marginTop: rnSpacing.md,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.secondary,
+    },
+    content: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
+    createdAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    reply: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
+    replyEmpty: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      color: tk.text.tertiary,
+      fontStyle: 'italic',
+      lineHeight: 22,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

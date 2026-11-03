@@ -1,0 +1,512 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { eq, or, isNull, and, gt } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
+import { db } from './index.js'
+import { users, refreshTokens, type User, type RefreshToken } from '@ihui/database'
+import { DEFAULT_USER_AVATAR_URL } from '@ihui/shared'
+// ihui_auth_token_revoked_total:queries 层不持有 fastify 实例,走模块级桥接函数打点
+import { recordAuthTokenRevoked } from '../plugins/business-metrics.js'
+
+export interface CreateUserInput {
+  phone?: string
+  email?: string
+  passwordHash?: string
+  nickname?: string
+  avatar?: string
+  familyId?: string
+  roleId?: number
+  status?: number
+}
+
+export interface UpdateUserInput {
+  nickname?: string
+  avatar?: string
+  email?: string
+  bio?: string
+  phone?: string
+  passwordHash?: string
+  gender?: number
+}
+
+/**
+ * 按手机号查询用户。
+ */
+export async function findUserByPhone(phone: string): Promise<User | undefined> {
+  const rows = await db.select().from(users).where(eq(users.phone, phone)).limit(1)
+  return rows[0]
+}
+
+/**
+ * 按 ID 查询用户。
+ */
+export async function findUserById(id: string): Promise<User | undefined> {
+  const rows = await db.select().from(users).where(eq(users.id, id)).limit(1)
+  return rows[0]
+}
+
+/**
+ * 按账号查询用户（username / phone / email 三选一）。
+ */
+export async function findUserByAccount(account: string): Promise<User | undefined> {
+  const rows = await db
+    .select()
+    .from(users)
+    .where(or(eq(users.username, account), eq(users.phone, account), eq(users.email, account)))
+    .limit(1)
+  return rows[0]
+}
+
+/**
+ * 按邮箱查询用户。
+ */
+export async function findUserByEmail(email: string): Promise<User | undefined> {
+  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1)
+  return rows[0]
+}
+
+/**
+ * 按用户名查询用户（用户名密码登录）。
+ */
+export async function findUserByUsername(username: string): Promise<User | undefined> {
+  const rows = await db.select().from(users).where(eq(users.username, username)).limit(1)
+  return rows[0]
+}
+
+/**
+ * 检查手机号是否已注册。
+ */
+export async function checkPhoneExists(phone: string): Promise<boolean> {
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1)
+  return rows.length > 0
+}
+
+/**
+ * 检查邮箱是否已注册。
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+  return rows.length > 0
+}
+
+/**
+ * 软注销账户（status=3）。
+ *
+ * 2026-08-01 升级(用户规则:"完美细致完整毫无遗漏"):
+ *   - 旧版仅置 status=3,残留 phone/email/username/inviteCode 占用唯一约束
+ *     → 新用户无法注册同名账号,inviteCode 永久占用
+ *   - 新版 NULL 化所有唯一约束字段(phone/email/username/inviteCode)
+ *   - 清空 2FA 字段(twoFactorSecret/BackupCodes/EnabledAt,Enabled=false)
+ *     数据卫生:避免注销账号的加密密文/备份码残留
+ *   - 与 mergeUserAccounts 软删除策略保持一致
+ */
+export async function cancelUserAccount(id: string): Promise<void> {
+  await db
+    .update(users)
+    .set({
+      status: 3,
+      phone: null,
+      email: null,
+      username: null,
+      inviteCode: null,
+      twoFactorSecret: null,
+      twoFactorEnabled: false,
+      twoFactorBackupCodes: [],
+      twoFactorEnabledAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, id))
+}
+
+/**
+ * 判断用户是否为系统内置管理员（is_system_admin=true）。
+ * 应用层预检：DB 触发器是最后防线，应用层先返回 403 提供更友好的错误。
+ */
+export async function isSystemAdminUser(id: string): Promise<boolean> {
+  const rows = await db
+    .select({ flag: users.isSystemAdmin })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1)
+  return rows[0]?.flag === true
+}
+
+/**
+ * 创建新用户。
+ */
+export async function createUser(data: CreateUserInput): Promise<User> {
+  const rows = await db
+    .insert(users)
+    .values({
+      phone: data.phone,
+      email: data.email,
+      passwordHash: data.passwordHash,
+      nickname: data.nickname,
+      avatar: data.avatar?.trim() || DEFAULT_USER_AVATAR_URL,
+      familyId: data.familyId,
+      roleId: data.roleId ?? 0,
+      status: data.status ?? 1,
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) {
+    throw new Error('创建用户失败')
+  }
+  return row
+}
+
+/**
+ * 更新用户信息。
+ */
+export async function updateUser(id: string, data: UpdateUserInput): Promise<User> {
+  const rows = await db
+    .update(users)
+    .set({
+      ...(data.nickname !== undefined && { nickname: data.nickname }),
+      ...(data.avatar !== undefined && { avatar: data.avatar }),
+      ...(data.email !== undefined && { email: data.email }),
+      ...(data.bio !== undefined && { bio: data.bio }),
+      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
+      ...(data.gender !== undefined && { gender: data.gender }),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, id))
+    .returning()
+  const row = rows[0]
+  if (!row) {
+    throw new Error('更新用户失败')
+  }
+  return row
+}
+
+/**
+ * 保存 refresh token 记录。
+ */
+export async function saveRefreshToken(
+  token: string,
+  userId: string,
+  familyId: string,
+  expiresAt: Date,
+): Promise<RefreshToken> {
+  const rows = await db
+    .insert(refreshTokens)
+    .values({
+      token,
+      userId,
+      familyId,
+      expiresAt,
+    })
+    .returning()
+  const row = rows[0]
+  if (!row) {
+    throw new Error('保存 refresh token 失败')
+  }
+  return row
+}
+
+/**
+ * 按 token 字符串查询 refresh token 记录。
+ */
+export async function findRefreshToken(token: string): Promise<RefreshToken | undefined> {
+  const rows = await db.select().from(refreshTokens).where(eq(refreshTokens.token, token)).limit(1)
+  return rows[0]
+}
+
+/**
+ * 同一 family 里是否还有活着的 refresh token(未吊销、未过期)。
+ *
+ * 用于区分两类"迟到重放"(2026-10-20 立):
+ * - 族里还有活 token ⇒ 这是**陈旧副本**的迟到重放(桌面 vault 里的旧值 / 停在旧页签的
+ *   另一份上下文 / 另一台设备)。此时吊销整族会把正常会话一起打死 —— 实测每小时一次族
+ *   吊销,三端同时被迫重登;
+ * - 族里一个活的都没有 ⇒ 整族已死,保留 RFC 6749 §10.4 的吊销动作与审计留痕。
+ */
+export async function findLiveFamilyToken(familyId: string): Promise<{ id: string } | undefined> {
+  const rows = await db
+    .select({ id: refreshTokens.id })
+    .from(refreshTokens)
+    .where(
+      and(
+        eq(refreshTokens.familyId, familyId),
+        isNull(refreshTokens.revokedAt),
+        gt(refreshTokens.expiresAt, new Date()),
+      ),
+    )
+    .limit(1)
+  return rows[0]
+}
+
+/**
+ * 吊销 refresh token（设置 revokedAt）。
+ * 2026-09-27:回报**库侧确认改动的那批 id**。旧形态 Promise&lt;void&gt; 让调用方(如
+ * /auth/logout)只能在写链之外猜布尔 —— "UPDATE 命中 0 行"与"吊销成功"在响应上同形。
+ */
+export async function revokeRefreshToken(
+  token: string,
+  // 吊销原因(进 ihui_auth_token_revoked_total 的 reason 标签):
+  // refresh_rotation(轮转,默认)/ logout / reuse_detected / force_logout / session_revoke
+  reason = 'refresh_rotation',
+): Promise<string[]> {
+  const rows = await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date() })
+    .where(eq(refreshTokens.token, token))
+    .returning({ id: refreshTokens.id })
+  if (rows.length > 0) recordAuthTokenRevoked(reason)
+  return rows.map((r) => r.id)
+}
+
+/**
+ * 吊销某用户所有未过期的 refresh token（用于 SSO 统一登出/踢下线）。
+ */
+export async function revokeAllUserRefreshTokens(
+  userId: string,
+  // 默认 force_logout(密码重置/修改后强制全端下线);SSO logout 等场景由调用点传入
+  reason = 'force_logout',
+): Promise<void> {
+  // 守门 134 后续批「updated/created 布尔 ACK 存量清偿」:写链补 .returning() 以库确认命中集
+  // (与同文件 revokeRefreshTokenFamily 同形),使调用方 `updated: true` 由 RETURNING 背书而非字面量。
+  await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
+    .returning({ id: refreshTokens.id })
+  recordAuthTokenRevoked(reason)
+}
+
+/**
+ * 吊销指定 family 下所有未吊销的 refresh token(RFC 6749 §10.4 重用检测)。
+ *
+ * 2026-07-22 鲁棒性加固:当 refresh token 被重用(已被 revoked 的 token 再次出现),
+ * 立即吊销整个 family 所有活跃 token,迫使合法用户重新登录。
+ * 这是 OAuth2.1 强制的"refresh token rotation with reuse detection"模式。
+ *
+ * 触发场景:攻击者拿到已吊销 token 重试 → 检测到 stored.revokedAt 非空 → 调用此函数。
+ * @param familyId token family UUID
+ * @returns 吊销的 token 数量
+ */
+export async function revokeRefreshTokenFamily(
+  familyId: string,
+  // 默认 reuse_detected(RFC 6749 §10.4 重放即全族失效)
+  reason = 'reuse_detected',
+): Promise<number> {
+  const result = await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(refreshTokens.familyId, familyId), isNull(refreshTokens.revokedAt)))
+    .returning({ id: refreshTokens.id })
+  if (result.length > 0) recordAuthTokenRevoked(reason)
+  return result.length
+}
+
+/** 合并账户的库确认回执(守门 134 格 2 收口,2026-10-30):计数全部由库答复推出,不是请求侧。 */
+export interface MergeAccountsAck {
+  /** 迁移成功的表数(EXECUTE UPDATE 计数,异常跳过的表不计) */
+  readonly migratedTables: number
+  /** 迁移 UPDATE 的总影响行数(GET DIAGNOSTICS ROW_COUNT 逐表累加) */
+  readonly updatedRows: number
+  /** 唯一约束冲突预清理 DELETE 的总行数 */
+  readonly conflictDeletedRows: number
+  /** fromUserId 软删标记命中行数(0/1)——"合并是否真的发生"的凭据 */
+  readonly fromUserMarked: number
+}
+
+/**
+ * 合并账号:把 fromUserId 的所有外键数据迁移到 toUserId,然后软删除 fromUserId。
+ *
+ * 业务规则(2026-08-01 立,用户规则:"以老手机号账号信息 昵称 个人简介为准"):
+ *   - toUserId = 老手机号账号(保留 nickname/avatar/bio 等资料)
+ *   - fromUserId = 新手机号账号(被合并方,数据迁出后删除)
+ *   - 不修改 toUserId 的任何用户资料字段,只迁移 fromUserId 的关联数据
+ *
+ * 实现策略:
+ *   1. 用 PL/pgSQL DO block 动态查询 information_schema 中所有引用 users.id 的外键
+ *   2. 对每张表逐表 UPDATE ... SET user_id = toUserId WHERE user_id = fromUserId
+ *   3. 处理唯一约束冲突:遇到冲突时先 DELETE fromUserId 的冲突行,再 UPDATE
+ *   4. 跳过 users 表自身(避免把 fromUserId 的 id 改成 toUserId)
+ *   5. 最后软删除 fromUserId(status=3)
+ *
+ * 2026-10-30 守门 134 格 2 收口(返回 Promise<void> → MergeAccountsAck,两条实测根因):
+ *   ① 旧形制的 DO 块**从未成功过**:DO $$ 不接受参数,块内 `EXECUTE ... USING fromUserId` /
+ *     `WHERE id = fromUserId` 引用的是未声明的 PL 标识符(按列引用解析 ⇒ 42703),
+ *     任何调用都在块内抛错并回滚。现改为显式声明 v_from/v_to,值经临时请求表
+ *     (bind parameter 写入,ON COMMIT DROP)读入 —— DO 块正文因此完全静态,无注入面。
+ *   ② 旧形制零回执形态:调用方无法区分"合并了"与"改了 0 行"。现由块内
+ *     GET DIAGNOSTICS ROW_COUNT 逐语句累计,经 ACK 临时表在同一事务内回读;
+ *     fromUserMarked !== 1 时在事务内抛错 ⇒ 整体回滚,绝不把"没发生"报成"合并完成"。
+ *   事务语义:旧实现靠"单条语句"获得原子性(块内无 COMMIT,不依赖块内提交);
+ *   新实现整体包在 db.transaction 里(多语句单事务),原子性等价,未改写提交边界。
+ *
+ * @param params.fromUserId 被合并的账号 ID(新手机号账号,会被软删除)
+ * @param params.toUserId   保留的账号 ID(老手机号账号,资料不变)
+ * @returns 库确认的合并回执(影响行数来自 GET DIAGNOSTICS,非请求侧自算)
+ */
+export async function mergeUserAccounts(params: {
+  fromUserId: string
+  toUserId: string
+}): Promise<MergeAccountsAck> {
+  const { fromUserId, toUserId } = params
+  if (fromUserId === toUserId) {
+    throw new Error('不能合并到同一个账号')
+  }
+
+  return db.transaction(async (tx) => {
+    // 参数入临时请求表:DO 块不接收 bind parameter,旧形制直接引用 undeclared 标识符即恒失败之源
+    await tx.execute(
+      sql`CREATE TEMP TABLE merge_user_accounts_req (from_id uuid, to_id uuid) ON COMMIT DROP`,
+    )
+    await tx.execute(
+      sql`INSERT INTO merge_user_accounts_req (from_id, to_id) VALUES (${fromUserId}::uuid, ${toUserId}::uuid)`,
+    )
+    await tx.execute(
+      sql`CREATE TEMP TABLE merge_user_accounts_ack (
+        migrated_tables integer,
+        updated_rows bigint,
+        deleted_rows bigint,
+        from_user_marked integer
+      ) ON COMMIT DROP`,
+    )
+
+    // PL/pgSQL DO block 动态迁移所有引用 users.id 的外键
+    // - 跳过 users 表自身
+    // - 对每张表:先删 fromUserId 在 (user_id) 唯一约束上与 toUserId 冲突的行,再 UPDATE
+    // - 用异常处理跳过无法迁移的表(避免单张表失败阻塞整体合并)
+    // - 最后软删除 fromUserId(status=3,保留审计痕迹,不物理删除避免外键约束遗漏)
+    // - 逐语句 GET DIAGNOSTICS ROW_COUNT 计数,末尾把回执写进 ACK 临时表(单一静态块文本)
+    await tx.execute(sql`
+      DO $$
+      DECLARE
+        r RECORD;
+        conflict_cols TEXT;
+        del_stmt TEXT;
+        upd_stmt TEXT;
+        v_from uuid;
+        v_to uuid;
+        v_cnt bigint;
+        v_tables integer := 0;
+        v_upd_rows bigint := 0;
+        v_del_rows bigint := 0;
+        v_marked integer := 0;
+      BEGIN
+        SELECT from_id, to_id INTO STRICT v_from, v_to FROM merge_user_accounts_req;
+
+        -- 遍历所有引用 users.id 的外键(单列外键 user_id)
+        FOR r IN
+          SELECT
+            kcu.table_name,
+            kcu.column_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          JOIN information_schema.constraint_column_usage ccu
+            ON ccu.constraint_name = tc.constraint_name
+            AND ccu.table_schema = tc.table_schema
+          WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND tc.table_schema = 'public'
+            AND ccu.table_name = 'users'
+            AND ccu.column_name = 'id'
+            AND kcu.table_name <> 'users'
+        LOOP
+          -- 检查该表是否有包含 user_id 的唯一约束(可能引发冲突)
+          SELECT string_agg(DISTINCT col.column_name, ', ' ORDER BY col.column_name)
+          INTO conflict_cols
+          FROM information_schema.table_constraints tc2
+          JOIN information_schema.key_column_usage col
+            ON tc2.constraint_name = col.constraint_name
+            AND tc2.table_schema = col.table_schema
+          WHERE tc2.table_name = r.table_name
+            AND tc2.table_schema = 'public'
+            AND tc2.constraint_type = 'UNIQUE'
+            AND EXISTS (
+              SELECT 1 FROM information_schema.key_column_usage col2
+              WHERE col2.constraint_name = tc2.constraint_name
+                AND col2.column_name = r.column_name
+            )
+          GROUP BY tc2.constraint_name;
+
+          IF conflict_cols IS NOT NULL THEN
+            -- 删除 fromUserId 与 toUserId 在唯一约束上冲突的行(保留 toUserId 的行)
+            del_stmt := format(
+              'DELETE FROM %I WHERE %I = $1 AND (%s) IN (SELECT %s FROM %I WHERE %I = $2)',
+              r.table_name, r.column_name, conflict_cols, conflict_cols, r.table_name, r.column_name
+            );
+            EXECUTE del_stmt USING v_from, v_to;
+            GET DIAGNOSTICS v_cnt = ROW_COUNT;
+            v_del_rows := v_del_rows + v_cnt;
+          END IF;
+
+          -- 把 fromUserId 的所有行迁移到 toUserId
+          upd_stmt := format(
+            'UPDATE %I SET %I = $2 WHERE %I = $1',
+            r.table_name, r.column_name, r.column_name
+          );
+          BEGIN
+            EXECUTE upd_stmt USING v_from, v_to;
+            GET DIAGNOSTICS v_cnt = ROW_COUNT;
+            v_upd_rows := v_upd_rows + v_cnt;
+            v_tables := v_tables + 1;
+          EXCEPTION WHEN OTHERS THEN
+            -- 2026-08-02 修复:关键表迁移失败必须回滚,非关键表允许跳过
+            -- 关键表(wallets/orders/token_flows/user_margins)涉及资金/积分,失败必须 RAISE EXCEPTION
+            -- 非关键表(audit_logs 等)允许跳过,WARNING 级别记录便于排查
+            IF r.table_name IN ('wallets', 'orders', 'token_flows', 'user_margins') THEN
+              RAISE EXCEPTION '关键表 % 迁移失败: %', r.table_name, SQLERRM;
+            ELSE
+              RAISE WARNING '非关键表 % 迁移跳过: %', r.table_name, SQLERRM;
+            END IF;
+          END;
+        END LOOP;
+
+        -- 软删除 fromUserId:status=3(已注销),保留行做审计,避免遗漏的外键约束报错
+        -- 2026-08-01 升级(用户规则:"完美细致完整毫无遗漏"):
+        --   NULL 化所有唯一约束字段(phone/email/username/inviteCode),避免占用导致新注册冲突
+        --   清空 2FA 字段,数据卫生(与 cancelUserAccount 策略一致)
+        UPDATE users SET
+          status = 3,
+          phone = NULL,
+          email = NULL,
+          username = NULL,
+          invite_code = NULL,
+          two_factor_secret = NULL,
+          two_factor_enabled = false,
+          two_factor_backup_codes = '[]'::jsonb,
+          two_factor_enabled_at = NULL,
+          updated_at = now()
+        WHERE id = v_from;
+        GET DIAGNOSTICS v_marked = ROW_COUNT;
+
+        -- 回执落 ACK 临时表,JS 侧同一事务内 SELECT 回读(计数=库答复,不是请求侧)
+        INSERT INTO merge_user_accounts_ack
+          (migrated_tables, updated_rows, deleted_rows, from_user_marked)
+        VALUES (v_tables, v_upd_rows, v_del_rows, v_marked);
+      END;
+      $$;
+    `)
+
+    const ackRows = (await tx.execute(
+      sql`SELECT migrated_tables, updated_rows, deleted_rows, from_user_marked FROM merge_user_accounts_ack`,
+    )) as unknown as Array<Record<string, string | number | null>>
+    const raw = ackRows[0]
+    if (!raw) {
+      // fail-closed:块跑完却没写回执 = 没判 ⇒ 抛错回滚,绝不记绿(§0.3)
+      throw new Error('账号合并回执缺失:ACK 表无行,拒绝把未确认的写当合并成功')
+    }
+    const ack: MergeAccountsAck = {
+      migratedTables: Number(raw.migrated_tables ?? 0),
+      updatedRows: Number(raw.updated_rows ?? 0),
+      conflictDeletedRows: Number(raw.deleted_rows ?? 0),
+      fromUserMarked: Number(raw.from_user_marked ?? 0),
+    }
+    if (ack.fromUserMarked !== 1) {
+      // 软删标记没命中 = 合并根本没发生;在事务内抛 ⇒ 本轮所有迁移一并回滚,
+      // 与守门 134 同律:"改了 0 行"不得与"改成功"同形。
+      throw new Error(`账号合并未生效:fromUserId 软删标记命中 ${ack.fromUserMarked} 行(应为 1)`)
+    }
+    return ack
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,187 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { FlatList, Text, View, StyleSheet } from 'react-native'
+import { TextField } from '../../components/TextField'
+import { ChevronLeft } from 'lucide-react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { CourseScreenProps } from '../../types'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
+
+/** 课程列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { CourseScreenProps }
+
+export function CourseScreen({
+  t,
+  items,
+  keyword,
+  loading,
+  error,
+  page,
+  totalPages,
+  onKeywordChange,
+  onPageChange,
+  onPressItem,
+  colorScheme = 'light',
+}: CourseScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>{t('courseScreen.title')}</Text>
+      <View style={styles.searchWrap}>
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.input}
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder={t('courseScreen.searchPlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+          returnKeyType="search"
+        />
+      </View>
+
+      {error ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('courseScreen.empty')} colorScheme={colorScheme} />
+          )
+        }
+        renderItem={({ item }) => (
+          <PressableCard
+            onPress={() => onPressItem(item.id)}
+            style={styles.card}
+            colorScheme={colorScheme}
+          >
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>{item.instructor}</Text>
+              <Text style={styles.metaText}>{item.level}</Text>
+            </View>
+            {item.description ? (
+              <Text style={styles.cardDesc} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+            <View style={styles.footerRow}>
+              <Text style={styles.price}>
+                {item.isFree ? t('courseScreen.free') : `¥${item.price.toFixed(2)}`}
+              </Text>
+              <Text style={styles.metaText}>
+                {t('courseScreen.studentCount', { count: item.studentCount })}
+              </Text>
+            </View>
+          </PressableCard>
+        )}
+        ListFooterComponent={
+          totalPages > 1 ? (
+            <View style={styles.pagination}>
+              <Tappable
+                onPress={() => onPageChange(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                hitSlop={8}
+                accessibilityLabel={t('common.back')}
+              >
+                <ChevronLeft
+                  size={16}
+                  color={tk.text.primary}
+                  style={page <= 1 && styles.pageBtnDisabled}
+                />
+              </Tappable>
+              <Text style={styles.pageIndicator}>
+                {page} / {totalPages}
+              </Text>
+              <Tappable
+                onPress={() => onPageChange(Math.min(totalPages, page + 1))}
+                disabled={page >= totalPages}
+                hitSlop={8}
+              >
+                <Text style={[styles.pageBtn, page >= totalPages && styles.pageBtnDisabled]}>
+                  {t('courseScreen.nextPage')}
+                </Text>
+              </Tappable>
+            </View>
+          ) : null
+        }
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    title: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    searchWrap: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.muted,
+      height: 50,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+    },
+    errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    cardTitle: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.primary },
+    metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
+    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    footerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing.sm,
+    },
+    price: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.brand.DEFAULT },
+    pagination: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing.lg,
+    },
+    pageBtn: { fontSize: rnType.title.size, color: tk.text.primary },
+    pageBtnDisabled: { opacity: 0.4 },
+    pageIndicator: { fontSize: rnType.label.size, color: tk.text.secondary },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

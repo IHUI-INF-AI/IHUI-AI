@@ -1,0 +1,685 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "IHUI-AI 全栈跑在一台 Windows 宿主机上(12 个 IHUI-* Windows 服务 + Ollama + PostgreSQL/Redis 等)。数据源为 windows_exporter(job=windows, instance=localhost:9182)。本盘每一条表达式都在写盘前用 Prometheus /api/v1/query 实测过,result 非空才留;2026-10-19 重写时把上一版缺 id/缺 description/标签不合规的面板全部补全,并保留了其中已验证可用的开机时长与内存提交率两块。",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "IHUI 服务运行状态",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "max by (name) (windows_service_state{job=\"windows\",name=~\"IHUI.*\",state=\"running\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 1,
+      "description": "windows_service_state 对同一服务会按 state 各出一行(running/stopped/...),直接查会撞车,故先用 state=\"running\" 过滤、再 max by (name) 聚成一个服务一条。值 1=运行中,0=服务存在但没起来(实测 IHUI-OLLAMA 常为 0)。本机实测共 12 个 IHUI-* 服务。"
+    },
+    {
+      "title": "磁盘剩余空间",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "windows_logical_disk_free_bytes{job=\"windows\",volume=~\"[A-Z]:\"}",
+          "refId": "A",
+          "legendFormat": "{{volume}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 21474836480
+              },
+              {
+                "color": "green",
+                "value": 53687091200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 2,
+      "description": "windows_logical_disk_free_bytes 按卷出序列;volume=~\"[A-Z]:\" 用来排掉 HarddiskVolume1 这类无盘符的恢复分区。红<20GB、黄<50GB、绿≥50GB。实测两条序列:C: 约 107GB、D: 约 340GB。"
+    },
+    {
+      "title": "磁盘使用率",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - (windows_logical_disk_free_bytes{job=\"windows\",volume=~\"[A-Z]:\"} / windows_logical_disk_size_bytes{job=\"windows\",volume=~\"[A-Z]:\"}))",
+          "refId": "A",
+          "legendFormat": "{{volume}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 3,
+      "description": "= (1 - 剩余/总容量) * 100。两侧同用 volume=~\"[A-Z]:\" 过滤,保证按卷一一配对除得出来。实测 C: 约 50%、D: 约 57%。"
+    },
+    {
+      "title": "物理内存空闲",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "windows_os_physical_memory_free_bytes{job=\"windows\"}",
+          "refId": "A",
+          "legendFormat": "物理内存空闲"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 2147483648
+              },
+              {
+                "color": "green",
+                "value": 8589934592
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 4,
+      "description": "windows_os_physical_memory_free_bytes = 当前未被占用的物理内存(字节)。宿主机总量 34.1GB(windows_cs_physical_memory_bytes),实测空闲约 19~21GB。掉到 2GB 以下会开始大量换页。"
+    },
+    {
+      "title": "虚拟内存空闲",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "windows_os_virtual_memory_free_bytes{job=\"windows\"}",
+          "refId": "A",
+          "legendFormat": "虚拟内存空闲"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red"
+              },
+              {
+                "color": "yellow",
+                "value": 4294967296
+              },
+              {
+                "color": "green",
+                "value": 17179869184
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 5,
+      "description": "windows_os_virtual_memory_free_bytes = 提交内存(物理内存 + 页面文件)里仍可用的额度。实测约 113GB,比物理内存大是因为含页面文件;它比物理内存更早反映\"整体提交量接近上限\"。"
+    },
+    {
+      "title": "物理内存使用率",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - (windows_os_physical_memory_free_bytes{job=\"windows\"} / windows_cs_physical_memory_bytes{job=\"windows\"}))",
+          "refId": "A",
+          "legendFormat": "内存使用率"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 6,
+      "description": "分母 windows_cs_physical_memory_bytes(ComputerSystem 报告的内存总量,本机 34.1GB),分子为空闲量,得到已用占比。实测约 38%。注意:windows_memory_physical_free_bytes 与该指标同源,二者取其一即可。"
+    },
+    {
+      "title": "系统进程数",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "windows_system_processes{job=\"windows\"}",
+          "refId": "A",
+          "legendFormat": "进程数"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 7,
+      "description": "windows_system_processes = 宿主机当前进程数(实测 400 上下)。突然爬升通常说明某个 IHUI 服务在反复拉起子进程,应该和 CPU 使用率一起看。"
+    },
+    {
+      "title": "CPU 使用率",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 7
+      },
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance) (rate(windows_cpu_time_total{job=\"windows\",mode=\"idle\"}[5m])) * 100)",
+          "refId": "A",
+          "legendFormat": "CPU 使用率"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "id": 8,
+      "description": "windows_cpu_time_total 按 core+mode 出 100 条序列;mode=\"idle\" 的 rate 已经是 0~1 的占比(windows_exporter 已按总时间归一),所以 avg by (instance) 后 *100 是空闲率,再用 100 减得到使用率。已实测确认 mode 标签含 idle,结果约 20%。"
+    },
+    {
+      "title": "网络入向速率",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "rate(windows_net_bytes_received_total{job=\"windows\"}[5m])",
+          "refId": "A",
+          "legendFormat": "{{nic}} 入向"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "id": 9,
+      "description": "windows_net_bytes_received_total 是累计字节计数器,rate([5m]) 得到每秒入向字节数,按 nic 分线(本机 Intel I225-V 一条)。实测常态 60~80 KB/s。"
+    },
+    {
+      "title": "网络出向速率",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "rate(windows_net_bytes_sent_total{job=\"windows\"}[5m])",
+          "refId": "A",
+          "legendFormat": "{{nic}} 出向"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "id": 10,
+      "description": "同入向,取 sent 方向。出向大于入向是正常的(响应体比请求大);公网走 Cloudflare 隧道,出向被打满时外部访问会先卡在这里。"
+    },
+    {
+      "title": "磁盘读写吞吐",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "rate(windows_logical_disk_read_bytes_total{job=\"windows\",volume=~\"[A-Z]:\"}[5m])",
+          "refId": "A",
+          "legendFormat": "{{volume}} 读"
+        },
+        {
+          "expr": "rate(windows_logical_disk_write_bytes_total{job=\"windows\",volume=~\"[A-Z]:\"}[5m])",
+          "refId": "B",
+          "legendFormat": "{{volume}} 写"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "id": 11,
+      "description": "windows_logical_disk_read_bytes_total / write_bytes_total 实测均存在(C:/D:/HarddiskVolume1),用 volume=~\"[A-Z]:\" 去掉恢复分区。四条线:C: 读、C: 写、D: 读、D: 写;D: 盘装项目代码与 PostgreSQL 数据,写入尖峰一般来自日志落盘。"
+    },
+    {
+      "title": "主机已运行时长",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "(time() - windows_system_boot_time_timestamp_seconds{job=\"windows\"}) / 86400",
+          "refId": "A",
+          "legendFormat": "已运行"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 12,
+      "description": "windows_system_boot_time_timestamp_seconds 是开机时刻的 Unix 秒,time() 减它再除 86400 得到天数。实测约 3.5 天。用来解释\"指标为什么在这之前是空的\"以及判断是否需要安排重启窗口。"
+    },
+    {
+      "title": "内存提交率",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 21
+      },
+      "targets": [
+        {
+          "expr": "100 * (windows_memory_committed_bytes{job=\"windows\"} / windows_memory_commit_limit{job=\"windows\"})",
+          "refId": "A",
+          "legendFormat": "提交率"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 13,
+      "description": "提交率 = 已提交字节 / 提交上限(物理内存 + 页面文件)。它比\"物理内存使用率\"更能反映真实压力:物理内存看着空闲但提交率接近 100% 时,系统会开始拒绝新分配。实测约 18.5%。"
+    },
+    {
+      "title": "IHUI 服务运行数(运行 / 异常)",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "count(windows_service_state{name=~\"IHUI.*\",state=\"running\"} == 1) or vector(0)",
+          "refId": "A",
+          "legendFormat": "运行中"
+        },
+        {
+          "expr": "count(windows_service_state{name=~\"IHUI.*\",state!=\"running\"} == 1) or vector(0)",
+          "refId": "B",
+          "legendFormat": "非 running"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "description": "windows-exporter 的 windows_service_state 按 name 展开所有 IHUI-* 服务:state=\"running\" 且值为 1 即运行中;异常数为 state 非 running 且值为 1 的行数(服务已停止但状态位残留的行不计)。数据来自本机 windows job(localhost:9182)。",
+      "id": 14,
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 21
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    },
+    {
+      "title": "系统上下文切换速率",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(windows_system_context_switches_total[5m])",
+          "refId": "A",
+          "legendFormat": "上下文切换/秒"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "description": "windows_system_context_switches_total 的 5 分钟速率,反映内核态线程调度压力;持续高位通常意味着锁竞争或线程数过多。数据来自本机 windows job。",
+      "id": 15,
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 21
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      }
+    }
+  ],
+  "tags": [
+    "ihui-ai"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "IHUI-AI Windows 宿主机",
+  "uid": "ihui-ai-windows-host",
+  "version": 1
+}

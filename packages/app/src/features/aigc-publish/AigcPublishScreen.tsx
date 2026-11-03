@@ -1,0 +1,413 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
+
+/** AIGC 发布作品共享屏 — 表单型 props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType }
+
+interface WorkTypeOption {
+  key: AigcPublishWorkType
+  labelKey: string
+  descKey: string
+}
+
+/** 进度端口取值域收敛到 0-100,防止宿主回调越界导致进度条画出容器 */
+function clampProgress(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, value))
+}
+
+const TYPE_OPTIONS: WorkTypeOption[] = [
+  { key: 'image', labelKey: 'aigcPublish.typeImage', descKey: 'aigcPublish.typeImageDesc' },
+  { key: 'video', labelKey: 'aigcPublish.typeVideo', descKey: 'aigcPublish.typeVideoDesc' },
+  { key: 'audio', labelKey: 'aigcPublish.typeAudio', descKey: 'aigcPublish.typeAudioDesc' },
+  { key: 'text', labelKey: 'aigcPublish.typeText', descKey: 'aigcPublish.typeTextDesc' },
+]
+
+export function AigcPublishScreen({
+  t,
+  workType,
+  files,
+  textContent,
+  title,
+  description,
+  prompt,
+  urlInput,
+  saving,
+  uploading,
+  uploadProgress,
+  error,
+  onWorkTypeChange,
+  onTextContentChange,
+  onTitleChange,
+  onDescriptionChange,
+  onPromptChange,
+  onUrlInputChange,
+  onAddFileByUrl,
+  onPickImage,
+  onRemoveFile,
+  onSubmit,
+  onBack,
+  colorScheme = 'light',
+  onToast,
+}: AigcPublishScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const showTextInput = workType === 'text'
+
+  return (
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      <Text style={styles.title}>{t('aigcPublish.title')}</Text>
+      <Text style={styles.subtitle}>{t('aigcPublish.subtitle')}</Text>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <Text style={styles.label}>{t('aigcPublish.labelType')}</Text>
+      <View style={styles.typeRow}>
+        {TYPE_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[styles.typeChip, workType === opt.key && styles.typeChipActive]}
+            onPress={() => onWorkTypeChange(opt.key)}
+          >
+            <Text style={[styles.typeChipText, workType === opt.key && styles.typeChipTextActive]}>
+              {t(opt.labelKey)}
+            </Text>
+            <Text style={[styles.typeChipDesc, workType === opt.key && styles.typeChipDescActive]}>
+              {t(opt.descKey)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {showTextInput ? (
+        <>
+          <Text style={styles.label}>{t('aigcPublish.labelTextContent')}</Text>
+          <TextField
+            colorScheme={colorScheme}
+            style={[styles.input, styles.textarea]}
+            value={textContent}
+            onChangeText={onTextContentChange}
+            placeholder={t('aigcPublish.placeholderTextContent')}
+            placeholderTextColor={tk.text.tertiary}
+            multiline
+            textAlignVertical="top"
+            maxLength={2000}
+          />
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>{t('aigcPublish.labelUpload', { count: files.length })}</Text>
+          <View style={styles.urlRow}>
+            <TextField
+              colorScheme={colorScheme}
+              style={styles.urlInput}
+              value={urlInput}
+              onChangeText={onUrlInputChange}
+              placeholder={t('aigcPublish.placeholderUrl')}
+              placeholderTextColor={tk.text.tertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity style={styles.urlAddBtn} onPress={onAddFileByUrl} activeOpacity={0.7}>
+              <Text style={styles.urlAddText}>{t('aigcPublish.urlAddBtn')}</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[styles.pickerBtn, uploading && styles.pickerBtnDisabled]}
+            onPress={onPickImage}
+            disabled={uploading}
+            activeOpacity={0.7}
+          >
+            {uploading ? (
+              <View style={styles.pickerBtnInner}>
+                <ActivityIndicator color={tk.surface.light} size="small" />
+                <Text style={styles.pickerBtnTextUploading}>
+                  {typeof uploadProgress === 'number'
+                    ? t('aigcPublish.uploading', {
+                        progress: Math.round(clampProgress(uploadProgress)),
+                      })
+                    : t('aigcPublish.uploading')}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.pickerBtnText}>{t('aigcPublish.pickFromAlbum')}</Text>
+            )}
+          </TouchableOpacity>
+          {uploading && typeof uploadProgress === 'number' ? (
+            <View style={styles.progressTrack} testID="aigc-upload-progress">
+              <View
+                style={[styles.progressFill, { width: `${clampProgress(uploadProgress)}%` }]}
+                testID="aigc-upload-progress-fill"
+              />
+            </View>
+          ) : null}
+          <View style={styles.fileGrid}>
+            {files.map((f) => (
+              <View key={f.id} style={styles.fileItem}>
+                <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
+                <TouchableOpacity
+                  hitSlop={7}
+                  style={styles.fileRemove}
+                  onPress={() => onRemoveFile(f.id)}
+                >
+                  <Text style={styles.fileRemoveText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            {files.length < 5 ? (
+              <TouchableOpacity
+                style={styles.fileAdd}
+                onPress={onPickImage}
+                disabled={uploading}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.fileAddIcon}>+</Text>
+                <Text style={styles.fileAddText}>
+                  {uploading ? t('aigcPublish.uploadingShort') : t('aigcPublish.fileAddText')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </>
+      )}
+
+      <Text style={styles.label}>{t('aigcPublish.labelTitle')}</Text>
+      <TextField
+        colorScheme={colorScheme}
+        style={styles.input}
+        value={title}
+        onChangeText={onTitleChange}
+        placeholder={t('aigcPublish.placeholderTitle')}
+        placeholderTextColor={tk.text.tertiary}
+        maxLength={50}
+      />
+
+      <Text style={styles.label}>{t('aigcPublish.labelDescription')}</Text>
+      <TextField
+        colorScheme={colorScheme}
+        style={[styles.input, styles.textarea]}
+        value={description}
+        onChangeText={onDescriptionChange}
+        placeholder={t('aigcPublish.placeholderDescription')}
+        placeholderTextColor={tk.text.tertiary}
+        multiline
+        textAlignVertical="top"
+      />
+
+      <Text style={styles.label}>{t('aigcPublish.labelPrompt')}</Text>
+      <TextField
+        colorScheme={colorScheme}
+        style={[styles.input, styles.textarea]}
+        value={prompt}
+        onChangeText={onPromptChange}
+        placeholder={t('aigcPublish.placeholderPrompt')}
+        placeholderTextColor={tk.text.tertiary}
+        multiline
+        textAlignVertical="top"
+      />
+
+      <TouchableOpacity
+        style={[styles.submitBtn, saving && styles.submitDisabled]}
+        onPress={onSubmit}
+        disabled={saving}
+        activeOpacity={0.85}
+      >
+        {saving ? (
+          <ActivityIndicator color={tk.surface.light} size="small" />
+        ) : (
+          <Text style={styles.submitText}>{t('aigcPublish.submitBtn')}</Text>
+        )}
+      </TouchableOpacity>
+      <View style={{ height: 32 }} />
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  const primary = tk.brand.DEFAULT
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.light,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.lg,
+    },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    subtitle: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.md,
+    },
+    label: {
+      marginTop: rnSpacing['md-loose'],
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing['xs-loose'],
+    },
+    errorText: { fontSize: rnType.body.size, color: tk.error.text, marginTop: rnSpacing.sm },
+    typeRow: { flexDirection: 'row', gap: rnSpacing.sm },
+    typeChip: {
+      flex: 1,
+      paddingVertical: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.card,
+      alignItems: 'center',
+    },
+    typeChipActive: { backgroundColor: primary },
+    typeChipText: { fontSize: rnType.body.size, color: tk.text.medium, fontWeight: '600' },
+    typeChipTextActive: { color: tk.surface.light },
+    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
+    typeChipDescActive: { color: tk.surface.light },
+    input: {
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
+    urlRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
+    },
+    urlInput: {
+      flex: 1,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    urlAddBtn: {
+      paddingHorizontal: rnSpacing['md-loose'],
+      paddingVertical: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: primary,
+    },
+    urlAddText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
+    pickerBtn: {
+      paddingVertical: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: primary,
+      backgroundColor: tk.surface.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: rnSpacing['sm-loose'],
+    },
+    pickerBtnDisabled: {
+      opacity: 0.6,
+      borderColor: tk.text.tertiary,
+      backgroundColor: tk.text.tertiary,
+    },
+    pickerBtnInner: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
+    pickerBtnText: { color: primary, fontSize: rnType.body.size, fontWeight: '600' },
+    pickerBtnTextUploading: {
+      color: tk.surface.light,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+    },
+    progressTrack: {
+      height: 4,
+      marginTop: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.border.light,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
+    fileItem: {
+      width: 76,
+      height: 76,
+      borderRadius: rnRadius.xl,
+      overflow: 'hidden',
+      backgroundColor: tk.border.light,
+    },
+    fileImage: { width: '100%', height: '100%' },
+    fileRemove: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+      width: 22,
+      height: 22,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.error.text,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fileRemoveText: {
+      color: tk.surface.light,
+      fontSize: rnType.body.size,
+      fontWeight: '700',
+      lineHeight: 14,
+    },
+    fileAdd: {
+      width: 76,
+      height: 76,
+      borderRadius: rnRadius.xl,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.muted,
+    },
+    fileAddIcon: { fontSize: rnType.display.size, color: tk.text.tertiary, lineHeight: 26 },
+    fileAddText: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      marginTop: rnSpacing.sm,
+    },
+    submitBtn: {
+      marginTop: rnSpacing['2xl'],
+      paddingVertical: rnSpacing['md-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    submitDisabled: { backgroundColor: tk.text.tertiary },
+    submitText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

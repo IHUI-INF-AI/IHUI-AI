@@ -1,0 +1,162 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * LiveScreen 直播列表页(mobile-rn 端 wrapper)
+ *
+ * 对齐历史项目 pagesA/live-streaming/index.vue 直播列表:
+ * - 直播列表由共享组件 SharedLiveScreen 承载
+ * - 入口:首页 onNavigateLives → Main LiveMain
+ * - 直播非原项目 5 主 Tab:底部 TabBar 常驻无高亮,可切换主 Tab(对齐原内容页底部导航)
+ */
+import { useEffect, useRef, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { BlurTargetView } from 'expo-blur'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { getLiveList, type Live } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
+import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
+import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList } from '../navigation/tab-utils'
+
+type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'LiveMain'>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
+
+export function LiveScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const navigation = useNavigation<NavigationProp>()
+  const rootNav = navigation.getParent<RootNav>()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
+  const tabBarBlurTargetRef = useRef<View>(null)
+  const [lives, setLives] = useState<Live[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [error, setError] = useState('')
+  const PAGE_SIZE = 20
+  const hasMore = lives.length < total
+
+  const load = async (refresh = false) => {
+    if (refresh) setRefreshing(true)
+    else setLoading(true)
+    setError('')
+    try {
+      const res = await getLiveList({ page: refresh ? 1 : page, pageSize: PAGE_SIZE })
+      if (res.success) {
+        const next = refresh ? 1 : page
+        setLives((prev) => (refresh || next === 1 ? res.data.list : [...prev, ...res.data.list]))
+        setTotal(res.data.total)
+        setPage(next)
+      } else {
+        setError(apiFailureToText(res, t('live.loadFailed')))
+      }
+    } catch {
+      // 接口抛错(网络异常等)不阻塞页面,走错误态提示
+      setError(t('live.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const loadMore = async () => {
+    if (loadingMore || loading || refreshing || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const next = page + 1
+      const res = await getLiveList({ page: next, pageSize: PAGE_SIZE })
+      if (res.success) {
+        setLives((prev) => [...prev, ...res.data.list])
+        setTotal(res.data.total)
+        setPage(next)
+      }
+    } catch {
+      // 触底加载失败不打断已有内容,可再次触底重试
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const items: LiveScreenItem[] = lives.map((live) => ({
+    id: live.id,
+    title: live.title,
+    lecturerName: live.lecturerName ?? undefined,
+    isLive: live.isLive,
+    startTime: live.startTime,
+    viewCount: live.viewCount,
+  }))
+
+  /** 底部 Tab 切换(直播非主 Tab,TabBar 常驻供切换) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('AiMain')
+        break
+      case 'home':
+        navigation.navigate('HomeMain')
+        break
+      case 'mine':
+        navigation.navigate('ProfileMain')
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+    }
+  }
+
+  return (
+    <View style={styles.shell}>
+      {/* Android 真模糊:背景内容包进 BlurTargetView 供 TabBar 胶囊取样 */}
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <View style={styles.body}>
+          <SharedLiveScreen
+            t={t}
+            items={items}
+            loading={loading}
+            refreshing={refreshing}
+            error={error}
+            onRefresh={() => load(true)}
+            onLoadMore={() => void loadMore()}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
+            onBack={() => navigation.goBack()}
+            contentBottomPadding={tabBarScrollReserve(insets.bottom)}
+            colorScheme={resolvedTheme}
+          />
+        </View>
+      </BlurTargetView>
+      {/* 底部导航(直播非主 Tab,TabBar 常驻无高亮) */}
+      <TabBar onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+  } as ViewStyle,
+  body: {
+    flex: 1,
+  } as ViewStyle,
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

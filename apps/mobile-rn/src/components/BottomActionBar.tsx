@@ -1,0 +1,1214 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * BottomActionBar 底部操作栏 (mobile-rn 端)
+ *
+ * 对齐历史 Uniapp BottomActionBar.vue(25+ 事件回调):
+ * - 兼容旧 API:actions(简单按钮列表,LabelButton/IconButton 渲染)
+ * - 新 API:聊天输入模式(prompt 提供),渲染完整 Uniapp 对齐 UI:
+ *   + 模型信息条(onShowModelList / onShowModelConfig / onModelConfigChange)
+ *   + ToggleButtonGroup(5 开关:onToggleSuperAgent/Agentfu/Mcp/KnowledgeBase/PermanentMemory)
+ *   + 图片预览行(onRemoveImage(index))
+ *   + InputArea(TextInput + 语音 + 发送:onPromptChange/onInputFocus/Blur/Click/onSend/onTextareaHeightChange)
+ *   + 辅助按钮行(onFunctionHandle / onSourceHandle / onFangda)
+ *   + IconButtonGroup(相机/相册/文件/微信文件:onIconClick(type))
+ *   + 键盘监听(onKeyboardShow / onKeyboardHide)
+ *   + 语音动画(onStartVoiceAnimation / onStopVoiceAnimation via voiceInputEnabled)
+ *   + 长按手势(onStartLongPress / onEndLongPress on voice button)
+ * - 固定底部 100% 屏宽,SafeArea padding
+ * - 浅色优雅风,无霓虹 / 无渐变,系统字体
+ * - AGENTS.md §3:禁 any,onModelConfigChange 用 unknown 类型
+ */
+import { useEffect, useRef } from 'react'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
+import {
+  ActivityIndicator,
+  Animated,
+  Image,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { appAlert } from './BottomPops'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useI18n } from '../i18n'
+import { formatShortDuration } from '@ihui/shared/utils'
+import { TextField } from '@ihui/rn-app'
+import { useUiTextField } from '../lib/use-ui-text-field'
+import { AddPanel, PlusButton } from './AddPanel'
+import {
+  ArrowUp,
+  Camera,
+  ChevronDown,
+  Folder,
+  Image as ImageIcon,
+  Library,
+  Maximize,
+  MessageCircle,
+  Mic,
+  Paperclip,
+  Scissors,
+  Settings,
+  Square,
+  SquareFunction,
+  X,
+} from 'lucide-react-native'
+
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import {
+  BOTTOM_ACTION_BAR_CHIP_FONT_PX,
+  BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
+  BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
+  BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
+  BOTTOM_ACTION_BAR_TEXT_FONT_PX,
+  // 票⑥(2026-09-26):附件/发送这一簇的方块与墨迹 —— 与小程序端同读这两个常量(此前本端是
+  // 56×44 的文字胶囊 + 硬编码 '发送',三端里唯一的异类;AGENTS §4 图标一律用矢量库)
+  BOTTOM_ACTION_BAR_CONTROL_BOX_PX,
+  BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX,
+  // 发送/停止槽字形(2026-10-15 再裁决:web 发送簇 ArrowUp/Square 均 h-4 = 16,glyphSm 箭头档)
+  BOTTOM_ACTION_BAR_SEND_GLYPH_PX,
+} from '@ihui/shared/ui/bottom-action-bar-spec'
+// O02 票④(2026-10-31 接线):发送方块控件走共享核心 BottomActionBarControl —— 方块边长唯一源
+// 在核心(boxPx),本壳只供视觉(底色/圆角/禁用态)与 RN 原语注入;与小程序壳同一份核心。
+import { BottomActionBarControl, type BottomActionBarPlatform } from '@ihui/shared/ui'
+import { Tappable } from '@ihui/ui-native'
+
+// ── 兼容旧 API:简单按钮列表 ──
+
+/** RN 平台原语注入(与小程序壳 miniPlatform 同一契约):RN 单位是 dp,与逻辑 px 1:1 恒等;
+ *  字形走 lucide-react-native(square=发送中停止语义实心方块,arrow-up=发送);盒子按压态样式由
+ *  原语内部落栈(数组形态),调用方视觉样式经 style 压在盒几何之上。 */
+const rnPlatform: BottomActionBarPlatform<number, ViewStyle, GestureResponderEvent> = {
+  toUnit: (px) => px,
+  glyphUnit: (px) => px,
+  View: ({ boxStyle, style, children }) => <View style={[boxStyle, style]}>{children}</View>,
+  Text: ({ style, color, children }) => (
+    <Text style={[style, color ? { color } : null]}>{children}</Text>
+  ),
+  Pressable: ({
+    onActivate,
+    disabled,
+    boxStyle,
+    style,
+    disabledStyle,
+    accessibilityLabel,
+    children,
+  }) => (
+    <Tappable
+      style={[boxStyle, style, disabled ? disabledStyle : null]}
+      pressedStyle={styles.sendBtnPressed}
+      onPress={onActivate}
+      disabled={disabled}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {children}
+    </Tappable>
+  ),
+  Glyph: ({ name, size, color }) => {
+    if (name === 'square') return <Square size={size} color={color} fill={color} />
+    return <ArrowUp size={size} color={color} />
+  },
+}
+
+export interface BottomActionBarAction {
+  key: string
+  label?: string
+  icon?: string
+  primary?: boolean
+  onPress: () => void
+  disabled?: boolean
+  loading?: boolean
+}
+
+/** 图标按钮组点击来源(对齐 Uniapp handleIconClick(type):camera/album/file/wxfile) */
+export type BottomActionBarIconType = 'camera' | 'album' | 'file' | 'wxfile'
+
+// ── 新 API:25+ 事件回调 + 状态 ──
+
+export interface BottomActionBarProps {
+  /** 兼容旧 API:简单按钮列表。提供时渲染 LabelButton/IconButton 行 */
+  actions?: ReadonlyArray<BottomActionBarAction>
+  /** 新 API:聊天输入模式。提供 prompt(含空串)时切换到完整聊天输入 UI */
+  prompt?: string
+  onPromptChange?: (text: string) => void
+  onSend?: () => void
+
+  // ── 25+ 事件回调(全部可选,对齐 Uniapp BottomActionBar.vue emit) ──
+  onToggleSuperAgent?: () => void
+  onToggleSuperAgentfu?: () => void
+  onToggleMcp?: () => void
+  onToggleKnowledgeBase?: () => void
+  onTogglePermanentMemory?: () => void
+  onToggleVoiceInput?: () => void
+  onRemoveImage?: (index: number) => void
+  onStartLongPress?: () => void
+  onEndLongPress?: () => void
+  /**
+   * 录音中(2026-10-16 录音消息):输入行覆盖录音态(黑白波形 + 时长 + 「松开结束」)。
+   * 覆盖层 pointerEvents="none",触摸仍穿到麦克风钮,onPressOut 正常收尾。
+   */
+  recording?: boolean
+  /** 录音时长(秒,录音态覆盖层显示) */
+  recordingDuration?: number
+  onInputFocus?: () => void
+  onInputBlur?: () => void
+  onInputClick?: () => void
+  onStartVoiceAnimation?: () => void
+  onStopVoiceAnimation?: () => void
+  onFunctionHandle?: () => void
+  onSourceHandle?: () => void
+  /** 添加附件回调(📁 按钮;不传时降级为占位提示 Alert) */
+  onAddFile?: () => void
+  onIconClick?: (type: BottomActionBarIconType) => void
+  onShowModelConfig?: () => void
+  onTextareaHeightChange?: (height: number) => void
+  onModelConfigChange?: (config: unknown) => void
+  onFangda?: () => void
+  /** 手动压缩上下文回调(✂ 图标按钮,渲染在辅助按钮行;未传时不渲染) */
+  onCompactContext?: () => void
+  /** 压缩请求进行中(按钮切 loading 态并禁用,防重复点击) */
+  compactContextLoading?: boolean
+  /** 输入行内「+」按钮回调(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换。
+   *  提供后在发送按钮左侧渲染「+」;未提供时不渲染。滑出区(辅助行 + 图标按钮组)由 isShowIcon 驱动) */
+  onPlusToggle?: () => void
+  /** 「+」按钮激活态(与 isShowIcon 同源:滑出区展开时高亮 + 旋转 45°,对齐 Uniapp rotate-icon) */
+  plusActive?: boolean
+  onKeyboardShow?: () => void
+  onKeyboardHide?: () => void
+  onShowModelList?: () => void
+  /** 「我的创作」入口回调(2026-10-18:原输入框上方模型类型行第 8 项「素材」移入「+」面板
+   *  主入口行 heroItem;提供时 AddPanel 渲染主入口,未提供时面板与旧版完全一致) */
+  onShowMyCreation?: () => void
+
+  // ── 开关状态 ──
+  superAgentEnabled?: boolean
+  mcpEnabled?: boolean
+  knowledgeBaseEnabled?: boolean
+  permanentMemoryEnabled?: boolean
+  voiceInputEnabled?: boolean
+  /** Toggle 开关行(智能体/MCP/知识库/记忆 chips)是否渲染。
+   *  对齐历史 uniapp ToggleButtonGroup.vue 根节点 v-if="false":默认隐藏,显式传 true 才渲染 */
+  showToggleChips?: boolean
+
+  // ── UI 扩展(功能对齐所需) ──
+  /** 图片预览列表(绑定 onRemoveImage)*/
+  images?: ReadonlyArray<string>
+  /** 当前模型名(显示在模型信息条)*/
+  modelName?: string
+  /** 加载中(发送按钮 loading)*/
+  isLoading?: boolean
+  /** 显示图标按钮组(相机/相册/文件)*/
+  isShowIcon?: boolean
+}
+
+// ── 常量 ──
+//
+// 与小程序端**同一元素**的档一律从共享源取数(出处注释写在对应行上):
+//  - 字号 → `@ihui/shared/ui/bottom-action-bar-spec`(裁决依据写在该文件里)
+//  - 命中方块 → `rnGeometry.tapBox`(design-tokens 几何表,与 web 顶栏 `w-9` 同档)
+//  - 圆角 → `rnRadius.*`(守门 77 的单一源,本文件不存第三个圆角数字)
+// 端内仍写数字的两类都不属"两端各写一份同一元素":
+//  - 小程序端本文件里没有对应元素(图片预览行、模型条高与配置按钮、发送胶囊宽、旧模式按钮方块),
+//    或不是尺寸(letterSpacing 0.2);
+//  - 容器/行级 padding 与 gap:两端切分不同(RN 逐属性、小程序 CSS 简写串),强行配对会把一次
+//    定档变成多次裁决 —— 逐条理由写在共享 spec 的头注里,不得为读数好看硬凑。
+
+const CONTAINER_PADDING_HORIZONTAL = 12
+const CONTAINER_PADDING_VERTICAL = 4
+const ROW_GAP = 12
+const COLUMN_GAP = 8
+
+const ACTION_BUTTON_HEIGHT = 44
+/** 旧模式文字按钮字号:与输入框同一档,取共享源(原 15 不在 design-tokens 字号档上)。 */
+const ACTION_BUTTON_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
+const ICON_BUTTON_SIZE = 44
+const ICON_BUTTON_EMOJI_SIZE = 18
+const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2
+/** 字距不是尺寸(守门 128 因键名含 spacing 会把它计入读数),不进几何表,登记为读数噪音。 */
+const LABEL_LETTER_SPACING = 0.2
+
+const TOGGLE_CHIP_HEIGHT = 32
+/** chip 文字字号:两端同值档,取共享源(小程序端 chip 本就是 14,RN 原 13 就近吸附)。 */
+const TOGGLE_CHIP_FONT_SIZE = BOTTOM_ACTION_BAR_CHIP_FONT_PX
+// chip 行间距不在本文件取数 —— 唯一源是 @ihui/shared/ui/bottom-action-bar-spec(与小程序端同档)
+const TOGGLE_CHIP_LETTER_SPACING = 0.2
+
+const INPUT_MIN_HEIGHT = 44
+const INPUT_BORDER_RADIUS = rnRadius['2xl'] // 原 15,R1 吸附至 2xl(16)
+/** 输入框字号:与小程序默认变体的 `text-sm` 同档,取共享源。 */
+const INPUT_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
+const INPUT_PADDING_HORIZONTAL = 12
+const INPUT_MAX_HEIGHT = 100 // 多行输入的自然生长上限(键盘避让下的可视高度),非布局档,两端不同形
+
+/** 语音按钮命中方块:取共享几何表档(小程序端本文件里没有这枚方块)。 */
+const VOICE_BTN_SIZE = rnGeometry.tapBox
+
+/** 录音态覆盖层:波形指示条数(纯前端 UI,与 InputArea VoiceWave 同族) */
+const RECORDING_WAVE_BARS = 7
+
+/**
+ * 录音态波形(黑白):7 条 Animated 循环 scaleY。
+ * 2026-10-16 用户定档「简约黑白大气」:条色取 text.primary(明暗主题自适应),
+ * 不用红色 danger 档。
+ */
+function RecordingWave() {
+  const bars = useRef(
+    Array.from({ length: RECORDING_WAVE_BARS }, () => new Animated.Value(0.25)),
+  ).current
+  useEffect(() => {
+    const loops = bars.map((v, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 260,
+            delay: i * 60,
+            useNativeDriver: true,
+          }),
+          Animated.timing(v, { toValue: 0.25, duration: 260, useNativeDriver: true }),
+        ]),
+      ),
+    )
+    loops.forEach((l) => l.start())
+    return () => loops.forEach((l) => l.stop())
+  }, [bars])
+  return (
+    <View style={styles.recordingWave}>
+      {bars.map((v, i) => (
+        <Animated.View key={i} style={[styles.recordingWaveBar, { transform: [{ scaleY: v }] }]} />
+      ))}
+    </View>
+  )
+}
+
+/** 辅助按钮命中方块:同上,tapBox 档。 */
+const SECONDARY_BTN_SIZE = rnGeometry.tapBox
+const SECONDARY_BTN_EMOJI_SIZE = 18
+
+/** 图标按钮组标准项(相机/相册/本地文件/微信文件,对齐 Uniapp isShowIcon 图标组;
+ *  面板渲染统一走共享 AddPanel,此处仅声明项定义) */
+const ICON_GROUP_ITEMS: ReadonlyArray<{
+  type: BottomActionBarIconType
+  label: string
+  Icon: typeof Camera
+}> = [
+  { type: 'camera', label: 'bab.camera', Icon: Camera },
+  { type: 'album', label: 'bab.album', Icon: ImageIcon },
+  { type: 'file', label: 'bab.localFile', Icon: Folder },
+  { type: 'wxfile', label: 'bab.wxFile', Icon: MessageCircle },
+]
+
+// 图片预览行:小程序端本文件里没有这一行(该端预览在 InputArea)—— 这些档无对照,保留端内。
+const IMAGE_PREVIEW_SIZE = 48
+const IMAGE_REMOVE_SIZE = 16
+
+// 模型条高度与配置按钮方块:小程序端模型条无固定高、也没有配置按钮 —— 同上,无对照。
+const MODEL_BAR_HEIGHT = 28
+/** 模型提示条字号:两端原值(小程序 10 / RN 13)都不在字号档上,公共吸附档 = 12,取共享源。 */
+const MODEL_BAR_FONT_SIZE = BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX
+
+const EMPTY_ACTIONS: ReadonlyArray<BottomActionBarAction> = []
+
+export function BottomActionBar(props: BottomActionBarProps) {
+  // 新模式:聊天输入(prompt 提供,含空串)
+  if (props.prompt !== undefined) {
+    return <ChatInputBar {...props} />
+  }
+  // 旧模式:简单按钮列表(actions)
+  return <SimpleButtonBar actions={props.actions ?? EMPTY_ACTIONS} />
+}
+
+// ── 旧模式:简单按钮列表(保持原渲染逻辑) ──
+
+interface SimpleButtonBarProps {
+  actions: ReadonlyArray<BottomActionBarAction>
+}
+
+function SimpleButtonBar({ actions }: SimpleButtonBarProps) {
+  const insets = useSafeAreaInsets()
+
+  return (
+    <View
+      style={[
+        styles.container,
+        styles.rowMode,
+        { paddingBottom: CONTAINER_PADDING_VERTICAL + insets.bottom },
+      ]}
+    >
+      {actions.map((action) => (
+        <BottomActionBarItem key={action.key} action={action} />
+      ))}
+    </View>
+  )
+}
+
+interface BottomActionBarItemProps {
+  action: BottomActionBarAction
+}
+
+function BottomActionBarItem({ action }: BottomActionBarItemProps) {
+  const isIconOnly = action.icon !== undefined && action.label === undefined
+
+  if (isIconOnly) {
+    return <IconButton action={action} />
+  }
+  return <LabelButton action={action} />
+}
+
+function LabelButton({ action }: BottomActionBarItemProps) {
+  const isPrimary = action.primary === true
+  const isDisabled = action.disabled === true
+  const isLoading = action.loading === true
+
+  const handlePress = () => {
+    if (!isDisabled && !isLoading) {
+      action.onPress()
+    }
+  }
+
+  const baseStyle: ViewStyle = isPrimary ? styles.primaryButton : styles.secondaryButton
+  const pressedStyle: ViewStyle = isPrimary
+    ? styles.primaryButtonPressed
+    : styles.secondaryButtonPressed
+  const disabledStyle: ViewStyle = styles.buttonDisabled
+
+  const labelStyle: TextStyle = isPrimary ? styles.primaryButtonLabel : styles.secondaryButtonLabel
+
+  // 原写法是 `const style = ({pressed}) => [...]` 再 `style={style}`：函数形态喂进 cssInterop
+  // 注册的 Pressable 会被换成 `{}`，两个按钮的整份内联样式从来没生效过。disabled 时原生
+  // Pressable 不发 press 事件 ⇒ pressedStyle 天然只在可点时叠加，与原条件式等价。
+  return (
+    <Tappable
+      onPress={handlePress}
+      disabled={isDisabled || isLoading}
+      accessibilityRole="button"
+      accessibilityLabel={action.label}
+      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
+      style={[baseStyle, (isDisabled || isLoading) && disabledStyle]}
+      pressedStyle={pressedStyle}
+    >
+      {isLoading ? (
+        <ActivityIndicator
+          size="small"
+          color={isPrimary ? tokens.surface.light : tokens.text.primary}
+        />
+      ) : (
+        <Text style={labelStyle} numberOfLines={1}>
+          {action.label}
+        </Text>
+      )}
+    </Tappable>
+  )
+}
+
+function IconButton({ action }: BottomActionBarItemProps) {
+  const isDisabled = action.disabled === true
+  const isLoading = action.loading === true
+  const icon = action.icon ?? ''
+
+  const handlePress = () => {
+    if (!isDisabled && !isLoading) {
+      action.onPress()
+    }
+  }
+
+  return (
+    <Tappable
+      onPress={handlePress}
+      disabled={isDisabled || isLoading}
+      accessibilityRole="button"
+      accessibilityLabel={action.label}
+      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
+      style={[styles.iconButton, (isDisabled || isLoading) && styles.buttonDisabled]}
+      pressedStyle={styles.iconButtonPressed}
+    >
+      {isLoading ? (
+        <ActivityIndicator size="small" color={tokens.text.primary} />
+      ) : (
+        <Text style={styles.iconButtonEmoji} allowFontScaling={false}>
+          {icon}
+        </Text>
+      )}
+    </Tappable>
+  )
+}
+
+// ── 新模式:聊天输入栏(25+ 事件绑定) ──
+
+interface ToggleChipConfig {
+  key: string
+  label: string
+  active: boolean
+  onPress: (() => void) | undefined
+}
+
+function ChatInputBar(props: BottomActionBarProps) {
+  const { t } = useI18n()
+  const {
+    prompt = '',
+    onPromptChange,
+    onSend,
+    onToggleSuperAgent,
+    onToggleSuperAgentfu,
+    onToggleMcp,
+    onToggleKnowledgeBase,
+    onTogglePermanentMemory,
+    onToggleVoiceInput,
+    onRemoveImage,
+    onStartLongPress,
+    onEndLongPress,
+    onInputFocus,
+    onInputBlur,
+    onInputClick,
+    onStartVoiceAnimation,
+    onStopVoiceAnimation,
+    onFunctionHandle,
+    onSourceHandle,
+    onAddFile,
+    onIconClick,
+    onShowModelConfig,
+    onTextareaHeightChange,
+    onModelConfigChange,
+    onFangda,
+    onCompactContext,
+    compactContextLoading = false,
+    onPlusToggle,
+    plusActive = false,
+    onKeyboardShow,
+    onKeyboardHide,
+    onShowModelList,
+    onShowMyCreation,
+    superAgentEnabled = false,
+    mcpEnabled = false,
+    knowledgeBaseEnabled = false,
+    permanentMemoryEnabled = false,
+    voiceInputEnabled = false,
+    showToggleChips = false,
+    images,
+    modelName,
+    isLoading = false,
+    isShowIcon = false,
+    recording = false,
+    recordingDuration = 0,
+  } = props
+  useUiTextField({
+    label: t('chat.inputPlaceholder'),
+    value: prompt,
+    setValue: onPromptChange,
+    multiline: true,
+    disabled: isLoading,
+  })
+
+  const insets = useSafeAreaInsets()
+  const prevVoiceEnabled = useRef(false)
+
+  // 键盘监听:keyboardDidShow / keyboardDidHide
+  useEffect(() => {
+    if (onKeyboardShow === undefined && onKeyboardHide === undefined) return
+    const showSub = Keyboard.addListener('keyboardDidShow', () => onKeyboardShow?.())
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => onKeyboardHide?.())
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [onKeyboardShow, onKeyboardHide])
+
+  // 语音动画:start/stop(voiceInputEnabled 状态变化触发)
+  useEffect(() => {
+    if (voiceInputEnabled && !prevVoiceEnabled.current) {
+      onStartVoiceAnimation?.()
+    }
+    if (!voiceInputEnabled && prevVoiceEnabled.current) {
+      onStopVoiceAnimation?.()
+    }
+    prevVoiceEnabled.current = voiceInputEnabled
+  }, [voiceInputEnabled, onStartVoiceAnimation, onStopVoiceAnimation])
+
+  const allChips: ReadonlyArray<ToggleChipConfig> = [
+    {
+      key: 'super-agent',
+      label: t('nav.agents'),
+      active: superAgentEnabled,
+      onPress: onToggleSuperAgent,
+    },
+    {
+      key: 'super-agentfu',
+      label: t('bab.agentAssist'),
+      active: false,
+      onPress: onToggleSuperAgentfu,
+    },
+    { key: 'mcp', label: 'MCP', active: mcpEnabled, onPress: onToggleMcp },
+    {
+      key: 'knowledge-base',
+      label: t('bab.knowledge'),
+      active: knowledgeBaseEnabled,
+      onPress: onToggleKnowledgeBase,
+    },
+    {
+      key: 'permanent-memory',
+      label: t('bab.memory'),
+      active: permanentMemoryEnabled,
+      onPress: onTogglePermanentMemory,
+    },
+  ]
+  const visibleChips = allChips.filter(
+    (chip): chip is ToggleChipConfig & { onPress: () => void } => chip.onPress !== undefined,
+  )
+
+  const showModelBar =
+    modelName !== undefined || onShowModelList !== undefined || onShowModelConfig !== undefined
+  // 滑出区联动(对齐 Uniapp isShowIcon):辅助按钮行与图标按钮组都随「+」展开/收起,默认隐藏
+  const showSecondaryRow =
+    isShowIcon &&
+    (onFunctionHandle !== undefined ||
+      onSourceHandle !== undefined ||
+      onFangda !== undefined ||
+      onCompactContext !== undefined ||
+      onAddFile !== undefined)
+  // 2026-10-18:面板可见条件纳入 onShowMyCreation(仅传「我的创作」不传图标组的调用方也能开面板)
+  const showIconGroup = isShowIcon && (onIconClick !== undefined || onShowMyCreation !== undefined)
+
+  return (
+    <View
+      style={[
+        styles.container,
+        styles.columnMode,
+        { paddingBottom: CONTAINER_PADDING_VERTICAL + insets.bottom },
+      ]}
+    >
+      {/* 模型信息条 */}
+      {showModelBar ? (
+        <View style={styles.modelBar}>
+          {modelName !== undefined || onShowModelList !== undefined ? (
+            <Tappable
+              style={styles.modelNameBtn}
+              onPress={onShowModelList}
+              onLongPress={
+                onModelConfigChange !== undefined
+                  ? () => onModelConfigChange({ trigger: 'model-name-longpress' })
+                  : undefined
+              }
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('bab.modelA11y', { name: modelName ?? t('bab.pickModel') })}
+            >
+              <Text style={styles.modelNameLabel} numberOfLines={1}>
+                {modelName ?? t('bab.pickModel')}
+              </Text>
+              <ChevronDown size={BOTTOM_ACTION_BAR_MODEL_BADGE_PX} color={tokens.text.tertiary} />
+            </Tappable>
+          ) : null}
+          {onShowModelConfig !== undefined ? (
+            <Tappable
+              style={styles.configBtn}
+              onPress={onShowModelConfig}
+              onLongPress={
+                onModelConfigChange !== undefined
+                  ? () => onModelConfigChange({ trigger: 'config-longpress' })
+                  : undefined
+              }
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('bab.modelConfig')}
+            >
+              <Settings size={16} color={tokens.text.secondary} />
+            </Tappable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Toggle chips 行(对齐历史 uniapp ToggleButtonGroup v-if="false":默认隐藏,显式开启才渲染) */}
+      {showToggleChips && visibleChips.length > 0 ? (
+        <View style={styles.toggleRow}>
+          {visibleChips.map((chip) => (
+            <ToggleChip
+              key={chip.key}
+              label={chip.label}
+              active={chip.active}
+              onPress={chip.onPress}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {/* 图片预览行 */}
+      {images !== undefined && images.length > 0 ? (
+        <View style={styles.imageRow}>
+          {images.map((uri, index) => (
+            <View key={index} style={styles.imagePreview}>
+              <Image source={{ uri }} style={styles.imagePreviewImg} resizeMode="cover" />
+              {onRemoveImage !== undefined ? (
+                <Tappable
+                  style={styles.imageRemoveBtn}
+                  onPress={() => onRemoveImage(index)}
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.imageDelete')}
+                >
+                  <X size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX} color={tokens.brand.ctaForeground} />
+                </Tappable>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* 输入行:语音 + TextInput + 发送 */}
+      <View style={styles.inputRow}>
+        {onToggleVoiceInput !== undefined ? (
+          <Pressable
+            style={[styles.voiceBtn, voiceInputEnabled || recording ? styles.voiceBtnActive : null]}
+            onPress={onToggleVoiceInput}
+            onLongPress={onStartLongPress}
+            onPressOut={onEndLongPress}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={t('bab.voiceInput')}
+          >
+            <Mic
+              size={rnGeometry.glyphMd}
+              color={recording ? tokens.brand.ctaForeground : tokens.text.secondary}
+            />
+          </Pressable>
+        ) : null}
+
+        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);聚焦只换色
+            不改描边宽度(变粗会压缩内容区令文字与换行挪位;同型位移 2026-10-20 在登录框真机实测);onFocus/onBlur 透传不变 */}
+        <TextField
+          colorScheme={currentRnTheme()}
+          style={styles.input}
+          value={prompt}
+          onChangeText={onPromptChange}
+          onFocus={onInputFocus}
+          onBlur={onInputBlur}
+          onTouchStart={() => onInputClick?.()}
+          onContentSizeChange={(e) => {
+            onTextareaHeightChange?.(e.nativeEvent.contentSize.height)
+          }}
+          placeholder={t('chat.inputPlaceholder')}
+          placeholderTextColor={tokens.text.tertiary}
+          multiline
+          editable={!isLoading && !recording}
+        />
+
+        {/* 2026-10-16 录音态覆盖层(微信式按住说话):黑白波形 + 时长 + 松开结束。
+            pointerEvents="none" ⇒ 触摸穿到麦克风钮,onPressOut 照常收尾;
+            TextField 已在录音态禁用,不会抢焦点弹键盘。 */}
+        {recording ? (
+          <View style={styles.recordingOverlay} pointerEvents="none">
+            <RecordingWave />
+            <Text style={styles.recordingDuration}>{formatShortDuration(recordingDuration)}</Text>
+            <Text style={styles.recordingHint}>松开结束</Text>
+          </View>
+        ) : null}
+
+        {/* 「+」按钮(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换滑出区;
+            视觉统一走共享 PlusButton,面板统一走共享 AddPanel) */}
+        {onPlusToggle !== undefined ? (
+          <PlusButton active={plusActive} onPress={onPlusToggle} />
+        ) : null}
+
+        {onSend !== undefined ? (
+          /* O02 票④(2026-10-31):发送方块走共享核心 BottomActionBarControl —— 方块边长(boxPx)
+             由核心供出,字形切换(发送中=Square 实心停止语义 / 平时=ArrowUp,与 web 发送簇同形)
+             由 glyph name 表达;本壳只供视觉(sendBtnTone:底色/圆角/禁用透明度)。 */
+          <BottomActionBarControl
+            platform={rnPlatform}
+            boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
+            glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
+            glyph={isLoading ? 'square' : 'arrow-up'}
+            glyphColor={tokens.brand.ctaForeground}
+            onActivate={onSend}
+            disabled={isLoading}
+            label={t('chat.send')}
+            style={styles.sendBtn}
+            disabledStyle={styles.sendBtnDisabled}
+          />
+        ) : null}
+      </View>
+
+      {/* 辅助按钮行:附件 / ƒ / 📎 / ⛶ */}
+      {showSecondaryRow ? (
+        <View style={styles.secondaryRow}>
+          {/* 添加附件(ChatScreen 传入 onAddFile → DocumentPicker + uploadFileMultipart 真实上传;
+              未传 onAddFile 时降级为占位提示 Alert,保持向后兼容) */}
+          <Tappable
+            style={styles.addFileBtn}
+            onPress={() => {
+              if (onAddFile) {
+                onAddFile()
+              } else {
+                appAlert(
+                  t('messageInput.addFile'),
+                  `${t('messageInput.document')} / ${t('messageInput.video')} 等附件选择功能待接入`,
+                )
+              }
+            }}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={t('messageInput.addFile')}
+          >
+            <Folder size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+          </Tappable>
+          {onFunctionHandle !== undefined ? (
+            <Tappable
+              style={styles.secondaryBtn}
+              onPress={onFunctionHandle}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('chat.fnTitle')}
+            >
+              <SquareFunction
+                size={BOTTOM_ACTION_BAR_CONTROL_GLYPH_PX}
+                color={tokens.text.secondary}
+              />
+            </Tappable>
+          ) : null}
+          {onSourceHandle !== undefined ? (
+            <Tappable
+              style={styles.secondaryBtn}
+              onPress={onSourceHandle}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('bab.source')}
+            >
+              <Paperclip size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+            </Tappable>
+          ) : null}
+          {onFangda !== undefined ? (
+            <Tappable
+              style={styles.secondaryBtn}
+              onPress={onFangda}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('bab.enlarge')}
+            >
+              <Maximize size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+            </Tappable>
+          ) : null}
+          {/* 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input compactButton):
+              ✂ 图标 + loading 态(ActivityIndicator),请求中禁用防重复点击 */}
+          {onCompactContext !== undefined ? (
+            <Tappable
+              style={styles.secondaryBtn}
+              onPress={onCompactContext}
+              disabled={compactContextLoading}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('messageInput.compactButton')}
+              accessibilityState={{ busy: compactContextLoading }}
+            >
+              {compactContextLoading ? (
+                <ActivityIndicator size="small" color={tokens.text.secondary} />
+              ) : (
+                <Scissors size={rnGeometry.glyphMd} color={tokens.text.secondary} />
+              )}
+            </Tappable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* 图标按钮组:相机 / 相册 / 本地文件 / 微信文件(统一走共享 AddPanel 底部滑出面板;
+          onIconClick('camera'|'album'|'file'|'wxfile') 契约不变,ChatScreen/AssistantScreen 零改动)。
+          24 是面板项图标墨迹档 —— 小程序端的同一功能是内联 PNG 卡(另一枚布局角色),
+          两端配对要到 AddPanel 那一票一并裁,本票不在此单独立档。
+          heroItem(2026-10-18):「我的创作」自模型类型行第 8 项移入本面板主入口行
+          (onShowMyCreation 提供时渲染;未提供时与旧版网格完全一致)。 */}
+      {onIconClick !== undefined || onShowMyCreation !== undefined ? (
+        <AddPanel
+          visible={showIconGroup}
+          onClose={() => onPlusToggle?.()}
+          heroItem={
+            onShowMyCreation !== undefined
+              ? {
+                  key: 'my-creation',
+                  label: t('common.myCreation'),
+                  subtitle: t('common.myCreationSubtitle'),
+                  icon: <Library size={24} color={tokens.text.secondary} />,
+                  onPress: onShowMyCreation,
+                }
+              : undefined
+          }
+          items={
+            onIconClick !== undefined
+              ? ICON_GROUP_ITEMS.map((item) => ({
+                  key: item.type,
+                  label: item.label,
+                  icon: <item.Icon size={24} color={tokens.text.secondary} />,
+                  onPress: () => onIconClick(item.type),
+                }))
+              : []
+          }
+        />
+      ) : null}
+    </View>
+  )
+}
+
+// ── ToggleChip 子组件 ──
+
+interface ToggleChipProps {
+  label: string
+  active: boolean
+  onPress: () => void
+}
+
+function ToggleChip({ label, active, onPress }: ToggleChipProps) {
+  return (
+    // 按压态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被展开成空对象
+    // 而整份内联样式静默消失(守门 131 立项那一型)。外层裸 Pressable 只承接点击与无障碍语义,
+    // 胶囊的尺寸/描边/底色/按压态全部落到子 View 的数组形态上;胶囊本就按标签收拢,故不需撑满档。
+    <Pressable
+      onPress={onPress}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+    >
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.toggleChip,
+            active ? styles.toggleChipActive : null,
+            pressed ? styles.toggleChipPressed : null,
+          ]}
+        >
+          <Text
+            style={[styles.toggleChipLabel, active ? styles.toggleChipLabelActive : null]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  )
+}
+
+// ── 样式 ──
+
+const styles = StyleSheet.create({
+  // ── 容器(共用) ──
+  container: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    paddingHorizontal: CONTAINER_PADDING_HORIZONTAL,
+    paddingTop: CONTAINER_PADDING_VERTICAL,
+    backgroundColor: tokens.surface.card,
+  } as ViewStyle,
+  rowMode: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ROW_GAP,
+  } as ViewStyle,
+  columnMode: {
+    flexDirection: 'column',
+    gap: COLUMN_GAP,
+  } as ViewStyle,
+
+  // ── 旧模式:按钮样式 ──
+  primaryButton: {
+    flex: 1,
+    height: ACTION_BUTTON_HEIGHT,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  primaryButtonPressed: {
+    opacity: 0.8,
+  } as ViewStyle,
+  primaryButtonLabel: {
+    fontSize: ACTION_BUTTON_FONT_SIZE,
+    lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
+    fontWeight: '500',
+    letterSpacing: LABEL_LETTER_SPACING,
+    color: tokens.brand.ctaForeground,
+    textAlign: 'center',
+  } as TextStyle,
+  secondaryButton: {
+    flex: 1,
+    height: ACTION_BUTTON_HEIGHT,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  secondaryButtonPressed: {
+    backgroundColor: tokens.surface.muted,
+  } as ViewStyle,
+  secondaryButtonLabel: {
+    fontSize: ACTION_BUTTON_FONT_SIZE,
+    lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
+    fontWeight: '500',
+    letterSpacing: LABEL_LETTER_SPACING,
+    color: tokens.text.primary,
+    textAlign: 'center',
+  } as TextStyle,
+  iconButton: {
+    width: ICON_BUTTON_SIZE,
+    height: ICON_BUTTON_SIZE,
+    borderRadius: ICON_BUTTON_BORDER_RADIUS,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  iconButtonPressed: {
+    backgroundColor: tokens.surface.muted,
+  } as ViewStyle,
+  iconButtonEmoji: {
+    fontSize: ICON_BUTTON_EMOJI_SIZE,
+    lineHeight: ICON_BUTTON_EMOJI_SIZE + 2,
+    textAlign: 'center',
+  } as TextStyle,
+  buttonDisabled: {
+    opacity: 0.5,
+  } as ViewStyle,
+
+  // ── 新模式:模型信息条 ──
+  modelBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: MODEL_BAR_HEIGHT,
+  } as ViewStyle,
+  modelNameBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.xs,
+    flex: 1,
+  } as ViewStyle,
+  modelNameLabel: {
+    fontSize: MODEL_BAR_FONT_SIZE,
+    color: tokens.text.secondary,
+    // 200 是文本截断上限(内容自适应,不是布局档),与小程序端"整行 flex 换行"是两种机制 —— 不同形
+    maxWidth: 200,
+  } as TextStyle,
+  modelArrow: {
+    fontSize: rnType.badge.size,
+    color: tokens.text.tertiary,
+  } as TextStyle,
+  configBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  configEmoji: {
+    fontSize: rnType.title.size,
+    lineHeight: 20,
+  } as TextStyle,
+
+  // ── 新模式:Toggle chips ──
+  toggleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
+  } as ViewStyle,
+  toggleChip: {
+    height: TOGGLE_CHIP_HEIGHT,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  toggleChipActive: {
+    backgroundColor: tokens.brand.cta,
+    borderColor: tokens.brandAccent.deep,
+  } as ViewStyle,
+  toggleChipPressed: {
+    opacity: 0.8,
+  } as ViewStyle,
+  toggleChipLabel: {
+    fontSize: TOGGLE_CHIP_FONT_SIZE,
+    fontWeight: '500',
+    letterSpacing: TOGGLE_CHIP_LETTER_SPACING,
+    color: tokens.text.primary,
+  } as TextStyle,
+  toggleChipLabelActive: {
+    color: tokens.brand.ctaForeground,
+  } as TextStyle,
+
+  // ── 新模式:图片预览 ──
+  imageRow: {
+    flexDirection: 'row',
+    gap: rnSpacing.sm,
+  } as ViewStyle,
+  imagePreview: {
+    position: 'relative',
+    width: IMAGE_PREVIEW_SIZE,
+    height: IMAGE_PREVIEW_SIZE,
+    borderRadius: rnRadius.md,
+    overflow: 'hidden',
+  } as ViewStyle,
+  imagePreviewImg: {
+    width: IMAGE_PREVIEW_SIZE,
+    height: IMAGE_PREVIEW_SIZE,
+  } as ImageStyle,
+  imageRemoveBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: IMAGE_REMOVE_SIZE,
+    height: IMAGE_REMOVE_SIZE,
+    borderRadius: IMAGE_REMOVE_SIZE / 2,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  imageRemoveIcon: {
+    fontSize: rnType.label.size,
+    lineHeight: 14,
+    color: tokens.surface.light,
+    fontWeight: '600',
+  } as TextStyle,
+
+  // ── 新模式:输入行 ──
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: rnSpacing.sm,
+  } as ViewStyle,
+  voiceBtn: {
+    width: VOICE_BTN_SIZE,
+    height: VOICE_BTN_SIZE,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  voiceBtnActive: {
+    backgroundColor: tokens.brand.cta,
+    borderColor: tokens.brandAccent.deep,
+  } as ViewStyle,
+  voiceEmoji: {
+    fontSize: rnType.subtitle.size,
+    lineHeight: 22,
+  } as TextStyle,
+  // ── 2026-10-16 录音态覆盖层(简约黑白:surface.card 底 + text.primary 波形)──
+  recordingOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rnSpacing['sm-loose'],
+    backgroundColor: tokens.surface.card,
+    borderRadius: INPUT_BORDER_RADIUS,
+  } as ViewStyle,
+  recordingWave: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 18,
+  } as ViewStyle,
+  recordingWaveBar: {
+    width: 3,
+    height: 14,
+    borderRadius: rnRadiusFor.tiny,
+    backgroundColor: tokens.text.primary,
+  } as ViewStyle,
+  recordingDuration: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    fontVariant: ['tabular-nums'],
+  } as TextStyle,
+  recordingHint: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  input: {
+    flex: 1,
+    minHeight: INPUT_MIN_HEIGHT,
+    maxHeight: INPUT_MAX_HEIGHT,
+    borderRadius: INPUT_BORDER_RADIUS,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    paddingHorizontal: INPUT_PADDING_HORIZONTAL,
+    paddingVertical: rnSpacing['sm-loose'],
+    fontSize: INPUT_FONT_SIZE,
+    color: tokens.text.primary,
+    includeFontPadding: false,
+  } as TextStyle,
+  // 发送方块视觉(底色/圆角/居中):方块边长唯一源 = 共享核心 BottomActionBarControl 的
+  // boxPx(= web `message-input.tsx` 的 `h-8 w-8` = 32,与小程序端逐档同值),本壳不再自写
+  // width/height(写了就是端内第二份 32,wiring 判据 ④ 会点名)。可点区不减:hitSlop 在原语内。
+  sendBtn: {
+    borderRadius: INPUT_BORDER_RADIUS,
+    backgroundColor: tokens.brand.cta,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  sendBtnPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  sendBtnDisabled: {
+    opacity: 0.6,
+  } as ViewStyle,
+
+  // ── 新模式:辅助按钮行 ──
+  secondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.sm,
+  } as ViewStyle,
+  secondaryBtn: {
+    width: SECONDARY_BTN_SIZE,
+    height: SECONDARY_BTN_SIZE,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  // 添加附件按钮(有 onAddFile 时真实上传,否则降级占位提示)
+  addFileBtn: {
+    height: SECONDARY_BTN_SIZE,
+    minWidth: SECONDARY_BTN_SIZE,
+    paddingHorizontal: rnSpacing.sm,
+    borderRadius: rnRadiusFor.control,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: rnSpacing.xs,
+  } as ViewStyle,
+  secondaryEmoji: {
+    fontSize: SECONDARY_BTN_EMOJI_SIZE,
+    lineHeight: SECONDARY_BTN_EMOJI_SIZE + 2,
+  } as TextStyle,
+})
+
+export default BottomActionBar
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

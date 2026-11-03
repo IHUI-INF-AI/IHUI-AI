@@ -1,0 +1,248 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// Stub for @ihui/rn-app - vitest mock
+// Replaces the real package which transitively imports @ihui/design-tokens (now aliased)
+// and other packages with typeof type syntax.
+import { createElement } from 'react'
+
+export const plazaScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function PlazaScreen(props: Record<string, unknown>) {
+  plazaScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-plaza-screen', ...props }, null)
+}
+
+export const agentScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentScreen(props: Record<string, unknown>) {
+  agentScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-screen', ...props }, null)
+}
+
+/**
+ * AgentChatScreen(B4 流式消费宿主):与上方 Plaza/Agent 同型 —— 本替身只做 props 捕获,
+ * 判的是「RN 宿主把增量文本/流式态/显式错误交给共享屏」这一层,共享屏渲染本身由
+ * packages/app 的套件负责。替身缺这条出口时宿主渲染拿到 undefined ⇒ 用例收集期即红。
+ */
+export const agentChatPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentChatScreen(props: Record<string, unknown>) {
+  agentChatPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-chat-screen' }, null)
+}
+
+/**
+ * 2026-11-03 AgentReview 薄壳批:列表 / 详情两屏同 Plaza / Agent 型 —— 本替身只做 props 捕获,
+ * 判的是「RN 壳把取数结果 / route item / 回退 / 重试 / 条目点击交给共享屏」这一层;
+ * 共享屏渲染本身由 packages/app 的套件负责。真身 exports 见 packages/app/src/index.ts
+ * (AgentReviewListScreen:154 / AgentReviewDetailScreen:278),替身缺这两条出口时,
+ * 壳渲染即 "Element type is invalid: got: undefined",两套件收集期/类型检查同时红。
+ */
+export const agentReviewListScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentReviewListScreen(props: Record<string, unknown>) {
+  agentReviewListScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-review-list-screen' }, null)
+}
+
+export const agentReviewDetailScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function AgentReviewDetailScreen(props: Record<string, unknown>) {
+  agentReviewDetailScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-agent-review-detail-screen' }, null)
+}
+
+/**
+ * 2026-11-03 薄壳批:CoursePlanet / MoreCourse / StudyIndex 三屏走 props 捕获替身。
+ * 判的是「RN 壳把取数结果、分页态与导航端口交给共享屏」这一层;共享屏渲染本身
+ * 由 packages/app 的套件负责。三枚名字若缺席,薄壳渲染即 "Element type is invalid"。
+ */
+export const coursePlanetScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function CoursePlanetScreen(props: Record<string, unknown>) {
+  coursePlanetScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-course-planet-screen' }, null)
+}
+
+export const moreCourseScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function MoreCourseScreen(props: Record<string, unknown>) {
+  moreCourseScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-more-course-screen' }, null)
+}
+
+export const studyIndexScreenPropsCaptured: Array<Record<string, unknown>> = []
+export function StudyIndexScreen(props: Record<string, unknown>) {
+  studyIndexScreenPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-study-index-screen' }, null)
+}
+
+export type PlazaScreenProps = {
+  t: (key: string) => string
+  colorScheme?: 'light' | 'dark'
+  items: Array<Record<string, unknown>>
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  status: string
+  search: string
+  showSearch: boolean
+  onRefresh: () => void
+  onEndReached: () => void
+  onStatusChange: (status: string) => void
+  onSearchChange: (search: string) => void
+  onSubmitSearch: () => void
+  onPressItem: (item: Record<string, unknown>) => void
+  onPublish: () => void
+}
+
+export type AgentScreenProps = {
+  t: (key: string) => string
+  items: Array<Record<string, unknown>>
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+export { SettingsScreen } from '../../../../packages/app/src/features/settings/SettingsScreen'
+// 共享替身必须镜像真实导出面:真身 packages/app/src/index.ts:241 导出 MoreLink,而本替身此前不导出
+// ⇒ 任何渲染到它的测试拿到 undefined(1572ed50aa8 把区段头统一到共享 MoreLink 后,my-agents 两条
+// 用例红了 15 天才被看见,因为那个套件此前连收集都失败)。补的是替身,不是逐套件 vi.mock。
+export { MoreLink } from '../../../../packages/app/src/components/MoreLink'
+// 2026-10-27:区段头几何单一源落地后,SectionHeader 成为 @ihui/rn-app 的真实导出面
+// (MoreTitles/MyAgents/Toolbar/KnowledgePlanet 都经它渲染)。同 MoreLink 那条纪律:
+// 替身必须镜像真实导出面,否则渲染到即 "Element type is invalid: got: undefined"。
+export { SectionHeader } from '../../../../packages/app/src/components/SectionHeader'
+export type { SectionHeaderProps } from '../../../../packages/app/src/components/SectionHeader'
+// 2026-10-30(票 L30756):回屏/回前台重取收口到共享层后,`useRefreshOnFocus` 薄壳从本包入口取
+// `useScreenReappear`。替身若漏这条出口,薄壳拿到 undefined ⇒ 20 枚消费屏挂载即崩。照上方
+// MoreLink/SectionHeader 同一条纪律:替身镜像真实导出面;但这一条**直连真源码**——它是纯 React
+// hook(零平台依赖),替身化等于把被测语义换成假货。
+export { useScreenReappear } from '../../../../packages/app/src/hooks/use-screen-reappear'
+export type { ScreenReappearAdapter } from '../../../../packages/app/src/hooks/use-screen-reappear'
+// 2026-10-31:聚焦描边唯一实现(守门 212)住在共享层 `use-wrap-focus`,端内 LoginScreen 的 2FA
+// 输入框与 MessageInput 的描边都从 @ihui/rn-app 取它。替身漏这组出口 ⇒ 消费屏挂载即
+// `No "useWrapFocus" export is defined on the "@ihui/rn-app" mock`(实测 g958 / login-region 两套件
+// 共 12 例因此红)。同上方纪律:直连真源码,不做假替身 —— 它判的就是"墨档从哪来"。
+export {
+  useWrapFocus,
+  wrapFocusBorder,
+  wrapFocusInk,
+} from '../../../../packages/app/src/hooks/use-wrap-focus'
+export type { WrapFocus, WrapFocusOptions } from '../../../../packages/app/src/hooks/use-wrap-focus'
+// FloatBox 等端内组件从 @ihui/rn-app 取字号缩放唯一口(它读 PixelRatio,替身里 getFontScale()=1,
+// ⇒ 单测下数值与今天逐字相同)。同上方纪律:直连真源码,不做假替身。
+export { useFontMultiplier } from '../../../../packages/app/src/components/MoreLink'
+// 文字按系统字号同比放大字号+行盒的唯一机制(26 处内容文字经它接回缩放通道)。直连真源:
+// 替身若自己做一份"返回 {}"的假实现,那些套件就把**被测语义**换掉了。
+export { scaleText } from '../../../../packages/app/src/hooks/scaled-text'
+// 同一把尺子(tests/rn-app-mock-export-fidelity)现读出的另两枚缺口:两枚都是真组件,直连真源。
+export { BackChevron } from '../../../../packages/app/src/components/BackChevron'
+export type { BackChevronProps } from '../../../../packages/app/src/components/BackChevron'
+export { ScrollJumpButton } from '../../../../packages/app/src/components/ScrollJumpButton'
+export type { ScrollJumpButtonProps } from '../../../../packages/app/src/components/ScrollJumpButton'
+export { OrderScreen } from '../../../../packages/app/src/features/order/OrderScreen'
+export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
+export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'
+export { WithdrawScreen } from '../../../../packages/app/src/features/withdraw/WithdrawScreen'
+// D28 多端同步(2026-09-21):外部会话导入共享屏直连真实实现(与上方 Settings/Order 同款做法),
+// 便于 wrapper 测试覆盖「注入的 picker/parse/commit」与共享 UI 的联动。
+export { ConversationImportScreen } from '../../../../packages/app/src/features/conversation-import/ConversationImportScreen'
+// InputArea(端内)以 <TextField> 渲染三处参数变量行;ChatScreen(端内)自 @ihui/rn-app
+// 取共享 ChatScreen 整屏复用(D137 纠偏后恢复的消费面)。两者此前不在替身导出面里 ⇒
+// 渲染到即 "Element type is invalid: got: undefined"(use-ui-text-field 那条正是这么红的)。
+// 同上方纪律:补的是替身(re-export 真实组件),不是逐套件 vi.mock。
+export { TextField } from '../../../../packages/app/src/components/TextField'
+export type { TextFieldProps } from '../../../../packages/app/src/components/TextField'
+export { ChatScreen } from '../../../../packages/app/src/features/chat/ChatScreen'
+export type {
+  ChatScreenMessage,
+  ChatScreenModel,
+  ChatScreenNavItem,
+  ChatScreenProps,
+} from '../../../../packages/app/src/features/chat/ChatScreen'
+
+// WalletBalance / WalletScreenProps / WithdrawScreenProps re-exported for type compatibility
+export type {
+  WalletBalance,
+  WalletScreenProps,
+} from '../../../../packages/app/src/features/wallet/WalletScreen'
+export type { WithdrawScreenProps } from '../../../../packages/app/src/features/withdraw/WithdrawScreen'
+
+/**
+ * 色板一律走真包,不得手抄。
+ *
+ * 此处原先手抄了 `tokens/lightTokens/darkTokens/getTokens` 的字面值,且抄的是
+ * **2026-09-04 已被明确替换掉的蓝灰旧值**(`surface.bg` 浅 #FFFFFF→真 #F5F5F5、
+ * 深 #1F2937→真 #242424,`card` #F3F4F6/#374151→真 #FFFFFF/#1A1A1A)。
+ * 而同一文件里的 `SettingsScreen` 又是 re-export 真实组件 —— 真组件配假色板,
+ * 结果就是 dark-mode 测试对一份不存在的色板断言全绿,色板改了几轮测试毫无反应。
+ */
+export {
+  tokens,
+  lightTokens,
+  darkTokens,
+  getTokens,
+} from '../../../../packages/app/src/theme/tokens'
+
+export { ModelPlazaScreen } from './model-plaza-mock'
+
+/**
+ * 统一分类栏:必须 re-export **真实组件**,不得在此另写一份假实现。
+ * 本文件已有一次"真组件配假色板 ⇒ 测试对不存在的色板全绿"的事故记录(见上方注释),
+ * 同类错误只要换个组件就会重犯。此前 CategoryDropdown 完全没从这里导出,
+ * 结果是"点击开下拉窗"这一形态在全仓零覆盖 —— 一旦有屏用它,测试直接
+ * "Element type is invalid"。
+ */
+export { CategoryInlineBar } from '../../../../packages/app/src/components/category/CategoryInlineBar'
+export { CategoryDropdown } from '../../../../packages/app/src/components/category/CategoryDropdown'
+export type {
+  CategoryItem,
+  CategoryInlineBarProps,
+  CategoryDropdownProps,
+} from '../../../../packages/app/src/components/category'
+// SearchOverlay(端内)从 '@ihui/rn-app' 取共享 SearchInput —— 替身不导出它则渲染到即
+// 收集期炸(Element type is invalid: got: undefined)。同上方纪律:re-export 真实组件,
+// 不得另写假实现。
+export { SearchInput } from '../../../../packages/app/src/components/SearchInput'
+export type { SearchInputProps } from '../../../../packages/app/src/components/SearchInput'
+// CarteScreen 同上一条纪律:替身必须转发**真实共享屏**,不得另写假实现 ——
+// apps/mobile-rn/src/screens/CarteScreen.tsx 是薄壳,渲染的就是这一份;
+// 若此处缺席或写假组件,"RN 端渲染共享层那份"这一格就没有任何一层能判。
+export { CarteScreen } from '../../../../packages/app/src/features/carte/CarteScreen'
+// RecruitmentScreen 同一条纪律(操盘手计划宣传页,2026-10-24 收敛):薄壳渲染的就是共享层那一份;
+// 本替身此前根本不导出这个名字 ⇒ 不补上,壳会渲染 undefined,而"RN 端渲染共享层"这一格零判据。
+export { RecruitmentScreen } from '../../../../packages/app/src/features/recruitment/RecruitmentScreen'
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 2026-10-23:About 薄壳接的是真实共享屏,本替身必须把真件透出来,否则 About 测的是虚构组件
+export { AboutScreen } from '../../../../packages/app/src/features/about/AboutScreen'
+export type {
+  AboutEntry,
+  SharedAboutScreenProps,
+} from '../../../../packages/app/src/features/about/AboutScreen'
+// 2026-10-23:Developer 薄壳同样接真实共享屏(开发者空间页)。同 CarteScreen/AboutScreen 那条
+// 纪律:替身只转发、不另写假实现 —— 写假的等于「RN 端渲染共享层那一份」这一格零覆盖。
+export { DeveloperScreen } from '../../../../packages/app/src/features/developer/DeveloperScreen'
+// 2026-10-24:TopicDetail 薄壳接真实共享屏(话题详情页)。同 CarteScreen/AboutScreen 纪律:
+// 替身只转发、不另写假实现 —— 否则「RN 端渲染共享层那一份」这一格零判据。
+export { TopicDetailScreen } from '../../../../packages/app/src/features/topic-detail/TopicDetailScreen'
+export type {
+  TopicDetailPostView,
+  TopicDetailView,
+  TopicDetailScreenProps,
+} from '../../../../packages/app/src/features/topic-detail/TopicDetailScreen'
+// 2026-10-24:Cart 薄壳接真实共享屏(购物车页)。同上方纪律:re-export 真实组件,
+// 不得另写假实现 —— 缺席则壳渲染 undefined,"RN 端渲染共享层那一份"判不到。
+export { CartScreen } from '../../../../packages/app/src/features/cart/CartScreen'
+export type {
+  CartItemView,
+  CartScreenProps,
+} from '../../../../packages/app/src/features/cart/CartScreen'
+// 2026-10-24:UserFans 薄壳接真实共享屏(粉丝列表页)。同上方纪律:re-export 真实组件,
+// 不得另写假实现 —— 缺席则壳渲染 undefined,"RN 端渲染共享层那一份"判不到。
+export { UserFansScreen } from '../../../../packages/app/src/features/user-fans/UserFansScreen'
+export type {
+  UserFansRowView,
+  UserFansScreenProps,
+} from '../../../../packages/app/src/features/user-fans/UserFansScreen'

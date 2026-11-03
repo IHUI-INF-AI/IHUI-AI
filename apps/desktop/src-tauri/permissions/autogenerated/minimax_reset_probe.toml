@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-minimax-reset-probe"
+description = "Enables the minimax_reset_probe command without any pre-configured scope."
+commands.allow = ["minimax_reset_probe"]
+
+[[permission]]
+identifier = "deny-minimax-reset-probe"
+description = "Denies the minimax_reset_probe command without any pre-configured scope."
+commands.deny = ["minimax_reset_probe"]

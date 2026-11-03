@@ -1,0 +1,604 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Trae 会话回灌落库(2026-10-24 立)—— 客户端为主、池只读回灌策略的写入端。
+ *
+ * 立因:号池与本机 Trae 客户端共用同一枚 refreshToken,谁先调 ExchangeToken 谁把
+ * 对方顶下线(2026-10-24 实测:池 02:20 续期,02:26 客户端 `[updateUserInfo] {}`
+ * 登录态被清)。定案 = 客户端负责续期,本脚本只把客户端轮换出的新票同步进池。
+ *
+ * 与 `relay-account-import.ts`(整条覆盖+重置健康状态)不同:本脚本只动凭证四列并
+ * `credVersion + 1`(签到侧按版本防降级,不涨版本新票推不过去),**绝不碰**
+ * healthStatus / tempUnschedulable / refreshFailureCount / lastErrorMessage。
+ *
+ * 是否覆盖由 `decideSync` 纯函数判定(单一判据源,测试直接 import):
+ * - 同票 ⇒ 不写;
+ * - 客户端到期时刻早于池内 ⇒ 不写(池内更新可能来自兜底续期,旧票不许回写);
+ * - 客户端到期时刻更新 / 时刻相同但 token 不同 ⇒ 写;
+ * - 客户端没给 refreshToken(web 号)⇒ 保留池内该列不动。
+ * - skip 分支同样会把 profile 档案快照/设备材料种进 secretsEnc(仅档变才写,2026-10-28;
+ *   一键切号写回信封要这两样,票未轮换时不种就永远缺档)。
+ * - 目标行解析(2026-11-01):运营池行优先;运营池无行而个人池恰有一行 ⇒ 写该行(本机号
+ *   已归属用户,不再另建);多行 ⇒ 拒写并点名。所有写操作按主键 id,不再按 uid 通配。
+ * - 池内完全无此 uid ⇒ **自动入池**(2026-10-30 根治,与 Qoder 腿同型):走
+ *   `buildTraeAutoImportInput` 构造 + `importAccounts` 落库出口;此前该支只报缺失无人接,
+ *   本机新登录 Trae 号静默脱离保活。profile/sessionTemplate 首轮不携带 —— 行建好后
+ *   下一轮 skip 分支照 2026-10-28 口径补种(最终一致,不另写第二条模板通道)。
+ *
+ * 编排上游 = `scripts/sync-trae-client-session.mjs`(提取本机信封 → stdin 喂进来)。
+ * 退出码:0 全部处理完(含 skip)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
+ * 任何输出面不得含凭据明文。
+ */
+import { resolve as resolvePath, dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
+const API_DIR = resolvePath(SCRIPT_DIR, '..')
+
+// .env 必须早于服务模块导入(它们在建连/加密时读环境)
+import { config } from 'dotenv'
+config({ path: resolvePath(API_DIR, '.env') })
+
+const { and, eq, sql, inArray } = await import('drizzle-orm')
+const { aiRelayAccountPool } = await import('@ihui/database')
+const { encryptField, decryptField } = await import('../src/utils/crypto.js')
+const { db } = await import('../src/db/index.js')
+// 判据 2026-10-28 提取到 src/services(§0.6:trae/qoder 两条回灌腿共用一份)
+const decision = await import('../src/services/relay-session-sync-decision.js')
+export const decideSync = decision.decideSync
+export const parseIso = decision.parseIso
+// 心跳键名单源 = scheduler(§0.6):回灌腿写、调度面读,两处各写一份字面量必然漂移。
+const { CLIENT_ACTIVE_AT_KEY } = await import('../src/services/relay-account-pool-scheduler.js')
+// 目标行选择单源(2026-11-01):运营池优先,个人池唯一行兜底;写一律按主键 id
+const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
+// 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定。
+// 2026-10-30 收口:此前的双份 import type 是 HEAD 就有的 tsc 重复声明(10-29 的「可转译锁」
+// 只钉 esbuild 声明面,tsc 的 TS2300 一直没被看到)——全文件只留这一份,零语义改动。
+import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
+import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
+export type {
+  DecideInput,
+  SyncDecision,
+  SyncReason,
+} from '../src/services/relay-session-sync-decision.js'
+
+export interface SyncCandidate {
+  uid: string
+  token: string
+  refreshToken?: string | null
+  /** ISO 8601;客户端解析不到时缺省 */
+  expiresAt?: string | null
+  refreshExpiresAt?: string | null
+  /** 设备材料(2026-10-25):新版 ExchangeToken 换票所需,随会话一并回灌 */
+  deviceId?: string | null
+  machineId?: string | null
+  deviceKeyPem?: string | null
+  devicePubPem?: string | null
+  /** 客户端档案快照(2026-10-28):一键切号写回信封的原料(host/userRegion/tokenReleaseAt/account) */
+  profile?: Record<string, unknown> | null
+  /** 会话模板(2026-10-27):本机当前登录号的账号资料(凭证已剔除),合并进 secretsEnc */
+  sessionTemplate?: Record<string, unknown> | null
+}
+
+/**
+ * 客户端账号对象上「rt 自然终点」的键名单源(2026-11-01 立,勿在消费端各写一份)。
+ *
+ * 提取器 `toPoolAccount` 写的是规范拼写 `refreshTokenExpiresAt`;历史 wrapper 曾转发
+ * `refreshExpiresAt`。两种拼写都认,规范拼写优先 —— 键名一旦由生产端与消费端各写一份,
+ * 唯一的失效表现就是库里 `refresh_expires_at` 恒 NULL 而所有门照绿(2026-11-01 实测)。
+ */
+export const CLIENT_REFRESH_EXPIRY_KEYS = ['refreshTokenExpiresAt', 'refreshExpiresAt'] as const
+
+/** 单源读取器:见 CLIENT_REFRESH_EXPIRY_KEYS;空串/非字符串不算证据。 */
+export function clientRefreshExpiryRaw(acc: object | null | undefined): string | null {
+  if (!acc || typeof acc !== 'object') return null
+  for (const key of CLIENT_REFRESH_EXPIRY_KEYS) {
+    const v = (acc as Record<string, unknown>)[key]
+    if (typeof v === 'string' && v.trim() !== '') return v
+  }
+  return null
+}
+
+export interface ExpiryBackfillInput {
+  /** 客户端票与池内票是否同一枚(同票不 apply,但列仍可能缺证据) */
+  ticketIdentical: boolean
+  poolTokenExpiresAt: Date | null
+  poolRefreshExpiresAt: Date | null
+  clientExpiresAt: Date | null
+  clientRefreshExpiresAt: Date | null
+}
+
+/**
+ * 「同票但 rt 终点未知」的窄回填判据(2026-11-01 立,纯函数)。
+ *
+ * 只在票面一致时把客户端证据填进池内空列;已知值绝不改写、不一致的旧票绝不参与
+ * (2026-11-01 实测:池刷成功后 rt 终点按契约写回未知,若拿 storage 里旧快照的
+ * 2027-04-29 填上去,管理面读到的是一枚已死 rt 的未来)。
+ * 返回空对象 = 本轮不补,调用方据此不写库、不推 updatedAt。
+ */
+export function expiryBackfillOf(input: ExpiryBackfillInput): { refreshExpiresAt?: Date } {
+  if (!input.ticketIdentical) return {}
+  if (input.poolRefreshExpiresAt !== null) return {}
+  if (input.clientRefreshExpiresAt === null) return {}
+  return { refreshExpiresAt: input.clientRefreshExpiresAt }
+}
+
+export interface SyncInputPayload {
+  providerCode: string
+  accounts: SyncCandidate[]
+  meta?: Record<string, unknown>
+  /**
+   * 客户端活跃心跳时刻(ISO,由 scripts/sync-trae-client-session.mjs 探测进程折算)。
+   * 缺省/null = 本轮不写心跳(客户端明确未运行,或取不到时刻)。
+   */
+  clientActiveAt?: string | null
+}
+
+interface RowOutcome {
+  uid: string
+  /** 'auto-import' = 池内缺行时自动入池支(不属于 decideSync 的判定结果) */
+  decision: SyncReason | 'auto-import'
+  applied: boolean
+  error?: string
+}
+
+export interface SyncSummary {
+  ok: boolean
+  dryRun: boolean
+  providerCode: 'trae'
+  total: number
+  applied: number
+  skipped: number
+  missing: number
+  failed: number
+  /** 本机新登录账号自动入池数(池内无行 → 走 importAccounts 建行;dry-run 只报不写) */
+  imported: number
+  /** 本轮写入的客户端心跳行数(永久保活档的让位依据;dry-run 按候选计数不落库) */
+  heartbeat?: number
+  rows: RowOutcome[]
+}
+
+/**
+ * 回灌候选 → 自动入池的导入条目(2026-10-30 立,纯函数,不连库可测)。
+ * 只在「运营池无此 uid」时被消费;字段口径对齐 importAccounts 的取键面:
+ * - refreshExpiresAt 按导入侧认的键名 refreshTokenExpiresAt 回填(service 只读该键);
+ * - 设备材料四键原样带给 mapTraeImport(桌面渠道换票必需,缺它票进池也刷不动);
+ * - name 刻意不给 —— 统一名判据单源 resolveRelayAccountName(取不到手机号退 uid 前 8 位,
+ *   管理页可就地改名,与旧版捕获导入同形态);
+ * - profile/sessionTemplate 刻意不带:建行后下一轮 skip 分支按 2026-10-28 口径补种。
+ * 任何输出面不回显条目内容(凭据只在 stdin 管道)。
+ */
+export function buildTraeAutoImportInput(acc: SyncCandidate): ImportAccountInput | null {
+  if (typeof acc?.uid !== 'string' || acc.uid === '') return null
+  if (typeof acc.token !== 'string' || acc.token === '') return null
+  const input: Record<string, unknown> = { uid: acc.uid, token: acc.token }
+  if (typeof acc.refreshToken === 'string' && acc.refreshToken) {
+    input.refreshToken = acc.refreshToken
+  }
+  if (typeof acc.expiresAt === 'string' && acc.expiresAt) input.expiresAt = acc.expiresAt
+  const rawRefreshExpiry = clientRefreshExpiryRaw(acc)
+  if (rawRefreshExpiry) input.refreshTokenExpiresAt = rawRefreshExpiry
+  for (const k of ['deviceId', 'machineId', 'deviceKeyPem', 'devicePubPem'] as const) {
+    const v = acc[k]
+    if (typeof v === 'string' && v) input[k] = v
+  }
+  return input as ImportAccountInput
+}
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks).toString('utf8')
+}
+
+/**
+ * 客户端活跃心跳落库(2026-10-31 立;2026-11-01 改为按主键 id 写)。
+ *
+ * 每轮**无条件**写,与票面是否变化无关:调度面 `shouldDeferRefresh` 对 keepAliveForever 号
+ * 只看这条心跳判「本机客户端是不是正在自己续期」。若跟着 apply 分支才写,占常态的
+ * same-token 轮会把心跳饿死 ⇒ 池判成客户端静默 ⇒ 接管续期 ⇒ 当场把正在干活的客户端顶下线
+ * (2026-10-24 实测事故型),而这条号已经不能靠验证码登回来。
+ *
+ * 绝不推进 `updatedAt` —— 它是永久保活解摘退避(`keepAliveReviveWhere`)的时钟;心跳每 10 分钟
+ * 拨一次,被摘的号就永远达不到退避条件,解摘档静默失效(取不到 ≠ 达标,但天天拨更糟)。
+ *
+ * `rowIds` 由调用方先经 `chooseSyncTargetRow` 解析(运营池优先 / 个人池唯一行);按 uid
+ * 通配会在同 uid 多行并存时写穿他人副本,故本函数只接受主键 id。
+ */
+export async function touchClientHeartbeat(
+  rowIds: readonly string[],
+  at: string | null | undefined,
+  dryRun: boolean,
+): Promise<number> {
+  if (!at || rowIds.length === 0) return 0
+  // 心跳时刻必须解得开:调度面 clientActiveAtOf 解不出即视为无心跳,写进一枚坏值等于
+  // 让这枚号从此失去「客户端在跑」的证据 ⇒ 池会接管续期 ⇒ 顶掉正在用的客户端。
+  if (Number.isNaN(new Date(at).getTime())) return 0
+  let touched = 0
+  for (const rowId of rowIds) {
+    if (dryRun) {
+      touched++
+      continue
+    }
+    const written = await db
+      .update(aiRelayAccountPool)
+      .set({
+        // 增量整枚走 jsonb 参数,不用 jsonb_build_object($1,$2):PG 在 variadic "any"
+        // 位置报 could not determine data type of parameter(2026-10-31 实测)。
+        extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || ${JSON.stringify(
+          { [CLIENT_ACTIVE_AT_KEY]: at },
+        )}::jsonb`,
+      })
+      .where(eq(aiRelayAccountPool.id, rowId))
+      .returning({ id: aiRelayAccountPool.id })
+      .catch(() => [])
+    touched += written.length
+  }
+  return touched
+}
+
+export async function runSync(payloadText: string, dryRun: boolean): Promise<SyncSummary> {
+  let payload: SyncInputPayload
+  try {
+    payload = JSON.parse(payloadText) as SyncInputPayload
+  } catch {
+    throw new Error('stdin 不是合法 JSON(未判定)')
+  }
+  if (!payload || typeof payload !== 'object' || payload.providerCode !== 'trae') {
+    throw new Error(`providerCode 必须是 'trae'(未判定)`)
+  }
+  if (!Array.isArray(payload.accounts)) {
+    throw new Error('accounts 必须是数组(未判定)')
+  }
+
+  const summary: SyncSummary = {
+    ok: true,
+    dryRun,
+    providerCode: 'trae',
+    total: payload.accounts.length,
+    applied: 0,
+    skipped: 0,
+    missing: 0,
+    failed: 0,
+    imported: 0,
+    rows: [],
+  }
+
+  // 目标行候选一次拉齐(2026-11-01):不再只查运营池 —— 本机号若已被某个用户个人池持有,
+  // 回灌必须写那一行;否则会另建运营池行,心跳/新票留在新行,个人池行(签到绑定那条)静默失联。
+  const candidateUids = payload.accounts
+    .map((a) => (typeof a?.uid === 'string' ? a.uid : ''))
+    .filter(Boolean)
+  const candidateRows =
+    candidateUids.length > 0
+      ? await db
+          .select()
+          .from(aiRelayAccountPool)
+          .where(
+            and(
+              eq(aiRelayAccountPool.providerCode, 'trae'),
+              inArray(aiRelayAccountPool.uid, candidateUids),
+            ),
+          )
+      : []
+  const rowsByUid = new Map<string, typeof candidateRows>()
+  for (const r of candidateRows) {
+    const list = rowsByUid.get(r.uid) ?? []
+    list.push(r)
+    rowsByUid.set(r.uid, list)
+  }
+  const targetOf = (uid: string) => chooseSyncTargetRow(rowsByUid.get(uid) ?? [])
+
+  // 心跳先落,再判票:票一致(same-token)是常态,那一支本来一行凭证都不写 —— 心跳若挂在
+  // 票写分支上就永远不达标,池会把「客户端正在续期」误读成「客户端已静默」。
+  summary.heartbeat = await touchClientHeartbeat(
+    candidateUids.flatMap((uid) => {
+      const t = targetOf(uid)
+      return t.kind === 'row' ? [t.row.id] : []
+    }),
+    payload.clientActiveAt,
+    dryRun,
+  )
+
+  for (const acc of payload.accounts) {
+    const uid = typeof acc?.uid === 'string' ? acc.uid : ''
+    try {
+      if (!uid || typeof acc.token !== 'string' || acc.token === '') {
+        summary.failed++
+        summary.rows.push({ uid, decision: 'apply', applied: false, error: '缺 uid/token' })
+        continue
+      }
+      const target = targetOf(uid)
+      if (target.kind === 'ambiguous') {
+        // 同 uid 多行且无运营池行:挑一行写就是写穿他人副本,拒写并点名(不猜)
+        summary.failed++
+        summary.rows.push({
+          uid,
+          decision: 'apply',
+          applied: false,
+          error: `同 uid 有 ${target.count} 行且无运营池行,归属未判定(不猜)`,
+        })
+        continue
+      }
+      if (target.kind === 'none') {
+        // 缺行(运营池与个人池都无同 uid)⇒ 自动入池(2026-10-30 根治,与 Qoder 腿同型):
+        // 此前该支只报「池内无此 uid」且无人接 —— 本机新登录的 Trae 号静默脱离保活直到
+        // 人工发现。现把本机会话交给与手动导入同一个落库出口 importAccounts(运营池行
+        // ownerUserId=null,部分唯一索引只圈运营池,结构上碰不到个人池同 uid 行;
+        // credVersion 原子 +1,O64 推签到池;推送断链落 pending 不阻塞)。并发撞唯一索引
+        // (他席先建了行)按 failed 点名,绝不冒绿(§0.3);下一轮回灌即命中现有行走正常凭证覆盖。
+        const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
+        const autoInput = buildTraeAutoImportInput(acc)
+        if (!autoInput) {
+          summary.missing++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: '本机会话构不成导入条目(不猜)',
+          })
+          continue
+        }
+        if (dryRun) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: false, error: 'dry-run 未写' })
+          continue
+        }
+        const res = await importAccounts('trae', [autoInput], null)
+        const item = res.items[0]
+        if (item && (item.status === 'imported' || item.status === 'updated')) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: true })
+        } else {
+          summary.failed++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: (item?.reason ?? '导入未回报条目').slice(0, 200),
+          })
+        }
+        continue
+      }
+      const row = target.row
+      // 池内明文解不出(密钥轮换/坏密文)时当作"票不同"走 apply,让客户端票覆盖坏密文
+      let poolPlain: string | null = null
+      try {
+        poolPlain = row.tokenEnc ? decryptField(row.tokenEnc) : null
+      } catch {
+        poolPlain = null
+      }
+      const final = decideSync({
+        poolToken: poolPlain,
+        poolTokenExpiresAt: row.tokenExpiresAt,
+        poolRefreshExpiresAt: row.refreshExpiresAt,
+        clientToken: acc.token,
+        clientRefreshToken: typeof acc.refreshToken === 'string' ? acc.refreshToken : null,
+        clientExpiresAt: parseIso(acc.expiresAt),
+        clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
+      })
+      // 设备材料随票回灌(客户端重新登录换机/换密钥时池侧自愈);缺任一项 → 不动原值。
+      // 2026-10-28:secretsEnc 改为「读出旧档 → 合并 → 写回」——档案快照(profile)与设备密钥
+      // 同住一档,任何一方缺位时不得把另一方抹掉(旧版整档覆盖,profile 会被设备写入清掉)。
+      // 设备材料与会话模板随票回灌(客户端重新登录换机/换密钥时池侧自愈)。
+      // 合并语义(2026-10-27):secretsEnc 是单列且还要装「登录本机」的会话模板,
+      // 这里若整列覆盖,每 10 分钟一次的回灌会把模板抹掉 ⇒ 以既有 secrets 为底,
+      // 只在本次确实提供时覆盖对应键。
+      const deviceId = typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId : null
+      const machineId = typeof acc.machineId === 'string' && acc.machineId ? acc.machineId : null
+      const keyPem =
+        typeof acc.deviceKeyPem === 'string' && acc.deviceKeyPem ? acc.deviceKeyPem : null
+      const pubPem =
+        typeof acc.devicePubPem === 'string' && acc.devicePubPem ? acc.devicePubPem : null
+      const profile =
+        acc.profile && typeof acc.profile === 'object' && !Array.isArray(acc.profile)
+          ? (acc.profile as Record<string, unknown>)
+          : null
+      const template =
+        acc.sessionTemplate &&
+        typeof acc.sessionTemplate === 'object' &&
+        !Array.isArray(acc.sessionTemplate) &&
+        Object.keys(acc.sessionTemplate).length > 0
+          ? acc.sessionTemplate
+          : null
+      let secretPatch: Record<string, unknown> | null = null
+      let secretsChanged = false
+      if ((keyPem && pubPem) || profile || template) {
+        let existing: Record<string, unknown> = {}
+        if (row.secretsEnc) {
+          try {
+            const parsed = JSON.parse(decryptField(row.secretsEnc))
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) existing = parsed
+          } catch {
+            /* 旧密文解不出(密钥轮换/坏档):放弃保留,由本次写入重建 */
+          }
+        }
+        const merged: Record<string, unknown> = { ...existing }
+        if (keyPem && pubPem) {
+          merged.deviceKeyPem = keyPem
+          merged.devicePubPem = pubPem
+        }
+        if (profile) merged.profile = profile
+        if (template) merged.sessionTemplate = template
+        secretsChanged = JSON.stringify(merged) !== JSON.stringify(existing)
+        if (secretsChanged) secretPatch = merged
+      }
+      if (!final.apply) {
+        // 同票也要种档案(2026-10-28 补):一键切号写回信封要 profile/设备材料,而票未轮换时
+        // decideSync 恒 skip ⇒ 不种就永远缺档。只动 secrets 三列,凭证列/credVersion/健康态不碰。
+        const deviceUpdate = secretPatch
+          ? {
+              secretsEnc: encryptField(JSON.stringify(secretPatch)),
+              ...(deviceId ? { deviceId } : {}),
+              ...(machineId ? { machineId } : {}),
+            }
+          : {}
+        // 同票分支还有一条窄缺口(2026-11-01):池内 rt 终点为空、客户端手里有证据时,
+        // 此前的 skip 会把它永远留在 NULL(所有门照绿)。判据只认「票面一致 + 池内未知」,
+        // 已知值不改写、不一致的旧票不参与;没有可补的列时也不推 updatedAt。
+        const expiryBackfill = expiryBackfillOf({
+          ticketIdentical: final.reason === 'same-token',
+          poolTokenExpiresAt: row.tokenExpiresAt,
+          poolRefreshExpiresAt: row.refreshExpiresAt,
+          clientExpiresAt: parseIso(acc.expiresAt),
+          clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
+        })
+        if ((secretsChanged || expiryBackfill.refreshExpiresAt !== undefined) && !dryRun) {
+          await db
+            .update(aiRelayAccountPool)
+            .set({ ...deviceUpdate, ...expiryBackfill, updatedAt: new Date() })
+            // 按主键 id:目标行可能是个人池唯一行(2026-11-01)
+            .where(eq(aiRelayAccountPool.id, row.id))
+        }
+        summary.skipped++
+        summary.rows.push({ uid, decision: final.reason, applied: false })
+        continue
+      }
+      if (dryRun) {
+        summary.applied++
+        summary.rows.push({ uid, decision: final.reason, applied: false, error: 'dry-run 未写' })
+        continue
+      }
+      let secrets: Record<string, unknown> | null = null
+      if ((keyPem && pubPem) || template) {
+        let base: Record<string, unknown> = {}
+        if (row.secretsEnc) {
+          try {
+            const parsed = JSON.parse(decryptField(row.secretsEnc))
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              base = parsed as Record<string, unknown>
+            }
+          } catch {
+            /* 坏密文/密钥轮换 ⇒ 以本次提供为准重建 */
+          }
+        }
+        secrets = { ...base }
+        if (keyPem && pubPem) {
+          secrets.deviceKeyPem = keyPem
+          secrets.devicePubPem = pubPem
+        }
+        if (template) secrets.sessionTemplate = template
+      }
+      const secretsUpdate = secrets ? { secretsEnc: encryptField(JSON.stringify(secrets)) } : {}
+      const deviceUpdate =
+        keyPem && pubPem
+          ? {
+              ...secretsUpdate,
+              ...(deviceId ? { deviceId } : {}),
+              ...(machineId ? { machineId } : {}),
+            }
+          : secretsUpdate
+      await db
+        .update(aiRelayAccountPool)
+        .set({
+          tokenEnc: encryptField(final.next.token),
+          ...(final.next.refreshToken !== null
+            ? { refreshTokenEnc: encryptField(final.next.refreshToken) }
+            : {}),
+          tokenExpiresAt: final.next.tokenExpiresAt,
+          refreshExpiresAt: final.next.refreshExpiresAt,
+          ...deviceUpdate,
+          // 签到侧按 cred_version 防降级:不涨版本,新票永远推不过去
+          credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+          updatedAt: new Date(),
+        })
+        // 按主键 id:目标行可能是个人池唯一行(2026-11-01)
+        .where(eq(aiRelayAccountPool.id, row.id))
+      summary.applied++
+      summary.rows.push({ uid, decision: final.reason, applied: true })
+    } catch (e) {
+      summary.failed++
+      summary.rows.push({
+        uid,
+        decision: 'apply',
+        applied: false,
+        error: (e instanceof Error ? e.message : String(e)).slice(0, 200),
+      })
+    }
+  }
+  if (summary.failed > 0) summary.ok = false
+  return summary
+}
+
+function parseArgs(argv: string[]): {
+  stdin: boolean
+  dryRun: boolean
+  json: boolean
+  error: string | null
+} {
+  const options = { stdin: false, dryRun: false, json: false, error: null as string | null }
+  for (const a of argv) {
+    if (a === '--stdin') options.stdin = true
+    else if (a === '--dry-run') options.dryRun = true
+    else if (a === '--json') options.json = true
+    else if (a === '--')
+      continue // pnpm 透传的裸分隔符,不是参数
+    else options.error = `未知参数: ${a}`
+  }
+  if (!options.stdin && !options.error) options.error = '必须 --stdin(凭据经标准输入,不落盘)'
+  return options
+}
+
+export async function main(argv: string[]): Promise<number> {
+  const options = parseArgs(argv)
+  if (options.error) {
+    process.stderr.write(`❌ ${options.error}\n`)
+    return 2
+  }
+  let payloadText: string
+  try {
+    payloadText = await readStdin()
+  } catch (e) {
+    process.stderr.write(
+      `❌ 读 stdin 失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`,
+    )
+    return 2
+  }
+  if (payloadText.trim() === '') {
+    process.stderr.write('❌ stdin 为空(未判定)\n')
+    return 2
+  }
+  let summary: SyncSummary
+  try {
+    summary = await runSync(payloadText, options.dryRun)
+  } catch (e) {
+    process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+    return 2
+  }
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(summary)}\n`)
+  } else {
+    process.stderr.write(
+      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} imported=${summary.imported} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
+    )
+    for (const r of summary.rows) {
+      process.stderr.write(
+        `  ${r.uid} ${r.decision}${r.applied ? ' ✓已写' : ''}${r.error ? ` (${r.error})` : ''}\n`,
+      )
+    }
+  }
+  return summary.ok ? 0 : 1
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main(process.argv.slice(2))
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+      process.exit(2)
+    })
+}
+
+export const __test__ = {
+  decideSync,
+  parseIso,
+  parseArgs,
+  buildTraeAutoImportInput,
+  clientRefreshExpiryRaw,
+  CLIENT_REFRESH_EXPIRY_KEYS,
+  expiryBackfillOf,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

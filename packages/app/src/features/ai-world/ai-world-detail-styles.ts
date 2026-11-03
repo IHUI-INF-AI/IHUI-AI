@@ -1,0 +1,93 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { StyleSheet } from 'react-native'
+import type { AppThemeTokens } from '../../theme/tokens'
+
+export function createAiWorldDetailStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
+    scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
+    card: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tk.border.light,
+      padding: rnSpacing.md,
+      gap: rnSpacing['sm-loose'],
+    },
+    cover: {
+      width: '100%',
+      height: 192,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.muted,
+    },
+    coverFallback: {
+      width: '100%',
+      height: 192,
+      borderRadius: rnRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.muted,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: rnSpacing.sm,
+    },
+    title: {
+      flex: 1,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      lineHeight: rnType.heading.lineHeight,
+    },
+    favBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: 5,
+      borderRadius: rnRadius.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tk.border.medium,
+      backgroundColor: tk.surface.muted,
+    },
+    favBtnActive: {
+      borderColor: tk.brand.cta,
+      backgroundColor: tk.brand.cta,
+    },
+    favBtnText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
+    // 配对前景键必须与底键同前缀(favBtnActive × favBtnActiveText),门 83 R3 才认得到兄弟对
+    favBtnActiveText: { color: tk.brand.ctaForeground },
+    favBtnTextPending: { opacity: 0.6 },
+    favErrorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: rnSpacing.md },
+    metaChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.muted,
+    },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    content: { fontSize: 14, lineHeight: 22, color: tk.text.medium },
+    contentEmpty: { fontSize: 13, color: tk.text.tertiary },
+    updatedText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

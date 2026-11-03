@@ -1,0 +1,808 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""Trae Work 多账号签到引擎 — 服务端服务化平移。
+
+平移自 Trae-workbuddyAssistant (MIT) apps/assistant/src-python/auto_checkin.py
+（桌面端内置签到脚本，MIT 授权，原始版权与来源声明在此保留）。
+
+与上游的差异（平移改造点）:
+1. urllib 同步 → httpx.AsyncClient 异步化；共享 client 以 ``trust_env=False``
+   构造，语义对齐上游「NO_PROXY=* 强制直连、不走任何代理」的修复
+   （上游背景: Windows 系统代理指向本地 MITM 死端口会导致 WinError 10061）。
+2. print/emit → structlog（经 app.core.logging.get_logger）。
+3. 文件读写全部剥离（save_json / save_credits_history / account_cooldowns.json /
+   checkin_accounts.json 等不在此处出现）—— 持久化由调用方（Phase1b 数据层）
+   负责；device_map 由调用方传入并在其上原位补齐缺失设备标识（调用方负责落盘）。
+4. ``checkin_account`` 编排函数返回与上游 NDJSON ``emit`` 事件语义对齐的
+   结构化 dict（含 http_status / message / code / classified_error / credits 等），
+   供服务端数据层与 API 层消费。
+
+上游语义保留:
+- 设备标识确定性派生（同一 user_id 恒等输出，device_map 缺失也可复现）；
+- 请求头逐字段与上游 _build_headers 一致（设备指纹头是风控面，不可漂移）；
+- 错误分类 classify_error 的 (error_type, cooldown_seconds) 契约不变
+  （cooldown_seconds: -1=永久, 0=不冷却, >0=冷却秒数）——落冷却仍由调用方执行；
+- signin_with_retry 仅对网络层异常（code 为 None）重试，业务失败不重试。
+- claim 路拿到「今日已签到」码(9095)时归为幂等成功态,与 status 预检命中已签
+  同形状(ok=True/status="already"/action="skip_already"),不落冷却、不计失败;
+  码值判据单源在 checkin_codes（2026-11-01 立,此前它被误分类成 BusinessError）。
+"""
+
+from __future__ import annotations
+
+import base64
+import datetime
+import hashlib
+import json
+import random
+import re
+import uuid
+from typing import Any, Final
+
+import httpx
+
+from app.core.logging import get_logger
+from app.services.checkin_codes import PLATFORM_TRAE, is_already_checked_in
+from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
+
+logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# 常量（平移自上游原文）
+# ---------------------------------------------------------------------------
+
+SIGNIN_URL: Final = "https://api.trae.cn/trae/api/v2/ug/checkin_credits/claim"
+STATUS_URL: Final = "https://api.trae.cn/trae/api/v2/ug/checkin_credits/status"
+EXPIRY_WARN_HOURS: Final = 24  # JWT 剩余有效期低于该值时发出告警
+DEFAULT_TIMEOUT: Final = 30  # 秒，对齐上游默认 timeout=30
+
+# 设备标识生成算法版本；旧记录(gen 缺失=1)会自动重建
+DEVICE_GEN: Final = 2
+
+# 风控指纹头的固定取值（上游原文，随 TRAE 客户端版本演进，不可随意改动）
+_USER_AGENT: Final = "VSCode 1.107.1 (TRAE SOLO CN)"
+_MARKET_CLIENT_ID: Final = "VSCode 1.107.1"
+_APP_VERSION: Final = "0.1.45"
+_LSCBD_AID: Final = "787976"
+
+# ---------------------------------------------------------------------------
+# 确定性伪随机派生（上游原文平移）
+# ---------------------------------------------------------------------------
+
+
+def _normalize_seed(seed: int | str | None) -> int | str | None:
+    """将任意 seed 归一为稳定 int（字符串走 sha256，跨进程一致；纯数字串按数值）。"""
+    if isinstance(seed, int):
+        return seed & 0x7FFFFFFFFFFFFFFF
+    if isinstance(seed, str):
+        if seed.isdigit():
+            return int(seed) & 0x7FFFFFFFFFFFFFFF
+        return int(hashlib.sha256(seed.encode("utf-8")).hexdigest(), 16) & 0x7FFFFFFFFFFFFFFF
+    return seed
+
+
+def _stable_rng(seed: int | str | None) -> random.Random:
+    """遗留兼容：基于 seed 的稳定随机数生成器（旧算法，已被 SHA-256 派生取代）。"""
+    return random.Random(_normalize_seed(seed))
+
+
+def _seeded_stream(seed: int | str, salt: str, nbytes: int) -> bytes:
+    """确定性派生均匀字节流（SHA-256），避免 random.Random(seed) 病态序列。
+
+    调用方（rand_digits/rand_hex/gen_market_uuid）均已在调用前守卫 seed is None，
+    故签名收窄为非可选（类型债 39 条清偿，2026-10-10）。
+    """
+    data = f"{salt}:{seed}".encode()
+    out = b""
+    i = 0
+    while len(out) < nbytes:
+        out += hashlib.sha256(data + i.to_bytes(4, "big")).digest()
+        i += 1
+    return out[:nbytes]
+
+
+def rand_digits(n: int, seed: int | str | None = None) -> str:
+    if seed is None:
+        return "".join(random.choice("0123456789") for _ in range(n))
+    bs = _seeded_stream(seed, "devid", n + 1)
+    return "".join(str(b % 10) for b in bs[:n])
+
+
+def rand_hex(n: int, seed: int | str | None = None) -> str:
+    if seed is None:
+        return "".join(random.choice("0123456789abcdef") for _ in range(n))
+    need = (n + 1) // 2
+    bs = _seeded_stream(seed, "sess", need)
+    return "".join(f"{b:02x}" for b in bs)[:n]
+
+
+def gen_market_uuid(seed: int | str | None) -> str:
+    """标准 UUID v4（确定性派生），符合 market_user_id 字段格式。"""
+    if seed is None:
+        return str(uuid.uuid4())
+    bs = bytearray(_seeded_stream(seed, "market", 16))
+    bs[6] = (bs[6] & 0x0F) | 0x40
+    bs[8] = (bs[8] & 0x3F) | 0x80
+    return str(uuid.UUID(bytes=bytes(bs)))
+
+
+# ---------------------------------------------------------------------------
+# JWT 解析（上游原文平移）
+# ---------------------------------------------------------------------------
+
+
+def extract_user_id(jwt: str) -> str | None:
+    """从 JWT payload 里取 data.id，不校验签名。"""
+    token = jwt
+    if token.startswith("Cloud-IDE-JWT "):
+        token = token.split(None, 1)[1]
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        data = payload.get("data", {})
+        if isinstance(data, dict) and data.get("id"):
+            return str(data.get("id"))
+        if payload.get("auth_id"):
+            return str(payload.get("auth_id"))
+        if payload.get("sub"):
+            return str(payload.get("sub"))
+        return None
+    except Exception:
+        return None
+
+
+def get_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
+    """从 JWT payload 取 exp 字段，返回 (exp_datetime, remaining_hours) 或 (None, None)。"""
+    token = jwt
+    if token.startswith("Cloud-IDE-JWT "):
+        token = token.split(None, 1)[1]
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None, None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        exp = payload.get("exp")
+        if not isinstance(exp, (int, float)):
+            return None, None
+        exp_dt = datetime.datetime.fromtimestamp(exp)
+        remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+        return exp_dt, remaining
+    except Exception:
+        return None, None
+
+
+# ---------------------------------------------------------------------------
+# 展示名派生（2026-10-16 李总定档：手机 > 邮箱 > 账户名 > 用户名）
+# ---------------------------------------------------------------------------
+
+# UUID 段(8-4-4-4-12 十六进制)。name 命中它 ⇒ 旧捕获留下的编码名,不是展示名。
+_UUID_RE: Final = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
+)
+
+# 展示名候选键,按优先级分组(组间即优先级,组内并列):
+# 手机 > 邮箱 > 账户名(username/account/preferred_username)> 用户名(nickname/name)。
+# 键名按平台漂移:TRAE 顶层 phone;Keycloak 风格(WorkBuddy/Qoder)email /
+# preferred_username / phone_number;故宽键表覆盖,与桌面端 checkin_capture.rs
+# 的 display_name_pick 同口径(那里是 user 对象,这里是 JWT payload)。
+_DISPLAY_NAME_KEY_GROUPS: Final[tuple[tuple[str, ...], ...]] = (
+    # nonPlainTextMobile:TRAE account 里客户端脱敏存储的手机号("186******08",
+    # 真机实证 —— TRAE 本地无明文手机号,打码串即其"手机号"形态)
+    ("phone", "phone_number", "phoneNumber", "mobile", "telephone", "nonPlainTextMobile"),
+    ("email", "mail", "email_address", "emailAddress"),
+    (
+        "username",
+        "user_name",
+        "userName",
+        "account",
+        "account_name",
+        "accountName",
+        "preferred_username",
+        "preferredUsername",
+    ),
+    ("nickname", "nick_name", "nickName", "name", "display_name", "displayName"),
+)
+
+# payload 内一层嵌套的常见容器(TRAE 把身份放 data 里)
+_DISPLAY_NAME_NESTED_KEYS: Final = ("data", "user", "account", "profile")
+
+
+def uuid_shaped_name(name: str | None) -> bool:
+    """name 是否为「UUID 编码名」(旧捕获兜底形态,如 `Qoder-<uuid>` / 裸 uid)。"""
+    return bool(name) and bool(_UUID_RE.search(name or ""))
+
+
+def _jwt_payload(jwt: str) -> dict[str, Any] | None:
+    """解 JWT payload(不校验签名);非 JWT 串返回 None。"""
+    token = (jwt or "").strip()
+    if token.startswith("Cloud-IDE-JWT "):
+        token = token.split(None, 1)[1]
+    parts = token.split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad))
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def extract_display_name(jwt: str | None, device_map: dict[str, Any] | None = None) -> str | None:
+    """按 手机 > 邮箱 > 账户名 > 用户名 派生展示名;取不到返回 None(调用方保持原名)。
+
+    搜索面(按优先级):
+    1. device_map.account —— 桌面端 tc 捕获时落库的完整 profile 对象(真机实证
+       含 phone/email/username;TRAE 的 JWT payload 只有 data.id 无身份字段,
+       手机号**只能**从这里取,2026-10-16 李总报障的根因面);
+    2. JWT payload 平铺 + data/user/account/profile 一层嵌套;
+    3. device_map.nickname 最低兜底(网页登录 Cookie 模式 jwt 非 JWT 时)。
+    UUID 形态的值一律跳过(那不是展示名,是编码)。
+    """
+    scopes: list[dict[str, Any]] = []
+    if device_map:
+        dm_account = device_map.get("account")
+        if isinstance(dm_account, dict):
+            scopes.append(dm_account)
+    payload = _jwt_payload(jwt or "")
+    if payload:
+        scopes.append(payload)
+        for key in _DISPLAY_NAME_NESTED_KEYS:
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                scopes.append(nested)
+    for group in _DISPLAY_NAME_KEY_GROUPS:
+        for scope in scopes:
+            for key in group:
+                raw = scope.get(key)
+                if not isinstance(raw, str):
+                    continue
+                value = raw.strip()
+                if not value or len(value) > 50 or _UUID_RE.search(value):
+                    continue
+                return value
+    if device_map:
+        nick = device_map.get("nickname")
+        if isinstance(nick, str):
+            value = nick.strip()
+            if value and len(value) <= 50 and not _UUID_RE.search(value):
+                return value
+    return None
+
+
+# ---------------------------------------------------------------------------
+# 设备标识与请求头（上游原文平移；持久化剥离）
+# ---------------------------------------------------------------------------
+
+
+def get_device_for(user_id: str, device_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """复用/生成 device_map 中该 user_id 的设备标识（原位写入传入的 dict）。
+
+    与上游差异: 不再落盘 device_map.json —— 持久化由调用方负责（调用方在
+    调用后自行把可能被原位补齐的 device_map 写回存储）。同一 user_id 在
+    device_map 缺失时生成确定性 ID，跨进程可复现。
+    """
+    rec = device_map.get(user_id)
+    # 2026-10-23 风控对齐:号池推送会带上该账号在**真实客户端**里的设备指纹
+    # (pool_device_id / pool_machine_id / pool_uid)。上游按设备维度做风控,
+    # 服务端自造的确定性指纹与客户端不是同一台设备 ⇒ 同一账号被读成多设备。
+    # 真实指纹在场时优先使用;缺失时才回落到按 user_id 确定性生成(跨进程可复现)。
+    real_device = device_map.get("pool_device_id")
+    real_machine = device_map.get("pool_machine_id")
+    real_uid = device_map.get("pool_uid")
+    stale = rec is None or rec.get("gen", 1) < DEVICE_GEN
+    # rotated = 该号 9074 后已主动换过新设备号:真实指纹已被风控记住,再拉回去只会
+    # 越记越死,所以有 rotated 标记时不再对齐 pool_device_id(2026-10-25,对表开源实现)。
+    if real_device and rec is not None and not rec.get("rotated"):
+        if str(rec.get("device_id")) != str(real_device):
+            stale = True
+    if stale:
+        device_map[user_id] = {
+            "device_id": str(real_device) if real_device else rand_digits(15, seed=user_id),
+            "market_user_id": str(real_uid) if real_uid else gen_market_uuid(user_id),
+            "session_id": str(real_machine) if real_machine else rand_hex(64, seed=user_id),
+            "created": datetime.datetime.now().isoformat(timespec="seconds"),
+            "gen": DEVICE_GEN,
+        }
+    return device_map[user_id]
+
+
+def _build_headers(jwt: str, dev: dict[str, Any]) -> dict[str, str]:
+    """签到/状态接口共用的请求头（按账号独立设备 id 与 session）。"""
+    return {
+        "accept": "*/*",
+        "accept-encoding": "gzip, deflate",
+        "accept-language": "zh-CN",
+        "authorization": jwt if jwt.startswith("Cloud-IDE-JWT ") else f"Cloud-IDE-JWT {jwt}",
+        "content-type": "application/json",
+        "user-agent": _USER_AGENT,
+        "x-market-client-id": _MARKET_CLIENT_ID,
+        "x-market-user-id": dev["market_user_id"],
+        "x-user-region": "CN",
+        "x-device-id": dev["device_id"],
+        "x-lgw-req-sdk-type": "3",
+        "package-type": "stable_cn",
+        "x-request-id": str(uuid.uuid4()),
+        "x-lscbd-aid": _LSCBD_AID,
+        "x-lscbd-platform": "windows",
+        "app-version": _APP_VERSION,
+        "x-tt-trace-id": f"00-{uuid.uuid4().hex[:16]}-01",
+        "vscode-sessionid": dev["session_id"],
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "no-cors",
+        "sec-fetch-site": "none",
+    }
+
+
+# ---------------------------------------------------------------------------
+# HTTP 层（urllib → httpx.AsyncClient）
+# ---------------------------------------------------------------------------
+
+_shared_client: httpx.AsyncClient | None = None
+
+
+def client_for(device_map: dict[str, Any] | None) -> tuple[httpx.AsyncClient, bool]:
+    """按账号 device_map 选 HTTP 出口(多账号风控三件套之二:独立 IP)。
+
+    device_map.proxy 形如 "http://user:pass@host:port" 或 "socks5://host:port"
+    时,创建(并返回, owned=True)带该代理的**独立** AsyncClient —— 每账号
+    固定绑定自己的出口 IP,与真人"家庭宽带一个出口"同构;无 proxy 时返回
+    共享 client(owned=False,本机直连账号零行为变化)。
+    调用方契约:owned=True 的 client 用完必须 await client.aclose()
+    (引擎封装层已统一处理,见各 checkin_*_account)。
+    """
+    dm = device_map or {}
+    proxy = str(dm.get("proxy") or "").strip()
+    if not proxy:
+        return get_http_client(), False
+    # httpx 原生支持 http/https/socks5(socks5h 由服务端解析);URL 合法性交给构造
+    client = httpx.AsyncClient(trust_env=False, proxy=proxy, timeout=DEFAULT_TIMEOUT)
+    return client, True
+
+
+def get_http_client() -> httpx.AsyncClient:
+    """模块级共享 AsyncClient（惰性创建）。
+
+    trust_env=False 对齐上游 NO_PROXY=*=「强制直连 api.trae.cn、忽略一切
+    代理环境变量/系统代理」的语义，避免服务端代理配置把签到流量路由进
+    不可用的代理通道。
+    """
+    global _shared_client
+    if _shared_client is None or _shared_client.is_closed:
+        _shared_client = httpx.AsyncClient(trust_env=False, timeout=DEFAULT_TIMEOUT)
+    return _shared_client
+
+
+async def aclose_http_client() -> None:
+    """关闭共享 client（应用停机时调用）。"""
+    global _shared_client
+    if _shared_client is not None and not _shared_client.is_closed:
+        await _shared_client.aclose()
+    _shared_client = None
+
+
+async def _http_post(
+    url: str,
+    jwt: str,
+    dev: dict[str, Any],
+    body: bytes = b"{}",
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[int, str]:
+    """统一 POST 入口，返回 (status_code:int, body_text:str)。
+
+    语义对齐上游: 网络超时 → (0, "")；其他网络异常 → (-1, "异常描述")。
+    非 2xx 响应不算异常，原样返回状态码与响应体（401/429 等由上层分类）。
+    """
+    headers = _build_headers(jwt, dev)
+    http = client if client is not None else get_http_client()
+    # 多账号风控第四件套(2026-10-16):所有出站签到请求先过全局节流闸门,
+    # 暂停期(429 后)抛 OutboundPaused 快速失败,绝不顶着限流继续打。
+    await checkin_outbound_gate.before_request("trae")
+    try:
+        resp = await http.post(url, content=body, headers=headers, timeout=timeout)
+    except httpx.TimeoutException:
+        return 0, ""
+    except Exception as e:
+        return -1, f"{type(e).__name__}: {e}"
+    checkin_outbound_gate.note_status(resp.status_code, "trae")
+    return resp.status_code, resp.text
+
+
+# ---------------------------------------------------------------------------
+# 签到接口（上游原文平移，异步化）
+# ---------------------------------------------------------------------------
+
+
+async def status_check(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, int | None, str]:
+    """预检：返回 (ok: bool, checked_in: bool|None, credits: int|None, code: int|None, message: str)。
+
+    9074(设备号被记住)与签到口同款自愈:换新设备号重查一次(原位写回 device_map)。
+    """
+    user_id = extract_user_id(jwt)
+    if not user_id:
+        return False, None, None, None, "无法从 JWT 解析 user id"
+    dev = get_device_for(user_id, device_map)
+    status, body = await _http_post(
+        STATUS_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+    )
+    if status < 0:
+        return False, None, None, None, body or "网络异常"
+    try:
+        data = json.loads(body)
+    except Exception:
+        return False, None, None, status, f"非 JSON 响应: {body[:200]}"
+    if data.get("code") == 9074:
+        dev = _rotate_device(user_id, device_map)
+        status, body = await _http_post(
+            STATUS_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+        )
+        if status < 0:
+            return False, None, None, None, body or "网络异常"
+        try:
+            data = json.loads(body)
+        except Exception:
+            return False, None, None, status, f"非 JSON 响应: {body[:200]}"
+    code = data.get("code")
+    checked_in = data.get("checked_in")
+    credits = data.get("credits")
+    msg = data.get("message", "")
+    if code != 0:
+        return False, checked_in, credits, code, msg or f"HTTP {status}"
+    return True, bool(checked_in), credits, code, msg
+
+
+def _rotate_device(user_id: str, device_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """9074(设备号被上游记住)时换一台"新机器"。
+
+    上游按设备维度风控,同一设备号反复请求会被越记越死;开源实现实测"换全新
+    设备号重签一次"可立即成功。这里把 device_id / market_user_id / session 一起换,
+    并打 rotated 标记 —— get_device_for 不再把它拉回号池里的真实指纹。
+    原位写回 device_map,持久化由调用方负责(与 get_device_for 同契约)。
+    """
+    dev = {
+        "device_id": rand_digits(15),
+        "market_user_id": gen_market_uuid(None),
+        "session_id": rand_hex(64),
+        "created": datetime.datetime.now().isoformat(timespec="seconds"),
+        "gen": DEVICE_GEN,
+        "rotated": True,
+    }
+    device_map[user_id] = dev
+    return dev
+
+
+def _parse_signin_body(
+    status: int, body: str
+) -> tuple[dict[str, Any] | None, tuple[bool, str, int | None, int | None] | None]:
+    """签到响应解析;非 JSON 直接给出失败四元组(返回 (None, failure))。"""
+    try:
+        return json.loads(body), None
+    except Exception:
+        return None, (
+            False,
+            f"HTTP {status}: 非 JSON 响应: {body[:200]}",
+            status if status else None,
+            status,
+        )
+
+
+async def signin(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, str, int | None, int | None]:
+    """对单个账号执行签到，返回 (success, message, code, http_status)。
+
+    9074(设备号被记住)⇒ 换新设备号重签一次;只有"记忆被打破后仍失败"才算业务失败。
+    """
+    user_id = extract_user_id(jwt)
+    if not user_id:
+        return False, "无法从 JWT 解析 user id", None, 0
+
+    dev = get_device_for(user_id, device_map)
+    status, body = await _http_post(
+        SIGNIN_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+    )
+
+    if status < 0:
+        return False, body or "网络异常", None, status
+    data, failure = _parse_signin_body(status, body)
+    if failure is not None:
+        return failure
+    assert data is not None
+    if data.get("code") == 9074:
+        dev = _rotate_device(user_id, device_map)
+        status, body = await _http_post(
+            SIGNIN_URL, jwt, dev, body=b"{}", timeout=timeout, client=client
+        )
+        if status < 0:
+            return False, body or "网络异常", None, status
+        data, failure = _parse_signin_body(status, body)
+        if failure is not None:
+            return failure
+        assert data is not None
+    return data.get("code") == 0, data.get("message", f"HTTP {status}"), data.get("code"), status
+
+
+def classify_error(
+    http_status: int | None, message: str | None, code: int | None
+) -> tuple[str, int]:
+    """根据 HTTP 状态码和业务码分类签到错误，返回 (error_type, cooldown_seconds)。
+    cooldown_seconds: -1=永久, 0=不冷却(仅记录错误计数), >0=冷却秒数
+    http_status 为 None 表示网络层异常（未拿到响应），落入 Unknown。
+
+    注意:本函数只分类**失败**。「今日已签到」码(9095)是幂等成功态,由
+    checkin_account 在调用本函数之前就拦下(判据见 checkin_codes),此处不做映射
+    —— 若哪天 9095 又落进 BusinessError,说明拦截分支被绕过,不要在这里加特例。"""
+    if http_status is None:
+        return "Unknown", 0
+    if http_status == 200 and code == 1005:
+        return "PlanLimit", 43200
+    if http_status == 429:
+        return "SoftRate", 60
+    if http_status == 401:
+        return "SessionDead", -1
+    if http_status == 404:
+        return "NotFound", 60
+    if http_status == 403:
+        # 第五件套(2026-10-16):403 = WAF/拦截墙。原走 4xx→Client 三连击
+        # 才冷却,等于对拦截墙最多再打 6 次;挑战墙信号必须即时熔断。
+        return "Challenge", CHALLENGE_COOLDOWN_SECONDS
+    if 500 <= http_status < 600:
+        return "Server", 600
+    if 400 <= http_status < 500:
+        return "Client", 600
+    if code is not None and code != 0:
+        return "BusinessError", 300
+    return "Unknown", 0
+
+
+async def signin_with_retry(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    timeout: float = DEFAULT_TIMEOUT,
+    retry: int = 0,
+    retry_delay: float = 1.0,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, str, int | None, int | None]:
+    """对单个账号执行签到；仅网络层异常（code 为 None）按 retry 次数重试，业务失败不重试。
+
+    与上游差异: print → structlog；retry_delay 可注入（测试用 0 避免 sleep）。
+    """
+    import asyncio
+
+    last: tuple[bool, str, int | None, int | None] = (False, "无重试", None, None)
+    for attempt in range(retry + 1):
+        ok, msg, code, status = await signin(name, jwt, device_map, timeout, client=client)
+        if ok or code is not None:
+            return ok, msg, code, status
+        last = (ok, msg, code, status)
+        if attempt < retry:
+            logger.warning(
+                "签到网络异常重试", name=name, attempt=attempt + 1, retry_delay=retry_delay
+            )
+            await asyncio.sleep(retry_delay)
+    return last
+
+
+# ---------------------------------------------------------------------------
+# 编排（对齐上游 main() 的单账号流程，剥离一切持久化）
+# ---------------------------------------------------------------------------
+
+
+async def checkin_account(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    retry: int = 0,
+    retry_delay: float = 1.0,
+    client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    """对单个账号执行完整签到流程，返回与上游 NDJSON emit 语义对齐的结构化 dict。
+
+    流程（对齐上游 main()）: JWT 过期预检告警 → status 预检（已签则跳过）→
+    claim（网络异常按 retry 重试）→ 失败时错误分类。
+
+    冷却/积分历史的**落盘不在本函数**：失败结果的 classified_error 字段
+    （{"type", "cooldown_seconds"}）由调用方据此写入冷却存储。
+
+    返回字段: ok / status("success"|"fail"|"already") / action
+    ("skip_already"|"claim_ok"|"claim") / user_id / name / code / message /
+    http_status / credits / credits_delta / classified_error / warning。
+    credits 与 credits_delta 仅在可确定时给出（None 表示 status 未返回额度）。
+    """
+    result: dict[str, Any] = {
+        "name": name,
+        "ok": False,
+        "status": "fail",
+        "action": "claim",
+        "user_id": None,
+        "code": None,
+        "message": "",
+        "http_status": None,
+        "credits": None,
+        "credits_delta": None,
+        "classified_error": None,
+        "warning": None,
+    }
+
+    if not jwt:
+        result["message"] = "未配置 jwt"
+        return result
+
+    user_id = extract_user_id(jwt)
+    result["user_id"] = user_id
+    if not user_id:
+        result["message"] = "无法从 JWT 解析 user id"
+        return result
+
+    # JWT 过期预检告警（不阻断，仅附 warning 字段）
+    exp_dt, remaining = get_jwt_exp(jwt)
+    if remaining is not None:
+        if remaining < 0:
+            result["warning"] = f"JWT 已过期({exp_dt:%Y-%m-%d %H:%M})，请重新抓取"
+        elif remaining < EXPIRY_WARN_HOURS:
+            result["warning"] = (
+                f"JWT 将于 {remaining:.1f}h 后过期({exp_dt:%Y-%m-%d %H:%M})，请重新抓取"
+            )
+        if result["warning"]:
+            logger.warning("JWT 有效期告警", name=name, warning=result["warning"])
+
+    dev = get_device_for(user_id, device_map)
+    logger.info("签到开始", name=name, user_id=user_id, device_id=dev["device_id"])
+
+    ok_s, checked_in, credits_before, code_s, msg_s = await status_check(
+        name, jwt, device_map, timeout, client=client
+    )
+    # 进入本账号前出站已在全局暂停(别的账号刚吃 429)→ 冒泡,调度批据此整批中止
+    if ok_s and checked_in:
+        logger.info("已签到跳过", name=name, user_id=user_id, credits=credits_before)
+        result.update(
+            ok=True,
+            status="already",
+            action="skip_already",
+            code=0,
+            message=msg_s or "已签到",
+            credits=credits_before,
+        )
+        return result
+    if not ok_s:
+        logger.warning("status 预检失败仍尝试 claim", name=name, code=code_s, message=msg_s)
+        if checkin_outbound_gate.paused_remaining() > 0:
+            # 本账号 status 刚回 429 触发出站全局暂停:不再顶风 claim,
+            # 直接按 SoftRate 结构化失败返回(单账号契约仍是 dict,冷却由调用方落)
+            result.update(
+                code=429,
+                message="平台限流(429),出站全局暂停中",
+                http_status=429,
+                classified_error={"type": "SoftRate", "cooldown_seconds": 60},
+            )
+            return result
+        # 第五件套(2026-10-16):status 预检拿到 2xx 非 JSON = WAF/挑战页
+        # 插页。继续 claim 等于对挑战墙双倍请求;直接按 Challenge 熔断
+        # (全局暂停 + 单账号 30min 即时冷却,调度批据此整批中止)。
+        # 判据必须钉「真收到 2xx」:status_check 的非 JSON 分支把 http status
+        # 放在返回值的 code 位(见其本体),网络异常(0/-1)body 为空也落
+        # 「非 JSON 响应」消息 —— 那是 Unknown 不是挑战,误熔断=网络抖动
+        # 就停全体账号(2026-10-16 测试实证的假阳性,已修)。
+        if (
+            msg_s
+            and msg_s.startswith("非 JSON 响应")
+            and isinstance(code_s, int)
+            and 200 <= code_s < 300
+        ):
+            checkin_outbound_gate.note_challenge("trae")
+            result.update(
+                code=None,
+                message="平台返回挑战页/非 API 响应,已熔断",
+                classified_error={
+                    "type": "Challenge",
+                    "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+                },
+            )
+            return result
+
+    ok, msg, code, http_status = await signin_with_retry(
+        name, jwt, device_map, timeout, retry=retry, retry_delay=retry_delay, client=client
+    )
+    result.update(code=code, message=msg, http_status=http_status)
+
+    # 第五件套(2026-10-16):403 拦截墙 / 2xx 非 JSON 挑战页 → Challenge 熔断。
+    # 2xx+失败+code None = 响应体不是我们的 JSON 契约(status_check 同款信号
+    # 已在上方预检处熔断,这里是 claim 路的兜底);网络异常走 0/-1 不在此列。
+    if not ok and (
+        http_status == 403
+        or (http_status is not None and 200 <= http_status < 300 and code is None)
+    ):
+        checkin_outbound_gate.note_challenge("trae")
+        result["classified_error"] = {
+            "type": "Challenge",
+            "cooldown_seconds": CHALLENGE_COOLDOWN_SECONDS,
+        }
+        logger.warning(
+            "检测到挑战页/WAF 拦截,已熔断",
+            name=name,
+            user_id=user_id,
+            http_status=http_status,
+            body=(msg or "")[:120],
+        )
+        return result
+
+    # 「今日已签到」(code=9095,message「当前设备今日已经签到」)是**幂等成功态**,
+    # 不是失败:客户端/同设备当天已先签一步,服务端如实回报。它与 status 预检命中
+    # 已签时的形状完全一致(ok=True / status="already" / action="skip_already",
+    # message 保留上游原文),故不触发冷却、不累加失败计数、不算失败率。
+    # 判据单源在 checkin_codes(本文件不直写码值)。
+    # 位置有意放在 403/非 JSON 挑战判定**之后**:HTTP 层的拦截墙结论优先于业务体,
+    # 且此处再钉「真收到 2xx」—— 401/429/5xx 的 HTTP 结论不许被一枚业务码洗白
+    # (9095 实测总在 HTTP 200 上返回;放宽到 4xx 等于给鉴权失败开后门)。
+    if (
+        http_status is not None
+        and 200 <= http_status < 300
+        and is_already_checked_in(PLATFORM_TRAE, code)
+    ):
+        logger.info("今日已签到(幂等,非失败)", name=name, user_id=user_id, code=code)
+        # credits 与 status 预检已签分支同源:取 status 报的可领额度(未取到就是 None,
+        # 不编造);credits_delta 保持 None —— 本轮一个积分都没进来,写 delta 会把
+        # 「今日已签」重复计进每日积分流水(sum_credits_delta_for_day)。
+        result.update(
+            ok=True,
+            status="already",
+            action="skip_already",
+            credits=credits_before,
+        )
+        return result
+
+    if ok:
+        # credits_before 来自 status 接口，表示签到可获得的积分额度；
+        # 签到成功后 delta 就是该额度（无需再次请求 status 计算差值）
+        if isinstance(credits_before, int):
+            result.update(
+                ok=True,
+                status="success",
+                action="claim_ok",
+                credits=credits_before,
+                credits_delta=credits_before,
+            )
+        else:
+            result.update(ok=True, status="success", action="claim_ok")
+        logger.info("签到成功", name=name, user_id=user_id, credits=result["credits"])
+        return result
+
+    # 签到失败 → 分类错误（冷却落盘由调用方执行）
+    error_type, cooldown_secs = classify_error(http_status, msg, code)
+    if error_type and error_type != "Unknown":
+        result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
+        logger.warning(
+            "签到失败已分类",
+            name=name,
+            user_id=user_id,
+            error_type=error_type,
+            cooldown_seconds=cooldown_secs,
+            code=code,
+            http_status=http_status,
+        )
+    result["message"] = msg
+    logger.info("签到失败", name=name, user_id=user_id, code=code, message=msg)
+    return result
+
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,17 @@
+{
+  "updatedAt": "2026-11-03T01:01:53.883Z",
+  "policy": {
+    "warnRatio": 0.15,
+    "failRatio": 0.3
+  },
+  "entries": {
+    "apk": {
+      "bytes": 87239461,
+      "versionCode": 26103001
+    },
+    "aab": {
+      "bytes": 67116593,
+      "versionCode": 26103001
+    }
+  }
+}

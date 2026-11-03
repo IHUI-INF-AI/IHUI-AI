@@ -1,0 +1,547 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 文件编辑工具集 — write_file / edit_file / delete_file。
+ *
+ * 灵感来源:参考行业 Agent 框架的 tools crate 设计,融合 openai/codex 的 apply_patch。
+ * 简化策略(做减法):
+ *   - write_file: 全量写入(创建或覆盖)
+ *   - edit_file: search-and-replace 块(对标 codex 的 apply_patch 格式)
+ *   - delete_file: 删除文件
+ *   - 所有写操作接入 checkpoints(编辑前自动快照)+ hooks(preToolCall/postToolCall)
+ *   - 读后写校验(write_file / edit_file):覆盖已存在文件前,该文件必须在本会话
+ *     被 read_file 读过(或由本工具刚写过)且此后未被外部改动;新建文件不要求先读。
+ *
+ * search-and-replace 格式:
+ *   <<<<<<< SEARCH
+ *   原始文本(精确匹配)
+ *   =======
+ *   替换文本
+ *   >>>>>>> REPLACE
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission } from './index.js';
+import { seekSequence, type MatchLevel } from './seek-sequence.js';
+import type { CheckpointManager } from '../checkpoints/index.js';
+import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
+import { createBatchEditTools } from './file-batch-edit.js';
+import {
+  AtomicReplaceFailedError,
+  captureWriteBaseline,
+  commitAtomicWrite,
+  SymlinkTargetError,
+  WriteConflictError,
+} from '../util/atomic-write.js';
+import { withMissingFileSuggestion } from '../util/file-suggest.js';
+import {
+  createReadFileStateKey,
+  getReadFileStateMap,
+  isCachedReadFresh,
+  statFingerprint,
+} from './read-file-state.js';
+
+/**
+ * 落盘失败 → ToolResult 的归一出口。
+ *
+ * 三类失败都必须**报得能被自修**:它们都不是"重试一次就好",而是"你手上那份内容已经不是磁盘上那份了"。
+ * `errorType` 用稳定字面量,不依赖错误文本做流程判断(调用方/retry 判据都读它)。
+ */
+function writeFailure(e: unknown): ToolResult | null {
+  if (
+    e instanceof WriteConflictError ||
+    e instanceof SymlinkTargetError ||
+    e instanceof AtomicReplaceFailedError
+  ) {
+    return { success: false, output: '', error: e.message, errorType: e.code };
+  }
+  return null;
+}
+
+export interface EditToolContext extends ToolContext {
+  checkpoints?: CheckpointManager;
+  /** HunkTracker(可选,启用后记录每次改动的行范围归属 + 写入前检测冲突) */
+  hunkTracker?: HunkTracker;
+  /** 发起改动的 agent 标识(默认 'main',subagent 传入 subagentId) */
+  agentId?: string;
+}
+
+/** 计算改动行范围(1-based, inclusive),用于 hunkTracker 记录与冲突检测 */
+function computeChangedRange(original: string, modified: string): { startLine: number; endLine: number } {
+  const orig = original.split('\n');
+  const mod = modified.split('\n');
+  if (orig.length === 0 && mod.length === 0) return { startLine: 1, endLine: 1 };
+  if (orig.length === 0) return { startLine: 1, endLine: Math.max(1, mod.length) };
+  let start = 0;
+  while (start < orig.length && start < mod.length && orig[start] === mod[start]) start++;
+  let endO = orig.length - 1;
+  let endM = mod.length - 1;
+  while (endO >= start && endM >= start && orig[endO] === mod[endM]) {
+    endO--;
+    endM--;
+  }
+  const startLine = start + 1;
+  const endLine = Math.max(startLine, endM + 1);
+  return { startLine, endLine };
+}
+
+/** 写入前检测冲突(若 hunkTracker 已注入),有冲突 console.warn 不阻塞 */
+function warnConflictIfAny(ctx: EditToolContext, abs: string, startLine: number, endLine: number): void {
+  if (!ctx.hunkTracker) return;
+  try {
+    const conflicts = ctx.hunkTracker.detectConflict(abs, startLine, endLine, ctx.agentId ?? 'main');
+    if (conflicts.length > 0) {
+      const summary = conflicts
+        .map((c) => `[${c.source}${c.agentId ? `:${c.agentId}` : ''}] L${c.startLine}-${c.endLine}`)
+        .join(', ');
+      console.warn(`[hunk-tracker] 检测到 ${conflicts.length} 处冲突 (${abs}): ${summary}`);
+    }
+  } catch {
+    // 冲突检测失败不阻塞编辑
+  }
+}
+
+/** 写入成功后记录 hunk(若 hunkTracker 已注入) */
+function recordHunk(ctx: EditToolContext, abs: string, startLine: number, endLine: number, content?: string): void {
+  if (!ctx.hunkTracker) return;
+  try {
+    ctx.hunkTracker.recordAgentChange(abs, startLine, endLine, ctx.agentId ?? 'main', content);
+  } catch {
+    // 记录失败不阻塞编辑
+  }
+}
+
+export function resolvePath(ctx: ToolContext, filePath: string): string {
+  return path.isAbsolute(filePath) ? filePath : path.resolve(ctx.workspacePath, filePath);
+}
+
+/** 读后写校验的稳定错误码(调用方/重试判据读 errorType,不读中文短句) */
+type ReadBeforeWriteErrorCode = 'file_not_read' | 'file_stale_read';
+
+interface ReadGuardRejection {
+  error: string;
+  errorType: ReadBeforeWriteErrorCode;
+}
+
+/**
+ * 「读后写」校验(对齐上游 write.ts:278-332 / edit.ts:200 的 FILE_NOT_READ + stale 两档)。
+ *
+ * 判据只读 ToolContext 上的已读状态(read-file-state.ts 的 WeakMap,与 file_unchanged
+ * 短路同源),四态:
+ *   - 目标不存在 ⇒ 放行(新建文件,没有"旧内容"可覆盖);
+ *   - 有状态且 mtime+size 与磁盘一致 ⇒ 放行;
+ *   - 一条状态都没有 ⇒ file_not_read:模型没看过该文件,写进去的是什么它自己都不知道;
+ *   - 有状态但已不新鲜 ⇒ file_stale_read:读后被外部改过,或只读过被截断的部分视图。
+ *
+ * 与落盘前 CAS 的分工:commitAtomicWrite 的逐字节复核防"校验与落盘之间"的微秒级并发,
+ * 本校验防"模型写的是旧内容"——两件事,缺一不可(上游同样两档并存)。
+ */
+function checkReadBeforeWrite(ctx: ToolContext, abs: string, filePath: string): ReadGuardRejection | null {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(abs);
+  } catch {
+    return null; // 不存在 = 新建,不要求先读
+  }
+  if (!stat.isFile()) return null; // 目录等交给后续落盘路径报错
+  const fingerprint = statFingerprint(stat);
+  let sawEntry = false;
+  for (const entry of getReadFileStateMap(ctx).values()) {
+    if (entry.path !== abs) continue;
+    sawEntry = true;
+    if (isCachedReadFresh(entry, fingerprint)) return null;
+  }
+  if (!sawEntry) {
+    return {
+      errorType: 'file_not_read',
+      error:
+        `FILE_NOT_READ: 未读取 ${filePath} 的当前内容,拒绝写入。` +
+        '请先 read_file 该路径确认现状后再写,避免用旧内容覆盖磁盘上的当前版本。',
+    };
+  }
+  return {
+    errorType: 'file_stale_read',
+    error: `FILE_STALE_READ: ${filePath} 在读取后已被改动(或只读到部分视图),请重新 read_file 后再写。`,
+  };
+}
+
+/**
+ * 工具自身成功写入后登记状态:内容由本次写入确定,后续 write/edit 不必再读一遍。
+ * 登记失败不阻塞写入 —— 失效方向是"下一次多要一次 read_file",不是放行。
+ */
+function recordWriteState(ctx: ToolContext, abs: string): void {
+  try {
+    const stat = fs.statSync(abs);
+    getReadFileStateMap(ctx).set(createReadFileStateKey(abs), {
+      path: abs,
+      isPartialView: false,
+      mtimeMs: stat.mtimeMs,
+      sizeBytes: stat.size,
+      recordedAt: Date.now(),
+    });
+  } catch {
+    // 记录失败不阻塞写入
+  }
+}
+
+function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: string): void {
+  if (!ctx.checkpoints) return;
+  try {
+    ctx.checkpoints.snapshotSync(files, reason);
+  } catch {
+    // 快照失败不阻塞编辑
+  }
+}
+
+/** 计算简化 unified diff(公共前缀/后缀法,零依赖) */
+export function computeUnifiedDiff(original: string, modified: string, filePath: string): string {
+  const orig = original.split('\n');
+  const mod = modified.split('\n');
+  let start = 0;
+  while (start < orig.length && start < mod.length && orig[start] === mod[start]) start++;
+  let endO = orig.length - 1;
+  let endM = mod.length - 1;
+  while (endO >= start && endM >= start && orig[endO] === mod[endM]) {
+    endO--;
+    endM--;
+  }
+  const removed = orig.slice(start, endO + 1);
+  const added = mod.slice(start, endM + 1);
+  if (removed.length === 0 && added.length === 0) return '';
+  const lines: string[] = [`@@ -${start + 1},${removed.length} +${start + 1},${added.length} @@`];
+  for (const l of removed) lines.push(`-${l}`);
+  for (const l of added) lines.push(`+${l}`);
+  const header = `\n--- a/${filePath}\n+++ b/${filePath}\n`;
+  if (lines.length > 200) {
+    return header + lines.slice(0, 200).join('\n') + '\n...(diff 超过 200 行,截断)';
+  }
+  return header + lines.join('\n');
+}
+
+export function createWriteFileTool(ctx: EditToolContext): Tool {
+  return {
+    name: 'write_file',
+    description: '写入文件(创建或覆盖)。参数:path(文件路径),content(文件内容)。',
+    dangerLevel: 'write',
+    parameters: {
+      path: { type: 'string', description: '文件路径(相对工作区根目录)' },
+      content: { type: 'string', description: '文件完整内容' },
+    },
+    required: ['path', 'content'],
+    async execute(args, execCtx): Promise<ToolResult> {
+      const filePath = args.path as string;
+      const content = args.content as string;
+      if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+      if (content === undefined) return { success: false, output: '', error: '缺少 content 参数' };
+
+      const perm = checkPathWritePermission(filePath, ctx);
+      if (!perm.allowed) return { success: false, output: '', error: perm.reason };
+
+      const abs = resolvePath(ctx, filePath);
+      const readGuard = checkReadBeforeWrite(execCtx, abs, filePath);
+      if (readGuard) {
+        return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
+      }
+
+      const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
+      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+      try {
+        // 捕获基线 ⇒ 落盘前逐字节复核:窗口内被人改过就拒绝,绝不静默覆盖(读后写校验)
+        const baseline = captureWriteBaseline(abs);
+        const existed = baseline.content !== null;
+        const original = baseline.content ?? '';
+        const { startLine, endLine } = existed
+          ? computeChangedRange(original, content)
+          : { startLine: 1, endLine: Math.max(1, content.split('\n').length) };
+        warnConflictIfAny(ctx, abs, startLine, endLine);
+        snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
+        commitAtomicWrite(baseline, content);
+        recordWriteState(execCtx, abs);
+        recordHunk(ctx, abs, startLine, endLine, content);
+        await runPostToolCall('write_file', { path: filePath, bytes: content.length }, execCtx.signal);
+        const lines = content.split('\n').length;
+        const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
+        return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}` };
+      } catch (e) {
+        const mapped = writeFailure(e);
+        if (mapped) return mapped;
+        throw e;
+      }
+    },
+  };
+}
+
+const SEARCH_REPLACE_REGEX = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
+
+interface AppliedBlock {
+  /** 命中的匹配级别:exact / rstrip / trim / unicode */
+  level: MatchLevel;
+  /** 命中处在"应用该块当时"的文本里的 1-based 行号(用于人核对是不是改对了地方) */
+  line: number;
+}
+
+/** 应用失败的三态错误码(稳定字面量,调用方/测试读 errorType,不读中文短句) */
+export type SearchReplaceErrorCode = 'OLD_STRING_NOT_FOUND' | 'AMBIGUOUS_REPLACE';
+
+interface ApplyResult {
+  result: string;
+  replacements: number;
+  /** 逐块回传的等级信息 —— 弱级命中必须能被调用方看见,不得只在成功文案里捎一句 */
+  blocks: AppliedBlock[];
+}
+
+/**
+ * 逐字计数(吸收 G-937970):needle 在 content 里的非重叠出现次数。
+ *
+ * 为什么不复用 seekSequence 的命中信息:seek 只回**一处**命中,而歧义判据是
+ * "**逐字**命中了几处" —— 4 级模糊匹配会把"其实有三处"的 SEARCH 当成一处替换掉。
+ * 所以歧义判定走独立计数,seek 只负责模糊兜底,两条证据互不代管。
+ * needle 为空串直接回 0(indexOf('') 恒命中会让循环原地打转)。
+ */
+export function countOccurrences(content: string, needle: string): number {
+  if (needle === '') return 0;
+  let count = 0;
+  let position = 0;
+  while (position < content.length) {
+    const index = content.indexOf(needle, position);
+    if (index === -1) break;
+    count += 1;
+    position = index + needle.length;
+  }
+  return count;
+}
+
+/** 歧义命中文案(必须带命中数:模型要知道往上下文里加多少才算唯一) */
+function createAmbiguousReplaceMessage(matchCount: number, searchText: string): string {
+  return (
+    `Found ${matchCount} matches of the string to replace, but replace_all is false. ` +
+    'To replace all occurrences, set replace_all to true. ' +
+    'To replace only one occurrence, provide more surrounding context to uniquely identify the instance.\n' +
+    `SEARCH: ${searchText.slice(0, 200)}`
+  );
+}
+
+/**
+ * search-and-replace 的三态命中处置(吸收 G-937970):
+ *   - **多**(SEARCH 文本逐字命中 >1 且未开 replace_all)⇒ AMBIGUOUS_REPLACE 硬错,
+ *     文案带命中数。此前这里会静默替换"最像的那一处",两处同文的误改没有任何信号。
+ *   - **1**(逐字命中恰 1)⇒ 照常替换;空 replace 删串时优先吞掉行尾换行
+ *     (`old+\n` 优先匹配):否则删完在原位置留一个空行。
+ *   - **0**(逐字零命中)⇒ 走 4 级模糊匹配兜底(既有行为,弱级照旧告警);
+ *     模糊也找不到 ⇒ OLD_STRING_NOT_FOUND。
+ *
+ * replacement 一律走**函数形式**(replace(needle, () => replaceText))或 slice+拼接:
+ * String.replace 的字符串 replacement 会把 `$&`/`$$` 当特殊 token,patch 里写
+ * 字面 `$&` 会被展开成命中文本 —— 逐字写入是契约,不解释。
+ */
+function applySearchReplace(
+  original: string,
+  patch: string,
+  replaceAll: boolean,
+): ApplyResult | { error: string; errorCode?: SearchReplaceErrorCode } {
+  let result = original;
+  let replacements = 0;
+  const blocks: AppliedBlock[] = [];
+  let match: RegExpExecArray | null;
+  SEARCH_REPLACE_REGEX.lastIndex = 0;
+  while ((match = SEARCH_REPLACE_REGEX.exec(patch)) !== null) {
+    const searchText = match[1]!;
+    const replaceText = match[2]!;
+    // 三态之一:**多** —— 逐字命中 >1 且未开 replace_all,歧义硬错(带命中数)
+    const exactCount = countOccurrences(result, searchText);
+    if (exactCount > 1 && !replaceAll) {
+      return { error: createAmbiguousReplaceMessage(exactCount, searchText), errorCode: 'AMBIGUOUS_REPLACE' };
+    }
+    // 三态之二:**1**(或 replace_all 放行的多命中)—— 逐字替换
+    if (exactCount > 0) {
+      // 空 new_string 删串:`old+\n` 优先匹配,吞掉行尾换行不留空行
+      let needle = searchText;
+      if (replaceText === '' && !searchText.endsWith('\n')) {
+        const withNewline = `${searchText}\n`;
+        if (result.includes(withNewline)) needle = withNewline;
+      }
+      const needleCount = countOccurrences(result, needle);
+      const matchIndex = result.indexOf(needle);
+      result = replaceAll
+        ? result.split(needle).join(replaceText) // split/join 逐字拼接,不解释 $ 特殊 token
+        : result.replace(needle, () => replaceText); // 函数形式同理
+      blocks.push({
+        level: 'exact',
+        line: result.slice(0, matchIndex).split('\n').length,
+      });
+      replacements += replaceAll ? needleCount : 1;
+      continue;
+    }
+    // 三态之三:**0** —— 4 级模糊匹配兜底(exact → rstrip → trim → unicode)
+    const seek = seekSequence(result, searchText);
+    if (!seek) {
+      return {
+        error: `未找到匹配的文本(已尝试 4 级模糊匹配 exact/rstrip/trim/unicode):\n${searchText.slice(0, 100)}...`,
+        errorCode: 'OLD_STRING_NOT_FOUND',
+      };
+    }
+    blocks.push({
+      level: seek.level,
+      line: result.slice(0, seek.index).split('\n').length,
+    });
+    result = result.slice(0, seek.index) + replaceText + result.slice(seek.index + seek.length);
+    replacements++;
+  }
+  if (replacements === 0 && patch.includes('<<<<<<< SEARCH')) {
+    return { error: 'patch 格式错误,未执行替换' };
+  }
+  return { result, replacements, blocks };
+}
+
+/**
+ * 弱等级命中的告警文案(空串 = 全是 exact,无需告警)。
+ *
+ * 为什么只告警、不当场拒绝(实测决定的档位,不是偷懒):
+ *   既有测试面里 edit_file 的成功用例共 6 枚,落在弱级的恰好 1 枚 —— 而它是
+ *   `apps/cli/tests/file-edit.test.ts:136` 显式断言的正当行为("行尾空白差异触发 rstrip 模糊匹配"),
+ *   **零枚**"弱级落到了错位置"的案例。全仓也没有任何一处把匹配等级打进遥测,所以"弱级误命中率"
+ *   现状根本无法测量。在没有误命中证据前把它翻成拒绝 = 只降低一次改对率、不消除任何已测到的坏状态,
+ *   而票面纪律是"量不出来就只加 warning、不改拒绝"。
+ *   要翻成拒绝的前置:先把等级打进结果遥测并观察到误命中,再单独立票(行为变更)。
+ */
+function fuzzyMatchWarning(blocks: AppliedBlock[]): string {
+  const weak = blocks.filter((b) => b.level !== 'exact');
+  if (weak.length === 0) return '';
+  const detail = weak.map((b) => `第 ${b.line} 行按 ${b.level} 级命中`).join(';');
+  return (
+    `⚠️ 模糊匹配 ${weak.length}/${blocks.length} 处:${detail}。` +
+    '落盘的是"最像的那一处",不是逐字命中的那一处 —— 若这不是你要改的位置,' +
+    '请 read_file 该路径后按原文逐字重发 patch。\n\n'
+  );
+}
+
+export function createEditFileTool(ctx: EditToolContext): Tool {
+  return {
+    name: 'edit_file',
+    description: '编辑文件(search-and-replace)。参数:path(文件路径),search(搜索文本),replace(替换文本),replace_all(可选,多处命中时替换全部)。或用 patch 参数传入多个 SEARCH/REPLACE 块。',
+    dangerLevel: 'write',
+    parameters: {
+      path: { type: 'string', description: '文件路径' },
+      search: { type: 'string', description: '要搜索的文本(精确匹配)' },
+      replace: { type: 'string', description: '替换为的文本' },
+      replace_all: { type: 'boolean', description: 'SEARCH 文本多处命中时替换全部(默认 false:多处命中报 AMBIGUOUS_REPLACE)' },
+      patch: { type: 'string', description: '多个 SEARCH/REPLACE 块(格式: <<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE)' },
+    },
+    required: ['path'],
+    async execute(args, execCtx): Promise<ToolResult> {
+      const filePath = args.path as string;
+      if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+
+      const perm = checkPathWritePermission(filePath, ctx);
+      if (!perm.allowed) return { success: false, output: '', error: perm.reason };
+
+      const abs = resolvePath(ctx, filePath);
+      const readGuard = checkReadBeforeWrite(execCtx, abs, filePath);
+      if (readGuard) {
+        return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
+      }
+
+      const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
+      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+      // 基线一次捕获两用:① "是否存在"沿用原语义(不存在 ⇒ 报错,不新建),
+      // ② 内容作为落盘前的复核锚点 —— 快照/patch 计算这段时间里磁盘被改过就必须失败
+      let original: string;
+      try {
+        const baseline = captureWriteBaseline(abs);
+        if (baseline.content === null) {
+          return {
+            success: false,
+            output: '',
+            error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+          };
+        }
+        original = baseline.content;
+        snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
+
+        let patchStr: string;
+        if (args.patch) {
+          patchStr = args.patch as string;
+        } else if (args.search !== undefined && args.replace !== undefined) {
+          patchStr = `<<<<<<< SEARCH\n${args.search}\n=======\n${args.replace}\n>>>>>>> REPLACE`;
+        } else {
+          return { success: false, output: '', error: '需要 search+replace 或 patch 参数' };
+        }
+
+        const applied = applySearchReplace(original, patchStr, args.replace_all === true);
+        if ('error' in applied) {
+          return { success: false, output: '', error: applied.error, errorType: applied.errorCode };
+        }
+
+        const { startLine, endLine } = computeChangedRange(original, applied.result);
+        warnConflictIfAny(ctx, abs, startLine, endLine);
+        commitAtomicWrite(baseline, applied.result);
+        recordWriteState(execCtx, abs);
+        recordHunk(ctx, abs, startLine, endLine, applied.result);
+        await runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements }, execCtx.signal);
+        const diff = computeUnifiedDiff(original, applied.result, filePath);
+        // 弱等级命中:告警放在**最前面**,不能让它在 diff 之后被划过去看不见
+        return {
+          success: true,
+          output: `${fuzzyMatchWarning(applied.blocks)}已编辑 ${filePath} (${applied.replacements} 处替换)${diff}`,
+        };
+      } catch (e) {
+        const mapped = writeFailure(e);
+        if (mapped) return mapped;
+        throw e;
+      }
+    },
+  };
+}
+
+export function createDeleteFileTool(ctx: EditToolContext): Tool {
+  return {
+    name: 'delete_file',
+    description: '删除文件。参数:path(文件路径)。',
+    dangerLevel: 'dangerous',
+    parameters: {
+      path: { type: 'string', description: '要删除的文件路径' },
+    },
+    required: ['path'],
+    async execute(args, execCtx): Promise<ToolResult> {
+      const filePath = args.path as string;
+      if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
+
+      const perm = checkPathWritePermission(filePath, ctx);
+      if (!perm.allowed) return { success: false, output: '', error: perm.reason };
+
+      const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
+      if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+      const abs = resolvePath(ctx, filePath);
+      if (!fs.existsSync(abs)) {
+        return {
+          success: false,
+          output: '',
+          error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+        };
+      }
+      if (fs.statSync(abs).isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
+
+      const original = fs.readFileSync(abs, 'utf-8');
+      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, original.split('\n').length) };
+      warnConflictIfAny(ctx, abs, startLine, endLine);
+      snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
+      fs.unlinkSync(abs);
+      recordHunk(ctx, abs, startLine, endLine, original);
+      await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
+      return { success: true, output: `已删除 ${filePath}` };
+    },
+  };
+}
+
+export function createFileEditTools(ctx: EditToolContext): Tool[] {
+  // Wave 9: batch_edit + batch_undo + batch_preview(多文件原子编辑,对标 OpenClaw)
+  return [createWriteFileTool(ctx), createEditFileTool(ctx), createDeleteFileTool(ctx), ...createBatchEditTools(ctx)];
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

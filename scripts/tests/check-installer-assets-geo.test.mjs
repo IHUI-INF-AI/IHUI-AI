@@ -1,0 +1,386 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 桌面安装器跨文件几何/集合不变量的注入式回归测试。
+// 判"闸门有效"不能只看它对正确输入返回 0 —— 必须逐条注入违规,证明它咬得住具体那一条。
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+
+const ROOT = join(import.meta.dirname, '..', '..')
+const SCRIPT = join(ROOT, 'scripts/check-installer-assets.mjs')
+const W = join(ROOT, 'apps/desktop/src-tauri/windows')
+const GEN = join(ROOT, 'scripts/desktop-installer-assets.mjs')
+
+const ui = readFileSync(join(W, 'ihui-ui.nsi'), 'utf8')
+const inst = readFileSync(join(W, 'installer.nsi'), 'utf8')
+const gen = readFileSync(GEN, 'utf8')
+
+function withFixtures(files, fn) {
+  const dir = mkScratch('ihui-geo-')
+  const env = {
+    ...process.env,
+    IHUI_NSI_PATH: join(dir, 'ui.nsi'),
+    IHUI_INSTALLER_NSI_PATH: join(dir, 'installer.nsi'),
+    IHUI_ASSET_GEN_PATH: join(dir, 'gen.mjs'),
+  }
+  const base = { 'ui.nsi': ui, 'installer.nsi': inst, 'gen.mjs': gen }
+  try {
+    for (const [name, content] of Object.entries({ ...base, ...files }))
+      writeFileSync(join(dir, name), content)
+    return fn(env)
+  } finally {
+    rmScratch(dir)
+  }
+}
+
+function runGuard(env) {
+  try {
+    const out = execFileSync(process.execPath, [SCRIPT], {
+      encoding: 'utf8',
+      env,
+      windowsHide: true,
+      cwd: ROOT,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { code: 0, text: out }
+  } catch (e) {
+    return { code: e.status ?? -1, text: `${e.stdout || ''}${e.stderr || ''}` }
+  }
+}
+
+test('基线:真实源文件必须全绿', () => {
+  const r = withFixtures({}, (env) => runGuard(env))
+  assert.equal(r.code, 0, r.text.slice(-600))
+})
+
+test('注入违规:CTA 洞外扩 2px(用户报的"方形白边"旧写法)必须被拦', () => {
+  const mutated = ui.replace('!insertmacro IHUI_PX $R2 688', '!insertmacro IHUI_PX $R2 686')
+  assert.notEqual(mutated, ui, '注入失败:找不到 CTA 洞 left 行')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /洞与按钮矩形不等大/)
+})
+
+test('注入违规:双环环心与百分比控件中心错开必须被拦', () => {
+  const mutated = gen.replace('const PCT_CY = 220', 'const PCT_CY = 260')
+  assert.notEqual(mutated, gen, '注入失败:找不到 PCT_CY')
+  const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /垂直中心/)
+})
+
+test('注入违规:轨道刻度回退到旧集合(与埋点脱钩)必须被拦', () => {
+  const mutated = gen.replace(
+    'const PB_TICKS = [12, 34, 52, 64, 72, 80, 88, 93, 97]',
+    'const PB_TICKS = [20, 45, 65, 85, 92]',
+  )
+  assert.notEqual(mutated, gen, '注入失败:找不到 PB_TICKS')
+  const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /安装埋点集合/)
+})
+
+test('注入违规:百分比控件退回 SS_RIGHT(数字会在环里左右漂)必须被拦', () => {
+  const mutated = ui.replace(
+    '!insertmacro IHUI_TEXTCTL $IHUIPCT ${IHUI_PCT_STYLE}',
+    '!insertmacro IHUI_TEXTCTL $IHUIPCT 0x50000002',
+  )
+  assert.notEqual(mutated, ui, '注入失败:找不到 IHUIPCT 创建行')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /SS_CENTER/)
+})
+
+// ─── 不变量 D(维护页卡片/指示器几何)的注入回归 ───────────────────
+// 这三例各自钉住一个"只读代码看不出来"的失效模式:卡片几何漂移、
+// 指示器矩形与位图不等大、以及生成器用符号常量(C_L/C_W)时判据解不开
+// 而恒报"缺少"(实测修判据前就是这种假红,修后若无这三例则会变成假绿)。
+
+test('注入违规:重装页卡片 define 与位图烧入框错开必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_RCARD_Y1   340', '!define IHUI_RCARD_Y1   350')
+  assert.notEqual(mutated, ui, '注入失败:找不到 IHUI_RCARD_Y1')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /重装页卡片几何漂移/)
+})
+
+test('注入违规:重装页指示器矩形与位图尺寸不等大必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_RIND_SIZE  20', '!define IHUI_RIND_SIZE  24')
+  assert.notEqual(mutated, ui, '注入失败:找不到 IHUI_RIND_SIZE')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /重装页指示器 \$IHUIRI1 矩形/)
+})
+
+test('判据必须能解析生成器的符号常量(RCARD_X = C_L,不是字面量)', () => {
+  // 反证:把生成器侧改成与 define 不同的字面量 → 必须报漂移。
+  // 若解析器解不开 `= C_L`,这里会误报"缺少可解析的常量"而不是"漂移"。
+  const mutated = gen.replace('const RCARD_X = C_L', 'const RCARD_X = 300')
+  assert.notEqual(mutated, gen, '注入失败:找不到 const RCARD_X = C_L')
+  const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /重装页卡片几何漂移:IHUI_RCARD_X=288 != 生成器 RCARD_X=300/)
+  assert.doesNotMatch(r.text, /缺少可解析的常量 RCARD_X/)
+})
+
+// ─── 不变量 F(目录页输入框垂直居中)的注入回归 ─────────────────────
+// 这条闸的由来:用户报"安装路径容器内的文字没有居中,下面空了很多",根因是 Win32
+// 单行 Edit 顶对齐文字、控件比字行高多出的部分全落在下方。修复 commit 57e4443bd6
+// (IHUI_EDIT_H 28→22、IHUI_EDIT_Y 306→309)本身无闸 —— 下面三例逐条证明它会变红。
+
+test('注入违规:目录页输入框退回旧的顶对齐几何(Y=306)必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_EDIT_Y     309', '!define IHUI_EDIT_Y     306')
+  assert.notEqual(mutated, ui, '注入失败:找不到 !define IHUI_EDIT_Y 309')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /垂直居中/)
+  assert.match(r.text, /Y 应为 309,实际 306/)
+})
+
+test('注入违规:生成器容器矩形改了而 define 不动必须被拦(证明它在跟位图对账)', () => {
+  // 只动位图侧(容器高 36→18),define 保持 309/22 → 垂直居中与"高不超出容器"两条同时红。
+  // 若判据只是"define 自比"而不读生成器,这一例必然假绿。
+  const mutated = gen.replace('y="302" width="412" height="36"', 'y="302" width="412" height="18"')
+  assert.notEqual(mutated, gen, '注入失败:找不到目录页容器 <rect> 的 y/height')
+  const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /垂直居中/)
+  assert.match(r.text, /输入框高度 22 超出容器高 18/)
+})
+
+test('注入违规:目录页输入框宽度顶穿容器右缘必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_EDIT_W     384', '!define IHUI_EDIT_W     420')
+  assert.notEqual(mutated, ui, '注入失败:找不到 !define IHUI_EDIT_W 384')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /水平越出容器/)
+})
+// ─── 不变量 G(重装页 DPI 重锚链完整 + 寄存器洁净)的注入回归 ──────────
+// 这条闸钉的是"重锚只重摆控件、不重摆窗口几何"这一族失效。取样一律**动态定位**
+// (先找分支再改写),不写死存量行 —— 2026-09-23 本文件曾因夹具写死存量条目,
+// 存量一变自测就自伤变红。
+
+/** 定位 uiSrc 里"重装页 DPI 重锚分支"并交给 fn 改写(找不到即抛,不让注入静默失效) */
+/** 定位统一重锚宏 IHUI_REANCHOR 的宏体并对其实施注入(2026-10-16 统一后的单一真相源)。
+ *  旧内联 DPI 分支已并入该宏:重装页/欢迎/目录/完成页/instfiles 五处入口共用一份,
+ *  注入回归一律钉宏体,不再找 `${If} $0 != $IHUIDPIW` 的旧形状。 */
+function mutateReanchorMacro(uiSrc, fn) {
+  const head = '!macro IHUI_REANCHOR'
+  const start = uiSrc.indexOf(head)
+  assert.ok(start >= 0, '注入失败:找不到 IHUI_REANCHOR 宏')
+  const end = uiSrc.indexOf('!macroend', start)
+  assert.ok(end > start, '注入失败:IHUI_REANCHOR 没有配平的 !macroend')
+  const body = uiSrc.slice(start + head.length, end)
+  const next = fn(body)
+  assert.notEqual(next, body, '注入失败:注入未生效')
+  return uiSrc.slice(0, start + head.length) + next + uiSrc.slice(end)
+}
+
+test('注入违规:重锚宏丢掉窗口框归一(SetWindowPos)必须被拦', () => {
+  const mutated = mutateReanchorMacro(ui, (body) => {
+    const at = body.indexOf('SetWindowPos')
+    assert.ok(at >= 0, '注入失败:IHUI_REANCHOR 里没有 SetWindowPos')
+    const lineEnd = body.indexOf('\n', at)
+    return body.slice(0, at) + body.slice(lineEnd < 0 ? body.length : lineEnd + 1)
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.ok(
+    r.text.includes('SetWindowPos'),
+    '红行必须点名缺的是窗口框归一(SetWindowPos)',
+  )
+})
+
+test('注入违规:重锚宏丢掉档位重解压(EXTRACTPAGESETS)必须被拦', () => {
+  const mutated = mutateReanchorMacro(ui, (body) => {
+    const at = body.indexOf('IHUI_EXTRACTPAGESETS')
+    assert.ok(at >= 0, '注入失败:IHUI_REANCHOR 里没有 IHUI_EXTRACTPAGESETS')
+    const lineEnd = body.indexOf('\n', at)
+    return body.slice(0, at) + body.slice(lineEnd < 0 ? body.length : lineEnd + 1)
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.ok(
+    r.text.includes('IHUI_EXTRACTPAGESETS'),
+    '红行必须点名缺的是档位重解压(IHUI_EXTRACTPAGESETS)',
+  )
+})
+
+test('注入违规:重锚宏丢掉裁剪区域重算(WINDOW_RGN)必须被拦', () => {
+  const mutated = mutateReanchorMacro(ui, (body) => {
+    const at = body.indexOf('IHUI_WINDOW_RGN')
+    assert.ok(at >= 0, '注入失败:IHUI_REANCHOR 里没有 IHUI_WINDOW_RGN')
+    const lineEnd = body.indexOf('\n', at)
+    return body.slice(0, at) + body.slice(lineEnd < 0 ? body.length : lineEnd + 1)
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.ok(
+    r.text.includes('IHUI_WINDOW_RGN'),
+    '红行必须点名缺的是裁剪区域重算(IHUI_WINDOW_RGN)',
+  )
+})
+
+test('注入违规:重锚宏判据不再取实际客户区(GetClientRect)必须被拦', () => {
+  const mutated = mutateReanchorMacro(ui, (body) => {
+    const at = body.indexOf('user32::GetClientRect')
+    assert.ok(at >= 0, '注入失败:IHUI_REANCHOR 里没有 user32::GetClientRect')
+    const lineEnd = body.indexOf('\n', at)
+    return body.slice(0, at) + body.slice(lineEnd < 0 ? body.length : lineEnd + 1)
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.ok(
+    r.text.includes('user32::GetClientRect'),
+    '红行必须点名缺的是实际客户区判据(user32::GetClientRect)',
+  )
+})
+
+test('不误伤:重锚宏体内加注释/调整空行(几何链一字未动)必须仍全绿', () => {
+  const mutated = mutateReanchorMacro(ui, (body) => body + '\n  ; 只加一条注释,几何链一字未动\n')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.equal(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /八条跨文件不变量成立/)
+})
+
+test('注入违规:圆角宏的临时量挪回 $R0(会把 PageReinstall 的版本比较结果清掉)必须被拦', () => {
+  const mutated = ui.replace(/!macro IHUI_WINDOW_RGN([\s\S]*?)!macroend/, (m, body) =>
+    m.replace(body, body.replace(/\.R6/g, '.R0').replace(/p R6/g, 'p R0').replace(/\$R6/g, '$R0')),
+  )
+  assert.match(mutated, /!macro IHUI_WINDOW_RGN[\s\S]*?\.R0/, '注入失败:圆角宏里找不到 .R6 输出')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /当临时量/)
+})
+
+test('注入违规:installer.nsi 里主题宏不再被 PageReinstall 插入(整条链静默消失)必须被拦', () => {
+  const mutated = inst.replace(/^\s*!insertmacro IHUI_REINSTALLTHEME\s*$/m, '; (被删)')
+  assert.notEqual(mutated, inst, '注入失败:找不到 IHUI_REINSTALLTHEME 的插入行')
+  const r = withFixtures({ 'installer.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /未插入 IHUI_REINSTALLTHEME/)
+})
+
+test('不误伤:与重锚链无关的真实改动(改顶档 DPI 阈值 + 重锚宏内加注释)必须仍全绿', () => {
+  // 反证上一族假红:动 !define 值、在重锚宏里加注释,都不该让 G 变红。
+  const cap = ui.match(/^\s*!define\s+IHUI_DPI_CAP\s+(\d+)/m)
+  assert.ok(cap, '夹具失效:找不到 !define IHUI_DPI_CAP')
+  const other = cap[1] === '96' ? '120' : '96'
+  let mutated = ui.replace(/^(\s*)!define\s+IHUI_DPI_CAP\s+\d+/m, `$1!define IHUI_DPI_CAP ${other}`)
+  assert.notEqual(mutated, ui, '夹具失效:顶档阈值改写未生效')
+  mutated = mutateReanchorMacro(mutated, (body) => body + '\n  ; 只加一条注释,几何链一字未动\n')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.equal(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /八条跨文件不变量成立/)
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ───────── 第 8 条不变量:小屏 × 高 DPI 的"按工作区降布局 DPI" ─────────
+// 跨屏异 DPI 分支在单机永远取不到像素(取证禁令),所以这里用**确定性矩阵**代替:
+// 从 .nsi 解析出常量与公式,自己跑 72 组合。解析不到判据所需结构时必须**主动拒绝**,
+// 不能把"没解析到"当成"没有违规"(那是恒绿判据的成因)。
+// 判据本体一律 import 门体那一份(§22c:测试里再写一遍形态 = 两份真相必然漂移)。
+//   checkWorkAreaDownshift    = 第 8 条不变量的算式判据;
+//   macroBodyOf / nsiDefineValue = 宏体与 `!define` 取值的提取式,本文件的确定性矩阵用它俩取输入。
+import {
+  checkWorkAreaDownshift,
+  macroBodyOf,
+  nsiDefineValue,
+} from '../check-installer-assets.mjs'
+
+const uiSrc = readFileSync(join(W, 'ihui-ui.nsi'), 'utf8')
+
+/** 解析 IHUI_GUIINIT_SIZE 的算式,返回 (dpi, 工作区) → {x,y,W,H} ;结构缺失即抛 */
+function parseGuiInit(src) {
+  // 宏体与 !define 取值都调门体导出的那一份提取式(§22c:同一条解析在测试里再写一遍必漂);
+  // floors / axes 是本用例自己搭矩阵要的,门体没有对应判据 ⇒ 留在测试里,不冒充"门的导出口"。
+  const body = macroBodyOf(src, 'IHUI_GUIINIT_SIZE')
+  const cap = Number(src.match(/!define IHUI_DPI_CAP (\d+)/)?.[1])
+  const lw = nsiDefineValue(src, 'IHUI_LOG_W')
+  const lh = nsiDefineValue(src, 'IHUI_LOG_H')
+  const floors = [...body.matchAll(/\$\{If\} \$IHUIDPIW < (\d+)/g)].map((m) => Number(m[1]))
+  const axes = [
+    ...body.matchAll(/IntOp \$R9 \$R\d - \$R\d[\s\S]{0,90}?\/ \$\{IHUI_LOG_([WH])\}/g),
+  ].map((m) => m[1])
+  if (!body || !cap || !lw || !lh || axes.length < 2 || floors.length < 2)
+    throw new Error(
+      `判据结构解析不全: axes=${axes.join(',')} floors=${JSON.stringify(floors)} cap=${cap} 尺寸=${lw}x${lh}`,
+    )
+  const hardFloor = floors[floors.length - 1]
+  return (dpi, wa) => {
+    let d = Math.max(floors[0], Math.min(cap, dpi))
+    const byW = Math.floor(((wa.right - wa.left) * 96) / lw)
+    const byH = Math.floor(((wa.bottom - wa.top) * 96) / lh)
+    d = Math.min(d, byW, byH)
+    d = Math.max(d, hardFloor)
+    const W = Math.floor((lw * d) / 96)
+    const H = Math.floor((lh * d) / 96)
+    return {
+      x: wa.left + Math.floor((wa.right - wa.left - W) / 2),
+      y: wa.top + Math.floor((wa.bottom - wa.top - H) / 2),
+      W,
+      H,
+    }
+  }
+}
+
+const MONITORS = [
+  [0, 0, 1366, 728],
+  [0, 0, 1920, 1040],
+  [0, 0, 1536, 832],
+  [0, 0, 1280, 693],
+  [0, 0, 1707, 937],
+  [0, 0, 1920, 1010],
+  [0, 0, 1536, 790],
+  [0, 0, 1024, 570],
+  [1920, 0, 3000, 1880],
+]
+const DPIS = [96, 120, 144, 168, 192, 240, 288, 384]
+
+test('第 8 条不变量:真源码 0 违规,且改名宏必须让判据变红(不许瞎)', () => {
+  assert.deepEqual(checkWorkAreaDownshift({ uiSrc }), [])
+  assert.ok(
+    checkWorkAreaDownshift({
+      uiSrc: uiSrc.replace('!macro IHUI_GUIINIT_SIZE', '!macro IHUI_GUIINIT_SIZE_V2'),
+    }).length > 0,
+  )
+  assert.ok(
+    checkWorkAreaDownshift({
+      // 2026-10-16 起 REANCHOR 也出图(全局共 2 处),必须**全部**替换成字面量
+      // 才能命中"IHUI_PX 出图缺失"判据 —— 只换一处仍剩一次合法出图,判据保持绿(不许瞎的反向要求)。
+      uiSrc: uiSrc.replaceAll(
+        '!insertmacro IHUI_PX $IHUIWH ${IHUI_LOG_H}',
+        '!insertmacro IHUI_PX $IHUIWH 600',
+      ),
+    }).length > 0,
+  )
+})
+
+test('DPI × 工作区矩阵 72 组合:窗口必须整块落在工作区内(标题栏与底部按钮可达)', () => {
+  const size = parseGuiInit(uiSrc)
+  const bad = []
+  for (const [left, top, right, bottom] of MONITORS) {
+    const wa = { left, top, right, bottom }
+    for (const dpi of DPIS) {
+      const r = size(dpi, wa)
+      if (r.x < wa.left || r.y < wa.top || r.x + r.W > wa.right || r.y + r.H > wa.bottom)
+        bad.push(`${right - left}x${bottom - top}@${dpi} → ${r.W}x${r.H} 置于 (${r.x},${r.y})`)
+    }
+  }
+  assert.deepEqual(bad, [], `${bad.length} 组越界:\n  ${bad.slice(0, 4).join('\n  ')}`)
+})
+
+test('矩阵判据自身:删掉一条降档轴后必须"拒绝出结论",而不是报绿', () => {
+  const broken = uiSrc.replace(
+    /  IntOp \$R9 \$R8 - \$R6\r?\n  IntOp \$R9 \$R9 \* 96\r?\n  IntOp \$R9 \$R9 \/ \$\{IHUI_LOG_H\}\r?\n/,
+    '',
+  )
+  assert.notEqual(broken, uiSrc, '夹具失效:这条替换没删掉任何东西')
+  assert.throws(() => parseGuiInit(broken), /解析不全/)
+})

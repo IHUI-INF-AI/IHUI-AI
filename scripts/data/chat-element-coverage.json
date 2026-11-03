@@ -1,0 +1,1042 @@
+{
+  "$comment": "D51 对话流元素期望清单(V3种子视图)。来源=outputs/AI能力深度对标分析报告V3-2026-09-21.md 附件A-D + §6补证(G-63~G-70)。与 scripts/data/chat-flow-elements.json 的分工:本文件钉“期望有什么”(元素名/证据级别/契约事件/渲染位/跨端要求,含对手元素与我方缺失项,规划与对账用);chat-flow-elements.json 钉“已实现锚点+契约事件+条目基线”(运行时守门用,guardian第57项blocking)。两者不得各自扩围:清单变更必须同PR改本文件;新增已实现元素必须同PR改chat-flow-elements.json。 gate映射:①期望元素无渲染位→anchor-missing-*;②事件契约有帧但无消费点/③前端监听但后端不发→event-contract-drift(双向:任一端缺失即拦;逐事件消费点粒度由D44 WHITELIST与各元素anchors跟踪,不在本文件重复登记)。",
+  "source": "outputs/AI能力深度对标分析报告V3-2026-09-21.md",
+  "scope": "附件A(Qoder元素全表) + 附件B(Codex元素全表) + 附件C(Trae/WorkBuddy/Claude) + 附件D(我方基线锚点) + §6补证(G-63~G-70,含G-70反向清单)",
+  "scopeNote": "同文件内§7之后轮次(G-71起/D33-D105细化/H26-H29纪律)属V3之后补证,不在本文件登记,需用时按“清单变更同PR”追加",
+  "evidenceLevels": "E1一手运行态 / E2一手配置态 / E3一手资源标识(值未取到) / E4二手 / E5待证(不计入差距)",
+  "statusValues": "对手有-我方缺失 / 我方已有 / 我方领先 / 部分具备 / 非差距",
+  "elements": [
+    {
+      "id": "qoder-user-message",
+      "name": "用户消息块(正文+附件名,复制/编辑/拖拽入队)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.messageActions.* / composer.attachments",
+      "crossEnd": "对手端内行为;我方消息块已有,拖拽入队对照D38",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-ai-streaming",
+      "name": "AI流式正文(markdown段落/列表/代码/表格/分隔线)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder data-part-type=text;我方MessageItem流式正文",
+      "crossEnd": "八端同显(各端markdown渲染能力见§9端矩阵)",
+      "status": "我方已有"
+    },
+    {
+      "id": "qoder-thinking",
+      "name": "思考块(thinking/thought两态+matrix载入,展开/折叠)",
+      "evidence": "E1+E3",
+      "events": [],
+      "render": "Qoder content thinking 1000条实证;我方ThinkingSection阈值折叠",
+      "crossEnd": "八端同显;标题双态缺失见G-82",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-plan-card",
+      "name": "计划卡(计划正文/未开始实施/复制/退出plan)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.toolNames.generatePlan*;我方planSteps持久化(D33)",
+      "crossEnd": "web/rn/extension/miniapp-taro/cli五端回放",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-todo-list",
+      "name": "待办清单(subject+activeForm+status+blocks,含deleted态)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder tasks/<id>/N.json七字段;我方待办卡(D37待核)",
+      "crossEnd": "任务面与对话流双显",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "qoder-tool-card",
+      "name": "工具卡通用(running/runningDetail/processed/失败合并计数)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder tool_use/tool_result各1100;我方tool-call-card 12类子渲染器",
+      "crossEnd": "八端同显;类目聚合缺失见G-71",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-file-read",
+      "name": "文件读取卡(文件名+snippet+mtime,展开/打开文件)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.toolNames.readFile.*",
+      "crossEnd": "桌面/IDE场景刚需,移动端降级为文本",
+      "status": "对手有-我方缺失",
+      "gapId": "G-48邻域"
+    },
+    {
+      "id": "qoder-file-edit",
+      "name": "文件编辑卡(edited_text_file附件,打开/看diff)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder attachment 26条实证;我方FileChange/diff-hunk",
+      "crossEnd": "桌面端全量,移动端只读",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-diff",
+      "name": "Diff/变更集(split/inline/增删行/过大过期降级)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.fileChanges.*;我方hunk级接受拒绝(W5)",
+      "crossEnd": "桌面端全量;暂存语义缺失见G-114⑦",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-undo",
+      "name": "接受/拒绝/回滚(Undo二次确认+8态机)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.fileChanges.undo*;我方checkpoint-impact(D4/D40)",
+      "crossEnd": "八端回退语义一致",
+      "status": "部分具备",
+      "gapId": "G-68"
+    },
+    {
+      "id": "qoder-checkpoint-line",
+      "name": "Checkpoint分隔线(含三套明暗色token,点击回跳E5)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chat.checkpointSeparator;我方压缩分隔线+ring",
+      "crossEnd": "八端同显",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-command-card",
+      "name": "命令执行卡(command+三态+stdout/stderr/exitCode/durationMs)",
+      "evidence": "E1+E3",
+      "events": ["terminal_start", "terminal_end"],
+      "render": "Qoder attachment字段实证;我方terminal-section(截断交代D40)",
+      "crossEnd": "八端同显;展示态数据态分离缺失见G-52",
+      "status": "部分具备",
+      "gapId": "G-52"
+    },
+    {
+      "id": "qoder-terminal-panel",
+      "name": "终端面板(打开/关闭/后台进程输出/折叠/停止/截断提示)",
+      "evidence": "E3",
+      "events": ["terminal_start", "terminal_end"],
+      "render": "Qoder chatSession.headerActions.*;我方终端实时块",
+      "crossEnd": "桌面/cli全量,移动端只读回放",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-subagent-card",
+      "name": "子代理卡(标题+运行/完成/失败/中断+三态时长+transcript展开/加载更多/重试)",
+      "evidence": "E1+E3",
+      "events": [],
+      "render": "Qoder chatActivity.subagent*;我方SubAgentActivityFeed仅进度流",
+      "crossEnd": "多智能体各端同显",
+      "status": "对手有-我方缺失",
+      "gapId": "G-48"
+    },
+    {
+      "id": "qoder-mcp-card",
+      "name": "MCP工具卡(标题/加载/不可用/降级/已取消/能力撤销,可重试)",
+      "evidence": "E1+E3",
+      "events": [],
+      "render": "Qoder chatActivity.mcpApp*;我方87工具通用卡",
+      "crossEnd": "server×tool二级措辞见G-114①",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-browser-panel",
+      "name": "浏览器面板(地址栏/前进后退/重载/新标签/截图/本地服务器)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder browserSurface.*;我方work-panel嵌browser/CDP",
+      "crossEnd": "桌面端为主",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-browser-annotation",
+      "name": "页面视觉标注回传对话(点选元素/区域→样式面板→批注→作上下文,annotationStale失效提示)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder browserAnnotation.* 24+键;我方无标注到上下文闭环",
+      "crossEnd": "桌面端专属",
+      "status": "对手有-我方缺失",
+      "gapId": "G-50"
+    },
+    {
+      "id": "qoder-pip",
+      "name": "画中画(computer-use显示/隐藏/按会话隐藏)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.pictureInPicture.*",
+      "crossEnd": "桌面端专属,低优",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "qoder-image-card",
+      "name": "图片生成卡(generating/failed/interrupted/unavailable+下载/复制/加入上下文/预览)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.imageGeneration.* 25键;我方ImageResultBlock仅下载+复制",
+      "crossEnd": "各端下载+复制基线;翻页缩放缺失见G-79",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-artifact-preview",
+      "name": "产物预览(docx/pdf页码/pptx讲者备注/xlsx sheet选区/preview源码切换/批注)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.artifactPreview.*;我方artifact-canvas主HTML/图片/图表",
+      "crossEnd": "桌面端全量;规格基线见§19四类文档",
+      "status": "对手有-我方缺失",
+      "gapId": "G-49"
+    },
+    {
+      "id": "qoder-question-approval",
+      "name": "提问·审批弹层(单选/多选/自定义/结构化/下一题/自动跳过倒计时)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.question.*/permission.*;我方question-dialog/审批弹窗",
+      "crossEnd": "八端同显;elicitation语义见G-107",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-context-usage",
+      "name": "上下文用量(进度条+分类明细+自动压缩阈值+手动压缩开关)",
+      "evidence": "E3",
+      "events": ["compaction"],
+      "render": "Qoder data-chat-context-usage-progress;我方context-usage-ring+弹层",
+      "crossEnd": "八端同显;不可压缩因后果文案见G-91",
+      "status": "部分具备",
+      "gapId": "G-91"
+    },
+    {
+      "id": "qoder-turn-badge",
+      "name": "轮次计量徽章(时长/轮数/结果状态/摘要标签,复制/展开)",
+      "evidence": "E3",
+      "events": ["usage"],
+      "render": "Qoder chatSession.messageActions.result*;我方消息级计量徽章行(D1)",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "qoder-quota-actions",
+      "name": "额度耗尽处置动作族(补积分/升级/切档/查用量/重登/重试七动作+忽略)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder chatActivity.agentResultError.quotaExhausted.action.*(初判E3,§7升E1);我方FallbackBanner仅文案+清除钮",
+      "crossEnd": "商业转化断点,各端入口一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-45"
+    },
+    {
+      "id": "qoder-byok-error",
+      "name": "BYOK错误卡(11种原因分类,重试/切档)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.byokError.*",
+      "crossEnd": "各端错误分类标题映射见G-98",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "qoder-turn-failure",
+      "name": "失败·重试卡(含无响应超时/重试上下文,重试/忽略)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatActivity.turnFailureCard.*;我方error卡一次Retry",
+      "crossEnd": "八端同显;attempt/倒计时缺失见G-44",
+      "status": "部分具备",
+      "gapId": "G-44"
+    },
+    {
+      "id": "qoder-queue-steer",
+      "name": "排队·转向(队列标题/文件项/拖拽/编辑提示,立即发送/steer/打断并执行/撤回/重排)",
+      "evidence": "E1+E3",
+      "events": [],
+      "render": "Qoder chatQueue.*+queued_command 49条;我方输入队列+侧问队列+Steer钮",
+      "crossEnd": "八端队列语义一致",
+      "status": "部分具备",
+      "gapId": "G-42"
+    },
+    {
+      "id": "qoder-highlights",
+      "name": "引用·环境条(文件/链接/来源+分支/commit/服务器数/worktree/无变更,加删切分支停服刷新)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.highlights.*;我方AddMenu手工添加+注入交代条(D34/D45)",
+      "crossEnd": "八端同显",
+      "status": "部分具备",
+      "gapId": "G-41"
+    },
+    {
+      "id": "qoder-recap-handoff",
+      "name": "会话回顾·Handoff(recap标题/更新时间/生成中/失败+新会话承接purpose输入,生成/创建/揭示文件)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.highlights.recap.handoff.*;我方branch仅右键",
+      "crossEnd": "长会话交接各端可续看",
+      "status": "对手有-我方缺失",
+      "gapId": "G-46"
+    },
+    {
+      "id": "qoder-followup",
+      "name": "建议追问(轮次后followup区,点击填入)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.composer.followupSuggestions;我方缺失",
+      "crossEnd": "各端输入区统一",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "qoder-hover-actions",
+      "name": "操作条(复制MD/纯文本/点赞点踩/更多/从此处分支/AI生成声明,加入对话/建分支)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.messageActions.*;我方hover操作条13钮(点赞点踩仅toast→G-61)",
+      "crossEnd": "八端同显",
+      "status": "部分具备",
+      "gapId": "G-61"
+    },
+    {
+      "id": "qoder-sidebar-entry",
+      "name": "侧栏会话条目(更早消息分页/加载/认证空态/加文件夹)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.hasMoreBefore;列表列字段E5待证",
+      "crossEnd": "各端侧栏一致",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-permission-switch",
+      "name": "模式切换(default/plan/acceptEdits/bypassPermissions四档,1958/28/33/45频次,切换失败提示)",
+      "evidence": "E1+E3",
+      "events": [],
+      "render": "Qoder composer.permissionSwitchFailed;我方权限三档+切换失败可撤销(超Qoder)",
+      "crossEnd": "八端档位语义一致",
+      "status": "我方已有"
+    },
+    {
+      "id": "qoder-model-picker",
+      "name": "模型选择器(Auto/Lite/Efficient/Performance/Ultimate档位+11模型label/detail两行)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Qoder resources/dynamic-text/qoder-cn.json 80键;我方model-picker+能力过滤(D23)",
+      "crossEnd": "各端模型目录一致",
+      "status": "部分具备"
+    },
+    {
+      "id": "qoder-goal-bar",
+      "name": "Goal状态条(active/paused/blocked/budgetLimited/usageLimited+时长三档,编辑/暂停/恢复/删除)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.goal.*;我方goal-card(D64先自证再定档)",
+      "crossEnd": "各端目标态一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-83"
+    },
+    {
+      "id": "qoder-bg-agents",
+      "name": "后台Agent列表(pending/paused+结果+中间响应引用与跳转,暂停/恢复/打开工作区)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.backgroundAgents.*;我方D25看板仅启动/停止/改名",
+      "crossEnd": "长任务各端可介入",
+      "status": "对手有-我方缺失",
+      "gapId": "G-47"
+    },
+    {
+      "id": "qoder-quick-notes",
+      "name": "快捷笔记(录音12phase+7错误+转写+归档/分组/颜色/搜索)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder recordingNote/quickNotes约130键;我方语音只用于输入",
+      "crossEnd": "移动端录音入口优先",
+      "status": "对手有-我方缺失",
+      "gapId": "G-51"
+    },
+    {
+      "id": "qoder-injection-family",
+      "name": "注入提示族(skill_listing/agent_listing_delta增量addedTypes/removedTypes/addedLines/relevant_memories/hook_non_blocking_error/critical_system_reminder/task_reminder)",
+      "evidence": "E1",
+      "events": ["injection_applied"],
+      "render": "Qoder会话字段全实证;我方injection_frames已通(D34/D45五端已接)",
+      "crossEnd": "web/extension/miniapp-taro/mobile-rn/cli五端已接",
+      "status": "我方已有"
+    },
+    {
+      "id": "qoder-session-search",
+      "name": "会话内搜索(快捷键,命中段落高亮,上下跳转E5)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder conversationSearch+data-part-type",
+      "crossEnd": "桌面端优先",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "qoder-panes",
+      "name": "工作区分栏容器(面板组/最大化/拖拽高宽/空态/全屏)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder chatSession.panes.*",
+      "crossEnd": "桌面端专属,见G-100",
+      "status": "对手有-我方缺失",
+      "gapId": "G-100"
+    },
+    {
+      "id": "qoder-error-boundary",
+      "name": "渲染错误边界(data-render-error-boundary=tool容器,重试E5)",
+      "evidence": "E3",
+      "events": [],
+      "render": "Qoder data属性;我方单卡崩溃无隔离",
+      "crossEnd": "各端渲染健壮性",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "codex-user-message",
+      "name": "用户消息(content[]+text_elements附件引用实体,编辑回退,Ctrl+V附图)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex UserMessage 10条;我方用户气泡+引用",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-agent-message",
+      "name": "Agent消息(delta→completed markdown正文,Ctrl+O复制MD/重命名线程)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex AgentMessage 225条;我方流式正文",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-reasoning",
+      "name": "推理摘要(仅摘要,明文len=1,无可展开原文)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex Reasoning 71条;我方ThinkingSection",
+      "crossEnd": "各端折叠语义一致",
+      "status": "部分具备"
+    },
+    {
+      "id": "codex-command-row",
+      "name": "命令执行行(命令数组/cwd/parsed_cmd/stdout/stderr/formatted_output810/exit_code/duration/process_id,展开/后台化/续写stdin)",
+      "evidence": "E1",
+      "events": ["terminal_start", "terminal_end"],
+      "render": "Codex CommandExecution 810条;我方原始stdout+2万字符截断",
+      "crossEnd": "展示态数据态分离见G-52",
+      "status": "部分具备",
+      "gapId": "G-52"
+    },
+    {
+      "id": "codex-diff-suggest",
+      "name": "diff建议块(unified_diff+cleanly/conflicts/skipped,会话级记忆接受拒绝)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex FileChange 92条;我方hunk级控件",
+      "crossEnd": "桌面端全量",
+      "status": "部分具备"
+    },
+    {
+      "id": "codex-mcp-row",
+      "name": "MCP调用行(server/tool/arguments/status/error/duration,看错误/reload)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex McpToolCall 2条;我方MCP通用卡",
+      "crossEnd": "server×tool定制措辞见G-114①",
+      "status": "部分具备"
+    },
+    {
+      "id": "codex-plan-card",
+      "name": "计划卡(update_plan PlanItem step/status,Plan模式禁用该工具)",
+      "evidence": "E2",
+      "events": ["plan-step"],
+      "render": "Codex工具描述原文;我方planSteps持久化(D33)",
+      "crossEnd": "五端回放",
+      "status": "部分具备"
+    },
+    {
+      "id": "codex-token-window",
+      "name": "Token·上下文窗口(三级usage+model_context_window=258400+Tokens remaining+接近耗尽告警,/compact开关)",
+      "evidence": "E1",
+      "events": ["usage", "compaction"],
+      "render": "Codex token_count 1048/token_usage_record 1038;我方计量徽章+用量环",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-rate-badge",
+      "name": "速率·配额徽章(limit_id/primary/secondary/credits/plan_type/spend_control_reached)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex rate_limits字段;我方缺排队位次与负载条",
+      "crossEnd": "额度口径各端一致见G-73",
+      "status": "对手有-我方缺失",
+      "gapId": "G-73"
+    },
+    {
+      "id": "codex-approval-hint",
+      "name": "审批档位提示(approval_policy四值+单次/会话/永久三档记忆文案)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex turn_context;我方权限三档+代批决策(D55)",
+      "crossEnd": "八端档位语义一致",
+      "status": "部分具备",
+      "gapId": "G-66"
+    },
+    {
+      "id": "codex-sandbox-badge",
+      "name": "沙箱徽章(read-only/workspace-write/danger-full-access+agent-mode,切换//permissions)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex会话实证;我方os_sandbox allow_network默认False+三端隔离交代",
+      "crossEnd": "执行环境交代各端一致",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-fullaccess-warn",
+      "name": "全访问警告(首次切full-access一次性可永久忽略)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Codex global-state;我方权限档后果说明(G-153)",
+      "crossEnd": "各端风险提示一致",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-turn-status",
+      "name": "轮次状态行(task_started/task_complete含duration_ms/time_to_first_token_ms22处/turn_aborted interrupted,Ctral+C取消)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex turn生命周期;我方耗时/首包(D1)+停止生成",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-settings-change",
+      "name": "设置变更条(改模型/推理/personality留13字段变更集,可撤销/重选)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex thread_settings_applied 15条;我方切模型零痕迹",
+      "crossEnd": "会话复盘可审计",
+      "status": "对手有-我方缺失",
+      "gapId": "G-43"
+    },
+    {
+      "id": "codex-inline-injection",
+      "name": "内联系统注入条(每轮装配content_item_kinds 10类可读条)",
+      "evidence": "E1",
+      "events": ["injection_applied"],
+      "render": "Codex 273条;我方injection_frames(D34/D45)",
+      "crossEnd": "五端已接,七类口径见G-40/G-41",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-world-state",
+      "name": "世界状态查看(agents_md21044字/skills12728字/permissions/environments/personality/context_window_guidance原文可查)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex world_state 8条;我方仅AddMenu手工添加",
+      "crossEnd": "本轮装配查看器见G-41",
+      "status": "对手有-我方缺失",
+      "gapId": "G-41"
+    },
+    {
+      "id": "codex-compaction-card",
+      "name": "压缩卡(ContextCompaction+replacement_history/guardian_history/window_number链,/compact两模)",
+      "evidence": "E1",
+      "events": ["compaction"],
+      "render": "Codex compacted 3次;我方压缩分隔线+撞上限警示行(G-150)",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "codex-goal-card",
+      "name": "目标卡(objective/status/tokensUsed/timeUsed/token_budget,6态含usage_limited,edit/clear/延迟续跑)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex thread_goal_updated 2条+goals表CHECK约束;我方goal-card",
+      "crossEnd": "各端目标态一致",
+      "status": "部分具备",
+      "gapId": "G-83"
+    },
+    {
+      "id": "codex-pagination",
+      "name": "分页投影(thread_items三元组+projection_state byte_offset/ordinal+分页索引,长会话非全量渲染)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex表结构;我方全量拉取",
+      "crossEnd": "大會话首屏与内存,各端分页语义",
+      "status": "对手有-我方缺失",
+      "gapId": "G-59"
+    },
+    {
+      "id": "codex-subagent",
+      "name": "子代理/编排(SubAgentActivity/CollabAgentToolCall9种/Begin-End/Ctrl+C回主线程/父子切换)",
+      "evidence": "E1+E2",
+      "events": [],
+      "render": "Codex二进制变体+thread_spawn_edges表;我方dispatch-subagent对话框+看板",
+      "crossEnd": "多智能体各端同显",
+      "status": "部分具备",
+      "gapId": "G-48"
+    },
+    {
+      "id": "codex-cron",
+      "name": "后台·定时任务(id/name/prompt/next_run_at/rrule+runs+inbox收件箱,可暂停/运行/读信)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex codex-dev.db表定义;我方D25看板+automations",
+      "crossEnd": "后台任务各端可介入",
+      "status": "部分具备",
+      "gapId": "G-47"
+    },
+    {
+      "id": "codex-queue-mode",
+      "name": "追问队列模式(followUpQueueMode=steer可配)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Codex config.toml;我方Steer钮无模式配置",
+      "crossEnd": "队列模式各端一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-42"
+    },
+    {
+      "id": "codex-ambient",
+      "name": "环境建议条(按项目根生成next-action,可采纳/忽略)",
+      "evidence": "E1+E2",
+      "events": [],
+      "render": "Codex ambient-suggestions.json;我方无",
+      "crossEnd": "桌面端主动性入口",
+      "status": "对手有-我方缺失",
+      "gapId": "G-54"
+    },
+    {
+      "id": "codex-drafts",
+      "name": "草稿·历史(prompt-history全局3+按线程10+composer-prompt-drafts-v2,上下键翻)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Codex配置实证;我方草稿按会话隔离已有(§15纠正),缺历史上翻",
+      "crossEnd": "输入草稿各端持久化",
+      "status": "部分具备",
+      "gapId": "G-55"
+    },
+    {
+      "id": "codex-sidebar",
+      "name": "侧栏结构(chats/cloud/pinned/threads四分组+项目节点+排序模式,折叠/排序/按cwd归档)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Codex global-state;我方侧栏(折叠/置顶/归档/收藏/批量删除)",
+      "crossEnd": "各端侧栏一致",
+      "status": "部分具备"
+    },
+    {
+      "id": "codex-thread-tab",
+      "name": "每会话浏览器Tab(thread-tab-routes-v1全URL,可开关)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Codex状态实证;我方无",
+      "crossEnd": "桌面端专属,手机远看桌面见G-60",
+      "status": "对手有-我方缺失",
+      "gapId": "G-60"
+    },
+    {
+      "id": "codex-computeruse",
+      "name": "正在使用你的电脑(computer-use横幅+Esc取消+主题色)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex computer-use/config.json;我方computer族工具0覆盖",
+      "crossEnd": "桌面端执行可见性",
+      "status": "对手有-我方缺失",
+      "gapId": "G-80"
+    },
+    {
+      "id": "codex-memory-notify",
+      "name": "记忆·导入通知(raw_memories/phase2_diff/rollout_summaries+external-agent-import-sync可看diff)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex会话实证;我方D28导入+redact(优于对手,见§6安全附带发现)",
+      "crossEnd": "导入链各端一致",
+      "status": "我方领先"
+    },
+    {
+      "id": "codex-viz-zone",
+      "name": "可视化产物区(visualize插件visualizations/<日期>/<threadId>/可开面板)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Codex目录实证;我方ChartArtifactBlock自由HTML产物",
+      "crossEnd": "受控图表见G-57",
+      "status": "部分具备",
+      "gapId": "G-57"
+    },
+    {
+      "id": "trae-goal-engine",
+      "name": "goal五态状态机+执行/评估模型分离(评估默认Haiku只出yes/no+一行理由,Stop Hook触发,≤4000字符/20轮/3轮无进展blocked)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Trae ~/.trae-cn/commands/goal.md;我方/goal模式(AGENTS.md§8)",
+      "crossEnd": "以/goal语义为准,各端一致",
+      "status": "我方已有"
+    },
+    {
+      "id": "trae-dynamic-ui",
+      "name": "对话内受控图表卡(16模板白名单+scenes+visual-tokens)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Trae builtin/global/skills/dynamic-ui/templates;我方自由HTML产物",
+      "crossEnd": "五端同渲染+主题化",
+      "status": "对手有-我方缺失",
+      "gapId": "G-57"
+    },
+    {
+      "id": "trae-checkpoint-git",
+      "name": "检查点载体(每会话独立git仓snapshot/<sid>/v2/.git+snapshotCompactionEligible策略位;§6修正:仓内仅版本图元数据,文件态在别处)",
+      "evidence": "E2",
+      "events": [],
+      "render": "Trae目录实证;我方DB/文件快照+atomic rollback",
+      "crossEnd": "快照语义各端一致",
+      "status": "部分具备",
+      "gapId": "G-58"
+    },
+    {
+      "id": "trae-preview-perms",
+      "name": "preview webview权限族+自定义请求/响应头规则+空态文案",
+      "evidence": "E2",
+      "events": [],
+      "render": "Trae安装物实证;我方preview面板权限待核",
+      "crossEnd": "桌面端专属",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "trae-solo",
+      "name": "SOLO模式族+17 design_libraries+agent_types×10模型变体",
+      "evidence": "E2",
+      "events": [],
+      "render": "Trae安装物实证",
+      "crossEnd": "桌面端专属",
+      "status": "对手有-我方缺失"
+    },
+    {
+      "id": "claude-retry-countdown",
+      "name": "红条重试倒计时(system.api_error72+retryAttempt/retryInMs/maxRetries)",
+      "evidence": "E1",
+      "events": ["retry_scheduled"],
+      "render": "Claude 4599条会话实证;我方retryNotice已通(D39/D108)",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "claude-turn-duration",
+      "name": "轮末耗时(system.turn_duration 5条)",
+      "evidence": "E1",
+      "events": ["usage"],
+      "render": "Claude会话实证;我方耗时/首包(D1)",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "claude-away-summary",
+      "name": "离开后回来顶部摘要条(system.away_summary 2条)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Claude会话实证;我方零对应",
+      "crossEnd": "各端会话恢复入口",
+      "status": "对手有-我方缺失",
+      "gapId": "G-44邻域"
+    },
+    {
+      "id": "claude-queue-strip",
+      "name": "排队条(queue-operation+promptSource queued)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Claude会话实证;我方队列无撤回/重排失败态",
+      "crossEnd": "八端队列语义一致",
+      "status": "部分具备",
+      "gapId": "G-42"
+    },
+    {
+      "id": "claude-sidechannel",
+      "name": "toolUseResult结构化侧信道154条(file_unchanged/noOutputExpected/isImage→diff与文件未变更态)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Claude会话实证;我方CLI有该类型但web未渲染",
+      "crossEnd": "web渲染位待补",
+      "status": "部分具备",
+      "gapId": "D44"
+    },
+    {
+      "id": "claude-tasks-plans",
+      "name": "待办与计划真身(tasks/<sid>/N.json+plans/<slug>.md)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Claude文件实证;我方D37待核",
+      "crossEnd": "任务面与对话流双显",
+      "status": "部分具备"
+    },
+    {
+      "id": "claude-sidebar-cols",
+      "name": "侧栏列字段(sessions-index.json firstPrompt/messageCount/created/modified/gitBranch)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Claude文件实证;我方侧栏列待核(D20)",
+      "crossEnd": "各端侧栏一致",
+      "status": "部分具备"
+    },
+    {
+      "id": "claude-subagent-nest",
+      "name": "子代理嵌套块(isSidechain独立jsonl+attributionAgent workflow-subagent2016/Explore325)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Claude文件实证;我方transcript不可展开",
+      "crossEnd": "多智能体各端同显",
+      "status": "对手有-我方缺失",
+      "gapId": "G-48"
+    },
+    {
+      "id": "workbuddy-note",
+      "name": "WorkBuddy元素(程序本体本机不存在,仅文档二手描述:版本历史可回退/全屏大画布/流内卡片进画布/沙箱清理派生进程)",
+      "evidence": "E4",
+      "events": [],
+      "render": "无一手渲染位;本轮不立差距,下一轮按D50取证",
+      "crossEnd": "待取证后定",
+      "status": "非差距"
+    },
+    {
+      "id": "ours-sse-contract",
+      "name": "数据面契约:对话流24事件双份单一事实源",
+      "evidence": "E1",
+      "events": [
+        "usage",
+        "tool-call-start",
+        "tool-result",
+        "terminal_start",
+        "terminal_end",
+        "plan-step",
+        "compaction",
+        "citations",
+        "injection_applied",
+        "retry_scheduled",
+        "task_progress",
+        "worker_status",
+        "dag_level_advanced",
+        "log",
+        "status",
+        "memory_context",
+        "step_start",
+        "step_done",
+        "trace",
+        "trace_summary"
+      ],
+      "render": "apps/ai-service/app/core/sse_contract.py:18-45 ≡ packages/shared/src/sse/contract.ts:28-53(上列20为已核对名,其余以契约文件为准);任务流15事件agent_events.py:121-137",
+      "crossEnd": "一份契约八端同显(L2代差点)",
+      "status": "我方已有"
+    },
+    {
+      "id": "ours-whitelist10",
+      "name": "10个后端发前端泛型兜底事件(task_progress/worker_status/dag_level_advanced/log/status/memory_context/step_start/step_done/trace/trace_summary逐个补渲染位)",
+      "evidence": "E1",
+      "events": [
+        "task_progress",
+        "worker_status",
+        "dag_level_advanced",
+        "log",
+        "status",
+        "memory_context",
+        "step_start",
+        "step_done",
+        "trace",
+        "trace_summary"
+      ],
+      "render": "scripts/check-agent-event-parity.mjs:107 WHITELIST=现成无渲染位登记簿",
+      "crossEnd": "逐事件补渲染位(D44)",
+      "status": "对手有-我方缺失",
+      "gapId": "G-62"
+    },
+    {
+      "id": "ours-message-item",
+      "name": "消息气泡内21段有序渲染+hover操作条13钮",
+      "evidence": "E1",
+      "events": [],
+      "render": "apps/web/src/components/chat/message-list/MessageItem.tsx:724-1000(点赞/点踩缺失,仅toast→G-61)",
+      "crossEnd": "web主渲染位,各端对齐",
+      "status": "部分具备",
+      "gapId": "G-61"
+    },
+    {
+      "id": "ours-tool-card12",
+      "name": "工具卡12类结果子渲染器",
+      "evidence": "E1",
+      "events": [],
+      "render": "apps/web/src/components/ai/tool-call-card.tsx",
+      "crossEnd": "八端同显;工具名覆盖率见G-80",
+      "status": "我方已有"
+    },
+    {
+      "id": "ours-hunk",
+      "name": "hunk级接受拒绝",
+      "evidence": "E1",
+      "events": [],
+      "render": "apps/web/src/components/ai/diff-hunk-controls.tsx",
+      "crossEnd": "桌面端全量",
+      "status": "我方已有"
+    },
+    {
+      "id": "ours-terminal-live",
+      "name": "终端实时块",
+      "evidence": "E1",
+      "events": ["terminal_start", "terminal_end"],
+      "render": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",
+      "crossEnd": "桌面/cli全量,移动端只读",
+      "status": "我方已有"
+    },
+    {
+      "id": "ours-fold",
+      "name": "折叠三档策略",
+      "evidence": "E1",
+      "events": [],
+      "render": "fold-policy.ts三档;对照G-53聚合档位缺失",
+      "crossEnd": "各端折叠语义一致",
+      "status": "部分具备",
+      "gapId": "G-53"
+    },
+    {
+      "id": "ours-metering",
+      "name": "计量徽章行(tokens/耗时/首包/费用)",
+      "evidence": "E1",
+      "events": ["usage"],
+      "render": "消息级计量(D1);对照G-73排队负载缺失",
+      "crossEnd": "八端同显",
+      "status": "我方已有"
+    },
+    {
+      "id": "ours-sidepanel-tabs",
+      "name": "26个侧栏工具Tab",
+      "evidence": "E1",
+      "events": [],
+      "render": "apps/web/src/components/ai/ai-side-panel.tsx:1496行;对照G-63任务分区缺失",
+      "crossEnd": "桌面/web平铺,任务分区见G-63",
+      "status": "部分具备",
+      "gapId": "G-63"
+    },
+    {
+      "id": "ours-input",
+      "name": "输入区13类元件",
+      "evidence": "E1",
+      "events": [],
+      "render": "apps/web/src/components/chat/message-input.tsx:1234行;对照草稿/历史/润色见G-55/G-95",
+      "crossEnd": "各端输入区统一",
+      "status": "部分具备"
+    },
+    {
+      "id": "ours-persist",
+      "name": "持久化:服务端metadata落toolCalls/terminalTasks+hydration还原;前端仅回传content/role/metadata/reasoning",
+      "evidence": "E1",
+      "events": [],
+      "render": "apps/api/src/routes/ai-callback.ts:54-55,159-160 ↔ ai-side-panel.tsx:491-493;残量planSteps/citations/usage/compaction见G-39",
+      "crossEnd": "跨端续看依赖服务端真相源",
+      "status": "部分具备",
+      "gapId": "G-39"
+    },
+    {
+      "id": "ours-defects",
+      "name": "自证缺陷包:反馈不落库/工具耗时本地计时/三巨无霸组件零单测/miniapp自研分发层/desktop端内0渲染件",
+      "evidence": "E1",
+      "events": [],
+      "render": "use-message-list-context-menu.tsx:117-119;MessageItem1370/message-input1234/ai-side-panel1496;miniapp src/api/index.ts;desktop随web壳",
+      "crossEnd": "跨端parity与回归安全,extension为必做端(§6跨端更正)",
+      "status": "对手有-我方缺失",
+      "gapId": "G-61"
+    },
+    {
+      "id": "ours-crossend",
+      "name": "跨端拓扑:extension独立聊天面5处消费点(必做端)/desktop随壳自动覆盖/miniapp自研分发渲染chat.tsx/rn双屏能力不等/cli29处消费tui-client仅认done/error/result",
+      "evidence": "E1",
+      "events": [],
+      "render": "见附件D跨端段落;§9端覆盖矩阵",
+      "crossEnd": "必做端清单+豁免理由见计划§9",
+      "status": "我方已有"
+    },
+    {
+      "id": "g63-task-monitor",
+      "name": "任务监控面板(title任务监控+四分区进度与上下文/执行活动/结果与来源/辅助入口+displaySection展示方式+任务回顾/目标/计划/子智能体/后台进程+产出｜网页查阅｜技能与MCP｜来源｜记忆分组标签)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder asar偏移@63740965/@63611127;我方26平铺Tab无任务分区",
+      "crossEnd": "任务面各端分区一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-63"
+    },
+    {
+      "id": "g64-attention",
+      "name": "会话注意力四态(等待你处理｜任务正在进行｜有未读更新｜任务执行失败)+markUnread+selectedChatCount已选N个+重命名/置顶/导出/归档/移除",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder asar en/zh成对;我方缺等待你处理与未读更新两态",
+      "crossEnd": "多会话并行各端提醒一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-64"
+    },
+    {
+      "id": "g65-tool-vocab",
+      "name": "工具名与浏览器动作中文化词表(toolNames27项+browser.*16项全中文动词)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Qoder asar@63641600;我方TOOL_DISPLAY_KEYS(§7.1定档为覆盖率37/87未覆盖,browser/computer两族0覆盖)",
+      "crossEnd": "五语言词表覆盖率100%(87/87)",
+      "status": "部分具备",
+      "gapId": "G-65"
+    },
+    {
+      "id": "g66-autoreview",
+      "name": "机器代批可见决策(自动审查中/Guardian已自动批准/Agent已自动批准/Agent已拒绝/请求用户确认/理由)+低成本反超位(我方后端decision/reason八类已齐备)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Trae ai-modules-chat index.mjs复现计数7;我方agent_loop_v2._derive_step_decision数据在手未上屏",
+      "crossEnd": "对话流内联徽章各端同显",
+      "status": "对手有-我方缺失",
+      "gapId": "G-66"
+    },
+    {
+      "id": "g67-quota-family",
+      "name": "额度与权益元素族(本周已用percent%/本周额度已用完/共享额度每周重置/限额使用/优先通道徽章+速通剩余N次/按Token vs按次计费/企业四分账/自动扣费/查看开销/积分已更新/是否继续刚才中断任务)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Trae同包;我方用量徽章+成本预估+会员折扣,缺续跑询问/优先通道/口径透出/分账视图",
+      "crossEnd": "计费口径各端一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-67"
+    },
+    {
+      "id": "g68-rollback-preview",
+      "name": "回退预览逐文件三态(将被添加｜将被修改｜将被删除+此行为还将恢复N个文件+工作区外文件无法回退边界提示+运行中变体+结果态)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Trae同包;我方D4有影响文件与diff,无三态徽章/边界提示/运行中回退变体",
+      "crossEnd": "回退语义各端一致",
+      "status": "对手有-我方缺失",
+      "gapId": "G-68"
+    },
+    {
+      "id": "g69-long-output",
+      "name": "工具长输出自动转文件(可设置项,输出落文件+链接;opencode目录双证)",
+      "evidence": "E1",
+      "events": [],
+      "render": "Trae设置项原文;我方8000/2万字符截断即丢",
+      "crossEnd": "截断改落文件+可展开链接(D33扩)",
+      "status": "对手有-我方缺失",
+      "gapId": "G-69"
+    }
+  ],
+  "negativeList": [
+    {
+      "id": "g70-inline-numbered-citations",
+      "gapId": "G-70",
+      "note": "行内[n]编号引用:Qoder asar全文0命中(来源以结果与来源面板分组呈现);我方已有CitationBar+持久化+多端渲染→我方在前,禁止未来当差距补齐,禁止为对齐竞品而移除"
+    },
+    {
+      "id": "g70-conversation-sharing",
+      "gapId": "G-70",
+      "note": "会话分享:Qoder shareChat/shareSession零命中(只有导出/归档/移除);我方已有分享链接+分享卡片+社区发布→我方在前,禁止反向削平"
+    }
+  ],
+  "inventoryCount": 104
+}

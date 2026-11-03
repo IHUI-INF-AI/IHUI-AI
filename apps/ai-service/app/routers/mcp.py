@@ -1,0 +1,1369 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""MCP 路由(10 端点)。
+
+提供工具、资源、提示词、skill、slash 命令的查询与调用。
+"""
+
+import logging
+import os
+from dataclasses import asdict
+from pathlib import PurePath
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
+from ..services import capability_market as capability_market_module
+from ..services import capability_market_store
+from ..services import mcp_server as mcp_server_module
+from ..services.connector_store import OWNER_FIELD  # 属主键名只有一份定义,两个 store 不得各写字面量
+from ..services.mcp_client import (
+    DEFAULT_TIMEOUT,
+    TRANSPORT_SSE,
+    TRANSPORT_STDIO,
+    MCPClientConfig,
+    get_mcp_client_manager,
+)
+from ..services.mcp_server import mcp_server, sampling_handler
+from ..services.skills import skill_registry
+from ..services.slash_commands import slash_command_registry
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# 请求模型
+# ---------------------------------------------------------------------------
+
+
+class ToolCallRequest(BaseModel):
+    """工具调用请求。"""
+
+    name: str = Field(..., description="工具名称")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="工具参数")
+
+
+class PromptInvokeRequest(BaseModel):
+    """提示词调用请求。"""
+
+    name: str = Field(..., description="提示词名称")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="提示词参数")
+
+
+class SlashCommandRequest(BaseModel):
+    """Slash 命令执行请求。"""
+
+    command: str = Field(..., description="命令名(不含 /)")
+    args: list[str] = Field(default_factory=list, description="命令参数")
+    ctx: dict[str, Any] = Field(default_factory=dict, description="上下文")
+
+
+# ---------------------------------------------------------------------------
+# 外部 MCP Server 管理请求模型(2026-08-30 立,外部 MCP 生态接线)
+# ---------------------------------------------------------------------------
+
+
+class ExternalServerRegisterRequest(BaseModel):
+    """外部 MCP Server 注册请求。
+
+    transport: stdio | sse
+    - stdio 模式必须提供 command(可带 args/env)
+    - sse 模式必须提供 url
+    """
+
+    name: str = Field("", description="Server 名称(唯一,1-100 字符)")
+    transport: str = Field("", description="传输模式: stdio | sse")
+    command: str = Field("", description="stdio 模式启动命令")
+    args: list[str] = Field(default_factory=list, description="stdio 模式命令参数")
+    env: dict[str, str] = Field(default_factory=dict, description="stdio 模式环境变量")
+    url: str = Field("", description="sse 模式 URL")
+    timeout: float = Field(DEFAULT_TIMEOUT, ge=1, le=30, description="调用超时(秒,上限 30)")
+    reconnect: bool = Field(True, description="断线自动重连")
+    max_reconnect_attempts: int = Field(3, ge=0, le=20, description="最大重连次数")
+
+
+class ExternalToolCallRequest(BaseModel):
+    """外部 MCP 工具调用请求。"""
+
+    server: str = Field(..., min_length=1, description="外部 MCP Server 名称")
+    tool: str = Field(..., min_length=1, description="工具名称")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="工具参数")
+
+
+class McpStoreInstallRequest(BaseModel):
+    """MCP 应用商店安装请求(2026-09-02 立,P2-1)。
+
+    从目录条目一键安装:可选 env(必需环境变量)+ workspace_path(filesystem 类
+    server 的工作区参数)。经 mcp_stdio_bridge 热挂载,工具注入对话工具表。
+    2026-09-12(1-4):新增 confirm_risk —— 高风险(high/critical)server 需
+    用户在风险确认对话框明确同意后才允许安装(后端兜底拦截)。
+    """
+
+    key: str = Field(..., min_length=1, description="目录条目 key")
+    env: dict[str, str] = Field(default_factory=dict, description="必需环境变量(如 DATABASE_URL)")
+    workspace_path: str = Field("", description="filesystem 类 server 的工作区路径")
+    confirm_risk: bool = Field(False, description="高风险 server 需确认为 true 才能安装")
+
+
+class McpStoreReviewRequest(BaseModel):
+    """MCP 市场审核请求(P2-5,2026-09-12 立,admin-only)。"""
+
+    action: str = Field(..., min_length=1, description="审核动作: approve | reject")
+    note: str = Field("", description="审核备注(驳回原因等)")
+
+
+# ---------------------------------------------------------------------------
+# 工具端点
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/tools")
+async def list_tools() -> dict[str, Any]:
+    """列出全部 MCP 工具。"""
+    tools = [asdict(t) for t in mcp_server.list_tools()]
+    return {"tools": tools, "count": len(tools)}
+
+
+@router.post("/mcp/tools/call")
+async def call_tool(req: ToolCallRequest, request: Request) -> dict[str, Any]:
+    """调用指定 MCP 工具(带权限矩阵校验)。
+
+    从 request.state 读取用户上下文(JWTAuthMiddleware 注入):
+    - role_id: 传给 mcp_server.call_tool 做 admin 专属工具权限校验
+    - user_id: G6(2026-07-26)透传给 knowledge_lookup 查 long_term_memory 源
+    """
+    user_role = resolve_request_role_id(request)
+    user_id = getattr(request.state, "user_id", None)
+    result = await mcp_server.call_tool(
+        req.name, req.arguments, user_role=user_role, user_id=user_id
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 资源端点
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/resources")
+async def list_resources() -> dict[str, Any]:
+    """列出全部 MCP 资源。"""
+    resources = [asdict(r) for r in mcp_server.list_resources()]
+    return {"resources": resources, "count": len(resources)}
+
+
+@router.get("/mcp/resources/{uri:path}")
+async def read_resource(uri: str) -> dict[str, Any]:
+    """读取指定 URI 的 MCP 资源。"""
+    result = await mcp_server.read_resource(uri)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 提示词端点
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/prompts")
+async def list_prompts() -> dict[str, Any]:
+    """列出全部 MCP 提示词。"""
+    prompts = [asdict(p) for p in mcp_server.list_prompts()]
+    return {"prompts": prompts, "count": len(prompts)}
+
+
+@router.post("/mcp/prompts/invoke")
+async def invoke_prompt(req: PromptInvokeRequest) -> dict[str, Any]:
+    """调用指定 MCP 提示词。"""
+    return mcp_server.invoke_prompt(req.name, req.arguments)
+
+
+# ---------------------------------------------------------------------------
+# Skill 端点
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/skills")
+async def list_skills() -> dict[str, Any]:
+    """列出全部预置 skill。"""
+    skills = [
+        {"name": s.name, "description": s.description, "prompt_template": s.prompt_template}
+        for s in skill_registry.list_skills()
+    ]
+    return {"skills": skills, "count": len(skills)}
+
+
+@router.get("/mcp/skills/{name}")
+async def get_skill(name: str) -> dict[str, Any]:
+    """获取指定 skill 详情。"""
+    skill = skill_registry.get(name)
+    if not skill:
+        raise HTTPException(status_code=404, detail=f"skill 不存在: {name}")
+    return {
+        "name": skill.name,
+        "description": skill.description,
+        "prompt_template": skill.prompt_template,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Slash 命令端点
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/slash-commands")
+async def list_slash_commands() -> dict[str, Any]:
+    """列出全部 slash 命令。"""
+    commands = [
+        {"name": c.name, "description": c.description}
+        for c in slash_command_registry.list_commands()
+    ]
+    return {"commands": commands, "count": len(commands)}
+
+
+@router.post("/mcp/slash-commands")
+async def execute_slash_command(req: SlashCommandRequest) -> dict[str, Any]:
+    """执行 slash 命令。"""
+    output = await slash_command_registry.execute(req.command, req.args, req.ctx)
+    return {"command": req.command, "output": output}
+
+
+class ReloadPluginsRequest(BaseModel):
+    """`POST /mcp/slash-commands/reload` 入参(控制帧 `reload_plugins`)。
+
+    force=true(默认)绕过 mtime 判据做全量重扫:用户手改 SKILL.md 后 mtime 可能不变
+    (同秒连写 / 编辑器保留 mtime),只走增量会把「改了没生效」报成「没有变化」。
+    """
+
+    force: bool = Field(default=True, description="true=全量重扫(默认);false=只走 mtime 增量")
+
+
+@router.post("/mcp/slash-commands/reload")
+async def reload_slash_commands(req: ReloadPluginsRequest | None = None) -> dict[str, Any]:
+    """控制帧 `reload_plugins`:重扫插件面,并把**最新命令列表**回灌给宿主。
+
+    竞品原帧语义(2026-09 取证,docs/benchmark-evidence/2026-09/qoder-control-frames.md
+    第 27 行):`let e=await this.request({type:"reload_plugins"});
+    return this.replaceLatestCommands(e.commands),e`
+    —— 即**宿主显式调用 + 必须把重载后的命令集合回灌给宿主**,不是「后台自己会重载」。
+    判据:调用方拿得到重载后的命令集合(竞品那句 `replaceLatestCommands` 就是回灌动作)。
+
+    ## 我方「插件面」的对位物是什么
+
+    竞品的插件以「贡献命令」的方式接入宿主。本仓没有"插件代码加载面"
+    (中继插件是声明式 + DB 驱动,插件市场目录是端内静态数据,两者都没有可重扫的
+    运行时源)——**插件能力在本仓以「技能(SKILL.md)」形态承载**:技能被重扫后
+    贡献出来的命令集就变了。故本帧落点是 `slash_command_registry.reload()`:
+      ① 先让技能面真正重扫(复用 `reload_skills` 帧的同一份 `skill_registry.reload`,
+         不新造第二套扫描逻辑);
+      ② 回灌**重载后的完整命令列表**(= 竞品 `replaceLatestCommands(e.commands)` 的
+         等价物);
+      ③ 同时带上技能差额(added/removed/changed),让「插件变了什么」可见 ——
+         只回一句「已重载」等于把一次静默失败包装成成功态。
+
+    Args:
+        req: `{"force": true}` 绕过 mtime 判据做全量重扫(默认);`false` 只走增量。
+
+    Returns:
+        `{"reloaded": bool, "commands": [{name, description}], "commandCount": int,
+        "skills": int, "skillNames": [...], "added": [...], "removed": [...],
+        "changed": [...], "lastReload": str|None, "forced": bool}`
+        失败时 `{"reloaded": false, "error": str}`(不抛 —— 挂在帧处理器上,
+        绝不能向上抛导致引擎崩溃)。
+    """
+    force = True if req is None else bool(req.force)
+    return slash_command_registry.reload(force=force)
+
+
+# ---------------------------------------------------------------------------
+# Sampling 端点(MCP 反向调用 LLM,P1-3)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/mcp/sampling")
+async def mcp_sampling(request: Request) -> dict[str, Any]:
+    """MCP Sampling 反向调用(让 MCP 工具请求 LLM 推理)。
+
+    body: McpSamplingRequest 字典(callerTool/messages/model/maxTokens/
+          temperature/context),经 5 层护栏(速率/白名单/轮数/超时/审计)后
+          调用 llm_gateway.complete。
+    """
+    body = await request.json()
+    result = await sampling_handler.handle_sampling(body)
+    return {"code": 0, "message": "ok", "data": result}
+
+
+@router.get("/mcp/sampling/stats")
+async def mcp_sampling_stats() -> dict[str, Any]:
+    """Sampling 审计统计(total_calls/blocked_calls/guardrails)。"""
+    return {"code": 0, "message": "ok", "data": sampling_handler.get_stats()}
+
+
+@router.get("/mcp/sampling/audit-logs")
+async def mcp_sampling_audit_logs() -> dict[str, Any]:
+    """Sampling 审计日志列表。"""
+    return {"code": 0, "message": "ok", "data": sampling_handler.get_audit_logs()}
+
+
+# ---------------------------------------------------------------------------
+# 外部 MCP Server 管理端点(2026-08-30 立,外部 MCP 生态接线)
+# 通过 MCPClientManager 单例管理 stdio/SSE 外部 MCP Server 的注册/连接/工具发现/调用。
+# 所有端点 try/except 包裹,失败返回 {"error": ...} 而非抛 500。
+# ---------------------------------------------------------------------------
+
+
+def _server_info(manager: Any, name: str, caller_user_id: str) -> dict[str, Any]:
+    """构造单个已注册 Server 的摘要(含协商能力/协议/身份)—— **必须带主体**。
+
+    它以前直接调不判属主的 `client_status`,而它是被复用的那一个(注册成功与连接成功两处
+    都回它)。改成走 `client_status_visible`:新调用点若忘了先判归属,拿到的是空对象而不是
+    别人的配置 —— "有没有先过闸"这件事不该只靠调用点自觉。
+    """
+    status = manager.client_status_visible(name, caller_user_id)
+    return status if status is not None else {}
+
+
+@router.get("/mcp/directory", response_model=None)
+async def list_mcp_directory() -> dict[str, Any]:
+    """内置 MCP Server 目录(MCP 应用商店种子数据,只读)。"""
+    try:
+        from ..services.mcp_directory import get_directory
+
+        entries = get_directory()
+        return {"servers": entries, "count": len(entries)}
+    except Exception as e:
+        logger.error("获取 MCP 目录失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"获取 MCP 目录失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
+
+
+@router.post("/mcp/directory/{key}/register", response_model=None)
+async def register_directory_server(
+    key: str,
+    req: ExternalServerRegisterRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """目录一键注册:把内置条目转换为 MCPClientConfig 并注册连接。
+
+    目录条目缺必需环境变量(如 DATABASE_URL / PAT)且未提供时返回 400。
+    """
+    try:
+        from ..services.mcp_directory import to_client_config
+
+        # req.args[0] 在本端点里不是"参数",而是 filesystem 类 server 的工作目录载体:
+        # 它会被 to_client_config 拼进 catalog 条目的 args 第三位,而那个 server 真会按它
+        # 读写文件 ⇒ 不校验就等于任一登录用户都能把服务端文件系统挂到 D:\IHUI-AI 或
+        # C:\Users\… 上读 .env。判据复用 mcp_server 那一份 deny-by-default 白名单
+        # (MCP_WORKSPACE_ROOTS,含 symlink 穿越防护);extra_roots=() 是刻意的:
+        # 注册期还没有"会话附加目录"这回事,只认进程级白名单。
+        workspace_arg = (req.args[0] if req.args else "") or ""
+        if workspace_arg.strip():
+            ok_root, root_detail = mcp_server_module._validate_path_in_workspace(
+                workspace_arg, extra_roots=()
+            )
+            if not ok_root:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": f"工作目录不在允许范围内: {root_detail}"},
+                )
+
+        cfg_dict = to_client_config(
+            key,
+            env_overrides=req.env or {},
+            workspace_path=(req.args[0] if req.args else "/path/to/workspace"),
+        )
+        if cfg_dict is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {key}"})
+        missing = cfg_dict.pop("_missing_env", [])
+        if missing:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"缺少必需环境变量: {', '.join(missing)}"},
+            )
+        name = cfg_dict["name"]
+        manager = get_mcp_client_manager()
+        if manager.get_client(name) is not None:
+            return JSONResponse(status_code=409, content={"error": f"MCP Server 已存在: {name}"})
+        cfg = MCPClientConfig(
+            name=name,
+            transport=cfg_dict["transport"],
+            command=cfg_dict["command"],
+            args=cfg_dict["args"],
+            url=cfg_dict.get("url") or "",
+            env=cfg_dict.get("env") or {},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        manager.register(cfg, owner_user_id=user_id)
+        client = manager.get_client(name)
+        if client is not None:
+            try:
+                await client.connect()
+            except Exception as e:
+                logger.warning("MCP 目录 Server 连接失败(%s): %s", name, e)
+        return JSONResponse(status_code=201, content=_server_info(manager, name, user_id))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("注册 MCP 目录 Server 失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"注册 MCP 目录 Server 失败: {e}"})
+
+
+@router.get("/mcp/external/servers", response_model=None)
+async def list_external_servers(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """列出当前主体看得见的外部 MCP Server(自己注册的 + 部署级;含连接状态)。"""
+    try:
+        manager = get_mcp_client_manager()
+        servers = manager.list_registered(user_id)
+        return {"servers": servers, "count": len(servers)}
+    except Exception as e:
+        logger.error("列出外部 MCP Server 失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"列出外部 MCP Server 失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
+
+
+def stdio_command_allowed(command: str) -> bool:
+    """stdio 可执行文件是否落在部署级允许清单内(fail-closed)。
+
+    清单 = env `MCP_STDIO_COMMAND_ALLOWLIST`,逗号分隔;空/未配置 ⇒ 任何 command 都不放行。
+    比对同时接受"整条命令串"与"可执行文件名"两种写法(Windows 绝对路径与裸 `npx` 都要能用),
+    但绝不做前缀/通配匹配 —— 前缀会让 `/usr/bin/py` 这类部分命中变成放行借口。
+    两侧同形归一(反斜杠→正斜杠 + casefold):清单里写 `C:\\tools\\node.exe` 而调用方传
+    `C:/tools/node.exe` 必须算同一个东西,否则 Windows 上的白名单会静默匹配不上。
+    """
+
+    def _norm(value: str) -> str:
+        return value.strip().replace("\\", "/").casefold()
+
+    allow = {_norm(s) for s in os.getenv("MCP_STDIO_COMMAND_ALLOWLIST", "").split(",") if s.strip()}
+    exe = _norm(command)
+    if not exe or not allow:
+        return False
+    return exe in allow or PurePath(exe).name in allow
+
+
+@router.post("/mcp/external/servers", response_model=None)
+async def register_external_server(
+    request: Request,
+    req: ExternalServerRegisterRequest,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """注册外部 MCP Server 并连接。"""
+    try:
+        name = req.name.strip()
+        if not name:
+            return JSONResponse(status_code=400, content={"error": "name 为必填"})
+        transport = req.transport.strip()
+        if transport not in (TRANSPORT_STDIO, TRANSPORT_SSE):
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"transport 必须为 {TRANSPORT_STDIO} 或 {TRANSPORT_SSE}"},
+            )
+        if transport == TRANSPORT_STDIO and not req.command.strip():
+            return JSONResponse(status_code=400, content={"error": "stdio 模式缺少 command"})
+        if transport == TRANSPORT_STDIO:
+            # stdio 注册 = 让服务端 create_subprocess_exec 起一个由请求方指定的进程
+            # (mcp_client.py 直接 exec(resolved_command, *args, env=proc_env)),
+            # 等同把服务端命令执行能力开放给调用者。两道闸缺一不可:
+            #   ① 角色:只有管理员能注册本地进程(角色只经 resolve_request_role_id 那一份出口,
+            #      它把缺失/非整数/负数一律归一到 0 ⇒ 取不到角色天然是"拒绝"而非"放开");
+            #   ② 可执行文件白名单:部署级给出,未配置即为空 ⇒ 该能力对所有人关闭。
+            if resolve_request_role_id(request) < 1:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "stdio 传输的 MCP Server 只能由管理员注册"},
+                )
+            if not stdio_command_allowed(req.command):
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "command 不在部署级允许清单(MCP_STDIO_COMMAND_ALLOWLIST)内"},
+                )
+        if transport == TRANSPORT_SSE and not req.url.strip():
+            return JSONResponse(status_code=400, content={"error": "sse 模式缺少 url"})
+        # 2026-11-01 安全强化(第 8 批的**更正**):那一批我在下面加过一道
+        # "url 型传输仅管理员可注册",把既有契约
+        # `tests/test_mcp_stdio_registration_gates.py::test_sse_register_untouched_by_stdio_gate`
+        # 打红了。那枚用例是更早一批(7a1c556d19)特意装的**反向牙**,钉的是
+        # "stdio 的两道闸只针对本地进程执行面,不得顺手扩到所有 transport ⇒ 普通用户仍能注册远程 MCP"
+        # —— 也就是说用户自登记远程连接器是本产品的设计能力(外部服务器另有归属鉴权),
+        # 我那道闸过粗,砍掉的是在用能力,故本枚撤销角色闸。
+        # 只保留协议族校验:非 http(s) 一律拒(对第一方内网服务零副作用,却挡掉 file/gopher 形态)。
+        #
+        # 如实登记的残余风险(不藏):普通用户可让服务端向任意可达地址发起 MCP 连接;
+        # 但"内网第一方 MCP(127.0.0.1:8803)"同样是设计内用法(证据:
+        # tests/test_mcp_client.py::test_sse_connect_success 连的就是它),
+        # 所以直接套 ssrf 端口封闭表同样打红在用面。正确收口 = 归属 + 可登记的落点策略
+        # (数据/配置面的活),单列一票推进,不用一刀切冒充修复。
+        if req.url.strip():
+            from urllib.parse import urlparse as _urlparse
+
+            if _urlparse(req.url.strip()).scheme.lower() not in ("http", "https"):
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": "外部 MCP 仅允许 http(s) 落点"},
+                )
+
+        manager = get_mcp_client_manager()
+        if manager.get_client(name) is not None:
+            return JSONResponse(status_code=409, content={"error": f"MCP Server 已存在: {name}"})
+
+        cfg = MCPClientConfig(
+            name=name,
+            transport=transport,
+            command=req.command,
+            args=req.args or [],
+            env=req.env or {},
+            url=req.url,
+            timeout=min(float(req.timeout or DEFAULT_TIMEOUT), 30.0),
+            reconnect=req.reconnect,
+            max_reconnect_attempts=req.max_reconnect_attempts,
+        )
+        manager.register(cfg, owner_user_id=user_id)
+        client = manager.get_client(name)
+        if client is not None:
+            try:
+                await client.connect()
+            except Exception as e:
+                logger.warning("外部 MCP Server 连接失败(%s): %s", name, e)
+        return JSONResponse(status_code=201, content=_server_info(manager, name, user_id))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("注册外部 MCP Server 失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"注册外部 MCP Server 失败: {e}"})
+
+
+@router.delete("/mcp/external/servers/{name}", response_model=None)
+async def unregister_external_server(
+    name: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """注销外部 MCP Server 并断开连接(只能注销自己注册的;部署级谁都动不了)。"""
+    try:
+        manager = get_mcp_client_manager()
+        if manager.get_client(name) is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        if not manager.can_mutate(name, user_id):
+            # 它在列表里本来就看得见(部署级或别人的),所以这里给 403 而不是伪装 404 ——
+            # 伪装成"没这条"与列表面自相矛盾,那是另一种形式的说谎。
+            return JSONResponse(status_code=403, content={"error": f"无权注销该 MCP Server: {name}"})
+        await manager.unregister_async(name)
+        return {"deleted": name, "ok": True}
+    except Exception as e:
+        logger.error("注销外部 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"注销外部 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/external/servers/{name}/connect", response_model=None)
+async def connect_external_server(
+    name: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """(重)连接指定外部 MCP Server(只允许对自己注册的;部署级由启动流程自己管)。"""
+    try:
+        manager = get_mcp_client_manager()
+        client = manager.get_client(name)
+        if client is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        if not manager.can_mutate(name, user_id):
+            return JSONResponse(status_code=403, content={"error": f"无权连接该 MCP Server: {name}"})
+        await client.connect()
+        return _server_info(manager, name, user_id)
+    except Exception as e:
+        logger.error("连接外部 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"连接外部 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/external/servers/{name}/clear-auth", response_model=None)
+async def clear_external_server_auth(
+    name: str,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """控制帧 `mcp_clear_auth`:撤回**用户自授权**给某个 MCP Server 的 OAuth 凭据。
+
+    竞品原帧语义(2026-09 取证,docs/benchmark-evidence/2026-09/qoder-control-frames.md
+    第 19 行):`async mcpClearAuth(e){await this.request({type:"mcp_clear_auth",
+    serverName:e})}` —— **按 serverName 逐个点名**清除,没有"全清"出口。
+
+    ## AGENTS §5 口径的边界(这一格以前被记成"禁区",本票把它拆细)
+
+    §5 的原文是「可清除的是业务元数据,不是授权凭据」—— 它禁的是**一键抹掉
+    平台级/系统级凭据**。它没有禁「用户撤回自己对某个第三方站点的授权」:
+    撤回恰是 OAuth 规范的固有动作(RFC 7009 revocation 的同族语义)。所以本端点:
+
+      ① 只清**用户自授权的** token(该 client 拿到的 access/refresh token),
+         **不碰** client_secret / client_id / 系统令牌 / 其它 server 的凭据 ——
+         那些东西的持有者是 OAuth 服务端,本进程根本拿不到;
+      ② **必须点名** serverName(路径参数),没有"全清"出口;
+      ③ 归属判定沿用外部 server 族的既有判据(`can_mutate`:只允许动自己注册的;
+         部署级谁都动不了)—— 别人的 server 返回 403,且**不产生任何副作用**;
+      ④ 清完即"未授权":后续连接会走一次**新的**授权流程,不会拿旧 token 复活。
+
+    ## 回包
+
+      - `{"cleared": true, "hadToken": bool, "persistFileRemoved": bool, "error": null}`
+        —— 已清除;
+      - `{"cleared": false, "reason": "no_oauth", ...}` —— 这台压根没走 OAuth 通道,
+        没有可撤的授权(不是错误);
+      - 404 / 403 —— 不存在 / 无权(与外部 server 族同形)。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        client = manager.get_client(name)
+        if client is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        if not manager.can_mutate(name, user_id):
+            # 与注销/连接同形:403 明示"看得见但动不了"(它在列表里本来就看得见,
+            # 伪装成 404 与列表面自相矛盾,那是另一种形式的说谎)。
+            return JSONResponse(
+                status_code=403, content={"error": f"无权清除该 MCP Server 的凭据: {name}"}
+            )
+        result = client.clear_oauth_auth()
+        return {"server": name, "ok": True, **result}
+    except Exception as e:
+        logger.error("清除 MCP Server 凭据失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"清除 MCP Server 凭据失败: {e}"})
+
+
+@router.get("/mcp/external/servers/{name}/capabilities", response_model=None)
+async def get_external_server_capabilities(
+    name: str, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """查询单个外部 MCP Server 协商到的协议版本与能力(可观测闭环)。
+
+    返回该连接实例调用 negotiated_protocol()/server_info()/capabilities() 的
+    结果(negotiatedProtocol/serverInfo/capabilities)+ 传输/连接状态等摘要。
+    未连接或未完成 initialize 握手 → connected:false 且协商字段为空,不抛错。
+    不存在该 Server → 404。**不是自己的**用户级 Server 同样 404 (同一模板,见
+    `MCPClientManager.client_status_visible`),这个端点不能当存在性探针用。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        status = manager.client_status_visible(name, user_id)
+        if status is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        return status
+    except Exception as e:
+        logger.error("查询外部 MCP Server 能力失败(%s): %s", name, e)
+        msg = f"查询外部 MCP Server 能力失败: {e}"
+        return JSONResponse(status_code=500, content={"error": msg})
+
+
+@router.get("/mcp/external/tools", response_model=None)
+async def list_external_tools(
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """列出该主体**看得见**的已连接外部 MCP Server 工具(自己的 + 部署级)。
+
+    可见集与 `GET /api/mcp/external/servers` 同源(共用 `MCPClientManager.is_visible`):
+    工具名/描述/input_schema 本身就是那台 server 的配置内容,清单收窄而工具不收窄等于没收窄。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        tools = await manager.list_available_tools_async(user_id)
+        return {"tools": [asdict(t) for t in tools], "count": len(tools)}
+    except Exception as e:
+        logger.error("列出外部 MCP 工具失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"列出外部 MCP 工具失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
+
+
+@router.post("/mcp/external/tools/call", response_model=None)
+async def call_external_tool(
+    req: ExternalToolCallRequest, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """调用外部 MCP Server 的工具 —— 只能调自己注册的或部署级的。
+
+    这一支比"看得见"更重:调用会用**那台 server 配置里的 env/凭据**起子进程或出站请求,
+    所以别人的 server 必须与"没这台"同形(由 `call_external_tool` 返回同一句
+    `未知 MCP Server: …`,端点照旧按 400 回),不另开一个 403 出口。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        result = await manager.call_external_tool(
+            req.server, req.tool, req.arguments, caller_user_id=user_id
+        )
+        if isinstance(result, dict) and result.get("ok") is False:
+            return JSONResponse(status_code=400, content={"error": result.get("error", "调用失败")})
+        return result
+    except Exception as e:
+        logger.error("调用外部 MCP 工具失败(%s/%s): %s", req.server, req.tool, e)
+        return JSONResponse(status_code=500, content={"error": f"调用外部 MCP 工具失败: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# MCP 应用商店端点(2026-09-02 立,P2-1 商店闭环)
+# 安装:目录条目 → to_client_config → mcp_stdio_bridge 热挂载(官方 MCP SDK stdio)
+#       → 工具注入对话工具表(_TOOLS)→ 状态持久化到 data/mcp_store.json
+# 卸载/启停:从 stdio 单例池移除 + 关闭子进程 + 从工具注册表清理 + 更新持久化
+# 状态:GET /api/mcp/store 合并目录条目与安装状态,一个接口渲染整页
+# ---------------------------------------------------------------------------
+
+
+def _stdio_live_state(server_name: str) -> tuple[bool, list[str]]:
+    """取该 server 在 stdio 单例池里的**运行态**:(是否已热挂载, 实际注入的工具名)。
+
+    此前这一面只回持久化记录里的 `tool_count`:热挂载幂等跳过时 `add_stdio_server_tool`
+    返回 0,于是"装了 3 个工具的 server"在商店里显示成 0 个;而"已热挂载(运行中)"与
+    "仅持久化但已停用"在进程里是两件事,列表却只有一个 `enabled` 位。判据一律取自
+    `mcp_stdio_bridge` 的两个只读出口,本层不复算第二份(§0.6)。
+    """
+    from ..services.mcp_stdio_bridge import (
+        get_stdio_server_tools,
+        is_stdio_server_registered,
+    )
+
+    registered = bool(is_stdio_server_registered(server_name))
+    return registered, list(get_stdio_server_tools(server_name))
+
+
+def _store_mutate_gate(
+    name: str, user_id: str, request: Request, *, denied_error: str, needs_admin_error: str
+) -> JSONResponse | None:
+    """商店写侧的**唯一闸门**:把 `mcp_store.mutate_decision` 的结论翻成 HTTP。
+
+    返回 None ⇒ 放行;否则就是该回的错误响应(404=没这条 / 403=没权限)。归属判断**不住在
+    这里**(端点各写一遍必然与 store 层漂开),这一层只做三件事:
+
+    ① 403 文案由调用方整句传入 —— 覆盖/卸载/启用/停用四处既有措辞不同,不得为省事合并;
+    ② **两档拒绝各有自己的句子**:"由他人安装"(别人的记录)与"无属主的存量安装,需管理员"
+       说的不是同一件事,合成一句会把人引导成"去找装它的人",而正确出路是"找管理员";
+    ③ **管理员越档不得静默**:改别人的或无主的安装都记 warning 点名是谁改的 ——
+       否则"谁把我的 Server 停了"这件事事后无从查起(与本仓"失败必须响"同一条禁令)。
+
+    角色只经 `resolve_request_role_id` 那一份出口取(store 层不碰 HTTP 对象,故作为入参传下去)。
+    """
+    from ..services import mcp_store
+
+    decision = mcp_store.mutate_decision(name, user_id, resolve_request_role_id(request))
+    if decision == mcp_store.MUTATE_MISSING:
+        return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+    if decision == mcp_store.MUTATE_NEEDS_ADMIN:
+        return JSONResponse(status_code=403, content={"error": needs_admin_error})
+    if decision == mcp_store.MUTATE_DENIED:
+        return JSONResponse(status_code=403, content={"error": denied_error})
+    if decision == mcp_store.MUTATE_BY_ADMIN:
+        logger.warning(
+            "管理员越档变更商店安装记录: %s(记录属主 %s;管理员 user_id=%s)",
+            name,
+            mcp_store.owner_of(name) or "(无主)",
+            user_id,
+        )
+    return None
+
+
+@router.get("/mcp/store", response_model=None)
+async def list_mcp_store() -> dict[str, Any]:
+    """MCP 商店合并列表:目录条目 + 安装状态(一个接口渲染整页)。
+
+    2026-09-12(1-4/2-5):每条附 scoring(质量分+安全分摘要,契约对齐
+    api-client McpScoringSummary)与 review_status(市场审核状态)。
+    每条另附 running/tools/tool_count 三个**运行态**字段,真值取自 stdio 单例池
+    (`_stdio_live_state`),不再只回持久化记录里那个会腐烂的计数。
+    """
+    try:
+        from ..services import mcp_market_review, mcp_quality, mcp_store
+        from ..services.mcp_directory import get_directory
+
+        entries = get_directory()
+        installed_map = {r.get("key"): r for r in mcp_store.list_installed()}
+        servers: list[dict[str, Any]] = []
+        for e in entries:
+            rec = installed_map.get(e["key"])
+            # 在册(已热挂载)时工具数以 stdio 池的真值为准;仅有持久化记录(停用/重启后
+            # 未挂载)时回落到记录值,免得把"曾经装了几个"抹成 0。
+            registered, live_tools = _stdio_live_state(e["key"])
+            tool_count = len(live_tools) if registered else int((rec or {}).get("tool_count") or 0)
+            servers.append(
+                {
+                    "key": e["key"],
+                    # 2026-09-02 fix:stdio bridge 名必须是合法标识符(禁冒号),
+                    # 故 server_name 统一为 key 而非 mcp:{key}(外部工具命名空间前缀),
+                    # 前端启停/卸载路径参数直接用 server_name=key。
+                    "server_name": e["key"],
+                    "name": e["name"],
+                    "description": e["description"],
+                    "source": e["source"],
+                    "transport": e["transport"],
+                    "env_required": e["env_required"],
+                    "installed": bool(rec and rec.get("installed")),
+                    "enabled": bool(rec and rec.get("enabled")),
+                    # running=进程里真在册(与 enabled 这个持久化位分开:重启后记录仍是
+                    # enabled=True 而子进程已不在)
+                    "running": registered,
+                    "tools": live_tools,
+                    "tool_count": tool_count,
+                    "last_error": str((rec or {}).get("last_error") or ""),
+                    "scoring": mcp_quality.scoring_summary(e["key"], e["name"]),
+                    "review_status": mcp_market_review.get_status(e["key"]),
+                }
+            )
+        return {"servers": servers, "count": len(servers)}
+    except Exception as e:
+        logger.error("获取 MCP 商店列表失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"获取 MCP 商店列表失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
+
+
+@router.post("/mcp/store/install", response_model=None)
+async def install_mcp_store_server(
+    req: McpStoreInstallRequest,
+    request: Request,
+    user_id: str = Depends(require_request_user_id),
+) -> dict[str, Any] | JSONResponse:
+    """商店安装:目录条目 → 热挂载(官方 SDK stdio)→ 持久化。
+
+    缺必需 env → 400;未知 key → 404;已安装且启用 → 409;
+    已安装但停用(disabled)→ 重新热挂载并启用(幂等语义)。
+    2026-09-12(1-4/2-5):审核驳回的条目 → 403;高风险条目未 confirm_risk
+    → 409 RISK_CONFIRM_REQUIRED(前端风险确认对话框对齐)。
+    """
+    try:
+        from ..services import mcp_market_review, mcp_quality, mcp_store
+        from ..services.mcp_directory import get_entry, to_client_config
+        from ..services.mcp_stdio_bridge import add_stdio_server_tool
+
+        entry = get_entry(req.key)
+        if entry is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        # 2026-10-31 安全强化第 14 批:商店安装的 workspace_path 此前原样进 cfg ⇒ 任意登录
+        # 用户可把 filesystem 类 server 的根指向 C:\ 或 C:\Users\…,再经全局注册的
+        # read_text_file/edit_file 读写任意文件。判据复用同文件 /mcp/directory/register
+        # (第 382 行)那一份 deny-by-default 白名单,不造第二套。
+        store_workspace = req.workspace_path or "/path/to/workspace"
+        if req.workspace_path.strip():
+            from ..services import mcp_server as mcp_server_module
+
+            ok_root, root_detail = mcp_server_module._validate_path_in_workspace(
+                req.workspace_path, extra_roots=()
+            )
+            if not ok_root:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": f"工作目录不在允许范围内: {root_detail}"},
+                )
+        cfg_dict = to_client_config(
+            req.key,
+            env_overrides=req.env or {},
+            workspace_path=store_workspace,
+        )
+        if cfg_dict is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        missing = cfg_dict.pop("_missing_env", [])
+        if missing:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"缺少必需环境变量: {', '.join(missing)}"},
+            )
+        # 市场审核闸门:驳回的条目不允许安装(P2-5)
+        if mcp_market_review.get_status(req.key) == "rejected":
+            return JSONResponse(
+                status_code=403,
+                content={"error": f"MCP Server 已被市场审核驳回,禁止安装: {req.key}"},
+            )
+        # 权限风险确认闸门:high/critical 风险条目需显式 confirm_risk(1-4)
+        security = mcp_quality.security_assessment(req.key, entry.name)
+        if security["confirm_required"] and not req.confirm_risk:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": f"MCP Server 存在{security['level']}安全风险,需确认后安装",
+                    "errorCode": "RISK_CONFIRM_REQUIRED",
+                    "scoring": mcp_quality.scoring_summary(req.key, entry.name),
+                },
+            )
+        # 2026-09-02 fix:stdio bridge 名必须是合法标识符(禁冒号,见
+        # mcp_stdio_bridge._NAME_RE),不能用 cfg_dict["name"](mcp:{key},
+        # 那是外部工具命名空间 `mcp:{server}__{tool}` 的约定)。统一用 key。
+        name = req.key
+        existing = mcp_store.get_installed(name)
+        if existing is not None:
+            gate = _store_mutate_gate(
+                name,
+                user_id,
+                request,
+                denied_error=f"MCP Server 已由他人安装,不能覆盖其配置: {name}",
+                needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能覆盖其配置",
+            )
+            if gate is not None:
+                # 复用同名记录等于**把别人的 env/args 整条换掉**(不只是"再装一次"),
+                # 所以覆盖与启停/卸载同判:只有安装者、或管理员(无主/他人档)能做。
+                return gate
+        if existing and existing.get("enabled"):
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"MCP Server 已安装且启用: {name}"},
+            )
+        registered = False
+        live_tools: list[str] = []
+        try:
+            tool_count = await add_stdio_server_tool(
+                name=name,
+                command=cfg_dict["command"],
+                args=cfg_dict.get("args") or [],
+                env=cfg_dict.get("env") or {},
+                description=entry.description,
+            )
+            # 热挂载幂等跳过时 add 返回 0(server 已在册),而"这次没新增"不等于
+            # "它没有工具"——以池里的真值为准,持久化与响应都不再落那个 0。
+            registered, live_tools = _stdio_live_state(name)
+            if registered and live_tools:
+                tool_count = len(live_tools)
+        except Exception as e:
+            logger.error("商店安装热挂载失败(%s): %s", name, e)
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"安装 MCP Server 失败: {e}", "last_error": str(e)},
+            )
+        record = {
+            "name": name,
+            "key": req.key,
+            # 属主由承载层盖章(AGENTS §5:身份只能从承载层显式入参进来)。这是**写侧**——
+            # 读侧今天仍全站可见(商店挂的是进程级工具池),收紧无主记录另等人拍。
+            OWNER_FIELD: user_id,
+            "transport": cfg_dict["transport"],
+            "command": cfg_dict["command"],
+            "args": list(cfg_dict.get("args") or []),
+            "env": cfg_dict.get("env") or {},
+            "installed": True,
+            "enabled": True,
+            "installed_at": mcp_store.now_iso(),
+            "tool_count": tool_count,
+            "last_error": "",
+        }
+        mcp_store.save_installed(record)
+        logger.info("商店安装成功: %s(工具 %d)", name, tool_count)
+        return {
+            "ok": True,
+            "name": name,
+            "tool_count": tool_count,
+            "running": registered,
+            "tools": live_tools,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("商店安装 MCP Server 失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"安装 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/store/{name}/uninstall", response_model=None)
+async def uninstall_mcp_store_server(
+    name: str, request: Request, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """商店卸载:关闭子进程 + 移除注入工具 + 删除持久化记录。
+
+    只有安装者能卸;**无属主的存量记录只有管理员能卸**(2026-09-29 机主拍板收紧,判据与
+    留痕都在 `_store_mutate_gate` / `mcp_store.mutate_decision`)。
+    判据顺序是"先 404 再 403":这一面的商店列表全站可见,装看不见别人的安装会与列表自相矛盾。
+    """
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_stdio_bridge import remove_stdio_server
+
+        gate = _store_mutate_gate(
+            name,
+            user_id,
+            request,
+            denied_error=f"MCP Server 由他人安装,无权卸载: {name}",
+            needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能卸载",
+        )
+        if gate is not None:
+            return gate
+        tool_names = await remove_stdio_server(name)
+        removed_tools = mcp_server_module.unregister_external_tools(tool_names)
+        mcp_store.remove_installed(name)
+        logger.info("商店卸载成功: %s(清理工具 %d)", name, len(removed_tools))
+        return {"ok": True, "name": name, "tools_removed": len(removed_tools)}
+    except Exception as e:
+        logger.error("商店卸载 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"卸载 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/store/{name}/enable", response_model=None)
+async def enable_mcp_store_server(
+    name: str, request: Request, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """启用已安装但停用的 Server:重新热挂载并注入工具(只有安装者能启;无主记录只有管理员能启)。"""
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_stdio_bridge import add_stdio_server_tool
+
+        rec = mcp_store.get_installed(name)
+        if rec is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        gate = _store_mutate_gate(
+            name,
+            user_id,
+            request,
+            denied_error=f"MCP Server 由他人安装,无权启用: {name}",
+            needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能启用",
+        )
+        if gate is not None:
+            return gate
+        if rec.get("enabled"):
+            # 记录说"已启用":在册就以池里的真值回,不在册(重启后子进程已没)才回落记录值
+            registered, live_tools = _stdio_live_state(name)
+            return {
+                "ok": True,
+                "name": name,
+                "enabled": True,
+                "running": registered,
+                "tools": live_tools,
+                "tool_count": len(live_tools) if registered else int(rec.get("tool_count") or 0),
+            }
+        registered = False
+        live_tools = []
+        try:
+            tool_count = await add_stdio_server_tool(
+                name=name,
+                command=str(rec.get("command") or ""),
+                args=list(rec.get("args") or []),
+                env=dict(rec.get("env") or {}),
+            )
+            # 与安装腿同一处幂等语义:已在册时 add 返回 0,真值以池为准(见 _stdio_live_state)
+            registered, live_tools = _stdio_live_state(name)
+            if registered and live_tools:
+                tool_count = len(live_tools)
+        except Exception as e:
+            logger.error("启用 MCP Server 失败(%s): %s", name, e)
+            mcp_store.save_installed({**rec, "last_error": str(e)})
+            return JSONResponse(status_code=500, content={"error": f"启用 MCP Server 失败: {e}"})
+        updated = mcp_store.set_enabled(name, True)
+        if updated is not None:
+            updated["tool_count"] = tool_count
+            updated["last_error"] = ""
+            mcp_store.save_installed(updated)
+        logger.info("启用 MCP Server 成功: %s(工具 %d)", name, tool_count)
+        return {
+            "ok": True,
+            "name": name,
+            "enabled": True,
+            "running": registered,
+            "tools": live_tools,
+            "tool_count": tool_count,
+        }
+    except Exception as e:
+        logger.error("启用 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"启用 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/store/{name}/disable", response_model=None)
+async def disable_mcp_store_server(
+    name: str, request: Request, user_id: str = Depends(require_request_user_id)
+) -> dict[str, Any] | JSONResponse:
+    """停用已启用的 Server:关闭子进程 + 移除注入工具(保留持久化记录)。
+
+    只有安装者能停 —— 停别人的 Server 会把它注入的工具从**别人的会话**里抽走。
+    无属主的存量记录只有管理员能停(2026-09-29 机主拍板;判据在 `mcp_store.mutate_decision`)。
+    """
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_stdio_bridge import remove_stdio_server
+
+        rec = mcp_store.get_installed(name)
+        if rec is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        gate = _store_mutate_gate(
+            name,
+            user_id,
+            request,
+            denied_error=f"MCP Server 由他人安装,无权停用: {name}",
+            needs_admin_error=f"MCP Server {name} 是无属主的存量安装,需管理员权限才能停用",
+        )
+        if gate is not None:
+            return gate
+        if not rec.get("enabled"):
+            return {"ok": True, "name": name, "enabled": False}
+        tool_names = await remove_stdio_server(name)
+        removed_tools = mcp_server_module.unregister_external_tools(tool_names)
+        mcp_store.set_enabled(name, False)
+        logger.info("停用 MCP Server 成功: %s(清理工具 %d)", name, len(removed_tools))
+        return {"ok": True, "name": name, "enabled": False, "tools_removed": len(removed_tools)}
+    except Exception as e:
+        logger.error("停用 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"停用 MCP Server 失败: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# MCP 质量分与安全评分端点(P1 1-4 / H8 看板,2026-09-12 立)
+# 指标采集在 mcp_stdio_bridge(入站)与 mcp_client(出站)每次调用后上报
+# mcp_quality;此处只做查询聚合,无副作用。
+# ---------------------------------------------------------------------------
+
+
+def _resolve_server_name(key: str) -> str:
+    """把 key 解析为展示名:目录条目名 > key 本身。"""
+    from ..services.mcp_directory import get_entry
+
+    entry = get_entry(key)
+    if entry is not None:
+        return entry.name
+    return key
+
+
+@router.get("/mcp/store/{key}/score", response_model=None)
+async def get_mcp_store_server_score(key: str) -> dict[str, Any]:
+    """单 server 评分明细:质量分(四维度)+ 安全分(风险维度)。
+
+    契约对齐 api-client McpScoringDetail(getMcpServerScore)。
+    """
+    from ..services import mcp_quality
+
+    return mcp_quality.score_detail(key, _resolve_server_name(key))
+
+
+@router.get("/mcp/quality/dashboard", response_model=None)
+async def get_mcp_quality_dashboard() -> dict[str, Any]:
+    """质量看板(H8):各 server 运行时指标 + 质量分 + 安全分明细。"""
+    from ..services import mcp_quality
+
+    servers = mcp_quality.quality_dashboard()
+    return {"servers": servers, "count": len(servers)}
+
+
+# ---------------------------------------------------------------------------
+# MCP 市场审核端点(P2-5,2026-09-12 立,admin-only)
+# 审核状态持久化在 mcp_market_review(data/mcp_market_review.json);
+# 内置目录条目默认 approved,其余默认 pending,驳回后安装闸门返回 403。
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/store/{key}/review", response_model=None)
+async def get_mcp_store_review(key: str) -> dict[str, Any]:
+    """查询单个市场条目的审核状态(pending/approved/rejected)。"""
+    from ..services import mcp_market_review
+
+    return mcp_market_review.get_review(key)
+
+
+@router.post("/mcp/store/{key}/review", response_model=None)
+async def review_mcp_store_server(
+    key: str,
+    req: McpStoreReviewRequest,
+    request: Request,
+) -> dict[str, Any] | JSONResponse:
+    """审核市场条目(approve/reject)——admin-only(role_id >= 1)。"""
+    try:
+        from ..services import mcp_market_review
+
+        # 角色只走 `resolve_request_role_id` 那一份出口(与本文件商店闸门同源)。此前这里
+        # 手抄 `int(getattr(request.state, "role_id", 0) or 0)`,而 jwt_auth 的头注明确记着
+        # "抄漏一个就把管理员降成普通用户且完全不报错" —— 同一文件里已经换了两次,不该再留三处。
+        user_role = resolve_request_role_id(request)
+        if user_role < 1:
+            return JSONResponse(
+                status_code=403,
+                content={"error": "需要管理员权限才能审核市场条目"},
+            )
+        action = req.action.strip().lower()
+        if action not in ("approve", "reject"):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "action 必须为 approve 或 reject"},
+            )
+        status = "approved" if action == "approve" else "rejected"
+        reviewed_by = str(getattr(request.state, "user_id", "") or "")
+        rec = mcp_market_review.set_status(key, status, reviewed_by=reviewed_by, note=req.note)
+        if rec is None:
+            return JSONResponse(status_code=500, content={"error": "审核状态持久化失败"})
+        logger.info("市场审核: %s -> %s(by %s)", key, status, reviewed_by or "admin")
+        return {"ok": True, **rec}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("审核市场条目失败(%s): %s", key, e)
+        return JSONResponse(status_code=500, content={"error": f"审核市场条目失败: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# 能力市场端点(P2-8 供给侧,2026-09 立)
+# 把平台自研 MCP server 的能力(tool/resource/prompt)作为可浏览 / 可检索 / 可启用
+# 的"能力市场"暴露。清单由 capability_market 自动生成(含缓存 + 失效);
+# 启用 / 停用经 capability_market_store 持久化(按现有权限模型:admin 专属能力
+# 需 role >= 1 才能启用)。返回契约统一 {code, message, data}。
+# ---------------------------------------------------------------------------
+
+
+def _envelope(code: int, message: str, data: Any) -> dict[str, Any]:
+    """能力市场统一返回信封 {code, message, data}。"""
+    return {"code": code, "message": message, "data": data}
+
+
+def _find_capability(cap_id: str) -> dict[str, Any] | None:
+    """按 id 在清单中查能力;返回带 enabled 字段的 dict,未命中返回 None。"""
+    for c in capability_market_module.get_manifest():
+        d = capability_market_module.capability_to_dict(c)
+        if d["id"] == cap_id:
+            d["enabled"] = capability_market_store.is_enabled(cap_id)
+            return d
+    return None
+
+
+@router.get("/mcp/capabilities", response_model=None)
+async def list_capabilities(
+    request: Request,
+    page: int = Query(1, ge=1, description="页码,从 1 开始"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数(1-100)"),
+    category: str = Query("", description="按分类过滤(空=全部)"),
+    q: str = Query("", description="关键词检索(匹配名称/描述/分类)"),
+) -> JSONResponse:
+    """能力市场列表:分页 + 分类过滤 + 关键词检索(一个接口渲染整页)。"""
+    try:
+        manifest = capability_market_module.get_manifest()
+        enabled_map = capability_market_store.get_enabled_map()
+        items = [
+            {**capability_market_module.capability_to_dict(c), "enabled": enabled_map.get(c.id, True)}
+            for c in manifest
+        ]
+        if category:
+            items = [i for i in items if i["category"] == category]
+        if q:
+            ql = q.strip().lower()
+            if ql:
+                items = [
+                    i
+                    for i in items
+                    if ql in i["name"].lower()
+                    or ql in i["description"].lower()
+                    or ql in i["category"].lower()
+                ]
+        total = len(items)
+        page = max(1, page)
+        page_size = max(1, min(page_size, 100))
+        start = (page - 1) * page_size
+        page_items = items[start : start + page_size]
+        categories = capability_market_module.list_categories()
+        return JSONResponse(
+            status_code=200,
+            content=_envelope(
+                0,
+                "ok",
+                {
+                    "items": page_items,
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "categories": categories,
+                },
+            ),
+        )
+    except Exception as e:  # noqa: BLE001 - 异常降级,避免 500 裸崩
+        logger.error("获取能力市场列表失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"获取能力市场列表失败: {e}", None),
+        )
+
+
+@router.get("/mcp/capabilities/{cap_id}", response_model=None)
+async def get_capability(cap_id: str) -> JSONResponse:
+    """能力市场详情(单条)。"""
+    try:
+        cap = _find_capability(cap_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
+            )
+        return JSONResponse(status_code=200, content=_envelope(0, "ok", cap))
+    except Exception as e:  # noqa: BLE001
+        logger.error("获取能力详情失败(%s): %s", cap_id, e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"获取能力详情失败: {e}", None),
+        )
+
+
+@router.post("/mcp/capabilities/{cap_id}/enable", response_model=None)
+async def enable_capability(cap_id: str, request: Request) -> JSONResponse:
+    """启用能力:加入对外暴露的 MCP 能力集(按权限模型校验 admin 专属能力)。"""
+    try:
+        cap = _find_capability(cap_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
+            )
+        # 角色只走 `resolve_request_role_id` 那一份出口(与本文件商店闸门同源)。此前这里
+        # 手抄 `int(getattr(request.state, "role_id", 0) or 0)`,而 jwt_auth 的头注明确记着
+        # "抄漏一个就把管理员降成普通用户且完全不报错" —— 同一文件里已经换了两次,不该再留三处。
+        user_role = resolve_request_role_id(request)
+        if cap["permission"] == "admin" and user_role < 1:
+            return JSONResponse(
+                status_code=403,
+                content=_envelope(403, "PERMISSION_DENIED", None),
+            )
+        rec = capability_market_store.set_enabled(cap_id, True)
+        if rec is None:
+            return JSONResponse(
+                status_code=500,
+                content=_envelope(500, "持久化失败", None),
+            )
+        return JSONResponse(
+            status_code=200,
+            content=_envelope(0, "ok", {"id": cap_id, "enabled": True}),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("启用能力失败(%s): %s", cap_id, e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"启用能力失败: {e}", None),
+        )
+
+
+@router.post("/mcp/capabilities/{cap_id}/disable", response_model=None)
+async def disable_capability(cap_id: str, request: Request) -> JSONResponse:
+    """停用能力:从对外暴露的 MCP 能力集中移除(按权限模型校验 admin 专属能力)。"""
+    try:
+        cap = _find_capability(cap_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
+            )
+        # 角色只走 `resolve_request_role_id` 那一份出口(与本文件商店闸门同源)。此前这里
+        # 手抄 `int(getattr(request.state, "role_id", 0) or 0)`,而 jwt_auth 的头注明确记着
+        # "抄漏一个就把管理员降成普通用户且完全不报错" —— 同一文件里已经换了两次,不该再留三处。
+        user_role = resolve_request_role_id(request)
+        if cap["permission"] == "admin" and user_role < 1:
+            return JSONResponse(
+                status_code=403,
+                content=_envelope(403, "PERMISSION_DENIED", None),
+            )
+        rec = capability_market_store.set_enabled(cap_id, False)
+        if rec is None:
+            return JSONResponse(
+                status_code=500,
+                content=_envelope(500, "持久化失败", None),
+            )
+        return JSONResponse(
+            status_code=200,
+            content=_envelope(0, "ok", {"id": cap_id, "enabled": False}),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("停用能力失败(%s): %s", cap_id, e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"停用能力失败: {e}", None),
+        )
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,169 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  type ListRenderItem,
+  type ViewStyle,
+} from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import type { CategoryDetailScreenProps } from '@ihui/types'
+export type { CategoryDetailScreenProps }
+
+const TABS = ['推荐', '热门', '最新'] as const
+
+export function CategoryDetailScreen({
+  t,
+  items,
+  activeTab,
+  loading,
+  hasMore,
+  error,
+  onTabChange,
+  onLoadMore,
+  onAgentPress,
+  onBack,
+  onRetry,
+  colorScheme = 'light'
+}: CategoryDetailScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const renderItem: ListRenderItem<(typeof items)[number]> = ({ item }) => (
+    <PressableCard
+      style={styles.itemCard}
+      onPress={() => onAgentPress(item.id)}
+      colorScheme={colorScheme}
+    >
+      <View style={styles.itemBody}>
+        <Text style={styles.itemName} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {item.description ? (
+          <Text style={styles.itemDesc} numberOfLines={2}>
+            {item.description}
+          </Text>
+        ) : null}
+      </View>
+      <ChevronRight size={20} color={tk.text.tertiary} />
+    </PressableCard>
+  )
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>分类详情</Text>
+      </View>
+      <View style={styles.tabsRow}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => onTabChange(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {loading ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      ) : error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={<EmptyState title="暂无数据" colorScheme={colorScheme} />}
+          ListFooterComponent={
+            hasMore ? (
+              <View style={styles.footerLoading}>
+                <Text style={styles.footerText}>加载更多...</Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    tabsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.sm,
+    },
+    tab: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.card,
+    },
+    tabActive: {
+      backgroundColor: tk.brandAccent.DEFAULT,
+    },
+    tabText: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+    },
+    tabTextActive: {
+      color: tk.brandAccent.foreground,
+      fontWeight: '600',
+    },
+    listContent: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xl'] },
+    itemCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      marginBottom: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    itemBody: { flex: 1, minWidth: 0 },
+    itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    itemDesc: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
+    footerLoading: { paddingVertical: rnSpacing.md, alignItems: 'center' },
+    footerText: { fontSize: rnType.body.size, color: tk.text.secondary },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

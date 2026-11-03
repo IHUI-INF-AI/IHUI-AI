@@ -1,0 +1,684 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * desktop-feed-live.ts — 桌面端「最新版本」的运行期解析器(零人工、零入库依赖)
+ *
+ * 为什么要这一层(2026-10-17 立;立因是**线上事故**,不是预防性重构):
+ *
+ *   旧链的形态:发版 → CI 跑 scripts/resolve-desktop-download.mjs 生成入库快照
+ *   desktop-feed.generated.ts → **CI 把快照 push 回 main** → 站点读快照。
+ *
+ *   这条链有一格是死的,且**修 push 语句治不好**:
+ *     · GitHub 规定:用 GITHUB_TOKEN 推送产生的 commit,不会触发新的 workflow run;
+ *     · main 又开了 required status check「CI / lint-typecheck-test (push)」;
+ *     ⇒ 该 check 在 bot 提交上永远缺席 ⇒ push 恒被拒
+ *       (GH006:Required status check ... is expected,sync-downloads.yml 自 10-11 起连日 failure)。
+ *   后果由线上实测给出:`https://aizhs.top/desktop-feed.json` 长期输出 **0.1.54**,
+ *   而仓库当时已发到 desktop-v0.1.58。这一格不是"忘了跑命令",是自动化被平台约束堵死。
+ *
+ *   所以正解不是"把 push 再修一遍",而是**根本不再依赖提交**:站点在运行期直接读发布源。
+ *
+ * 真相源的选择(不新造判据):
+ *   每个 desktop release 都自带 `latest.json` —— 由 tauri-action 在 CI 发版时生成,
+ *   内含 version / notes / pub_date / platforms(全平台 URL + minisign 签名)。
+ *   签名是对**包体**签的、由发版流水线产出 ⇒ 与资产严格配对,任何本地重算都是第二份真相。
+ *   ⇒ 本模块只做「找最新 release + 取它自带的 latest.json」,**一次都不**重新推演平台键和签名。
+ *
+ * 2026-10-17 同时修掉的第二个事故(host 钉定的反噬):
+ *   旧生成侧把 windows-x86_64 的 URL 强行改写为 Gitee 直链(意图是国内可达)。
+ *   实测该 URL **HTTP 404**(Gitee 仓 /releases API 返回 `[]`,从未托管这些资产):
+ *     https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.54/AI_0.1.54_x64-setup.exe
+ *   即 Windows 用户收到更新提示后**下载必然失败**,而 GitHub 同源直链实测 200。
+ *   ⇒ 不再无条件改写 host:以 release 自带的产物 URL 为准(签名天然配对),
+ *     Gitee 只在**确实存在**时才可能被调用方选用。宁可慢,不可给一条下载不了的地址。
+ */
+
+import { DESKTOP_FEED } from './desktop-feed.generated'
+import type { DesktopFeed, DesktopFeedAsset } from './desktop-feed.generated'
+import type { DesktopFeedPayload } from './desktop-feed-payload'
+import { getApkUrl } from './downloads.config'
+
+const RELEASE_PREFIX = 'desktop-v'
+const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
+/** tauri-action 在每次发版时随产物一起上传的标准更新器清单 */
+const FEED_ASSET_NAME = 'latest.json'
+/**
+ * 发布源不可达时的最长等待:宁可降级到快照,也不能把页面/更新器拖死。
+ *
+ * 为什么必须显式给这么小的值(2026-10-17 实测):本机(以及国内同网段的机器)对
+ * `github.com` 的**资产下载**域名直连会 ETIMEDOUT,而不是快速失败 —— 不设超时时这一个
+ * 请求能把首屏拖到 20 秒以上。降级是有成本保护的(ISR 缓存 10 分钟),慢比不对更容易被
+ * 当成"网站卡了",而不是"上游没通"。
+ */
+const UPSTREAM_TIMEOUT_MS = 6000
+
+/** GitHub Releases API 返回的、本模块真正用到的最小字段集 */
+export interface UpstreamReleaseAsset {
+  name?: string
+  size?: number
+  browser_download_url?: string
+}
+
+export interface UpstreamRelease {
+  tag_name?: string
+  draft?: boolean
+  prerelease?: boolean
+  published_at?: string
+  html_url?: string
+  assets?: UpstreamReleaseAsset[]
+}
+
+/** 从发布源解析到的最新桌面 release(未含 latest.json 正文时为 null payload) */
+export interface LiveDesktopSource {
+  repo: string
+  tag: string
+  version: string
+  releaseDate: string
+  htmlUrl: string
+  /** release 自带的 latest.json 直链 */
+  latestJsonUrl: string
+  /** latest.json 正文;取不到时为 null(调用方据此降级) */
+  payload: DesktopFeedPayload | null
+  /** 下载页要展示的安装包(size 由 Releases API 给出,免下载 200MB 包体) */
+  assets: DesktopFeedAsset[]
+  /** 枚举预算自证:pages 顶到 maxPages 就说明下一枚 release 会被挤出射程 */
+  scan?: ReleaseScanSummary
+}
+
+export type LiveDesktopResolution =
+  | { source: 'live'; data: LiveDesktopSource }
+  | { source: 'snapshot'; reason: string; fallback: DesktopFeed; scan?: ReleaseScanSummary } /**
+ * SemVer 三段比较(a>b 返回正数)。与 scripts/resolve-desktop-download.mjs 的 cmpVer 同形状。
+ *
+ * 为什么两者都按"取版本最大者"而不是依赖 API 顺序:GitHub /releases 会把 draft 排在最前,
+ * 仓库历史上真被 draft 的 desktop-v0.1.16 覆盖过快照(2026-09-18 实测)。
+ */
+export function cmpVer(a: string, b: string): number {
+  const pa = String(a).split('.').map(Number)
+  const pb = String(b).split('.').map(Number)
+  for (let i = 0; i < 3; i += 1) {
+    const diff = (pa[i] || 0) - (pb[i] || 0)
+    if (diff !== 0) return diff
+  }
+  return 0
+}
+
+/** asset 名里版本号的分隔形态两种都命中:`_0.1.58_` 与 `-0.1.58-` */
+function nameMatchesVersion(name: string, version: string): boolean {
+  return (
+    name.includes(`_${version}_`) || name.includes(`-${version}-`) || name.endsWith(`_${version}`)
+  )
+}
+
+/**
+ * 安装包资产 → 下载页条目。只收录与 release 版本一致的产物(release 里可能混有历史残留),
+ * 与 .sig / .app.tar.gz / latest.json 不进下载页(不是给人下载的面孔)。
+ *
+ * signature 恒填空串:下载页不消费签名,而 DesktopFeedAsset 把它列为必填字段。
+ * 更新器通路走的是 release 自带 latest.json 的 platforms(签名在那里由发版流水线给出,
+ * 与包体严格配对),**不从这里派生** —— 两边不许互相假设。
+ */
+function mapAsset(asset: UpstreamReleaseAsset, version: string): DesktopFeedAsset | null {
+  const name = asset.name
+  const href = asset.browser_download_url
+  if (!name || !href) return null
+  if (!nameMatchesVersion(name, version)) return null
+  if (name.endsWith('.sig') || name.endsWith('.app.tar.gz') || name.endsWith('.json')) return null
+  const base = { href, sizeBytes: Number(asset.size || 0), signature: '' }
+  if (name.endsWith('.exe') && name.includes('setup')) {
+    return { ...base, format: 'Windows NSIS exe', arch: 'x64' }
+  }
+  if (name.endsWith('.msi')) return { ...base, format: 'Windows MSI', arch: 'x64' }
+  if (name.endsWith('.dmg')) {
+    const dmgArch = name.includes('aarch64') || name.includes('arm64') ? 'aarch64' : 'x64'
+    return { ...base, format: 'macOS DMG', arch: dmgArch }
+  }
+  if (name.endsWith('.AppImage')) return { ...base, format: 'Linux AppImage', arch: 'amd64' }
+  if (name.endsWith('.deb')) return { ...base, format: 'Linux DEB', arch: 'amd64' }
+  return null
+}
+
+/** 下载页展示序:Windows(exe→msi)→ macOS → Linux(AppImage→deb) */
+const DOWNLOAD_PAGE_ORDER = [
+  'Windows NSIS exe',
+  'Windows MSI',
+  'macOS DMG',
+  'Linux AppImage',
+  'Linux DEB',
+]
+
+function sortAssets(assets: DesktopFeedAsset[]): DesktopFeedAsset[] {
+  return [...assets].sort((a, b) => {
+    const ai = DOWNLOAD_PAGE_ORDER.indexOf(a.format)
+    const bi = DOWNLOAD_PAGE_ORDER.indexOf(b.format)
+    if (ai !== bi) return ai - bi
+    if (a.arch === b.arch) return 0
+    if (a.arch === 'x64') return -1
+    if (b.arch === 'x64') return 1
+    return (a.arch || '') < (b.arch || '') ? -1 : 1
+  })
+}
+
+export interface LatestDesktopPick {
+  tag: string
+  version: string
+  releaseDate: string
+  htmlUrl: string
+  latestJsonUrl: string | null
+  downloadAssets: UpstreamReleaseAsset[]
+}
+
+/**
+ * 纯判据:在一组 release 中挑出「版本最大的已发布 desktop release」。
+ * 抽成纯函数是为了让"取最大而不是取第一""排除 draft/prerelease"这两条能被真数据证,
+ * 而不是靠读代码的人相信。
+ */
+export function pickLatestDesktopRelease(
+  releases: readonly UpstreamRelease[],
+): LatestDesktopPick | null {
+  const candidates = (releases || []).filter(
+    (r) =>
+      typeof r.tag_name === 'string' &&
+      r.tag_name.startsWith(RELEASE_PREFIX) &&
+      !r.draft &&
+      !r.prerelease,
+  )
+  if (candidates.length === 0) return null
+  const sorted = [...candidates].sort((a, b) =>
+    cmpVer(
+      String(b.tag_name).slice(RELEASE_PREFIX.length),
+      String(a.tag_name).slice(RELEASE_PREFIX.length),
+    ),
+  )
+  const release = sorted[0]
+  // noUncheckedIndexedAccess 下 sorted[0] 形态上可能为 undefined;上面 length 检查已排除,
+  // 这里显式收口而不是 ! 断言 —— 断言会把"判据失效"折叠成"判据成立"。
+  if (!release) return null
+  const tag = String(release.tag_name)
+  const version = tag.slice(RELEASE_PREFIX.length)
+  if (!version) return null
+  const assets = release.assets || []
+  const feed = assets.find((a) => a.name === FEED_ASSET_NAME)
+  return {
+    tag,
+    version,
+    releaseDate: (release.published_at || '').slice(0, 10),
+    htmlUrl: release.html_url || '',
+    latestJsonUrl: feed?.browser_download_url ?? null,
+    downloadAssets: assets,
+  }
+}
+
+/**
+ * 把 `pickLatestDesktopRelease` 的产物 + latest.json 正文组装成一个可在站点各处消费的形态。
+ * payload 为 null 时意味着拿不到更新器清单 —— 调用方必须降级,不得输出半份 feed。
+ */
+export function buildLiveSource(
+  pick: LatestDesktopPick,
+  payload: DesktopFeedPayload | null,
+  repo: string,
+): LiveDesktopSource {
+  return {
+    repo,
+    tag: pick.tag,
+    version: pick.version,
+    releaseDate: pick.releaseDate,
+    htmlUrl: pick.htmlUrl,
+    latestJsonUrl: pick.latestJsonUrl ?? '',
+    payload,
+    assets: sortAssets(
+      pick.downloadAssets
+        .map((a) => mapAsset(a, pick.version))
+        .filter((a): a is DesktopFeedAsset => a !== null),
+    ),
+  }
+}
+
+/**
+ * 上游 JSON 取数(超时 + ISR 窗口)。
+ * `revalidateSeconds` 默认 600:与本页窗口一致;调用方要更短的窗口必须显式给,
+ * 不允许在调用点复制一份 fetch 形状(两处实现同一件事必漂移)。
+ */
+export async function fetchJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  revalidateSeconds = 600,
+): Promise<T | null> {
+  try {
+    const res = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      // ISR:同一窗口内并重复发起出口请求;10 分钟窗口对"发版后自动生效"足够快
+      next: { revalidate: revalidateSeconds },
+    })
+    if (!res.ok) return null
+    return (await res.json()) as T
+  } catch {
+    // 超时 / 断网 / 限流一律按"取不到"处理 —— 由调用方降级到快照,不在渲染路径上抛
+    return null
+  }
+}
+
+/**
+ * release 枚举的分页预算 —— 与 `scripts/resolve-desktop-download.mjs` 的
+ * `fetchReleasesPaged` 同形(per_page=100 / maxPages=10 / 短页即停)。
+ * 为什么两处各写一份:一份住 CI 的 .mjs、一份住站点的 .ts,跨语言无法共用实现;
+ * 形状由 `desktop-feed-live.test.ts` 的分页用例钉住(预算与停机条件必须一致)。
+ */
+const RELEASE_PAGE_PER_PAGE = 100
+const RELEASE_PAGE_MAX_PAGES = 10
+/**
+ * 枚举面(最坏 10 次请求)比单资产更贵:未认证 GitHub 上限 60 次/小时/IP,这条腿按 1 小时
+ * 窗口缓存 ⇒ 最坏 10 次/小时。桌面版发布节律是天级,1 小时滞后不改变用户看到的东西。
+ */
+const RELEASE_LIST_REVALIDATE_S = 3600
+
+export interface ReleasesScan {
+  releases: UpstreamRelease[]
+  /** 实际扫了几页(枚举面自证) */
+  pages: number
+  /** 本轮用的分页上限(预算自证:pages 顶到 maxPages 就说明下一枚 release 可能被挤出射程) */
+  maxPages: number
+  /** 中途某页失败 ⇒ 只拿到部分;首页失败不产生这个形态(直接 null) */
+  partial: boolean
+  /** 扫到的 release 总条数 */
+  scanned: number
+}
+
+/** 可以随解析结果一起交出去的预算形状(不含 release 明细) */
+export type ReleaseScanSummary = Omit<ReleasesScan, 'releases'>
+
+function summarizeScan(scan: ReleasesScan): ReleaseScanSummary {
+  return {
+    pages: scan.pages,
+    maxPages: scan.maxPages,
+    partial: scan.partial,
+    scanned: scan.scanned,
+  }
+}
+
+/**
+ * 分页取全 release 列表。三条要求(逐字对齐 CI 侧那份的注释):
+ *  ① 翻到"短页"为止(有 maxPages 上限,防被无限分页拖死);
+ *  ② 把扫到多少条/几页带回去,静默少扫与扫全不是同一个颜色;
+ *  ③ 首页就失败返回 null 交给上层降级,中途失败则带着已拿到的部分继续
+ *     (比"整个源判死"更接近真相,且上层仍按 SemVer 取最高)。
+ *
+ * 为什么运行期也必须分页(2026-11-02 实测复发):`/releases` 按创建时间倒序返回,而
+ * Android 的 nightly 每次 CI 跑都新增一枚 release —— 现读第一页 100 条**全是 nightly**,
+ * 一个 `desktop-v*` 都没有 ⇒ 旧的单页写法挑不出候选,下载页与更新器一起退回
+ * `desktop-feed.generated.ts` 那枚 2026-10-18 的快照。这正是 CI 侧 2026-09 已写明
+ * "仓库里的 release 只会越来越多,这一格是必然恶化的"的那一条,当时只修了 CI 那份。
+ */
+export async function fetchReleasesPaged(
+  baseUrl: string,
+  headers: Record<string, string>,
+  opts: { perPage?: number; maxPages?: number } = {},
+): Promise<ReleasesScan | null> {
+  const perPage = opts.perPage ?? RELEASE_PAGE_PER_PAGE
+  const maxPages = opts.maxPages ?? RELEASE_PAGE_MAX_PAGES
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  const releases: UpstreamRelease[] = []
+  let pages = 0
+  let partial = false
+  for (let page = 1; page <= maxPages; page++) {
+    pages = page
+    let batch: unknown
+    try {
+      const res = await fetch(`${baseUrl}${sep}per_page=${perPage}&page=${page}`, {
+        headers,
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+        next: { revalidate: RELEASE_LIST_REVALIDATE_S },
+      })
+      if (!res.ok) {
+        if (page === 1) return null
+        partial = true
+        break
+      }
+      batch = await res.json()
+    } catch {
+      if (page === 1) return null
+      partial = true
+      break
+    }
+    if (!Array.isArray(batch)) {
+      if (page === 1) return null
+      partial = true
+      break
+    }
+    releases.push(...(batch as UpstreamRelease[]))
+    if (batch.length < perPage) break
+  }
+  return { releases, pages, maxPages, partial, scanned: releases.length }
+}
+
+/**
+ * 运行期解析最新桌面版本。
+ *
+ * 返回值带上来源是因为consumer必须先回答"这次用的是线上还是快照" ——
+ * 旧链把两种来源都渲染成同一个版本号,于是"自动化静默死掉"在页面上完全不可见,
+ * 这正是 0.1.54 能在页面上躺 4 天没人发现的原因。
+ */
+export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
+  const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  // 公开源无 token 时 60 req/h;配了能显著提高上限,属可选增益
+  const token = process.env.GITHUB_TOKEN
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const scan = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers)
+  if (scan === null || scan.releases.length === 0) {
+    return {
+      source: 'snapshot',
+      reason: `releases api unreachable(pages=${scan?.pages ?? 0} scanned=${scan?.releases.length ?? 0})`,
+      fallback: DESKTOP_FEED,
+      scan: scan === null ? undefined : summarizeScan(scan),
+    }
+  }
+  const pick = pickLatestDesktopRelease(scan.releases)
+  if (!pick) {
+    // 扫了几页/几条写进原因:分页预算被 release 数量顶穿时,这一格会自己喊出来,
+    // 而不是安静地退回旧快照(那正是"页面躺旧号四天的那格"的复发形态)
+    return {
+      source: 'snapshot',
+      reason: `no published ${RELEASE_PREFIX}* release(pages=${scan.pages} scanned=${scan.releases.length}${scan.partial ? ' partial' : ''})`,
+      fallback: DESKTOP_FEED,
+      scan: summarizeScan(scan),
+    }
+  }
+  // latest.json 取不到时**不再整份降级**,而是带着 payload=null 返回 live。
+  //
+  // 为什么必须拆这一格(2026-10-17 实测才定下粒度):`api.github.com` 可达,而 GitHub 的
+  //   **资产下载**域名在国内常直连超时(本机实测 ETIMEDOUT)。若按"latest.json 取不到
+  //   就退回 0.1.54 快照",等于把"版本号显示成旧号"与"更新包暂时下不动"这两件严重度
+  //   完全不同的事捆在一起罚 —— 而版本号**仅靠 API 就能答对**,没理由跟着退回旧值。
+  //   两端按各自容忍度分别消费:
+  //     · 下载页(展示):只要 source==='live' 就显示新版本号 + 新资产,不看 payload;
+  //     · 更新器 feed:payload 缺失 ⇒ 宁给快照里那份已知完好的组合,也绝不输出空签名条目
+  //       (客户端拿到空签名 = 下载后验签失败,严格比"暂时没有更新提示"更糟)。
+  const payload = pick.latestJsonUrl
+    ? await fetchJson<DesktopFeedPayload>(pick.latestJsonUrl, { Accept: 'application/json' })
+    : null
+  const usable =
+    payload && typeof payload.version === 'string' && payload.platforms ? payload : null
+  // Windows 主包优先走 Gitee(国内可达),但**按字节对账**才准改用:同名不同字节
+  // (0.1.75 实锤)会叫客户端下到一份签名验不过的包。权威字节数取 GitHub API 的资产元数据。
+  const winName = usable?.platforms?.['windows-x86_64']?.url?.split('/').pop() ?? null
+  const winSize = Number(pick.downloadAssets.find((a) => a.name === winName)?.size || 0) || null
+  const preferred = usable ? await preferGiteeWindows(usable, pick.tag, winSize) : null
+  const base = buildLiveSource(pick, preferred, repo)
+  return {
+    source: 'live',
+    data: {
+      ...base,
+      assets: await preferGiteeInAssets(base.assets, pick.tag),
+      scan: summarizeScan(scan),
+    },
+  }
+}
+
+/**
+ * 安卓 APK 的**运行期**解析(2026-10-17 立,与桌面同因)。
+ *
+ * 历史形态:下载页的 APK 版本号靠 `NEXT_PUBLIC_DOWNLOAD_APK_VERSION` 人手填 env,
+ * 不填就什么都不显示。这与"版本号必须自动"直接冲突 —— 而 APK 的发布侧本来就是自动的:
+ * `.github/workflows/mobile-apk-build.yml` 每次构建都发一个 Release,资产**固定命名为**
+ * `ihui-ai-latest.apk`,并带 `make_latest: true`。
+ *
+ * 于是格子可以被彻底关掉:下载页运行期读「最新 release(排除 tag 里带 desktop-v 的那个)」,
+ * 就能同时拿到版本号(从 APK 文件名解析)与下载直链。
+ *
+ * 版本号的来源要说清:文件名是 `ihui-ai-latest.apk`(不带版本号),所以版本号取自
+ * **release tag**。tag 形如 `nightly-<run_id>`(CI 自建)或语义版本(手工发版)。
+ * 两者都不是给人看的版本号 —— 真正的用户可见版本号在包内(见 scripts/resolve-mobile-version.mjs)。
+ * 因此这里遵循同一条纪律:**取不到可读版本号就只给链接、不编造数字**,宁缺不假。
+ */
+export interface LiveAndroidSource {
+  /** release tag(如 nightly-38704094092);没有可读语义版本时,页面据此识别为 nightly 构建 */
+  tag: string
+  /** 从 tag 或资产名里解析出的语义版本;解析不出时为 null */
+  version: string | null
+  releaseDate: string
+  /** APK 直链(release 资产,文件名固定) */
+  apkUrl: string
+  sizeBytes: number
+  notesUrl: string
+}
+
+export type LiveAndroidResolution =
+  { source: 'live'; data: LiveAndroidSource } | { source: 'unavailable'; reason: string }
+
+/** 固定资产名(发布侧定义,双方共用的那一个字面量) */
+const APK_ASSET_NAME = 'ihui-ai-latest.apk'
+
+/** Gitee 镜像仓坐标(与 scripts/sync-gitee.py 的 GITEE_OWNER/GITEE_REPO 默认值同源) */
+const GITEE_OWNER = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
+const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
+
+/**
+ * Windows 安装包的**国内可达性偏好**(2026-10-17 立;2026-10-18 由"看名字"改成"量字节")。
+ *
+ * 为什么需要它:站点 feed 与下载页此前一律给 GitHub 直链 —— 那是 release 的原生产物、
+ * 签名配对无歧义,但国内访问 GitHub 资产域名常直连超时(本机实测 ETIMEDOUT;注意
+ * `api.github.com` 是可达的,所以权威 size 从 API 拿,不需要探 GitHub 资产域名)。
+ * 而 Gitee 是国内可达的镜像,`.github/scripts/sync-gitee.py` 每个版本都在往那儿同步。
+ *
+ * 为什么"同名即改"不够(2026-10-18 实锤,原判据就是这么漏的):desktop-v0.1.75 的
+ * Gitee 附件是 02:28:50Z 那份 10,118,299 字节,CI 03:53:54Z 重新构建并由真钥匙签的是
+ * 10,122,472 字节;旧 `giteeHasAsset` 只比 `a.name === assetName` ⇒ 冒名旧包占着同名,
+ * feed 把 CI 的签名配 Gitee 的旧字节发给客户端 ⇒ **下载成功但验签必失败**,自动更新
+ * 静默失效(比 404 更难发现:全部门禁不响)。所以这一格现在只认 Content-Length 相等,
+ * 量不出 ⇒ 未判定 ⇒ 保持 GitHub(失败方向给"慢而正确",不给"快而验不过")。
+ *
+ * 签名本身不受 host 影响:minisign 是对**包体字节**签的,**同一份字节**放哪个 host 都验得过
+ * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致) —— 前提就是"同一份字节"。
+ */
+type GiteeParity = 'same' | 'different' | 'undetermined'
+
+async function headContentLength(url: string): Promise<number | null> {
+  try {
+    const r = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!r.ok) return null
+    const n = Number(r.headers.get('content-length') || 0)
+    return n > 0 ? n : null
+  } catch {
+    return null
+  }
+}
+
+function giteeDownloadUrl(tag: string, assetName: string): string {
+  return `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${assetName}`
+}
+
+/** 按 Content-Length 对账 Gitee 那份附件是否就是 `expectedSize` 这么多字节的原件。 */
+export async function giteeByteParity(
+  tag: string,
+  assetName: string,
+  expectedSize: number | null,
+): Promise<{ verdict: GiteeParity; giteeLen: number | null }> {
+  const giteeLen = await headContentLength(giteeDownloadUrl(tag, assetName))
+  if (!expectedSize || expectedSize <= 0 || !giteeLen) return { verdict: 'undetermined', giteeLen }
+  return { verdict: giteeLen === expectedSize ? 'same' : 'different', giteeLen }
+}
+
+/** 把 windows-x86_64 的 URL 换成 Gitee 直链(仅当 Gitee 那份字节与 GitHub 原件等长) */
+export async function preferGiteeWindows(
+  payload: DesktopFeedPayload | null,
+  tag: string,
+  expectedSize: number | null,
+): Promise<DesktopFeedPayload | null> {
+  const win = payload?.platforms?.['windows-x86_64']
+  if (!payload || !win) return payload
+  const fileName = win.url.split('/').pop()
+  if (!fileName) return payload
+  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expectedSize)
+  if (verdict !== 'same') {
+    console.warn(
+      `[desktop-feed] windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+        `(GH=${expectedSize} / Gitee=${giteeLen})`,
+    )
+    return payload
+  }
+  return {
+    ...payload,
+    platforms: {
+      ...payload.platforms,
+      'windows-x86_64': {
+        ...win,
+        url: giteeDownloadUrl(tag, fileName),
+      },
+    },
+  }
+}
+
+/** 从 nightly 之外的地方找语义版本:`v1.2.3` / `mobile-v1.2.3` / 资产名里的 `_1.2.3_` */
+export function extractSemver(...candidates: (string | null | undefined)[]): string | null {
+  for (const c of candidates) {
+    if (!c) continue
+    const m = String(c).match(/(\d+\.\d+\.\d+)/)
+    if (m && m[1]) return m[1]
+  }
+  return null
+}
+
+/** 在 releases 里挑出「带 APK 固定资产名的最新一个」(与桌面解析器同样的排除思路) */
+export function pickLatestApkRelease(
+  releases: readonly UpstreamRelease[],
+): { release: UpstreamRelease; asset: UpstreamReleaseAsset } | null {
+  const candidates = (releases || [])
+    .filter((r) => !r.draft)
+    .map((r) => ({
+      release: r,
+      asset: (r.assets || []).find((a) => a.name === APK_ASSET_NAME),
+    }))
+    .filter((x): x is { release: UpstreamRelease; asset: UpstreamReleaseAsset } => Boolean(x.asset))
+  if (candidates.length === 0) return null
+  // 按发布时间倒序取最新 —— APK 的 tag 是 nightly-<run_id>,不是 semver,没法比大小
+  candidates.sort((a, b) =>
+    String(b.release.published_at || '').localeCompare(String(a.release.published_at || '')),
+  )
+  return candidates[0] as { release: UpstreamRelease; asset: UpstreamReleaseAsset }
+}
+
+/**
+ * 安卓包的运行期实时源。
+ *
+ * 2026-10-29 加的这道闸(线上实测):自有分发地址在位时**不得**再拿 GitHub release 资产当按钮链接。
+ * 现读事实是 `…/releases/download/nightly-40425910619/ihui-ai-latest.apk` 被当成了按钮 —— 两个问题:
+ * ① github.com 的 release 下载是国内最慢/最不稳的一条腿,用户点一下就卡死(与"这下载速度太慢了
+ *    这用户谁能等的起啊"同型);② 它是 nightly 流水线随手发的一枚,把页面展示的**版本与日期**一起
+ *    换成 nightly 的 tag,于是页面写的版本号与实际发出去的包不是同一枚(账面与实际分叉)。
+ * 环境变量的自有地址(NEXT_PUBLIC_DOWNLOAD_APK_URL,与下载按钮同一唯一取源)在位 ⇒ 走构建期快照,
+ * 不覆盖。取不到自有地址时保持旧行为(仍然可以拿 GitHub 源兜底),不制造新的"哪端都没链接"。
+ */
+export async function resolveLiveAndroid(
+  opts: { ownApkUrl?: string | null } = {},
+): Promise<LiveAndroidResolution> {
+  const own = opts.ownApkUrl !== undefined ? opts.ownApkUrl : getApkUrl()
+  if (own && own.trim().length > 0) {
+    return {
+      source: 'unavailable',
+      reason: `自有分发地址在位(${own.trim()}),不用 GitHub 资产覆写按钮`,
+    }
+  }
+  const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  const token = process.env.GITHUB_TOKEN
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const scan = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers)
+  if (scan === null || scan.releases.length === 0) {
+    return { source: 'unavailable', reason: 'releases api unreachable' }
+  }
+  const picked = pickLatestApkRelease(scan.releases)
+  if (!picked) {
+    return { source: 'unavailable', reason: `找不到带 ${APK_ASSET_NAME} 的已发布 release` }
+  }
+  const { release, asset } = picked
+  const tag = String(release.tag_name || '')
+  return {
+    source: 'live',
+    data: {
+      tag,
+      version: extractSemver(tag, asset.name),
+      releaseDate: String(release.published_at || '').slice(0, 10),
+      apkUrl: asset.browser_download_url || '',
+      sizeBytes: Number(asset.size || 0),
+      notesUrl: release.html_url || '',
+    },
+  }
+}
+
+/** 把下载页资产里的 Windows exe 换成 Gitee 直链(同样只在 Gitee 确有该资产时) */
+async function preferGiteeInAssets(
+  assets: DesktopFeedAsset[],
+  tag: string,
+): Promise<DesktopFeedAsset[]> {
+  const exe = assets.find((a) => a.format === 'Windows NSIS exe')
+  if (!exe) return assets
+  const fileName = exe.href.split('/').pop()
+  if (!fileName) return assets
+  // 与更新器 feed 同一把尺子:名字命中不等于字节相同(见 giteeByteParity 头注的 0.1.75 实锤)。
+  // sizeBytes 来自 GitHub API 的资产元数据,就是 CI 签名覆盖那份的字节数。
+  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, exe.sizeBytes || null)
+  if (verdict !== 'same') {
+    console.warn(
+      `[desktop-feed] 下载页 Windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+        `(GH=${exe.sizeBytes} / Gitee=${giteeLen})`,
+    )
+    return assets
+  }
+  return assets.map((a) => (a === exe ? { ...a, href: giteeDownloadUrl(tag, fileName) } : a))
+}
+
+/**
+ * 更新器 feed 专用入口。
+ *
+ * 与下载页的区别只有一条:**这里要求 payload 完整**。原因是两端对"不完整"的代价不对等:
+ *   下载页少一个新版本号 = 显示有点旧;而更新器少一份签名 = 客户端下载后验签失败,
+ *   后者严格更糟。同一个上午的实测里,`api.github.com` 通而 GitHub 资产下载域名超时,
+ *   所以"版本号答得对、更新包暂时取不到"是真实存在且必须分而治之的形态。
+ *
+ * 把这份选择放在这里而不是两个 route 各写一遍 —— 两条 App Route 历史上就是逐字节
+ * 复制后改一处漏一处,才有了 desktop-feed-payload.ts 那次合并;不许再开第二份判据。
+ */
+export async function resolveDesktopFeedForUpdater(): Promise<DesktopFeed> {
+  const resolved = await resolveLiveDesktopFeed()
+  if (resolved.source !== 'live') return resolved.fallback
+  return resolved.data.payload ? liveToDesktopFeed(resolved.data) : DESKTOP_FEED
+}
+
+/**
+ * live 源 → 快照形态,使下载页那条既有链路(PLATFORM_META → DownloadDetailContent)
+ * 不必为了"这次是活的还是旧的"分叉出第二套类型。
+ */
+export function liveToDesktopFeed(data: LiveDesktopSource): DesktopFeed {
+  const updaterPlatforms = Object.fromEntries(
+    Object.entries(data.payload?.platforms || {}).map(([key, entry]) => [
+      key,
+      { url: entry.url, signature: entry.signature },
+    ]),
+  )
+  return {
+    version: data.version,
+    releaseDate: data.releaseDate,
+    githubReleasesUrl: `https://github.com/${data.repo}/releases`,
+    resolvedFromTag: data.tag,
+    resolvedAt: new Date().toISOString(),
+    assets: data.assets,
+    updaterPlatforms,
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

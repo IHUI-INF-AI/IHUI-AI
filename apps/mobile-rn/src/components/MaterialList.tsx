@@ -1,0 +1,441 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * MaterialList 素材列表 (mobile-rn 端)
+ *
+ * 1:1 复刻 uniapp src/components/MaterialList.vue 结构:
+ *   - 标题头「我的创作」
+ *   - 分类 Tab(文本 / 图片 / 视频 / 音频,由 categories prop 驱动,向后兼容 all/doc)
+ *   - 单列列表:文本带 30 字预览;图片/视频真实缩略图(Image uri);音频/文档用图标
+ *   - 空态 + 分页提示(loading → 加载中…;!hasMore 且列表非空 → 没有更多了)
+ *   - 长按列表项 → onDelete(item)(可选,父级弹确认框;onPress 点击选中不受影响)
+ *
+ * 视觉规范(2026-10-18 美化改版):
+ *   - 标题头 16 / 行标题 14 / 预览 12 / 时间 11 / tab 13
+ *   - 行改白卡:surface.card + rnRadius.md + padding 12 + 行距 8(去 hairline,AGENTS 禁分割线)
+ *   - 缩略图 50×50(原 100rpx),圆角 6
+ *   - 空态:Library 图标 + 文案;onClose 提供时标题行渲染 X 关闭钮(弹窗场景免外部再造头部)
+ *   - 颜色全部走 主题 token 入口:选中 tab = brand 黑底白字;禁用 purple/indigo
+ *   - 触底加载用 useState + useEffect 双重护栏:避免 loading 重入 + 翻 false 后才真正派发
+ *   - 类型零 any
+ */
+import { tokens } from '../theme/active-tokens'
+import { formatDate } from '@ihui/shared/utils/date-utils'
+import { CategoryInlineBar } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
+import { FileText, Image as ImageIcon, Library, Music, Video, X } from 'lucide-react-native'
+import {
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ListRenderItem,
+} from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
+
+/** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
+export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
+
+/** 顶部分类 chip */
+export interface MaterialCategory {
+  key: string
+  label: string
+}
+
+/** 单条素材 */
+export interface MaterialItem {
+  id: string
+  title: string
+  type: MaterialType
+  /** 缩略图 URL(图片/视频展示真实缩略图;音频/文档忽略) */
+  url?: string
+  /** 文本内容(文本 tab 展示 30 字预览) */
+  text?: string
+  /** 创建时间 */
+  createdAt?: string
+}
+
+export interface MaterialListProps {
+  categories: MaterialCategory[]
+  activeCategory: string
+  onCategoryChange: (key: string) => void
+  items: MaterialItem[]
+  onPress?: (id: string) => void
+  /** 长按列表项触发删除回调(可选;父级负责弹确认框,如 Alert.alert) */
+  onDelete?: (item: MaterialItem) => void
+  /** 点击列表项「详情」按钮触发(可选;仅触发详情,不影响 onPress 插入行为) */
+  onDetail?: (item: MaterialItem) => void
+  /** 触底回调;loading=true 或 hasMore=false 时不重复触发 */
+  onLoadMore?: () => void
+  /** 父级声明当前是否正在分页加载 */
+  loading?: boolean
+  /** 是否还有更多分页数据;false 且列表非空时显示「没有更多了」 */
+  hasMore?: boolean
+  /** 头部关闭回调(可选):提供时标题行右侧渲染 X 关闭钮(弹窗场景免外部再造头部);
+   *  页面级用法(AigcListScreen / HomeScreen)不传,头部仅标题 */
+  onClose?: () => void
+}
+
+/** 文本预览截断长度(对齐原版 slice(0, 30)) */
+const PREVIEW_LEN = 30
+
+function keyExtractor(item: MaterialItem): string {
+  return item.id
+}
+
+/** 文本 30 字预览,超出补省略号 */
+function previewText(text?: string): string {
+  const s = text ?? ''
+  return s.length > PREVIEW_LEN ? `${s.slice(0, PREVIEW_LEN)}...` : s
+}
+
+/** 类型 → 默认标题(对齐原版) */
+function defaultTitleForType(type: MaterialType, t: (k: string) => string): string {
+  switch (type) {
+    case 'text':
+      return t('material.cText')
+    case 'image':
+      return t('material.cImage')
+    case 'video':
+      return t('material.cVideo')
+    case 'audio':
+      return t('material.cAudio')
+    default:
+      return t('material.cDefault')
+  }
+}
+
+/** 分类 → 空态文案(对齐原版 per-tab 空态) */
+function emptyTextForCategory(key: string, t: (k: string) => string): string {
+  switch (key) {
+    case 'text':
+      return t('material.eText')
+    case 'image':
+      return t('material.eImage')
+    case 'video':
+      return t('material.eVideo')
+    case 'audio':
+      return t('material.eAudio')
+    default:
+      return t('material.eDefault')
+  }
+}
+
+/** 行内「详情」小按钮(点击触发 onDetail,stopPropagation 避免触发外层 onPress) */
+function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element {
+  const { t } = useI18n()
+  return (
+    <Tappable
+      hitSlop={6}
+      onPress={(e) => {
+        e.stopPropagation()
+        onPress?.()
+      }}
+      style={styles.detailBtn}
+      accessibilityRole="button"
+      accessibilityLabel={t('material.detailA11y')}
+    >
+      <Text style={styles.detailBtnText}>{t('mat.btnDetail')}</Text>
+    </Tappable>
+  )
+}
+
+/** 单行素材:文本带预览,图片/视频带真实缩略图,音频/文档带图标 */
+function MaterialRow({
+  item,
+  onPress,
+  onDelete,
+  onDetail,
+}: {
+  item: MaterialItem
+  onPress?: (id: string) => void
+  onDelete?: (item: MaterialItem) => void
+  onDetail?: (item: MaterialItem) => void
+}): React.JSX.Element {
+  const { t } = useI18n()
+  const title = item.title || defaultTitleForType(item.type, t)
+  const time = item.createdAt ? formatDate(item.createdAt) : ''
+
+  // 文本:标题 + 时间 + 30 字预览(无缩略图)
+  if (item.type === 'text') {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onPress?.(item.id)}
+        onLongPress={() => onDelete?.(item)}
+        style={styles.row}
+      >
+        <View style={styles.rowTop}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          {time ? <Text style={styles.rowTime}>{time}</Text> : null}
+          {onDetail ? <DetailButton onPress={() => onDetail(item)} /> : null}
+        </View>
+        <Text style={styles.rowPreview} numberOfLines={1}>
+          {previewText(item.text)}
+        </Text>
+      </TouchableOpacity>
+    )
+  }
+
+  // 图片/视频:有 url 用真实缩略图,否则占位图标;音频/文档:图标
+  const thumb =
+    (item.type === 'image' || item.type === 'video') && item.url ? (
+      <Image source={{ uri: item.url }} style={styles.thumb} resizeMode="cover" />
+    ) : (
+      <View style={[styles.thumb, styles.thumbPlaceholder]}>
+        {item.type === 'audio' ? (
+          <Music size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        ) : item.type === 'video' ? (
+          <Video size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        ) : item.type === 'image' ? (
+          <ImageIcon size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        ) : (
+          <FileText size={22} color={tokens.text.tertiary} strokeWidth={1.5} />
+        )}
+      </View>
+    )
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => onPress?.(item.id)}
+      onLongPress={() => onDelete?.(item)}
+      style={[styles.row, styles.rowWithThumb]}
+    >
+      <View style={styles.rowMain}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {time ? <Text style={styles.rowTime}>{time}</Text> : null}
+        {onDetail ? <DetailButton onPress={() => onDetail(item)} /> : null}
+      </View>
+      {thumb}
+    </TouchableOpacity>
+  )
+}
+
+export default function MaterialList({
+  categories,
+  activeCategory,
+  onCategoryChange,
+  items,
+  onPress,
+  onDelete,
+  onDetail,
+  onLoadMore,
+  loading = false,
+  hasMore = true,
+  onClose,
+}: MaterialListProps): React.JSX.Element {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  /** 触底触发标记:仅当 useEffect 看到 trigger=true 且 loading 翻 false 才真正派发回调 */
+  const [endReachedTrigger, setEndReachedTrigger] = useState<boolean>(false)
+
+  const handleEndReached = useCallback((): void => {
+    if (loading || !onLoadMore || !hasMore) return
+    setEndReachedTrigger(true)
+  }, [loading, onLoadMore, hasMore])
+
+  useEffect(() => {
+    if (endReachedTrigger && !loading) {
+      onLoadMore?.()
+      setEndReachedTrigger(false)
+    }
+  }, [endReachedTrigger, loading, onLoadMore])
+
+  const renderItem: ListRenderItem<MaterialItem> = useCallback(
+    ({ item }) => (
+      <MaterialRow item={item} onPress={onPress} onDelete={onDelete} onDetail={onDetail} />
+    ),
+    [onPress, onDelete, onDetail],
+  )
+
+  const emptyText = emptyTextForCategory(activeCategory, t)
+
+  const footer = loading ? (
+    <View style={styles.footer}>
+      <Text style={styles.loadingMore}>加载中...</Text>
+    </View>
+  ) : !hasMore && items.length > 0 ? (
+    <View style={styles.footer}>
+      <Text style={styles.noMore}>没有更多了</Text>
+    </View>
+  ) : null
+
+  return (
+    <View style={styles.root}>
+      {/* 标题头(对齐原版 material-header;onClose 提供时右侧渲染 X——弹窗场景免外部再造头部。
+          守门 131:按压态落子 View 数组形态,不传函数形态 style) */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>我的创作</Text>
+        {onClose ? (
+          <Pressable
+            hitSlop={8}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+          >
+            {({ pressed }) => (
+              <View style={pressed ? styles.headerClosePressed : null}>
+                <X size={rnGeometry.glyphMd} color={tokens.text.tertiary} />
+              </View>
+            )}
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* 分类 tab(对齐原版 material-tabs,由 categories 驱动) */}
+      <CategoryInlineBar
+        items={categories.map((cat) => ({ id: cat.key, label: cat.label }))}
+        selectedId={activeCategory}
+        onSelect={onCategoryChange}
+        colorScheme={resolvedTheme}
+        contentPaddingHorizontal={10}
+        itemGap={8}
+      />
+
+      {/* 单列列表(对齐原版 scroll-view 单列) */}
+      <FlatList
+        data={items}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.empty}>
+              <Library size={32} color={tokens.text.tertiary} strokeWidth={1.5} />
+              <Text style={styles.emptyText}>{emptyText}</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={footer}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.4}
+      />
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+  },
+  header: {
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingTop: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing['xs-loose'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerClosePressed: {
+    opacity: 0.5,
+  },
+  headerTitle: {
+    fontSize: rnType.title.size,
+    fontWeight: '700',
+    color: tokens.text.primary,
+  },
+  listContent: {
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing.md,
+  },
+  // 行改卡片(2026-10-18 美化):白卡 + md 圆角 + 间距,去 hairline 分割线(AGENTS 禁分割线)
+  row: {
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadius.md,
+    padding: rnSpacing.md,
+    marginBottom: rnSpacing.sm,
+  },
+  rowWithThumb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginRight: rnSpacing['sm-loose'],
+  },
+  rowTitle: {
+    flex: 1,
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  rowTime: {
+    flexShrink: 0,
+    marginLeft: rnSpacing['xs-loose'],
+    fontSize: rnType.caption.size,
+    color: tokens.text.tertiary,
+  },
+  detailBtn: {
+    marginLeft: rnSpacing.sm,
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['2xs'],
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.muted,
+  },
+  detailBtnText: {
+    fontSize: rnType.caption.size,
+    fontWeight: '500',
+    color: tokens.text.tertiary,
+  },
+  rowPreview: {
+    marginTop: 3,
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  },
+  thumb: {
+    width: 50,
+    height: 50,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.surface.muted,
+  },
+  thumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empty: {
+    paddingVertical: rnSpacing['3xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: rnSpacing.sm,
+  },
+  emptyText: {
+    fontSize: rnType.body.size,
+    color: tokens.text.tertiary,
+  },
+  footer: {
+    paddingVertical: rnSpacing['sm-loose'],
+  },
+  loadingMore: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  noMore: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: tokens.text.tertiary,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,367 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * desktop-feed-live 单测(2026-10-17)。
+ *
+ * 锁的是"版本号为什么再也不会漂"这件事背后的四条判据 —— 不是为了凑覆盖率,
+ * 是锁住历史上真出过事的那几条:
+ *   1. 取版本最大者,而不是 API 返回顺序的第一个(GitHub /releases 会把 draft 排最前,
+ *      2026-09-18 实测过快照被 draft 的 desktop-v0.1.16 覆盖);
+ *   2. draft / prerelease 必须被排掉(同上,且 prerelease 不是给人装的版本);
+ *   3. 没有已发布 desktop release 时报 null,而不是退化 TieSilently 到快照;
+ *   4. latest.json 里的 platforms 必须原样透出 —— 不许在本侧重算平台键和签名。
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  cmpVer,
+  pickLatestDesktopRelease,
+  buildLiveSource,
+  liveToDesktopFeed,
+  pickLatestApkRelease,
+  extractSemver,
+  preferGiteeWindows,
+  fetchReleasesPaged,
+  resolveLiveDesktopFeed,
+  type UpstreamRelease,
+} from './desktop-feed-live'
+
+function rel(tag: string, over: Record<string, unknown> = {}) {
+  return { tag_name: tag, assets: [], ...over }
+}
+
+/** 拿不到候选是真失败,不该被 `!` 断言折过去 —— 那等于替被测试的判据做了主 */
+function mustPick(releases: ReturnType<typeof rel>[] | UpstreamRelease[]) {
+  const picked = pickLatestDesktopRelease(releases)
+  if (!picked) throw new Error('期望挑出候选,实际为空 —— pickLatestDesktopRelease 判定变了')
+  return picked
+}
+
+describe('cmpVer', () => {
+  it('三段数值比较,补位短版本号', () => {
+    expect(cmpVer('0.1.9', '0.1.10')).toBeLessThan(0)
+    expect(cmpVer('0.2.0', '0.1.99')).toBeGreaterThan(0)
+    expect(cmpVer('1.0', '1.0.0')).toBe(0)
+  })
+})
+
+describe('pickLatestDesktopRelease', () => {
+  it('取 SemVer 最大者,而不是列表里的第一个(防 GitHub 把 draft 排最前)', () => {
+    const picked = pickLatestDesktopRelease([
+      rel('desktop-v0.2.0'),
+      rel('desktop-v0.1.54'),
+      rel('desktop-v0.1.58'),
+    ])
+    expect(picked?.tag).toBe('desktop-v0.2.0')
+    expect(picked?.version).toBe('0.2.0')
+  })
+
+  it('排除 draft 与 prerelease —— 草稿里的资产 URL 是 untagged-* 死链', () => {
+    const picked = pickLatestDesktopRelease([
+      rel('desktop-v9.9.9', { draft: true }),
+      rel('desktop-v8.8.8', { prerelease: true }),
+      rel('desktop-v0.1.58'),
+    ])
+    expect(picked?.tag).toBe('desktop-v0.1.58')
+  })
+
+  it('候选项全被排除时返回 null(调用方据此显式降级,不许静默吞掉)', () => {
+    expect(pickLatestDesktopRelease([rel('desktop-v1.0.0', { draft: true })])).toBeNull()
+    expect(pickLatestDesktopRelease([])).toBeNull()
+    expect(pickLatestDesktopRelease([rel('nightly-123'), rel('v2.0.0')])).toBeNull()
+  })
+
+  it('挑出 latest.json 直链供下一步取用', () => {
+    const picked = pickLatestDesktopRelease([
+      rel('desktop-v0.1.58', {
+        assets: [{ name: 'latest.json', browser_download_url: 'https://example.test/latest.json' }],
+      }),
+    ])
+    expect(picked?.latestJsonUrl).toBe('https://example.test/latest.json')
+  })
+})
+
+describe('buildLiveSource + liveToDesktopFeed', () => {
+  it('platforms 原样透出 —— 不在本侧重算平台键与签名', () => {
+    const payload = {
+      version: '0.1.58',
+      notes: 'n',
+      pub_date: '2026-10-13T00:00:00.000Z',
+      platforms: {
+        'windows-x86_64': { url: 'https://github.test/a.exe', signature: 'SIG' },
+      },
+    }
+    const feed = liveToDesktopFeed(
+      buildLiveSource(mustPick([rel('desktop-v0.1.58')]), payload, 'o/r'),
+    )
+    expect(feed.updaterPlatforms?.['windows-x86_64']).toEqual({
+      url: 'https://github.test/a.exe',
+      signature: 'SIG',
+    })
+    expect(feed.version).toBe('0.1.58')
+    expect(feed.resolvedFromTag).toBe('desktop-v0.1.58')
+  })
+
+  it('下载页资产只收与本版同号的包,且不带 .sig / .app.tar.gz', () => {
+    const pick = mustPick([
+      rel('desktop-v0.1.58', {
+        assets: [
+          { name: 'AI_0.1.58_x64-setup.exe', size: 100, browser_download_url: 'https://h/a.exe' },
+          { name: 'AI_0.1.54_x64-setup.exe', size: 1, browser_download_url: 'https://h/old.exe' },
+          { name: 'AI_0.1.58_x64-setup.exe.sig', size: 1, browser_download_url: 'https://h/a.sig' },
+          {
+            name: 'AI_universal.app.tar.gz',
+            size: 1,
+            browser_download_url: 'https://h/m.app.tar.gz',
+          },
+        ],
+      }),
+    ])
+    const src = buildLiveSource(pick, null, 'o/r')
+    expect(src.assets.map((a) => a.href)).toEqual(['https://h/a.exe'])
+    expect(src.assets[0]?.format).toBe('Windows NSIS exe')
+  })
+})
+
+describe('extractSemver', () => {
+  it('能从 tag 或资产名里取出版本号,取不到返回 null(不编造)', () => {
+    expect(extractSemver('v1.2.3')).toBe('1.2.3')
+    expect(extractSemver('mobile-v0.0.5')).toBe('0.0.5')
+    expect(extractSemver('ihui-ai-1.0.0.apk')).toBe('1.0.0')
+    expect(extractSemver('nightly-38704094092')).toBeNull()
+    expect(extractSemver(null, undefined)).toBeNull()
+  })
+})
+
+describe('pickLatestApkRelease', () => {
+  it('只认带固定 APK 资产的 release —— 桌面 release 自然被排除(它没有这个资产)', () => {
+    const picked = pickLatestApkRelease([
+      rel('desktop-v0.1.58', {
+        assets: [{ name: 'AI_0.1.58_x64-setup.exe', browser_download_url: 'https://h/a.exe' }],
+      }),
+      rel('nightly-1', {
+        published_at: '2026-10-15T00:00:00Z',
+        assets: [{ name: 'ihui-ai-latest.apk', size: 42, browser_download_url: 'https://h/a.apk' }],
+      }),
+    ])
+    expect(picked?.release.tag_name).toBe('nightly-1')
+    expect(picked?.asset.browser_download_url).toBe('https://h/a.apk')
+  })
+
+  it('多个候选时取发布时间最新的一个(APK 的 tag 是 nightly-<run_id>,比不了大小只能比时间)', () => {
+    const picked = pickLatestApkRelease([
+      rel('nightly-1', {
+        published_at: '2026-10-10T00:00:00Z',
+        assets: [{ name: 'ihui-ai-latest.apk', browser_download_url: 'https://h/old.apk' }],
+      }),
+      rel('nightly-2', {
+        published_at: '2026-10-15T00:00:00Z',
+        assets: [{ name: 'ihui-ai-latest.apk', browser_download_url: 'https://h/new.apk' }],
+      }),
+    ])
+    expect(picked?.asset.browser_download_url).toBe('https://h/new.apk')
+  })
+
+  it('草稿不算,一个都没有时返回 null', () => {
+    expect(
+      pickLatestApkRelease([
+        rel('nightly-x', {
+          draft: true,
+          assets: [{ name: 'ihui-ai-latest.apk', browser_download_url: 'https://h/a.apk' }],
+        }),
+      ]),
+    ).toBeNull()
+    expect(pickLatestApkRelease([])).toBeNull()
+  })
+})
+
+describe('preferGiteeWindows —— 国内可达偏好,但只认字节对账(2026-10-18 由"看名字"改判)', () => {
+  const payload = {
+    version: '0.1.75',
+    notes: 'n',
+    pub_date: '2026-10-17T00:00:00.000Z',
+    platforms: {
+      'windows-x86_64': {
+        url: 'https://github.com/o/r/releases/download/desktop-v0.1.75/AI_0.1.75_x64-setup.exe',
+        signature: 'SIG',
+      },
+    },
+  }
+  // CI 签名覆盖的那份字节数(desktop-v0.1.75 实测);事故型冒名包是 10118299。
+  const GH_SIZE = 10122472
+
+  const withFetch = (stub: typeof fetch, run: () => Promise<void>) => {
+    const real = globalThis.fetch
+    globalThis.fetch = stub
+    return run().finally(() => {
+      globalThis.fetch = real
+    })
+  }
+  const head = (init: { ok?: boolean; len?: number | null }) =>
+    (async () => ({
+      ok: init.ok !== false,
+      headers: new Headers(
+        init.ok === false || init.len === null || init.len === undefined
+          ? {}
+          : { 'content-length': String(init.len) },
+      ),
+    })) as unknown as typeof fetch
+
+  it('Gitee 那份与 GitHub 原件等长 ⇒ 改用 Gitee,签名原样保留', async () => {
+    await withFetch(head({ len: GH_SIZE }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('gitee.com')
+      // minisign 是对包体字节签的,同一份字节换 host 不影响验签
+      expect(out?.platforms['windows-x86_64']?.signature).toBe('SIG')
+    })
+  })
+
+  it('反例(2026-10-18 事故实锤):同名但字节不同 ⇒ 保持 GitHub,不给验不过的快链', async () => {
+    await withFetch(head({ len: 10118299 }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+      expect(out?.platforms['windows-x86_64']?.signature).toBe('SIG')
+    })
+  })
+
+  it('Gitee 没有该资产(HEAD 非 200)⇒ 保持 GitHub(0.1.74 全量 404 的教训)', async () => {
+    await withFetch(head({ ok: false }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+  })
+
+  it('未判定两条都得保持 GitHub:Gitee 量不出 content-length / GitHub 侧没有 size', async () => {
+    await withFetch(head({ len: null }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+    await withFetch(head({ len: GH_SIZE }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', null)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+  })
+
+  it('Gitee 接口整个不可达 ⇒ 不动 URL(宁走可达的 GitHub,不给死链)', async () => {
+    const boom = (async () => {
+      throw new Error('ETIMEDOUT')
+    }) as unknown as typeof fetch
+    await withFetch(boom, async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).toContain('github.com')
+    })
+  })
+
+  it('变异自证:把"等长"判据摘成"同名"(不量字节)就会放过 10,118,299 那份冒名包', async () => {
+    // 这条钉住判据本身有牙:同名+不同字节必须落到 github.com,而不是 gitee.com。
+    await withFetch(head({ len: 10118299 }), async () => {
+      const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
+      expect(out?.platforms['windows-x86_64']?.url).not.toContain('gitee.com')
+    })
+  })
+})
+
+/**
+ * 分页枚举(2026-11-02 复发事故)。GitHub `/releases` 按创建时间倒序,而 Android nightly
+ * 每跑一次 CI 就新增一枚 release —— 现读第一页 100 条里 `desktop-v*` **一个都没有**,
+ * 旧的单页写法因此挑不出候选,下载页与更新器一起退回 2026-10-18 那枚快照。
+ * CI 侧的 `scripts/resolve-desktop-download.mjs` 早在 2026-09 就为同一格写了翻页
+ * (注释原话:"仓库里的 release 只会越来越多,这一格是必然恶化的"),运行期这一份当时没同步。
+ */
+describe('fetchReleasesPaged —— 短页即停 / 首页失败判死 / 中途失败带部分继续', () => {
+  const RELEASES_URL = 'https://api.github.com/repos/IHUI-INF-AI/IHUI-AI/releases'
+  const nightly = (n: number, start = 0) =>
+    Array.from({ length: n }, (_, i) => ({ tag_name: `nightly-${start + i}`, assets: [] }))
+  const desktopRelease = {
+    tag_name: 'desktop-v0.1.80',
+    published_at: '2026-11-01T00:00:00Z',
+    draft: false,
+    prerelease: false,
+    assets: [
+      {
+        name: 'latest.json',
+        size: 100,
+        browser_download_url:
+          'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.80/latest.json',
+      },
+      {
+        name: 'AI_0.1.80_x64-setup.exe',
+        size: 10142082,
+        browser_download_url:
+          'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.80/AI_0.1.80_x64-setup.exe',
+      },
+    ],
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  function mockByPage(resolvePage: (page: number) => { ok: boolean; batch?: unknown[] }) {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(String(url))
+        const page = Number(new URL(String(url)).searchParams.get('page') ?? '1')
+        const r = resolvePage(page)
+        return { ok: r.ok, status: r.ok ? 200 : 500, json: async () => r.batch ?? [] }
+      }),
+    )
+    return urls
+  }
+
+  it('首页满、第二页含 desktop ⇒ 翻到短页为止,并挑出 desktop', async () => {
+    mockByPage((page) =>
+      page === 1 ? { ok: true, batch: nightly(100) } : { ok: true, batch: [desktopRelease] },
+    )
+    const scan = await fetchReleasesPaged(RELEASES_URL, {})
+    expect(scan?.pages).toBe(2)
+    expect(scan?.releases.length).toBe(101)
+    expect(scan?.partial).toBe(false)
+    expect(pickLatestDesktopRelease(scan?.releases ?? [])?.version).toBe('0.1.80')
+  })
+
+  it('首页就失败 ⇒ null(空数组冒充"扫过且没有"就是把未判定说成判过)', async () => {
+    mockByPage(() => ({ ok: false }))
+    expect(await fetchReleasesPaged(RELEASES_URL, {})).toBeNull()
+  })
+
+  it('中途某页失败 ⇒ 带已拿到的部分继续并标 partial', async () => {
+    mockByPage((page) => (page === 1 ? { ok: true, batch: nightly(100) } : { ok: false }))
+    const scan = await fetchReleasesPaged(RELEASES_URL, {})
+    expect(scan?.pages).toBe(2)
+    expect(scan?.partial).toBe(true)
+    expect(scan?.releases.length).toBe(100)
+  })
+
+  it('maxPages 是硬上限,防被无限分页拖死', async () => {
+    const urls = mockByPage((page) => ({ ok: true, batch: nightly(100, page * 1000) }))
+    await fetchReleasesPaged(RELEASES_URL, {}, { maxPages: 3 })
+    expect(urls.length).toBe(3)
+  })
+
+  it('变异自证(端到端):desktop 落在第二页时解析器必须报 live,而不是退回 10-18 的快照', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const u = String(url)
+        if (u.includes('/releases?')) {
+          const page = Number(new URL(u).searchParams.get('page') ?? '1')
+          return {
+            ok: true,
+            status: 200,
+            json: async () => (page === 1 ? nightly(100) : [desktopRelease]),
+          }
+        }
+        // latest.json 资产与 Gitee 对账一律取不到:版本号仍须答对(这两件严重度不同)
+        return { ok: false, status: 500, json: async () => ({}) }
+      }),
+    )
+    const resolved = await resolveLiveDesktopFeed()
+    expect(resolved.source).toBe('live')
+    if (resolved.source !== 'live') throw new Error('形态不该走到这里')
+    expect(resolved.data.version).toBe('0.1.80')
+    expect(resolved.data.assets.some((a) => a.href.includes('0.1.80'))).toBe(true)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

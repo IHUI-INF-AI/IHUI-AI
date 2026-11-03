@@ -1,0 +1,150 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '@/i18n'
+import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { FocusTextarea } from '@/components/FocusField'
+import { permissionDecisionWord, useAgentRuntime } from '@ihui/shared'
+import type { AgentRuntimePanelProps } from '@ihui/types'
+import LineIcon from '@/components/LineIcon'
+
+export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
+  const { t } = useI18n()
+  const {
+    status,
+    input,
+    setInput,
+    sessionId,
+    plan,
+    output,
+    error,
+    permission,
+    handleSend,
+    handleStop,
+    handleClear,
+  } = useAgentRuntime(initialSessionId)
+
+  return (
+    <View className="ui-card flex flex-col bg-card rounded-lg">
+      <View className="flex items-center px-md py-sm mb-sm">
+        <Text className="text-body font-semibold text-foreground">
+          {t('ai.agentDetail.runtimeTitle')}
+        </Text>
+        {sessionId && (
+          <Text className="ml-2 text-label text-muted-foreground">#{sessionId.slice(0, 8)}</Text>
+        )}
+        {status === 'running' && (
+          <Text className="ml-sm text-label text-primary">{t('ai.common.loading')}</Text>
+        )}
+        {status === 'completed' && (
+          <LineIcon
+            name="check"
+            size={24}
+            color="var(--color-success-deep-text)"
+            className="ml-sm"
+          />
+        )}
+        {status === 'failed' && (
+          <LineIcon name="x" size={24} color="var(--color-destructive)" className="ml-sm" />
+        )}
+        <View className="flex-1" />
+        <Button
+          size="mini"
+          onClick={handleClear}
+          disabled={status === 'running'}
+          className="text-label text-muted-foreground bg-muted rounded-sm"
+        >
+          {t('ai.agentDetail.runtimeClear')}
+        </Button>
+      </View>
+
+      <ScrollView scrollY className="" style={{ maxHeight: '40vh', minHeight: '120px' }}>
+        <View className="p-md">
+          {plan && (
+            <View className="mb-md p-md rounded-md bg-muted border border-border">
+              <Text className="block mb-[12rpx] text-label font-medium text-muted-foreground">
+                {t('ai.agentDetail.runtimePlan')}
+              </Text>
+              <Text className="block text-label leading-relaxed text-foreground whitespace-pre-wrap">
+                {plan}
+              </Text>
+            </View>
+          )}
+
+          {permission && (
+            <View className="mb-md p-md rounded-md bg-[var(--color-warning-light)] border border-[var(--color-warning-amber-light)]">
+              <Text className="block mb-[12rpx] text-label font-medium text-[var(--color-warning-amber-text)]">
+                {t('ai.agentDetail.runtimePermission')}:{' '}
+                {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
+              </Text>
+              <Text className="block text-label text-foreground">
+                {t('ai.agentDetail.runtimePermissionTool')}: {permission.toolName ?? 'unknown'} ·{' '}
+                {t('ai.agentDetail.runtimePermissionLevel')}:{permission.dangerLevel ?? 'read'} ·{' '}
+                {t('ai.agentDetail.runtimePermissionMode')}:{permission.mode}
+              </Text>
+            </View>
+          )}
+
+          {output && (
+            <View className="mb-md">
+              <Text className="block mb-[12rpx] text-label font-medium text-muted-foreground">
+                {t('ai.agentDetail.runtimeOutput')}
+              </Text>
+              <Text className="block text-body leading-relaxed text-foreground whitespace-pre-wrap">
+                {output}
+              </Text>
+            </View>
+          )}
+
+          {error && (
+            <View className="mb-md p-md rounded-md bg-destructive/10 border border-[var(--color-danger-light)]">
+              <Text className="block mb-1 text-label font-medium text-[var(--color-danger)]">
+                {t('ai.agentDetail.runtimeError')}
+              </Text>
+              <Text className="block text-label text-destructive">{error}</Text>
+            </View>
+          )}
+
+          {!plan && !output && !error && !permission && (
+            <View className="py-8 text-center">
+              <Text className="text-sm text-muted-foreground">
+                {t('ai.agentDetail.runtimeEmpty')}
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <View className="p-md mt-sm">
+        <View className="flex items-end">
+          <FocusTextarea
+            value={input}
+            onInput={(e) => setInput(e.detail.value)}
+            placeholder={t('ai.agentDetail.runtimeInputPlaceholder')}
+            disabled={status === 'running'}
+            maxlength={-1}
+            className="flex-1 min-h-[120rpx] p-sm text-body rounded-sm border border-border bg-card"
+          />
+          {status === 'running' ? (
+            <Button
+              onClick={handleStop}
+              className="ml-sm h-9 px-md text-label text-destructive-foreground bg-destructive rounded-sm"
+            >
+              {t('ai.agentDetail.runtimeStop')}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim()}
+              className="ml-sm h-9 px-md text-label text-primary-foreground bg-[var(--color-primary)] rounded-sm"
+            >
+              {t('ai.agentDetail.runtimeSend')}
+            </Button>
+          )}
+        </View>
+      </View>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

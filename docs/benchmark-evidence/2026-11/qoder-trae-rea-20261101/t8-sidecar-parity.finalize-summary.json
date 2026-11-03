@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.candidate.json",
+    "sha256": "8ab5659e47d18b9017c898ae89ea92fdd50557ab58d28bc6c409f1ceac64f28f",
+    "bytes": 10744
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.html",
+    "sha256": "ca9f339d8616a4ab3e081a56e47cc0f54bb6f26a163f30114f03ed258407d89a",
+    "bytes": 877006
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\docs\\benchmark-evidence\\2026-11\\qoder-trae-rea-20261101\\t8-sidecar-parity.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-31T16:48:55.729Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4129,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 2,
+      "routesOverSuggestedBends": 3,
+      "routesOverSuggestedStretch": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "c-qcu-1",
+            "from": "qcu-host",
+            "to": "qcu-tools",
+            "label": "工具面声明",
+            "collectionIndex": 0,
+            "artifactIndex": 1
+          },
+          "right": {
+            "id": "c-qcu-5",
+            "from": "qcu-size",
+            "to": "qcu-host",
+            "label": "读数来源",
+            "collectionIndex": 4,
+            "artifactIndex": 5
+          },
+          "point": [
+            89.45,
+            191
+          ],
+          "sharedNode": "qcu-host"
+        },
+        {
+          "left": {
+            "id": "c-ih-3",
+            "from": "ih-exp",
+            "to": "ih-flow2",
+            "label": "引擎已在本仓",
+            "collectionIndex": 10,
+            "artifactIndex": 11
+          },
+          "right": {
+            "id": "c-ih-4",
+            "from": "ih-doc",
+            "to": "ih-flow2",
+            "label": "只读侧现状",
+            "collectionIndex": 11,
+            "artifactIndex": 12
+          },
+          "point": [
+            750.5,
+            647
+          ],
+          "sharedNode": "ih-flow2"
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "c-qcu-5",
+            "from": "qcu-size",
+            "to": "qcu-host",
+            "label": "读数来源",
+            "collectionIndex": 4,
+            "artifactIndex": 5
+          },
+          "bends": 4,
+          "stretch": 1.341,
+          "directCorridorBlockers": [
+            {
+              "id": "qcu-tools",
+              "label": "14 枚动作工具",
+              "box": [
+                20,
+                210,
+                155,
+                58
+              ]
+            },
+            {
+              "id": "qcu-input",
+              "label": "输入类动作",
+              "box": [
+                20,
+                330,
+                155,
+                58
+              ]
+            },
+            {
+              "id": "qcu-guard",
+              "label": "边界实装 11 项",
+              "box": [
+                20,
+                450,
+                155,
+                58
+              ]
+            },
+            {
+              "id": "qcu-absent",
+              "label": "审批门/速率闸",
+              "box": [
+                20,
+                570,
+                155,
+                58
+              ]
+            }
+          ]
+        },
+        {
+          "relationship": {
+            "id": "c-ih-4",
+            "from": "ih-doc",
+            "to": "ih-flow2",
+            "label": "只读侧现状",
+            "collectionIndex": 11,
+            "artifactIndex": 12
+          },
+          "bends": 4,
+          "stretch": 1.989,
+          "directCorridorBlockers": [
+            {
+              "id": "ih-exp",
+              "label": "api excel-export-service",
+              "box": [
+                680,
+                570,
+                155,
+                58
+              ]
+            }
+          ]
+        },
+        {
+          "relationship": {
+            "id": "c-ih-6",
+            "from": "ih-flow1",
+            "to": "ih-absent",
+            "label": "刻意止步",
+            "collectionIndex": 13,
+            "artifactIndex": 14
+          },
+          "bends": 4,
+          "stretch": 1.315,
+          "directCorridorBlockers": [
+            {
+              "id": "ih-doc",
+              "label": "document_tools",
+              "box": [
+                680,
+                450,
+                155,
+                58
+              ]
+            },
+            {
+              "id": "ih-exp",
+              "label": "api excel-export-service",
+              "box": [
+                680,
+                570,
+                155,
+                58
+              ]
+            },
+            {
+              "id": "ih-flow2",
+              "label": "在飞:agent 工作簿读写",
+              "box": [
+                680,
+                690,
+                155,
+                58
+              ]
+            },
+            {
+              "id": "ih-gate",
+              "label": "门 277 逐文件完整性",
+              "box": [
+                680,
+                810,
+                155,
+                58
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "qcu-host → qcu-tools and qcu-size → qcu-host cross next to qcu-host: move node qcu-tools or qcu-size so the two reach qcu-host from different sides (for example one level with it, one directly above or below it).",
+      "ih-exp → ih-flow2 and ih-doc → ih-flow2 cross next to ih-flow2: move node ih-exp or ih-doc so the two reach ih-flow2 from different sides (for example one level with it, one directly above or below it)."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

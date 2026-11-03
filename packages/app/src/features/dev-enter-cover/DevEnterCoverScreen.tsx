@@ -1,0 +1,153 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import type { DevEnterCoverScreenProps } from '@ihui/types'
+export type { DevEnterCoverScreenProps }
+
+export function DevEnterCoverScreen({
+  t,
+  planType,
+  loading,
+  onSelectPlan,
+  onNavigate,
+  onBack,
+  colorScheme = 'light',
+}: DevEnterCoverScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>开发者入驻</Text>
+      </View>
+      <View style={styles.content}>
+        <Text style={styles.desc}>成为平台开发者，发布智能体、课程和服务，获取佣金收益。</Text>
+        <View style={styles.planSection}>
+          <Text style={styles.planLabel}>选择入驻方案</Text>
+          <View style={styles.planList}>
+            <TouchableOpacity
+              style={[styles.planCard, planType === 'month' && styles.planCardActive]}
+              onPress={() => onSelectPlan('month')}
+            >
+              <Text style={[styles.planName, planType === 'month' && styles.planNameActive]}>
+                月度方案
+              </Text>
+              <Text style={[styles.planPrice, planType === 'month' && styles.planPriceActive]}>
+                ¥99/月
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.planCard, planType === 'year' && styles.planCardActive]}
+              onPress={() => onSelectPlan('year')}
+            >
+              <Text style={[styles.planName, planType === 'year' && styles.planNameActive]}>
+                年度方案
+              </Text>
+              <Text style={[styles.planPrice, planType === 'year' && styles.planPriceActive]}>
+                ¥999/年
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.submitBtn, loading && styles.btnDisabled]}
+          onPress={onNavigate}
+          disabled={loading}
+        >
+          <Text style={styles.submitBtnText}>{loading ? '加载中...' : '下一步'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    content: {
+      flex: 1,
+      padding: rnSpacing['md-loose'],
+    },
+    desc: {
+      fontSize: rnType.title.size,
+      color: tk.text.secondary,
+      lineHeight: 20,
+      marginBottom: rnSpacing['2xl'],
+    },
+    planSection: {
+      marginBottom: rnSpacing['2xl'],
+    },
+    planLabel: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.md,
+    },
+    planList: {
+      flexDirection: 'row',
+      gap: rnSpacing.md,
+    },
+    planCard: {
+      flex: 1,
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      alignItems: 'center',
+    },
+    planCardActive: {
+      borderColor: tk.brandAccent.deep,
+      backgroundColor: tk.surface.light,
+    },
+    planName: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
+    planNameActive: {
+      color: tk.brand.DEFAULT,
+    },
+    planPrice: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+    },
+    planPriceActive: {
+      color: tk.brand.DEFAULT,
+    },
+    submitBtn: {
+      height: 50,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnDisabled: {
+      opacity: 0.6,
+    },
+    submitBtnText: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.surface.light,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

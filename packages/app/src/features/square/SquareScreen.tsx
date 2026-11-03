@@ -1,0 +1,347 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo, useState } from 'react'
+import { scaleText } from '../../hooks/scaled-text'
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
+import type { TFunction } from '../../types'
+import type { ArticleItem, CategoryItem } from '@ihui/types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { ScrollJumpButton } from '../../components/ScrollJumpButton'
+
+export interface SquareScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  items: ArticleItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  categories: CategoryItem[]
+  selectedCategory: string
+  onSelectCategory: (id: string) => void
+  onRefresh: () => void
+  onEndReached: () => void
+  onItemClick: (id: string) => void
+  showBackTop: boolean
+  onBackToTop: () => void
+  onListRef?: (ref: unknown) => void
+  onBack?: () => void
+  /** 隐藏自带 header(调用方已有 NavBar 时用,防双标题;默认 false 保持原行为) */
+  hideHeader?: boolean
+  /**
+   * 滚动内容区底部预留(px,默认 12)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
+   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
+   */
+  contentBottomPadding?: number
+}
+
+export function SquareScreen({
+  t,
+  onRetry,
+  colorScheme = 'light',  
+  items,
+  loading,
+  refreshing,
+  error,
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  onRefresh,
+  onEndReached,
+  onItemClick,
+  showBackTop,
+  onBackToTop,
+  onListRef,
+  onBack,
+  hideHeader = false,
+  contentBottomPadding = 12,
+}: SquareScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  /** 返回顶部按钮可见性:滚动超过阈值显示(对齐 Uniapp share/index.vue showToodown scrollTop>200) */
+  const [showTopBtn, setShowTopBtn] = useState(false)
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setShowTopBtn(e.nativeEvent.contentOffset.y > 200)
+  }
+
+  const renderItem = ({ item }: { item: ArticleItem }) => {
+    const author = item.authorName || '佚名'
+    const time = item.createdAt ? formatRelativeTime(item.createdAt) : ''
+    const views = item.viewCount ?? 0
+    const source = item.sourceName
+    const sourceText = source && source !== 'Not_Support' ? `来源:${source}` : '来源:网络'
+
+    return (
+      // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
+      // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整张卡的圆角/内边距/底色/描边
+      // 静默消失。card 在这份表里是**纯视觉档**(无 margin/flex),故外层不需要留布局档:
+      // 它在列表 column(默认 alignItems stretch)里撑满宽度,内层同样 stretch ⇒ 盒子逐像素不变。
+      <Pressable
+        onPress={() => onItemClick(item.id)}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+      >
+        {({ pressed }) => (
+          <View style={[styles.card, pressed ? styles.cardPressed : null]}>
+            <View style={styles.content}>
+              {item.category ? (
+                <View style={styles.categoryBadge}>
+                  <Text
+                    style={[styles.categoryText, scaleText(styles.categoryText)]}
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                  >
+                    {item.category}
+                  </Text>
+                </View>
+              ) : null}
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
+              {item.summary ? (
+                <Text style={styles.summary} numberOfLines={2}>
+                  {item.summary}
+                </Text>
+              ) : null}
+              <View style={styles.metaRow}>
+                <View style={styles.authorBadge}>
+                  <Text
+                    style={[styles.authorText, scaleText(styles.authorText)]}
+                    numberOfLines={1}
+                    allowFontScaling={false}
+                  >
+                    {author}
+                  </Text>
+                </View>
+                {time ? (
+                  <Text
+                    style={[styles.metaText, scaleText(styles.metaText)]}
+                    allowFontScaling={false}
+                  >
+                    {time}
+                  </Text>
+                ) : null}
+                <Text
+                  style={[styles.metaText, scaleText(styles.metaText)]}
+                  allowFontScaling={false}
+                >
+                  {`${views} 阅读`}
+                </Text>
+              </View>
+              <Text
+                style={[styles.sourceText, scaleText(styles.sourceText)]}
+                allowFontScaling={false}
+              >
+                {sourceText}
+              </Text>
+            </View>
+          </View>
+        )}
+      </Pressable>
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      {hideHeader ? null : (
+        <View style={styles.header}>
+          {onBack ? (
+            <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+          ) : null}
+          <Text style={styles.navTitle}>{t('square.title') || '广场'}</Text>
+        </View>
+      )}
+      <CategoryInlineBar
+        items={categories}
+        selectedId={selectedCategory}
+        onSelect={onSelectCategory}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={8}
+      />
+      {loading ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      ) : error && items.length === 0 ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentBottomPadding }]}
+          ItemSeparatorComponent={() => <View style={styles.itemGap} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={tk.text.secondary}
+            />
+          }
+          ListEmptyComponent={
+            !loading && items.length === 0 ? (
+              <EmptyState title="暂无文章" colorScheme={colorScheme} />
+            ) : undefined
+          }
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.2}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          ref={(ref) => onListRef?.(ref)}
+        />
+      )}
+      {/* 返回顶部按钮:外观与几何一律不在此设定,由 ScrollJumpButton 单一源给出 */}
+      {showBackTop && showTopBtn ? (
+        <ScrollJumpButton
+          direction="top"
+          onPress={onBackToTop}
+          label={t('common.backToTop') === 'common.backToTop' ? '返回顶部' : t('common.backToTop')}
+          colorScheme={colorScheme}
+          style={{ position: 'absolute', right: scrollJumpInsetPx(), bottom: scrollJumpInsetPx() }}
+        />
+      ) : null}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+    } as ViewStyle,
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    } as ViewStyle,
+    navTitle: {
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    listContent: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+    } as ViewStyle,
+    itemGap: {
+      height: 12,
+    } as ViewStyle,
+
+    // 卡片
+    card: {
+      borderRadius: rnRadius.lg,
+      padding: rnSpacing.md,
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    } as ViewStyle,
+    cardPressed: {
+      backgroundColor: tk.surface.muted,
+    } as ViewStyle,
+    content: {
+      gap: rnSpacing['xs-loose'],
+    } as ViewStyle,
+    categoryBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+    } as ViewStyle,
+    categoryText: {
+      fontSize: 12,
+      lineHeight: 14,
+      color: tk.text.primary,
+      fontWeight: '600',
+    } as TextStyle,
+    title: {
+      fontSize: 16,
+      lineHeight: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+    } as TextStyle,
+    summary: {
+      fontSize: rnType.body.size,
+      lineHeight: rnType.body.lineHeight,
+      color: tk.text.secondary,
+    } as TextStyle,
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.xs,
+    } as ViewStyle,
+    authorBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+    } as ViewStyle,
+    authorText: {
+      fontSize: 12,
+      lineHeight: 14,
+      color: tk.text.primary,
+      fontWeight: '600',
+    } as TextStyle,
+    metaText: {
+      fontSize: 12,
+      lineHeight: 14,
+      color: tk.text.tertiary,
+    } as TextStyle,
+    sourceText: {
+      fontSize: 12,
+      lineHeight: 14,
+      color: tk.text.tertiary,
+      marginTop: rnSpacing.xs,
+    } as TextStyle,
+
+    // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
+    // 端内不得再留第二份盒档 —— 见 components/ScrollJumpButton.tsx 头注。
+  })
+}
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 30) return `${days}天前`
+  return date.toLocaleDateString('zh-CN')
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

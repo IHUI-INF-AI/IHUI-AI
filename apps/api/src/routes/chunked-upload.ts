@@ -1,0 +1,675 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
+import { join } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  unlinkSync,
+  rmSync,
+  statSync,
+  createWriteStream,
+  createReadStream,
+  openSync,
+  readSync,
+  closeSync,
+} from 'node:fs'
+import { pipeline } from 'node:stream/promises'
+import { and, eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { success, error } from '../utils/response.js'
+import { checkAuth } from '../plugins/auth.js'
+import { uploadSessions, UPLOAD_SESSION_STATUS, type UploadSessionStatus } from '@ihui/database'
+import {
+  CHUNKS_ROOT,
+  PROTOCOL_UPLOAD_LIMITS,
+  clampUploadLimit,
+  countUniqueReceivedChunks,
+  findMissingChunkNumbers,
+  hashFile,
+  digestMatches,
+  isPerUserSessionBudgetExceeded,
+  listReceivedChunkNumbers,
+  measureStagedBytes,
+  wouldStagedBudgetOverflow,
+} from '../services/upload-integrity.js'
+import { withUploadMergeSlot } from '../services/upload-merge-gate.js'
+import { validateUploadHead } from '../utils/file-type-validator.js'
+
+/** 校验和失败后的会话终态:不再接受分片、不再产出 url、由 reaper 到期收目录。
+ *  取值取自 `@ihui/database` 的词表 —— 本文件不得再自拼状态字面量(那正是
+ *  `checksum_mismatch` 曾长期不在"状态字典"里的原因:字典只是另一处的注释)。 */
+const STATUS_CHECKSUM_MISMATCH: UploadSessionStatus = UPLOAD_SESSION_STATUS.checksumMismatch
+
+/** 内容类型闸失败后的会话终态（2026-10-31 安全强化第 10 批 R10）。 */
+const STATUS_CONTENT_REJECTED: UploadSessionStatus = UPLOAD_SESSION_STATUS.contentRejected
+
+/** 内容类型闸的取样字节数：覆盖 checkMagicNumber 全部已定义判据的最长前缀（ftyp 偏移 4 起 4 字节、RIFF 偏移 8 起 4 字节 ⇒ 12 足够；留 4096 给未来新增判据）。 */
+const CONTENT_SNIFF_BYTES = 4096
+
+/** 读文件头部若干字节（不整包读入：分片上传面向大文件）。 */
+function readHeadBytes(path: string, maxBytes: number): Buffer {
+  const fd = openSync(path, 'r')
+  try {
+    const buf = Buffer.allocUnsafe(maxBytes)
+    const n = readSync(fd, buf, 0, maxBytes, 0)
+    return buf.subarray(0, n)
+  } finally {
+    closeSync(fd)
+  }
+}
+
+function expiresAtFrom(now: Date): Date {
+  // ttl 读取口走钳制器(只可收紧):常量表被 spread 改大也在这里被钳回协议档
+  return new Date(now.getTime() + clampUploadLimit('ttlMs', PROTOCOL_UPLOAD_LIMITS.ttlMs))
+}
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+// P2 修复(2026-08-06):合并后的成品文件(返回公开 URL /uploads/<id>)写入
+// uploads/public —— 静态白名单只暴露该子目录;分片临时目录仍留在
+// uploads/chunks(非公开目录,不对外提供)。
+const PUBLIC_UPLOAD_DIR = join(UPLOAD_DIR, 'public')
+
+// P2 修复(2026-08-25):merge 返回的 url 由固定相对路径改为公开可访问 URL,
+// 配置 FILE_CDN_BASE(可选,如 https://file.aizhs.top)时返回 CDN 前缀地址;
+// 未配置时返回相对路径 /uploads/<id>(与 server.ts 静态服务 prefix 对应)。
+function resolvePublicUrl(fileId: string): string {
+  const cdnBase = process.env.FILE_CDN_BASE
+  return cdnBase ? `${cdnBase}/uploads/${fileId}` : `/uploads/${fileId}`
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const initBodySchema = z.object({
+  fileName: z.string().min(1).max(255),
+  fileSize: z.coerce.number().int().min(0).default(0),
+  totalChunks: z.coerce.number().int().min(1),
+  fileMd5: z.string().max(64).optional(),
+  mimeType: z.string().max(128).optional(),
+  chunkSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(5 * 1024 * 1024),
+})
+
+const mergeBodySchema = z.object({
+  uploadId: z.string().min(1, 'uploadId 不能为空'),
+})
+
+// 2026-10-29:uploadId 会被直接拼进磁盘路径(join(UPLOAD_DIR,'chunks',uploadId)),
+// 原先只校验非空 ⇒ 传 `../../..` 即可穿越。这里按服务端生成形态(randomUUID)收窄到
+// ASCII 字母数字与 - _;任何分隔符与 .. 在 parse 阶段就被拒。
+const uploadIdSchema = z
+  .string()
+  .min(1, 'uploadId 不能为空')
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/, 'uploadId 形态非法')
+
+const cancelBodySchema = z.object({
+  uploadId: uploadIdSchema,
+})
+
+const statusQuerySchema = z.object({
+  uploadId: uploadIdSchema,
+})
+
+// =============================================================================
+// 路由
+// =============================================================================
+
+export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
+  // 为 application/octet-stream 注册 content-type parser（原始二进制流）
+  server.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer' },
+    (_req, body, done) => {
+      done(null, body)
+    },
+  )
+
+  // POST /chunked-upload/init - 初始化分片上传
+  server.post('/chunked-upload/init', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+
+    const parsed = initBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { fileName, fileSize, totalChunks, fileMd5, mimeType, chunkSize } = parsed.data
+
+    // 参数自洽性(2026-09-26):声明的字节数装不进声明的分片数 = 客户端把参数写错了,
+    // 当场拒比等全部数据传完才在 merge 处失败便宜得多。chunkSize 亦不得超过协议档
+    // (读取口走钳制器:传入值只可收紧,超出协议档即被钳回 → 差值即判超)。
+    if (chunkSize > clampUploadLimit('maxChunkBytes', chunkSize)) {
+      return reply
+        .status(400)
+        .send(error(400, `chunkSize 不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
+    }
+    if (fileSize > totalChunks * PROTOCOL_UPLOAD_LIMITS.maxChunkBytes) {
+      return reply
+        .status(400)
+        .send(error(400, `fileSize(${fileSize}) 与 totalChunks(${totalChunks}) 不自洽`))
+    }
+
+    // 跨会话聚合预算·begin 处检(2026-09-30,票 b76-12c-3,对齐上游「新建装配检」半边):
+    // 单用户活跃 uploading 会话超档 = 429 且**不建目录不建行**(零资源占用,可重试)。
+    // 此前会话创建面没有任何一档在管 —— 单会话寿命内能开多少 uploadId 无上限,
+    // 而 ttlMs=24h 意味着每条僵尸会话的占盘窗口是一整天。
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const activeRows = await db
+      .select({ uploadId: uploadSessions.uploadId })
+      .from(uploadSessions)
+      .where(
+        and(
+          eq(uploadSessions.userId, userId),
+          eq(uploadSessions.status, UPLOAD_SESSION_STATUS.uploading),
+        ),
+      )
+    if (isPerUserSessionBudgetExceeded(activeRows.length)) {
+      request.log.warn(
+        { userId, active: activeRows.length },
+        'chunked-upload begin 拒绝:单用户活跃会话预算超档',
+      )
+      return reply
+        .status(429)
+        .send(
+          error(
+            429,
+            `并发上传会话数已达上限(${PROTOCOL_UPLOAD_LIMITS.maxActiveSessionsPerUser}),请等既有上传完成或取消后重试`,
+          ),
+        )
+    }
+
+    const uploadId = randomUUID()
+    const now = new Date()
+
+    try {
+      await db.insert(uploadSessions).values({
+        uploadId,
+        fileName,
+        fileSize,
+        fileMd5,
+        totalChunks,
+        uploadedChunks: 0,
+        chunkSize,
+        mimeType,
+        status: UPLOAD_SESSION_STATUS.uploading,
+        userId: request.userId,
+        // TTL 回收的读侧在 services/upload-integrity.ts 的 cleanupExpiredUploadSessions
+        expiresAt: expiresAtFrom(now),
+      })
+    } catch (e) {
+      request.log.error({ err: e }, '初始化分片上传会话失败')
+      return reply.status(500).send(error(500, '初始化分片上传会话失败'))
+    }
+
+    // 创建分片临时存储目录 uploads/chunks/{uploadId}/
+    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
+    try {
+      if (!existsSync(chunkDir)) mkdirSync(chunkDir, { recursive: true })
+    } catch (e) {
+      request.log.error({ err: e }, '创建分片目录失败')
+      return reply.status(500).send(error(500, '创建分片目录失败'))
+    }
+
+    return reply.status(201).send(
+      success({
+        uploadId,
+        uploadedChunks: 0,
+        chunkSize,
+      }),
+    )
+  })
+
+  // POST /chunked-upload/upload - 上传单个分片（application/octet-stream）
+  server.post('/chunked-upload/upload', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+
+    const uploadId = request.headers['x-upload-id']
+    const chunkNumberRaw = request.headers['x-chunk-number']
+    const uploadIdStr = Array.isArray(uploadId) ? uploadId[0] : uploadId
+    const chunkNumberStr = Array.isArray(chunkNumberRaw) ? chunkNumberRaw[0] : chunkNumberRaw
+
+    if (!uploadIdStr) {
+      return reply.status(400).send(error(400, '缺少 x-upload-id 请求头'))
+    }
+    if (!chunkNumberStr) {
+      return reply.status(400).send(error(400, '缺少 x-chunk-number 请求头'))
+    }
+    const chunkNumber = Number(chunkNumberStr)
+    if (!Number.isInteger(chunkNumber) || chunkNumber < 1) {
+      return reply.status(400).send(error(400, 'x-chunk-number 必须为正整数'))
+    }
+
+    // 查询 uploadSessions 确认 uploadId 有效且 status=uploading
+    const rows = await db
+      .select()
+      .from(uploadSessions)
+      .where(
+        and(
+          eq(uploadSessions.uploadId, uploadIdStr),
+          eq(uploadSessions.userId, request.userId ?? ''),
+        ),
+      )
+      .limit(1)
+
+    const session = rows[0]
+    if (!session) {
+      return reply.status(404).send(error(404, '上传会话不存在'))
+    }
+    if (session.status !== UPLOAD_SESSION_STATUS.uploading) {
+      return reply.status(400).send(error(400, `上传会话状态为 ${session.status}，无法继续上传`))
+    }
+
+    const buffer = request.body as Buffer | undefined
+    if (!buffer || !Buffer.isBuffer(buffer)) {
+      return reply.status(400).send(error(400, '分片内容为空'))
+    }
+
+    if (chunkNumber > session.totalChunks) {
+      return reply
+        .status(400)
+        .send(error(400, `x-chunk-number 超出 totalChunks(${session.totalChunks})`))
+    }
+    if (buffer.byteLength > clampUploadLimit('maxChunkBytes', buffer.byteLength)) {
+      return reply
+        .status(413)
+        .send(error(413, `单片不得超过 ${PROTOCOL_UPLOAD_LIMITS.maxChunkBytes} 字节`))
+    }
+
+    // 跨会话聚合预算·每片落盘处检(2026-09-30,票 b76-12c-3,对齐上游「追加分片检」半边):
+    // 全局暂存字节超预算 = 429 拒收**新片**,fail closed 只挡增量 —— 既有会话一律不清
+    // (清存量 = 把无辜用户的在途上传打掉,不误伤)。
+    const stagedBytes = measureStagedBytes(CHUNKS_ROOT)
+    if (wouldStagedBudgetOverflow(stagedBytes, buffer.byteLength)) {
+      request.log.warn(
+        { uploadId: uploadIdStr, stagedBytes, incoming: buffer.byteLength },
+        'chunked-upload 拒收新片:全局暂存字节预算超档',
+      )
+      return reply
+        .status(429)
+        .send(error(429, '服务端上传暂存预算已满,请稍后重试(既有分片不受影响)'))
+    }
+
+    // 将分片写入 uploads/chunks/{uploadId}/{chunkNumber}.part
+    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadIdStr)
+    const chunkPath = join(chunkDir, `${chunkNumber}.part`)
+    try {
+      if (!existsSync(chunkDir)) mkdirSync(chunkDir, { recursive: true })
+      writeFileSync(chunkPath, buffer)
+    } catch (e) {
+      request.log.error({ err: e }, '分片写入失败')
+      return reply.status(500).send(error(500, '分片写入失败'))
+    }
+
+    // 进度以**磁盘上真实收到的分片索引集合**为准,不再是 `uploadedChunks + 1` 累加计数器。
+    // 旧写法的错误语义:重传第 3 片两次 + 漏传第 5 片 ⇒ 计数 5/5 通过完整性判定,
+    // merge 时读 5.part 才 ENOENT —— 计数与磁盘集合可以背离,而账本看起来是齐的。
+    const uploadedChunks = countUniqueReceivedChunks(
+      listReceivedChunkNumbers(chunkDir),
+      session.totalChunks,
+    )
+    await db
+      .update(uploadSessions)
+      .set({
+        uploadedChunks,
+        expiresAt: expiresAtFrom(new Date()),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(uploadSessions.uploadId, uploadIdStr),
+          eq(uploadSessions.userId, request.userId ?? ''),
+        ),
+      )
+
+    return reply.send(
+      success({
+        uploadId: uploadIdStr,
+        chunkNumber,
+        uploadedChunks,
+        totalChunks: session.totalChunks,
+      }),
+    )
+  })
+
+  // POST /chunked-upload/merge - 合并分片
+  server.post('/chunked-upload/merge', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+
+    const parsed = mergeBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { uploadId } = parsed.data
+
+    const rows = await db
+      .select()
+      .from(uploadSessions)
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
+      .limit(1)
+
+    const session = rows[0]
+    if (!session) {
+      return reply.status(404).send(error(404, '上传会话不存在'))
+    }
+
+    // 完整性判定按"1..totalChunks 每一片是否真的在磁盘上",不是按计数相等。
+    // 缺哪几片直接点名 —— 让客户端能补传,而不是回一句"不完整"再让它猜。
+    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
+    const missingChunks = findMissingChunkNumbers(
+      listReceivedChunkNumbers(chunkDir),
+      session.totalChunks,
+    )
+    if (missingChunks.length > 0) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `分片未收齐:缺第 ${missingChunks.join('、')} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
+          ),
+        )
+    }
+
+    // 更新 status=merging
+    await db
+      .update(uploadSessions)
+      .set({ status: UPLOAD_SESSION_STATUS.merging, updatedAt: new Date() })
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
+
+    const fileId = randomUUID()
+    const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)
+
+    // 合并阶段(读全部 .part → 写最终文件 → 实算校验 → 删分片)**整段过有界并发闸**
+    // (2026-09-26,补上本链登记遗留的最后一格):此前对同时开跑的合并数不限,
+    // 第 N 个大文件合并可把哈希 CPU 与磁盘队列打满并拖累同进程的全部请求。
+    // 超限**排队不拒绝**(拒绝 = 把正常用户挡在门外);排队深度与等待时长经闸的
+    // 台账(首次喊话 + 节流复读)与 request.log 可见,不新建第二套 metrics。
+    // 磁盘删除护栏原样保留:闸内也只删 <CHUNKS_ROOT>/<uploadId>/,绝不整片删 uploads/。
+    type MergePhaseOutcome =
+      | { kind: 'merged' }
+      | { kind: 'missing-part'; part: number }
+      | {
+          kind: 'checksum-mismatch'
+          declaredMd5: string | null
+          actualMd5: string
+          actualSha256: string
+          actualSize: number
+        }
+      | { kind: 'content-rejected'; reason: string; declaredName: string }
+      | { kind: 'disk-error'; err: unknown }
+
+    const outcome: MergePhaseOutcome = await withUploadMergeSlot(
+      'chunked-upload/merge',
+      async () => {
+        try {
+          if (!existsSync(PUBLIC_UPLOAD_DIR)) mkdirSync(PUBLIC_UPLOAD_DIR, { recursive: true })
+
+          // 按 1..totalChunks 顺序读取所有 .part 文件合并为最终文件
+          const writeStream = createWriteStream(finalPath)
+          for (let i = 1; i <= session.totalChunks; i++) {
+            const partPath = join(chunkDir, `${i}.part`)
+            if (!existsSync(partPath)) {
+              writeStream.destroy()
+              // 清理已写入的半成品文件
+              try {
+                unlinkSync(finalPath)
+              } catch {
+                // ignore
+              }
+              return { kind: 'missing-part', part: i } as const
+            }
+            // P1 修复:用流式读取替代 readFileSync,避免阻塞 event loop
+            await pipeline(createReadStream(partPath), writeStream, { end: false })
+          }
+          await new Promise<void>((resolve, reject) => {
+            writeStream.on('error', reject)
+            writeStream.end(() => resolve())
+          })
+
+          // 校验和兑现(2026-09-26 补):此前 `fileMd5` 全仓零验证点 —— 客户端声明什么
+          // 都收,校验位形同装饰。现在合并完就按服务端**实算**摘要逐字比对,不符即:
+          // 删除已合并文件 + 会话置终态 + 返回 4xx **不带 url**。绝不"记条日志继续交付"。
+          const digests = await hashFile(finalPath)
+          if (!digestMatches(session.fileMd5, digests.md5)) {
+            const actualSize = statSync(finalPath).size
+            try {
+              unlinkSync(finalPath)
+            } catch (cleanErr) {
+              request.log.error({ err: cleanErr, finalPath }, '校验失败后清理合并文件失败')
+            }
+            await db
+              .update(uploadSessions)
+              .set({ status: STATUS_CHECKSUM_MISMATCH, updatedAt: new Date() })
+              .where(
+                and(
+                  eq(uploadSessions.uploadId, uploadId),
+                  eq(uploadSessions.userId, request.userId ?? ''),
+                ),
+              )
+            request.log.error(
+              {
+                uploadId,
+                declaredMd5: session.fileMd5,
+                actualMd5: digests.md5,
+                actualSha256: digests.sha256,
+                actualSize,
+              },
+              '分片合并结果与声明校验和不符,已拒绝交付',
+            )
+            return {
+              kind: 'checksum-mismatch',
+              declaredMd5: session.fileMd5 ?? null,
+              actualMd5: digests.md5,
+              actualSha256: digests.sha256,
+              actualSize,
+            } as const
+          }
+
+          // 内容类型闸（2026-10-31 安全强化第 10 批 R10）——
+          // 此前本链**完全不看文件内容**：`fileMd5` 是可选声明，客户端不声明就一路直通，
+          // 任意二进制都能以 `uploads/public/<uuid>` 在可信域长期托管（CWE-434 未受限上传：
+          // 钓鱼页、木马包、盗版分发，且因落盘名无扩展名连"看名字就知道是什么"都没有）。
+          // 判据与普通上传同一份（`validateUploadHead` 内部复用 EXT_MIME_MAP + checkMagicNumber，
+          // AGENTS.md §0.6）；只读头部 4096 字节，不把大文件整包读进内存。
+          // 放在 checksum 之后：先确认"传输完整"，再确认"内容该不该收" —— 顺序反了会把
+          // 传输损坏误报成内容违规，取证时会认错攻击面。
+          const headBuf = readHeadBytes(finalPath, CONTENT_SNIFF_BYTES)
+          const typeVerdict = validateUploadHead(headBuf, session.fileName, session.mimeType ?? '')
+          if (!typeVerdict.ok) {
+            try {
+              unlinkSync(finalPath)
+            } catch (cleanErr) {
+              request.log.error({ err: cleanErr, finalPath }, '内容类型闸拒绝后清理文件失败')
+            }
+            await db
+              .update(uploadSessions)
+              .set({ status: STATUS_CONTENT_REJECTED, updatedAt: new Date() })
+              .where(
+                and(
+                  eq(uploadSessions.uploadId, uploadId),
+                  eq(uploadSessions.userId, request.userId ?? ''),
+                ),
+              )
+            request.log.error(
+              {
+                uploadId,
+                fileName: session.fileName,
+                declaredMime: session.mimeType ?? null,
+                reason: typeVerdict.reason,
+              },
+              '分片合并产物内容类型被拒,已清理并拒绝交付',
+            )
+            return {
+              kind: 'content-rejected',
+              reason: typeVerdict.reason,
+              // 会话行可为空 fileName(库允许),415 文案要如实说"没提供",不能吐 `undefined`。
+              declaredName: session.fileName ?? '(会话未提供文件名)',
+            } as const
+          }
+
+          // 全部校验通过才清理 chunks 目录（内容被拒时保留分片，便于人工取证与误判申诉）。
+          if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
+          return { kind: 'merged' } as const
+        } catch (e) {
+          // 合并段里任何未预期异常都折成 500,但**不能把半成品留在公网可寻址目录**:
+          // `finalPath` 是 `uploads/public/<uuid>`,留在盘上就是一枚"无人认领却长期托管"的产物
+          // (2026-11-01 实测:内容类型闸收到空 fileName 时 throw,正是走到这一支)。
+          // 分片目录按原判据保留(取证与误判申诉要靠它),只清合并产物本身。
+          try {
+            if (existsSync(finalPath)) unlinkSync(finalPath)
+          } catch (cleanErr) {
+            request.log.error({ err: cleanErr, finalPath }, '合并段异常后清理半成品失败')
+          }
+          return { kind: 'disk-error', err: e } as const
+        }
+      },
+      { log: request.log },
+    )
+
+    if (outcome.kind === 'missing-part') {
+      return reply.status(400).send(error(400, `分片 ${outcome.part} 缺失，无法合并`))
+    }
+    if (outcome.kind === 'checksum-mismatch') {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `校验和不符:声明 md5=${outcome.declaredMd5 ?? '(未声明)'} 实算 md5=${outcome.actualMd5}(sha256=${outcome.actualSha256}, ${outcome.actualSize} 字节),已拒绝并清理合并文件`,
+          ),
+        )
+    }
+    if (outcome.kind === 'content-rejected') {
+      return reply
+        .status(415)
+        .send(
+          error(
+            415,
+            `文件内容与类型校验失败:${outcome.reason}(文件名 ${outcome.declaredName})。仅接受白名单类型,且文件头必须与扩展名一致;请改用普通上传或修正文件后重传。`,
+          ),
+        )
+    }
+    if (outcome.kind === 'disk-error') {
+      request.log.error({ err: outcome.err }, '合并分片失败')
+      return reply.status(500).send(error(500, '合并分片失败'))
+    }
+
+    // 更新 status=completed, filePath
+    await db
+      .update(uploadSessions)
+      .set({
+        status: UPLOAD_SESSION_STATUS.completed,
+        filePath: finalPath,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
+
+    return reply.send(
+      success({
+        uploadId,
+        fileId,
+        fileName: session.fileName,
+        fileSize: session.fileSize,
+        url: resolvePublicUrl(fileId),
+      }),
+    )
+  })
+
+  // DELETE /chunked-upload/cancel - 取消上传
+  server.delete('/chunked-upload/cancel', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+
+    const parsed = cancelBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { uploadId } = parsed.data
+
+    // 2026-10-29:先确认会话存在且属于当前用户,再动磁盘。
+    // 原实现拿到 uploadId 直接 join + rmSync(recursive) —— 任何登录用户传 `../../..`
+    // 即可递归删除任意可达目录,也能取消他人的上传。归属校验同时把 IDOR 一起堵上。
+    const ownerRows = await db
+      .select({ id: uploadSessions.id, status: uploadSessions.status })
+      .from(uploadSessions)
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
+      .limit(1)
+    const owner = ownerRows[0]
+    if (!owner) {
+      return reply.status(404).send(error(404, '上传会话不存在'))
+    }
+
+    // 删除 chunks 目录
+    const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
+    try {
+      if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
+    } catch (e) {
+      request.log.error({ err: e }, '清理分片目录失败')
+    }
+
+    // 更新 status=cancelled —— 先取现值比较(守门 198/G-998153 纪律):
+    // 会话已是 cancelled 的二次取消 ⇒ 真变化不存在,不发 UPDATE、不盖 updatedAt。
+    if (owner.status !== UPLOAD_SESSION_STATUS.cancelled) {
+      const changed = { status: UPLOAD_SESSION_STATUS.cancelled }
+      await db
+        .update(uploadSessions)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(
+          and(
+            eq(uploadSessions.uploadId, uploadId),
+            eq(uploadSessions.userId, request.userId ?? ''),
+          ),
+        )
+    }
+
+    return reply.send(success({ uploadId, cancelled: true }))
+  })
+
+  // GET /chunked-upload/status - 查询上传状态
+  server.get('/chunked-upload/status', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+
+    const parsed = statusQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { uploadId } = parsed.data
+
+    const rows = await db
+      .select()
+      .from(uploadSessions)
+      .where(
+        and(eq(uploadSessions.uploadId, uploadId), eq(uploadSessions.userId, request.userId ?? '')),
+      )
+      .limit(1)
+
+    const session = rows[0]
+    if (!session) {
+      return reply.status(404).send(error(404, '上传会话不存在'))
+    }
+
+    // 脱敏:filePath 是服务器磁盘路径,不返回客户端(与 files.ts path 语义修复一致)
+    const { filePath: _filePath, ...safeSession } = session
+
+    return reply.send(success(safeSession))
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,265 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import {
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AiAssistantScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+import { TextField } from '../../components/TextField'
+
+/** AI 助手共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { AiAssistantScreenProps }
+
+function formatNum(n: number): string {
+  return n >= 10000 ? `${(n / 10000).toFixed(1)}万` : `${n}`
+}
+
+export function AiAssistantScreen({
+  t,
+  items,
+  categories,
+  category,
+  keyword,
+  loading,
+  refreshing,
+  error,
+  onCategoryChange,
+  onKeywordChange,
+  onRefresh,
+  onPressItem,
+  onBack,
+  colorScheme = 'light',
+}: AiAssistantScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <View style={styles.container}>
+      <BackChevron
+        onPress={onBack}
+        label={t('common.back')}
+        colorScheme={colorScheme}
+        style={styles.backBtn}
+      />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('aiAssistant.title')}</Text>
+        <Text style={styles.headerSub}>{t('aiAssistant.subtitle')}</Text>
+      </View>
+
+      <View style={styles.searchRow}>
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.searchInput}
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder={t('aiAssistant.searchPlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+        />
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.catScroll}
+        contentContainerStyle={styles.catScrollContent}
+      >
+        {categories.map((c) => {
+          const active = category === c.id
+          return (
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.catItem, active && styles.catItemActive]}
+              onPress={() => onCategoryChange(c.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.catText, active && styles.catTextActive]}>{c.label}</Text>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        data={items}
+        keyExtractor={(i) => i.id}
+        contentContainerStyle={{ padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('aiAssistant.empty')} colorScheme={colorScheme} />
+          )
+        }
+        renderItem={({ item }) => (
+          <PressableCard
+            style={styles.card}
+            onPress={() => onPressItem(item)}
+            colorScheme={colorScheme}
+          >
+            <View style={styles.cardHead}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+              </View>
+              <View style={styles.cardMain}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.desc} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.tagRow}>
+              {item.tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.cardFoot}>
+              <Text style={styles.metaText}>
+                {t('aiAssistant.useCount', { count: formatNum(item.useCount) })}
+              </Text>
+              <Text style={styles.metaText}>
+                {t('aiAssistant.favoriteCount', { count: formatNum(item.favoriteCount) })}
+              </Text>
+              <View style={styles.ctaBtn}>
+                <Text style={styles.ctaText}>{t('aiAssistant.startChat')}</Text>
+              </View>
+            </View>
+          </PressableCard>
+        )}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    backBtn: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing.md },
+    header: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingTop: rnSpacing.xs,
+      paddingBottom: rnSpacing.sm,
+    },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    searchRow: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.sm },
+    searchInput: {
+      height: 50,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.sm,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    catScroll: { marginTop: rnSpacing.md, maxHeight: 40 },
+    catScrollContent: { paddingHorizontal: rnSpacing['sm-loose'], gap: rnSpacing.sm },
+    catItem: {
+      paddingHorizontal: rnSpacing['md-loose'],
+      height: 32,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    catItemActive: { backgroundColor: tk.brand.cta },
+    catText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    catTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
+    catMore: {
+      paddingHorizontal: rnSpacing['md-loose'],
+      height: 32,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    catMoreText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    errorBar: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      backgroundColor: tk.danger.light,
+    },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    cardHead: { flexDirection: 'row' },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: rnSpacing['sm-loose'],
+    },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    cardMain: { flex: 1 },
+    name: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    desc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: 18,
+    },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing['xs-loose'],
+      marginTop: rnSpacing['sm-loose'],
+    },
+    tag: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.muted,
+    },
+    tagText: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardFoot: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.lg,
+      marginTop: rnSpacing.md,
+    },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    ctaBtn: {
+      marginLeft: 'auto',
+      paddingHorizontal: rnSpacing['md-loose'],
+      height: 30,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ctaText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,353 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { Fragment, useMemo } from 'react'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { TFunction } from '../../types'
+import type { AppIcon, OnToast } from '@ihui/types'
+import {
+  Award,
+  BarChart3,
+  Bot,
+  Building2,
+  CreditCard,
+  FlaskConical,
+  FolderOpen,
+  Gem,
+  Gift,
+  Globe,
+  GraduationCap,
+  Handshake,
+  Lightbulb,
+  Rocket,
+  Users,
+  Zap,
+} from 'lucide-react-native'
+
+import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
+
+/** VIP 操盘手统计项(由 wrapper 从 CommissionOverview 构建) */
+export interface VipTraderStat {
+  label: string
+  value: string
+  trend: string
+}
+
+/** VIP 操盘手权益特性(静态产品展示) */
+export interface VipTraderFeature {
+  id: string
+  icon: AppIcon | string
+  title: string
+}
+
+/** VipTraderScreen props(平台无关,wrapper 注入数据+回调) */
+export interface VipTraderScreenProps {
+  t: TFunction
+  stats: VipTraderStat[]
+  opened: boolean
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onOpen: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+const TRADER_PRICE = 9980
+const TRADER_POWER = '1600W'
+
+// 权益特性是产品展示,非业务数据,保留前端静态
+const FEATURES: VipTraderFeature[] = [
+  { id: 'distribution', icon: Award, title: '享受大额分销资格,入驻社区服务商名列' },
+  {
+    id: 'ai_courses',
+    icon: GraduationCap,
+    title: 'AI 深度认知课/深度商业课/流量全链路打法免费观看',
+  },
+  { id: 'founder_qa', icon: Handshake, title: '创始人一对一随时答疑陪跑' },
+  { id: 'agent_beta', icon: FlaskConical, title: '最新研发 Agent 内测资格一年' },
+  { id: 'vip_max_discount', icon: Gem, title: '会员等级拉满,享受全部最高折扣' },
+  { id: 'custom_agent', icon: Zap, title: '插队定制独家 Agent 功能 8 折优惠' },
+  { id: 'all_rights', icon: Gift, title: '会员享受的全部权益' },
+  { id: 'incubation', icon: Rocket, title: 'AI+垂类账号孵化优先陪跑机会' },
+  { id: 'secondary', icon: Globe, title: '二级分销权益,快速扩张团队及收益' },
+  { id: 'offline', icon: Building2, title: '公司总部入驻及线下学习实操机会' },
+  { id: 'computing', icon: Lightbulb, title: `操盘手赠送 ${TRADER_POWER} 算力` },
+  { id: 'knowledge', icon: FolderOpen, title: '开通个人知识库超大 20G 空间' },
+  { id: 'ai_custom', icon: Bot, title: '插队 AI 分身/AI 客服定制开通' },
+]
+
+/**
+ * VIP 操盘手共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:渲染 header + hero 卡片 + 统计 + 入口 + 权益列表 + 底部购买栏。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ * 静态营销文案保留中文(FEATURES + hero 文案),通用键走 t()。
+ */
+export function VipTraderScreen({
+  t,
+  stats,
+  opened,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onOpen,
+  onBack,
+  onRetry,
+  colorScheme = 'light',
+  onToast,
+}: VipTraderScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onToast', onToast)
+
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const renderItem = ({ item }: { item: VipTraderFeature }) => (
+    <View style={styles.featureItem}>
+      <View style={styles.featureIcon}>
+        {typeof item.icon === 'string' ? (
+          <Text style={styles.featureIconText}>{item.icon}</Text>
+        ) : (
+          <item.icon size={18} color={tk.text.primary} />
+        )}
+      </View>
+      <Text style={styles.featureTitle}>{item.title}</Text>
+    </View>
+  )
+
+  return (
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('vipTrader.title')}</Text>
+        <Text style={styles.subtitle}>{t('vipTrader.subtitle')}</Text>
+      </View>
+
+      <View style={styles.heroCard}>
+        <View style={styles.heroTop}>
+          <View style={styles.heroBadge}>
+            <Text style={styles.heroBadgeText}>{t('vipTrader.badge')}</Text>
+          </View>
+          <Text style={styles.heroPrice}>¥{TRADER_PRICE.toLocaleString()}</Text>
+        </View>
+        <Text style={styles.heroDesc}>
+          {t('vipTrader.heroDesc', { price: TRADER_PRICE.toLocaleString(), power: TRADER_POWER })}
+        </Text>
+      </View>
+
+      {loading ? (
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
+      ) : error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : (
+        <View style={styles.statCard}>
+          {stats.map((it) => (
+            <View key={it.label} style={styles.statCol}>
+              <Text style={styles.statLabel}>{it.label}</Text>
+              <Text style={styles.statValue}>{it.value}</Text>
+              <Text style={styles.statTrend}>{it.trend}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.entryRow}>
+        <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
+          <Users size={20} color={tk.text.medium} />
+          <Text style={styles.entryText}>{t('vipTrader.entryTeam')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
+          <BarChart3 size={20} color={tk.text.medium} />
+          <Text style={styles.entryText}>{t('vipTrader.entryStats')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
+          <CreditCard size={20} color={tk.text.medium} />
+          <Text style={styles.entryText}>{t('vipTrader.entryWithdraw')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionTitle}>{t('vipTrader.benefits')}</Text>
+        <Text style={styles.sectionCount}>
+          {t('vipTrader.benefitCount', { count: FEATURES.length })}
+        </Text>
+      </View>
+
+      {/* 外层是纵向 ScrollView:同向 FlatList(即使 scrollEnabled={false})会告警且无法虚拟化 ⇒
+          这套固定条目随页面一起滚,直接摊平;分隔线按"除首项外每项前一条"复刻 ItemSeparatorComponent。 */}
+      <View style={styles.featureList}>
+        {FEATURES.map((item, index) => (
+          <Fragment key={item.id}>
+            {index > 0 ? <View style={styles.featureGap} /> : null}
+            {renderItem({ item })}
+          </Fragment>
+        ))}
+      </View>
+
+      <View style={styles.footPlaceholder} />
+
+      <View style={styles.footer}>
+        <View style={styles.footLeft}>
+          <Text style={styles.footSymbol}>¥</Text>
+          <Text style={styles.footPrice}>{TRADER_PRICE.toLocaleString()}</Text>
+          <Text style={styles.footHint}> {t('vipTrader.lifetime')}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.buyBtn, opened && styles.buyBtnDone]}
+          activeOpacity={0.8}
+          onPress={onOpen}
+          disabled={opened}
+        >
+          <Text style={styles.buyBtnText}>
+            {opened ? t('vipTrader.opened') : t('vipTrader.openNow')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.light },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    heroCard: {
+      marginHorizontal: rnSpacing.lg,
+      marginTop: rnSpacing.sm,
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.dark,
+    },
+    heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    heroBadge: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+      backgroundColor: rnCssLight.vipGoldTint,
+    },
+    heroBadgeText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.warning.amber },
+    heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amber },
+    heroDesc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: rnCssLight.white70,
+    },
+    statCard: {
+      marginHorizontal: rnSpacing.lg,
+      marginTop: rnSpacing.md,
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    statCol: { width: '50%', paddingVertical: rnSpacing['xs-loose'] },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    statValue: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    statTrend: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
+    entryRow: { marginHorizontal: rnSpacing.lg, marginTop: rnSpacing.md, flexDirection: 'row' },
+    entryBtn: {
+      flex: 1,
+      marginHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['md-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+    },
+    entryIcon: { fontSize: rnType.heading.size },
+    entryText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    sectionHead: {
+      marginHorizontal: rnSpacing.lg,
+      marginTop: rnSpacing['lg'],
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    sectionCount: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    featureList: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing['sm-loose'] },
+    featureGap: { height: 12 },
+    featureItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.xl,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    featureIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: rnSpacing['sm-loose'],
+    },
+    featureIconText: { fontSize: rnType.subtitle.size },
+    featureTitle: { flex: 1, fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
+    footPlaceholder: { height: 88 },
+    footer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      backgroundColor: tk.surface.light,
+      shadowColor: tk.gray.black,
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: -2 },
+      elevation: 8,
+    },
+    footLeft: { flexDirection: 'row', alignItems: 'baseline' },
+    footSymbol: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    footPrice: {
+      flexShrink: 0,
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    footHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    buyBtn: {
+      paddingHorizontal: rnSpacing['xl'],
+      height: 44,
+      borderRadius: rnRadius.sm, // 角色档 control→sm(4px);原值 15 非档位
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    buyBtnDone: { backgroundColor: tk.text.tertiary },
+    buyBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

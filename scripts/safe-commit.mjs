@@ -1,0 +1,2698 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
+/**
+ * safe-commit.mjs — 多 agent 并行 commit 边界守门
+ *
+ * 根因:
+ *   git 的 index 暂存区是共享的,多 agent 并行时,Agent A 的 git add
+ *   暂存的文件可能在 Agent B 触发 git commit 时被打包进去,造成污染事故
+ *   (a0f753c7 教训:我自己的 12 个 git rm 被混入其他 agent 的 commit)。
+ *
+ * 5 步法(零信任):
+ *   1. git reset HEAD        主动清空暂存区(无论谁 staged 的)
+ *   2. git add <用户路径>     只暂存自己声明的文件
+ *   3. 校验                  git diff --cached --name-only --no-renames 必须 === 用户预期
+ *                            (--no-renames 根治:默认 rename 探测会把"删 A + 加 B"折叠成一条
+ *                             R 记录且不列旧路径 A,校验恒报"A 未暂存";显式禁用后删除/新增
+ *                             各自成行列出,删除类提交不再恒误报。Step 5 的 git show 同理。
+ *                             D171 起取路径走 lib/git-paths 的 -z 形态:中文名不被
+ *                             core.quotePath 八进制转写,声明侧与 git 侧判同值。)
+ *   4. git commit           普通提交(不带 pathspec);防污染靠 Step 1-3 已证的
+ *                            "暂存区精确匹配" + 全流程 git 写锁串行(2026-10-12 改,
+ *                            原因见 Step 4 处注记:pathspec 提交与 lint-staged 自碰撞)
+ *   5. 不触发 push(让 post-commit hook 处理)
+ *
+ * 用法:
+ *   node scripts/safe-commit.mjs -m "feat: ..." -- apps/web/foo.tsx apps/api/bar.ts
+ *   node scripts/safe-commit.mjs -m "..." --files-from .ihui-agent/tmp/paths.txt
+ *     (清单为 UTF-8、一行一个路径;`-` 表示从 stdin 读。超过 Windows argv 上限的大批量
+ *      路径必须走它 —— 清单内路径逐条校验后仍进同一条五步法,没有任何旁路。)
+ *   node scripts/safe-commit.mjs --allow-skip-hooks="<原因>" -m "..." -- <files>
+ *     (人工授权跳钩;**默认关闭**;正文会写入「人工授权跳钩」一行)
+ *   AGENT_SCOPE="apps/web/" node scripts/safe-commit.mjs -m "..." -- apps/web/foo.tsx
+ *
+ * 跳钩纪律(2026-11-03 机主明令,违纪 P0):
+ *   **默认永不跳钩。** 钩子判红后的归因只回答"这道红是不是本任务引入的",它**不是**跳钩授权。
+ *   旧流程在归因判 not-ours / env-blocked / unattributed 后自动以 `--no-verify` 落地
+ *   (近 3 轮至少 3–5 笔),造成两件事:
+ *     ① 钩子里的门与 safe-commit 自跑的门不是同一集合(见下),存在漏检;
+ *     ② 正文只留 attestation ⇒ 审计上分不清"真过钩"与"跳钩"。
+ *   现在默认非零退出、不落地;唯一出路:
+ *     ① 修红后重跑;② 等待并发会话释放索引;③ 改走 `node scripts/object-space-land.mjs`
+ *        (它不跑钩子,但落地后自动复跑受影响门并把结果打进 stdout,门红则报红并 exit 非 0);
+ *     ④ 仅限人工确认后显式加 `--allow-skip-hooks="<原因>"`(正文写入一行醒目说明)。
+ *   门集合差异(自跑取证 ≠ 钩子):
+ *     · 钩子(pre-commit):lint-staged + `guardian-runner --staged --timing` + `.husky/pre-commit`
+ *       薄壳里的批外专项门(check-staged-typecheck / check-rn-global-css-sync /
+ *       check-miniapp-taro-style-parity / check-cross-store-parity / check-site-footer /
+ *       check-portal-fixed / check-button-height / check-capability-matrix / …);
+ *       另有 commit-msg 阶段的 check-commit-scope-consistency / check-style-verification。
+ *     · safe-commit 自跑(仅归因取证):`guardian-runner --staged`(无 --timing)、被红名单点名的
+ *       单门 `--staged` 复跑、`.husky/commit-msg` 里点名的检查。**不含 lint-staged**,也不含
+ *       上述批外专项门与 token 生成器 ⇒ 它全绿不能证明钩子会全绿。
+ *   并发锁争用:3 次重试、指数退避、总预算 60s;耗尽即 exit 非 0(不落地、不跳钩)。
+ *
+ * 退出码:
+ *   0  成功(commit 已落地,post-commit hook 会自动 push)
+ *   1  校验失败(意外文件/缺文件/agent scope 越界);默认拒绝自动跳钩;
+ *      并发锁重试耗尽(索引锁争用,不是钩子判红)
+ *   2  环境错误(非 git 仓库/无 origin 等);2026-10-29 起也用于归因**未判定**
+ *      (commit-msg 阶段复跑取不到输入 ⇒ 拒绝按 not-ours 跳门,§0.3)
+ */
+import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
+import {
+  appendFileSync,
+  closeSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import {
+  classifyHookFailure,
+  decideWithCommitMsgStage,
+  decideWithSelfRunBatch,
+  needsBatchSelfRun,
+  parseGateSummary,
+  verdictLine,
+} from './lib/commit-gate-attribution.mjs'
+// D171(2026-09-30):取路径一律走 lib/git-paths 的 -z 出口 —— git 默认按 core.quotePath
+// 把非 ASCII 路径八进制转写并加引号,按换行 split 的旧写法把 5 个中文名文件判成
+// 「暂存区出现非预期文件 ⇒ 中止提交」(Step 3)与污染事故(Step 5)。
+import {
+  gitCommitPaths,
+  gitStagedPaths,
+  gitUntrackedPaths,
+  gitWorktreePaths,
+  // G-920 前置护栏新增的第四路(带状态的索引面)。**刻意追加在既有三路之后**:
+  // 有形状锁按字面邻接钉住上面三行的 import 名单,插队会把它撞红而锁的意图并未受损 ——
+  // 那种红是钉法的问题不是判据的问题,不该靠改锁去消。
+  gitStagedStatusEntries,
+} from './lib/git-paths.mjs'
+// G-1018292(2026-10-04):`git reset HEAD` 清空共享索引时会摘掉他人暂存删除的保护标记,
+// 而 reflog/index 结构上不留痕 ⇒ 只能在清空前那一瞬取样。判据与留底面在此。
+import {
+  judgeStagedDeleteIntent,
+  readCachedNameStatus,
+  snapshotStagedDeleteIntent,
+} from './lib/staged-delete-intent.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { formatUndeclaredLine, partitionUndeclaredStaged } from './lib/staged-ownership.mjs'
+// 2026-10-26:提交身份的唯一出口(与旁路落地器同源)。本机实测:`user.name/user.email` 只配在
+// 交互账户的 .gitconfig 里,而本脚本常由计划任务/服务/另一身份的会话派生 ⇒ git 报
+// `Author identity unknown` + exit 128;旧分诊把它当"索引锁争用",连跑 10 轮整条守门链
+// (本机 ≈100 分钟白烧)后仍然落不了地。修法不是关掉任何门,而是**用仓内既有身份出口补上**。
+import { REPO_GIT_IDENTITY_ARGS } from './lib/bypass-git.mjs'
+// G-1118437:sha 绑定正证的构造与落盘只住 `lib/commit-attestation.mjs` 那一份
+// (它同时是旁路留痕的写口与台账的读口;在这里另写一遍 appendFileSync = 第二份 schema,
+//  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
+import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
+// AI 代码归属 notes 的唯一实现住 lib;record-ai-authorship.mjs:7 钉死本文件是其生产消费方
+// (§0.9「造好没装车=没有」)。fail-open 接在提交成功之后,见 Step 5 后那段。
+import { recordForCommit } from './lib/ai-authorship-notes.mjs'
+// G-920:事后载荷归因与处置建议的唯一出口(判据住 lib,本工具引那一份 —— 不在这里再算一遍)
+import {
+  adviceFor,
+  classifyConcurrentCommits,
+  diffForeignIndexEntries,
+  foreignEntryAdvice,
+} from './lib/commit-payload-attribution.mjs'
+// Step 5 载荷**相等性**判据(2026-10-25 立):实到集合必须等于声明集合且非空。
+// 单源 = lib/commit-payload-judge.mjs —— 镜像测试直接 import 同一份(§22c),
+// 本器不在这里另写一遍集合比较。
+import { judgeCommitPayload } from './lib/commit-payload-judge.mjs'
+// O43建议②(2026-10-15 机主拍板):钩子运行期外来件护栏 —— 生成临时 hooksPath 逐文件转发
+// .husky 全部钩子,pre-commit 成功后写树前复量索引(判据仍是 diffForeignIndexEntries 那一份)。
+import { buildWrappedHooksDir, GUARD_MARK } from './lib/hook-window-guard.mjs'
+// G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
+// 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
+// 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
+// import 零副作用(实测 `import()` 154ms,不跑 main、不写盘、不派生 git)。
+import {
+  judgeNewLineShas,
+  makeShaProber,
+  parseShaAllow,
+  rewriteEntryOf,
+  shaGateReport,
+} from './live-doc-edit.mjs'
+// 行差集与行多重集同样只有一份:门 84 / object-space-land 用的就是这两个出口,本器不得再算一遍。
+import { lineDeltaMaps, tallyLines } from './lib/stale-content-analysis.mjs'
+// git 派生走层的唯一 transport(绝对路径 + 显式 stdio + windowsHide + 数字 timeout + maxBuffer);
+// 在本器里自拼 execFileSync 就是守门 118 定性的"半接线"—— 管子没共用,面也就没共用。
+import { gitRaw } from './lib/face-reader.mjs'
+
+// 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// 用户调用时的 cwd —— 必须在任何 process.chdir(repoRoot) **之前**取样:
+// `--files-from <相对路径>` 的解析基准是用户站的位置,不是仓根。
+const INVOCATION_CWD = process.cwd()
+
+/** 路径归一化:统一正斜杠(Windows 路径兼容)+ 去掉 `./` 前缀。声明侧与 git 侧共用这一份。 */
+const normalize = (f) => f.replace(/\\/g, '/').replace(/^\.\//, '')
+
+const C = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  reset: '\x1b[0m',
+}
+
+function log(level, msg) {
+  const colorMap = { info: 'cyan', ok: 'green', warn: 'yellow', err: 'red' }
+  const iconMap = { info: '🔒', ok: '✅', warn: '⚠️ ', err: '❌' }
+  const color = C[colorMap[level]]
+  const icon = iconMap[level]
+  console.log(`${color}${icon} ${msg}${C.reset}`)
+}
+
+function run(cmd, opts = {}) {
+  try {
+    return execSync(cmd, {
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // (三通道 pipe 会让 stdin 也建管道,与"不写 stdio"同病;返回值被 .trim() 消费故不能给裸 ignore)
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      ...opts,
+    }).trim()
+  } catch (e) {
+    if (opts.allowFail) return null
+    throw e
+  }
+}
+
+// ─── 参数解析 ────────────────────────────────────────────
+const args = process.argv.slice(2)
+// 多个 `-m` 按 git 自己的语义拼成同一条消息(段间空行),不再"后者覆盖前者"。
+// 实测两次因此丢主题(2026-09-23 的 22d87f1b6 / 920d655dd,以及 2026-09-27 的 440675aa87 / 025a0a982a):
+// 旧写法 `message = args[++i]` 让最后一段正文变成唯一消息,主题行就此消失,而提交照样"成功"。
+const messageParts = []
+const expectedFiles = []
+let dryRun = false
+// --files-from 清单入口(2026-11-02 立):argv 上限下 1747 条路径装不进命令行,
+// 这里只换**入口的运输方式**,不换五步法。`-` = stdin。
+let filesFrom = null
+// 人工授权跳钩(2026-11-03 立,机主明令「不许 --no-verify」):默认关闭。
+// 值 = 原因(必须非空)——正文会写入一行醒目说明,审计上必须分得出"真过钩"与"人工授权跳钩"。
+let allowSkipHooks = null
+
+for (let i = 0; i < args.length; i++) {
+  const a = args[i]
+  if (a === '-m' || a === '--message') {
+    messageParts.push(args[++i])
+  } else if (a.startsWith('--message=')) {
+    messageParts.push(a.split('=').slice(1).join('='))
+  } else if (a.startsWith('--allow-skip-hooks=')) {
+    const reason = a.slice('--allow-skip-hooks='.length).trim()
+    if (!reason) {
+      console.error(`${C.red}❌ --allow-skip-hooks 必须带原因:--allow-skip-hooks="<原因>"${C.reset}`)
+      process.exit(2)
+    }
+    allowSkipHooks = reason
+  } else if (a === '--allow-skip-hooks') {
+    console.error(
+      `${C.red}❌ --allow-skip-hooks 必须带原因(裸旗标不生效,避免"以为写了理由实际没写"):` +
+        `--allow-skip-hooks="<原因>"${C.reset}`,
+    )
+    process.exit(2)
+  } else if (a === '--files-from') {
+    const v = args[++i]
+    if (typeof v !== 'string' || v.length === 0) {
+      console.error(`${C.red}❌ --files-from 后必须跟清单文件路径(或 - 表示 stdin)${C.reset}`)
+      process.exit(2)
+    }
+    if (filesFrom !== null) {
+      console.error(`${C.red}❌ --files-from 只能给一次(清单不拼接,避免"以为读了 A 实际读了 B")${C.reset}`)
+      process.exit(2)
+    }
+    filesFrom = v
+  } else if (a.startsWith('--files-from=')) {
+    const v = a.slice('--files-from='.length)
+    if (v.length === 0) {
+      console.error(`${C.red}❌ --files-from= 后必须跟清单文件路径(或 - 表示 stdin)${C.reset}`)
+      process.exit(2)
+    }
+    if (filesFrom !== null) {
+      console.error(`${C.red}❌ --files-from 只能给一次(清单不拼接,避免"以为读了 A 实际读了 B")${C.reset}`)
+      process.exit(2)
+    }
+    filesFrom = v
+  } else if (a === '--dry-run' || a === '-n') {
+    dryRun = true
+  } else if (a === '--' || a === '--help' || a === '-h') {
+    if (a === '--help' || a === '-h') {
+      console.log('用法: node scripts/safe-commit.mjs -m "<msg>" -- <file1> [file2 ...]')
+      console.log('      node scripts/safe-commit.mjs -m "<msg>" --files-from <path|->')
+      console.log('  --dry-run       只校验不 commit')
+      console.log('  --files-from    从 UTF-8 清单读路径(一行一个;`-` = stdin);与 `--` 后路径取并集')
+      console.log('  --allow-skip-hooks=<原因>  人工授权跳钩(**默认关闭**;正文写入醒目说明)')
+      console.log('  --scope <dir>   限定本 agent 范围(可用环境变量 AGENT_SCOPE)')
+      console.log('  环境变量: AGENT_SCOPE="apps/web/ apps/api/" 限定范围')
+      process.exit(0)
+    }
+    // `--` 后是文件路径
+    expectedFiles.push(...args.slice(i + 1))
+    break
+  } else if (!a.startsWith('-')) {
+    expectedFiles.push(a)
+  } else {
+    console.error(`${C.red}未知参数: ${a}${C.reset}`)
+    process.exit(2)
+  }
+}
+
+const message = messageParts.filter((m) => typeof m === 'string' && m.length > 0).join('\n\n')
+
+if (!message) {
+  console.error(`${C.red}❌ 必须提供 -m <commit message>${C.reset}`)
+  process.exit(2)
+}
+if (expectedFiles.length === 0) {
+  // --files-from 时清单还没读(要到仓根解析之后才能逐条校验存在/忽略态);
+  // 空清单在 0.2 段按"清单为空"报,不在这里误报成"没给文件路径"。
+  if (filesFrom === null) {
+    console.error(`${C.red}❌ 必须提供至少一个文件路径(-- file1 file2 ...)${C.reset}`)
+    process.exit(2)
+  }
+}
+
+// ─── 0. 环境检查 ────────────────────────────────────────────
+const repoRoot = run('git rev-parse --show-toplevel', { allowFail: true })
+if (!repoRoot) {
+  log('err', '不在 git 仓库中')
+  process.exit(2)
+}
+process.chdir(repoRoot)
+
+const currentBranch = run('git symbolic-ref --short HEAD', { allowFail: true })
+if (!currentBranch) {
+  log('err', '处于 detached HEAD,无法安全 commit')
+  process.exit(2)
+}
+
+// ─── 0.2 --files-from 清单入口(2026-11-02 立)───────────────────────────────
+// 立因:1747 条路径的合规提交在 Windows 上装不进 CreateProcess 的 32,767 字符命令行,
+// **入口本身先死**,五步法再严也轮不到跑。这里只换入口的运输方式(清单文件→内存),
+// 读出的路径经逐条校验后仍进 expectedFiles,Step 1-5、声明精确校验、门禁与归因一字不动。
+//
+// 校验口径(全部显式报错并列出,不静默跳过):
+//   · UTF-8 严格解码(非法字节/乱码直接拒,不把坏编码当路径);
+//   · 一行一个路径:拒绝空行、绝对路径、任何 `..` 段、`.git` 内部路径、NUL;
+//   · 必须存在于工作树且是普通文件(不存在/目录/特殊文件一律拒);
+//   · 解析后必须仍在仓库根之内;
+//   · 不得被 .gitignore 忽略(git 默认口径下"已跟踪项"不算忽略,与 Step 2 既有的
+//     已跟踪 -f 分支同义);
+//   · 清单内重复、以及与 `--` 参数重复,一律拒。
+// 如实登记的局限:清单模式只收**存在于工作树**的路径,所以删除态提交仍走 `--` 参数
+// (删除态没有"存在的文件"可校验,放进来就得为它单开一条绕过校验的通道)。
+function decodeManifest(source, cwd) {
+  let buf
+  if (source === '-') {
+    try {
+      buf = readFileSync(0)
+    } catch (e) {
+      throw new Error(`从 stdin 读清单失败:${e?.code || e?.message || e}`)
+    }
+  } else {
+    const p = isAbsolute(source) ? source : resolve(cwd, source)
+    let st
+    try {
+      st = statSync(p)
+    } catch (e) {
+      throw new Error(`清单文件不存在或不可读:${p}(${e?.code || e?.message || e})`)
+    }
+    if (st.isDirectory()) throw new Error(`--files-from 指向的是目录,不是清单文件:${p}`)
+    try {
+      buf = readFileSync(p)
+    } catch (e) {
+      throw new Error(`清单文件读取失败:${p}(${e?.code || e?.message || e})`)
+    }
+  }
+  let text
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(buf)
+  } catch {
+    throw new Error('清单不是合法 UTF-8 文本(拒绝把乱码当路径)')
+  }
+  return text.replace(/^\uFEFF/, '')
+}
+
+function validateManifest({ source, root, cwd, cliFiles = [] }) {
+  const text = decodeManifest(source, cwd)
+  const lines = text.split('\n')
+  // 只吃掉**文件末尾换行**产生的那一个空串;其余空串都是真空行(按票面拒)。
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
+  const problems = []
+  const firstSeen = new Map()
+  const acceptable = []
+  const cliNorm = new Set(cliFiles.map(normalize))
+  for (let i = 0; i < lines.length; i++) {
+    const lineNo = i + 1
+    const raw = lines[i].replace(/\r$/, '')
+    if (raw.trim() === '') {
+      problems.push(`第 ${lineNo} 行:空行(清单必须一行一个路径)`)
+      continue
+    }
+    if (raw.includes('\0')) {
+      problems.push(`第 ${lineNo} 行:含 NUL 字节`)
+      continue
+    }
+    if (isAbsolute(raw)) {
+      problems.push(`第 ${lineNo} 行:绝对路径 ${raw}`)
+      continue
+    }
+    const rel = normalize(raw)
+    const segments = rel.split('/')
+    if (segments.includes('..')) {
+      problems.push(`第 ${lineNo} 行:含 ".." 路径段 ${raw}`)
+      continue
+    }
+    if (segments[0].toLowerCase() === '.git') {
+      problems.push(`第 ${lineNo} 行:属于 .git 内部路径 ${raw}`)
+      continue
+    }
+    const abs = resolve(root, rel)
+    const back = relative(root, abs)
+    // 用 `..${sep}` 而不是裸 `..` 前缀:仓根下名为 `..foo` 的普通文件不能被误判成逃逸。
+    if (back === '..' || back.startsWith(`..${sep}`) || isAbsolute(back)) {
+      problems.push(`第 ${lineNo} 行:解析到仓库根之外 ${raw}`)
+      continue
+    }
+    if (firstSeen.has(rel)) {
+      problems.push(`第 ${lineNo} 行:重复项 ${rel}(首次出现在第 ${firstSeen.get(rel)} 行)`)
+      continue
+    }
+    firstSeen.set(rel, lineNo)
+    if (cliNorm.has(rel)) {
+      problems.push(`第 ${lineNo} 行:与 -- 参数重复 ${rel}`)
+      continue
+    }
+    let st
+    try {
+      st = statSync(abs)
+    } catch {
+      problems.push(`第 ${lineNo} 行:不存在 ${rel}`)
+      continue
+    }
+    if (st.isDirectory()) {
+      problems.push(`第 ${lineNo} 行:是目录 ${rel}`)
+      continue
+    }
+    if (!st.isFile()) {
+      problems.push(`第 ${lineNo} 行:不是普通文件 ${rel}`)
+      continue
+    }
+    acceptable.push({ path: rel, lineNo })
+  }
+  // .gitignore 判定走 git 自己的口径;一次 stdin 批量问完 —— 逐条派生会把 10,000 条
+  // 变成 10,000 次进程启动,而"这道校验"本身应随清单规模线性、不是平方级。
+  if (acceptable.length > 0) {
+    let ignoredOut = ''
+    try {
+      const r = spawnSync(
+        'git',
+        ['-c', 'safe.directory=*', '-C', root, 'check-ignore', '--stdin', '-z'],
+        {
+          input: `${acceptable.map((e) => e.path).join('\0')}\0`,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 60_000,
+          maxBuffer: 64 * 1024 * 1024,
+          // §12g / 守门 193:派生 git 必须显式接管三个通道
+          stdio: ['pipe', 'pipe', 'pipe'],
+        },
+      )
+      if (r.error) throw r.error
+      // 0 = 有条目被忽略;1 = 一条都没被忽略;其余 = git 自己报错(照实列成问题)
+      if (r.status !== 0 && r.status !== 1)
+        throw new Error(String(r.stderr || '').trim().slice(0, 200) || `exit ${r.status}`)
+      ignoredOut = String(r.stdout || '')
+    } catch (e) {
+      problems.push(`无法判定 .gitignore(git check-ignore 失败):${e?.message || e}`)
+    }
+    const ignored = new Set(ignoredOut.split('\0').filter(Boolean).map(normalize))
+    if (ignored.size > 0)
+      for (const e of acceptable)
+        if (ignored.has(e.path)) problems.push(`第 ${e.lineNo} 行:被 .gitignore 忽略 ${e.path}`)
+  }
+  return { paths: acceptable.map((e) => e.path), problems }
+}
+
+if (filesFrom !== null) {
+  let manifest
+  try {
+    manifest = validateManifest({ source: filesFrom, root: repoRoot, cwd: INVOCATION_CWD, cliFiles: expectedFiles })
+  } catch (e) {
+    console.error(`${C.red}❌ --files-from 清单不可用:${e?.message || e}${C.reset}`)
+    process.exit(2)
+  }
+  if (manifest.problems.length > 0) {
+    console.error(
+      `${C.red}❌ --files-from 清单校验失败:${manifest.problems.length} 条问题(拒绝提交,不静默跳过)${C.reset}`,
+    )
+    for (const p of manifest.problems) console.error(`     ${C.red}✗ ${p}${C.reset}`)
+    process.exit(2)
+  }
+  if (manifest.paths.length === 0) {
+    console.error(`${C.red}❌ --files-from 清单为空:至少需要一个路径(空清单不等于"没有可提交内容")${C.reset}`)
+    process.exit(2)
+  }
+  expectedFiles.push(...manifest.paths)
+  log(
+    'info',
+    `--files-from 清单读入 ${C.cyan}${manifest.paths.length}${C.reset} 条路径(已逐条校验:存在/仓库内/非目录/未忽略/无重复)`,
+  )
+}
+
+// ─── 0.5 git 写操作全局锁(2026-08-06 立,根治多 agent 并发写损坏) ──
+// 整个 commit 流程(含 post-commit 自动脚本)串行化;exit 事件保证任意退出路径都释放锁。
+// 锁 unitId 通过环境变量 IHUI_GIT_LOCK_UNIT 传递给子进程(post-commit 检测到则不再加锁)。
+const LOCK_UNIT = `safe-commit-${process.pid}-${Date.now()}`
+process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
+log('info', `Step 0/5: 获取 git 写锁(unit=${LOCK_UNIT})`)
+// 2026-09-18 根治锁竞争三件套:
+//   ① acquire 超时提到 15 分钟 —— 覆盖最长 pre-commit 守门流程,等待方不再因 120s 超时报错;
+//   ② acquire 后 spawn detached 心跳子进程(每 5s 续期 meta.ts)—— 长流程持锁永不误判悬挂;
+//   ③ 心跳以 parent-pid = 本进程 存活探测,本进程任意路径退出后心跳自动消亡(无残留)。
+//   事故背景:此前 meta.ts 只在 acquire 时写一次,pre-commit 跑超 300s 即被并发会话按
+//   "悬挂锁"强制抢占 → 两进程同时写 .git(锁反而制造损坏)。
+try {
+  run(`node ${repoRoot}/scripts/git-lock.mjs acquire --unit ${LOCK_UNIT} --timeout 900000`)
+} catch (e) {
+  log('err', `获取 git 写锁失败: ${e.message}`)
+  process.exit(2)
+}
+try {
+  spawn(
+    process.execPath,
+    [
+      `${repoRoot}/scripts/git-lock.mjs`,
+      'heartbeat',
+      '--unit',
+      LOCK_UNIT,
+      '--parent-pid',
+      String(process.pid),
+    ],
+    // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
+    { detached: true, windowsHide: true, stdio: 'ignore' },
+  ).unref()
+} catch {
+  /* 心跳失败不阻塞 commit(stale 判定仍按"pid 存活"兜底) */
+}
+process.on('exit', () => {
+  try {
+    run(`node ${repoRoot}/scripts/git-lock.mjs release --unit ${LOCK_UNIT}`, { allowFail: true })
+  } catch {
+    /* 忽略释放失败 */
+  }
+})
+
+log('info', `safe-commit 启动 → 分支: ${C.bold}${currentBranch}${C.reset}`)
+log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
+
+/**
+ * 把"本次清空了他人的 N 项暂存删除"落成一份可追责的账(票 G-1018292)。
+ *
+ * 落点选`.ihui-agent/state/` 而非仓根:① `.gitignore:377` 已忽略整个目录(实测 `check-ignore` rc=0),
+ * 不会留没人收的 `??`;② 本脚本既有的归因账 `safe-commit-attestation.jsonl` 也在同一目录,
+ * 两份留痕同族同生命周期;③ 落盘**失败不得阻断提交** —— 喊人已经在stdout 里发生了,
+ * 账写不进去是次级问题,不该把提交变成一次环境故障(与 Step 1 那个 warn 同取向)。
+ */
+function recordClearedStagedDeletions({
+  root,
+  lost,
+  selfStaged,
+  kept,
+  branch,
+  headBefore,
+  declaredFiles,
+}) {
+  try {
+    mkdirSync(join(root, '.ihui-agent', 'state'), { recursive: true })
+    appendFileSync(
+      join(root, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+      `${JSON.stringify({
+        ts: new Date().toISOString(),
+        event: 'index-purge-cleared-staged-deletions',
+        branch,
+        headBefore,
+        // 三份清单都要留:lost=被摘掉标记的他人删除(归属会话要按它喊人),
+        // selfStaged=本票声明面(Step 2 会重新暂存,标记不丢),kept=清空后仍是暂存态的。
+        clearedIntentLost: lost,
+        selfStagedReadded: selfStaged,
+        stillStaged: kept,
+        declaredFiles,
+        // 明写"本脚本没有代裁":读账的人不该误以为这些删除已被恢复或已提交。
+        actionTaken: 'report-only',
+        note: '删除意图丢失;reflog/index 不留痕,归属会话需重新 git rm --cached 恢复标记。本脚本不恢复、不删除、不提交。',
+      })}\n`,
+    )
+    return true
+  } catch (e) {
+    log(
+      'warn',
+      `删除意图账写入失败(不阻断提交):${String(e && e.message ? e.message : e).slice(0, 120)}`,
+    )
+    return false
+  }
+}
+
+/**
+ * git 索引锁争用分诊(2026-09-24 立)。共享工作区里 `.git/index.lock` 常常**瞬时**存在又消失
+ * (实测本会话 12:0x 一次:safe-commit 死在 Step 1 的 `git reset HEAD`,再看锁已没了)——
+ * 这类失败一次钩子都没跑过,绝不能当成"钩子判红",更不能拿 --no-verify 去"修"它。
+ */
+const GIT_LOCK_MISS =
+  /Unable to create .*index\.lock|Another git process|index\.lock'?: ?File exists|cannot lock ref/i
+/**
+ * 分诊(2026-10-26 收窄)。旧判据写的是 `status === 128 || GIT_LOCK_MISS.test(out)` ——
+ * 把**任何** 128 都读成锁争用。当天本机实测把它打穿了两次:
+ *  ① 提交身份取不到(`Author identity unknown` + 128)⇒ 连跑 10 轮整条守门链(≈100 分钟)
+ *     而每一轮都在同一个确定性失败上重跑,最后仍然落不了地;
+ *  ② 出网代理腿死(`unable to access … Recv failure` + 128)同一族。
+ * 两者都不是锁:重试既修不了署名也修不了网络,却会掩盖真实归因。
+ * ⇒ **128 只是必要条件,锁特征才是判据**;认不出锁特征就照实归因退出(§0.10:失效方向
+ *   必须是"多要一次定向说明",绝不能是"多放一次跳门/多跑一轮全量门")。
+ */
+const isGitLockFailure = (status, out) => status === 128 && GIT_LOCK_MISS.test(out)
+/** 确定性致命因(重试修不了的那些) ⇒ 点名退出,不再烧一轮守门链去赌它自愈。 */
+const GIT_DETERMINISTIC_FATAL =
+  /Author identity unknown|unable to auto-detect email address|not a git repository|unable to access|Failed to connect|Permission denied|Repository not found/i
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+/**
+ * not-ours 的"退避重试去拿钩子"次数与等待梯(2026-11-02 立,事故 5c8aec3653)。
+ * 旧流程在归因 not-ours 之后**自动**追加 `--no-verify` 落地,台账记 gatesRan:false/hookSkipped:true
+ * ⇒ 历史里留下一枚"看不出钩子没跑"的假绿。并发会话占用 git index / COMMIT_EDITMSG 属**瞬时**争用,
+ * 退几秒通常就轮到 —— 所以该做的是让路再发令,而不是把整条钩子链跳掉。
+ * `IHUI_SAFE_COMMIT_HOOK_RETRIES` 只调重试次数,`IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS` 只调退避起点;
+ * 两者都**不能**让本工具跳过钩子(跳过只有显式逃生口一条路,见下方 allowSkipHooks)。
+ */
+const HOOK_RETRIES = (() => {
+  const n = Number(process.env.IHUI_SAFE_COMMIT_HOOK_RETRIES ?? '3')
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 3
+})()
+const HOOK_RETRY_BASE_MS = (() => {
+  const n = Number(process.env.IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS ?? '3000')
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 3000
+})()
+/** 第 n 次重试前的退避:base, 2×base, 4×base…上限 12000ms(默认 3s/6s/12s)。 */
+const hookRetryDelayMs = (retry) => Math.min(HOOK_RETRY_BASE_MS * 2 ** (retry - 1), 12_000)
+
+/**
+ * 点名"此刻到底是哪把锁 / 哪个占用"(2026-11-02 立)。只报现读到的值:
+ * 取不到 git 目录就照实说取不到,不编一个文件名(§0.3)。
+ * 判据不复制 git-lock 的持有者逻辑 —— 持锁方现读走 `node scripts/git-lock.mjs check`。
+ */
+function describeLockHolders() {
+  const lines = []
+  try {
+    const r = spawnSync('git', ['-C', repoRoot, 'rev-parse', '--absolute-git-dir'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const gitDir = r.status === 0 ? String(r.stdout ?? '').trim() : ''
+    if (!gitDir) {
+      lines.push('git 目录取不到(rev-parse --absolute-git-dir 失败)—— 无法点名具体锁文件')
+    } else {
+      // ihui-git-write.lock 是**本工具自己**持有的协作锁(不是争用源),不列进来冒充嫌疑人。
+      const watched = ['index.lock', 'COMMIT_EDITMSG.lock', 'HEAD.lock']
+      const found = watched.filter((n) => existsSync(join(gitDir, n)))
+      // next-index-<pid>.lock 是 pathspec/--only 形态的旁路索引文件,同样是"别人正占着写面"的证据。
+      let extras = []
+      try {
+        extras = readdirSync(gitDir)
+          .filter((n) => /^(next-index-|index-)\d+\.lock$/.test(n))
+          .slice(0, 6)
+      } catch {
+        /* 枚举失败不编造(下面的措辞已说明 watched 清单是现读) */
+      }
+      const all = [...found, ...extras]
+      lines.push(
+        all.length
+          ? `此刻仍存在的锁文件:${all.join(', ')}(目录 ${gitDir})`
+          : `此刻未检出常见锁文件(${watched.join(' / ')} 均不在;争用可能已释放,或锁在别的 git 目录)`,
+      )
+    }
+  } catch (e) {
+    lines.push(`锁文件现读失败:${String(e?.message ?? e).slice(0, 120)}`)
+  }
+  lines.push('持锁方现读:node scripts/git-lock.mjs check')
+  return lines
+}
+/** 读非负整数 env:空值/非法值 ⇒ 默认值(不得把 "" 读成 0 而静默关掉重试)。 */
+const envInt = (name, dflt) => {
+  const raw = String(process.env[name] ?? '').trim()
+  if (raw === '') return dflt
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : dflt
+}
+/**
+ * 并发锁争用重试策略(2026-11-03 收窄,机主明令):
+ *   · 默认 **3 次重试**(共 4 次尝试)、指数退避(2s/4s/8s)、**总预算 60s**;
+ *   · 旧形态是 10 次 × 固定 3s —— 在钩子窗口里白等,且耗尽后仍是"等一等就好了"的错觉。
+ *   · 预算耗尽 ⇒ 调用方 exit 非 0,**绝不**以 --no-verify 兜底。
+ * 环境变量只给测试/极端现场收窄用,默认值就是纪律本身。
+ */
+const LOCK_RETRIES = envInt('IHUI_SAFE_COMMIT_LOCK_RETRIES', 3)
+const LOCK_BACKOFF_BASE_MS = envInt('IHUI_SAFE_COMMIT_LOCK_BACKOFF_MS', 2000)
+const LOCK_RETRY_BUDGET_MS = envInt('IHUI_SAFE_COMMIT_LOCK_BUDGET_MS', 60_000)
+/** @returns {number|null} 下一次重试前该睡多久;null = 预算耗尽,不得再重试。 */
+function nextLockRetryDelay(attempt, startedAt) {
+  const remaining = LOCK_RETRY_BUDGET_MS - (Date.now() - startedAt)
+  if (remaining <= 0) return null
+  return Math.min(LOCK_BACKOFF_BASE_MS * 2 ** (attempt - 1), remaining)
+}
+/** 锁争用耗尽后的统一出路文案(Step 1-3 与 Step 4 两处发令点共用一份,禁止各写各的)。 */
+const LOCK_EXHAUSTED_ADVICE =
+  `索引锁争用重试耗尽(${LOCK_RETRIES} 次 / 总预算 ${LOCK_RETRY_BUDGET_MS}ms)—— 这**不是**钩子判红;` +
+  '请等待并发会话释放索引(node scripts/git-lock.mjs check 看持有者),或改走 `node scripts/object-space-land.mjs`' +
+  '(它不跑钩子,落地后自动复跑受影响门);本枚不落地、**不跳钩**。'
+/** 该路径是否已在索引里(= 已跟踪)。用于区分"已跟踪却被忽略"与"未跟踪的产物"。 */
+function isTrackedInIndex(p) {
+  return (
+    spawnSync('git', ['ls-files', '--error-unmatch', '--', p], {
+      cwd: repoRoot,
+      windowsHide: true,
+      // §12g:三个子进程通道一律显式给;探针不吃输出也不留"顺手删掉 stdio"的空间
+      stdio: ['ignore', 'ignore', 'ignore'],
+    }).status === 0
+  )
+}
+
+// ─── 大批量路径的 argv 运输(2026-11-02 立)────────────────────────────────
+// `--files-from` 只把入口从 argv 挪到文件;若内部又把 10,000 条路径拼回 argv,
+// Step 2 的 `git add` 仍会撞 Windows CreateProcess 的 32,767 字符上限 —— 入口就白加了。
+// 出口是 git 原生的 `--pathspec-from-file` + NUL 分帧:与 `--` 后逐条路径**同一语义**
+// (不是旁路),一次调用、Step 3 的精确校验照旧。阈值以下保持原有 argv 形态不变。
+const PATHSPEC_ARGV_BUDGET = 20000 // 字节;命令行上限 32,767,给引号/转义留余量
+let pathspecScratch = null
+let pathspecSeq = 0
+/** @returns {string[]} 可直接展开进 git 参数表的 pathspec 段。 */
+function pathspecArgs(files) {
+  const payload = `${files.map(normalize).join('\0')}\0`
+  if (Buffer.byteLength(payload, 'utf8') <= PATHSPEC_ARGV_BUDGET) return ['--', ...files]
+  try {
+    if (!pathspecScratch) {
+      pathspecScratch = mkScratch('safe-commit-pathspec-')
+      process.on('exit', () => {
+        try {
+          rmScratch(pathspecScratch)
+        } catch {
+          /* 临时件清理失败不该改写提交结论 */
+        }
+      })
+    }
+    const file = join(pathspecScratch, `paths-${++pathspecSeq}.nul`)
+    writeFileSync(file, payload, 'utf8')
+    return [`--pathspec-from-file=${file}`, '--pathspec-file-nul']
+  } catch (e) {
+    log('err', `大批量路径清单落盘失败(argv 上限绕不过去):${String(e?.message ?? e).slice(0, 200)}`)
+    process.exit(2)
+  }
+}
+
+/**
+ * 暂存声明清单,带一条窄兜底(2026-10-12 立)。
+ * `git add -A -- <p>` 遇到**已跟踪却被 .gitignore 覆盖**的路径(实测:outputs/ 下那份
+ * 曾被强制加进来的操作单)会整条中止,于是这类文件既走不到 Step 3 的精确性校验、
+ * 也无法经唯一 sanctioned 通道提交 —— 水印门的自愈 `git add` 同样只认这一类,
+ * 结果就是它以"残迹态"长期挂在已跟踪面上。
+ * 出口只有一条:对**已在索引里**的路径换 `add -A -f`;未跟踪项一律不开 -f
+ * (那等于把构建垃圾塞进版本树)。Step 3 的"意外文件即中止"照旧兜底。
+ * @returns {{status:number, stderr:string, forceCount:number}}
+ */
+function stageDeclared(files, label) {
+  const first = gitStep(['add', '-A', ...pathspecArgs(files)], label)
+  if (first.status === 0) return { ...first, forceCount: 0 }
+  const tracked = files.filter(isTrackedInIndex)
+  const rest = files.filter((f) => !tracked.includes(f))
+  if (!tracked.length) return { ...first, forceCount: 0 }
+  const parts = []
+  if (tracked.length) parts.push(['add', '-A', '-f', ...pathspecArgs(tracked)])
+  if (rest.length) parts.push(['add', '-A', ...pathspecArgs(rest)])
+  for (const args of parts) {
+    const r = gitStep(args, `${label}(-f 仅已跟踪被忽略项)`)
+    if (r.status !== 0)
+      return { ...first, stderr: `${first.stderr}\n兜底亦失败: ${r.stderr}`, forceCount: 0 }
+  }
+  log(
+    'warn',
+    `${tracked.length} 个声明路径"已跟踪但被 .gitignore 覆盖",已按 -f 分支暂存(未跟踪项不开 -f;Step 3 精确校验照旧)`,
+  )
+  return { status: 0, stderr: '', forceCount: tracked.length }
+}
+
+function gitStep(args, label) {
+  let last = null
+  const startedAt = Date.now()
+  for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
+    last = spawnSync('git', args, {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      windowsHide: true,
+      // 2026-11-02:大批量路径时 git 会**逐文件**告警(典型:core.autocrlf 下的
+      // "LF will be replaced by CRLF")。10,000 条 ≈ 1.05MB,超过 spawnSync 默认 1MB
+      // 缓冲 ⇒ ENOBUFS + status=null,一次成功的 git add 被读成失败,还会把
+      // stageDeclared 拖进逐条 ls-files 的兜底(10,000 次进程 = 数分钟挂死)。
+      // 这里只放大缓冲与超时上限,不改任何判据。
+      maxBuffer: 64 << 20,
+      timeout: 600_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (last.status === 0) return last
+    const out = `${last.stdout || ''}${last.stderr || ''}`
+    if (isGitLockFailure(last.status, out) && attempt <= LOCK_RETRIES) {
+      const delay = nextLockRetryDelay(attempt, startedAt)
+      if (delay === null) return last // 预算耗尽:把最后一枚原样交给调用方去报红退出
+      log(
+        'warn',
+        `…${label} 撞 git 索引锁(exit ${last.status},钩子还没轮到),第 ${attempt}/${LOCK_RETRIES} 次重试(${delay}ms 后)`,
+      )
+      sleep(delay)
+      continue
+    }
+    return last
+  }
+  return last
+}
+
+// ─── 1. git reset HEAD (清空整个暂存区) ────────────────────
+// G-1018292(2026-10-04):本 Step 的 `git reset HEAD` 会把**整个共享索引**清空,
+// 于是"他人已暂存的删除"(`git status --porcelain` 的 `D ` 形态)那枚保护标记
+// 一起被摘掉 —— 退化成 ` D` 之后存续自愈那三条判据(工作树缺 ∧ 索引 blob==HEAD blob
+// ∧ HEAD 有)全部成立,会把一枚**可能有意的删除**当成外部删除恢复回盘上,而两边账面都绿。
+//
+// **为什么只能在这里取样**:实测(2026-10-04 临时仓逐条试)`git reflog --all` /
+// `git reflog show --name-status HEAD` / `git fsck` 三条路都答不了"这批删除曾否是暂存态"
+// —— 索引不是对象库的一部分,`reset HEAD` 不产生任何 reflog 条目,`fsck` 无输出。
+// 清空之后**没有任何事后痕迹**可查,所以判据的唯一合法取样窗就是 reset 之前这一瞬。
+// 取样面与判据本体都在 scripts/lib/staged-delete-intent.mjs(纯函数,可构造面证明)。
+//
+// ⚠️ 本段只做**留底 + 判定 + 点名**,绝不代裁:不恢复、不删除、不改工作树,
+// 也不动别人那枚删除本身(票面明写"既不支持也不阻止")。判不出时按"未判定"报,
+// 不折进"没问题"(见三条不许漂第 1条)。
+const intentSnapshot = snapshotStagedDeleteIntent({ root: repoRoot })
+if (!intentSnapshot.ok) {
+  // 取不到就是取不到。此处**不阻断提交**(那会把一次环境抖动变成全仓提交停摆),
+  // 但必须留一行"未判定",不许让"读不到索引面"在账面上读成"没有删除"。
+  log(
+    'warn',
+    '删除意图判据:未判定 —— 清空前索引面取不到,无法判断本次清空是否摘掉了他人暂存删除的标记' +
+      '(不阻断本次提交;若确有他人暂存删除,请归属会话重新 stage 后再提交)',
+  )
+}
+
+log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)')
+const resetResult = gitStep(['reset', 'HEAD'], 'git reset HEAD')
+if (resetResult.status !== 0) {
+  log('err', `git reset HEAD 失败: ${resetResult.stderr}`)
+  if (isGitLockFailure(resetResult.status, `${resetResult.stdout ?? ''}${resetResult.stderr ?? ''}`))
+    log('err', LOCK_EXHAUSTED_ADVICE)
+  process.exit(2)
+}
+
+// 清空之后**再取一次**索引面:判据必须是"清面前后两次观测"的差,不是单面推断。
+// (只用清空前那一次面会恒真 —— 那正是"放宽判据换绿"的同型。)
+if (intentSnapshot.ok) {
+  const afterFace = readCachedNameStatus({ root: repoRoot })
+  const intentVerdict = judgeStagedDeleteIntent({
+    before: intentSnapshot.before,
+    after: afterFace,
+    ownPaths: expectedFiles,
+  })
+  if (intentVerdict.kind === 'intent-lost') {
+    // 只喊人 + 留痕。恢复/删除都不做(恢复别人的删除比留下它更危险)。
+    log(
+      'err',
+      `本次清空了他人的 ${C.red}${intentVerdict.lost.length}${C.reset} 项暂存删除 —— ` +
+        `删除意图丢失,已无法从 git 侧复原(reflog/index 均不留痕):`,
+    )
+    for (const p of intentVerdict.lost)
+      console.log(`     ${C.red}! ${p}${C.reset}(清空前是暂存删除)`)
+    log(
+      'warn',
+      '这些删除**不是本脚本删的**,本脚本也**不会替你恢复或提交**它们(票 G-1018292:只标记与喊人)。' +
+        '归属会话请重新 `git rm --cached -- <路径>` 恢复标记,或明确撤销该删除意图。',
+    )
+    recordClearedStagedDeletions({
+      root: repoRoot,
+      lost: intentVerdict.lost,
+      selfStaged: intentVerdict.selfStaged,
+      kept: intentVerdict.kept,
+      branch: currentBranch,
+      headBefore: run('git rev-parse HEAD', { allowFail: true }) || '',
+      declaredFiles: expectedFiles,
+    })
+  } else if (intentVerdict.kind === 'undetermined') {
+    log('warn', `删除意图判据:未判定 —— ${intentVerdict.reason}`)
+  } else if (intentVerdict.selfStaged.length > 0) {
+    // 反例②那一档:本会话自己声明的删除,清空后由 Step 2 的 add -A 重新暂存,标记会回来。
+    // 行为与改前逐字一致,故只在info 行里说明,不红。
+    log(
+      'info',
+      `其中 ${intentVerdict.selfStaged.length} 项暂存删除属本票声明面(将由 Step 2 重新暂存,标记不丢):` +
+        `${intentVerdict.selfStaged.slice(0, 5).join(', ')}${intentVerdict.selfStaged.length > 5 ? ' …' : ''}`,
+    )
+  }
+}
+
+// ─── 2. git add -A <用户预期文件>(-A 支持已删除文件) ─────
+// 修复(2026-07-22): 原 `git add --` 对已删除文件报错 pathspec did not match。
+// `git add -A --` 同时暂存新增/修改/删除三种变更, 第 3 步校验仍保证精确匹配。
+log('info', `Step 2/5: git add -A <${expectedFiles.length} files> — 只暂存自己声明的文件(含删除)`)
+const addResult = stageDeclared(expectedFiles, 'git add')
+if (addResult.status !== 0) {
+  log('err', `git add 失败: ${addResult.stderr}`)
+  log('warn', '可能原因: 路径错误/仓库锁定/权限问题')
+  process.exit(1)
+}
+
+// ─── 2b. README 生成数字发令前对齐(2026-10-22 立)──────────────────────────
+// 病灶:数字块由 post-commit 回写 ⇒ 索引面永远落后一枚,凡带 README 的提交都被门 173 判红
+// (实测 tracked 15613 / 索引 15612 / HEAD 15611)。
+// 修在 Step 2 之后而不是 pre-commit 里:README 此刻已在索引 ⇒ 改内容不算"窗口期新进",
+// O43② 护栏零感知(在钩子里补写并 add 会被它整枚拒发 —— 那正是这段移到 post-commit 的由来)。
+// 处理面严格限定在**声明面里的** README:`--files` 防本器顺手 add 未声明的兄弟文件,
+// 否则 Step 3 的精确匹配会判"意外文件"并中止。
+const readmeDeclared = expectedFiles
+  .map((f) => f.replace(/\\/g, '/'))
+  .filter((f) => /^README(\.en|\.ko|\.ja)?\.md$/.test(f))
+if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '1') {
+  try {
+    execFileSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'sync-readme-numbers.mjs'), `--files=${readmeDeclared.join(',')}`],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 << 20,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    log('info', `Step 2b/5: README 生成数字已对齐现算值(${readmeDeclared.join(', ')})`)
+  } catch (e) {
+    log(
+      'warn',
+      `Step 2b/5: sync-readme-numbers 失败(不阻断,门 173 照索引面判):${String(
+        e?.stdout || e?.message || '',
+      )
+        .trim()
+        .split('\n')
+        .slice(-3)
+        .join('\n')}`,
+    )
+  }
+}
+
+// ─── 3. 校验 staged 内容是否 == 预期 ───────────────────────
+log('info', 'Step 3/5: 校验 staged 内容与预期一致')
+// D171:清单走 lib 的 -z 形态(NUL 分帧、不经 core.quotePath 转写),声明侧与 git 侧
+// 比的都是真路径;比对严格度不变 —— 意外文件照旧中止,缺失文件照旧中止。
+const stagedFiles = gitStagedPaths({ root: repoRoot })
+
+// 规范化函数在文件头只定义一份(normalize),声明侧/清单侧/校验侧共用。
+const stagedNorm = new Set(stagedFiles.map(normalize))
+const expectedNorm = new Set(expectedFiles.map(normalize))
+
+// 3a. 意外文件(其他 agent 留下的)
+const unexpected = [...stagedNorm].filter((f) => !expectedNorm.has(f))
+if (unexpected.length > 0) {
+  log('err', `暂存区出现 ${C.red}${unexpected.length}${C.reset} 个非预期文件(其他 agent 残留?):`)
+  for (const f of unexpected) console.log(`     ${C.red}+ ${f}${C.reset}`)
+  log('err', `为安全起见,中止 commit(不悄悄剥离意外文件,人工确认后再操作)`)
+  log('warn', `修复建议: git reset HEAD 然后 git add <你自己的文件>`)
+  process.exit(1)
+}
+
+// 3b. 缺失文件(用户预期但未 staged)
+const missing = [...expectedNorm].filter((f) => !stagedNorm.has(f))
+if (missing.length > 0) {
+  log('err', `${C.red}${missing.length}${C.reset} 个预期文件未暂存(可能路径错误或文件不存在):`)
+  for (const f of missing) console.log(`     ${C.red}- ${f}${C.reset}`)
+  log('warn', `检查: git status ${missing[0]} 确认文件状态`)
+  process.exit(1)
+}
+
+// 3c. Agent scope 校验(可选,环境变量 AGENT_SCOPE 限定)
+const agentScope = process.env.AGENT_SCOPE
+if (agentScope) {
+  const scopeDirs = agentScope
+    .split(/[\s,]+/)
+    .map((s) => s.trim().replace(/\\/g, '/').replace(/\/$/, ''))
+    .filter(Boolean)
+  const outOfScope = stagedFiles.filter((f) => {
+    const fn = normalize(f)
+    return !scopeDirs.some((scope) => fn.startsWith(scope + '/') || fn === scope)
+  })
+  if (outOfScope.length > 0) {
+    log(
+      'err',
+      `${C.red}${outOfScope.length}${C.reset} 个文件超出本 agent 范围 ${C.yellow}{${agentScope}}${C.reset}:`,
+    )
+    for (const f of outOfScope) console.log(`     ${C.red}× ${f}${C.reset}`)
+    log(
+      'warn',
+      `如需跨域 commit,设置 AGENT_SCOPE_OVERRIDE=1 或在 commit message 显式标注 [cross-domain]`,
+    )
+    if (process.env.AGENT_SCOPE_OVERRIDE !== '1' && !message.includes('[cross-domain]')) {
+      process.exit(1)
+    }
+    log(
+      'warn',
+      `已用 ${message.includes('[cross-domain]') ? 'message 标注' : 'AGENT_SCOPE_OVERRIDE'} 跨域豁免`,
+    )
+  }
+}
+
+log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 个文件`)
+
+// ─── 3g. 索引面基线取样(G-920 前置护栏的 T1 端)────────────────────────────
+// 只取样、不裁决。裁决在 Step 4 发令前那一瞬做(4-pre),且只认 **相对本快照的新增量**。
+// 取**全量**索引路径(含本票件):声明集是在判据里减的。这里若先减一次,窗口期内"本票件被别人
+// 整索引提交带走、又被重暂存放回"这一档就观不到了 —— 取材面不做裁决是 §0.6 的硬要求。
+const stagedBaselineAtStep3 = stagedFiles.map(normalize)
+
+// 3e. 活文档"工作树 ⊇ HEAD"行级对账 —— 把 AGENTS §12 从"人肉记得跑"变成机制
+// (2026-09-24 立)。背景:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 是多会话共写的文档,
+// 工作树副本**常年滞后于 HEAD**(实测一日三次自伤,分别少 57 / 48 / 54 行)。而本脚本 Step 4
+// 落地的是**索引内容**,Step 2 的 `git add -A -- <声明文件>` 刚把工作树字节灌进索引 ⇒
+// 等价于按路径交工作树副本(2026-10-12 前是 pathspec 提交、语义相同),所以"只 add 本任务
+// 文件"的规范提交照样会把别人已入库的行整批写回旧态,且 `git status`、diff 行数、typecheck
+// 全看不出来。
+// 规则本来就写着"提交前先跑 merge-live-doc",但它只存在于文档里 ⇒ 谁忘了都成立,
+// 而忘了的代价是**别人的内容消失**。这里改成:声明了活文档就必须先过对账,不过即拒提交。
+const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
+// 两片**派生区**各有独占写入器,块内"少行/改值"是设计内收缩,不是谁的手写内容被吃掉:
+//   · `RECENT UPDATES` ← auto-update-readme-recent.mjs(按 MAX_GROUPS 封顶裁旧);
+//   · `GENERATED NUMBERS` ← gen-doc-numbers.mjs --markdown(数字由现算值覆盖,正确性归门 173)。
+// 3e 只对**派生区之外**要求"工作树 ⊇ HEAD"。
+// (2026-10-22 实证:回写后的 README 每次裁旧/换代都会被原判据判红,自动收编因此每 3 分钟空转一轮。)
+const DERIVED_BLOCKS = [
+  ['<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->', '<!-- END RECENT UPDATES -->'],
+  ['<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->', '<!-- END GENERATED NUMBERS -->'],
+]
+function outsideDerivedBlocks(text) {
+  let out = text
+  let stripped = false
+  for (const [begin, end] of DERIVED_BLOCKS) {
+    const bi = out.indexOf(begin)
+    const ei = out.indexOf(end)
+    if (bi === -1 || ei === -1 || ei < bi) continue
+    out = out.slice(0, bi) + '\n' + out.slice(ei + end.length)
+    stripped = true
+  }
+  return stripped ? out : null
+}
+const liveDocsStaged = expectedFiles
+  .map((f) => f.replace(/\\/g, '/'))
+  .filter((f) => LIVE_DOCS.includes(f))
+if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
+  for (const f of liveDocsStaged) {
+    // 差异只落在派生区 ⇒ 直接放行(交给 merge-live-doc 反而会把裁掉的旧条目塞回来)。
+    // 块外一旦真丢行,这里得不到相等 ⇒ 回落到下面的 merge-live-doc 原判据。
+    try {
+      const a = outsideDerivedBlocks(gitRaw(['show', `HEAD:${f}`], ROOT))
+      const b = outsideDerivedBlocks(readFileSync(join(ROOT, f), 'utf8'))
+      if (a !== null && b !== null && a === b) {
+        log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 派生区之外逐字一致(「最近更新」/「生成数字」归脚本)`)
+        continue
+      }
+    } catch {
+      /* 取不到版本就回落到原判据 */
+    }
+    const r = spawnSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'merge-live-doc.mjs'), '--file', f],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: 64 * 1024 * 1024,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    if (r.status === 0) {
+      log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 工作树 ⊇ HEAD`)
+      continue
+    }
+    if (r.status === 2) {
+      log(
+        'warn',
+        `活文档对账取不到版本(不阻断):${f} — ${String(r.stderr || r.stdout)
+          .trim()
+          .slice(0, 120)}`,
+      )
+      continue
+    }
+    log(
+      'err',
+      `活文档对账判红:${C.cyan}${f}${C.reset} 的工作树副本**吃掉 HEAD 已入库的行**。\n` +
+        `   若照此提交,会把别人已入库的内容整批写回旧态(git status 与 diff 都看不出来)。\n` +
+        `   先读上面那份报告,按实际形态走两步(两条都实测跑得通,顺序不能倒):\n` +
+        `   ① 本席是把整区正文**逐字迁进** \`.ihui-agent/archive/\`(AGENTS §1 两步走)——报告里这些行必须读成\n` +
+        `      「已按 §1 移入 archive」;读成 lost 就是同批归档件既不在 HEAD 也不在盘上 ⇒ 先把**那枚归档件单独提交**\n` +
+        `      (它不是活文档,不受本闸管),再复跑 ${C.cyan}node scripts/merge-live-doc.mjs --file ${f}${C.reset}。\n` +
+        `      迁出行在飞窗口里曾被顶回旧态(2026-10-28 实测 95336 B 被写成 102352 B),根因已修在被审面 ∪ 磁盘那一档。\n` +
+        `   ② 落库后**仍判 lost** 的那些行才真是被吃掉的正文:${C.cyan}node scripts/merge-live-doc.mjs --file ${f} --apply${C.reset}\n` +
+        `      补回,归并后必须看到"lost = 0 且长行重复新增 = 0"。\n` +
+        `   两型都不是(确属有意重写整份文档)时:${C.cyan}IHUI_SKIP_LIVE_DOC_CHECK=1${C.reset}(会在报告里留痕)。`,
+    )
+    process.exit(1)
+  }
+} else if (liveDocsStaged.length) {
+  log('warn', `已跳过活文档对账(IHUI_SKIP_LIVE_DOC_CHECK=1)—— 本枚提交可能把别人的行写回旧态`)
+}
+
+// ─── 3f. 活文档新增行的 sha 取值(G-1079146 剩余半格,2026-10-08)─────────────
+// 票面原话:「优先做的不是新门,是掐住成因 —— 给 live-doc-edit.mjs / **safe-commit.mjs** 的活文档
+// 写入路径加一步"现读取值":新行含 sha 形态串且 `git rev-parse --verify <tok>^{commit}` 不通过
+// ⇒ 打印该提交的全量 40 位并**拒绝落该行**;不需要存量清单、也不造恒红面。」
+// live-doc-edit 那一半已在 `a1764c9c5` 落地;本步是 safe-commit 这一半。
+//
+// **为什么 safe-commit 有落点(它不重写内容,只是把磁盘副本交上去)**:
+//   实测(2026-10-08 临时 git 仓,先 stage `lineINDEX` 再把磁盘改成 `lineWORKTREE`,然后
+//   `git commit -- PROJECT_PLAN.md`):落库的是 `lineWORKTREE` ⇒ pathspec 提交取的是
+//   **工作树**版本;2026-10-12 起 Step 4 改普通提交,落地的是索引,而 Step 2 的
+//   `git add -A -- <声明文件>` 刚把工作树字节灌进索引 ⇒ 在 Step 3 这一刻"暂存内容 ==
+//   磁盘副本"两种形态下都成立。所以本器确实不产出行,但它是**整条"交磁盘副本"
+//   通道的入口** —— AGENTS §12 记的一夜三次自伤走的正是这条路,而 live-doc-edit 那一步只管得住
+//   "经它落地"的写入。不接这一格,结论就是"绕过 live-doc-edit 直接改磁盘 + safe-commit 提交 =
+//   零看守",那正好把票面要掐的成因留在原处。可判对象 = 暂存内容与 HEAD 的行差集里、
+//   **HEAD 侧原本没有的那批新增行**(所以存量 sha 不会被回判,默认档不产生恒红面)。
+//
+// 三条与 live-doc-edit 侧同形的语义(不得漂):
+//  ① 判据**只有那一份**:抽取/形状/三条放过/探测三态/报告措辞全部 import `./live-doc-edit.mjs`
+//     已导出的出口;行差集与行多重集 import `./lib/stale-content-analysis.mjs` 的
+//     `lineDeltaMaps / tallyLines`(门 84 与 object-space-land 用的就是这两个)。本器内不出现
+//     第二条 hex 正则、不自己 split 做差 —— 由镜像测试的源码锁钉住(§22c)。
+//  ② **git 问不到 ⇒ 未判定 ⇒ 放行**并点名原因。把"没判成"折成"这就是坏",产出的是一台恒挡的
+//     尺子,而它挡的是**全队提交**(§12e:恒挡的唯一出路是绕回裸 `git commit` 跳门,连带
+//     该枚提交上全部守门作废)。未判定的成因四种:两面正文任一取不到 / 行差集算不出 /
+//     探测器 pre-flight 不过 / 本次行差集大到"整档扫描会挂死"那一级(见下面的实测)。
+//  ③ 应急出口只有 `LIVE_SHA_ALLOW=<token>=<原因>` —— 与 live-doc-edit **同一个 env、同一个
+//     `parseShaAllow`**:无原因不收录,每条收录都打印留痕。本步不新增开关,也**不**被
+//     `IHUI_SKIP_LIVE_DOC_CHECK` 放行 —— 那是 3e 那条"整份文档有意重写"的出路,与"新行里的
+//     出处指针兑现不了"是两笔不同形态的债,一道闸不该替另一道闸作主。
+//
+// 一条刻意与 live-doc-edit 不同的口径(如实登记,别读成"两处漏了一处"):
+//   本步的"携带存量"只认 ①同一行文本在 HEAD 里已存在(重复登记副本)②本次**消失行**里已有的
+//   token(改写携带),**不扫全文**。原因不是省事而是实测:把 4,134,660 B 的整份 HEAD 当"一行"
+//   喂进抽取式,一次调用 **284,198ms**(权威门 `extractFromLine` 的 `lineText` 字段按
+//   `[...line.trim()]` 展开整行,每命中一次全展开一遍 ⇒ 代价 = 命中数 × 行长,平方级)。
+//   扫全文会把一次提交变成 5 分钟挂死;按行喂则同一函数是 0–1ms 量级(200KB 单行 1ms 实测)。
+//   因此"整档行数超闸"这一格也一律落**未判定 ⇒ 放行**,不冒红也不静默通过。
+//   闸值是常量,**不是开关** —— 本步不给"关掉这一步"留任何 env 出口(git 问不到时它自己就放行,
+//   而那已经是唯一需要的那一档;能调小的旋钮等于能关掉的旋钮)。
+const SHA_INTAKE_LINE_CAP = 5000
+
+/**
+ * 从"暂存面 ⊖ HEAD 面"的行差集里挑出**本次真的新写的行**,并给每行带上"存量 token 携带集"。
+ * 纯取材 + 纯差集,不派生 git 探测(探测归调用方),这样每一条 unjudged 的成因都能被点名。
+ * @returns {Array<{file:string, entries:Array, undetermined:string[], carried:number}>}
+ */
+function liveDocIntakePlan({ root, files }) {
+  const out = []
+  for (const f of files) {
+    const rec = { file: f, entries: [], undetermined: [], carried: 0 }
+    out.push(rec)
+    let staged = null
+    let head = null
+    try {
+      staged = gitRaw(['show', `:${f}`], root)
+    } catch (e) {
+      rec.undetermined.push(
+        `${f}:暂存面正文取不到(该路径未入索引 / 已暂存删除 / git 不可问)⇒ 本步不判(${String(
+          e?.message ?? e,
+        ).slice(0, 160)})`,
+      )
+      continue
+    }
+    try {
+      head = gitRaw(['show', `HEAD:${f}`], root)
+    } catch (e) {
+      // 首次入库(HEAD 里没有这份文档)与"仓库不可问"在文本上同形,而按形状判据去分辨就是
+      // 把结论建立在错误消息字符串上(本仓明令禁止)⇒ 两种都落未判定,不许折成"全是新增"。
+      rec.undetermined.push(
+        `${f}:HEAD 面正文取不到(文档首次入库,或仓库/git 不可问)⇒ 本步不判(${String(
+          e?.message ?? e,
+        ).slice(0, 160)})`,
+      )
+      continue
+    }
+    const delta = lineDeltaMaps(head, staged)
+    if (!delta) {
+      rec.undetermined.push(`${f}:行差集算不出(两侧正文有一侧不是字符串)⇒ 本步不判`)
+      continue
+    }
+    const lines = delta.added.size + delta.removed.size
+    if (lines > SHA_INTAKE_LINE_CAP) {
+      rec.undetermined.push(
+        `${f}:本次行差集 ${lines} 行 > 闸 ${SHA_INTAKE_LINE_CAP} ⇒ 本步不判(整档逐行扫描会把一次提交拖成分钟级挂死;` +
+          `这一格是未判定,不是"确认没有坏指针")`,
+      )
+      continue
+    }
+    // ① 改写携带:before 侧消失的行里本来就有这些 token ⇒ 本次只是把整行改写法,不是新写指针。
+    //    走 live-doc-edit 导出的那一份 `rewriteEntryOf`(不在此重抄"什么算候选")。
+    const skip = new Set()
+    for (const gone of delta.removed.keys())
+      for (const tok of rewriteEntryOf(gone, '').skip) skip.add(tok)
+    // ② 重复副本:同一行文本在 HEAD 里本来就存在 ⇒ 与 live-doc-edit 的 carriedOver 同义,不回判。
+    const headTally = tallyLines(head)
+    for (const [line, count] of delta.added) {
+      if ((headTally.get(line) ?? 0) > 0) {
+        rec.carried += count
+        continue
+      }
+      // 逐行判 ⇒ 每次 `extractFromLine` 只吃一行(实测短行 0–1ms);entries 与文件一一对应,
+      // 报告才能点名是哪个文档。
+      for (let i = 0; i < count; i++) rec.entries.push({ text: line, skip })
+    }
+  }
+  return out
+}
+
+if (liveDocsStaged.length) {
+  const shaProbe = makeShaProber({ root: repoRoot })
+  const shaAllow = parseShaAllow(process.env.LIVE_SHA_ALLOW)
+  for (const rec of liveDocIntakePlan({ root: repoRoot, files: liveDocsStaged })) {
+    for (const w of rec.undetermined)
+      log('warn', `取值未判定 ⇒ **放行**:${w}(判不出 ≠ 坏;这一步挡的是全队提交)`)
+    if (rec.carried > 0)
+      log(
+        'info',
+        `取值:${rec.file} 有 ${rec.carried} 行是 HEAD 里已存在的同一行文本 ⇒ 按重复副本处理,不回判`,
+      )
+    if (rec.entries.length === 0) continue
+    const v = judgeNewLineShas(rec.entries, { probe: shaProbe, allow: shaAllow })
+    for (const l of shaGateReport(v))
+      log(l.kind === 'error' ? 'err' : l.kind === 'warn' ? 'warn' : 'info', l.text)
+    if (v.blocked.length === 0) continue
+    log(
+      'err',
+      `活文档取值判红来自:${C.cyan}${rec.file}${C.reset}(本步只吃"暂存面 ⊖ HEAD 面"的新增行,存量不回判)。`,
+    )
+    log(
+      'err',
+      `拒绝提交本票声明的 ${C.cyan}${expectedFiles.length}${C.reset} 个文件(G-1079146:登记这一刻问才不会留腐烂)。\n` +
+        `   出口只有三条:① 该对象在本机确能解析 ⇒ 写**全量 40 位**;② 换内容锚点(编号 + 标题原文);` +
+        `③ 确非 commit(设备号 / contenthash / ref 名片段 / 外部仓 revision)⇒ ` +
+        `${C.cyan}LIVE_SHA_ALLOW=<token>=<一句话原因>${C.reset} 重跑(逐 token、必须带原因、会打留痕)。`,
+    )
+    log(
+      'err',
+      `   **禁止**从同段挑一枚"看起来对的 sha"自动补进去(§1 / G-191:那是编造,不是找回);` +
+        `也**禁止**用 ${C.cyan}IHUI_SKIP_LIVE_DOC_CHECK=1${C.reset} 绕本步 —— 那一道闸管的是 3e 的整文档对账,不是这一型。`,
+    )
+    process.exit(1)
+  }
+}
+
+// 3d. commit message 加 agent 标识前缀(若未指定)
+let finalMessage = message
+if (process.env.AGENT_NAME && !message.match(/^\[[\w-]+\]/)) {
+  finalMessage = `[${process.env.AGENT_NAME}] ${message}`
+  log('info', `自动加 agent 标识前缀 → ${C.cyan}${finalMessage.split('\n')[0]}${C.reset}`)
+}
+
+/** O67(2026-10-31):发令前只读点名「索引里非本票声明的已暂存件」—— 只警告、绝不拒发(§12e)。 */
+function reportUndeclaredStaged() {
+  try {
+    const staged = gitStagedPaths({ root: repoRoot })
+    const extra = partitionUndeclaredStaged(staged, expectedFiles)
+    const line = formatUndeclaredLine(extra)
+    if (line) log('warn', line)
+    else log('ok', `索引归属对账:${staged.length} 个已暂存件全部属于本票声明集(${expectedFiles.length} 个)`)
+  } catch (e) {
+    log('warn', `索引归属对账取不到索引(未判定,不拦发令):${e?.message ?? e}`)
+  }
+}
+
+if (dryRun) {
+  // O67:dry-run 也点名(票面验证:dry-run 输出含该行且纯净索引零误报)。
+  reportUndeclaredStaged()
+  log('ok', `dry-run 通过,实际不会 commit`)
+  process.exit(0)
+}
+
+// ─── 4. git commit(普通提交,两阶段重试,与 git-push-guard 逻辑一致)───────────
+// 2026-10-12:去掉 `-- ...expectedFiles` pathspec —— 那是**确定性自碰撞**,不是运气问题:
+// pathspec/--only 提交在钩子运行期间由父 git 持 `.git/index.lock`(GIT_INDEX_FILE=
+// next-index-*.lock;2026-10-08 探针实测 --only 钩子期 LOCK-HELD / plain 提交 NO-LOCK,
+// pre-commit-hook.js "同款指纹的第二种病"一节记着),而 lint-staged 的 `git add` /
+// `git restore --worktree` 要写真实索引 ⇒ 每次都撞 index.lock,退避梯(10s/30s/60s)
+// 全灭。2026-10-12 safe-commit 十连败(每次都是 lint-staged git add exit 128)即此形态,
+// 现场实证:持锁的 git commit 进程与 next-index-<pid>.lock 并存。钩子文件自带的处方
+// 就是"改用普通提交,先确认暂存区只剩本笔文件"—— 本脚本 Step 1-3 正是干这个的:
+// reset → 声明式 add → 暂存区精确匹配,且全流程在 git 写锁伞下串行(LOCK_UNIT)。
+// 活文档对账(3e/3f 与守门 check-live-doc-pathspec 的 --staged 档)判的是**索引**内容,
+// 与提交形态无关,普通提交下依旧成立(索引 == 声明文件的工作树字节,Step 2 保证)。
+// 设计(2026-11-03 改定,机主明令):每次发令都**必须过钩子**。钩子判红后的归因只回答
+// "这道红是不是本任务引入的",**不是**跳钩授权;旧流程"失败后再用 --no-verify 重试"已废止
+// (它会把钩子里的门与自跑的门混为一谈,并在正文留下难以审计的 attestation 噪声)。
+// 唯一例外 = 显式 `--allow-skip-hooks="<原因>"`,且正文写入「人工授权跳钩」一行。
+log('info', 'Step 4/5: git commit(普通提交,不带 pathspec)— 首次尝试(含 pre-commit hook)')
+// 并发基线(2026-09-16 修):记录 commit 前的 HEAD,供 Step 5 精确定位"本次创建的提交"。
+// 原 Step 5 直接校验 `git show HEAD`,多 agent 并行时若其他 agent 在本脚本 commit 落地后、
+// Step 5 执行前抢先提交,HEAD 即前移 → 误判"污染事故"并误导 agent 执行 git reset HEAD~1
+// (会破坏他人提交)。改为基于 beforeSha..HEAD 区间定位本次提交后再校验。
+const beforeSha = (run('git rev-parse HEAD', { allowFail: true }) || '').trim()
+
+// ─── 4-pre. 发令前复量索引(G-920 前置护栏,2026-10-15 立)──────────────────────
+// 背景:`classifyConcurrentCommits()` 那一半是**事后**的 —— 提交已落地,回读载荷再分成四型。
+// 而本枚提交此刻**还没生出来**:能在发令前挡住的,不该等落地后再去记账、再靠人工 forward-fix。
+// 判据只有 `diffForeignIndexEntries()` 一份(§0.6/§22c),这里不重写第二遍,只做取材与报告。
+//
+// 拦的是 **Step 3 之后新进入索引** 的非本票路径,不是"索引里有外来件" —— 后者在多会话下是常态,
+// 那样写会得到一把**恒红**的尺子,而恒红尺子的唯一出路是被人绕回裸 `git commit` 跳门(§12e),
+// 连带该枚提交上的全部守门一起作废 —— 比不装更坏。所以这里是差值棘轮:`current ⊖ baseline ⊖ 声明集`。
+//
+// **刻意不给行内豁免 env**(票面"不得新增行内豁免通道"):一旦留了 `IHUI_SKIP_*`,这把尺子就会在
+// "赶时间"的那一刻被一键关掉,而它管的恰恰是"把别人的在飞件交上去"这种事后极难察觉的事。
+// 出路不是开关,是换工具 —— `object-space-land.mjs` 的 commit-tree 只交声明集,结构上不吞他人内容。
+//
+// 另外不碰的:Step 4 不带 pathspec 这个决定本身(理由见本段下方 Step 4 处注记,2026-10-12 实测,
+// 仍然成立);30a / 100 / 168 等既有判据一律不动。
+
+/** 某路径最近一次入账的提交(用于点名"归属";取不到就说取不到,不猜)。 */
+const lastTouchOf = (p) => {
+  const r = spawnSync(
+    'git',
+    ['-c', 'safe.directory=*', '-C', repoRoot, 'log', '-1', '--format=%h %s', '--', p],
+    { encoding: 'utf8', windowsHide: true, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+  const s = r.status === 0 ? String(r.stdout ?? '').trim() : ''
+  return s ? `最近入账 ${s}` : 'HEAD 里无记录(未跟踪新件 / 该路径未入过库)'
+}
+
+/** @param {string} phase  报告里点名这是哪一次发令(首次 / 锁重试 / 跳门重试)。 */
+const rejectIfForeignEnteredIndex = (phase) => {
+  const stagedNow = gitStagedPaths({ root: repoRoot }).map(normalize)
+  const d = diffForeignIndexEntries({
+    baseline: stagedBaselineAtStep3,
+    current: stagedNow,
+    expected: expectedNorm,
+  })
+  if (d.resolved.length)
+    log(
+      'info',
+      `窗口期内外来件 ${C.cyan}${d.resolved.length}${C.reset} 条已从索引消失(多半是别家那枚先落地把它们带走了)—— 只记账,不拦(它们进不了本枚提交):` +
+        `${d.resolved.slice(0, 6).join(', ')}${d.resolved.length > 6 ? ' …' : ''}`,
+    )
+  if (!d.blocking) return
+  const statusMap = new Map(
+    gitStagedStatusEntries({ root: repoRoot }).map((e) => [normalize(e.path), e.status]),
+  )
+  log(
+    'err',
+    `${C.red}拒发本枚提交${C.reset}(${phase}):Step 3 已证明索引纯净,但发令前复量发现 ` +
+      `${C.yellow}${d.newEntries.length}${C.reset} 条**非本票路径在窗口期新进入共享索引**` +
+      `(基线外来 ${d.baselineForeign.length} 条 → 现 ${d.currentForeign.length} 条)。`,
+  )
+  log(
+    'err',
+    '  Step 4 不带 pathspec(理由仍在)⇒ 普通提交会把这些一起交出去,而 commit message 只写本票的事 ⇒ 载荷与说明对不上,' +
+      ' 事后只能靠四型分类器回读,且其上一旦叠了他人提交就不能 rewind(§22)。',
+  )
+  for (const p of d.newEntries.slice(0, 8))
+    console.log(`     ${C.red}✗ ${p}${C.reset}  ${C.yellow}[${statusMap.get(p) ?? '?'}]${C.reset} ${lastTouchOf(p)}`)
+  if (d.newEntries.length > 8) console.log(`     …另 ${d.newEntries.length - 8} 条`)
+  for (const line of foreignEntryAdvice().lines) log('err', line)
+  process.exit(1)
+}
+
+/**
+ * 首次失败**必须分诊**,否则一次环境抖动就会被升级成"109 道门全跳"。
+ * 实测事故(2026-09-24):`git commit` 因并发 `.git/index.lock` 争用直接 exit 128 —— 钩子一次没跑,
+ * 而旧流程把它与"pre-commit 判红"同形对待,立刻 `--no-verify` 重试并成功,交付看起来干净,
+ * 实际所有质量门都被跳过且无人知晓。判据:lock 类失败重试;真·钩子失败才允许应急跳过。
+ */
+/**
+ * 提交身份兜底(2026-10-26 立;值不在这里硬编码,唯一出口 = `scripts/lib/bypass-git.mjs` 的
+ * `REPO_GIT_IDENTITY_ARGS`,与旁路落地器/守护任务同源)。
+ * 立因:本机 `user.name/user.email` 只配在交互账户的 .gitconfig 里,而本脚本常由守护/计划任务/
+ * 另一身份的会话派生 ⇒ git 报 `Author identity unknown` + exit 128,旧分诊把它读成"索引锁争用",
+ * 于是整条守门链被同跑 10 遍(≈100 分钟)而问题一个没修。
+ * 方向刻意保守三条:① 只在 git 自己说取不到 user.email 时补;② 会话已有身份绝不覆盖
+ * (不得把别人的提交作者改成仓内身份);③ 探针本身跑不动 ⇒ 当作"有身份",保持改动前行为。
+ */
+/** 只问 git 一句话:当前身份下取不取到 user.email(判据零复算,值取自唯一出口)。 */
+function gitIdentityResolvable() {
+  try {
+    const r = spawnSync('git', ['-C', repoRoot, 'config', '--get', 'user.email'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git 必须显式接管 stdio
+    })
+    if (r.status !== 0) return false
+    return String(r.stdout || '').trim().length > 0
+  } catch {
+    return true // 问不到 ⇒ 不代人署名,保持改动前行为
+  }
+}
+
+const IDENTITY_CFG_ARGS = gitIdentityResolvable() ? [] : [...REPO_GIT_IDENTITY_ARGS]
+if (IDENTITY_CFG_ARGS.length) {
+  log(
+    'warn',
+    `本进程身份下 git 取不到 user.email ⇒ 用仓内唯一出口补署名(${REPO_GIT_IDENTITY_ARGS[1]});` +
+      '要改这个值请改 scripts/lib/bypass-git.mjs,不要在这里抄第二份(§0.6 单一真相源)',
+  )
+}
+
+/** 把"钩子路径 + 身份 + 提交参数"拼成一枚完整 argv;两个发令点共用一份,禁止各拼各的。 */
+const commitArgv = (skipHooks, extraCfg = []) => [...extraCfg, ...IDENTITY_CFG_ARGS, ...commitArgs(skipHooks)]
+
+const commitArgs = (skipHooks) => [
+  'commit',
+  ...(skipHooks ? ['--no-verify'] : []),
+  '-m',
+  finalMessage,
+]
+const pump = (r) => {
+  if (r.stdout) process.stdout.write(r.stdout)
+  if (r.stderr) process.stderr.write(r.stderr)
+  return `${r.stdout || ''}${r.stderr || ''}`
+}
+
+/**
+ * 异步 spawn + **实时转发**(2026-10-21 立)。钩子链本机实测 9~15 分钟,而 spawnSync 把子进程
+ * 输出全量缓冲到结束 ⇒ 终端这段时间零输出,与卡死同形(机主原话:"接受不了 15 分钟,要实时百分比")。
+ * 这里逐块转发到父进程 stdout/stderr,同时合成 combined 供既有归因/isGitLockFailure 读;
+ * 返回值刻意把 stdout/stderr 留空,避免上层 pump() 二次打印。
+ */
+function spawnStreaming(cmd, args, opts) {
+  return new Promise((resolve) => {
+    let text = ''
+    let settled = false
+    const done = (payload) => {
+      if (settled) return
+      settled = true
+      resolve(payload)
+    }
+    const child = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
+    child.stdout?.on('data', (d) => {
+      text += d
+      try {
+        process.stdout.write(d)
+      } catch {
+        /* 终端写失败不影响子进程 */
+      }
+    })
+    child.stderr?.on('data', (d) => {
+      text += d
+      try {
+        process.stderr.write(d)
+      } catch {
+        /* 同上 */
+      }
+    })
+    child.on('error', (err) =>
+      done({ status: null, signal: null, stdout: '', stderr: '', combined: text + String(err?.message ?? err) }),
+    )
+    child.on('close', (status, signal) => done({ status, signal, stdout: '', stderr: '', combined: text }))
+  })
+}
+
+// O43②:护栏目录生命周期 —— 每次发令前重生成(基线必须是"此刻"的全量索引),进程退出
+// (含 process.exit 路径)时清理;目录在 .ihui-agent/tmp 下,不进库。
+let hookWindowGuard = null
+process.on('exit', () => {
+  try {
+    hookWindowGuard?.cleanup()
+  } catch {
+    /* 退出路径不做二次事故 */
+  }
+})
+
+let commitResult = null
+let hookFailed = false
+let hookOutput = ''
+
+/**
+ * 发一枚**带钩子**的普通提交(2026-11-02 从主环原样抽出)。
+ * 主环(首次 + 锁争用重试)与 not-ours 的退避重试**共用这一份发令体**:
+ * 钩子路径必须是同一个 —— 两处各拼一次 argv / 各建一次护栏,迟早漂成"一边转发钩子、一边裸跑"。
+ */
+async function launchCommitWithHooks() {
+  // O43建议②:发令前取**全量**索引快照作基线(含他人的已暂存水位 —— 只拦"窗口期新进",
+  // 差值棘轮语义与 4-pre 完全一致),生成临时 hooksPath 逐文件转发 .husky 全部钩子;
+  // pre-commit 成功后写树前再复量一次,钩子运行期(本机实测 ≈15 分钟)新进的外来件在这里
+  // 被挡在写树之前 —— 4-pre 结构上够不到这个窗口(台账 O43)。每次发令重生成,陈旧基线
+  // 会把他人上一轮的合法落地误判成新进。
+  hookWindowGuard?.cleanup()
+  hookWindowGuard = buildWrappedHooksDir({
+    repoRoot,
+    tmpRoot: join(repoRoot, '.ihui-agent', 'tmp'),
+    baselinePaths: gitStagedPaths({ root: repoRoot }).map(normalize),
+  })
+  if (hookWindowGuard.hooksDir)
+    log(
+      'info',
+      `O43② 钩子运行期外来件护栏已布防:基线 ${hookWindowGuard.baselineCount} 条 / 转发 ` +
+        `${hookWindowGuard.hookNames.length} 个钩子(pre-commit 成功后写树前复量)`,
+    )
+  // 长钩子链的预期提示(2026-10-21):本机实测 ≈15 分钟,期间 spawnSync 把子进程输出全量
+  // 缓冲 ⇒ 终端零输出与"卡死"同形。逐门进度由 guardian-executor 每门 append 一行,可 tail。
+  log(
+    'info',
+    '钩子链(守门批量检查)本机实测约 9~15 分钟,期间无输出属正常;' +
+      '逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log',
+  )
+  return spawnStreaming(
+    'git',
+    commitArgv(false, hookWindowGuard.hooksDir ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`] : []),
+    {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
+      windowsHide: true,
+    },
+  )
+}
+
+const commitStartedAt = Date.now()
+for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
+  // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
+  rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
+  // O67:每次发令前复量一次「索引 ⊖ 声明集」,只点名不拦(拦在 Step 3)。
+  reportUndeclaredStaged()
+  const r = await launchCommitWithHooks()
+  // 输出已在 spawnStreaming 里实时转发,这里只取合成文本(不能再 pump,否则每行打两遍)
+  const out = r.combined
+  hookOutput += out
+  commitResult = r
+  if (r.status === 0) break
+  if (isGitLockFailure(r.status, out)) {
+    const delay = attempt <= LOCK_RETRIES ? nextLockRetryDelay(attempt, commitStartedAt) : null
+    if (delay === null) {
+      log('err', LOCK_EXHAUSTED_ADVICE)
+      process.exit(1)
+    }
+    log(
+      'warn',
+      `…exit ${r.status} 像是 git 锁争用(钩子未跑完),第 ${attempt}/${LOCK_RETRIES} 次重试(${delay}ms 后)`,
+    )
+    sleep(delay)
+    continue
+  }
+  // 2026-10-26:确定性致命因(署名取不到 / 远端连不上)⇒ 当场点名退出。
+  // 旧形态把它判成锁争用并重试 10 轮 ⇒ 每轮都把整条守门链跑一遍,既修不好问题也把归因洗白。
+  if (GIT_DETERMINISTIC_FATAL.test(out)) {
+    const first = String(out)
+      .split(/\r?\n/)
+      .find((l) => GIT_DETERMINISTIC_FATAL.test(l))
+    log(
+      'err',
+      `git 报**确定性致命因**(重试修不了,已停止重试,不冒充锁争用):${first}` +
+        (IDENTITY_CFG_ARGS.length ? '' : ' —— 身份若取不到,由 scripts/lib/bypass-git.mjs 的唯一出口补,不在端内硬编码'),
+    )
+    hookFailed = false // 没有任何门被跳过:钩子根本没轮到,绝不进入"跳门归因"那条链
+    process.exit(1)
+  }
+  hookFailed = true
+  if (r.status === 129) {
+    // exit 129 = git 用法错误 ⇒ 是**我们拼出的命令**坏了,不是别人代码没过门。
+    // 绝不能走 --no-verify 兜底:那会把工具自身的 bug 洗成"门跳过了但提交成功了"。
+    log(
+      'err',
+      `git exit 129(用法错误)= safe-commit 自身参数拼错,拒绝 --no-verify 兜底;请修命令构造`,
+    )
+    process.exit(1)
+  }
+  break
+}
+
+// O43②:护栏判红 = 窗口期外来件在写树前被点名。**绝不能落进下面的 --no-verify 兜底**
+// (兜底会把外来件照样交出去,护栏就白装了 —— 与"钩子真红才允许应急跳门"是两种形态),
+// 到此为止;出路只有判红输出里那两条(等其主会话落地/撤走后重跑,或改走 object-space-land)。
+if (hookOutput.includes(GUARD_MARK)) {
+  log(
+    'err',
+    `钩子运行期复量判红(见上)—— O43② 写树前最后防线生效,**拒绝 --no-verify 兜底**,本枚提交到此为止。` +
+      '注意这与"钩子判红"不同形:门是红的可以按归因分流,而这里是索引在钩子窗口期被灌了外来件,跳门解决不了它。',
+  )
+  process.exit(1)
+}
+
+let hookSkipped = false
+// 跳门落地的原因(2026-11-02):与 hookSkipped 一起进台账,让"钩子没跑"这件事**看得出原因**,
+// 而不是只留一个 gatesRan:false 的布尔。默认带钩子路径恒为空,不写进记录。
+let hookSkipReason = ''
+if (hookFailed && commitResult.status !== 0) {
+  // ── 归因(2026-09-25 立,替代旧的一句"按用户规则…因其他 agent 代码")────────────────
+  // 旧流程把三种不相干成因压成同一条措辞并一律 --no-verify:①我的内容真红 ②他人内容红
+  // ③门判的是机器/远端态。实测 134 道门跑完只有 check-push-sync(远端态)红,输出仍写
+  // "因其他 agent 代码" —— 归因从未被计算过。现在:把红的门逐道**复跑**,用它们自己这次的
+  // 输出比对本次声明的文件集。点名我 ⇒ 拒绝跳门;一个都没点名 ⇒ 才允许跳,且只说量到的话。
+  // 实测(2026-09-25):pre-commit 常把守门汇总**只**写进 .ihui-agent/state/hook-logs/pre-commit.log,
+  // stdout 停在半路 —— 没有这第二输入源,归因在真仓里的命中率是 0(每次都说"未归因")。
+  // 只喂尾部 256KB:整份日志是多轮追加的,全量读既慢又会把别人的轮子卷进来。
+  // 归档也要读:日志现在由 git-guardian 按保留期回收(`.log` → `.log.1`),上一轮可能正好落在
+  // 归档里 ⇒ 只看活动文件会把"量到的归因"退化成"未归因"。按时间序拼(.1 在前),两份都只取尾部。
+  let hookLogTail = ''
+  for (const suffix of ['.1', '']) {
+    try {
+      const logPath = join(repoRoot, '.ihui-agent', 'state', 'hook-logs', `pre-commit.log${suffix}`)
+      const size = statSync(logPath).size
+      const len = Math.min(size, 256 * 1024)
+      const fd = openSync(logPath, 'r')
+      let chunk = ''
+      try {
+        const buf = Buffer.alloc(len)
+        readSync(fd, buf, 0, len, size - len)
+        chunk = buf.toString('utf8')
+      } finally {
+        closeSync(fd)
+      }
+      hookLogTail = chunk + hookLogTail
+    } catch {
+      // 缺哪一份都不算失败(活动文件在、归档不在是常态),但也**不静默说成读到了**。
+    }
+  }
+  /**
+   * 外部状态快照(2026-10-17 立,差分第二前提)—— **由调用方现读**,归因层自己不碰 git。
+   *
+   * 要修的那一型(当天凌晨实测):提交一枚 `.husky/post-commit` 的修改,safe-commit 首次 commit
+   * 失败后逐道复跑算归因,门 29(check-push-sync)判的是"本地 ⇄ 远端同步态"。基线面那一跑与
+   * 我的面那一跑**之间**,另一台机把远端头推前了 ⇒ 基线面 exit 0 / 我的面 exit 1 ⇒ 差分写下
+   * "这枚提交把它原本跑绿的东西改红了"并拒绝跳门。两枚退出码的差**不是内容差**,是外部状态差;
+   * 归因层据此定责,零风险改动就被一道门堵死(§12e 型伤害:结局是逼人 --no-verify)。
+   *
+   * 读数取三件(合起来才叫"这一跑时远端在哪"):
+   *  ① 本分支的上游名(`rev-parse --abbrev-ref @{u}`)—— 取不到 ⇒ 快照不成立;
+   *  ② 该上游分支的**网络真值 tip**(`ls-remote <remote> refs/heads/<branch>`)—— 与门 29 自己
+   *     读的同一件东西同源。这里**不回退**本地 remote-tracking ref:本地那份只在有人 fetch 时才动,
+   *     拿它冒充"远端 tip"就等于把"问不到"折算成"没变"(AGENTS §0.3 明令禁止的正是这一步);
+   *  ③ 本地 `refs/remotes/*` 全量清单(`for-each-ref`)—— 它不是 ② 的兜底,是**额外的漂移探针**:
+   *     守护进程每 2 分钟 `git fetch origin main`,刷新本身就说明远端动过。
+   * 任何一件取不到、或枚举到 0 条 ⇒ 返回 null,归因层落 undetermined 并点名"取不到"。
+   * ⚠️ 每一跑**前后各读一次**(共四枚),不在归因层里 spawn(它保持纯判定 + 注入式复跑)。
+   */
+  const EXTERNALS_UNAVAILABLE_WHY =
+    '外部状态快照现读失败(rev-parse @{u} / ls-remote / for-each-ref 任一取不到或枚举为 0)'
+  const readGateExternals = () => {
+    try {
+      const upstream = String(
+        gitRaw(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], repoRoot) ?? '',
+      ).trim()
+      const slash = upstream.indexOf('/')
+      if (slash <= 0 || slash === upstream.length - 1) return null
+      const remote = upstream.slice(0, slash)
+      const branch = upstream.slice(slash + 1)
+      const norm = (s) =>
+        String(s ?? '')
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .sort()
+      const tip = norm(gitRaw(['ls-remote', remote, `refs/heads/${branch}`], repoRoot, { timeout: 30000 }))
+      const tracked = norm(
+        gitRaw(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes'], repoRoot),
+      )
+      if (tip.length === 0 || tracked.length === 0) return null
+      return `upstream=${upstream}\nremoteTip=${tip.join(' | ')}\nremoteRefs=${tracked.join(' | ')}`
+    } catch {
+      return null
+    }
+  }
+  /** 把某一跑的前后两枚读数打包成归因层认的形状(取不到就照实给 null + 原因)。 */
+  const externalsOf = (before, after) => ({
+    before,
+    after,
+    why: before === null || after === null ? EXTERNALS_UNAVAILABLE_WHY : null,
+  })
+  const runGate = (script) => {
+    const externalsBefore = readGateExternals()
+    const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: 300000,
+      maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return {
+      status: g.status ?? 1,
+      output: `${g.stdout || ''}${g.stderr || ''}`,
+      // 差分第二前提的取证:这一跑**前后**各现读一次外部状态(归因层比较四枚读数,不解释内容)
+      externals: externalsOf(externalsBefore, readGateExternals()),
+    }
+  }
+  /**
+   * **基线面(本次提交之前的 HEAD)**的同一道门读数 —— 差分四态的取证出口(2026-09-27 立)。
+   *
+   * 为什么必须有它:很多门的失败行**只点名符号、不点名文件**(实测门 55 打
+   * `[tool-name-coverage] ❌ 覆盖率 86/87` + `未映射工具名(1):generate_report`),
+   * 于是"因本次改动而红"与"HEAD 上早就红"在归因层手里长得一模一样,而旧措辞写的是
+   * 「红不在本次提交内容里」—— 把"我没看见路径"写成了"它不是我的"。
+   * 留痕 ts=2026-09-27T09:05:40Z 那枚自引入的红就是这样放行的(27 分钟后由 fa9e4e64d 补)。
+   *
+   * 载体取 `git worktree add --detach <scratch>/head <beforeSha>`:
+   * ① 文件内容 = 提交前的 HEAD ⇒ 磁盘型门读到的也是 HEAD(私有索引 GIT_INDEX_FILE 那一路做不到,
+   *    它只改索引面、磁盘仍是我的在途内容,会把"按磁盘判"的门喂成假存量档);
+   * ② 自带 `.git` 与自己的索引 ⇒ `--staged` 档天然等于 HEAD 面;
+   * ③ 全程不 checkout、不动共享工作树与主索引(§12d)。
+   * 代价与边界如实登记:隔离树**没有 node_modules**,故凡 spawn pnpm/tsc/eslint 的门在这里跑不通
+   * —— 那正是第④态(未差分)该管的情形,`baselineUsable()` 会按退出码 2 / Cannot find module /
+   * 超时把它判成"跑不出去",**绝不**伪装成"HEAD 面亦红"。
+   * 惰性创建、整轮至多一次、用完立刻 remove + prune(挂在这台机的 `.git` 存续治理上,不能留)。
+   */
+  let baselineTree = null
+  let baselineWhy = null
+  const disposeBaselineTree = () => {
+    if (!baselineTree) return
+    const { dir, scratch } = baselineTree
+    gitStep(['worktree', 'remove', '--force', dir], 'git worktree remove(基线面)')
+    try {
+      rmScratch(scratch)
+    } catch {
+      /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
+    }
+    // prune 必须排在 rmScratch **之后**(2026-10-30 立):`worktree remove --force` 会失败
+    // (目录被编辑器占用 / 含未跟踪件),此时注册表条目仍指向一个活目录 ⇒ prune 结构上清不到;
+    // 目录真没了之后 prune 才摘得掉。顺序颠倒的后果是**每轮提交**都永久多一条 prunable 条目,
+    // 而编辑器 SCM 把 `git worktree list` 的每一条都当独立仓 ⇒ 变更数合计成 10K/20K 徽标。
+    gitStep(['worktree', 'prune'], 'git worktree prune(基线面)')
+    baselineTree = null
+  }
+  const ensureBaselineTree = () => {
+    if (baselineTree) return baselineTree
+    if (baselineWhy) return null
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    let scratch = null
+    try {
+      scratch = mkScratch('gate-baseline-')
+    } catch (e) {
+      baselineWhy = `临时落点不可用:${e?.message ?? e}`
+      return null
+    }
+    const dir = join(scratch, 'head')
+    // 三条硬约束:绝对路径 node 不需要(这是 git 写操作)、windowsHide(守门 52)、数字 timeout(守门 80)
+    const a = spawnSync('git', ['worktree', 'add', '--detach', dir, beforeSha], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: timeoutMs,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (a.error || a.status !== 0) {
+      baselineWhy = `建基线工作树失败:${a.error?.code || a.error?.message || (a.stderr || a.stdout || '').slice(0, 200) || `exit ${a.status}`}`
+      try {
+        if (scratch) rmScratch(scratch)
+      } catch {
+        /* 建都建不起来,清理再失败只是噪音 */
+      }
+      return null
+    }
+    baselineTree = { dir, scratch }
+    process.on('exit', disposeBaselineTree)
+    return baselineTree
+  }
+  const runGateBaseline = (script) => {
+    const tree = ensureBaselineTree()
+    if (!tree)
+      return { ran: false, status: null, output: '', why: baselineWhy || '基线面工作树不可用' }
+    const gatePath = join(tree.dir, 'scripts', script)
+    if (!existsSync(gatePath))
+      return { ran: false, status: null, output: '', why: `基线面里没有该门脚本:${script}` }
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    // 外部状态快照同样**前后各读一次**(基线面那一跑的那一侧)。早退的那几支(ran:false)压根
+    // 没派生门,不给快照是对的 —— 归因层由 baselineUsable 先拦下,不会走到差分第二前提。
+    const externalsBefore = readGateExternals()
+    const g = spawnSync(process.execPath, [gatePath, '--staged'], {
+      encoding: 'utf8',
+      cwd: tree.dir,
+      // 必须剥掉 GIT_INDEX_FILE:§12d 的旁路提交会把它指到临时索引上,继承进子进程就等于
+      // "基线面"读的其实是本票的暂存内容 —— 那会把自引入的红读成"HEAD 也红",差分整个失效。
+      env: (() => {
+        const e = { ...process.env }
+        delete e.GIT_INDEX_FILE
+        return e
+      })(),
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (g.error)
+      return {
+        ran: false,
+        status: null,
+        output: '',
+        why: `基线面派生失败 ${g.error.code || g.error.message}`,
+      }
+    if (g.status === null)
+      return { ran: false, status: null, output: '', why: `基线面被中断或超时(${timeoutMs}ms)` }
+    return {
+      ran: true,
+      status: g.status ?? 1,
+      output: `${g.stdout || ''}${g.stderr || ''}`,
+      why: null,
+      externals: externalsOf(externalsBefore, readGateExternals()),
+    }
+  }
+  /**
+   * **他人面(同一份索引内容减去本枚声明路径)**的同一道门读数 —— 差分基线优先取这一面
+   * (2026-10-22 立,票 G-24 修法口径①;回落契约与轮次绑定守卫都在归因层,见
+   * commit-gate-attribution.mjs 的 classifyHookFailure @param runGateForeignFace)。
+   * 载体构造三步(全程隔离面,共享索引/工作树零写,§12d):
+   *  ① `git worktree add --detach <scratch>/face <beforeSha>` —— 与基线面同族:磁盘型门读到
+   *     这一面的真实字节;派生时**剥掉 GIT_INDEX_FILE**,否则新树的检出状态可能写进父进程
+   *     的生效索引(与基线面复跑处同一条病,见 runGateBaseline 的 env 注);
+   *  ② 拷**生效索引**(`rev-parse --git-path index`,实测随 GIT_INDEX_FILE 走)到 scratch,
+   *     再 `GIT_INDEX_FILE=<拷贝> git -C <face> reset -q -- <声明集>` —— 文件形态的 reset 只动
+   *     拷贝:声明路径折回 HEAD 条目,HEAD 里没有的新增件被摘除(一次性 scratch 仓实测);
+   *  ③ `GIT_INDEX_FILE=<拷贝> git -C <face> checkout-index -a -f` —— 磁盘 = 索引减去声明集。
+   * 门复跑用**同一门体**(scripts/<script> --staged),GIT_INDEX_FILE 指向减后拷贝:
+   * `diff --cached` 只剩他人的暂存改动,磁盘是他人 blob + 声明路径的 HEAD 字节 ——
+   * "这一面仍红"才算别人的红(⇒ not-ours);这一面绿而我的面红 ⇒ introduced(仍须过
+   * externalsDiffUsable)。任一步建不起来 ⇒ 记 foreignWhy,后续调用照实返回 ran:false,
+   * 由归因层按契约回落基线面(HEAD)差分 —— **绝不臆造一个绿面**。
+   * 惰性创建、整轮至多一次、用完立刻 remove + prune(与基线面同纪律)。
+   */
+  let foreignTree = null
+  let foreignWhy = null
+  const disposeForeignTree = () => {
+    if (!foreignTree) return
+    const { dir, scratch } = foreignTree
+    gitStep(['worktree', 'remove', '--force', dir], 'git worktree remove(他人面)')
+    try {
+      rmScratch(scratch)
+    } catch {
+      /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
+    }
+    // 同 disposeBaselineTree:prune 排在目录真删之后,否则注册表条目永远摘不掉。
+    gitStep(['worktree', 'prune'], 'git worktree prune(他人面)')
+    foreignTree = null
+  }
+  const ensureForeignTree = () => {
+    if (foreignTree) return foreignTree
+    if (foreignWhy) return null
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    let scratch = null
+    try {
+      scratch = mkScratch('gate-foreign-')
+    } catch (e) {
+      foreignWhy = `临时落点不可用:${e?.message ?? e}`
+      return null
+    }
+    const fail = (why) => {
+      foreignWhy = why
+      try {
+        rmScratch(scratch)
+      } catch {
+        /* 清理再失败只是噪音 */
+      }
+      // 同 disposeForeignTree:目录先没了,prune 才摘得掉 `worktree add` 留下的注册条目。
+      gitStep(['worktree', 'prune'], 'git worktree prune(他人面建失败回收)')
+      return null
+    }
+    const dir = join(scratch, 'face')
+    const a = spawnSync('git', ['worktree', 'add', '--detach', dir, beforeSha], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: (() => {
+        const e = { ...process.env }
+        delete e.GIT_INDEX_FILE
+        return e
+      })(),
+      windowsHide: true,
+      timeout: timeoutMs,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (a.error || a.status !== 0)
+      return fail(
+        `建他人面工作树失败:${a.error?.code || a.error?.message || (a.stderr || a.stdout || '').slice(0, 200) || `exit ${a.status}`}`,
+      )
+    // 索引拷贝的源面 = runGate("我的面")读的同一份生效索引;取不到就照实回落,不猜路径。
+    let idxSrc = null
+    try {
+      const p = String(gitRaw(['rev-parse', '--git-path', 'index'], repoRoot) ?? '').trim()
+      if (p) idxSrc = resolve(repoRoot, p)
+    } catch {
+      /* 取不到 ⇒ 下面统一报"生效索引路径不可达" */
+    }
+    if (!idxSrc) return fail('生效索引路径不可达(rev-parse --git-path index 无输出)')
+    const idx = join(scratch, 'foreign.idx')
+    try {
+      copyFileSync(idxSrc, idx)
+    } catch (e) {
+      return fail(`拷贝生效索引失败:${e?.message ?? e}`)
+    }
+    const gitFace = (args, label) => {
+      const r = spawnSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        env: { ...process.env, GIT_INDEX_FILE: idx },
+        windowsHide: true,
+        timeout: timeoutMs,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      if (r.error || r.status !== 0)
+        return `${label}失败:${r.error?.code || r.error?.message || (String(r.stderr || '').split(/\r?\n/)[0] || `exit ${r.status}`).slice(0, 200)}`
+      return null
+    }
+    // 声明集为空 ⇒ 不做整索引 reset(那会把**全部**条目折回 HEAD,面就不是"减去声明"了)
+    const reduce =
+      expectedFiles.length > 0
+        ? gitFace(['reset', '-q', ...pathspecArgs(expectedFiles)], '他人面索引摘除声明集')
+        : null
+    if (reduce) return fail(reduce)
+    const lay = gitFace(['checkout-index', '-a', '-f'], '他人面落盘')
+    if (lay) return fail(lay)
+    foreignTree = { dir, idx, scratch }
+    process.on('exit', disposeForeignTree)
+    return foreignTree
+  }
+  const runGateForeignFace = (script) => {
+    const tree = ensureForeignTree()
+    if (!tree)
+      return { ran: false, status: null, output: '', why: foreignWhy || '他人面不可用' }
+    const gatePath = join(tree.dir, 'scripts', script)
+    if (!existsSync(gatePath))
+      return { ran: false, status: null, output: '', why: `他人面里没有该门脚本:${script}` }
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    // 外部状态快照同样前后各读一次(他人面那一跑的两侧;introduced 一支须过 externalsDiffUsable)。
+    const externalsBefore = readGateExternals()
+    const g = spawnSync(process.execPath, [gatePath, '--staged'], {
+      encoding: 'utf8',
+      cwd: tree.dir,
+      // GIT_INDEX_FILE 必须指向减后拷贝:继承父进程的生效索引会把声明集读回来,
+      // 他人面就整个变成我的面,差分失去意义。
+      env: { ...process.env, GIT_INDEX_FILE: tree.idx },
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (g.error)
+      return {
+        ran: false,
+        status: null,
+        output: '',
+        why: `他人面派生失败 ${g.error.code || g.error.message}`,
+      }
+    if (g.status === null)
+      return { ran: false, status: null, output: '', why: `他人面被中断或超时(${timeoutMs}ms)` }
+    return {
+      ran: true,
+      status: g.status ?? 1,
+      output: `${g.stdout || ''}${g.stderr || ''}`,
+      why: null,
+      externals: externalsOf(externalsBefore, readGateExternals()),
+    }
+  }
+  /**
+   * 共享索引 / 工作树里"别人挂着的东西"(2026-09-27,G-268 的两面翻版)。
+   * 判"红是不是本枚引入"时,这一步是必须的:本仓的提交一律带 pathspec(只交 expectedFiles),
+   * 而 71/84 这类门按**索引**判、49/85/26 这类门按**工作树**判 —— 索引里常年挂着并发会话 staged
+   * 的活文档,根目录与目录树里也常年躺着别人未跟踪的在飞文件。它们结构上都进不了本枚提交,
+   * 却会让"我的面"红、基线面(HEAD 的隔离检出)绿,差分于是把别人的现场定责给提交者。
+   * 唯一"修法"是去改/删别人的东西,那是 §12 明令的事故,所以这里把它显式交给归因层判"未判定"。
+   * ⚠ 未跟踪清单**必须**排除 .gitignore 命中的项(`--exclude-standard`):否则 node_modules、
+   *   构建产物、别人刻意留在忽略路径里的东西会被当成"现场",把这一档撑成常态 —— 那等于
+   *   给"任何未跟踪文件引发的红"开了免责通道,是与"多放一次跳门"同罪的放宽。
+   *
+   * ── 第三路:工作树面(2026-10-03,票 G-1018220)────────────────────────────────
+   * 改前只有上面两路,而门 47(`check-watermark-coverage.mjs`)判红的恰是**第三路**:
+   * 它的分母 = `git ls-files`(跟踪面全集)∩ 工作树**磁盘字节**(横幅在不在文件里),
+   * **它不读 `git diff --cached`** —— 暂存与否对它判红毫无影响。
+   * 于是"别人已跟踪、已改、**还没 staged**"(并发会话最常见的中途态)两路都看不见,
+   * 态①c 的"他人现场"永不触发 ⇒ 落进差分档 ⇒ 基线面读 HEAD 旧字节必然绿
+   * ⇒ 差分把别人那半截判成本枚引入 ⇒ `mine` ⇒ 拒绝 `--no-verify`。
+   * 实测死锁:私有索引下只提交一个零风险常量探针,门 47 却因
+   * `packages/types/src/agent-control.ts`(别人的未暂存重写冲掉了水印)exit 1,
+   * 归因层判 `mine` 且措辞写"差分证明这枚提交引入了红"。本仓提交带 pathspec,
+   * 那个路径进不了本次内容 —— 出口只剩"去改别人的文件",那是 §12 事故。
+   * ⚠ 这一路**不是**把门 47 的判据放宽成"只看本次声明的文件":门 47 照旧按整张
+   *   跟踪面判红、照旧自愈并 `git add`(它的价值就在那儿)。这里补的是**归因层
+   *   自己那份"这一格归谁"清单的取材面**,让两者的判据面终于对得上。
+   */
+  // D171:三份清单同样走 -z 出口(各面上的中文路径不得被 quotePath 转写变形)。
+  const stagedNow = gitStagedPaths({ root: repoRoot })
+  const untrackedNow = gitUntrackedPaths({ root: repoRoot })
+  // 索引已含本票声明的文件,而工作树面是"索引 vs 盘上",故这一路天然可能含本票自己的路径
+  // (门 47 自愈会往盘上写横幅再 git add,时序上工作树面可能先于索引面被读到)——
+  // 扣减一律按 expectedFiles,与另两路同一条判据。
+  const worktreeNow = gitWorktreePaths({ root: repoRoot })
+  const foreignStaged = [...new Set([...stagedNow, ...untrackedNow, ...worktreeNow])].filter(
+    (p) => !expectedFiles.includes(p),
+  )
+  if (foreignStaged.length > 0)
+    log(
+      'info',
+      `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length}、已跟踪未暂存 ${worktreeNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:普通提交只交索引内容,Step 2/3 已保证索引恰是声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
+    )
+  const readGateSource = (script) => {
+    try {
+      return readFileSync(join(repoRoot, 'scripts', script), 'utf8')
+    } catch {
+      return ''
+    }
+  }
+  const verdict0 = classifyHookFailure({
+    text: hookOutput,
+    fallbackText: hookLogTail,
+    stagedFiles: expectedFiles,
+    runGate,
+    runGateBaseline,
+    foreignStaged,
+    // G-815912:判「远端态」的门(check-push-sync 等)在门源里自声明 [judges-remote-state],
+    // 归因层读这份源码把它们的失败判「未差分」—— 红是同步态读数,不归责提交内容。
+    // 读的是本仓 scripts/ 面(标记跟着门源走);读不到 = 无标记 = 旧口径,不造第二份清单。
+    readGateSource,
+    // G-24 口径① / G-420①(2026-10-22 接线):差分基线优先取他人面;
+    // myFaceStaged 取三路现读里同一条索引面通道(stagedNow = gitStagedPaths 的 -z 出口),
+    // 即"复跑我的面那一刻索引里全部暂存路径" —— 未注入/空清单 ⇒ 守卫不触发,不得臆造。
+    runGateForeignFace,
+    myFaceStaged: stagedNow,
+  })
+  /**
+   * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。
+   * 实测缺陷:`scripts/lib/pre-commit-hook.js` 里 lint-staged 跑在 `guardian-runner --staged`
+   * **之前**,于是一次 lint/prettier 失败 = 整批门一道都没跑 = 归因永远 unattributed =
+   * 照样 --no-verify 落地,而账面读起来像"跑过了、只是与本次无关"。
+   * 判"该不该跑"由 needsBatchSelfRun 决定(纯函数,镜像测试用构造输入钉死);
+   * 本闭包只是**非纯的那一半**,被 decideWithSelfRunBatch 在判真后才调用。
+   * ⚠️ 点名"红在批之前的哪一步"只喂 **hookOutput**(本轮 git commit 自己的 stdout+stderr),
+   * 不喂 hookLogTail —— 那份日志是多轮追加的,拿它找到的 ❌ 行可能是**别人那一轮**的,
+   * 而"借别人那轮的证据"正是本模块立项时要杀掉的形态(见 pickLastSummaryRun 的轮次绑定)。
+   * 需要应急提速就调小 IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS(极小值 ⇒ 自跑判"未成功",
+   * 结论照旧落 unattributed 并**带着原因**入库),而不是加一个静默开关。
+   */
+  const runBatchSelf = () => {
+    const runnerPath = join(repoRoot, 'scripts', 'guardian-runner.mjs')
+    if (!existsSync(runnerPath))
+      return { ran: false, status: null, output: '', why: `runner 不在位:${runnerPath}` }
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS || 900000)
+    // 三条硬约束:绝对路径 node(process.execPath)+ windowsHide(守门 52)+ 数字 timeout(守门 80);
+    // 不用 shell:true —— 一旦走 shell,cmd.exe 会为每条子命令拉起可见窗口(§5b 弹窗事故同型)。
+    const b = spawnSync(process.execPath, [runnerPath, '--staged'], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 64 * 1024 * 1024,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = `${b.stdout || ''}${b.stderr || ''}`
+    if (b.error)
+      return {
+        ran: false,
+        status: b.status ?? null,
+        output: out,
+        why: `派生失败 ${b.error.code || b.error.message}`,
+      }
+    if (b.status === null)
+      return { ran: false, status: null, output: out, why: `被中断或超时(${timeoutMs}ms)` }
+    return { ran: true, status: b.status, output: out, why: null }
+  }
+  /**
+   * **commit-msg 阶段**的复跑出口(2026-10-29 立,治"批全绿 ⇒ 跳掉 commit-msg 的门")。
+   *
+   * 要修的那一型:pre-commit 批 31 道全绿,而 `.husky/commit-msg` 里的
+   * `check-commit-scope-consistency.mjs` 判 R3 并 exit 1(留痕 ts=2026-10-28T17:09:31.397Z)。
+   * 归因层此前只复跑 pre-commit 批 ⇒ 手里全是绿 ⇒ 升级成 not-ours ⇒ `--no-verify`
+   * 把一道判得完全正确的门跳掉。判据(`decideWithCommitMsgStage`)住在 lib,本闭包只是
+   * 非纯的那一半:读钩子文本、派生检查、把本次 message 喂成它要的那份输入。
+   *
+   * 三条由实测逼出来的细节:
+   *  ① 检查脚本的入参是 `<commit-msg-file>`。**不读 `.git/COMMIT_EDITMSG`** —— 共享工作区里
+   *     它随别人的提交随时改写,读到别人的 message 就是造第二份输入面(本仓最恨的那型);
+   *     这里把本枚最终 message 写进隔离 scratch 再喂,与 git 交给钩子的东西同义。
+   *  ② 读 `.husky/commit-msg` 而不是临时的 wrapped hooksPath:O43② 的包装器是**逐文件转发**,
+   *     检查清单与 .husky 里的那张是同一份;读包装目录会在它被回收后静默变成 0 条。
+   *  ③ 脚本不在位 / 派生失败 / 超时一律落 ran:false(由 lib 判"未判定"),绝不返回一个假绿。
+   *  一条如实登记的局限(与既有 runGate 复跑同一刻、同一索引态):复跑读的是"还原后的共享索引"。
+   *  commit-msg 阶段失败意味着 pre-commit 已经跑过,此刻索引就是本枚要提交的那一份 —— 正对本票;
+   *  而若红在 lint-staged(pre-commit 批前一步),lint-staged 已回滚过它动过的条目,这一跑看到的
+   *  暂存集可能少于声明集 ⇒ 只可能"少看见"、不会误伤别人。不得把它读成"等价于钩子里那一轮"。
+   */
+  let commitMsgScratch = null
+  const disposeCommitMsgScratch = () => {
+    if (!commitMsgScratch) return
+    try {
+      rmScratch(commitMsgScratch)
+    } catch {
+      /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
+    }
+    commitMsgScratch = null
+  }
+  const ensureCommitMsgFile = () => {
+    if (commitMsgScratch) return join(commitMsgScratch, 'msg.txt')
+    try {
+      commitMsgScratch = mkScratch('commit-msg-stage-')
+      const file = join(commitMsgScratch, 'msg.txt')
+      writeFileSync(file, finalMessage, 'utf8')
+      process.on('exit', disposeCommitMsgScratch)
+      return file
+    } catch (e) {
+      commitMsgScratch = null
+      log('warn', `commit-msg 阶段复跑需要一份 message 临时件,而 scratch 不可用:${e?.message ?? e}`)
+      return null
+    }
+  }
+  const runCommitMsgCheck = (script) => {
+    const msgFile = ensureCommitMsgFile()
+    if (!msgFile)
+      return { ran: false, status: null, output: '', why: 'message 临时件不可用(scratch 落不下)' }
+    const gatePath = join(repoRoot, 'scripts', script)
+    if (!existsSync(gatePath))
+      return { ran: false, status: null, output: '', why: `检查脚本不在位:${gatePath}` }
+    // 三条硬约束:绝对路径 node + windowsHide(守门 52)+ 数字 timeout(守门 80);
+    // 不用 shell:true —— 它会给每条子命令拉起可见窗口(§5b 弹窗事故同型)。
+    const g = spawnSync(process.execPath, [gatePath, msgFile], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: Number(process.env.IHUI_SAFE_COMMIT_COMMIT_MSG_TIMEOUT_MS || 120000),
+      maxBuffer: 8 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = `${g.stdout || ''}${g.stderr || ''}`
+    if (g.error)
+      return {
+        ran: false,
+        status: null,
+        output: out,
+        why: `派生失败 ${g.error.code || g.error.message}`,
+      }
+    if (g.status === null) return { ran: false, status: null, output: out, why: '被中断或超时' }
+    return { ran: true, status: g.status, output: out, why: null }
+  }
+  /** 钩子文本:不存在 / 读不到 / 读到了 三态分开交给 lib —— 混桶会把"没这个阶段"与"没判到"写成同一句话 */
+  let commitMsgHookText = null
+  let commitMsgHookAbsent = false
+  let commitMsgHookWhy = null
+  try {
+    commitMsgHookText = readFileSync(join(repoRoot, '.husky', 'commit-msg'), 'utf8')
+  } catch (e) {
+    if (e?.code === 'ENOENT') commitMsgHookAbsent = true
+    else commitMsgHookWhy = e?.message ?? String(e)
+  }
+  // commit-msg 阶段先复跑:它最便宜(只吃 message 与暂存集),而且它一旦复现红,
+  // 结论就是 mine —— 此时再去花数分钟自跑守门批只会得出同一个结论。
+  const stageVerdict = decideWithCommitMsgStage({
+    verdict: verdict0,
+    hookText: commitMsgHookText,
+    hookAbsent: commitMsgHookAbsent,
+    hookWhy: commitMsgHookWhy,
+    runCheck: runCommitMsgCheck,
+  })
+  const stageUndetermined = stageVerdict.commitMsgStage?.state === 'undetermined'
+  if (stageUndetermined)
+    log('warn', 'commit-msg 阶段复跑未判定(见下)—— 不再自跑守门批,也不得按 not-ours 跳门')
+  else if (needsBatchSelfRun(stageVerdict))
+    log(
+      'warn',
+      '归因层手里没有门级结论 ⇒ safe-commit 自跑 `node scripts/guardian-runner.mjs --staged` 取证(可能数分钟)',
+    )
+  const verdictRaw = stageUndetermined
+    ? stageVerdict
+    : decideWithSelfRunBatch({
+        verdict: stageVerdict,
+        stagedFiles: expectedFiles,
+        runBatch: runBatchSelf,
+        runGate,
+        runGateBaseline,
+        hookText: hookOutput,
+        foreignStaged,
+        readGateSource,
+        // 同一把铰链(守门 70/76/81/102 同型):自跑那一轮读的是**同一个**还原后的共享索引,
+        // 两个新注入口必须与首轮同一份实现/同一份清单原样透传,否则"钩子里判未判定、
+        // 自跑里被钉成本枚引入"就留下第二份口径(票 G-24/G-420①)。
+        runGateForeignFace,
+        myFaceStaged: stagedNow,
+      })
+  // decideWithSelfRunBatch 的"自跑全绿"那一支会构造一个**新对象**(把首轮字段挑着搬) ——
+  // commit-msg 阶段的读数不能被它丢掉,否则账面又变回"只复跑过 pre-commit 批"。
+  const verdict = verdictRaw.commitMsgStage
+    ? verdictRaw
+    : { ...verdictRaw, commitMsgStage: stageVerdict.commitMsgStage }
+  // 差分取证已经结束 ⇒ 立刻回收隔离工作树(它挂在 `.git/worktrees` 下,这台机的 .git 存续
+  // 治理等不起一个长期挂着的 worktree 登记);mine 分支随后 process.exit 也有 process.on('exit') 兜底。
+  disposeBaselineTree()
+  disposeForeignTree()
+  log('warn', `首次 commit 失败(exit ${commitResult.status})—— 开始逐道复跑失败门以计算归因`)
+  for (const line of verdict.detail) log('info', `  · ${line}`)
+  log(verdict.kind === 'mine' ? 'err' : 'info', verdictLine(verdict))
+  /**
+   * 态⑤ env-blocked 必须**响亮地单独喊一次**(G-1058649):它是"这一步自己没跑完"的环境性失败,
+   * 既不是提交人的红、也不得写成"因他人代码"(本仓禁止未量到的归因)。
+   * 之所以不能只靠上面那一行:上一版把这种环境失败判成 mine 并禁止跳门,而"禁止跳门"关掉的
+   * 正是唯一合法出口 —— 那才是逼人绕过全部守门人的成因。这里给可执行的下一步,并在下面留痕。
+   */
+  if (verdict.kind === 'env-blocked') {
+    log(
+      'err',
+      `🚧 阻塞提交的那一步「${verdict.envStep}」自己没跑完 —— **环境性失败,不是你的红,也不是别人的红**`,
+    )
+    log('err', `   指纹:${(verdict.envFingerprint ?? []).join(' ⏎ ') || '(未取到指纹行)'}`)
+    log(
+      'err',
+      '   下一步:① tasklist | findstr /i "git node" 看并发 git/node 进程后重跑本命令;' +
+        '② 原样手工复跑那一步(EBUSY 是间歇病);③ 仍红则加 --debug 看那一步自己的 git 调用。' +
+        '注意:归因=env-blocked **不再自动跳钩落地**(默认永不跳钩),本枚到此为止。',
+    )
+    if (verdict.downgradedFromMine)
+      log(
+        'err',
+        '   ⚠️ 判据纠偏说明:这一格**原先会被判 mine**(阻塞步骤的报错正文里出现过本任务文件路径),' +
+          '现按 env-blocked 处理 —— 依据是命中行**未带内容错形状**(旧判据把 lint-staged 那句 git 步骤失败' +
+          '自带的裸 failed/✖ 当成了"有内容错")。这不是拆防线:若真有 eslint/tsc/prettier 的内容错点名本任务文件,mine 照旧判死。',
+      )
+  }
+
+  mkdirSync(join(repoRoot, '.ihui-agent', 'state'), { recursive: true })
+  appendFileSync(
+    join(repoRoot, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'),
+    `${JSON.stringify({
+      ts: new Date().toISOString(),
+      kind: verdict.kind,
+      ranFullBatch: verdict.ranFullBatch,
+      reason: verdict.reason,
+      failedGates: verdict.failed.map((f) => f.id),
+      declaredFiles: expectedFiles,
+      headBefore: beforeSha,
+      // 三条新字段并入**既有记录**(不另立落盘文件,避免第二份真相):
+      // batchSelfRun=是否走了自跑取证支,selfRunOk=自跑有没有拿到门级结论,
+      // blockerBeforeBatch=量出来的"红在批之前的哪一步"(判不出则为 null,不编)。
+      batchSelfRun: verdict.batchSelfRun === true,
+      selfRunOk: verdict.selfRunOk === true,
+      blockerBeforeBatch: verdict.blockerBeforeBatch ?? null,
+      // 态⑤(G-1058649):kind=env-blocked 的那份"这一步自己没跑完"指纹必须可机读 ——
+      // 否则事后读账的人分不出"环境性失败"与"未归因",而这两者的修法完全不同。
+      envStep: verdict.envStep ?? null,
+      envFingerprint: verdict.envFingerprint ?? null,
+      downgradedFromMine: verdict.downgradedFromMine === true,
+      // commit-msg 阶段复跑的读数(2026-10-29 立)。必须落在**既有记录**里:漏了它,
+      // 事后读账的人会以为这枚只复跑过 pre-commit 批 —— 而 2026-10-28 那次误跳门
+      // 正是因为账面上只有批的读数。逐条脚本与退出码原样记,不折叠成一个布尔。
+      commitMsgStage: verdict.commitMsgStage?.state ?? null,
+      commitMsgChecks: (verdict.commitMsgStage?.checks ?? []).map(
+        (c) => `${c.script}=${c.status ?? 'null'}${c.blocking ? '' : '(warn)'}`,
+      ),
+      // 跳钩授权留痕(2026-11-03):默认 null = 未授权(本枚不会以 --no-verify 落地);
+      // 非 null 才代表人工显式旗标,值即原因 —— 读账的人不必再猜"这枚到底跳没跳"。
+      skipAuthorization: allowSkipHooks ?? null,
+    })}\n`,
+  )
+
+  // 未判定(§0.3):commit-msg 阶段到底有没有红没人量到 ⇒ 不能按 not-ours 自动跳门,
+  // 也不许猜成本枚的红。exit 2 = 未判定,把"下一步复跑哪几条"交给上一步打出来的明细。
+  if (verdict.commitMsgStage?.state === 'undetermined') {
+    log('err', `⛔ commit-msg 阶段复跑**未判定**:${verdict.commitMsgStage.why}`)
+    log(
+      'err',
+      '   拒绝按 not-ours 自动走应急跳门 —— 那等于把"没判到这一阶段"写成"它没问题"(§0.3/§0.10);' +
+        '请按上一步的明细人工复跑 .husky/commit-msg 里点名的检查,拿到读数后重跑本命令。',
+    )
+    process.exit(2)
+  }
+
+  if (verdict.kind === 'mine') {
+    log(
+      'err',
+      '拒绝 --no-verify:上表已把这道红**定责到本任务** —— 要么是门的结论行点名了本次声明的文件,' +
+        '要么是差分证明"基线面(HEAD)不红、我的面红",要么是 commit-msg 阶段的检查(scope/样式等)' +
+        '以同一退出码复现。三种都该修完再提;' +
+        '确属误判时请改判据或按 AGENTS §16 显式说明后手工提交',
+    )
+    process.exit(1)
+  }
+  // ── 默认永不跳钩(2026-11-03 立,机主明令)────────────────────────────────────
+  // 归因层判 not-ours / env-blocked / unattributed,含义只有一句:"这道红量不到本任务头上"。
+  // 它**不构成**跳钩授权 —— 旧流程正是在这里自动 `git commit --no-verify` 落地:
+  //   · 钩子里的门与自跑的门不是同一集合(脚本头注列了差异),自跑全绿不能证明钩子会全绿;
+  //   · 正文只留 attestation,审计上分不清"真过钩"与"跳钩"。
+  // 唯一合法跳钩 = 显式 `--allow-skip-hooks="<原因>"`(默认关闭),且正文写入醒目一行。
+  // not-ours 例外:先走下方「让路再发令」(退避后重发带钩子的普通提交,它不是跳钩),不能在这里被拒。
+  if (!allowSkipHooks && verdict.kind !== 'not-ours') {
+    log(
+      'err',
+      `拒绝自动跳钩:钩子判红(exit ${commitResult.status}),归因=${verdict.kind};` +
+        '但本脚本**默认永不跳钩**,不再以 --no-verify 落地。',
+    )
+    log(
+      'err',
+      '  下一步(择一):① 修红后重跑;② **请等待并发会话释放索引**后重跑(node scripts/git-lock.mjs check 看持有者);' +
+        '③ **或改走 `node scripts/object-space-land.mjs`**(它不跑钩子,落地后自动复跑受影响门并把结果打进 stdout,门红则报红并提示人工);' +
+        '④ 仅限人工确认后显式加 --allow-skip-hooks="<原因>"(正文会写入「人工授权跳钩」一行)。',
+    )
+    log('err', '  本枚**未落地**;索引仍是本票声明集,重跑本命令即可(Step 1-3 会重新暂存并校验)。')
+    process.exit(1)
+  }
+  log(
+    'warn',
+    `⚠️  显式授权跳钩(--allow-skip-hooks):${allowSkipHooks} —— 仅本枚生效;正文将写入醒目说明`,
+  )
+  // **重试前必须重新暂存**(2026-09-25 实测缺陷根治):首次 `git commit` 失败时 lint-staged 会
+  // 回滚它自己动过的暂存区 —— 本票**新加的文件**因此从索引里掉回未跟踪,而 `git commit -- <pathspec>`
+  // 对"git 不认识的路径"直接 `error: pathspec ... did not match any file(s) known to git` 退出。
+  // 后果不是"重试失败"而是**这一整类提交落不了地**:凡是"带新文件 + 归因判定允许跳门"的提交
+  // 都会在这里死掉(本次实测:10 个文件里 4 个新文件全被判 unknown,exit 1,零提交)。
+  // 所以:重跑 Step 2 的 add,并**再跑一次 Step 3 的精确性校验** —— 不校验就重试等于放弃
+  // "只提交自己声明的文件"这条根约束(窗口期里别人可能刚 staged 了东西)。
+  // 2026-11-02:原"跳门重试前"这一段原样抽成函数 —— not-ours 的**带钩子退避重试**同样要
+  // "重暂存 + 复量",两处共用这一份,不在这里写第二遍(§0.6 单一真相)。
+  const restageDeclaredForRetry = (phase) => {
+    log('info', `${phase}:重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)`)
+    const reAdd = stageDeclared(expectedFiles, 'git add (retry)')
+    if (reAdd.status !== 0) {
+      // **删除型提交的 pathspec 语义与 add 不同**(2026-09-25 临时仓三态实测,不是推测):
+      //   A 索引有 + 盘上无 ⇒ `add -A` 成功;
+      //   B 索引无 + HEAD 有 + 盘上无 ⇒ `add -A` 报 pathspec 不匹配,**而 `git diff --cached`
+      //     在这一态已经把该路径报成 D** ⇒ 旧写法在此 exit 1 纯属误伤;
+      //   C 索引无 + HEAD 无 ⇒ 同样报错,且 diff 为空 ⇒ 只有这一态真的没东西可交。
+      // lint-staged 在提交失败时回滚索引,留下的正是 B,于是"带删除的提交"永远走不到跳门兜底
+      // (实测:一条已入库并推送的删除被并发合流带回后,复删三轮全死在这一行)。
+      // 出口:盘上不在的声明路径改走 `git rm --cached --ignore-unmatch`(幂等;B 态本就成立,
+      // C 态空操作),随后**照旧交给下面的精确性校验** —— 判"该不该中止"的是 diff,不是 add 的退出码。
+      const onDisk = []
+      const deleted = []
+      for (const f of expectedFiles)
+        (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
+      let recovered = true
+      if (onDisk.length) recovered = stageDeclared(onDisk, 'git add (retry: 在场文件)').status === 0
+      if (deleted.length && recovered)
+        recovered =
+          gitStep(['rm', '--cached', '--ignore-unmatch', ...pathspecArgs(deleted)], 'git add (retry: 删除态)')
+            .status === 0
+      if (!recovered) {
+        // 返回给调用方分诊(2026-11-02):not-ours 的退避重试里,`git add` 撞索引锁同样属于
+        // "还没拿到钩子"的瞬时争用 —— 该等下一个退避窗口,而不是在这里以"重新暂存失败"截断。
+        // 旧调用方(env-blocked/undetermined-red 路径)拿到 ok:false 后仍按原样 exit 1,行为不变。
+        return { ok: false, status: reAdd.status, stderr: String(reAdd.stderr || '') }
+      }
+      log(
+        'info',
+        `兜底重暂存改走 rm --cached 分支(${deleted.length} 个磁盘上不存在的路径 / ${onDisk.length} 个在场路径)—— ` +
+          'add 只看索引与磁盘,抓不住"已被并发 reset 抹掉且盘上没有"的删除态',
+      )
+    }
+    {
+      // D171:重暂存后的精确性校验同样走 -z 出口(与本步骤第一次校验同一把尺)。
+      const reStaged = new Set(gitStagedPaths({ root: repoRoot }).map(normalize))
+      const reUnexpected = [...reStaged].filter((f) => !expectedNorm.has(f))
+      const reMissing = [...expectedNorm].filter((f) => !reStaged.has(f))
+      // **只拒"缺失",不拒"多余"** —— 第一版这里对多余也 exit 1,实测判得过严且把自己卡死:
+      // `git commit -- <pathspec>` 按定义只提交声明过的那几个路径,别人在窗口期 staged 的文件
+      // **结构上进不了本枚提交**;而缺失才是真危险(缺了就等于那一类"提交没发生")。
+      if (reMissing.length) {
+        log(
+          'err',
+          `重新暂存后本票文件仍缺 ${reMissing.length} 个(${reMissing.join(',')}) —— 说明 add 被并发窗口或锁挡住了,` +
+            '此时提交会少交内容,拒绝继续;请人工核对索引后重跑',
+        )
+        process.exit(1)
+      }
+      if (reUnexpected.length) {
+        log(
+          'info',
+          `索引里另有 ${reUnexpected.length} 个非本票文件(${reUnexpected.slice(0, 5).join(',')}…) —— ` +
+            '不随本枚提交走:普通提交只交索引内容,而 Step 2/3 已保证索引恰是上面声明的清单,故不中止(第一版在此中止反而自锁:' +
+            '并发会话随时可能 staged 东西,而它本来也进不来)',
+        )
+      }
+    }
+    return { ok: true, status: 0, stderr: '' }
+  }
+
+  // ── not-ours 兜底(2026-11-02 立;事故 5c8aec3653)────────────────────────────────
+  // 旧流程在钩子阶段归因 not-ours 之后,**自动**发 `git commit --no-verify`:32 道守门靠自跑
+  // 全绿、台账记 gatesRan:false/hookSkipped:true,历史里却看不出钩子没跑 —— 一枚假绿。
+  // 新策略:not-ours 只许"让路再发令"—— 退避后重发**带钩子**的普通提交(锁争用通常几秒内
+  // 就轮到);重试耗尽仍拿不到钩子 ⇒ 非零退出并点名是哪把锁/谁持锁。默认绝不追加 --no-verify。
+  // 唯一人工逃生口是外层显式 `--allow-skip-hooks="<原因>"`(默认 null 完全不生效),
+  // 以及 not-ours 下既有 env 逃生口(默认不生效,保留形状锁);落地记录必须带 gatesRan:false/hookSkipped:true+原因。
+  const envSkipHatch =
+    verdict.kind === 'not-ours' && process.env.IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS === '1'
+  if (verdict.kind === 'not-ours' && !allowSkipHooks && !envSkipHatch) {
+    log(
+      'warn',
+      `归因=${verdict.kind}(${verdict.reason}) ⇒ 不跳门:退避后重发**带钩子**的普通提交,` +
+        `最多 ${HOOK_RETRIES} 次(退避 ${hookRetryDelayMs(1) / 1000}s 起,指数退让);拿不到钩子就非零退出`,
+    )
+    let landedWithHooks = false
+    for (let retry = 1; retry <= HOOK_RETRIES; retry++) {
+      const waitMs = hookRetryDelayMs(retry)
+      log(
+        'warn',
+        `…not-ours 退避 ${waitMs / 1000}s(第 ${retry}/${HOOK_RETRIES} 次重试):把 git 写面让给并发会话,` +
+          '再发带钩子的普通提交(不追加 --no-verify)',
+      )
+      sleep(waitMs)
+      const rs = restageDeclaredForRetry(`钩子退避重试 ${retry}/${HOOK_RETRIES}`)
+      if (!rs.ok) {
+        if (isGitLockFailure(rs.status, rs.stderr)) {
+          log('warn', `…钩子退避重试 ${retry}/${HOOK_RETRIES} 的重新暂存也撞锁 —— 本轮不发令,等下一个退避窗口`)
+          continue
+        }
+        log('err', `重新暂存失败: ${rs.stderr}`)
+        process.exit(1)
+      }
+      rejectIfForeignEnteredIndex(`钩子退避重试 ${retry}`)
+      reportUndeclaredStaged()
+      const rr = await launchCommitWithHooks()
+      const retryOut = rr.combined || ''
+      hookOutput += retryOut
+      commitResult = rr
+      if (rr.status === 0) {
+        landedWithHooks = true
+        log('info', `✅ 钩子退避重试 ${retry}/${HOOK_RETRIES} 拿到了钩子并落地(本次钩子**真的跑了**)`)
+        break
+      }
+      if (retryOut.includes(GUARD_MARK)) {
+        log(
+          'err',
+          `⛔ 钩子退避重试 ${retry} 期间外来件进了索引(${GUARD_MARK} 护栏命中)—— 拒绝继续,` +
+            '请先让并发会话把它的提交落地,再重跑本命令',
+        )
+        process.exit(1)
+      }
+      if (GIT_DETERMINISTIC_FATAL.test(retryOut)) {
+        log('err', `⛔ 钩子退避重试 ${retry} 命中确定性致命因(exit ${rr.status})—— 重试修不好,当场退出`)
+        process.exit(1)
+      }
+      if (rr.status === 129) {
+        log('err', `⛔ 钩子退避重试 ${retry} 被钩子以 129 拒绝(疑似钩子内部调用 git 失败)—— 拒绝跳门`)
+        process.exit(1)
+      }
+      if (isGitLockFailure(rr.status, retryOut)) {
+        log(
+          'warn',
+          `…钩子退避重试 ${retry}/${HOOK_RETRIES} 仍撞锁(exit ${rr.status});等下一个退避窗口再让路`,
+        )
+        continue
+      }
+      // 钩子**内层**撞锁(git 报 128 的是钩子里的 git,而 commit 本身退出 1):状态码不是 128,
+      // 但"锁特征 + 这一轮根本没跑到批量检查"两件事同时成立 ⇒ 仍是"钩子还没拿到"。
+      // 判据不重写:锁文本用 GIT_LOCK_MISS,"批有没有跑"用 lib 的 parseGateSummary.batchReported。
+      if (GIT_LOCK_MISS.test(retryOut) && parseGateSummary(retryOut).batchReported === false) {
+        log(
+          'warn',
+          `…钩子退避重试 ${retry}/${HOOK_RETRIES} 被锁挡在批量检查之前(commit exit ${rr.status});` +
+            '等下一个退避窗口再让路',
+        )
+        continue
+      }
+      // 非锁形态:这一轮 git 已经走到钩子链里(或钩子真红了)。再退避只会重复同一枚红,
+      // 而且这里若继续循环,等于用时间把"钩子到底跑没跑"搅浑 —— 当场非零退出。
+      log(
+        'err',
+        `⛔ 钩子退避重试 ${retry} 失败(exit ${rr.status}),且**不是**锁争用形态 ⇒ 钩子这一轮已经跑起来,` +
+          '再退避只会重复同一枚红。修完上方点名的红(或等占用释放)后重跑本命令;本工具不会替你追加 --no-verify。',
+      )
+      process.exit(1)
+    }
+    if (!landedWithHooks) {
+      const lockLine = (() => {
+        const rows = hookOutput.split(/\r?\n/)
+        for (let i = rows.length - 1; i >= 0; i--) if (GIT_LOCK_MISS.test(rows[i])) return rows[i].trim()
+        return ''
+      })()
+      log(
+        'err',
+        `⛔ not-ours 退避重试 ${HOOK_RETRIES} 次仍未拿到钩子 —— 拒绝追加 --no-verify(那会把整条守门链跳过,` +
+          '历史里只留一枚看不出异常的提交)',
+      )
+      if (lockLine) log('err', `   最后一次的锁形态原文:${lockLine}`)
+      for (const line of describeLockHolders()) log('err', `   ${line}`)
+      const hint = [
+        '等并发会话的 git 写操作结束(通常几秒到几分钟)后重跑同一条命令',
+        '先看持锁方:node scripts/git-lock.mjs check',
+        `本命令只负责让路,不负责跳门;要更长的等待窗口可调 IHUI_SAFE_COMMIT_HOOK_RETRIES(当前 ${HOOK_RETRIES})`,
+        '若钩子基础设施确已坏掉、且 32 道守门已自跑全绿:只能显式加 --allow-skip-hooks="<原因>" ' +
+          '(台账会记 gatesRan:false / hookSkipped:true / 原因),或走对象空间落地的结构出路',
+      ]
+      for (const line of hint) log('err', `   → ${line}`)
+      process.exit(1)
+    }
+  } else {
+    // 显式授权跳钩(2026-11-03 main 侧):唯一入口 = --allow-skip-hooks="<原因>"(默认 null);
+    // not-ours 已在上面的「让路再发令」分支先跑过,走到这里说明人工显式授权(含 not-ours 的 env 逃生口)。
+    const skipAuthorization = allowSkipHooks ?? 'env:IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS=1'
+    hookSkipReason =
+      `显式授权跳钩 ${JSON.stringify(skipAuthorization)}(归因=${verdict.kind}:${verdict.reason})` +
+      `;gatesRan:false,hookSkipped:true,本次提交链未跑钩子`
+    log(
+      'warn',
+      `⚠️  显式授权跳钩(${JSON.stringify(skipAuthorization)}) —— 仅本枚生效;正文将写入醒目说明`,
+    )
+    const restageResult = restageDeclaredForRetry('跳门重试前')
+    if (!restageResult.ok) {
+      log('err', `重新暂存失败: ${restageResult.stderr}`)
+      process.exit(1)
+    }
+    // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
+    rejectIfForeignEnteredIndex('--no-verify 重试')
+    // 正文必须自带一行醒目说明(机主明令):不写进正文 = 审计上分不清"真过钩"与"人工授权跳钩"。
+    // 追加在**发令前**,与下面那次 `git commit` 读到的 finalMessage 是同一次绑定。
+    finalMessage =
+      `${finalMessage}\n\n人工授权跳钩:${JSON.stringify(skipAuthorization)}` +
+      `(归因=${verdict.kind};守门未在本次提交链上重跑;默认永不跳钩,本枚为人工显式授权)`
+    const r = spawnSync('git', commitArgv(true), {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    pump(r)
+    commitResult = r
+    if (r.status === 0) {
+      hookSkipped = true
+      log(
+        'warn',
+        `⚠️  已按**人工显式授权**用 --no-verify 落地(归因=${verdict.kind};授权=${JSON.stringify(skipAuthorization)};` +
+          `守门未在本次提交链上重跑,逐道复跑记录见上,留痕于 .ihui-agent/state/safe-commit-attestation.jsonl)`,
+      )
+    }
+  }
+}
+
+if (commitResult.status !== 0) {
+  log('err', `git commit 最终失败(exit ${commitResult.status})`)
+  log(
+    'warn',
+    '常见原因: (a) commit message 格式问题;(b) 文件无改动(nothing to commit);(c) 其他未知错误',
+  )
+  process.exit(1)
+}
+
+// ─── 5. 验证 commit 内容(双保险) ───────────────────────────
+// 2026-09-16 修(并发假警报):原实现校验 `git show HEAD`,但多 agent 并行时
+// HEAD 可能已被其他 agent 的提交前移,导致把**别人的文件**误报成本次 commit 的污染,
+// 并给出 `git reset HEAD~1` 这一会破坏他人提交的危险建议。
+// 现改为:在 beforeSha..HEAD 区间内按「文件集 ⊆ 预期集」定位本次提交,再校验其内容。
+log('info', 'Step 5/5: 验证 commit 内容只包含预期文件')
+
+/** 取指定提交的文件清单(D171:走 lib 的 diff-tree -z 出口,中文名不被八进制转写)。 */
+const filesOfCommit = (sha) => gitCommitPaths({ root: repoRoot, sha }).map(normalize)
+
+// 本次提交候选:beforeSha 之后的全部新提交(正常情况下恰好 1 个)
+const newShas = (run(`git rev-list ${beforeSha}..HEAD`, { allowFail: true }) || '')
+  .split('\n')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+let committedFiles = []
+let committedSha = ''
+if (newShas.length === 0) {
+  // commit 命令返回成功但历史无变化(理论不可达:可能被 hook 撤销)
+  log('err', `${C.red}commit 成功但未见新提交${C.reset}(beforeSha=${beforeSha.slice(0, 9)})`)
+  process.exit(1)
+} else if (newShas.length === 1) {
+  committedSha = newShas[0]
+  committedFiles = filesOfCommit(committedSha)
+} else {
+  // 并发:其他 agent 也在本次 commit 前后提交。**不再用"文件集全在预期内"单一判据去找自己那枚** ——
+  // 那条把两种相反的错位(G-920 的两起实测)一起读成"未能定位本次提交",然后建议
+  // `git reset HEAD~1`;而 HEAD~1 是相对位置不是身份,照做就会把他人的提交从尖端退掉。
+  // 改按内容级分类:clean / polluted-ours(我们那枚被灌了别人 staged 的东西)/ carried-by-other
+  // (声明件被别家整索引提交带走)/ unlocated,建议与形态同处产出。
+  const subjectOfCommit = (sha) => {
+    const r = spawnSync('git', ['show', '-s', '--format=%s', sha], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return r.status === 0 ? String(r.stdout ?? '').trim() : ''
+  }
+  const verdict = classifyConcurrentCommits({
+    newShas,
+    filesOf: filesOfCommit,
+    expected: expectedNorm,
+    subjectOf: subjectOfCommit,
+    ourSubject: String(message ?? '').split('\n')[0].trim(),
+  })
+  if (verdict.kind === 'polluted-ours') {
+    log(
+      'err',
+      `${C.red}严重!本枚提交被灌入 ${verdict.extraFiles.length} 个非本票路径${C.reset}: ${verdict.extraFiles.join(', ')}`,
+    )
+    log('err', `本次提交是 ${verdict.sha.slice(0, 9)}(内容级判据:载荷含全部声明路径 + 这些外来件)`)
+    for (const line of adviceFor('polluted-ours').lines) log('err', line)
+    process.exit(1)
+  }
+  if (verdict.kind === 'carried-by-other') {
+    log(
+      'err',
+      `${C.red}本票声明的路径没有以本枚提交落地,而是出现在他人那枚里${C.reset}(G-920 的②型错位):`,
+    )
+    for (const c of verdict.carriers)
+      console.log(
+        `     ${C.dim}${c.sha.slice(0, 9)}${C.reset}${c.subject ? ` 「${c.subject}」` : ''} 带走了 ${c.carried.join(', ')}`,
+      )
+    for (const line of adviceFor('carried-by-other').lines) log('err', line)
+    process.exit(1)
+  }
+  if (verdict.kind === 'unlocated') {
+    log('err', `${C.red}并发场景下未能定位本次提交${C.reset}(beforeSha=${beforeSha.slice(0, 9)})`)
+    log('warn', `区间内 ${newShas.length} 个新提交与声明集无内容级对应关系,请人工核对:`)
+    for (const sha of newShas) {
+      console.log(`     ${C.dim}${sha.slice(0, 9)}${C.reset} ${filesOfCommit(sha).join(', ')}`)
+    }
+    for (const line of adviceFor('unlocated').lines) log('err', line)
+    process.exit(1)
+  }
+  committedSha = verdict.sha
+  committedFiles = filesOfCommit(verdict.sha)
+  log(
+    'warn',
+    `检测到 ${newShas.length} 个并发提交,已按内容级定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`,
+  )
+}
+
+// 最终判据(2026-10-25 立,seat-safecommit):实到集合必须**等于**声明集合,且声明集合非空。
+// 旧实现只判 `实到 ⊖ 预期`(多出来的),于是"实到 0 个"的差集为空 ⇒ 打印「commit 干净,仅包含
+// 0 个预期文件」并 exit 0。两次实害 c8f2750a5c / 56227f8b33 即此型:钩子链跑的 9 分钟里,
+// 暂存面被并发会话 safe-commit Step1 的 `git reset HEAD` 清空,而 Step5 对空集判绿。
+// 同源第二型:实到 ⊂ 预期(只落地一部分)旧判据同样放行 —— 那是 "⊆" 不是 "=="。
+// 判据只有一份:`lib/commit-payload-judge.mjs`,镜像测试直接 import 同一份(§22c)。
+const payloadVerdict = judgeCommitPayload({ expected: [...expectedNorm], actual: committedFiles })
+if (!payloadVerdict.ok) {
+  if (payloadVerdict.kind === 'extra') {
+    log('err', `${C.red}严重!commit 包含非预期文件${C.reset}: ${payloadVerdict.extra.join(', ')}`)
+    log('err', '这是一个污染事故(载荷含本票之外的路径)。')
+    for (const line of adviceFor('polluted-ours').lines) log('err', line)
+    process.exit(1)
+  }
+  // empty-commit / missing / no-expected 三型同源:提交窗口内暂存面被并发改动。
+  const what =
+    payloadVerdict.kind === 'empty-commit'
+      ? '本枚提交落地了 0 个文件(空提交)'
+      : payloadVerdict.kind === 'no-expected'
+        ? '声明集为空(Step 1 本应已拒绝)'
+        : `本枚提交只落地了 ${payloadVerdict.actual.length}/${payloadVerdict.expected.length} 个声明路径`
+  log('err', `${C.red}严重!${what}${C.reset}(本枚 ${committedSha.slice(0, 9)})`)
+  if (payloadVerdict.missing.length > 0)
+    log('err', `未落地的声明路径 ${payloadVerdict.missing.length} 个: ${payloadVerdict.missing.join(', ')}`)
+  log(
+    'err',
+    '判据:实到集合必须等于声明集合且非空。最常见成因 = 暂存面在提交窗口内被清空/改动 —— ' +
+      '并发会话的 safe-commit Step1 会 `git reset HEAD` 清空整个共享索引,而钩子链可长达数分钟。',
+  )
+  log(
+    'err',
+    `出路:原样重试本命令(Step 1-3 会重新暂存并逐文件校验):node scripts/safe-commit.mjs -m "<原 message>" -- ${expectedFiles.join(' ')}`,
+  )
+  log(
+    'warn',
+    '不要用 `git reset HEAD~1` / rebase 撤销那枚提交 —— 多会话下 HEAD~1 是相对位置,会删掉别人的提交;空提交/缺件提交本身无害,保留即可,重试会落一枚正确的。',
+  )
+  process.exit(1)
+}
+
+log(
+  'ok',
+  `commit 干净,仅包含 ${C.cyan}${committedFiles.length}${C.reset} 个预期文件${hookSkipped ? C.yellow + ' (pre-commit hook 已跳过)' : C.reset}`,
+)
+// ─── G-1118437:把"这枚提交跑过门且没红"写成**按 sha 绑定**的一方正证 ───────────
+// 旧的一方证据(pre-commit 的 round witness)用 `headBefore == 提交父` 绑定,而多席并发下
+// pre-commit 与落地之间 HEAD 会被别人推进 —— 现读 294 条轮次记录里 16 条 gatesRan∧gatesPassed
+// **命中父集 0 条** ⇒ 报告里"一方记录 294 条 / 命中 0",正常提交拿不到合格证,读数被压成"没人跑门"。
+// 三条不许漂:
+//  ① 只在 Step 5 判"干净"**之后**写 —— 污染提交/定位不到本次提交的路径都在上面 process.exit 掉了;
+//  ② `gatesRan = !hookSkipped`:带 --no-verify 的那一枚记 false,统计侧按设计不收(它不是正证);
+//  ③ 写失败绝不影响提交(裹 try),缺记录 = 少一张证,失效方向是"宁可少归一类"。
+try {
+  const w = recordGatesThenCommit({
+    root: repoRoot,
+    landedSha: committedSha,
+    headBefore: beforeSha,
+    commitFiles: committedFiles,
+    declaredFiles: expectedFiles.map(normalize),
+    gatesRan: hookSkipped !== true,
+    hookSkipped: hookSkipped === true,
+    hookSkipReason,
+    // 票→提交环(2026-10-26 接线):派单会话用 env 显式绑定票键,审计器才能把"这枚提交在还哪张票"接上;
+    // 未设 ⇒ 按无票提交记(不写空串)。
+    ticketKey: String(process.env.IHUI_TICKET_KEY ?? ''),
+    ticketLine: String(process.env.IHUI_TICKET_LINE ?? ''),
+  })
+  if (!w.ok) log('warn', `⚠️ ${w.why}`)
+} catch (e) {
+  log('warn', `⚠️ 正证留痕未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
+}
+// AI 代码归属写 git notes(对标 codex checkpoint / refs/notes/ai)。fail-open:会话主体缺失
+// ⇒ recordForCommit 自回 undetermined 不写(§0.3);任何异常都不得影响本枚提交(绝不在提交后抛)。
+try {
+  const authorshipSession = String(process.env.IHUI_AGENT_SESSION_ID ?? process.env.AGENT_NAME ?? '')
+  if (authorshipSession) {
+    const note = recordForCommit({
+      repoDir: repoRoot,
+      commit: committedSha,
+      session: authorshipSession,
+      declaredPaths: expectedFiles.map(normalize),
+      model: String(process.env.IHUI_AI_MODEL ?? ''),
+      tool: 'safe-commit',
+    })
+    if (note && note.state === 'recorded') log('ok', `AI 归属 notes 已写入(${note.ref ?? 'refs/notes/ihui-ai'})`)
+    else if (note && note.state !== 'recorded') log('warn', `⚠️ AI 归属 notes 未判定:${(note.reasons || []).join(',')}`)
+  } else {
+    // 主体缺失也要出声。此前这一格整段静默跳过 ⇒ 接线看似在、实际零落笔(全史 43246 枚 0 带记录),
+    // 而读侧尺子 ai-authorship-report 把它记成 unjudged。"没判"绝不能安静地变成"像是没参与"(§0.3)。
+    log(
+      'warn',
+      '⚠️ AI 归属 notes 未落笔:会话主体缺失(IHUI_AGENT_SESSION_ID 与 AGENT_NAME 皆空)⇒ 本枚无归属记录。' +
+        '调用方应显式传 IHUI_AGENT_SESSION_ID=<席位短名>;读侧尺子会把本枚判 unjudged,不得读成「人类写的」。',
+    )
+  }
+} catch (e) {
+  log('warn', `⚠️ AI 归属 notes 未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
+}
+log('ok', `post-commit hook 将自动调用 git-push-guard 推送`)
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

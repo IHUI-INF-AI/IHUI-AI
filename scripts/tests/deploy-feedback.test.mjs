@@ -1,0 +1,473 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * `deploy-feedback.mjs` 的镜像测试(§22c:判据 import 源脚本 `__test__`,本文件零复制判据)。
+ *
+ * 钉住七环:
+ *  ① 契约声明 source=deploy_outcome / v1 未声明 ⇒ 未判定;
+ *  ② dry-run 不 spawn、只记台账 dry-run,登记行含 action+route 且 ≤400;
+ *  ③ --apply 只调一次 live-doc-edit,LIVE_DOC/LIVE_BLOCK_FILE/LIVE_MSG 与令牌族逐个验;
+ *  ④ 同身份 24h 去重(新鲜拦 / 过期放);
+ *  ⑤ 每轮 --max-per-run 配额上限;
+ *  ⑥ 输入缺失 / 契约坏 ⇒ exit 2;登记行短 sha 被清洗;--status 只读不写盘;
+ *  ⑦ 取号族现读可行、绝不使用满员的 G 族;
+ *  ⑨ 门槛只问契约(dispatch.minCountBySource.deploy_outcome 现读,缺门槛即未判定);
+ *  ⑩ 窗口外旧证据(B69)不复活成新票;窗口内同形信号照常派单(反向例)。
+ *
+ * 全程只用 scripts/lib/scratch-dir.mjs 的夹具,并注入假 spawn:
+ * 绝不碰真实 `.ihui-agent/state/deploy-feedback-ledger.jsonl`,也不真跑 live-doc-edit。
+ */
+import { test, after } from 'node:test'
+import assert from 'node:assert/strict'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { __test__ as df } from '../deploy-feedback.mjs'
+import { TS_CODE_FAMILY, clusterSignals, identityOf, normalizeRoute, sameIncidentIdentity, tsCodesOf } from '../lib/incident-cluster.mjs'
+
+const SCRATCH = mkScratch('deploy-feedback-test-')
+after(() => {
+  try {
+    rmScratch(SCRATCH)
+  } catch {
+    /* 清理失败不改写用例结论 */
+  }
+})
+
+const NOW = new Date('2026-10-26T12:00:00Z')
+const at = (minAgo) => new Date(NOW.getTime() - minAgo * 60_000).toISOString()
+const PLAN_TEXT = ['- [ ] O88 假登记行', '- [ ] D16 另一族'].join('\n')
+
+/** 契约 v2 的内联夹具(不读真实契约:真实契约由另一席升级,本测试只钉消费口径)。 */
+const V2 = {
+  version: 2,
+  reviewBy: '2027-01-31',
+  required: ['at', 'source', 'kind', 'severity', 'message'],
+  fields: {
+    source: { enum: ['api_logs', 'grafana_alert', 'user_feedback', 'deploy_outcome'] },
+    kind: { enum: ['http_error', 'runtime_error', 'alert_firing', 'user_report', 'perf_degradation', 'deploy_failure'] },
+    severity: { enum: ['debug', 'info', 'warn', 'error', 'critical'] },
+    message: { maxLength: 2000 },
+    traceId: { maxLength: 128 },
+    route: { maxLength: 300 },
+  },
+  // 门槛随契约现读(2026-10-29):消费方不再自持「单次=1」,夹具必须与真契约同形声明门槛。
+  dispatch: { minSeverity: 'warn', minCount: 3, minCountBySource: { deploy_outcome: 1 } },
+  owners: { api_logs: '后端', grafana_alert: '运维', user_feedback: '产品', deploy_outcome: '运维值班' },
+}
+const V1 = {
+  ...V2,
+  version: 1,
+  fields: { ...V2.fields, source: { enum: ['api_logs', 'grafana_alert', 'user_feedback'] } },
+  owners: { api_logs: '后端', grafana_alert: '运维', user_feedback: '产品' },
+}
+
+const signal = (over = {}) => ({
+  at: at(60),
+  source: 'deploy_outcome',
+  kind: 'deploy_failure',
+  severity: 'error',
+  message: 'deploy failed code=DEPLOY_FAIL',
+  route: 'post /api/deploy/release',
+  action: 'deploy',
+  dims: { env: 'prod', service: 'api' },
+  ...over,
+})
+
+function signalFile(name, rows) {
+  const path = join(SCRATCH, name)
+  writeFileSync(path, rows.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8')
+  return path
+}
+
+function quietRound(over = {}) {
+  const logs = []
+  const warns = []
+  const res = df.runRound({
+    now: NOW,
+    contract: V2,
+    planContent: PLAN_TEXT,
+    log: (m) => logs.push(String(m)),
+    warn: (m) => warns.push(String(m)),
+    // 夹具密闭(2026-10-28 补环同批):默认假面读回恒空 ⇒ apply 用例绝不触真 `git show`。
+    // 要断言"ticketLine 带回"的用例在 over 里显式覆盖(见 ⑬/⑭)。
+    readPlanHead: () => '',
+    ...over,
+  })
+  return { res, logs, warns }
+}
+
+test('① 契约口径:v2 声明 deploy_outcome 可消费;v1 未声明 ⇒ 未判定', () => {
+  assert.equal(df.contractSupportsDeployOutcome(V2), true)
+  assert.equal(df.contractSupportsDeployOutcome(V1), false)
+  assert.throws(() => df.ensureDeployContract(V1), df.DeployFeedbackShapeError)
+  const { res, warns } = quietRound({ contract: V1, inputPath: join(SCRATCH, 'anything.jsonl') })
+  assert.equal(res.code, 2)
+  assert.equal(res.status, 'undetermined')
+  assert.ok(warns.some((w) => w.includes('未判定')), warns.join('\n'))
+})
+
+test('② dry-run:不 spawn、只记台账 dry-run,行含 action+route 且 ≤400', () => {
+  const inputPath = signalFile('dry.jsonl', [signal()])
+  const ledgerPath = join(SCRATCH, 'dry-ledger.jsonl')
+  const tmpDir = join(SCRATCH, 'dry-tmp')
+  let calls = 0
+  const { res } = quietRound({
+    inputPath,
+    ledgerPath,
+    tmpDir,
+    spawn: () => {
+      calls++
+      return { status: 0, stdout: '', stderr: '' }
+    },
+  })
+  assert.equal(res.code, 0)
+  assert.equal(calls, 0, 'dry-run 不得 spawn live-doc-edit')
+  assert.equal(res.results.length, 1)
+  assert.equal(res.results[0].result, 'dry-run')
+  const ledger = df.readLedger(ledgerPath)
+  assert.equal(ledger.length, 1)
+  assert.equal(ledger[0].result, 'dry-run')
+  const line = res.candidates[0].line
+  assert.match(line, /^- \[ \] \{\{NEXT_ID:O\}\} \[deploy-feedback\] /)
+  assert.match(line, /deploy/)
+  assert.match(line, /\/api\/deploy\/release/i)
+  assert.ok(line.length <= df.LINE_MAX, `行宽 ${line.length}`)
+})
+
+test('③ --apply:只调一次 live-doc-edit,env 与令牌族逐项;块文件用完即删', () => {
+  const inputPath = signalFile('apply.jsonl', [signal()])
+  const ledgerPath = join(SCRATCH, 'apply-ledger.jsonl')
+  const tmpDir = join(SCRATCH, 'apply-tmp')
+  const calls = []
+  let block = ''
+  let blockPath = ''
+  const fakeSpawn = (_cmd, argv, opts) => {
+    calls.push({ argv, opts })
+    blockPath = opts.env.LIVE_BLOCK_FILE
+    block = readFileSync(blockPath, 'utf8')
+    return { status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' }
+  }
+  const { res } = quietRound({ inputPath, ledgerPath, tmpDir, apply: true, spawn: fakeSpawn })
+  assert.equal(res.code, 0)
+  assert.equal(calls.length, 1, '一条候选只调一次')
+  assert.equal(res.results[0].result, 'registered')
+  assert.ok(String(calls[0].argv[0]).endsWith('live-doc-edit.mjs'), '唯一登记入口')
+  assert.equal(calls[0].opts.env.LIVE_DOC, 'PROJECT_PLAN.md')
+  assert.ok(blockPath.startsWith(tmpDir), `临时块必须落注入的 tmpDir:${blockPath}`)
+  assert.match(calls[0].opts.env.LIVE_MSG, /deploy-feedback/)
+  assert.match(block, /\{\{NEXT_ID:O\}\}/, '编号必须走取号令牌')
+  assert.ok(!/\{\{NEXT_ID:G\}\}/.test(block), 'G 族现读已满,不得使用')
+  assert.ok(!/\{\{NEXT_ID:\d/.test(block), '令牌族只吃字母')
+  assert.ok(block.trim().length <= df.LINE_MAX)
+  assert.ok(!existsSync(blockPath), '临时块用完即删')
+  assert.equal(df.readLedger(ledgerPath)[0].result, 'registered')
+  assert.ok(!('ticketLine' in df.readLedger(ledgerPath)[0]), '回读面恒空(读不到)⇒ 条目退回无键形态,绝不伪造对齐键')
+})
+
+test('③b 回读到已落行 ⇒ registered 条目带 ticketLine(O6x 号可被 extractTicketNo 解析)', () => {
+  const inputPath = signalFile('landed.jsonl', [signal()])
+  const ledgerPath = join(SCRATCH, 'landed-ledger.jsonl')
+  const tmpDir = join(SCRATCH, 'landed-tmp')
+  const fakeSpawn = () => ({ status: 0, stdout: '✅ 回读:本块每一条非空行都在 HEAD 里', stderr: '' })
+  // 假 HEAD 面:与真实枚 a9cb59ed41e 的落地行同形(行首 `- [ ] O<号> [deploy-feedback] `,行体带 route=)
+  const landedLine = '- [ ] O69 [deploy-feedback] [deploy_outcome/alert_firing] rollback POST /api/deploy/release 部署异常 ⇒ 排查链路并修复（登记@2026-10-28/deploy-feedback;来源:deploy_outcome;证据:route=POST /api/deploy/release）'
+  const { res } = quietRound({
+    inputPath,
+    ledgerPath,
+    tmpDir,
+    apply: true,
+    spawn: fakeSpawn,
+    readPlanHead: () => `# 前文无关\n${landedLine}\n- [ ] O02 别的票 route=/deploy/x\n`,
+  })
+  assert.equal(res.code, 0)
+  const e = df.readLedger(ledgerPath).find((x) => x.result === 'registered')
+  assert.equal(e?.ticketLine, landedLine, 'ticketLine 必须逐字等于读回的落地行')
+})
+
+test('③c findLandedRegistrationLine:route 带空格取全段;不同 route 不误配;无标记行不算', () => {
+  const t = ['- [ ] O70 [deploy-feedback] X route=post /api/deploy/release tail', '- [x] 旧勾行不是目标', '- [ ] 行首无标记'].join('\n')
+  assert.equal(df.findLandedRegistrationLine(t, 'deploy_outcome|alert_firing|route:post /api/deploy/release'), '- [ ] O70 [deploy-feedback] X route=post /api/deploy/release tail')
+  assert.equal(df.findLandedRegistrationLine(t, 'deploy_outcome|alert_firing|route:/deploy/build-fail'), null, 'route 不同形 ⇒ 判未命中,不得拿别的票的号凑')
+  assert.equal(df.findLandedRegistrationLine(t, ''), '- [ ] O70 [deploy-feedback] X route=post /api/deploy/release tail', 'identity 无 route 段 ⇒ 只按行头标记取首命中')
+})
+
+test('④ 同身份 24h 去重:新鲜 registered 拦截;25h 前放行', () => {
+  const identity = df.identityOfSignal(signal(), V2)
+  const inputPath = signalFile('dedup.jsonl', [signal()])
+
+  const freshLedger = join(SCRATCH, 'dedup-fresh.jsonl')
+  df.appendLedger({ ts: at(60), action: 'deploy', identity, result: 'registered' }, freshLedger)
+  let freshCalls = 0
+  const fresh = quietRound({
+    inputPath,
+    ledgerPath: freshLedger,
+    tmpDir: join(SCRATCH, 'dedup-fresh-tmp'),
+    apply: true,
+    spawn: () => {
+      freshCalls++
+      return { status: 0, stdout: '✅ 回读', stderr: '' }
+    },
+  })
+  assert.equal(fresh.res.code, 0)
+  assert.equal(fresh.res.results[0].result, 'skip')
+  assert.equal(freshCalls, 0)
+  assert.equal(df.readLedger(freshLedger).at(-1).result, 'skip')
+
+  const oldLedger = join(SCRATCH, 'dedup-old.jsonl')
+  df.appendLedger({ ts: new Date(NOW.getTime() - 25 * 3600_000).toISOString(), action: 'deploy', identity, result: 'registered' }, oldLedger)
+  let oldCalls = 0
+  const old = quietRound({
+    inputPath,
+    ledgerPath: oldLedger,
+    tmpDir: join(SCRATCH, 'dedup-old-tmp'),
+    apply: true,
+    spawn: () => {
+      oldCalls++
+      return { status: 0, stdout: '✅ 回读', stderr: '' }
+    },
+  })
+  assert.equal(old.res.results[0].result, 'registered')
+  assert.equal(oldCalls, 1)
+})
+
+test('⑤ 每轮配额:--max-per-run 2 时 4 条簇只登记 2 条', () => {
+  const routes = ['post /api/deploy/a', 'post /api/deploy/b', 'post /api/deploy/c', 'post /api/deploy/d']
+  const inputPath = signalFile('quota.jsonl', routes.map((route, i) => signal({ route, message: `deploy failed code=DEPLOY_FAIL_${i}` })))
+  const ledgerPath = join(SCRATCH, 'quota-ledger.jsonl')
+  let calls = 0
+  const { res } = quietRound({
+    inputPath,
+    ledgerPath,
+    tmpDir: join(SCRATCH, 'quota-tmp'),
+    maxPerRun: 2,
+    apply: true,
+    spawn: () => {
+      calls++
+      return { status: 0, stdout: '✅ 回读', stderr: '' }
+    },
+  })
+  assert.equal(res.code, 0)
+  assert.equal(calls, 2, '配额上限必须拦在第 3 条之前')
+  const counts = res.results.reduce((m, r) => ((m[r.result] = (m[r.result] ?? 0) + 1), m), {})
+  assert.equal(counts.registered, 2)
+  assert.equal(counts.skip, 2)
+  assert.equal(df.readLedger(ledgerPath).filter((e) => e.result === 'registered').length, 2)
+})
+
+test('⑥a 输入缺失 ⇒ exit 2 且打印未判定', () => {
+  const { res, warns } = quietRound({ inputPath: join(SCRATCH, 'missing.jsonl'), ledgerPath: join(SCRATCH, 'missing-ledger.jsonl') })
+  assert.equal(res.code, 2)
+  assert.equal(res.status, 'undetermined')
+  assert.ok(warns.some((w) => w.startsWith('未判定:')), warns.join('\n'))
+})
+
+test('⑥b 登记行 ≤400 且 7~64 位短 sha 被清洗', () => {
+  const line = df.buildRegistrationLine({
+    token: '{{NEXT_ID:O}}',
+    title: '部署 abc123def456 失败 ' + 'x'.repeat(600),
+    evidence: 'id=deadbeefcafe ' + 'y'.repeat(600),
+    date: '2026-10-26',
+  })
+  assert.ok(line.length <= df.LINE_MAX, `行宽 ${line.length}`)
+  assert.match(line, /\[hex:12\]/)
+  assert.ok(!/(^|[^0-9a-zA-Z_])[0-9a-fA-F]{7,64}(?=$|[^0-9a-zA-Z_])/.test(line), '短 sha 不得进台账行')
+})
+
+test('⑥c --status 只读:不创建台账、不 spawn、不改既有台账', () => {
+  const inputPath = signalFile('status.jsonl', [signal()])
+  const missingLedger = join(SCRATCH, 'status-missing-ledger.jsonl')
+  const rep = df.statusReport({ contract: V2, inputPath, ledgerPath: missingLedger, planContent: PLAN_TEXT, now: NOW })
+  assert.equal(rep.code, 0)
+  assert.equal(existsSync(missingLedger), false, 'status 不得创建台账')
+  assert.ok(rep.lines.some((l) => l.startsWith('取号族:')))
+  assert.ok(rep.lines.some((l) => l.startsWith('台账:')))
+
+  const existing = join(SCRATCH, 'status-existing-ledger.jsonl')
+  df.appendLedger({ ts: at(60), action: 'deploy', identity: 'x', result: 'registered' }, existing)
+  const before = readFileSync(existing, 'utf8')
+  df.statusReport({ contract: V2, inputPath, ledgerPath: existing, planContent: PLAN_TEXT, now: NOW })
+  assert.equal(readFileSync(existing, 'utf8'), before, 'status 不得改写既有台账')
+})
+
+test('⑧ intake 形态(无 action/dims 字段):从 route 与 message 回读 action/dims', () => {
+  const intake = {
+    at: at(60),
+    source: 'deploy_outcome',
+    kind: 'alert_firing',
+    severity: 'error',
+    message: 'deploy_outcome action=rollback dims=web+llm reason=canary failed',
+    route: 'deploy/rollback',
+  }
+  const inputPath = signalFile('intake.jsonl', [intake])
+  const { res } = quietRound({ inputPath, ledgerPath: join(SCRATCH, 'intake-ledger.jsonl'), tmpDir: join(SCRATCH, 'intake-tmp') })
+  assert.equal(res.code, 0)
+  const rec = res.candidates[0]
+  assert.match(rec.title, /rollback/)
+  assert.match(rec.title, /\/deploy\/rollback/)
+  assert.match(rec.evidence, /dims=web\+llm/)
+  assert.match(rec.evidence, /action=rollback/)
+  assert.match(rec.evidence, /窗口=1440min/)
+})
+
+test('⑨ 门槛只问契约:minCountBySource.deploy_outcome 现读,契约收紧则跟着收紧,契约缺门槛判未判定', () => {
+  const inputPath = signalFile('gate.jsonl', [signal()])
+  const strict = structuredClone(V2)
+  strict.dispatch.minCountBySource = { deploy_outcome: 2 }
+  const tightened = quietRound({ inputPath, contract: strict, ledgerPath: join(SCRATCH, 'gate-ledger.jsonl'), tmpDir: join(SCRATCH, 'gate-tmp') })
+  assert.equal(tightened.res.code, 0, tightened.res.why ?? '')
+  assert.equal(tightened.res.candidates.length, 0, '契约抬到 2 ⇒ 单条信号不得派单(消费方不得自持旧字面量)')
+  assert.ok(tightened.logs.some((l) => l.includes('dispatch.minCountBySource.deploy_outcome')), tightened.logs.join('\n'))
+
+  const noGate = structuredClone(V2)
+  delete noGate.dispatch.minCount
+  delete noGate.dispatch.minCountBySource
+  const undet = quietRound({ inputPath, contract: noGate, ledgerPath: join(SCRATCH, 'gate-none.jsonl') })
+  assert.equal(undet.res.code, 2, '契约缺门槛必须判未判定,不得回落硬编码阈值')
+  assert.match(undet.res.why ?? '', /门槛不可判定/)
+
+  // 真实契约必须声明本源门槛:消费方已不再自持「单次=1」,契约缺这一格 ⇒ 生产会直接落未判定。
+  const realContract = JSON.parse(readFileSync(new URL('../data/incident-signal-contract.json', import.meta.url), 'utf8'))
+  const realGate = realContract?.dispatch?.minCountBySource?.deploy_outcome
+  assert.ok(Number.isInteger(realGate) && realGate >= 1, `真契约缺 dispatch.minCountBySource.deploy_outcome(实得 ${JSON.stringify(realGate)})`)
+})
+
+test('⑩ 窗口外旧证据不复活成新票;窗口内同形信号照常派单(反向例)', () => {
+  // 旧证据(2000min 前,远超 1440min 窗口):判 judged、0 候选、0 结果,不写台账。
+  // 修复前 `clusterSignals` 以批次最新时刻自锚,单条旧信号每天都会重新登记(B53→B67→B69)。
+  const agedPath = signalFile('aged.jsonl', [signal({ at: at(2000) })])
+  const agedLedger = join(SCRATCH, 'aged-ledger.jsonl')
+  const aged = quietRound({ inputPath: agedPath, ledgerPath: agedLedger, tmpDir: join(SCRATCH, 'aged-tmp') })
+  assert.equal(aged.res.code, 0, aged.res.why ?? '')
+  assert.equal(aged.res.status, 'judged')
+  assert.equal(aged.res.input.agedRows, 1)
+  assert.equal(aged.res.candidates.length, 0)
+  assert.equal(aged.res.results.length, 0)
+  assert.ok(aged.logs.some((l) => l.includes('窗口外')), aged.logs.join('\n'))
+  assert.equal(existsSync(agedLedger), false, '窗口外旧证据不得触发台账写盘')
+
+  // 反向:窗口内同形信号必须照常派单(绝缘不得误伤新鲜事故)。
+  const freshPath = signalFile('aged-fresh.jsonl', [signal({ at: at(60) })])
+  const fresh = quietRound({ inputPath: freshPath, ledgerPath: join(SCRATCH, 'aged-fresh-ledger.jsonl'), tmpDir: join(SCRATCH, 'aged-fresh-tmp') })
+  assert.equal(fresh.res.code, 0, fresh.res.why ?? '')
+  assert.equal(fresh.res.input.agedRows, 0)
+  assert.equal(fresh.res.candidates.length, 1, '窗口内信号必须照常派单')
+  assert.equal(fresh.res.results[0].result, 'dry-run')
+
+  // 边界:恰在窗口起点(1440min)的算窗内(`>=`),不得因边界误判成旧证据。
+  const edgePath = signalFile('aged-edge.jsonl', [signal({ at: at(df.DEFAULT_MINUTES) })])
+  const edge = quietRound({ inputPath: edgePath, ledgerPath: join(SCRATCH, 'aged-edge-ledger.jsonl'), tmpDir: join(SCRATCH, 'aged-edge-tmp') })
+  assert.equal(edge.res.input.agedRows, 0)
+  assert.equal(edge.res.candidates.length, 1)
+})
+
+test('⑦ 取号族现读:O65 落成字母族 O、下一号现读;绝不选 G', () => {
+  const fam = df.chooseIdFamily(PLAN_TEXT)
+  assert.equal(fam.ok, true)
+  assert.equal(fam.token, '{{NEXT_ID:O}}')
+  assert.equal(fam.nextLabel, 'O89')
+  assert.notEqual(fam.family, 'G')
+  assert.equal(df.chooseIdFamily('').ok, false, '读不到计划 ⇒ 取号不可行,不得给 1')
+})
+
+// B87/B88/B91 同题三登记:07:32 无码 / 07:58 TS2339 / 08:29 TS2554,旧身份
+// `deploy_outcome|alert_firing|route:/deploy/build-fail|code:<码>` 使同一条 route 裂成 3 键,
+// deploy-feedback 逐键登记 ⇒ 3 张票。本组钉「一份输入 → 一张票」,并保留反向例。
+const FULL_SHA = '0123456789abcdef0123456789abcdef01234567'
+const buildFailSignal = (code, minAgo, dims = 'web') => ({
+  at: at(minAgo),
+  source: 'deploy_outcome',
+  kind: 'alert_firing',
+  severity: 'error',
+  route: 'deploy/build-fail',
+  message:
+    `deploy_outcome action=build-fail sha=${FULL_SHA} dims=${dims} reason="构建失败,未切流,保持当前在线版本:` +
+    `next build 连续 1 次失败,保持当前在线版本(` +
+    (code
+      ? `末次报错: ./apps/web/src/app/page.tsx:12:34 - error ${code}: Property 'x' does not exist on type 'Y')"`
+      : `末轮报错行不可读,exit=1)"`),
+})
+
+test('⑩ 同 route 三轮 build-fail(无码/TS2339/TS2554)⇒ 1 个候选,evidence 带 codes 与 cause', () => {
+  const rows = [buildFailSignal('', 60, '(none)'), buildFailSignal('TS2339', 30), buildFailSignal('TS2554', 5)]
+  const inputPath = signalFile('build-fail-3.jsonl', rows)
+  const { res } = quietRound({ inputPath, ledgerPath: join(SCRATCH, 'build-fail-ledger.jsonl'), minutes: 1440 })
+  assert.equal(res.code, 0, res.why ?? '')
+  assert.equal(res.clusters.length, 1, '同一 route 必须只聚成一簇')
+  assert.equal(res.clusters[0].count, 3)
+  assert.deepEqual(res.clusters[0].codes, ['TS2339', 'TS2554'], '同族多码必须逐码保留(聚合≠丢证据)')
+  assert.equal(res.clusters[0].code, 'TS2339', 'code 取首个非空码(首条信号无码也不丢)')
+  assert.equal(res.candidates.length, 1, '三张票应收敛成一张')
+  const c = res.candidates[0]
+  assert.equal(c.identity, 'deploy_outcome|alert_firing|route:/deploy/build-fail', '身份不带 code')
+  assert.equal(c.codes.length, 2)
+  assert.match(c.evidence, /codes=TS2339\+TS2554/)
+  assert.match(c.evidence, /cause=/, '必须落可定位原因,而不是被 sha 前缀吃掉的 sample')
+  assert.match(c.evidence, /末次报错/)
+  assert.match(c.evidence, /TS2554/, 'cause 取最新一轮的末次报错(TS2554)')
+  assert.doesNotMatch(c.evidence, /sample=/)
+  assert.match(c.evidence, /dims=web/, 'build-fail 必须点名 web 维')
+  assert.match(c.evidence, /route=\/deploy\/build-fail/)
+  assert.ok(c.evidence.length <= df.EVIDENCE_MAX, `证据超长 ${c.evidence.length}`)
+  assert.ok(c.line.length <= df.LINE_MAX, `行宽 ${c.line.length}`)
+
+  // 反向例:旧身份公式(route 后挂具体 TS 号)在同一份输入上仍裂成 3 键 —— 症状可复现。
+  const legacyIdentity = (s) => {
+    const code = (s.message.match(/\bTS\d{4}\b/) ?? [''])[0]
+    const base = `${s.source}|${s.kind}|route:${normalizeRoute(s.route)}`
+    return code ? `${base}|code:${code}` : base
+  }
+  assert.equal(new Set(rows.map(legacyIdentity)).size, 3, '旧口径 = 3 个身份 = 3 张票(症状复现)')
+  assert.equal(new Set(rows.map(identityOf)).size, 1, '新口径 = 1 个身份')
+})
+
+test('⑪ 旧台账身份(带 |code:TS2339)仍拦住新键 ⇒ 修复当天不多登记第 4 张票', () => {
+  const rows = [buildFailSignal('TS2554', 5)]
+  const inputPath = signalFile('build-fail-compat.jsonl', rows)
+  const ledgerPath = join(SCRATCH, 'build-fail-compat-ledger.jsonl')
+  df.appendLedger(
+    { ts: at(60), action: 'build-fail', identity: 'deploy_outcome|alert_firing|route:/deploy/build-fail|code:TS2339', result: 'registered' },
+    ledgerPath,
+  )
+  let calls = 0
+  const { res } = quietRound({
+    inputPath,
+    ledgerPath,
+    tmpDir: join(SCRATCH, 'build-fail-compat-tmp'),
+    apply: true,
+    spawn: () => {
+      calls++
+      return { status: 0, stdout: '✅ 回读', stderr: '' }
+    },
+  })
+  assert.equal(res.code, 0, res.why ?? '')
+  assert.equal(res.results[0].result, 'skip', '旧键与新键必须互认')
+  assert.equal(calls, 0)
+  assert.equal(sameIncidentIdentity('deploy_outcome|alert_firing|route:/deploy/build-fail|code:TS2339', 'deploy_outcome|alert_firing|route:/deploy/build-fail'), true)
+  assert.equal(sameIncidentIdentity('deploy_outcome|alert_firing|route:/deploy/rollback|code:TS2339', 'deploy_outcome|alert_firing|route:/deploy/build-fail'), false)
+})
+
+test('⑫ 非部署来源的 TS 诊断码按族聚合(身份 TS-COMPILE,证据保留编号)', () => {
+  const api = (code, minAgo) => ({
+    at: at(minAgo),
+    source: 'api_logs',
+    kind: 'http_error',
+    severity: 'error',
+    route: 'get /api/agents',
+    message: `GET /api/agents failed with ${code}`,
+  })
+  const rows = [api('TS2339', 30), api('TS2554', 5)]
+  assert.equal(new Set(rows.map(identityOf)).size, 1, '同族不同编号必须落同一身份')
+  assert.equal(identityOf(rows[0]), `api_logs|http_error|route:GET /api/agents|code:${TS_CODE_FAMILY}`)
+  assert.deepEqual(tsCodesOf(rows[1].message), ['TS2554'])
+  const clusters = clusterSignals(rows, { minCount: 1, windowMinutes: 1440, contract: V2 })
+  assert.equal(clusters.length, 1)
+  assert.equal(clusters[0].count, 2)
+  assert.deepEqual(clusters[0].codes, ['TS2339', 'TS2554'])
+
+  // 反向例:旧口径按具体编号分身份 ⇒ 同族两条被拆成两簇,永远凑不够阈值。
+  const legacy = rows.map((s) => `${s.source}|${s.kind}|route:${normalizeRoute(s.route)}|code:${(s.message.match(/\bTS\d{4}\b/) ?? [''])[0]}`)
+  assert.equal(new Set(legacy).size, 2)
+})

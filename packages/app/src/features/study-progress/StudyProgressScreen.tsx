@@ -1,0 +1,168 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { StudyProgressData, StudyProgressScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 学习进度共享屏 — props 注入式跨端组件 */
+export type { StudyProgressData, StudyProgressScreenProps }
+
+export function StudyProgressScreen({
+  t,
+  progress,
+  loading,
+  error,
+  onBack,
+  colorScheme = 'light',
+}: StudyProgressScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) {
+    return <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
+  }
+
+  if (error || !progress) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error || t('studyProgress.loadFailed')}</Text>
+        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
+          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      <Text style={styles.title}>{t('studyProgress.title')}</Text>
+      <View style={styles.statGrid}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>
+            {progress.completedCourses}/{progress.totalCourses}
+          </Text>
+          <Text style={styles.statLabel}>{t('studyProgress.courses')}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{progress.totalMinutes}</Text>
+          <Text style={styles.statLabel}>{t('studyProgress.totalMinutes')}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{progress.weekMinutes ?? 0}</Text>
+          <Text style={styles.statLabel}>{t('studyProgress.weekMinutes')}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{progress.streakDays}</Text>
+          <Text style={styles.statLabel}>{t('studyProgress.streak')}</Text>
+        </View>
+      </View>
+      <Text style={styles.sectionTitle}>{t('studyProgress.courseProgress')}</Text>
+      {progress.courses.length === 0 ? (
+        <Text style={styles.muted}>{t('common.empty')}</Text>
+      ) : (
+        progress.courses.map((c) => (
+          <View key={c.id} style={styles.card}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {c.title}
+            </Text>
+            <View style={styles.bar}>
+              <View style={[styles.barFill, { width: `${c.progress}%` }]} />
+            </View>
+            <Text style={styles.meta}>{c.progress}%</Text>
+          </View>
+        ))
+      )}
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+      padding: rnSpacing.lg,
+    },
+    muted: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    error: {
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+      marginBottom: rnSpacing.sm,
+      textAlign: 'center',
+    },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.md,
+    },
+    statGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.lg,
+    },
+    statCard: {
+      flex: 1,
+      minWidth: '45%',
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      alignItems: 'center',
+    },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    statLabel: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
+    sectionTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      marginBottom: rnSpacing.sm,
+    },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    bar: {
+      height: 6,
+      backgroundColor: tk.surface.card,
+      borderRadius: rnRadius.xl,
+      marginTop: rnSpacing.sm,
+      overflow: 'hidden',
+    },
+    barFill: { height: 6, backgroundColor: tk.success.DEFAULT, borderRadius: rnRadius.xl },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    btn: {
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,374 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 对齐目标(RN 共享屏): packages/app/src/features/ask-create/AskCreateScreen.tsx
+import { useTt, t } from '@/i18n'
+import { logger } from '@/utils/logger'
+import { View, Text, Button, Image, Switch, ScrollView } from '@tarojs/components'
+import { FocusInput, FocusTextarea } from '@/components/FocusField'
+import LineIcon from '@/components/LineIcon'
+import Taro from '@tarojs/taro'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createAsk } from '@/api'
+import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
+import './create.css'
+import { onToast } from '@/host/on-toast'
+
+interface FormState {
+  title: string
+  content: string
+  tags: string
+  reward: number
+  category: string
+  images: string[]
+  anonymous: boolean
+}
+
+const TITLE_MAX = 50
+const CONTENT_MAX = 500
+const IMAGE_MAX = 3
+const DRAFT_KEY = 'ask_create_draft'
+
+const CATEGORIES = [
+  { key: 'tech', labelKey: 'askCreate.d1', fb: t('askCreate.d1') },
+  { key: 'product', labelKey: 'askCreate.d2', fb: t('askCreate.d2') },
+  { key: 'design', labelKey: 'pagesindexindex.d11', fb: t('pagesindexindex.d11') },
+  { key: 'operation', labelKey: 'askCreate.d4', fb: t('askCreate.d4') },
+  { key: 'other', labelKey: 'setting.other', fb: t('setting.other') },
+]
+
+const REWARDS = [0, 5, 10, 20, 50]
+
+export default function AskCreatePage() {
+  const tt = useTt()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
+
+  const [form, setForm] = useState<FormState>({
+    title: '',
+    content: '',
+    tags: '',
+    reward: 0,
+    category: '',
+    images: [],
+    anonymous: false,
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [showCategorySheet, setShowCategorySheet] = useState(false)
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 草稿恢复
+  useEffect(() => {
+    try {
+      const raw = Taro.getStorageSync(DRAFT_KEY)
+      if (raw) {
+        const saved = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (saved && (saved.title || saved.content)) {
+          setForm({
+            title: saved.title || '',
+            content: saved.content || '',
+            tags: saved.tags || '',
+            reward: Number(saved.reward) || 0,
+            category: saved.category || '',
+            images: Array.isArray(saved.images) ? saved.images : [],
+            anonymous: !!saved.anonymous,
+          })
+          onToast(tt('ask.create.draftRestored', '草稿已恢复'), { kind: 'info' })
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [tt])
+
+  // 草稿自动保存(防抖 800ms)
+  const saveDraft = useCallback((data: FormState) => {
+    if (draftTimer.current) clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => {
+      try {
+        Taro.setStorageSync(DRAFT_KEY, JSON.stringify(data))
+      } catch {
+        // ignore
+      }
+    }, 800)
+  }, [])
+
+  const updateForm = useCallback(
+    (patch: Partial<FormState>) => {
+      setForm((f) => {
+        const next = { ...f, ...patch }
+        saveDraft(next)
+        return next
+      })
+    },
+    [saveDraft],
+  )
+
+  const addImage = useCallback(() => {
+    if (form.images.length >= IMAGE_MAX) {
+      onToast(tt('ask.create.maxImages', '最多 3 张'), { kind: 'info' })
+      return
+    }
+    Taro.chooseImage({
+      count: IMAGE_MAX - form.images.length,
+      sizeType: ['compressed'],
+      success: (res) => {
+        updateForm({ images: [...form.images, ...res.tempFilePaths] })
+      },
+    })
+  }, [form.images, updateForm, tt])
+
+  const removeImage = useCallback(
+    (idx: number) => {
+      updateForm({ images: form.images.filter((_, i) => i !== idx) })
+    },
+    [form.images, updateForm],
+  )
+
+  const pickCategory = useCallback(
+    (key: string) => {
+      updateForm({ category: key })
+      setShowCategorySheet(false)
+    },
+    [updateForm],
+  )
+
+  const getCategoryLabel = useCallback(
+    (key: string) => {
+      const item = CATEGORIES.find((c) => c.key === key)
+      return item ? tt(item.labelKey, item.fb) : ''
+    },
+    [tt],
+  )
+
+  const onSubmit = useCallback(async () => {
+    if (!form.title.trim()) {
+      onToast(tt('ask.create.titleRequired', '请输入标题'), { kind: 'info' })
+      return
+    }
+    if (!form.content.trim()) {
+      onToast(tt('ask.create.contentRequired', '请输入问题描述'), { kind: 'info' })
+      return
+    }
+    if (form.content.trim().length < 5) {
+      onToast(tt('ask.create.contentTooShort', '描述至少 5 个字'), { kind: 'error' })
+      return
+    }
+    setSubmitting(true)
+    try {
+      // 标签按逗号(中英文)切分去空;后端 POST /asks 的 tags 为可选字符串数组
+      const tags = form.tags
+        .split(/[,，]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+      await createAsk({
+        title: form.title.trim(),
+        content: form.content.trim(),
+        tags,
+      } as { title: string; content: string })
+      Taro.removeStorageSync(DRAFT_KEY)
+      onToast(tt('ask.create.published', '问题已发布'), { kind: 'success' })
+      setTimeout(() => Taro.navigateBack(), 1500)
+    } catch (e) {
+      logger.error('ask/create', t('ask.create.submit'), e)
+      onToast(tt('ask.create.failed', '发布失败,请重试'), { kind: 'error' })
+    } finally {
+      setSubmitting(false)
+    }
+  }, [form.title, form.content, form.tags, tt])
+
+  const canSubmit = form.title.trim().length > 0 && form.content.trim().length >= 5
+
+  return (
+    <ThemeRoot>
+      <View className="ask-create-page">
+        <NavBar title={tt('askCreate.title', '发布提问')} showBack />
+        <ScrollView scrollY className="ask-create-body">
+          {/* 标题 */}
+          <View className="ask-create-card">
+            <View className="ask-create-label-row">
+              <Text className="ask-create-label">{tt('ask.create.titleLabel', '标题')}</Text>
+              <Text className="ask-create-counter">
+                {tt('ask.create.titleCount', '{n}/50', { n: form.title.length })}
+              </Text>
+            </View>
+            <FocusInput
+              className="ask-create-input"
+              value={form.title}
+              placeholder={tt('askCreate.titlePlaceholder', '一句话概括你的问题')}
+              maxlength={TITLE_MAX}
+              onInput={(e) => updateForm({ title: e.detail.value })}
+            />
+          </View>
+
+          {/* 详细描述 */}
+          <View className="ask-create-card">
+            <View className="ask-create-label-row">
+              <Text className="ask-create-label">{tt('askCreate.contentLabel', '内容')}</Text>
+              <Text className="ask-create-counter">
+                {tt('ask.create.contentCount', '{n}/500', { n: form.content.length })}
+              </Text>
+            </View>
+            <FocusTextarea
+              className="ask-create-textarea"
+              value={form.content}
+              placeholder={tt('askCreate.contentPlaceholder', '详细描述你的问题')}
+              maxlength={CONTENT_MAX}
+              onInput={(e) => updateForm({ content: e.detail.value })}
+            />
+          </View>
+
+          {/* 标签(对齐 RN tags 输入:逗号分隔,提交时转数组走 POST /asks 的 tags 字段) */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('askCreate.tagsLabel', '标签')}</Text>
+            <FocusInput
+              className="ask-create-input"
+              value={form.tags}
+              placeholder={tt('askCreate.tagsPlaceholder', '多个标签用逗号分隔')}
+              maxlength={100}
+              onInput={(e) => updateForm({ tags: e.detail.value })}
+            />
+          </View>
+
+          {/* 分类选择 */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('ask.create.categoryLabel', '分类')}</Text>
+            <View
+              className="ask-create-picker"
+              onClick={() => setShowCategorySheet(true)}
+              hoverClass="opacity-60"
+            >
+              <Text
+                className={`ask-create-picker-value${form.category ? '' : ' ask-create-picker-placeholder'}`}
+              >
+                {form.category
+                  ? getCategoryLabel(form.category)
+                  : tt('ask.create.categoryPlaceholder', '选择分类')}
+              </Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+            </View>
+          </View>
+
+          {/* 悬赏积分 */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('ask.create.rewardLabel', '悬赏积分')}</Text>
+            <View className="ask-create-rewards">
+              {REWARDS.map((r) => (
+                <View
+                  key={r}
+                  className={`ask-create-reward${form.reward === r ? ' active' : ''}`}
+                  onClick={() => updateForm({ reward: r })}
+                  hoverClass="opacity-60"
+                >
+                  <Text>{r}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* 配图 */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('ask.create.imageLabel', '配图')}</Text>
+            <View className="ask-create-images">
+              {form.images.map((img, i) => (
+                <View key={i} className="ask-create-img-item">
+                  <Image className="ask-create-img" src={img} mode="aspectFill" />
+                  <View
+                    className="ask-create-img-del"
+                    onClick={() => removeImage(i)}
+                    hoverClass="opacity-60"
+                  >
+                    <Text>×</Text>
+                  </View>
+                </View>
+              ))}
+              {form.images.length < IMAGE_MAX ? (
+                <View className="ask-create-img-add" onClick={addImage} hoverClass="opacity-60">
+                  <Text className="ask-create-img-add-icon">+</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          {/* 匿名发布 */}
+          <View className="ask-create-card ask-create-switch-row">
+            <View className="ask-create-switch-info">
+              <Text className="ask-create-label">
+                {tt('ask.create.anonymousLabel', '匿名发布')}
+              </Text>
+              <Text className="ask-create-switch-desc">
+                {tt('ask.create.anonymousDesc', '不显示你的昵称')}
+              </Text>
+            </View>
+            <Switch
+              checked={form.anonymous}
+              color={switchInk}
+              onChange={(e) => updateForm({ anonymous: e.detail.value })}
+            />
+          </View>
+        </ScrollView>
+
+        {/* 提交按钮 */}
+        <View className="ask-create-footer">
+          <Button
+            className="ask-create-submit"
+            loading={submitting}
+            disabled={!canSubmit || submitting}
+            onClick={onSubmit}
+          >
+            {submitting ? tt('ask.create.submitting', '发布中…') : tt('askCreate.submit', '发布')}
+          </Button>
+        </View>
+
+        {/* 分类选择弹层 */}
+        {showCategorySheet ? (
+          <View className="ask-create-mask" onClick={() => setShowCategorySheet(false)}>
+            <View
+              className="ask-create-sheet"
+              catchMove
+              onClick={(e) => e.stopPropagation()}
+              hoverClass="opacity-60"
+            >
+              <View className="ask-create-sheet-header">
+                <Text className="ask-create-sheet-title">
+                  {tt('ask.create.categoryLabel', '分类')}
+                </Text>
+                <Text
+                  className="ask-create-sheet-close"
+                  onClick={() => setShowCategorySheet(false)}
+                >
+                  ×
+                </Text>
+              </View>
+              {CATEGORIES.map((c) => (
+                <View
+                  key={c.key}
+                  className={`ask-create-sheet-item${form.category === c.key ? ' active' : ''}`}
+                  onClick={() => pickCategory(c.key)}
+                  hoverClass="opacity-60"
+                >
+                  <Text>{tt(c.labelKey, c.fb)}</Text>
+                  {form.category === c.key ? (
+                    <LineIcon
+                      className="ask-create-sheet-check"
+                      name="check"
+                      size={28}
+                      color="var(--color-brand)"
+                    />
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

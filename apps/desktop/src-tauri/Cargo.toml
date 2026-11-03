@@ -1,0 +1,113 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+[package]
+name = "ihui-desktop"
+version = "0.1.0"
+description = "IHUI AI — Tauri 2 壳"
+authors = ["IHUI AI"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "ihui_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+# 2026-10-09 本机故障规避(同 [dependencies] 内注释):tauri-build ⇒ schemars 0.8.x
+# ⇒ indexmap 1.9.3(default-features=false)走 has_std 探针,而探针在 cargo
+# build-script 环境下静默失败 ⇒ E0107。host 图单独统一 feature,须在此重复声明。
+indexmap = { version = "1.9.3", features = ["std"] }
+
+[dependencies]
+# 2026-10-16 内嵌浏览器升级为 Trae 形态:窗口内「工具条 + 多内容 webview」需要
+# `Window::add_child`(多 webview 单窗),该 API 在 Tauri 2 里挂在 `unstable` feature
+# 下(docs.rs:"Available on crate feature unstable only")。用户 2026-10-16 拍板启用,
+# 以换取真·多标签(切换不重载)。desktop-only,不影响移动端。
+tauri = { version = "2.11", features = ["tray-icon", "devtools", "unstable"] }
+tauri-plugin-deep-link = "2.4"
+tauri-plugin-dialog = "2.7"
+tauri-plugin-fs = "2.5"
+tauri-plugin-http = { version = "2.5", features = ["unsafe-headers"] }
+tauri-plugin-notification = "2.3"
+# 2026-09-17 薄壳化配套:auto_refresh 模块(线上前端构建指纹轮询 + 断网健康检查)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["time"] }
+tauri-plugin-os = "2.3"
+tauri-plugin-shell = "2.3"
+tauri-plugin-store = "2.4"
+tauri-plugin-updater = "2.10"
+tauri-plugin-autostart = "2.5"
+tauri-plugin-global-shortcut = "2.3"
+tauri-plugin-single-instance = "2.4"
+tauri-plugin-log = "2.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+screenshots = "0.8"
+enigo = "0.6"
+arboard = "3.6"
+base64 = "0.23"
+image = { version = "0.24", default-features = false, features = ["png"] }
+# 2026-10-09 签到捕获(checkin_capture)新增:aes-gcm=Chromium v10 cookie 解密;
+# rusqlite(bundled)=只读 Cookies 库(自编 C sqlite,免系统依赖)。
+aes-gcm = "0.10"
+# 2026-10-15 签到捕获新增:aes(块原语,手写 CBC)=iCubeAuthInfo tc 解密;sha2=SHA512 密钥派生
+aes = "0.8"
+sha2 = "0.10"
+# 2026-10-09 本机故障规避:indexmap 1.9.3 的 has_std 由 build script 探针判定,
+# 而探针在 cargo build-script 环境下静默失败(裸 rustc 复现正常)⇒ schemars 0.8.x
+# 走 not(has_std) 分支必炸 E0107。直接依赖声明 std feature,经 feature 统一强制
+# CARGO_FEATURE_STD ⇒ 走免探针分支。lld/环境修复后可移除。
+indexmap = { version = "1.9.3", features = ["std"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[target.'cfg(windows)'.dependencies]
+# 2026-10-16 省内存:WebView2 的内存目标档位。wry 的 WebViewExtWindows 暴露了
+# set_memory_usage_level,但 Tauri 没转出来;而 PlatformWebview::controller() 直接
+# 返回 webview2-com 的 ICoreWebView2Controller ⇒ 用同一版 webview2-com 自己调
+# SetMemoryUsageTargetLevel(Runtime ≥114.0.1823.32;更旧版是 no-op)。
+# 版本与 wry 0.55.1 声明一致(0.38),避免双副本。官方指标:窗口失焦切 Low,
+# 非活动态内存可降约 95%(wry PR #1053 实测 149.8MB→7.8MB)。
+webview2-com = "0.38"
+# cast 到版本化接口 ICoreWebView2_19 需要 Interface trait(与 windows 0.61 /
+# webview2-com-sys 0.38 共用同一份 windows-core 0.61,不引第二副本)。
+windows-core = "0.61"
+# 2026-09-27 启动守护(startup_guard)新增:errhandlingapi=GetLastError,
+# tlhelp32=进程枚举,synchapi=CreateMutexW/WaitForSingleObject,winnt=PROCESS_* 常量。
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "handleapi", "winnls", "errhandlingapi", "tlhelp32", "synchapi", "winnt"] }
+# 2026-09-02:显式固定进程级 AppUserModelID,修复 Windows 通知区托盘图标显隐记忆在
+# dev 重编译/更新后被重置的问题(SetCurrentProcessExplicitAppUserModelID 所在模块)。
+windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
+# 2026-09-02 #2:启动时把托盘图标写入 Win11 任务栏常驻(NotifyIconSettings\IsPromoted=1)。
+# 0.55 已在依赖树中(tauri 插件引用),不增加编译产物。
+winreg = "0.55"
+# 2026-10-09 签到捕获:DPAPI 解 Local State 的 os_crypt.encrypted_key。
+# 0.61 已在依赖树中(tauri 插件引用),按同版本加 feature,不添新副本。
+# Win32_Graphics_Dwm = DwmExtendFrameIntoClientArea 顶部帧扩展(原生窗控按钮,2026-10-17/18);
+# Win32_UI_WindowsAndMessaging = GetWindowLongPtrW/SetWindowLongPtrW/SetWindowPos/WS_* 窗体样式;
+# Win32_UI_Shell = SetWindowSubclass/DefSubclassProc(接管 WM_NCCALCSIZE 让 DWM 绘制按钮,2026-10-18)。
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_System_Registry", "Win32_System_LibraryLoader", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Graphics_GdiPlus", "Win32_UI_WindowsAndMessaging", "Win32_UI_Controls", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_HiDpi"] }
+
+[profile.release]
+panic = "abort"
+# 2026-09-17 编译提速:关 lto + codegen-units=256(链接阶段是大头,thin-lto 的跨 crate
+# 合并耗时显著;薄壳化后包体小,用包体换速度)。2026-07-29 曾试 thin(包体降 15-20%,
+# 当时触发改回的历史见下);薄壳后 exe 仅 ~20MB,包体不再是敏感项。
+lto = false
+codegen-units = 256
+opt-level = "s"
+strip = true
+
+# 2026-09-02:托盘图标显隐记忆根治补丁。
+# 根因:tray-icon 0.24.2 注册通知图标时只设置 (hWnd, 自增计数器 uID),不设置
+# guidItem/NIF_GUID。Windows 因此按 exe 路径识别图标 → dev/安装/更新版路径不同
+# 被当成不同图标 → 显隐记忆每次重置、图标被丢进隐藏溢出区。Microsoft 官方要求
+# 用稳定 GUID 才能保证"跨重装/更新持久化"。此补丁在 NIM_ADD/MODIFY/DELETE 与
+# NOTIFYICONIDENTIFIER 全程带上由 tray id 派生的确定性 GUID。
+# 路径相对本 Cargo.toml 目录;vendor 副本由 upstream 0.24.2 仅改 Windows 后端。
+[patch.crates-io]
+tray-icon = { path = "vendor/tray-icon-0.24.2" }
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

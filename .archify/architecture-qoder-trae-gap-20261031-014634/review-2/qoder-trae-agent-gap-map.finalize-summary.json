@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.ihui-agent\\tmp\\archify-qoder-trae-gap\\candidate.json",
+    "sha256": "53a0adc0e608d8a56adcd40437e3a8e588bed93ac2c72186576a80f1fcc65ebf",
+    "bytes": 27323
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html",
+    "sha256": "95686cc3fe24dffde4aa6e4b6cd664b2398b7d8e0374686c9ee449e08232ca79",
+    "bytes": 928295
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\review-2\\qoder-trae-agent-gap-map.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\review-2\\qoder-trae-agent-gap-map.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\review-2\\qoder-trae-agent-gap-map.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 8589,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 1,
+      "routesOverSuggestedBends": 1,
+      "routesOverSuggestedStretch": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "q-6",
+            "from": "q-model",
+            "to": "q-compact",
+            "label": "专用模型",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "right": {
+            "id": "q-7",
+            "from": "q-compact",
+            "to": "q-cbi",
+            "label": "",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "point": [90.5, 807],
+          "sharedNode": "q-compact"
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "q-7",
+            "from": "q-compact",
+            "to": "q-cbi",
+            "label": "",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "bends": 4,
+          "stretch": 1.989,
+          "directCorridorBlockers": [
+            {
+              "id": "q-model",
+              "label": "dynamic-text 文案",
+              "box": [20, 810, 155, 58]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "q-model → q-compact and q-compact → q-cbi cross next to q-compact: move node q-model or q-cbi so the two reach q-compact from different sides (for example one level with it, one directly above or below it)."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

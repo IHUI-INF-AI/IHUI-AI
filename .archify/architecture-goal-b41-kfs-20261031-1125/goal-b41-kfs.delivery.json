@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "46503539-8aa5-4cc8-8c73-f6417a8d2c4b",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\candidate.json",
+  "output": "G:\\IHUI-AI\\.archify\\architecture-goal-b41-kfs-20261031-1125\\goal-b41-kfs.html",
+  "specification": {
+    "sha256": "10aaf5531e07682021307f5f1260dbd4c3cbc991aa070137654324c4bd084540",
+    "bytes": 5926
+  },
+  "artifact": {
+    "sha256": "304cc0d76feb9c6d7023bcbe28b39ff1960b3fc3aa0d2603483c87f8213c40d1",
+    "bytes": 860632
+  }
+}

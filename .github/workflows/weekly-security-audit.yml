@@ -1,0 +1,212 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: weekly-security-audit
+
+# 每周一 02:00 北京时间 (UTC 18:00 周日) 执行
+# TS Monorepo (Fastify + Next.js + FastAPI) 安全审计：
+# - pnpm audit 依赖漏洞扫描
+# - tsc 类型检查（编译期错误即安全隐患）
+# - eslint 静态分析
+# - 依赖漏洞深度扫描（生产依赖）
+# - 许可证合规检查
+# - 密钥泄露扫描（复用 scripts/check-api-key-leak.mjs + gitleaks）
+# - 汇总报告上传 artifact，发现高危问题自动创建 Issue
+#
+# 判红口径(2026-10-28 修):生产依赖存在 high/critical ⇒ 整轮 exit 1;审计未判定(端点失败/报告缺失)
+# ⇒ exit 2。此前 pnpm audit 后面一律跟 `|| true`,端点不存在也照样绿 —— 扫了等于没扫。
+# 本 job 只有 schedule / workflow_dispatch 两个触发面,不挂 push/pull_request(AGENTS.md §12e)。
+
+on:
+  schedule:
+    - cron: '0 18 * * 0' # UTC 周日 18:00 = 北京周一 02:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: '22'
+  # 与根 package.json packageManager 对齐,避免 pnpm 版本漂移
+  PNPM_VERSION: '11.18.0'
+
+jobs:
+  security-audit:
+    name: 安全审计
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: 安装 Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 1. 依赖漏洞扫描（全量 + 生产依赖）
+      # known workaround: npmmirror registry 无 audit 端点。
+      #   **不能靠 npm_config_registry 环境变量**:pnpm 11 里 .npmrc 的 registry 优先级更高
+      #   (2026-10-28 实测 `npm_config_registry=… pnpm config get registry` 仍返回 npmmirror),
+      #   必须用 `--registry` CLI 参数覆盖,否则只会拿到 ERR_PNPM_AUDIT_ENDPOINT_NOT_EXISTS。
+      # 本步骤**只出报告**:在这里 exit 1 会让后面的 tsc / eslint / 许可证 / 密钥扫描全部跳过,
+      # artifact 只剩半份证据。判红交给「统计」+「阻断」两步(见下)。
+      - name: 依赖漏洞扫描 (pnpm audit)
+        run: |
+          mkdir -p reports
+          # 全量审计（含 dev 依赖），仅告警
+          pnpm audit --json --registry=https://registry.npmjs.org > reports/pnpm-audit-full.json || true
+          # 仅生产依赖审计（判据来源）：JSON 供统计与 artifact，txt 供人读
+          pnpm audit --prod --json --registry=https://registry.npmjs.org > reports/pnpm-audit-prod.json || true
+          pnpm audit --prod --registry=https://registry.npmjs.org > reports/pnpm-audit-prod.txt 2>&1 || true
+          echo "=== 全量依赖审计摘要(仅告警) ==="
+          pnpm audit --registry=https://registry.npmjs.org || true
+
+      # 1b. 统计生产依赖 high/critical 数量（判据单源：Issue 与阻断门都读这份计数）
+      #     pnpm 11 的 --json 是 {advisories, metadata}（不是 npm 的 vulnerabilities 对象），
+      #     以 metadata.vulnerabilities.high/critical 为准；端点失败时输出 {error} ⇒ 判"未判定"。
+      #     脚本恒 exit 0（未判定也落一个 unjudged 值），红不红由最后一步决定。
+      - name: 统计生产依赖高危漏洞
+        run: |
+          node - reports/pnpm-audit-prod.json > reports/high-critical-count.txt <<'NODE'
+          const fs = require('fs');
+          const file = process.argv[2];
+          const unjudged = (msg) => {
+            console.error('::error::' + msg + '(审计未判定)');
+            console.log('unjudged');
+            process.exit(0);
+          };
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync(file, 'utf8'));
+          } catch (e) {
+            unjudged(file + ' 无法读取或不是合法 JSON:' + e.message);
+          }
+          // pnpm 在端点不存在/网络失败时输出 {"error":{code,message}},此时不能当成"零漏洞"
+          if (report && report.error) {
+            unjudged('审计端点失败 ' + report.error.code + ':' + report.error.message);
+          }
+          const counts = (report && report.metadata && report.metadata.vulnerabilities) || {};
+          let high = Number(counts.high || 0);
+          let critical = Number(counts.critical || 0);
+          if (!('high' in counts) && !('critical' in counts)) {
+            // 兜底:npm 兼容格式(.vulnerabilities)/ pnpm 自有格式(.advisories)逐条按 severity 数
+            const entries = Object.values((report && (report.vulnerabilities || report.advisories)) || {});
+            if (!entries.length) unjudged(file + ' 里没有可识别的漏洞字段,格式不认识');
+            for (const entry of entries) {
+              const severity = String((entry && entry.severity) || '').toLowerCase();
+              if (severity === 'high') high += 1;
+              else if (severity === 'critical') critical += 1;
+            }
+          }
+          console.error('生产依赖: high=' + high + ' critical=' + critical);
+          console.log(high + critical);
+          NODE
+          echo "生产依赖 high/critical 合计: $(cat reports/high-critical-count.txt)"
+
+      # 2. TypeScript 类型检查（turbo 并行）
+      - name: TypeScript 类型检查 (tsc --noEmit)
+        run: pnpm run typecheck || echo "::warning::存在类型错误，详见日志"
+
+      # 3. ESLint 静态分析
+      - name: ESLint 静态分析
+        run: |
+          pnpm run lint 2>&1 | tee reports/eslint-report.txt || true
+
+      # 4. 许可证合规检查
+      - name: 许可证检查
+        run: |
+          npx license-checker --production --json > reports/licenses.json 2>/dev/null || true
+          # 检查是否存在不合规许可证（GPL/AGPL/LGPL 在商业项目通常受限）
+          npx license-checker --production --summary | tee reports/licenses-summary.txt || true
+          if grep -iE 'GPL|AGPL|LGPL|Unlicensed' reports/licenses-summary.txt; then
+            echo "::warning::发现受限许可证，详见 reports/licenses.json"
+          fi
+
+      # 5. 密钥泄露扫描（复用项目脚本 + gitleaks 双保险）
+      - name: 密钥泄露扫描 (项目脚本)
+        run: |
+          node scripts/check-api-key-leak.mjs 2>&1 | tee reports/api-key-leak.txt || true
+
+      - name: 密钥泄露扫描 (gitleaks)
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          scan-mode: repo
+        continue-on-error: true
+
+      # 6. 汇总安全报告
+      - name: 生成安全审计汇总报告
+        run: |
+          {
+            echo "# 每周安全审计报告"
+            echo ""
+            echo "- 执行时间: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            echo "- 触发: ${{ github.event_name }}"
+            echo ""
+            echo "## 依赖漏洞"
+            echo "见 reports/pnpm-audit-full.json（全量）/ reports/pnpm-audit-prod.json（生产）"
+            echo ""
+            echo "## 许可证"
+            cat reports/licenses-summary.txt 2>/dev/null || echo "（无）"
+            echo ""
+            echo "## 密钥泄露"
+            cat reports/api-key-leak.txt 2>/dev/null || echo "（无）"
+          } > reports/security-audit-summary.md
+
+      - name: 上传安全审计 artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: weekly-security-audit-${{ github.run_id }}
+          path: reports/
+          retention-days: 30
+
+      # 7. 发现高危漏洞时创建 Issue（生产依赖存在 high/critical）
+      - name: 高危漏洞创建 Issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HIGH=$(cat reports/high-critical-count.txt 2>/dev/null || echo unjudged)
+          echo "高危漏洞数: $HIGH"
+          if [ "$HIGH" = "unjudged" ]; then
+            echo "::warning::高危数未判定（见审计步骤日志），跳过 Issue 创建"
+            exit 0
+          fi
+          if [ "$HIGH" -gt 0 ]; then
+            DATE=$(date -u '+%Y-%m-%d')
+            gh issue create \
+              --title "[安全审计] 生产依赖发现 ${HIGH} 个高危漏洞 - ${DATE}" \
+              --body "请查看 artifact weekly-security-audit-${{ github.run_id }} 中的 pnpm-audit-prod.json 详细报告。" \
+              --label "security,backend" || true
+          fi
+
+      # 8. 生产依赖 high/critical 阻断（exit 1）／审计未判定（exit 2）
+      #    刻意放在 artifact 上传与 Issue 创建**之后**：报告先完整落盘，再判红，
+      #    否则一次红门只剩半份证据、人也说不清红在哪。
+      - name: 生产依赖高危阻断
+        if: always()
+        run: |
+          COUNT=$(cat reports/high-critical-count.txt 2>/dev/null || echo unjudged)
+          if [ "$COUNT" = "unjudged" ]; then
+            echo "::error::生产依赖高危数未判定（pnpm audit 端点失败或报告缺失）"
+            exit 2
+          fi
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::生产依赖存在 ${COUNT} 个 high/critical 漏洞"
+            exit 1
+          fi
+          echo "生产依赖无 high/critical 漏洞"
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,612 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+/**
+ * O64 admin 号池页签到端点单测(提交 6):checkin-resync 单条重推 /
+ * checkin-status 批量点查 / checkin-run 立即签到(429 透传)。
+ * 重 admin 插件的 import 面全 mock;checkin-sync 服务层已由
+ * relay-account-pool-checkin-sync.test.ts 测透,这里只验 HTTP 形状与编排。
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import Fastify, { type FastifyInstance } from 'fastify'
+
+vi.hoisted(() => {
+  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
+  process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+})
+
+const hoisted = vi.hoisted(() => ({
+  /** resync/run 的单行查询(where(eq).limit) */
+  fullRows: [] as Array<Record<string, unknown>>,
+  /** checkin-status 的批量查询(where(inArray) 直接 await) */
+  statusRows: [] as Array<Record<string, unknown>>,
+  updateCalls: [] as Array<{ values: Record<string, unknown> }>,
+  pushResult: {
+    ok: true,
+    pushed: 1,
+    skipped: 0,
+    failed: 0,
+    failedIds: [] as string[],
+    error: null as string | null,
+  },
+  statusViews: {} as Record<
+    string,
+    {
+      ok: boolean
+      found: boolean
+      error?: string
+      accountId?: number
+      name?: string
+      enabled?: boolean
+      pendingCred?: boolean
+      cooldownUntil?: string
+      lastRecord?: {
+        ok: boolean
+        action: string | null
+        credits: number | null
+        createdAt: string | null
+      }
+    }
+  >,
+  runResult: {
+    ok: true,
+    httpStatus: 200,
+    record: { ok: true } as Record<string, unknown> | null,
+    error: null as string | null,
+  },
+  /** reauth-status 拉取的签到侧全量(默认空;按用例注入) */
+  poolAccounts: {
+    ok: true,
+    accounts: [] as Array<Record<string, unknown>>,
+    error: null as string | null,
+  },
+}))
+
+vi.mock('../../plugins/require-permission.js', () => ({
+  requireAdmin: async () => {},
+}))
+vi.mock('../../db/index.js', () => ({
+  db: {
+    update: () => ({
+      set: (values: Record<string, unknown>) => ({
+        where: async () => {
+          hoisted.updateCalls.push({ values })
+          return []
+        },
+      }),
+    }),
+  },
+  dbRead: {
+    select: () => ({
+      from: () => ({
+        // where 既是 thenable(inArray 路径直接 await)又挂 limit(eq 路径)
+        where: () => {
+          const obj: Record<string, unknown> = {
+            then: (res: (v: unknown) => unknown) => Promise.resolve(hoisted.statusRows).then(res),
+          }
+          obj.limit = async () => hoisted.fullRows
+          return obj
+        },
+      }),
+    }),
+  },
+}))
+vi.mock('@ihui/database', () => ({
+  aiRelayAccountPool: new Proxy(
+    {},
+    { get: (_t, prop) => ({ __col: typeof prop === 'string' ? prop : String(prop) }) },
+  ),
+}))
+vi.mock('@ihui/types', () => ({
+  PROVIDER_HEALTH_STATUSES: ['healthy', 'degraded', 'down', 'unknown'],
+  // 路由顶层经 @ihui/shared → packages/shared/src/sse/contract.ts 读取本表;
+  // mock 少一个导出会在 import 期抛错(整套件 collection 失败),故按真值补齐。
+  CHAT_SYNC_EVENT_NAMES: {
+    MESSAGE_CREATED: 'message:created',
+    MESSAGE_PATCHED: 'message:patched',
+    MESSAGE_TERMINAL: 'message:terminal',
+  },
+}))
+vi.mock('../../utils/logger.js', () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
+vi.mock('../../services/relay-account-pool-service.js', () => ({
+  importAccounts: vi.fn(async () => ({})),
+  decryptAccountCredentials: vi.fn(() => ({
+    token: 'tok-1',
+    refreshToken: 'ref-1',
+    cookies: [],
+    secrets: {},
+  })),
+  // 手机号补全端点(2026-10-28)新增的两个 service 导出:mock 必须一并补齐,
+  // 否则本套件 collection 期就报「does not provide an export named」。
+  completeAccountPhone: vi.fn(async () => ({
+    code: 'ok',
+    message: null,
+    id: 'row-1',
+    oldName: null,
+    name: null,
+    changed: false,
+    checkinSync: { pushed: 0, pending: false, error: null },
+  })),
+  matchPhoneCandidates: vi.fn(async () => ({
+    scannedMasked: 0,
+    matched: [],
+    ambiguous: [],
+    unmatched: [],
+    rejected: [],
+  })),
+}))
+vi.mock('../../services/relay-account-pool-scheduler.js', () => ({
+  sweepAccountPool: vi.fn(async () => ({})),
+}))
+vi.mock('../../services/relay-account-usage.js', () => ({
+  getAccountUsage: vi.fn(async () => ({})),
+  getAccountUsageSummaries: vi.fn(async () => new Map()),
+  purgeAccountUsage: vi.fn(async () => 0),
+}))
+vi.mock('../../services/relay-upstream-adapters.js', () => ({
+  getRelayAdapter: vi.fn(() => null),
+  // checkin-status 归因用:有签到引擎且有 refresh 协议的平台(真实现口径)
+  isRefreshableProviderCode: (code: string) => ['trae', 'workbuddy', 'qoder'].includes(code),
+}))
+vi.mock('../../services/relay-proxy-pool.js', () => ({
+  listProxies: vi.fn(async () => ({})),
+  createProxy: vi.fn(async () => ({})),
+  updateProxy: vi.fn(async () => ({})),
+  deleteProxy: vi.fn(async () => ({})),
+  getProxyById: vi.fn(async () => null),
+  markProxyChecked: vi.fn(async () => ({})),
+  // 账号级代理密文/明文在本套件按直通处理(不测加密,只测签到编排)
+  encryptAccountProxyUrl: (u: string | null) => u,
+  resolveAccountProxyUrl: (u: string | null) => u,
+  maskAccountProxyUrl: () => null,
+}))
+vi.mock('../../services/relay-model-catalog.js', () => ({
+  listModelCatalog: vi.fn(async () => ({})),
+  createModelCatalog: vi.fn(async () => ({})),
+  deleteModelCatalog: vi.fn(async () => ({})),
+}))
+vi.mock('../../services/relay-account-pool-checkin-sync.js', () => ({
+  checkinPlatformFor: (code: string) =>
+    code === 'trae' || code === 'workbuddy' || code === 'qoder' ? code : null,
+  buildPoolSyncAccount: vi.fn((src: unknown) => src),
+  pushPoolSync: vi.fn(async () => hoisted.pushResult),
+  pushPoolState: vi.fn(async () => ({ ok: true, error: null })),
+  markCheckinSyncPending: vi.fn(async () => {}),
+  clearCheckinSyncPending: vi.fn(async () => {}),
+  extractCosy: vi.fn(() => null),
+  // 设备密钥投影:本测不关心其判据(真实现由 tests/relay-account-device-key-bridge.test.ts 锁)
+  pemFromSecrets: vi.fn(() => null),
+  fetchPoolStatus: vi.fn(
+    async (_p: string, target: { poolAccountId: string; uid: string }) =>
+      hoisted.statusViews[target.uid] ?? { ok: true, found: false },
+  ),
+  postPoolRun: vi.fn(async () => hoisted.runResult),
+  listCheckinSyncPending: vi.fn(async () => []),
+  retryPendingCheckinSyncs: vi.fn(async () => ({})),
+  parseCheckinSyncMeta: vi.fn(() => ({})),
+}))
+
+vi.mock('../../services/relay-account-pool-reconcile.js', () => ({
+  // 只 mock 本路由用到的两个导出;对账纯函数由 relay-account-pool-reconcile.test.ts 覆盖
+  fetchPoolAccounts: vi.fn(async () => hoisted.poolAccounts),
+  parseCheckinLastRecord: (raw: unknown) => raw,
+}))
+
+import relayAccountPoolRoutes from '../admin/relay-account-pool.js'
+import {
+  pushPoolSync,
+  markCheckinSyncPending,
+  clearCheckinSyncPending,
+  postPoolRun,
+} from '../../services/relay-account-pool-checkin-sync.js'
+
+let app: FastifyInstance
+
+function poolRow(over: Record<string, unknown> = {}) {
+  return {
+    id: 'pool-1',
+    ownerUserId: null,
+    providerCode: 'trae',
+    uid: 'uid-1',
+    name: '池号 A',
+    isEnabled: true,
+    credVersion: 7,
+    tokenEnc: 'enc:tok',
+    refreshTokenEnc: 'enc:ref',
+    cookiesEnc: null,
+    secretsEnc: null,
+    proxyUrl: null,
+    deviceId: null,
+    machineId: null,
+    tokenExpiresAt: null,
+    extraMetadata: null,
+    ...over,
+  }
+}
+
+beforeEach(async () => {
+  hoisted.fullRows.length = 0
+  hoisted.statusRows.length = 0
+  hoisted.updateCalls.length = 0
+  hoisted.pushResult = {
+    ok: true,
+    pushed: 1,
+    skipped: 0,
+    failed: 0,
+    failedIds: [],
+    error: null,
+  }
+  hoisted.statusViews = {}
+  hoisted.poolAccounts = { ok: true, accounts: [], error: null }
+  hoisted.runResult = { ok: true, httpStatus: 200, record: { ok: true }, error: null }
+  vi.mocked(pushPoolSync).mockClear()
+  vi.mocked(markCheckinSyncPending).mockClear()
+  vi.mocked(clearCheckinSyncPending).mockClear()
+  vi.mocked(postPoolRun).mockClear()
+  app = Fastify()
+  // 与 routes/index.ts 一致:插件内部路径自带 /admin 段,register 时补 /api 前缀
+  app.register(relayAccountPoolRoutes, { prefix: '/api' })
+  await app.ready()
+})
+
+// =============================================================================
+// 21. POST /admin/relay/accounts/:id/checkin-resync
+// =============================================================================
+
+describe('POST /admin/relay/accounts/:id/checkin-resync', () => {
+  it('账号不存在 → 404', async () => {
+    hoisted.fullRows.length = 0
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-x/checkin-resync',
+    })
+    expect(res.statusCode).toBe(404)
+    expect(pushPoolSync).not.toHaveBeenCalled()
+  })
+
+  it('无签到引擎平台(codearts)→ 400 不推送', async () => {
+    hoisted.fullRows.push(poolRow({ providerCode: 'codearts' }))
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-resync',
+    })
+    expect(res.statusCode).toBe(400)
+    expect(pushPoolSync).not.toHaveBeenCalled()
+  })
+
+  it('成功 → 200 + 清 pending', async () => {
+    hoisted.fullRows.push(poolRow())
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-resync',
+    })
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as { data: { pushed: number } }).data).toMatchObject({ pushed: 1 })
+    expect(pushPoolSync).toHaveBeenCalledWith('trae', [expect.objectContaining({ id: 'pool-1' })])
+    expect(clearCheckinSyncPending).toHaveBeenCalledWith(['pool-1'])
+    expect(markCheckinSyncPending).not.toHaveBeenCalled()
+  })
+
+  it('推送失败 → 502 + 落 pending(attempts SQL 内累积)', async () => {
+    hoisted.fullRows.push(poolRow())
+    hoisted.pushResult = {
+      ok: false,
+      pushed: 0,
+      skipped: 0,
+      failed: 1,
+      failedIds: ['pool-1'],
+      error: 'pool-sync HTTP 500: boom',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-resync',
+    })
+    expect(res.statusCode).toBe(502)
+    expect(markCheckinSyncPending).toHaveBeenCalledWith(
+      ['pool-1'],
+      'cred',
+      null,
+      expect.stringContaining('500'),
+    )
+    expect(clearCheckinSyncPending).not.toHaveBeenCalled()
+  })
+})
+
+// =============================================================================
+// 22. POST /admin/relay/account-pool/checkin-status
+// =============================================================================
+
+describe('POST /admin/relay/account-pool/checkin-status', () => {
+  it('ids 空 / 超 20 → 400', async () => {
+    const empty = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/account-pool/checkin-status',
+      payload: { ids: [] },
+    })
+    expect(empty.statusCode).toBe(400)
+    const tooMany = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/account-pool/checkin-status',
+      payload: { ids: Array.from({ length: 21 }, (_, i) => `p-${i}`) },
+    })
+    expect(tooMany.statusCode).toBe(400)
+  })
+
+  it('聚合三态:已同步点查 / 无引擎 noEngine / 号池行不存在', async () => {
+    hoisted.statusRows.push(poolRow({ id: 'pool-1', uid: 'uid-1' }))
+    hoisted.statusRows.push(poolRow({ id: 'pool-2', providerCode: 'codearts', uid: 'uid-2' }))
+    hoisted.statusViews = {
+      'uid-1': {
+        ok: true,
+        found: true,
+        accountId: 12,
+        name: '池号 A',
+        enabled: true,
+        pendingCred: true,
+        cooldownUntil: '2026-10-24T01:00:00Z',
+        lastRecord: {
+          ok: true,
+          action: 'checkin',
+          credits: 120,
+          createdAt: '2026-10-23T06:00:00Z',
+        },
+      },
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/account-pool/checkin-status',
+      payload: { ids: ['pool-1', 'pool-2', 'pool-ghost'] },
+    })
+    expect(res.statusCode).toBe(200)
+    const items = (
+      res.json() as {
+        data: {
+          items: Record<
+            string,
+            { found: boolean; noEngine?: boolean; pendingCred?: boolean; creditsHint?: unknown }
+          >
+        }
+      }
+    ).data.items
+    expect(items['pool-1']).toMatchObject({ ok: true, found: true, pendingCred: true })
+    expect(items['pool-2']).toMatchObject({ found: false, noEngine: true })
+    expect(items['pool-ghost']).toMatchObject({ found: false })
+  })
+})
+
+// =============================================================================
+// 31. GET /admin/relay/account-pool/reauth-status
+// =============================================================================
+
+describe('GET /admin/relay/account-pool/reauth-status', () => {
+  it('按 provider × reason 读出 needsReauth 计数;down 落 account_down,正常 skip 不误标', async () => {
+    const now = Date.now()
+    hoisted.statusRows.push(
+      poolRow({
+        id: 'trae-down',
+        providerCode: 'trae',
+        healthStatus: 'down',
+        tempUnschedulable: true,
+        tokenExpiresAt: null,
+        hasRefreshToken: true,
+        lastErrorMessage: 'refresh token is not matched to the client',
+      }),
+      poolRow({
+        id: 'minimax-expired',
+        providerCode: 'minimax',
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        tokenExpiresAt: new Date(now - 86_400_000),
+        hasRefreshToken: true,
+        lastErrorMessage: null,
+      }),
+      poolRow({
+        id: 'qoder-skip',
+        providerCode: 'qoder',
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        tokenExpiresAt: new Date(now + 86_400_000),
+        hasRefreshToken: true,
+        lastErrorMessage: null,
+      }),
+      poolRow({
+        id: 'doubao-healthy',
+        providerCode: 'doubao',
+        healthStatus: 'healthy',
+        tempUnschedulable: false,
+        tokenExpiresAt: null,
+        hasRefreshToken: false,
+        lastErrorMessage: null,
+      }),
+    )
+    hoisted.poolAccounts = {
+      ok: true,
+      error: null,
+      accounts: [
+        {
+          accountId: 1,
+          poolAccountId: 'trae-down',
+          ownerUserId: null,
+          platform: 'trae',
+          identityKey: 'trae-down',
+          enabled: true,
+          poolCredVersion: 1,
+          poolPendingCred: null,
+          lastRecord: {
+            ok: false,
+            action: 'claim',
+            message: 'not able to authenticate you',
+            code: '1001',
+            httpStatus: null,
+            classifiedErrorType: 'BusinessError',
+            createdAt: new Date(now).toISOString(),
+          },
+        },
+        {
+          accountId: 2,
+          poolAccountId: 'qoder-skip',
+          ownerUserId: null,
+          platform: 'qoder',
+          identityKey: 'qoder-skip',
+          enabled: true,
+          poolCredVersion: 1,
+          poolPendingCred: null,
+          lastRecord: {
+            ok: true,
+            action: 'skip_already',
+            message: null,
+            code: null,
+            httpStatus: null,
+            classifiedErrorType: null,
+            createdAt: new Date(now).toISOString(),
+          },
+        },
+      ],
+    }
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/relay/account-pool/reauth-status',
+    })
+    expect(res.statusCode).toBe(200)
+    const data = (
+      res.json() as {
+        data: {
+          total: number
+          needsReauth: number
+          counts: {
+            total: number
+            byProvider: Record<string, number>
+            byReason: Record<string, number>
+            byProviderReason: Record<string, Record<string, number>>
+          }
+          checkinSource: { ok: boolean; error: string | null }
+          items: Array<{ id: string; needsReauth: boolean; reauthReason: string | null }>
+        }
+      }
+    ).data
+    expect(data.total).toBe(4)
+    expect(data.needsReauth).toBe(2)
+    expect(data.counts).toEqual({
+      total: 2,
+      byProvider: { trae: 1, minimax: 1 },
+      byReason: { account_down: 1, expired_no_refresh: 1 },
+      byProviderReason: { trae: { account_down: 1 }, minimax: { expired_no_refresh: 1 } },
+    })
+    expect(data.checkinSource).toEqual({ ok: true, error: null })
+    const byId = new Map(data.items.map((i) => [i.id, i]))
+    expect(byId.get('trae-down')?.reauthReason).toBe('account_down')
+    expect(byId.get('qoder-skip')?.needsReauth).toBe(false)
+    expect(byId.get('doubao-healthy')?.needsReauth).toBe(false)
+  })
+
+  it('签到侧不可达 → 只做池侧分类,checkinSource 显式报错', async () => {
+    hoisted.statusRows.push(
+      poolRow({ id: 'opencode-down', providerCode: 'opencode', healthStatus: 'down' }),
+    )
+    hoisted.poolAccounts = { ok: false, accounts: [], error: 'pool-accounts HTTP 500: boom' }
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/relay/account-pool/reauth-status',
+    })
+    expect(res.statusCode).toBe(200)
+    const data = (
+      res.json() as {
+        data: {
+          counts: { byReason: Record<string, number> }
+          checkinSource: { ok: boolean; error: string | null }
+        }
+      }
+    ).data
+    expect(data.counts.byReason).toEqual({ account_down: 1 })
+    expect(data.checkinSource).toEqual({ ok: false, error: 'pool-accounts HTTP 500: boom' })
+  })
+})
+
+// =============================================================================
+// 23. POST /admin/relay/accounts/:id/checkin-run
+// =============================================================================
+
+describe('POST /admin/relay/accounts/:id/checkin-run', () => {
+  it('账号不存在 → 404', async () => {
+    hoisted.fullRows.length = 0
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-x/checkin-run',
+    })
+    expect(res.statusCode).toBe(404)
+    expect(postPoolRun).not.toHaveBeenCalled()
+  })
+
+  it('无签到引擎平台 → 400', async () => {
+    hoisted.fullRows.push(poolRow({ providerCode: 'codearts' }))
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-run',
+    })
+    expect(res.statusCode).toBe(400)
+    expect(postPoolRun).not.toHaveBeenCalled()
+  })
+
+  it('成功 → 200 回传签到 record', async () => {
+    hoisted.fullRows.push(poolRow())
+    hoisted.runResult = {
+      ok: true,
+      httpStatus: 200,
+      record: { ok: true, credits: 200 },
+      error: null,
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-run',
+    })
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as { data: { record: { credits: number } } }).data.record).toMatchObject({
+      credits: 200,
+    })
+    expect(postPoolRun).toHaveBeenCalledWith('trae', {
+      poolAccountId: 'pool-1',
+      ownerUserId: null,
+      uid: 'uid-1',
+    })
+  })
+
+  it('429(冷却/限流)原样透传(admin 看到剩余时间)', async () => {
+    hoisted.fullRows.push(poolRow())
+    hoisted.runResult = {
+      ok: false,
+      httpStatus: 429,
+      record: null,
+      error: 'pool-run HTTP 429: 签到接口限流冷却中(120s),请稍后再试',
+    }
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-run',
+    })
+    expect(res.statusCode).toBe(429)
+    expect((res.json() as { message: string }).message).toContain('限流冷却')
+  })
+
+  it('404(未同步)透传;网络错 → 502', async () => {
+    hoisted.fullRows.push(poolRow())
+    hoisted.runResult = {
+      ok: false,
+      httpStatus: 404,
+      record: null,
+      error: 'pool-run HTTP 404: 签到账号不存在: trae/uid-1',
+    }
+    const nf = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-run',
+    })
+    expect(nf.statusCode).toBe(404)
+
+    hoisted.runResult = { ok: false, httpStatus: 502, record: null, error: 'pool-run 网络错误: x' }
+    const net = await app.inject({
+      method: 'POST',
+      url: '/api/admin/relay/accounts/pool-1/checkin-run',
+    })
+    expect(net.statusCode).toBe(502)
+  })
+})

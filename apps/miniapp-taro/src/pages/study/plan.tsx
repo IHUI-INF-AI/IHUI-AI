@@ -1,0 +1,198 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 对齐目标(RN 共享屏): packages/app/src/features/study-plan/StudyPlanScreen.tsx
+import { useI18n } from '@/i18n'
+import { View, Text, Button } from '@tarojs/components'
+import { useDidShow } from '@tarojs/taro'
+import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
+import { getStudyPlan, post } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { FocusInput } from '@/components/FocusField'
+import { PlanFoot, statusClass, statusLabel, statusOf, type PlanItem } from './plan-card'
+import { onToast } from '@/host/on-toast'
+
+export default function StudyPlan() {
+  const { t } = useI18n()
+  const gate = useAuthReadyGate()
+  const [list, setList] = useState<PlanItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newTarget, setNewTarget] = useState('30')
+  const [saving, setSaving] = useState(false)
+  // AI 操控通道(2026-09-21):新增计划弹层的两个输入框,只在弹层展开时登记(收起即摘除,
+  // 旧 id 如实失败),避免快照里出现界面上看不见的控件。
+  useUiField(
+    showAdd
+      ? {
+          kind: 'input',
+          label: t('study.publish.titlePlaceholder'),
+          maxLength: 50,
+          readValue: () => newTitle,
+          setValue: setNewTitle,
+        }
+      : null,
+  )
+  useUiField(
+    showAdd
+      ? {
+          kind: 'number',
+          label: t('study.planPage.target', { n: 30 }),
+          inputType: 'number',
+          readValue: () => newTarget,
+          setValue: setNewTarget,
+        }
+      : null,
+  )
+
+  const load = useCallback(async () => {
+    try {
+      const res = (await getStudyPlan()) as { list?: PlanItem[] }
+      setList(res.list || [])
+    } catch {
+      onToast(t('common.failed'), { kind: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }, [t])
+
+  const onAdd = useCallback(() => {
+    setNewTitle('')
+    setNewTarget('30')
+    setShowAdd(true)
+  }, [])
+
+  const submitAdd = useCallback(async () => {
+    const title = newTitle.trim()
+    if (!title) {
+      onToast(t('study.publish.enterTitle'), { kind: 'info' })
+      return
+    }
+    const target = Number(newTarget) || 30
+    setSaving(true)
+    try {
+      await post('/study/plan', { title, target })
+      setShowAdd(false)
+      onToast(t('common.success'), { kind: 'success' })
+      setLoading(true)
+      await load()
+    } catch {
+      onToast(t('study.planPage.addFailed'), { kind: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }, [newTitle, newTarget, load, t])
+
+  // G-933 冷启动抢跑门控:GET /api/study/plan 由 `miniapp-compat-routes.ts:2397`
+  // 的 inline checkAuth 守 ⇒ 需鉴权。新增计划的 POST /api/study/plan 是用户动作,不经这一道门。
+  useDidShow(() => {
+    gate.waitUntilReady(load)
+  })
+
+  return (
+    <ThemeRoot>
+      {/* 对齐 RN StudyPlanScreen(共享屏):容器 bg surface.bg;卡片 p14dp→28rpx / radius 12dp→24rpx / border light;进度条 h6dp→12rpx / bg surface.muted / fill success;次级文字 11dp→22rpx text.tertiary */}
+      <View className="min-h-screen bg-background pb-[180rpx]">
+        {list.length > 0 && (
+          <View className="p-[28rpx] flex flex-col gap-[16rpx]">
+            {list.map((p) => (
+              <View key={p.id} className="bg-card rounded-lg border border-border p-[28rpx]">
+                <View className="flex justify-between items-center">
+                  <Text className="flex-1 text-subtitle text-foreground font-bold overflow-hidden">
+                    {p.title}
+                  </Text>
+                  <Text className="text-caption text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
+                    {t('study.planPage.target', { n: p.target })}
+                  </Text>
+                </View>
+                <View className="h-[12rpx] bg-muted rounded-xl mt-[20rpx] overflow-hidden">
+                  <View
+                    className="h-full bg-success rounded-xl"
+                    style={{ width: `${p.progress}%` }}
+                  />
+                </View>
+                <View className="flex justify-between items-center mt-[16rpx]">
+                  <Text className="text-caption text-[var(--color-text-tertiary)]">
+                    {t('study.planPage.completed', { n: p.minutes ?? 0 })}
+                  </Text>
+                  {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx),
+                      三档 active/completed/overdue 由进度与截止日推出(共享屏词表的「暂停」在本端
+                      结构上取不到数据源,已撤,理由见 ./plan-card 头注);完成带 ✓ */}
+                  <Text
+                    className={`text-badge font-semibold px-[12rpx] py-[8rpx] rounded-sm flex-shrink-0 ${statusClass(statusOf(p))}`}
+                  >
+                    {statusLabel(t, statusOf(p))}
+                  </Text>
+                </View>
+                <PlanFoot item={p} t={t} />
+              </View>
+            ))}
+          </View>
+        )}
+        {loading && list.length === 0 && <ScreenSkeleton variant="list" count={4} />}
+        {!loading && list.length === 0 && <EmptyState title={t('study.planPage.empty')} />}
+        <Button
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
+          onClick={onAdd}
+        >
+          {t('study.planPage.add')}
+        </Button>
+
+        {showAdd && (
+          <View
+            className="fixed inset-0 z-[2000] flex items-center justify-center bg-[var(--color-black-40)]"
+            onClick={() => setShowAdd(false)}
+          >
+            <View
+              className="mx-6 w-full max-w-[600rpx] bg-card ui-card rounded-lg border border-border p-[28rpx]"
+              hoverClass="opacity-60"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Text className="block text-title text-foreground font-semibold mb-[24rpx]">
+                {t('study.planPage.add')}
+              </Text>
+              {/* 输入框对齐 RN fieldStyles.input:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted */}
+              <FocusInput
+                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-title text-foreground mb-[24rpx]"
+                placeholder={t('study.publish.titlePlaceholder')}
+                value={newTitle}
+                onInput={(e) => setNewTitle(e.detail.value)}
+              />
+              <View className="flex items-center mb-[24rpx]">
+                <FocusInput
+                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-sm text-title text-foreground"
+                  type="number"
+                  placeholder={t('study.planPage.target', { n: 30 })}
+                  value={newTarget}
+                  onInput={(e) => setNewTarget(e.detail.value)}
+                />
+              </View>
+              <View className="flex gap-[16rpx]">
+                <Button
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-sm text-title text-center"
+                  onClick={() => setShowAdd(false)}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-sm text-title font-semibold text-center"
+                  loading={saving}
+                  disabled={saving}
+                  onClick={submitAdd}
+                >
+                  {t('common.confirm')}
+                </Button>
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

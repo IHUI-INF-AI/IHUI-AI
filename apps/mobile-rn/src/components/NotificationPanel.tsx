@@ -1,0 +1,305 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { useEffect, useRef } from 'react'
+import { tokens } from '../theme/active-tokens'
+import { useNotificationStore } from '../stores/notification'
+import { formatShortDateTime } from '../utils/date-utils'
+import { Bell, X } from 'lucide-react-native'
+import { useI18n } from '../i18n'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
+
+/**
+ * 通知面板(mobile-rn 端)。
+ *
+ * 对齐历史项目 components/PushNotification/index.vue 的两种形态:
+ * - NotificationPanel(默认导出):通知中心列表面板,从 notificationStore 读取,
+ *   支持全部已读 / 清空 / 关闭。原 Uniapp 顶层挂载,RN 端由 RootNavigator 全局挂载。
+ * - PushBanner(具名导出):顶部横幅推送通知,对齐原 index.vue 的单条横幅形态
+ *   (title/content/相对时间/点击跳转/关闭/自动关闭 5 秒)。
+ *   原版通过 uni.$on('showPushNotification') 全局事件触发,RN 端改为 props 驱动,
+ *   由调用方在收到 WS 通知时控制(见 RootNavigator useNotificationWebSocket)。
+ */
+export default function NotificationPanel() {
+  const { t } = useI18n()
+  const { notifications, visible, markAllRead, setVisible, clearAll } = useNotificationStore()
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setVisible(false)}
+    >
+      <TouchableOpacity
+        className="flex-1 bg-black/20 justify-end"
+        activeOpacity={1}
+        onPress={() => setVisible(false)}
+      >
+        <TouchableOpacity
+          className="bg-white dark:bg-neutral-900 max-h-[70%] min-h-[40%]"
+          style={{ borderTopLeftRadius: rnRadius.lg, borderTopRightRadius: rnRadius.lg }}
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View className="flex-row items-center justify-between px-4 py-3">
+            <Text className="text-[15px] font-semibold text-gray-900 dark:text-neutral-100">
+              通知
+            </Text>
+            <View className="flex-row items-center gap-2">
+              <TouchableOpacity
+                className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-neutral-700"
+                onPress={markAllRead}
+              >
+                <Text className="text-xs text-gray-700 dark:text-neutral-300">
+                  {t('notification.markAllRead')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-neutral-700"
+                onPress={clearAll}
+              >
+                <Text className="text-xs text-gray-700 dark:text-neutral-300">
+                  {t('chat.clearOk')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity className="px-2 py-0.5" onPress={() => setVisible(false)}>
+                <Text className="text-[20px] text-gray-500 dark:text-neutral-400 leading-[22px]">
+                  ×
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <FlatList
+            data={notifications}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View
+                className={`px-3 py-2.5 rounded-lg mb-1 ${!item.isRead ? 'bg-gray-100 dark:bg-neutral-800' : ''}`}
+              >
+                <Text className="text-[13px] font-medium text-gray-900 dark:text-neutral-100 mb-0.5">
+                  {item.title}
+                </Text>
+                {item.content ? (
+                  <Text className="text-xs text-gray-500 dark:text-neutral-400 mb-1">
+                    {item.content}
+                  </Text>
+                ) : null}
+                <Text className="text-[11px] text-gray-400 dark:text-neutral-500">
+                  {formatShortDateTime(item.createdAt)}
+                </Text>
+              </View>
+            )}
+            ListEmptyComponent={
+              <Text className="py-10 text-center text-gray-400 dark:text-neutral-500 text-[13px]">
+                暂无通知
+              </Text>
+            }
+            contentContainerStyle={{ padding: rnSpacing.sm }}
+          />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* PushBanner:顶部横幅推送通知(对齐原 PushNotification/index.vue 单条横幅)     */
+/* -------------------------------------------------------------------------- */
+
+export interface PushBannerProps {
+  visible: boolean
+  /** 标题,默认「新消息」(对齐原 show() 的 options.title 缺省值) */
+  title?: string
+  /** 正文内容 */
+  content?: string
+  /** 通知时间戳(ms),用于相对时间显示 */
+  timestamp?: number
+  /** 自动关闭时长(ms),默认 5000;<=0 时不自动关闭(对齐原 duration 参数) */
+  duration?: number
+  /** 顶部偏移量(适配状态栏/导航栏),默认 0,由调用方传入 */
+  topOffset?: number
+  /** 点击横幅回调(对齐原 clickCallback) */
+  onClick?: () => void
+  /** 关闭回调(对齐原 handleClose) */
+  onClose?: () => void
+}
+
+/** 相对时间格式化(对齐原 index.vue formatTime computed) */
+function formatPushTime(
+  timestamp: number | undefined,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): string {
+  if (!timestamp) return ''
+  const diff = Date.now() - timestamp
+  if (diff < 60000) return t('notification.justNow')
+  if (diff < 3600000) return t('notification.minAgo', { n: Math.floor(diff / 60000) })
+  if (diff < 86400000) return t('notification.hourAgo', { n: Math.floor(diff / 3600000) })
+  const dt = new Date(timestamp)
+  const month = dt.getMonth() + 1
+  const day = dt.getDate()
+  const hour = dt.getHours().toString().padStart(2, '0')
+  const minute = dt.getMinutes().toString().padStart(2, '0')
+  return `${month}-${day} ${hour}:${minute}`
+}
+
+export function PushBanner({
+  // title 空时回落 i18n(顶层无法取 t)
+  visible,
+  title,
+  content = '',
+  timestamp,
+  duration = 5000,
+  topOffset = 0,
+  onClick,
+  onClose,
+}: PushBannerProps) {
+  const { t } = useI18n()
+  const bannerTitle = title ?? t('notification.newTitle')
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!visible || duration <= 0) return
+    timerRef.current = setTimeout(() => onClose?.(), duration)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [visible, duration, onClose])
+
+  if (!visible) return null
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.bannerWrap, { paddingTop: topOffset }]} pointerEvents="box-none">
+        {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
+            整份内联样式静默消失。卡片盒含底色/圆角/阴影(有绘制),整盒下移到子 View 数组形态;
+            改前宽度由横幅容器的列布局 stretch 撑出,故内层用 cardFace 显式把宽度还给盒子。 */}
+        <Pressable
+          onPress={() => {
+            onClick?.()
+            onClose?.()
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={bannerTitle}
+        >
+          {({ pressed }) => (
+            <View style={[styles.cardFace, styles.card, pressed ? styles.pressed : null]}>
+              <View style={styles.header}>
+                <View style={styles.icon}>
+                  <Bell size={16} color={tokens.text.secondary} />
+                </View>
+                <View style={styles.info}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {bannerTitle}
+                  </Text>
+                  {formatPushTime(timestamp, t) ? (
+                    <Text style={styles.time}>{formatPushTime(timestamp, t)}</Text>
+                  ) : null}
+                </View>
+                <Tappable
+                  onPress={(e) => {
+                    e.stopPropagation()
+                    onClose?.()
+                  }}
+                  hitSlop={8}
+                  style={styles.close}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
+                >
+                  <X size={14} color={tokens.text.tertiary} />
+                </Tappable>
+              </View>
+              {content ? (
+                <View style={styles.body}>
+                  <Text style={styles.message} numberOfLines={2}>
+                    {content}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </Pressable>
+      </View>
+    </Modal>
+  )
+}
+
+const styles = StyleSheet.create({
+  bannerWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingBottom: rnSpacing['sm-loose'],
+  } as ViewStyle,
+  // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子
+  // (改前那一维由横幅容器的列布局 stretch 撑出),未引入任何新数字档。
+  cardFace: {
+    width: '100%',
+  } as ViewStyle,
+  card: {
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadius.xl,
+    padding: rnSpacing.md,
+    shadowColor: tokens.gray.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+  } as ViewStyle,
+  pressed: { opacity: 0.92 } as ViewStyle,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: rnSpacing.sm,
+  } as ViewStyle,
+  icon: {
+    width: 30,
+    height: 30,
+    borderRadius: rnRadius['2xl'],
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: rnSpacing['sm-loose'],
+  } as ViewStyle,
+  iconText: { fontSize: rnType.title.size } as TextStyle,
+  info: { flex: 1, minWidth: 0 } as ViewStyle,
+  title: {
+    fontSize: rnType.title.size,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    marginBottom: rnSpacing['2xs'],
+  } as TextStyle,
+  time: { fontSize: rnType.label.size, color: tokens.text.secondary } as TextStyle,
+  close: {
+    width: 24,
+    height: 24,
+    borderRadius: rnRadius.xl,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: rnSpacing.sm,
+  } as ViewStyle,
+  closeText: { fontSize: rnType.body.size, color: tokens.text.tertiary } as TextStyle,
+  body: { paddingLeft: rnSpacing['4xl'] } as ViewStyle,
+  message: {
+    fontSize: rnType.body.size,
+    color: tokens.text.medium,
+    lineHeight: 20,
+  } as TextStyle,
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

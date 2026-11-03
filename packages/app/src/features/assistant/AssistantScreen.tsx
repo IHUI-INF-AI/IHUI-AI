@@ -1,0 +1,343 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type {
+  AssistantItem,
+  AssistantScreenProps,
+  AssistantStatus,
+  AssistantSubTab,
+  AssistantTab,
+} from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { TextField } from '../../components/TextField'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 助手管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { AssistantItem, AssistantScreenProps, AssistantStatus, AssistantSubTab, AssistantTab }
+
+const TABS: { id: AssistantTab; labelKey: string }[] = [
+  { id: 'draft', labelKey: 'assistant.tabDraft' },
+  { id: 'reviewing', labelKey: 'assistant.tabReviewing' },
+  { id: 'published', labelKey: 'assistant.tabPublished' },
+]
+const SUB_TABS: { id: AssistantSubTab; labelKey: string }[] = [
+  { id: 'all', labelKey: 'assistant.subTabAll' },
+  { id: 'rejected', labelKey: 'assistant.subTabRejected' },
+  { id: 'offline', labelKey: 'assistant.subTabOffline' },
+]
+
+export function AssistantScreen({
+  t,
+  items,
+  tab,
+  subTab,
+  keyword,
+  loading,
+  refreshing,
+  error,
+  onTabChange,
+  onSubTabChange,
+  onKeywordChange,
+  onRefresh,
+  onEdit,
+  onOffline,
+  colorScheme = 'light',
+}: AssistantScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const showSubTab = tab === 'draft'
+  const list = items.filter((a) => {
+    if (showSubTab) {
+      if (subTab === 'all' && a.status !== 'draft') return false
+      if (subTab === 'rejected' && a.status !== 'rejected') return false
+      if (subTab === 'offline' && a.status !== 'offline') return false
+    } else if (a.status !== tab) {
+      return false
+    }
+    return keyword ? a.name.includes(keyword) : true
+  })
+
+  const badgeFor = (a: AssistantItem): { text: string; color: string; bg: string } => {
+    if (a.status === 'published')
+      return {
+        text: t('assistant.badgePublished'),
+        color: tk.success.DEFAULT,
+        bg: tk.success.light,
+      }
+    if (a.status === 'reviewing')
+      return {
+        text: t('assistant.badgeReviewing'),
+        color: tk.text.primary,
+        bg: tk.surface.muted,
+      }
+    if (a.status === 'rejected')
+      return {
+        text: t('assistant.badgeRejected'),
+        color: tk.brandAccent.deep,
+        bg: tk.warning.orangeLight,
+      }
+    if (a.status === 'offline')
+      return { text: t('assistant.badgeOffline'), color: tk.text.secondary, bg: tk.surface.card }
+    return { text: t('assistant.badgeDraft'), color: tk.text.secondary, bg: tk.surface.card }
+  }
+
+  const renderItem = ({ item }: { item: AssistantItem }) => {
+    const badge = badgeFor(item)
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHead}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+          </View>
+          <View style={styles.cardMain}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                <Text style={[styles.badgeText, { color: badge.color }]}>{badge.text}</Text>
+              </View>
+            </View>
+            <Text style={styles.prologue} numberOfLines={2}>
+              {item.prologue}
+            </Text>
+          </View>
+        </View>
+        {item.status === 'published' && (
+          <View style={styles.cardMeta}>
+            <Text style={styles.metaText}>
+              {t('assistant.metaCategory')}: {item.category}
+            </Text>
+            <Text style={styles.metaText}>
+              ¥{item.price} / {item.cycle || t('assistant.metaCycleForever')}
+            </Text>
+            <Text style={styles.metaText}>
+              {t('assistant.metaAudience')}: {item.audience}
+            </Text>
+            <Text style={styles.metaText}>
+              {t('assistant.metaPublishTime')}: {item.publishTime}
+            </Text>
+          </View>
+        )}
+        <View style={styles.cardActions}>
+          {(item.status === 'draft' || item.status === 'reviewing') && (
+            <TouchableOpacity
+              style={styles.actionPrimary}
+              onPress={() => onEdit(item)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionPrimaryText}>{t('assistant.actionSettings')}</Text>
+            </TouchableOpacity>
+          )}
+          {item.status === 'published' && (
+            <TouchableOpacity
+              style={styles.actionDanger}
+              onPress={() => onOffline(item)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionDangerText}>{t('assistant.actionOffline')}</Text>
+            </TouchableOpacity>
+          )}
+          {(item.status === 'rejected' || item.status === 'offline') && (
+            <TouchableOpacity
+              style={styles.actionPrimary}
+              onPress={() => onEdit(item)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionPrimaryText}>{t('assistant.actionReedit')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('assistant.title')}</Text>
+      </View>
+
+      <View style={styles.tabRow}>
+        {TABS.map((it) => {
+          const active = tab === it.id
+          return (
+            <TouchableOpacity
+              key={it.id}
+              style={[styles.tabItem, active && styles.tabItemActive]}
+              onPress={() => {
+                onTabChange(it.id)
+                onSubTabChange('all')
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t(it.labelKey)}</Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+
+      {showSubTab && (
+        <View style={styles.subTabRow}>
+          {SUB_TABS.map((it) => {
+            const active = subTab === it.id
+            return (
+              <TouchableOpacity
+                key={it.id}
+                onPress={() => onSubTabChange(it.id)}
+                activeOpacity={0.8}
+                style={styles.subTabItem}
+              >
+                <Text style={[styles.subTabText, active && styles.subTabTextActive]}>
+                  {t(it.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      )}
+
+      <View style={styles.searchRow}>
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.searchInput}
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder={t('assistant.searchPlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+        />
+      </View>
+
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        data={list}
+        keyExtractor={(i) => i.id}
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('assistant.empty')} colorScheme={colorScheme} />
+          )
+        }
+        renderItem={renderItem}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    tabRow: {
+      flexDirection: 'row',
+      marginHorizontal: rnSpacing.lg,
+      padding: rnSpacing.xs,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.card,
+    },
+    tabItem: {
+      flex: 1,
+      height: 34,
+      borderRadius: rnRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabItemActive: { backgroundColor: tk.surface.bg },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    tabTextActive: { color: tk.text.primary, fontWeight: '600' },
+    subTabRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      marginTop: rnSpacing.md,
+      gap: rnSpacing.xl,
+    },
+    subTabItem: { paddingVertical: rnSpacing.xs },
+    subTabText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    subTabTextActive: { color: tk.text.primary, fontWeight: '600' },
+    searchRow: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
+    searchInput: {
+      height: 50,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.sm,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.brandAccent.deep },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    cardHead: { flexDirection: 'row' },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: rnSpacing['sm-loose'],
+    },
+    avatarText: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    cardMain: { flex: 1 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
+    name: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    badge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+    },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
+    prologue: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    cardMeta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.md,
+      marginTop: rnSpacing['sm-loose'],
+    },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardActions: { flexDirection: 'row', gap: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
+    actionPrimary: {
+      paddingHorizontal: rnSpacing.lg,
+      height: 32,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionPrimaryText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    actionDanger: {
+      paddingHorizontal: rnSpacing.lg,
+      height: 32,
+      borderRadius: rnRadius.xl,
+      borderWidth: 1,
+      borderColor: tk.brandAccent.deep,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionDangerText: { fontSize: rnType.body.size, color: tk.brandAccent.deep },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

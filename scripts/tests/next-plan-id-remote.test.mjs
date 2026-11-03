@@ -1,0 +1,600 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * §22c 镜像测试:next-plan-id.mjs(第二发号出口)的远端那一维。
+ *
+ * 背景(G-313 硬前置,2026-09-30):取号出口有两处 —— live-doc-edit.mjs(令牌展开)与本器(手动
+ * CLI)。此前只有前者看了远端;本器按本地宽面给号,对面"已推未并"的登记结构上永远看不见,
+ * G-978062 那组撞号正是两批各按旧基准取号造出来的。翻新后本器与第一出口**共用同一把尺**
+ * (import readRemoteIdBasis + idBasisGate,不抄第二份)。
+ *
+ *  T1  源码形状锁:必须 import 第一出口的那两个出口(抄第二份必漂);本器自身不得出现
+ *      ls-remote/fetch 派生(传输面只住在 live-doc-edit.mjs 那一份)。
+ *  T2  闸门必须真的强制在发号路径上:gate.block ⇒ exit 1,且字样里写明拒绝理由;应急 env
+ *      必须被读取(IHUI_PLAN_ID_ALLOW_UNALIGNED)。
+ *  T3  --check 不发号 ⇒ 源码形状上它必须在远端读取之前分岔(不问远端,stdout/stderr 契约不变)。
+ *  T4  真仓只读冒烟:--next-only 恒一行号且 exit 0;完整报告 exit 0(不断言具体号 —— 号是现读的,
+ *      把它断死等于给并发会话造一台恒红)。
+ *  T7  G-955(2026-10-22):--check 对台账存量重号**点名报告但不顶死入口**(exit 0),两档读数
+ *      (逐字孪生 / 纯系列小节)措辞在场。
+ *  T8  G-14(2026-10-22)「同号占用不发」:发号路径必须吃全文件正则扫出的号集(scanFamilyIds 单一实现形状锁 +
+ *      夹具单元 + 真仓端到端:--next-only 给的号在 HEAD 台账 ⊕ 工作树副本上必须零命中)。
+ *  T9  G-955「新增撞号仍须红」:登记行声明位同号多行 ⇒ judgeRowIdDuplicates 判红,且 --check 分支
+ *      以 exit 1 收场;括注内被引号(指针行)不算声明(G-955 病根的反证)。
+ *  T11 G-35(2026-10-25)「远端那一维不能只交 max」:第二出口必须把远端已用号集
+ *      (remote.ids[族],readRemoteIdBasis 的 G-454② 产出)并进实时占用面 —— poolBlocked 的
+ *      远端避让只盖 lowMax+1..baseMax,远端**低位**独占号(本地面已让空/已推未并)旧口径会当空闲
+ *      发出(第一出口 2026-10-16 已修,本器当时没跟上 = 两出口漂移)。夹具级正证 + 装车形状锁。
+ *  T12/T13 票 Z-1(2026-10-30)「族是第一等参数」:号池饱和时合法出路是换字母族(扩池那条已被
+ *      实测回退,见 T12 头注);`--family` 必须走带值旗标,标题判据形状仍只有一份(族只换捕获组里
+ *      的那一个字母),发出的号用该族书写形状;缺值/非单字母 exit 2 且不给号。
+ */
+import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import test from 'node:test'
+
+import { judgeRowIdDuplicates, judgeRowIdDuplicatesDelta } from '../lib/plan-id-duplicates.mjs'
+import { smallestFreeId, remoteIdNumsOf, poolBlocked, LEASE_POOL_MAX } from '../lib/plan-id-lease.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
+import { scanFamilyIds } from '../lib/plan-id-face.mjs'
+import { git } from '../lib/bypass-git.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..')
+const CLI = resolve(ROOT, 'scripts', 'next-plan-id.mjs')
+const TOOL_SRC = readFileSync(CLI, 'utf8')
+
+test('T1 源码形状锁:远端尺必须 import 自 live-doc-edit.mjs,本器不得自带第二份传输面', () => {
+  assert.match(
+    TOOL_SRC,
+    /import\s*\{\s*readRemoteIdBasis,\s*idBasisGate\s*\}\s*from\s*'\.\/live-doc-edit\.mjs'/,
+    '远端基准与闸门必须与第一发号出口同一份实现(抄第二份必漂,AGENTS §3)',
+  )
+  assert.doesNotMatch(TOOL_SRC, /ls-remote/, '本器不得自带 ls-remote 派生(传输面只有一份,在 live-doc-edit.mjs)')
+  assert.doesNotMatch(TOOL_SRC, /'fetch'/, '本器不得自带 fetch(自补救住在共享 transport 里)')
+  assert.doesNotMatch(TOOL_SRC, /\bexecFileSync\(/, 'git 派生纪律只许住在 lib 层(守门 52/80 口径)')
+})
+
+test('T2 闸门必须强制在发号路径上:block ⇒ exit 1;应急 env 必须被读取', () => {
+  const gateCall = TOOL_SRC.indexOf('idBasisGate({')
+  assert.ok(gateCall > 0, 'idBasisGate 没有调用点 ⇒ 闸门没装车(造好没装车那一型)')
+  const gateSection = TOOL_SRC.slice(gateCall, gateCall + 800)
+  assert.match(gateSection, /IHUI_PLAN_ID_ALLOW_UNALIGNED/, '应急旗必须接到闸门的 allowUnaligned')
+  assert.match(gateSection, /process\.exit\(1\)/, 'block 必须以非零退出收场(警告照样能提交就是本票要堵的原病)')
+  assert.match(TOOL_SRC, /拒绝发号/, '拒绝措辞必须在场(出路要写明白,不得只喊不行)')
+})
+
+test('T3 --check 不问远端:发号维必须在 --check 分岔之后', () => {
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const remoteRead = TOOL_SRC.indexOf('readRemoteIdBasis({')
+  assert.ok(checkBranch > 0 && remoteRead > checkBranch, '--check 分岔必须在远端读取之前(不发号就不问远端,契约逐字不变)')
+  assert.match(TOOL_SRC, /SOURCE === 'HEAD'/, '--source 显式指面时不得重复问远端(那一面本来就是被指的面)')
+})
+
+test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(不断言具体号,号是现读的)', (t) => {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+  const r1 = spawnSync(process.execPath, [CLI, '--next-only'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  if (skipIfCliCrashed(t, r1)) return
+  // 占用面判不出窗口(并发 HEAD 切换):CLI 按设计拒发是"未判定"不是回归,t.skip 点名(§0.3)。
+  if (/占用面判不出|无法判定占用/.test(String(r1.stderr))) {
+    t.skip('未判定:CLI 占用面判不出(并发 HEAD 切换窗口,归档件/台账 git show 失败),冒烟未判成')
+    return
+  }
+  assert.equal(r1.status, 0, `--next-only 必须 exit 0(真仓此刻远端可问/离线都该走得到发号):\n${r1.stderr}`)
+  assert.match(String(r1.stdout).trim(), /^O\d+$/, `--next-only 的 stdout 恒为一行号,实得:${r1.stdout}`)
+  const r2 = spawnSync(process.execPath, [CLI], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  if (skipIfCliCrashed(t, r2)) return
+  if (/占用面判不出|无法判定占用/.test(String(r2.stderr))) {
+    t.skip('未判定:CLI 占用面判不出(并发 HEAD 切换窗口,归档件/台账 git show 失败),完整报告未判成')
+    return
+  }
+  assert.equal(r2.status, 0, `完整报告必须 exit 0:\n${r2.stderr}`)
+  assert.match(String(r2.stdout), /下一个号 = O\d+/)
+})
+
+/**
+ * T5/T6 —— G-927(2026-10-21)的系列小节形态锁。
+ * 判据本体只住在 CLI 源码里那一份 HEADING:这里**从源码把那条正则取出来再用**,不复制第二份
+ * 正则字面量(§22c —— 抄一份判据进测试,测试就会永远跟着旧形状绿)。
+ */
+function headingReFromSource() {
+  const m = /^const HEADING = (\/.*\/gm)$/m.exec(TOOL_SRC)
+  assert.ok(m, 'HEADING 必须是源码里那一条 /…/gm 字面量(取不到即判据被拆走,镜像测试失去意义)')
+  return new RegExp(m[1].slice(1, m[1].lastIndexOf('/')), 'gm')
+}
+
+test('T5 系列小节不得被并成重号:同号不同后缀必须各算一条;同后缀逐字重复仍判重(G-927)', () => {
+  const re = headingReFromSource()
+  const src = [
+    '## O82续四 第二批',
+    '## O82补 登记正文重登',
+    '### O62 附:补跑守门链量到的两件事',
+    '### O62 附⑥:把 R6 收到真消费端',
+    '### O62 附⑫:构建漂移的根因',
+    '### O62 附⑬:dev 同样受持久缓存影响',
+    '## O86附⑧ 收口三件',
+    '## O86附⑧ 收口三件',
+    '## O45 凭据巡检根因收口',
+    '## O45 凭据巡检根因收口',
+  ].join('\n')
+  const keys = [...src.matchAll(re)].map((m) => m[1].replace(/[ \t]+/g, ''))
+  const counts = new Map()
+  for (const k of keys) counts.set(k, (counts.get(k) || 0) + 1)
+  // 六支不同小节 ⇒ O62 族三个 key 各 1 次(附 / 附⑥ / 附⑫ / 附⑬),绝不许合成 "O62×4"
+  assert.equal(counts.get('O62'), undefined, '带后缀的系列小节不得记到裸号 O62 名下(那就是把正当形态误报成重号的原病)')
+  for (const k of ['O62附', 'O62附⑥', 'O62附⑫', 'O62附⑬', 'O82续四', 'O82补']) {
+    assert.equal(counts.get(k), 1, `${k} 应各算一条独立小节,实得 ${counts.get(k)}`)
+  }
+  // 反证:同键真重复必须仍然数得出来(判据不能为了消红把真重号也放掉)
+  assert.equal(counts.get('O86附⑧'), 2, '同后缀逐字重复的标题必须仍判重')
+  assert.equal(counts.get('O45'), 2, '同号同题(无后缀)必须仍判重')
+})
+
+test('T6 数字段提取必须走 key 而不是整串:带后缀的 key 不得把 max 算成 NaN(G-927 自伤反证)', () => {
+  assert.match(TOOL_SRC, /const headingNum = /, '必须有一份 headingNum 出口(旧写法 Number(k.slice(1)) 遇到 O62附⑥ 得 NaN,会把 maxLedger 算成 NaN 并顶掉整个发号路径)')
+  assert.doesNotMatch(TOOL_SRC, /Number\((?:k|m\[1\])\.slice\(1\)\)/, '不得再出现 Number(key.slice(1)) 那一族写法(key 现在可能带后缀)')
+  const re = headingReFromSource()
+  const withSuffix = [...'### O62 附⑫:构建漂移'.matchAll(re)][0][1].replace(/[ \t]+/g, '')
+  const numSrc = /const headingNum = \(key\) => Number\(\/\^O\(\\d\+\)\/\.exec\(key\)\[1\]\)/.test(TOOL_SRC)
+  assert.ok(numSrc, 'headingNum 的实现必须是"取 ^O(\\d+) 的数字段"这一份(改成整串 Number 必得 NaN)')
+  assert.equal(Number(/^O(\d+)/.exec(withSuffix)[1]), 62, `数字段提取实得 ${withSuffix} → ${Number(/^O(\d+)/.exec(withSuffix)[1])}`)
+})
+
+/**
+ * T7 —— G-955(2026-10-22)票面出路②③:台账存量重号(现读 7 组 O 族标题同 id)必须
+ * **点名报告但不以 exit 1 顶死独立取号入口**。断言只锁行为契约,不锁组数/组名 ——
+ * 存量归并线随时可能折掉某组,把它断死等于给并发会话造一台恒红(T4 同一条纪律)。
+ */
+test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在场(G-955)', (t) => {
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
+  const r = spawnSync(process.execPath, [CLI, '--check'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180_000,
+  })
+  if (skipIfCliCrashed(t, r)) return
+  // 占用面判不出窗口:--check 读宽面撞并发 HEAD 切换 ⇒ exit 1 是"未判定"不是存量顶死,t.skip 点名。
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),--check 未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  if (r.status !== 0) {
+    // 2026-10-25 起 exit 1 只可能是**新增档**或未判定(存量已按差值棘轮只报数)。并发窗口分诊:
+    // 用**同一把生产判据**(judgeRowIdDuplicatesDelta)在 preHead 静态历史面上复算 —— preHead 自己
+    // 就有 fresh(即 preHead 相对其父提交也是新增)⇒ 真回归照红;preHead 面不新鲜 ⇒ 现读红来自
+    // 别席新落账(并发窗口)⇒ t.skip 点名,不记绿也不冒红。
+    if (/重号判据未判定/.test(String(r.stdout))) {
+      t.skip(`未判定:基线面取不到(浅克隆/根提交窗口),--check 未判成;preHead=${String(preHead).slice(0, 8)}`)
+      return
+    }
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preBaseLedger = git(['show', `${preHead}^:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000, allowFail: true })
+    const preDelta = judgeRowIdDuplicatesDelta({
+      currentText: typeof preHeadLedger === 'string' ? preHeadLedger : '',
+      baselineText: typeof preBaseLedger === 'string' ? preBaseLedger : '',
+      family: 'O',
+    })
+    if (!preDelta.ok) {
+      t.skip(`未判定:preHead 面分不开存量与新增(${preDelta.reason})⇒ 不拿它当真;preHead=${String(preHead).slice(0, 8)}`)
+      return
+    }
+    if (preDelta.fresh.length > 0) {
+      assert.fail(
+        `preHead 面自身就有新增登记行重号(真回归):${JSON.stringify(preDelta.fresh)}\n${r.stdout}\n${r.stderr}`,
+      )
+    }
+    t.skip(
+      `未判定:并发窗口 —— preHead=${String(preHead).slice(0, 8)} 面无新增重号,现读红来自别席新落账(非存量顶死)`,
+    )
+    return
+  }
+  assert.match(String(r.stdout), /无新增登记行重号/, '绿行必须说清判的是登记行声明位、且只判"新增"那一档')
+  const m = /历史小节标题同 id (\d+) 组/.exec(String(r.stdout))
+  if (m) {
+    // 存量组在场时:必须点名(组列表非空)且写明两档处置口径
+    assert.match(String(r.stdout), /含逐字孪生副本 \d+ 组\((?!无)[^)]*\)/, '逐字孪生副本组必须点名,不得只报数')
+    assert.match(String(r.stdout), /纯系列小节 \d+ 组/, '纯系列小节一档必须在场')
+    assert.match(String(r.stdout), /两档只报数不判红/, '存量重号不得冒充判红')
+  }
+})
+
+/**
+ * T8 —— G-14(2026-10-22)「同号占用不发」回归。扫描那把尺只有一份实现
+ * (`lib/plan-id-face.mjs` 的 `scanFamilyIds`,与 live-doc-edit 的令牌展开共用)⇒ 本测试直接 import
+ * 它,不在测试里抄第二份判据(§22c)。
+ *  a) 形状锁:发号路径必须吃 liveUsed(标题 ∪ 行声明 ∪ 全文件扫描 HEAD 宽面 ∪ 工作树副本),
+ *     且建议号算术不得再按旧窄面给号;本器源码里不得再出现第二份扫描正则;
+ *  b) 夹具单元:只活在正文引用里的号(`见 O777`)与行声明号 O778 都必须被扫描顶掉;
+ *  c) 真仓端到端:--next-only 发出的号,在 HEAD 台账 ⊕ 工作树副本上必须**零命中**(撞号正病的直接反证)。
+ */
+function fullScanIds(text) {
+  return scanFamilyIds(text, 'O')
+}
+
+/**
+ * 并发窗口分诊(2026-10-25,与 next-plan-id-live-dup-guard.test.mjs 同一套纪律):
+ * CLI import 的脚本/lib 正被别席编辑 ⇒ 写到一半被 import,Node 直接崩(stderr 是
+ * `file:///…mjs:NNNN` 栈)或进程被信号杀。那不是回归,是中间态。判据有牙:
+ * 依赖面 scripts/ 有在飞修改 ⇒ 未判定 t.skip;依赖面干净而 CLI 仍崩 ⇒ 真回归照红。
+ */
+function skipIfCliCrashed(t, r) {
+  const crashed = r.status === null || r.error !== undefined && r.error !== null || /file:\/\/\S+\.mjs:\d+/.test(String(r.stderr))
+  if (!crashed) return false
+  const dirty = git(['status', '--porcelain', 'scripts/'], { root: ROOT, timeout: 60_000 }).trim()
+  if (dirty) {
+    t.skip(`未判定:CLI 依赖模块在飞编辑中(${dirty.split('\n')[0].trim()}),不拿中间态当真`)
+    return true
+  }
+  assert.fail(`CLI 异常退出且依赖面干净 ⇒ 真回归:status=${r.status} signal=${r.signal}\nstderr=${r.stderr}`)
+}
+
+test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)', () => {
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const scanDecl = TOOL_SRC.indexOf('const scanHead = scanFamilyIds(')
+  assert.ok(scanDecl > checkBranch, '全文件扫描档必须在 --check 分岔之后(发号路径专属,G-955 契约不变)')
+  assert.match(
+    TOOL_SRC,
+    /import\s*\{[^}]*\bcollectIdFace\b[^}]*\bscanFamilyIds\b[^}]*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
+    '扫描必须 import 那份唯一实现(自抄一条正则就是第二份尺子)',
+  )
+  assert.doesNotMatch(TOOL_SRC, /const FULLSCAN/, '本器不得自带第二份全文件扫描正则')
+  assert.match(TOOL_SRC, /const scanWork = scanFamilyIds\(worktreeText, FAMILY\)/, '工作树副本也必须走同一把尺')
+  assert.match(TOOL_SRC, /const liveUsed = \[\.\.\.new Set\(\[\.\.\.poolUsed, \.\.\.scanHead, \.\.\.scanWork\]\)\]/, '占用集必须是 旧口径 ∪ HEAD 宽面扫描 ∪ 工作树扫描 的并集')
+  assert.match(TOOL_SRC, /smallestFreeId\(\{ usedNumbers: liveUsed/, '建议号必须按实时占用面算(还按 poolUsed 算就是没装车)')
+  assert.match(TOOL_SRC, /poolFreeList\(\{ usedNumbers: liveUsed/, '空闲表必须与发号同一把尺')
+  assert.match(TOOL_SRC, /readFileSync\(resolve\(ROOT, PLAN_PATH\)/, '实时面必须含工作树副本(他席未提交的登记活在右侧)')
+  assert.match(TOOL_SRC, /skippedByScan/, '命中换号被顶掉的号必须点名(出路①"把跳过的号点名打印")')
+})
+
+test('T8b 夹具单元:正文引用与行声明的号都必须顶掉建议号(G-14 同号占用不发)', () => {
+  const fixture = [
+    '- [ ] O778 行声明位的真号',
+    '正文里顺带引用了一句 见 O777 那条(旧口径看不见这一型 ⇒ 撞号正病)',
+    '<!-- 已归档:O779 副本在注释里(同样算已占) -->',
+    'QODER-O81 这种跨命名空间被引号也宁顶号不空段',
+    'OO776 不是号(前一个字符是字母 ⇒ 不顶)',
+  ].join('\n')
+  const hit = fullScanIds(fixture)
+  for (const n of [778, 777, 779, 81]) assert.ok(hit.has(n), `O${n} 必须被全文件扫成已占`)
+  assert.ok(!hit.has(776), 'OO776 不得被误扫成 O776(形状收窄,不放宽成任意子串)')
+  const next = smallestFreeId({ usedNumbers: [...hit] })
+  assert.ok(!hit.has(next), `建议号 ${next} 自身必须不在占用集里(占用不发)`)
+})
+
+test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 正病反证)', (t) => {
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
+  const r = spawnSync(process.execPath, [CLI, '--next-only'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180_000,
+  })
+  if (skipIfCliCrashed(t, r)) return
+  // 占用面判不出窗口:CLI 按设计拒发(exit 1)是"未判定"不是回归,t.skip 点名(§0.3)。
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),发号路径未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  assert.equal(r.status, 0, `--next-only 必须 exit 0:\n${r.stderr}`)
+  const line = String(r.stdout).trim()
+  assert.match(line, /^O\d+$/, `stdout 恒一行号,实得:${JSON.stringify(r.stdout)}`)
+  const n = Number(/^O(\d+)$/.exec(line)[1])
+  const wt = readFileSync(resolve(ROOT, 'PROJECT_PLAN.md'), 'utf8')
+  const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
+  assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
+  const occupied = fullScanIds(`${head}\n${wt}`)
+  if (occupied.has(n)) {
+    // 并发窗口分诊(2026-10-25):CLI 跑完后别席可能刚落一笔含 O<n> 的账(两个取号出口同刻取到
+    // 池内同一空闲号 —— 归 G-35 CAS 租约射程,不是本用例射程)。方向性判据:n 在 CLI 运行**之前**
+    // 的历史面(preHead 台账,静态可重放)里就已命中 ⇒ 取号器发旧占号 = G-14 正病复发,照红;
+    // 只在 preHead 之后的新落账/工作树新行里出现 ⇒ 并发窗口,t.skip 点名,不记绿也不冒红。
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preOccupied = typeof preHeadLedger === 'string' ? fullScanIds(preHeadLedger) : null
+    if (preOccupied && preOccupied.has(n)) {
+      assert.fail(
+        `${line} 在 CLI 运行前的历史面(preHead=${String(preHead).slice(0, 8)} 台账)里就已命中 ⇒ 取号器把已占号当空闲发(G-14 正病复发)`,
+      )
+    }
+    t.skip(
+      `未判定:并发窗口 —— ${line} 只在 preHead=${String(preHead).slice(0, 8)} 之后的新落账里出现(别席同刻取到池内同一空闲号),非本用例射程`,
+    )
+    return
+  }
+})
+
+/**
+ * T9 —— G-955 的另一半:「新增撞号仍须红」。判红通道 = 登记行编号声明位同号多行
+ * (lib/plan-id-duplicates.mjs 一份尺);台账存量(标题口径)只报数。两型必须在同一份判据上
+ * 给出相反结论,否则"不顶死"就被读成"不判红"。
+ */
+test('T9 新增撞号仍判红、指针被引号不算声明(G-955 判红维正反例)', () => {
+  const red = judgeRowIdDuplicates({
+    ledgerText: ['- [ ] O123 甲题(别席已登记)', '- [ ] O123 乙题(本席新增撞号)'].join('\n'),
+    family: 'O',
+  })
+  assert.ok(red.ok && red.rowDups.length === 1 && red.rowDups[0][0] === 'O123' && red.rowDups[0][1] === 2, `同号多行必须判红,实得 ${JSON.stringify(red.rowDups)}`)
+  const ptr = judgeRowIdDuplicates({
+    ledgerText: [
+      '- [ ] （待派/QODER-O81） **顺带登记一条归属纪律**',
+      '- [ ] O81 跨端 UI 单一源',
+    ].join('\n'),
+    family: 'O',
+  })
+  assert.deepEqual(ptr.rowDups, [], '括注内被引号不得顶死判红维(G-955 病根:一行指针顶死整个入口)')
+  assert.equal(ptr.rowDecls, 1, '声明位读数必须只数真声明')
+  // CLI 接线锁:--check 分支必须真的以 exit 1 收场(判据在场 ≠ 装车),且判红维自 2026-10-25 起
+  // 走**差值棘轮**(新增才红):绝对值 `if (dup.rowDups.length)` 的形状必须已经被摘掉,
+  // 否则"存量只报数"会被一次误改反悔回恒红门(§12e/§12f:两向都要锁)。
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const branch = TOOL_SRC.slice(checkBranch, TOOL_SRC.indexOf('const headingNote', checkBranch))
+  assert.match(branch, /judgeRowIdDuplicatesDelta\(/, '--check 必须吃差值判据(存量/新增分档)')
+  assert.match(branch, /delta\.fresh\.length/, '判红必须只看新增档')
+  assert.match(branch, /process\.exit\(1\)/, '新增撞号必须以 exit 1 收场(存量不顶死 ≠ 新增不红)')
+  assert.match(branch, /`\$\{SOURCE\}\^`/, '基线面必须是被审面的父提交(锚点取错=棘轮失效)')
+  assert.doesNotMatch(
+    branch,
+    /if\s*\(\s*dup\.rowDups\.length\s*\)/,
+    '不得退回"只要有同号多行就 exit 1"的绝对值判红(存量会把它读成恒红门)',
+  )
+})
+
+/**
+ * T10 —— 结论必须与判据同形(2026-10-23 立)。本器旧措辞把"发不出号"一律念成
+ * "号池 1..99 已满 ⇒ 先归档已完成条目腾号",而现读证明真因可以是**「没有连续段容量的租约窗」**
+ * (无连续窗那一型:池内仍有闲号,却没有任何一段连续空闲位)。两种成因的出路相反
+ * (无窗型靠散点让位腾不出窗),归因念错 = 把台账里的票全引向无效出路(AGENTS §0.3/§0.8/§10)。
+ *  ⇒ ①② 源码形状锁:拒绝行只能由 lib 那一份渲染器给、必须带机读 reason、出口代码不得再出现
+ *    "已满"断言,且本器只**读**租约窗做报告(段容量/池上限一个都不自赋 = 分配语义未动);
+ *    ③ 端到端:把段容量顶到 99(池内只要有一枚已占号就必然无 99 宽窗)⇒ stderr 必须念
+ *    "NO_CONTIGUOUS_LEASE_WINDOW / 但无连续 99 号租约窗",且一个"已满"都不许出现。
+ */
+test('T10 发不出号的两种成因必须分开念(结论与判据同形,2026-10-23)', () => {
+  const CODE = maskComments(TOOL_SRC)
+  assert.match(
+    CODE,
+    /describePoolExhaustion\(leaseView\)/,
+    '拒绝发号/警示行必须走 lib 的单源渲染器(出口各拼一句就是第二份口径,§0.6)',
+  )
+  assert.match(CODE, /reason=\$\{leaseView\.reason/, '机读 reason 必须随结论交出,调用方才分得了两档')
+  assert.doesNotMatch(
+    CODE,
+    /已满/,
+    '出口代码(遮注释后)不得再出现"已满"断言 —— 无窗型念成池已满就是假话',
+  )
+  assert.doesNotMatch(
+    CODE,
+    /leaseCursor\(\{[^}]*segmentSize/,
+    '本器不得自赋段容量(改了就是动分配语义,超出本票射程)',
+  )
+  assert.doesNotMatch(CODE, /leaseCursor\(\{[^}]*poolMax/, '本器不得自赋池上限(同上)')
+  assert.match(
+    CODE,
+    /leaseView\.mode === 'pool-exhausted'/,
+    '两出口口径分歧必须被真判出来并喊出来(静默给号 = 读不出第一出口会拒发)',
+  )
+  // ③ 真跑:段容量顶到 99 ⇒ 本器按最小空闲照样发号,而租约窗尺子必须点名"无连续窗"
+  const r = spawnSync(process.execPath, [CLI, '--source', 'origin/main'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+    env: { ...process.env, IHUI_LEASE_SEGMENT_SIZE: '99' },
+  })
+  assert.equal(r.status, 0, `结论层改动不得影响发号(本器按池内最小空闲给号):\n${r.stderr}`)
+  const err = String(r.stderr)
+  assert.match(
+    err,
+    /NO_CONTIGUOUS_LEASE_WINDOW/,
+    `池内确有闲号却无 99 宽窗 ⇒ 必须点名无窗型,实得 stderr:\n${err.slice(0, 600)}`,
+  )
+  assert.match(err, /但无连续 99 号租约窗/, '可读行必须把"空闲 N 枚 / 无连续 M 号窗"这一对念出来')
+  assert.doesNotMatch(err, /已满/, `无窗型的结论行不得念成"已满",实得:\n${err.slice(0, 600)}`)
+})
+
+/**
+ * T10b —— 拒发成因必须有**三档**(2026-10-29 立,补 T10 只分两档那一格)。
+ *
+ * 立因:gb22(2026-10-28)在 lib 立了第三档 `SCAN_FACE_FULL`,并把第一出口(live-doc-edit)按
+ * `EXHAUST_STAGE` 分档接上;本器拒发那一步仍只交 `describePoolExhaustion(leaseView)`(两档),
+ * 于是"占用面让得出候选、候选却被全文件扫描面 ⊕ 工作树副本 ⊕ 远端号集灭掉"这一型在本器念成
+ * "未判定"——而它恰是 2026-10-29 现读 O 族的日常形态(旧口径可发 44+ 枚,全被扫描顶掉)。
+ * 归因念错就是把运维引向"归档腾号"这条实测 Δ=0 的无效出路(§0.8/§12f)。
+ *  ⇒ ① 拒发行必须走 lib 的三档总渲染 `describeExhaustion(exhaustion)`;
+ *    ② stage 取值只许 import 单源(`EXHAUST_STAGE.*`),不得在本器自写字面量;
+ *    ③ 两枚新读数 narrowFreeList / killedByScan 必须由 lib 的同一份 poolFreeList/poolBlocked 给,
+ *       本器不得再写一条"什么算空闲"的正则(§0.6);
+ *    ④ 分配语义不得被这次归因改动碰到:租约游标仍不得自赋段容量/池上限(与 T10 同锁),
+ *       且 `--next-only` 的 stdout 仍恒一行号(下面真跑一条只读冒烟)。
+ */
+test('T10b 拒发成因三档必须齐(SCAN_FACE_FULL 不得在本器念成未判定)', () => {
+  const CODE = maskComments(TOOL_SRC)
+  assert.match(
+    CODE,
+    /describeExhaustion\(exhaustion\)/,
+    '拒绝发号行必须走 lib 的三档总渲染(两档渲染器留在分歧警示行,不是拒发行)',
+  )
+  assert.match(CODE, /EXHAUST_STAGE\.scanFilter/, '灭窗型必须落到 scan-filter 档(出路=换字母族)')
+  assert.match(CODE, /EXHAUST_STAGE\.leaseWindow/, '游标本体拒发仍落 lease-window 档(两型不并桶)')
+  assert.match(CODE, /SCAN_FACE_EXHAUST_REASON/, '报告里的成因自述必须点名第三档(§0.9 判据要可见)')
+  assert.doesNotMatch(
+    CODE,
+    /stage:\s*'scan-filter'/,
+    'stage 取值不得在本器自写字面量(单源 = lib 的 EXHAUST_STAGE,抄一份必漂,§22c)',
+  )
+  assert.match(CODE, /narrowFreeList/, '占用面口径可发数必须现场量(分得开"池满"与"灭窗")')
+  assert.match(CODE, /killedByScan/, '被扫描/远端面顶掉的枚数必须现场量(成因的证据)')
+  assert.match(CODE, /const narrowFreeList = poolFreeList\(\{/, '可发数走 lib 那一份 poolFreeList(不另起尺子)')
+  assert.doesNotMatch(
+    CODE,
+    /leaseCursor\(\{[^}]*segmentSize/,
+    '归因改造不得顺手动分配语义(段容量仍不许自赋,与 T10 同锁)',
+  )
+  // ④ 端到端只读冒烟:归因改动后 --next-only 的 stdout 契约仍是"恒一行号"。
+  const r = spawnSync(process.execPath, [CLI, '--next-only', '--source', 'HEAD'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+  })
+  assert.equal(r.status, 0, `只读发号冒烟必须 exit 0,实得 rc=${r.status}\n${r.stderr}`)
+  const out = String(r.stdout).trim().split(/\r?\n/)
+  assert.equal(out.length, 1, `--next-only 的 stdout 恒一行,实得 ${out.length} 行:\n${r.stdout}`)
+  assert.match(out[0], /^O\d+$/, `stdout 必须只有一枚 O 族号,实得:${out[0]}`)
+})
+
+/**
+ * T11 —— G-35(2026-10-25)「远端那一维不能只交 max」夹具级正证。
+ *
+ * 病型:本地面占 1..4 与 10(lowMax=10),远端台账登记了 G-05 而那一行本地还没并进来
+ * (或本地面已把 05 让空)。`poolBlocked` 的远端避让只盖 `lowMax+1..baseMax` = 11..10(空段)⇒
+ * 旧口径(只吃 remote.max)把 O5 当空闲发出,与远端已占号相撞 —— 这正是第一出口
+ * resolveIdTokens 在 G-454②(2026-10-16 实测撞号)修掉、第二出口当时没跟上的那一型。
+ *
+ * 判据全部 import 生产出口(§22c):投影 = lib/plan-id-lease.mjs 的 `remoteIdNumsOf`,
+ * 建议号算术 = 同文件的 `smallestFreeId`(两出口共用那一份),本测试不写第二份。
+ */
+test('T11a 夹具阳性对照:远端低位独占号必须顶掉建议号(G-35 病型,修复前会撞号)', () => {
+  // 投影单源:标签 → 号数(输入形状 = usedIdsOfPrefix 的 ids 产出,恒为"族+分隔符+数字",无字母后缀)
+  assert.deepEqual(remoteIdNumsOf(['G-05', 'G-42']), [5, 42], '投影必须取数字段且剥前导零')
+  assert.deepEqual(remoteIdNumsOf(null), [], '输入不是数组 ⇒ 空数组(远端那一维缺席,不猜)')
+  const localUsed = [1, 2, 3, 4, 10]
+  const remoteWide = 10 // 远端 max 与本地同值 ⇒ baseMax 避让段 11..10 为空,低位号全靠号集本身
+  // ① 修复前行为实证:只吃 max 的旧口径确实把 O5 当空闲发出(撞号正病)
+  const before = smallestFreeId({ usedNumbers: localUsed, baseMax: remoteWide })
+  assert.equal(before, 5, '旧口径(不含远端号集)的建议号 = O5 —— 这一条就是"改动前会撞号"的取证')
+  assert.ok(poolBlocked({ usedNumbers: localUsed, baseMax: remoteWide }).blocked.has(5) === false, 'poolBlocked 的远端避让段(11..10)盖不住低位号 ⇒ 结构性漏,不是边界抖动')
+  // ② 修复后行为:远端号集并进实时占用面 ⇒ O5 被顶掉,顺延 O6
+  const remoteIds = ['G-05']
+  const after = smallestFreeId({ usedNumbers: [...localUsed, ...remoteIdNumsOf(remoteIds)], baseMax: remoteWide })
+  assert.equal(after, 6, '远端已占的 O5 必须被顶掉,顺延 O6(第一出口 G-454② 同一行为)')
+  // ③ 恒等并反证:远端与本地同号集(无新增)⇒ 建议号与改动前逐字同形(不得给正常路径加噪声)
+  const sameAsLocal = smallestFreeId({ usedNumbers: [...localUsed, ...remoteIdNumsOf(['G-01', 'G-02', 'G-03', 'G-04', 'G-10'])], baseMax: remoteWide })
+  assert.equal(sameAsLocal, before, '远端号集是本地面子集时必须恒等并(行为逐字同形)')
+})
+
+test('T11b 装车形状锁:发号路径必须真吃远端号集并逐枚点名(造好没装车 = 没有)', () => {
+  assert.match(
+    TOOL_SRC,
+    /import\s*\{[^}]*remoteIdNumsOf[^}]*\}\s*from\s*'\.\/lib\/plan-id-lease\.mjs'/,
+    '投影必须 import lib 那一份(在 CLI 里再写一条 (\\d+)$ 提取就是第二份尺子,§22c)',
+  )
+  assert.match(TOOL_SRC, /const remoteIdNums = remoteIdNumsOf\(remote\?\.ids\?\.\[FAMILY\]\)/, '远端号集必须从 readRemoteIdBasis 的 G-454② 产出取')
+  assert.match(TOOL_SRC, /liveUsed\.push\(\.\.\.remoteIdNums\)/, '实时占用面必须真并入远端号集(只声明不消费 = 没装车)')
+  assert.match(TOOL_SRC, /const skippedByRemote/, '被远端顶掉的号必须点名(票面出路①:命中即换号并打印)')
+  // --check 契约不变:远端号集消费必须在发号路径上,--check 分岔之后才出现
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const consume = TOOL_SRC.indexOf('liveUsed.push(...remoteIdNums)')
+  assert.ok(consume > checkBranch, '--check 不发号 ⇒ 远端号集消费必须在其后(契约逐字不变)')
+})
+
+/**
+ * T12/T13 —— 票 Z-1(2026-10-30):取号池饱和的**合法出路 = 换字母族**。
+ *
+ * 背景(现读):G 99/99、D 99/99、O 90/99 且最长连续游程 < 段容量 ⇒ 令牌取不出;另一条出路
+ * "扩池 99→999"已实测回退(提交 963c5655da):它会顶穿以池宽为边界构造的 T10 型用例,要保住用例
+ * 就得削判据(§12f 不许)。而在此之前本器把族写死成 `const FAMILY = 'O'` ⇒ 票面写着"开新字母族",
+ * 器物却结构上发不出新族号(只剩手填具名号,那条路不过 keepIfFree / 扫描 / 租约)。
+ *
+ * T12 源码形状锁:① 族必须走带值旗标 `--family`,缺省族只有一个来源;② 标题判据仍是源码里那颗
+ * `/…/gm` 字面量(下面 T5/T6 从它抽取),族只换捕获组里的那一个字母 —— 另写一颗族正则或第二份
+ * 数字段算术都等于第二份判据(§22c);③ 号必须用该族自己的书写形状,裸拼族名会印出判据认不出的号。
+ * T13 端到端:`--family Z --next-only` 真发得出号且该号在实时占用面上零命中;用法错两支
+ * (缺值 / 非单字母)必须 exit 2 且不给号 —— G-322:给了旗标就要有值,绝不静默退回默认族。
+ */
+test('T12 族是第一等参数:--family 单源 + 标题形状只换字母 + 号用该族书写形状', () => {
+  assert.match(TOOL_SRC, /const DEFAULT_FAMILY = 'O'/, '缺省族必须只有一个来源')
+  assert.match(
+    TOOL_SRC,
+    /const FAMILY = \(familyFlag\.value \?\? DEFAULT_FAMILY\)\.toUpperCase\(\)/,
+    '族必须由 --family 取值、缺省落 DEFAULT_FAMILY(写死 O 就是本票要治的原病)',
+  )
+  assert.match(
+    TOOL_SRC,
+    /requireFlagValue\(argv, '--family'/,
+    '--family 必须走带值旗标的唯一出口(缺值不得静默退回默认族)',
+  )
+  assert.match(
+    TOOL_SRC,
+    /\['--next-only', '--check', '--source', '--family', '--title', '--keyword'\]/,
+    '--family 必须进旗标白名单(否则当场报未知参数)',
+  )
+  // 形状单源:族实例从 HEADING 派生,不得另立一颗族正则字面量
+  assert.match(TOOL_SRC, /const src = HEADING\.source/, '族实例必须从 HEADING.source 派生(第二颗字面量 = 第二份判据)')
+  assert.ok(
+    TOOL_SRC.includes('src.replace(FAMILY_SLOT_RE, `(${family}'),
+    '族只换捕获组里的那一个字母(形状本身仍只有一份)',
+  )
+  assert.match(TOOL_SRC, /const HEADING_RE = headingReFor\(FAMILY\)/, '标题判据必须真用上族实例(造好没装车 = 没有)')
+  assert.doesNotMatch(TOOL_SRC, /const HEADING_[A-Z]+ = \//, '不得新写第二颗族正则字面量')
+  // 数字段算术单源:族感知那一份复用 headingNum(T6 逐字锁定的那一份),不另写 `^Z(\d+)`
+  assert.match(
+    TOOL_SRC,
+    /const headingNumOf = \(key\) => headingNum\(/,
+    '族感知数字段必须复用 headingNum 那一份算术(另写一族正则即第二份判据)',
+  )
+  assert.doesNotMatch(TOOL_SRC, /\^Z\(\\d\+\)/, '不得另写一族数字段正则')
+  // 书写形状单源:号按该族模板渲染(裸拼族名会印出判据认不出来的号)
+  assert.match(TOOL_SRC, /const familyTemplate =/, '书写形状必须有单一出口')
+  assert.match(TOOL_SRC, /familyTemplate\.replace\('%d', String\(n\)\)/, '号必须按模板渲染,不得裸拼族名')
+  assert.match(TOOL_SRC, /console\.log\(labelOf\(next\)\)/, '--next-only 的 stdout 必须走形状出口')
+})
+
+test('T13 --family Z 真发得出号;缺值 / 非单字母必须 exit 2 且不给号(G-322)', (t) => {
+  // 用法错三支:必须在任何取号动作之前判死,stdout 一个号都不许出
+  for (const args of [['--family'], ['--family', 'OO'], ['--family', '--check']]) {
+    const bad = spawnSync(process.execPath, [CLI, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 60_000,
+    })
+    assert.equal(bad.status, 2, `${JSON.stringify(args)} 必须 exit 2(给了旗标就要有值 / 值须单字母),实得 ${bad.status}`)
+    assert.match(String(bad.stderr), /单字母族名/, `${JSON.stringify(args)} 必须点名取值要求,实得:${bad.stderr}`)
+    assert.equal(String(bad.stdout).trim(), '', `${JSON.stringify(args)} 不得在 stdout 给号`)
+  }
+  // 正证:换族必须真能发号(族满三族之后新票唯一的合法取号路)
+  const preHead = git(['rev-parse', 'HEAD'], { root: ROOT, timeout: 60_000 })
+  const r = spawnSync(process.execPath, [CLI, '--family', 'Z', '--next-only'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+  })
+  if (skipIfCliCrashed(t, r)) return
+  if (/占用面判不出|无法判定占用/.test(String(r.stderr))) {
+    t.skip(`未判定:CLI 占用面判不出(并发 HEAD 切换窗口),换族发号未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  // 远端基准这一维取不到(自补救 fetch 后仍读不到对面底稿 / 网络抖动)⇒ CLI 按 G-313 硬前置拒绝发号,
+  // 那是**未判定**不是"换族发不出"(Z 族池内近乎全空,结构上不可能因池满被拒):t.skip 点名,不记绿也不冒红。
+  if (r.status !== 0 && /本次要发号,但/.test(String(r.stderr))) {
+    t.skip(`未判定:远端号段基准这一轮取不到(自补救 fetch 未成功),换族发号未判成;preHead=${String(preHead).slice(0, 8)}`)
+    return
+  }
+  assert.equal(r.status, 0, `--family Z 必须发得出号:\n${r.stderr}`)
+  const line = String(r.stdout).trim()
+  assert.match(line, /^Z-?\d+$/, `换族后 stdout 仍恒一行 Z 族号,实得:${JSON.stringify(r.stdout)}`)
+  const n = Number(/(\d+)$/.exec(line)[1])
+  assert.ok(n >= 1 && n <= LEASE_POOL_MAX, `${line} 必须落在号池 1..${LEASE_POOL_MAX}(绝不发池外号)`)
+  const wt = readFileSync(resolve(ROOT, 'PROJECT_PLAN.md'), 'utf8')
+  const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
+  assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
+  const occupied = scanFamilyIds(`${head}\n${wt}`, 'Z')
+  if (occupied.has(n)) {
+    // 并发窗口分诊(与 T8c 同一套纪律):preHead 历史面已命中 ⇒ 真回归照红;只在之后的新落账里
+    // 出现 ⇒ 别席同刻取了同一枚号,非本用例射程。
+    const preHeadLedger = git(['show', `${preHead}:PROJECT_PLAN.md`], { root: ROOT, raw: true, timeout: 120_000 })
+    const preOccupied = typeof preHeadLedger === 'string' ? scanFamilyIds(preHeadLedger, 'Z') : null
+    if (preOccupied && preOccupied.has(n)) {
+      assert.fail(`${line} 在 CLI 运行前的历史面(preHead=${String(preHead).slice(0, 8)})里就已命中 ⇒ 换族把已占号当空闲发`)
+    }
+    t.skip(`未判定:并发窗口 —— ${line} 只在 preHead=${String(preHead).slice(0, 8)} 之后的新落账里出现`)
+  }
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,667 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 千段租约制 —— 跨机取号撞号的收敛机制(G-916936 机主拍板,2026-10-07 落地)。
+ *
+ * 缺陷本体(G-916936 票面):两台机在同一远端 max 上各取同号,并集收敛才撞出 F9;让号是
+ * 自我循环 —— 对面下一轮还会发同一个号,因为两侧的"当前 max"本来就相同。能终止它的只有
+ * 号段预留:每机取号前先用 CAS 占一个千号段,段内连号,段满另立下一段;占段撞了由 CAS
+ * 重试换下一段,一次终止,不自我循环。
+ *
+ * 机制(为什么主键是**段尾号**):租约行是 done 形态的登记行,`usedIdsOfPrefix` 每行只取
+ * 主键 ⇒ 段尾号入占用面即把"无租约感知的 max+1"顶到所有已占段**之外** —— 第二发号出口
+ * (next-plan-id 的建议号)与未改造的出口不用改一行就自动避开本段;而持有机自己的取号器
+ * 读租约行后段内连号。跨机撞号由此从"每个号都可能撞"收敛为"两侧同刻新占段才可能撞一次,
+ * 且由 CAS 终止"。
+ *
+ * 行形态与各道门的互洽(立项当日逐条验过,勿凭记忆改形态):
+ *  - `- [x]` done 形态 ⇒ 不进 open 待办计数(F1/F4 不动),归档器"无日期不搬"不会把段还回去;
+ *  - 主键=段尾号 + 正文 `段=段首~段尾` 引用 ⇒ 畸形登记编号判据(族名出现两次)不命中;
+ *  - 租约行只贡献主键号 ⇒ 段首号不占面,持有机第一个实号就是段首,一个号不浪费。
+ *
+ * 判据只有一份:行解析复用 `plan-task-index.mjs` 的 `parseTaskRows`/`keyOfRow`,本文件不抄
+ * 第二份"什么算一个编号"。机器标识 = `IHUI_MACHINE_ID` env > 主机名+仓根路径指纹 —— 同机双
+ * checkout(G:/D: 两份工作区共用同一远端)各占各段,不互借。
+ *
+ * G-815400(2026-10-07):机器标识与段起点都混入机器指纹。
+ *  ① 机器标识派生混入 machineGuid(Windows 注册表 MachineGuid / Linux /etc/machine-id):
+ *    仅主机名+路径在"同 host 换仓根目录"的场景仍可 forgery 式趋同,GUID 是 OS 安装级唯一量。
+ *    注意:本机旧租约行登记的是旧指纹 ⇒ 改后首次取号认不出自有段而另立新段 —— 失效方向是
+ *    多占一段(安全侧),不撞别人的段。
+ *  ② 新占段整体平移:段起点 = floor+1+off,off = hash(machineId|family|floor) % segmentSize,
+ *    段尺寸不变(end = start + segmentSize - 1)。残余撞号面 = "两侧同刻/同 floor 新占段"——
+ *    旧口径两侧起点/主键(段尾号)必然同值:F9 主键撞号必发生、首实号必撞;平移后两侧起点
+ *    大概率分离(hash 熵 99 分之一同偏),主键随之分离,CAS 兜底仍在。无 machineId ⇒ off=0,
+ *    与旧口径逐字同形(镜像 N2/N3 回归锁)。
+ *
+ * 池式改造(2026-10-14 拍板,"任务编号全量压缩到两位数"枚 A):
+ *  千段租约落地后暴露了结构性膨胀 —— 每占一段就把全局 max 顶高 1000,floor 单调爬升,
+ *  号位一路涨到七位数(G-1122550)。根治不是"忘了收号",而是"取号前沿只会单调向前"这一条:
+ *  本日改池式 —— 每族号池 = 1..LEASE_POOL_MAX(硬上限 99,两位数;2026-10-24 机主拍板由三位数
+ *  降为两位数,"一个字母就是一个系列",族满后开新字母族、永不升位数);新占段不再越过 max,
+ *  而是在池内找"连续 segmentSize 个全空闲"的窗,从最小空闲窗起排(多个候选窗时按机器指纹
+ *  取模错开,两机同刻新占大概率落不同窗,CAS 兜底不变)。段满续占池内下一窗;装不下一段 ⇒
+ *  拒绝发号(fail-loud),绝不发 poolMax 之外的号。**"装不下一段"有两种完全不同的成因,不得混成一句
+ *  "池已满"**(2026-10-23 收口,机读字段 `reason` 单源在本文件 `POOL_EXHAUST_REASON`):
+ *    ① 池内可发号 = 0 ⇒ `POOL_FULL` —— 这一型的出路才是"归档已完成条目腾号";
+ *    ② 池内仍有空闲号,却没有任何"连续 segmentSize 个可落窗位"(散点占用 + 租约保留位把空闲切成
+ *      碎游程)⇒ `NO_CONTIGUOUS_LEASE_WINDOW` —— **散点归档腾不出连续窗**(2026-10-23 实测 G 族:
+ *      池内已占 815 / 空闲 184,最长可落窗游程 32 < 段容量当时 50,发号仍拒),要动的是"让出一段连续
+ *      号段"(同段集中归档,或经人复核调 `IHUI_LEASE_SEGMENT_SIZE`),继续散点清号是无效出路。
+ *  旧措辞把 ② 也念成"号池已满 ⇒ 归档腾号",已污染台账(≥6 行票头照抄该归因)。⇒ 结论文本必须
+ *  与判据同形(AGENTS §0.3/§10):读数由 `leaseCursor` 一并交出,可读行由 `describePoolExhaustion`
+ *  一处渲染,调用方按 `reason` 分档给出路,不得按 `mode` 一言以蔽之。
+ *  占用面口径:池内只认 ≤LEASE_POOL_MAX 的号;归档件里 >LEASE_POOL_MAX 的大号是存量债,不占池、不挡新号、
+ *  也因此**不参与 floor** —— collectIdFace 的宽面(台账⊕归档件)照旧同面同轮,只是
+ *  "什么号能发"由池这一层裁决。租约续占只认**完全落在池内**的段:池外的旧段是历史定格,
+ *  续发就会突破上限 ⇒ 结构上不可续(失效方向 = 走池内新占段,安全侧)。
+ *  归档回收咬合:archive-completed-tasks 归档 [x] 条目后台账只剩 HTML 注释占位,不占池;
+ *  池的占用只随"新登记"增长、随"归档"从台账面让位 —— **空闲枚数**是真实水位;但"发不出号"
+ *  不等于"池已满":无连续窗那一型(成因 ②)靠散点让位不会好转,必须看 `reason` 分档。
+ */
+import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { hostname } from 'node:os'
+import { resolve } from 'node:path'
+// §0.6 单一真相源:PowerShell 解释器候选复用 check-service-binary-paths 的出口,禁抄第二份
+// (2026-10-25:为换掉 reg.exe 通道而引入,理由见下方 readMachineGuid 头注)。
+import { pickPowerShell, PS_CANDIDATES } from '../check-service-binary-paths.mjs'
+
+/** 候选解释器按存在性择一后带其余备选;一把都不在位 ⇒ 空数组(调用方走降级/兜底)。 */
+function psBins() {
+  const picked = pickPowerShell()
+  return picked ? [picked.bin, ...PS_CANDIDATES.map((c) => c.bin).filter((b) => b !== picked.bin)] : []
+}
+
+import { keyOfRow, parseTaskRows } from './plan-task-index.mjs'
+
+/** 租约行的正文标记(解析与构造共用同一常量,两处各写一份字面量必漂)。 */
+export const LEASE_MARK = '〔千段租约〕'
+
+/** 台账里的租约登记区标题(appendLeaseRows 找它,找不到就在文件尾新建)。 */
+export const LEASE_SECTION_TITLE = '## 号段租约登记区(取号器专用,千段租约制)'
+
+/**
+ * 段容量:一个租约段覆盖的号数。千段口径(1000)在池式下会把整个池一次吃满 ⇒ 改 10
+ * (2026-10-24 随池上限降到两位数拍板);`IHUI_LEASE_SEGMENT_SIZE` env 可覆写(1 < n ≤ 99 之外
+ * 一律回落 10,覆写不得突破池上限)。测试与运维需要别的段宽时用它,生产缺省不动。
+ */
+export const LEASE_SEGMENT_SIZE = (() => {
+  const raw = Number(process.env.IHUI_LEASE_SEGMENT_SIZE)
+  return Number.isInteger(raw) && raw > 1 && raw <= 99 ? raw : 10
+})()
+
+/** 号池硬上限:每族取号池 = 1..LEASE_POOL_MAX(两位数,2026-10-24 拍板,env 不得覆写)。 */
+export const LEASE_POOL_MAX = 99
+
+/**
+ * `mode:'pool-exhausted'` 的两种**真成因**(机读字段 `reason` 的取值,2026-10-23 立)。
+ * 取值只住这一份:出口渲染、镜像测试、调用方分档都 import 它,不得在别处再写字符串字面量
+ * (AGENTS §0.6/§22c —— 第二份必然漂移,而漂掉的正好是"能区分两种成因"这一维)。
+ *  - `poolFull`:池内一个空闲号都没有(1..poolMax 全被占用面 + 远端避让覆盖)⇒ 出路 = 让位腾号;
+ *  - `noContiguousWindow`:池内**仍有空闲号**,却没有连续 segmentSize 个可落窗位 ⇒ 让位腾不出窗,
+ *    要动的是"让出一段连续号段";把它念成"池已满"会把人引到无效出路上(本票立因)。
+ */
+export const POOL_EXHAUST_REASON = Object.freeze({
+  poolFull: 'POOL_FULL',
+  noContiguousWindow: 'NO_CONTIGUOUS_LEASE_WINDOW',
+})
+
+/**
+ * 编号头形状,与 usedIdsOfPrefix 的判据同形(族名 + 可选分隔符 + 数字段)。
+ * 2026-10-14 起**导出**:号池对账门(`check-plan-id-pool.mjs`)要按同一把尺子取"族 + 数字段",
+ * 在门里再抄一份正则就是第二份实现(§22c:第二份必然漂移 —— 抄窄一点就把 `O13b`/无分隔符形态
+ * 读成"不是号",面上就漏判)。
+ */
+export const ID_HEAD_RE = /^([A-Za-z]+)([-_ ]?)(\d+)/
+const SEGMENT_RE = /段=([A-Za-z]+[-_ ]?)?(\d+)~(?:[A-Za-z]+[-_ ]?)?(\d+)/
+const MACHINE_RE = /本机=([^\s（(〔【,，;；"']+)/
+
+/** 机器 GUID 的模块级缓存(undefined=未读,''=读过但读不到,已降级)。 */
+let machineGuidCache
+
+/**
+ * 机器 GUID:Windows 走注册表 MachineGuid,Linux 走 /etc/machine-id;读不到降级 ''。
+ * 为什么模块级缓存:一次子进程数十 ms,批量令牌多次取号不重复付这个钱。
+ *
+ * ⚠️ 2026-10-25 换通道(lesson 见 scripts/check-c-drive-pollution.mjs 的 pwshRegQuery 头注):
+ * 本机 reg.exe 在程序黑名单里 —— spawn 它的那一刻,安全策略杀的是**整个 node 进程**(RC=143
+ * = 128+SIGTERM),不是抛异常 ⇒ 这里的 try/catch 根本够不着。而本文件被 `live-doc-edit.mjs`
+ * 引入 ⇒ 整条台账落地链断在"取机器指纹"这一格上。改走 PowerShell 读同一枚注册表值;
+ * reg.exe 通道保留但默认关闭。
+ */
+function readMachineGuid() {
+  if (machineGuidCache !== undefined) return machineGuidCache
+  let guid = ''
+  const key = 'HKLM\\SOFTWARE\\Microsoft\\Cryptography'
+  if (process.platform === 'win32') {
+    // 通道一:PowerShell(活跃通道,读的是同一枚 MachineGuid)
+    const psScript = [
+      `try {`,
+      `  $v = (Get-ItemProperty -Path '${key.replace(/^HKLM\\/i, 'HKLM:\\')}' -Name 'MachineGuid' -ErrorAction Stop).MachineGuid`,
+      `  if ($null -eq $v) { '' } else { [string]$v }`,
+      `} catch { '' }`,
+    ].join('\n')
+    for (const bin of psBins()) {
+      try {
+        const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10000,
+        })
+        const hit = /([0-9a-fA-F-]{8,})/.exec(String(out || ''))?.[1] ?? ''
+        if (hit) {
+          guid = hit
+          break
+        }
+      } catch {
+        /* 换下一个候选;全落空则走下面的 reg.exe 兜底(默认关) */
+      }
+    }
+    // 通道二:reg.exe(**默认关** —— 黑名单机器上 spawn 它等于自杀)
+    if (!guid && process.env.IHUI_ALLOW_REG_EXE === '1') {
+      try {
+        const out = execFileSync('reg', ['query', key, '/v', 'MachineGuid'], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 5000,
+        })
+        guid = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? ''
+      } catch {
+        guid = ''
+      }
+    }
+  } else {
+    try {
+      guid = readFileSync('/etc/machine-id', 'utf8').trim()
+    } catch {
+      guid = ''
+    }
+  }
+  // 读不到 ⇒ 降级 '':无 GUID 时指纹退回主机名+路径,机制不失效,只是熵变少(刻意不抛 ——
+  // 它只贡献熵,不承载任何"有没有这台机"的判定,因此没有"未判定"这一格的语义负担)。
+  machineGuidCache = guid
+  return guid
+}
+
+/**
+ * 机器标识:env 显式给优先(部署机可自报稳定名);缺省 = 主机名 + 仓根路径⊕机器GUID 指纹(8 hex)。
+ * 为什么带路径指纹:同机两份 checkout(D:/G: 两个盘符的工作区)是**两个取号主体**,
+ * 只用主机名会让两份互借同一段,而它们各自 CAS 各自的 HEAD,借段会把段内连号打乱。
+ * G-815400:GUID 混入指纹 —— 跨机同路径(容器/镜像克隆仓)不再同标识。
+ */
+export function machineIdentity(root) {
+  const env = process.env.IHUI_MACHINE_ID
+  if (env && env.trim()) return env.trim().replace(/\s+/g, '-')
+  const fp = createHash('sha256')
+    .update(`${resolve(String(root ?? '.')).toLowerCase()}|${readMachineGuid()}`)
+    .digest('hex')
+    .slice(0, 8)
+  return `${String(hostname()).replace(/\s+/g, '-')}-${fp}`
+}
+
+/**
+ * G-815400:新占段的段首偏移。off = hash(machineId|family|floor) % segmentSize,
+ * 段起点 = floor+1+off(封顶 floor+segmentSize),段尺寸不变(end = start+segmentSize-1)。
+ * 无 machineId ⇒ 0 —— 旧口径逐字同形;family/floor 缺省仅测试直调 leaseCursor 用,真实路径
+ * 由 decideLease 恒给 family、floor 恒为实数。
+ *
+ * 池式下(2026-10-14)本函数保留同一实现、同一份 hash,但入参语义微调:leaseCursor 传
+ * floor = 候选窗总数、segmentSize = 候选窗总数 ⇒ 返回值就是"第几个候选窗"的下标 ——
+ * 同面同轮两机错窗的机理不变(hash 只随机器标识分离),错开熵从段容量变成整池窗数,
+ * 反而更散。调用方不得把它当"段内偏移"复用。
+ */
+export function claimOffset({ machineId, family = '', floor = 0, segmentSize = LEASE_SEGMENT_SIZE }) {
+  if (!machineId || !(segmentSize > 1)) return 0
+  const h = createHash('sha256').update(`${machineId}|${family}|${floor}`).digest()
+  return h.readUInt32BE(0) % segmentSize
+}
+
+/**
+ * 池式占用视图(2026-10-14):把占用号收敛进池内。>poolMax 的大号不进 blocked —— 它们是
+ * 归档件里的存量债,不占池、不挡新号;但 baseMax(远端只抬高那一份,≤poolMax 时)代表的
+ * "本地看不见、对面可能已占"的那一段要一并避让,否则宽面盲区里的号会被重复发。
+ * 返回 `{ blocked:Set<number>, lowMax:number }`,lowMax = 池内已见最大号(报告用,空池 = 0)。
+ */
+export function poolBlocked({ usedNumbers = [], baseMax = null, poolMax = LEASE_POOL_MAX } = {}) {
+  const used = (Array.isArray(usedNumbers) ? usedNumbers : []).filter(Number.isFinite)
+  const blocked = new Set(used.filter((n) => n >= 1 && n <= poolMax))
+  const lowMax = blocked.size ? Math.max(...blocked) : 0
+  if (Number.isFinite(baseMax) && baseMax <= poolMax)
+    for (let n = lowMax + 1; n <= Math.min(baseMax, poolMax); n += 1) blocked.add(n)
+  return { blocked, lowMax }
+}
+
+/**
+ * 池内最小空闲号(1..poolMax 补集最小);池满 ⇒ null。
+ * next-plan-id(第二发号出口)与 resolveIdTokens 的"无租约基准"共用这一份 —— 同一把尺,不抄第二份。
+ */
+export function smallestFreeId({ usedNumbers = [], baseMax = null, poolMax = LEASE_POOL_MAX } = {}) {
+  const { blocked } = poolBlocked({ usedNumbers, baseMax, poolMax })
+  for (let n = 1; n <= poolMax; n += 1) if (!blocked.has(n)) return n
+  return null
+}
+
+/** 池内空闲号升序全表(批量发号的候选序与报告共用;池满 = 空数组)。 */
+export function poolFreeList({ usedNumbers = [], baseMax = null, poolMax = LEASE_POOL_MAX } = {}) {
+  const { blocked } = poolBlocked({ usedNumbers, baseMax, poolMax })
+  const out = []
+  for (let n = 1; n <= poolMax; n += 1) if (!blocked.has(n)) out.push(n)
+  return out
+}
+
+/**
+ * 远端已用号集的**数字段投影**(G-35,2026-10-25):`readRemoteIdBasis` 交出的 `ids[族]` 是
+ * `usedIdsOfPrefix` 形态的标签(`G-05`/`O13b`),发号侧要的是号数。第一出口
+ * (`live-doc-edit.mjs` 的 `resolveIdTokens`)自 G-454②(2026-10-16)起把这份号集从空闲清单里
+ * 扣掉 —— "池式取号会复用本地已让空的洞,而对侧可能仍占着那个号";第二出口
+ * (`next-plan-id.mjs`)当时只吃了 `remote.max`,`poolBlocked` 的远端避让又只盖
+ * `lowMax+1..baseMax` 段 ⇒ 远端**低位**独占号(本地面已让空/未并)被当空闲发出,两出口口径漂移。
+ * 投影只此一份:两个出口都 import 本函数,不在各自文件里再写一条 `(\d+)$` 提取(§22c)。
+ * 输入不是数组 ⇒ 空数组(调用方按"远端那一维缺席"处理,不猜)。
+ */
+export function remoteIdNumsOf(ids) {
+  return (Array.isArray(ids) ? ids : [])
+    .map((l) => Number(/(\d+)$/.exec(String(l))?.[1] ?? Number.NaN))
+    .filter(Number.isFinite)
+}
+
+/** 构造一行租约登记。template 取自 usedIdsOfPrefix 的该族形状(如 `G-%d`),不另写编号语法。 */
+export function buildLeaseRow({ family, template, start, end, machineId }) {
+  const tmpl = String(template ?? '')
+  if (!tmpl.includes('%d')) throw new Error(`lease template missing %d: ${tmpl}`)
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start <= 0 || end < start)
+    throw new Error(`lease segment invalid: ${start}~${end} (${family})`)
+  const startLabel = tmpl.replace('%d', String(start))
+  const endLabel = tmpl.replace('%d', String(end))
+  return (
+    `- [x] ${endLabel} ${LEASE_MARK} 本机=${machineId} 段=${startLabel}~${endLabel}` +
+    `(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;` +
+    `段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)`
+  )
+}
+
+/**
+ * 从面里解析某族的租约行。三读数(主键/段/机)齐且互洽才算:主键必须等于段尾号 —— 手改漂移
+ * 的行不认,宁可当"没有租约"走新占段(失效方向是多占一段,不是撞进别人的段)。
+ */
+export function parseLeases(content, family) {
+  const want = String(family ?? '')
+    .replace(/[^A-Za-z]/g, '')
+    .toUpperCase()
+  if (!want) return []
+  const out = []
+  for (const r of parseTaskRows(content)) {
+    const raw = String(r.raw)
+    if (!raw.includes(LEASE_MARK)) continue
+    const key = keyOfRow(raw)
+    if (!key) continue
+    const kh = ID_HEAD_RE.exec(key)
+    if (!kh || kh[1].toUpperCase() !== want) continue
+    const seg = SEGMENT_RE.exec(raw)
+    const mach = MACHINE_RE.exec(raw)
+    if (!seg || !mach) continue
+    const start = Number(seg[2])
+    const end = Number(seg[3])
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) continue
+    const segFamily = String(seg[1] ?? '')
+      .replace(/[^A-Za-z]/g, '')
+      .toUpperCase()
+    if (segFamily && segFamily !== want) continue
+    if (Number(kh[3]) !== end) continue
+    out.push({
+      raw,
+      primaryKey: key,
+      primaryKeyNum: Number(kh[3]),
+      family: want,
+      machine: mach[1],
+      start,
+      end,
+    })
+  }
+  return out
+}
+
+/**
+ * 租约行的绝对唯一身份 `(族, 机器, 段)`:段的号域由族决定,同一台机器在 G 族占 `1~20` 与在 D 族
+ * 占 `1~20` 是两段不同的号,不能互相判重 —— 所以族必须进键。与 `parseLeases` 的三读数齐 + 主键
+ * 恰等于段尾不同,判重**不要求主键自洽**:漂移行同样是"这段被写了两遍",只是 drift 另计。
+ * 返回 `null` 表示这一行不是可判重的租约(没 marker / 没 checkbox 主键 / 段或机读不回)。
+ */
+export function leaseIdentityOf(raw) {
+  const line = String(raw ?? '')
+  if (!line.includes(LEASE_MARK)) return null
+  const key = keyOfRow(line)
+  const seg = SEGMENT_RE.exec(line)
+  const mach = MACHINE_RE.exec(line)
+  if (!key || !seg || !mach) return null
+  const start = Number(seg[2])
+  const end = Number(seg[3])
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) return null
+  const keyHead = ID_HEAD_RE.exec(key)
+  const family = String(seg[1] ?? '')
+    .replace(/[^A-Za-z]/g, '')
+    .toUpperCase() || String(keyHead?.[1] ?? '').toUpperCase()
+  if (!family) return null
+  return {
+    family,
+    machine: mach[1],
+    start,
+    end,
+    segment: `${family}:${start}~${end}`,
+    key: `${family}|${mach[1]}|${start}~${end}`,
+  }
+}
+
+/**
+ * 同 `(族, 机器, 段)` 两行即重复(租约绝对唯一判据,门 130/A3 的 strict 档吃它)。
+ * 输入按 `parseTaskRows` 的行形状(`{raw, line}`),行号用**被审面里的真实 1 基行号**;
+ * 返回按首次出现顺序的分组,只留 `n > 1`。单源实现:内容字符串入口只是把行拆给同一个函数。
+ */
+export function leaseDupGroupsOfRows(rows = []) {
+  const byKey = new Map()
+  for (const r of rows ?? []) {
+    const raw = String(r?.raw ?? r ?? '')
+    const id = leaseIdentityOf(raw)
+    if (!id) continue
+    const entry = { lineNo: Number(r?.line) || 0, raw, ...id }
+    const list = byKey.get(id.key)
+    if (list) list.push(entry)
+    else byKey.set(id.key, [entry])
+  }
+  return [...byKey.values()].filter((g) => g.length > 1)
+}
+
+/** 内容字符串入口(供没有现成 `parseTaskRows` 结果的调用方复用同一把尺)。 */
+export function leaseDupGroupsOf(content) {
+  return leaseDupGroupsOfRows(parseTaskRows(content))
+}
+
+/**
+ * 取号游标的租约判定(纯函数;2026-10-14 起池式)。
+ *  - 自有段(按 machine)从最新段起找还有空闲的:**只认完全落在池内的段**(end ≤ poolMax)——
+ *    池外旧段是历史定格,续发就突破两位数上限 ⇒ 不可续。段内已用 = usedNumbers ∩ [start,end]
+ *    且**剔除本行主键**(主键是段尾号,不是实号) ⇒ 下一个 = 段内 max+1(空段 = 段首)。
+ *  - 没有 / 段满 ⇒ 池内新占段:在 1..poolMax 里找"连续 segmentSize 个全空闲"的窗
+ *    (避开已占号、避开一切租约段的保留位、避开 baseMax 代表的远端盲区段),
+ *    多个候选窗时按下标 `hash(machineId|family|窗数) % 窗数` 错开(同面同轮确定性,
+ *    两机大概率不同窗);**不再越过全局 max 单调爬升**。占不了窗 ⇒ `mode:'pool-exhausted'`,
+ *    调用方必须拒绝发号 —— 绝不发 poolMax 之外的号。**同时交出 `reason`/`freeInPool`/
+ *    `largestRun` 三个读数**:池已满(POOL_FULL)与"有闲号却无连续窗"(NO_CONTIGUOUS_LEASE_WINDOW)
+ *    是两件事,结论文本由 `describePoolExhaustion` 按成因渲染,谁念成"号池已满"都是把 ② 说错。
+ *  baseMax 由调用方给"max(本地, 远端)":≤poolMax 时参与避让(远端只抬高),>poolMax 时
+ *  说明对面还在旧口径发大号 ⇒ 池式不理它(双方号域不相交,结构性不撞)。
+ */
+export function leaseCursor({
+  usedNumbers = [],
+  leases = [],
+  machineId,
+  family,
+  baseMax = null,
+  segmentSize = LEASE_SEGMENT_SIZE,
+  poolMax = LEASE_POOL_MAX,
+}) {
+  const used = (Array.isArray(usedNumbers) ? usedNumbers : []).filter(Number.isFinite)
+  const mine = leases
+    .filter(
+      (l) =>
+        l.machine === machineId &&
+        Number.isFinite(l.start) &&
+        Number.isFinite(l.end) &&
+        l.end <= poolMax,
+    )
+    .sort((a, b) => b.start - a.start || b.end - a.end)
+  for (const lease of mine) {
+    const usedInRange = used.filter(
+      (n) => n >= lease.start && n <= lease.end && n !== lease.primaryKeyNum,
+    )
+    const next = (usedInRange.length ? Math.max(...usedInRange) : lease.start - 1) + 1
+    // 段尾这一号被本行主键自己占着(解析已验 主键=段尾),实号空间是 [start, end-1] ——
+    // 判"还有空闲"必须用 next < end;写成 <= 会在段只剩末号时把租约行自己的主键发出去(镜像 T3 钉)。
+    if (next < lease.end) return { mode: 'in-lease', next, lease, poolMax }
+  }
+  const { blocked } = poolBlocked({ usedNumbers: used, baseMax, poolMax })
+  // 一切池内租约段(含他机)的保留位都不可落窗:那些号虽未入占用面,但已被租约行预留。
+  const reserved = leases
+    .filter((l) => Number.isFinite(l.start) && Number.isFinite(l.end) && l.end <= poolMax)
+    .map((l) => [Math.max(1, l.start), Math.min(poolMax, l.end)])
+  const inReserved = (n) => {
+    for (const [a, b] of reserved) if (n >= a && n <= b) return true
+    return false
+  }
+  // "落得了窗的位置"只有一个谓词:候选窗扫描与游程测量共用它,不在两处各写一份(§0.6 同型)。
+  const windowEligible = (n) => !blocked.has(n) && !inReserved(n)
+  const candidates = []
+  for (let s = 1; s + segmentSize - 1 <= poolMax; s += 1) {
+    let free = true
+    for (let n = s; n < s + segmentSize; n += 1) {
+      if (!windowEligible(n)) {
+        free = false
+        break
+      }
+    }
+    if (free) candidates.push(s)
+  }
+  if (candidates.length === 0) {
+    // 结论必须与判据同形(§0.3/§10):"装不下一段"有两种成因,现场量出来再念,不得一律念"池已满"。
+    // freeInPool 的算术成立条件 = poolBlocked 把 blocked 收窄在 [1,poolMax](used 过滤 + baseMax 夹取),
+    // 故 池内空闲枚数 = poolMax - blocked.size;不另数一遍,数两遍就有第二份口径。
+    const freeInPool = poolMax - blocked.size
+    let run = 0
+    let largestRun = 0
+    for (let n = 1; n <= poolMax; n += 1) {
+      if (!windowEligible(n)) {
+        run = 0
+        continue
+      }
+      run += 1
+      if (run > largestRun) largestRun = run
+    }
+    return {
+      mode: 'pool-exhausted',
+      reason: freeInPool > 0 ? POOL_EXHAUST_REASON.noContiguousWindow : POOL_EXHAUST_REASON.poolFull,
+      freeInPool,
+      largestRun,
+      poolMax,
+      segmentSize,
+    }
+  }
+  const off = claimOffset({ machineId, family, floor: candidates.length, segmentSize: candidates.length })
+  const start = candidates[off]
+  return { mode: 'claim', start, end: start + segmentSize - 1, poolMax }
+}
+
+/**
+ * `pool-exhausted` 结论的**唯一人类可读行**(2026-10-23 立)。入参 = `leaseCursor` 交出的那个游标
+ * 对象(逐字段取用,本函数一个判据都不重算 —— 在出口再数一遍空闲位就是第二份口径,§0.6)。
+ * 为什么要有这一份:旧写法在每个出口各自硬拼"号池已满 ⇒ 归档腾号",而 `NO_CONTIGUOUS_LEASE_WINDOW`
+ * 那一型散点归档腾不出连续窗(实测池内空闲 184 枚仍拒发),归因错了就是把人引向无效出路(§0.8)。
+ * `reason` 缺失 ⇒ 显式落"未判定",绝不回落成"池已满"(§0.3:没判绝不写成判过)。
+ */
+export function describePoolExhaustion(cur = {}) {
+  const poolMax = Number.isFinite(cur.poolMax) ? cur.poolMax : LEASE_POOL_MAX
+  const segmentSize = Number.isFinite(cur.segmentSize) ? cur.segmentSize : LEASE_SEGMENT_SIZE
+  const freeInPool = Number.isFinite(cur.freeInPool) ? cur.freeInPool : null
+  const largestRun = Number.isFinite(cur.largestRun) ? cur.largestRun : null
+  const freeText = freeInPool === null ? '未量到' : `${freeInPool} 枚`
+  const runText = largestRun === null ? '未量到' : `${largestRun} 号`
+  const readings =
+    `池 1..${poolMax} 内空闲 ${freeText} / 最长可落窗连续游程 ${runText}(段容量 ${segmentSize})`
+  if (cur.reason === POOL_EXHAUST_REASON.poolFull)
+    return (
+      `${readings} ⇒ 真成因 reason=${POOL_EXHAUST_REASON.poolFull}:池内一个空闲号都没有 ⇒ 拒绝发号。` +
+      `出路:让已完成条目从占用面让位(号随让位回池),绝不发 >${poolMax} 的号。`
+    )
+  if (cur.reason === POOL_EXHAUST_REASON.noContiguousWindow)
+    return (
+      `${readings} ⇒ 真成因 reason=${POOL_EXHAUST_REASON.noContiguousWindow}:` +
+      `池内空闲 ${freeInPool} 枚,但无连续 ${segmentSize} 号租约窗 ⇒ 拒绝发号。` +
+      `出路不是散点让位(它只会把空洞切得更碎、照样腾不出连续窗);要动的是让出一段连续号段` +
+      `(同段集中让位,或经人复核调 IHUI_LEASE_SEGMENT_SIZE),绝不发 >${poolMax} 的号。`
+    )
+  return (
+    `${readings} ⇒ 拒绝发号,但成因未判定(游标没带 reason ⇒ 只报未判定,不断言池的状态): ` +
+    'reason=UNDETERMINED'
+  )
+}
+
+/**
+ * 第三类拒发的机读成因(2026-10-28 gb22 实测立)。⚠️ 它**不是** `leaseCursor` 交出的 reason
+ * (`POOL_EXHAUST_REASON` 那两值仍只归游标管):游标的口径是"占用面 blocked ⊕ 租约保留位",
+ * 而实测 G 族当次游标给的是 `mode:'claim'`(池内租约保留位 0 段、baseMax 抬高 0 枚),真正把
+ * freeList 清空的住**调用侧** G-14 全文件扫描那一层(池内 98/99 枚在台账⊕归档面有引用,
+ * 三关全干净的仅 1 枚)。旧出口把这一型照样念成"号池已满 ⇒ 归档腾号"——那是**已被量证伪的
+ * 无效出路**(归档不动引用面,散点让位 Δ=0),污染了台账行(2026-10-28「未取号」枚)与告警。
+ * 三成因不得并桶(§0.3/§12f):POOL_FULL=占用面真满;NO_CONTIGUOUS_LEASE_WINDOW=占用面有闲号
+ * 却无连续窗(租约保留位/散点占用切碎);SCAN_FACE_FULL=前两关让出的候选又被引用面全灭。
+ * 失效方向恒为"多要一次定向说明",绝不因新增这一档而多发一枚号。
+ */
+export const SCAN_FACE_EXHAUST_REASON = 'SCAN_FACE_FULL'
+
+/**
+ * 发号拒绝的**归因层级**(机读字段 `exhaustion.stage` 的取值,单源在此;调用方与镜像测试
+ * 都 import 它,不得在别处再写 stage 字面量 —— §0.6/§22c)。
+ *  - `lease-window`:游标本体给不出窗(前两成因那一型,读数在 `cursor`,由 `describePoolExhaustion` 渲染);
+ *  - `scan-filter`:游标给了窗/清单,候选却被调用侧 G-14 扫描面全部命中;
+ *  - `over-claim`:本批令牌数超过了池内可领清单长度(拆块分次落那一型)。
+ */
+export const EXHAUST_STAGE = Object.freeze({
+  leaseWindow: 'lease-window',
+  scanFilter: 'scan-filter',
+  overClaim: 'over-claim',
+})
+
+/**
+ * `scan-filter` 那一型结论的**唯一人类可读行**(2026-10-28 立,与 `describePoolExhaustion` 同层
+ * 同纪律:逐字段取用,本函数一个判据都不重算)。缺哪个读数就点名"未量到",绝不冒称量过(§0.3)。
+ * 出路措辞必须与实测同形(§0.8:文档不许写跑不通的出路):散点归档对这一型 Δ=0(引用不离开
+ * 归档面),真正出路是按 2026-10-24 拍板"族满开新字母族、永不升位数"。
+ */
+export function describeScanFaceExhaustion(ex = {}) {
+  const poolMax = Number.isFinite(ex.poolMax) ? ex.poolMax : LEASE_POOL_MAX
+  const segmentSize = Number.isFinite(ex.segmentSize) ? ex.segmentSize : LEASE_SEGMENT_SIZE
+  const candidates = Number.isFinite(ex.candidates) ? `${ex.candidates} 枚` : '未量到'
+  const hits = Number.isFinite(ex.scanHitCount)
+    ? `${ex.scanHitCount} 枚`
+    : Array.isArray(ex.scanHits)
+      ? `${ex.scanHits.length} 枚`
+      : '未量到'
+  const win =
+    Array.isArray(ex.window) && ex.window.length === 2
+      ? `候选窗 ${ex.window[0]}..${ex.window[1]}`
+      : '候选窗未量到(无游标/池内清单档)'
+  return (
+    `占用面口径让位后仍进了扫描关:${win},本轮候选 ${candidates},其中 ${hits}命中 G-14 全文件扫描面` +
+    `(台账/归档件里**任何一次出现**都算,含正文引用与归档占位)⇒ 真正可发为 0,拒绝发号。` +
+    `真成因 reason=${SCAN_FACE_EXHAUST_REASON}(段容量 ${segmentSize}/池 1..${poolMax}):` +
+    `这不是 POOL_FULL(占用面没满),也不是 NO_CONTIGUOUS_LEASE_WINDOW(游标让出了窗)——` +
+    `散点归档对这一型是无效出路(引用不离开归档面,实测 Δ=0);要动的是换号域:` +
+    `按 2026-10-24 拍板"族满开新字母族、永不升位数"——改用未吃紧的字母族,或把新字母按现读证据` +
+    `登记进编号族表唯一真相源(check-plan-line-loss.mjs 的 TASK_ID_PATTERN)——族表认不出的字母` +
+    `对取号器与主键判据同时隐身,族表先行是硬前提;新族首行以手填声明位入台账` +
+    `(取号器对手填行逐字保留),之后 {{NEXT_ID:新族}} 令牌恢复可发。绝不发 >${poolMax} 的号,绝不放宽扫描面。`
+  )
+}
+
+/**
+ * `pool-exhausted` 拒绝的**总渲染出口**(2026-10-28 立):调用方只交 `exhaustion` 读数对象,
+ * 归因句子全住 lib(出口再各拼一句就是第二份口径,正是把 ③ 念成"池已满"的成因)。
+ * stage 缺失/未知 ⇒ 显式"未判定",绝不回落旧措辞"号池已满 ⇒ 归档腾号"(§0.3/§12e 同型)。
+ */
+export function describeExhaustion(ex = {}) {
+  const stage = String(ex?.stage ?? '')
+  if (stage === EXHAUST_STAGE.leaseWindow) return describePoolExhaustion(ex.cursor ?? {})
+  if (stage === EXHAUST_STAGE.scanFilter) return describeScanFaceExhaustion(ex)
+  if (stage === EXHAUST_STAGE.overClaim) {
+    const freeTotal = Number.isFinite(ex.freeTotal) ? `${ex.freeTotal} 枚` : '未量到'
+    return (
+      `池内可领清单(${freeTotal})在本批令牌/改判的领取中领空 ⇒ 拒绝发号` +
+      `(成因=本批需求超过池水位,出路=把登记拆成多块分次落,或开新字母族;绝不发池外的号)`
+    )
+  }
+  return (
+    `拒绝发号,但归因未判定(取号器没交出 exhaustion.stage 读数)⇒ 不得按旧句` +
+    `「号池已满 ⇒ 归档腾号」处置:那三种成因的出路互不相同,先补一次定向说明再动(§0.3)。`
+  )
+}
+
+/** resolveIdTokens 的族级胶水:解析 + 判定一次给全(调用方只传 usedIdsOfPrefix 的结果)。 */
+export function decideLease({
+  baseContent,
+  family,
+  used,
+  baseMax,
+  machineId,
+  segmentSize,
+  poolMax = LEASE_POOL_MAX,
+}) {
+  const leases = parseLeases(baseContent, family)
+  const usedNumbers = (used?.ids ?? []).map((label) => {
+    const m = ID_HEAD_RE.exec(String(label))
+    return m ? Number(m[3]) : Number.NaN
+  })
+  return leaseCursor({ usedNumbers, leases, machineId, family, baseMax, segmentSize, poolMax })
+}
+
+/**
+ * 把租约行并进 next 内容:登记区在 ⇒ 行插到区头(最新在前,行间无序依赖);不在 ⇒ 文件尾
+ * 新建(空行 + 标题 + 行)。只追加、不删不改任何既有行 —— 台账门 71 的防丢面见到的只是增量。
+ *
+ * **幂等(2026-11-03 立)**:追加前先按 `(族, 机器, 段)` 查重(单源 `leaseIdentityOf`,
+ * 与 `parseLeases` 同一组段/机正则)。命中既有行或本批内同键 ⇒ 默认**不写**,返回原数组并挂
+ * `unchanged = true`(保持数组形态,现役调用方 `.join('\n')` 不受影响);`failOnLeaseDup` ⇒
+ * 抛错并点名已有行号与重复内容摘要。`decideLease` 每轮现读现算,不加缓存。
+ */
+export function appendLeaseRows(lines, rows, { failOnLeaseDup = false } = {}) {
+  const out = lines.map(String)
+  const rowsList = rows.map(String)
+  const existing = []
+  for (let i = 0; i < out.length; i += 1) {
+    const id = leaseIdentityOf(out[i])
+    if (id) existing.push({ ...id, lineNo: i + 1, raw: out[i] })
+  }
+  const newIds = rowsList.map((raw) => {
+    const id = leaseIdentityOf(raw)
+    return id ? { ...id, raw } : null
+  })
+  const collision = (() => {
+    for (const id of newIds) {
+      if (!id) continue
+      const hit = existing.find((e) => e.key === id.key)
+      if (hit) return { id, hits: [hit], kind: '既有行' }
+      const twin = newIds.find((x) => x && x !== id && x.key === id.key)
+      if (twin) return { id, hits: [], kind: '本批内同键' }
+    }
+    return null
+  })()
+  if (collision) {
+    const where = collision.hits.length
+      ? collision.hits.map((e) => `L${e.lineNo}`).join(' / ')
+      : '本批 rows'
+    const summary = String(collision.hits[0]?.raw ?? collision.id.raw)
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120)
+    if (failOnLeaseDup) {
+      throw new Error(
+        `租约重复(${collision.kind}):${collision.id.machine} 段=${collision.id.segment} 与 ${where} 同键` +
+          `「${summary}」—— 同一段只能有一行,拒绝追加`,
+      )
+    }
+    out.unchanged = true
+    return out
+  }
+  const idx = out.findIndex((l) => l.trim() === LEASE_SECTION_TITLE)
+  if (idx >= 0) {
+    out.splice(idx + 1, 0, ...rowsList)
+    return out
+  }
+  out.push('', LEASE_SECTION_TITLE, ...rowsList)
+  return out
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

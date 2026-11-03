@@ -1,0 +1,625 @@
+[
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.open",
+  "text": "打开任务监控"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.title",
+  "text": "任务监控"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.linkedIssue",
+  "text": "关联 Issue"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.empty",
+  "text": "还没有有价值的内容"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.emptyDescription",
+  "text": "整个任务中产生的文件、网页和来源会持续汇总在这里，帮助跟踪任务进展。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.loadFailed",
+  "text": "任务监控暂时无法读取。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.switchToFloating",
+  "text": "切换为 Floating 模式"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.showFixed",
+  "text": "显示任务监控"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.hideFixed",
+  "text": "隐藏任务监控"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.openSettings",
+  "text": "前往设置"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.loadingMore",
+  "text": "正在加载…"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.addSource",
+  "text": "添加来源"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.addLink",
+  "text": "添加链接"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.openMemorySettings",
+  "text": "打开记忆设置"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.actionFailed",
+  "text": "无法添加来源，请检查内容后重试。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.title",
+  "text": "任务回顾"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.menuItem",
+  "text": "移交到新任务"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.title",
+  "text": "移交到新任务"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.previewDescription",
+  "text": "检查交接内容后，可以在文件位置查看，或直接创建一个新任务继续工作。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.purposeLabel",
+  "text": "交接目的"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.purposePlaceholder",
+  "text": "例如：验证新的任务回顾生成逻辑，并补齐相关测试。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.waitingPreview",
+  "text": "正在准备交接内容…"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.phase.generating",
+  "text": "模型正在生成交接内容…"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.phase.finalizing",
+  "text": "正在整理并写入临时交接文档…"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.phase.done",
+  "text": "交接文档已生成。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.revealFile",
+  "text": "显示文件"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.createSession",
+  "text": "创建新任务"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.creating",
+  "text": "正在创建…"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.recap.handoff.createFailed",
+  "text": "无法从交接文档创建新任务，请重试。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.environment.preserveChangesAction",
+  "text": "保存改动并检出"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.environment.localServers",
+  "text": "本地服务"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.environment.refreshLocalServers",
+  "text": "刷新本地服务"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.environment.noLocalServers",
+  "text": "没有正在运行的本地服务"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.group.artifact",
+  "text": "产出"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.group.browser",
+  "text": "网页查阅"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.emptyGroup.artifact",
+  "text": "暂无产出数据 :)"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.emptyGroup.browser",
+  "text": "暂无网页查阅数据 :)"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.emptyGroup.source",
+  "text": "暂无来源数据 :)"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.emptyGroup.memory",
+  "text": "暂无记忆数据 :)"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.status.waiting-user",
+  "text": "等待回应"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.linkDialog.title",
+  "text": "添加链接"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.linkDialog.description",
+  "text": "将一个 HTTP 或 HTTPS 链接加入输入框，发送后会记录为来源。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.highlights",
+  "key": "chatSession.highlights.linkDialog.invalid",
+  "text": "请输入以 http:// 或 https:// 开头的有效链接。"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.label",
+  "text": "任务工作面"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.typeLabel",
+  "text": "工作面与文件标签页"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.instancesLabel",
+  "text": "当前类型标签页"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.closeMenu.closeRight",
+  "text": "关闭右侧标签页"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.emptyTitle",
+  "text": "暂无打开的工作面"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.memberUnavailableTitle",
+  "text": "选择成员任务"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.launcherLabel",
+  "text": "打开工作面"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.newSpec",
+  "text": "打开计划"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.newEvidence",
+  "text": "新建证据"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.showReview",
+  "text": "打开审阅"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.openReview",
+  "text": "打开审阅"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.openTerminalDescription",
+  "text": "在当前目录运行命令"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.single",
+  "text": "单例"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.filesOrdinal",
+  "text": "文件 {{ordinal}}"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.specOrdinal",
+  "text": "计划 {{ordinal}}"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.terminalOrdinal",
+  "text": "终端 {{ordinal}}"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.evidenceOrdinal",
+  "text": "证据 {{ordinal}}"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.agent",
+  "text": "成员任务"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.pluginViewInitializationMissingDescription",
+  "text": "插件没有注册视图启动入口，无法完成初始化。更新或重新安装插件后再试。"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.pluginViewResourceTooLargeDescription",
+  "text": "插件视图资源超过允许大小，无法加载。更新或重新安装插件后再试。"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.workspaceTabs",
+  "key": "chatSession.workspaceTabs.pluginViewNodeServiceMissingDescription",
+  "text": "插件没有提供此视图所需的后端能力。更新或重新安装插件后再试。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.hoverHint",
+  "text": "悬停查看批注"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.selectedText",
+  "text": "{{index}}. 选中文字"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.noComment",
+  "text": "未添加评论"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.commentPlaceholder",
+  "text": "添加可选评论…"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.commentAriaLabel",
+  "text": "划词批注评论"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.addComment",
+  "text": "添加评论"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.removeOne",
+  "text": "移除批注 {{index}}"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionAnnotations",
+  "key": "chatSession.selectionAnnotations.removeAll",
+  "text": "移除全部划词批注"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.selectOpenWith",
+  "text": "选择打开应用"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.systemApplications.finder",
+  "text": "访达"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.systemApplications.windowsTerminal",
+  "text": "Windows 终端"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.panelGroupButtons",
+  "text": "面板组按钮"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.workspaceUnavailable",
+  "text": "开始任务后可打开审阅工作面"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.enterWorkspaceFullscreen",
+  "text": "全屏显示工作面"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.exitWorkspaceFullscreen",
+  "text": "退出工作面全屏"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.headerActions",
+  "key": "chatSession.headerActions.createDraftPullRequest",
+  "text": "创建 Draft PR"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.pictureInPicture",
+  "key": "chatSession.pictureInPicture.sectionLabel",
+  "text": "电脑使用画中画"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.pictureInPicture",
+  "key": "chatSession.pictureInPicture.computerUse",
+  "text": "电脑使用"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.pictureInPicture",
+  "key": "chatSession.pictureInPicture.title",
+  "text": "画中画"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.pictureInPicture",
+  "key": "chatSession.pictureInPicture.hideInSession",
+  "text": "在此会话中隐藏画中画"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.pictureInPicture",
+  "key": "chatSession.pictureInPicture.hideInAllSessions",
+  "text": "在所有会话中隐藏画中画"
+ },
+ {
+  "tag": "14_会话管理",
+  "sec": "14 会话管理·分享·导",
+  "fam": "chatSession.pictureInPicture",
+  "key": "chatSession.pictureInPicture.updateFailed",
+  "text": "无法更新画中画显示状态，请重试。"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionActions",
+  "key": "chatSession.selectionActions.ariaLabel",
+  "text": "选中文本操作"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionActions",
+  "key": "chatSession.selectionActions.attachmentName",
+  "text": "选中的文本"
+ },
+ {
+  "tag": "10_引用",
+  "sec": "10 引用与来源（@ /",
+  "fam": "chatSession.selectionActions",
+  "key": "chatSession.selectionActions.attachmentLimitReached",
+  "text": "附件已达 20 个，请先移除一个再添加选中文本。"
+ }
+]

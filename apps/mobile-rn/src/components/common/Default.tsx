@@ -1,0 +1,76 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Default 通用默认状态 (mobile-rn 端)
+ *
+ * 对齐历史项目 common/Default.vue(无数据默认展示):
+ * - 居中图标(emoji 或图片 URL)+ 文字提示。
+ * - 默认图标 🤖 + 文案"暂无内容"(对齐历史 robot 占位主题)。
+ * - 与 Empty 的区别:Default 用于"初始无数据默认展示",不带操作按钮。
+ * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
+ * - 类型零 any,精确标注。
+ */
+import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { tokens } from '../../theme/active-tokens'
+import { Image, StyleSheet, Text, View } from 'react-native'
+import { Bot, type LucideIcon } from 'lucide-react-native'
+import { useI18n } from '../../i18n'
+
+export interface DefaultProps {
+  text?: string
+  /** emoji 字符、图片 URL(http/https 开头)或 lucide 图标组件 */
+  icon?: string | LucideIcon
+}
+
+const DEFAULT_ICON = Bot
+
+function isUrl(value: string): boolean {
+  return value.startsWith('http://') || value.startsWith('https://')
+}
+
+export default function Default({
+  text: textProp,
+  icon = DEFAULT_ICON,
+}: DefaultProps): React.JSX.Element {
+  const { t } = useI18n()
+  const text = textProp ?? t('common.emptyContent')
+  const IconNode = typeof icon === 'string' ? null : icon
+  return (
+    <View style={styles.root}>
+      {typeof icon === 'string' ? (
+        isUrl(icon) ? (
+          <Image source={{ uri: icon }} style={styles.image} resizeMode="contain" />
+        ) : (
+          <Text style={styles.emoji}>{icon}</Text>
+        )
+      ) : IconNode ? (
+        <IconNode size={56} color={tokens.text.secondary} />
+      ) : null}
+      <Text style={styles.text}>{text}</Text>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  root: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: rnSpacing['5xl'],
+    paddingHorizontal: rnSpacing['2xl'],
+    gap: rnSpacing.md,
+  },
+  emoji: {
+    fontSize: 56,
+  },
+  image: {
+    width: 120,
+    height: 120,
+  },
+  text: {
+    fontSize: rnType.body.size,
+    color: tokens.text.secondary,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

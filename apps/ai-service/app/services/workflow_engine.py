@@ -1,0 +1,1228 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""工作流引擎(2026-08-09 新增,Phase 2:可视化工作流编辑器)。
+
+对标 ihui 工作流编排 + n8n 风格节点画布能力。
+
+核心能力:
+1. 工作流 CRUD — 创建/列表/详情/更新/删除
+2. 工作流执行 — 触发执行,串行/并行 step 调度
+3. 实例管理 — 状态追踪、取消、重试
+4. 任务日志 — 每步执行 trace + 日志记录
+
+存储:进程内内存 dict(Redis 降级模式,与 skill_feedback 同源)。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any, Literal
+
+# G-916424 配套(2026-09-29):工作流终态词汇的单一出处。上游同课
+# (ZCode contracts/src/workflow/index.ts 由 const 推 zod schema):状态词汇只活在
+# 注释里时,新档位/错档位都不报错。新增终态必须同笔改这里;改注释不改 Literal
+# 会被 tests/test_workflow_status_parity.py 的源码锁当场判红。
+WorkflowStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
+
+from ..core.background_tasks import spawn
+from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL
+from ..core.llm_gateway import llm_gateway
+from ..core.token_baseline import CHAIN_WORKFLOW
+from ..core.usage_cache import normalize_usage
+from .session_store import owner_scoped_allows
+from .skills import skill_registry
+from .task_executors import compute_idempotency_key
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# 续跑(按调用键复用已完成步骤)—— 错误码族(G-01 补齐腿之一,2026-10-31 立)
+# ---------------------------------------------------------------------------
+# 每一条都属 AGENTS §0.3 的「未判定」:拿到它们 ⇒ 既没建新实例、也没执行任何步骤。
+# 尤其不得被读成「续跑失败于是整条重跑,还算成功」—— 那是 retry_instance 的语义,
+# 与本出口的区别正是本出口存在的全部理由。
+WORKFLOW_STEP_KEY_TYPE = "workflow_step"
+WF_RESUME_SOURCE_NOT_VISIBLE = "WF_RESUME_SOURCE_NOT_VISIBLE"
+WF_RESUME_WORKFLOW_NOT_VISIBLE = "WF_RESUME_WORKFLOW_NOT_VISIBLE"
+WF_RESUME_SOURCE_NOT_FINAL = "WF_RESUME_SOURCE_NOT_FINAL"
+WF_RESUME_TASK_TRACE_MISALIGNED = "WF_RESUME_TASK_TRACE_MISALIGNED"
+WF_RESUME_TASK_RECORD_INCOMPLETE = "WF_RESUME_TASK_RECORD_INCOMPLETE"
+WF_RESUME_OUTPUT_UNVERIFIABLE = "WF_RESUME_OUTPUT_UNVERIFIABLE"
+WF_RESUME_TRIGGER_REFUSED = "WF_RESUME_TRIGGER_REFUSED"
+
+# 源实例只有落到终态,「已完成步骤集」才是可对账的事实(半途实例不算)。
+RESUMABLE_SOURCE_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled"})
+
+
+def resolve_caller(principal: str | None) -> str | None:
+    """把 `require_request_user_id` 的开发降级身份归一成 None(= 无身份通道)。
+
+    存在理由:该出口在"本进程根本没做 JWT 校验"时回落单一 `DEV_ANONYMOUS_PRINCIPAL`,
+    那是**一个假主体**而不是一个人的身份 —— 把它当属主写进行,等于用"dev-anonymous"
+    把开发期产生的所有行互相绑定,以后任何真实用户都再也读不到它们;而把它当主体喂给
+    工具(`__user_id`),下游会按一个不存在的用户去查长期记忆/教务数据。
+
+    归一成 None 的语义是"无从对账":属主闸不生效、落库不写属主、工具不带身份,
+    与改动前逐字同形(AGENTS §5「没有属主」与「属主是攻击者选的那个人」必须区分)。
+    生产侧(`auth_globally_enforced()` 为真)永远不会拿到这个常量,所以这一归一
+    不会把任何真实的越权路径放过去。
+    """
+    if principal is None or principal == DEV_ANONYMOUS_PRINCIPAL:
+        return None
+    return cast_str_or_none(principal)
+
+
+def cast_str_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+# ---------------------------------------------------------------------------
+# 步骤「定义摘要」—— 续跑的第四道判定(2026-10-31 立)
+# ---------------------------------------------------------------------------
+# 病根(本函数存在前,step_call_key 的 docstring 自己登记过):调用键只有
+# step/name/type/input/context 四维,用户把 config.tool / condition / thenSteps /
+# steps 之类的字段就地改写后,resume 仍命中旧缓存并回放旧结果 —— 静默拿错结果。
+# 定义摘要把「除 input 外的全部字段」折成一枚指纹,定义一变即摘要变 ⇒ 该步不回放。
+#
+# input 刻意不进摘要:它已经进调用键,且会被模板渲染(模板与渲染值等价时不该判成"定义变了")。
+WORKFLOW_STEP_DEFINITION_TYPE = "workflow_step_definition"
+
+
+def definition_digest_of_step(step: dict[str, Any]) -> str:
+    """一步的定义摘要 = 该步除 `input` 外全部字段的规范化哈希。
+
+    算式单源(§0.6):规范化 JSON(`sort_keys=True, ensure_ascii=False,
+    separators=(",", ":")`)与摘要算法都由 `task_executors.compute_idempotency_key`
+    承担 —— `tests/test_workflow_resume.py` 的反向锁明令本文件不得长出第二份哈希实现
+    (§22c:同类判据全仓只许一份,第二份必然漂移)。
+    带 `WORKFLOW_STEP_DEFINITION_TYPE` 命名空间,保证它与调用键永不互撞。
+
+    稳定性:只有 `input` 的步(最常见的 echo 形态)返回的是**空对象**的摘要,不是空串 ——
+    空串在本模块有专属含义(`definitionDigest == ""` = 旧记录,无从证明定义没变)。
+    """
+    payload = {key: value for key, value in step.items() if key != "input"}
+    return compute_idempotency_key(WORKFLOW_STEP_DEFINITION_TYPE, payload)
+
+
+# ---------------------------------------------------------------------------
+# 数据模型
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Workflow:
+    """工作流定义。"""
+
+    id: str
+    name: str
+    description: str
+    triggerType: str  # manual / schedule / event / webhook
+    steps: list[dict[str, Any]]
+    isActive: bool = True
+    createdAt: str = ""
+    updatedAt: str = ""
+    seq: int = 0  # 创建序号(同微秒时间戳排序 tiebreaker,保证 list_workflows 确定性)
+    # 属主(令牌主体)。None = 无身份通道创建(开发降级),属主闸对这类行不生效。
+    # 刻意不进 workflow_to_dict:它是授权事实不是对外字段,加进响应会改响应 shape。
+    userId: str | None = None
+
+
+@dataclass
+class WorkflowInstance:
+    """工作流实例(单次执行)。"""
+
+    id: str
+    workflowId: str
+    workflowName: str
+    # G-916424 配套(2026-09-29):状态从注释升为 Literal —— 上游同课
+    # (contracts/src/workflow/index.ts 由 const 推 schema):状态词汇一旦只活在
+    # 注释里,新档位/错档位都不报错。新增终态必须同笔改这里的 Literal。
+    status: WorkflowStatus
+    startedAt: str = ""
+    completedAt: str = ""
+    input: dict[str, Any] = field(default_factory=dict)
+    output: str = ""
+    # 触发者主体:后台执行链(_execute_instance)已脱离 request,工具步骤的身份
+    # 只能由这条记录带着 —— 否则"谁的工作流跑了什么工具"在账面上永远无人。
+    userId: str | None = None
+
+
+@dataclass
+class WorkflowTask:
+    """工作流实例中的单步任务。"""
+
+    id: str
+    instanceId: str
+    step: int
+    name: str
+    type: str  # skill / llm / tool / echo
+    status: WorkflowStatus
+    input: str = ""
+    output: str = ""
+    error: str = ""
+    # 记下该步**执行那一刻**的定义摘要(`definition_digest_of_step`)。
+    # 空串是"无从证明"的专有含义:本列出现之前写下的旧记录,续跑时一律不回放。
+    definitionDigest: str = ""
+
+
+@dataclass
+class WorkflowLog:
+    """工作流执行日志。"""
+
+    id: str
+    instanceId: str
+    timestamp: str
+    level: str  # debug / info / warn / error
+    message: str
+
+
+# ---------------------------------------------------------------------------
+# 工作流引擎
+# ---------------------------------------------------------------------------
+
+
+class WorkflowEngine:
+    """工作流引擎(进程内单例)。"""
+
+    def __init__(self, *, ledger: Any = None) -> None:
+        self._workflows: dict[str, Workflow] = {}
+        self._instances: dict[str, WorkflowInstance] = {}
+        self._tasks: dict[str, list[WorkflowTask]] = {}
+        self._logs: dict[str, list[WorkflowLog]] = {}
+        # 运行中的取消信号:{instance_id: event}
+        self._cancel_events: dict[str, asyncio.Event] = {}
+        # 运行中的 task 锁(防并发触发)
+        self._running_instances: set[str] = set()
+        # 创建序号(单调递增,作为 createdAt 同微秒时的排序 tiebreaker)
+        self._create_seq = 0
+        # G-941 写账侧(2026-10-26):成本账本注入位。None ⇒ 记账时取全局单例
+        # (与 BestOfNRunner 同形状:生产默认直连,测试显式注入 tmp 账本),
+        # 缺省**不是**「不写账」—— 不写账正是本票要修的那个洞。
+        self._ledger: Any = ledger
+        # 同实例的 LLM 用量序号(账本 record_id 的幂等键后缀;实例内单调)
+        self._llm_usage_seq: dict[str, int] = {}
+
+    # =========================================================================
+    # Workflow CRUD
+    # =========================================================================
+
+    def create_workflow(
+        self,
+        name: str,
+        description: str,
+        triggerType: str,
+        steps: list[dict[str, Any]],
+        *,
+        owner: str | None = None,
+    ) -> Workflow:
+        """创建新工作流。owner 由承载层用令牌主体传入,绝不取请求体自报字段。"""
+        now = datetime.now(UTC).isoformat()
+        self._create_seq += 1
+        wf = Workflow(
+            id=f"wf-{uuid.uuid4().hex[:12]}",
+            name=name,
+            description=description,
+            triggerType=triggerType,
+            steps=steps,
+            isActive=True,
+            createdAt=now,
+            updatedAt=now,
+            seq=self._create_seq,
+            userId=owner,
+        )
+        self._workflows[wf.id] = wf
+        logger.info("workflow_engine 创建工作流: id=%s name=%s", wf.id, wf.name)
+        return wf
+
+    def list_workflows(self, principal: str | None = None) -> list[Workflow]:
+        """列出调用方可见的工作流(按创建时间降序,同微秒按创建序号倒序保证确定性)。
+
+        principal=None(无身份通道)时不加闸 —— 逐字保持改动前行为;带身份时只列自己那份。
+        """
+        rows = [w for w in self._workflows.values() if owner_scoped_allows(principal, w.userId)]
+        return sorted(
+            rows,
+            key=lambda w: (w.createdAt, w.seq),
+            reverse=True,
+        )
+
+    def get_workflow(self, workflow_id: str, principal: str | None = None) -> Workflow | None:
+        """获取单个工作流。带身份且非属主时返回 None(与"不存在"同形,不给存在性 oracle)。"""
+        wf = self._workflows.get(workflow_id)
+        if wf is None or not owner_scoped_allows(principal, wf.userId):
+            return None
+        return wf
+
+    def update_workflow(
+        self,
+        workflow_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        triggerType: str | None = None,
+        steps: list[dict[str, Any]] | None = None,
+        isActive: bool | None = None,
+        *,
+        principal: str | None = None,
+    ) -> Workflow | None:
+        """更新工作流。返回 None 表示不存在或非本人可见。"""
+        wf = self.get_workflow(workflow_id, principal)
+        if not wf:
+            return None
+        if name is not None:
+            wf.name = name
+        if description is not None:
+            wf.description = description
+        if triggerType is not None:
+            wf.triggerType = triggerType
+        if steps is not None:
+            wf.steps = steps
+        if isActive is not None:
+            wf.isActive = isActive
+        wf.updatedAt = datetime.now(UTC).isoformat()
+        return wf
+
+    def delete_workflow(self, workflow_id: str, principal: str | None = None) -> bool:
+        """删除工作流。非本人可见的那一行返回 False 且**不被删除**(先判属主再动字典)。"""
+        wf = self.get_workflow(workflow_id, principal)
+        if wf is None:
+            return False
+        del self._workflows[wf.id]
+        return True
+
+    # =========================================================================
+    # 工作流执行
+    # =========================================================================
+
+    async def trigger_workflow(
+        self,
+        workflow_id: str,
+        input_data: dict[str, Any] | None = None,
+        *,
+        principal: str | None = None,
+        replayed_outputs: dict[int, str] | None = None,
+    ) -> WorkflowInstance | None:
+        """触发工作流执行。
+
+        返回 WorkflowInstance(异步执行,状态 pending)。
+        实际执行在后台 task 中异步推进。
+
+        属主闸排在"已禁用/正在运行"这类状态判定**之前**:非本人可见的工作流一律返回
+        None,既不创建实例、也不置 `_running_instances`、更不起后台 task —— 否则
+        "别人的禁用工作流"与"别人的正常运行中工作流"在响应上仍可被区分出来。
+
+        `replayed_outputs`(续跑出口用,默认 None = 与新增本参数前逐字同形):
+        {步序(1 起): 缓存 output}。命中的步骤**结构上不执行** —— 执行体不进、
+        LLM/工具一次都不调,只把 output 落回新实例的任务 trace。
+        """
+        wf = self.get_workflow(workflow_id, principal)
+        if not wf:
+            return None
+        if not wf.isActive:
+            logger.warning("workflow_engine 工作流已禁用: id=%s", workflow_id)
+            return None
+
+        # 防止并发触发
+        if workflow_id in self._running_instances:
+            logger.warning("workflow_engine 工作流正在运行: id=%s", workflow_id)
+            return None
+
+        now = datetime.now(UTC).isoformat()
+        inst = WorkflowInstance(
+            id=f"wi-{uuid.uuid4().hex[:12]}",
+            workflowId=workflow_id,
+            workflowName=wf.name,
+            status="pending",
+            startedAt=now,
+            input=input_data or {},
+            # 无身份通道触发时,实例继承定义行的属主(而不是写一个假主体),
+            # 这样后台工具步骤仍拿到"这条流水线本该以谁的身份跑"。
+            userId=principal if principal is not None else wf.userId,
+        )
+        self._instances[inst.id] = inst
+        self._tasks[inst.id] = []
+        self._logs[inst.id] = []
+        self._cancel_events[inst.id] = asyncio.Event()
+        self._running_instances.add(workflow_id)
+
+        # 后台异步执行
+        spawn(
+            self._execute_instance(inst, wf, replayed_outputs=replayed_outputs),
+            name="workflow-execute-instance",
+        )
+        return inst
+
+    def _log(self, instance_id: str, level: str, message: str) -> None:
+        """记录执行日志。"""
+        log = WorkflowLog(
+            id=f"log-{uuid.uuid4().hex[:8]}",
+            instanceId=instance_id,
+            timestamp=datetime.now(UTC).isoformat(),
+            level=level,
+            message=message,
+        )
+        logs = self._logs.setdefault(instance_id, [])
+        logs.append(log)
+
+    # =========================================================================
+    # 写账生产者(G-941 写账侧,2026-10-26 立)
+    # =========================================================================
+
+    def _cost_ledger(self) -> Any:
+        """账本取用唯一入口:注入优先,否则取全局单例(延迟 import 防环)。"""
+        if self._ledger is not None:
+            return self._ledger
+        from .cost_ledger import cost_ledger
+
+        return cost_ledger
+
+    def _record_llm_usage(
+        self,
+        *,
+        instance_id: str,
+        step_name: str,
+        resp: dict[str, Any],
+        user_id: str | None,
+        duration_ms: float,
+    ) -> None:
+        """把一次 workflow LLM 调用写进成本账本,链别取 CHAIN_WORKFLOW(唯一常量源)。
+
+        存在理由:读面(cost_ledger.aggregate / llm_usage_service)自 G-941 起就有
+        "workflow" 桶,但全仓**没有任何生产者往里写** —— 工作流用量只能落"未判定"桶,
+        增量基线按 (链别, tool_name) 分桶因此永远看不见 workflow 链。
+
+        纪律:
+        - 链别一律 `CHAIN_WORKFLOW`,绝不写字面量、绝不留空(空 = 未判定,正是本洞);
+        - 成本不在此自估:`append` 的 `_normalize` 在 cost_usd 缺省时走统一估算口径,
+          本层不复算第二份判据;
+        - 写账失败(账本不可用/字段异常)⇒ 只 warning,绝不阻塞工作流主链路,
+          也不把"没写上"说成"写好了"(与 agent_loop_v2 的录制降级同纪律)。
+        """
+        try:
+            ledger = self._cost_ledger()
+            usage = normalize_usage(resp.get("usage"))
+            tokens_in = int(usage.get("prompt_tokens") or 0)
+            tokens_out = int(usage.get("completion_tokens") or 0)
+            seq = self._llm_usage_seq.get(instance_id, 0) + 1
+            self._llm_usage_seq[instance_id] = seq
+            has_error = bool(resp.get("error"))
+            ledger.append(
+                {
+                    "record_id": f"{instance_id}:llm:{seq}",
+                    "user_id": str(user_id or ""),
+                    "session_id": instance_id,
+                    "run_id": instance_id,
+                    "tool_name": f"workflow:{step_name}",
+                    "chain": CHAIN_WORKFLOW,
+                    "model": str(resp.get("model") or ""),
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                    "total_tokens": tokens_in + tokens_out,
+                    "cached_tokens": int(usage.get("cached_tokens") or 0),
+                    "cache_creation_tokens": int(usage.get("cache_creation_tokens") or 0),
+                    "duration_ms": round(float(duration_ms or 0.0), 2),
+                    "status": "error" if has_error else "ok",
+                    "at": datetime.now(UTC).isoformat(),
+                }
+            )
+        except Exception as e:  # noqa: BLE001 - 可观测面故障不许打断执行链
+            logger.warning("workflow_engine 写账失败(降级,不阻塞): %s", e)
+
+    async def _complete_and_record(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        instance_id: str,
+        step_name: str,
+        user_id: str | None,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict[str, Any]:
+        """workflow 链唯一的 LLM 出口:调用 + 写账同笔,漏传即无从"静默不落账"。
+
+        异常原样向上抛(调用方的 try/except 语义一字未改);抛出去时没有响应可测,
+        故不写账 —— 宁可少一行,也不把"没量到"写成"量到了"。
+        """
+        started = time.perf_counter()
+        resp = await llm_gateway.complete(
+            messages, temperature=temperature, max_tokens=max_tokens
+        )
+        self._record_llm_usage(
+            instance_id=instance_id,
+            step_name=step_name,
+            resp=resp if isinstance(resp, dict) else {},
+            user_id=user_id,
+            duration_ms=(time.perf_counter() - started) * 1000,
+        )
+        return resp
+
+    async def _execute_instance(
+        self,
+        inst: WorkflowInstance,
+        wf: Workflow,
+        *,
+        replayed_outputs: dict[int, str] | None = None,
+    ) -> None:
+        """后台执行工作流实例。
+
+        `replayed_outputs` 非空时,落在其中的步序**不进执行体**:直接取回缓存 output
+        并把该步落成 completed(续跑的"入参未变即瞬时复用")。缓存步照样进 trace,
+        否则新实例的任务列表与源实例不同形。
+
+        每步都落 `definitionDigest`(执行这一刻的定义摘要):执行步与复用步同值写入,
+        后者正是 `build_replay_plan` 证明"与记录侧相等"的那一枚 —— 缺了它,新实例
+        自己就成了一条"无从证明定义"的旧记录,下一轮续跑会把全部步重跑。
+        """
+        inst.status = "running"
+        self._log(inst.id, "info", f"工作流 '{wf.name}' 开始执行,共 {len(wf.steps)} 步")
+
+        cancel_event = self._cancel_events.get(inst.id)
+        all_succeeded = True
+        replay = replayed_outputs or {}
+
+        for idx, step in enumerate(wf.steps):
+            # 检查取消
+            if cancel_event and cancel_event.is_set():
+                inst.status = "cancelled"
+                inst.completedAt = datetime.now(UTC).isoformat()
+                self._log(inst.id, "warn", f"工作流在第 {idx + 1} 步被取消")
+                self._running_instances.discard(wf.id)
+                return
+
+            step_name = str(step.get("name", f"step_{idx + 1}"))
+            step_type = str(step.get("type", "llm"))
+            step_input = str(step.get("input", ""))
+            str(step.get("skill", ""))
+            # 定义摘要按"执行这一刻的这一步定义"取:命中复用的步也落同一枚摘要
+            # (它正是 build_replay_plan 证明"与记录侧相等"的那一枚),
+            # 于是新实例的 trace 自身仍可被下一轮续跑对账。
+            definition_digest = definition_digest_of_step(step)
+
+            cached_output = replay.get(idx + 1)
+            if cached_output is not None:
+                self._tasks.setdefault(inst.id, []).append(
+                    WorkflowTask(
+                        id=f"task-{uuid.uuid4().hex[:8]}",
+                        instanceId=inst.id,
+                        step=idx + 1,
+                        name=step_name,
+                        type=step_type,
+                        status="completed",
+                        input=step_input,
+                        output=cached_output,
+                        definitionDigest=definition_digest,
+                    )
+                )
+                self._log(inst.id, "info", f"第 {idx + 1} 步命中续跑缓存,未执行: {step_name}")
+                continue
+
+            task = WorkflowTask(
+                id=f"task-{uuid.uuid4().hex[:8]}",
+                instanceId=inst.id,
+                step=idx + 1,
+                name=step_name,
+                type=step_type,
+                status="running",
+                input=step_input,
+                definitionDigest=definition_digest,
+            )
+            self._tasks.setdefault(inst.id, []).append(task)
+            self._log(inst.id, "info", f"执行第 {idx + 1} 步: {step_name}({step_type})")
+
+            try:
+                result = await self._execute_step(
+                    step, inst.input, inst.id, user_id=inst.userId
+                )
+                if result.get("error"):
+                    task.status = "failed"
+                    task.error = str(result["error"])
+                    self._log(inst.id, "error", f"第 {idx + 1} 步失败: {result['error']}")
+                    if not step.get("continueOnFail", False):
+                        all_succeeded = False
+                        break
+                else:
+                    task.status = "completed"
+                    task.output = str(result.get("output", ""))
+                    self._log(inst.id, "info", f"第 {idx + 1} 步完成")
+            except Exception as e:
+                task.status = "failed"
+                task.error = str(e)
+                self._log(inst.id, "error", f"第 {idx + 1} 步异常: {e}")
+                if not step.get("continueOnFail", False):
+                    all_succeeded = False
+                    break
+
+        # 更新最终状态
+        inst.status = "completed" if all_succeeded else "failed"
+        inst.completedAt = datetime.now(UTC).isoformat()
+        self._running_instances.discard(wf.id)
+        self._log(
+            inst.id,
+            "info",
+            f"工作流执行完成,状态: {inst.status}",
+        )
+
+    @staticmethod
+    def _render_template(template: str, context: dict[str, Any]) -> str:
+        """渲染 {var} / {context.var} 模板(简单字符串替换,不抛异常)。
+
+        支持前端模板语法 {context.var} 与简写 {var},值取自 context dict。
+        采用两次替换:{context.key} 优先,再替换 {key},避免 key 恰好为
+        "context" 时先替换 {context} 破坏 {context.var}。
+        """
+        if not template:
+            return ""
+        text = str(template)
+        for key, value in context.items():
+            text = text.replace("{" + f"context.{key}" + "}", str(value))
+        for key, value in context.items():
+            text = text.replace("{" + str(key) + "}", str(value))
+        return text
+
+    @staticmethod
+    def _parse_tool_input(raw: Any) -> dict[str, Any]:
+        """把 tool step 的 input 解析为工具参数字典。
+
+        - dict: 原样拷贝
+        - JSON 字符串:解析为 dict(成功才用)
+        - 其他字符串:包成 {"input": s} 兜底,保证工具总能收到参数
+        """
+        if isinstance(raw, dict):
+            return dict(raw)
+        if raw is None:
+            return {}
+        s = str(raw).strip()
+        if not s:
+            return {}
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, dict):
+                return parsed
+        except (ValueError, TypeError):
+            pass
+        return {"input": s}
+
+    async def _judge_condition(
+        self,
+        rendered: str,
+        *,
+        instance_id: str,
+        step_name: str,
+        user_id: str | None = None,
+    ) -> bool:
+        """用 LLM 判断条件表达式真假。
+
+        LLM 调用失败/返回错误/返回空内容时降级为"条件为真"(执行 thenSteps)。
+
+        instance_id / step_name 是**必填关键字**(G-941 写账侧):条件判断同样烧 token,
+        少一个传参点就意味着少一格账;宁可当场 TypeError,也不要它静默走无账路径。
+        """
+        if not rendered:
+            return True
+        try:
+            result = await self._complete_and_record(
+                [
+                    {
+                        "role": "user",
+                        "content": f"以下条件为真还是假,只回答 true 或 false:\n{rendered}",
+                    }
+                ],
+                instance_id=instance_id,
+                step_name=step_name,
+                user_id=user_id,
+                temperature=0.0,
+                max_tokens=10,
+            )
+        except Exception as e:
+            logger.warning("workflow_engine 条件判断 LLM 调用失败,降级为真: %s", e)
+            return True
+        if result.get("error"):
+            logger.warning(
+                "workflow_engine 条件判断 LLM 返回错误,降级为真: %s", result.get("error")
+            )
+            return True
+        content = str(result.get("content", "")).strip().lower()
+        # false / 假 → 条件为假;其余(含 true / 真 / 空)一律视为真
+        return not ("false" in content or "假" in content)
+
+    async def _execute_step(
+        self,
+        step: dict[str, Any],
+        context: dict[str, Any],
+        instance_id: str,
+        *,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """执行单步。
+
+        支持 step_type:
+        - skill: 调 skill_registry 中的 skill(通过 llm_gateway)
+        - llm: 直接调 llm_gateway
+        - echo: 返回输入(用于测试)
+        - condition: LLM 判断条件真假,递归执行 thenSteps/elseSteps 分支
+        - delay: 按 duration 秒延迟(默认 1,上限 300)
+        - loop: 按 count 次循环执行 steps(默认 1,上限 20),注入 loop_index
+        - parallel: asyncio.gather 并发执行 steps,单步失败不影响其他步
+        - tool: 调 mcp_server 的 MCP 工具(按 config.tool/toolName 查找)
+
+        user_id 是**承载层注入**的调用者主体(由实例记录带进后台执行链),
+        不是 step 里的字段 —— 步骤 JSON 属调用方可写面,自报身份一律不认。
+        None(无身份通道)时 call_tool 的形参照旧取默认,与改动前逐字同形。
+        """
+        step_type = str(step.get("type", "llm"))
+        step_input = str(step.get("input", ""))
+        step_skill = str(step.get("skill", ""))
+        # G-941 写账侧:账本 tool_name 用 "workflow:<步名>",步名缺省回退类型名
+        # (取不到名字不等于没有用量,不能因此跳过写账)。
+        step_name = str(step.get("name") or step_type)
+
+        if step_type == "echo":
+            return {"output": step_input or json.dumps(context, ensure_ascii=False)}
+
+        if step_type == "skill":
+            if not step_skill:
+                return {"error": "skill 类型 step 缺少 skill 字段"}
+            skill = skill_registry.get(step_skill)
+            if not skill:
+                return {"error": f"skill 不存在: {step_skill}"}
+            try:
+                rendered = skill.render({"input": step_input, **context})
+            except Exception as e:
+                return {"error": f"skill 模板渲染失败: {e}"}
+            try:
+                result = await self._complete_and_record(
+                    [{"role": "user", "content": rendered}],
+                    instance_id=instance_id,
+                    step_name=step_name,
+                    user_id=user_id,
+                    temperature=0.7,
+                    max_tokens=2000,
+                )
+            except Exception as e:
+                return {"error": f"LLM 调用失败: {e}"}
+            if result.get("error"):
+                return {"error": str(result.get("error_message", result["error"]))}
+            content = str(result.get("content", "")).strip()
+            if not content:
+                return {"error": "LLM 返回空内容"}
+            return {"output": content}
+
+        if step_type == "llm":
+            try:
+                result = await self._complete_and_record(
+                    [{"role": "user", "content": step_input or "请执行此步骤"}],
+                    instance_id=instance_id,
+                    step_name=step_name,
+                    user_id=user_id,
+                    temperature=0.7,
+                    max_tokens=2000,
+                )
+            except Exception as e:
+                return {"error": f"LLM 调用失败: {e}"}
+            if result.get("error"):
+                return {"error": str(result.get("error_message", result["error"]))}
+            content = str(result.get("content", "")).strip()
+            return {"output": content or "（无输出）"}
+
+        if step_type == "condition":
+            condition_expr = str(step.get("condition", ""))
+            then_steps = step.get("thenSteps") or []
+            else_steps = step.get("elseSteps") or []
+            rendered = self._render_template(condition_expr, context)
+            is_true = await self._judge_condition(
+                rendered,
+                instance_id=instance_id,
+                step_name=step_name,
+                user_id=user_id,
+            )
+            branch = then_steps if is_true else else_steps
+            branch_results: list[dict[str, Any]] = []
+            for sub_step in branch:
+                branch_results.append(
+                    await self._execute_step(sub_step, context, instance_id, user_id=user_id)
+                )
+            return {
+                "output": json.dumps(
+                    {
+                        "condition": condition_expr,
+                        "rendered": rendered,
+                        "result": is_true,
+                        "branch": "then" if is_true else "else",
+                        "steps": branch_results,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                )
+            }
+
+        if step_type == "delay":
+            try:
+                duration = int(step.get("duration", 1))
+            except (TypeError, ValueError):
+                duration = 1
+            duration = max(0, min(duration, 300))
+            await asyncio.sleep(duration)
+            return {"output": f"delayed {duration}s"}
+
+        if step_type == "loop":
+            try:
+                count = int(step.get("count", 1))
+            except (TypeError, ValueError):
+                count = 1
+            if count < 1:
+                count = 1
+            count = min(count, 20)
+            loop_steps = step.get("steps") or []
+            iterations: list[list[dict[str, Any]]] = []
+            for i in range(count):
+                loop_context = dict(context)
+                loop_context["loop_index"] = i
+                iteration_results: list[dict[str, Any]] = []
+                for sub_step in loop_steps:
+                    iteration_results.append(
+                        await self._execute_step(
+                            sub_step, loop_context, instance_id, user_id=user_id
+                        )
+                    )
+                iterations.append(iteration_results)
+            return {
+                "output": json.dumps(
+                    {"count": count, "iterations": iterations},
+                    ensure_ascii=False,
+                    default=str,
+                )
+            }
+
+        if step_type == "parallel":
+            parallel_steps = step.get("steps") or []
+
+            async def _run_parallel_sub_step(
+                sub_step: dict[str, Any],
+            ) -> dict[str, Any]:
+                try:
+                    return await self._execute_step(
+                        sub_step, context, instance_id, user_id=user_id
+                    )
+                except Exception as e:
+                    return {"error": str(e)}
+
+            results = list(
+                await asyncio.gather(
+                    *(_run_parallel_sub_step(s) for s in parallel_steps)
+                )
+            )
+            return {
+                "output": json.dumps(
+                    {"results": results},
+                    ensure_ascii=False,
+                    default=str,
+                )
+            }
+
+        if step_type == "tool":
+            config = step.get("config") or {}
+            if not isinstance(config, dict):
+                config = {}
+            tool_name = str(config.get("tool") or config.get("toolName") or "").strip()
+            if not tool_name:
+                return {"error": "tool 类型 step 缺少 config.tool 或 config.toolName"}
+            arguments = self._parse_tool_input(step.get("input", ""))
+            try:
+                from .mcp_server import _TOOL_HANDLERS, mcp_server
+            except ImportError as e:
+                return {"error": f"mcp_server 模块不可用: {e}"}
+            if tool_name not in _TOOL_HANDLERS:
+                return {"error": f"工具不存在: {tool_name}"}
+            try:
+                # 身份由承载层(实例记录带着触发者主体)显式喂进去,不是由 step 配置自报:
+                # 步骤 JSON 是调用方可写字段,`config.user` 这类键一旦生效就是"可认领别人身份"。
+                # user_id=None(无身份通道)与改动前逐字同形(call_tool 默认 None,跳过 LTM)。
+                result = await mcp_server.call_tool(tool_name, arguments, user_id=user_id)
+            except Exception as e:
+                return {"error": f"工具调用失败: {e}"}
+            return {
+                "output": json.dumps(result, ensure_ascii=False, default=str)
+            }
+
+        return {"error": f"不支持的 step type: {step_type}"}
+
+    # =========================================================================
+    # 实例管理
+    # =========================================================================
+
+    def list_instances(
+        self,
+        workflow_id: str | None = None,
+        principal: str | None = None,
+    ) -> list[WorkflowInstance]:
+        """列出调用方可见的实例(按开始时间降序)。"""
+        instances = [
+            i for i in self._instances.values() if owner_scoped_allows(principal, i.userId)
+        ]
+        if workflow_id:
+            instances = [i for i in instances if i.workflowId == workflow_id]
+        return sorted(
+            instances,
+            key=lambda i: i.startedAt,
+            reverse=True,
+        )
+
+    def get_instance(self, instance_id: str, principal: str | None = None) -> WorkflowInstance | None:
+        """获取单个实例。带身份且非属主时返回 None(与"不存在"同形)。"""
+        inst = self._instances.get(instance_id)
+        if inst is None or not owner_scoped_allows(principal, inst.userId):
+            return None
+        return inst
+
+    def get_instance_tasks(
+        self, instance_id: str, principal: str | None = None
+    ) -> list[WorkflowTask]:
+        """获取实例的任务列表(非本人可见的实例返回空列表,与"该实例没有任务"同形)。"""
+        if self.get_instance(instance_id, principal) is None:
+            return []
+        return self._tasks.get(instance_id, [])
+
+    def get_instance_logs(
+        self, instance_id: str, principal: str | None = None
+    ) -> list[WorkflowLog]:
+        """获取实例的日志列表(非本人可见的实例返回空列表,同上)。"""
+        if self.get_instance(instance_id, principal) is None:
+            return []
+        return self._logs.get(instance_id, [])
+
+    async def cancel_instance(self, instance_id: str, principal: str | None = None) -> bool:
+        """取消运行中的实例。
+
+        属主闸**先于**状态判定:非本人可见时直接返回 False,不 set 取消事件,
+        于是"别人的实例"与"不存在的实例"在副作用与响应上都不留差异。
+        """
+        inst = self.get_instance(instance_id, principal)
+        if not inst:
+            return False
+        if inst.status not in ("pending", "running"):
+            return False
+        cancel_event = self._cancel_events.get(instance_id)
+        if cancel_event:
+            cancel_event.set()
+        return True
+
+    async def retry_instance(
+        self, instance_id: str, principal: str | None = None
+    ) -> WorkflowInstance | None:
+        """重试失败的实例(创建新实例,使用原工作流)。
+
+        源实例与工作流两道属主闸都在状态判定之前;新实例的属主是**当前调用者**,
+        没有调用者身份时继承源实例的属主(与 trigger_workflow 同规则,不写假主体)。
+        """
+        inst = self.get_instance(instance_id, principal)
+        if not inst:
+            return None
+        if inst.status not in ("failed", "cancelled"):
+            return None
+        wf = self.get_workflow(inst.workflowId, principal)
+        if not wf:
+            return None
+        return await self.trigger_workflow(inst.workflowId, inst.input, principal=principal)
+
+    # =========================================================================
+    # 续跑:按调用键复用已完成步骤(G-01 补齐腿之一,2026-10-31 立)
+    # =========================================================================
+
+    def step_call_key(
+        self,
+        *,
+        step: int,
+        name: str,
+        step_type: str,
+        raw_input: str,
+        context: dict[str, Any],
+    ) -> str:
+        """一步的调用键 = 续跑复用的唯一比对单位。
+
+        算式单源复用 `task_executors.compute_idempotency_key`(AGENTS §0.6:同类判据
+        全仓只许一份;位宽/规范化口径一旦在两处长出来就必然漂移),本层只负责把
+        "这一步实际吃什么"归一化成 arguments。
+
+        覆盖面:本键只分辨 step/name/type/input(渲染后)+ 实例入参这五维。定义里
+        `name`/`type`/`input` **之外**的字段(`config.tool` / `condition` / `thenSteps` /
+        `steps` …)不在键里,由 `WorkflowTask.definitionDigest` 一列兜底
+        (判据 `definition_digest_of_step`,`build_replay_plan` 的第四道判定)——
+        两道判据都必须成立才回放,任一不成立即"多跑一次"。
+        """
+        return compute_idempotency_key(
+            WORKFLOW_STEP_KEY_TYPE,
+            {
+                "step": step,
+                "name": name,
+                "type": step_type,
+                "input": self._render_template(raw_input, context),
+                "context": context,
+            },
+        )
+
+    def _key_of_definition_step(
+        self, ordinal: int, step: dict[str, Any], context: dict[str, Any]
+    ) -> str:
+        """当前定义里第 ordinal 步的键(字段归一顺序与 _execute_instance 记录时逐字同形)。"""
+        return self.step_call_key(
+            step=ordinal,
+            name=str(step.get("name", f"step_{ordinal}")),
+            step_type=str(step.get("type", "llm")),
+            raw_input=str(step.get("input", "")),
+            context=context,
+        )
+
+    def _key_of_recorded_task(self, task: WorkflowTask, context: dict[str, Any]) -> str:
+        """源实例那一行记录回算的键(记录侧只认自己身上的字段,不猜定义)。"""
+        return self.step_call_key(
+            step=task.step,
+            name=task.name,
+            step_type=task.type,
+            raw_input=task.input,
+            context=context,
+        )
+
+    def build_replay_plan(
+        self, wf: Workflow, source: WorkflowInstance, context: dict[str, Any]
+    ) -> tuple[dict[int, str], str, str, dict[str, Any]]:
+        """把源实例已完成步骤折成 `{步序: 缓存 output}`(键不同/未成功的步不进表)。
+
+        返回 `(plan, errorCode, reason, meta)`。`errorCode` 非空 ⇒ **未判定**:调用方必须
+        把错误码原样交出去,不得"那就整条重跑"并记成功。判定顺序里任何一步都不写盘、
+        不建实例、不起后台 task。
+
+        四道判定全部成立才回放(output 可证 ∧ 定义摘要可证且相等 ∧ 调用键相等):
+        1. 记录 status=completed;
+        2. output 非空;
+        3. 记录侧 `definitionDigest` 非空且等于当前定义摘要 —— 旧记录(空摘要)与定义
+           被改写过的步都在这里被拦下,**失效方向恒为"多跑一次"**;
+        4. 调用键相等(step/name/type/渲染后 input/实例入参)。
+        `meta` 如实点名这两类不进 plan 的步:
+        `definitionChangedSteps`(摘要不等)/ `definitionUnprovableSteps`(记录无摘要)。
+        """
+        if source.status not in RESUMABLE_SOURCE_STATUSES:
+            return (
+                {},
+                WF_RESUME_SOURCE_NOT_FINAL,
+                f"源实例 {source.id} 状态为 {source.status},未到终态,已完成步骤集无从对账",
+                {},
+            )
+        tasks = self._tasks.get(source.id, [])
+        if len(tasks) > len(wf.steps):
+            return (
+                {},
+                WF_RESUME_TASK_TRACE_MISALIGNED,
+                f"源实例记录了 {len(tasks)} 步,当前定义只有 {len(wf.steps)} 步,记录映射不到定义",
+                {},
+            )
+        plan: dict[int, str] = {}
+        definition_changed: list[int] = []
+        definition_unprovable: list[int] = []
+        for idx, task in enumerate(tasks):
+            ordinal = idx + 1
+            if task.step != ordinal:
+                return (
+                    {},
+                    WF_RESUME_TASK_TRACE_MISALIGNED,
+                    f"第 {ordinal} 条任务记录的 step={task.step},与它在 trace 里的位置不符",
+                    {},
+                )
+            if not task.name or not task.type:
+                return (
+                    {},
+                    WF_RESUME_TASK_RECORD_INCOMPLETE,
+                    f"第 {ordinal} 步的任务记录缺 name/type,调用键算不出来",
+                    {},
+                )
+            raw_step = wf.steps[ordinal - 1]
+            if not isinstance(raw_step, dict):
+                return (
+                    {},
+                    WF_RESUME_TASK_RECORD_INCOMPLETE,
+                    f"当前定义第 {ordinal} 步不是对象,调用键算不出来",
+                    {},
+                )
+            if task.status != "completed":
+                continue
+            if not task.output:
+                return (
+                    {},
+                    WF_RESUME_OUTPUT_UNVERIFIABLE,
+                    f"第 {ordinal} 步 status=completed 而 output 为空串,成功这件事自证不上",
+                    {},
+                )
+            if not task.definitionDigest:
+                # 本列出现之前写下的记录:无从证明定义没变 ⇒ 保守不回放(多跑一次)。
+                definition_unprovable.append(ordinal)
+                continue
+            if task.definitionDigest != definition_digest_of_step(raw_step):
+                definition_changed.append(ordinal)
+                continue
+            if self._key_of_recorded_task(task, source.input) == self._key_of_definition_step(
+                ordinal, raw_step, context
+            ):
+                plan[ordinal] = task.output
+        return (
+            plan,
+            "",
+            "",
+            {
+                "definitionChangedSteps": definition_changed,
+                "definitionUnprovableSteps": definition_unprovable,
+            },
+        )
+
+    async def resume_instance(
+        self,
+        instance_id: str,
+        input_data: dict[str, Any] | None = None,
+        *,
+        principal: str | None = None,
+    ) -> dict[str, Any]:
+        """续跑一个实例:入参未变的步瞬时取回缓存 output(不执行),改动/新增的步才真跑。
+
+        与 `retry_instance` 的分工就是本出口存在的全部理由:retry 整条重跑、已完成步骤
+        的 output 一个都不复用;本出口复用前缀,并把复用集合如实回给调用方。
+
+        两道属主闸都排在状态判定与建实例之前(AGENTS §5,沿用 retry_instance 口径):
+        源实例与工作流任一非本人可见 ⇒ 具名错误码返回,既不建新实例、也不起后台 task。
+        "不存在"与"非本人可见"**同码同形**(不给存在性 oracle)。新实例属主按 trigger_workflow
+        既有规则 = 当前调用者,无调用者身份时继承工作流定义行的属主,绝不写假主体。
+
+        `input_data=None` ⇒ 沿用源实例入参;显式传新入参 ⇒ 所有步的键都变,等价整条重跑
+        (实例入参是全步骤共享的渲染上下文,不能声称"入参没变")。
+
+        复用判据是**两道**:调用键相等(step/name/type/渲染后 input/入参)∧ 定义摘要相等
+        (除 input 外的全部定义字段)。定义里 `config.tool` / `condition` / `thenSteps` /
+        `steps` 任一被改写 ⇒ 摘要变 ⇒ 该步重跑;旧记录(无摘要)⇒ 同样重跑。返回值里
+        `definitionChangedSteps` / `definitionUnprovableSteps` 如实点名这两类步。
+        """
+        source = self.get_instance(instance_id, principal)
+        if source is None:
+            return {
+                "ok": False,
+                "errorCode": WF_RESUME_SOURCE_NOT_VISIBLE,
+                "error": f"源实例不存在或对当前身份不可见: {instance_id}",
+            }
+        wf = self.get_workflow(source.workflowId, principal)
+        if wf is None:
+            return {
+                "ok": False,
+                "errorCode": WF_RESUME_WORKFLOW_NOT_VISIBLE,
+                "error": f"工作流 {source.workflowId} 不存在或对当前身份不可见,续跑取不到定义",
+                "sourceInstanceId": source.id,
+            }
+        context = dict(source.input if input_data is None else input_data)
+        plan, error_code, reason, replay_meta = self.build_replay_plan(wf, source, context)
+        if error_code:
+            return {
+                "ok": False,
+                "errorCode": error_code,
+                "error": reason,
+                "sourceInstanceId": source.id,
+            }
+        definition_changed = list(replay_meta.get("definitionChangedSteps") or [])
+        definition_unprovable = list(replay_meta.get("definitionUnprovableSteps") or [])
+        inst = await self.trigger_workflow(
+            wf.id, context, principal=principal, replayed_outputs=plan
+        )
+        if inst is None:
+            return {
+                "ok": False,
+                "errorCode": WF_RESUME_TRIGGER_REFUSED,
+                "error": f"工作流 {wf.id} 拒绝触发(已禁用、定义刚被删除或已有实例在跑)",
+                "sourceInstanceId": source.id,
+                "replayedSteps": sorted(plan),
+                "definitionChangedSteps": definition_changed,
+            }
+        self._log(
+            inst.id,
+            "info",
+            f"续跑自实例 {source.id}:复用第 {sorted(plan)} 步(未执行),"
+            f"其余 {len(wf.steps) - len(plan)} 步真跑"
+            + (
+                f";定义已变更须重跑的第 {definition_changed} 步"
+                if definition_changed
+                else ""
+            )
+            + (
+                f";记录无定义摘要须重跑的第 {definition_unprovable} 步"
+                if definition_unprovable
+                else ""
+            ),
+        )
+        return {
+            "ok": True,
+            "instanceId": inst.id,
+            "sourceInstanceId": source.id,
+            "workflowId": wf.id,
+            "status": inst.status,
+            "totalSteps": len(wf.steps),
+            "replayedSteps": sorted(plan),
+            "replayedCount": len(plan),
+            # 定义一变即不回放(第四道判定):如实点名,避免"少复用了几步"无从归因
+            "definitionChangedSteps": definition_changed,
+            "definitionUnprovableSteps": definition_unprovable,
+        }
+
+    # =========================================================================
+    # 序列化
+    # =========================================================================
+
+    def workflow_to_dict(self, wf: Workflow) -> dict[str, Any]:
+        return {
+            "id": wf.id,
+            "name": wf.name,
+            "description": wf.description,
+            "triggerType": wf.triggerType,
+            "steps": wf.steps,
+            "isActive": wf.isActive,
+            "createdAt": wf.createdAt,
+            "updatedAt": wf.updatedAt,
+        }
+
+    def instance_to_dict(self, inst: WorkflowInstance) -> dict[str, Any]:
+        return {
+            "id": inst.id,
+            "workflowId": inst.workflowId,
+            "workflowName": inst.workflowName,
+            "status": inst.status,
+            "startedAt": inst.startedAt,
+            "completedAt": inst.completedAt,
+            "input": inst.input,
+            "output": inst.output,
+        }
+
+    def task_to_dict(self, t: WorkflowTask) -> dict[str, Any]:
+        return {
+            "id": t.id,
+            "instanceId": t.instanceId,
+            "step": t.step,
+            "name": t.name,
+            "type": t.type,
+            "status": t.status,
+            "input": t.input,
+            "output": t.output,
+            "error": t.error,
+        }
+
+    def log_to_dict(self, log: WorkflowLog) -> dict[str, Any]:
+        return {
+            "id": log.id,
+            "instanceId": log.instanceId,
+            "timestamp": log.timestamp,
+            "level": log.level,
+            "message": log.message,
+        }
+
+
+# 全局单例
+workflow_engine = WorkflowEngine()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

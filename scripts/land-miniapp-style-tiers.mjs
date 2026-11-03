@@ -1,0 +1,735 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console -- CLI 工具,需 console 输出落档报告 */
+/**
+ * land-miniapp-style-tiers.mjs — 把小程序 CSS 里「等值命中档表」的间距 / 字号裸 rpx 字面量
+ * 改写为 `var(--spacing-*)` / `var(--text-*)` 引用(**等值改写 ⇒ 像素零变化**)。
+ *
+ * 立因(2026-10-31):上一枚 f5db1221ae 把项目具名档注册进小程序 `@theme`,产物里已有
+ * `--spacing-md: 24rpx` / `--text-body: 28rpx` 等 49 档。但端内 CSS 仍写裸字面量:
+ * `check-miniapp-style-tiers.mjs` 现读 —— 项目档消费率 14.8%,rpx 字面量 58.6%;
+ * 其中 1366 处(间距)/ 767 处(字号)的**值恰好等于某档**。值对而不跟随,正是 RN 落档前的同一型。
+ *
+ * 三条硬边界(与 `land-rn-style-tiers.mjs` 同构):
+ *   ① **只改等值命中档表的数**。档外的数(22/26/13rpx 等)一律不动 —— 那是"该落哪一档"的判断,
+ *      归尺子的 fork 桶点名给人,不归器物猜。
+ *   ② **只改 `.css` 文件的声明体**,不碰 className、不碰内联 style 对象(那是 taroSpacing 的场,
+ *      另立票)、不碰 `calc()`/`var()` 表达式,只吃纯 `<数>rpx`。
+ *   ③ **不碰 `apps/miniapp-taro/src/app.css`**:它是 `sync-miniapp-tokens.mjs` 的派生态,
+ *      手改会被下一次 sync 洗掉,而且在受管块外改写会与守门 36 的取材面打架。
+ *   ④ **不碰 line-height**:多个档可能共享同一行高,反查档名不是单值 ⇒ 有歧义。只改 font-size。
+ *
+ * 归属避让(多会话共享工作区):`git status --porcelain` 对该文件非空 ⇒ 跳过并点名(held)。
+ *   判据单源 = `scripts/lib/git-paths.mjs` 的 `ownershipDirtyPaths`(2026-11-03 提库;整树取一次,
+ *   逐路径派生 git 在候选数百枚时会把命令行顶爆 —— 实测 800+ 路径直接失败)。
+ *
+ * 水印(§5c 强制):逐文件 `watermark clean` → 改写 → `watermark inject`,inject 后 verify 复核。
+ * 幂等:已是 `var(--spacing-*)` / `var(--text-*)` 的位置不会再命中 ⇒ 重跑改 0 处。
+ *
+ * 用法:
+ *   node scripts/land-miniapp-style-tiers.mjs                 # 只读预演(默认)
+ *   node scripts/land-miniapp-style-tiers.mjs --apply         # 落盘
+ *   node scripts/land-miniapp-style-tiers.mjs --file <path>   # 单文件试点(可重复)
+ *   node scripts/land-miniapp-style-tiers.mjs --json
+ *   node scripts/land-miniapp-style-tiers.mjs --self-test
+ *
+ * 退出码:0 正常(含"改 0 处");2 用法错 / 取不到档表 / 注入校验失败。
+ *
+ * 写盘凭据(2026-11-03 接线):--apply 每轮把本批产出逐路径**实测 oid** 后追写申报账本
+ *   .ihui-agent/state/cross-end-landing.jsonl(库 = scripts/lib/cross-end-landing-ledger.mjs,
+ *   收编侧按 blob 逐字节核验后才收);下一轮开始先把"在册 ∧ blob 相符"的路径整轮跳过(可续跑)。
+ *   dry-run / 预演档零登记。结论行机读键:landing=<登记枚数> landingPath=<账本相对路径>
+ *   skipLanded=<跳过数>[ledger=unjudged][landingError=<原因>]。CSS 面与字号/内联面共用同一腿名。
+ */
+import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { parseTokenTables } from './sync-css-tokens.mjs'
+import { maskComments, scanSpans } from './lib/code-mask.mjs'
+import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 归属避让判据的唯一实现(2026-11-03 提库,§0.6 / 门 191):三枚 lander + 两枚落档器共用这一份。
+import { ownershipDirtyPaths } from './lib/git-paths.mjs'
+
+/**
+ * **等长**的注释遮罩(只抹注释、保留字符串)。
+ *
+ * 为什么不直接用 `maskComments`:它对**行注释是整段删除**(长度变短),而本器物要拿遮罩
+ * 与原文做**同 offset 的逐字比对**来判断"这段在不在代码面" —— 一旦长度漂了,后面每一处
+ * 比对都恒假,器物会安静地一处都不改(实测:tsx 面 99 处候选被判成 0 处)。
+ * 块注释那一档 `maskComments` 本就等长,所以 CSS 面没暴露这个坑(TSX 里 `//` 才是常客)。
+ */
+function maskCommentsEqualLen(src) {
+  let out = ''
+  let pos = 0
+  for (const s of scanSpans(src)) {
+    if (s.kind !== 'line' && s.kind !== 'block') continue
+    out += src.slice(pos, s.start)
+    out += src.slice(s.start, s.end).replace(/[^\n]/g, ' ')
+    pos = s.end
+  }
+  return out + src.slice(pos)
+}
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
+const SRC_DIR = 'apps/miniapp-taro/src'
+const DERIVED_EXCLUDE = new Set(['apps/miniapp-taro/src/app.css'])
+
+/**
+ * 腿短名 = 本脚本文件名。guardian 的 sweepMiniappStyleTiers 派发的正是 `land-miniapp-style-tiers.mjs`
+ * (git-guardian.mjs 现读:join(...,'land-miniapp-style-tiers.mjs')),账本复合主键用,三端逐字同构,不得改。
+ * CSS 面与字号/内联面共用这一枚 leg(css 路径与 tsx 路径天然不相交)。
+ */
+export const LEG_NAME = 'land-miniapp-style-tiers'
+
+const argv = process.argv.slice(2)
+const apply = argv.includes('--apply')
+const jsonMode = argv.includes('--json')
+const fontSafe = argv.includes('--font-safe')
+const inlineSafe = argv.includes('--inline-safe')
+const fontAll = argv.includes('--font-all')
+const font400 = argv.includes('--font-400')
+const selfTest = argv.includes('--self-test')
+const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
+
+// 间距属性 + 尺寸/定位属性:**都只做等值替换**,值等于某档才换。
+// 尺寸/定位这一族刻意**不含** max-width/max-height —— 那两个名字在 Tailwind 里有 container 语义,
+// 用 spacing 档表达会让后来者误读(且 max-w 的撞名问题已单独兜底),宁可留在字面量。
+const SPACING_PROPS = [
+  'padding',
+  'padding-top',
+  'padding-right',
+  'padding-bottom',
+  'padding-left',
+  'margin',
+  'margin-top',
+  'margin-right',
+  'margin-bottom',
+  'margin-left',
+  'gap',
+  'row-gap',
+  'column-gap',
+  'width',
+  'height',
+  'min-width',
+  'min-height',
+  'top',
+  'right',
+  'bottom',
+  'left',
+]
+const FONT_PROPS = ['font-size']
+
+/** 反向档名查表:值(px) → 档名。同值多档取**首个声明**(档表里先出现的语义更通用)。
+ *  **两种输入形态都要收**:`TYPE_STEPS` 真实形态是 `{ step: { size, lineHeight, weight } }`,
+ *  而自检夹具给的是 `{ step: number }`。首版只写了 `Number(v)` —— 对真实形态得到 NaN,
+ *  字号映射整表为空 ⇒ 器物在 tsx 面一处都不改、在 CSS 面只改间距不改字号,而对拍的自检
+ *  用简化输入照样全绿(自检形态与生产形态不一致时,绿是假的)。 */
+export function buildReverse(spacingPx, typeSizes) {
+  const spacing = new Map()
+  for (const [k, v] of Object.entries(spacingPx)) if (!spacing.has(Number(v))) spacing.set(Number(v), k)
+  const type = new Map()
+  // 档位自带字重(2026-11-03):具名档 utility 会同时写 font-size + line-height + font-weight,
+  // 替换前必须知道目标档的 weight,否则元素上的 `font-bold` 会被 `text-title` 的 600 顶掉/反顶。
+  const weight = new Map()
+  const kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+  for (const [k, v] of Object.entries(typeSizes)) {
+    const px = typeof v === 'number' ? v : Number(v?.size)
+    // **档名要转 kebab**:`TYPE_STEPS` 的键是 `displayLg`,而 CSS 变量/工具类是 `--text-display-lg`。
+    // 首版直接用了原键,产出 `var(--text-displayLg)` —— 一个**不存在的变量**,2 处成员页字号会失效。
+    if (Number.isFinite(px) && !type.has(px)) type.set(px, kebab(k))
+    weight.set(kebab(k), Number(v?.weight ?? 400))
+  }
+  return { spacing, type, weight }
+}
+
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 纯函数:改写一段 CSS 正文。返回 { out, changes, samples }。
+ * 测试直接 import 它(§22c),不复制正则。
+ *
+ * **只认代码面**:用 `maskComments`(等长空格遮罩)交叉判定 —— 落在注释/字符串里的同形文本
+ * 一律不动。立因是实测踩出来的:首版不看遮罩,把注释 `原项目用 … padding:4rpx 20rpx` 里的
+ * 数字也换成了 `var(--spacing-2xs)`,注释本身是"这一处以原项目某值为准"的说明,改它等于毁证据。
+ */
+export function rewriteCss(css, rev) {
+  const masked = maskComments(css)
+  let changes = 0
+  const samples = []
+  const propRe = new RegExp(`(^|[;{\\s])(${SPACING_PROPS.map(esc).join('|')}|${FONT_PROPS.map(esc).join('|')})\\s*:\\s*(\\d+(?:\\.\\d+)?)rpx(?![\\w%.])`, 'g')
+  const out = css.replace(propRe, (all, lead, prop, num, offset) => {
+    // 代码面判定:遮罩在该区间的字节必须与原文逐字相同(注释/字符串已被抹成空格)
+    if (masked.slice(offset, offset + all.length) !== all) return all
+    const px = Number(num) / 2
+    let replaced = null
+    if (FONT_PROPS.includes(prop)) {
+      const step = rev.type.get(px)
+      if (step) replaced = `var(--text-${step})`
+    } else {
+      const step = rev.spacing.get(px)
+      if (step) replaced = `var(--spacing-${step})`
+    }
+    if (!replaced) return all
+    changes++
+    if (samples.length < 6) samples.push(`${prop}: ${num}rpx → ${replaced}`)
+    return `${lead}${prop}: ${replaced}`
+  })
+  return { out, changes, samples }
+}
+
+function listCssFiles() {
+  if (fileArgs.length) return fileArgs
+  const text = String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', SRC_DIR], ROOT))
+  return text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((p) => p.endsWith('.css') && !DERIVED_EXCLUDE.has(p) && !/\.test\./.test(p))
+}
+
+/** 字号面(tsx/ts)的候选清单 —— 与 CSS 面同一套归属避让与水印流程。 */
+function listSourceFiles() {
+  if (fileArgs.length) return fileArgs
+  const text = String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', SRC_DIR], ROOT))
+  return text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((p) => /\.(tsx|ts)$/.test(p) && !/\.test\./.test(p) && !/\.generated\.|\.d\.ts$/.test(p))
+}
+
+/**
+ * 纯函数:把 className 里的**字号任意值**换成语义档类,但**只在同一 className 有显式
+ * `leading-*` 覆盖行高时**才换 —— 那一刻 `text-*` 自带的 line-height 被 leading 压住,
+ * 剩下的只有 font-size,而 font-size 的值与档值**恰好相等** ⇒ 零视觉变化。
+ *
+ * 为什么必须加这条闸(而不是像 CSS 面那样只看值):`text-[length:28rpx]` 只设 font-size、
+ * 行高走继承;而 `text-body` 会同时设 line-height(40rpx)。没有 leading 覆盖时替换会改行高,
+ * 那是视觉变更,归视觉验收,不归本器物。
+ *
+ * 只认 `className="…"` 与 `className={`…`}` 两种形态;`className={cn(…)}` 一类表达式不碰
+ * (要解析 JS 表达式才安全,收益不值这个风险)。
+ */
+const FONT_WEIGHT_CLASS = {
+  thin: 100,
+  extralight: 200,
+  light: 300,
+  normal: 400,
+  medium: 500,
+  semibold: 600,
+  bold: 700,
+  extrabold: 800,
+  black: 900,
+}
+
+/**
+ * className 里的**显式字重**。返回 400/500/…,`null`=没写,`'conflict'`=同一串里写了两个不同的值。
+ * 只认 `font-weight` 形态:`font-bold` / `sm:font-bold` / `font-[500]` / `font-[weight:500]`;
+ * `font-sans` / `font-[family:…]` 不是字重,不能混进来。
+ */
+export function explicitFontWeight(body) {
+  const found = new Set()
+  for (const tok of body.split(/\s+/)) {
+    if (!tok) continue
+    const base = tok.includes(':') ? tok.slice(tok.lastIndexOf(':') + 1) : tok
+    const kw = /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/.exec(base)
+    if (kw) {
+      found.add(FONT_WEIGHT_CLASS[kw[1]])
+      continue
+    }
+    const num = /^font-\[(?:weight:)?(\d{3})\]/.exec(base)
+    if (num) found.add(Number(num[1]))
+  }
+  if (found.size === 0) return null
+  if (found.size > 1) return 'conflict'
+  return [...found][0]
+}
+
+export function rewriteClassNameTokens(text, rev, opts = {}) {
+  const requireLeading = opts.requireLeading !== false
+  const masked = maskCommentsEqualLen(text)
+  let changes = 0
+  const samples = []
+  const skipped = []
+  const skip = (raw, reason) => {
+    if (skipped.length < 300) skipped.push({ raw, reason })
+  }
+  const clsRe = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g
+  const out = text.replace(clsRe, (all, dq, tpl, offset) => {
+    if (masked.slice(offset, offset + all.length) !== all) return all // 注释里的同形文本不动
+    const body = dq ?? tpl ?? ''
+    const weight = explicitFontWeight(body)
+    const replaced = body.replace(/\btext-\[(?:length:)?(\d+(?:\.\d+)?)rpx\]/g, (m, n) => {
+      const step = rev.type.get(Number(n) / 2)
+      if (!step) {
+        skip(m, 'off-table')
+        return m // 档外值不猜
+      }
+      if (requireLeading && !/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) {
+        skip(m, 'no-leading')
+        return m
+      }
+      const tierWeight = rev.weight?.get(step) ?? 400
+      // 字重守卫:具名档 utility 自带 font-weight。显式字重与档位不同 ⇒ 替换会改观感;
+      // 没写显式字重而档位不是 400 ⇒ 继承字重可能不是 400(等于凭空加一档 weight)。两种都不动。
+      if (weight === 'conflict' || (weight !== null && weight !== tierWeight)) {
+        skip(m, 'weight-conflict')
+        return m
+      }
+      if (weight === null && tierWeight !== 400) {
+        skip(m, 'weight-inherited')
+        return m
+      }
+      changes++
+      if (samples.length < 6) samples.push(`${m} → text-${step}`)
+      return `text-${step}`
+    })
+    if (replaced === body) return all
+    return dq !== undefined ? `className="${replaced}"` : `className={\`${replaced}\`}`
+  })
+  return { out, changes, samples, skipped }
+}
+
+function watermark(mode, file) {
+  execFileSync(process.execPath, [WATERMARK, mode, file], {
+    cwd: ROOT,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+}
+
+// ─── 写盘凭据账本(cross-end-landing-ledger 接线,2026-11-03 立)──────────────────
+// 治两条根因:R1 无凭据(写盘没留"谁写的、写成什么 blob",收编器无从正当收编)、
+// R2 不可续跑(超时轮从头再来,永远跑不完永远 unjudged)。
+// 本层零复算判据:取 oid 与账本库 worktree 面同一把尺(gitRaw hash-object,face-reader 出口),
+// "已落集合"直接复用 collectiblePaths(quietMs=0),登记/读账本一律走库出口(§0.6)。
+
+/** 账本相对路径(正斜杠),结论行 landingPath= 键用;真相源 = 库的 ledgerPathFor。 */
+export const LEDGER_REL = relative(ROOT, ledgerPathFor(ROOT)).replace(/\\/g, '/')
+
+/** 路径在工作树面的当前 blob oid —— 与账本库 currentOidsForFace(worktree) 逐字同一把尺。 */
+export function blobOidOf(rel, { root = ROOT } = {}) {
+  return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+}
+
+/**
+ * 本 leg 已登记 ∧ 工作树 blob 仍相符的路径集合(⇒ 本轮跳过,即幂等续跑)。
+ * 账本读不到 ⇒ {ok:false}:调用方必须回落现行为(照旧全量尝试)并在结论行标
+ * ledger=unjudged —— 失效方向是"多做一遍",绝不是"少做一遍"或判死。
+ */
+export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date() } = {}) {
+  const r = collectiblePaths(now, { quietMs: 0, face: 'worktree', root })
+  if (!r.ok) return { ok: false, reason: r.reason, paths: new Set() }
+  return { ok: true, paths: new Set(r.collectible.filter((c) => c.leg === leg).map((c) => c.path)) }
+}
+
+/**
+ * 落盘成功后一次批量登记:逐路径**写完盘后实测** oid(绝不取 HEAD 旧值)→ appendLanding。
+ * 本体永不抛(账本不可写只如实报 landingError,§0.3);同轮共用一个 ISO 时刻。
+ */
+export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString() } = {}) {
+  if (!paths.length) return { ok: true, landing: 0, deduped: 0, rejected: [] }
+  try {
+    const list = paths.map((p) => ({ at, leg, path: p, blobOid: blobOidOf(p, { root }) }))
+    const r = appendLanding(list, { root })
+    return { ok: true, landing: r.appended, deduped: r.deduped, rejected: r.rejected }
+  } catch (e) {
+    return { ok: false, landing: 0, deduped: 0, rejected: [], error: String(e?.message ?? e).split('\n')[0] }
+  }
+}
+
+/** 结论行机读尾段(三枚 lander 逐字同形,同形锁见 scripts/tests/land-*.test.mjs)。 */
+export function landingKeys({ landing = 0, deduped = 0, rejected = 0, skipLanded = 0, ledgerUnjudged = false, landingErr = '' } = {}) {
+  const parts = [`landing=${landing}`, `landingPath=${LEDGER_REL}`, `skipLanded=${skipLanded}`]
+  if (deduped) parts.push(`landingDedup=${deduped}`)
+  if (rejected) parts.push(`landingRejected=${rejected}`)
+  if (ledgerUnjudged) parts.push('ledger=unjudged')
+  if (landingErr) parts.push(`landingError=${landingErr.replace(/\s+/g, '_').slice(0, 100)}`)
+  return ` ${parts.join(' ')}`
+}
+
+/** 开轮:读账本取"已落集合"(仅 --apply 档);账本读不到 ⇒ 回落全量 + unjudged 标记。 */
+function openLandingRound() {
+  const st = { set: new Set(), unjudged: false, batch: [], skipLanded: 0 }
+  if (!apply) return st
+  const lp = landedPathsOf()
+  if (lp.ok) st.set = lp.paths
+  else st.unjudged = true
+  return st
+}
+
+/** 收尾:本批产出一次登记(R1);登记失败绝不冒充成功(landingError 如实带上)。 */
+function closeLandingRound(st) {
+  const out = { landing: 0, deduped: 0, rejected: 0, err: '' }
+  if (!(apply && st.batch.length)) return out
+  const reg = registerLanding(st.batch)
+  out.landing = reg.landing
+  out.deduped = reg.deduped
+  out.rejected = reg.rejected.length
+  if (!reg.ok) out.err = reg.error
+  else if (out.rejected) out.err = `rejected=${out.rejected}:${reg.rejected[0].reason}`
+  return out
+}
+
+/** 结论行尾段(把轮状态摊平成 landingKeys 入参)。 */
+function landingTailOf(st, reg) {
+  return landingKeys({
+    landing: reg.landing,
+    deduped: reg.deduped,
+    rejected: reg.rejected,
+    skipLanded: st.skipLanded,
+    ledgerUnjudged: st.unjudged,
+    landingErr: reg.err,
+  })
+}
+
+const SELF_TEST_CASES = [
+  { name: '间距等值命中 ⇒ 换 var', css: '.a{padding:24rpx}', want: '.a{padding: var(--spacing-md)}', n: 1 },
+  { name: '字号等值命中 ⇒ 换 var', css: '.b{font-size:28rpx}', want: '.b{font-size: var(--text-body)}', n: 1 },
+  { name: '档外值不动', css: '.c{padding:26rpx}', want: '.c{padding:26rpx}', n: 0 },
+  { name: 'line-height 不动(有歧义)', css: '.d{line-height:40rpx}', want: '.d{line-height:40rpx}', n: 0 },
+  { name: 'calc/var 表达式不动', css: '.e{padding:calc(24rpx + 1px)}', want: '.e{padding:calc(24rpx + 1px)}', n: 0 },
+  // 量纲:rpx ÷ 2 = 逻辑 px。16rpx=8px(=sm)、8rpx=4px(=xs)—— 期望值按档表现算,不是按"看起来像"。
+  { name: '短横线属性也认', css: '.f{padding-left:16rpx;margin-top:8rpx}', want: '.f{padding-left: var(--spacing-sm);margin-top: var(--spacing-xs)}', n: 2 },
+  { name: '百分号/其它单位不动', css: '.g{padding:24rpx 24%;}', want: '.g{padding: var(--spacing-md) 24%;}', n: 1 },
+  // 实测踩过:注释里的同形文本被改写,等于把"这一处以原项目某值为准"的证据毁掉。
+  { name: '注释里的同形文本不动', css: '/* 原项目 padding:4rpx 20rpx */\n.h{padding:8rpx}', want: '/* 原项目 padding:4rpx 20rpx */\n.h{padding: var(--spacing-xs)}', n: 1 },
+]
+
+function runSelfTest() {
+  const spacingPx = { none: 0, '2xs': 2, xs: 4, 'xs-loose': 6, sm: 8, 'sm-loose': 10, md: 12, lg: 16, xl: 20, '2xl': 24, '3xl': 32, '4xl': 40, '5xl': 48, '6xl': 64 }
+  const typeSizes = { badge: 10, caption: 11, label: 12, body: 14, strong: 15, title: 16, subtitle: 18, heading: 20, display: 24, 'display-lg': 30 }
+  const rev = buildReverse(spacingPx, typeSizes)
+  let pass = 0
+  let fail = 0
+  for (const c of SELF_TEST_CASES) {
+    const r = rewriteCss(c.css, rev)
+    const ok = r.out === c.want && r.changes === c.n
+    if (ok) pass++
+    else {
+      fail++
+      console.error(`✗ ${c.name}\n  得到:${r.out}\n  期望:${c.want} (changes=${r.changes}, want=${c.n})`)
+    }
+  }
+  /**
+   * 字号 className 面(2026-11-03):具名档 utility 自带 font-size + line-height + font-weight。
+   * 行高由显式 leading-* 经 `var(--tw-leading)` 压住;字重必须由守卫判 —— 与档位不一致就跳过。
+   */
+  const fontRev = buildReverse(spacingPx, {
+    bodySm: { size: 13, weight: 400 },
+    heading: { size: 20, weight: 700 },
+  })
+  const FONT_CASES = [
+    {
+      name: '无显式字重 + 档 400 ⇒ 落档(行高有 leading 锁)',
+      src: '<Text className="text-[length:26rpx] leading-[40rpx]" />',
+      want: '<Text className="text-body-sm leading-[40rpx]" />',
+      n: 1,
+    },
+    {
+      name: 'font-medium 与档 400 冲突 ⇒ 不动',
+      src: '<Text className="text-[length:26rpx] font-medium leading-[40rpx]" />',
+      want: '<Text className="text-[length:26rpx] font-medium leading-[40rpx]" />',
+      n: 0,
+    },
+    {
+      name: '无显式字重 + 档 700 ⇒ 不动(继承字重不确定)',
+      src: '<Text className="text-[length:40rpx] leading-[48rpx]" />',
+      want: '<Text className="text-[length:40rpx] leading-[48rpx]" />',
+      n: 0,
+    },
+    {
+      name: 'font-bold 与档 700 一致 ⇒ 落档',
+      src: '<Text className="text-[length:40rpx] font-bold leading-[48rpx]" />',
+      want: '<Text className="text-heading font-bold leading-[48rpx]" />',
+      n: 1,
+    },
+  ]
+  for (const c of FONT_CASES) {
+    const r = rewriteClassNameTokens(c.src, fontRev)
+    const ok = r.out === c.want && r.changes === c.n
+    if (ok) pass++
+    else {
+      fail++
+      console.error(`✗ ${c.name}\n  得到:${r.out}\n  期望:${c.want} (changes=${r.changes}, want=${c.n})`)
+    }
+  }
+  console.log(`--self-test: ${pass} passed / ${fail} failed`)
+  process.exit(fail === 0 ? 0 : 1)
+}
+
+/**
+ * 纯函数:内联 `style={{ … }}` 里的间距/尺寸 rpx 字面量 → `var(--spacing-*)`。
+ *
+ * 可行性已实测(2026-10-31):小程序把内联 style 编译进 **JS 运行时**而不是 wxml 静态属性 ——
+ * `dist/pages/community/index.js` 里能直接读到 `var(--app-top-bar-color…)` 这类既存写法,
+ * 所以内联 `var()` 与 CSS 文件里同效,不需要额外处理。
+ *
+ * 只吃 `Prop: 'Nrpx'` 这种**带引号的纯值**;`rpx(24)` 函数调用、条件表达式、多值简写一律不动
+ * (要解析 JS 表达式才安全,收益不值这个风险)。
+ */
+export function rewriteInlineStyles(text, rev) {
+  const masked = maskCommentsEqualLen(text)
+  let changes = 0
+  const samples = []
+  const styleRe = /style=\{\{([\s\S]*?)\}\}/g
+  const propRe = /\b(padding|paddingTop|paddingRight|paddingBottom|paddingLeft|margin|marginTop|marginRight|marginBottom|marginLeft|gap|rowGap|columnGap|width|height|minWidth|minHeight|top|right|bottom|left)\s*:\s*(['"])(\d+(?:\.\d+)?)rpx\2/g
+  const out = text.replace(styleRe, (all, body, offset) => {
+    if (masked.slice(offset, offset + all.length) !== all) return all
+    const replaced = body.replace(propRe, (m, prop, quote, num) => {
+      const step = rev.spacing.get(Number(num) / 2)
+      if (!step) return m
+      changes++
+      if (samples.length < 6) samples.push(`${prop}: ${num}rpx → var(--spacing-${step})`)
+      return `${prop}: ${quote}var(--spacing-${step})${quote}`
+    })
+    return replaced === body ? all : `style={{${replaced}}}`
+  })
+  return { out, changes, samples }
+}
+
+/**
+ * 字号面(`--font-safe`)主流程:与 CSS 面共用归属避让 / 水印 / 幂等三件套。
+ * 只换"有 leading 覆盖"的字号任意值(零视觉变化),其余一律留给视觉验收。
+ */
+function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINIAPP-FONT') {
+  const files = listSourceFiles()
+  if (!files.length) {
+    console.error('❌ 未判定:字号面候选枚举到 0 个')
+    process.exit(2)
+  }
+  const dirty = ownershipDirtyPaths({ root: ROOT })
+  if (dirty === null) {
+    console.error('❌ 未判定:git status 取不到,归属未知不猜')
+    process.exit(2)
+  }
+  const held = []
+  const results = []
+  const samples = []
+  const skipStats = {}
+  const skipDetail = []
+  const landRound = openLandingRound()
+  let total = 0
+  for (const f of files) {
+    if (landRound.set.has(f)) {
+      landRound.skipLanded++
+      continue
+    }
+    let src
+    try {
+      src = readWorktreeFile(ROOT, f)
+    } catch {
+      held.push(`${f}(工作树读不到)`)
+      continue
+    }
+    const r = fn(src, rev)
+    for (const s of r.skipped || []) {
+      skipStats[s.reason] = (skipStats[s.reason] || 0) + 1
+      if (skipDetail.length < 12) skipDetail.push(`${f}: ${s.raw}(${s.reason})`)
+    }
+    if (r.changes === 0) continue
+    if (dirty.has(f)) {
+      held.push(f)
+      continue
+    }
+    results.push({ file: f, changes: r.changes })
+    total += r.changes
+    for (const s of r.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
+    if (apply) {
+      watermark('clean', f)
+      const cleaned = readWorktreeFile(ROOT, f)
+      const rr = fn(cleaned, rev)
+      if (rr.changes === 0) {
+        watermark('inject', f)
+        continue
+      }
+      writeFileSync(join(ROOT, f), rr.out)
+      watermark('inject', f)
+      watermark('verify', f)
+      landRound.batch.push(f)
+    }
+  }
+  const landReg = closeLandingRound(landRound)
+  if (jsonMode) {
+    console.log(
+      JSON.stringify(
+        {
+          mode: 'font-safe',
+          scanned: files.length,
+          files: results.length,
+          changes: total,
+          held: held.length,
+          applied: apply,
+          detail: results,
+          samples,
+          skipped: skipStats,
+          skipDetail,
+          landing: landReg.landing,
+          landingPath: LEDGER_REL,
+          skipLanded: landRound.skipLanded,
+          ledger: landRound.unjudged ? 'unjudged' : 'ok',
+          ...(landReg.err ? { landingError: landReg.err } : {}),
+        },
+        null,
+        0,
+      ),
+    )
+    return
+  }
+  for (const r of results.slice(0, 12)) console.log(`  ${r.file}  ${r.changes} 处`)
+  if (results.length > 12) console.log(`  …另 ${results.length - 12} 个文件`)
+  for (const s of samples) console.log(`  样例 ${s}`)
+  const skipTotal = Object.values(skipStats).reduce((a, b) => a + b, 0)
+  if (skipTotal)
+    console.log(
+      `  跳过 ${skipTotal} 处(${Object.entries(skipStats).map(([k, v]) => `${k}=${v}`).join(' ')})`,
+    )
+  for (const s of skipDetail.slice(0, 6)) console.log(`  跳过样例 ${s}`)
+  if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
+  console.log(`结论:${label} state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${total} held=${held.length}` + landingTailOf(landRound, landReg))
+}
+
+function main() {
+  if (selfTest) runSelfTest()
+  const refs = ['packages/design-tokens/src/spacing.ts', 'packages/design-tokens/src/typography.ts', 'packages/design-tokens/src/elevation.ts']
+  const texts = new Map()
+  for (const r of refs) {
+    try {
+      texts.set(r, String(gitRaw(['show', `HEAD:${r}`], ROOT)))
+    } catch {
+      console.error(`❌ 未判定:档表源取不到 ${r}`)
+      process.exit(2)
+    }
+  }
+  const tables = parseTokenTables({
+    spacing: texts.get(refs[0]),
+    typography: texts.get(refs[1]),
+    elevation: texts.get(refs[2]),
+  })
+  const rev = buildReverse(tables.SPACING_STEPS, tables.TYPE_STEPS)
+
+  if (font400) {
+    // 只保留 **font-weight=400** 的字号档(body/label/caption/badge):它们的 font-weight 与文档默认一致,
+    // 替换后字重不变;而 title(600)/heading(700) 这些档会改字重 —— 那是视觉变更,不自动做。
+    const weightOf = new Map(Object.entries(tables.TYPE_STEPS).map(([k, v]) => [k.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase(), Number(v?.weight ?? 400)]))
+    const restricted = { ...rev, type: new Map([...rev.type].filter(([, step]) => weightOf.get(step) === 400)) }
+    return runFontSafe(font400, restricted, (tx, rv) => rewriteClassNameTokens(tx, rv, { requireLeading: false }), 'LAND-MINIAPP-FONT-400')
+  }
+  if (fontAll) return runFontSafe(fontAll, rev, (tx, rv) => rewriteClassNameTokens(tx, rv, { requireLeading: false }), 'LAND-MINIAPP-FONT-ALL')
+  if (inlineSafe) return runFontSafe(inlineSafe, rev, rewriteInlineStyles, 'LAND-MINIAPP-INLINE')
+  if (fontSafe) return runFontSafe(fontSafe, rev)
+
+  const files = listCssFiles()
+  if (!files.length) {
+    console.error('❌ 未判定:CSS 候选枚举到 0 个')
+    process.exit(2)
+  }
+  const dirty = ownershipDirtyPaths({ root: ROOT })
+  if (dirty === null) {
+    console.error('❌ 未判定:git status 取不到,归属未知不猜')
+    process.exit(2)
+  }
+
+  const held = []
+  const results = []
+  let totalChanges = 0
+  const allSamples = []
+  const landRound = openLandingRound()
+  for (const f of files) {
+    if (landRound.set.has(f)) {
+      landRound.skipLanded++
+      continue
+    }
+    let src
+    try {
+      src = readWorktreeFile(ROOT, f)
+    } catch {
+      held.push(`${f}(工作树读不到)`)
+      continue
+    }
+    const r = rewriteCss(src, rev)
+    if (r.changes === 0) continue
+    if (dirty.has(f)) {
+      held.push(f)
+      continue
+    }
+    results.push({ file: f, changes: r.changes })
+    totalChanges += r.changes
+    for (const s of r.samples) if (allSamples.length < 10) allSamples.push(`${f}: ${s}`)
+    if (apply) {
+      if (fileArgs.length) {
+        writeFileSync(join(ROOT, f), r.out)
+        landRound.batch.push(f)
+      } else {
+        watermark('clean', f)
+        const cleaned = readWorktreeFile(ROOT, f)
+        const rr = rewriteCss(cleaned, rev)
+        if (rr.changes === 0) {
+          watermark('inject', f)
+          continue
+        }
+        writeFileSync(join(ROOT, f), rr.out)
+        watermark('inject', f)
+        watermark('verify', f)
+        landRound.batch.push(f)
+      }
+    }
+  }
+  const landReg = closeLandingRound(landRound)
+
+  const summary = {
+    scanned: files.length,
+    changedFiles: results.length,
+    changes: totalChanges,
+    held: held.length,
+    applied: apply,
+    landing: landReg.landing,
+    landingPath: LEDGER_REL,
+    skipLanded: landRound.skipLanded,
+    ledger: landRound.unjudged ? 'unjudged' : 'ok',
+    ...(landReg.err ? { landingError: landReg.err } : {}),
+  }
+  if (jsonMode) {
+    console.log(JSON.stringify({ ...summary, files: results, samples: allSamples }, null, 0))
+    return
+  }
+  for (const r of results.slice(0, 12)) console.log(`  ${r.file}  ${r.changes} 处`)
+  if (results.length > 12) console.log(`  …另 ${results.length - 12} 个文件`)
+  for (const s of allSamples) console.log(`  样例 ${s}`)
+  if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
+  console.log(
+    `结论:LAND-MINIAPP-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} held=${held.length}` +
+      landingTailOf(landRound, landReg),
+  )
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.error(`❌ 未判定:${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
+
+export const __test__ = {
+  rewriteCss,
+  rewriteClassNameTokens,
+  rewriteInlineStyles,
+  buildReverse,
+  SELF_TEST_CASES,
+  listSourceFiles,
+  LEG_NAME,
+  LEDGER_REL,
+  blobOidOf,
+  landedPathsOf,
+  registerLanding,
+  landingKeys,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

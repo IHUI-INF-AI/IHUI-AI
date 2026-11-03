@@ -1,0 +1,3517 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Windows 服务二进制路径烂掉量算器(票 G-302;只读:不创建/修改/启停任何服务、不写注册表)。
+ *
+ * 立因(真机实测 2026-09-27):`IHUI-RSSHUB` 的 nssm Application 指向
+ * `C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-2\node.exe`,该 IDE 自升级把
+ * 目录换成 22.22.2-3 ⇒ 路径不存在、服务停(win32 退出码 3),而提交链上全部门禁没有一道看得见,
+ * Alertmanager 当时 0 条告警 —— 静默了 3 天。
+ *
+ * 判"某服务在不在跑"必须**分开问三件事**(本仓同族教训:一条门只管自己立项那一型,就是那一型的洞):
+ *   D1 STATE   —— 服务现在什么态。只看这条会把"启动即崩"读成"停着而已"。
+ *   D2 路径     —— 服务配置写的 Application 是否真是可用文件(AppDirectory 是否真是目录)。
+ *   D3 答不答   —— 2026-09-29 起不再只看"配置里声明了哪个端口":先问**这个服务的进程树实际在听什么**,
+ *                  再按**该端口实际绑定的地址**探一次;两者都量不到 ⇒ 如实"未判定",绝不推测成没问题。
+ *
+ * D3 的两处缺陷是本票改的对象(全部真机现读,不引用文档数字):
+ *   ① 旧判据的端口**只**取自服务配置声明(REG pb64 ∪ nssm AppParameters/AppEnvironmentExtra)。声明为空
+ *      ⇒ 直接判"未判定",**从不问进程实际在听什么**。后果不是"少一维信息",而是:某个服务的子进程
+ *      死了、监听消失,这台尺子不会变红,因为它本来就没在看 —— 而它存在的理由(RSSHub 静默停 3 天)
+ *      恰恰依赖这一维。本机实测 21 个服务里有 **12 个**因此停在"未判定"。
+ *   ② 旧探测写死 `net.connect({host:'127.0.0.1'})`。实测 `Keycloak` 的 `7800` **只绑在网卡地址**
+ *      `192.168.1.37:7800`:对它用 127.0.0.1 探必回 ECONNREFUSED ⇒ 一个活端口会被报成失败。现按 netstat
+ *      给出的**实际绑定地址**探:`0.0.0.0` / `[::]` 这类通配才回落到 127.0.0.1,`[::1]` 用 `::1`
+ *      (纯 IPv6 回环监听在 IPv4 上不可达,拿 127.0.0.1 探就是重犯 ②),具体网卡地址就用那个地址。
+ *   进程树归并是必须的:nssm 托管的"服务进程"(Win32_Service.ProcessId)常常只是包装进程,真正持有监听
+ *   端口的是它派生的子进程(实测 9 个全部如此,例如 IHUI-WEB 服务 pid 与监听者 pid 不同)。只查服务 pid
+ *   会把 9 个健康服务全判成"没有监听"。归并有深度上限 + 环保护 + 节点上限,并排除 pid ≤ 4(System/Idle)。
+ *   **一处如实登记的判据边界**:本机对"声明了端口"的服务,子进程死掉 ⇒ 声明端口无应答 ⇒ 判问题(有牙);
+ *   而对"从不声明端口"的那一批,子进程死掉后的形态是"进程树实测无监听" ⇒ 落"此维不适用"的未判定,
+ *   **不是判问题** —— 要判"曾经有、现在没了"需要一份上次读数做对照,那属下一票,不得在此假称已覆盖。
+ *
+ * D2/D3 有**两条互不替代的取材通道**(add/add 合并票的实质:两个会话各写了其中一条,现读两侧各缺一半):
+ *   REG  = 注册表 `HKLM:/SYSTEM/CurrentControlSet/Services` 的 `Parameters\Application|AppDirectory|pb64`
+ *          (pb64 是 AppParameters+AppEnvironmentExtra 的 base64,免竖线分隔冲突与码页污染)。
+ *          不依赖 nssm.exe 在位;且把**全部 nssm 托管服务无条件拉进射程** —— 本机实测 `Keycloak` 是
+ *          nssm 托管而不在 IHUI* 过滤集内,只按名字过滤的那一版对它零判据。
+ *          `REGMISSING` + 末行 `SUM|<服务键总数>` 是这条通道的完整性哨兵:没有它们,"0 行"与
+ *          "整面没枚举到"同形(§22c:判据失效的表现永远是安静)。
+ *   NSSM = `nssm get <svc> Application|AppDirectory|AppParameters|AppEnvironmentExtra`,独有的价值是把
+ *          **"值为空"(退出码 0 + 空白载荷)与"取不到值"(非零退出/派生失败)** 分成两态 —— 前者是量到的
+ *          坏值,后者是尺子失效。实测 nssm stdout 为 UTF-16LE 无 BOM(NUL 占比 0.500,现读复核),
+ *          按 utf8 读会得到夹杂 NUL 的乱码结论。
+ *   两通道都取到同一个 Application 而值不同 ⇒ 判问题并点名两个值(互为旁证,不是二选一)。
+ *   注册表枚举成功而该服务不在其中 ⇒ `nssmManaged=measured(false)` ⇒ 它不是 nssm 托管(实测 IHUI-PG:
+ *   nssm 对它回 `Parameter "Application" is only valid for services managed by NSSM!`)⇒ 记 `skipped`
+ *   而不是 unattested。**只有当所有失明维都能被"非 nssm 托管"解释时才这样降**:STATE 失明或已量到坏值
+ *   时绝不降 —— 否则 skipped 就成了新的消红通道。
+ *
+ * 每维三态硬要求:`量到了 N` / `量不到(点名原因)` / `确实是 0` 绝不并桶。非 win32、两把解释器候选都不
+ * 在位、派生超时、输出形态不认识、取值疑被码页打断、Application 非绝对路径 ⇒ 一律未判定:既不记通过,
+ * 也**不冒判"路径不存在"**(那会把尺子失效伪装成"这台机有一批坏服务")。
+ *
+ * D4(2026-10-29 新增)**env 形态对账(只报数维,永不参与退出码)** —— 立因是当晚两个多小时的静默故障:
+ *   `IHUI-WEB-GREEN` 的 `AppEnvironmentExtra` 被 `nssm set ... "A=1 B=2 C=3"` 写成了**一整串**(一条参数),
+ *   而正确形态 `nssm set ... A=1 B=2 C=3`(逐条参数)在 `nssm get` 回显里是每个 KEY=VALUE 占一行。
+ *   畸形形态下 `IHUI_WEB_PORT` 被应用读成 `"8852 IHUI_WEB_HOST=… IHUI_BUILD_DIST=…"` ⇒ 启动脚本 `[int]`
+ *   转换崩 ⇒ 8852 永不健康 ⇒ web 蓝绿每轮 Fail、00:35→02:32 没有任何一次部署真正上岗;更误导的是
+ *   `nssm start` 回 `Unexpected status SERVICE_PAUSED`、`Get-Service` 读到 Paused、日志文件根本不创建
+ *   (成因是应用起不来 ⇒ AppExit=Restart 进 AppThrottle 节流窗)—— 症状把排查指错方向近两小时,
+ *   而这期间提交链上全部守门绿。**这一维就是当场抓住它的那把尺**:对台账里声明了端口期望的每一色服务,
+ *   问 nssm 本人要 env 块(取材复用既有 NSSM 通道与 UTF-16/BOM 归一,零新增派生),逐行解析后断言存在
+ *   **一整行恰为 `<envPortKey>=<期望端口>`** 的条目;读数四档不并桶:`ok`(整行等值命中)/
+ *   `malformed`(键在而值含空格或 ≠ 期望端口 ⇒ 点名"env 被写成一整串"并给唯一正解
+ *   `nssm set <svc> AppEnvironmentExtra K1=V1 K2=V2` 逐条传参)/ `missing`(整块无该键)/
+ *   `undetermined`(问不到 nssm / rec 上没有该维 / 台账缺 envPortKey ⇒ 未判定,不记绿也不冒红,§0.3)。
+ *   不靠 env 定端口的成员(router 类)由台账 `noPortExpectationMembers` **显式**声明"无端口期望",
+ *   判据只点名不猜(§0.6:键名/端口/服务名一律住台账,判据零写死)。
+ *   **档位纪律(§12e/§12f)**:这一维判的是机器现状,与任何提交内容无关 ⇒ 结论只进 `--json` 与人读文本、
+ *   供守护巡检轮与人工读,**不参与 computeExitCode、不改任何 level** —— 与仓内基准对账维(`meta.baseline`)
+ *   同一种"只报数"接法;挂进提交链就是恒红门,唯一结局是逼人 `--no-verify`。
+ *
+ * 定级(不得自作主张改):**warn / 手动问责档,绝不进 blocking 提交链** —— 服务路径属机器状态,提交者
+ * 结构上满足不了;挂 blocking 就是每台每次被逼跳门、连带让全部守门作废(§12e 同型)。先例:
+ * check-artifact-budget(warn)、visible-window-probe(刻意不进提交链)。它**不是守门判红项**,但
+ * `scripts/guardian-runner.mjs` 现以 `mode:'warn' + skipEnv:'HUSKY_SKIP_SERVICE_BINARY_PATHS'` 注册它,
+ * 所以本文件**必须**读那个开关(只在 CLI 档生效,§22d)—— 注册表声明了出路而脚本不读,等于写一条
+ * 跑不通的出路(AGENTS §守门速查里 46/11c/50 记过同型)。定级要改只能改成 warn,不得升 blocking。
+ *
+ * 用法:node scripts/check-service-binary-paths.mjs [--json] [--strict] [--service <名>]... [--filter 'IHUI*'] [--self-test]
+ *   问责入口 `pnpm check:service-paths`(默认档);`--strict` 把"有维量不到"也计入不通过(拒绝出具合格证)。
+ *   仓内基准维(G-10):`scripts/data/service-definitions.json` 在位时对账"列出/在册/缺/启动类型/Application/快照过期"六件事,
+ *   **只报数点名,不判红、不改退出码**(只读对账器,判红权归人);基准读不到或解不开 ⇒ 记未判定,绝不读成"没有差异"。
+ * 退出码:0 = 跑完且没有量到的问题(有未判定维时末行明写"不出具合格证");1 = 至少一个服务**量到**了问题
+ *   (路径不存在 / 非 RUNNING / 声明端口无应答 / 观察到的监听端点全部不应答 / Application 值为空 / 两通道取值不一致),--strict 下含未判定;
+ *   2 = 未判定到给不出任何结论(非 win32 / 任一枚举通道没跑到 / 没有任何可判对象 / --self-test 失败)。
+ */
+import { spawnSync } from 'node:child_process'
+import net from 'node:net'
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { hostname } from 'node:os'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitFaceEscapesToRepo, isAllowedScratchRoot, mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+
+/** 解释器候选(合并自对侧):装了 PS7 优先它(AGENTS §27),in-box 兜底。
+ *  ⚠ 本机 2026-09-28 现读 $PSVersionTable:**两者都是 7.6.2**,所以这条不是"两套引擎取其一",
+ *  而是"其中一把不在位时本门不得整维失明"。候选一律绝对路径 —— 裸命令名依赖 PATH,而服务身份与
+ *  交互账户的 PATH 互不相通(§5b 记过同型)。 */
+export const PS_CANDIDATES = [
+  { bin: 'C:/Program Files/PowerShell/7/pwsh.exe', label: 'pwsh(7)' },
+  { bin: 'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe', label: 'powershell(in-box)' },
+]
+/** nssm 候选绝对路径 —— 机器事实按当次存在性取;都不在位则 NSSM 通道未判定(REG 通道仍可判 D2)。 */
+export const NSSM_CANDIDATES = ['C:\\Windows\\System32\\nssm.exe']
+/** netstat 的绝对路径候选 —— 同上,不依赖 PATH(§5b:服务身份与交互账户的 PATH 互不相通)。
+ *  SystemRoot 由 env 推导而不是写死盘符;都不在位 ⇒ 监听观察维未判定(绝不读成"没有监听")。 */
+export const NETSTAT_CANDIDATES = [
+  ...(process.env.SystemRoot ? [process.env.SystemRoot.replace(/[\\/]+$/, '') + '\\System32\\NETSTAT.EXE'] : []),
+  'C:\\Windows\\System32\\NETSTAT.EXE',
+]
+/** 通道 PROC 的首尾哨兵 + 两段各自的计数行:与 STATE/REG 同一条规矩 ——
+ *  没有它们,"0 行"与"整面没枚举到"同形(§22c:判据失效的表现永远是安静)。 */
+export const PROC_HEAD = '#IHUI-PROCLIST v1'
+export const PROC_TAIL = '#IHUI-PROCLIST-END'
+/** REG 通道里 `Parameters` 子键不存在 / 编码失败 的两个哨兵(带 '!' 前缀,与 base64 字符集互斥,
+ *  所以解析式不会把真 base64 读成哨兵,也不会把哨兵读成空载荷)。 */
+export const REG_NO_PARAMS = '!N'
+export const REG_ENCODE_ERROR = '!E'
+/** 通道 A 的枚举要同时见到首尾哨兵才算"量到了";§5b 记过双引号转义让 PS 静默返空的坑,
+ *  没有哨兵的"0 行"与"根本没跑到"必须能分开。 */
+export const ENUM_HEAD = '#IHUI-SVC-LIST v1'
+export const ENUM_TAIL = '#IHUI-SVC-END'
+/** 仓内服务定义基准(入库真相源)的相对落点。§15:落点由脚本自身位置推导(本文件在 <repo>/scripts/ 下),
+ *  禁 `process.cwd()` —— 共享工作区里 cwd 不可靠。该文件只由人工/快照生成器写,本门**只读**。 */
+export const BASELINE_REL = 'scripts/data/service-definitions.json'
+export const SERVICE_BASELINE_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'service-definitions.json')
+/** 『停着是设计内』台账(2026-10-28 新增;2026-10-29 起蓝绿按**族**参数化,api 与 web 两族共用本份实现)。
+ *  它要治的是**假红**而不是放宽判据 —— 见该文件头注与 `applyExpectedStopped` 的约束:只豁免 STATE 的
+ *  `stopped` 这一档(PAUSED 是挂起 ≠ 停着,照旧红)、台账/状态文件读不到就不豁免、豁免带 reviewBy 会到期。 */
+export const EXPECTED_STOPPED_REL = 'scripts/data/expected-stopped-services.json'
+export const EXPECTED_STOPPED_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'expected-stopped-services.json')
+const PS_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_ENUM_TIMEOUT_MS) || 120_000
+const NSSM_TIMEOUT_MS = 5_000
+const TCP_TIMEOUT_MS = 1_500
+const NETSTAT_TIMEOUT_MS = 15_000
+const PROC_TIMEOUT_MS = 60_000
+/** 每服务最多探这么几个端点(再多说明配置里有噪声,只按前几个作答,其余如实报数)。 */
+const MAX_PROBE_PORTS = 6
+/** 进程树归并的两条硬上限 + 环保护:没有上限时,一台机器上 pid/ppid 数据异常就能把遍历变成死循环。 */
+const TREE_MAX_DEPTH = 6
+const TREE_MAX_NODES = 800
+
+// ---------------------------------------------------------------------------
+// 三态维度的唯一表示:`{kind:'measured', value}` 或 `{kind:'unmeasured', reason}`。
+// "值是空串/空数组"属于 **measured**(量到了空),"拿不到"才属于 unmeasured。
+// ---------------------------------------------------------------------------
+const measured = (value) => ({ kind: 'measured', value })
+const unmeasured = (reason) => ({ kind: 'unmeasured', reason: String(reason ?? '(无原因)') })
+
+// ---------------------------------------------------------------------------
+// 纯函数层(全部被测试直接 import,§22c:测试里不得再抄一份实现)
+// ---------------------------------------------------------------------------
+
+/**
+ * nssm 输出解码。实测 stdout 是**无 BOM 的 UTF-16LE**(NUL 占比 ~0.5);不假设一定有 BOM,
+ * 按 NUL 密度识别,识别不了退回 utf8 并如实标 encoding。
+ */
+export function decodeNssm(buf) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.alloc(0)
+  if (b.length === 0) return { encoding: 'empty', text: '' }
+  let nul = 0
+  for (const byte of b) if (byte === 0) nul++
+  const ratio = nul / b.length
+  if (b[0] === 0xff && b[1] === 0xfe) return { encoding: 'utf16le', text: b.toString('utf16le').replace(/^\uFEFF/, '') }
+  if (ratio >= 0.25 && b.length % 2 === 0) return { encoding: 'utf16le', text: b.toString('utf16le') }
+  return { encoding: 'utf8', text: b.toString('utf8') }
+}
+
+/**
+ * 把一次 nssm get 的原始结果折叠成一个维度。
+ * 关键分岔:**code===0** 才是"取到了"(哪怕载荷是空白 ⇒ 值为空),
+ * **派生失败 / 非零退出码** 一律 unmeasured 并带上 stderr 片段 —— 二者绝不同态。
+ */
+export function interpretNssmGet(raw) {
+  if (raw?.spawnError) {
+    const why = raw.spawnError === 'ETIMEDOUT' ? '派生超时' : raw.spawnError === 'ENOENT' ? 'nssm 不在位' : raw.spawnError
+    return unmeasured(`取不到值:派生失败(${why})`)
+  }
+  if (typeof raw?.code !== 'number') return unmeasured('取不到值:没有退出码可判')
+  if (raw.code !== 0) {
+    const err = decodeNssm(raw.stderrBuf).text.replace(/\r?\n/g, ' ').trim().slice(0, 120)
+    return unmeasured(`取不到值:nssm 非零退出码 ${raw.code}${err ? ` (${err})` : ''}`)
+  }
+  const text = decodeNssm(raw.stdoutBuf).text.replace(/\r\n/g, '\n').trim()
+  if (text === '') return measured(null) // ← "值为空":量到了,内容是空
+  const first = text.split('\n')[0].trim()
+  if (first === '') return measured(null)
+  return measured(first)
+}
+
+/** nssm 的**多值**参数(AppEnvironmentExtra 每行一个值;AppParameters 也可能被分行写)不得只取首行。
+ *  实测合并前本侧把 AppEnvironmentExtra 读成首行 ⇒ IHUI-OLLAMA 的 OLLAMA_HOST=127.0.0.1:11434 落在
+ *  第二行以后,端口维被读成"确实没声明"(未判定),而注册表那份给得出 11434 —— 这就是本票合并前后
+ *  该服务从"未出具合格证"变成"全维健康"的真实原因(现读退出码与名单见交付报告)。
+ *  与 interpretNssmGet 的分工:单值参数仍取首行(语义不变),多值参数走这里保留全部行。 */
+export function interpretNssmGetMultiline(raw) {
+  if (raw?.spawnError || typeof raw?.code !== 'number' || raw.code !== 0) return interpretNssmGet(raw)
+  const text = decodeNssm(raw.stdoutBuf).text.replace(/\r\n/g, '\n')
+  const lines = text.split('\n').map((l) => l.trim()).filter((l) => l !== '')
+  return lines.length === 0 ? measured(null) : measured(lines.join('\n'))
+}
+
+/** 取值疑似被码页打断(替换字符 U+FFFD / C0 控制字符,不含 Tab 与 CRLF)⇒ 不得据它判"路径不存在"
+ *  (合并自对侧)。刻意用码位枚举而不是把 U+FFFD 写进源码字符类 —— 那是本仓记过的"说明性文字
+ *  也会带执行性字符"那一型,而且复制粘贴会把 BOM/零宽字符一起带进来,让判据悄悄改义。 */
+export function looksCorrupted(v) {
+  const s = String(v)
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if (c === 0xfffd) return true
+    if (c <= 0x08) return true
+    if (c === 0x0b || c === 0x0c) return true
+    if (c >= 0x0e && c <= 0x1f) return true
+  }
+  return false
+}
+
+/** 端口维度:从服务**自身配置**(注册表 pb64 与/或 nssm AppParameters+AppEnvironmentExtra)里抠端口。
+ *  只认这几形态;抠不到 ⇒ 空数组(合法结论"该配置确实没写端口"),不是猜测。 */
+export function extractPortsFromConfig(texts) {
+  const joined = (Array.isArray(texts) ? texts : [texts]).filter((t) => typeof t === 'string' && t !== '').join('\n')
+  const out = new Set()
+  const push = (raw) => {
+    const n = Number(raw)
+    if (Number.isInteger(n) && n > 0 && n <= 65535) out.add(n)
+  }
+  for (const m of joined.matchAll(/PORT=(\d{2,5})\b/g)) push(m[1])
+  // 刻意不写 \bHOST=:实测 OLLAMA_HOST 这类带下划线前缀的键里,"词边界"会把整条正则打掉
+  // (下划线是词字符)—— 那是"扫到 0"伪装成"没有声明"的一型。
+  for (const m of joined.matchAll(/HOST=[^\s;]*?:(\d{2,5})\b/g)) push(m[1])
+  for (const m of joined.matchAll(/--port(?:=|\s+)(\d{2,5})\b/g)) push(m[1])
+  for (const m of joined.matchAll(/(?:^|[\s"])\/p(?:ort)?[:=](\d{2,5})\b/gm)) push(m[1])
+  for (const m of joined.matchAll(/-p\s+(\d{2,5})\b/g)) push(m[1])
+  for (const m of joined.matchAll(/listen-address[=:\s]+:?(?:[\d.]*:)?(\d{2,5})\b/g)) push(m[1])
+  return [...out].sort((a, b) => a - b)
+}
+
+/** pb64 字段 → 三态:哨兵 / 解得出 / 解不出。解不出绝不读成"没有端口声明"。 */
+export function decodeRegistryConfigBlob(field) {
+  if (field === REG_NO_PARAMS) return { kind: 'absent', text: '' }
+  if (field === REG_ENCODE_ERROR) return { kind: 'error', text: '' }
+  if (!/^[A-Za-z0-9+/=]*$/.test(String(field))) return { kind: 'error', text: '' }
+  try {
+    return { kind: 'ok', text: Buffer.from(String(field), 'base64').toString('utf8') }
+  } catch {
+    return { kind: 'error', text: '' }
+  }
+}
+
+/** 通道 A:Get-Service 枚举(只读)。首尾哨兵 + 全程 ASCII,把"PS 静默返空"那一型挡在未判定侧。 */
+export function buildEnumerationScript() {
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    'try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }',
+    `Write-Output '${ENUM_HEAD}'`,
+    'try {',
+    '  $svcs = @(Get-Service -ErrorAction Stop)',
+    "  foreach ($s in $svcs) { Write-Output ('SVC|' + $s.Name + '|' + [string]$s.Status + '|' + [string]$s.StartType) }",
+    '} catch { Write-Error $_; exit 9 }',
+    `Write-Output '${ENUM_TAIL}'`,
+    'exit 0',
+  ].join('\n')
+}
+
+/** 通道 REG:注册表枚举行(nssm 托管形态)。路径一律正斜杠 —— 反斜杠经 `-Command` 传给解释器会被
+ *  吃掉(对侧实测把 `HKLM:\SYSTEM\...` 变成 `HKLM:SYSTEMCurrentControlSetServices` ⇒ 整面恒空 ⇒ 假未判定)。
+ *  `img=` 放末段贪婪匹配:ImagePath 本身可以含竖线,而 app=/dir= 含竖线的行**解不出** ⇒ 落 unparsed ⇒
+ *  未判定(由自检 REG-13 钉住,不得静默丢行)。 */
+export function buildRegistryScript() {
+  return [
+    "$ErrorActionPreference = 'SilentlyContinue'",
+    'try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }',
+    "$base='HKLM:/SYSTEM/CurrentControlSet/Services'",
+    'if (-not (Test-Path $base)) { Write-Output ("REGMISSING|" + $base); Write-Output "SUM|NA"; exit 0 }',
+    '$total = 0',
+    'foreach ($k in @(Get-ChildItem $base)) {',
+    '  $total = $total + 1',
+    '  $img = [string](Get-ItemProperty -Path $k.PSPath -Name ImagePath).ImagePath',
+    "  $pp = Join-Path $k.PSPath 'Parameters'",
+    "  $app = ''; $dir = ''; $pb = ''",
+    '  if (Test-Path $pp) {',
+    '    $app = [string](Get-ItemProperty -Path $pp -Name Application).Application',
+    '    $dir = [string](Get-ItemProperty -Path $pp -Name AppDirectory).AppDirectory',
+    '    $pa = @((Get-ItemProperty -Path $pp -Name AppParameters).AppParameters)',
+    '    $ee = @((Get-ItemProperty -Path $pp -Name AppEnvironmentExtra).AppEnvironmentExtra)',
+    '    try { $pb = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($pa + $ee) -join "`n")) } catch { $pb = ' +
+      "'" + REG_ENCODE_ERROR + "'" +
+      ' }',
+    '  } else { $pb = ' +
+      "'" + REG_NO_PARAMS + "'" +
+      ' }',
+    "  if ((-not [string]::IsNullOrEmpty($app)) -or ($img -match '(?i)nssm')) {",
+    "    Write-Output ('SVC|' + $k.PSChildName + '|app=' + $app + '|dir=' + $dir + '|pb64=' + $pb + '|img=' + $img)",
+    '  }',
+    '}',
+    "Write-Output ('SUM|' + $total)",
+  ].join('\n')
+}
+
+const REG_SVC_RE = /^SVC\|([^|]+)\|app=([^|]*)\|dir=([^|]*)\|pb64=(![NE]|[A-Za-z0-9+/=]*)\|img=(.*)$/
+
+/** 通道 A 输出折叠:哨兵不齐 = 未判定;"两哨兵之间 0 行" = 确实是 0 —— 三态各归各位。 */
+export function parseServiceList(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n')
+  const head = lines.findIndex((l) => l.trim() === ENUM_HEAD)
+  const tail = lines.findIndex((l) => l.trim() === ENUM_TAIL)
+  if (head === -1 || tail === -1 || tail < head)
+    return unmeasured(`取不到值:STATE 枚举输出缺首尾哨兵(head=${head !== -1}, tail=${tail !== -1}) ⇒ 无法区分"没有服务"与"没跑到"`)
+  const rows = []
+  let bad = 0
+  for (const line of lines.slice(head + 1, tail)) {
+    const t = line.trim()
+    if (t === '') continue
+    const parts = t.split('|')
+    if (parts.length < 4 || parts[0] !== 'SVC') {
+      bad++
+      continue
+    }
+    const [, name, status, startType] = parts
+    if (!name) {
+      bad++
+      continue
+    }
+    rows.push({ name, status: String(status ?? '').toUpperCase() || 'UNKNOWN', startType: String(startType ?? '').toUpperCase() })
+  }
+  return measured({ rows, malformed: bad })
+}
+
+/** 通道 REG 输出折叠。解不出的行必须留下并汇进未判定 —— 静默丢行等于把"没看清"写成"没有"。
+ *  `sumMissing`(截断)与 `regMissing`(基键读不到)是两个不同原因,不得并成一个"0 个服务"。 */
+export function parseRegistryOutput(text) {
+  const rows = []
+  const unparsed = []
+  let totalServiceKeys = null
+  let regMissing = false
+  let sumSeen = false
+  for (const raw of String(text ?? '').replace(/\r\n/g, '\n').split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line.startsWith('REGMISSING|')) {
+      regMissing = true
+      continue
+    }
+    if (line.startsWith('SUM|')) {
+      sumSeen = true
+      const v = line.slice(4).trim()
+      if (v !== 'NA') {
+        const n = Number(v)
+        if (Number.isFinite(n)) totalServiceKeys = n
+        else unparsed.push(line)
+      }
+      continue
+    }
+    const m = REG_SVC_RE.exec(line)
+    if (!m) {
+      unparsed.push(line)
+      continue
+    }
+    rows.push({ service: m[1], application: m[2], appDirectory: m[3], pb64: m[4], imagePath: m[5] })
+  }
+  return { rows, totalServiceKeys, regMissing, sumSeen, unparsed }
+}
+
+// ---------------------------------------------------------------------------
+// D3 的新取材层:「这个服务的进程树实际在听什么」(2026-09-29 本票)
+// 全部是纯函数 —— 派生只发生在 defaultDeps 里,测试喂构造面/真机逐字夹具即可复现。
+// ---------------------------------------------------------------------------
+
+/** 回环探测地址:只有**通配绑定**才回落到它(见 probeHostForBind)。 */
+export const LOOPBACK_PROBE_HOST = '127.0.0.1'
+
+/** netstat 的 TCP 数据行:`TCP  <local>  <foreign>  LISTENING  <pid>`。本机实测表头是 GBK localized
+ *  的(且 `TCP` / `LISTENING` 是 ASCII),所以判据只认 ASCII 词元,遇到解不出的 TCP 行**计数不丢弃**
+ *  —— 静默跳过等于把"输出形态换了"读成"这台机没有监听"。 */
+const NETSTAT_TCP_LISTEN_RE = /^TCP\s+(\S+)\s+(\S+)\s+LISTENING\s+(\d+)\s*$/
+/** 一条 TCP 行里"状态"列是别的东西(TIME_WAIT / ESTABLISHED / CLOSED…)是**正常形态**,不得计成"解不出";
+ *  只有列数都对不齐的行才算 malformed。反过来,状态列明明写着 LISTENING 而整行解不出的,**必须**算
+ *  malformed —— 那是本判据对该行失明,读成"没有监听"就是把没看清写成没有问题。
+ *  把前者计入 malformed 的代价是本机每次跑都刷出成百的假"形态不符"(自检 NS-3b 抓出来的:"提取式过宽"
+ *  与"提取式过窄"都是判据缺陷,只是一个造噪声、一个造合格证)。 */
+const NETSTAT_TCP_STATE_RE = /^TCP\s+\S+\s+\S+\s+\S+(\s+\d+)?\s*$/
+const NETSTAT_LISTENING_PREFIX_RE = /^TCP\s+\S+\s+\S+\s+LISTENING(\s|$)/
+/** `[::1]:7800` / `0.0.0.0:135` / `*:80` 三形态都解得出 {address, port};解不出返回 null。 */
+export function splitHostPort(token) {
+  const t = String(token ?? '').trim()
+  const m = /^\[([^\]]+)\]:(\d+)$/.exec(t) ?? /^([^[\]:]+):(\d+)$/.exec(t)
+  if (!m) return null
+  const port = Number(m[2])
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) return null
+  return { address: m[1], port }
+}
+
+/** netstat 文本 → 监听端点集合(折叠成三态:形态不认识 ⇒ unmeasured,"确实是 0"要显式说)。 */
+export function interpretNetstatListening(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n')
+  const rows = []
+  let tcpLines = 0
+  let notListening = 0
+  let malformed = 0
+  for (const line of lines) {
+    const t = line.trim()
+    if (t === '') continue
+    if (!/^TCP(\s|$)/.test(t)) continue // UDP 行与 localized 表头:合法的非目标行,不计 malformed
+    tcpLines++
+    const m = NETSTAT_TCP_LISTEN_RE.exec(t)
+    if (!m) {
+      if (NETSTAT_LISTENING_PREFIX_RE.test(t)) malformed++ // 明明是监听行却解不出 ⇒ 判据失明,必须喊
+      else if (NETSTAT_TCP_STATE_RE.test(t)) notListening++
+      else malformed++
+      continue
+    }
+    const hp = splitHostPort(m[1])
+    if (!hp) {
+      malformed++
+      continue
+    }
+    rows.push({ address: hp.address, port: hp.port, pid: Number(m[3]) })
+  }
+  if (tcpLines === 0)
+    return unmeasured('netstat 输出里没有任何 TCP 行 ⇒ 无法区分"确实没有监听"与"输出形态不认识",不推测为没有监听')
+  if (malformed > 0 && rows.length === 0)
+    return unmeasured(`netstat 的 TCP 行有 ${malformed} 条形态解不出且一条监听都没量到 ⇒ 判据对不上输出形态,不读成"没有监听"`)
+  return measured({ rows, tcpLines, notListening, malformed })
+}
+
+/** 进程树 + 服务 pid 的枚举脚本(只读:两条 CIM 查询,不改任何东西)。全程 ASCII + 首尾哨兵 + 两段
+ *  各自的计数行 —— 与 STATE/REG 同一条纪律:"没跑到"必须能和"跑到而什么都没有"分开。
+ *  刻意用 `Win32_Service.ProcessId` 而不是 Get-Service:后者不暴露 pid,而 pid 是归并的起点。 */
+export function buildProcessListScript() {
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    'try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }',
+    `Write-Output '${PROC_HEAD}'`,
+    'try {',
+    '  $pc = 0',
+    '  foreach ($p in @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop)) {',
+    '    $pc = $pc + 1',
+    "    $pp = [string]$p.ParentProcessId; if ([string]::IsNullOrEmpty($pp)) { $pp = 'NA' }",
+    "    Write-Output ('PS|' + [string]$p.ProcessId + '|' + $pp)",
+    '  }',
+    "  Write-Output ('PSUM|' + $pc)",
+    '} catch { Write-Error $_; exit 9 }',
+    'try {',
+    '  $sc = 0',
+    '  $svStart = 0',
+    '  foreach ($s in @(Get-CimInstance -ClassName Win32_Service -ErrorAction Stop)) {',
+    '    $sc = $sc + 1',
+    "    $tk = 'NA'",
+    '    if ($s.ProcessId -gt 0) {',
+    '      try {',
+    '        $pr = Get-Process -Id $s.ProcessId -ErrorAction Stop',
+    '        if ($pr) { $tk = [string]$pr.StartTime.ToUniversalTime().Ticks; $svStart = $svStart + 1 } else { $tk = \'GONE\' }',
+    '      } catch { $tk = \'ERR\' }',
+    '    }',
+    "    Write-Output ('SV|' + $s.Name + '|' + [string]$s.ProcessId + '|' + $tk)",
+    '  }',
+    "  Write-Output ('SSUM|' + $sc)",
+    "  Write-Output ('SVSUM|' + $svStart)",
+    '} catch { Write-Error $_; exit 9 }',
+    `Write-Output '${PROC_TAIL}'`,
+    'exit 0',
+  ].join('\n')
+}
+
+/**
+ * 执行面形状锁:`buildProcessListScript()` 产出的脚本必须真的写下这三段
+ * (取启动时刻的 ticks / SV 行的第 4 段 / SVSUM 汇总)。
+ *
+ * §22c:这张表同时喂本门自检(RF-10)与镜像测试(RF-4)—— 形状在两处各写一遍,
+ * 生成器改口径而其中一处照绿就是假绿(新鲜度维静默归零那一型)。
+ */
+export const PROC_SCRIPT_SHAPE_FORMS = [
+  {
+    re: /\$tk = \[string\]\$pr\.StartTime\.ToUniversalTime\(\)\.Ticks/,
+    why: '不再取 StartTime ⇒ 启动时刻整维没采',
+  },
+  {
+    re: /'SV\|' \+ \$s\.Name \+ '\|' \+ \[string\]\$s\.ProcessId \+ '\|' \+ \$tk/,
+    why: 'SV 行退回三段 ⇒ 既有测试仍绿而新鲜度维已经瞎了',
+  },
+  {
+    re: /Write-Output \('SVSUM\|' \+ \$svStart\)/,
+    why: '没有 SVSUM ⇒ 采集覆盖面无从自证(0 条会被读成 0 个 stale)',
+  },
+]
+
+/** 该通道的折叠:哨兵/计数行不齐 ⇒ unmeasured;行解不出 ⇒ 进 unparsed 并汇进未判定(不静默丢)。 */
+export function interpretProcessList(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n')
+  const head = lines.findIndex((l) => l.trim() === PROC_HEAD)
+  const tail = lines.findIndex((l) => l.trim() === PROC_TAIL)
+  if (head === -1 || tail === -1 || tail < head)
+    return unmeasured(`取不到值:进程枚举输出缺首尾哨兵(head=${head !== -1}, tail=${tail !== -1})⇒ 无法区分"没有进程"与"没跑到"`)
+  const procs = []
+  const svcPid = new Map()
+  const svcStart = new Map()
+  let startSum = null
+  const unparsed = []
+  let procSum = null
+  let svcSum = null
+  for (const line of lines.slice(head + 1, tail)) {
+    const t = line.trim()
+    if (t === '') continue
+    if (t.startsWith('PSUM|')) {
+      const n = Number(t.slice(5).trim())
+      if (Number.isFinite(n)) procSum = n
+      else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('SSUM|')) {
+      const n = Number(t.slice(5).trim())
+      if (Number.isFinite(n)) svcSum = n
+      else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('PS|')) {
+      const parts = t.split('|')
+      const pid = Number(parts[1])
+      const ppidRaw = parts[2]
+      // pid **可以是 0**(System Idle Process 就在 Win32_Process 里)—— 刻意不收紧成 pid>0:
+      // 真机第一跑就是被这里丢行打脸的 —— PSUM=311 而实收 310 ⇒ 整维判"输出被截断"而失明,
+      // 一句"计数对不上"背后其实是"我的判序不认 pid 0"。收下行、由 buildProcessTree 拒绝它当根,
+      // 才是把 pid 0 与"数不齐的行"分开处理(后者才该进 unparsed ⇒ 未判定)。
+      if (parts.length === 3 && Number.isInteger(pid) && pid >= 0) {
+        procs.push({ pid, ppid: ppidRaw === 'NA' || ppidRaw === '0' ? null : Number(ppidRaw) })
+      } else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('SV|')) {
+      const parts = t.split('|')
+      const name = parts[1]
+      const pid = Number(parts[2])
+      // 第 4 段 = 该服务进程的启动时刻(.NET ticks,UTC)。2026-10-01 加,给"运行中的进程比它加载的脚本旧"
+      // 那一维取材。**刻意允许三段旧版式**:既有夹具与旧解释器都给三段,缺它只能让那一维落「未判定」,
+      // 不得把整条通道判成"解不出"而连带打死监听归并(那维今天还指着它)。
+      if ((parts.length === 3 || parts.length === 4) && name && Number.isInteger(pid)) {
+        svcPid.set(name.toLowerCase(), { name, pid })
+        const tk = parts.length === 4 ? parts[3].trim() : ''
+        if (/^\d+$/.test(tk)) svcStart.set(name.toLowerCase(), { kind: 'ticks', ticks: tk })
+        else if (tk === 'NA' || tk === 'ERR' || tk === 'GONE' || tk === '') svcStart.set(name.toLowerCase(), { kind: tk === '' ? 'absent' : tk.toLowerCase() })
+        else unparsed.push(t)
+      } else unparsed.push(t)
+      continue
+    }
+    if (t.startsWith('SVSUM|')) {
+      const n = Number(t.slice(6).trim())
+      if (Number.isFinite(n)) startSum = n
+      else unparsed.push(t)
+      continue
+    }
+    unparsed.push(t)
+  }
+  if (procSum === null) return unmeasured(`取不到值:没有 PSUM 计数行 ⇒ 枚举被截断或解释器换了版式(unparsed=${unparsed.length})`)
+  if (svcSum === null) return unmeasured(`取不到值:没有 SSUM 计数行 ⇒ 服务 pid 面被截断(unparsed=${unparsed.length})`)
+  if (procSum !== procs.length || svcSum !== svcPid.size)
+    return unmeasured(`取不到值:计数行与行数不符(PSUM=${procSum} 实收 ${procs.length};SSUM=${svcSum} 实收 ${svcPid.size})⇒ 输出被截断`)
+  if (unparsed.length > 0) return unmeasured(`取不到值:有 ${unparsed.length} 行形态解不出(首条:${String(unparsed[0]).slice(0, 160)})⇒ 宁可整维未判定,也不把丢行读成"没有"`)
+  return measured({ procs, svcPid, procSum, svcSum, svcStart, startSum })
+}
+
+/** 服务 pid → 自身 + 全部后代。**深度上限 + 节点上限 + visited 环保护**三条都必须有:实测最长的一条
+ *  是"服务 → 中间壳 → 子 → 孙"(nssm 包 cmd 包 node 那一型),而 ppid 数据异常时没有环保护就是死循环。
+ *  pid ≤ SYSTEM_PID_FLOOR 一律不当根 —— System(4)/Idle(0) 名下挂着全机 RPC 监听,把它们当后代等于
+ *  把别的进程的端口算到这个服务头上(比漏判更糟:那会造出"这服务在监听"的假账)。 */
+export const SYSTEM_PID_FLOOR = 4
+export function buildProcessTree(rootPid, procs, { maxDepth = TREE_MAX_DEPTH, maxNodes = TREE_MAX_NODES } = {}) {
+  const children = new Map()
+  for (const p of procs ?? []) {
+    if (!p || !Number.isInteger(p.pid) || !Number.isInteger(p.ppid)) continue
+    if (!children.has(p.ppid)) children.set(p.ppid, [])
+    children.get(p.ppid).push(p.pid)
+  }
+  const root = Number(rootPid)
+  if (!Number.isInteger(root) || root <= SYSTEM_PID_FLOOR) return { pids: new Set(), truncated: false, hitCap: false, rootUsable: false, root }
+  const pids = new Set([root])
+  let frontier = [root]
+  let depth = 0
+  let truncated = false
+  let hitCap = false
+  while (frontier.length > 0 && depth < maxDepth) {
+    const next = []
+    for (const pid of frontier) {
+      for (const child of children.get(pid) ?? []) {
+        if (child <= SYSTEM_PID_FLOOR || pids.has(child)) continue // 环保护:已收过的 pid 不再展开
+        if (pids.size >= maxNodes) {
+          hitCap = true
+          truncated = true
+          continue
+        }
+        pids.add(child)
+        next.push(child)
+      }
+    }
+    frontier = next
+    depth++
+    if (frontier.length > 0 && depth >= maxDepth) truncated = true
+  }
+  return { pids, truncated, hitCap, rootUsable: true, root, depth }
+}
+
+/** 把监听端点按 pid 归到某一棵进程树名下。绑定地址原样带出 —— 探测地址必须由它决定,不得写死回环。 */
+export function attributeListening(listenRows, pidSet) {
+  const out = []
+  for (const r of listenRows ?? []) {
+    if (!r || !pidSet || !pidSet.has(Number(r.pid))) continue
+    out.push({ address: r.address, port: Number(r.port), pid: Number(r.pid) })
+  }
+  return out.sort((a, b) => a.port - b.port || String(a.address).localeCompare(String(b.address)))
+}
+
+/**
+ * 探测地址 = 该端口**实际绑定的地址**,只有通配绑定才回落到回环:
+ *   `0.0.0.0` / `[::]` / `*` → 127.0.0.1(通配含回环,一定能连上)
+ *   `[::1]`                 → `::1`(纯 IPv6 回环监听在 IPv4 上不可达 ⇒ 拿 127.0.0.1 探就是假失败)
+ *   `192.168.1.37`          → 原地址(本机实测 Keycloak 的 7800 只绑网卡地址,127.0.0.1 回 ECONNREFUSED)
+ */
+export function probeHostForBind(rawAddress) {
+  const a = String(rawAddress ?? '').trim()
+  const bare = a.replace(/^\[/, '').replace(/\]$/, '').trim()
+  if (bare === '' || bare === '*' || bare === '0.0.0.0' || bare === '::') return LOOPBACK_PROBE_HOST
+  return bare
+}
+
+/** 待探端点 = 声明端口 ∪ 观察到的监听端点,按端口去重。
+ *  顺序刻意是"声明在前":声明是有期望值的(没人应答就该判问题),观察只是取证。
+ *  一个端口若两边都有 ⇒ 用**观察到的绑定地址**探(修缺陷②);只在声明里出现 ⇒ 只能回落回环(旧行为)。 */
+export function buildProbeTargets({ declaredPorts = [], observedEndpoints = [], cap = MAX_PROBE_PORTS } = {}) {
+  const byPort = new Map()
+  for (const ep of observedEndpoints) {
+    const port = Number(ep?.port)
+    if (!Number.isInteger(port)) continue
+    if (!byPort.has(port)) byPort.set(port, [])
+    byPort.get(port).push(ep)
+  }
+  const targets = []
+  const seenHostPort = new Set()
+  const push = (port, addressOrNull, from) => {
+    const host = addressOrNull === null ? LOOPBACK_PROBE_HOST : probeHostForBind(addressOrNull)
+    const key = `${host}:${port}`
+    if (seenHostPort.has(key)) return
+    seenHostPort.add(key)
+    targets.push({ port, host, label: key, from })
+  }
+  for (const raw of declaredPorts) {
+    const port = Number(raw)
+    if (!Number.isInteger(port)) continue
+    const eps = byPort.get(port)
+    if (eps && eps.length > 0) for (const ep of eps) push(port, ep.address, 'declared+observed')
+    else push(port, null, 'declared')
+  }
+  for (const [port, eps] of byPort) {
+    if (declaredPorts.map(Number).includes(port)) continue
+    for (const ep of eps) push(port, ep.address, 'observed')
+  }
+  const kept = targets.slice(0, cap)
+  return { targets: kept, truncated: Math.max(0, targets.length - kept.length) }
+}
+
+/** 探测结果 → 应答维(三态)。判序三条都不可少:
+ *  ① 声明端口里有"探不出"的 ⇒ 整维未判定 —— 把尺子失效写成"服务没应答"就是造冤案;
+ *  ② 声明端口里有明确不应答的 ⇒ 量到的问题(即使别的观察端点是通的)—— 这就是"子进程死了"要有牙的那一格;
+ *  ③ 没有声明端口时,只看观察到的端点:全不通 ⇒ 问题(内核说在听而地址上连不上,是真发现);
+ *     有一个通 ⇒ 应答;探不出 ⇒ 未判定。 */
+export function foldProbeOutcome({ targets, results, declaredPorts = [], truncated = 0 } = {}) {
+  const declared = declaredPorts.map(Number).filter((n) => Number.isInteger(n))
+  const openPorts = new Set()
+  const unmeasuredWhys = []
+  const closedLabels = []
+  for (const r of results ?? []) {
+    if (r?.status === 'open') openPorts.add(Number(r.port))
+    else if (r?.status === 'unmeasured') unmeasuredWhys.push(`${r.label ?? r.port}:${r.why}`)
+    else if (r?.status === 'closed') closedLabels.push(r.label ?? String(r.port))
+  }
+  const note = truncated > 0 ? `(端点超上限,未探 ${truncated} 个)` : ''
+  const declaredMissing = declared.filter((p) => !openPorts.has(p))
+  if (declaredMissing.length > 0) {
+    const missingProbes = (results ?? []).filter((r) => declared.includes(Number(r.port)) && !openPorts.has(Number(r.port)))
+    if (missingProbes.some((r) => r.status === 'unmeasured'))
+      return unmeasured(`声明端口 ${declaredMissing.join(',')} 的探测判不出:${missingProbes.map((r) => r.why).join(';')}${note ? `;${note}` : ''}`)
+    return measured({
+      listening: false,
+      ports: declaredMissing,
+      openPorts: [...openPorts].sort((a, b) => a - b),
+      labels: missingProbes.map((r) => r.label ?? String(r.port)),
+      why: `声明端口无应答${note ? `(${note})` : ''}`,
+    })
+  }
+  if (openPorts.size > 0) {
+    // 应答的取证按**端点**记账,不按端口合并:同一个端口在 `::1` 与 `127.0.0.1` 上是两次不同的探测,
+    // 拿"端口通了"去列出全部地址就是把"没验过的"混进"验过的"(真机现读 IHUI-PG 的 8810 即双绑)。
+    // 没应答的那几个端点不消音:写进 note,由人读面原样印出来 —— 一个服务只要有一个端点真在答,
+    // 本维就是"应答",这是判序②③的既有语义,本票没有改动它。
+    const openLabels = (results ?? []).filter((r) => r?.status === 'open').map((r) => r.label ?? `${r.host}:${r.port}`)
+    const notOpen = (results ?? [])
+      .filter((r) => r?.status === 'closed' || r?.status === 'unmeasured')
+      .map((r) => `${r.label ?? `${r.host}:${r.port}`}(${r.status === 'closed' ? '拒' : '判不出'})`)
+    const detail = notOpen.length > 0 ? `另有 ${notOpen.length} 个监听端点未应答:${notOpen.join(',')}` : ''
+    return measured({
+      listening: true,
+      ports: [...openPorts].sort((a, b) => a - b),
+      openPorts: [...openPorts].sort((a, b) => a - b),
+      labels: openLabels,
+      note: [note, detail].filter(Boolean).join(';'),
+    })
+  }
+  if (unmeasuredWhys.length > 0) return unmeasured(`监听端点探测判不出:${unmeasuredWhys.join(';')}${note ? `;${note}` : ''}`)
+  if ((targets ?? []).length > 0)
+    return measured({
+      listening: false,
+      ports: [...new Set(targets.map((t) => Number(t.port)))].sort((a, b) => a - b),
+      openPorts: [],
+      labels: closedLabels,
+      why: `进程树实测在听而地址上连不上${note ? `(${note})` : ''}`,
+    })
+  return measured({ listening: false, ports: [], openPorts: [], labels: [], why: '无可探端点' })
+}
+
+/** 过滤器:'IHUI*' / 'ihui-*' 这类通配转成大小写不敏感正则;'*' 匹配一切。 */
+export function compileFilter(pattern) {
+  const p = String(pattern ?? 'IHUI*').trim()
+  const re = new RegExp('^' + p.split('*').map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i')
+  return (name) => re.test(String(name))
+}
+
+/** 两通道取值 → D2 的落点(合并裁决:REG 为主、NSSM 为旁证, disagreement 是第三条判据)。 */
+export function resolveApplication({ regRow, regChannelMeasured, nssmApplication }) {
+  const regApp = regRow ? String(regRow.application ?? '').trim() : ''
+  if (regApp) {
+    const src = ['registry']
+    if (nssmApplication.kind === 'measured') {
+      src.push('nssm')
+      if (nssmApplication.value !== null && nssmApplication.value !== regApp)
+        return { application: measured(regApp), sources: src, disagreement: measured(`两通道取值不一致:registry='${regApp}' vs nssm='${nssmApplication.value}'`) }
+    }
+    return { application: measured(regApp), sources: src, disagreement: measured(false) }
+  }
+  // 注册表这一行是靠 ImagePath 命中 nssm 才出现的,而 Parameters\Application 是空的
+  if (nssmApplication.kind === 'measured') {
+    const src = nssmApplication.value === null ? ['nssm(值为空)'] : ['nssm']
+    return { application: nssmApplication, sources: src, disagreement: measured(false) }
+  }
+  if (regRow) return { application: unmeasured('Parameters 无 Application 值 ⇒ 二进制落点无从判定(仅 ImagePath 命中 nssm),nssm 通道又取不到'), sources: ['registry-empty'], disagreement: unmeasured('只有一通道给得出东西,无从对账') }
+  if (regChannelMeasured) return { application: nssmApplication, sources: ['nssm'], disagreement: unmeasured('该服务不在注册表 nssm 枚举集内(见 nssmManaged)') }
+  return { application: nssmApplication, sources: [], disagreement: unmeasured('REG 通道未判定') }
+}
+
+/** nssm 托管性:注册表枚举成功而该服务不在其中 ⇒ measured(false)(实测 IHUI-PG 即此型)。 */
+export function resolveNssmManaged({ regRow, regChannelMeasured, inStateRows }) {
+  if (!regChannelMeasured) return unmeasured('REG 通道未判定 ⇒ 无从判断该服务是否 nssm 托管')
+  if (regRow) return measured(true)
+  if (!inStateRows) return unmeasured('该服务既不在注册表 nssm 枚举集内,也不在 STATE 枚举结果内 ⇒ 名字对不对都没量到')
+  return measured(false)
+}
+
+/** pb64 与 nssm 两份配置 → 端口声明维(取并集:任一通道给得出就用,绝不因一通道失效而丢另一通道的量)。 */
+export function resolvePorts({ pb64, nssmParameters, nssmEnvironmentExtra }) {
+  const texts = []
+  const sources = []
+  if (pb64.kind === 'ok') {
+    texts.push(pb64.text)
+    sources.push('registry')
+  }
+  const nssmBoth = nssmParameters.kind === 'measured' && nssmEnvironmentExtra.kind === 'measured'
+  if (nssmBoth) {
+    texts.push(nssmParameters.value ?? '', nssmEnvironmentExtra.value ?? '')
+    sources.push('nssm')
+  }
+  if (texts.length === 0) {
+    const why =
+      pb64.kind === 'absent' ? '注册表无 Parameters 子键' : pb64.kind === 'error' ? '注册表配置 blob 解不出' : pb64.kind === 'none' ? '该服务不在注册表 nssm 枚举集内(无行可读)' : 'REG 配置未判定'
+    return { ports: unmeasured(`端口声明取不到:${why};且 nssm AppParameters/AppEnvironmentExtra 至少一份未量到`), portsSources: [] }
+  }
+  return { ports: measured(extractPortsFromConfig(texts)), portsSources: sources }
+}
+
+// ---------------------------------------------------------------------------
+// 仓内基准对账维(只读;只报数/点名,**不参与 computeExitCode**)
+//
+// 立因(G-10):服务定义原先只活在注册表里,仓里无可查的真相源 —— 换机/迁移后"这台机本来应该跑什么、
+// 从哪跑"只能靠人回忆,台账 service-auto-restart.json 的 21 个名字里有 18 个在本机已无服务键而无人知道。
+// 本维把 `scripts/data/service-definitions.json` 当对账面:列出/在册/缺失/启动类型/Application/快照过期
+// 六件事分别报,任一维度上都**不判红** —— 它是只读巡检器的对账,判红权归人(§12e:判机器状态的门只能 warn)。
+// 三态纪律与全文件一致:基准读不到或解不出 ⇒ 未判定(既不判红也不记绿),绝不把"没读到"读成"没有差异"。
+// ---------------------------------------------------------------------------
+const START_TYPE_ALIASES = {
+  auto: 'AUTOMATIC',
+  automatic: 'AUTOMATIC',
+  autostart: 'AUTOMATIC',
+  manual: 'MANUAL',
+  disabled: 'DISABLED',
+  boot: 'BOOT',
+  bootstart: 'BOOT',
+  system: 'SYSTEM',
+}
+/** 启动类型归一分档:.NET 的 `Automatic`、Win32 的 `Auto`、注册表数值映射出的 `AUTOMATIC` 是同一档;
+ *  比较前必须折成同一个词,否则每台机都会"不符"。未知词返回大写原形(仍参与比较,不静默放行)。 */
+export function normalizeStartType(value) {
+  const s = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '')
+  if (!s) return null
+  return START_TYPE_ALIASES[s] ?? s.toUpperCase()
+}
+
+/** 解析仓内基准。形状坏 ⇒ 未判定(§0.3):不许把"基准看不懂"读成"基准里没有这一条"。 */
+export function parseServiceBaseline(text) {
+  let raw
+  try {
+    raw = JSON.parse(String(text ?? ''))
+  } catch (e) {
+    return unmeasured(`仓内基准 JSON 解不出(${e?.message ?? e})`)
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return unmeasured('仓内基准顶层不是对象')
+  if (!Array.isArray(raw.services)) return unmeasured('仓内基准缺 services 数组')
+  const services = []
+  for (const [i, s] of raw.services.entries()) {
+    if (!s || typeof s !== 'object' || Array.isArray(s)) return unmeasured(`仓内基准 services[${i}] 不是对象`)
+    const name = typeof s.name === 'string' ? s.name.trim() : ''
+    if (!name) return unmeasured(`仓内基准 services[${i}] 缺 name`)
+    services.push({
+      name,
+      application: typeof s.application === 'string' && s.application.trim() ? s.application.trim() : null,
+      appDirectory: typeof s.appDirectory === 'string' && s.appDirectory.trim() ? s.appDirectory.trim() : null,
+      startType: typeof s.startType === 'string' && s.startType.trim() ? s.startType.trim() : null,
+    })
+  }
+  const ledger =
+    raw.ledger && typeof raw.ledger === 'object' && Array.isArray(raw.ledger.absentOnHost)
+      ? { absentOnHost: raw.ledger.absentOnHost.filter((x) => typeof x === 'string') }
+      : null
+  return measured({
+    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : null,
+    host: typeof raw.host === 'string' ? raw.host : null,
+    services,
+    ledger,
+  })
+}
+
+/** 基准 ↔ 本机实测(纯函数,零 IO)。差异只收集成点名清单,绝不产出 level/exitCode。
+ *  `existence` = 取一个路径的存在性判据(生产档传 `(v) => existenceOf(v, deps)`,复用同一把尺子;
+ *  self-test 传假判据 ⇒ 纯构造面)。不传 ⇒ 路径存在性维记未判,不会读成"都对"。 */
+export function compareServiceBaseline({ stateRows = [], services = [], baseline, existence = null } = {}) {
+  const stateByName = new Map(stateRows.map((r) => [String(r?.name ?? '').toLowerCase(), r]))
+  const recByName = new Map(services.map((s) => [String(s?.name ?? '').toLowerCase(), s?.rec ?? null]))
+  const absentInHost = []
+  const startTypeMismatch = []
+  const appDiffs = []
+  const pathMismatch = []
+  let present = 0
+  let appCompared = 0
+  let appUnmeasured = 0
+  let pathChecked = 0
+  let pathUndetermined = 0
+  for (const b of baseline.services) {
+    const key = b.name.toLowerCase()
+    const st = stateByName.get(key)
+    if (!st) {
+      absentInHost.push(b.name)
+      continue
+    }
+    present++
+    const want = normalizeStartType(b.startType)
+    const got = normalizeStartType(st.startType)
+    if (want && got && want !== got) startTypeMismatch.push(`${b.name}:基准=${b.startType} 本机=${st.startType}`)
+    const dim = recByName.get(key)?.application
+    if (dim && dim.kind === 'measured' && typeof dim.value === 'string' && dim.value) {
+      appCompared++
+      if (b.application && dim.value !== b.application) appDiffs.push(`${b.name}:基准=${b.application} 本机=${dim.value}`)
+    } else appUnmeasured++
+  }
+  // 路径存在性维:基准自己声明的落点在本机还在不在(D: 盘钉死那一型正是靠这一维点名)。
+  // 相对名(cmd.exe/node)无从判,记未判而不是记一致 —— 两种态不得并桶。
+  for (const b of baseline.services) {
+    for (const [field, expect] of [
+      ['application', 'file'],
+      ['appDirectory', 'dir'],
+    ]) {
+      const value = b[field]
+      if (!value) continue
+      if (typeof existence !== 'function') {
+        pathUndetermined++
+        continue
+      }
+      const r = existence(value)
+      if (!r || r.kind !== 'measured') {
+        pathUndetermined++
+        continue
+      }
+      pathChecked++
+      if (r.value !== expect) pathMismatch.push(`${b.name}.${field}=${r.value}@${value}`)
+    }
+  }
+  const reappeared = []
+  for (const name of baseline.ledger?.absentOnHost ?? []) if (stateByName.has(name.toLowerCase())) reappeared.push(name)
+  return {
+    generatedAt: baseline.generatedAt,
+    host: baseline.host,
+    listed: baseline.services.length,
+    present,
+    absentInHost,
+    startTypeMismatch,
+    appCompared,
+    appDiffs,
+    appUnmeasured,
+    pathChecked,
+    pathUndetermined,
+    pathMismatch,
+    reappeared,
+  }
+}
+
+/** 读盘 + 解析 + 比对。读不到/解不出 ⇒ `kind:'unmeasured'`;**不抛**、不判红(只读对账器)。 */
+export function readAndCompareBaseline({ stateRows = [], services = [], deps = defaultDeps, filePath = SERVICE_BASELINE_PATH } = {}) {
+  let text
+  try {
+    text = typeof deps?.readBaseline === 'function' ? deps.readBaseline(filePath) : readFileSync(filePath, 'utf8')
+  } catch (e) {
+    return { path: BASELINE_REL, kind: 'unmeasured', reason: `仓内基准读不到(${e?.code ?? e?.message ?? e})⇒ 未判定,既不判红也不记绿` }
+  }
+  const p = parseServiceBaseline(text)
+  if (p.kind === 'unmeasured') return { path: BASELINE_REL, kind: 'unmeasured', reason: p.reason }
+  const existence = (v) => (typeof deps?.fileKind === 'function' ? existenceOf(v, deps) : unmeasured('deps 没有 fileKind ⇒ 存在性维未判'))
+  return { path: BASELINE_REL, kind: 'measured', ...compareServiceBaseline({ stateRows, services, baseline: p.value, existence }) }
+}
+
+/**
+ * STATE 读数的分档(2026-10-29 立):`running / stopped / paused / pending / unknown` 五档绝不并桶
+ * ("取不到"是维度三态里的 `unmeasured`,由调用方在 STATE 维那一格另判,不进本函数射程)。
+ *
+ * 立因是现读的一台真故障:`IHUI-WEB-ROUTER` 落在 **PAUSED**。nssm 的 `AppExit=Restart` 在应用反复
+ * 退出时会进入节流,服务态由 SCM 置为 Paused,`Start-Service` 当场回
+ * `Unexpected status SERVICE_PAUSED` —— 它既不是 RUNNING(确实没在服务),也不是 STOPPED
+ * (按设计停着),而是"配置坏了/应用起不来"的信号。旧写法只有一条 `state.value !== 'RUNNING'`,
+ * 于是 PAUSED 与 STOPPED 产出同一种 `STATE=` 前缀的问题串,而 `applyExpectedStopped` 按 `^STATE=`
+ * 认"停着这一条" ⇒ **一台挂起的路由会被"冷备色该停着"那条例外顺手免掉**。所以判据改成:豁免面只认
+ * `stopped` 这一档,`paused`/`pending`/`unknown` 一律照旧报红。
+ */
+export const SERVICE_STATE_BANDS = Object.freeze(['running', 'stopped', 'paused', 'pending', 'unknown'])
+export function stateBandOf(value) {
+  const label = String(value ?? '').trim().toUpperCase()
+  if (label === '' || label === 'UNKNOWN') return { band: 'unknown', label: label || '(空)' }
+  if (label === 'RUNNING') return { band: 'running', label }
+  if (label === 'STOPPED') return { band: 'stopped', label }
+  if (label === 'PAUSED' || label === 'PAUSE_PENDING') return { band: 'paused', label }
+  if (label === 'START_PENDING' || label === 'STOP_PENDING' || label === 'CONTINUE_PENDING') return { band: 'pending', label }
+  return { band: 'unknown', label }
+}
+
+/**
+ * STATE 这一维的问题串(唯一书写处 = `judgeService`,消费侧 `applyExpectedStopped` 同一把尺)。
+ * `running` ⇒ 这一维没有坏值(返回 null);其余档都产串,且**串里自带档位**,免得下游再按前缀猜。
+ */
+export function stateProblemOf(value) {
+  const { band, label } = stateBandOf(value)
+  if (band === 'running') return null
+  if (band === 'paused') return `STATE=${label}(挂起档,不是"停着是设计内"):nssm AppExit=Restart 在应用反复退出时进入节流,Start-Service 回 Unexpected status SERVICE_PAUSED ⇒ 真故障档,『停着是设计内』台账免不到它`
+  if (band === 'pending') return `STATE=${label}(过渡档:既没在服务也没停稳,不构成"按设计停着")`
+  if (band === 'unknown') return `STATE=${label}(形态不认识:不并入 stopped,也不读成 running)`
+  return `STATE=${label}`
+}
+
+/**
+ * 合并三判据成级别。规则(朝"不冤枉、不背书"收):
+ *   任何一维**量到了坏值** ⇒ issue;
+ *   有**非 nssm 托管解释不了**的失明维 ⇒ unattested(不冒充健康);
+ *   失明维**全部**可由"该服务不是 nssm 托管"解释 ⇒ skipped(它压根不在 D2/D3 射程,但不是"没量到");
+ *   全部维都量到且都好 ⇒ ok。
+ * hardBlind 与 blind 的分工是这一版的关键:STATE 失明、或"已经量到 Application 却量不到存在性"
+ * 这类,都不能被 skipped 掩盖 —— 否则 skipped 就成了新的消红通道。
+ */
+export function judgeService(rec) {
+  const problems = []
+  const blind = []
+  const hardBlind = []
+  const excuseable = (label, reason) => {
+    blind.push(`${label}:${reason}`)
+  }
+  const hard = (label, reason) => {
+    blind.push(`${label}:${reason}`)
+    hardBlind.push(`${label}:${reason}`)
+  }
+  const state = rec.state
+  if (state.kind === 'unmeasured') hard('STATE', state.reason)
+  else if (state.value !== 'RUNNING') problems.push(`STATE=${state.value}`)
+  else {
+    // 档位分岔的唯一书写处 = stateProblemOf(Running/Stopped/Paused/过渡/未知各给各的话,绝不并桶)
+    const sp = stateProblemOf(state.value)
+    if (sp !== null) problems.push(sp)
+  }
+
+  const app = rec.application
+  if (app.kind === 'unmeasured') excuseable('Application', app.reason)
+  else if (app.value === null) problems.push('Application 值为空(通道取到了,内容是空)')
+  else {
+    const ex = rec.appExists
+    if (ex.kind === 'unmeasured') hard('Application 存在性', ex.reason)
+    else if (ex.value !== 'file') problems.push(`Application 路径不是可用文件(${ex.value}):${app.value}`)
+  }
+
+  const dir = rec.appDirectory
+  if (dir.kind === 'measured' && dir.value !== null && dir.value !== '') {
+    // 缺维按"未判定"处理而不是抛 TypeError:判据必须对部分构造的对象是全函数,
+    // 否则任何调用方少给一个键就让整扇门在 e2e 之前先崩(镜像 T5 就是少给 appDirectoryExists 时撞出来的)。
+    const d = rec.appDirectoryExists ?? unmeasured('AppDirectory 存在性维没有值(调用方未提供)')
+    if (d.kind === 'unmeasured') excuseable('AppDirectory 存在性', d.reason)
+    else if (d.value !== 'dir') problems.push(`AppDirectory 不是存在的目录(${d.value}):${dir.value}`)
+  } else if (dir.kind === 'unmeasured') excuseable('AppDirectory', dir.reason)
+
+  const dis = rec.agreement
+  if (dis && dis.kind === 'measured' && typeof dis.value === 'string') problems.push(dis.value)
+
+  const ports = rec.ports
+  if (ports.kind === 'unmeasured') excuseable('端口声明', ports.reason)
+  // 应答维不再由"声明是否为空"决定走哪条路 —— 声明为空时观察层可能给得出端点(本机实测 9 个服务即此型)。
+  // 空不空的分岔搬到 foldProbeOutcome 的产出上:它给得出 measured 就照判,给不出才是失明。
+  const probe = rec.probe ?? unmeasured('端口应答维没有值(调用方未提供)')
+  if (probe.kind === 'unmeasured') {
+    // 声明里明明有端口却探不出 ⇒ 这是硬失明,不能被 skipped 掩盖(否则 skipped 就成了新的消红通道)
+    if (ports.kind === 'measured' && ports.value.length > 0) hard('端口应答', probe.reason)
+    else excuseable('端口应答', probe.reason)
+  } else if (probe.value.listening !== true) {
+    if ((probe.value.ports ?? []).length > 0) problems.push(`监听无应答(tcp):${(probe.value.labels ?? probe.value.ports).join(',')}${probe.value.why ? ` —— ${probe.value.why}` : ''}`)
+    else excuseable('端口应答', '应答维给的是"无可探端点"⇒ 这一维未判定,不推测为没问题')
+  }
+
+  const managed = rec.nssmManaged
+  if (managed.kind === 'unmeasured') hard('nssm 托管性', managed.reason)
+
+  // 运行时代码新鲜度:只有"进程比它加载的脚本旧"才是红(线上在跑旧代码,而账面已修);
+  // 其余一律 excuseable —— 服务停着、非 nssm 托管、读不到启动时刻、加载目标不是脚本,都是"没判",
+  // 不是"判过且没问题"。这一维刻意不做硬失明:它依赖进程取样时刻,天生会在重启窗口里落未判定。
+  const runtime = rec.runtime ?? unmeasured('运行时代码新鲜度维没有值(调用方未提供)')
+  if (runtime.kind === 'unmeasured') excuseable('运行时代码新鲜度', runtime.reason)
+  else if (runtime.value.verdict === 'stale') problems.push(`运行时代码新鲜度:${runtime.value.detail}`)
+  // 断链是"量到的坏"(引用目标不在盘上),与 stale 同档进 problems;不并进 unmeasured(那是"没判")。
+  else if (runtime.value.verdict === 'brokenlink') problems.push(`运行时代码新鲜度(断链):${runtime.value.detail}`)
+
+  let level
+  if (problems.length > 0) level = 'issue'
+  else if (hardBlind.length > 0) level = 'unattested'
+  else if (blind.length > 0) level = managed.kind === 'measured' && managed.value === false ? 'skipped' : 'unattested'
+  else level = 'ok'
+  return { level, problems, blind, hardBlind }
+}
+
+/**
+ * 台账里 `blueGreen` 段的**族**归一(2026-10-29 参数化):api 与 web 两族(以及以后任何一族)共用本
+ * 文件这一份实现,判据里不得再出现任何一族的 service/port/stateFile 字面量(§0.6 单一真相源)。
+ * 吃三种形态,认不出的那种**只报数不猜**:
+ *  · `blueGreen: [ …族… ]` —— 族数组;
+ *  · `blueGreen: { families: [ …族… ] }` —— 登记册现行形态(段内还能挂 `$comment`);
+ *  · `blueGreen: { stateFile, colors }` —— 2026-10-28 的旧单族形,仍按一族读(别的会话/别的机的
+ *    台账副本还没跟上时,若这里返回空集,api 冷备就天天假红 = §12e 恒红门)。
+ */
+export function blueGreenFamiliesOf(raw) {
+  const bg = raw?.blueGreen
+  if (Array.isArray(bg)) return bg
+  if (!bg || typeof bg !== 'object') return []
+  if (Array.isArray(bg.families)) return bg.families
+  if (bg.colors && typeof bg.colors === 'object') return [bg]
+  return []
+}
+
+/**
+ * 『停着是设计内』台账的读取面(2026-10-28;2026-10-29 起蓝绿按**族**参数化)。读不到任何一项 ⇒
+ * 返回空清单(**不豁免任何人**):台账缺失 / JSON 坏 / 某族状态文件读不到 ⇒ 该族本轮一条豁免都不给。
+ * 方向是多喊一次,不是多静音一次(§0.10/§0.7:豁免必须会到期、失效必须朝"更响"倒)。
+ *
+ * 两类来源:
+ *  ① `static`:人工裁定的退役/长期停用服务(必须带 reviewBy,过期即失效);
+ *  ② `blueGreen`:按设计非活跃色就该 Stop(逐族读**实时状态文件**定活跃色)。这一族里有三条硬语义:
+ *     · **活跃色停着 = 真故障**,绝不进豁免集;
+ *     · **状态文件取不到 ⇒ 该族未判定**,绝不退"默认色"去猜 —— 猜错的那一侧正好是"活跃色其实停着、
+ *       而我把它免了"这种全站故障被淹掉(2026-10-29 现读:web 迁入前 `web-bluegreen.json` 不在位,
+ *       web 族就该以"未判定"出现在报告里,而不是被读成"活跃色是 blue");
+ *     · 族必须带未过期的 `reviewBy`,否则同族不豁免并点名。
+ * 产出面 `out.families` 逐族写 `state: measured|undetermined|expired` 与 `active`,供报告与 `--json`
+ * 点名(静默降级就是本票要修的那个形态)。
+ */
+export function loadExpectedStopped({ readText = readFileSync, exists = existsSync, nowMs = Date.now() } = {}) {
+  const out = { names: new Map(), notes: [], families: [], envCheck: { members: [], notes: [] }, bootCheck: { members: [], notes: [] } }
+  let raw
+  try {
+    if (!exists(EXPECTED_STOPPED_PATH)) {
+      out.notes.push(`台账不在位(${EXPECTED_STOPPED_REL})⇒ 本轮不豁免任何服务`)
+      out.envCheck.notes.push(`台账不在位(${EXPECTED_STOPPED_REL})⇒ env 形态对账本轮没有任何射程成员,整维未判定(不记绿)`)
+      out.bootCheck.notes.push(`台账不在位(${EXPECTED_STOPPED_REL})⇒ 开机自启对账本轮没有任何射程成员,整维未判定(不记绿)`)
+      return out
+    }
+    raw = JSON.parse(String(readText(EXPECTED_STOPPED_PATH, 'utf8')))
+  } catch (e) {
+    out.notes.push(`台账读不出/不可解析(${EXPECTED_STOPPED_REL}):${e?.message ?? e} ⇒ 本轮不豁免任何服务`)
+    out.envCheck.notes.push(`台账读不出/不可解析:${e?.message ?? e} ⇒ env 形态对账整维未判定(不记绿)`)
+    out.bootCheck.notes.push(`台账读不出/不可解析:${e?.message ?? e} ⇒ 开机自启对账整维未判定(不记绿)`)
+    return out
+  }
+  for (const it of Array.isArray(raw?.static) ? raw.static : []) {
+    const name = typeof it?.name === 'string' ? it.name.trim() : ''
+    if (!name) {
+      out.notes.push('静态清单里有一条缺 name ⇒ 已跳过(该条不构成豁免)')
+      continue
+    }
+    const due = Date.parse(String(it?.reviewBy ?? ''))
+    if (!Number.isFinite(due) || due <= nowMs) {
+      out.notes.push(`${name}:reviewBy 缺失或已过期(${it?.reviewBy ?? '空'})⇒ 豁免失效,按未登记处理`)
+      continue
+    }
+    out.names.set(name.toLowerCase(), {
+      source: 'static',
+      reason: String(it?.reason ?? '').trim(),
+      reviewBy: String(it.reviewBy),
+    })
+  }
+  for (const fam of blueGreenFamiliesOf(raw)) {
+    const family = typeof fam?.family === 'string' && fam.family.trim() ? fam.family.trim() : '(未命名族)'
+    const stateFile = typeof fam?.stateFile === 'string' ? fam.stateFile.trim() : ''
+    const colors = fam?.colors && typeof fam.colors === 'object' ? fam.colors : {}
+    const colorNames = Object.entries(colors)
+      .map(([c, spec]) => `${c}=${typeof spec?.service === 'string' ? spec.service.trim() : '(缺 service)'}`)
+      .join(', ')
+
+    const due = Date.parse(String(fam?.reviewBy ?? ''))
+    if (!Number.isFinite(due) || due <= nowMs) {
+      const why = `reviewBy 缺失或已过期(${fam?.reviewBy ?? '空'})`
+      out.notes.push(`蓝绿族 ${family}:${why} ⇒ 本族本轮不豁免任何色`)
+      out.families.push({ family, state: 'expired', active: null, stateFile, colors: colorNames, why })
+      continue
+    }
+
+    let active = null
+    let why = ''
+    if (!stateFile) why = '族里没有 stateFile ⇒ 无从问起活跃色'
+    else if (!exists(stateFile)) why = `状态文件不在位(${stateFile})`
+    else {
+      try {
+        const s = JSON.parse(String(readText(stateFile, 'utf8')))
+        active = s?.active === 'blue' || s?.active === 'green' ? s.active : null
+        if (!active) why = `状态文件里的 active 不是 blue/green(${stateFile}:${JSON.stringify(s?.active ?? null)})`
+      } catch (e) {
+        why = `状态文件不可解析(${stateFile}):${e?.message ?? e}`
+      }
+    }
+    if (!active) {
+      // 未判定:本族一条都不豁免。绝不退回"默认色"猜 —— 猜错的一侧正是"活跃色其实停着而我把它免了"。
+      out.notes.push(`蓝绿族 ${family}:未判定 —— ${why} ⇒ 本族本轮不豁免任何色(冷备色停着与活跃色停着在这一轮同形,由人先看状态文件)`)
+      out.families.push({ family, state: 'undetermined', active: null, stateFile, colors: colorNames, why })
+      continue
+    }
+    out.families.push({ family, state: 'measured', active, stateFile, colors: colorNames, why: null })
+    const cutover = typeof fam?.cutoverStep === 'string' && fam.cutoverStep.trim() ? fam.cutoverStep.trim() : `${family} 蓝绿切换器的『停旧色』步`
+    for (const [color, spec] of Object.entries(colors)) {
+      const svc = typeof spec?.service === 'string' ? spec.service.trim() : ''
+      if (!svc) {
+        out.notes.push(`蓝绿族 ${family}:色 ${color} 缺 service ⇒ 该色不登记(不猜服务名)`)
+        continue
+      }
+      if (color === active) continue // 活跃色停着 = 真故障,必须照旧报红
+      out.names.set(svc.toLowerCase(), {
+        source: 'blue-green',
+        family,
+        color,
+        reason: `蓝绿冷备(${family}/${color}):状态文件记的活跃色是 ${active};按 ${cutover},非活跃色本就该 Stop`,
+        reviewBy: String(fam.reviewBy),
+      })
+    }
+  }
+  // ── env 形态对账的读取面(2026-10-29)─────────────────────────────────────────
+  // 独立于上面的豁免链:这一维判的是"nssm 里那份 env 配置写得对不对",与**谁是活跃色、状态文件在不在位、
+  // reviewBy 有没有过期**都无关 —— 冷备色的配置必须在切过去之前就正确(2026-10-29 凌晨 IHUI-WEB-GREEN
+  // 正是"轮到它时配置是坏的"这一型)。键名/端口/成员一律取自台账,判据零写死(§0.6)。
+  for (const fam of blueGreenFamiliesOf(raw)) {
+    const family = typeof fam?.family === 'string' && fam.family.trim() ? fam.family.trim() : '(未命名族)'
+    const envPortKey = typeof fam?.envPortKey === 'string' && fam.envPortKey.trim() ? fam.envPortKey.trim() : null
+    if (!envPortKey) out.envCheck.notes.push(`蓝绿族 ${family}:未登记 envPortKey ⇒ 本族端口期望成员一律落"未判定"(本维不猜键名,也不静默跳过)`)
+    const colors = fam?.colors && typeof fam.colors === 'object' ? fam.colors : {}
+    for (const [color, spec] of Object.entries(colors)) {
+      const svc = typeof spec?.service === 'string' ? spec.service.trim() : ''
+      if (!svc) {
+        out.envCheck.notes.push(`蓝绿族 ${family}:色 ${color} 缺 service ⇒ env 形态对账不登记该色(不猜服务名)`)
+        continue
+      }
+      const port = Number.isInteger(spec?.port) && spec.port > 0 ? spec.port : null
+      out.envCheck.members.push({ service: svc, family, color, envPortKey, expectedPort: port })
+    }
+    for (const m of Array.isArray(fam?.noPortExpectationMembers) ? fam.noPortExpectationMembers : []) {
+      const svc = typeof m?.service === 'string' ? m.service.trim() : ''
+      const reason = typeof m?.reason === 'string' ? m.reason.trim() : ''
+      if (!svc || !reason) {
+        out.envCheck.notes.push(`蓝绿族 ${family}:noPortExpectationMembers 有一条缺 service/reason ⇒ 跳过该条(显式声明缺失时本维不猜射程,点名由这条 note 承担)`)
+        continue
+      }
+      out.envCheck.members.push({ service: svc, family, color: null, envPortKey: null, expectedPort: null, outOfScope: true, why: reason })
+    }
+  }
+  // ── 开机自启对账的读取面(D5,2026-10-29)───────────────────────────────────────
+  // 同一族台账的第三问:『这台服务在 SCM 里的启动类型,是不是规约要求的那一档』。它管的是**开机那一刻**:
+  // 2026-10-29 09:31 本机重启,web 三件套因装成 Manual 没回来 ⇒ 8801 无监听、公网 522,而部署环 behind=0
+  // 每轮只报"无需部署",没有任何一次切流会把它拉起来 —— 入口类服务的开机自启是唯一的兜底,而仓内当时
+  // 没有任何一面写着这条规约(唯一的机器快照基准件还停在另一台机的 3 个旧单实例服务)。判据不写死服务名
+  // (全部来自台账),归一复用 normalizeStartType(§22c:不做第二份启动类型尺子)。
+  for (const fam of blueGreenFamiliesOf(raw)) {
+    const family = typeof fam?.family === 'string' && fam.family.trim() ? fam.family.trim() : '(未命名族)'
+    const entries = Array.isArray(fam?.bootStart) ? fam.bootStart : []
+    if (entries.length === 0) out.bootCheck.notes.push(`蓝绿族 ${family}:没有 bootStart 条目 ⇒ 本族开机自启整维未判定(没有声明就没有对账面,不静默当作"都对")`)
+    for (const b of entries) {
+      const svc = typeof b?.service === 'string' ? b.service.trim() : ''
+      const expect = normalizeStartType(b?.expect)
+      const why = typeof b?.why === 'string' ? b.why.trim() : ''
+      if (!svc || !expect || !why) {
+        const missing = [!svc && 'service', !expect && 'expect', !why && 'why'].filter(Boolean).join('/')
+        out.bootCheck.notes.push(`蓝绿族 ${family}:bootStart 有一条不齐(缺 ${missing})⇒ 跳过该条并点名,不猜`)
+        continue
+      }
+      out.bootCheck.members.push({ service: svc, family, expect, why })
+    }
+  }
+  return out
+}
+
+/**
+ * env 形态对账的**判定面**(D4,2026-10-29;纯函数,零 IO ⇒ 构造面可测)。
+ *
+ * 判一句话:**这台服务在 nssm 里那份 env 块,有没有"一整行恰好是 `<envPortKey>=<期望端口>`"**。
+ * 只写这一句是因为当晚的故障形态正是"整串塞成一条参数"——那种写法下每个 KEY 都还在块里,
+ * 任何"键存在吗"式的问法都会答"在",而端口值被读成 `"8852 IHUI_WEB_HOST=…"`。所以断言必须是**整行等值**,
+ * 不是包含、不是前缀、不是解析后取键。
+ *
+ * 四档不并桶(§0.3:取不到输入 ⇒ 未判定,既不记绿也不冒红):
+ *  · `ok` —— 存在一整行逐字节等于 `KEY=端口`;
+ *  · `malformed` —— 键在块里出现过,但没有任何一整行等于 `KEY=端口`(值带空格 ⇒ 整串形态;值≠台账端口 ⇒ 端口漂了);
+ *  · `missing` —— 整块里根本没有这个键(与"写歪"是两种病,修法不同:一个补键、一个改写法);
+ *  · `undetermined` —— 服务不在本轮入审集合 / env 块没量到 / 台账缺 envPortKey 或缺期望端口。
+ * 台账显式声明"无端口期望"的成员(router 类)单列 `outOfScope`,只点名不判断言(它仍然要能被读到 ⇒ 行数)。
+ */
+export function judgeEnvShape(rows, envCheck) {
+  const members = Array.isArray(envCheck?.members) ? envCheck.members : []
+  const notes = Array.isArray(envCheck?.notes) ? envCheck.notes.slice() : []
+  const byName = new Map((Array.isArray(rows) ? rows : []).map((r) => [String(r?.name ?? r?.rec?.name ?? '').toLowerCase(), r]))
+  const buckets = { ok: [], malformed: [], missing: [], undetermined: [] }
+  const outOfScope = []
+  const push = (bucket, m, extra) =>
+    buckets[bucket].push({
+      service: m.service,
+      family: m.family ?? null,
+      color: m.color ?? null,
+      expected: m.envPortKey && m.expectedPort ? `${m.envPortKey}=${m.expectedPort}` : null,
+      ...extra,
+    })
+  for (const m of members) {
+    const row = byName.get(String(m.service ?? '').toLowerCase())
+    if (!row) {
+      push('undetermined', m, { why: '不在本轮入审集合(既没被过滤器命中,也不在注册表 nssm 清单里)⇒ 本维对它没有读数' })
+      continue
+    }
+    // 行形状两种都认:入审行是 `{ name, rec }`(main 里 meta.services 就是这个形),构造夹具可直接给 rec。
+    const rec = row.rec && typeof row.rec === 'object' ? row.rec : row
+    const block = rec?.envBlock ?? { kind: 'unmeasured', reason: 'rec 上没有 envBlock 这一维' }
+    if (block.kind !== 'measured') {
+      push('undetermined', m, { why: `env 块没量到 —— ${block.reason ?? block.kind}` })
+      continue
+    }
+    const lines = block.value === null || block.value === undefined ? [] : String(block.value).split('\n')
+    if (m.outOfScope) {
+      outOfScope.push({ service: m.service, family: m.family ?? null, why: m.why ?? '', lines: lines.length })
+      continue
+    }
+    if (!m.envPortKey || !m.expectedPort) {
+      push('undetermined', m, { why: `台账没给本成员的端口期望(envPortKey=${m.envPortKey ?? '空'} / 期望端口=${m.expectedPort ?? '空'})⇒ 本维不猜键名与端口` })
+      continue
+    }
+    const want = `${m.envPortKey}=${m.expectedPort}`
+    const exact = lines.find((l) => l === want)
+    if (exact !== undefined) {
+      push('ok', m, { lines: lines.length })
+      continue
+    }
+    // 键出现过(哪怕被并在一长串里、哪怕端口漂了)⇒ malformed;一次都没出现 ⇒ missing。
+    const keyRe = new RegExp(`(^|\\s)${m.envPortKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=`)
+    const hitLine = lines.find((l) => keyRe.test(l))
+    if (hitLine === undefined) push('missing', m, { lines: lines.length, why: `整块 ${lines.length} 行里没有键 ${m.envPortKey}` })
+    else push('malformed', m, { lines: lines.length, observed: hitLine.slice(0, 160), why: lines.length <= 1 ? 'env 块只有一行 ⇒ 疑似被写成一整串(一条参数塞完全部 KEY=VALUE)' : '该键所在行不是"一整行恰为 KEY=端口"' })
+  }
+  const totals = { members: members.length, ...Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, v.length])), outOfScope: outOfScope.length }
+  if (members.length === 0) notes.push('射程成员为 0 ⇒ 本维没有任何东西被量到,不得读成"都对"(§0.3)')
+  return { totals, buckets, outOfScope, notes }
+}
+
+/**
+ * 开机自启对账的**判定面**(D5,2026-10-29;纯函数,零 IO)。
+ *
+ * 问一句:台账声明的每一台 boot 关键服务,SCM 实测的启动类型是否等于声明的那一档。四档不并桶:
+ *  · `ok` —— 归一后逐字相等(`Auto` ≡ `AUTOMATIC`,尺子 = 上面那把 `normalizeStartType`,不复写第二份);
+ *  · `mismatch` —— 在册但档位不同 ⇒ 就是 2026-10-29 09:31 那一型(router/兜底色被装成 Manual,重启后无人拉起);
+ *  · `absent` —— 本机根本没有这个服务键 ⇒ **不适用**,既不算不符也不冒绿(换机/另一台机没有蓝绿族是合法状态);
+ *  · `undetermined` —— STATE 通道没量到 / 该名字不在 STATE 清单里而注册表通道也不能替它作证 ⇒ 未判定。
+ * 与 D4 同一条纪律:判的是机器现状 ⇒ 只报数、不参与退出码(§12e)。
+ */
+export function judgeBootStart(stateRows, bootCheck, registryNames = []) {
+  const members = Array.isArray(bootCheck?.members) ? bootCheck.members : []
+  const notes = Array.isArray(bootCheck?.notes) ? bootCheck.notes.slice() : []
+  const rows = Array.isArray(stateRows) ? stateRows : []
+  const byName = new Map(rows.map((r) => [String(r?.name ?? '').toLowerCase(), r]))
+  const inRegistry = new Set((Array.isArray(registryNames) ? registryNames : []).map((n) => String(n ?? '').toLowerCase()))
+  const buckets = { ok: [], mismatch: [], absent: [], undetermined: [] }
+  for (const m of members) {
+    const key = String(m.service ?? '').toLowerCase()
+    const row = byName.get(key)
+    const entry = { service: m.service, family: m.family ?? null, expect: m.expect, why: m.why }
+    if (!row) {
+      // "STATE 清单里没有"有两种成因:本机确实没这个服务(合法,不适用),或 STATE 通道把它漏了而注册表里躺着。
+      // 后者不能读成不适用 —— 那是把"没量到"写成"没差异"(§0.3),恰是本仓记过的最高频失效型。
+      if (inRegistry.has(key)) buckets.undetermined.push({ ...entry, observed: null, note: '注册表里有这个服务键,而 STATE 通道没回显它 ⇒ 未判定(不据缺席判不适用)' })
+      else buckets.absent.push({ ...entry, observed: null, note: '本机 STATE 清单里没有这个服务键 ⇒ 不适用(不是不符)' })
+      continue
+    }
+    const got = normalizeStartType(row.startType)
+    if (!got) {
+      buckets.undetermined.push({ ...entry, observed: String(row.startType ?? ''), note: 'SCM 回显的启动类型读不出档位 ⇒ 未判定' })
+      continue
+    }
+    if (got === m.expect) buckets.ok.push({ ...entry, observed: got })
+    else buckets.mismatch.push({ ...entry, observed: got, note: `实测 ${got} ≠ 声明 ${m.expect}` })
+  }
+  const totals = { members: members.length, ok: buckets.ok.length, mismatch: buckets.mismatch.length, absent: buckets.absent.length, undetermined: buckets.undetermined.length }
+  if (members.length === 0) notes.push('射程成员为 0 ⇒ 本维没有任何东西被量到,不得读成"都对"(§0.3)')
+  return { totals, buckets, notes }
+}
+
+/**
+ * 把『停着是设计内』的服务从 issue 降为 skipped(纯函数,构造面可测)。
+ *
+ * **只豁免"它停着"这一条,而且只认 STATE 的 `stopped` 档**(2026-10-29 起按档位判,不再按 `^STATE=`
+ * 前缀认 —— 前缀尺子会把 PAUSED 读成"停着",挂起的路由就被蓝绿豁免顺手免掉了):
+ *  · `paused`(挂起)—— nssm AppExit=Restart 节流/应用起不来的信号,属**真故障档**,本表任何条目都免不到它;
+ *  · `pending`/`unknown` —— 过渡态与不认识的形态同理不豁免;
+ *  · 量到其它 problem(Application 路径不是可用文件 / AppDirectory 没了 / 运行时代码断链 …)一律保持
+ *    issue —— 否则这张表就成了新的消红通道(与 `skipped` 曾被当通道那一型同型,见 collectDotSourceLayer 头注);
+ *  · STATE 量不到时同理不豁免:"量不到"不是"停着"。
+ */
+export function applyExpectedStopped(rows, expected) {
+  const applied = []
+  const kept = []
+  const names = expected?.names instanceof Map ? expected.names : new Map()
+  const STOPPED_LINE = stateProblemOf('STOPPED')
+  const ONLY_STOPPED = (p) => p === STOPPED_LINE || /^监听无应答/.test(p)
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const hit = names.get(String(row?.name ?? '').toLowerCase())
+    if (!hit) continue
+    if (row.level !== 'issue') continue
+    const problems = Array.isArray(row.problems) ? row.problems : []
+    const stateValue = row.rec?.state?.kind === 'measured' ? row.rec.state.value : null
+    const band = stateValue === null ? null : stateBandOf(stateValue).band
+    const onlyStopped = band === 'stopped' && problems.every(ONLY_STOPPED)
+    if (!onlyStopped) {
+      const rest = problems.filter((p) => !ONLY_STOPPED(p))
+      kept.push({
+        name: row.name,
+        band,
+        state: stateValue,
+        why:
+          stateValue === null
+            ? '登记为预期停止,但 STATE 这一维量不到(未判定不等于"停着")⇒ 不豁免'
+            : band === 'paused'
+              ? `登记为预期停止,但量到的是 ${stateValue}(挂起档 ≠ 停着):nssm 节流/应用起不来是真故障,『停着是设计内』免不到 ⇒ 照旧报红`
+              : band === 'running'
+                ? '登记为预期停止,但它正在 RUNNING ⇒ 豁免只免"按设计停着"这一条,不改变它的任何读数'
+                : band === 'pending' || band === 'unknown'
+                  ? `登记为预期停止,但量到的是 ${stateValue}(${band} 档:过渡/未知,不是"按设计停着")⇒ 不豁免`
+                  : `登记为预期停止,但还量到"停着"以外的坏:${rest.join(' | ')}`,
+      })
+      continue
+    }
+    applied.push({ name: row.name, source: hit.source, family: hit.family ?? null, color: hit.color ?? null, band, reason: hit.reason })
+    row.level = 'skipped'
+    row.expectedStopped = { source: hit.source, family: hit.family ?? null, color: hit.color ?? null, reason: hit.reason, reviewBy: hit.reviewBy ?? null, band }
+  }
+  return {
+    applied,
+    kept,
+    notes: Array.isArray(expected?.notes) ? expected.notes : [],
+    families: Array.isArray(expected?.families) ? expected.families : [],
+  }
+}
+
+/**
+ * 退出码聚合(默认档 = 手动问责语义;--strict 追加"有维量不到也不出合格证")。
+ * 任一通道未判定 ⇒ 2;没有任何可判对象(或全部只剩 skipped/unattested)⇒ 2 —— "空表"永远不是通过。
+ */
+export function computeExitCode(services, channels, opts = {}) {
+  const strict = opts.strict === true
+  const stateCh = channels?.state
+  const regCh = channels?.registry
+  if (!stateCh || stateCh.kind === 'unmeasured') return 2
+  if (!regCh || regCh.kind === 'unmeasured') return 2
+  const judged = services.filter((s) => s.level !== 'skipped')
+  if (services.length === 0 || judged.length === 0) return 2
+  if (judged.every((s) => s.level === 'unattested')) return 2
+  if (services.some((s) => s.level === 'issue')) return 1
+  if (strict && services.some((s) => s.level === 'unattested')) return 1
+  return 0
+}
+
+// ---------------------------------------------------------------------------
+// CLI 参数(纯函数,便于自检喂构造 argv)
+// ---------------------------------------------------------------------------
+export function parseArgs(argv) {
+  const opts = { help: false, json: false, strict: false, selfTest: false, filter: 'IHUI*', services: [] }
+  const bad = []
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--help' || a === '-h') opts.help = true
+    else if (a === '--json') opts.json = true
+    else if (a === '--strict') opts.strict = true
+    else if (a === '--self-test') opts.selfTest = true
+    else if (a === '--filter') {
+      const v = argv[++i]
+      if (typeof v === 'string' && v !== '') opts.filter = v
+      else bad.push('--filter 后面没有值')
+    } else if (a === '--service') {
+      const v = argv[++i]
+      if (typeof v === 'string' && v !== '') opts.services.push(v)
+      else bad.push('--service 后面没有值')
+    } else bad.push(`不认识的参数:${a}`)
+  }
+  return { opts, bad }
+}
+
+/** 两把解释器候选按存在性择一(合并自对侧)。都不在位 ⇒ 两通道一起未判定,由调用方落 exit 2。 */
+export function pickPowerShell(exists = (p) => existsSync(p)) {
+  return PS_CANDIDATES.find((c) => exists(c.bin) === true) ?? null
+}
+
+// ---------------------------------------------------------------------------
+// 真实执行体(只有 main() 的默认 deps 会走到这里;测试一律注入假 deps)
+// ---------------------------------------------------------------------------
+function defaultSpawn(cmd, args, timeoutMs) {
+  try {
+    const out = spawnSync(cmd, args, {
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 32 * 1024 * 1024,
+      encoding: 'buffer',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (out.error) return { spawnError: out.error.code || out.error.name || 'spawn-error', stdoutBuf: Buffer.alloc(0), stderrBuf: Buffer.alloc(0) }
+    return { code: out.status ?? -1, stdoutBuf: out.stdout ?? Buffer.alloc(0), stderrBuf: out.stderr ?? Buffer.alloc(0) }
+  } catch (e) {
+    return { spawnError: e?.code || e?.name || 'spawn-throw', stdoutBuf: Buffer.alloc(0), stderrBuf: Buffer.alloc(0) }
+  }
+}
+
+const defaultDeps = {
+  platform: process.platform,
+  host: () => hostname(),
+  exists: (p) => existsSync(p),
+  psBin: null,
+  psEnumerate: (bin) => defaultSpawn(bin, ['-NoProfile', '-NonInteractive', '-Command', buildEnumerationScript()], PS_TIMEOUT_MS),
+  psRegistry: (bin) => defaultSpawn(bin, ['-NoProfile', '-NonInteractive', '-Command', buildRegistryScript()], PS_TIMEOUT_MS),
+  resolveNssm: () => NSSM_CANDIDATES.find((p) => existsSync(p)) ?? null,
+  nssmGet: (nssmPath, svc, param) => defaultSpawn(nssmPath, ['get', svc, param], NSSM_TIMEOUT_MS),
+  fileKind: (p) => {
+    try {
+      const st = statSync(p)
+      if (st.isFile()) return 'file'
+      if (st.isDirectory()) return 'dir'
+      return 'other'
+    } catch {
+      return 'missing'
+    }
+  },
+  /** 脚本 mtime(运行时代码新鲜度维用)。取不到必须带原因返回 ok:false ⇒ 上层落「未判定」,
+   *  绝不能返回一个 0 或 undefined 让比较式自己编结论。 */
+  statFile: (p) => {
+    try {
+      const st = statSync(p)
+      if (!st.isFile()) return { ok: false, why: '该路径存在但不是文件' }
+      return { ok: true, mtimeMs: st.mtimeMs }
+    } catch (e) {
+      return { ok: false, why: e?.code ?? e?.message ?? 'statSync 抛错' }
+    }
+  },
+  /** 脚本正文(dot-source 层用):只读,不解码即下结论 —— PowerShell 文件在本仓既有 UTF-8(带/不带 BOM)
+   *  也有 UTF-16LE,按错码页读会得到夹杂 NUL 的文本,提取结果因此必须是"读到了什么就是什么"而不是空串冒充。
+   *  取不到必须带原因返回 ok:false ⇒ 上层落「未判定」(把读不到写成没有 = 本维最坏的失效方向)。 */
+  readScriptText: (p) => {
+    try {
+      const { text } = decodeNssm(readFileSync(p))
+      // decodeNssm 只剥 UTF-16 BOM;UTF-8 with BOM 的 .ps1(§27 的写盘规矩)首行会带一个 U+FEFF,
+      // 用码位比较而不是把 BOM 写进源码:字面 BOM 在文件里不可见,而它一旦被编辑链丢掉,这行就静默变成 no-op。
+      return { ok: true, text: text.charCodeAt(0) === 0xfeff ? text.slice(1) : text }
+    } catch (e) {
+      return { ok: false, why: e?.code ?? e?.message ?? 'readFileSync 抛错' }
+    }
+  },
+  /** netstat -ano:一次派生、只读;SystemRoot 推导的绝对路径优先,不依赖 PATH。 */
+  netstatSnapshot: () => {
+    const bin = NETSTAT_CANDIDATES.find((p) => existsSync(p)) ?? null
+    if (!bin) return { spawnError: 'netstat 不在位(候选 ' + NETSTAT_CANDIDATES.join(', ') + ')' }
+    return defaultSpawn(bin, ['-ano'], NETSTAT_TIMEOUT_MS)
+  },
+  psProcesses: (bin) => defaultSpawn(bin, ['-NoProfile', '-NonInteractive', '-Command', buildProcessListScript()], PROC_TIMEOUT_MS),
+  /** 探测地址由**端口实际绑定的地址**决定(见 probeHostForBind)—— 写死回环会把只绑网卡的活端口报成失败。 */
+  tcpProbe: (port, host = LOOPBACK_PROBE_HOST) =>
+    new Promise((resolve) => {
+      const sock = net.connect({ host, port })
+      let settled = false
+      const fin = (v) => {
+        if (settled) return
+        settled = true
+        sock.destroy()
+        resolve(v)
+      }
+      sock.setTimeout(TCP_TIMEOUT_MS)
+      sock.once('connect', () => fin({ status: 'open' }))
+      sock.once('timeout', () => fin({ status: 'unmeasured', why: `${host}:${port} 连接超时(${TCP_TIMEOUT_MS}ms)` }))
+      sock.once('error', (e) => {
+        const code = e && typeof e.code === 'string' ? e.code : 'unknown'
+        if (code === 'ECONNREFUSED') fin({ status: 'closed' })
+        else fin({ status: 'unmeasured', why: `${host}:${port} 报错(${code})` })
+      })
+    }),
+}
+
+function existenceOf(value, deps) {
+  if (!value) return unmeasured('没有可判的存在性')
+  if (looksCorrupted(value)) return unmeasured('取值含替换符/控制字符 ⇒ 疑被码页打断,不据此判缺失')
+  if (!path.win32.isAbsolute(value)) return unmeasured(`非绝对路径(${value})⇒ 落点由 PATH/工作目录决定,本门不判缺失`)
+  return measured(deps.fileKind(value))
+}
+
+/** 服务 pid → 该服务进程树实际持有的监听端点。三态里"量到的空"与"没量到"必须分得开:
+ *  前者才允许说"任务型,此维不适用",后者只能说"这一维没看成"—— 两者的处置动作完全不同。 */
+export function computeObservedListening({ servicePid, netstat, procs }) {
+  if (!netstat || netstat.kind === 'unmeasured') return unmeasured(`监听观察取不到:netstat 维未判定(${netstat?.reason ?? '没有值'})`)
+  if (!procs || procs.kind === 'unmeasured') return unmeasured(`监听观察取不到:进程树维未判定(${procs?.reason ?? '没有值'})`)
+  const rawPid = Number(servicePid)
+  if (servicePid === null || servicePid === undefined || !Number.isInteger(rawPid))
+    return unmeasured('监听观察取不到:进程枚举里没有这个服务的 pid 条目 ⇒ 无从确定归并起点(与"服务停着所以 pid=0"是两件事)')
+  const tree = buildProcessTree(rawPid, procs.value.procs)
+  if (!tree.rootUsable)
+    return unmeasured(`监听观察取不到:服务 pid=${rawPid} ≤ ${SYSTEM_PID_FLOOR}(未运行或非进程型),拿它当根会把 System/Idle 名下全机 RPC 监听算到该服务头上`)
+  const endpoints = attributeListening(netstat.value.rows, tree.pids)
+  return measured({ endpoints, treeSize: tree.pids.size, truncated: tree.truncated, listenerPids: [...new Set(endpoints.map((e) => e.pid))].sort((a, b) => a - b) })
+}
+
+/** .NET ticks(100ns 自 **0001-01-01** UTC)→ epoch ms。
+ *  ⚠️ 两个坑都由真机现读抓出来,不是推演出来的:
+ *  ① 差值必须是 0001 纪元(62135596800000 ms),**不是** FILETIME 的 1601 纪元
+ *     (11644473600000)—— 用错那个常数年份会整体 +1600(本机第一跑就打出了 3626-10-01)。
+ *  ② 必须走 BigInt:2026 年的 ticks ≈ 6.2e18,而 float64 的整数安全上限是 9.007e15,
+ *     用 Number 承接会静默丢到低 128 ticks —— 对"差几分钟"无所谓,但任何等值比较都会偶然失败。
+ *  自检里那条"年份必须落在当次.now() 前后一年内"的量级哨兵就是为 ① 设的:
+ *  拿同一个常数正反各算一遍是恒真式,抓不到 ① 这一型。 */
+export const TICKS_EPOCH_DIFF_MS = 62135596800000
+export function ticksToMs(ticks) {
+  const s = String(ticks ?? '').trim()
+  if (!/^\d+$/.test(s)) return null
+  try {
+    const ms = Number(BigInt(s) / 10000n - BigInt(TICKS_EPOCH_DIFF_MS))
+    return Number.isFinite(ms) && ms >= 0 ? ms : null
+  } catch {
+    return null
+  }
+}
+
+/** 从服务的 AppParameters 里抠出"进程启动时真正加载的那一份脚本"。
+ *  刻意只做两种肯定形态:`-File <路径>.ps1` 与绝对路径的 `.mjs/.cjs/.js/.ps1` 词元 ——
+ *  模糊匹配会把参数里的日志路径/配置路径当成加载目标,那产出的不是"少判",而是**假 stale**。 */
+export function resolveLoadedScript(paramsTexts) {
+  const texts = (Array.isArray(paramsTexts) ? paramsTexts : [paramsTexts])
+    .filter((t) => typeof t === 'string' && t.trim() !== '')
+    .map((t) => t.trim())
+  if (texts.length === 0) return unmeasured('AppParameters 没有可读的值(空或未量到)⇒ 判不出加载目标,这不是"没有脚本"')
+  for (const raw of texts) {
+    const m = /-File\s+"([^"]+\.ps1)"/i.exec(raw) ?? /-File\s+([^\s"]+\.ps1)/i.exec(raw)
+    if (m) return measured(m[1])
+  }
+  for (const raw of texts) {
+    const m = /(?:^|\s)"([A-Za-z]:[^"]+\.(?:mjs|cjs|js))"(?=$|\s)/i.exec(raw) ?? /(?:^|\s)([A-Za-z]:[^\s"]+\.(?:mjs|cjs|js))(?=$|\s)/i.exec(raw)
+    if (m) return measured(m[1])
+  }
+  return unmeasured(`AppParameters 里没有判得出的加载目标(既无 -File <脚本>,也无绝对路径的 .mjs/.cjs/.js 词元):${texts.join(' ⎯ ').slice(0, 200)}`)
+}
+
+/** 每个文件的静态加载边(dot-source + Import-Module)条数上限:超出即如实报"未跟完"(与 TREE_MAX_* 同一条取向 —— 封顶必须可见,不得静默截断)。 */
+export const DOT_SOURCE_MAX = 32
+/** dot-source 传递闭包的文件总数上限(2026-10-13 按票 G-1080903 从"深度封顶 1"扩成全闭包时配套加的):
+ *  递归跟"被 dot-source 文件自身的 dot-source"必须有总量闸,否则一条病态长链(或两条互相引用的长链)
+ *  就能把一次判定拖成全仓扫描。超限落**未判定**并点名(没跟完 = 没量到,不得读成新鲜),与 TREE_MAX_*
+ *  同一条取向 —— 封顶必须可见。 */
+export const DOT_SOURCE_CLOSURE_MAX = 64
+
+/** 把一个 PowerShell 操作数静态求值成路径。只认三类确定形态:
+ *  ① 字面量(单引号串、双引号串内**不含**变量、裸路径)
+ *  ② `$PSScriptRoot` / `$PSScriptDir` 打头(这两个是"该脚本自己所在目录",由 -File 那份脚本的位置定死)
+ *  ③ `(Join-Path <上面两类> <上面两类> …)` 的静态组合(括号形与**裸 `Join-Path …` 形**都认——后者是本仓
+ *    赋值行的现读形态:`$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'`,见 ⑤)
+ *  ④ 其余(任何别的变量、`$env:`、子表达式、格式化)一律返回 why —— 判"解析不出"而不是猜。
+ *  ⑤ **单次静态赋值的变量**不在这里解:由 extractDotSourcedScripts 的行序变量账(§varEnv)先替换再进本函数。
+ *  ⚠ 为什么 $PSScriptRoot 算"确定":本票要抓的那一次真实自伤(`ihui-monitor.ps1`
+ *  dot-source `alert-dedup.ps1`)在本仓的真实书写形态就是 `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`
+ *  (deploy/win/ihui-monitor.ps1 现读第 143 行)。把它判成"带变量、解析不出",这一维对本票的立项由头
+ *  仍然零判据 —— 那就是白改。相对路径按**被 dot-source 的那份脚本自己所在目录**解析(不是仓库根)。
+ *  ⚠ 而 `. $LockCommon`(ihui-monitor.ps1 第 156 行)这类"变量当操作数"此前一律落未判定 ——
+ *  现读本仓形态,它的赋值行恒为 `$X = Join-Path $PSScriptRoot '<字面量>.ps1'`(单赋值、后接
+ *  Test-Path 守卫),静态完全确定;拒收它等于让 IHUI-MONITOR / IHUI-DEPLOY 两条服务的这一维**永远失明**,
+ *  正是票面"把没量写成量过"禁止的反方向(把能量写成没量,维度形同虚设)。所以 2026-10-25 起按
+ *  "同一变量恰好一次可静态求值的赋值"收(多次赋值/复合赋值 ⇒ 判不成,回落未判定点名,不猜)。 */
+function resolveDotSourceOperand(tok, scriptDir) {
+  const s = String(tok ?? '').trim()
+  if (s === '') return { why: '点号/Dot-Source 后面没有可解析的参数' }
+  if (s.startsWith('(') && s.endsWith(')')) {
+    const inner = s.slice(1, -1).trim()
+    const m = /^Join-Path\s+(.+)$/is.exec(inner)
+    if (!m) return { why: `括号里不是可静态求值的 Join-Path(${inner.slice(0, 60)})` }
+    return evalJoinPathExpr(m[1], scriptDir)
+  }
+  if (/^Join-Path\s+/is.test(s)) return evalJoinPathExpr(s.replace(/^Join-Path\s+/is, ''), scriptDir)
+  if (s.length > 1 && s.startsWith("'") && s.endsWith("'"))
+    return { path: path.win32.resolve(scriptDir, s.slice(1, -1)) }
+  if (s.length > 1 && s.startsWith('"') && s.endsWith('"'))
+    return expandScriptRootToken(s.slice(1, -1), scriptDir)
+  if (s.startsWith('$')) return expandScriptRootToken(s, scriptDir)
+  if (/[$()`]/.test(s))
+    return { why: `参数含变量或子表达式(${s.slice(0, 60)})⇒ 静态读不出实际落点,本维不猜` }
+  return { path: path.win32.resolve(scriptDir, s) }
+}
+
+/** `Join-Path a b …` 的静态组合求值(括号形与裸形共用一份,§0.6)。 */
+function evalJoinPathExpr(inner, scriptDir) {
+  const parts = splitPowerShellArgs(inner)
+  if (parts.length === 0) return { why: `Join-Path 的参数切不开(${inner.slice(0, 60)})` }
+  let acc = null
+  for (const part of parts) {
+    // Join-Path 的首段常常就是**裸** `$PSScriptRoot`(= 该脚本自己所在目录):作为整体操作数时
+    // 它是"目录不是脚本"必须拒(expandScriptRootToken 那一支),但作为 Join-Path 的基座它正是
+    // 基目录 —— 本票立项由头的真实书写形态(deploy/win/ihui-monitor.ps1 第 143 行
+    // `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`)就是这个,不认它这一维对真实自伤零判据。
+    const r = /^\$PS(?:ScriptRoot|ScriptDir)$/i.test(part.trim())
+      ? { path: scriptDir }
+      : resolveDotSourceOperand(part, scriptDir)
+    if (r.why) return r
+    acc = acc === null ? r.path : path.win32.resolve(acc, r.path)
+  }
+  return acc === null ? { why: 'Join-Path 没有参数' } : { path: acc }
+}
+
+/** `$PSScriptRoot` / `$PSScriptDir` 打头的串/裸词元 ⇒ 脚本自己所在目录 + 尾段;其余带 `$` 的一律读不出。 */
+function expandScriptRootToken(s, scriptDir) {
+  const m = /^\$PS(?:ScriptRoot|ScriptDir)\b(.*)$/is.exec(s)
+  if (!m) return { why: `路径含变量(${s.slice(0, 60)})⇒ 实际落点要等运行时才知道,本维不猜` }
+  const tail = m[1].replace(/^['"]/, '').replace(/['"]$/, '')
+  if (tail.includes('$')) return { why: `路径含第二个变量(${s.slice(0, 60)})⇒ 静态读不出` }
+  const cleaned = tail.replace(/^[\\/]+/, '')
+  if (cleaned === '')
+    return { why: `$PSScriptRoot 本身是目录不是脚本(${s.slice(0, 60)})⇒ 没有可比的 mtime` }
+  return { path: path.win32.resolve(scriptDir, cleaned) }
+}
+
+/** PowerShell 参数表切分:逗号与空白等价,引号串与嵌套括号整体保留。 */
+function splitPowerShellArgs(s) {
+  const out = []
+  let cur = ''
+  let quote = null
+  let i = 0
+  while (i < s.length) {
+    const c = s[i]
+    if (quote) {
+      cur += c
+      if (c === quote) quote = null
+      i++
+      continue
+    }
+    if (c === "'" || c === '"') {
+      quote = c
+      cur += c
+      i++
+      continue
+    }
+    if (c === '(') {
+      let depth = 1
+      cur += c
+      i++
+      while (i < s.length && depth > 0) {
+        if (s[i] === '(') depth++
+        else if (s[i] === ')') depth--
+        cur += s[i]
+        i++
+      }
+      continue
+    }
+    if (c === ',' || /\s/.test(c)) {
+      if (cur !== '') out.push(cur)
+      cur = ''
+      i++
+      continue
+    }
+    cur += c
+    i++
+  }
+  if (cur !== '') out.push(cur)
+  return out
+}
+
+/** 行尾注释只在引号/括号之外才算注释(`. 'a#b.ps1' # 说明` 里的 `#` 不是分隔)。 */
+function cutTrailingComment(s) {
+  let quote = null
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (quote) {
+      if (c === quote) quote = null
+      continue
+    }
+    if (c === "'" || c === '"') {
+      quote = c
+      continue
+    }
+    if (c === '(') depth++
+    else if (c === ')') depth--
+    else if (c === '#' && depth === 0 && /(^|\s)$/.test(s.slice(0, i))) return s.slice(0, i)
+  }
+  return s
+}
+
+/** Import-Module 的参数里挑出被导入的模块操作数:跳过 `-Name`/`-Path` 这类取值参数与 `-Global` 等开关。
+ *  挑不到 ⇒ 带 why 返回(不猜)。 */
+function pickImportModuleOperand(parts) {
+  for (const t of parts) if (!/^-[A-Za-z][\w-]*:?$/.test(t)) return { tok: t }
+  return { why: 'Import-Module 没有可解析的模块操作数' }
+}
+
+/** 从一份 PowerShell 脚本文本里抽出它**启动时静态载入**的仓内模块:
+ *  dot-source 点号族(`. ` / `Dot-Source`)与 `Import-Module`(含官方别名 `ipmo`)的路径操作数。
+ *  **不认 `&`**(2026-10-11 票 G-1080903 的取舍,不是漏):`&` 是调用不是载入,
+ *  被它调的子脚本按**调用时刻**读取、改了立刻生效 —— 把 `&` 也收进来会把这类正常形态错算成"必须重启才生效",
+ *  产出的不是少判而是**假 stale**(与本文件 resolveLoadedScript 那段"模糊匹配产出假 stale"同一条禁令)。
+ *  `Import-Module` 只收静态路径操作数(`.psm1`):按模块名导入(落点由 PSModulePath 与已装模块决定)
+ *  与 `.psd1` 清单(RootModule 未静态解析)一律落**未判定**并点名 —— 解析不出不许静默放行。
+ *  已知看不见形态(如实登记,不得读成"已确认没有"):here-string(`@' … '@`)、块注释中部起始不在行首的
+ *  `<#` 里的加载行、`using module` 语句、变量经多次赋值/复合赋值/非静态 RHS 后的 `. $X`
+ *  (单次静态赋值已按本仓现读写法收,见行序变量账)。**这一漏的代价是有界的**:抽错出来的假路径下一步必然走 statFile 失败
+ *  ⇒ 落未判定并点名,不会被读成"新鲜";而抽漏的那一条只是这一维没覆盖到,不是给仓库发合格证。 */
+export function extractDotSourcedScripts({ text, scriptDir }) {
+  if (typeof text !== 'string' || text === '')
+    return unmeasured(
+      'dot-source 取材没有正文(调用方没读到文本)⇒ 这一维没量到,不得记成"这份脚本没有 dot-source"',
+    )
+  if (typeof scriptDir !== 'string' || !/^[A-Za-z]:[\\/]/.test(scriptDir))
+    return unmeasured(
+      `dot-source 的相对落点无从确定(scriptDir=${scriptDir ?? '(未给)'})⇒ 不猜绝对路径`,
+    )
+  const items = []
+  // 行序变量账(2026-10-25 按票面"按 PowerShell 实际写法现读解析面"补):本仓服务脚本的现读形态是
+  // `$X = Join-Path $PSScriptRoot '<字面量>.ps1'` ⇒ Test-Path 守卫 ⇒ `. $X`(ihui-monitor.ps1 151-156、
+  // ihui-deploy.ps1 242-246、ihui-deploy-loop.ps1 107-112/122-127)。恰好一次可静态求值的赋值才算确定;
+  // 二次赋值/复合赋值(+=)/RHS 本身求不出 ⇒ 打回"解析不出",落未判定点名,不猜(§0.3)。
+  const varEnv = new Map() // 变量名(小写)⇒ 静态求出的路径
+  const assignSeen = new Set() // 出现过赋值的变量名:第二次即从 varEnv 剔掉并留污染标记
+  let inBlockComment = false
+  for (const lineRaw of text.split(/\r?\n/)) {
+    const line = lineRaw.trim()
+    if (line === '') continue
+    if (inBlockComment) {
+      if (line.includes('#>')) inBlockComment = false
+      continue
+    }
+    if (/^<#/.test(line)) {
+      if (!line.includes('#>')) inBlockComment = true
+      continue
+    }
+    if (line.startsWith('#')) continue
+    const dm = /^(?:\.|Dot-Source)\s+(\S.*)$/i.exec(line)
+    const im = dm ? null : /^(?:Import-Module|ipmo)\s+(\S.*)$/i.exec(line)
+    if (!dm && !im) {
+      // 赋值行追踪(在 dot-source 行之前逐行建档,与 PowerShell 的读取次序一致)
+      const am = /^\$([A-Za-z_]\w*)\s*(\+?=)\s*(.*)$/.exec(line)
+      if (am) {
+        const key = am[1].toLowerCase()
+        if (assignSeen.has(key)) varEnv.delete(key)
+        else {
+          assignSeen.add(key)
+          // RHS 只收四类确定形态(Join-Path 括号/裸形、引号字面量、盘符绝对路径打头);其余(命令调用、
+          // 变量拷贝、格式化表达式)一律不入账 ⇒ 该变量后续被 dot-source 时按"解析不出"落未判定,不猜。
+          const rhs = cutTrailingComment(am[3]).trim()
+          const staticRhs =
+            /^(?:\(\s*)?Join-Path\s/is.test(rhs) ||
+            (/^['"].+['"]$/.test(rhs)) ||
+            (/^[A-Za-z]:[\\/]/.test(rhs))
+          if (am[2] === '=' && staticRhs) {
+            const r = resolveDotSourceOperand(rhs, scriptDir)
+            if (!r.why) varEnv.set(key, r.path)
+          }
+        }
+      }
+      continue
+    }
+    // 操作数先问变量账,再落静态求值(§0.6:两条道共用同一枚 resolveDotSourceOperand 判据)
+    const resolveOperandToken = (tok) => {
+      const vm = /^\$([A-Za-z_]\w*)$/.exec(String(tok ?? '').trim())
+      if (!vm) return resolveDotSourceOperand(tok, scriptDir)
+      const key = vm[1].toLowerCase()
+      if (varEnv.has(key)) return { path: varEnv.get(key) }
+      if (assignSeen.has(key))
+        return { why: `变量 ${tok} 的赋值不止一次或不是静态可求值形态⇒ 实际落点要等运行次序,本维不猜` }
+      return resolveDotSourceOperand(tok, scriptDir)
+    }
+    const arg = cutTrailingComment((dm ?? im)[1]).trim()
+    if (arg === '') {
+      items.push({ raw: (dm ?? im)[1].trim(), path: null, why: dm ? '点号后没有参数' : 'Import-Module 后没有参数' })
+      continue
+    }
+    const parts = splitPowerShellArgs(arg)
+    if (im) {
+      const picked = pickImportModuleOperand(parts)
+      if (picked.why) {
+        items.push({ raw: arg, path: null, why: picked.why })
+        continue
+      }
+      const bare = picked.tok.replace(/^['"]/, '').replace(/['"]$/, '')
+      const nameLike =
+        !/^\$|^\(/.test(picked.tok) && !/[\\/]/.test(bare) && !/^[A-Za-z]:/.test(bare) &&
+        !/\.(?:psm1|psd1)$/i.test(bare)
+      if (nameLike) {
+        items.push({
+          raw: arg,
+          path: null,
+          why: `Import-Module 按模块名导入(${bare})⇒ 落点由 PSModulePath 与已安装模块决定,本维不猜`,
+        })
+        continue
+      }
+      const r = resolveOperandToken(picked.tok)
+      if (r.why) {
+        items.push({ raw: arg, path: null, why: r.why })
+        continue
+      }
+      if (/\.psd1$/i.test(r.path)) {
+        items.push({
+          raw: arg,
+          path: null,
+          why: `Import-Module 目标是模块清单(${r.path})⇒ RootModule 未静态解析,这一份没量到`,
+        })
+        continue
+      }
+      if (!/\.psm1$/i.test(r.path)) {
+        items.push({
+          raw: arg,
+          path: null,
+          why: `Import-Module 目标不是 .psm1(${r.path})⇒ 不在本维射程`,
+          ignored: true,
+        })
+        continue
+      }
+      items.push({ raw: arg, path: r.path })
+      continue
+    }
+    // 一条行只取第一个操作数;多操作数(`. (Join-Path a b c)`)整体交给 resolveOperandToken(→静态求值)。
+    const first = parts[0] ?? arg
+    const r = resolveOperandToken(first)
+    if (r.why) {
+      items.push({ raw: arg, path: null, why: r.why })
+      continue
+    }
+    if (!/\.ps1$/i.test(r.path)) {
+      items.push({
+        raw: arg,
+        path: null,
+        why: `点号目标不是 .ps1(${r.path})⇒ 不在本维射程(dot-source 别的扩展名极少见,收了只会造出读不出的路径)`,
+        ignored: true,
+      })
+      continue
+    }
+    items.push({ raw: arg, path: r.path })
+  }
+  const paths = []
+  const seen = new Set()
+  for (const it of items) {
+    if (!it.path) continue
+    const key = it.path.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    paths.push(it.path)
+  }
+  const truncated = paths.length > DOT_SOURCE_MAX
+  return measured({
+    items,
+    paths: truncated ? paths.slice(0, DOT_SOURCE_MAX) : paths,
+    declaredTotal: paths.length,
+    truncated,
+  })
+}
+
+/** dot-source / Import-Module 层的取材与比较(**传递闭包**:2026-10-13 按票 G-1080903 从"深度封顶 1"扩全 ——
+ *  只跟直接 dot-source 而把第二层报名"已知未覆盖"的那一版,正是票面要修的洞:闭包里任何一层
+ *  没进 mtime 账,"模块比进程新"就能藏在第二层之下全程绿着。现在递归跟每个被 dot-source / Import-Module
+ *  模块自身的加载边,链上**每份文件**的 mtime 一并纳入与进程启动时刻的比较)。
+ *  三条工程闸,缺一不可:
+ *  ① 每份脚本自身加载边条数仍受 DOT_SOURCE_MAX 封顶(超限如实报 truncated,不静默截断);
+ *  ② 闭包文件总数受 DOT_SOURCE_CLOSURE_MAX 封顶(超限落未判定并点名 —— 没跟完 = 没量到,不得读成新鲜);
+ *  ③ 环保护:visited 集合按规范化路径去重,a→b→a 不无限递归,环上每份文件仍各计一次 mtime 账;
+ *     同一模块被两条边重复加载(菱形)也只计一次账(scanned 不得重复计数)。
+ *  失效出口全部落未判定并各带原因:没有读取出口 / 读不到正文 / 模块 mtime 读不到 / 抽取判不出;
+ *  而"引用的模块文件不存在(ENOENT)"单独落**断链**桶(独立三态,票面 2026-10-25)——断链是量到的坏,不是没量到。
+ *  而"量到的空"与"没量到"分档:根脚本确实没有加载边 ⇒ note(量到的空),加载目标不是 .ps1 ⇒ note(不适用)
+ *  —— 两者都不是"这一维失明",把它们写成失明会让每台 PowerShell 服务都拿不到合格证。
+ *  兼容注:`nested` 字段随封顶 1 一起退役(闭包之下不再有"已知未覆盖"层),恒为空数组,仅为既有
+ *  JSON 输出形状兼容保留;超限/环路等闭包现象分别走 undetermined(没量到)与"不另立新档"。
+ */
+function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }) {
+  const out = { scanned: 0, stale: [], broken: [], undetermined: [], nested: [], notes: [] }
+  if (!/\.ps1$/i.test(scriptPath)) {
+    out.notes.push(
+      `加载目标不是 .ps1(${scriptPath})⇒ dot-source 是 PowerShell 语法,这一维对它没有对象(是"不适用",不是"已确认没有")`,
+    )
+    return out
+  }
+  if (typeof readScriptText !== 'function') {
+    out.undetermined.push(
+      `调用方没有注入 readScriptText 出口 ⇒ 读不到 ${scriptPath} 的正文,dot-source 清单无从得出`,
+    )
+    return out
+  }
+  const norm = (p) => path.win32.normalize(String(p)).toLowerCase()
+  const visited = new Set() // 正文已读过、dot-source 已抽过的文件(环保护 + 环路去重)
+  const accounted = new Set() // mtime 已计过账的文件(菱形去重:同一模块只计一次)
+  const queue = [scriptPath]
+  let sawRoot = false
+  while (queue.length > 0) {
+    if (visited.size >= DOT_SOURCE_CLOSURE_MAX) {
+      out.undetermined.push(
+        `dot-source 传递闭包超过上限 ${DOT_SOURCE_CLOSURE_MAX} 份(已跟 ${visited.size} 份)⇒ 其余这一轮没量到,不得读成新鲜`,
+      )
+      break
+    }
+    const sp = queue.shift()
+    const spKey = norm(sp)
+    if (visited.has(spKey)) continue
+    visited.add(spKey)
+    const isRoot = !sawRoot
+    sawRoot = true
+    const rd = readScriptText(sp)
+    if (!rd || rd.ok !== true) {
+      out.undetermined.push(
+        isRoot
+          ? `读不到 -File 那份脚本的正文(${sp}):${rd?.why ?? '读取出口没给原因'}`
+          : `读不到模块正文(${sp}):${rd?.why ?? '读取出口没给原因'} ⇒ 它自己 dot-source 进来的更深层无从判定`,
+      )
+      continue
+    }
+    const ex = extractDotSourcedScripts({ text: rd.text, scriptDir: path.win32.dirname(sp) })
+    if (ex.kind === 'unmeasured') {
+      out.undetermined.push(`dot-source 抽取无法判定(${sp}):${ex.reason}`)
+      continue
+    }
+    const found = ex.value
+    for (const it of found.items) {
+      if (it.path) continue
+      if (it.ignored) out.notes.push(`抽到一个加载目标但不在射程:${it.raw} —— ${it.why}`)
+      else out.undetermined.push(`抽到一个加载边而路径读不出:${it.raw} —— ${it.why}`)
+    }
+    if (found.truncated)
+      out.undetermined.push(
+        `${sp} 的静态加载边(dot-source / Import-Module)超过上限 ${DOT_SOURCE_MAX}(共 ${found.declaredTotal} 条)⇒ 只跟前 ${DOT_SOURCE_MAX} 份,其余这一轮没量到`,
+      )
+    if (isRoot && found.paths.length === 0 && out.undetermined.length === 0)
+      out.notes.push(`${sp} 未 dot-source / Import-Module 任何可解析模块 ⇒ 这一维没有对象(量到的空,不是没量到)`)
+    for (const mp of found.paths) {
+      const mKey = norm(mp)
+      // 回边(环路或菱形的已处理侧)先挡:这份的账已有归属 —— 回到 -File 根的那条由本维外的
+      // -File 比较记,回到已处理模块的那条由首条边记;都不在模块层重复计账。
+      if (visited.has(mKey)) continue
+      if (!accounted.has(mKey)) {
+        accounted.add(mKey)
+        const st =
+          typeof statFile === 'function'
+            ? statFile(mp)
+            : { ok: false, why: '调用方未提供 statFile 出口' }
+        if (!st?.ok) {
+          // 票面 2026-10-25 收口:文件不存在(ENOENT)与"读不到"是两态 —— 前者是**断链**
+          // (引用的模块压根不在盘上:服务若真按这份参数在跑,它的启动代码链是残缺的,这是量到的坏),
+          // 后者(权限/占用等)才是"没量到"。两态都不许写成新鲜,但话与处置不同。
+          const whyStr = String(st?.why ?? '')
+          if (/^ENOENT/.test(whyStr)) out.broken.push({ path: mp, why: whyStr })
+          else
+            out.undetermined.push(
+              `读不到模块 mtime(${mp}):${whyStr || '未知原因'} ⇒ 这一份没量到,不得记成新鲜`,
+            )
+          continue // 断链/读不到 ⇒ 都不再往下跟(链在此断;断链已由独立桶点名)
+        }
+        out.scanned++
+        const deltaMs = st.mtimeMs - startMs
+        if (deltaMs > 0) out.stale.push({ path: mp, mins: Math.round(deltaMs / 60000) })
+      }
+      queue.push(mp) // 递归:跟它自身的 dot-source(pop 时的 visited 检查挡住重复排队)
+    }
+  }
+  return out
+}
+
+/** 运行时代码新鲜度:进程启动时刻 vs 它加载的那份脚本的 mtime,**以及那份脚本 dot-source 进来的共享模块**。
+ *  立因(2026-10-01 实测):改完生产脚本、镜像了运行副本、**没重启服务** ⇒ 线上仍跑旧版式;
+ *  当天 09:08 那班备份失败后没触发重试,正是因为那个进程 09:08 启动时读到的还是重试层落地
+ *  (`43a0b7c01c`,14:16)之前的旧副本 —— 账面"已修",线上跑的却是没修的代码,而全链没有任何一处会喊。
+ *  射程边界(2026-10-11 按 G-1080903 扩了一格,旧那句"只判 -File 那一份"曾是**本维自己的洞**):
+ *  ① 进程启动那一刻读进内存的,除 -File 那份脚本之外,还有它 `. ` / `Dot-Source` 进来的共享模块 ——
+ *     当天真实自伤就是这一型:改的是被 `ihui-monitor.ps1` dot-source 进去的 `alert-dedup.ps1`,
+ *     这一维全程无信号,"改完没生效"没人喊,只能人工比对进程启动时刻与落地提交才判出要重启。
+ *  ② 那份脚本运行时用 `&` 调用的子脚本按调用时刻读取,改了立刻生效,**不属本维、也不该被算成 stale**
+ *     (这就是抽取层不认 `&` 的理由,见 extractDotSourcedScripts 头注)。
+ *  ③ dot-source 链按**传递闭包**递归跟全(2026-10-13 按票 G-1080903 从"深度封顶 1"扩全),链上每份
+ *     文件的 mtime 都参与比较;环路与总量都有封顶且封顶可见;量不到的一律落未判定并点名,绝不写成新鲜。 */
+export function judgeRuntimeFreshness({
+  state,
+  start,
+  paramsTexts,
+  paramsUnmeasuredReason,
+  statFile,
+  readScriptText,
+}) {
+  if (state !== 'RUNNING')
+    return unmeasured(
+      `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(它停着这件事由 STATE 维负责,本维不重复计账)`,
+      `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(这一态是哪一档由 STATE 维负责判,本维不重复计账)`,
+    )
+  if (!start) return unmeasured('进程枚举里没有这个服务的启动时刻条目 ⇒ 无从比较')
+  if (start.kind === 'na') return unmeasured('服务 pid=0(未运行或非进程型)⇒ 读不到启动时刻')
+  if (start.kind === 'err') return unmeasured('读不到进程启动时刻(权限不足或进程在读取得已退出)')
+  if (start.kind === 'gone')
+    return unmeasured('pid>0 但已查不到该进程(取样与读取之间进程替换)⇒ 这一轮不判')
+  if (start.kind !== 'ticks')
+    return unmeasured('进程枚举给的是旧版式三段 SV 行,启动时刻未采集(是"没采",不是"没有")')
+  const startMs = ticksToMs(start.ticks)
+  if (startMs === null) return unmeasured(`启动时刻 ticks 解不出(${start.ticks})⇒ 不猜`)
+  const target =
+    paramsTexts === undefined ||
+    paramsTexts === null ||
+    (Array.isArray(paramsTexts) && paramsTexts.length === 0)
+      ? unmeasured(paramsUnmeasuredReason ?? 'AppParameters 未量到 ⇒ 判不出加载目标')
+      : resolveLoadedScript(paramsTexts)
+  if (target.kind === 'unmeasured') return target
+  const path = target.value
+  if (!/^[A-Za-z]:[\\/]/.test(path))
+    return unmeasured(`加载目标不是绝对路径(${path})⇒ 落点由工作目录决定,本维不判`)
+  const st =
+    typeof statFile === 'function'
+      ? statFile(path)
+      : { ok: false, why: '调用方未提供 statFile 出口' }
+  if (!st.ok) return unmeasured(`读不到脚本 mtime(${path}):${st.why ?? '未知原因'}`)
+  const deltaMs = st.mtimeMs - startMs
+  const mins = Math.round(deltaMs / 60000)
+  const stamp = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ')
+  // dot-source 层(-File 本身那一维已在上面算完,下面这一段不改它的结论,只补"还有别的文件也是启动时载入的")
+  const layer = collectDotSourceLayer({ scriptPath: path, startMs, statFile, readScriptText })
+  const shape = {
+    modulesScanned: layer.scanned,
+    modulesStale: layer.stale,
+    modulesBroken: layer.broken,
+    modulesUndetermined: layer.undetermined,
+    modulesNested: layer.nested,
+    modulesNotes: layer.notes,
+  }
+  const moduleTail = layer.stale.length
+    ? `;另有 ${layer.stale.length} 份被 dot-source / Import-Module 载入的共享模块同样新于进程:` +
+      layer.stale.map((m) => `${m.path}(旧 ${m.mins} 分钟)`).join('、')
+    : ''
+  const brokenTail = layer.broken.length
+    ? `;另有 ${layer.broken.length} 份被引用的模块文件不存在(断链):` +
+      layer.broken.map((b) => b.path).join('、')
+    : ''
+  if (deltaMs > 0)
+    return measured({
+      verdict: 'stale',
+      path,
+      detail:
+        `运行中的进程比它加载的脚本旧 ${mins} 分钟 ⇒ 线上跑的是旧代码(${path}:进程启动 ${stamp(startMs)} / 脚本改写 ${stamp(st.mtimeMs)};` +
+        `判的是启动那一刻载入的脚本本体与它 dot-source 进来的共享模块;它运行中用 & 调的子脚本按调用时刻生效,不在本维)${moduleTail}${brokenTail}`,
+      ...shape,
+    })
+  // -File 那一份是新的,但被 dot-source 进来的模块比进程新 ⇒ 仍然 stale:那一份内容根本没进过这个进程
+  // (2026-10-11 那一次改的就是这种文件,而旧口径全程无信号)。
+  if (layer.stale.length > 0)
+    return measured({
+      verdict: 'stale',
+      path,
+      detail:
+        `运行中的进程比它 dot-source / Import-Module 载入的共享模块旧 ⇒ 线上跑的是旧代码,且**该模块是启动时载入的、不是 -File 那一份**:` +
+        layer.stale
+          .map((m) => `${m.path}(进程启动 ${stamp(startMs)} / 模块改写后 ${m.mins} 分钟)`)
+          .join('、') +
+        `(-File 那一份本身 ${path} 的 mtime 早于进程启动,所以只看它会一路报绿)${brokenTail}`,
+      ...shape,
+    })
+  // 引用的模块文件不存在 ⇒ **断链**(独立三态,2026-10-25 票面):既不是"新鲜"——那条加载边在盘上
+  // 根本没有,进程启动时读到的代码链是残缺的;也不是"没量到"——ENOENT 是量出来的确定事实。
+  // 排在 undetermined 臂之前:两种并存时断链是更强的结论,而未判定明细仍随话点名(不吞)。
+  if (layer.broken.length > 0)
+    return measured({
+      verdict: 'brokenlink',
+      path,
+      detail:
+        `被 dot-source / Import-Module 引用的模块文件不存在(断链,独立三态:不是新鲜、也不是"没量到"):${layer.broken
+          .map((b) => `${b.path}(${b.why})`)
+          .join('、')}` +
+        ` —— -File 那一份(${path})与链上其余模块的 mtime 都不晚于进程启动,但这份断链说明启动代码链不完整` +
+        (layer.undetermined.length
+          ? `;另有 ${layer.undetermined.length} 处没量到(点名,不得记成新鲜):${layer.undetermined.join(';')}`
+          : ''),
+      ...shape,
+    })
+  // dot-source 层有量不到出口 ⇒ 整维**未判定**并点名(2026-10-12 补的洞):此前这里直接落
+  // fresh,而 judgeService 只认 verdict ⇒ 模块 mtime/正文读不到会被静默发"新鲜"——
+  // modulesUndetermined 无任何消费方、renderText 也不披露,正是本文件头注
+  // "量不到的一律落未判定并点名,绝不写成新鲜"禁止的那一型(判据失效的表现永远是安静)。
+  // notes(量到的空/不适用)不在此列:那是**已登记的有界边界**,头注明确它不判红也不失明;
+  // 只有"试了而没量到"的出口(无读取出口/读不到正文/mtime 读不到/抽取判不出/闭包超限)才把整维拖成未判定。
+  // nested 字段已随"深度封顶 1"一起退役(2026-10-13 闭包化),恒空,仅为输出形状兼容保留。
+  if (layer.undetermined.length > 0)
+    return unmeasured(
+      `dot-source 层有 ${layer.undetermined.length} 处没量到(点名,不得记成新鲜):` +
+        layer.undetermined.join(';'),
+    )
+  return measured({
+    verdict: 'fresh',
+    path,
+    detail: `${path}:进程启动(${stamp(startMs)})晚于或等于脚本改写(${stamp(st.mtimeMs)})⇒ 加载的就是这份内容`,
+    ...shape,
+  })
+}
+
+
+async function inspectService({ name, stateValue, regRow, regChannelMeasured, inStateRows, deps, nssmPath, listen }) {
+  const get = (param) => (nssmPath ? interpretNssmGet(deps.nssmGet(nssmPath, name, param)) : unmeasured(`取不到值:nssm 不在位(候选 ${NSSM_CANDIDATES.join(', ')} 都不存在)`))
+  // 多值参数(AppEnvironmentExtra 一行一个)不得只取首行:本机现读 IHUI-OLLAMA 的 AppEnvironmentExtra 是
+  // 7 行,`OLLAMA_HOST=127.0.0.1:11434` 落在第 2 行 ⇒ 用取首行的读法,端口维对"确实声明了端口"的服务
+  // 静默失明(合并前该服务被判未判定,合并后判全维健康 —— 证据见交付说明)。
+  const getMulti = (param) => (nssmPath ? interpretNssmGetMultiline(deps.nssmGet(nssmPath, name, param)) : unmeasured(`取不到值:nssm 不在位(候选 ${NSSM_CANDIDATES.join(', ')} 都不存在)`))
+  const nssmApplication = get('Application')
+  const nssmAppDirectory = get('AppDirectory')
+  const nssmParameters = getMulti('AppParameters')
+  const nssmEnvironmentExtra = getMulti('AppEnvironmentExtra')
+
+  const { application, sources, disagreement } = resolveApplication({ regRow, regChannelMeasured, nssmApplication })
+  const nssmManaged = resolveNssmManaged({ regRow, regChannelMeasured, inStateRows })
+  const regDir = regRow ? String(regRow.appDirectory ?? '').trim() : ''
+  const appDirectory = regDir ? measured(regDir) : nssmAppDirectory
+  const appExists = application.kind === 'measured' && application.value !== null ? existenceOf(application.value, deps) : unmeasured('没有可判的存在性(Application 未量到)')
+  const appDirectoryExists = appDirectory.kind === 'measured' && appDirectory.value !== null && appDirectory.value !== '' ? existenceOf(appDirectory.value, deps) : unmeasured('没有可判的存在性(AppDirectory 未量到)')
+  // 没有注册表行 ⇒ 该通道对这个服务**什么都没有**,不得把"字段缺席"读成"空载荷"(那会把没判写成判过了)
+  const { ports, portsSources } = resolvePorts({ pb64: regRow ? decodeRegistryConfigBlob(regRow.pb64) : { kind: 'none', text: '' }, nssmParameters, nssmEnvironmentExtra })
+
+  // ── D3:先看进程树实际在听什么,再按**实际绑定地址**探(2026-09-29 本票改的就是这一段)────────
+  const netstat = listen?.netstat ?? unmeasured('监听观察维没有值(调用方未提供 netstat)')
+  const procs = listen?.procs ?? unmeasured('监听观察维没有值(调用方未提供进程树)')
+  const servicePid = listen?.svcPid instanceof Map ? (listen.svcPid.get(name.toLowerCase())?.pid ?? null) : null
+  const observed = computeObservedListening({ servicePid, netstat, procs })
+  const declaredPorts = ports.kind === 'measured' ? ports.value : []
+  const observedEndpoints = observed.kind === 'measured' ? observed.value.endpoints : []
+  const { targets, truncated } = buildProbeTargets({ declaredPorts, observedEndpoints, cap: MAX_PROBE_PORTS })
+
+  let probe
+  if (targets.length > 0) {
+    const results = await Promise.all(
+      targets.map(async (t) => {
+        const r = await deps.tcpProbe(t.port, t.host)
+        return { ...t, status: r?.status ?? 'unmeasured', why: r?.why ?? '探测出口没有给出状态' }
+      }),
+    )
+    probe = foldProbeOutcome({ targets, results, declaredPorts, truncated })
+  } else if (observed.kind === 'measured') {
+    // 量到了"树里没有任何 TCP 监听",且配置也没声明端口 —— 这才是可以说"此维不适用"的那一格。
+    probe = unmeasured('该服务无监听端口(任务型),此维不适用(进程树实测:服务 pid 与其全部后代都没有 TCP 监听端点)')
+  } else {
+    probe = unmeasured(`${observed.reason}${declaredPorts.length === 0 ? ';且服务配置里读不到端口声明' : ''} ⇒ 这一维未判定,不推测为没问题`)
+  }
+
+  const rec = {
+    name,
+    scope: null,
+    state: stateValue === undefined || stateValue === null ? unmeasured('该服务名不在 STATE 枚举结果里') : measured(stateValue),
+    application,
+    applicationSources: sources,
+    appExists,
+    appDirectory,
+    appDirectoryExists,
+    ports,
+    portsSources,
+    observed,
+    probe,
+    nssmManaged,
+    agreement: disagreement,
+    // env 形态对账维(2026-10-29)的取材:nssm 本人的 AppEnvironmentExtra 多行块(UTF-16/BOM 已由
+    // decodeNssm + interpretNssmGetMultiline 归一,零新增派生)。刻意**不进 judgeService** —— 这一维
+    // 只报数、不改 level、不参与退出码(§12e:判机器状态的档挂进提交链就是恒红门),消费者是 judgeEnvShape。
+    envBlock: nssmEnvironmentExtra,
+    // 运行时代码新鲜度(2026-10-01 加):进程启动时刻 vs 它 -File 加载的那份脚本的 mtime。
+    runtime: judgeRuntimeFreshness({
+      state: stateValue,
+      start: listen?.svcStart instanceof Map ? listen.svcStart.get(name.toLowerCase()) : null,
+      paramsTexts: nssmParameters.kind === 'measured' ? nssmParameters.value : null,
+      paramsUnmeasuredReason: nssmParameters.kind === 'unmeasured' ? nssmParameters.reason : null,
+      statFile: deps.statFile,
+      // dot-source 层(2026-10-11 票 G-1080903):被 -File 那份脚本 `. ` 进去的共享模块同样是启动那一刻读进内存的。
+      // 这个出口不递进去,新那一层就会对每一次真实运行都落"没有读取出口"的未判定 —— 形状锁在镜像测试里。
+      readScriptText: deps.readScriptText,
+    }),
+  }
+  const verdict = judgeService(rec)
+  return { name, rec, ...verdict }
+}
+
+/** 监听观察取材:netstat 一次 + 进程树一次,折叠成三态并写进 meta(供人读面点名)。
+ *  "退出码 0 而输出形态不认识" 与 "派生失败" 各有各的措辞 —— 三者不得并成一句"没有监听"。 */
+async function collectListeningSnapshot(deps, meta) {
+  const nsRaw = typeof deps.netstatSnapshot === 'function' ? deps.netstatSnapshot() : { spawnError: '调用方未提供 netstatSnapshot 出口' }
+  let netstat
+  if (nsRaw?.spawnError) netstat = unmeasured(`netstat 派生失败(${nsRaw.spawnError})`)
+  else if (typeof nsRaw?.code === 'number' && nsRaw.code !== 0) netstat = unmeasured(`netstat 非零退出码 ${nsRaw.code}`)
+  // 刻意不走 decodeNssm:netstat 的表头是 OEM 码页的本地化文字,按 UTF-8 解会得到替换符;
+  // 数据行本就 ASCII,latin1 原样取出后只认 ASCII 词元,判据不受码页影响(本机实测表头 GBK、数据行 ASCII)。
+  else netstat = interpretNetstatListening(latin1(nsRaw?.stdoutBuf))
+  const procRaw = typeof deps.psProcesses === 'function' ? deps.psProcesses(meta.engine?.bin ?? null) : { spawnError: '调用方未提供 psProcesses 出口' }
+  let procs
+  if (procRaw?.spawnError) procs = unmeasured(`进程枚举派生失败(${procRaw.spawnError})`)
+  else procs = interpretProcessList(decodeNssm(Buffer.from(procRaw?.stdoutBuf ?? '')).text)
+  meta.channels.listen = netstat.kind === 'unmeasured' || procs.kind === 'unmeasured' ? unmeasured([netstat, procs].filter((d) => d.kind === 'unmeasured').map((d) => d.reason).join(';')) : measured(null)
+  meta.listen = {
+    netstatEndpoints: netstat.kind === 'measured' ? netstat.value.rows.length : null,
+    netstatTcpLines: netstat.kind === 'measured' ? netstat.value.tcpLines : null,
+    netstatNotListening: netstat.kind === 'measured' ? netstat.value.notListening : null,
+    netstatMalformed: netstat.kind === 'measured' ? netstat.value.malformed : null,
+    processCount: procs.kind === 'measured' ? procs.value.procSum : null,
+    servicePidCount: procs.kind === 'measured' ? procs.value.svcSum : null,
+    // 覆盖面自证:启动时刻这一维**采到几条**。0 条不得被读成"所有服务都新鲜"——
+    // 那正是本仓记过多次的"把没判写成判过了"(§"判据失效的表现永远是安静")。
+    serviceStartSampled: procs.kind === 'measured' ? procs.value.startSum : null,
+  }
+  return {
+    netstat,
+    procs,
+    svcPid: procs.kind === 'measured' ? procs.value.svcPid : null,
+    svcStart: procs.kind === 'measured' ? procs.value.svcStart : null,
+  }
+}
+
+/** netstat 是 ANSI/OEM 码页的英文表头 + ASCII 数据行;按 latin1 取才不会被 GBK 表头带出替换符。 */
+function latin1(buf) {
+  try {
+    return Buffer.isBuffer(buf) ? buf.toString('latin1') : String(buf ?? '')
+  } catch {
+    return ''
+  }
+}
+
+export async function main({ argv = process.argv.slice(2), deps = defaultDeps } = {}) {
+  const { opts, bad } = parseArgs(argv)
+  if (bad.length) return { exitCode: 2, text: `参数不认识的形态:${bad.join(';')}\n(见 --help)`, json: null }
+  if (opts.help)
+    return {
+      exitCode: 0,
+      text: '见文件头注释。warn 级手动问责量算器:三判据(STATE / 路径在不在 / 答不答)分开问,D2/D3 有注册表与 nssm 两条取材通道,三态分明。只读,不改任何服务。',
+      json: null,
+    }
+  if (opts.selfTest) return selfTest(opts)
+  const meta = baseMeta(deps)
+  if (deps.platform !== 'win32') {
+    meta.fatal = `未判定:非 win32(${String(deps.platform)}),本工具不记为通过`
+    return finish(meta, 2, opts)
+  }
+  const engine = deps.psBin ?? pickPowerShell(deps.exists)
+  meta.engine = engine ? { bin: engine.bin, label: engine.label } : null
+  if (!engine) {
+    meta.channels.state = unmeasured('两把解释器候选都不在位 ⇒ 两条枚举通道都无法派生,未判定')
+    meta.channels.registry = meta.channels.state
+    meta.fatal = `未判定:${meta.channels.state.reason}`
+    return finish(meta, 2, opts)
+  }
+  const nssmPath = deps.resolveNssm()
+  meta.nssm = { path: nssmPath, why: nssmPath ? null : `候选 ${NSSM_CANDIDATES.join(', ')} 都不在位 ⇒ 只有 NSSM 通道失明,REG 通道仍可判 D2` }
+
+  // 通道 A(STATE)
+  const enumRaw = deps.psEnumerate(engine.bin)
+  if (enumRaw.spawnError) meta.channels.state = unmeasured(`PowerShell 派生失败(${enumRaw.spawnError}) ⇒ 未判定,不记为通过`)
+  else {
+    const t = decodeNssm(Buffer.from(enumRaw.stdoutBuf ?? '')).text
+    const p = parseServiceList(t)
+    if (p.kind === 'unmeasured') {
+      const errTail = decodeNssm(Buffer.from(enumRaw.stderrBuf ?? '')).text.replace(/\r?\n/g, ' ').trim().slice(0, 160)
+      meta.channels.state = unmeasured(`${p.reason}${errTail ? `;stderr:${errTail}` : ''}(退出码 ${enumRaw.code})`)
+    } else meta.channels.state = p
+  }
+  // 通道 B(REG)
+  const regRaw = deps.psRegistry(engine.bin)
+  if (regRaw.spawnError) meta.channels.registry = unmeasured(`注册表枚举派生失败(${regRaw.spawnError}) ⇒ 未判定,不记为通过`)
+  else {
+    const t = decodeNssm(Buffer.from(regRaw.stdoutBuf ?? '')).text
+    const p = parseRegistryOutput(t)
+    meta.registry = { totalServiceKeys: p.totalServiceKeys, regMissing: p.regMissing, unparsed: p.unparsed }
+    const why = []
+    if (!p.sumSeen) why.push('输出里没有 SUM 行 ⇒ 枚举被截断或解释器换了版式')
+    if (p.regMissing) why.push('注册表基键 HKLM:/SYSTEM/CurrentControlSet/Services 读不到')
+    for (const line of p.unparsed) why.push(`输出行形态解不出,已保留不丢弃:${String(line).slice(0, 200)}`)
+    meta.channels.registry = why.length ? unmeasured(`${why.join(';')}(退出码 ${regRaw.code})`) : measured({ rows: p.rows })
+  }
+  if (meta.channels.state.kind === 'unmeasured' || meta.channels.registry.kind === 'unmeasured') return finish(meta, 2, opts)
+
+  // 通道 C(监听观察)= netstat + 进程树。它**不**参与"整门 exit 2"的闸门:D1/D2 与"声明了端口的服务"
+  // 在它失效时仍然可判,把半边失明升级成整面不给结论反而会把可用的取证挡掉。
+  // 但它必须在这一轮被大声印出来 —— 静默降级就是本票要修的那个形态(§5e"失败必须响"同一条禁令)。
+  const listen = await collectListeningSnapshot(deps, meta)
+
+  const stateRows = meta.channels.state.value.rows
+  const stateByName = new Map(stateRows.map((r) => [r.name.toLowerCase(), r]))
+  const regRows = meta.channels.registry.value.rows
+  const regByName = new Map(regRows.map((r) => [r.service.toLowerCase(), r]))
+
+  // 入审集合:--filter/--service 命中的 STATE 服务 ∪ 全部注册表 nssm 服务(实测 Keycloak 只在这一侧)
+  const want = new Set(opts.services)
+  const match = opts.services.length > 0 ? (n) => want.has(n) : compileFilter(opts.filter)
+  meta.filter = opts.services.length > 0 ? `--service ${opts.services.join(',')}` : opts.filter
+  const scope = new Map()
+  for (const r of stateRows) if (match(r.name)) scope.set(r.name.toLowerCase(), { name: r.name, from: 'filter' })
+  for (const r of regRows) {
+    const key = r.service.toLowerCase()
+    if (scope.has(key)) scope.set(key, { name: scope.get(key).name, from: 'filter+registry' })
+    else scope.set(key, { name: r.service, from: 'registry' })
+  }
+  meta.enumeration = { stateRows: stateRows.length, registryRows: regRows.length, matched: scope.size, registryAlwaysIn: regRows.filter((r) => !match(r.service)).map((r) => r.service) }
+  meta.skippedByFilter = Math.max(0, stateRows.length - stateRows.filter((r) => match(r.name)).length)
+  meta.malformedRows = meta.channels.state.value.malformed
+
+  for (const [key, s] of scope) {
+    const st = stateByName.get(key)
+    meta.services.push(
+      await inspectService({
+        name: s.name,
+        stateValue: st ? st.status : null,
+        inStateRows: Boolean(st),
+        regRow: regByName.get(key) ?? null,
+        regChannelMeasured: true,
+        deps,
+        nssmPath,
+        listen,
+      }),
+    )
+    meta.services[meta.services.length - 1].rec.scope = s.from
+  }
+
+  // 仓内基准对账维(只读):只报数/点名,**不参与 computeExitCode**。它是"仓内快照与这台机还对得上吗"
+  // 的对账面,不是"这台机有没有问题"的判据 —— 基准缺失/解不出记未判定,既不判红也不记绿(§0.3)。
+  meta.baseline = readAndCompareBaseline({ stateRows, services: meta.services, deps })
+
+  // 『停着是设计内』豁免(2026-10-28):把退役服务(IHUI-API)与蓝绿冷备(非活跃色)的 STATE=STOPPED
+  // 从 issue 降为 skipped。**只降"它停着"这一条** —— 其余 problem 照旧报红,见 applyExpectedStopped 头注。
+  // 必须在 computeExitCode 之前:exit 2 的判据是 `judged = level !== 'skipped'`,顺序反了豁免就不进退出码。
+  const exp = loadExpectedStopped()
+  meta.expectedStopped = applyExpectedStopped(meta.services, exp)
+  // D4 env 形态对账(2026-10-29):与上面的豁免**共用同一份台账读取**(§22c 单源,不重读第二遍)。
+  // 刻意在 computeExitCode 之后也不参与它 —— 只报数、只点名(§12e:判机器状态的档挂进提交链就是恒红门)。
+  meta.envShape = judgeEnvShape(meta.services, exp.envCheck)
+  // D5 开机自启对账:取材 = **未过滤的** STATE 全清单(射程由台账 bootStart 决定,与 --filter/--service 无关,
+  // 否则"--service IHUI-WEB-ROUTER"会把其余五台读成"不适用"⇒ 过滤器改变了结论,这是本仓记过的同型失真)。
+  meta.bootStart = judgeBootStart(stateRows, exp.bootCheck, regRows.map((r) => r.service))
+
+  return finish(meta, computeExitCode(meta.services, meta.channels, { strict: opts.strict }), opts)
+}
+
+function baseMeta(deps) {
+  let host = null
+  try {
+    host = typeof deps.host === 'function' ? String(deps.host()) : null
+  } catch {
+    host = null // 主机名量不到不影响任何判据,如实留 null
+  }
+  return {
+    tool: 'check-service-binary-paths',
+    generatedAt: new Date().toISOString(),
+    platform: String(deps.platform),
+    host,
+    fatal: null,
+    engine: null,
+    nssm: null,
+    channels: { state: null, registry: null, listen: null },
+    registry: null,
+    listen: null,
+    enumeration: null,
+    filter: null,
+    baseline: null,
+    services: [],
+    skippedByFilter: 0,
+    malformedRows: 0,
+    totals: null,
+  }
+}
+
+function finish(meta, exitCode, opts) {
+  const svcs = meta.services
+  const count = (level) => svcs.filter((s) => s.level === level).length
+  const dimUnmeasured = (pick) => svcs.filter((s) => (pick(s.rec) ?? { kind: 'unmeasured' }).kind === 'unmeasured').length
+  const rtOf = (s) => s.rec.runtime ?? { kind: 'unmeasured' }
+  const rtIs = (s, v) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === v
+  meta.totals = {
+    services: svcs.length,
+    ok: count('ok'),
+    issue: count('issue'),
+    unattested: count('unattested'),
+    skipped: count('skipped'),
+    // 其中有多少是『停着是设计内』豁免出来的(不等于"坏了被静音",报告里必须能分开数)
+    expectedStopped: svcs.filter((s) => s.expectedStopped).length,
+    // STATE 档位分桶(2026-10-29):`paused` 必须单独可见 —— 它与 `stopped` 在旧写法里同形,而豁免只认
+    // 后者;并入 stopped 就是"把挂起读成停着"(实测 IHUI-WEB-ROUTER)。取不到的那一档在 dimUnmeasured.state。
+    stateBands: SERVICE_STATE_BANDS.reduce((acc, b) => {
+      acc[b] = svcs.filter((s) => s.rec?.state?.kind === 'measured' && stateBandOf(s.rec.state.value).band === b).length
+      return acc
+    }, {}),
+    // 运行时代码新鲜度分桶(2026-10-25 票面验收:每服务落哪一档必须现读可见,不得只藏在逐条问题行里)
+    runtimeBuckets: {
+      fresh: svcs.filter((s) => rtIs(s, 'fresh')).length,
+      stale: svcs.filter((s) => rtIs(s, 'stale')).length,
+      brokenlink: svcs.filter((s) => rtIs(s, 'brokenlink')).length,
+      unmeasured: svcs.filter((s) => rtOf(s).kind !== 'measured').length,
+    },
+    dimUnmeasured: {
+      // ⚠ 本门历史上在这里翻过两次,方向相反,都把结论写得像跑通了:
+      //   ① 旧版把 pick 收到的一层当 rec 又点一次 `.rec`(双重解引用),② 合并时我照旧注释改成
+      //   `pick(s)`,于是 `.kind` 读在 undefined 上 —— 真跑到 finish 的 e2e 当场 TypeError。
+      //   现事实:`svcs` 的每一项是 `{ name, rec, level, ... }`,所以解引用只做一次(s.rec),
+      //   箭头形参名 rec 收到的正是那个 rec 对象。判据的口径必须由 e2e 而不是注释来定。
+      state: dimUnmeasured((rec) => rec.state),
+      application: dimUnmeasured((rec) => rec.application),
+      ports: dimUnmeasured((rec) => rec.ports),
+      observed: dimUnmeasured((rec) => rec.observed),
+      probe: dimUnmeasured((rec) => rec.probe),
+      nssmManaged: dimUnmeasured((rec) => rec.nssmManaged),
+    },
+    exitCode,
+  }
+  const text = renderText(meta)
+  return { exitCode, text, json: JSON.stringify(meta, null, 2), opts }
+}
+
+export function renderText(meta) {
+  const L = []
+  L.push(`服务二进制路径量算器(G-302,warn 级,只读) @ ${meta.host ?? ''} platform=${meta.platform}`)
+  if (meta.fatal) L.push(meta.fatal)
+  L.push(`解释器:${meta.engine ? `${meta.engine.label} (${meta.engine.bin})` : '(未择到 —— 两把候选都不在位)'}`)
+  if (meta.nssm) L.push(`nssm:${meta.nssm.path ?? `(不在位 —— ${meta.nssm.why})`}`)
+  if (meta.filter) L.push(`过滤器:${meta.filter}(注册表 nssm 服务**无条件入审**,不受它收窄)`)
+  if (meta.channels.state) L.push(`通道 STATE:${meta.channels.state.kind === 'unmeasured' ? `未判定 —— ${meta.channels.state.reason}` : `量到 ${meta.channels.state.value.rows.length} 个服务`}`)
+  if (meta.channels.registry) {
+    if (meta.channels.registry.kind === 'unmeasured') L.push(`通道 REG:未判定 —— ${meta.channels.registry.reason}`)
+    else
+      L.push(
+        `通道 REG:量到 ${meta.channels.registry.value.rows.length} 个 nssm 托管形态(注册表服务键总数 ${meta.registry?.totalServiceKeys ?? '未判定'};REGMISSING=${meta.registry?.regMissing ? '是' : '否'};解不出的行 ${meta.registry?.unparsed?.length ?? 0} 条)`,
+      )
+  }
+  if (meta.channels.listen)
+    L.push(
+      meta.channels.listen.kind === 'unmeasured'
+        ? `通道 监听观察:未判定 —— ${meta.channels.listen.reason}`
+        : `通道 监听观察:量到 netstat TCP 监听 ${meta.listen?.netstatEndpoints ?? '未判定'} 个端点(ASCII TCP 行 ${meta.listen?.netstatTcpLines ?? '?'} 行、非监听态 ${meta.listen?.netstatNotListening ?? 0} 行、形态不符 ${meta.listen?.netstatMalformed ?? 0} 行)、进程 ${meta.listen?.processCount ?? '?'} 个 / 服务 pid ${meta.listen?.servicePidCount ?? '?'} 个 / 其中启动时刻采到 ${meta.listen?.serviceStartSampled ?? '?'} 个`,
+    )
+  if (meta.enumeration) {
+    L.push(`入审 ${meta.enumeration.matched} 个(其中仅由注册表带入、不在过滤器命中集内的:${meta.enumeration.registryAlwaysIn.join(', ') || '无'})`)
+    if (meta.enumeration.matched === 0) L.push('  (确实是 0:两通道都跑到了而没有任何入审对象。这不是"没量到",但也**不出合格证** —— 见退出码 2 的约定。)')
+    if (meta.skippedByFilter) L.push(`  被过滤器跳过 ${meta.skippedByFilter} 个 STATE 服务`)
+    if (meta.malformedRows) L.push(`  STATE 输出形态不符行 ${meta.malformedRows} 条未计入`)
+  }
+  if (meta.baseline) {
+    const b = meta.baseline
+    if (b.kind === 'unmeasured') L.push(`仓内基准(${b.path}):未判定 —— ${b.reason}(只读对账维,不判红)`)
+    else
+      L.push(
+        `仓内基准(${b.path}@${b.generatedAt ?? '未记快照时刻'} host=${b.host ?? '未记'}):列出 ${b.listed} / 本机在册 ${b.present} / 缺 ${b.absentInHost.length}${b.absentInHost.length ? `〔${b.absentInHost.join(', ')}〕` : ''};启动类型不符 ${b.startTypeMismatch.length}${b.startTypeMismatch.length ? `〔${b.startTypeMismatch.join('; ')}〕` : ''};Application 可比 ${b.appCompared}(差异 ${b.appDiffs.length}${b.appDiffs.length ? `〔${b.appDiffs.join('; ')}〕` : ''},门量不到应用层 ${b.appUnmeasured} 个);基准路径存在性 判 ${b.pathChecked}${b.pathMismatch.length ? `〔不符:${b.pathMismatch.join('; ')}〕` : ''}(不符 ${b.pathMismatch.length},未判 ${b.pathUndetermined});基准记『本机无』而现又出现 ${b.reappeared.length}${b.reappeared.length ? `〔${b.reappeared.join(', ')}〕` : ''}(只读对账维,不判红)`,
+      )
+  }
+  if (meta.envShape) {
+    const e = meta.envShape
+    const namesOf = (k) => e.buckets[k].map((x) => `${x.service}${x.expected ? `〔应整行=${x.expected}〕` : ''}${x.observed ? `〔实读:${x.observed}〕` : ''}${x.why ? `〔${x.why}〕` : ''}`).join('; ')
+    L.push(
+      `env 形态对账(D4,只报数不判红):射程 ${e.totals.members} 台 —— 整行等值 ${e.totals.ok} / 写歪(键在而无整行等值)${e.totals.malformed} / 缺键 ${e.totals.missing} / 未判定 ${e.totals.undetermined} / 台账声明无端口期望 ${e.totals.outOfScope}`,
+    )
+    for (const k of ['malformed', 'missing', 'undetermined']) if (e.buckets[k].length) L.push(`  ${k}:${namesOf(k)}`)
+    if (e.outOfScope.length) L.push(`  无端口期望(仍逐台点名):${e.outOfScope.map((x) => `${x.service}[${x.lines === null ? '未判定' : `${x.lines} 行`}]:${x.why}`).join('; ')}`)
+    for (const n of e.notes) L.push(`  台账注记:${n}`)
+  }
+  if (meta.bootStart) {
+    const b = meta.bootStart
+    L.push(
+      `开机自启对账(D5,只报数不判红):射程 ${b.totals.members} 台 —— 档位相符 ${b.totals.ok} / 不符 ${b.totals.mismatch} / 本机无此服务(不适用)${b.totals.absent} / 未判定 ${b.totals.undetermined}`,
+    )
+    for (const [k, mark] of [
+      ['mismatch', '❌'],
+      ['undetermined', '⚪'],
+    ])
+      for (const x of b.buckets[k]) L.push(`  ${mark} ${x.service}[族 ${x.family}]:声明 ${x.expect},实读 ${x.observed ?? '(读不出)'} —— ${x.note};依据:${x.why}`)
+    if (b.totals.mismatch > 0)
+      L.push(`  出路:nssm set <服务> Start SERVICE_AUTO_START(或 SERVICE_DEMAND_START)按声明改回;改完重跑本尺复验,并把这一档的成因写进提交说明。`)
+    for (const n of b.notes) L.push(`  台账注记:${n}`)
+  }
+  for (const s of meta.services) {
+    const fmt = (d) =>
+      d.kind === 'measured'
+        ? d.value === null
+          ? '(空)'
+          : Array.isArray(d.value)
+            ? `[${d.value.join(',')}]`
+            : typeof d.value === 'object'
+              ? `${d.value.listening ? '应答' : '无应答'}(${(d.value.labels ?? d.value.ports ?? []).join(', ')}${d.value.note ? `〔${d.value.note}〕` : ''})`
+              : String(d.value)
+        : `未判定:${d.reason}`
+    /** 观察维单独一种排版:它给的是"在听哪个地址、由哪个 pid 持有",这是本票新增的那一维的取证。 */
+    const fmtObserved = (d) =>
+      d.kind === 'measured'
+        ? d.value.endpoints.length === 0
+          ? '(实测无监听)'
+          : d.value.endpoints.map((e) => `${e.address}:${e.port}←pid ${e.pid}`).join(' ') + (d.value.truncated ? ' (树已达深度上限)' : '')
+        : `未判定:${d.reason}`
+    const mark = s.level === 'issue' ? '❌' : s.level === 'ok' ? '✅' : s.level === 'skipped' ? '➖' : '⚪'
+    L.push(`${mark} ${s.name}${s.rec.scope ? ` [${s.rec.scope}]` : ''}`)
+    L.push(
+      `    STATE=${fmt(s.rec.state)}  Application=${fmt(s.rec.application)}${s.rec.applicationSources.length ? `(源:${s.rec.applicationSources.join('+')})` : ''}  [存在性 ${fmt(s.rec.appExists)}]  AppDirectory=${fmt(s.rec.appDirectory)}  端口=${fmt(s.rec.ports)}  实测监听=${fmtObserved(s.rec.observed)}  应答=${fmt(s.rec.probe)}  nssm托管=${fmt(s.rec.nssmManaged)}`,
+    )
+    for (const p of s.problems) L.push(`      问题:${p}`)
+    for (const b of s.blind) L.push(`      未判定:${b}`)
+    if (s.level === 'skipped') L.push('      说明:该服务不是 nssm 托管 ⇒ D2(它自己声明的 Application 路径)对它不适用;STATE 与"实测监听/应答"两维仍按各自通道量过,见上面那行。')
+  }
+  const t = meta.totals
+  if (t) {
+    if (t.runtimeBuckets) {
+      const rb = t.runtimeBuckets
+      const rtOf = (s) => s.rec.runtime ?? { kind: 'unmeasured' }
+      const namesIf = (pred) => {
+        const ns = meta.services.filter(pred).map((s) => s.name)
+        return ns.length ? ns.join(', ') : '无'
+      }
+      L.push(
+        `运行时代码新鲜度分桶:fresh ${rb.fresh} / stale ${rb.stale} / 断链 ${rb.brokenlink} / 未判定 ${rb.unmeasured}` +
+          (rb.stale ? ` —— stale:[${namesIf((s) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === 'stale')}]` : '') +
+          (rb.brokenlink ? ` —— 断链:[${namesIf((s) => rtOf(s).kind === 'measured' && rtOf(s).value.verdict === 'brokenlink')}]` : '') +
+          (rb.unmeasured ? ` —— 未判定:[${namesIf((s) => rtOf(s).kind !== 'measured')}]` : ''),
+      )
+    }
+    L.push(
+      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped};各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
+      `结论:入审 ${t.services} 个 —— 量到问题 ${t.issue} / 未出具合格证(有维量不到)${t.unattested} / 全维健康 ${t.ok} / 非 nssm 托管跳过 ${t.skipped}(其中『停着是设计内』${t.expectedStopped});各维未判定 STATE=${t.dimUnmeasured.state} Application=${t.dimUnmeasured.application} 端口声明=${t.dimUnmeasured.ports} 监听观察=${t.dimUnmeasured.observed} 应答=${t.dimUnmeasured.probe} 托管性=${t.dimUnmeasured.nssmManaged}`,
+    )
+    if (t.stateBands) {
+      const sb = t.stateBands
+      const namesOfBand = (band) => {
+        const ns = meta.services.filter((s) => s.rec?.state?.kind === 'measured' && stateBandOf(s.rec.state.value).band === band).map((s) => s.name)
+        return ns.length ? ns.join(', ') : '无'
+      }
+      L.push(
+        `STATE 档位分桶(五档不并桶):running ${sb.running} / stopped ${sb.stopped} / paused ${sb.paused}${sb.paused ? `[${namesOfBand('paused')}]` : ''} / pending ${sb.pending}${sb.pending ? `[${namesOfBand('pending')}]` : ''} / unknown ${sb.unknown}${sb.unknown ? `[${namesOfBand('unknown')}]` : ''};STATE 取不到 ${t.dimUnmeasured.state} 台`,
+      )
+      if (sb.paused > 0) L.push(`  ❌ 挂起档真故障:${namesOfBand('paused')} —— PAUSED ≠ STOPPED:nssm AppExit=Restart 在应用反复退出时进入节流(Start-Service 回 Unexpected status SERVICE_PAUSED),『停着是设计内』台账一类条目都免不到它`)
+    }
+    const es = meta.expectedStopped
+    if (es && (es.applied?.length || es.kept?.length || es.notes?.length || es.families?.length)) {
+      if (es.applied?.length) L.push(`  ➖ 『停着是设计内』已豁免 ${es.applied.length} 台(只豁免"它停着"这一条,其余问题照旧报红):${es.applied.map((x) => `${x.name}(${x.source}${x.family ? `/${x.family}族 冷备色=${x.color}` : ''})`).join(', ')}`)
+      for (const k of es.kept ?? []) L.push(`  ⚠️ ${k.name} 未获豁免 —— ${k.why}`)
+      // 逐族点名"活跃色是谁 / 未判定为什么"——族的状态不印出来,读报告的人就分不清"豁免了冷备"与"根本没判"
+      for (const f of es.families ?? [])
+        L.push(
+          f.state === 'measured'
+            ? `  · 蓝绿族 ${f.family}:活跃色=${f.active}(状态文件 ${f.stateFile})⇒ 非活跃色按设计 Stop:${f.colors}`
+            : `  · 蓝绿族 ${f.family}:${f.state}(未判定,本族一条豁免都不给)—— ${f.why};该族色位 ${f.colors}`,
+        )
+      for (const n of es.notes ?? []) L.push(`  · 台账:${n}`)
+    }
+    if (t.issue > 0) L.push('  ⚠️ 存在量到的问题 —— 这正是 RSSHub 那 3 天的形态:服务在、路径没了、无人喊。逐条见上;修复属机器状态动作,由持有人执行,本工具不动任何服务。')
+    else if (t.services === 0 || t.services === t.skipped) L.push('判定:未判定 —— 这台机上没有任何对象被完整量到三判据,**不记为通过**。')
+    else if (t.unattested > 0) L.push('判定:无量到的问题,但有服务存在未判定维(上面逐条点名)—— 不得把这行读成"全健康"。')
+    else L.push('判定:全部入审对象的三判据都量到了且都健康。')
+  }
+  return L.join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// --self-test:全部跑在构造面上,零派生、零副作用(不派生 PowerShell/nssm、不碰注册表、不碰服务)。
+// 正反成对:只留一侧就可能恒绿或恒红。夹具走 mkScratch(),落点不得在仓库树内。
+// ---------------------------------------------------------------------------
+function selfTest(opts) {
+  const out = []
+  let fail = 0
+  const ok = (name, cond) => {
+    if (cond) out.push(`  ✔ ${name}`)
+    else {
+      fail++
+      out.push(`  ✘ ${name}`)
+    }
+  }
+  const dim = (k, v) => (k === 'm' ? measured(v) : unmeasured(v))
+  /** nssm 载荷形态的多行/单行构造器(UTF-16LE,与真机一致)。 */
+  const u16Lines = (v) => Buffer.from((Array.isArray(v) ? v : [v]).join('\r\n'), 'utf16le')
+  const nssmUn = dim('u', '取不到值:nssm 不在位(候选都不存在)')
+  const healthy = (over = {}) => ({
+    state: dim('m', 'RUNNING'),
+    application: dim('m', 'C:\\node\\node.exe'),
+    applicationSources: ['registry'],
+    appExists: dim('m', 'file'),
+    appDirectory: dim('m', 'C:\\app'),
+    appDirectoryExists: dim('m', 'dir'),
+    ports: dim('m', [8802]),
+    probe: dim('m', { listening: true, ports: [8802] }),
+    // 夹具代表"一份完整的记录",所以运行时代码新鲜度也给它已判过的值;缺维按未判定处理是对的,
+    // 但让全部既有 ok 断言集体翻成 unattested 就不是 —— 那会把"新增一维"变成"推翻所有旧结论"。
+    runtime: dim('m', { verdict: 'fresh', detail: '夹具:进程启动晚于脚本改写' }),
+    nssmManaged: dim('m', true),
+    agreement: dim('m', false),
+    ...over,
+  })
+  const judge = (over) => judgeService({ name: 'X', ...healthy(over) })
+  const bothMeasured = { state: dim('m', { rows: [{ name: 'X', status: 'RUNNING', startType: 'AUTOMATIC' }] }), registry: dim('m', { rows: [] }) }
+  const mk = (level) => ({ level, rec: healthy() })
+
+  // ── 三态基础与"值为空 vs 取不到"的分岔(本侧维度)────────────────────────
+  const dec = decodeNssm(Buffer.from('D:\\IHUI-AI\\apps\\web', 'utf16le'))
+  ok('S1 UTF-16LE(无 BOM)按 NUL 密度识别并解出原值', dec.encoding === 'utf16le' && dec.text === 'D:\\IHUI-AI\\apps\\web')
+  const vEmpty = interpretNssmGet({ code: 0, stdoutBuf: Buffer.from('\r\n', 'utf16le'), stderrBuf: Buffer.alloc(0) })
+  const vFail = interpretNssmGet({ code: 3, stdoutBuf: Buffer.alloc(0), stderrBuf: Buffer.from('GetServiceConfigName failed', 'utf16le') })
+  ok('S2 退出码 0+空白 ⇒ measured(null)(值为空);非零退出 ⇒ unmeasured(取不到)—— 两态绝不并桶',
+    vEmpty.kind === 'measured' && vEmpty.value === null && vFail.kind === 'unmeasured')
+  ok('S2b 派生失败(超时 / ENOENT)⇒ unmeasured 且点名原因',
+    /超时/.test(interpretNssmGet({ spawnError: 'ETIMEDOUT' }).reason) && /不在位/.test(interpretNssmGet({ spawnError: 'ENOENT' }).reason))
+  ok('S3 从服务自身配置抠端口:PORT= 与 HOST=...: 两形态都提得出', extractPortsFromConfig(['PORT=12000', 'OLLAMA_HOST=127.0.0.1:11434']).join(',') === '11434,12000')
+  ok('S4 无端口声明 ⇒ 空数组(合法的"确实是没写"),不猜默认端口', extractPortsFromConfig(['-NoProfile -File run-web.ps1']).length === 0)
+  const eRows = parseServiceList(`${ENUM_HEAD}\nSVC|IHUI-API|Running|Automatic\n${ENUM_TAIL}\n`)
+  const eZero = parseServiceList(`${ENUM_HEAD}\n${ENUM_TAIL}\n`)
+  ok('S5 STATE 哨兵齐 ⇒ 量到行;哨兵齐而零行 ⇒ 确实是 0;无哨兵 ⇒ 未判定("没跑到"不得读成"没有服务")',
+    eRows.kind === 'measured' && eRows.value.rows.length === 1 && eZero.kind === 'measured' && eZero.value.rows.length === 0 && parseServiceList('').kind === 'unmeasured')
+  ok('S5b 过滤器大小写不敏感、通配可用', compileFilter('ihui-*')('IHUI-RSSHUB') && !compileFilter('IHUI-*')('WSearch') && compileFilter('*')('Keycloak'))
+
+  // ── 判据成对:每一条"拦得住"配一条"不冤枉"(本侧维度)─────────────────────
+  ok('S6 路径不存在 ⇒ issue 且点名那条路径本身', (() => {
+    const r = judge({ appExists: dim('m', 'missing') })
+    return r.level === 'issue' && r.problems.some((p) => p.includes('C:\\node\\node.exe'))
+  })())
+  ok('S7 三判据全好 ⇒ ok(反向对照:不许把健康对象判红,缺这条就是恒红门)', judge().level === 'ok')
+  ok('S8 两条通道都取不到 D2 ⇒ unattested,既不 ok 也不 issue', (() => {
+    const r = judge({ application: nssmUn, appExists: dim('u', '没东西可判'), nssmManaged: dim('u', 'REG 未判定') })
+    return r.level === 'unattested' && r.blind.some((b) => /不在位/.test(b))
+  })())
+  ok('S9 只有"端口这维读不到声明" ⇒ unattested(不得因 state+path 好就发合格证)', judge({ ports: dim('m', []), probe: dim('u', '没有声明') }).level === 'unattested')
+  ok('S10 端口声明在而无应答 ⇒ issue;有应答见 S7 —— 成对', judge({ probe: dim('m', { listening: false, ports: [8802] }) }).level === 'issue')
+  ok('S10b STATE 非 RUNNING 而其余全好 ⇒ issue(只看路径会把"停着"读成健康)', judge({ state: dim('m', 'STOPPED') }).level === 'issue')
+  // STATE 档位尺(2026-10-29 立):PAUSED 必须与 STOPPED 分档,否则挂起会被『停着是设计内』顺手免掉(实测 IHUI-WEB-ROUTER)
+  ok('S10c 五档互不并桶:running/stopped/paused/pending/unknown 各归各档',
+    ['RUNNING', 'STOPPED', 'PAUSED', 'PAUSE_PENDING', 'START_PENDING', 'WHAT-IS-THIS', ''].map((v) => stateBandOf(v).band).join(',') ===
+      'running,stopped,paused,paused,pending,unknown,unknown')
+  ok('S10d PAUSED 量到就是 issue,且问题行自带"挂起档"与 SERVICE_PAUSED 取证(不得与停着同形)', (() => {
+    const r = judge({ state: dim('m', 'PAUSED') })
+    return r.level === 'issue' && r.problems.length === 1 && /挂起档/.test(r.problems[0]) && /SERVICE_PAUSED/.test(r.problems[0])
+  })())
+  ok('S10e STOPPED 的问题串与旧档逐字一致(『停着是设计内』只认这一串;改串必须同批改 applyExpectedStopped)',
+    judge({ state: dim('m', 'STOPPED') }).problems[0] === stateProblemOf('STOPPED') && stateProblemOf('STOPPED') === 'STATE=STOPPED')
+  ok('S10f 成对:同一夹具 RUNNING ⇒ ok,改成 PAUSED ⇒ issue(证明不是"给了 state 就红"的恒真式)', (() => {
+    const base = { application: dim('m', 'D:\\runtimes\\node.exe'), appExists: dim('m', 'file'), appDirectory: dim('m', 'D:/r'), appDirectoryExists: dim('m', 'dir'), ports: dim('m', [8801]), probe: dim('m', { listening: true, ports: [8801], labels: ['127.0.0.1:8801'] }), nssmManaged: dim('m', true), runtime: dim('m', { verdict: 'fresh', detail: '夹具' }) }
+    return judgeService({ ...base, state: dim('m', 'RUNNING') }).level === 'ok' && judgeService({ ...base, state: dim('m', 'PAUSED') }).level === 'issue'
+  })())
+  ok('S10g 蓝绿按族参数化后两族共用一份实现:活跃色逐族按各自状态文件判(改哪族的状态文件就换哪一色)', (() => {
+    // 构造面台账(真件的锁定面在 scripts/tests/service-expected-stopped.test.mjs,自检不依赖真件内容)
+    const ledger = JSON.stringify({
+      static: [],
+      blueGreen: {
+        families: [
+          { family: 'api', stateFile: 'X:/run/api-bluegreen.json', reviewBy: '2027-01-01', colors: { blue: { service: 'IHUI-API-BLUE' }, green: { service: 'IHUI-API-GREEN' } } },
+          { family: 'web', stateFile: 'X:/run/web-bluegreen.json', reviewBy: '2027-01-01', colors: { blue: { service: 'IHUI-WEB-BLUE' }, green: { service: 'IHUI-WEB-GREEN' } } },
+        ],
+      },
+    })
+    const read = (p) => (String(p) === EXPECTED_STOPPED_PATH ? ledger : JSON.stringify({ active: String(p).endsWith('web-bluegreen.json') ? 'blue' : 'green' }))
+    const r = loadExpectedStopped({ exists: () => true, readText: read, nowMs: Date.parse('2026-10-29T00:00:00Z') })
+    // api 族状态文件记 green ⇒ 豁免 blue;web 族记 blue ⇒ 豁免 green —— 两族各判各的,互不串色
+    return r.families.length === 2 && r.names.has('ihui-api-blue') && !r.names.has('ihui-api-green') && r.names.has('ihui-web-green') && !r.names.has('ihui-web-blue')
+  })())
+  ok('S10h 状态文件取不到 ⇒ 该族未判定且一枚都不豁免(绝不退默认色去猜);族数仍逐族点名', (() => {
+    const ledger = JSON.stringify({
+      static: [{ name: 'IHUI-RETIRED', reason: '夹具', reviewBy: '2027-01-01' }],
+      blueGreen: { families: [{ family: 'web', stateFile: 'X:/run/web-bluegreen.json', reviewBy: '2027-01-01', colors: { blue: { service: 'IHUI-WEB-BLUE' }, green: { service: 'IHUI-WEB-GREEN' } } }] },
+    })
+    const r = loadExpectedStopped({
+      exists: (p) => String(p) === EXPECTED_STOPPED_PATH,
+      readText: (p) => (String(p) === EXPECTED_STOPPED_PATH ? ledger : (() => { throw new Error('ENOENT:' + p) })()),
+      nowMs: Date.parse('2026-10-29T00:00:00Z'),
+    })
+    return r.families.length === 1 && r.families[0].state === 'undetermined' && [...r.names.keys()].join(',') === 'ihui-retired' && /未判定/.test(r.notes.join('\n'))
+  })())
+  ok('S10i 豁免只认 stopped 档:登记在册的冷备色落到 PAUSED ⇒ kept 点名挂起档,level 仍 issue', (() => {
+    const rec = {
+      state: dim('m', 'PAUSED'),
+      application: dim('m', 'D:\\runtimes\\node.exe'),
+      appExists: dim('m', 'file'),
+      appDirectory: dim('m', 'D:/r'),
+      appDirectoryExists: dim('m', 'dir'),
+      ports: dim('m', [8851]),
+      probe: dim('u', '不是 RUNNING,没有活进程可探'),
+      nssmManaged: dim('m', true),
+      runtime: dim('u', '非 RUNNING'),
+    }
+    const rows = [{ name: 'IHUI-WEB-BLUE', rec, ...judgeService(rec) }]
+    const res = applyExpectedStopped(rows, { names: new Map([['ihui-web-blue', { source: 'blue-green', reason: '夹具', reviewBy: '2027-01-01' }]]), notes: [], families: [] })
+    return rows[0].level === 'issue' && res.applied.length === 0 && res.kept.length === 1 && res.kept[0].band === 'paused'
+  })())
+  ok('S11 Application 值为空(取到了但内容是空)⇒ issue,与"取不到"不同态',
+    judge({ application: dim('m', null), appExists: dim('u', '没有可判的存在性') }).level === 'issue')
+
+  // ── 运行时代码新鲜度(2026-10-01 新增维):成对正反例,缺一不可 ─────────────────────────────
+  ok('RF-1 进程比它加载的脚本旧 ⇒ issue,且问题行里点名脚本与差值', (() => {
+    const r = judge({ runtime: dim('m', { verdict: 'stale', path: 'D:\\r\\deploy\\prod-bundle\\pg-backup-scheduler.ps1', detail: '运行中的进程比它加载的脚本旧 437 分钟' }) })
+    return r.level === 'issue' && r.problems.some((p) => /运行时代码新鲜度/.test(p) && /437 分钟/.test(p))
+  })())
+  ok('RF-2 同一位置改成 fresh ⇒ 必须 ok(证明 F1 不是"只要给了 runtime 就红"的恒真式)',
+    judge({ runtime: dim('m', { verdict: 'fresh', detail: '夹具' }) }).level === 'ok')
+  ok('RF-3 该维未判定 ⇒ 不得发合格证,也不得冒红(unattested 与 issue 是两件事)',
+    judge({ runtime: dim('u', '读不到进程启动时刻') }).level === 'unattested')
+  ok('RF-4 调用方整维没给值 ⇒ 落未判定而不是抛错(判据对部分构造必须是全函数)',
+    judgeService({ name: 'X', ...(() => { const h = { ...healthy() }; delete h.runtime; return h })() }).level === 'unattested')
+  ok('RF-5 ticks→ms 用权威字面量验(不是拿同一个常数正反各算一遍):Unix 纪元必须给 0,坏输入给 null,年份错 1600 必须当场现形', (() => {
+    // '621355968000000000' 是 .NET 文档里 1970-01-01 的 Ticks 权威值(与实现里的常数无关)。
+    // 上一版这条断言是拿 TICKS_EPOCH_DIFF_MS 造 ticks 再解回来 —— 那是恒真式,
+    // 正因如此它放过了"把 0001 纪元错用成 FILETIME 1601 纪元"这个真实写错的版本(真机打出 3626 年)。
+    const unixEpoch = ticksToMs('621355968000000000')
+    const nowish = ticksToMs(String(BigInt(621355968000000000) + BigInt(Math.floor(Date.now())) * 10000n))
+    const ONE_YEAR_MS = 365 * 86400000
+    return (
+      unixEpoch === 0 &&
+      nowish !== null && Math.abs(nowish - Date.now()) < ONE_YEAR_MS &&
+      ticksToMs('abc') === null && ticksToMs('') === null && ticksToMs('62135596800000000x') === null
+    )
+  })())
+  ok('RF-6 加载目标:PowerShell 的 -File 与 node 的绝对 .mjs 都认;相对路径/参数里的日志路径一律不认(防假 stale)', (() => {
+    const ps = resolveLoadedScript(['-NoProfile -ExecutionPolicy Bypass -File D:\\r\\deploy\\prod-bundle\\pg-backup-scheduler.ps1'])
+    const mjs = resolveLoadedScript(['D:\\DevEnv\\runtimes\\node\\node.exe D:\\r\\scripts\\git-guardian.mjs --daemon'])
+    const quoted = resolveLoadedScript(['-File "D:\\a b\\x.ps1"'])
+    const none = resolveLoadedScript(['--config D:\\logs\\run.log'])
+    const rel = resolveLoadedScript(['-File scripts/foo.ps1'])
+    const empty = resolveLoadedScript([])
+    return (
+      ps.kind === 'measured' && /prod-bundle\\pg-backup-scheduler\.ps1$/.test(ps.value) &&
+      mjs.kind === 'measured' && /\.mjs$/.test(mjs.value) &&
+      quoted.kind === 'measured' && quoted.value === 'D:\\a b\\x.ps1' &&
+      none.kind === 'unmeasured' && empty.kind === 'unmeasured' &&
+      // 相对路径**抽得出目标**,但由 judgeRuntimeFreshness 拒判(工作目录不同结论就不同);
+      // 把拒绝写在抽取层会让"抽得出而不判"与"抽不出"同形,那正是本仓最贵的假绿。
+      rel.kind === 'measured' && rel.value === 'scripts/foo.ps1' &&
+      judgeRuntimeFreshness({
+        state: 'RUNNING',
+        start: { kind: 'ticks', ticks: String((BigInt(Date.parse('2026-10-01T09:00:00Z')) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n) },
+        paramsTexts: ['-File scripts/foo.ps1'],
+        statFile: () => ({ ok: true, mtimeMs: Date.parse('2026-10-01T10:00:00Z') }),
+      }).kind === 'unmeasured'
+    )
+  })())
+  ok('RF-7 judgeRuntimeFreshness 的四档入口各给各的话:非 RUNNING / 无启动时刻 / 无加载目标 / 读不到 mtime ⇒ 四种未判定措辞都不同,且不得被读成 fresh', (() => {
+    const st = { kind: 'ticks', ticks: String((BigInt(Date.parse('2026-10-01T09:00:00Z')) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n) }
+    const statOk = { ok: true, mtimeMs: Date.parse('2026-10-01T08:00:00Z') }
+    const a = judgeRuntimeFreshness({ state: 'STOPPED', start: st, paramsTexts: ['D:\\a.mjs'], statFile: () => statOk })
+    const b = judgeRuntimeFreshness({ state: 'RUNNING', start: null, paramsTexts: ['D:\\a.mjs'], statFile: () => statOk })
+    const c = judgeRuntimeFreshness({ state: 'RUNNING', start: { kind: 'err' }, paramsTexts: ['D:\\a.mjs'], statFile: () => statOk })
+    const d = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: null, paramsUnmeasuredReason: 'REG 未判定', statFile: () => statOk })
+    const e = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: ['-File D:\\x\\gone.ps1'], statFile: () => ({ ok: false, why: 'ENOENT' }) })
+    const fresh = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: ['D:\\x\\a.mjs'], statFile: () => statOk })
+    const stale = judgeRuntimeFreshness({ state: 'RUNNING', start: st, paramsTexts: ['D:\\x\\a.mjs'], statFile: () => ({ ok: true, mtimeMs: Date.parse('2026-10-01T10:00:00Z') }) })
+    const distinct = new Set([a.reason, b.reason, c.reason, d.reason, e.reason]).size
+    return (
+      [a, b, c, d, e].every((x) => x.kind === 'unmeasured') && distinct === 5 &&
+      fresh.kind === 'measured' && fresh.value.verdict === 'fresh' &&
+      stale.kind === 'measured' && stale.value.verdict === 'stale' && /60 分钟/.test(stale.value.detail)
+    )
+  })())
+  ok('RF-8 进程通道第 4 段各形态都收:数字 ticks / NA / ERR / GONE / 缺省三段旧版式 ⇒ 均不得进 unparsed(否则整维打死监听归并)', (() => {
+    const mkSv = (n, pid, tk) => `SV|${n}|${pid}${tk === undefined ? '' : '|' + tk}`
+    const lines = [
+      PROC_HEAD,
+      'PS|700|1188', 'PSUM|1',
+      mkSv('A', 700, '638000000000000000'),
+      mkSv('B', 0, 'NA'),
+      mkSv('C', 701, 'ERR'),
+      mkSv('D', 702, 'GONE'),
+      mkSv('E', 703),
+      'SSUM|5', 'SVSUM|1',
+      PROC_TAIL,
+    ]
+    const r = interpretProcessList(lines.join('\n'))
+    return (
+      r.kind === 'measured' && r.value.svcStart.get('a').kind === 'ticks' &&
+      r.value.svcStart.get('b').kind === 'na' && r.value.svcStart.get('c').kind === 'err' &&
+      r.value.svcStart.get('d').kind === 'gone' && r.value.svcStart.get('e').kind === 'absent' &&
+      r.value.startSum === 1 && r.value.svcPid.size === 5
+    )
+  })())
+  ok('RF-9 反向对照:SVSUM 缺失(旧版式产出)⇒ 通道仍 measured,但新鲜度维必须落 absent 一档(不是"全 fresh")', (() => {
+    const legacy = [PROC_HEAD, 'PS|700|1188', 'PSUM|1', 'SV|A|700', 'SSUM|1', PROC_TAIL].join('\n')
+    const r = interpretProcessList(legacy)
+    return r.kind === 'measured' && r.value.startSum === null && r.value.svcStart.get('a').kind === 'absent'
+  })())
+  ok('RF-10 生成器真把第 4 段与 SVSUM 写进了执行面(形状锁:退回三段 ⇒ 本维静默归零,必须能被发现)', (() => {
+    const ps = buildProcessListScript()
+    // 形状表只有一份(见模块顶部 PROC_SCRIPT_SHAPE_FORMS);镜像测试 RF-4 引的就是这张
+    return PROC_SCRIPT_SHAPE_FORMS.length >= 3 && PROC_SCRIPT_SHAPE_FORMS.every(({ re }) => re.test(ps))
+  })())
+
+  ok('RF-11 被引用的模块文件不存在 ⇒ 断链独立三态(既不是 fresh 也不是未判定),judgeService 记 issue 并点名;权限类读不到仍走未判定(两态不并桶)', (() => {
+    const st = { kind: 'ticks', ticks: String((BigInt(Date.parse('2026-10-01T09:00:00Z')) + BigInt(TICKS_EPOCH_DIFF_MS)) * 10000n) }
+    const mkJudge = (why) =>
+      judgeRuntimeFreshness({
+        state: 'RUNNING',
+        start: st,
+        paramsTexts: ['-File D:\\r\\entry.ps1'],
+        statFile: (p) => (p === 'D:\\r\\entry.ps1' ? { ok: true, mtimeMs: Date.parse('2026-10-01T08:00:00Z') } : { ok: false, why }),
+        readScriptText: (p) =>
+          p === 'D:\\r\\entry.ps1'
+            ? { ok: true, text: ". (Join-Path $PSScriptRoot 'gone.ps1')\n" }
+            : { ok: false, why: '夹具:不该被调用' },
+      })
+    const broken = mkJudge('ENOENT')
+    const perm = mkJudge('EACCES')
+    const j = judge({ runtime: dim('m', broken.value) })
+    return (
+      broken.kind === 'measured' &&
+      broken.value.verdict === 'brokenlink' &&
+      /gone\.ps1/.test(broken.value.detail) &&
+      broken.value.modulesBroken.length === 1 &&
+      j.level === 'issue' &&
+      j.problems.some((p) => /断链/.test(p)) &&
+      perm.kind === 'unmeasured' &&
+      /gone\.ps1/.test(perm.reason)
+    )
+  })())
+
+  ok('RF-12 单次静态赋值 `$X = Join-Path $PSScriptRoot …` + `. $X`(本仓现读写法)解得出;多次/复合赋值与从未赋值各自回落"解析不出",不猜', (() => {
+    const dir = 'D:\\r'
+    const a = extractDotSourcedScripts({
+      text: "$RootCommon = Join-Path $PSScriptRoot 'ihui-root-common.ps1'\n. $RootCommon\n",
+      scriptDir: dir,
+    })
+    const b = extractDotSourcedScripts({
+      text: "$X = Join-Path $PSScriptRoot 'a.ps1'\n$X = Join-Path $PSScriptRoot 'b.ps1'\n. $X\n",
+      scriptDir: dir,
+    })
+    const c = extractDotSourcedScripts({ text: '. $NeverAssigned\n', scriptDir: dir })
+    const d = extractDotSourcedScripts({ text: "$X = 'lib\\m.ps1'\n$X += '-extra'\n. $X\n", scriptDir: dir })
+    return (
+      a.kind === 'measured' &&
+      a.value.paths.join() === 'D:\\r\\ihui-root-common.ps1' &&
+      b.value.paths.length === 0 &&
+      /不止一次|静态读不出/.test(b.value.items[0].why) &&
+      c.value.paths.length === 0 &&
+      /变量/.test(c.value.items[0].why) &&
+      d.value.paths.length === 0
+    )
+  })())
+
+  ok('S2c 多值参数保留全部行:OLLAMA 型(port 在第 2 行)不得被读成"没声明";反向对照单行值不受影响', (() => {
+    const multi = interpretNssmGetMultiline({ code: 0, stdoutBuf: u16Lines(['OLLAMA_KEEP_ALIVE=24h', 'OLLAMA_HOST=127.0.0.1:11434']), stderrBuf: Buffer.alloc(0) })
+    const single = interpretNssmGetMultiline({ code: 0, stdoutBuf: u16Lines('D:\\x\\node.exe'), stderrBuf: Buffer.alloc(0) })
+    const viaSingle = interpretNssmGet({ code: 0, stdoutBuf: u16Lines(['OLLAMA_KEEP_ALIVE=24h', 'OLLAMA_HOST=127.0.0.1:11434']), stderrBuf: Buffer.alloc(0) })
+    return (
+      multi.kind === 'measured' && /11434/.test(multi.value) && extractPortsFromConfig([multi.value]).join() === '11434' &&
+      single.value === 'D:\\x\\node.exe' &&
+      // 阳性对照:旧的取首行读法对同一条载荷确实提不出端口 —— 不写这条,本判据不知道自己修好了什么
+      extractPortsFromConfig([viaSingle.value]).length === 0
+    )
+  })())
+
+  // ── 对侧独有维度:取值卫生 + 空枚举不记通过 ──────────────────────────────
+  ok('R1 码页受损的取值 ⇒ 存在性未判定,而不是判它"路径不存在"', (() => {
+    const ex = existenceOf('C:/x/' + String.fromCharCode(0xfffd) + 'node.exe', { fileKind: () => 'missing' })
+    return ex.kind === 'unmeasured' && /码页/.test(ex.reason)
+  })())
+  ok('R1b 同一条判据对干净路径必须给 file(否则 R1 只是永真式)', existenceOf('C:/x/a-node.exe', { fileKind: () => 'file' }).value === 'file')
+  ok('R2 非绝对路径 ⇒ 未判定而非 missing(落点由 PATH/工作目录决定,本门不判缺失)',
+    existenceOf('node.exe', { fileKind: () => 'missing' }).kind === 'unmeasured')
+  ok('R3 两通道都跑到而 0 个可判对象 ⇒ exit 2,"空表"永远不是通过',
+    computeExitCode([], { state: dim('m', { rows: [] }), registry: dim('m', { rows: [] }) }) === 2)
+  ok('R3b 任一通道未判定 ⇒ exit 2(半边失明不得写成整面通过)',
+    computeExitCode([mk('ok')], { state: dim('m', { rows: [] }), registry: dim('u', 'REGMISSING') }) === 2 &&
+      computeExitCode([mk('ok')], { state: dim('u', '静默空输出'), registry: dim('m', { rows: [] }) }) === 2)
+  ok('R4 REGMISSING 基键行 ⇒ REG 通道未判定并点名,且 totalServiceKeys 留 null', (() => {
+    const p = parseRegistryOutput('REGMISSING|HKLM:/SYSTEM/CurrentControlSet/Services\nSUM|NA\n')
+    return p.regMissing === true && p.totalServiceKeys === null && p.rows.length === 0 && p.sumSeen === true
+  })())
+  ok('R5 缺 SUM 行(截断)⇒ sumSeen=false,不得读成"枚举完了而什么都没有"',
+    parseRegistryOutput('SVC|A|app=C:/x/a.exe|dir=C:/x|pb64=!N|img=C:/x/nssm.exe\n').sumSeen === false)
+  ok('R6 解不出的行必须保留并进未判定(静默丢行 = 把"没看清"写成"没有")', (() => {
+    const p = parseRegistryOutput('SVC|A|app=C:/x/a.exe|dir=C:/x|pb64=!N|img=C:/x/nssm.exe\nGARBAGE LINE\nSUM|10\n')
+    return p.rows.length === 1 && p.unparsed.length === 1 && /GARBAGE/.test(p.unparsed[0])
+  })())
+  ok('R7 img 含竖线时仍解析(末段贪婪)',
+    parseRegistryOutput('SVC|A|app=C:/x/a.exe|dir=C:/x|pb64=!N|img=C:/a|b/nssm.exe\nSUM|10\n').rows[0].imagePath === 'C:/a|b/nssm.exe')
+  ok('R8 pb64 三态:!N=无 Parameters 子键 / !E=编码失败 / base64=解得出,三者不得并桶', (() => {
+    const a = decodeRegistryConfigBlob(REG_NO_PARAMS)
+    const b = decodeRegistryConfigBlob(REG_ENCODE_ERROR)
+    const c = decodeRegistryConfigBlob(Buffer.from('PORT=9096', 'utf8').toString('base64'))
+    return a.kind === 'absent' && b.kind === 'error' && c.kind === 'ok' && extractPortsFromConfig([c.text]).join() === '9096'
+  })())
+  ok('R9 空 base64 ⇒ ok 而 text 为空;非 base64 字符 ⇒ error(不得读成"没有端口声明")', (() => {
+    const zero = decodeRegistryConfigBlob(Buffer.from('', 'utf8').toString('base64'))
+    return zero.kind === 'ok' && zero.text === '' && decodeRegistryConfigBlob('!!').kind === 'error'
+  })())
+
+  // ── 两通道合并裁决(本票新增的那一格)───────────────────────────────────
+  ok('M1 REG 有值 ⇒ D2 取 REG;nssm 同值时源记 registry+nssm(旁证成立,不是重复劳动)', (() => {
+    const r = resolveApplication({ regRow: { application: 'C:/x/node.exe' }, regChannelMeasured: true, nssmApplication: measured('C:/x/node.exe') })
+    return r.application.value === 'C:/x/node.exe' && r.sources.includes('registry') && r.sources.includes('nssm') && r.disagreement.value === false
+  })())
+  ok('M2 两通道取值不一致 ⇒ 判 problem 并点名两个值(只有合并才有的第三条牙)', (() => {
+    const ag = resolveApplication({ regRow: { application: 'C:/new/node.exe' }, regChannelMeasured: true, nssmApplication: measured('C:/old/node.exe') })
+    const r = judge({ agreement: ag.disagreement })
+    return r.level === 'issue' && r.problems.some((p) => /两通道取值不一致/.test(p) && p.includes('C:/new/node.exe') && p.includes('C:/old/node.exe'))
+  })())
+  ok('M3 REG 空 app + nssm 取不到 ⇒ 未判定(对侧那一型),不是"值为空"的 issue', (() => {
+    const r = resolveApplication({ regRow: { application: '' }, regChannelMeasured: true, nssmApplication: nssmUn })
+    return r.application.kind === 'unmeasured' && /仅 ImagePath 命中 nssm/.test(r.application.reason)
+  })())
+  ok('M4 REG 空 app + nssm 退出码 0 空载荷 ⇒ 保留本侧语义 measured(null)',
+    resolveApplication({ regRow: { application: '' }, regChannelMeasured: true, nssmApplication: measured(null) }).application.value === null)
+  ok('M5 注册表枚举成功而服务不在集内 ⇒ nssmManaged=measured(false)(实测 IHUI-PG 型)',
+    resolveNssmManaged({ regRow: null, regChannelMeasured: true, inStateRows: true }).value === false)
+  ok('M5b REG 通道未判定时不得据此断言"非 nssm 托管"(看不见 ≠ 没有)',
+    resolveNssmManaged({ regRow: null, regChannelMeasured: false, inStateRows: true }).kind === 'unmeasured')
+  ok('M6 非 nssm 托管 + 失明全因它不在射程 ⇒ skipped(不是 unattested,也不冒充 ok)', (() => {
+    const r = judge({ application: dim('u', 'nssm 只对托管服务有效'), appExists: dim('u', 'x'), appDirectory: dim('u', 'x'), ports: dim('u', 'x'), probe: dim('u', 'x'), nssmManaged: dim('m', false) })
+    return r.level === 'skipped' && r.hardBlind.length === 0
+  })())
+  ok('M6b skipped 不是消红通道:同一对象只要 STATE 失明或量到坏值,级别必须升回来', (() => {
+    const blindState = judge({ state: dim('u', 'STATE 没跑到'), application: dim('u', 'x'), appExists: dim('u', 'x'), appDirectory: dim('u', 'x'), ports: dim('u', 'x'), probe: dim('u', 'x'), nssmManaged: dim('m', false) })
+    const stopped = judge({ state: dim('m', 'STOPPED'), application: dim('u', 'x'), appExists: dim('u', 'x'), appDirectory: dim('u', 'x'), ports: dim('u', 'x'), probe: dim('u', 'x'), nssmManaged: dim('m', false) })
+    return blindState.level === 'unattested' && stopped.level === 'issue'
+  })())
+  ok('M7 端口取两通道并集:REG 无 Parameters(!N)而 nssm 给得出 ⇒ 仍有端口(不因合并退化)', (() => {
+    const r = resolvePorts({ pb64: decodeRegistryConfigBlob(REG_NO_PARAMS), nssmParameters: measured('--port 8815'), nssmEnvironmentExtra: measured('') })
+    return r.ports.kind === 'measured' && r.ports.value.join() === '8815' && r.portsSources.includes('nssm')
+  })())
+  ok('M8 两通道都给不出配置 ⇒ 端口维未判定(既不推测"没有端口"更不推测"没问题")',
+    resolvePorts({ pb64: { kind: 'none', text: '' }, nssmParameters: nssmUn, nssmEnvironmentExtra: nssmUn }).ports.kind === 'unmeasured')
+  ok('M8b 字段缺席(!N 之类)与"空载荷"不得同形:后者是量到了空 ⇒ 合法 measured([])',
+    resolvePorts({ pb64: decodeRegistryConfigBlob(Buffer.from('', 'utf8').toString('base64')), nssmParameters: nssmUn, nssmEnvironmentExtra: nssmUn }).ports.kind === 'measured')
+
+  // ── 退出码聚合与 CLI 参数 ────────────────────────────────────────────────
+  ok('S11 退出码:issue⇒1 / 全 unattested⇒2 / 有量到且无 issue⇒0 / 无可判对象⇒2 / 只剩 skipped⇒2',
+    computeExitCode([mk('issue')], bothMeasured) === 1 &&
+      computeExitCode([mk('unattested')], bothMeasured) === 2 &&
+      computeExitCode([mk('ok'), mk('unattested')], bothMeasured) === 0 &&
+      computeExitCode([], bothMeasured) === 2 &&
+      computeExitCode([mk('skipped')], bothMeasured) === 2)
+  ok('S11b --strict 只收紧"有维量不到"这一档,且不得把健康面也判红(否则问责档永不可用)',
+    computeExitCode([mk('ok'), mk('unattested')], bothMeasured, { strict: false }) === 0 &&
+      computeExitCode([mk('ok'), mk('unattested')], bothMeasured, { strict: true }) === 1 &&
+      computeExitCode([mk('ok')], bothMeasured, { strict: true }) === 0)
+  ok('A1 参数解析:--strict/--json/--self-test/--service/--filter 各自就位', (() => {
+    const { opts, bad } = parseArgs(['--json', '--strict', '--service', 'IHUI-API', '--filter', 'ihui-*'])
+    return opts.json && opts.strict && bad.length === 0 && opts.services.join() === 'IHUI-API' && opts.filter === 'ihui-*'
+  })())
+  ok('A2 缺值的 --filter/--service 与不认识的参数 ⇒ 报错清单(不静默吞)',
+    parseArgs(['--filter']).bad.length === 1 && parseArgs(['--nope']).bad.length === 1)
+  ok('A3 两条枚举脚本都被写全:REG 用正斜杠基键 + SUM + pb64 + 两个哨兵;STATE 用首尾哨兵', (() => {
+    const reg = buildRegistryScript()
+    const st = buildEnumerationScript()
+    return reg.includes("'HKLM:/SYSTEM/CurrentControlSet/Services'") && reg.includes('SUM|') && reg.includes('pb64=') &&
+      reg.includes(REG_NO_PARAMS) && reg.includes(REG_ENCODE_ERROR) && !reg.includes('HKLM:\\') &&
+      st.includes(ENUM_HEAD) && st.includes(ENUM_TAIL) && st.includes('Get-Service') && !/Stop-Service/.test(st)
+  })())
+
+  // ── D3 新层:「进程树实际在听什么」+ 按实际绑定地址探(2026-09-29 本票)──────────────
+  // 下面 NS-1 / TR-1 两条的输入是**本机现读逐字取回的** netstat 行与父子链(§22c:镜像/自检的
+  // 输入至少一条取自真文件、真机形态),不是照着实现编出来的夹具。
+  const NS_KEYCLOAK = '  TCP    192.168.1.37:7800      0.0.0.0:0              LISTENING       10532'
+  const NS_WILDCARD = '  TCP    0.0.0.0:8802           0.0.0.0:0              LISTENING       8616'
+  const NS_V6_LOOP = '  TCP    [::1]:8810             [::]:0                 LISTENING       6916'
+  const NS_V6_ANY = '  TCP    [::]:56587             [::]:0                 LISTENING       22884'
+  ok('NS-1 真机 netstat 行逐字可解:网卡绑定地址必须原样带出(缺陷②的取证面)', (() => {
+    const r = interpretNetstatListening(`\r\nActive Connections\r\n  Proto  Local Address          Foreign Address        State           PID\r\n${NS_KEYCLOAK}\r\n`)
+    return (
+      r.kind === 'measured' &&
+      r.value.rows.length === 1 &&
+      r.value.rows[0].address === '192.168.1.37' && r.value.rows[0].port === 7800 && r.value.rows[0].pid === 10532
+    )
+  })())
+  ok('NS-2 IPv6 两种形态都解:通配 [::] 与回环 [::1] 不得被混成同一种(探测地址由它决定)', (() => {
+    const r = interpretNetstatListening(`${NS_V6_LOOP}\n${NS_V6_ANY}\n${NS_WILDCARD}\n`)
+    return (
+      r.kind === 'measured' && r.value.rows.length === 3 &&
+      r.value.rows[0].address === '::1' && r.value.rows[1].address === '::' && r.value.rows[2].address === '0.0.0.0'
+    )
+  })())
+  ok('NS-3 UDP 行与 localized 表头不计 malformed;一条 TCP 行都没有 ⇒ 未判定(不得读成"没有监听")', (() => {
+    const gbkish = interpretNetstatListening('  活动连接\n  协议   本地地址          外部地址        状态           PID\n  UDP    0.0.0.0:5353           *:*      1234\n')
+    const noTcp = interpretNetstatListening('')
+    return gbkish.kind === 'unmeasured' && /没有任何 TCP 行/.test(gbkish.reason) && noTcp.kind === 'unmeasured'
+  })())
+  ok('NS-3b 有 TCP 行而零 LISTENING ⇒ measured(rows 为空)且计 notListening、malformed=0("确实是 0"与"没量到"分家)', (() => {
+    const r = interpretNetstatListening('  TCP    1.2.3.4:5          5.6.7.8:9          ESTABLISHED 4321\n')
+    return r.kind === 'measured' && r.value.rows.length === 0 && r.value.tcpLines === 1 && r.value.malformed === 0 && r.value.notListening === 1
+  })())
+  ok('NS-4 TCP 行形态不认识(列数不齐 / 监听行缺 PID)⇒ 判"未判定"并点名形态,不读成"这台机没有监听"', (() => {
+    const r = interpretNetstatListening('  TCP    weird-form-here\n')
+    const half = interpretNetstatListening('  TCP    1.2.3.4:5          5.6.7.8:9          LISTENING\n')
+    return (
+      r.kind === 'unmeasured' && /形态解不出/.test(r.reason) &&
+      half.kind === 'unmeasured' && /形态解不出/.test(half.reason)
+    )
+  })())
+  ok('PH-1 探测地址五条:通配→回环、IPv6 回环→::1、具体网卡→原地址(成对:网卡地址绝不被折成回环)', (() => {
+    const wild = probeHostForBind('0.0.0.0') === LOOPBACK_PROBE_HOST && probeHostForBind('[::]') === LOOPBACK_PROBE_HOST && probeHostForBind('*') === LOOPBACK_PROBE_HOST
+    const loop4 = probeHostForBind('127.0.0.1') === '127.0.0.1'
+    const loop6 = probeHostForBind('[::1]') === '::1'
+    const nic = probeHostForBind('192.168.1.37') === '192.168.1.37'
+    return wild && loop4 && loop6 && nic
+  })())
+  ok('PH-2 空/畸形地址 ⇒ 未写死答案:回落回环但不得吞掉真地址(splitHostPort 拒 0 端口与 >65535)', (() => {
+    const zero = splitHostPort('[::]:0')
+    const big = splitHostPort('1.1.1.1:70000')
+    const dns = splitHostPort('example.com:443')
+    return zero === null && big === null && dns !== null && probeHostForBind('') === LOOPBACK_PROBE_HOST
+  })())
+  // 本机实测链:服务 pid 6372 → 4876 → 10532(真正持有 7800/8543/50027/57800 的那一个)
+  const PROC_KEYCLOAK = [
+    { pid: 10532, ppid: 4876 },
+    { pid: 4876, ppid: 6372 },
+    { pid: 6372, ppid: 1188 },
+    { pid: 1188, ppid: 1052 },
+  ]
+  ok('TR-1 真机链:服务 pid 6372 的后代里必须有 10532(深度 2),而反向不得(祖先不是后代)', (() => {
+    const t = buildProcessTree(6372, PROC_KEYCLOAK)
+    const up = buildProcessTree(10532, PROC_KEYCLOAK)
+    return t.pids.has(10532) && t.pids.has(4876) && !t.pids.has(1188) && up.pids.size === 1
+  })())
+  ok('TR-2 环保护与深度上限:自指/互指不得死循环;超深链必须 truncated 而不是静默少收', (() => {
+    const selfRef = buildProcessTree(7, [{ pid: 7, ppid: 7 }, { pid: 8, ppid: 7 }])
+    const mutual = buildProcessTree(7, [{ pid: 7, ppid: 9 }, { pid: 9, ppid: 7 }])
+    let chain = []
+    for (let i = 0; i < TREE_MAX_DEPTH + 4; i++) chain.push({ pid: 100 + i, ppid: i === 0 ? 100 : 99 + i })
+    chain = [{ pid: 100, ppid: 50 }, ...chain]
+    const deep = buildProcessTree(100, chain)
+    return selfRef.pids.has(8) && mutual.pids.size === 2 && deep.truncated === true && deep.pids.size <= TREE_MAX_DEPTH + 2
+  })())
+  ok('TR-3 pid ≤ 4 不当归并起点(System/Idle 名下挂着全机 RPC 监听,算进服务头上就是假账)',
+    buildProcessTree(4, PROC_KEYCLOAK).rootUsable === false && buildProcessTree(0, PROC_KEYCLOAK).rootUsable === false)
+  ok('TR-4 attributeListening 只收树内的 pid;树外端口一格都不许算进来', (() => {
+    const eps = attributeListening([{ address: '192.168.1.37', port: 7800, pid: 10532 }, { address: '127.0.0.1', port: 135, pid: 1188 }], buildProcessTree(6372, PROC_KEYCLOAK).pids)
+    return eps.length === 1 && eps[0].port === 7800
+  })())
+  ok('TR-5 观察维三态:netstat 未判定 ⇒ 不许说"任务型";量到而树里为空 ⇒ measured(空)', (() => {
+    const noChannel = computeObservedListening({ servicePid: 6372, netstat: unmeasured('netstat 派生失败(ENOENT)'), procs: measured({ procs: PROC_KEYCLOAK }) })
+    const noPid = computeObservedListening({ servicePid: null, netstat: interpretNetstatListening(NS_KEYCLOAK), procs: measured({ procs: PROC_KEYCLOAK }) })
+    const emptyTree = computeObservedListening({ servicePid: 6372, netstat: interpretNetstatListening('  TCP    1.1.1.1:9            0.0.0.0:0              LISTENING       4321\n'), procs: measured({ procs: PROC_KEYCLOAK }) })
+    return (
+      noChannel.kind === 'unmeasured' && /netstat 维未判定/.test(noChannel.reason) &&
+      noPid.kind === 'unmeasured' && /没有这个服务/.test(noPid.reason) &&
+      emptyTree.kind === 'measured' && emptyTree.value.endpoints.length === 0
+    )
+  })())
+  ok('BT-1 待探端点:声明端口若在观察里出现 ⇒ 用观察到的绑定地址(缺陷②对声明端口同样成立)', (() => {
+    const t = buildProbeTargets({ declaredPorts: [7800], observedEndpoints: [{ address: '192.168.1.37', port: 7800, pid: 10532 }] })
+    return t.targets.length === 1 && t.targets[0].host === '192.168.1.37' && t.targets[0].from === 'declared+observed'
+  })())
+  ok('BT-1b 声明端口没人观察到时回落回环(旧行为不丢);纯观察端点按各自地址;同一 host:port 去重', (() => {
+    const t = buildProbeTargets({ declaredPorts: [8802], observedEndpoints: [{ address: '127.0.0.1', port: 8801, pid: 1 }, { address: '[::]', port: 8801, pid: 2 }] })
+    // 8801 的两条绑定(v4 回环 + v6 通配)都归一到 127.0.0.1:8801 ⇒ 必须只剩一个待探端点:
+    // 探两次同一条 TCP 连接不产生新信息,只会白吃 MAX_PROBE_PORTS 的名额。
+    const only8801 = t.targets.filter((x) => x.port === 8801)
+    const declared = t.targets.find((x) => x.port === 8802)
+    return only8801.length === 1 && only8801[0].host === '127.0.0.1' && only8801[0].from === 'observed' && declared.host === LOOPBACK_PROBE_HOST && declared.from === 'declared'
+  })())
+  ok('BT-1c 同一端口既有 v6 回环又有 v4 网卡绑定 ⇒ 两个地址都要探(只留一个就会漏掉"绑在 v6 上"那一型)', (() => {
+    const t = buildProbeTargets({ declaredPorts: [], observedEndpoints: [{ address: '[::1]', port: 8810, pid: 1 }, { address: '127.0.0.1', port: 8810, pid: 2 }] })
+    return t.targets.length === 2 && t.targets.some((x) => x.host === '::1') && t.targets.some((x) => x.host === '127.0.0.1')
+  })())
+  ok('BT-2 端点超上限必须报 truncated 数,不得静默只探前几个就当作全量结论', (() => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ address: '127.0.0.1', port: 9000 + i, pid: 77 }))
+    const t = buildProbeTargets({ declaredPorts: [], observedEndpoints: many })
+    return t.targets.length === MAX_PROBE_PORTS && t.truncated === 12 - MAX_PROBE_PORTS
+  })())
+  ok('FP-1 7800 那一格的成对锁:按实际地址探=应答;若有人把地址折回环(旧缺陷)必判无应答', (() => {
+    const eps = [{ address: '192.168.1.37', port: 7800, pid: 10532 }]
+    const { targets } = buildProbeTargets({ declaredPorts: [], observedEndpoints: eps })
+    // 假探针:只有"打到真地址"才算 open —— 它模拟的正是本机实测(127.0.0.1:7800 回 ECONNREFUSED)。
+    const answer = (host) => (host === '192.168.1.37' ? { status: 'open' } : { status: 'closed' })
+    const good = foldProbeOutcome({ targets, results: targets.map((x) => ({ ...x, status: answer(x.host).status })), declaredPorts: [] })
+    const legacy = foldProbeOutcome({ targets: [{ port: 7800, host: '127.0.0.1', label: '127.0.0.1:7800', from: 'declared' }], results: [{ port: 7800, label: '127.0.0.1:7800', status: 'closed' }], declaredPorts: [] })
+    return good.kind === 'measured' && good.value.listening === true && legacy.value.listening === false && legacy.value.labels.join().includes('127.0.0.1:7800')
+  })())
+  ok('FP-2 反向对照(要求的"声明了端口而没人听"):必须判问题,不得退成未判定', (() => {
+    const r = foldProbeOutcome({ targets: [{ port: 8802, host: '127.0.0.1', label: '127.0.0.1:8802', from: 'declared' }], results: [{ port: 8802, label: '127.0.0.1:8802', status: 'closed' }], declaredPorts: [8802] })
+    const j = judge({ ports: dim('m', [8802]), probe: r })
+    return r.kind === 'measured' && r.value.listening === false && j.level === 'issue' && j.problems.some((p) => p.includes('127.0.0.1:8802'))
+  })())
+  ok('FP-3 声明端口"探不出" ⇒ 未判定,不得被别的端点应答洗成通过', (() => {
+    const r = foldProbeOutcome({
+      targets: [{ port: 8802, host: '127.0.0.1', label: '127.0.0.1:8802', from: 'declared' }, { port: 9100, host: '127.0.0.1', label: '127.0.0.1:9100', from: 'observed' }],
+      results: [{ port: 8802, label: '127.0.0.1:8802', status: 'unmeasured', why: '超时' }, { port: 9100, label: '127.0.0.1:9100', status: 'open' }],
+      declaredPorts: [8802],
+    })
+    return r.kind === 'unmeasured' && /8802/.test(r.reason)
+  })())
+  ok('FP-4 观察到的端点全不应答(内核说在听而地址连不上)⇒ 问题,不是"未判定"', (() => {
+    const r = foldProbeOutcome({ targets: [{ port: 8801, host: '127.0.0.1', label: '127.0.0.1:8801', from: 'observed' }], results: [{ port: 8801, label: '127.0.0.1:8801', status: 'closed' }], declaredPorts: [] })
+    return r.kind === 'measured' && r.value.listening === false && /连不上/.test(r.value.why) && judge({ ports: dim('m', []), probe: r }).level === 'issue'
+  })())
+  ok('FP-5 无监听端口且是量到的 ⇒ 判据措辞必须是"任务型,此维不适用",不得与"没量到"同形', (() => {
+    const taskType = judge({ ports: dim('m', []), probe: dim('u', '该服务无监听端口(任务型),此维不适用(进程树实测:服务 pid 与其全部后代都没有 TCP 监听端点)') })
+    const blind = judge({ ports: dim('m', []), probe: dim('u', '监听观察取不到:netstat 派生失败(ENOENT)') })
+    return (
+      taskType.level === 'unattested' && taskType.blind.some((b) => /任务型/.test(b)) &&
+      blind.level === 'unattested' && blind.blind.some((b) => /netstat 派生失败/.test(b)) && !blind.blind.some((b) => /任务型/.test(b))
+    )
+  })())
+  ok('FP-6 声明为空而观察到手到端点 ⇒ 仍要有牙:应答则 ok,不应答则 issue', (() => {
+    const open = judge({ ports: dim('m', []), probe: dim('m', { listening: true, ports: [8801], labels: ['127.0.0.1:8801'] }) })
+    const dead = judge({ ports: dim('m', []), probe: dim('m', { listening: false, ports: [8801], labels: ['127.0.0.1:8801'], why: 'x' }) })
+    return open.level === 'ok' && dead.level === 'issue'
+  })())
+  ok('FP-7 应答取证按端点不按端口合并:双绑地址只有一条真应答时,另一条不得混进 labels,也不许消音', (() => {
+    // 真机现读形态:IHUI-PG 的 8810 同时绑在 [::1] 与 127.0.0.1 上,那是**两次**不同的探测
+    // (双绑是真机现读;"其中一条被拒"是构造,那次现读两条都通 —— 本条判的是取证口径,不是机器事实)。
+    const t = [
+      { port: 8810, host: '::1', label: '::1:8810', from: 'observed' },
+      { port: 8810, host: '127.0.0.1', label: '127.0.0.1:8810', from: 'observed' },
+    ]
+    const r = foldProbeOutcome({ targets: t, results: [{ ...t[0], status: 'closed' }, { ...t[1], status: 'open' }], declaredPorts: [] })
+    const taskReason = '该服务无监听端口(任务型),此维不适用(进程树实测:服务 pid 与其全部后代都没有 TCP 监听端点)'
+    // 平台值走具名常量而不是字面量:`platform: 'win32',` 与祖先 d2244d549 里已被删掉的那一行逐字同形,
+    // 守门 84 的行级复活判据按行文本比对,会把"新写的夹具"读成"搬回旧行"。语义不变,只是不再撞文本。
+    const WIN_PLATFORM = 'win32'
+    const face = renderText({
+      host: 'H',
+      platform: WIN_PLATFORM,
+      engine: null,
+      nssm: null,
+      channels: {},
+      totals: null,
+      services: [
+        { name: 'A', level: 'ok', problems: [], blind: [], rec: healthy({ ports: dim('m', []), observed: dim('m', { endpoints: [{ address: '127.0.0.1', port: 8810, pid: 6916 }], treeSize: 2 }), probe: r }) },
+        { name: 'B', level: 'unattested', problems: [], blind: ['端口应答:' + taskReason], rec: healthy({ ports: dim('m', []), observed: dim('m', { endpoints: [], treeSize: 1 }), probe: dim('u', taskReason) }) },
+      ],
+    })
+    return (
+      r.kind === 'measured' && r.value.listening === true &&
+      r.value.labels.join() === '127.0.0.1:8810' && /另有 1 个监听端点未应答/.test(r.value.note) &&
+      face.includes('实测监听=127.0.0.1:8810←pid 6916') && face.includes('::1:8810(拒)') && face.includes('此维不适用')
+    )
+  })())
+  ok('PL-1 进程树通道三态:缺哨兵 / 缺计数行 / 计数与行数不符 / 有解不出的行 ⇒ 全部未判定,绝不静默丢行', (() => {
+    const good = [PROC_HEAD, 'PS|6372|1188', 'PS|4876|6372', 'PS|10532|4876', 'PSUM|3', 'SV|Keycloak|6372', 'SV|IHUI-WEB|22696', 'SSUM|2', PROC_TAIL].join('\n')
+    const g = interpretProcessList(good)
+    const okCount = g.kind === 'measured' && g.value.procs.length === 3 && g.value.svcPid.get('keycloak').pid === 6372
+    return (
+      okCount &&
+      interpretProcessList('').kind === 'unmeasured' &&
+      interpretProcessList(`${PROC_HEAD}\n${PROC_TAIL}`).kind === 'unmeasured' &&
+      interpretProcessList(good.replace('PSUM|3', 'PSUM|9')).kind === 'unmeasured' &&
+      interpretProcessList(good.replace('PS|6372|1188', 'PS|6372')).kind === 'unmeasured'
+    )
+  })())
+  ok('PL-2 父进程未知(ppid=NA)仍收下这个 pid —— 丢节点会把"看得见服务自己"变成看不见', (() => {
+    const g = interpretProcessList([PROC_HEAD, 'PS|6372|NA', 'PSUM|1', 'SV|A|6372', 'SSUM|1', PROC_TAIL].join('\n'))
+    return g.kind === 'measured' && g.value.procs[0].ppid === null && buildProcessTree(6372, g.value.procs).pids.has(6372)
+  })())
+  ok('PL-2b pid 0(System Idle)必须被收下并对得上账 —— 本机真跑第一把就是被"丢掉 pid 0 ⇒ PSUM≠实收"打成整维失明的', (() => {
+    const g = interpretProcessList([PROC_HEAD, 'PS|0|NA', 'PS|4|0', 'PS|6372|1188', 'PSUM|3', 'SV|A|6372', 'SSUM|1', PROC_TAIL].join('\n'))
+    const tree = buildProcessTree(6372, g.value.procs)
+    return (
+      g.kind === 'measured' && g.value.procs.length === 3 &&
+      tree.pids.has(6372) && !tree.pids.has(0) && !tree.pids.has(4) &&
+      buildProcessTree(0, g.value.procs).rootUsable === false
+    )
+  })())
+  ok('PL-3 生成的枚举脚本:三条哨兵齐、只用两条 CIM 读查询、没有任何写动作', (() => {
+    const s = buildProcessListScript()
+    return (
+      s.includes(PROC_HEAD) && s.includes(PROC_TAIL) && s.includes('Win32_Process') && s.includes('Win32_Service') &&
+      !/Stop-Service|Set-Service|Remove-Service|Start-Process|Invoke-CimMethod/.test(s) && !/\$ErrorActionPreference = 'SilentlyContinue'/.test(s)
+    )
+  })())
+
+  // ── 真夹具:存在性判据真的读文件系统,而夹具不得长在仓库树内 ─────────────
+
+  let fixtureNote = ''
+  try {
+    const dir = mkScratch('svc-selftest-')
+    try {
+      const bin = path.join(dir, 'node.exe')
+      writeFileSync(bin, 'placeholder')
+      ok('F1 真夹具:落盘文件 ⇒ 存在性判据给 file ⇒ ok', judge({ appExists: measured(depsFileKind(bin)) }).level === 'ok')
+      rmSync(bin)
+      ok('F2 真夹具:同一路径删掉后 ⇒ missing(证明 missing 来自文件系统,不是硬编码)',
+        judge({ appExists: measured(depsFileKind(bin)) }).level === 'issue')
+      // 本模块就在 <repo>/scripts/ 下 ⇒ 上一级就是仓库根;写成两级会把"父目录"当仓库根,
+      // 于是这条锁在任何机器上都恒假(夹具永远"在仓库内")—— 永假断言与永真断言同样没用。
+      const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+      ok('F3 夹具落点不得在仓库树内(§26 唯一夹具落点)', !dir.startsWith(repo))
+      // G-158 之后"仓内"不等于"在真仓 git 面内":批准的 `<repo>/.DevEnv` 靠坏 gitfile 边界
+      // 把 discovery 挡在真仓之外。旧判据 `!dir.startsWith(repo)` 没跟上这次搬家 ⇒ 恒红。
+      // 现在两维都判,且判据只从 scratch-dir 取(§0.6 单一真相源):
+      //   ① 结构:仓外,或仓内唯一批准的 .DevEnv;
+      //   ② 行为:从这里问 `git rev-parse --show-toplevel` 必须问不出真仓(边界真的在生效)。
+      // 行为维未判定(git 不可达等)按未通过记 —— 没量到不得写成量过。
+      const allowed = isAllowedScratchRoot(dir)
+      const face = gitFaceEscapesToRepo(dir)
+      const faceNote = face.state === 'undetermined' ? `;git 面未判定:${face.why}` : ''
+      ok(
+        `F3 夹具落点=仓外或批准的 .DevEnv,且不在真仓 git 面内(§26/§15b,G-158)${faceNote}`,
+        allowed && face.state === 'measured' && face.escapes === false,
+      )
+      fixtureNote = `\n  (真夹具 3 条已跑;落点 ${dir})`
+    } finally {
+      rmScratch(dir)
+      // bestEffort(2026-10-28):清理失败**不得改写判据结论**。立因是现读实测 —— 宿主
+      // `node-safe-delete-shim.cjs` 把 rmSync 转成 trash 操作,而本机 trash 会失败
+      // (`Error during a trash operation: Some operations were aborted`),于是 finally 抛错被
+      // 外层 catch 接住 ⇒ 整段 F1/F2/F3 的结果被吞掉、只剩一条 F0 "夹具建不起来",读起来像
+      // 判据坏了。判据的红要留在断言里,不该由"临时目录删不掉"决定(同 union-converge 的处方)。
+      rmScratch(dir, { bestEffort: true })
+    }
+  } catch (e) {
+    ok('F0 真夹具建得起来(建不起来就是判据失效,必须喊出来)', false)
+    fixtureNote = `\n  夹具失败:${e?.message ?? e}`
+  }
+
+  // B 段(仓内基准对账维):纯构造面,不读盘、不派生。正反成对 —— 只留一侧会让"基准过期/坏 JSON"恒绿。
+  const bBase = parseServiceBaseline(
+    JSON.stringify({
+      generatedAt: '2026-10-24T00:00:00.000Z',
+      host: 'h',
+      services: [
+        { name: 'A', application: 'a.exe', startType: 'AUTOMATIC' },
+        { name: 'B', startType: 'MANUAL' },
+      ],
+      ledger: { absentOnHost: ['Z'] },
+    }),
+  )
+  ok('B1 基准正形 ⇒ measured,服务逐条读出', bBase.kind === 'measured' && bBase.value.services.length === 2 && bBase.value.services[0].name === 'A')
+  ok(
+    'B2 坏 JSON / 顶层非对象 / services 非数组 / 缺 name ⇒ 未判定(不得读成"没有差异")',
+    parseServiceBaseline('{').kind === 'unmeasured' &&
+      parseServiceBaseline('[]').kind === 'unmeasured' &&
+      parseServiceBaseline('{"services":{}}').kind === 'unmeasured' &&
+      parseServiceBaseline('{"services":[{"x":1}]}').kind === 'unmeasured',
+  )
+  const bCmp = compareServiceBaseline({
+    stateRows: [
+      { name: 'A', status: 'RUNNING', startType: 'Auto' },
+      { name: 'B', status: 'RUNNING', startType: 'Manual' },
+    ],
+    services: [],
+    baseline: bBase.value,
+  })
+  ok('B3 存在性与启动类型归一:Auto ≡ AUTOMATIC、Manual ≡ MANUAL ⇒ 不算不符;全在册 ⇒ 缺 0', bCmp.present === 2 && bCmp.absentInHost.length === 0 && bCmp.startTypeMismatch.length === 0)
+  const bCmp2 = compareServiceBaseline({ stateRows: [{ name: 'A', status: 'RUNNING', startType: 'Manual' }], services: [], baseline: bBase.value })
+  ok(
+    'B4 反向对照:本机 Manual vs 基准 AUTOMATIC ⇒ 点名不符;缺 B ⇒ absentInHost 点名',
+    bCmp2.startTypeMismatch.length === 1 && bCmp2.startTypeMismatch[0].startsWith('A:') && bCmp2.absentInHost.join(',') === 'B',
+  )
+  ok(
+    'B5 基准记『本机无』而现又出现 ⇒ reappeared 点名(快照过期信号,不判红)',
+    compareServiceBaseline({ stateRows: [{ name: 'Z', status: 'STOPPED', startType: 'Manual' }], services: [], baseline: bBase.value }).reappeared.join(',') === 'Z',
+  )
+  ok(
+    'B6 Application:门量到且不同 ⇒ 点名;门量不到 ⇒ 计入 appUnmeasured 而不是记"一致"',
+    (() => {
+      const rows = [{ name: 'A', startType: 'Automatic' }]
+      const diff = compareServiceBaseline({ stateRows: rows, services: [{ name: 'A', rec: { application: measured('b.exe') } }], baseline: bBase.value })
+      const blind = compareServiceBaseline({ stateRows: rows, services: [{ name: 'A', rec: { application: unmeasured('nssm 不在位') } }], baseline: bBase.value })
+      return diff.appDiffs.length === 1 && blind.appDiffs.length === 0 && blind.appUnmeasured === 1
+    })(),
+  )
+  ok(
+    'B7 基准文件读不到 ⇒ 未判定(既不判红也不记绿),原因里带原始错误',
+    (() => {
+      const r = readAndCompareBaseline({
+        stateRows: [],
+        services: [],
+        deps: {
+          readBaseline: () => {
+            throw new Error('ENOENT: no such file')
+          },
+        },
+      })
+      return r.kind === 'unmeasured' && /ENOENT/.test(r.reason)
+    })(),
+  )
+  ok(
+    'B8 基准路径存在性:类型不符⇒点名;判不到⇒计未判(不与"都对"并桶)',
+    (() => {
+      const rows = [
+        { name: 'A', status: 'RUNNING', startType: 'Auto' },
+        { name: 'B', status: 'RUNNING', startType: 'Manual' },
+      ]
+      const base = measured({
+        services: [
+          { name: 'A', application: 'C:\\app\\a.exe', appDirectory: 'C:\\app', startType: 'AUTOMATIC' },
+          { name: 'B', application: 'C:\\app\\b.exe', appDirectory: 'C:\\gone', startType: 'MANUAL' },
+        ],
+        ledger: null,
+      }).value
+      const kinds = { 'C:\\app\\a.exe': 'dir', 'C:\\app\\b.exe': 'file', 'C:\\app': 'dir', 'C:\\gone': 'missing' }
+      const good = compareServiceBaseline({ stateRows: rows, services: [], baseline: base, existence: (v) => measured(kinds[v]) })
+      const bad = compareServiceBaseline({
+        stateRows: rows,
+        services: [],
+        baseline: base,
+        existence: (v) => (v === 'C:\\gone' ? unmeasured('取不到') : measured(kinds[v])),
+      })
+      return (
+        good.pathChecked === 4 &&
+        good.pathMismatch.length === 2 &&
+        good.pathMismatch.some((x) => x.startsWith('A.application=dir')) &&
+        good.pathMismatch.some((x) => x.startsWith('B.appDirectory=missing')) &&
+        bad.pathChecked === 3 &&
+        bad.pathUndetermined === 1
+      )
+    })(),
+  )
+
+  // ── D4 env 形态对账(2026-10-29)──────────────────────────────────────────────
+  // 成对夹具:同一台服务、只差"env 块是一整串还是逐行",判定必须从 ok 翻成 malformed ——
+  // 这一对就是当晚那起故障的正反例(摘掉任一档都说明判据没牙)。
+  const envRec = (name, block) => ({ name, envBlock: block })
+  const mOf = (service, over = {}) => ({ service, family: 'web', color: 'green', envPortKey: 'IHUI_WEB_PORT', expectedPort: 8852, ...over })
+  ok(
+    'D4a 整行等值 ⇒ ok(唯一合法形态:每行一条 KEY=VALUE)',
+    (() => {
+      const r = judgeEnvShape([envRec('IHUI-WEB-GREEN', measured('IHUI_WEB_PORT=8852\nIHUI_WEB_HOST=127.0.0.1'))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      return r.totals.ok === 1 && r.totals.malformed === 0 && r.totals.missing === 0 && r.totals.undetermined === 0
+    })(),
+  )
+  ok(
+    'D4b 同一台只差"写成一整串"⇒ 必须翻成 malformed(键在、值带空格,包含式判据会记 ok)',
+    (() => {
+      const r = judgeEnvShape([envRec('IHUI-WEB-GREEN', measured('IHUI_WEB_PORT=8852 IHUI_WEB_HOST=127.0.0.1 IHUI_BUILD_DIST=.next-green'))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      return r.totals.malformed === 1 && r.totals.ok === 0 && r.buckets.malformed[0].lines === 1 && /IHUI_WEB_PORT=8852 IHUI_WEB_HOST/.test(r.buckets.malformed[0].observed)
+    })(),
+  )
+  ok(
+    'D4c 端口与台账不符(整行有键但端口漂了)⇒ 同样落 malformed,不另开一档',
+    judgeEnvShape([envRec('IHUI-WEB-GREEN', measured('IHUI_WEB_PORT=8851'))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] }).totals.malformed === 1,
+  )
+  ok(
+    'D4d 整块没有这个键 ⇒ missing(与"写歪"两种病,修法不同,不得并桶)',
+    (() => {
+      const r = judgeEnvShape([envRec('IHUI-WEB-GREEN', measured('IHUI_WEB_HOST=127.0.0.1\nIHUI_BUILD_DIST=.next-green'))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      const empty = judgeEnvShape([envRec('IHUI-WEB-GREEN', measured(null))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      return r.totals.missing === 1 && empty.totals.missing === 1 && empty.buckets.missing[0].lines === 0
+    })(),
+  )
+  ok(
+    'D4e 三种取不到输入一律 undetermined:服务不在集合 / env 块没量到 / 台账缺期望',
+    (() => {
+      const notIn = judgeEnvShape([], { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      const blind = judgeEnvShape([envRec('IHUI-WEB-GREEN', unmeasured('取不到值:nssm 不在位'))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      const noKey = judgeEnvShape([envRec('IHUI-WEB-GREEN', measured('IHUI_WEB_PORT=8852'))], { members: [mOf('IHUI-WEB-GREEN', { envPortKey: null })], notes: [] })
+      const noPort = judgeEnvShape([envRec('IHUI-WEB-GREEN', measured('IHUI_WEB_PORT=8852'))], { members: [mOf('IHUI-WEB-GREEN', { expectedPort: null })], notes: [] })
+      return notIn.totals.undetermined === 1 && blind.totals.undetermined === 1 && noKey.totals.undetermined === 1 && noPort.totals.undetermined === 1 && [notIn, blind, noKey, noPort].every((r) => r.totals.ok === 0)
+    })(),
+  )
+  ok(
+    'D4f 台账显式声明"无端口期望"的成员只点名不判断言(仍报行数,不静默消失)',
+    (() => {
+      const m = mOf('IHUI-WEB-ROUTER', { outOfScope: true, why: '端口住一族键里', envPortKey: null, expectedPort: null })
+      const r = judgeEnvShape([envRec('IHUI-WEB-ROUTER', measured('IHUI_BG_ROUTER_PORT=8801\nIHUI_BG_PORT_BLUE=8851'))], { members: [m], notes: [] })
+      return r.totals.ok === 0 && r.totals.malformed === 0 && r.totals.undetermined === 0 && r.outOfScope.length === 1 && r.outOfScope[0].lines === 2
+    })(),
+  )
+  ok(
+    'D4g 射程为 0 ⇒ 注记点名"不得读成都对"(§0.3,空集不冒绿)',
+    judgeEnvShape([], { members: [], notes: [] }).notes.some((n) => /不得读成/.test(n)),
+  )
+  ok(
+    'D4h 服务名大小写不同仍认得(台账写 IHUI-WEB-GREEN,STATE 回显可能换形)',
+    judgeEnvShape([envRec('ihui-web-green', measured('IHUI_WEB_PORT=8852'))], { members: [mOf('IHUI-WEB-GREEN')], notes: [] }).totals.ok === 1,
+  )
+  ok(
+    'D4i 只报数纪律:env 全写歪也不改退出码(§12e 恒红门禁令 —— 判机器状态的维不得挂进判定)',
+    (() => {
+      const svcs = [{ name: 'IHUI-WEB-GREEN', level: 'ok', problems: [], blind: [], rec: { ...healthy(), observed: measured({ endpoints: [], truncated: false }), envBlock: measured('IHUI_WEB_PORT=8852 IHUI_X=1') } }]
+      const channels = { state: measured({ rows: [] }), registry: measured({ rows: [] }) }
+      const before = computeExitCode(svcs, channels)
+      const bad = judgeEnvShape(svcs, { members: [mOf('IHUI-WEB-GREEN')], notes: [] })
+      const after = computeExitCode(svcs, channels)
+      const txt = renderText({ services: svcs, envShape: bad, host: 't', platform: 'win32', engine: null, channels, enumeration: { matched: 1, registryAlwaysIn: [] } })
+      return bad.totals.malformed === 1 && before === 0 && after === before && /env 形态对账\(D4/.test(txt)
+    })(),
+  )
+  ok(
+    'D4j 台账读取面:envCheck 独立于豁免链 —— 族缺 envPortKey 时点名且成员落 undetermined(不猜键名)',
+    (() => {
+      const exp = loadExpectedStopped()
+      const keyed = exp.envCheck.members.filter((m) => m.envPortKey)
+      return (
+        exp.envCheck.members.length > 0 &&
+        keyed.every((m) => typeof m.service === 'string' && m.service !== '') &&
+        exp.envCheck.members.some((m) => m.outOfScope === true) &&
+        exp.envCheck.members.some((m) => m.envPortKey === 'IHUI_WEB_PORT' && m.expectedPort === 8852)
+      )
+    })(),
+  )
+  // ── D5 开机自启对账(2026-10-29)──────────────────────────────────────────────
+  // 立因当场:web 三件套装成 Manual ⇒ 09:31 重启后 8801 无人拉起。成对夹具:同一份声明,只差档位。
+  const bootMember = (service, expect) => ({ service, family: 'web', expect, why: '夹具声明' })
+  ok(
+    'D5a 归一后逐字相等 ⇒ ok(Auto ≡ AUTOMATIC,不因回显词形不同假报不符)',
+    (() => {
+      const r = judgeBootStart([{ name: 'IHUI-WEB-ROUTER', startType: 'AUTO' }], { members: [bootMember('IHUI-WEB-ROUTER', 'AUTOMATIC')], notes: [] })
+      return r.totals.ok === 1 && r.totals.mismatch === 0
+    })(),
+  )
+  ok(
+    'D5b 同一份声明只差档位 ⇒ 必须翻成 mismatch(当晚那一型:声明 AUTOMATIC、实读 MANUAL)',
+    (() => {
+      const r = judgeBootStart([{ name: 'IHUI-WEB-ROUTER', startType: 'MANUAL' }], { members: [bootMember('IHUI-WEB-ROUTER', 'AUTOMATIC')], notes: [] })
+      return r.totals.mismatch === 1 && r.buckets.mismatch[0].observed === 'MANUAL' && /声明 AUTOMATIC/.test(r.buckets.mismatch[0].note)
+    })(),
+  )
+  ok(
+    'D5c 本机没有这个服务 ⇒ absent(不适用),不得算不符;但注册表里有而 STATE 漏了 ⇒ 一律未判定',
+    (() => {
+      const gone = judgeBootStart([], { members: [bootMember('IHUI-WEB-ROUTER', 'AUTOMATIC')], notes: [] })
+      const blind = judgeBootStart([], { members: [bootMember('IHUI-WEB-ROUTER', 'AUTOMATIC')], notes: [] }, ['IHUI-WEB-ROUTER'])
+      return gone.totals.absent === 1 && gone.totals.mismatch === 0 && blind.totals.undetermined === 1 && blind.totals.absent === 0
+    })(),
+  )
+  ok(
+    'D5d 回显读不出档位 ⇒ undetermined(不拿空串去比"不符",也不冒绿)',
+    judgeBootStart([{ name: 'IHUI-WEB-ROUTER', startType: '' }], { members: [bootMember('IHUI-WEB-ROUTER', 'AUTOMATIC')], notes: [] }).totals.undetermined === 1,
+  )
+  ok(
+    'D5e 台账读取面:真台账六条齐备(四台 AUTOMATIC / 两台 MANUAL);不齐的一条被点名跳过而不进射程',
+    (() => {
+      const exp = loadExpectedStopped()
+      const fake = loadExpectedStopped({
+        exists: () => true,
+        readText: () =>
+          JSON.stringify({
+            blueGreen: { families: [{ family: 'web', stateFile: '', reviewBy: '2099-01-01', bootStart: [{ service: 'IHUI-WEB-ROUTER', expect: 'AUTOMATIC' }, { service: 'X', expect: 'manual' }] }] },
+          }),
+        nowMs: () => Date.parse('2026-01-01'),
+      })
+      return (
+        exp.bootCheck.members.length === 6 &&
+        exp.bootCheck.members.every((m) => m.service && m.expect && m.why) &&
+        exp.bootCheck.members.filter((m) => m.expect === 'AUTOMATIC').length === 4 &&
+        exp.bootCheck.members.filter((m) => m.expect === 'MANUAL').length === 2 &&
+        fake.bootCheck.members.length === 0 &&
+        fake.bootCheck.notes.some((n) => /缺 service\/expect\/why|缺 .*\)⇒ 跳过/.test(n))
+      )
+    })(),
+  )
+  ok(
+    'D5f 射程为 0 ⇒ 注记点名"不得读成都对";声明只住台账,判据源码里没有一枚服务名(§0.6)',
+    (() => {
+      const empty = judgeBootStart([], { members: [], notes: [] })
+      const src = String(judgeBootStart)
+      return empty.notes.some((n) => /不得读成/.test(n)) && !/IHUI-WEB-ROUTER/.test(src) && !/IHUI-API-BLUE/.test(src)
+    })(),
+  )
+
+  return {
+    exitCode: fail > 0 ? 1 : 0,
+    text: `自检 ${out.length} 条,失败 ${fail} 条(构造面 + 临时夹具,零派生):\n${out.join('\n')}${fixtureNote}\n${fail === 0 ? '✅ 自检全绿' : '❌ 自检有红 —— 判据本身有问题,先修尺子,不要去放宽判据'}`,
+    json: opts.json ? JSON.stringify({ selfTest: { total: out.length, failed: fail } }, null, 2) : null,
+  }
+}
+
+/** 夹具用的真实存在性判据(与生产档同一个 fileKind,证明的不是替身)。 */
+function depsFileKind(p) {
+  return defaultDeps.fileKind(p)
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  // 应急出口只作用于 CLI 档:被 import 时不得改变宿主进程的行为(§22d)
+  if (process.env.HUSKY_SKIP_SERVICE_BINARY_PATHS === '1') {
+    console.info('⏭  HUSKY_SKIP_SERVICE_BINARY_PATHS=1 —— 跳过服务二进制路径对账(机器态档,跳过不改变仓库结论)')
+    process.exit(0)
+  }
+  const wantsJson = process.argv.slice(2).includes('--json')
+  main()
+    .then(({ exitCode, text, json }) => {
+      const body = wantsJson && json !== undefined && json !== null ? json : text
+      if (body) process.stdout.write(String(body) + '\n')
+      process.exitCode = exitCode
+    })
+    .catch((e) => {
+      // §22d:本工具自身异常 = 无法判定,不得以 uncaught 冒充判据的红或绿
+      process.stderr.write(`本工具自身异常(未判定,不记为通过):${e?.stack ?? e?.message ?? String(e)}\n`)
+      process.exitCode = 2
+    })
+}
+
+export const __test__ = {
+  measured, unmeasured, decodeNssm, interpretNssmGet, interpretNssmGetMultiline, looksCorrupted, extractPortsFromConfig,
+  decodeRegistryConfigBlob, buildEnumerationScript, buildRegistryScript, parseServiceList,
+  parseRegistryOutput, compileFilter, pickPowerShell, resolveApplication, resolveNssmManaged,
+  resolvePorts, existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
+  resolvePorts, normalizeStartType, parseServiceBaseline, compareServiceBaseline, readAndCompareBaseline,
+  BASELINE_REL, SERVICE_BASELINE_PATH,
+  existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
+  SERVICE_STATE_BANDS, stateBandOf, stateProblemOf, blueGreenFamiliesOf, loadExpectedStopped, applyExpectedStopped,
+  judgeEnvShape, judgeBootStart,
+  interpretNetstatListening, splitHostPort, buildProcessListScript, interpretProcessList, buildProcessTree,
+  PROC_SCRIPT_SHAPE_FORMS,
+  attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
+  ticksToMs, resolveLoadedScript, judgeRuntimeFreshness, TICKS_EPOCH_DIFF_MS,
+  extractDotSourcedScripts, DOT_SOURCE_MAX, DOT_SOURCE_CLOSURE_MAX,
+  ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,
+  NETSTAT_CANDIDATES, LOOPBACK_PROBE_HOST, SYSTEM_PID_FLOOR, MAX_PROBE_PORTS, TREE_MAX_DEPTH, TREE_MAX_NODES,
+  NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS, NETSTAT_TIMEOUT_MS, PROC_TIMEOUT_MS, defaultDeps,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "发布产物专用构建配置(与 typecheck 分开,与 packages/types 同形):开 declaration 产出 dist/index.d.ts(发布门判据 2),排除测试面(src 内 *.test.ts 与 tests/ 目录),测试代码不随 tarball 发出去。",
+  "compilerOptions": {
+    "declaration": true,
+    "noEmit": false,
+    "composite": false,
+    "incremental": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts", "src/**/__tests__/**"]
+}

@@ -1,0 +1,400 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* 视觉唯一标准: RN packages/app/src/features/vip/VipScreen.tsx(membershipCard 深色会员卡 +
+ * levelsSection 描边卡片 + vip.gold 金色徽章/价格/购买按钮)。
+ * 尺寸换算: RN raw dp ×2 = rpx;RN rpx(N) = N rpx。
+ * 颜色映射: tk.surface.bg→--color-background / tk.text.primary→--color-foreground /
+ *   tk.text.secondary→--color-muted-foreground / tk.border.light→--color-border /
+ *   tk.vip.gold(#FFD700)→--color-vip-gold-start / tk.gray.800(#262626)→--color-vip-card。
+ * 本页特有区块(等级梯度/使用统计/特权列表/快捷入口/联系客服)沿用同一视觉语言,全部走 token。 */
+.member-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: var(--spacing-3xl); /* RN body paddingBottom 32 → 64rpx */
+  box-sizing: border-box;
+}
+
+/* ===== Header:用户信息 + VIP 状态(对齐 RN membershipCard:深色会员卡) ===== */
+.member-header {
+  margin: var(--spacing-lg); /* RN marginHorizontal/marginTop 16 → 32rpx */
+  padding: var(--spacing-md-loose); /* RN padding 14 → 28rpx */
+  border-radius: var(--radius-xl);
+  /* RN backgroundColor gray.800(#262626,明暗同值)→ --color-vip-card */
+  background: var(--color-vip-card);
+}
+.member-user {
+  display: flex;
+  align-items: center;
+}
+.member-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--radius-2xl);
+  background: var(--color-muted);
+  margin-right: var(--spacing-md);
+  flex-shrink: 0;
+}
+.member-user-detail {
+  flex: 1;
+  min-width: 0;
+}
+.member-nickname {
+  display: block;
+  font-size: var(--text-heading); /* RN membershipLevel 20 → 40rpx */
+  font-weight: 600;
+  color: var(--color-surface-light); /* tk.surface.light(深色卡上对比白字) */
+  margin-bottom: var(--spacing-xs-loose);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-vip-badge {
+  display: inline-flex;
+  align-items: center;
+}
+.member-vip-text {
+  /* RN currentBadge: tk.vip.gold 底 + gray.800 深字,paddingH 8/paddingV 2,radius 8 */
+  background: var(--color-vip-gold-start);
+  color: var(--color-vip-card);
+  font-size: var(--text-label); /* RN 12 → 24rpx */
+  font-weight: 600;
+  padding: var(--spacing-2xs) 16rpx;
+  border-radius: var(--radius-lg);
+  margin-right: var(--spacing-xs-loose);
+}
+.member-vip-expire {
+  font-size: var(--text-label); /* RN membershipMetaText 12 → 24rpx */
+  color: var(--color-white-70); /* RN rgba(255,255,255,0.7) */
+}
+.member-normal-user {
+  font-size: var(--text-body); /* RN membershipLabel 14 → 28rpx */
+  color: var(--color-white-80); /* RN rgba(255,255,255,0.8) */
+}
+
+/* ===== 通用卡片(对齐 RN levelsSection/card:页面同底色 + 2rpx 描边 + radius 16rpx) ===== */
+.member-card {
+  margin: 0 20rpx 24rpx; /* RN levelsSection paddingH 10 → 20rpx;cardSpacing 12 → 24rpx */
+  padding: var(--spacing-md-loose); /* RN card padding 14 → 28rpx */
+  background: var(--color-background); /* RN card bg = tk.surface.bg */
+  border: 2rpx solid var(--color-border); /* RN borderWidth 1 + tk.border.light */
+  border-radius: var(--radius-lg);
+}
+.member-card-title {
+  display: block;
+  font-size: var(--text-heading); /* RN levelsTitle 20 → 40rpx */
+  font-weight: 600;
+  color: var(--color-foreground); /* tk.text.primary */
+  margin-bottom: var(--spacing-md); /* RN marginBottom 12 → 24rpx */
+}
+
+/* ===== 会员等级梯度 ===== */
+.member-level-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+.member-level-item {
+  flex: 1 1 calc(50% - 16rpx);
+  min-width: 260rpx;
+  padding: var(--spacing-md);
+  background: var(--color-background);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+}
+.member-level-current {
+  /* 已接入 token:var(--color-vip-gold-start)(#ffd700);浅金底收敛至 var(--color-gold-muted) */
+  border-color: var(--color-vip-gold-start);
+  background: var(--color-gold-muted);
+  box-shadow: 0 0 12rpx var(--color-gold-tint);
+}
+.member-level-current .member-level-name {
+  color: var(--color-gold);
+}
+.member-level-name {
+  display: block;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-xs);
+}
+.member-level-threshold {
+  display: block;
+  font-size: var(--text-caption); /* RN durationText 12 → 24rpx 同族细字 */
+  color: var(--color-muted-foreground); /* tk.text.secondary */
+  margin-bottom: var(--spacing-xs);
+}
+.member-level-perks {
+  display: block;
+  font-size: var(--text-label); /* RN benefitsText 12 → 24rpx */
+  color: var(--color-muted-foreground);
+}
+.member-level-silver .member-level-name {
+  color: var(--color-muted-foreground);
+}
+.member-level-gold .member-level-name {
+  color: var(--color-gold);
+}
+.member-level-diamond .member-level-name {
+  color: var(--color-brand);
+}
+
+/* ===== 使用统计 ===== */
+.member-stats {
+  display: flex;
+  justify-content: space-around;
+}
+.member-stat {
+  text-align: center;
+}
+.member-stat-num {
+  display: block;
+  font-size: var(--text-display); /* RN priceText 24 → 48rpx */
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-xs);
+}
+.member-stat-label {
+  display: block;
+  font-size: var(--text-body); /* RN label 14 → 28rpx */
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 会员特权列表(对齐原项目权益网格 2 列) ===== */
+.member-benefits {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+.member-benefit-item {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--color-background);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+}
+.member-benefit-icon {
+  width: 56rpx;
+  height: 56rpx;
+  margin-right: var(--spacing-xs-loose);
+  background: var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.member-benefit-content {
+  flex: 1;
+  min-width: 0;
+}
+.member-benefit-title {
+  display: block;
+  font-size: var(--text-body);
+  font-weight: 600; /* RN cardLevelName 600 */
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-benefit-desc {
+  display: block;
+  font-size: var(--text-label); /* RN 12 → 24rpx */
+  color: var(--color-muted-foreground);
+  margin-top: var(--spacing-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-benefit-status {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+  margin-left: var(--spacing-sm);
+}
+.member-benefit-active {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* ===== VIP CTA 卡片(对齐 RN 卡片语言 + 金色 purchaseBtn) ===== */
+.member-vip-cta,
+.member-vip-section {
+  margin: 0 20rpx 24rpx;
+  padding: var(--spacing-md-loose);
+  background: var(--color-background);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.member-vip-info {
+  margin-bottom: var(--spacing-md);
+}
+.member-vip-title {
+  display: block;
+  font-size: var(--text-title); /* RN cardLevelName 16 → 32rpx */
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-xs);
+}
+.member-vip-desc {
+  display: block;
+  font-size: var(--text-label); /* RN durationText 12 → 24rpx */
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--spacing-sm);
+}
+.member-vip-price {
+  display: flex;
+  align-items: flex-end; /* RN priceRow alignItems 'flex-end' */
+}
+.member-price-label {
+  display: block;
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--spacing-xs-loose);
+}
+.member-price-display {
+  display: flex;
+  align-items: center;
+}
+.member-current-price {
+  font-size: var(--text-display); /* RN priceText 24 → 48rpx */
+  font-weight: 700;
+  /* RN tk.vip.gold(#FFD700)→ --color-vip-gold-start */
+  color: var(--color-vip-gold-start);
+  margin-right: var(--spacing-sm);
+}
+/* RN purchaseBtn:height 50 → 100rpx,gold 底 + gray.800 深字;圆角按角色档 control→sm */
+.member-vip-button,
+.member-cta-button {
+  width: 100%;
+  background: var(--color-vip-gold-start);
+  color: var(--color-vip-card);
+  height: 100rpx;
+  line-height: 100rpx;
+  font-size: var(--text-title); /* RN 16 → 32rpx */
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+}
+.member-cta-outlined {
+  background: transparent;
+  color: var(--color-vip-gold-start);
+  border: 2rpx solid var(--color-vip-gold-start);
+}
+.member-vip-permanent {
+  /* 金色渐变收敛至 token(金);深字对齐 RN currentBadgeText(gray.800) */
+  background: linear-gradient(135deg, var(--color-warning), var(--color-gold));
+  border-color: var(--color-vip-gold-start);
+}
+.member-permanent-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-sm);
+}
+.member-crown {
+  font-size: var(--text-heading);
+  color: var(--color-vip-card);
+  margin-right: var(--spacing-xs-loose);
+}
+.member-permanent-text {
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--color-vip-card);
+}
+.member-cta-text {
+  display: block;
+  text-align: center;
+  font-size: var(--text-label); /* RN benefitsText 12 → 24rpx */
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 快捷入口菜单(同卡片语言,行间用描边分隔) ===== */
+.member-menu {
+  margin: 0 20rpx 24rpx;
+  background: var(--color-background);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.member-menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md-loose) 32rpx;
+  font-size: var(--text-body);
+  color: var(--color-foreground);
+}
+.member-menu-item + .member-menu-item {
+  margin-top: 0;
+}
+/* ===== 联系客服 ===== */
+.member-contact {
+  margin: 0 20rpx;
+  padding: var(--spacing-md);
+  text-align: center;
+}
+.member-contact-title {
+  display: block;
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-xs);
+}
+.member-contact-text {
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+}
+
+/* ===== Loading ===== */
+.member-loading {
+  padding: var(--spacing-xl);
+  text-align: center;
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 成长值进度条(对齐原项目 VIP 升级进度条) ===== */
+.member-progress {
+  margin-top: var(--spacing-md);
+}
+.member-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--spacing-xs-loose);
+}
+.member-progress-current {
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--color-gold);
+}
+.member-progress-bar {
+  width: 100%;
+  height: var(--spacing-sm);
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.member-progress-fill {
+  height: 100%;
+  /* 金色进度填充收敛至 token(品牌灰蓝) */
+  background: linear-gradient(90deg, var(--color-warning), var(--color-brand-accent));
+  border-radius: var(--radius-sm);
+  transition: width 0.3s ease;
+}
+.member-progress-hint {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: var(--text-caption);
+  color: var(--color-muted-foreground);
+  text-align: right;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

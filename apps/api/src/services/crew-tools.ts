@@ -1,0 +1,491 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Crew 工具集实现
+ *
+ * 为 Crew executor 角色提供真实可调用的工具。
+ * 每个工具遵循 OpenAI function calling 格式定义 + 对应 handler。
+ *
+ * 工具清单:
+ * 1. llm_generate      — 二次 LLM 调用(子任务)
+ * 2. web_search        — DuckDuckGo HTML 搜索(无 key)
+ * 3. browser_fetch     — 抓取网页内容(HTML→text)
+ * 4. code_execute      — Node.js 代码执行(沙箱 vm)
+ * 5. terminal_run      — Shell 命令执行(白名单)
+ * 6. knowledge_search  — RAG 知识库检索
+ */
+import { execFile } from 'node:child_process'
+import { mkdirSync, realpathSync } from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { logger } from './clawdbot/logger.js'
+import { callRealLlm } from './crew-llm-adapter.js'
+import { knowledgeRagService } from './knowledge-rag-service.js'
+import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
+import type { ToolDefinition, ToolHandler, ToolContext } from './clawdbot/tools.js'
+
+// 2026-07-21 安全审计加固:移除 exec(shell),统一改用 execFile
+// 原 execAsync(cmd, { shell: 默认 = /bin/sh }) 即使白名单匹配后,shell 仍会解析
+// `; & | $` 等元字符 → 命令注入 (CWE-78)
+// 修复:handler 内部用 execFile(binary, args, { shell: false }) 替代
+
+/** OpenAI function calling 格式的 tool 定义 */
+export interface OpenAIToolDef {
+  type: 'function'
+  function: {
+    name: string
+    description: string
+    parameters: {
+      type: 'object'
+      properties: Record<string, unknown>
+      required?: string[]
+    }
+  }
+}
+
+interface CrewTool {
+  def: OpenAIToolDef
+  handler: ToolHandler
+}
+
+/**
+ * terminal_run 的沙箱根(2026-11-01 安全强化)。
+ *
+ * 为什么必须有:原先 execFile 不带 `cwd` ⇒ 进程继承 API 的工作目录(= 仓库根,里面有
+ * `.env`:数据库口令 + 各厂商模型密钥)。白名单里的 cat/head/tail/find/grep 因此可以直接
+ * 把密钥读进模型可见上下文 —— 命令合法、路径越权。
+ * 默认落 `os.tmpdir()/ihui-crew-sandbox`(§26 口径:不硬编码 C 盘路径,用 TEMP);
+ * 运维想把沙箱挂到已登记的隔离卷上,显式设 `CREW_SANDBOX_ROOT`。
+ * 取不到(创建失败/路径不可解析)⇒ 返回 null,调用方**拒绝执行**,绝不回落进程 cwd。
+ */
+let cachedSandboxRoot: string | null | undefined
+
+function crewSandboxRoot(): string | null {
+  if (cachedSandboxRoot !== undefined) return cachedSandboxRoot
+  const requested = String(process.env.CREW_SANDBOX_ROOT ?? '').trim()
+  const target = requested || path.join(os.tmpdir(), 'ihui-crew-sandbox')
+  try {
+    mkdirSync(target, { recursive: true })
+    // 用 realpath 而不是 resolve 作为生效根:显式登记的沙箱若是一枚指向仓库根的链接,
+    // "在沙箱内"就只是字面说法。canonical 化后,裸文件名只能落在真目录里。
+    cachedSandboxRoot = realpathSync(target)
+    logger.info(`[crew-tools] terminal_run 沙箱根: ${cachedSandboxRoot ?? '(解析失败)'}`)
+  } catch (e) {
+    cachedSandboxRoot = null
+    logger.warn(`[crew-tools] 沙箱根创建失败,terminal_run 停用: ${(e as Error).message}`)
+  }
+  return cachedSandboxRoot
+}
+
+/**
+ * 参数是否试图越出沙箱:返回拒因,合法返回 null。
+ *
+ * 判据是"拒绝一切指向沙箱外或隐藏面的形态",不是"看起来无害就放过":
+ *  - 绝对路径(`/`、`\`、盘符 `C:`)⇒ 拒;
+ *  - 含路径分隔符或 `..` 的相对路径(逐级逃逸)⇒ 拒;
+ *  - 点开头(`.env`、`.ssh/config`、`./x`)⇒ 拒(点文件正是密钥的常见落点);
+ *  - 纯旗标放过,但 `--file=<路径>` 这类把值焊在旗标里的形态按值判。
+ * 结论:agent 只能在沙箱根里操作**裸文件名**。
+ */
+function reasonArgEscapesSandbox(arg: string): string | null {
+  const tokensToCheck: string[] = []
+  if (arg.startsWith('--')) {
+    const eq = arg.indexOf('=')
+    if (eq > 0) tokensToCheck.push(arg.slice(eq + 1))
+    else return null
+  } else if (arg.startsWith('-')) {
+    return null
+  } else {
+    tokensToCheck.push(arg)
+  }
+  for (const value of tokensToCheck) {
+    if (!value) return '空路径值'
+    if (value.includes('/') || value.includes('\\')) return '含路径分隔符'
+    if (/^[A-Za-z]:/.test(value)) return 'Windows 盘符绝对路径'
+    if (value.startsWith('.')) return '点开头的隐藏路径(.env 一类密钥面)'
+    if (value.includes('..')) return '含 .. 逐级逃逸'
+    if (value.length > 255) return '参数过长'
+  }
+  return null
+}
+
+/** 终端命令白名单(安全限制) */
+const TERMINAL_WHITELIST = [
+  'ls',
+  'dir',
+  'pwd',
+  'echo',
+  'cat',
+  'head',
+  'tail',
+  'wc',
+  'find',
+  'grep',
+  'git status',
+  'git log',
+  'git diff',
+  'git branch',
+  'git show',
+  'node --version',
+  'npm --version',
+  'pnpm --version',
+  'tasklist',
+  'systeminfo',
+]
+
+/** 工具集定义 */
+export const CREW_TOOLS: CrewTool[] = [
+  // 1. LLM 二次调用
+  {
+    def: {
+      type: 'function',
+      function: {
+        name: 'llm_generate',
+        description:
+          '调用 LLM 生成文本(用于子任务、文本润色、翻译、总结等)。当需要基于上下文生成自然语言内容时使用。',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string', description: '给 LLM 的提示词' },
+            system: { type: 'string', description: '可选的 system prompt' },
+          },
+          required: ['prompt'],
+        },
+      },
+    },
+    handler: async (params, ctx) => {
+      const prompt = String(params.prompt ?? '')
+      const system = params.system ? String(params.system) : undefined
+      const messages = system
+        ? [
+            { role: 'system' as const, content: system },
+            { role: 'user' as const, content: prompt },
+          ]
+        : [{ role: 'user' as const, content: prompt }]
+      const result = await callRealLlm({
+        messages,
+        userId: ctx?.userId, // G7: 传 userId 记成本
+        sessionId: ctx?.sessionId, // G7: 传 sessionId 关联会话
+      })
+      return {
+        success: true,
+        output: result.content,
+        metadata: { model: result.modelUsed, tokens: result.usage.totalTokens },
+        duration: 0,
+      }
+    },
+  },
+  // 2. Web 搜索
+  {
+    def: {
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: '使用 DuckDuckGo 搜索关键词,返回前 8 条结果(标题+摘要+链接)。无需 API key。',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: '搜索关键词' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    handler: async (params) => {
+      const query = String(params.query ?? '')
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!resp.ok) return { success: false, error: `HTTP ${resp.status}`, duration: 0 }
+      const html = await resp.text()
+      // 解析 DuckDuckGo HTML 结果(简化:正则提取标题+链接+摘要)
+      const results: Array<{ title: string; url: string; snippet: string }> = []
+      const itemRegex =
+        /<a[^>]+class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g
+      let match: RegExpExecArray | null
+      let count = 0
+      while ((match = itemRegex.exec(html)) !== null && count < 8) {
+        const linkUrl = (match[1] || '').replace(/&amp;/g, '&')
+        const uddg = linkUrl.match(/uddg=([^&]+)/)
+        const realUrl = uddg && uddg[1] ? decodeURIComponent(uddg[1]) : linkUrl
+        const title = (match[2] || '').replace(/<[^>]+>/g, '').trim()
+        const snippet = (match[3] || '').replace(/<[^>]+>/g, '').trim()
+        results.push({ title, url: realUrl, snippet })
+        count++
+      }
+      return {
+        success: true,
+        output: results,
+        metadata: { count: results.length, query },
+        duration: 0,
+      }
+    },
+  },
+  // 3. 网页抓取
+  {
+    def: {
+      type: 'function',
+      function: {
+        name: 'browser_fetch',
+        description: '抓取指定 URL 的网页内容,返回纯文本(HTML 标签已剥离)。用于获取网页详细信息。',
+        parameters: {
+          type: 'object',
+          properties: {
+            url: { type: 'string', description: '要抓取的 URL' },
+            max_length: { type: 'number', description: '返回文本最大长度(字符),默认 5000' },
+          },
+          required: ['url'],
+        },
+      },
+    },
+    handler: async (params) => {
+      const url = String(params.url ?? '')
+      const maxLen = Number(params.max_length ?? 5000)
+      // 2026-08-02 SSRF 防护:校验 URL,拒绝内网/保留地址
+      try {
+        await ensureSafeFetchUrl(url)
+      } catch (err) {
+        return { success: false, error: (err as Error).message, duration: 0 }
+      }
+      // 重定向落点逐跳复检:裸 fetch 默认 follow,会把已校验地址换成未校验的内网落点。
+      const resp = await safeFetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(20000),
+      })
+      if (!resp.ok) return { success: false, error: `HTTP ${resp.status}`, duration: 0 }
+      const html = await resp.text()
+      // 剥离 script/style/标签
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return {
+        success: true,
+        output: text.slice(0, maxLen),
+        metadata: { url, length: text.length },
+        duration: 0,
+      }
+    },
+  },
+  // 4. 代码执行 — 2026-08-02 禁用:vm.runInContext 非安全沙箱,可通过 this.constructor.constructor 逃逸 RCE
+  //    彻底从工具列表移除,AI agent 无法调用;如需恢复应改用 isolated-vm(独立进程 + V8 isolate)
+  // 5. 终端命令(白名单)
+  {
+    def: {
+      type: 'function',
+      function: {
+        name: 'terminal_run',
+        description:
+          '执行白名单内的终端命令(ls/pwd/cat/grep/git status 等)。返回 stdout。注意:仅安全命令可用。',
+        parameters: {
+          type: 'object',
+          properties: {
+            command: { type: 'string', description: '要执行的命令(必须在白名单内)' },
+          },
+          required: ['command'],
+        },
+      },
+    },
+    handler: async (params) => {
+      const cmd = String(params.command ?? '').trim()
+      // 2026-07-21 安全审计加固:用 execFile 替代 exec(shell),防止 `git log; rm -rf /` 类注入
+      // 原实现 execAsync(cmd, { shell }) 在白名单匹配后仍会执行 shell 元字符
+      // 修复:解析为 argv,验证 binary 完整匹配白名单,execFile 无 shell 执行
+      const tokens = cmd.split(/\s+/).filter(Boolean)
+      if (tokens.length === 0) {
+        return { success: false, error: '命令不能为空', duration: 0 }
+      }
+      // 拒绝 shell 元字符(防止任何形式注入,execFile 虽无 shell 也作为防御纵深)
+      if (/[;|&$`<>(){}*?!\\]/.test(cmd)) {
+        return {
+          success: false,
+          error: `命令包含非法 shell 字符: ${cmd.slice(0, 50)}`,
+          duration: 0,
+        }
+      }
+      const binary = tokens[0]!
+      const isAllowed = TERMINAL_WHITELIST.some((w) => binary === w)
+      if (!isAllowed) {
+        return {
+          success: false,
+          error: `命令不在白名单内: ${binary}。允许: ${TERMINAL_WHITELIST.join(', ')}`,
+          duration: 0,
+        }
+      }
+      // 2026-11-01 安全强化:白名单只约束"能起哪个进程",不约束"对它说什么"。
+      // 原先 cat/head/tail/find/grep 全在白名单里而**参数面零收敛**,且 execFile 未带 cwd
+      // ⇒ 进程跑在 API 的工作目录(= 仓库根,里面有 `.env`:数据库口令 + 各厂商模型密钥)。
+      // 于是任务文本里写一句 `cat .env` 就能把密钥读进模型可见上下文:命令合法、路径越权。
+      // 处置:① 一律钉到独立沙箱根(默认 <tmp>/ihui-crew-sandbox,运维可用
+      //   CREW_SANDBOX_ROOT 指到已登记的隔离目录);② 参数只许**裸名字**——绝对路径、
+      //   盘符、`..`、以 `.` 开头的点文件、含分隔符的相对路径全部拒绝。
+      //   这条判据不猜"看起来无害",取不到合法沙箱根即拒绝执行(fail-closed)。
+      const sandboxRoot = crewSandboxRoot()
+      if (!sandboxRoot) {
+        return {
+          success: false,
+          error: 'CREW_SANDBOX_ROOT 不可用,terminal_run 已拒绝执行(不回落进程工作目录)',
+          duration: 0,
+        }
+      }
+      for (const arg of tokens.slice(1)) {
+        const bad = reasonArgEscapesSandbox(arg)
+        if (bad) {
+          return {
+            success: false,
+            error: `参数 ${arg.slice(0, 60)} 被拒:${bad}(terminal_run 仅允许沙箱根内的裸文件名)`,
+            duration: 0,
+          }
+        }
+      }
+      try {
+        // 用 execFile 替代 exec,无 shell 解析,argv 严格按字面传递
+        const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
+          (resolve, reject) => {
+            execFile(
+              binary,
+              tokens.slice(1),
+              {
+                timeout: 10000,
+                maxBuffer: 1024 * 1024,
+                shell: false,
+                // 钉死工作目录(2026-11-01 安全强化):不传 cwd 即继承 API 进程 cwd =仓库根,
+                // 而根目录里的 `.env` 装着数据库口令与各厂商模型密钥。
+                cwd: sandboxRoot ?? undefined,
+                windowsHide: true,
+              },
+              (err, out, errOut) => {
+                if (err) {
+                  ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
+                  ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
+                  reject(err)
+                  return
+                }
+                resolve({ stdout: out, stderr: errOut })
+              },
+            )
+          },
+        )
+        const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : '')
+        return { success: true, output: output.slice(0, 8000), metadata: { cmd }, duration: 0 }
+      } catch (e) {
+        const err = e as Error & { stdout?: string; stderr?: string }
+        const output =
+          (err.stdout ?? '') + (err.stderr ? `\n[stderr]\n${err.stderr}` : '') || err.message
+        return { success: false, error: output.slice(0, 8000), duration: 0 }
+      }
+    },
+  },
+  // 6. 知识库检索
+  {
+    def: {
+      type: 'function',
+      function: {
+        name: 'knowledge_search',
+        description:
+          '从 RAG 知识库检索与查询相关的文档片段。当需要项目领域知识、历史文档、规范说明时使用。',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: '检索查询' },
+            top_k: { type: 'number', description: '返回结果数,默认 3' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    handler: async (params, ctx) => {
+      const query = String(params.query ?? '')
+      const topK = Number(params.top_k ?? 3)
+      const userId = ctx?.userId
+      if (!userId) {
+        return { success: false, error: '知识库检索需要登录身份', duration: 0 }
+      }
+      try {
+        const results = await knowledgeRagService.search({
+          query,
+          topK,
+          ownerUuid: userId,
+        })
+        return {
+          success: true,
+          output: results.map((r) => ({
+            content: r.content,
+            score: r.score,
+            docId: r.docId,
+            chunkIndex: r.chunkIndex,
+          })),
+          metadata: { count: results.length, query },
+          duration: 0,
+        }
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : String(e), duration: 0 }
+      }
+    },
+  },
+]
+
+/** 获取所有工具的 OpenAI 定义 */
+export function getCrewToolDefinitions(): OpenAIToolDef[] {
+  return CREW_TOOLS.map((t) => t.def)
+}
+
+/** 按名称执行工具 */
+export async function executeCrewTool(
+  name: string,
+  args: Record<string, unknown>,
+  context?: ToolContext,
+): Promise<{ success: boolean; output?: unknown; error?: string }> {
+  const tool = CREW_TOOLS.find((t) => t.def.function.name === name)
+  if (!tool) {
+    return { success: false, error: `工具 "${name}" 不存在` }
+  }
+  logger.info({ tool: name, args: Object.keys(args) }, '[CrewTools] 执行工具')
+  const start = Date.now()
+  try {
+    const result = await tool.handler(args, context)
+    return {
+      success: result.success,
+      output: result.output,
+      error: result.error,
+    }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) }
+  } finally {
+    logger.info({ tool: name, elapsed: Date.now() - start }, '[CrewTools] 完成')
+  }
+}
+
+/** 向 ToolExecutor 注册所有 Crew 工具(用于 /api/crew/tools 端点展示) */
+export function registerCrewTools(
+  register: (def: ToolDefinition, handler: ToolHandler) => void,
+): void {
+  for (const t of CREW_TOOLS) {
+    const params: Record<string, { type: string; required?: boolean; description?: string }> = {}
+    const props = t.def.function.parameters.properties as Record<
+      string,
+      { type: string; description?: string }
+    >
+    const required = t.def.function.parameters.required ?? []
+    for (const [k, v] of Object.entries(props)) {
+      params[k] = { type: v.type, description: v.description, required: required.includes(k) }
+    }
+    register(
+      {
+        name: t.def.function.name,
+        description: t.def.function.description,
+        category: 'crew',
+        parameters: params,
+        enabled: true,
+      },
+      t.handler,
+    )
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

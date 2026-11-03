@@ -1,0 +1,19 @@
+# IHUI-AI 定时任务配置 (Crontab)
+#
+# 安装方法 (root 权限):
+#   sudo crontab -e
+#   # 在文件末尾追加:
+#   0 9 1 * * cd /opt/ihui && /opt/ihui/scripts/cron/cert-renew.sh >> /opt/ihui/logs/cert-renew.log 2>&1
+#
+# 查看当前定时任务:
+#   crontab -l
+#
+# 字段说明: 分 时 日 月 周 命令
+#   0 9 1 * * = 每月 1 日 9:00 执行
+#   平台证书有效期 5 年,无需高频拉取
+
+# 微信支付平台证书每月 1 号 9:00 拉取 + 告警
+0 9 1 * * cd /opt/ihui && /usr/bin/node scripts/cert-renew-watchdog.mjs --webhook https://oapi.dingtalk.com/robot/send?access_token=XXX >> /opt/ihui/logs/cert-renew.log 2>&1
+
+# 证书过期每日 8:00 检查 (提前 30 天告警)
+0 8 * * * cd /opt/ihui && /usr/bin/node scripts/cert-expiry-check.mjs --json >> /opt/ihui/logs/cert-expiry.log 2>&1

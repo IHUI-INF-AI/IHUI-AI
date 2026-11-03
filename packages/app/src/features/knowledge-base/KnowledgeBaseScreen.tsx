@@ -1,0 +1,357 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+
+import { useMemo } from 'react'
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { Check } from 'lucide-react-native'
+import type { TFunction } from '@ihui/types'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/**
+ * 列表项(结构对齐 @ihui/api-client KnowledgeDocSummary,wrapper 直接传其值)。
+ */
+export interface KnowledgeDocListItem {
+  id: number
+  title: string
+  sourceType: string
+  chunkCount: number
+  createdAt: string | null
+}
+
+/**
+ * KnowledgeBaseScreen 知识库文档列表(共享层)props 契约。
+ * 平台无关:listKnowledgeDocs / deleteKnowledgeDoc 数据流、Alert 二次确认、导航由 wrapper 注入。
+ */
+export interface KnowledgeBaseScreenProps {
+  t: TFunction
+  /** 文档列表(归属由后端按登录凭据过滤,wrapper 已拉取) */
+  docs: KnowledgeDocListItem[]
+  /** 首屏加载中(整屏 loading) */
+  loading: boolean
+  /** 下拉刷新中(RefreshControl) */
+  refreshing: boolean
+  /** 加载失败文案(非空渲染错误态 + 重试) */
+  error: string
+  /** 删除请求执行中(命中时删除按钮禁用) */
+  deleting: boolean
+  /** 下拉刷新 */
+  onRefresh: () => void
+  /** 错误态重试 */
+  onRetry: () => void
+  /** 打开文档详情(路由跳转由 wrapper 决定) */
+  onOpenDoc: (doc: KnowledgeDocListItem) => void
+  /** 删除文档(Alert 二次确认由 wrapper 处理) */
+  onDeleteDoc: (doc: KnowledgeDocListItem) => void
+  /** 新建文档入口 */
+  onCreate: () => void
+  /** 顶部返回 */
+  onBack: () => void
+  /** 批量删除:传 undefined ⇒ 不渲染"选择"入口,保持旧单删视图 */
+  onToggleSelectionMode?: () => void
+  selectionMode?: boolean
+  selectedIds?: number[]
+  onToggleSelect?: (id: number) => void
+  onToggleSelectAll?: () => void
+  /** 传 undefined ⇒ 不渲染批量删除按钮 */
+  onBatchDelete?: () => void
+  batchDeleting?: boolean
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * KnowledgeBaseScreen 知识库文档列表(共享层)
+ *
+ * 2026-09-15 承接 mobile-rn KnowledgeBaseScreen 1:1 迁移(web /knowledge-rag 移动端原生入口):
+ * - 结构:顶部导航行(返回/标题/新建)→ 错误态(文案 + 重试)或 FlatList 文档卡
+ *   (标题一行 + 切片数与日期元信息 + 删除按钮)+ 下拉刷新 + 空态提示
+ * - 平台无关:API、删除确认 Alert、导航由 wrapper 注入
+ * - 样式:getTokens(colorScheme) 语义 token(零 hex),对齐原屏 tailwind 间距(dp)
+ * - i18n:沿用 knowledgeBase. 与 common.(mobile-rn i18n 既有 key)
+ */
+export function KnowledgeBaseScreen({
+  t,
+  docs,
+  loading,
+  refreshing,
+  error,
+  deleting,
+  onRefresh,
+  onRetry,
+  onOpenDoc,
+  onDeleteDoc,
+  onCreate,
+  onBack,
+  onToggleSelectionMode,
+  selectionMode = false,
+  selectedIds = [],
+  onToggleSelect,
+  onToggleSelectAll,
+  onBatchDelete,
+  batchDeleting = false,
+  colorScheme = 'light',
+}: KnowledgeBaseScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const allSelected = docs.length > 0 && selectedIds.length === docs.length
+
+  const renderItem = ({ item }: { item: KnowledgeDocListItem }) => {
+    const selected = selectedIds.includes(item.id)
+    const onPress = () => {
+      if (selectionMode && onToggleSelect) onToggleSelect(item.id)
+      else onOpenDoc(item)
+    }
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          {selectionMode ? (
+            <TouchableOpacity
+              onPress={() => onToggleSelect?.(item.id)}
+              activeOpacity={0.7}
+              style={[styles.checkBox, selected && styles.checkBoxOn]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
+              accessibilityLabel={item.title}
+            >
+              {selected ? <Check size={14} color={tk.surface.light} strokeWidth={3} /> : null}
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity style={styles.cardBody} onPress={onPress}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.cardMeta}>
+              {item.chunkCount} {t('knowledgeBase.chunks')}
+              {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {!selectionMode ? (
+          <TouchableOpacity
+            onPress={() => onDeleteDoc(item)}
+            disabled={deleting}
+            style={styles.deleteBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('knowledgeBase.delete')}
+          >
+            <Text style={styles.deleteText}>{t('knowledgeBase.delete')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    )
+  }
+
+  if (loading) {
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* 顶部导航行:返回 / 标题 / 新建入口(跳转由 wrapper 的 onCreate 决定) */}
+      <View style={styles.headerBar}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.titleText}>{t('knowledgeBase.title')}</Text>
+        <TouchableOpacity onPress={onCreate} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.addText}>{t('knowledgeBase.add')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {onToggleSelectionMode ? (
+        <View style={styles.toolbar}>
+          <TouchableOpacity
+            onPress={onToggleSelectionMode}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              selectionMode ? t('knowledgeBase.selectionDone') : t('knowledgeBase.selectionStart')
+            }
+          >
+            <Text style={styles.toolbarLink}>
+              {selectionMode ? t('knowledgeBase.selectionDone') : t('knowledgeBase.selectionStart')}
+            </Text>
+          </TouchableOpacity>
+          {selectionMode ? (
+            <View style={styles.toolbarActions}>
+              <TouchableOpacity
+                onPress={onToggleSelectAll}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  allSelected
+                    ? t('knowledgeBase.selectionClearAll')
+                    : t('knowledgeBase.selectionAll')
+                }
+              >
+                <Text style={styles.toolbarLink}>
+                  {allSelected
+                    ? t('knowledgeBase.selectionClearAll')
+                    : t('knowledgeBase.selectionAll')}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.toolbarCount}>
+                {t('knowledgeBase.selectionCount', { count: selectedIds.length })}
+              </Text>
+              {onBatchDelete ? (
+                <TouchableOpacity
+                  onPress={onBatchDelete}
+                  disabled={selectedIds.length === 0 || batchDeleting}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.batchBtn,
+                    (selectedIds.length === 0 || batchDeleting) && styles.batchBtnDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('knowledgeBase.batchDelete')}
+                >
+                  <Text style={styles.batchText}>
+                    {batchDeleting
+                      ? t('knowledgeBase.batchDeleting')
+                      : t('knowledgeBase.batchDelete')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('knowledgeBase.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : (
+        <FlatList<KnowledgeDocListItem>
+          data={docs}
+          keyExtractor={(item) => String(item.id)}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <EmptyState
+              title={t('knowledgeBase.empty')}
+              desc={t('knowledgeBase.emptyHint')}
+              colorScheme={colorScheme}
+            />
+          }
+          contentContainerStyle={styles.listContent}
+          renderItem={renderItem}
+        />
+      )}
+    </View>
+  )
+}
+
+/**
+ * 样式:对齐原 RN nativewind 布局(px-4/pt-3/pb-2/mb-3/rounded-lg/text-xs 等),
+ * 全部颜色走 AppThemeTokens 语义 token,零 hex。
+ */
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+    },
+    /* 顶部导航行 */
+    headerBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing.sm,
+    },
+    titleText: {
+      fontSize: rnType.title.size,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    addText: {
+      fontSize: rnType.body.size,
+      fontWeight: '500',
+      color: tk.brandAccent.deep,
+    },
+    /* 文档列表 */
+    listContent: {
+      padding: rnSpacing.lg,
+    },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
+    },
+    toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
+    toolbarLink: { fontSize: rnType.body.size, fontWeight: '500', color: tk.brandAccent.deep },
+    toolbarCount: { fontSize: rnType.label.size, color: tk.text.secondary },
+    batchBtn: {
+      height: 32,
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.danger.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    batchBtnDisabled: { opacity: 0.4 },
+    batchText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.surface.light },
+    cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
+    cardBody: { flex: 1 },
+    checkBox: {
+      width: 22,
+      height: 22,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: rnSpacing['2xs'],
+    },
+    checkBoxOn: { borderColor: tk.brandAccent.deep, backgroundColor: tk.brand.cta },
+    card: {
+      marginBottom: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      padding: rnSpacing.lg,
+    },
+    cardTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    cardMeta: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
+    deleteBtn: {
+      marginTop: rnSpacing.sm,
+      alignSelf: 'flex-start',
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.danger.light,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+    },
+    deleteText: {
+      fontSize: rnType.label.size,
+      color: tk.danger.DEFAULT,
+    },
+  } satisfies Record<string, ViewStyle | TextStyle>)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

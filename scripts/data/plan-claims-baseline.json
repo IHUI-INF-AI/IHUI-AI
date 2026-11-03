@@ -1,0 +1,32 @@
+{
+  "$comment": "check-plan-claims-vs-head.mjs 的差值基线(§0.5):这里列的是\"建门当日已存在\"的票面路径/迁移声称与 HEAD 实物不符项 —— 存量只报数不判红,新增的那条才红。清一条就从这里删一条(删干净才谈升 blocking,§12e)。",
+  "generatedFrom": "git show HEAD:PROJECT_PLAN.md",
+  "missing": [
+    "path:apps/web/src/components/chat/tool-call-summary.tsx",
+    "path:apps/mobile-rn/src/components/SingleTypeBar.tsx",
+    "path:apps/mobile-rn/src/components/StudyBar.tsx",
+    "path:scripts/knip-baseline.json",
+    "path:scripts/ensure-web-out.mjs",
+    "path:apps/api/.env",
+    "path:scripts/migrate_publish_identity.py",
+    "path:scripts/archive_legacy_device_bindings.py",
+    "path:scripts/check-gate-verify-injection.mjs",
+    "path:scripts/kill-git-selector.ps1",
+    "path:scripts/tests/plan-conflict-marker-scar.test.mjs",
+    "path:scripts/retire-git-archive.mjs",
+    "path:scripts/tests/retire-git-archive.test.mjs",
+    "path:apps/api/tmp-g243-serve.mjs",
+    "path:scripts/archive-completed-tasks.mjs",
+    "path:apps/cli/src/permissions.ts",
+    "path:scripts/ledger-strip-open-rows.mjs",
+    "path:apps/ai-service/app/core/tencent_tc3_signature.py",
+    "path:scripts/tests/plan-tasks-f3-archive-exit.test.mjs",
+    "path:apps/api/src/services/user-concurrency-service.js",
+    "path:packages/shared/src/sse-parse.ts",
+    "path:scripts/plan-collide-renumber-blob.mjs",
+    "path:packages/app/src/components/Selecter.tsx",
+    "path:packages/app/src/components/SectionHeader.tsx",
+    "path:apps/miniapp-taro/src/components/Loading.tsx",
+    "path:scripts/backfill_connector_owner.py"
+  ]
+}

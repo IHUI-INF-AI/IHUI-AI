@@ -1,0 +1,431 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import fp from 'fastify-plugin'
+import { Queue, type ConnectionOptions } from 'bullmq'
+import { config } from '../config/index.js'
+import { processOutbox, cleanupProcessedOutbox } from '../utils/outbox.js'
+import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
+
+/**
+ * 定时任务调度器插件。
+ *
+ * 设计要点：
+ * 1. 基于 BullMQ repeatable jobs（cron pattern），多实例部署时由 Redis 保证同一任务
+ *    只被一个 worker 实例消费（BullMQ 的 delayed job 抢占语义）。
+ * 2. BullMQ 按 repeat key 对 repeatable job 幂等去重，进程重启重复注册不会产生多份调度。
+ * 3. 实际任务执行逻辑在 workers/scheduler-worker.ts，本插件只负责调度基础设施。
+ * 4. 与 queue.ts 一致，使用独立 ConnectionOptions（maxRetriesPerRequest: null）。
+ * 5. 队列名带库身份(2026-10-31):生产者 = 本插件下面的 `new Queue`,消费者 =
+ *    workers/scheduler-worker.ts 经 `createWorker(server, SCHEDULER_QUEUE_NAME, …)`,
+ *    两侧读同一枚常量 ⇒ 隔离库实例不会替主库跑 17 个 cron 任务。
+ *    主库(`ihui`、未设后缀)解析结果与旧字面量逐字节相同 ⇒ 线上队列名零扰动。
+ */
+const SCHEDULER_QUEUE_BASE_NAME = 'scheduler'
+
+export const SCHEDULER_QUEUE_NAME = queueNameWithDbIdentity(SCHEDULER_QUEUE_BASE_NAME)
+
+export type ScheduledJobName =
+  | 'expired-order-cleanup'
+  | 'heat-stats-hourly'
+  | 'alert-check-daily'
+  | 'data-archive-daily'
+  | 'reconciliation-daily'
+  | 'expiration-monitor'
+  | 'file-cleanup-hourly'
+  | 'vip-expire-daily'
+  | 'activity-status-hourly'
+  | 'commission-settle-daily'
+  | 'mark-inactive-agents'
+  | 'cleanup-old-heat'
+  | 'oauth-session-cleanup'
+  | 'pg-backup-daily'
+  | 'subscription-recurring-charge'
+  | 'workwechat-token-refresh'
+  | 'wechat-token-refresh'
+  | 'dingtalk-token-refresh'
+  | 'ai-feed-collect'
+  | 'ai-feed-process'
+  | 'ai-feed-drain'
+  | 'budget-alert-check'
+  | 'edu-arrear-remind-daily'
+  | 'llm-call-log-purge-daily'
+  | 'upload-session-reap-hourly'
+  // 代码索引到期回收(2026-10-03 数据出域合规整改):codebase_chunks 存用户代码
+  // 明文 + 向量,写入即带 expires_at(默认 90 天),本任务负责物理删除过期行。
+  | 'codebase-index-purge-daily'
+  | 'outbox-drain-every-30s'
+  // ihui_* 业务域 Gauge 刷新(exam 进行中数 / oss 存储占用 / tenant 资源用量与配额)
+  | 'exam-active-monitor'
+  | 'oss-storage-stats'
+  | 'tenant-resource-gauge'
+  // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立;聚合面见 services/traffic-stats-service.ts)
+  | 'traffic-stats-hourly'
+  // 中转号池健康 Gauge 刷新(2026-10-23 立;聚合面见 services/relay-pool-stats-service.ts)
+  | 'relay-pool-gauge'
+  // 考勤缺勤补录(2026-11-02 立,B67):当日过了班级 absent_after 仍未签到的学生补 absent 行。
+  // 立票现读的事实:`eduAttendanceRecord` 全仓只有考勤路由在读写,没有任何补录面 ⇒ 没来的人
+  // 不进统计行,出勤率的分母只算"已签到的人",缺勤恒 0。判据与补录面见 services/edu-attendance-rule.ts
+  // 与 services/edu-attendance-absent-job.ts(补录器不自判阈值,阈值一律走规则表现读)。
+  | 'edu-attendance-absent-daily'
+
+export interface ScheduledJobDef {
+  name: ScheduledJobName
+  /** cron 表达式（5 字段：分 时 日 月 周），与 every 二选一。 */
+  pattern?: string
+  /** 固定间隔（毫秒），用于秒级任务（如 30s），与 pattern 二选一。 */
+  every?: number
+  description: string
+}
+
+/**
+ * 定时任务清单（cron 表达式，5 字段：分 时 日 月 周）。
+ * 迁移自旧架构 server/app/tasks/scheduler.py，保留 5 类核心任务。
+ */
+export const SCHEDULED_JOBS: ScheduledJobDef[] = [
+  {
+    name: 'expired-order-cleanup',
+    pattern: '*/10 * * * *',
+    description: '过期订单清理（每10分钟）',
+  },
+  { name: 'heat-stats-hourly', pattern: '0 * * * *', description: '热度统计聚合（每小时）' },
+  { name: 'alert-check-daily', pattern: '0 4 * * *', description: '告警噪音检查（每日04:00）' },
+  { name: 'data-archive-daily', pattern: '30 4 * * *', description: '历史数据归档（每日04:30）' },
+  { name: 'reconciliation-daily', pattern: '30 3 * * *', description: '支付对账（每日03:30）' },
+  { name: 'expiration-monitor', every: 30_000, description: '过期监听+Canary联动（每30秒）' },
+  { name: 'file-cleanup-hourly', pattern: '0 * * * *', description: '文件清理（每小时）' },
+  // 以下3项迁移自旧架构 ai-smart-society-java/ruoyi-modules/ruoyi-job/ Java Quartz 定时任务 (M-86)
+  {
+    name: 'vip-expire-daily',
+    pattern: '0 5 * * *',
+    description: 'VIP会员过期自动降级（每日05:00）',
+  },
+  {
+    name: 'activity-status-hourly',
+    pattern: '0 * * * *',
+    description: '活动到期自动关闭（每小时）',
+  },
+  {
+    name: 'commission-settle-daily',
+    pattern: '0 6 * * *',
+    description: '佣金结算校准+遗漏补建（每日06:00）',
+  },
+  // 以下3项迁移自旧架构 tasks/ 定时任务 (M-77)
+  {
+    name: 'mark-inactive-agents',
+    pattern: '0 2 * * *',
+    description: '标记180天未公开Agent为 inactive（每日02:00）',
+  },
+  {
+    name: 'cleanup-old-heat',
+    pattern: '0 3 * * 1',
+    description: '清理90天前热度统计数据（每周一03:00）',
+  },
+  {
+    name: 'oauth-session-cleanup',
+    pattern: '*/30 * * * *',
+    description: '清理过期OAuth会话（每30分钟）',
+  },
+  {
+    name: 'subscription-recurring-charge',
+    pattern: '0 3 * * *',
+    description: '连续包月委托扣款扫描（每日03:00）',
+  },
+  // 以下 3 项迁移自旧架构 coze_zhs_py / ZHS (M-Token 2026-07-20 P0 补齐)
+  // 3 个第三方平台 Token 刷新:企业微信/微信公众号/钉钉 access_token(7200s 过期)
+  // 每 100 分钟一次(留 20 分钟冗余),无配置时静默 no-op
+  {
+    name: 'workwechat-token-refresh',
+    pattern: '*/100 * * * *',
+    description: '企业微信 access_token 刷新（每100分钟,7200s 过期）',
+  },
+  {
+    name: 'wechat-token-refresh',
+    pattern: '*/100 * * * *',
+    description: '微信公众号 access_token 刷新（每100分钟,7200s 过期）',
+  },
+  {
+    name: 'dingtalk-token-refresh',
+    pattern: '*/100 * * * *',
+    description: '钉钉 access_token 刷新（每100分钟,7200s 过期）',
+  },
+  // AI 资讯采集与处理(参考 aihot.virxact.com,2026-07-22 立)
+  // collect: 全量采集 17 个国内外信源,落 ai_feed_hot_item 表
+  // process: LLM 分类摘要 + 标题翻译 + 趋势信号计算,错峰 30 分钟避免与 collect 抢资源
+  {
+    name: 'ai-feed-collect',
+    pattern: '0 */6 * * *',
+    description: 'AI 资讯全量采集（每6小时,17个国内外信源）',
+  },
+  {
+    name: 'ai-feed-process',
+    pattern: '30 */6 * * *',
+    description: 'AI 资讯 LLM 分类摘要 + 标题翻译 + 趋势信号计算（每6小时错峰30分）',
+  },
+  // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,持续抽干缺英文标题/缺分类
+  // 的存量条目。cron 取第 15 分钟,错开 collect(0 分)与 process(30 分)。
+  // 受 LLM_BATCH_ENABLED 总开关控制;批大小/轮数/错峰间隔由环境变量覆盖。
+  {
+    name: 'ai-feed-drain',
+    pattern: '15 */2 * * *',
+    description: 'AI 资讯 LLM 存量积压抽干（错峰分批,每2小时）',
+  },
+  // P0-3e 预算告警扫描：每 30 分钟聚合 aiBudgets(scope='user') 用户的今日 token / 本月成本,
+  // 命中 80% warning / 100% critical 阈值时通过 notificationQueue 推站内信 + sendEmail 发邮件,
+  // 6h cooldown 防重复告警(reuse notifications 表)
+  {
+    name: 'budget-alert-check',
+    pattern: '*/30 * * * *',
+    description: '预算告警扫描（每30分钟,80% warning/100% critical）',
+  },
+  // 教育欠费自动催费:BullMQ pattern 按 UTC 解析,北京时间 09:00 = UTC 01:00。
+  // 幂等防重在 service 内实现(同报名记录当日已有催费记录则跳过)。
+  {
+    name: 'edu-arrear-remind-daily',
+    pattern: '0 1 * * *',
+    description: '教育欠费自动催费提醒（每日北京时间09:00）',
+  },
+  // O5(2026-09-21)llm_call_logs 原文留存:到期(prompt/response)原文批量清除,
+  // 只清原文列,token 计数/成本/归因列一律保留。默认 30 天,可用
+  // LLM_CALL_LOG_RAW_RETENTION_DAYS 调整、LLM_CALL_LOG_RAW_RETENTION_DISABLED_KEY_IDS 按 key 关闭。
+  // 取 04:15 —— 错开 data-archive-daily(04:30)与 alert-check-daily(04:00),
+  // 且早于二者,保证归档任务读到的是已收敛的原文状态。
+  {
+    name: 'llm-call-log-purge-daily',
+    pattern: '15 4 * * *',
+    description: 'llm_call_logs 到期原文清除（每日04:15）',
+  },
+  // A9R12-G1(2026-09-26)分片上传会话 TTL 回收:半途而废的 uploads/chunks/<id>/ 目录
+  // 与 upload_sessions 行此前无任何回收路径(只有显式 DELETE /cancel),磁盘与表双面
+  // 无界增长。取每时 45 分,错开 file-cleanup-hourly(0 分)。
+  {
+    name: 'upload-session-reap-hourly',
+    pattern: '45 * * * *',
+    description: '过期分片上传会话回收（每小时45分）',
+  },
+  // 代码索引到期回收(2026-10-03 数据出域合规整改):codebase_chunks 存的是用户
+  // 代码明文 + 向量,2026-10-03 起写入即带 expires_at(默认 90 天)。读面已按
+  // expires_at 过滤,本任务是**物理删除**那一环 —— 留存面的终点是删除而非不可见。
+  // 每天 04:45:错开 llm-call-log-purge-daily(04:15)与 data-archive-daily(04:30),
+  // 让三个留存清理任务互不抢锁,也好在出问题时按时间点定位是谁在跑。
+  {
+    name: 'codebase-index-purge-daily',
+    pattern: '45 4 * * *',
+    description: '过期代码索引切片回收（每日04:45）',
+  },
+  // b76-12e(G-998160)outbox 排空:pending 事件的"补报"通道。挂既有 BullMQ
+  // repeatable 轮询(scheduler-worker 按 name 分发到 runOutboxDrain),**不新增
+  // setInterval**;启动时另有 onReady 启动扫描(runOutboxStartupScan)先补一轮。
+  // processOutbox 幂等可重入:已 processed 的事件不会被再次取出,多实例/双跑无害。
+  {
+    name: 'outbox-drain-every-30s',
+    every: 30_000,
+    description: 'Outbox pending 事件排空补报（每30秒,挂既有轮询,不新增计时器）',
+  },
+  // ihui_* 业务域 Gauge 刷新(三族数据源:exam_records 计数 / 磁盘扫描 / tenant_quotas)
+  {
+    name: 'exam-active-monitor',
+    every: 60_000,
+    description: '考试进行中(ihui_exam_active_total)Gauge 刷新（每60秒）',
+  },
+  {
+    name: 'oss-storage-stats',
+    pattern: '*/10 * * * *',
+    description: '存储占用 ihui_oss_storage_used_bytes/file_count Gauge 刷新（每10分钟）',
+  },
+  {
+    name: 'tenant-resource-gauge',
+    pattern: '*/5 * * * *',
+    description: '租户资源 used/quota Gauge 刷新（每5分钟,查 tenant_quotas）',
+  },
+  // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立,同日由"每小时"提速到"每 60 秒")。
+  // 提速依据:`api_logs_created_at_idx` 已存在,限窗聚合走索引扫描(24h 13.3 ms /
+  // 1h 0.46 ms / 24h 按 UA 分组 32.4 ms),原"无二级索引 ⇒ 只能小时级"的判据已过期。
+  // **键名保留 `traffic-stats-hourly`**:upsertJobScheduler 以 name 为键,改名会在
+  // Redis 里留一条旧 repeatable 记录继续按小时派活(而 worker 已无同名 case ⇒ 空转报错)。
+  // 这条链仍不挂 scrape、也不挂请求路径;大屏侧另有 `getTrafficLiveSnapshot()`
+  // (5 秒缓存)保证"实时",本 job 只负责 Grafana 的时序曲线。
+  {
+    name: 'traffic-stats-hourly',
+    every: 60_000,
+    description: '访客 PV/UV 聚合 Gauge 刷新（每60秒,限窗扫 api_logs/visit_logs;键名为历史遗留）',
+  },
+  // 中转号池健康 Gauge 刷新(2026-10-23 立)。分钟取 3/8/13/…(每5分、错开
+  // tenant-resource-gauge 的 0/5/10/…):两条都是"小表全量 SELECT",错开是为了
+  // 不与它同分钟抢 DB(与 traffic-stats-hourly 错峰的同一纪律)。代价靠"两张池表
+  // 都是运营级小表"钉住(现读 key 池 29 行 / 账号池 1 行),不挂 scrape、不挂请求路径。
+  {
+    name: 'relay-pool-gauge',
+    pattern: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *',
+    description: '中转号池健康 Gauge 刷新（每5分,查 ai_relay_key_pool/ai_relay_account_pool）',
+  },
+  // 考勤缺勤补录(B67):BullMQ pattern 按 UTC 解析,北京时间 18:30 = UTC 10:30(与
+  // edu-arrear-remind-daily 同一时区口径,不是本地钟)。挂既有 repeatable 轮询,不新增计时器;
+  // 应急可关档位 EDU_ATTENDANCE_ABSENT_DISABLED=1(在 services/scheduled-tasks-service.ts 消费)。
+  {
+    name: 'edu-attendance-absent-daily',
+    pattern: '30 10 * * *',
+    description:
+      '考勤缺勤补录（每日 UTC10:30=北京18:30,按班级 absent_after 为未签到学生落 absent 行）',
+  },
+]
+
+interface SchedulerJobData {
+  description: string
+}
+
+// ============================================================================
+// Outbox 排空(b76-12e G-998160):scheduler 侧唯一入口
+// ============================================================================
+// outbox 的写侧(order-service 同事务 writeToOutbox)早已接通,缺的是"由谁在
+// 什么时候把它排空"。本文件提供两个入口,都汇到 utils/outbox.ts 的 processOutbox:
+//  - 周期侧:任务表 `outbox-drain-every-30s`(上面 SCHEDULED_JOBS),由
+//    scheduler-worker 的同名 case 调 runOutboxDrain —— 挂既有 BullMQ 轮询;
+//  - 启动侧:runOutboxStartupScan,由下方插件的 onReady 钩子调,不等首个 30s
+//    周期。两处都不新增 setInterval 计时器(判据见票面验收③)。
+
+/** runOutboxDrain / 启动扫描所需的最小日志面(与 pino 结构兼容)。 */
+export interface OutboxDrainLog {
+  info(obj: unknown, msg: string): void
+  error(obj: unknown, msg: string): void
+}
+
+/**
+ * 生产 dispatcher:当前 outbox 事件(order.paid 等)的下游副作用(token 充值/
+ * 积分发放/WS 推送)都在写侧同步完成,事件本体是"可观测的补报记录" —— 排空
+ * 即结构化日志送达(observability 通道),成功/失败与重试语义全部由
+ * processOutbox 的状态机承载(attempts 递增、超阈 failed)。
+ */
+export function createOutboxLogDispatcher(log: OutboxDrainLog): {
+  dispatch(event: { id: string; type: string }): Promise<void>
+} {
+  return {
+    async dispatch(event) {
+      log.info(
+        { outboxEventId: event.id, outboxEventType: event.type },
+        'outbox event dispatched (log sink)',
+      )
+    },
+  }
+}
+
+// ============================================================================
+// Outbox processed 行的保留清理(2026-11-01 接线:cleanupProcessedOutbox 此前无人执行)
+// ============================================================================
+// 挂 **既有** `outbox-drain-every-30s` 轮询(与排空同一轮),不新开计时器;自带时间戳节流
+// —— 距上次 prune 不足 PRUNE_INTERVAL_MS 直接跳过,否则 30 秒轮会放大成每天 2880 次 DELETE。
+// prune 失败只记日志、不上抛:一轮排空的 processed/failed 归因必须只反映事件投递本身。
+
+/** processed 事件的保留天数:超出即由本轮 prune 回收。 */
+const PROCESSED_RETENTION_DAYS = 7
+
+/** 两次 prune 的最小间隔(6 小时)。 */
+const PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000
+
+/** 上次 prune 的时刻(ms)。0 = 本进程尚未 prune 过 ⇒ 首轮排空即执行一次。 */
+let lastPruneAtMs = 0
+
+/**
+ * 到点才真删,返回删除条数(0 = 本轮未到节律或无行可删)。
+ * 到点即前移节流时刻(失败轮同样前移):一次持续失败的 DELETE 不该变成每 30 秒重试。
+ */
+async function pruneProcessedOutboxDue(nowMs: number, log: OutboxDrainLog): Promise<number> {
+  if (nowMs - lastPruneAtMs < PRUNE_INTERVAL_MS) return 0
+  lastPruneAtMs = nowMs
+  try {
+    return await cleanupProcessedOutbox(
+      new Date(nowMs - PROCESSED_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+    )
+  } catch (err) {
+    log.error({ err }, 'outbox processed prune failed (non-fatal)')
+    return 0
+  }
+}
+
+/**
+ * 排空一轮 pending 事件。周期任务(scheduler-worker case)与启动扫描共用;
+ * 抛错原样上抛,由调用方决定上报方式(worker 记 failed / onReady 只记 error)。
+ *
+ * 顺带捎上 processed 行的保留清理(见 pruneProcessedOutboxDue 头注):同一轮里做,
+ * 不新开计时器,返回值带 `pruned` 让"清了多少"可观察。
+ */
+export async function runOutboxDrain(server: { log: OutboxDrainLog }) {
+  const result = await processOutbox(createOutboxLogDispatcher(server.log))
+  const pruned = await pruneProcessedOutboxDue(Date.now(), server.log)
+  server.log.info(
+    { processed: result.processed, failed: result.failed, pruned },
+    'outbox drain done',
+  )
+  return { ...result, pruned }
+}
+
+/**
+ * 启动扫描:进程起来先补排一轮,不等首个 30s 周期。失败只记 error,
+ * **不阻断启动**(与 file-cleanup 等清扫型任务同纪律)。
+ */
+export async function runOutboxStartupScan(server: { log: OutboxDrainLog }) {
+  try {
+    return await runOutboxDrain(server)
+  } catch (err) {
+    server.log.error({ err }, 'outbox startup drain failed (non-fatal)')
+    return { processed: 0, failed: 0 }
+  }
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** 定时任务队列（BullMQ repeatable jobs 生产者） */
+    schedulerQueue: Queue<SchedulerJobData>
+  }
+}
+
+const schedulerPlugin: FastifyPluginAsync = async (server) => {
+  const connection: ConnectionOptions = {
+    url: config.REDIS_URL,
+    maxRetriesPerRequest: null,
+  }
+
+  const schedulerQueue = new Queue<SchedulerJobData>(SCHEDULER_QUEUE_NAME, { connection })
+
+  // 注册 repeatable jobs。BullMQ 按 (name + repeat pattern) 生成 repeat key 幂等去重，
+  // 多次启动 / 多实例注册同一 pattern 不会重复触发。
+  for (const job of SCHEDULED_JOBS) {
+    // every（毫秒）与 pattern（cron）二选一；秒级任务用 every
+    await schedulerQueue.upsertJobScheduler(
+      job.name,
+      job.every ? { every: job.every } : { pattern: job.pattern ?? '' },
+      {
+        name: job.name,
+        data: { description: job.description },
+        opts: {
+          removeOnComplete: { count: 200 },
+          removeOnFail: { count: 500 },
+        },
+      },
+    )
+  }
+
+  server.decorate('schedulerQueue', schedulerQueue)
+
+  // 启动扫描(b76-12e G-998160):onReady 时补排一轮 pending outbox 事件。
+  // 幂等:worker 进程与 API 进程各跑一次也无害,processed 的事件不会被重复取出。
+  server.addHook('onReady', async () => {
+    await runOutboxStartupScan(server)
+  })
+
+  server.addHook('onClose', async () => {
+    try {
+      await schedulerQueue.close()
+    } catch {
+      /* ignore */
+    }
+  })
+}
+
+export const scheduler = fp(schedulerPlugin, {
+  name: 'scheduler',
+  fastify: '5.x',
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

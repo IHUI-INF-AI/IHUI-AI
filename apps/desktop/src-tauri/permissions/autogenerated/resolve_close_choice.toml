@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-resolve-close-choice"
+description = "Enables the resolve_close_choice command without any pre-configured scope."
+commands.allow = ["resolve_close_choice"]
+
+[[permission]]
+identifier = "deny-resolve-close-choice"
+description = "Denies the resolve_close_choice command without any pre-configured scope."
+commands.deny = ["resolve_close_choice"]

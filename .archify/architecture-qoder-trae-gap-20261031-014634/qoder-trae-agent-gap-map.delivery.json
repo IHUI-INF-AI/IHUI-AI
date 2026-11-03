@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "b159a3e7-5ac4-4007-935d-f257a50a7034",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.ihui-agent\\tmp\\archify-qoder-trae-gap\\candidate.json",
+  "output": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-gap-20261031-014634\\qoder-trae-agent-gap-map.html",
+  "specification": {
+    "sha256": "53a0adc0e608d8a56adcd40437e3a8e588bed93ac2c72186576a80f1fcc65ebf",
+    "bytes": 27323
+  },
+  "artifact": {
+    "sha256": "95686cc3fe24dffde4aa6e4b6cd664b2398b7d8e0374686c9ee449e08232ca79",
+    "bytes": 928295
+  }
+}

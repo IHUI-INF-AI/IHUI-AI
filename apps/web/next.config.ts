@@ -1,0 +1,949 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { NextConfig } from 'next'
+import createNextIntlPlugin from 'next-intl/plugin'
+import { vueToNextRedirects } from './src/config/redirects.config'
+import { buildAiServiceEdgeRewrites } from './src/config/ai-service-edge'
+import { buildCsp } from './src/config/csp'
+import { PUBLIC_HTML_CACHE_RULES } from './src/config/public-html-cache'
+
+// GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
+const isGitHubPages = process.env.GITHUB_PAGES === 'true'
+const repoName = 'IHUI-AI'
+
+// 2026-07-28 修复:Next.js 16 dev server 启动校验更严,`output: 'export'` + middleware.ts
+// 共存直接报错 "Middleware cannot be used with output: export" 并死锁 8801 端口
+// (HTTP 接收但永不响应,前端表现为"页面打不开")。dev 模式不设 output。
+//
+// 2026-08-04 生产切换(关键):output:'export'(纯静态导出)改为显式环境变量控制,
+// 不再跟随 NODE_ENV。原因:
+//   - 生产服务端模式(next build + next start)需要 rewrites 代理 /api/* → 8802/8803,
+//     而静态导出模式 rewrites/headers/middleware 全部不生效 → 登录/模型接口会 404。
+//   - GitHub Pages CI 仍需要静态导出,通过 GITHUB_PAGES=true 显式触发。
+//   - 桌面端不是本配置的消费者(2026-09-17 终极薄壳化,现行为准):桌面端 = Tauri 薄壳 + 直连线上站点:
+//     frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/ 首页
+//     (2026-10-13 起启动页由 /agents 改为首页;薄壳不打包本地 web 产物仍依 V3 #72)。tauri.conf.json 的 build.beforeBuildCommand
+//     为空串,apps/desktop/scripts/ensure-web-out.mjs 仅是手动问责/条件重建入口、不在构建链。
+//     历史:曾以 frontendDist("../../web/out") 复用本端静态导出产物,该配置已废。
+//     EXPORT_STATIC=true 现仅服务该手动入口,与 GITHUB_PAGES 互不影响。
+const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
+// 2026-09-06 安全加固:CSP connect-src 对本机(localhost/127.0.0.1)的放行仅限开发模式。
+// 生产环境(next build + next start, NODE_ENV=production)下默认收紧,禁止浏览器直连本机服务,
+// 避免应用被 XSS 时经 http://localhost:* 反向探测/触达本机 8802/8803 等后端。
+const isDev = process.env.NODE_ENV === 'development'
+
+// 2026-09-13(2-18①):rewrites 反代 target 环境变量化,默认值不变(8802/8803)。
+// 用途:本地 e2e 隔离——生产 api(8802)/ai-service(8803) 被占用时,可在隔离端口起
+// api/web 实例,IHUI_API_PROXY_TARGET/IHUI_AI_PROXY_TARGET 指向隔离端口,
+// 避免测试写入生产库(ihui_dev)。CI 与生产不设这两个变量,行为与硬编码完全一致。
+// 2026-10-21 修:默认值由 localhost 改 127.0.0.1(端口不变)。
+// 根因(Node 18+ DNS 语义):dns.lookup(localhost) 默认走 verbatim 排序,本机实测
+// 返回 [{::1,family:6},{127.0.0.1,family:4}] —— **IPv6 优先**。而本机四个后端
+// 无一监听 IPv6(netstat 实测:8802=0.0.0.0、8803=127.0.0.1、8801=127.0.0.1、
+// cdn-server :80=127.0.0.1),故解析到 ::1 的连接一律 ECONNREFUSED。
+// 现场证据:svc-web-nssm-err.log 里 ::1 出现 34,701 次,Failed to proxy 5,966 次,
+// **全部集中在 /ws/notifications 与 /ws/broadcast 两个 WebSocket 端点** ——
+// 即实时通知通道自上线起从未通过反代成功过(HTTP 反代因连接池复用首次成功的连接
+// 而被掩盖,WS 每次独立建连,所以只有它把病灶暴露出来)。
+// 改 127.0.0.1 是字面量 IP,不触发 DNS 解析,与该风险结构性无关。
+const IHUI_API_PROXY_TARGET = process.env.IHUI_API_PROXY_TARGET ?? 'http://127.0.0.1:8802'
+const IHUI_AI_PROXY_TARGET = process.env.IHUI_AI_PROXY_TARGET ?? 'http://127.0.0.1:8803'
+
+// 2026-09-05 修复桌面 SaaS 出包挂死:静态导出 next build 与常驻 next dev/next start
+// (本地 8801)共享同一 apps/web/.next 目录,构建在加载 config 后获取 .next 锁时与
+// dev server 死锁(实测:config 加载后零编译、CPU 归零、.next/build 18 分钟不写入)。
+// 静态导出改用独立 distDir .next-static(输出目录 out/ 不变,tauri/GH Pages 无感知),
+// 与运行中服务彻底隔离。服务端构建(next build + next start)不受影响,仍用 .next。
+const staticDistDir = isStaticExport ? '.next-static' : '.next'
+// 2026-09-07 构建修复:distDir 允许经 IHUI_BUILD_DIST 覆盖。
+// 用途:分阶段/零停机部署时先构建到独立 staging 目录(web 仍服务线上 .next),
+// 构建通过后再停服务执行 .next ← staging 交换,把停机窗口从「整个构建长
+// 度」压缩到「秒级目录交换」。服务端正式构建仍默认 .next(复用 staticDistDir)。
+const buildDistDir = process.env.IHUI_BUILD_DIST || staticDistDir
+
+const nextConfig: NextConfig = {
+  // 静态导出供 Tauri WebView 加载(仅 EXPORT_STATIC/GITHUB_PAGES 时启用;
+  // 生产服务端模式不设 output,保留 rewrites/headers/middleware 全部能力)
+  ...(isStaticExport ? { output: 'export' as const } : {}),
+  distDir: buildDistDir,
+  basePath: isGitHubPages ? `/${repoName}` : '',
+  assetPrefix: isGitHubPages ? `/${repoName}/` : '',
+  trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
+  // 2026-09-04 性能优化(用户授权"本地开发版最快速度"):关闭 StrictMode。
+  // 实测:React 19 StrictMode 在 dev 模式双重渲染,使按钮点击延迟 +35%
+  // (侧边栏「收起」按钮 dev 325ms→关闭后 220ms)。生产模式不受 StrictMode 影响
+  // (build 时不启用 dev-only 双重渲染),故此项仅改善本地开发体验。
+  // 权衡:放弃 StrictMode 的 dev-only bug 检测(副作用/不纯渲染暴露),但项目已有
+  // 50+ e2e 测试 + 生产稳定运行,检测价值边际递减。
+  reactStrictMode: false,
+  // 2026-09-28 摘除 typescript.ignoreBuildErrors:true —— 该开关曾用于掩盖多 agent 并行的
+  // 临时类型错误,代价是 main 类型门失效两周(CI 恒红期间 lint/test 从未跑到)。
+  // 类型正确性由 `pnpm turbo run typecheck`(CI Typecheck 步)统一把关,
+  // next build 恢复默认:有类型错误即构建失败。
+  // Next 16 移除了 NextConfig.eslint 配置项(ESLint 不再在 next build 期间运行,
+  // 由独立 `next lint` 或外部 ESLint 流程负责),原 eslint.ignoreDuringBuilds 不再需要。
+  productionBrowserSourceMaps: false,
+  // 2026-08-05 00:15 生产构建排障(官方 memory-usage 文档 P0 项):
+  // 显式关闭 server/prerender source map 生成——官方文档明确 source map
+  // 是构建内存大户,Next 16 的 cacheComponents/prerender 阶段默认开启。
+  enablePrerenderSourceMaps: false,
+  // 关闭 Next.js 16 自带的左下角 N 圆圈 dev indicator (2026-07-21)
+  devIndicators: false,
+  // 2026-09-12 修复 dev 下"点侧栏整页硬重载、等好几秒"的根因之一:
+  // Next 16 默认拦截非同源 dev 资源(见 next/dist/server/lib/router-utils/block-cross-site-dev.js),
+  // 内置白名单只有 'localhost' / '**.localhost'。用 http://127.0.0.1:8801 或局域网
+  // IP(如 http://192.168.1.54:8801)打开时,所有 /_next/* 资源返回 403 Unauthorized,
+  // HMR WebSocket 握手也被拒(code 1006),客户端每秒重连并在超过上限后 location.reload(),
+  // 表现为"每次路由切换都整页硬重载、耗时数秒"。放行回环地址与私有网段即可。
+  allowedDevOrigins: ['127.0.0.1', '192.168.*.*', '10.*.*.*', '172.*.*.*'],
+  transpilePackages: [
+    '@ihui/ui-react',
+    '@ihui/design-tokens',
+    '@ihui/types',
+    '@ihui/auth',
+    '@ihui/shared',
+    '@ihui/api-client',
+    '@ihui/i18n',
+    '@ihui/rn-app',
+    // ui-native 与 rn-app 对称:它经 @ihui/app 进入 web 的组件树,源码是 .ts/.tsx。
+    // 2026-11-01 补:此前只靠 webpack symlinks:true 走 realpath 判 node_modules 才被转译,
+    // 一旦 hoisted 布局变化就会落到"未转译"一侧(与 nativewind/types 的 module-not-found 同型)。
+    '@ihui/ui-native',
+    'react-native-web',
+    '@tauri-apps/api',
+    '@tauri-apps/plugin-dialog',
+  ],
+  turbopack: {
+    // 2026-09-22:本机把仓库根 node_modules 做成指向 D:\nm 的 junction(pnpm 隔离)后,
+    // turbopack 解析 apps/web/node_modules/next 的 realpath 落在仓库根之外,启动即报
+    // "Symlink ... points out of the filesystem root"。设 IHUI_TURBOPACK_ROOT=D:\ 把
+    // turbopack 的解析根抬到盘根以容纳 junction 目标;不设该变量时与原行为完全一致
+    // (CI / 其他机器不受影响)。由 scripts/dev-stack.mjs 在启动 web 时注入。
+    ...(process.env.IHUI_TURBOPACK_ROOT ? { root: process.env.IHUI_TURBOPACK_ROOT } : {}),
+    resolveAlias: {
+      'next-intl/config': './src/i18n/request.ts',
+      // web 收编试点:共享屏(React Native 源码)在 web 侧经 react-native-web 承载,
+      // lucide-react-native 与 lucide-react 同名导出同构,换成纯 DOM 实现。
+      'react-native': 'react-native-web',
+      'lucide-react-native': 'lucide-react',
+    },
+    resolveExtensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.mjs'],
+  },
+  webpack: (config) => {
+    config.resolve.alias = config.resolve.alias || {}
+    // webpack 构建腿与 turbopack 同一套试点别名(keep in sync)。
+    config.resolve.alias['react-native$'] = 'react-native-web'
+    config.resolve.alias['lucide-react-native$'] = 'lucide-react'
+    // 2026-08-28 构建排障:Next.js 16 对 .well-known 路由的构建产物中使用了 require,
+    // 但项目是 ESM 模块("type": "module"),导致 "require is not defined"。
+    // 将 .well-known 路由排除在 webpack 构建外,由 Next.js 运行时处理。
+    config.externals = config.externals || []
+    config.externals.push({
+      '.well-known': 'commonjs .well-known',
+    })
+    // (预构建 @ihui 包方案经评估放弃:tsc ESM 扩展名/subpath 迁移风险高,
+    // 改用 D 盘 pagefile 扩容解决构建内存问题——见 2026-08-05 记录)
+    // 2026-08-04 生产构建排障:webpack 缓存(默认 filesystem/memory)是构建期
+    // 峰值内存大户。官方 memory-usage 文档推荐构建期禁用缓存降内存。
+    // 仅影响构建性能(全量编译),不影响产物正确性。
+    // 2026-08-05 根治:双 pagefile(C:32+D:96=128GB)已生效,提交上限 159.8GB,
+    // 内存不再是瓶颈 → 恢复 webpack filesystem 缓存,二次构建命中缓存大幅提速
+    // (首次 50.6min → 预期 15min 内)。若内存再紧张可重新启用 memory 缓存。
+    if (false && config.cache && !process.env.NODE_ENV?.includes('dev')) {
+      config.cache = Object.freeze({
+        type: 'memory' as const,
+      })
+    }
+    // workspace 包(api-client/shared)已构建到 dist/,exports 指向 dist/*.js,
+    // .js 扩展名 import 直接解析到实际 .js 文件。extensionAlias 仅作 fallback,
+    // 当 .js 不存在时尝试 .ts/.tsx(不设 fullySpecified=false 以免干扰 Next.js 内部构建流程)
+    config.resolve.extensionAlias = {
+      '.js': ['.ts', '.tsx', '.js'],
+      '.mjs': ['.mts', '.mjs'],
+    }
+    // Next.js 16.2.12 output: 'export' bug:App Router-only 项目不生成 pages-manifest.json,
+    // 但 "Collecting page data" 阶段尝试读取它 → ENOENT。用 afterEmit 钩子创建空文件兜底。
+    // 2026-08-17 扩展:同 bug 还影响 app-paths-manifest.json(见 build/index.js:1125,
+    // appDir 存在时无条件 readManifest(APP_PATHS_MANIFEST)),凌晨构建成功因 .next 残留
+    // 旧文件,全量重编译后暴露。两个 manifest 均兜底为空对象,不影响导出页面收集。
+    config.plugins = config.plugins || []
+    config.plugins.push({
+      // 最小化内联类型,避免依赖 @types/webpack(Next.js 内置 webpack 但未导出类型声明)
+      apply(compiler: { hooks: { afterEmit: { tap: (name: string, fn: () => void) => void } } }) {
+        compiler.hooks.afterEmit.tap('EnsurePagesManifest', () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports -- next.config webpack 钩子需用 require 加载 fs/path,as typeof import() 是动态类型导入
+          const fs = require('fs') as typeof import('fs')
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports -- next.config webpack 钩子需用 require 加载 fs/path,as typeof import() 是动态类型导入
+          const path = require('path') as typeof import('path')
+          const serverDir = path.join(__dirname, '.next', 'server')
+          for (const name of ['pages-manifest.json', 'app-paths-manifest.json']) {
+            const manifestPath = path.join(serverDir, name)
+            if (!fs.existsSync(manifestPath)) {
+              fs.mkdirSync(path.dirname(manifestPath), { recursive: true })
+              fs.writeFileSync(manifestPath, '{}')
+            }
+          }
+          // 2026-08-26 加固:Next.js 16 服务端模式(next start)启动时会读取根目录
+          // .next/prerender-manifest.json。若某次构建因异常(如误入 export 模式、
+          // 静态生成阶段被中断)未产出该文件,next start 会 ENOENT 崩溃 → NSSM 将
+          // 服务卡在 SERVICE_PAUSED,导致 8801 永久宕机。这里兜底:缺失时写入
+          // 结构完整的空 manifest(与 build/index.js 空项目产物同构),保证 next
+          // start 必定能启动(页面退化为按需渲染,功能不受影响)。
+          // 正常服务端构建会在 afterEmit 之后的静态生成阶段覆盖写入真实 manifest。
+          //
+          // 2026-08-29 修复静态导出构建崩溃(TypeError: reading '/404'):
+          // 静态导出模式(output:'export')下禁止写此兜底。构建早期主进程某处会
+          // require 该文件,Node require 缓存会把这个空 stub 缓存住;导出阶段
+          // (export/index.js:230 require 同一路径)命中缓存拿到无 dynamicRoutes
+          // 的对象 → `prerenderManifest.dynamicRoutes['/404']` 崩溃。且静态导出
+          // 产物根本不跑 next start,该兜底毫无意义。仅服务端模式写入。
+          const prerenderPath = path.join(__dirname, '.next', 'prerender-manifest.json')
+          if (!isStaticExport && !fs.existsSync(prerenderPath)) {
+            fs.writeFileSync(
+              prerenderPath,
+              JSON.stringify({
+                version: 4,
+                routes: {},
+                dynamicRoutes: {},
+                notFoundRoutes: [],
+                preview: { developmentKey: '', isPreview: false, productionKey: '' },
+              }),
+            )
+          }
+        })
+      },
+    })
+    return config
+  },
+  experimental: {
+    // 2026-09-07 构建缓解:关闭 Next 前端 CSS 压缩(lightningcss)。
+    // 说明:实测 Tailwind v4 会把多份导入展开成一条 ~271KB 单行 CSS,前端 CSS 管线
+    // (lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性 "Unexpected token
+    // Delim('\u{1a}')" 中断冷构建(成功可达但概率失败)。此为缓解项不保证根治;
+    // 真正的可靠性由 ihui-deploy.ps1 的「冷构建 + 多轮重试」兜底。
+    // 2026-10-30 补注:这条巨行(TypeScript 侧再量一次 = 生产态单行 426KB)是 **Tailwind 自己**
+    // 在生产态做的压缩产物(optimizeCss 关不掉它),而 0x1A 在整棵 apps/web 里只存在于构建产物
+    // 目录的 Turbopack 持久缓存 `.sst/.meta`;那些目录当时没被 .gitignore 忽略 ⇒ 落在 Tailwind v4
+    // 的自动扫描面里。根治见 app/globals.css 的 `@source not ...`(扫描面收敛到真源码)。
+    optimizeCss: false,
+    // 2026-08-04 生产构建排障:SWC memory allocation of 7.5GB failed
+    // (next build 反复 0xC0000409 崩溃,根因=webpack 峰值内存过高)。
+    // webpackMemoryOptimizations 禁用 dual string buffer caching + 字符串驻留,
+    // 官方文档推荐的构建内存优化方案,显著降低峰值内存。仅影响构建期,不影响运行时。
+    webpackMemoryOptimizations: true,
+    // 2026-08-04 生产构建排障(核心修复#2):本项目有自定义 webpack config,
+    // 按 next/dist/build/index.js:useBuildWorker = !config.webpack = false,
+    // 整个编译(server/edge/client)在主进程内跑,V8 堆+SWC+webpack 挤同一进程,
+    // 提交量爆炸到 80GB+。显式启用 webpackBuildWorker 让编译进独立 worker 进程,
+    // 内存隔离,显著降低单进程提交量峰值。
+    // 2026-08-28 内存排障:尝试禁用 webpackBuildWorker,看是否改善
+    webpackBuildWorker: false,
+    // 2026-08-04 22:45 修正:限制 webpack 编译并行度,降低峰值内存。
+    // SWC 大分配(15GB) + V8 堆组合在满并行时触发提交量上限,限 4 核压缩峰值。
+    // 2026-08-28 内存排障:进一步降低并行度,尝试完成构建
+    cpus: 4,
+    // 2026-08-04 生产构建排障(核心修复#1):Next.js 构建默认 fork 多个独立 worker
+    // 进程(server/edge/client + 静态预渲染),每个进程独立 V8 堆 + SWC 实例,
+    // 提交量(commit charge)叠加逼近 Windows 上限(物理31.8GB+pagefile16GB=47.8GB)
+    // → SWC 产物生成阶段一次性分配 15GB 失败 → Rust abort (0xC0000409)。
+    // workerThreads:true 让 worker 在共享进程内以线程运行,显著降低提交量峰值。
+    // 2026-08-04 22:40 修正:workerThreads 与 webpackBuildWorker 同时开启时,
+    // 实验观察内存峰值仍达 76GB(疑似线程共享地址空间反而放大 SWC 分配)。
+    // 已移除 workerThreads,仅保留 webpackBuildWorker(独立进程隔离)。
+    // 2026-08-05 00:15 生产构建排障(P1 项,基于 next/dist/build/index.js:852 源码):
+    // parallelServerBuildTraces 未设置时自动为 true(compile 模式),会并行收集
+    // server build traces 增加峰值内存 → 显式关闭。
+    parallelServerBuildTraces: false,
+    // 2026-08-05 00:15 生产构建排障(P1 项):按内存而非 CPU 计算 worker 数,
+    // 更保守,降低并发 worker 叠加的提交量峰值。
+    memoryBasedWorkersCount: true,
+    // 2026-08-05 客户端路由缓存:staleTimes 让 Next.js 16 的客户端导航缓存 RSC 数据,
+    // 避免同一页面在导航中反复重新请求。dynamic 30→120s(2026-09-02 页面切换提速·第二刀):
+    // dev 实测每次导航都是服务端往返(Next 16 cache-bypass-in-dev,无客户端缓存),
+    // 生产模式预取+导航缓存是切换即时的核心;dynamic 120s 让预取/访问过的页面在 2 分钟内
+    // 往返切换全部命中客户端缓存(动态数据由 Next 后台重验证,最多 2 分钟陈旧,工作台可接受)。
+    staleTimes: {
+      dynamic: 120,
+      static: 300,
+    },
+    // 2026-08-05 00:15 生产构建排障(P0 项,官方 memory-usage 文档):
+    // 显式关闭 server source map,降低构建内存峰值。
+    serverSourceMaps: false,
+    // 2026-09-12 路由提速改造(barrel 拆分):
+    // dev 下 Turbopack 按需编译,单路由冷编译 2.8~4.2s,是"路由切换卡"的绝对主因
+    // (已编译路由只要 0.3~0.5s,差 10 倍)。一个放大器是 barrel 入口把整包模块都拖进
+    // 该路由的编译图 —— 桌面端 200 个文件/204 处引用的 @ihui/ui-react(src/index.ts
+    // 一次性 re-export 近 30 个组件)尤其明显:任何页面只要 import 一个 Button,
+    // 就要连带编译 Card/Table/DataTable/LoginForm 等全部组件及其依赖。
+    // optimizePackageImports 让编译器按"实际具名导入"改写为深路径,只加载用到的模块。
+    // Turbopack 已支持该选项(见 next/dist/lib/turbopack-warning.js:62 该键已从
+    // unsupportedTurbopackNextConfigOptions 注释掉)。
+    optimizePackageImports: [
+      // 本项目内部 barrel(workspace 包,已列入 transpilePackages 才会被编译)
+      '@ihui/ui-react',
+      '@ihui/api-client',
+      'lucide-react',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-label',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-select',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-checkbox',
+      '@tanstack/react-query',
+      '@tanstack/react-table',
+      'react-hook-form',
+      'react-markdown',
+      'react-syntax-highlighter',
+      'sonner',
+      'next-themes',
+      'dompurify',
+    ],
+  },
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    // 2026-07-28 修复 Next.js 16 兼容警告:本地 /images/** 下的图片允许任意 query string
+    // (如 ?v=20260719-unify 缓存破坏),Next.js 16+ 强制要求 localPatterns 显式声明
+    localPatterns: [{ pathname: '/images/**' }],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'aizhs.top' },
+      { protocol: 'https', hostname: '*.aizhs.top' },
+      { protocol: 'https', hostname: 'api.dicebear.com' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      { protocol: 'https', hostname: 'platform-lookaside.fbsx.com' },
+      { protocol: 'https', hostname: 'api.qrserver.com' },
+      // 2026-10-22 G-921:历史课程视频桶(legacy-assets/videos/*)的 OSS 域名放行。
+      // 域名与 packages/database/seed/legacy-videos.ts 的 DEFAULT_LEGACY_ASSET_BASE 同源;
+      // 若生产改用 LEGACY_ASSET_BASE_URL 指向别的桶,此条需同步。只放精确桶域名,不放 *.aliyuncs.com 通配。
+      { protocol: 'https', hostname: 'test-for-dp.oss-cn-guangzhou.aliyuncs.com' },
+    ],
+    dangerouslyAllowSVG: false,
+    contentDispositionType: 'attachment',
+    unoptimized: true,
+  },
+  async redirects() {
+    // 2026-08-25 修复:接入 vueToNextRedirects(73 条永久重定向)。
+    // 此前 src/config/redirects.config.ts 声明了 /login→/sso/login、/home→/、
+    // /landing→/、/article→/articles 等重定向但从未接线(全仓零消费者),
+    // redirects() 恒返回 [] → 生产上这些老链接全部 404/空白(实测 /login
+    // 导航到 about:blank,/sso/login 正常)。生产为服务端模式(next build+
+    // next start),redirects 原生生效;静态导出(output:'export',Tauri/
+    // GitHub Pages)不支持 redirects,返回 [] 保持原状,避免静态构建告警。
+    return isStaticExport ? [] : vueToNextRedirects
+  },
+  async rewrites() {
+    // 2026-07-25 修复:开发模式(NEXT_PUBLIC_API_BASE_URL 加载失败时)代理 /api/* → localhost:8802
+    // - output:'export' 模式 rewrites 不生效(构建后由 nginx/CDN 托管),但 dev server (next dev) 会生效
+    // - 浏览器 fetch 走同源 /api/* → Next.js dev 代理 → 解决 404 + CORS 双失败导致 templates 等查询为空
+    // - 2026-08-04 生产切换:服务端模式(next build + next start)同样需要此代理,
+    //   否则生产环境前端 /api/* 请求 404。因此移除 NODE_ENV 条件,始终启用(静态导出时 rewrites 本身不生效,无副作用)。
+    return {
+      beforeFiles: [
+        // 2026-09-07 修复图片出图:小程序/前端引用 /remote-images/* 真图,经本机
+        // :80 cdn-server.js 实时读盘直出(而非 web 静态 public 的构建快照,后者不含
+        // 该目录导致公网 404)。须放最前,优先于一切 /api 等规则,避免被后续吞掉。
+        // cdn-server.js server-root 内置防路径穿越 + 7 天缓存,换图免重启。
+        // 2026-10-21:localhost → 127.0.0.1(同 IHUI_API_PROXY_TARGET 理由:本机
+        // cdn-server 只听 127.0.0.1,而 Node 解析 localhost 默认优先 IPv6 ::1)。
+        {
+          source: '/remote-images/:path*',
+          destination: 'http://127.0.0.1:80/remote-images/:path*',
+        },
+        // 2026-10-21 补回 /uploads 代理(实测立项,不是推测):
+        // @fastify/static 把 uploads/public 白名单挂在 api 进程 cwd 下(server.ts 的
+        // fastifyStatic 注册段),同一枚探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂都
+        // 200 image/png,而走 www.aizhs.top(EdgeOne 快臂,用户实际进来的那条)拿到的是
+        // Next 的 133KB 404 HTML 页 ⇒ 公开文件在快臂上结构性不可达,后端无论把出链基址填成
+        // 哪个域名都救不了这一条。只放这一条精确前缀,**不加正则兜底**(AGENTS §5:
+        // 禁止兜底放行参数路由),私有目录本来就没挂(白名单 root=uploads/public)。
+        {
+          source: '/uploads/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/uploads/:path*`,
+        },
+        // 2026-08-27 立,2026-09-04 更新,2026-10-21 改判:/cdn 仍不经 web;
+        // 但 /uploads **必须**经 web 代理到 8802 —— 原结论"故此处不再保留 /uploads 的
+        // rewrite"在实测面前不成立(证据见下面那条规则的注释)。web 端不再有本地磁盘路由
+        // (原 app/cdn 与 app/uploads 的 route.ts 已删除)这一点没变,变的是出链形态:
+        // 后端 FILE_CDN_BASE 要给客户端一个绝对 URL,而快臂上只有经 web 代理才拿得到。
+        // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
+        // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
+        // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
+        // invoke 调用(POST /api/ai-skills/{id}/invoke)。
+        // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
+        // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
+        {
+          source: '/api/ai-skills/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/ai-skills/:path*`,
+        },
+        // 2026-08-31 新增:语音 STT 端点转发到 ai-service 8803。
+        // 原因:voice-input 的 fallback 路径(MediaRecorder → faster-whisper)此前浏览器
+        // 直连 8803,① 跨端口无 cookie/token(ai-service JWT 鉴权 401);② 生产环境
+        // localhost 指向用户本机。改为同源 /api/voice/* 走 next rewrites 代理 +
+        // Bearer token(ai-service jwt_public_paths 已放行 /api/voice/stt 双保险)。
+        {
+          source: '/api/voice/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/voice/:path*`,
+        },
+        // 2026-08-17 修复(删除原 /api/publish/:path* → 8803 转发):
+        // 原规则 2026-07-29 立,当时 api server 未注册 /api/publish 路由,
+        // 把 publish 全量转发 ai-service 8803。此后 api 端已实现完整代理
+        // (apps/api/src/routes/publish-routes.ts 16+ 端点 + publish-analytics.ts),
+        // 但 rewrites 未更新 → 浏览器所有 /api/publish/* 被劫持到 8803:
+        //   1. ai-service JWTAuthMiddleware 只认 Bearer,不认 auth_token cookie,
+        //      浏览器同源请求(主要靠 cookie)大量 401;
+        //   2. analytics 端点只在 8802 注册,走 8803 必 404/401;
+        // 删除后 /api/publish/* 回落 /api/:path* 兜底 → 8802(api 层 cookie 认证 +
+        // 统一信封 + 透传 ai-service),链路稳定。ai-service 的 publish 路由仍经
+        // 8802 proxyToAiService 访问,不受影响。
+        // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
+        // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
+        // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,
+        // 因为 llm router 注册在 ai-service 8803 的 /api 前缀下)。
+        // 这里把 /api/llm/* 转发到 ai-service 8803 的 /api/llm/* (保留 /api 前缀,
+        // 因为 ai-service main.py 第 313 行注册 llm.router 时是 prefix="/api")。
+        // 覆盖端点:GET /llm/providers/health + GET/POST/DELETE /llm/combos + POST /llm/compaction/demo
+        // + GET /llm/compaction/metrics + GET /llm/free-providers + POST /llm/anthropic/v1/messages
+        // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
+        {
+          source: '/api/llm/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/llm/:path*`,
+        },
+        // 2026-09-09 新增(0-4 LSP 四核心前端接线):/api/lsp/* 转发到 ai-service 8803 的 /api/v1/lsp/*。
+        // 原因:lsp router 注册在 ai-service prefix="/api/v1" 之下的 /lsp(APIRouter prefix="/lsp"),
+        // Web IDE Monaco provider 调用 api-client 的 getLspDefinition 等(路径 /lsp/*,
+        // normalizeUrl 加 /api 前缀变成 /api/lsp/*),若走 /api/:path* 兜底 → 8802 必 404。
+        // 覆盖端点:POST definition/references/diagnostics/hover 四核心。
+        {
+          source: '/api/lsp/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/lsp/:path*`,
+        },
+        // 2026-09-11 新增(2-3 自愈引擎产品化第一批):/api/self-healing/* 转发到
+        // ai-service 8803 的 /api/v1/self-healing/*。self_healing router 注册在
+        // prefix="/api/v1" 之下的 /self-healing,web 驾驶舱调用 api-client 的
+        // runSelfHealing(路径 /api/self-healing/run),若走 /api/:path* 兜底 → 8802 必 404。
+        {
+          source: '/api/self-healing/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/self-healing/:path*`,
+        },
+        // 2026-09-24 新增(O20 公网拓扑,owner 拍板"web 层反代白名单"方案):
+        // A2A 发现文档两条精确路径转发到 ai-service 8803。此前 ai-service 公网零暴露,
+        // 能力目录里 71 项 host:'ai-service' 的对外能力第三方根本连不通(2026-09-21 逐条实测)。
+        // 白名单纪律:**只放只读发现文档**(GET /.well-known/agent.json + agent-card.json),
+        // 不做 /ai-service/* 通配、不暴露 /.well-known/* 全域;调用类端点须逐项评估后另行显式登记。
+        // 卡片对外基址由 ai-service resolve_public_base_url 推导(request_host_of 优先
+        // x-forwarded-host + MCP_EXPORT_ALLOWED_HOSTS 白名单兜底),对反代 Host 重写免疫。
+        {
+          source: '/.well-known/agent.json',
+          destination: `${IHUI_AI_PROXY_TARGET}/.well-known/agent.json`,
+        },
+        {
+          source: '/.well-known/agent-card.json',
+          destination: `${IHUI_AI_PROXY_TARGET}/.well-known/agent-card.json`,
+        },
+        // 2026-09-26 新增(O20 公网拓扑·ai-service 对外能力调用面):
+        // 见 src/config/ai-service-edge.ts 的完整理由 —— 上面那条发现文档只解决「第三方
+        // 读得到卡片」,卡片里 advertised 的调用端点仍要有一条公网可达路径。
+        // 为什么另起 /ai-service/* 命名空间而不复用 /api/*:tunnel ingress 把
+        // aizhs.top/api/* 直接送到 Fastify 8802,本文件里既有的 /api/mcp/*、/api/connectors/*
+        // 等规则对公网流量结构性不可见(只在 Next 作为前门的形态下生效)。
+        // 默认拒绝:表由环境变量决定,**两个条件都不满足时返回空数组** = 一条 rewrite
+        // 都不注册 = 请求由 Next 自己 404,不存在「路径通了但任何人都能调」。
+        // 鉴权不在本层:凭据头原样透传,放行与否由 ai-service 的 JWTAuthMiddleware +
+        // capability_gate 决定(在 Next 里再写一套鉴权就是第二套真相)。
+        ...buildAiServiceEdgeRewrites(process.env),
+        // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
+        // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
+        // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
+        // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
+        {
+          source: '/api/mcp/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/mcp/:path*`,
+        },
+        // 2026-09-07 新增:打通 3 个孤儿路由(审计发现 routers 存在但 web 端无转发=用户永远够不到):
+        // mcp-official(公网 MCP OAuth)/ patch(补丁应用)/ sandbox-exec(沙箱执行)
+        {
+          source: '/api/mcp-official/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/mcp-official/:path*`,
+        },
+        {
+          source: '/api/patch/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/patch/:path*`,
+        },
+        {
+          source: '/api/sandbox-exec/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/sandbox-exec/:path*`,
+        },
+        // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 中文连接器)
+        // 原因:connectors router 注册在 ai-service(prefix="/api"),必须直连 8803 才命中
+        {
+          source: '/api/connectors/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/connectors/:path*`,
+        },
+        // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
+        // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
+        // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/agent/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agent/:path*`,
+        },
+        // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
+        // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
+        // 前端 a2a 页面调用 /api/a2a/agents 等,必须直连 8803 才能命中;
+        // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
+        {
+          source: '/api/a2a/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/a2a/:path*`,
+        },
+        // 2026-08-31 修复:知识图谱页(/(main)/knowledge-graph)前端调用 /api/ai/knowledge-graph/*,
+        // 后端实际注册在 ai-service 8803 的 /api/v1/ai/knowledge-graph/*(v1-knowledge-tools.ts 的
+        // /v1/knowledge-graph/* 需 API Key 鉴权,不适配页面登录态)。转发规则必须放在
+        // /api/:path* 通配符之前,否则浏览器同源请求落到 8802 → 404。
+        {
+          source: '/api/ai/knowledge-graph/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/knowledge-graph/:path*`,
+        },
+        // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
+        // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
+        // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
+        // 2026-08-12 P0 修复:原 `/api/agents/:path*` 全量转发 8803 会劫持 api 端(8802)的
+        // CRUD 端点(agents/list、categories、settlement、examine、kanban 等)导致 404,
+        // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
+        {
+          source: '/api/agents/execute/stream',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/execute/stream`,
+        },
+        {
+          source: '/api/agents/execute',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/execute`,
+        },
+        {
+          source: '/api/agents/running',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/running`,
+        },
+        {
+          source: '/api/agents/sessions/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/sessions/:path*`,
+        },
+        {
+          source: '/api/agents/memory/search',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/memory/search`,
+        },
+        {
+          source: '/api/agents/:taskId/status',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:taskId/status`,
+        },
+        {
+          source: '/api/agents/:taskId/cancel',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:taskId/cancel`,
+        },
+        {
+          source: '/api/agents/skill-evolution',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/skill-evolution`,
+        },
+        {
+          source: '/api/agents/debate',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/debate`,
+        },
+        // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
+        // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
+        // 完整路径 /api/browser/sessions/*。若走默认 /api/:path* → 8802(api server)会 404。
+        // 注意:旧的 /api/browser/screenshot 和 /api/browser/probe 仍走 8802(api server 转发),
+        // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
+        // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
+        {
+          source: '/api/browser/sessions/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/browser/sessions/:path*`,
+        },
+        // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
+        // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/admin/meta-learner/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/admin/meta-learner/:path*`,
+        },
+        // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
+        // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
+        // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
+        {
+          source: '/api/agents/tasks/stream',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/tasks/stream`,
+        },
+        // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
+        // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
+        // 落到 /api/:path* → 8802 404。注意 tasks/stream 精确规则在前,
+        // 数组顺序匹配,与 :agentId/stream 无冲突。
+        {
+          source: '/api/agents/:agentId/stream',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/stream`,
+        },
+        // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
+        // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
+        // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
+        {
+          source: '/api/agents/:agentId/tool-calls',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/tool-calls`,
+        },
+        {
+          source: '/api/agents/:agentId/errors',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/errors`,
+        },
+        // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
+        // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
+        // 白名单须覆盖,否则落到 /api/:path* → 8802 404。注意与 /api/agents/sessions/
+        // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
+        {
+          source: '/api/agents/:agentId/sessions',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/sessions`,
+        },
+        {
+          source: '/api/agents/:agentId/token-usage',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/token-usage`,
+        },
+        // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
+        // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/v1/ai/usage/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/usage/:path*`,
+        },
+        // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
+        // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/v1/ai/eval/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/eval/:path*`,
+        },
+        // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
+        // 原因:prompts router 注册在 ai-service(prefix="/api"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/prompts/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/prompts/:path*`,
+        },
+        // 2026-08-12 新增、2026-10-31 安全强化第 31 批**删除**:
+        // 原规则把 `/api/admin/news/:path*` 整段直连 ai-service 8803。
+        // 它有两个后果:① 浏览器请求绕过 apps/api,连 adminNewsRoutes 的 requireAdmin
+        // 都不经过(ai-service 侧只有全局 JWT = 登录即可);② 同一条 rewrite 把 apps/api
+        // 已实现的 categories/articles/information 全吞到 8803(那边没有这些路由 ⇒ 404)。
+        // 现由 apps/api 统一出口:status 走 newsRoutes(登录可见),其余 admin 端点走
+        // adminNewsRoutes(requireAdmin)。此处不得再加回整段通配。
+        // 2026-09-01 新增:Artifact 预览 API 路由转发到 ai-service 8803
+        // 原因:artifacts router 注册在 ai-service(prefix="/api",路径 /api/artifacts/*),
+        // 覆盖 token 签发端点(JWT 保护,前端 fetchAiServiceJson 带 Bearer)与签名 token
+        // 文件访问端点(iframe 直接加载,无 Authorization header)。
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        // 2026-10-30 G3 产物中心收窄:枚举(GET /api/artifacts)与下载(/api/artifacts/:id/download)
+        // 改由 apps/api 8802 提供,原 /api/artifacts/:path* 整段通配会把这两条也吞到 8803 造成 404;
+        // 收窄为 token 精确匹配 + f/* 签名文件两条,其余 /api/artifacts 路径自然落入
+        // 后面的 /api/:path* → 8802 通配。
+        {
+          source: '/api/artifacts/token',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/token`,
+        },
+        {
+          source: '/api/artifacts/f/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/f/:path*`,
+        },
+        // 2026-09-03 新增:对标杀手锏四件套 + Computer Use 路由直连 ai-service 8803。
+        // 原因:research / checkpoints / cloud-runs / context-compaction / computer-use
+        // router 均注册在 ai-service(prefix="/api"),必须直连 8803 才能命中,
+        // 且要放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉返回 404/401。
+        {
+          source: '/api/research/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/research/:path*`,
+        },
+        // 2026-10-03 新增:签到助手(checkin router 注册在 ai-service prefix="/api" 下,
+        // 必须直连 8803;放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉 404)。
+        {
+          source: '/api/checkin/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/checkin/:path*`,
+        },
+        {
+          source: '/api/checkpoints/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/checkpoints/:path*`,
+        },
+        {
+          source: '/api/cloud-runs/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/cloud-runs/:path*`,
+        },
+        {
+          source: '/api/context-compaction/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/context-compaction/:path*`,
+        },
+        {
+          source: '/api/computer-use/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/computer-use/:path*`,
+        },
+        // 2026-09-03 新增:Agent Step 录制回放(Record & Replay)路由直连 ai-service 8803。
+        // 原因:step_recorder router 注册在 ai-service(prefix="/api",路径 /api/agent-recorder/*),
+        // 必须直连 8803 才能命中,且要放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉 404。
+        {
+          source: '/api/agent-recorder/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agent-recorder/:path*`,
+        },
+        // 2026-09-07 新增:全活动时间线回放(P1-4)路由直连 ai-service 8803。
+        // 原因:timeline router 注册在 ai-service(prefix="/api",路径 /api/timeline),
+        // 与 agent-recorder 同理必须直连 8803,且置于 /api/:path* 通配符(→8802)之前。
+        {
+          source: '/api/timeline',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/timeline`,
+        },
+        // 2026-09-07 新增:模型定价看板(P3-9)直连 ai-service 8803。
+        // 原因:model_pricing_api router 注册在 ai-service(prefix="/api",路径 /api/model-pricing),
+        // 与 agent-recorder / timeline 同理必须直连 8803,且置于 /api/:path* 通配符(→8802)之前。
+        {
+          source: '/api/model-pricing',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/model-pricing`,
+        },
+        // 2026-09-03 新增:Plan Mode 任务进度路由直连 ai-service 8803。
+        // 原因:agent_plan router 注册在 ai-service(prefix="/api",路径 /api/agent-plan/*),
+        // 必须直连 8803 才能命中,否则落到 /api/:path* → 8802 404。
+        {
+          source: '/api/agent-plan/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agent-plan/:path*`,
+        },
+        // 2026-09-07 新增:Best-of-N 同任务多副本自动择优路由直连 ai-service 8803。
+        // 原因:best_of_n router 注册在 ai-service(prefix="/api",路径 /api/best-of-n/*),
+        // 必须直连 8803 才能命中,且要放在 /api/:path* 通配符(→8802)之前。
+        {
+          source: '/api/best-of-n/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/best-of-n/:path*`,
+        },
+        // 2026-09-03 新增:成本看板 / 长期记忆管理路由直连 ai-service 8803。
+        // 原因:cost_ledger / agent_memory(prefix="/longterm-memory")router 均注册在
+        // ai-service(prefix="/api"),必须直连 8803 才能命中,且要放在 /api/:path*
+        // 通配符(→8802)之前,否则被 api server 吞掉返回 404/401。
+        {
+          source: '/api/cost-ledger/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/cost-ledger/:path*`,
+        },
+        {
+          source: '/api/longterm-memory/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/longterm-memory/:path*`,
+        },
+        // 2026-09-09 新增:媒体任务统一管理路由直连 ai-service 8803。
+        // 原因:media_tasks router 注册在 ai-service(prefix="/api",路径 /api/media/tasks/*),
+        // 必须直连 8803 才能命中,否则落到 /api/:path* → 8802 404(任务中心列表/取消/删除/清理全失效)。
+        {
+          source: '/api/media/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/media/:path*`,
+        },
+        // 2026-09-09 新增:网页工具页(/web-tools)路由直连 ai-service 8803。
+        // 原因:web_tools router 注册在 ai-service(prefix="/api",路径 /api/web-tools/call),
+        // 封装 fetch_readable / map_site / extract_web 三只读工具,必须直连 8803 才能命中,
+        // 否则落到 /api/:path* → 8802 404。
+        {
+          source: '/api/web-tools/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/web-tools/:path*`,
+        },
+        // 2026-09-26 新增(D31 设计稿转码):/api/figma/* 路由直连 ai-service 8803。
+        // 原因:figma_import router(figma-import 页面,POST /api/figma/import)与既有
+        // 转码任务链路(figma.py,POST /api/figma/transcode + GET /api/figma/tasks/{id})
+        // 都注册在 ai-service(prefix="/api"),必须直连 8803 才能命中,
+        // 否则落到 /api/:path* → 8802(api server)404。置于 /api/:path* 通配符之前。
+        {
+          source: '/api/figma/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/figma/:path*`,
+        },
+        // 2026-09-13 新增(模型池对外出售接入):OpenAI 兼容 /v1 与 Gemini 兼容 /v1beta
+        // 公开网关,直连 api server 8802(走 API Key 鉴权,不经 web 登录态)。
+        // 与 deploy/nginx/nginx-blue-green.conf 的 /v1 /v1beta /ws location 意图一致,
+        // 但本机走 web rewrites 机制(Cloudflared 隧道 -> web 8801 -> rewrites 反代),
+        // 零新增组件、无回归。必须放在 /api/:path* 兜底之前先命中。
+        {
+          source: '/v1/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/v1/:path*`,
+        },
+        {
+          source: '/v1beta/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/v1beta/:path*`,
+        },
+        {
+          source: '/api/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/api/:path*`,
+        },
+        // 2026-08-31 修复:WebSocket 通知链路 404。
+        // use-websocket.ts 以 window.location.origin(8801)为 baseUrl,fetchWsTicket
+        // 换票请求 POST /ws/ticket 与 WS 连接 /ws/notifications 都打到 8801;
+        // 后端这两个端点注册在 api server 8802(ws-notifications.ts,无 /api 前缀),
+        // 此前 rewrites 无 /ws/* 规则 → /ws/ticket 404、WS 握手失败。
+        // Next.js rewrites 对 WebSocket 升级请求同样生效(dev + standalone 均可),
+        // 故一条规则同时覆盖换票 HTTP 与 WS 升级。
+        {
+          source: '/ws/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/ws/:path*`,
+        },
+      ],
+    }
+  },
+  // 2026-07-24 安全加固:HTTP 安全响应头(CSP/HSTS/X-Frame-Options 等)
+  // 注意:output:'export' 模式下 headers() 不生效(静态文件由 CDN/nginx 托管);
+  // 改为 standalone 模式或 nginx 配置这些头时生效。保留配置供后续切换。
+  async headers() {
+    // 2026-10-30:扫码登录 SDK 的脚本源白名单随 CSP 本体一起移到
+    // `src/config/csp.ts` 的 `SCRIPT_SRC_HOSTS`(单一真相源)。
+    // 此处不留未引用的副本 —— 留着只会让下次改白名单的人改错地方。
+    const securityHeaders = [
+      { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
+      // 2026-08-02 fix:WorkPanel 内置浏览器需 iframe 嵌入同源页面(发布/设置等),
+      // DENY 会拦截同源嵌入(chrome-error refused to connect),改 SAMEORIGIN:
+      // 同源可嵌入,跨源仍拦截(clickjacking 防护不变)。与 apps/api xss-protection 一致。
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      {
+        key: 'Permissions-Policy',
+        // 2026-08-31 fix: microphone 由 () 改为 (self) —— 应用自带语音输入
+        // (MediaRecorder → 本地 STT),() 会在页面级彻底禁用麦克风,getUserMedia
+        // 直接抛 Permissions policy violation,语音输入功能完全不可用。
+        // (self) 仅允许同源使用,第三方 iframe 仍被禁,安全边界不变。
+        value: 'camera=(), microphone=(self), geolocation=(), payment=(), usb=()',
+      },
+      {
+        key: 'Content-Security-Policy',
+        // 2026-10-30:策略本体抽到 `src/config/csp.ts`(单一真相源)。
+        // 这里是**无 nonce 分支** —— 覆盖所有路径,其中公开可缓存页(见
+        // `src/config/public-html-cache.ts`)只吃这一份;需要逐请求 nonce 的路径由
+        // `proxy.ts` 追加第二份,浏览器按交集执行(nonce 分支不带 unsafe-inline,
+        // 故那些路径上真正生效的是 nonce 策略)。
+        // 两处各抄一份的失效形态是白屏或第三方 SDK 静默加载失败,不是报错。
+        value: buildCsp({ dev: isDev }),
+      },
+    ]
+
+    // 2026-10-21 公网提速：公开内容页的边缘缓存白名单。
+    // 2026-10-30:数组本体移到 `src/config/public-html-cache.ts`(单一真相源)。
+    // 为什么必须共享:proxy.ts 要用**同一份判据**决定"哪些路径不上 nonce" ——
+    // per-request nonce 与 s-maxage 共享缓存互斥。
+    // 两处各写一份的失效形态是:有人加了缓存规则却忘了同步排除 nonce ⇒
+    // 那条路径的缓存里钉死一个 nonce,任何人抓一次页面就拿到它。
+    const publicHtmlCache = PUBLIC_HTML_CACHE_RULES
+    return [
+      {
+        // Service Worker 脚本必须禁 HTTP 缓存(2026-10-16 立,配 stamp-sw-version.mjs)。
+        //
+        // 为什么:sw.js 的更新检测是"浏览器重新拉取脚本、逐字节比对"。若 sw.js 本身被
+        // HTTP 缓存(部署层给 public/ 文件的默认值是 max-age=14400,实测 4 小时),
+        // 即使新部署改了内容,客户端在缓存窗口内拿到的仍是旧副本 ⇒ 判定"无更新"⇒
+        // SW 永不换代。这与 stamp-sw-version.mjs 的"每次构建字节必变"是配套的:
+        // 字节必变解决"内容相同判为无更新",这里解决"内容变了但拿到的是缓存副本"。
+        // 两者缺一,部署都不能确定性地触达老客户端(桌面端 WebView2 持久化 profile 尤甚)。
+        //
+        // `must-revalidate` 让浏览器每次使用前先问服务器;`no-cache` 允许存副本但必须校验。
+        // 不用 no-store:SW 规范要求脚本可被缓存以支持离线更新检查,只是必须重新校验。
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
+        // 2026-11-03 PDF worker 长缓存(实测基线:8801 对该 URL 返回 `public, max-age=0`,
+        // 文件 1,078,613 B,每开一次 PDF 全量重下)。唯一生产引用点:
+        // src/components/media/PDFViewer.tsx L41 `workerSrc = '/pdfjs/pdf.worker.min.mjs'`。
+        // 为什么不用 immutable:文件名不带内容哈希,升级 pdfjs-dist 会**原地替换**该文件,
+        // 而 worker 内部硬编码版本(实测 pdfjsVersion=5.4.624,与主 bundle apiVersion=6.2.108
+        // 配对,错配直接抛错)。1 年 immutable 会把升级后的错配窗口钉死在客户端缓存里;
+        // 7 天上限把"每次重下"压成"每周至多一次",同时保留升级后的收敛速度。
+        // 与下方 2026-10-17 图片规则零冲突:那条正则扩展名不含 mjs,本前缀规则也只覆盖 /pdfjs/*。
+        source: '/pdfjs/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800' }],
+      },
+      {
+        // 2026-10-17 公网入口提速(仓内 ~5% 那部分):public/ 无指纹静态资产加浏览器/
+        // CDN 缓存头。背景:tunnel-metrics 台账 22691 请求,HTML 动态页是回源大头
+        // (CF Cache Rules 已把 _next/static 指纹资产打到 100% HIT),但 public/ 下
+        // 256 png + 35 svg + 16 jpg + 11 ico + 6 woff2 仍每次回源/重新协商。
+        // 配 stale-while-revalidate:过期后后台刷新,用户侧零等待。
+        // 排除清单(有意为之):
+        //   /sw.js   —— 上面精确规则已禁缓存(SW 换代语义,冲突时精确规则胜出);
+        //   .json/.md/.txt/.zip —— 清单/文档类,内容更新必须即时可达;
+        //   .js/.ts  —— 版本语义未审(public 下 139 个 js 来源混杂),留给 CF
+        //               Cache Rules 层统一处理,不在本层赌。
+        // force-static 路由的 s-maxage(HTML 缓存)属「部署即时性换回源」拍板项,
+        // 不在本次默认开启。
+        // ⚠ 2026-10-17 修:上一版写的 `/:path*\.(?:png|…)` 在 path-to-regexp 里是**非法模式**
+        //   (`:path*` 之后不能直接跟字面量),`next build` 报 `source` parse failed /
+        //   "Invalid header found" ⇒ 构建连续失败,部署环每 30 分钟冷却重试,生产被冻结在
+        //   旧版本一个多小时(线上无故障,但任何新提交都上不去)。改用文档形态:具名参数
+        //   自带匹配模式 `/:path(正则)`,扩展名集合仍在同一括号内,语义与上一版一致。
+        source: '/:path(.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|woff2))',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      {
+        // 2026-10-21 公网提速实测立（依据 outputs/PUBLIC-ACCESS-PERF-AUDIT-2026-10-21.md）：
+        //   回源通道实测仅 ~600 B/s —— 同一张 7,770 B 图，EO 命中 104 ms / 回源 12.9 s；
+        //   首页 291,808 B HTML 本地 16 ms / 公网回源 9.9~45 s。本机渲染不是瓶颈，回源才是。
+        //   据此把 2026-10-17 搁置的「部署即时性换回源」拍板翻成开启：首页在边缘缓存
+        //   5 分钟，过期后 stale-while-revalidate 后台刷新，用户侧零等待。
+        //
+        // 安全性：app/(marketing)/page.tsx 是 'use client'，不读任何服务端用户态
+        //   （已核 marketing 组内无 cookies()/headers()/session 调用），缓存不会串号。
+        //   唯一的服务端真值依赖是 app/layout.tsx 的 locale cookie（决定 <html lang>）：
+        //   缓存后首帧 lang 可能沿用首个访问者的语种，挂载后由 I18nProvider 纠正
+        //   （该 layout 已带 suppressHydrationWarning，即为此设计）。
+        //
+        // 已知限制：腾讯云 EdgeOne 当前已在忽略源站 no-store 自行缓存 HTML
+        //   （实测 EO-Cache-Status: HIT 且 Age: 1385），故本条对 EO 现状无增量收益，
+        //   价值在语义显式化 + 将来回源切到国内通道（中转机 / nginx）后由该层直接生效。
+        //   若要让 EO 按语种分别缓存，需在 EO 控制台配「缓存键 → 包含 Cookie: locale」。
+        source: '/',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        // 2026-10-21 同上批：英文首页与公开内容页（关于/定价/文档）同属无服务端用户态的
+        //   公开页，一并允许边缘缓存 5 分钟。
+        //   已核：这 4 个 page.tsx 与所属路由组 layout（(main)/layout.tsx 89 行）均无
+        //   cookies()/headers()/session 调用 —— 页面上的用户信息是客户端渲染的，
+        //   CDN 缓存的只是 HTML 外壳，客户端再自行填充，故不存在串号。
+        //   写法刻意用 4 条精确字面量而不用 `/:path(en|about|…)` 这类正则：本仓 2026-10-17
+        //   曾因 headers source 是非法 path-to-regexp 模式导致 next build 连续失败、
+        //   生产被冻结一个多小时（见下方静态资产规则注释）。精确匹配零解析风险。
+        source: '/en',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/about',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/pricing',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/docs',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
+      },
+      ...publicHtmlCache.map(({ source, value }) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value }],
+      })),
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ]
+  },
+}
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
+
+export default withNextIntl(nextConfig)
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

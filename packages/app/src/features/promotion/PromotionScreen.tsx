@@ -1,0 +1,151 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+
+export type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps }
+
+const STATUS_KEYS: Record<PromotionCouponStatus, string> = {
+  available: 'coupon.available',
+  used: 'coupon.used',
+  expired: 'coupon.expired',
+}
+
+/**
+ * 优惠券共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:渲染 header + 错误条 + 优惠券 FlatList(下拉刷新 + 空/加载态)。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function PromotionScreen({
+  t,
+  items,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onUse,
+  onBack,
+  colorScheme = 'light',
+}: PromotionScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const statusColor = (status: PromotionCouponStatus): string => {
+    if (status === 'available') return tk.success.DEFAULT
+    if (status === 'used') return tk.text.tertiary
+    return tk.danger.DEFAULT
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('promotion.title')}</Text>
+      </View>
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+      <FlatList<PromotionCoupon>
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listBody}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('promotion.empty')} colorScheme={colorScheme} />
+          )
+        }
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.amountBox}>
+                <Text style={styles.amountText}>¥{item.amount}</Text>
+                <Text style={styles.minSpend}>
+                  {t('promotion.minSpend')}: ¥{item.minSpend}
+                </Text>
+              </View>
+              <View style={styles.body}>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.expire}>
+                  {t('promotion.expireDate')}: {item.expireDate}
+                </Text>
+                <View style={[styles.badge, { backgroundColor: statusColor(item.status) }]}>
+                  <Text style={styles.badgeText}>{t(STATUS_KEYS[item.status])}</Text>
+                </View>
+              </View>
+              {item.status === 'available' ? (
+                <TouchableOpacity style={styles.useBtn} onPress={() => onUse(item)}>
+                  <Text style={styles.useText}>{t('promotion.useNow')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        )}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
+    separator: { height: 12 },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.bg,
+    },
+    row: { flexDirection: 'row', alignItems: 'center' },
+    amountBox: { width: 80, alignItems: 'center' },
+    amountText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
+    minSpend: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
+    body: { flex: 1, marginLeft: rnSpacing.md },
+    itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    expire: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    badge: {
+      alignSelf: 'flex-start',
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light },
+    useBtn: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    useText: { fontSize: rnType.body.size, color: tk.surface.light },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

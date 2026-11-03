@@ -1,0 +1,1121 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console -- 只读尺子,需 console 输出结论 */
+/**
+ * check-cross-end-parity-drift.mjs — 跨端对齐"是否正在倒退"的只读漂移尺(不进提交链)
+ *
+ * 立因:本仓三条对齐链(web→RN 功能映射 / RN→小程序镜像 / 样式 token 派生)各有对账器,
+ * 但**没有任何一处回答"这一轮比上一轮好了还是坏了"**。登记数只能靠人想起来去跑,
+ * 于是 2026-10-24→25 一天里镜像从 26 涨到 84 这件事,只有翻提交才看得见。
+ * 本尺把"涨/跌"变成机读结论 + 一份快照台账,供 git-guardian 巡检轮派发;
+ * 倒退(镜像减少 / 登记表腐烂 / 账本文档与现读脱节)才报警,涨不报。
+ *
+ * 判据零复算(§0.6):数字全部**取自现成对账器的 --json 输出**,本文件不重算任何一条判据,
+ * 只做"上一轮快照 ↔ 本轮现读"的比较(四道)
+ *   · scripts/check-cross-end-screen-coverage.mjs --json  → 共享屏/已镜像/登记表条目/判红数
+ *   · scripts/check-web-rn-screen-parity.mjs --json       → web 路由/aligned/unmapped/腐烂数
+ *   · scripts/check-miniapp-mirror-fidelity.mjs --json    → 承载对数/手写对数/未还原键数/断链/声明不符
+ *     (2026-10-27 接:还原度这条链此前只有 CI 与"人想起来才跑"的尺,守护轮的倒退⇒到人不认识它,
+ *      于是"承载页被改回头抄""文案键被删掉""壳断链"三类都在账面上无声)
+ *   · docs/engineering/rn-miniapp-parity-matrix.md        → 缺口账本文档自述的三个数
+ *
+ * 三态(§0.3):任一子对账器取不到结论 ⇒ state=undetermined(不记绿也不冒红);
+ * 取到且有倒退维 ⇒ state=regressed;否则 ok。文档数字与现读不等 ⇒ 单列 docStale(可整改:重跑生成命令)。
+ *
+ * Usage:
+ *   node scripts/check-cross-end-parity-drift.mjs            # 现读并打印
+ *   node scripts/check-cross-end-parity-drift.mjs --json     # 机读
+ *   node scripts/check-cross-end-parity-drift.mjs --record   # 同时把本轮写进快照台账(守护轮用)
+ *   node scripts/check-cross-end-parity-drift.mjs --self-test
+ */
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+// 裁决台账单源(§0.6):镜像数减少的唯一豁免凭据,判据不在此复算。
+import { readVerdicts } from './lib/cross-end-verdicts.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = join(HERE, '..')
+const STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'cross-end-parity-last.json')
+const DOC_PATH = 'docs/engineering/rn-miniapp-parity-matrix.md'
+
+const argv = process.argv.slice(2)
+const jsonMode = argv.includes('--json')
+const recordMode = argv.includes('--record')
+const selfTest = argv.includes('--self-test')
+
+/** 跑一道对账器取 JSON;非零退出也可能带完整结论(判红档),故 stdout 优先、状态另报 */
+function runRuler(script, args = ['--json']) {
+  const cmd = join(HERE, script)
+  if (!existsSync(cmd)) return { ok: false, why: `尺子不在位:${script}` }
+  try {
+    const out = execFileSync(process.execPath, [cmd, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 10 * 60 * 1000,
+      maxBuffer: 1 << 24,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    try {
+      return { ok: true, json: JSON.parse(out) }
+    } catch {
+      return { ok: false, why: `${script} 输出不是 JSON` }
+    }
+  } catch (e) {
+    const out = String(e?.stdout ?? '')
+    if (out.trim()) {
+      try {
+        return { ok: true, json: JSON.parse(out), status: e?.status ?? null }
+      } catch {
+        /* 落到下面 */
+      }
+    }
+    return { ok: false, why: `${script} 跑不动:${String(e?.message ?? e).slice(0, 120)}` }
+  }
+}
+
+/** 从缺口账本文档自述行抽三个数(生成器写的是 `- 共享屏(真相源): **218**` 这种形) */
+function docNumbers(md) {
+  const pick = (label) => {
+    // 标签里的括号是**字面量**(共享屏(真相源)),不转义会被当成分组 ⇒ 永远抽不到数。
+    const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const m = new RegExp(`-\\s*${esc}:\\s*\\*\\*(\\d+)\\*\\*`).exec(md || '')
+    return m ? Number(m[1]) : null
+  }
+  // 缺口行标签以**生产方**(report-rn-miniapp-gaps.mjs 第 137 行)现写为准:它发的是
+  // `缺口合计`,而本解析曾读 `缺口(未判定镜像)` —— 消费方读一个生产者从不发射的标签,
+  // 结果是 gaps 恒 null、C9 阳性对照恒红(2026-10-26 实测)。旧标签保留为兜底,防历史文档。
+  return {
+    sharedTotal: pick('共享屏(真相源)'),
+    mirrored: pick('已被小程序显式镜像'),
+    gaps: pick('缺口合计') ?? pick('缺口(未判定镜像)'),
+  }
+}
+
+/**
+ * 比较纯函数:上一轮快照 ↔ 本轮现读。
+ * 倒退维只有这些族,逐条给"能整改的下一步"(§5e-1 可整改性准入):
+ *   mirrored-decrease —— 镜像声明被撤 ⇒ 查是哪条标记/登记被删(门 128 R3 同判据)
+ *   web-aligned-decrease / web-unmapped-increase —— RN 承载被拆 / 新 web 页无人判过(与上一轮快照比)
+ *   registry-rot      —— 登记表条目腐烂/判红 ⇒ 修登记或补标记(门 128 R1)
+ *   map-rot           —— web↔RN 登记表腐烂 ⇒ 修 aligned 指向或补 reason(门 check-web-rn-screen-parity)
+ *   doc-stale         —— 账本文档数字≠现读 ⇒ 重跑 report-rn-miniapp-gaps --write
+ *   mirror-hosted-decrease / mirror-missing-increase —— 承载对数减少 / 未还原键增加(与上一轮快照比)
+ *   mirror-chain-broken / mirror-declaration-mismatch —— 引壳而链断 / 声明与承载不是同一屏(绝对值出声:
+ *       这两维现读存量都是 0,出现即"新增的产物级缺陷",不是把存量判成人人红(§12e))
+ *   conversion-available —— 落地器预演读到手写页可转壳承载(机会窗,不是倒退;带齐两步命令)
+ *   style-tier-tierRnMissingN/tierRnForkN/tierWebOffN/tierPending/mpTierDefaulted/mpTierLiteral-increase
+ *       —— 三端"同源档位"用量净增(2026-11-03 接;兑现 check-web-rn-style-tiers 头注那句
+ *       "净增经 §5e 到人",并补上小程序档位尺此前只有驾驶舱只读档、无人轮间比较那一格)
+ * 涨跌只比"本轮有没有变坏",不比绝对值大小,免得把正常增长判成异常。
+ */
+/**
+ * 「上一轮快照之后」写下的 not-applicable 裁决条数 —— 镜像数减少的唯一合法解释。
+ * 基线时刻取不到 / 台账读不出 / 行内 at 解析不出 ⇒ 返回 0 ⇒ 照旧判红:
+ * 不拿"没读到"当豁免(§0.3),也不给"没证据的撤声明"开路(§0.7 豁免必须验过才免)。
+ */
+export function notApplicableSince(rows, sinceIso) {
+  // 台账 at 只有日精度(2026-10-30),而基线快照是当天凌晨的 ISO 时刻 —— 直接比瞬时会把**当天写的裁决**
+  // 判成"早于基线",于是撤假声明永远豁免不掉、哨兵天天报倒退。两边都归一到"日",同日算同期。
+  const dayOf = (v) => {
+    const t = Date.parse(String(v ?? '').trim())
+    return Number.isFinite(t) ? Math.floor(t / 86400000) : NaN
+  }
+  const sinceDay = dayOf(sinceIso)
+  if (!Number.isFinite(sinceDay) || !Array.isArray(rows)) return 0
+  return rows.filter((r) => {
+    const d = dayOf(r?.at)
+    return r && r.verdict === 'not-applicable' && Number.isFinite(d) && d >= sinceDay
+  }).length
+}
+
+/**
+ * 取不到 ⇒ null(未判定),绝不折成 0(§0.3:没判不能写成"没有")。
+ * 注意 `Number(null) === 0` —— 直接 Number() 会把"没有基线"读成"基线是零",
+ * 于是"本轮第一次量到"被当成"净增"喊出去(实测:旧快照没有新维时 0 → 28 假净增)。
+ */
+function finiteOrNull(v) {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+/**
+ * 数组长度即该维计数;未判定标记非空 ⇒ 同样 null(那一维本轮没判,不冒红也不记 0)。
+ * 口径来源只有尺子一处(§0.6):本文件不自己解析台账、不自己数"几行坏了"。
+ */
+function countOrNull(items, undetermined) {
+  if (!Array.isArray(items)) return null
+  if (Array.isArray(undetermined) && undetermined.length > 0) return null
+  return items.length
+}
+
+function judge({
+  coverage,
+  webParity,
+  fidelity,
+  conversion,
+  doc,
+  prev,
+  verdictRows = null,
+  styleTiers,
+  miniappTiers,
+}) {
+  const cur = {
+    mirrored: coverage?.json?.stats?.mirroredShared ?? null,
+    registryEntries: coverage?.json?.stats?.registryEntries ?? null,
+    coverageRed: coverage?.json?.red?.length ?? null,
+    mapRot: webParity?.json?.rot?.length ?? null,
+    aligned: webParity?.json?.aligned ?? null,
+    unmapped: webParity?.json?.unmapped ?? null,
+    sharedTotal: coverage?.json?.stats?.sharedTotal ?? null,
+    // 还原度维(2026-10-27 接):镜像页**真还原**了多少,而不是"声明"了多少。
+    // 立因:此前这条链只有 CI 与人工跑的两把尺,守护轮的"倒退⇒到人"完全不认识它 ⇒
+    // 承载页被改回手写、文案被删、壳承载断链,都没人自动知道。
+    fidelityHosted: fidelity?.json?.hosted ?? null,
+    fidelityHand: fidelity?.json?.hand ?? null,
+    fidelityMissing: fidelity?.json?.totalMissing ?? null,
+    fidelityBroken: fidelity?.json?.broken ?? null,
+    fidelityOther: fidelity?.json?.other ?? null,
+    // 端词包命名空间维(2026-10-29 立):尺子报 packUndetermined 时这里是 null ⇒ 整轮按未判定走,
+    // 绝不把"词包没读到"折成"零缺口"。
+    fidelityPackAbsent:
+      fidelity?.json?.packUndetermined === true ? null : (fidelity?.json?.packAbsentRows ?? null),
+    /**
+     * 样式档位四维(2026-11-03 接)。**只在调用方把该器交进来时建这几键**:
+     * `cur` 上面有一段"任何 null 键 ⇒ 记进 missing ⇒ 整轮未判定"的通用扫描,
+     * 若把这几键无条件塞进去,所有不传 styleTiers 的夹具(以及旧形态调用方)都会当场翻成
+     * 未判定 —— 实测自检从 24/24 掉到 19/24,坏的正是 web/conversion 那几例(与本维无关)。
+     * 传了而读不到 ⇒ 记 null(该维本轮没判,不冒红也不记 0,§0.3)。
+     */
+    ...(styleTiers === undefined
+      ? {}
+      : {
+          tierRnMissingN: finiteOrNull(styleTiers?.json?.rn?.missingN),
+          tierRnForkN: finiteOrNull(styleTiers?.json?.rn?.forkN),
+          tierWebOffN: (() => {
+            const w = styleTiers?.json?.web
+            if (!w) return null
+            const a = finiteOrNull(w.missingN)
+            const b = finiteOrNull(w.forkN)
+            if (a === null && b === null) return null
+            return (a ?? 0) + (b ?? 0)
+          })(),
+          tierPending: finiteOrNull(styleTiers?.json?.forkAllowance?.pending),
+        }),
+    /**
+     * 小程序档位两维(同一条纪律:未交该器就不建键,建了读不到才记 null)。
+     * defaulted = 用 Tailwind 默认档而非项目档表的位置数;literal = 裸字面量(含 rpx/任意值)位置数。
+     * 这两桶每加一枚,小程序与 RN/web 的同源关系就多一处"改源头不跟随",所以只比轮间变坏。
+     */
+    ...(miniappTiers === undefined
+      ? {}
+      : {
+          mpTierDefaulted: finiteOrNull(miniappTiers?.json?.defaulted),
+          mpTierLiteral: finiteOrNull(miniappTiers?.json?.literal),
+        }),
+    // 键级撤除台账三维(2026-10-30 立):免掉多少 / 台账里有多少行不成立 / 有多少行已不免除任何东西。
+    // 立因:还原度尺判"键在不在页面正文里",判不出可达性 ⇒ 「按后端出处撤掉死分支假绿键」这个正确
+    // 动作会把 missing 从 0 顶成 N,而本尺的 mirror-missing-increase 维只会喊"补回文案"——
+    // 照做等于把死分支补回去(f526a1a143 撤 6 枚键即此型)。撤除必须被台账记下来并带到期日,
+    // 而台账本身坏了/腐烂了也得出声,否则这条免检通道就成了一句空话(§0.7 豁免验过才免且会到期)。
+    fidelityRetracted: fidelity?.json?.totalRetracted ?? null,
+    fidelityRetractionTotal: fidelity?.json?.retractionTotal ?? null,
+    fidelityRetractionInvalid:
+      Array.isArray(fidelity?.json?.retractionRefused) &&
+      Array.isArray(fidelity?.json?.retractionBad)
+        ? fidelity.json.retractionRefused.length + fidelity.json.retractionBad.length
+        : null,
+    fidelityRetractionRot: Array.isArray(fidelity?.json?.retractionRot)
+      ? fidelity.json.retractionRot.length
+      : null,
+    // 转换机会维(2026-10-27 接):落地器**只读预演**的结论 —— 有页可自动转壳承载时必须被机器看见。
+    // 为什么不直接把 apply 挂守护轮:转换还要同批改 `rn-shell-types` 声明件(门 251 C9 判它),
+    // 只落页不落声明件会把那道 blocking 门打红(§12e 恒红门),而那一步需要一个按 HEAD 面重生成的
+    // 检出档 —— 现无该形态的器物,所以这一维先"喊得响 + 给全两条命令",不自作主张改 99 枚源文件。
+    conversionUpgradable: conversion?.json?.upgradable ?? null,
+    conversionRefused: conversion?.json?.refused ?? null,
+  }
+  // 承载面维 + 段级豁免四维(2026-10-30 立):**单独放 extras**,不进 cur。
+  // 为什么单独放:cur 的 null 扫描会把"取不到"升级成**整轮未判定**;而这几维取不到时,
+  // 该判未判定的只是**本维**(不产出理由、不折成 0),不该把别的维一起拖成未判定(§0.3)。
+  // 去重只此一份:承载面(web 键组)计数由尺子算(尺子的 alignedUnique),本文件不自己按 web 键
+  // 再去重一次(§0.6 单一真相源)—— 台账行数掉而承载面不掉,那正是"折叠重复行",不是"承载被拆"。
+  const extras = {
+    alignedUnique: finiteOrNull(webParity?.json?.alignedUnique),
+    prefixContradicted: countOrNull(
+      webParity?.json?.prefixContradicted,
+      webParity?.json?.prefixContradictedUndetermined,
+    ),
+    staleCountAssertions: countOrNull(webParity?.json?.staleCountAssertions),
+    missingExpiry: countOrNull(
+      webParity?.json?.missingExpiry,
+      webParity?.json?.missingExpiryUndetermined,
+    ),
+    duplicateWebKeys: finiteOrNull(webParity?.json?.duplicateWebKeys),
+  }
+  const reasons = []
+  // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
+  const stale = []
+  const missing = []
+  for (const [k, v] of Object.entries(cur)) if (v === null || v === undefined) missing.push(k)
+  if (!coverage.ok) missing.push('coverage')
+  if (!webParity.ok) missing.push('webParity')
+  if (fidelity && !fidelity.ok) missing.push('fidelity')
+  // 转换预演器**发现可转页时退出码就是 1**(preview 语义:有活可干 ⇒ 非零)。
+  // 若按 ok=false 处理,这一维会在"最该喊"的那一刻判成未判定 —— 结论只认 stdout 的 JSON,
+  // JSON 取不到时上面的 null 扫描已经把 conversionUpgradable 记进 missing(不猜、不冒绿)。
+  if (coverage.ok && webParity.ok && (cur.mirrored === null || cur.coverageRed === null)) {
+    missing.push('coverage 字段名对不上(汇总行取不到数)')
+  }
+  if (missing.length > 0)
+    return {
+      state: 'undetermined',
+      cur,
+      extras,
+      reasons,
+      missing,
+      why: `取不到输入:${missing.join(',')}(不记绿也不冒红)`,
+    }
+
+  if (cur.coverageRed > 0)
+    reasons.push({ dim: 'registry-rot', detail: `门 128 判红 ${cur.coverageRed} 处` })
+  if (cur.mapRot > 0) reasons.push({ dim: 'map-rot', detail: `web↔RN 登记表腐烂 ${cur.mapRot} 行` })
+  // 断链/声明不符:现读存量都是 0 ⇒ 这一维一旦出现就是"新增的产物级缺陷",按绝对值出声不算恒红门。
+  // 点名(§5e-1 可整改性准入):这两维的 detail 此前只给"另一把尺子在哪",收信人还得再跑一趟才知道
+  // 是哪一屏。fidelity 自己已经算了逐屏 rows,这里只把它现成的 route 抄进正文 —— 取不到就整段不附
+  // (§0.3:宁可不点名,不编点名)。到人身份只按 dim 拼(guardian 的 dedupKey),明细抖动不换身份。
+  const named = (form) => {
+    const rows = fidelity?.json?.rows
+    if (!Array.isArray(rows)) return ''
+    const hit = rows.filter((r) => r && r.form === form).slice(0, 3)
+    if (hit.length === 0) return ''
+    return ` ⇒ 点名:${hit.map((r) => `${r.route}${r.why ? `(${String(r.why).slice(0, 60)})` : `(${r.spec})`}`).join(' ｜ ')}`
+  }
+  if (cur.fidelityBroken > 0)
+    reasons.push({
+      dim: 'mirror-chain-broken',
+      detail: `${cur.fidelityBroken} 对镜像页引了 @rn-shells 而链不成立(壳不在面/壳未消费本屏/取用形态与壳导出对不上 ⇒ 页面渲染不出) ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看点名行,再按 repair-cross-end-mirror.mjs 补声明或直接改回同名壳${named('broken')}`,
+    })
+  if (cur.fidelityOther > 0)
+    reasons.push({
+      dim: 'mirror-declaration-mismatch',
+      detail: `${cur.fidelityOther} 对声明镜像 A 而承载的壳是 B ⇒ 账面"已镜像"而 A 那一屏并没渲染 ⇒ 出路:改标记为真承载的那一屏,或把壳指向声明的那一屏${named('other')}`,
+    })
+  // 端词包缺整块命名空间(2026-10-29 立):这一型的失效方向最坏 —— 壳承载页由共享源渲染,
+  // 还原度尺对 hosted 行"按构造 100%、无键可缺",逐键那把尺又只看页面文本里有没有键(壳页天生没有),
+  // 两把尺同时看不见,而用户打开那一屏看到的是**每一句话都取不到词条**。实测存量 16 个命名空间 × 5 语言
+  // 是在"还原度 76.5%、断链 0、声明不符 0"一片绿期间撞出来的 ⇒ 现读存量已随本批补齐,按绝对值出声。
+  if (cur.fidelityPackAbsent > 0) {
+    const rows = fidelity?.json?.rows
+    const hitRows = Array.isArray(rows)
+      ? rows.filter((r) => Array.isArray(r?.packAbsent) && r.packAbsent.length)
+      : []
+    // 影响面按承载形态说话(只影响措辞,不影响判据与计数):hosted 屏由共享源渲染,缺命名空间 =
+    // 该屏文案全取不到;hand 手写页自有文案仍能渲染,缺的是"未镜像的那块 UI"(键级缺口由
+    // mirror-missing 逐键点名),不是整屏白屏。
+    const hostedCount = hitRows.filter((r) => r.form === 'hosted').length
+    const handCount = hitRows.filter((r) => r.form && r.form !== 'hosted').length
+    const impact =
+      hostedCount > 0 && handCount > 0
+        ? `${hostedCount} 屏 hosted(共享源渲染)⇒ 这些屏全部文案取不到;${handCount} 屏 hand(手写页)⇒ 自有文案仍可渲染,缺的是未镜像的那块 UI(键级缺口由 mirror-missing 逐键点名)`
+        : hostedCount > 0
+          ? '这些屏 hosted(共享源渲染)⇒ 全部文案取不到'
+          : handCount > 0
+            ? '这些屏是 hand 手写页 ⇒ 自有文案仍可渲染,缺的是未镜像的那块 UI(键级缺口由 mirror-missing 逐键点名),不是整屏白屏'
+            : '承载形态取不到 ⇒ 影响面未判定(勿按整屏白屏理解)'
+    const hit = hitRows
+      .slice(0, 3)
+      .map((r) => `${r.route}(${r.form || '?'}) 缺 ${r.packAbsent.slice(0, 4).join(',')}`)
+    reasons.push({
+      dim: 'mirror-pack-namespace-missing',
+      detail:
+        `${cur.fidelityPackAbsent} 屏要的命名空间在本端词包里整块不存在(本端包 ∪ shared 都查无)⇒ ${impact}` +
+        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看 ❌ 点名行,再从 messages/mobile-rn(基准侧)或 messages/shared 逐字搬该命名空间(勿代拟译文)${hit.length ? ` ⇒ 点名:${hit.join(' ｜ ')}` : ''}`,
+    })
+  }
+  // 撤除台账自身出问题必须出声,否则"有出处的撤除"会退化成一条没人看的免检通道:
+  // invalid = 行不成立(缺理由/出处/到期日或已到期)⇒ 那些键照原样算缺口,同时台账该补;
+  // rot = 行已不免除任何东西(键补回来了 / 页改了承载形 / 三元组对不上)⇒ §0.7 该删。
+  if (cur.fidelityRetractionInvalid > 0)
+    reasons.push({
+      dim: 'key-retraction-invalid',
+      detail:
+        `键级撤除台账有 ${cur.fidelityRetractionInvalid} 行不成立(读不出 / 缺 reason|evidence|expires / 出处短于 20 字 / 已到期)` +
+        ` ⇒ 这些行**不免除**任何缺口,且当前 missing 已把它们算进去了;出路:补全那几行的出处与到期日,或按 §0.10 撤掉这行` +
+        ` ⇒ node scripts/check-miniapp-mirror-fidelity.mjs(❌ 点名行)`,
+    })
+  if (cur.fidelityRetractionRot > 0)
+    reasons.push({
+      dim: 'key-retraction-rot',
+      detail:
+        `键级撤除台账有 ${cur.fidelityRetractionRot} 行现在不免除任何东西(§0.7 清单腐烂:豁免项消失同样算红)` +
+        ` ⇒ 要么那一格的裁决早已结清(该删行),要么 (页,屏,键) 三元组被改名而对不上(该改行)` +
+        ` ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs(⚠️ 点名行)+ 台账 scripts/data/miniapp-key-retractions.jsonl`,
+    })
+  // 转换机会:"有页可转"不是倒退,但它是"少养一份端内实现"的窗口,现读到 >0 就出声
+  // (身份按维去重 ⇒ 同一批机会不会每 60 分钟刷一封;明细抖动不换身份)。
+  if (cur.conversionUpgradable > 0)
+    reasons.push({
+      dim: 'conversion-available',
+      detail:
+        `${cur.conversionUpgradable} 枚手写镜像页已可转壳承载(转完这一页就自动跟随共享屏,拒 ${cur.conversionRefused} 枚)⇒ 出路:` +
+        '① node scripts/upgrade-miniapp-shell-pages.mjs --apply --cap=5 ② 提交页面后 node scripts/gen-rn-shell-types.mjs --write 再提交声明件' +
+        '(两步同批:声明件按 HEAD 面派生,只落页会把门 251 C9 打成红)',
+    })
+
+  // 撤下一条「挂错业务对象的假声明」不是丢镜像。只认**上一轮快照之后**写下的 not-applicable 裁决条数
+  // (台账取不到 / 时刻解析不出 ⇒ 0,照旧判红 —— 豁免必须"验过才免",§0.7)。
+  const lostMirrored = prev && Number.isFinite(prev.mirrored) ? prev.mirrored - cur.mirrored : 0
+  const newlyExempted = prev ? notApplicableSince(verdictRows, prev.at) : 0
+  if (lostMirrored > 0 && lostMirrored > newlyExempted)
+    reasons.push({
+      dim: 'mirrored-decrease',
+      detail:
+        `镜像声明 ${prev.mirrored} → ${cur.mirrored}(净减 ${lostMirrored};同期带证据的新裁决 ${newlyExempted} 条,不足以解释这一减)` +
+        '⇒ 查是哪条标记/登记被删(与门 237 R3 同判据);确属撤假声明,就往裁决台账写 not-applicable 并附证据',
+    })
+
+  // web→RN 那一侧的同一格(此前只有小程序侧有涨跌维):承载面是"web 有这屏、RN 也有承载"的**一组路由**,
+  // 它掉了 = 有人把 RN 承载拆了而账面无声;unmapped 涨了 = 新增 web 页没人判过 RN 侧。
+  // 口径改判(2026-10-30):比的是**承载面(去重 web 键)**而不是台账行数 —— 台账把同一 web 键的重复行
+  // 折叠掉时行数会掉、承载面不变;照旧比行数会把"归并台账"读成"RN 承载被拆"(假告警,而承载面没变)。
+  // 上轮基线没有去重口径(旧快照只有行数)⇒ 本维**未判定**:不产出理由、也不折成"没退"(§0.3);
+  // 走 stale 档(可追、点名、不响),下一轮起恢复比较。
+  if (prev && !Number.isFinite(prev.alignedUnique) && Number.isFinite(prev.aligned))
+    stale.push({
+      dim: 'web-aligned-uncompared',
+      detail: `上轮基线没有承载面去重口径(旧快照只有台账行数 ${prev.aligned})⇒ 本轮不判"RN 承载被拆"这一维(不产假告警),下一轮起恢复比较`,
+    })
+  if (
+    prev &&
+    Number.isFinite(prev.alignedUnique) &&
+    Number.isFinite(extras.alignedUnique) &&
+    extras.alignedUnique < prev.alignedUnique
+  )
+    reasons.push({
+      dim: 'web-aligned-decrease',
+      detail: `web→RN 承载面 ${prev.alignedUnique} → ${extras.alignedUnique}(去重 web 键,净减 ${prev.alignedUnique - extras.alignedUnique})⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 看是哪条路由的承载体没了,再按 scripts/data/web-rn-screen-map.jsonl 恢复 aligned 指向`,
+    })
+  // 段级豁免四维(2026-10-30 立):门户互斥 / 自述计数腐烂 / 豁免到期 / 同键双行。
+  // 立因:这四维是尺子本轮新增的「段级豁免三维」,**此前零告警面**(§0.9「造好没装车」= 没有)——
+  // 门户表新长一条 admin/* 路由、或某枚段级豁免过了 reviewBy,尺子会点名但没人喊,盲绿以同形态回来。
+  // 口径与段级一致:只喊**净增**(存量只报数、净增才到人,§12e);取不到 ⇒ 该维本轮未判定,不冒红也不记 0。
+  for (const [key, dim, label, exit] of [
+    [
+      'prefixContradicted',
+      'web-prefix-contradicted-increase',
+      '门户表说 WebView 承载、段级豁免却写成"不承载"的路由',
+      'node scripts/check-web-rn-screen-parity.mjs 看「段级互斥」那一段,给这些路由逐条补 status:"portal" 行(台账承认承载),或改段级豁免的措辞 —— 机器只点名,豁免措辞由人裁',
+    ],
+    [
+      'staleCountAssertions',
+      'web-stale-count-increase',
+      '豁免 reason 自述计数与现读脱节',
+      'node scripts/check-web-rn-screen-parity.mjs 看「自述计数 ≠ 现读」那一段,把 reason 里的数字按现读改(不要改口径去迁就文本)',
+    ],
+    [
+      'missingExpiry',
+      'web-expiry-missing-increase',
+      '段级豁免缺存活期或已到期',
+      'node scripts/check-web-rn-screen-parity.mjs 看「段级豁免存活期」那一段,缺期的补 reviewBy、已到期的重新判一次(§0.7 豁免必须会到期)',
+    ],
+    [
+      'duplicateWebKeys',
+      'web-duplicate-key-increase',
+      '同一 web 键多行(aligned/portal 两个分母同时灌水)',
+      'node scripts/check-web-rn-screen-parity.mjs 看「重复 web 键」那一段,按「更具体的判定赢」折成一行',
+    ],
+  ]) {
+    const a = finiteOrNull(prev?.[key])
+    const b = finiteOrNull(extras[key])
+    if (a !== null && b !== null && b > a)
+      reasons.push({
+        dim,
+        detail: `${label} ${a} → ${b}(净增 ${b - a})⇒ 出路:${exit}`,
+      })
+  }
+  if (
+    prev &&
+    Number.isFinite(prev.unmapped) &&
+    Number.isFinite(cur.unmapped) &&
+    cur.unmapped > prev.unmapped
+  )
+    reasons.push({
+      dim: 'web-unmapped-increase',
+      detail: `web 路由未判定 ${prev.unmapped} → ${cur.unmapped}(净增 ${cur.unmapped - prev.unmapped})⇒ 新增页面没人判过 RN 侧承载 ⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 按分组清单逐屏登记(aligned / gap / excluded 三态之一,不许留空)`,
+    })
+
+  // 还原度两维只在"上一轮真读到过"时比较(没有基线 = 本轮先记快照,不造倒退也不冒绿)
+  if (
+    prev &&
+    Number.isFinite(prev.fidelityHosted) &&
+    Number.isFinite(cur.fidelityHosted) &&
+    cur.fidelityHosted < prev.fidelityHosted
+  )
+    reasons.push({
+      dim: 'mirror-hosted-decrease',
+      detail: `壳承载对数 ${prev.fidelityHosted} → ${cur.fidelityHosted}(净减 ${prev.fidelityHosted - cur.fidelityHosted})⇒ 有页面从"渲染共享源本体"退回头抄,源头再改它不会跟随 ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs 看是哪几页,恢复 @rn-shells 承载`,
+    })
+  if (
+    prev &&
+    Number.isFinite(prev.fidelityMissing) &&
+    Number.isFinite(cur.fidelityMissing) &&
+    cur.fidelityMissing > prev.fidelityMissing
+  )
+    reasons.push({
+      dim: 'mirror-missing-increase',
+      detail: `镜像页未还原的业务文案键 ${prev.fidelityMissing} → ${cur.fidelityMissing}(净增 ${cur.fidelityMissing - prev.fidelityMissing})⇒ 用户在小程序端看不到的条目变多 ⇒ 出路:node scripts/check-miniapp-mirror-fidelity.mjs --top=20 按页点名,补回文案或改回壳承载`,
+    })
+
+  /**
+   * 样式档位净增三维(2026-11-03 接,补的正是"档位尺说了'净增经到人'而无人接"那一格)。
+   * 判序与既有各维同形:两侧都必须 finite 才比(旧快照没有这一维时不得把 undefined 折成 0
+   * 再喊"净增 N"—— 那条坑本文件头注已记过一次:0 → 28 假净增)。
+   * 存量 445 处不作绝对判:升 blocking 的前置是存量归零(§12e),这里只出声"本轮比上轮坏了"。
+   */
+  const tierWorse = (key, label, exit) => {
+    if (!(prev && Number.isFinite(prev[key]) && Number.isFinite(cur[key]))) return
+    if (cur[key] <= prev[key]) return
+    reasons.push({
+      dim: `style-tier-${key}-increase`,
+      detail:
+        `${label} ${prev[key]} → ${cur[key]}(净增 ${cur[key] - prev[key]} 处)⇒ 同源档位表又多了一批"值在档表里却写成裸数字/异档"的用法,` +
+        `落档腿只改等值位置、不会主动动这些,所以它们不会自己消失 ⇒ 出路:${exit}`,
+    })
+  }
+  const webRnExit =
+    'node scripts/check-web-rn-style-tiers.mjs --json 看 rnMissingValues / rnForkValues / forkAllowance.pendingTop,再按维度跑 node scripts/land-web-style-tiers.mjs 与 node scripts/land-rn-style-tiers.mjs 预演'
+  tierWorse('tierRnMissingN', 'RN 端非档值用量', webRnExit)
+  tierWorse('tierRnForkN', 'RN↔web 同元素取异档的用量', webRnExit)
+  tierWorse('tierWebOffN', 'web 端自身非档/异档用量', webRnExit)
+  tierWorse(
+    'tierPending',
+    '待裁分叉允许差异行数',
+    'node scripts/check-web-rn-style-tiers.mjs --json 的 forkAllowance.pendingTop(逐族给 n/allowed),裁决出口 node scripts/apply-cross-end-verdicts.mjs --proposals=<裁决件>(该器当前零调度,需按 §11 派单产裁决)',
+  )
+  tierWorse(
+    'mpTierDefaulted',
+    '小程序端用 Tailwind 默认档而非项目档表的位置数',
+    'node scripts/check-miniapp-style-tiers.mjs --json(defaulted/literal/projectPct)+ node scripts/land-miniapp-style-tiers.mjs 预演',
+  )
+  tierWorse(
+    'mpTierLiteral',
+    '小程序端裸字面量(含 rpx/任意值)位置数',
+    'node scripts/check-miniapp-style-tiers.mjs --json 的 samples + node scripts/land-miniapp-style-tiers.mjs 预演(hittable 是其中可自动改的子集)',
+  )
+
+  const docCur = docNumbers(doc)
+  const docMismatch =
+    docCur.mirrored !== null && cur.mirrored !== null ? docCur.mirrored !== cur.mirrored : null
+  if (docMismatch)
+    // 账本是**纯派生文档**:它滞后不代表三端对齐变坏(对齐本身由上面各维量)。混进 reasons
+    // 的后果是"文档没跟着重生成"被当成倒退寄邮件给机主(§5e-1 可整改性准入:喊人的那一维必须
+    // 是能让人动手修的东西)。这里单独出一档 stale —— 照样逐条点名、照样进 json 与人读面,只是不响警报。
+    stale.push({
+      dim: 'doc-stale',
+      detail: `账本文档自述 ${docCur.mirrored},现读 ${cur.mirrored} ⇒ 重跑 node scripts/report-rn-miniapp-gaps.mjs --write ${DOC_PATH}`,
+    })
+
+  return {
+    state: reasons.length > 0 ? 'regressed' : 'ok',
+    stale,
+    cur,
+    extras,
+    prev: prev ?? null,
+    reasons,
+    doc: docCur,
+  }
+}
+
+function readPrev() {
+  try {
+    const o = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
+    return {
+      mirrored: o?.cur?.mirrored ?? o?.mirrored ?? null,
+      aligned: o?.cur?.aligned ?? null,
+      // 承载面与段级豁免四维(2026-10-30 立):存在 extras 面里(不进 cur,免得"取不到"升级成整轮未判定)。
+      alignedUnique: o?.extras?.alignedUnique ?? null,
+      prefixContradicted: o?.extras?.prefixContradicted ?? null,
+      staleCountAssertions: o?.extras?.staleCountAssertions ?? null,
+      missingExpiry: o?.extras?.missingExpiry ?? null,
+      duplicateWebKeys: o?.extras?.duplicateWebKeys ?? null,
+      unmapped: o?.cur?.unmapped ?? null,
+      fidelityHosted: o?.cur?.fidelityHosted ?? null,
+      fidelityMissing: o?.cur?.fidelityMissing ?? null,
+      at: o?.at ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function selfTestMain() {
+  const cases = []
+  const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270) => ({
+    ok: true,
+    json: {
+      stats: { mirroredShared: mirrored, registryEntries: 90, sharedTotal: 218 },
+      red: new Array(reds).fill({ rule: 'R1' }),
+      rot: new Array(rot).fill({ line: 1, why: 'x' }),
+      aligned,
+      unmapped,
+    },
+  })
+  /** 还原度尺的结论夹具(字段名与 check-miniapp-mirror-fidelity --json 逐字同形) */
+  const mkFid = ({
+    hosted = 114,
+    hand = 99,
+    missing = 646,
+    broken = 0,
+    other = 0,
+    rows = [],
+    packAbsentRows = 0,
+    packUndetermined = false,
+  } = {}) => ({
+    ok: true,
+    json: {
+      hosted,
+      hand,
+      totalMissing: missing,
+      broken,
+      other,
+      rows,
+      packAbsentRows,
+      packUndetermined,
+    },
+  })
+  /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
+  const mkConv = ({ upgradable = 0, refused = 12 } = {}) => ({
+    ok: true,
+    json: { upgradable, refused },
+  })
+  cases.push({
+    name: 'T1 持平无腐烂 ⇒ ok',
+    pass:
+      judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '- 已被小程序显式镜像: **91**',
+        prev: { mirrored: 91 },
+      }).state === 'ok',
+  })
+  cases.push({
+    name: 'T2 镜像净减 ⇒ regressed/mirrored-decrease',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(89, 0, 0),
+        webParity: mk(89, 0, 0),
+        doc: '',
+        prev: { mirrored: 91 },
+      })
+      return j.state === 'regressed' && j.reasons.some((r) => r.dim === 'mirrored-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T3 门判红 ⇒ regressed/registry-rot(涨了也照样报红)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(120, 3, 0),
+        webParity: mk(120, 0, 0),
+        doc: '',
+        prev: { mirrored: 91 },
+      })
+      return j.state === 'regressed' && j.reasons.some((r) => r.dim === 'registry-rot')
+    })(),
+  })
+  cases.push({
+    name: 'T4 文档数字与现读不等 ⇒ doc-stale 单列滞后档(带重跑命令,但不算倒退)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '- 已被小程序显式镜像: **79**',
+        prev: { mirrored: 91 },
+      })
+      return (
+        j.state === 'ok' &&
+        j.stale.some((r) => r.dim === 'doc-stale' && /report-rn-miniapp-gaps/.test(r.detail)) &&
+        !j.reasons.some((r) => r.dim === 'doc-stale')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T5 子对账器跑不动 ⇒ undetermined,不记绿',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: { ok: false, why: 'x' },
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.state === 'undetermined' && j.missing.includes('coverage')
+    })(),
+  })
+  cases.push({
+    name: 'T6 无上一轮快照 ⇒ 不比涨跌,只判当场腐烂(拿 prev 缺失当"没倒退"是错的)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.state === 'ok' && j.prev === null
+    })(),
+  })
+  cases.push({
+    name: 'T7 承载对数净减 ⇒ mirror-hosted-decrease(有人把页改回头抄)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ hosted: 110 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, fidelityHosted: 114, fidelityMissing: 646 },
+      })
+      return j.state === 'regressed' && j.reasons.some((r) => r.dim === 'mirror-hosted-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T8 未还原文案键净增 ⇒ mirror-missing-increase',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ missing: 700 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, fidelityHosted: 114, fidelityMissing: 646 },
+      })
+      return j.reasons.some(
+        (r) =>
+          r.dim === 'mirror-missing-increase' && /check-miniapp-mirror-fidelity/.test(r.detail),
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T9 壳承载断链 ⇒ 无需 prev 也出声(产物级缺陷,现读存量为 0 不是恒红门)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ broken: 2 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.reasons.some((r) => r.dim === 'mirror-chain-broken')
+    })(),
+  })
+  cases.push({
+    name: 'T10 声明镜像 A 而承载是 B ⇒ mirror-declaration-mismatch',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ other: 1 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.reasons.some((r) => r.dim === 'mirror-declaration-mismatch')
+    })(),
+  })
+  cases.push({
+    name: 'T18 产物级缺陷正文自带 route 点名(§5e-1:不能让人再跑一趟尺子才知道是哪屏)',
+    pass: (() => {
+      const rows = [
+        {
+          form: 'other',
+          route: 'pages/member/integral',
+          spec: 'vip/VipScreen.tsx',
+          why: '声明 VipScreen 而承载 PointHistoryScreen',
+        },
+        {
+          form: 'broken',
+          route: 'pkg-user/x/index',
+          spec: 'aigc/AigcScreen.tsx',
+          why: '壳在本面不存在',
+        },
+      ]
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ other: 1, broken: 1, rows }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const pick = (dim) => j.reasons.find((r) => r.dim === dim)?.detail ?? ''
+      return (
+        pick('mirror-declaration-mismatch').includes('pages/member/integral') &&
+        pick('mirror-chain-broken').includes('pkg-user/x/index')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T19 取不到逐屏 rows ⇒ 正文不附点名(宁缺毋造,§0.3)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ other: 1 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const d = j.reasons.find((r) => r.dim === 'mirror-declaration-mismatch')?.detail ?? ''
+      return d.length > 0 && !d.includes('点名:')
+    })(),
+  })
+  cases.push({
+    name: 'T21 镜像数减少且同期有带证据的新裁决 ⇒ 不判倒退(撤假声明是纠正)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+        verdictRows: ['w', 'x', 'y', 'z'].map((s) => ({
+          shared: `packages/app/src/features/${s}/X${s}Screen.tsx`,
+          verdict: 'not-applicable',
+          at: '2026-10-30',
+        })),
+      })
+      return !j.reasons.some((r) => r.dim === 'mirrored-decrease')
+    })(),
+  })
+  cases.push({
+    name: 'T22 反向对照:同样减少但台账取不到 / 裁决写在基线之前 ⇒ 照旧判红(没读到不等于豁免)',
+    pass: (() => {
+      const base = {
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(87, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91, at: '2026-10-29T21:02:31.548Z' },
+      }
+      const noLedger = judge({ ...base, verdictRows: null })
+      const staleVerdict = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '2026-10-28' }],
+      })
+      const badAt = judge({
+        ...base,
+        verdictRows: [{ shared: 'a/X.tsx', verdict: 'not-applicable', at: '不是时刻' }],
+      })
+      const hit = (j) => j.reasons.some((r) => r.dim === 'mirrored-decrease')
+      return (
+        hit(noLedger) &&
+        hit(staleVerdict) &&
+        hit(badAt) &&
+        notApplicableSince(null, '2026-10-29') === 0
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T23 账本滞后只出 stale 档 ⇒ state 不因此变红;混有实质倒退时仍 regressed 且 stale 照样点名',
+    pass: (() => {
+      const doc = '- 已被小程序显式镜像: **256**'
+      const onlyStale = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      const withRot = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 1, 0),
+        webParity: mk(91, 0, 0),
+        doc,
+        prev: null,
+      })
+      return (
+        onlyStale.state === 'ok' &&
+        (onlyStale.stale || []).some((r) => r.dim === 'doc-stale') &&
+        !(onlyStale.reasons || []).some((r) => r.dim === 'doc-stale') &&
+        withRot.state === 'regressed' &&
+        (withRot.stale || []).some((r) => r.dim === 'doc-stale')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T20 端词包缺整块命名空间 ⇒ 出声且带点名(两把尺都看不见这一型,没人喊就是满屏空白)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({
+          packAbsentRows: 2,
+          rows: [
+            { route: 'pkg-user/pdf-tools-hub/index', packAbsent: ['pdfToolsPage'] },
+            { route: 'pkg-shop/pay/result/index', packAbsent: ['payResult', 'team'] },
+          ],
+        }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      const d = j.reasons.find((r) => r.dim === 'mirror-pack-namespace-missing')?.detail ?? ''
+      return (
+        d.includes('2 屏') &&
+        d.includes('pkg-user/pdf-tools-hub/index') &&
+        d.includes('pdfToolsPage') &&
+        d.includes('勿代拟译文')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T21 词包取不到(packUndetermined) ⇒ 整轮未判定,不把"没读到"折成"零缺口"(§0.3)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ packAbsentRows: 0, packUndetermined: true }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return (
+        j.state === 'undetermined' &&
+        (j.missing || []).includes('fidelityPackAbsent') &&
+        !j.reasons.some((r) => r.dim === 'mirror-pack-namespace-missing')
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T11 还原度尺跑不动 ⇒ undetermined 且点名 fidelity(不记绿)',
+    pass: (() => {
+      const j = judge({
+        fidelity: { ok: false, why: 'x' },
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: null,
+      })
+      return j.state === 'undetermined' && j.missing.includes('fidelity')
+    })(),
+  })
+  cases.push({
+    name: 'T12 上一轮没有还原度快照 ⇒ 不拿它造倒退(第一轮的存量不是"变坏")',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid({ missing: 99999 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        doc: '',
+        prev: { mirrored: 91 },
+      })
+      return !j.reasons.some((r) => r.dim.startsWith('mirror-')) && j.state === 'ok'
+    })(),
+  })
+  cases.push({
+    name: 'T13 预演读到手写页可转 ⇒ conversion-available(机会窗要出声,且给齐两步命令)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv({ upgradable: 3 }),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        fidelity: mkFid(),
+        doc: '',
+        prev: null,
+      })
+      const r = j.reasons.find((x) => x.dim === 'conversion-available')
+      return (
+        j.state === 'regressed' &&
+        !!r &&
+        /upgrade-miniapp-shell-pages/.test(r.detail) &&
+        /gen-rn-shell-types/.test(r.detail)
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T14 转换预演跑不动 ⇒ 不得当成"没机会"(取不到输入就是未判定)',
+    pass: (() => {
+      const j = judge({
+        conversion: { ok: false, why: 'x' },
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        fidelity: mkFid(),
+        doc: '',
+        prev: null,
+      })
+      return j.state === 'undetermined' && j.missing.some((m) => m.startsWith('conversion'))
+    })(),
+  })
+  cases.push({
+    name: 'T17 预演"发现可转页"时退出码就是 1 —— 结论仍须照判(否则最该喊的那一刻哑掉)',
+    pass: (() => {
+      const j = judge({
+        conversion: { ok: false, why: 'exit 1', json: { upgradable: 5, refused: 2 } },
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0),
+        fidelity: mkFid(),
+        doc: '',
+        prev: null,
+      })
+      return (
+        j.state === 'regressed' &&
+        j.reasons.some((r) => r.dim === 'conversion-available' && /5 枚/.test(r.detail))
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T15 RN 承载被拆 ⇒ web-aligned-decrease(小程序侧有涨跌维而 web→RN 侧没有,是半边瞎)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 150, 270),
+        doc: '',
+        prev: { mirrored: 91, aligned: 160, unmapped: 270 },
+      })
+      return (
+        j.state === 'regressed' &&
+        j.reasons.some(
+          (r) => r.dim === 'web-aligned-decrease' && /web-rn-screen-map/.test(r.detail),
+        )
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T16 新 web 页无人判过 ⇒ web-unmapped-increase(留空不是"没缺口")',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 275, 291),
+        doc: '',
+        prev: { mirrored: 91, aligned: 275, unmapped: 270 },
+      })
+      return j.reasons.some(
+        (r) => r.dim === 'web-unmapped-increase' && /aligned \/ gap \/ excluded/.test(r.detail),
+      )
+    })(),
+  })
+  let bad = 0
+  for (const c of cases) {
+    if (!c.pass) bad++
+    console.log(`${c.pass ? '✓' : '✗'} ${c.name}`)
+  }
+  console.log(
+    bad === 0
+      ? `SELF-TEST PASS ${cases.length}/${cases.length}`
+      : `SELF-TEST FAIL ${bad}/${cases.length}`,
+  )
+  process.exit(bad === 0 ? 0 : 1)
+}
+
+function main() {
+  const coverage = runRuler('check-cross-end-screen-coverage.mjs')
+  const webParity = runRuler('check-web-rn-screen-parity.mjs', ['--json', '--full'])
+  const fidelity = runRuler('check-miniapp-mirror-fidelity.mjs')
+  // 转换机会只跑**预演**(不带 --apply):器物自己说"落地还要同批改声明件",那一形态未装车,
+  // 所以这里只把机会喊出来并给全两条命令,不自作主张改端内源文件。
+  const conversion = runRuler('upgrade-miniapp-shell-pages.mjs')
+  /**
+   * 样式档位维(2026-11-03 接):`check-web-rn-style-tiers.mjs` 自己的头注写着
+   * 「本尺只读,不进提交链;净增经 §5e 到人」—— 而这句话在本轮之前**没有兑现方**:
+   * 本哨兵只跑 coverage / screen-parity / fidelity 三把尺,没有一把认识 rn_missing / rn_fork /
+   * web_off / pending 这四个读数。后果是"新增 100 处非档字面量"在提交链、驾驶舱、告警三处
+   * 全都不出声(§0.9「造好没装车 = 没有」的同一条,§12f「判据失效的表现永远是安静」)。
+   * 档位差是**存量 445 处**的现实:绝对值一进来就恒红(§12e),所以这里只比"本轮有没有变坏"。
+   */
+  const styleTiers = runRuler('check-web-rn-style-tiers.mjs')
+  /**
+   * 小程序档位维(同日接):`check-miniapp-style-tiers.mjs` 此前**只出现在驾驶舱的只读档**
+   * (parity-auto:258),既不在 runner 也无任何轮间比较 ⇒ 小程序偏离共享档位源
+   * (defaulted / literal 两桶)同样静默增长。它自己已经把可比读数交出来
+   * (defaulted / literal / projectPct / spaceLiteralHittable),这里只包成涨跌维(§0.6 零复算)。
+   */
+  const miniappTiers = runRuler('check-miniapp-style-tiers.mjs')
+  const doc = (() => {
+    try {
+      return execFileSync('git', ['show', `HEAD:${DOC_PATH}`], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        maxBuffer: 1 << 22,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch {
+      return ''
+    }
+  })()
+  const prev = readPrev()
+  // 裁决台账取 HEAD 面(与其余各尺同面同轮,§0.4);取不到 ⇒ null ⇒ 豁免数记 0,不折成"全是新裁决"。
+  let verdictRows = null
+  try {
+    const read = readVerdicts('head', ROOT)
+    verdictRows = Array.isArray(read?.rows) ? read.rows : null
+  } catch {
+    verdictRows = null
+  }
+  const result = judge({
+    coverage,
+    webParity,
+    fidelity,
+    conversion,
+    doc,
+    prev,
+    verdictRows,
+    styleTiers,
+    miniappTiers,
+  })
+  result.at = new Date().toISOString()
+  if (recordMode) {
+    mkdirSync(dirname(STATE_FILE), { recursive: true })
+    writeFileSync(STATE_FILE, JSON.stringify(result, null, 2) + '\n', 'utf8')
+    result.recorded = true
+  }
+  if (jsonMode) {
+    console.log(JSON.stringify(result, null, 2))
+  } else {
+    console.log(`STATE=${result.state}`)
+    console.log(
+      `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'}(台账行) / 承载面(去重 web 键) ${result.extras?.alignedUnique ?? '未判定'} / unmapped ${result.cur?.unmapped ?? '?'} / 段级互斥 ${result.extras?.prefixContradicted ?? '未判定'} / 自述计数腐 ${result.extras?.staleCountAssertions ?? '未判定'} / 豁免缺期 ${result.extras?.missingExpiry ?? '未判定'} / 同键双行 ${result.extras?.duplicateWebKeys ?? '未判定'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'} 本端词包缺命名空间 ${result.cur?.fidelityPackAbsent ?? '未判定'}`,
+    )
+    if (result.why) console.log(`未判定原因:${result.why}`)
+    for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
+    for (const r of result.stale || [])
+      console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
+  }
+  process.exit(result.state === 'regressed' ? 1 : result.state === 'undetermined' ? 2 : 0)
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  if (selfTest) selfTestMain()
+  else main()
+}
+
+export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

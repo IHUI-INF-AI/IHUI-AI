@@ -1,0 +1,41 @@
+{
+  "_comment": "Grafana 大屏里合法引用、但由第三方导出器/采集器产生(不在本仓代码里发射)的指标名前缀台账。守门 check-grafana-metric-exists.mjs 的唯一外部通道;每条必须带 owner+reason+until(§0.7:豁免必须验过才免且会到期,且登记了却无人引用的前缀会被 G2 判成清单腐烂)。2026-10-17 首建:只收录当次审面实测被引用的前缀,node_/windows_/process_/loki_/go_ 等未被任何大屏引用的条目不留。",
+  "entries": [
+    {
+      "prefix": "pg_",
+      "owner": "postgres_exporter",
+      "reason": "postgres-exporter(9187)按 pg_stat_* 映射,postgresql.json 依赖",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "redis_",
+      "owner": "redis_exporter",
+      "reason": "redis-exporter(9121),redis-cluster.json 依赖",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "grafana_",
+      "owner": "grafana",
+      "reason": "Grafana 自监控指标(monitor_health.json)",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "alertmanager_",
+      "owner": "alertmanager",
+      "reason": "Alertmanager 自监控指标(alert_history.json)",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "http_",
+      "owner": "prometheus-fastapi-instrumentator / fastify metrics 插件",
+      "reason": "HTTP 层通用指标由第三方 instrumentation 库在运行时注册,名字不在仓内以 name: 声明",
+      "until": "2027-04-01"
+    },
+    {
+      "prefix": "container_",
+      "owner": "cAdvisor(仅 deploy/saas 画像部署)",
+      "reason": "引用面只在 deploy/saas/grafana 树:该画像的 docker-compose.yml:115-134 起 cadvisor:v0.49.1:8808 且 prometheus.yml:21-25 抓它;本机 monitoring 画像没有容器采集器 ⇒ 那一侧面板恒 No data 属预期",
+      "until": "2027-04-01"
+    }
+  ]
+}

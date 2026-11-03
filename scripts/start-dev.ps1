@@ -1,0 +1,828 @@
+﻿# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+#requires -Version 7
+<#
+.SYNOPSIS
+  IHUI-AI 8 端 dev 服务启动器(根治 SIGINT 免疫)
+.DESCRIPTION
+  解决 自研 IDE / 终端关闭窗口时,前台运行的 pnpm dev 被外部 SIGINT
+  (即 "Terminate batch job (Y/N)?") 反复中断的问题。
+
+  核心机制:服务进程用 Start-Process 派生到隐藏 cmd.exe 窗口,日志重定向
+  到 .ihui-agent/tmp/dev-logs/<name>.log,PID 写入 .ihui-agent/tmp/dev-logs/pids.json。
+  关闭本脚本窗口不会级联关闭 dev server。
+
+  用法:
+    pwsh -File scripts/start-dev.ps1                       # 启动默认组 web+api
+    pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service
+    pwsh -File scripts/start-dev.ps1 -All                  # 启动 8 端
+    pwsh -File scripts/start-dev.ps1 -Foreground           # 前台模式(不推荐,会被 SIGINT)
+    pwsh -File scripts/start-dev.ps1 -Status               # 查看运行状态
+    pwsh -File scripts/start-dev.ps1 -Stop                 # 停止所有 start-dev 启动的服务
+    pwsh -File scripts/start-dev.ps1 -Clean                # 清理所有 IHUI 端口 + 残留 dev 进程
+    pwsh -File scripts/start-dev.ps1 -Force                # 端口冲突时强制 kill 占用进程
+
+  端口 + 命令注册表:scripts/dev-port-registry.json
+  端口权威来源:docs/port-management.md(必须保持同步)
+.NOTES
+  要求 PowerShell 7+(pwsh)。项目内所有 .ps1 由 scripts/check-pwsh-version.mjs 守门,必须 `#requires -Version 7`;请勿用 Windows PowerShell 5.1 调用本脚本(否则会被 #requires 拒绝)。
+#>
+
+[CmdletBinding()]
+param(
+  [string[]]$Services,
+  [switch]$All,
+  [switch]$Default,
+  [switch]$Desktop,
+  [switch]$Foreground,
+  [switch]$Status,
+  [switch]$Stop,
+  [switch]$Clean,
+  [switch]$Force,
+  [switch]$Fast,
+  [switch]$Help
+)
+
+$ErrorActionPreference = 'Stop'
+
+# 2026-08-26 修复:兼容 `pwsh -File ... -Services web,api,ai-service` 传参。
+# pwsh -File 的 CLI 解析把 "web,api,ai-service" 当作单个字符串传给 [string[]]。
+# (PowerShell 交互式下逗号会被解析为数组,但 -File 原生调用不会)。
+# 这里展开逗号分隔 + 去空白 + 去空,保证文档示例用法真实可用。
+$Services = @(
+  $Services | ForEach-Object { $_ -split ',' } |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ }
+)
+
+# ============================================================
+# 路径常量
+# ============================================================
+$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = (Resolve-Path (Join-Path $ScriptRoot '..')).Path
+$RegistryPath = Join-Path $ScriptRoot 'dev-port-registry.json'
+$LogDir = Join-Path $RepoRoot '.ihui-agent\tmp\dev-logs'
+$PidFile = Join-Path $LogDir 'pids.json'
+
+# ============================================================
+# 函数:Write-* 颜色输出
+# ============================================================
+function Write-Info([string]$msg) { Write-Host "  [INFO]  $msg" -ForegroundColor Cyan }
+function Write-Ok([string]$msg)   { Write-Host "  [OK]    $msg" -ForegroundColor Green }
+function Write-Warn([string]$msg) { Write-Host "  [WARN]  $msg" -ForegroundColor Yellow }
+function Write-Err([string]$msg)  { Write-Host "  [ERR]   $msg" -ForegroundColor Red }
+function Write-Hdr([string]$msg)  {
+  Write-Host ''
+  Write-Host ('=' * 70) -ForegroundColor DarkGray
+  Write-Host "  $msg" -ForegroundColor White
+  Write-Host ('=' * 70) -ForegroundColor DarkGray
+}
+
+# ============================================================
+# 函数:加载注册表
+# ============================================================
+function Get-ServiceRegistry {
+  if (-not (Test-Path $RegistryPath)) {
+    throw "注册表不存在: $RegistryPath"
+  }
+  $raw = Get-Content -Raw -Path $RegistryPath -Encoding UTF8
+  try {
+    $json = $raw | ConvertFrom-Json
+  } catch {
+    throw "注册表 JSON 解析失败: $($_.Exception.Message)"
+  }
+  return $json
+}
+
+# ============================================================
+# 函数:读取 / 写入 PID 文件
+# ============================================================
+function Get-PidMap {
+  if (-not (Test-Path $PidFile)) { return @{} }
+  try {
+    $content = Get-Content -Raw -Path $PidFile -Encoding UTF8
+    if ([string]::IsNullOrWhiteSpace($content)) { return @{} }
+    $obj = $content | ConvertFrom-Json
+    $map = @{}
+    foreach ($prop in $obj.PSObject.Properties) {
+      $map[$prop.Name] = $prop.Value
+    }
+    return $map
+  } catch {
+    Write-Warn "PID 文件解析失败,忽略: $PidFile"
+    return @{}
+  }
+}
+
+function Save-PidMap([hashtable]$map) {
+  if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+  }
+  $map | ConvertTo-Json -Depth 5 | Set-Content -Path $PidFile -Encoding UTF8
+}
+
+function Remove-PidEntry([string]$name) {
+  $map = Get-PidMap
+  if ($map.ContainsKey($name)) {
+    $map.Remove($name)
+    Save-PidMap $map
+  }
+}
+
+# ============================================================
+# 函数:检测端口是否被占用
+# ============================================================
+function Test-PortInUse([int]$port) {
+  $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+  return ($null -ne $conn -and $conn.Count -gt 0)
+}
+
+function Get-PortOwner([int]$port) {
+  $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+  if ($null -eq $conn) { return $null }
+  $procId = ($conn | Select-Object -First 1).OwningProcess
+  if ($procId -le 0) { return $null }
+  return $procId
+}
+
+# ============================================================
+# 函数:检测进程是否还活着
+# ============================================================
+function Test-PidAlive([int]$procId) {
+  if ($procId -le 0) { return $false }
+  $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
+  return ($null -ne $p -and -not $p.HasExited)
+}
+
+# ============================================================
+# 函数:通过 HTTP 探活
+# 2026-08-07 修复:默认超时 3s → 10s。api/ai-service 冷启动首次响应
+# (tsx 编译 + DB 连接 + provider 探活)常超 2s,探针超时短会误判 FAIL
+# ("模型连接失败/任务列表加载失败"排查链中的自检误报根因)。
+# ============================================================
+function Test-HealthUrl([string]$url, [int]$timeoutSec = 10) {
+  try {
+    $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $timeoutSec -ErrorAction Stop
+    return ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500)
+  } catch {
+    return $false
+  }
+}
+
+# ============================================================
+# 函数:健康检查(带超时轮询)
+# ============================================================
+function Wait-Healthy([string]$name, [int]$port, [string]$healthUrl, [int]$timeoutSec) {
+  if ($timeoutSec -le 0) { return $true }
+  Write-Info "$name 等待健康检查(最多 ${timeoutSec}s)..."
+
+  $deadline = (Get-Date).AddSeconds($timeoutSec)
+  while ((Get-Date) -lt $deadline) {
+    # 端口先开
+    if (Test-PortInUse $port) {
+      # HTTP 健康检查(可选)
+      if ([string]::IsNullOrEmpty($healthUrl)) {
+        return $true
+      }
+      if (Test-HealthUrl $healthUrl 10) {
+        return $true
+      }
+    }
+    Start-Sleep -Seconds 1
+  }
+  return $false
+}
+
+# ============================================================
+# 函数:杀进程树
+# ============================================================
+function Stop-ProcessTree([int]$procId, [string]$label) {
+  if (-not (Test-PidAlive $procId)) { return $true }
+  $output = & taskkill /F /T /PID $procId 2>&1
+  Write-Info "taskkill $label PID=$procId : $output"
+  Start-Sleep -Milliseconds 500
+  return (-not (Test-PidAlive $procId))
+}
+
+# ============================================================
+# 函数:停止单个服务
+# ============================================================
+function Stop-ServiceProcess([string]$name) {
+  $map = Get-PidMap
+  if (-not $map.ContainsKey($name)) {
+    Write-Warn "$name 未在 PID 注册表中"
+    return
+  }
+  $entry = $map[$name]
+  $procId = [int]$entry.pid
+  Write-Info "停止 $name (PID=$procId, port=$($entry.port))"
+  if (Stop-ProcessTree $procId $name) {
+    Write-Ok "$name 已停止"
+  } else {
+    Write-Warn "$name 进程仍存活,请手动检查"
+  }
+  Remove-PidEntry $name
+}
+
+# ============================================================
+# 函数:启动单个服务(后台 / 前台)
+# ============================================================
+function Start-ServiceProcess {
+  param(
+    [string]$Name,
+    [string]$Cmd,
+    [string[]]$ScriptArgs,
+    [string]$Cwd,
+    [int]$Port,
+    [string]$HealthUrl,
+    [int]$TimeoutSec,
+    [bool]$IsForeground,
+    [bool]$SkipHealth
+  )
+
+  Write-Hdr "启动 $Name"
+
+  # 1. 端口冲突检测
+  if (Test-PortInUse $port) {
+    $owner = Get-PortOwner $port
+    if ($Force) {
+      Write-Warn "端口 $port 被 PID=$owner 占用,-Force 模式直接 kill"
+      if ($owner -gt 0) { Stop-ProcessTree $owner "$Name 旧进程" | Out-Null }
+      Start-Sleep -Seconds 1
+    } else {
+      Write-Err "端口 $port 已被占用(PID=$owner)。"
+      Write-Host "       选项:" -ForegroundColor DarkGray
+      Write-Host "       1) 重新运行带 -Force 自动 kill 占用进程" -ForegroundColor DarkGray
+      Write-Host "       2) 手动跑:pwsh -File scripts/start-dev.ps1 -Clean" -ForegroundColor DarkGray
+      Write-Host "       3) 跳过该服务:$Name" -ForegroundColor DarkGray
+      return $false
+    }
+  }
+
+  # 2. 拼 cmd 行(pnpm 在 Windows 是 .cmd shim,Start-Process 调 pnpm.exe
+  #    会报 "%1 is not a valid Win32 application"。用 cmd.exe /c 包装最稳。)
+  $argList = $ScriptArgs | ForEach-Object {
+    if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
+  }
+  # 2026-10-09 根治:dev 服务一律不需要 stdin,显式接 NUL。
+  # 背景(当日实证):tsx watch 在 stdin 无绑定的隐藏窗口 / 管道 stdio 环境下
+  # 会静默挂起(零日志、不监听);本仓另有「Node 子进程 stdin 管道 EBUSY」病灶族。
+  # < NUL 让整条 pnpm→node 子进程链的 stdin 落到设备空端,斩断该族病根。
+  $cmdLine = "$Cmd " + ($argList -join ' ') + ' < NUL'
+
+  # 3. 准备日志
+  if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+  }
+  $logPath = Join-Path $LogDir "$Name.log"
+  $errPath = Join-Path $LogDir "$Name.log.err"
+
+  if ($IsForeground) {
+    # 前台模式:在当前终端跑,会被外部 SIGINT 影响(不推荐)
+    Write-Warn "前台模式:本窗口关闭/外部 SIGINT 会中断 $Name"
+    Write-Info "$Name → $cmdLine (cwd: $Cwd)"
+    Write-Host ''
+    Push-Location $Cwd
+    try {
+      & cmd.exe /c $cmdLine
+    } finally {
+      Pop-Location
+    }
+    return $true
+  }
+
+  # 4. 后台模式(默认,SIGINT 免疫)
+  Write-Info "后台启动 $Name → $logPath"
+  Write-Info "  cmd: cmd.exe /c $cmdLine"
+  Write-Info "  cwd: $Cwd"
+
+  $procId = $null
+  $spawnTier = 'start-process'
+
+  # 通道 1(首选,宿主退出免疫):WMI Win32_Process.Create —— 父进程为 WmiPrvSE,
+  # 天然在调用方作业树之外,宿主应用退出(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
+  # 杀不到服务(2026-10-09 实证:Start-Process 派生的服务随宿主重启全灭)。
+  # 经 Start-Job + 20s 超时守卫执行:沙箱/受限会话里 CIM IPC 可能被 stall,
+  # 超时即降级通道 2,绝不卡死启动链。stdin 已由 $cmdLine 尾部 `< NUL` 断开。
+  try {
+    $cmdFull = "$env:ComSpec /c `"cd /d `"$Cwd`" && ($cmdLine) >> `"$logPath`" 2>> `"$errPath`"`""
+    $job = Start-Job -ScriptBlock {
+      param($cmdFull)
+      $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = 0 }
+      Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+        CommandLine               = $cmdFull
+        ProcessStartupInformation = $startup
+      }
+    } -ArgumentList $cmdFull
+    if (Wait-Job $job -Timeout 20) {
+      $createResult = Receive-Job $job
+      if ($createResult -and $createResult.ReturnValue -eq 0 -and $createResult.ProcessId) {
+        $procId = $createResult.ProcessId
+        $spawnTier = 'wmi-breakaway'
+      }
+    } else {
+      Stop-Job $job
+      Write-Warn "WMI 通道 20s 超时(沙箱/受限会话),降级 Start-Process"
+    }
+    Remove-Job $job -Force -ErrorAction SilentlyContinue
+  } catch {
+    Write-Warn "WMI 通道异常($($_.Exception.Message)),降级 Start-Process"
+  }
+
+  # 通道 2(降级):Start-Process。沙箱/受限会话里可用,但服务进程挂在调用方
+  # 作业树内 —— 宿主应用退出会被连带杀掉(已知代价,重启宿主后需重跑 dev:safe)。
+  if (-not $procId) {
+    try {
+      $proc = Start-Process -FilePath 'cmd.exe' `
+        -ArgumentList @('/c', $cmdLine) `
+        -WorkingDirectory $Cwd `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $logPath `
+        -RedirectStandardError $errPath `
+        -PassThru `
+        -ErrorAction Stop
+      $procId = $proc.Id
+      $spawnTier = 'start-process'
+    } catch {
+      Write-Err "启动 $Name 失败:$($_.Exception.Message)"
+      return $false
+    }
+  }
+
+  Write-Ok "$Name 启动成功 PID=$procId (通道:$spawnTier)"
+
+  # 5. 写 PID 注册表
+  $map = Get-PidMap
+  $map[$Name] = @{
+    pid        = $procId
+    spawn_tier = $spawnTier
+    port       = $Port
+    health     = $HealthUrl
+    log        = $logPath
+    err        = $errPath
+    started_at = (Get-Date).ToString('o')
+  }
+  Save-PidMap $map
+
+  # 6. 健康检查(异步轮询,不阻塞其他服务启动)
+  if ($SkipHealth) {
+    Write-Info "$Name 跳过健康检查(由合并自检阶段统一探测)"
+    return $true
+  }
+  if (Wait-Healthy $Name $Port $HealthUrl $TimeoutSec) {
+    Write-Ok "$Name 健康(端口 $Port 监听中)"
+  } else {
+    Write-Warn "$Name 启动超时($TimeoutSec s),请检查日志:$logPath"
+  }
+  return $true
+}
+
+# ============================================================
+# 函数:打印状态
+# ============================================================
+function Show-Status {
+  $registry = Get-ServiceRegistry
+  Write-Hdr "IHUI-AI dev 服务状态"
+
+  $map = Get-PidMap
+  foreach ($name in $registry.all) {
+    $svc = $registry.services.$name
+    $port = [int]$svc.port
+    $health = $svc.health
+    $portInUse = Test-PortInUse $port
+    $pidInfo = ''
+    if ($map.ContainsKey($name)) {
+      $procId = [int]$map[$name].pid
+      $alive = Test-PidAlive $procId
+      $pidInfo = if ($alive) { "PID=$procId 存活" } else { "PID=$procId 已死(僵尸)" }
+    }
+    $statusText = if ($portInUse) { 'UP' } else { 'DOWN' }
+    $statusColor = if ($portInUse) { 'Green' } else { 'DarkGray' }
+    $httpText = ''
+    if ($portInUse -and -not [string]::IsNullOrEmpty($health)) {
+      $ok = Test-HealthUrl $health 10
+      $httpText = if ($ok) { ' / HTTP 200' } else { ' / HTTP NO-RESP' }
+    }
+    $pidText = if ($pidInfo) { "  [$pidInfo]" } else { '' }
+    Write-Host ("  {0,-15} port {1,-5} {2}{3}{4}" -f $name, $port, $statusText, $httpText, $pidText) -ForegroundColor $statusColor
+  }
+
+  Write-Host ''
+  Write-Host "  PID 注册表: $PidFile" -ForegroundColor DarkGray
+  Write-Host "  日志目录:   $LogDir" -ForegroundColor DarkGray
+
+  # 2026-08-27:web Turbopack 缓存卫生提示(预防缓存膨胀 → dev 高内存/CPU)。
+  # 缓存由 apps/web 的 dev 启动器(scripts/dev-with-warmup.mjs,拿到 dev 锁之后)自动治理,超 8GB 启动时清;
+  # 此处仅作诊断辅助,一眼看出当前缓存是否已逼近阈值。
+  $nextCache = Join-Path $RepoRoot 'apps\web\.next\dev\cache\turbopack'
+  if (Test-Path $nextCache) {
+    $cacheMB = [math]::Round((Get-ChildItem $nextCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB, 0)
+    if ($cacheMB -gt 8192) {
+      Write-Host "  web turbopack 缓存: $cacheMB MB ⚠ 超 8GB(重启 web 时自动清理)" -ForegroundColor Yellow
+    } else {
+      Write-Host "  web turbopack 缓存: $cacheMB MB (阈值 8GB,启动时自动清理)" -ForegroundColor DarkGray
+    }
+  } else {
+    Write-Host "  web turbopack 缓存: 无(首次 dev 启动时生成)" -ForegroundColor DarkGray
+  }
+}
+
+# ============================================================
+# 函数:停止所有 start-dev 启动的服务
+# ============================================================
+function Stop-AllServices {
+  Write-Hdr "停止 start-dev 启动的所有服务"
+  $map = Get-PidMap
+  if ($map.Count -eq 0) {
+    Write-Warn "PID 注册表为空,无服务可停"
+    return
+  }
+  foreach ($name in @($map.Keys)) {
+    Stop-ServiceProcess $name
+  }
+  Write-Ok "所有服务已停止"
+}
+
+# ============================================================
+# 函数:清理端口 + 残留 dev 进程
+# ============================================================
+function Invoke-Cleanup {
+  Write-Hdr "清理 IHUI dev 端口 + 残留 dev 进程"
+  $registry = Get-ServiceRegistry
+
+  # 1. 杀所有注册端口
+  foreach ($name in $registry.all) {
+    $svc = $registry.services.$name
+    $port = [int]$svc.port
+    $owner = Get-PortOwner $port
+    if ($owner) {
+      Write-Info "端口 $port ($name) 被 PID=$owner 占用,kill"
+      Stop-ProcessTree $owner "$name 残留" | Out-Null
+    } else {
+      Write-Info "端口 $port ($name) free"
+    }
+  }
+
+  # 2. 清 PID 注册表
+  $map = Get-PidMap
+  foreach ($name in @($map.Keys)) {
+    $procId = [int]$map[$name].pid
+    if (Test-PidAlive $procId) {
+      Stop-ProcessTree $procId "$name 残留" | Out-Null
+    }
+    $map.Remove($name)
+  }
+  Save-PidMap $map
+
+  # 3. 扫 IHUI 命令行残留(< 2 小时启动的 node.exe / python.exe)
+  $cutoff = (Get-Date).AddHours(-2)
+  $zombies = Get-Process -Name node, python -ErrorAction SilentlyContinue |
+    Where-Object { $_.StartTime -gt $cutoff }
+  $killed = 0
+  foreach ($p in $zombies) {
+    try {
+      $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction SilentlyContinue).CommandLine
+      if ($cmd -and ($cmd -match 'apps[\\/]|@ihui[\\/]|next-server|tsx watch|uvicorn|fastapi')) {
+        Stop-ProcessTree $p.Id "$($p.ProcessName) IHUI 残留" | Out-Null
+        $killed++
+      }
+    } catch {}
+  }
+  Write-Ok "已清理 $killed 个 IHUI 残留 dev 进程"
+}
+
+# ============================================================
+# 函数:显示帮助
+# ============================================================
+function Show-Help {
+  Write-Hdr "start-dev.ps1 用法"
+  Write-Host @"
+  启动模式(默认后台模式,SIGINT 免疫):
+    pwsh -File scripts/start-dev.ps1                        # 启动默认组 web+api+ai-service
+    pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service
+    pwsh -File scripts/start-dev.ps1 -Desktop              # 桌面端:api+ai-service+desktop(desktop 自带 web 8801,自动注入 cargo PATH)
+    pwsh -File scripts/start-dev.ps1 -All                   # 启动全部 8 端(注意:含 desktop 时需先 -Stop 停掉 web,两者互斥)
+    pwsh -File scripts/start-dev.ps1 -Foreground            # 前台(不推荐,会被 SIGINT 杀)
+
+  管理命令:
+    pwsh -File scripts/start-dev.ps1 -Status                # 查看 8 端运行状态
+    pwsh -File scripts/start-dev.ps1 -Stop                  # 停止所有 start-dev 启动的服务
+    pwsh -File scripts/start-dev.ps1 -Clean                 # 清理端口 + 残留 dev 进程
+
+  其他:
+    -Force   端口冲突时强制 kill 占用进程
+    -Help    显示本帮助
+
+  设计原理:
+    - 后台模式:Start-Process 派生 cmd.exe 隐藏窗口 + 重定向 stdout/stderr 到日志
+    - 关闭本终端不会级联关闭 dev server(SIGINT 只到本 PowerShell 进程)
+    - PID 写入 .ihui-agent/tmp/dev-logs/pids.json(可手动清)
+    - 日志:  .ihui-agent/tmp/dev-logs/<name>.log + <name>.log.err
+    - 注册表: scripts/dev-port-registry.json(端口 + 命令)
+"@
+}
+
+# ============================================================
+# Main
+# ============================================================
+
+if ($Help) {
+  Show-Help
+  exit 0
+}
+
+if ($Status) {
+  Show-Status
+  exit 0
+}
+
+if ($Stop) {
+  Stop-AllServices
+  exit 0
+}
+
+if ($Clean) {
+  Invoke-Cleanup
+  exit 0
+}
+
+# ============================================================
+# 启动前硬门禁:三端 env 一致性检查(JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY)
+# 2026-08-07 立:此前 env 漂移导致全站 401(任务列表/模型连接失败)反复出现,
+# 任何不一致直接拒绝启动,绝不带病运行。
+# ============================================================
+function Invoke-EnvConsistencyGate {
+  Write-Hdr "env 一致性门禁(三端 JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY)"
+  $node = Get-Command node -ErrorAction SilentlyContinue
+  if (-not $node) {
+    Write-Err "未找到 node,无法执行一致性门禁(scripts/check-dev-env-consistency.mjs),拒绝启动"
+    return $false
+  }
+  $gateScript = Join-Path $RepoRoot 'scripts\check-dev-env-consistency.mjs'
+  if (-not (Test-Path $gateScript)) {
+    Write-Err "门禁脚本缺失: $gateScript,拒绝启动"
+    return $false
+  }
+  $output = & node $gateScript 2>&1
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -eq 0) {
+    $output | ForEach-Object { Write-Host $_ }
+    Write-Ok "env 一致性门禁通过"
+    return $true
+  }
+  $output | ForEach-Object { Write-Host $_ }
+  Write-Err "env 一致性门禁失败(exit=$exitCode):拒绝启动。请先修复 env 配置再重试。"
+  return $false
+}
+
+# 启动流程
+$registry = Get-ServiceRegistry
+
+# 决定要启动的服务列表
+$toStart = @()
+if ($All) {
+  $toStart = $registry.all
+} elseif ($Services) {
+  foreach ($s in $Services) {
+    $s = $s.Trim()
+    if ($s -notin $registry.all) {
+      Write-Err "未知服务: $s(可选:$($registry.all -join ', '))"
+      exit 1
+    }
+    $toStart += $s
+  }
+} elseif ($Desktop) {
+  # 桌面端模式:desktop 自带 web dev(8801),只需 api + ai-service 作为后端
+  $toStart = @('api', 'ai-service', 'desktop')
+} else {
+  # 默认:registry.default
+  $toStart = $registry.default
+}
+
+if ($toStart.Count -eq 0) {
+  Write-Err "无服务可启动。请用 -Services <name> / -All / -Desktop"
+  Show-Help
+  exit 1
+}
+
+# desktop 与 web 互斥:desktop 的 beforeDevCommand 自起 web(8801),
+# 同时启动 web 会触发 next dev 端口冲突(交互询问导致卡死)。
+if ($toStart -contains 'desktop' -and $toStart -contains 'web') {
+  Write-Err "desktop 自带 web dev(8801),不能与 web 同时启动。"
+  Write-Err "  仅桌面端:  pwsh -File scripts/start-dev.ps1 -Desktop"
+  Write-Err "  仅 Web 端:  pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service"
+  exit 1
+}
+
+# Tauri 桌面端需要两样东西都在 PATH 上,**不是只有 cargo**:
+#   (1) cargo —— 取 %USERPROFILE%\.cargo\bin,该处已是指向
+#       D:\DevEnv\cache\userhome\.cargo 的 junction(缓存实体不在 C 盘),且原写
+#       D:\caches\cargo\bin 是本机不存在的死路径,导致 desktop 启动时 cargo 从未被注入 PATH。
+#   (2) MSVC 工具链(提供 link.exe)—— 本脚本**不**注入,见下方只读诊断。
+#       .cargo/config.toml 里 `linker = "link.exe"` 是裸名、按 PATH 解析,
+#       所以"只有 cargo 也能编"是错的:linker 那一步会在 PATH 上被顶掉或干脆找不到。
+if ($toStart -contains 'desktop') {
+  $cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
+  if (Test-Path (Join-Path $cargoBin 'cargo.exe')) {
+    if ($env:PATH -notlike "*$cargoBin*") {
+      $env:PATH = "$cargoBin;$env:PATH"
+      Write-Ok "已注入 cargo PATH: $cargoBin"
+    }
+  } else {
+    Write-Warn "未找到 cargo($cargoBin),桌面端 Rust 编译将失败。请先安装 Rust 工具链(或检查 CARGO_HOME)。"
+  }
+
+  # ── 只读诊断:link.exe 是否会被非 MSVC 的同名程序遮蔽 ────────────────────────
+  # 纯 Get-Command + 字符串比对,**不注入 PATH、不改任何变量、不调 vcvars**。
+  # MSVC 环境注入的唯一真相源是 scripts/lib/msvc-env.mjs + scripts/desktop-build.mjs;
+  # 在 .ps1 里再造一份 vcvars 调用就是第二份判据(§0.6),故这里只报不改。
+  # 判据:能解析到 link.exe 但来源不在 \VC\Tools\MSVC\ 下 ⇒ 顶上来的不是 MSVC 链接器。
+  #
+  # **报什么由"desktop 实际怎么被拉起"决定,不由本 shell 的 PATH 单独决定**(否则必假红):
+  # 本脚本自己不注入 MSVC ⇒ 这条读数**恒**是"被遮蔽",但如果 desktop 经由
+  # `pnpm --filter @ihui/desktop dev|build`(package.json 的 dev/build 已改走 scripts/desktop-build.mjs)
+  # 拉起,那次构建会自行注入,本条只是记录事实;只有 desktop 被指向裸 tauri/cargo 时才真的无路。
+  $linkCmd = Get-Command link.exe -ErrorAction SilentlyContinue
+  $shadowed = [bool]$linkCmd -and ($linkCmd.Source -notlike '*\VC\Tools\MSVC\*')
+  if ($shadowed) {
+    $desktopLaunch = (@($registry.services.desktop.cmd) + @($registry.services.desktop.args)) -join ' '
+    # 走 pnpm --filter @ihui/desktop <script> ⇒ 经 package.json ⇒ 已被 wrapper 接管(注入在入口里)
+    $viaWrapper = ($desktopLaunch -like '*@ihui/desktop*') -and ($desktopLaunch -notlike '*exec tauri*')
+    if ($viaWrapper) {
+      Write-Info "link.exe 解析到 $($linkCmd.Source)(不在 MSVC 目录)—— 本脚本不注入 MSVC;desktop 经 '$desktopLaunch' 拉起,由 scripts/desktop-build.mjs 自行注入,不受影响。"
+      Write-Info "  仅当**裸跑** cargo build / tauri dev / tauri build 时才会撞上遮蔽(症状: link: missing operand after '\377\376')。"
+    } else {
+      Write-Warn "link.exe 解析到 $($linkCmd.Source),不在 MSVC 工具链目录(\VC\Tools\MSVC\)内 —— 这是 Git usr\bin 的 GNU coreutils link,正在遮蔽 MSVC 链接器。"
+      Write-Warn "  desktop 的启动命令 '$desktopLaunch' **不经** scripts/desktop-build.mjs ⇒ 无处注入工具链,构建会在链接阶段失败(症状: link: missing operand after '\377\376')。"
+      Write-Warn "  出路:把 dev-port-registry.json 的 desktop 指向 'pnpm --filter @ihui/desktop dev'(package.json 的 dev 已接注入),或在开发 shell 里先加载 vcvars/vsdevcmd;不要在本脚本里补 PATH。"
+    }
+  }
+}
+
+# 硬门禁:env 一致性(仅实际启动时执行,-Status/-Stop/-Clean 跳过;-Fast 也跳过以省 ~2s)
+if (-not $Fast -and -not (Invoke-EnvConsistencyGate)) {
+  exit 1
+}
+if ($Fast) {
+  Write-Info "[Fast] 已跳过 env 一致性门禁"
+}
+
+Write-Hdr "IHUI-AI dev 启动器(后台模式,SIGINT 免疫)"
+Write-Info "启动服务:$($toStart -join ', ')"
+Write-Info "日志目录:  $LogDir"
+Write-Info "PID 注册表:$PidFile"
+Write-Info "前台模式:  $(if ($Foreground) { 'YES(不免疫)' } else { 'NO(免疫)' })"
+Write-Info "快速模式:  $(if ($Fast) { 'YES(并行启动+合并自检)' } else { 'NO(串行)' })"
+
+if ($Fast -and -not $Foreground) {
+  # ============================================================
+  # Fast 模式:并行发射所有服务,不做单服务阻塞式健康等待;
+  # 由后面统一的合并自检阶段一次性探活。
+  # 实测收益:三端 web+api+ai-service 启动耗时从串行 ~240s 上限
+  # 压缩到 max(单服务启动) + 合并自检 60s 上限。
+  # ============================================================
+  # SkipHealth:$true 让 Start-ServiceProcess 发射后立即返回,
+  # 串行 for 循环本身耗时已 <1s(仅 Start-Process + 写 pids.json)。
+  foreach ($name in $toStart) {
+    $svc = $registry.services.$name
+    $ok = Start-ServiceProcess `
+      -Name $name `
+      -Cmd $svc.cmd `
+      -ScriptArgs $svc.args `
+      -Cwd (Join-Path $RepoRoot $svc.cwd) `
+      -Port ([int]$svc.port) `
+      -HealthUrl $svc.health `
+      -TimeoutSec ([int]$svc.timeout_sec) `
+      -IsForeground:$false `
+      -SkipHealth:$true
+    if (-not $ok) { Write-Warn "$name 启动失败" }
+  }
+}
+else {
+  foreach ($name in $toStart) {
+    $svc = $registry.services.$name
+    Start-ServiceProcess `
+      -Name $name `
+      -Cmd $svc.cmd `
+      -ScriptArgs $svc.args `
+      -Cwd (Join-Path $RepoRoot $svc.cwd) `
+      -Port ([int]$svc.port) `
+      -HealthUrl $svc.health `
+      -TimeoutSec ([int]$svc.timeout_sec) `
+      -IsForeground:([bool]$Foreground)
+  }
+}
+
+Write-Hdr "完成"
+Write-Info "查看状态:pwsh -File scripts/start-dev.ps1 -Status"
+Write-Info "停止服务:pwsh -File scripts/start-dev.ps1 -Stop"
+Write-Info "查看日志:$LogDir"
+Write-Info "浏览器:" -NoNewline
+foreach ($name in $toStart) {
+  $svc = $registry.services.$name
+  if ($svc.health) {
+    Write-Host " $($svc.health)" -NoNewline -ForegroundColor Cyan
+  }
+}
+Write-Host ''
+
+# ============================================================
+# 启动后端到端自检(2026-08-07 立):所有已启动服务做 HTTP 实测,
+# 不再只信启动器的健康检查(api/ai-service 编译慢常报超时误判)。
+# 每个服务独立等待其 registry timeout_sec(不统一窗口,慢服务给足时间)。
+# 任一服务超时不响应 → 打印红色 FAIL + 日志提示,但仍保留进程排查。
+# ============================================================
+Write-Hdr "端到端自检(HTTP 实测,按服务独立等待)"
+
+# ============================================================
+# 自检阶段:
+#   - 默认(串行):每个服务独立窗口等待其 timeout_sec,慢服务给足时间
+#   - -Fast(合并并行):全部服务放进一个统一窗口(取最大 timeout_sec,
+#     上限 60s 以免拖慢日常启动),每轮循环并行探测所有未就绪服务,
+#     任一服务的 HTTP 探活耗时不再相加;全部 PASS 立即退出。
+# ============================================================
+$healthTargets = foreach ($name in $toStart) {
+  $svc = $registry.services.$name
+  if (-not $svc.health) { continue }
+  [pscustomobject]@{
+    Name    = $name
+    Port    = [int]$svc.port
+    Health  = $svc.health
+    Timeout = [int]$svc.timeout_sec
+    Ok      = $false
+  }
+}
+$skipTargets = @()
+foreach ($name in $toStart) {
+  $svc = $registry.services.$name
+  if (-not $svc.health) {
+    $skipTargets += [pscustomobject]@{ Name = $name; Port = [int]$svc.port }
+  }
+}
+foreach ($s in $skipTargets) {
+  Write-Host "  {0,-15} port {1,-5} SKIP(无 HTTP 探针)" -f $s.Name, $s.Port -ForegroundColor DarkGray
+}
+
+if ($Fast) {
+  # 合并窗口 90s 硬上限:日常冷启动三端 ~10-20s 就绪,90s 已足够宽裕;
+  # 超过视为异常直接 FAIL 出日志,比默认模式串行等 240s 更快发现异常。
+  $window = 90
+  $deadline = (Get-Date).AddSeconds($window)
+  while ((Get-Date) -lt $deadline) {
+    $pending = @($healthTargets | Where-Object { -not $_.Ok })
+    if ($pending.Count -eq 0) { break }
+    $probes = foreach ($p in $pending) {
+      $p.Name, (Test-HealthUrl $p.Health 5)
+    }
+    for ($i = 0; $i -lt $pending.Count; $i++) {
+      if ($probes[$i * 2 + 1]) { $pending[$i].Ok = $true }
+    }
+    Start-Sleep -Milliseconds 500
+  }
+}
+else {
+  foreach ($t in $healthTargets) {
+    $svcDeadline = (Get-Date).AddSeconds($t.Timeout)
+    while ((Get-Date) -lt $svcDeadline) {
+      if (Test-HealthUrl $t.Health 10) { $t.Ok = $true; break }
+      Start-Sleep -Milliseconds 1000
+    }
+  }
+}
+
+foreach ($t in $healthTargets) {
+  if ($t.Ok) {
+    $line = "  {0,-15} port {1,-5} PASS  {2}" -f $t.Name, $t.Port, $t.Health
+    Write-Host $line -ForegroundColor Green
+  } else {
+    $line = "  {0,-15} port {1,-5} FAIL  {2}" -f $t.Name, $t.Port, $t.Health
+    Write-Host $line -ForegroundColor Red
+    Write-Host "          ↳ 请检查日志: $LogDir\$($t.Name).log(.err)" -ForegroundColor DarkGray
+  }
+}
+
+# ============================================================
+# 高频 nav 路由预热(2026-09-02 立 · 2026-09-03 回滚 --all → 高频 12 条):
+# dev 模式 Turbopack 按需编译,首次点击导航实测 9.8~11.1s/页(见 web.log
+# "○ Compiling /publish/history" → 11.8s)。预热把编译提前到启动阶段,
+# 用户首次点击即命中已编译路由(~130ms,非冷编译 2.5~4s)。
+#
+# 2026-09-12 迁移:预热不再由本启动器派生,已并入 dev 入口本身 ——
+#   apps/web/package.json 的 `dev` = scripts/dev-with-warmup.mjs(2026-10-02 起:改 next dist 的
+#   dev 预取守卫与缓存治理都在这支启动器【之内】、拿到 dev 锁之后跑,不再由 npm 脚本用 && 前置),
+#   由它在 next dev 就绪后以 detached 后台进程跑
+#   `warm-dev-routes.mjs`(PRIORITY_ROUTES 全量 36 条,默认档才预热;`--purge` / `--no-turbopack`
+#   那两档不预热 —— 它们是拿来对照观感与排查编译的逃生档,
+#   日志 .ihui-agent/tmp/dev-logs/web-warmup.log)。
+#   本注册表里 web 走 `pnpm --filter @ihui/web dev`,desktop 的 beforeDevCommand 亦然,
+#   故此处【不得】再派生一次 —— 双份预热互抢 Turbopack 编译队列,反而拖慢首次点击。
+#
+# 历史教训(勿重蹈):
+#   曾升级为 --all 全量预热(194 条)以为"彻底消除时机依赖",但实测反而更慢:
+#   全量 194 条 + 客户端 Sidebar 第七刀 ~100 条双份叠加,单次会话把 Turbopack
+#   缓存(RocksDB)从 3GB 撑到 40GB → 会话内所有路由(含已编译)单路由 15~19s。
+#   故上限维持"约 30 条"(单次会话缓存增长 <1GB),严禁再走 --all。
+# ============================================================
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

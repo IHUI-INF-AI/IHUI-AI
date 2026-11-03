@@ -1,0 +1,156 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { IdentityVerifyStatus, IdentityVerifyScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { ScreenSkeleton } from '../../components/ScreenStates'
+
+export type { IdentityVerifyStatus, IdentityVerifyScreenProps }
+
+const STATUS_KEY: Record<IdentityVerifyStatus, string> = {
+  unverified: 'identityVerify.status_unverified',
+  pending: 'identityVerify.status_pending',
+  verified: 'identityVerify.status_verified',
+  rejected: 'identityVerify.status_rejected',
+}
+
+/**
+ * 实名认证共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header + 认证状态卡 + 上传占位(身份证正/反/自拍)+ 提交按钮。
+ * 真实上传由 wrapper 实现(原 mobile-rn 也仅是占位 + 号)。
+ * 平台特定(导航/API)由 wrapper 注入。
+ */
+export function IdentityVerifyScreen({
+  t,
+  status,
+  reason,
+  loading,
+  submitting,
+  error,
+  onSubmit,
+  onBack,
+  colorScheme = 'light',
+}: IdentityVerifyScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+      </View>
+    )
+  }
+
+  const items: Array<{ key: string; desc: string }> = [
+    { key: 'front', desc: t('identityVerify.uploadFront') },
+    { key: 'back', desc: t('identityVerify.uploadBack') },
+    { key: 'selfie', desc: t('identityVerify.uploadSelfie') },
+  ]
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('identityVerify.title')}</Text>
+      </View>
+      <ScrollView style={styles.body} contentContainerStyle={{ padding: 14 }}>
+        <View style={styles.card}>
+          <Text style={styles.subtitle}>{t('identityVerify.subtitle')}</Text>
+          <Text style={[styles.status, status === 'verified' && styles.statusOk]}>
+            {t(STATUS_KEY[status])}
+          </Text>
+          {reason ? <Text style={styles.errorText}>{reason}</Text> : null}
+        </View>
+        {status !== 'verified' && status !== 'pending' ? (
+          <View style={styles.card}>
+            {items.map((item) => (
+              <View key={item.key} style={styles.uploadItem}>
+                <Text style={styles.label}>{item.desc}</Text>
+                <View style={styles.uploadBtn}>
+                  <Text style={styles.uploadBtnText}>+</Text>
+                </View>
+              </View>
+            ))}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+              onPress={onSubmit}
+              disabled={submitting}
+            >
+              <Text style={styles.submitBtnText}>
+                {submitting ? t('identityVerify.submitting') : t('identityVerify.submit')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </ScrollView>
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    body: { flex: 1 },
+    card: {
+      padding: rnSpacing['md-loose'],
+      marginBottom: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
+    status: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.danger.DEFAULT,
+    },
+    statusOk: { color: tk.success.DEFAULT },
+    uploadItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing['sm-loose'],
+    },
+    label: { fontSize: rnType.body.size, color: tk.text.medium },
+    uploadBtn: {
+      width: 48,
+      height: 50,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    uploadBtnText: { fontSize: rnType.display.size, color: tk.text.tertiary },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginTop: rnSpacing.sm },
+    submitBtn: {
+      marginTop: rnSpacing.md,
+      height: 50,
+      justifyContent: 'center',
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+    },
+    submitBtnDisabled: { opacity: 0.5 },
+    submitBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

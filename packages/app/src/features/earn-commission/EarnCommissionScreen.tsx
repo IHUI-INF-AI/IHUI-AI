@@ -1,0 +1,234 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { EarnCommissionScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+
+/** 分佣计划/Props 类型 re-export(单一来源 @ihui/types) */
+export type { EarnCommissionScreenProps }
+
+/** 规则文案键:与端内 pages/distribution/plan/index 同一套键(rule1..rule4),值逐字一致 */
+const RULE_KEYS = [
+  'distribution.plan.rule1',
+  'distribution.plan.rule2',
+  'distribution.plan.rule3',
+  'distribution.plan.rule4',
+] as const
+
+/**
+ * 分佣计划共享屏 — 平台无关 UI 组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题) + 统计卡片 + 规则说明 + 分佣比例表 + 底部按钮。
+ * 平台特定(API 调用/导航)由 wrapper 通过 props 注入;分佣比例由 `rates` 注入真值
+ * (GET /distribution/commission-rates),缺省/空数组如实渲染空态,不再硬编 VIP/SVIP 档位。
+ */
+export function EarnCommissionScreen({
+  t,
+  onBack,
+  overview,
+  onOpenVip,
+  rates = [],
+  colorScheme = 'light',
+}: EarnCommissionScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const totalEarnings = overview?.totalCommission ?? 0
+  const invitedCount = overview?.invitedCount ?? 0
+
+  return (
+    <View style={styles.root}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('earnCommission.title') || '分佣计划'}</Text>
+      </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.introCard}>
+          <Text style={styles.introTitle}>
+            {t('earnCommission.introTitle') || '邀请好友,赚取佣金'}
+          </Text>
+          <Text style={styles.introDesc}>
+            {t('earnCommission.introDesc') ||
+              '加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费 20% 的佣金收益'}
+          </Text>
+          <View style={styles.statsArea}>
+            <View style={styles.statsItem}>
+              <Text style={styles.statsValue}>{'¥' + (totalEarnings / 100).toFixed(2)}</Text>
+              <Text style={styles.statsLabel}>
+                {t('earnCommission.totalEarnings') || '累计收益'}
+              </Text>
+            </View>
+            <View style={styles.statsItem}>
+              <Text style={styles.statsValue}>{String(invitedCount)}</Text>
+              <Text style={styles.statsLabel}>
+                {t('earnCommission.invitedCount') || '邀请人数'}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('earnCommission.rules') || '分佣规则'}</Text>
+          {RULE_KEYS.map((key, index) => (
+            <View key={key} style={styles.ruleItem}>
+              <View style={styles.ruleNum}>
+                <Text style={styles.ruleNumText}>{String(index + 1)}</Text>
+              </View>
+              <Text style={styles.ruleText}>{t(key)}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{t('earnCommission.rateTitle') || '分佣比例'}</Text>
+          {rates.length === 0 ? (
+            <Text style={styles.rateEmpty}>{t('earnCommission.rateEmpty') || '暂无分佣比例'}</Text>
+          ) : (
+            rates.map((row) => (
+              <View key={row.level} style={styles.rateRow}>
+                <Text style={styles.rateLevel} numberOfLines={1}>
+                  {row.level}
+                </Text>
+                <Text style={styles.rateValue}>{row.rate}</Text>
+                {row.desc ? <Text style={styles.rateDesc}>{row.desc}</Text> : null}
+              </View>
+            ))
+          )}
+        </View>
+        {/* 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过 cssInterop,
+            函数形态声明会被展开成空对象,钮的 height/底色/圆角静默消失。marginTop 留外层(它在滚动列里
+            排下一块的布局档),面档加 height 50 落内层 —— 外层在该 column 里默认横向撑满,
+            所以通栏钮的宽高与间距都不变。 */}
+        <Pressable
+          onPress={onOpenVip}
+          accessibilityRole="button"
+          accessibilityLabel={t('earnCommission.openVip') || '开通VIP会员参与分佣计划'}
+          style={styles.bottomBtnBox}
+        >
+          {({ pressed }) => (
+            <View style={[styles.bottomBtn, pressed ? styles.pressed : null]}>
+              <Text style={styles.bottomBtnText}>
+                {t('earnCommission.openVip') || '开通VIP会员 参与分佣计划'}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </ScrollView>
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    scroll: { flex: 1 },
+    scrollContent: {
+      padding: rnSpacing['md-loose'],
+      gap: rnSpacing.md,
+      paddingBottom: rnSpacing['3xl'],
+    },
+    introCard: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+      padding: rnSpacing['md-loose'],
+      gap: rnSpacing.md,
+      alignItems: 'center',
+    },
+    introTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      textAlign: 'center',
+    },
+    introDesc: {
+      fontSize: rnType.body.size,
+      lineHeight: 20,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
+    statsArea: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      width: '100%',
+      marginTop: rnSpacing.sm,
+    },
+    statsItem: { alignItems: 'center', gap: rnSpacing['xs-loose'] },
+    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
+    statsLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
+    sectionCard: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+      padding: rnSpacing['md-loose'],
+      gap: rnSpacing.md,
+    },
+    sectionTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      textAlign: 'center',
+    },
+    ruleItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
+    ruleNum: {
+      width: 22,
+      height: 22,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ruleNumText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    ruleText: { flex: 1, fontSize: rnType.body.size, lineHeight: 19, color: tk.text.primary },
+    rateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      backgroundColor: tk.surface.muted,
+      borderRadius: rnRadius.xl,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['sm-loose'],
+    },
+    rateLevel: { flex: 1, fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
+    rateValue: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.brand.DEFAULT,
+      minWidth: 44,
+    },
+    rateDesc: { flex: 2, fontSize: rnType.body.size, color: tk.text.secondary },
+    rateEmpty: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+      paddingVertical: rnSpacing.sm,
+    },
+    // 外层 = 排下一块的布局档(守门 131:按压态不得写在 Pressable 的 style 上);
+    // 钮面档在下面的 bottomBtn,由内层 View 承载。数值逐字搬移、未新增。
+    bottomBtnBox: { marginTop: rnSpacing.sm },
+    bottomBtn: {
+      height: 50,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bottomBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
+    pressed: { opacity: 0.85 },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

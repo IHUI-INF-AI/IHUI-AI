@@ -1,0 +1,351 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useEffect, useState } from 'react'
+import { View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
+import type {
+  SharedLocaleOption,
+  SharedThemeOption,
+  SharedMenuItem,
+  SharedNotificationToggles,
+} from '@ihui/rn-app'
+import { fetchApi, updatePassword } from '@ihui/api-client'
+import SideMenu, { type SideMenuItem } from '../components/SideMenu'
+import { NavBar, type NavBarAction } from '../components/NavBar'
+import { NavChrome } from '../components/NavChrome'
+import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
+import { APP_VERSION } from '../lib/config'
+import { checkOtaUpdate, runningBundle } from '../lib/ota-update'
+import { useI18n, type Locale } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import {
+  User,
+  Smartphone,
+  Key,
+  Shield,
+  ShieldCheck,
+  BarChart3,
+  CalendarCheck,
+  Link2,
+  IdCard,
+  AlertTriangle,
+  RefreshCw,
+  Package,
+  HelpCircle,
+  Pencil,
+  FileText,
+  Lock,
+  ClipboardList,
+  Landmark,
+  Globe,
+  Bot,
+  Megaphone,
+  Activity,
+  Info,
+  Plug,
+  Database,
+  FileUp,
+  Menu,
+  MonitorSmartphone,
+  ListTodo,
+} from 'lucide-react-native'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>
+
+/**
+ * RN 端 Settings 包装器 — 注入 t + Alert/Confirm + 真实 updatePassword API + 导航,
+ * 渲染共享 SettingsScreen(内置密码修改 Modal UI + 校验逻辑)。
+ */
+export default function SettingsScreen() {
+  const { t, locale, setLocale } = useI18n()
+  const { user, logout } = useAuth()
+  const navigation = useNavigation<NavigationProp>()
+  const { themeMode, setThemeMode, resolvedTheme } = useTheme()
+  const [notifications, setNotifications] = useState<SharedNotificationToggles>({
+    push: true,
+    message: true,
+    email: false,
+  })
+  const [drawerVisible, setDrawerVisible] = useState(false)
+
+  // 进页回读真实偏好:原实现直接拿硬编码默认值渲染(push:true/message:true/email:false),
+  // 用户看到的开关状态与后端里的实际配置无关。
+  useEffect(() => {
+    void fetchApi<{ pushEnabled?: boolean; inAppEnabled?: boolean; emailEnabled?: boolean }>(
+      '/notifications/preferences',
+    ).then((r) => {
+      if (!r.success || !r.data) return
+      const p = r.data
+      setNotifications({
+        push: p.pushEnabled ?? true,
+        message: p.inAppEnabled ?? true,
+        email: p.emailEnabled ?? false,
+      })
+    })
+  }, [])
+
+  // 右侧菜单按钮(对齐 Uniapp settings 使用 ☰ 触发 Drawer 集成)
+  const rightActions: ReadonlyArray<NavBarAction> = [
+    {
+      icon: Menu,
+      label: t('common.menu'),
+      onPress: () => setDrawerVisible(true),
+    },
+  ]
+
+  const localeOptions: SharedLocaleOption[] = [
+    { value: 'zh-CN', label: t('settings.lang_zhCN') },
+    { value: 'en', label: t('settings.lang_en') },
+    { value: 'ja', label: t('settings.lang_ja') },
+    { value: 'ko', label: t('settings.lang_ko') },
+    { value: 'zh-TW', label: t('settings.lang_zhTW') },
+  ]
+
+  const themeOptions: SharedThemeOption[] = [
+    { value: 'light', label: t('settings.theme_light') },
+    { value: 'dark', label: t('settings.theme_dark') },
+    { value: 'system', label: t('settings.theme_system') },
+  ]
+
+  // 菜单项分组:账号与安全 / 通用设置 / 帮助与反馈 / 隐私与权限 / 关于
+  const menuItems: SharedMenuItem[] = [
+    // 账号与安全
+    { key: 'SettingsAccount', label: t('menu.accountManage') },
+    { key: 'ChangePhone', label: t('menu.changePhone') },
+    { key: 'ChangePwd', label: t('menu.changePwd') },
+    // 安全设置 / 身份认证(孤儿路由修复:原注册无入口,补挂设置菜单)
+    { key: 'SecurityCenter', label: t('securityCenter.title') },
+    { key: 'SecuritySettings', label: t('securitySettings.title') },
+    // 会员偏好(通知/隐私七开关):后端 /api/settings/notifications|privacy
+    { key: 'MemberSettings', label: t('memberSettings.title') },
+    { key: 'ApiKeys', label: t('apiKeys.title') },
+    // G1 跨设备互联用户面 + E1 审批收件箱(2026-10-30 立)
+    { key: 'Devices', label: t('devices.title') },
+    { key: 'PendingDecisions', label: t('pendingDecisions.title') },
+    // 签到助手 / 个人号池(2026-10-23 立):与 Web /checkin 同一后端,移动端可管理
+    { key: 'CheckinAssistant', label: t('checkinAssistant.title') },
+    { key: 'AccountPool', label: t('accountPool.title') },
+    { key: 'Usage', label: t('usage.title') },
+    { key: 'ConnectedAccounts', label: t('connectedAccounts.title') },
+    { key: 'DataRights', label: t('dataRights.title') },
+    { key: 'IdentityVerify', label: t('identityVerify.title') },
+    { key: 'AccountCancel', label: t('menu.accountCancel') },
+    // 通用设置
+    { key: 'CheckUpdate', label: t('menu.checkUpdate') },
+    // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
+    { key: 'ConversationImport', label: t('menu.conversationImport') },
+    // 更多功能(子包功能入口集合页,对齐原项目 subpackage index)
+    { key: 'SubPackageIndex', label: t('webViewPortal.sections.more') },
+    // 帮助与反馈
+    { key: 'Help', label: t('help.title') },
+    { key: 'Feedback', label: t('menu.feedback') },
+    // 隐私与权限
+    { key: 'Agreement', label: t('menu.agreement') },
+    { key: 'Privacy', label: t('menu.privacy') },
+    { key: 'AppPermission', label: t('menu.appPermission') },
+    { key: 'UsageRules', label: t('menu.usageRules') },
+    // 关于
+    { key: 'BusinessLicense', label: t('menu.businessLicense') },
+    { key: 'IcpRecord', label: t('menu.icpRecord') },
+    { key: 'ModelRecord', label: t('menu.modelRecord') },
+    { key: 'Announcement', label: t('announcement.title') },
+    { key: 'Status', label: t('statusPage.title') },
+    { key: 'About', label: t('menu.about') },
+  ]
+
+  const drawerMenuItems: SideMenuItem[] = [
+    { key: 'SettingsAccount', label: t('menu.accountManage'), icon: User },
+    { key: 'ChangePhone', label: t('menu.changePhone'), icon: Smartphone },
+    { key: 'ChangePwd', label: t('menu.changePwd'), icon: Key },
+    { key: 'SecurityCenter', label: t('securityCenter.title'), icon: ShieldCheck },
+    { key: 'SecuritySettings', label: t('securitySettings.title'), icon: Shield },
+    { key: 'ApiKeys', label: t('apiKeys.title'), icon: Key },
+    // G1 跨设备互联用户面 + E1 审批收件箱(2026-10-30 立)
+    { key: 'Devices', label: t('devices.title'), icon: MonitorSmartphone },
+    { key: 'PendingDecisions', label: t('pendingDecisions.title'), icon: ListTodo },
+    { key: 'CheckinAssistant', label: t('checkinAssistant.title'), icon: CalendarCheck },
+    { key: 'AccountPool', label: t('accountPool.title'), icon: Database },
+    { key: 'Usage', label: t('usage.title'), icon: BarChart3 },
+    { key: 'ConnectedAccounts', label: t('connectedAccounts.title'), icon: Link2 },
+    { key: 'DataRights', label: t('dataRights.title'), icon: ShieldCheck },
+    { key: 'IdentityVerify', label: t('identityVerify.title'), icon: IdCard },
+    { key: 'AccountCancel', label: t('menu.accountCancel'), icon: AlertTriangle },
+    { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: RefreshCw },
+    // D28 多端同步(2026-09-21):外部会话导入
+    { key: 'ConversationImport', label: t('menu.conversationImport'), icon: FileUp },
+    { key: 'SubPackageIndex', label: t('webViewPortal.sections.more'), icon: Package },
+    { key: 'Help', label: t('help.title'), icon: HelpCircle },
+    { key: 'Feedback', label: t('menu.feedback'), icon: Pencil },
+    { key: 'Agreement', label: t('menu.agreement'), icon: FileText },
+    { key: 'Privacy', label: t('menu.privacy'), icon: Lock },
+    { key: 'AppPermission', label: t('menu.appPermission'), icon: Shield },
+    { key: 'UsageRules', label: t('menu.usageRules'), icon: ClipboardList },
+    { key: 'BusinessLicense', label: t('menu.businessLicense'), icon: Landmark },
+    { key: 'IcpRecord', label: t('menu.icpRecord'), icon: Globe },
+    { key: 'ModelRecord', label: t('menu.modelRecord'), icon: Bot },
+    // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
+    { key: 'ApiSettings', label: t('menu.apiSettings'), icon: Plug },
+    { key: 'Announcement', label: t('announcement.title'), icon: Megaphone },
+    { key: 'Status', label: t('statusPage.title'), icon: Activity },
+    { key: 'About', label: t('menu.about'), icon: Info },
+  ]
+
+  const onSelectLocale = (v: string) => {
+    if (v === locale) return
+    void setLocale(v as Locale)
+    appAlert(t('settings.languageChanged'))
+  }
+
+  const onSelectTheme = (v: string) => {
+    setThemeMode(v as 'light' | 'dark' | 'system')
+    appAlert(t('settings.themeChanged'))
+  }
+
+  const onToggleNotification = async (key: keyof SharedNotificationToggles, value: boolean) => {
+    // 原先只 setState:既不落库也不回读,离开再进就复位成硬编码的默认值,
+    // 用户以为关了推送其实没关(同端 小程序 settings 也是同一型)。
+    // 后端真接口是 GET/PUT /api/notifications/preferences(updatePreferencesSchema:
+    // pushEnabled / inAppEnabled / emailEnabled),按 key 映射;失败回滚并与 web 通知页同口径。
+    const field = key === 'push' ? 'pushEnabled' : key === 'email' ? 'emailEnabled' : 'inAppEnabled'
+    const previous = notifications
+    setNotifications((prev) => ({ ...prev, [key]: value }))
+    try {
+      const r = await fetchApi('/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      })
+      if (!r.success) throw new Error(r.error)
+    } catch {
+      setNotifications(previous)
+      appAlert(t('common.failed'))
+    }
+  }
+
+  const onChangePassword = async (oldPwd: string, newPwd: string): Promise<boolean> => {
+    const res = await updatePassword({ oldPassword: oldPwd, newPassword: newPwd })
+    return res.success
+  }
+
+  const onAlert = (title: string, message?: string) => {
+    appAlert(title, message)
+  }
+
+  const onConfirm = (title: string, message: string, onOk: () => void) => {
+    appAlert(title, message, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.confirm'), style: 'destructive', onPress: onOk },
+    ])
+  }
+
+  const onMenuPress = (key: string) => {
+    // 检查更新(2026-10-27 修真):此前这里只弹一句「已是最新版本」—— 无论有没有更新、
+    // 无论网络通不通,用户点到的永远是同一句话,那是假的。现在调 OTA 状态机的真实入口,
+    // 结论按实际状态回话;查到更新时提示卡(components/UpdatePrompt)会自动出现,
+    // 因为两边读的是同一份 store(lib/ota-update.ts)。
+    if (key === 'CheckUpdate') {
+      void (async () => {
+        const result = await checkOtaUpdate()
+        // 当前包身份(内置/热更+短 id):让「生效没生效」有机器可查的对账凭据,
+        // 更新前后各查一次,短 id 变了就是真的换到新代码了
+        const rb = runningBundle()
+        const bundle =
+          rb.kind === 'ota' && rb.id
+            ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
+            : t('appUpdate.bundleEmbedded')
+        const bundleLine = `\n${t('appUpdate.currentBundle', { bundle })}`
+        if (result === 'ready') {
+          appAlert(t('settings.checkUpdateTitle'), `${t('appUpdate.ready')}${bundleLine}`)
+        } else if (result === 'up-to-date') {
+          appAlert(
+            t('settings.checkUpdateTitle'),
+            `${t('settings.checkUpdateLatest')}${bundleLine}`,
+          )
+        } else if (result === 'unsupported') {
+          appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateUnsupported'))
+        } else if (result === 'error') {
+          appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
+        }
+      })()
+      return
+    }
+    // 更换手机号:ChangePhone 路由需要 { uuid } 参数(取 user.id)
+    if (key === 'ChangePhone') {
+      if (!user?.id) {
+        appAlert(t('common.error'), t('settings.changePhoneMissingUser'))
+        return
+      }
+      navigation.navigate('ChangePhone', { uuid: user.id })
+      return
+    }
+    // Settings 为 RootStack 顶层 screen,navigation 即 RootStack 导航,
+    // 直接 navigate 即可(此前 getParent() 在根栈上返回 undefined,菜单跳转被静默忽略)
+    navigation.navigate(key as never)
+  }
+
+  const onDrawerItemPress = (key: string) => {
+    // Drawer 内菜单点击复用 onMenuPress 的跨栈导航逻辑
+    onMenuPress(key)
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <NavChrome>
+        <NavBar
+          title={t('settings.title')}
+          onBack={() => navigation.goBack()}
+          rightActions={rightActions}
+        />
+      </NavChrome>
+      <SharedSettingsScreen
+        t={t}
+        user={
+          user
+            ? {
+                id: user.id,
+                nickname: user.nickname,
+                avatar: user.avatar ?? null,
+                email: user.email,
+                phone: user.phone,
+              }
+            : null
+        }
+        locale={locale}
+        localeOptions={localeOptions}
+        onSelectLocale={onSelectLocale}
+        theme={themeMode}
+        themeOptions={themeOptions}
+        onSelectTheme={onSelectTheme}
+        colorScheme={resolvedTheme}
+        notifications={notifications}
+        onToggleNotification={onToggleNotification}
+        onEditProfile={() => navigation.navigate('ProfileEdit')}
+        onChangePassword={onChangePassword}
+        onAlert={onAlert}
+        onConfirm={onConfirm}
+        onLogout={() =>
+          onConfirm(t('common.logout'), t('settings.logoutConfirmBody'), () => void logout())
+        }
+        menuItems={menuItems}
+        onMenuPress={onMenuPress}
+        appVersion={APP_VERSION}
+        // 契约传值(SettingsScreenProps.onBack 必填,packages/types):共享组件已不渲染内置页头
+        // (双层页头收敛 2026-09-27),本页页头 = 上方 NavBar(标题 + 返回 + 菜单)唯一一条。
+        onBack={() => navigation.goBack()}
+      />
+      <SideMenu
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        items={drawerMenuItems}
+        onSelect={onDrawerItemPress}
+      />
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

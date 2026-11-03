@@ -1,0 +1,4870 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 文件面零丢失收敛合并(守门 100 的**修复出口**)
+ *
+ * 为什么要有它:`git-sync-converge` 在 merge-tree 冲突时只能报"需人工介入",而人工接手时
+ * 最容易犯的错是**选边**。2026-09-24 实测:远端一枚合并把对侧独有的 **35 个新增路径整批抹掉**、
+ * 72 个文件回退成旧基线(相对共同祖先净 −12014 行),它的提交信息还写着"双方每一行均存活" ——
+ * 因为它检查的是**行**,事故发生在**文件**上。本会话手工做了两次 union 收敛,把这套配方固化成工具:
+ * **不存在"哪一侧优先",只存在"谁独有的谁拿走"**。
+ *
+ * 构造(可断言的集合运算,不是启发式):
+ *   合并树 = 本侧整棵树
+ *           ∪ 对侧「相对共同基底自己动过、而本侧没动」的路径逐个取对侧版本;
+ *             对侧删掉的路径**不随合并传播** —— 删除必须在合并之后显式做出,那才是守门 100 认得的合法形态
+ *           ∪ 对侧与本侧「相对共同基底都动过」的非文档路径 ⇒ **真三方** `git merge-file`(base/ours/theirs
+ *             三个 blob)。此前这一类是"整文件取对侧",会**静默吃掉本侧在该文件里的改动** —— 与它要防的
+ *             事故同型,只是粒度从文件降到行。合并出冲突或遇二进制/非普通文件:判失败并**点名文件**,
+ *             由人来判;绝不猜、绝不选边(这与"零丢失"同等重要)。
+ *           ∪ 活文档(PROJECT_PLAN / AGENTS / README)按**三方行重数** union
+ *             `结果[l] = 本侧重数 + max(0, 对侧重数 − max(基底重数, 本侧重数))`
+ *             —— 只有"对侧相对基底新增"的行才被强制补回;对侧没动、被本侧改写/删除的行
+ *               处置权在本侧。旧写法 `max(ours,theirs)` 会把本侧就地改写**之前**的旧行复活
+ *               (2026-09-25 实测:刚翻勾的待办被并回未勾,`check-task-claims` 当场重新报成可派)。
+ *             2026-09-29 再收一维(G-814386):**带「重复登记副本」指针的行只许"从无到有带一份"**,
+ *               不参与份数累加。这一族已被 `plan-tasks` 的派单口径算作同一条活账的副本,而份数累加
+ *               等于**把已判过死刑的副本按份数复原** —— 实测 22:16 把该档清到 0 组/0 行,一枚收敛后
+ *               未勾选从 1189 顶回 1819、F1 从 0 顶回 37 组,清理那一侧永远追不上重放这一侧。
+ *               指针判据取自 `lib/plan-task-index.DUP_POINTER_RE`(与尺子同源,不得另写一个针);
+ *               少带的份数在落地当场逐条点名并写进合并提交信息,**不静默折进"0 丢失"**。
+ *             2026-09-28 再加一维**搬运感知**(唯一新增判据,实现在 `lib/ledger-move-aware.mjs`):
+ *               某一行若在**基准面(本侧)**已被一条 `<!-- 已归档(…) -->` 占位注释代表,
+ *               就不得再从对侧取回。立因是"完成即归档"与本工具**结构性互咬**:并行会话持有的
+ *               滞后台账副本把已搬走的正文行当"对侧新增"带回来,实测一枚收敛把台账从本侧
+ *               7,523 行带回 16,494 行(−8,971 行的归档白做了),面上已勾选行由 0 回到 2,410,
+ *               于是只能"瞬时清零、无法收敛",每收敛一次就得再搬一轮。
+ *               **这条判据的失效方向只能是"多带一行回来",绝不能是"少带一行"** —— 少带 = 丢
+ *               别人新写的行,比互咬更严重。所以占位找不到、归档件取不到、块边界与文本对不上、
+ *               块内容与归档件不逐行连续(= 占位之后被就地改写)、空行 —— 一律照旧取回并逐条报因。
+ *   落地前自证:丢本侧路径 = 0 ∧ 丢对侧路径 = 0 ∧ 三份文档未存活行 = 0 ∧ 两侧同改文件的**独有行不丢**
+ *             (字符行 multiset 底线;真三方可能把两侧改动交织到不同位置,本断言只保证重数不减少、
+ *              不判语义顺序 —— 局限如实说明,不假装更强);
+ *             "未存活行"这一维自 2026-09-28 起**同时报出**"因搬运感知而合法未取回"的行数与逐条出处
+ *             (报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"),不得静默。
+ *   落地后再让**守门 100 本人的 A1** 复核这枚新合并(用它的判据验它的产物,而不是"看着对")。
+ *   写盘一律临时索引 + commit-tree + **CAS** update-ref(HEAD 被他人推进则本轮作废重来),
+ *   绝不 checkout、绝不碰共享工作区(§12d)。
+ *
+ * 用法:
+ *   node scripts/union-converge.mjs                  # 只报告(零副作用)
+ *   node scripts/union-converge.mjs --apply          # 落地合并(幂等)
+ *   node scripts/union-converge.mjs --theirs <sha>   # 指定目标(默认 origin/<当前分支>)
+ *   node scripts/union-converge.mjs --base <sha>     # 显式指定三方归并基底(远端被强制重写过才需要;
+ *                                                    #   缺省仍走 merge-base,见 plan() 内注释)
+ *   node scripts/union-converge.mjs --take-ours <path> [--take-ours <path>]...
+ *       # 两侧同改且**能证明对侧那一版在本树必红**时,声明该路径取本侧。
+ *       #   必须逐条附取证(跑过对侧版的结果),且会出现在输出与合并提交信息里。
+ *   node scripts/union-converge.mjs --take-theirs <path> [--take-theirs <path>]...
+ *       # 与上一条对称(2026-09-28 补)。用的唯一场景:两侧把**同一个功能**各写了一份,
+ *       #   且同一行被两种写法改写(实测 D151「命令在等键盘输入」:本侧 `awaitingInput:{promptTail}`
+ *       #   vs 主干 `waitingInput:boolean`)。这种冲突 `--resolve` 结构上无解 —— 它的零损失断言
+ *       #   要求两侧独有行都在,而"都在"= 同名类型/函数声明重复 ⇒ 编译不过;于是它只会一路
+ *       #   "需人工",把发布链卡在分叉上(2026-09-28 实测挡停约 3 小时)。
+ *       #   声明它 = 该路径持有者说"本侧这一份是被取代的",整文件取对侧。
+ *       #   纪律照抄 --take-ours:逐条声明、逐条打印、写进合并提交信息;不声明就仍是 needHuman。
+ *   node scripts/union-converge.mjs --take-theirs-doc <path> [--take-theirs-doc <path>]...
+ *       # 活文档专用(2026-10-27 补):该路径**整份 blob 取对侧**并跳过行级 union。
+ *       #   立因:路径级 --take-theirs 对活文档**不生效** —— 1) 的活文档循环不问选边声明,
+ *       #   行级 union 照旧把对侧滞后的基线形态并回结果(生产签出 D:/DevEnv/ihui-prod 实测:
+ *       #   声明 --take-theirs PROJECT_PLAN.md 后 121 行滞后基线仍回灌),路径级选边与
+ *       #   行级 union 两层打架,缺的就是"整份活文档取对侧"这一条声明式出口。
+ *       #   自证语义与零丢失断言对齐:对这类路径,verifyUnion 的判据改为"合并树该路径 blob
+ *       #   逐字等于对侧 blob"(不再按行级期望表追讨 —— 本侧独有行被整份取代是声明本身)。
+ *       #   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息;
+ *       #   声明的路径两侧都取不到 ⇒ 未判定(不记通过,拦落地);声明了非活文档路径
+ *       #   ⇒ 声明未命中判红(整路径取对侧请改用 --take-theirs,它对非活文档本来就生效)。
+ *   node scripts/union-converge.mjs --legacy-lenient
+ *       # A6b(2026-11-03)逃生阀:显式退回旧口径 —— --take-theirs-doc 整份取对侧前**不再量**
+ *       #   本侧带号键/空行/非空行三项差(少内容也不阻断)。默认在 CHECK 与 APPLY 两档恒量(写盘
+ *       #   那一步不该靠调用方记得加旗);本旗一经出现,stderr 必打一行醒目告警,该次运行不得
+ *       #   被读成"零丢失"。
+ *   node scripts/union-converge.mjs --resolve '<path>=<内容文件>' [--resolve ...]
+ *       # 真三方报冲突后,**人工判完的回灌出口**(2026-09-26 立)。此前"请人工判"是一句死路:
+ *       #   工具不接收人工结果,人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
+ *       #   从而绕过本工具全部断言 —— 只判不修的门逼人绕过,这条对工具自己同样成立。
+ *       # 它与 --take-ours 的区别是本条的安全前提:喂进来的**整份内容**照样跑
+ *       #   "两侧独有行重数不得减少"的断言,少哪一侧就当场 bad ⇒ 它不是选边的别名。
+ *   node scripts/union-converge.mjs --union-capped '<path>=<内容文件>' [--union-capped ...]
+ *       # 与 --resolve 同一个入口,只多一件事:入库前先把**每一行的重数**收回到
+ *       #   max(本侧, 对侧)(G-585,2026-10-08)。为什么单开一条出口而不是让 --resolve 顺手封顶:
+ *       #   并集只判了"少",没判"多"(实测 2026-09-28 一次 `git merge-file --union` 手解比两侧多
+ *       #   187 行、其中 186 行是多余副本,而零损失断言一路报绿)。台账类路径判红时,人工出路只有
+ *       #   "手删重复行"(可能删多 = 丢内容)或绕开本器做裸 git 手术 ⇒ 只判不修逼人绕过。
+ *       #   封顶保留先出现的份、按原序只丢多余那几份,封顶后的内容**仍过同一条零损失断言**。
+ *   node scripts/union-converge.mjs --supersede '<path>=<声明档 JSON>' [--supersede ...]
+ *       # 声明式取代(票 G-310):"未存活行"与"旧行被复活"这两格判的是**语义搬了家**,
+ *       #   而工具只能比字面、判不出"同一件事现在住在哪一行"。此前它只喊"请人工判",人工结果
+ *       #   没有任何回灌路径 ⇒ 会话要么停在这格,要么绕开本器裸做 git 手术(把断言一起绕过)。
+ *       #   声明档 = `[{dropped, kept, why}]`(或 `{items:[…]}`),逐条给:被取代行的**逐字字面**、
+ *       #   该语义现在所在行的**逐字字面**、原因。放行仍要过举证 —— `supersedeProof` 复用折叠那四问
+ *       #   (`attestFoldPair`:同主键/同指纹 + 去向行真在产物面 + 独有注记与票号被接住),
+ *       #   另加"必须带原因""不得自取代";证不出去向 ⇒ 照旧判红并带原因。
+ *       #   本轮没命中的声明同样判红(不记通过)—— 陈旧的放行清单不许被读成"这轮放过东西"。
+ *       #   放行的每一行逐条打印并写进合并提交信息(与守门 83"声明式例外不静默"同一规矩)。
+ *   node scripts/union-converge.mjs --declare-side-loss '<path>=<声明档 JSON>' [--declare-side-loss ...]
+ *       # 逐行声明"对侧某一行是有意的语义取代"(2026-10-25 立,立因见 recordSideLosses 头注):
+ *       #   `--resolve` 喂进去的人工判定内容仍要过"两侧独有行不得减少"这条锁,而当两侧把**同一个
+ *       #   元素**改成互斥写法(实测:对侧把硬编码 '收起' 按 prettier 收成单行 JSX,本侧同元素
+ *       #   已 i18n 化成 t('chat.msg.collapse') 并拆成三行),同时保留两份就是双份标签 = UI 回归 +
+ *       #   端内硬编码中文回潮。这条锁在该型路径上结构上无解,旧的唯二出路都更坏:--take-ours 连对侧
+ *       #   其余 34 行独有内容一起丢,--resolve 永远过不了闸 ⇒ 整枚合并卡死、其余可合路径一起躺后面。
+ *       #   声明档 = `[{line, why}]`(或 `{items:[…]}`):line = 有意少带那一行的**逐字字面**(与
+ *       #   lostAddedLines 报出的等值才算命中),why = 为什么信息没损失(<10 字当场退 2)。
+ *       #   只作用于 `--resolve`/`--union-capped` 这两条**人已判过**的路径,且只挂"丢对侧独有行"那一侧;
+ *       #   自动三方归并那条不用它(没有人工判断,放行就没有凭据)。
+ *       #   未命中的声明进 bad 点名(陈旧/串档不记通过);放行的每一行逐条打印并写进合并提交信息。
+ *   node scripts/union-converge.mjs --show-all-bad
+ *       # 全列落地闸障碍。缺省只印前 15 条,并在末尾**报出余下几条 + 指向本旗标**(2026-10-20 立:
+ *       #   旧写法 `bad.slice(0, 15)` 与标题行的 `bad.length` 不同形,账面"19 处"只列 15 行,
+ *       #   读账的人只能另写探针 import plan() 才看得见全貌)。静默截断与"没有"同形,不许。
+ *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
+ *   node scripts/union-converge.mjs --move-aware-detail
+ *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
+ *   node scripts/union-converge.mjs --resurrect-block
+ *       # 行级复活对账(G-383 最后一格,2026-10-07):活文档归并结果相对本侧(HEAD 侧)量
+ *       # "HEAD 已删、祖先版本写过"的行,与本侧自身存量比(差值棘轮,守门 84 R1r 同款定级)。
+ *       # **默认全档只报数**(stdout 点名,不参与退出码)—— 推送链零风险;本旗标显式声明后,
+ *       # 仅"新增强"(复活行数 > 本侧自身存量)才折进落地闸。存量与未判定在任何档位都不拦:
+ *       # 拦存量 = 恒红门(§12e/§12f);拦"没判成"会把一次 git 抖动读成内容裁决。
+ *   node scripts/union-converge.mjs --accept-state-growth forks=<理由>
+ *       # 声明式放行"归并后某一量纲比任一侧都大"(可重复;`--accept-state-growth forks=… dupOpenCopies=…`)。
+ *       # 理由**不得为空**(空理由的放行等于没有判据);放行只留痕不阻断:该维不进落地闸 bad,
+ *       # 但两个读数与理由会逐条打印并写进合并提交信息(见 `planStateRegressions` 头注)。
+ *       # 可声明维 = `forks`(F1) / `dupOpenCopies`(F4) / `rotatedAuto`(F3);
+ *       # **`voidRows`(F2)与 `dupBlocks`(F6)硬拒**,拼错的维名也硬拒 —— 两者都抛错退出。
+ * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;
+ *        2 = 脚本自身异常,**或"本器没资格判"**(取不到远端当次真值 / 目标对象不在本机)——
+ *        后者走 `unreachableObjectGuidance` 打印三条出口并落 `UNDETERMINED 未判定`,
+ *        绝不能落在 0 那一支(把"判不了"报成"无事可做"= 账面全绿而分叉永久留着)。
+ */
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { auditOne } from './check-merge-addition-loss.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
+import { resolveGitBin } from './lib/gitdir.mjs'
+import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// 孤儿提交备份腿的单一真相源(2026-10-29 门 30a 根因票):本器原先在 CAS 失败分支手拼
+// `lost-commit/wip-<sha10>`,是 converge 那份 `wip-conv-<sha7>` 之外漂开的第二份副本(§0.6 违规),
+// 现整体并库 —— 本文件只留 import 与调用,不再有任何拼 ref 名的实现。
+import { backupOrphanCommit, orphanBackupRefName } from './lib/orphan-backup.mjs'
+// G-113(2026-10-23):旁路落地不跑钩子 ⇒ 落地后必须自带"复跑受影响判据"(与 object-space-land
+// 头注④同一出口;开工时本器被 G-815913 折叠层在飞持有,那一格如实登记未闭环,本轮补上)。
+import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
+// 旗标取值的唯一出口(G-322):`--theirs` / `--base` 的"给了旗标就必须有值"判据归单源,本文件不写副本。
+import { requireFlagValue } from './lib/flag-value.mjs'
+import { mergeNoteUnits, keyOfRow } from './lib/plan-task-index.mjs'
+// **落地前**自检(L33560,2026-11-01):本器用 commit-tree 造提交,pre-commit 不跑 ⇒ 守门 79 在这条
+// 通道上一次都没看过将要落地的内容。判据本体仍住 lib(配对 = conflict-marker-triples;分型 = 这份),
+// 本文件只负责"把产物面那份内容交进去"与"把判红折进既有 bad 通道(退出码 1)"。
+import { gateLandingMarkers } from './lib/conflict-marker-landing-gate.mjs'
+// 搬运感知判据(2026-09-28):占位注释的解析与"哪些行属于那个被搬走的条目"的块归属,
+// 一律复用归档器那一份实现(`lib/plan-task-headings.mjs` 的 parseCompletedTaskBlocks),
+// **不得在本归并器里再抄一条"什么算一个已完成条目"的正则** —— 两处各写一遍必漂移。
+import { collectReferencedArchives, archivedLineSuppressions } from './lib/ledger-move-aware.mjs'
+// 行级复活判据(2026-10-07,台账票 G-383 最后一格):与落地器(object-space-land.mjs)和守门 84
+// 的 R1r 共用**这一份**实现 —— 本器不再抄第二条"什么算一行复活"(两处算同一件事必漂移,
+// 是本仓记过最多次的失败型;判据本体与它的三态语义见该库头注,本文件只做取材与定级)。
+import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
+// 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
+// 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
+import { dedupeByFingerprint, dedupeGroups } from './lib/dedupe-ledger.mjs'
+// 折叠去向的举证只用**这一把**指纹尺子(与 dedupe-ledger / 守门 194 / 守门 203 同一个来源):
+// 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
+// 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
+// 摘除台账(2026-10-23 接进本器,堵"完成即删"的最后一条回潮通道):只有它认得出
+// "这一行是别人按台账正当摘除过的",而不是"对侧多出来的一行"。判据与 `scrub-declared-removals`
+// 同一份(§0.6 单一真相源,本器零复算)。
+import { declaredRows } from './scrub-declared-removals.mjs'
+// 归档移出凭据(2026-10-25,守门 207 第二刀①):AGENTS 的重复登记副本按 §1 合法出路
+// 「整区逐字移入 archive + 原位留指针」搬走后,对侧旧基线里那份逐字同行会被本表读成
+// 「对侧相对基底新增」⇒ 补回,清偿成果一轮被吞回。判据住 lib(与 merge-live-doc 的第四态同源),
+// 本器只做取材与"不补回"这一步 —— 不在这里写第二份"什么算被移出"。
+import { archiveDropCaps, selectMovedOut, ARCHIVE_REL } from './lib/live-doc-archive-drops.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import { judgeFlags, unknownFlagEscape, USAGE as FLAG_USAGE, checkFlagCoverage } from './lib/union-converge-flags.mjs'
+// —— 2026-11-01 纯搬运拆分(守门 207/103 体积清偿):以下判据族自本器**逐字搬出**到
+//    scripts/lib/union-converge-judgments.mjs(零行为改动);本器只 import 回来并原样再导出,
+//    具名导出面 / `--help` / 参数面 / 退出码 / 结论字段与拆前逐字一致。
+import {
+  LIVE_DOCS,
+  counter,
+  ensureTrailingNewline,
+  planStateRegressions,
+  mergeNoteCrossLineCaliber,
+  f3ExitCaliber,
+  lostAddedLines,
+  excessAddedLines,
+  capAddedDuplicates,
+  isDupCapStrictPath,
+  formatPointerCapReport,
+  formatFoldReport,
+  markerTripleRecallCaps,
+  liveDocExpectedCounts,
+  theirsRewriteCaps,
+  yieldedIdCaps,
+  declaredDropCaps,
+  declaredFamilyCaps,
+  formatLedgerEvidence,
+  foldLedgerOf,
+  attestFoldPair,
+  supersedeProof,
+  sideLossEntryProblem,
+  foldDedupe,
+  unionLinesCore,
+  unionLines,
+  liveDocPointerCaps,
+} from './lib/union-converge-judgments.mjs'
+export {
+  LIVE_DOCS,
+  planStateRegressions,
+  mergeNoteCrossLineCaliber,
+  f3ExitCaliber,
+  lostAddedLines,
+  excessAddedLines,
+  capAddedDuplicates,
+  isDupCapStrictPath,
+  formatPointerCapReport,
+  formatFoldReport,
+  markerTripleRecallCaps,
+  liveDocExpectedCounts,
+  theirsRewriteCaps,
+  yieldedIdCaps,
+  declaredDropCaps,
+  declaredFamilyCaps,
+  formatLedgerEvidence,
+  foldLedgerOf,
+  attestFoldPair,
+  supersedeProof,
+  sideLossEntryProblem,
+  foldDedupe,
+  unionLines,
+  liveDocPointerCaps,
+} from './lib/union-converge-judgments.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
+// 旧写法把 git 钉死在本机 Git 安装目录的一条绝对路径上,另一台机(G 盘 checkout)实测 git 落点不同 ⇒ 换机即 ENOENT。
+const GIT = resolveGitBin()
+if (!GIT) {
+  console.error('❌ union-converge:resolveGitBin() 解析不到可用 git(候选链见 scripts/lib/gitdir.mjs)')
+  process.exit(2)
+}
+const GIT_TIMEOUT = 300000
+
+/**
+ * 提交身份必须随调用一起给,不能依赖"当前用户配过 global config"。
+ * 实测:本收敛器由 IHUI-DEPLOYLOOP 以服务身份(LocalSystem)后台发起,而 user.name/user.email
+ * 只配在交互账户的 %USERPROFILE%\.gitconfig 里 —— SYSTEM 那份读不到,于是 :1091 的 commit-tree
+ * 直接 `fatal: unable to auto-detect email address (got 'SYSTEM@WIN-...')`,收敛**一次都没成功过**。
+ * 更坏的是失败形态:调用方 git-sync-converge 把"非零退出"统一报成"union-converge 亦判需人工",
+ * 部署环据此连寄告警 —— 工具崩溃被读成了内容裁决,而内容从未被归并过。
+ * 取值与 scripts/git-rebuild-local.mjs:113 登记的仓库机器身份同一份,不自立第二档。
+ */
+const GIT_IDENTITY = ['-c', 'user.name=智汇AGI社区', '-c', 'user.email=ok502319984@gmail.com']
+
+function git(args, cwd = ROOT, input) {
+  return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...GIT_IDENTITY, ...args], {
+    cwd,
+    input,
+    encoding: 'utf8',
+    // 根治(2026-09-30):本机交互会话下 Node 给子进程建 stdin 管道会 EBUSY(与父进程自身
+    // stdin 形态无关,managed/system 两个 node 都中;stdout/stderr 管道正常)。git 绝大多数
+    // 调用不消费 stdin ⇒ 无 input 时 stdin 设 ignore;带 input(--stdin 类)必须保住管道。
+    stdio: input ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
+    windowsHide: true, // §5b:漏此参数在守护/钩子派生下必弹控制台窗
+    timeout: GIT_TIMEOUT,
+    maxBuffer: 512 * 1048576,
+  }).trim()
+}
+
+// ── 取数层批量缓存(2026-10-29 立)───────────────────────────────────────────
+// 立因:buildUnion 对**每个差异路径**调 blobOf/show/modeOf,每次都是一枚 git 进程。
+// 分叉到千级时(base→theirs 实测 1642 路径)⇒ 3000+ 次 spawn ⇒ 20 分钟跑不到结论,
+// 上层 git-sync-converge 只能报"未判定"(2026-10-29 实测:多个会话各跑 20~60 分钟无产出)。
+// 对象与树条目在单轮合并内不可变 ⇒ 一次 `ls-tree -r` 装载整棵树 + 按 oid 缓存文本。
+// 语义保持:装载失败/该 rev 解析不出 ⇒ 返回 undefined 让调用方回退原实现,绝不猜。
+const TREE_ENTRIES = new Map() // `${cwd}\0${sha}\0${path}` -> { mode, oid }
+const TREE_LOADED = new Set() // `${cwd}\0${sha}`
+const REV_SHA = new Map() // `${cwd}\0${rev}` -> sha|null
+const BLOB_TEXT = new Map() // `${cwd}\0${oid}` -> text
+const BLOB_TEXT_LIMIT = 256 * 1024 * 1024
+let blobTextBytes = 0
+
+/** 多次调用/测试夹具之间清空,避免不同 cwd 或不同 rev 互相串味。 */
+export function resetUnionCaches() {
+  TREE_ENTRIES.clear()
+  TREE_LOADED.clear()
+  REV_SHA.clear()
+  BLOB_TEXT.clear()
+  blobTextBytes = 0
+}
+
+function revSha(rev, cwd) {
+  const key = `${cwd}\u0000${rev}`
+  if (REV_SHA.has(key)) return REV_SHA.get(key)
+  let sha = null
+  try {
+    sha = git(['rev-parse', '--verify', '--quiet', `${rev}^{commit}`], cwd)
+  } catch {
+    sha = null
+  }
+  REV_SHA.set(key, sha)
+  return sha
+}
+
+function ensureTree(sha, cwd) {
+  const key = `${cwd}\u0000${sha}`
+  if (TREE_LOADED.has(key)) return true
+  try {
+    // -z:路径不做引号转义,中文/空格路径按原样回读(与 core.quotepath=false 同方向)
+    const out = gitBuf(['ls-tree', '-r', '-z', sha], cwd).toString('utf8')
+    for (const rec of out.split('\0')) {
+      if (!rec) continue
+      const tab = rec.indexOf('\t')
+      if (tab < 0) continue
+      const [mode, , oid] = rec.slice(0, tab).split(' ')
+      TREE_ENTRIES.set(`${cwd}\u0000${sha}\u0000${rec.slice(tab + 1)}`, { mode, oid })
+    }
+    TREE_LOADED.add(key)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 树条目:undefined = 未判定(回退原实现);null = 该路径确实不在树里。 */
+function treeEntry(rev, p, cwd) {
+  const sha = revSha(rev, cwd)
+  if (!sha) return undefined
+  if (!ensureTree(sha, cwd)) return undefined
+  return TREE_ENTRIES.get(`${cwd}\u0000${sha}\u0000${p}`) ?? null
+}
+
+function readBlobTextCached(oid, cwd) {
+  const key = `${cwd}\u0000${oid}`
+  if (BLOB_TEXT.has(key)) return BLOB_TEXT.get(key)
+  try {
+    const t = gitBuf(['cat-file', 'blob', oid], cwd).toString('utf8')
+    // 只缓存中小文件:超大文件(uv.lock/打包产物)缓存收益低而内存代价高
+    if (t.length <= 4 * 1024 * 1024 && blobTextBytes + t.length <= BLOB_TEXT_LIMIT) {
+      BLOB_TEXT.set(key, t)
+      blobTextBytes += t.length
+    }
+    return t
+  } catch {
+    return null
+  }
+}
+
+function show(rev, p, cwd) {
+  const e = treeEntry(rev, p, cwd)
+  if (e !== undefined) {
+    if (e === null) return ''
+    // 与 git() 同口径 trim;读不到内容(非"空文件")时回退,不把取不到读成空
+    const t = readBlobTextCached(e.oid, cwd)
+    if (t !== null) return t.trim()
+  }
+  try {
+    return git(['show', `${rev}:${p}`], cwd)
+  } catch {
+    return ''
+  }
+}
+
+function blobOf(rev, p, cwd) {
+  const e = treeEntry(rev, p, cwd)
+  if (e !== undefined) return e === null ? null : e.oid
+  try {
+    // 必须带 --verify --quiet:裸 rev-parse 对解析不了的参数(<rev>:<path> 路径不存在时)
+    // 会**原样回显且退出码 0**(2026-10-07 实测抓到:远端树没有 PageClient.tsx,
+    // blobOf 回显了 "<sha>:<path>" 整串 ⇒ 被当 blob 塞进 --cacheinfo ⇒ 整轮收敛崩)。
+    // (2026-10-08 本会话复原:在飞 G-585 快照系 402293ac8c 落地前的陈旧底稿,把此修复整格带丢了。)
+    return git(['rev-parse', '--verify', '--quiet', `${rev}:${p}`], cwd)
+  } catch {
+    return null
+  }
+}
+
+function listPaths(rev, cwd) {
+  const sha = revSha(rev, cwd)
+  if (sha && ensureTree(sha, cwd)) {
+    const prefix = `${cwd}\u0000${sha}\u0000`
+    const out = []
+    // Map 插入顺序 = ls-tree 的树序遍历,与旧实现的输出次序一致
+    for (const k of TREE_ENTRIES.keys()) if (k.startsWith(prefix)) out.push(k.slice(prefix.length))
+    return out
+  }
+  return git(['ls-tree', '-r', '--name-only', rev], cwd).split('\n').filter(Boolean)
+}
+
+/** 两侧相对基底的"动过的路径"清单(含仅改 mode —— 它同样会进 diff --name-only)。 */
+function diffNames(a, b, cwd) {
+  return git(['diff', '--name-only', a, b], cwd).split('\n').filter(Boolean)
+}
+
+/** 内容面判据不得走 `git()`(encoding utf8 + trim 会毁掉二进制与行尾),单开 buffer 通道。 */
+function gitBuf(args, cwd = ROOT) {
+  return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
+    cwd,
+    encoding: 'buffer',
+    // 根治:同 git() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    timeout: GIT_TIMEOUT,
+    maxBuffer: 512 * 1048576,
+  })
+}
+
+function blobText(oid, cwd) {
+  const t = readBlobTextCached(oid, cwd)
+  return t === null ? '' : t
+}
+
+/**
+ * 生成物自证标记(G-814415)。判据只认**文件自己声明"我是生成物"**的两种原文标记:
+ * `GENERATED FILE — DO NOT EDIT`(生成器头注)与 `IHUI-GEN-PIN-BEGIN`(输入内容哈希钉块,
+ * 由 scripts/lib/generated-input-pin.mjs 写)。不靠路径猜、不维护第二份清单 ——
+ * 手工清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 的教训),而这两个标记是生成器自己落的,
+ * 没有生成器就没有标记 ⇒ 判据只对该走"重生成"通道的那一类成立。
+ */
+export const GENERATED_ARTIFACT_MARKERS = ['GENERATED FILE — DO NOT EDIT', 'IHUI-GEN-PIN-BEGIN']
+
+export function generatedArtifactMarker(texts) {
+  for (const t of texts) {
+    if (typeof t !== 'string' || t === '') continue
+    for (const m of GENERATED_ARTIFACT_MARKERS) if (t.includes(m)) return m
+  }
+  return null
+}
+
+/**
+ * 锁文件族(2026-10-29 立)。为什么单开一族:锁文件是包管理器**整体重生成**的产物,
+ * 两侧各自 lock 一次 ⇒ 逐行互斥,三方归并结构上永远无解(实测:双向分叉下 `uv.lock`
+ * 一个文件 127 处冲突,占整轮「需人工」的 98%,其余几十个真冲突被它埋在清单后面)。
+ *
+ * 与上一条的分工:锁文件**不带**生成器头注(uv/pnpm 都不写),所以判据不能只听自述,
+ * 改成**文件名契约 × 该格式的结构自证**双条件 —— 缺任一即不识别、回退人工。
+ * 失败方向恒为「多要一次人工」:普通源码即便命中结构串,文件名不对也不认;
+ * 名为 uv.lock 但内容不是该格式,同样不认。
+ *
+ * 处置沿用生成物通道:按本侧内容留下 + 点名「待重生成」。合并后必须真跑一次
+ * 对应包管理器的 lock(uv lock / pnpm install),否则锁与依赖清单会不一致 ——
+ * 这条已写进合并提交信息与报告面,不静默。
+ */
+export const LOCKFILE_FAMILIES = [
+  {
+    name: 'uv.lock',
+    // uv 的 TOML 骨架:首行 version = 1 + 至少一个 [[package]] 段
+    all: [/(^|\n)version = 1\r?\n/, /(^|\n)\[\[package\]\]\r?\n/],
+  },
+  {
+    name: 'poetry.lock',
+    all: [/(^|\n)\[\[package\]\]\r?\n/, /content-hash/],
+  },
+  { name: 'pnpm-lock.yaml', all: [/lockfileVersion:/] },
+  { name: 'package-lock.json', all: [/"lockfileVersion"/] },
+  { name: 'Cargo.lock', all: [/automatically @generated by Cargo/] },
+]
+
+/** 锁文件族识别:返回标记串(非空即为该族)或 null。双条件见上。 */
+export function lockfileRegenMarker(path, texts) {
+  const base = String(path || '')
+    .split('/')
+    .pop()
+  const fam = LOCKFILE_FAMILIES.find((f) => f.name === base)
+  if (!fam) return null
+  const bodies = (Array.isArray(texts) ? texts : []).filter(
+    (t) => typeof t === 'string' && t !== '',
+  )
+  if (bodies.length === 0) return null
+  // 任一侧完整命中该格式骨架即认(另一侧可能是截断/空);全部条件都要成立
+  const hit = bodies.some((t) => fam.all.every((re) => re.test(t)))
+  return hit ? `lockfile:${fam.name}` : null
+}
+
+/** 树里该路径的 mode(100644/100755/120000/160000);取不到返回 ''(交人工,不猜)。 */
+function modeOf(rev, p, cwd) {
+  const e = treeEntry(rev, p, cwd)
+  if (e !== undefined) return e?.mode ?? ''
+  try {
+    return git(['ls-tree', rev, '--', p], cwd).match(/^(\d{6})\s/)?.[1] ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function writeBlob(content, p, cwd) {
+  // 根治(2026-09-30):--stdin 通道要求子进程 stdin 真管道,而本会话 Node 建 stdin 管道
+  // 会 EBUSY ⇒ 改走临时文件。`--path p` 保留:属性/换行过滤仍按业务路径判定,与
+  // `--stdin --path p` 产出同一 blob SHA(2026-09-30 以 CRLF 样本实证等价);scratch 用后即焚。
+  const scratch = mkScratch('union-blob-')
+  const tmp = join(scratch, 'blob')
+  writeFileSync(tmp, content)
+  try {
+    return execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'hash-object', '-w', '--path', p, tmp],
+      {
+        cwd,
+        encoding: 'utf8',
+        // 无 input ⇒ stdin 设 ignore(同 git()/gitBuf() 各自注释)。
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: GIT_TIMEOUT,
+        maxBuffer: 512 * 1048576,
+      },
+    ).trim()
+  } finally {
+    rmScratch(scratch, { bestEffort: true })
+  }
+}
+
+/**
+ * 影子 `.js` 的同 stem `.ts/.tsx` 候选(非影子路径返回空数组)。
+ * 方向刻意只此一路:本仓约定是"`./x.js` 说明符指的是 `x.ts`",所以"该消失的是 `.js`"。
+ */
+export function shadowTsSiblings(p) {
+  const m = /^(.*)\.(?:js|cjs|mjs)$/.exec(p)
+  return m && m[1] ? [`${m[1]}.ts`, `${m[1]}.tsx`] : []
+}
+/**
+ * 纯判据:`p` 那份内容为 `shadowOid` 的文件,在 `rev` 那棵树里是否有**同一份字节**的 `.ts/.tsx` 同伴?
+ * 等值证明用 **blob oid 逐字相等**(git 内容寻址给的,比读正文再比更强),不做相似度、不做长度比较。
+ * 命中 ⇒ 返回 {path, oid};否则 null。测试可直接调用,不需要真仓。
+ */
+export function shadowTwinIsIdentical(p, shadowOid, siblingOids) {
+  if (!shadowOid || typeof shadowOid !== 'string') return null
+  for (const s of shadowTsSiblings(p)) {
+    const oid = siblingOids && siblingOids[s]
+    if (oid && oid === shadowOid) return { path: s, oid }
+  }
+  return null
+}
+/** 上面那条判据的 git 侧包装:去 `rev` 那棵树里取同 stem 同伴的 oid。 */
+function shadowTwinOf(p, shadowOid, rev, cwd) {
+  if (!shadowOid) return null
+  const siblingOids = {}
+  for (const s of shadowTsSiblings(p)) siblingOids[s] = blobOf(rev, s, cwd)
+  return shadowTwinIsIdentical(p, shadowOid, siblingOids)
+}
+
+function emptyBlob(cwd) {
+  // 根治(2026-09-30):带 input 的调用 stdio[0] 必须真管道,而本会话建 stdin 管道会 EBUSY。
+  // 这里喂的本就是空串 ⇒ 摘掉 input,git 读到立即 EOF,产出同一枚空 blob SHA(e69de29)。
+  try {
+    return git(['hash-object', '-w', '--stdin'], cwd)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 真三方归并三个 blob。ok:false 的三种形态都由人来判,工具本身**绝不退回"取某一侧"**:
+ *  conflict = merge-file 报的冲突区数(1..127,其 stdout 带标记,只作证据不入库)
+ *  binary   = 二进制无法文本归并(merge-file 直接拒:`Cannot merge binary files`)
+ *  error    = 其余非零退出/异常 ⇒ "无法判定",同样不得记为通过(硬约束 7)
+ */
+function mergeThreeBlobs(baseOid, oursOid, theirsOid, cwd) {
+  try {
+    const buf = gitBuf(
+      [
+        'merge-file',
+        '-p',
+        '--object-id',
+        '-L',
+        'OURS',
+        '-L',
+        'BASE',
+        '-L',
+        'THEIRS',
+        oursOid,
+        baseOid,
+        theirsOid,
+      ],
+      cwd,
+    )
+    return { ok: true, buf }
+  } catch (e) {
+    const status = typeof e?.status === 'number' ? e.status : -1
+    const err = Buffer.isBuffer(e?.stderr)
+      ? e.stderr.toString('utf8')
+      : String(e?.stderr ?? e?.message ?? '')
+    // status 1..127 且 stdout 有内容才是 merge-file 自己报的冲突区;
+    //   129 这类用法错误(无 stdout)必须落到 error,不得被叫成"冲突"误导人工。
+    if (status > 0 && status < 255 && e?.stdout?.length)
+      return {
+        ok: false,
+        kind: 'conflict',
+        detail: `merge-file 冲突区 ${status} 处`,
+        buf: Buffer.from(e.stdout),
+      }
+    if (/Cannot merge binary files/.test(err))
+      return { ok: false, kind: 'binary', detail: '二进制文件无法文本三方归并' }
+    return {
+      ok: false,
+      kind: 'error',
+      detail: `merge-file 退出 ${status}:${err.trim().slice(0, 160)}`,
+    }
+  }
+}
+/**
+ * 对一份活文档算搬运感知抑制表。**内容一律取自被审面**:占位读 `oursRev`(= 基准面),
+ * 归档件也读同一个 `oursRev` 的同一轮 `catBatch` —— 表与内容分面取 = 造出自洽却错位的尺子。
+ * 取不到(整批失败)⇒ `suppress:null` 并记一条未判定,**绝不当作"已归档"**。
+ * @returns {{suppress:Map<string,number>|null, suppressedBlocks:Array, keptBlocks:Array,
+ *   undetermined:Array, stats:object, archives:number, fetchError:string|null, doc:string}}
+ */
+export function moveAwareForDoc(doc, oursText, theirsText, oursRev, cwd = ROOT) {
+  const empty = {
+    doc,
+    suppress: null,
+    suppressedBlocks: [],
+    keptBlocks: [],
+    undetermined: [],
+    archives: 0,
+    fetchError: null,
+    stats: { blocksMatched: 0, suppressedLines: 0, keptLines: 0, undeterminedCount: 0 },
+  }
+  // 快路径:本侧一份占位都没有 ⇒ 这一维结构上无事可做(不必解析对侧的块,省下整篇台账的解析)。
+  if (!/<!--\s*已归档/.test(oursText)) return empty
+  const paths = [...collectReferencedArchives(oursText, theirsText)]
+  const specs = paths.map((p) => `${oursRev}:${p}`)
+  let texts = new Map()
+  let fetchError = null
+  if (specs.length) {
+    try {
+      texts = catBatch(cwd, specs)
+    } catch (e) {
+      fetchError = String((e && e.message) || e).split('\n')[0].slice(0, 160)
+    }
+  }
+  if (fetchError) {
+    return {
+      ...empty,
+      archives: paths.length,
+      fetchError,
+      undetermined: [
+        {
+          title: '(整批归档件)',
+          paths,
+          reason: `取材面整批读不出 ⇒ 一律照旧取回,不得当成已归档:${fetchError}`,
+        },
+      ],
+      stats: { blocksMatched: 0, suppressedLines: 0, keptLines: 0, undeterminedCount: 1 },
+    }
+  }
+  const r = archivedLineSuppressions({
+    oursText,
+    theirsText,
+    archiveOf: (p) => texts.get(`${oursRev}:${p}`) ?? null,
+  })
+  return {
+    doc,
+    suppress: r.suppress.size ? r.suppress : null,
+    suppressedBlocks: r.suppressedBlocks,
+    keptBlocks: r.keptBlocks,
+    undetermined: r.undetermined,
+    archives: paths.length,
+    fetchError: null,
+    stats: { ...r.stats, undeterminedCount: r.undetermined.length },
+  }
+}
+
+/** 缓存版:同一轮 build/verify 必须用**同一张表**(判据与断言不同形会把工具自己锁死,见 verifyUnion 注)。 */
+function moveAwareCached(cache, doc, oursText, theirsText, oursRev, cwd) {
+  if (cache && cache.has(doc)) return cache.get(doc)
+  const r = moveAwareForDoc(doc, oursText, theirsText, oursRev, cwd)
+  if (cache) cache.set(doc, r)
+  return r
+}
+
+/**
+ * 侧面(`oursRev`)上的全部归档件正文 —— 整批一次读满,按 (cwd, rev) 缓存。
+ *
+ * 为什么与 `moveAwareForDoc` 分开:那一条只读"本侧占位注释**点名**的那几份"(台账条目块),
+ * 这一条要判"这一行是不是被整区移出",必须看见同族的全部归档件(移出批次的指针可能写在
+ * 别处、也可能压根没写指针)。缓存键含 cwd:自检会在同一进程里对多个临时仓取证,
+ * 只按 rev 缓存会让第二个仓借到第一个仓的归档内容(自洽却错基准的假绿)。
+ */
+const ARCHIVE_TEXT_CACHE = new Map()
+function archiveTextsOn(rev, cwd) {
+  const key = `${cwd}\u0000${rev}`
+  if (ARCHIVE_TEXT_CACHE.has(key)) return ARCHIVE_TEXT_CACHE.get(key)
+  let out = { ok: false, files: [], reason: '未取' }
+  try {
+    const paths = listPaths(rev, cwd).filter((p) => p.startsWith(`${ARCHIVE_REL}/`))
+    const specs = paths.map((p) => `${rev}:${p}`)
+    const texts = specs.length ? catBatch(cwd, specs) : new Map()
+    out = { ok: true, files: paths.map((p) => ({ path: p, text: texts.get(`${rev}:${p}`) ?? null })) }
+  } catch (e) {
+    // 取不到归档面 ⇒ 这一维整轮不生效(退回"多留一份"),并让调用方把那句话喊出来(§0.3)
+    out = { ok: false, files: [], reason: String((e && e.message) || e).split('\n')[0].slice(0, 160) }
+  }
+  ARCHIVE_TEXT_CACHE.set(key, out)
+  return out
+}
+
+/**
+ * 某份活文档在本侧面上的"移出批次"行集(判据全住 `lib/live-doc-archive-drops.mjs`)。
+ * 内容面与期望表同面同轮:读的是 `oursRev` 的归档件、判的是同一轮 `oursText`。
+ * @returns {ReturnType<typeof selectMovedOut>|null} `null` = 归档面取不到 ⇒ 一条不扣
+ */
+function archiveDropSetFor(doc, oursText, rev, cwd) {
+  const t = archiveTextsOn(rev, cwd)
+  if (!t.ok) return null
+  return selectMovedOut(doc, t.files, oursText)
+}
+
+/* ══ 行级复活对账(R1r 同款形态,台账票 G-383 最后一格,2026-10-07)══════════════════════
+ * 归并器对「HEAD 已删、祖先版本写过」的行是结构性失明的:unionLines 只做重数运算,一行只要
+ * "对侧相对基底多出"就会被带回 —— 哪怕它根本不是对侧的新工作,而是某份滞后台账副本把本侧
+ * 早已删掉的旧行原样搬回。搬运感知那一维(上面 moveAwareForDoc)只看得见有 `已归档` 占位代表
+ * 的那一代;**没有占位的删除**(手工删、非归档流的清理)归它管不到 —— 那一型的尺子就是
+ * 行级复活判据(`lib/stale-content-analysis.mjs` 的 resurrectAnalysis,守门 84 R1r 与落地器
+ * 共用的这一份):一行同时满足 ①不在基准 blob ②在落地内容里 ③该路径某个祖先版本写过。
+ *
+ * 取材面(判据的牙在这里,错一面就是自洽却错位的尺子):
+ *  - **主量测**:base = 本侧(HEAD 侧)文本,new = 归并结果,祖先 = **本侧历史**里动过该路径的
+ *    提交(窗口从 ours 派生,不从字面 HEAD —— buildUnion 的 ours 在测试夹具里未必是 HEAD)。
+ *    窗口刻意只取本侧:对侧在分叉后真新写的行不在本侧历史里 ⇒ 结构上不可能判成复活
+ *    (把对侧的新工作读成复活 = 灾难级假阳,与"少带一行"同罪)。
+ *  - **棘轮锚点**(存量):同一把尺子量**本侧自身** —— base = 分叉基底,new = 本侧,窗口剔掉
+ *    本侧与基底两枚(不剔,"本侧自己新加的行"会被本侧自己的正文喂回锚点 ⇒ 棘轮被自己喂饱,
+ *    那是最隐蔽的假绿;守门 84 R1r 第④步同一条纪律,逐字照搬,不自立第二套)。
+ *    判级只看差值:复活行数 > 本侧自身存量 ⇒ 新增强;≤ ⇒ 存量只报数(拦存量 = 恒红门,§12e/§12f)。
+ *  - 成本:窗口深 `RESURRECT_UNION_WINDOW` 枚(+1 枚探针如实判"窗口是否用尽",G-806 那条
+ *    "预算截断必须报名"的同款)。收敛器不是 pre-commit,但一次合并把 5.7MB 的台账读 400 遍
+ *    一样是白付钱;窗口浅只会**少认**复活行 ⇒ 偏保守(可能漏判红,绝不凭空造红),且用尽必报名。
+ *  - 尺寸护栏取 8MB(同守门 84 的门档值,不是 lib 那道落地器 2MB):三本活文档里台账
+ *    实测 5.7MB,沿 2MB 整族落"未覆盖"= 尺子立在离案发现场最远的那条路上。
+ *
+ * 处置档(G-383 红线:行为对推送链零风险):**默认全档只报数** —— 记录随 buildUnion 返回、
+ * 报告行打 stdout,不进 violations/bad;`--resurrect-block` 显式声明后,仅"新增强"经
+ * `applyResurrectBlock` 折进落地闸。存量与未判定在任何档位都不拦(理由见文件头用法注)。
+ */
+const RESURRECT_UNION_WINDOW = 12
+const RESURRECT_UNION_MAX_BLOB_BYTES = 8 << 20
+
+/**
+ * 对一份活文档的归并结果做行级复活对账。输入由调用方取好(纯判据层不读 git 的纪律在这里
+ * 由"祖先正文一次 catBatch 取满"落实)。返回记录(`p.resurrect` 的一元):
+ * `{ doc, status:'judged'|'undetermined'|'out-of-scope', grade:'red'|'stock'|null,
+ *    count, anchor, sample, commits, reason, windowUsed, windowTotal, windowExhausted }`。
+ */
+export function resurrectWatchForDoc(doc, { oursText, mergedText, baseText, baseRev, oursRev, cwd = ROOT }) {
+  const firstLine = (e) => String(e?.message ?? e ?? '').split('\n')[0]
+  let shas
+  try {
+    shas = git(['log', `--max-count=${RESURRECT_UNION_WINDOW + 1}`, '--format=%H', oursRev, '--', doc], cwd)
+      .split('\n')
+      .filter(Boolean)
+  } catch (e) {
+    return {
+      doc,
+      status: 'undetermined',
+      grade: null,
+      count: null,
+      anchor: null,
+      sample: [],
+      commits: [],
+      reason: `祖先提交清单取不到(git log 未能运行):${firstLine(e)}`,
+      windowUsed: 0,
+      windowTotal: 0,
+      windowExhausted: false,
+    }
+  }
+  const windowExhausted = shas.length > RESURRECT_UNION_WINDOW
+  const window = shas.slice(0, RESURRECT_UNION_WINDOW)
+  const win = { windowUsed: window.length, windowTotal: shas.length, windowExhausted }
+  let texts
+  try {
+    texts = catBatch(cwd, window.map((c) => `${c}:${doc}`))
+  } catch (e) {
+    return {
+      doc,
+      status: 'undetermined',
+      grade: null,
+      count: null,
+      anchor: null,
+      sample: [],
+      commits: [],
+      reason: `祖先正文批量读取失败:${firstLine(e)}`,
+      ...win,
+    }
+  }
+  const ancestors = window.map((c) => ({ commit: c.slice(0, 9), text: texts.get(`${c}:${doc}`) ?? null }))
+  const main = resurrectAnalysis({
+    baseText: oursText,
+    newText: mergedText,
+    ancestors,
+    maxBlobBytes: RESURRECT_UNION_MAX_BLOB_BYTES,
+  })
+  if (main.status !== 'judged')
+    return { doc, status: main.status, grade: null, count: null, anchor: null, sample: [], commits: [], reason: main.reason, ...win }
+  if (main.count === 0) {
+    if (windowExhausted)
+      // 量到 0 行但窗口用尽 ⇒ 更早的版本没看,这是一个更弱的结论,不得与"用满窗口判过且干净"混成一色
+      // (把"少看了"写成"看过了"= 本仓最高频失效型;G-806 在守门 84 的同款出口,照搬)。
+      return {
+        doc,
+        status: 'out-of-scope',
+        grade: null,
+        count: 0,
+        anchor: null,
+        sample: [],
+        commits: [],
+        reason:
+          `复活 0 行,但祖先窗口(${RESURRECT_UNION_WINDOW} 枚)已用尽(该路径动过的提交 ≥ ${RESURRECT_UNION_WINDOW + 1} 枚)` +
+          '⇒ 更早的版本未取,覆盖不全,不是"判过且干净"',
+        ...win,
+      }
+    return { doc, status: 'judged', grade: null, count: 0, anchor: null, sample: [], commits: [], reason: null, ...win }
+  }
+  // 棘轮锚点:同一把尺子量本侧自身(剔掉本侧与基底两枚,理由见函数头注)。
+  // 基底侧没有该路径 ⇒ 存量无从对齐 ⇒ 按守门 84 R1r 的同一处置:不计红也不计绿,点名原因。
+  let anchor
+  if (typeof baseText !== 'string')
+    anchor = {
+      status: 'undetermined',
+      reason: '分叉基底侧没有该路径 ⇒ 本侧自身存量无从对齐',
+      count: null,
+      sample: [],
+      commits: [],
+    }
+  else {
+    const older = window
+      .filter((c) => c !== oursRev && c !== baseRev)
+      .map((c) => ({ commit: c.slice(0, 9), text: texts.get(`${c}:${doc}`) ?? null }))
+    anchor =
+      older.length === 0
+        ? { status: 'judged', count: 0, sample: [], commits: [] }
+        : resurrectAnalysis({
+            baseText,
+            newText: oursText,
+            ancestors: older,
+            maxBlobBytes: RESURRECT_UNION_MAX_BLOB_BYTES,
+          })
+  }
+  if (anchor.status !== 'judged')
+    return {
+      doc,
+      status: 'undetermined',
+      grade: null,
+      count: main.count,
+      anchor: null,
+      sample: main.sample,
+      commits: main.commits,
+      reason: `复活 ${main.count} 行,但本侧自身存量未判定:${anchor.reason ?? '(无原因)'} ⇒ 不计红也不计绿`,
+      ...win,
+    }
+  return {
+    doc,
+    status: 'judged',
+    grade: main.count > anchor.count ? 'red' : 'stock',
+    count: main.count,
+    anchor: anchor.count,
+    sample: main.sample,
+    commits: main.commits,
+    reason: null,
+    ...win,
+  }
+}
+
+/** R1r 复活对账的报告行(点名 stdout)。judged 且 0 行、窗口未尽 ⇒ 干净,不刷屏(与守门 84 R1r 同款)。 */
+export function renderResurrectWatch(r) {
+  if (r.status === 'judged' && r.count === 0) return []
+  const winNote = r.windowExhausted ? ` [祖先窗口 ${RESURRECT_UNION_WINDOW} 枚已用尽,更早未取]` : ''
+  const by = `出自祖先 ${(r.commits || []).slice(0, 3).join(', ') || '未点名'}`
+  if (r.status === 'judged' && r.grade === 'red')
+    return [
+      `   ❌ [R1r 复活对账] ${r.doc}:归并结果相对本侧复活 ${r.count} 行 > 本侧自身存量 ${r.anchor} 行 ⇒ 新增强` +
+        `(默认只报数;--resurrect-block 才参与退出码);样本:${r.sample.slice(0, 2).join(' | ') || '—'};${by}${winNote}`,
+    ]
+  if (r.status === 'judged' && r.grade === 'stock')
+    return [
+      `   ℹ️ [R1r 复活对账·存量只报数] ${r.doc}:复活 ${r.count} 行 ≤ 本侧自身存量 ${r.anchor} 行` +
+        `(存量债不是本次归并带进来的 ⇒ 当场判红就是恒红门);${by}${winNote}`,
+    ]
+  if (r.status === 'out-of-scope') return [`   ℹ️ [R1r 复活对账·未覆盖] ${r.doc}:${r.reason}(未覆盖 ≠ 通过)`]
+  return [`   ❓ [R1r 复活对账·未判定] ${r.doc}:${r.reason}(不是"查过且干净")`]
+}
+
+/**
+ * 落地闸障碍清单的打印形状(纯函数,唯一实现)。
+ *
+ * 存在的理由(2026-10-20 实测自伤):这里曾写 `p.bad.slice(0, 15)` 而标题行报 `p.bad.length`,
+ * 于是账面出现「❌ 落地闸不过 19 处」而下面只有 15 行 —— 既不报"余 4 条",也不给看全的出路。
+ * 我照着它做判断时只能另写探针 `import { plan }` 才拿到全清单,那一轮白花二十分钟。
+ * 形状照本仓既有写法(`check-transcript-addressability.mjs:808`「其余 N 条未打印(--top 调)」):
+ * **截断必须报名,并给出一条真跑得通的出路**;静默截断与"没有嫌疑人"同形(与 `git-guardian` 那条同源)。
+ *
+ * @param {Array<unknown>} bad 障碍全清单(顺序即打印顺序)
+ * @param {{showAll?:boolean, cap?:number}} [opts] showAll ⇒ 全列;缺省打印上限 15
+ * @returns {string[]} 待逐行打印的行(含缩进)
+ */
+export function formatBadReport(bad, opts = {}) {
+  const list = Array.isArray(bad) ? bad : []
+  const cap = opts.showAll ? list.length : (opts.cap ?? 15)
+  const rows = list.slice(0, Math.max(0, cap)).map((b) => `   ${b}`)
+  const hidden = list.length - rows.length
+  if (hidden > 0)
+    rows.push(
+      `   … 其余 ${hidden} 条未打印(加 --show-all-bad 全列;标题那行的总数含它们,不是"没有")`,
+    )
+  return rows
+}
+
+/** --resurrect-block 的接线点(main 专供、导出供测):只把"新增强"折进落地闸;存量与未判定在任何档位都不拦。 */
+export function applyResurrectBlock(p) {
+  for (const r of p.resurrect || [])
+    if (r.grade === 'red')
+      p.bad.push(
+        `${r.doc} 行级复活新增强(--resurrect-block):归并结果相对本侧复活 ${r.count} 行 > 本侧自身存量 ${r.anchor} 行` +
+          `(出自祖先 ${(r.commits || []).slice(0, 3).join(', ') || '未点名'})`,
+      )
+  return p.bad
+}
+
+
+/**
+ * A6(2026-11-03):`--take-theirs-doc` 的整份取代零丢失判据。
+ *
+ * 旧判据只有"合并树里该路径 blob 逐字等于对侧",于是"整份取对侧"本身被当成零丢失 ——
+ * 对侧若是一份滞后/缺行的稿,本侧的带号行、空行、非空行会整批消失而无一声点名。
+ * 现在在取对侧之前先量三笔差:带号键逐键计数、空行数、非空行数;任何一项相对本侧减少
+ * 都必须阻断,除非调用方用 `--take-theirs-doc <path>=<理由>` 显式声明这次少内容的去向。
+ * 判据只有这一份:buildUnion(产出面)与 verifyUnion(自证面)都调它,不得各写一份。
+ */
+export const TAKE_DOC_MIN_REASON = 10
+
+/** 声明集兼容 Set(旧测试/旧调用)与 Map(path→理由,CLI 新形态)。 */
+export function takeDocPaths(docs) {
+  if (docs instanceof Map || docs instanceof Set) return [...docs.keys()]
+  return Array.isArray(docs) ? [...docs] : []
+}
+
+export function takeDocHas(docs, path) {
+  return docs instanceof Map || docs instanceof Set ? docs.has(path) : false
+}
+
+export function takeDocReason(docs, path) {
+  if (!(docs instanceof Map)) return ''
+  return String(docs.get(path) ?? '').trim()
+}
+
+export function takeTheirsDocLoss(oursText, theirsText) {
+  const linesOf = (t) => String(t ?? '').replace(/\r\n/g, '\n').split('\n')
+  const keyCounts = (t) => {
+    const m = new Map()
+    for (const l of linesOf(t)) {
+      const k = keyOfRow(l)
+      if (k) m.set(k, (m.get(k) || 0) + 1)
+    }
+    return m
+  }
+  const a = linesOf(oursText)
+  const b = linesOf(theirsText)
+  const ak = keyCounts(oursText)
+  const bk = keyCounts(theirsText)
+  const missingKeys = []
+  for (const [k, n] of ak) {
+    const have = bk.get(k) || 0
+    if (have < n) missingKeys.push({ key: k, ours: n, theirs: have })
+  }
+  const blankOurs = a.filter((l) => l.trim() === '').length
+  const blankTheirs = b.filter((l) => l.trim() === '').length
+  const nonBlankOurs = a.length - blankOurs
+  const nonBlankTheirs = b.length - blankTheirs
+  const losses = []
+  if (missingKeys.length)
+    losses.push(
+      `带号键少 ${missingKeys.length} 枚(` +
+        missingKeys.slice(0, 6).map((x) => `${x.key} ${x.ours}→${x.theirs}`).join(', ') +
+        (missingKeys.length > 6 ? ', …' : '') +
+        ')',
+    )
+  if (blankTheirs < blankOurs) losses.push(`空行少 ${blankOurs - blankTheirs} 行(${blankOurs}→${blankTheirs})`)
+  if (nonBlankTheirs < nonBlankOurs)
+    losses.push(`非空行少 ${nonBlankOurs - nonBlankTheirs} 行(${nonBlankOurs}→${nonBlankTheirs})`)
+  return {
+    ok: losses.length === 0,
+    losses,
+    missingKeys,
+    blank: { ours: blankOurs, theirs: blankTheirs },
+    nonBlank: { ours: nonBlankOurs, theirs: nonBlankTheirs },
+  }
+}
+
+/** 构造合并树。临时索引走 §26 的夹具唯一落点 `mkScratch` ——
+ *  硬编码 `cwd/.ihui-agent/tmp` 会在"对临时仓库做取证"时直接 ENOENT(自检第一轮即如此),
+ *  而且把夹具写进仓库树内还会让 git 的 toplevel 向上逃逸。
+ *  返回 needHuman(冲突/二进制/取不到 mode ⇒ 交人工)与 violations(两侧同改的丢行断言),
+ *  两者都在本函数里算:归并结果的内容此刻已在手上,不必再派生一次 git 去重读。 */
+export function buildUnion(
+  base,
+  ours,
+  theirs,
+  cwd = ROOT,
+  takeOurs = new Set(),
+  resolutions = new Map(),
+  moveAwareCache = null,
+  takeTheirs = new Set(),
+  accepted = null,
+  foldKeep = null,
+  declaredLoss = null,
+  takeTheirsDocs = null,
+  lenient = false,
+) {
+  const scratch = mkScratch('union-idx')
+  const idx = join(scratch, 'index')
+  try {
+    const env = { ...process.env, GIT_INDEX_FILE: idx }
+    const run = (args) =>
+      execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
+        cwd,
+        env,
+        windowsHide: true,
+        // 根治:同 git() —— 无 input,stdin 设 ignore 避开本会话子进程 stdin 管道 EBUSY。
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: GIT_TIMEOUT,
+        encoding: 'utf8',
+        maxBuffer: 512 * 1048576,
+      }).trim()
+    // ⚠️ `violations` 必须在**活文档归并循环之前**声明:1) 里的状态分叉判据(2026-09-28 补的那一格)
+    // 就往里 push,而下面 2) 的那批清单声明得更晚 —— 放在那里会让本函数在带 PROJECT_PLAN.md 冲突的
+    // 每一次调用上抛 `Cannot access 'violations' before initialization`(ReferenceError),
+    // 表现是"union-converge 亦判需人工",而真实原因是**这台收敛器当场崩了**。
+    // 崩溃被上层当成人工判定 ⇒ 所有会话的台账冲突都收敛不动、发布链卡死。自检补了一条
+    // "两侧同改台账 ⇒ 必须产出 plan(不抛)"的用例钉住这条路径。
+    const violations = []
+    // 声明式放行过的量纲(必须一路交回调用方打印并写进合并提交信息,不能只在内存里"放过")。
+    // 声明位置在 1) 之前:活文档那一条循环就要往里 push —— 挂在下面 2) 的累加器群里会撞 TDZ。
+    const acceptedGrowth = []
+    run(['read-tree', ours])
+
+    // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活;
+    //    本侧已有 `已归档` 占位代表的行不得再从对侧取回 —— 见 lib/ledger-move-aware.mjs 头注)
+    const liveDocs = []
+    // 折叠台账(2026-10-16 立,根治"产物面折了、自证面不知道"那 295 处误拒收):
+    // 键 = 文档路径,值 = `foldLedgerOf` 的产物。**只有真跑过折叠的那一份文档才会进这本账。**
+    const foldLedgers = new Map()
+    // path -> 两侧各写一版、折叠层拒绝裁定的人工组(2026-10-20,随台账一起交回落地闸)
+    const foldAmbiguous = new Map()
+    // path -> 声明式保留行里陈旧/串档的那些(声明必须真命中本轮的组,否则当场喊出来)
+    const foldStalePicks = new Map()
+    // 行级复活对账记录(G-383 最后一格):每份活文档归并后逐条登记,随返回值交 plan/main 呈报。
+    const resurrect = []
+    // 摘除台账拦下的补回候选(G-34/G-43, 2026-10-25):逐字以外按复合主键/指纹认账,
+    // 命中与"未判定"都不回补 —— 但必须逐条计数点名并随返回值交回报告面,不得静默(§0.3/§0.10)。
+    const ledgerWithheld = []
+    // 空冲突区标记行的扣行账(2026-11-01,MARKERS 票):与上面那本**分开记**,因为凭据来源不是
+    // 摘除台账,而是"这一族三行在区域内一行正文都没有"这条当场判得出的形状(见 markerTripleRecallCaps)。
+    const markerWithheld = []
+    // --take-theirs-doc 的两本账(2026-10-27):整份取对侧已生效的路径(逐条点名进报告与提交信息)
+    // 与声明了但取不到对侧 blob 的格(未判定,随返回值交回;落地闸由 verifyUnion 对同一格点名)。
+    // 声明位置在活文档循环之前 —— 循环里就要往里 push,挂到 2) 的清单堆里会撞 TDZ(见 violations 同款)。
+    const keptTheirsDocs = []
+    const takeDocsUndetermined = []
+    // A6:声明理由放行的"本侧少内容"格,逐条交回报告面(不得静默折进"0 丢失")。
+    const takeDocCredits = []
+    for (const p of LIVE_DOCS) {
+      const a = show(ours, p, cwd)
+      const b = show(theirs, p, cwd)
+      // --take-theirs-doc(2026-10-27):声明 = 整 blob 取对侧、跳过行级 union。
+      // 必须排在 `if (a === b) continue` 之前,否则"两侧恰好同文"的声明会被静默吞掉,
+      // keptTheirsDocs 不点名 = "配了清单被读成这轮真放过东西"(§0.3 同一条纪律)。
+      // 写入走 update-index 直接引用对侧 blob oid(与 --take-theirs 同一形态,不另造 blob)。
+      // 复活对账/搬运感知/状态分叉这几维都随行级 union 一起跳过:它们量的是"union 带回了什么",
+      // 本路径根本没有 union;整份取代的留痕就是 keptTheirsDocs 这条逐路径点名本身。
+      if (takeDocHas(takeTheirsDocs, p)) {
+        const theirsBlob = blobOf(theirs, p, cwd)
+        if (!theirsBlob) {
+          // 取不到输入 ⇒ 未判定,绝不冒充"对侧本来就是空的"而静默跳过:落地闸会拦下这一格
+          // (verifyUnion 对同一声明点名),此处照常落回普通行 union 让报告仍能展示合并形态。
+          takeDocsUndetermined.push({ doc: p, reason: '对侧取不到该路径的 blob(路径不存在/对象不在本机)' })
+        } else {
+          // A6:整份取代之前先量本侧会少什么;少内容且没有理由声明 ⇒ 折进 violations 阻断落地。
+          // A6b(`--legacy-lenient` 逃生阀):显式退回旧行为,整份取对侧不再量三项差;告警在 CLI 入口打。
+          if (!lenient) {
+            const loss = takeTheirsDocLoss(a, b)
+            const why = takeDocReason(takeTheirsDocs, p)
+            if (!loss.ok && why.length < TAKE_DOC_MIN_REASON) {
+              violations.push(
+                `${p} 整份取对侧会让本侧少内容(${loss.losses.join('; ')}),` +
+                  `且未用 --take-theirs-doc '${p}=<理由>' 声明这次少内容的去向 ⇒ 阻断(不记通过)`,
+              )
+            } else if (!loss.ok) {
+              takeDocCredits.push({ doc: p, why, losses: loss.losses })
+              console.log(`   ⚠️ ${p} 整份取对侧已声明少内容(${loss.losses.join('; ')});理由:${why}`)
+            }
+          }
+          run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
+          keptTheirsDocs.push(p)
+          console.log(
+            `   活文档整份取对侧(已声明 --take-theirs-doc):${p} —— 跳过行级 union,` +
+              `整 blob 逐字等于对侧 ${String(theirsBlob).slice(0, 11)}(本侧独有行被整份取代是声明本身)`,
+          )
+          continue
+        }
+      }
+      if (a === b) continue
+      const bt = base ? show(base, p, cwd) : null
+      const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
+      liveDocs.push(ma)
+      // 折叠台账必须在这里、在折叠真发生的那一次调用里取(§0.4 同面同轮):`mergedText` 是**产物面**,
+      // `foldLedgers` 记的是"哪些行被折进哪个保留行、各折了几份",自证侧拿它才可能问出"少掉的那一份
+      // 是合法折叠还是真丢失"。未开折叠的两份文档(AGENTS/README)不进这本账 ⇒ 自证侧对它们逐字照旧。
+      const foldOn = p.endsWith('PROJECT_PLAN.md')
+      const foldPicks = foldOn ? foldKeep?.get?.(p) || null : null
+      const withheldReport = []
+      const archFaces = archiveTextsOn(ours, cwd)
+      const archived = archFaces.ok ? selectMovedOut(p, archFaces.files, a) : null
+      // 归档整区移出的扣行账:行级 union 用 `archived` 决定"不补回"(见 liveDocExpectedCounts 的
+      // archiveDropCaps 那一维),F5 落地闸必须问**同一本账**,否则把"本侧有意移入归档、对侧滞后基线
+      // 带回又被归并正确排除"的 `<!-- 已归档 -->` 存根读成"未解释少带"(2026-10-29 全仓推送死结)。
+      const archiveDropSet = archived && archived.ok ? archiveDropCaps(a, archived) : new Set()
+      const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport, null, archived)
+      if (archived === null) {
+        console.log(
+          `   归档移出这一维本轮不生效(${p};归档面取不到:${archFaces.reason ?? '未判定'})⇒ 退路 = 多留一份,不冒充"已归档"`,
+        )
+      } else if (archiveDropSet.size) {
+        const caps = archiveDropSet
+        console.log(
+          `   归档移出认账:${caps.size} 行不参与补回(${p};本侧已按 §1 把整区逐字移入 ${ARCHIVE_REL}/,对侧旧基线那份不再带回)`,
+        )
+        for (const l of [...caps].slice(0, 5)) console.log(`     ⌂ ${l.trim().slice(0, 72)}`)
+        if (caps.size > 5) console.log(`     ⌂ 其余 ${caps.size - 5} 行同批,清单随报告面可查`)
+      }
+      const mergedText = built0.text
+      if (withheldReport.length) {
+        const markerRows = withheldReport.filter((w) => w.via === 'marker-empty-triple')
+        const ledgerRowsOnly = withheldReport.filter((w) => w.via !== 'marker-empty-triple')
+        for (const w of ledgerRowsOnly) ledgerWithheld.push({ doc: p, ...w })
+        for (const w of markerRows) markerWithheld.push({ doc: p, ...w })
+        const nUnd = ledgerRowsOnly.filter((w) => w.via === 'undetermined').length
+        const nHeld = ledgerRowsOnly.filter((w) => w.via === 'held').length
+        if (ledgerRowsOnly.length) {
+          console.log(
+            `   摘除台账认账:拦下 ${ledgerRowsOnly.length - nHeld} 行补回候选(${p};本侧已按台账清掉或无法排除的那一族,对侧/基底的改写形态不回补${nUnd ? `;其中未判定 ${nUnd} 行,原因逐条点名` : ''}${nHeld ? `;另 ${nHeld} 行让路照旧补回,原因逐条点名` : ''})`,
+          )
+        }
+        // 空冲突区标记行的扣行必须**单独一行点名**:它不是台账认账,把它混进上面那句
+        // 就等于对着一批根本没登记过的行谎称"有台账凭据"(§0.3 同一条禁令)。
+        if (markerRows.length) {
+          console.log(
+            `   空冲突区标记行不补回:${markerRows.length} 行(${p};区域内零正文 ⇒ 摘掉不丢任何一侧内容,而补回它等于把合并脚手架当正文,守门 79 必红。有正文的冲突区一条不扣 ⇒ 照旧补回并由门 79 喊人给定向说明)`,
+          )
+          for (const w of markerRows) console.log(`     ⑂ [${w.via}] 扣行原文:${w.line} —— ${w.why ?? '(未给原因)'}`)
+        }
+        // 扣掉的**整行原文**必须进输出留痕(不截断),并逐条出示台账凭据 —— 删行判据的自证面。
+        for (const w of ledgerRowsOnly) {
+          if (w.via === 'withheld' || w.via === 'held' || w.via === 'undetermined') continue
+          console.log(`     · [${w.via}] 扣行原文:${w.line}`)
+          console.log(`       证据:${formatLedgerEvidence(w.evidence)}`)
+        }
+        for (const w of ledgerRowsOnly) {
+          if (w.via !== 'undetermined' && w.via !== 'held') continue
+          console.log(`     · [${w.via}] ${(w.why ? `${w.why} —— ` : '') + w.line.trim()}`)
+        }
+      }
+      if (foldOn) foldLedgers.set(p, built0.ledger)
+      if (foldOn && built0.stalePicks?.length) foldStalePicks.set(p, built0.stalePicks)
+      // 「两侧各写一版、机器无从裁定」的组:一条都没折(产物面两版并存),但必须记下来交给落地闸点名
+      // —— 不记就等于把"没敢折"读成"不需要折",下一手看到的账面是干净的(§0.10 方向禁令)。
+      if (foldOn && built0.ambiguous?.length) foldAmbiguous.set(p, built0.ambiguous)
+      // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
+      // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
+      const oid = writeBlob(mergedText, p, cwd)
+      run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
+      // 行级复活对账(R1r 同款,台账票 G-383 最后一格):归并结果相对**本侧(HEAD 侧)**量
+      // "HEAD 已删、祖先版本写过"的行,与本侧自身存量比(差值棘轮)。判据与本侧历史窗口的
+      // 纪律见 resurrectWatchForDoc 头注;**默认全档只报数**(报告行打 stdout,记录随返回值走),
+      // --resurrect-block 显式声明后仅"新增强"折进落地闸(main 里经 applyResurrectBlock)。
+      // 基底侧有没有该路径必须问 blob 而不是信 show 的 ''(取不到与空文件是两件事,show 分不出)。
+      const __rw = resurrectWatchForDoc(p, {
+        oursText: a,
+        mergedText,
+        baseText: base && blobOf(base, p, cwd) ? bt : null,
+        baseRev: base,
+        oursRev: ours,
+        cwd,
+      })
+      resurrect.push(__rw)
+      for (const __line of renderResurrectWatch(__rw)) console.log(__line)
+      /**
+       * 状态分叉判据**必须挂在这条路上**,而不是挂在下面 2) 的 `mergedClean` 循环里 ——
+       * 2) 开头就有 `if (LIVE_DOCS.includes(p)) continue`,而台账正是活文档,所以那条循环
+       * **永远不会**拿到 PROJECT_PLAN.md。2026-09-28 那次半成品把判据函数与自检都写全了、
+       * `--self-test` 13 条全绿,而它在收敛落地路径上**生效次数为 0**(判据在、自检过、没人调,
+       * 守门 70/76/81/105/115 同族)。今天补的这一格才是"落地前自证清单"真正咬合的地方:
+       * 并集策略("每行重数取 max")本身就是状态副本的产地。
+       * 下面 2) 那条同名循环保留:它覆盖的是**别的目录里**恰好以 PROJECT_PLAN.md 结尾、
+       * 且两侧同改走了三方归并的文件(根台账归本条管,两者不重叠、不双计)。
+       */
+      if (p.endsWith('PROJECT_PLAN.md')) {
+        const sides = [bt, a, b].filter((t) => typeof t === 'string' && t !== '')
+        const __rg = planStateRegressions(mergedText, sides, accepted, {
+          suppress: ma.suppress,
+          baseText: bt,
+          oursText: a,
+          // G-815913: F5 这一维的比较集 = 合并本可以带的两侧;折叠台账随同喂进(⑤ 档与
+          // verifyUnion 认同一本账,两把尺子同形)。growth 维(F1-F4/F6/F9)仍看全部面。
+          f5SideTexts: [a, b],
+          foldPairs: built0.ledger?.pairs || null,
+          // ⑥ 归档整区移出:与行级 union 同一本账(archiveDropCaps(a,archived)),把"本侧有意移入
+          // 归档、归并正确排除"的存根少带判为有据(2026-10-29 死结)。取不到归档面时为空集 ⇒ 一分不给。
+          archiveDropSet: archiveDropSet,
+        })
+        for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+        for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
+        console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
+        const __cl0 = mergeNoteCrossLineCaliber(mergedText, sides)
+        if (__cl0) console.log(`   ${__cl0}`)
+      }
+    }
+
+    // 2) 对侧「相对共同基底自己动过」的路径:仅对侧动过 ⇒ 取对侧版本;两侧同改 ⇒ 真三方归并。
+    //    (活文档已在 1) 归并,两条路都不整体覆盖)
+    const tookTheirs = []
+    const mergedClean = []
+    const skippedDeletes = []
+    // 票 G-977960 ②(用户拍板):「删除活不过合并」的对症格 —— 本轮**随合并生效**的对侧删除,逐路径点名。
+    const propagatedDeletes = []
+    const needHuman = []
+    const generatedDeferred = [] // 生成物冲突:不判人工、不选边,登记"待重生成"(见 G-814415)
+    const keptOurs = []
+    const keptTheirs = []
+    const humanResolved = []
+    const caps = [] // 因副本指针有意少带的份数:不拦落地,但必须逐条点名(见 recordSideLosses)
+    // 人工逐行声明的少带(--declare-side-loss):销账的每一行都要报名,声明了却没命中的必须点名进 bad。
+    const lossCredits = []
+    const lossStale = []
+    // 影子 .js 的两格(见下面循环里那条"刻意例外"):随合并传播掉的删除 / 被拦住没恢复的回归。
+    const shadowDeletes = []
+    const shadowRestores = []
+    const touchedOurs = new Set(diffNames(base, ours, cwd))
+    for (const p of diffNames(base, theirs, cwd)) {
+      if (LIVE_DOCS.includes(p)) continue
+      const theirsBlob = blobOf(theirs, p, cwd)
+      const oursBlob = blobOf(ours, p, cwd)
+      if (oursBlob === theirsBlob) {
+        // 两侧同删(p 能进本循环说明 theirsBlob===null ⇒ 基底必有它):删除无争议地活着,
+        // 但仍要点名 —— 票 G-977960 ② 的"逐路径报名"要求报告能完整回答
+        // "这轮合并里哪些路径因删除而消失",静默的存活等于下一次还要重新取证一遍。
+        if (theirsBlob === null) propagatedDeletes.push(p)
+        continue
+      }
+      if (theirsBlob === null) {
+        /**
+         * **影子 .js 的删除要传播**,这一条是对"对侧删除不随合并传播"那条通则的**刻意例外**。
+         * 依据不是猜测而是内容寻址:本侧那份 `.js` 的 blob oid 与本侧同 stem `.ts` 的 oid **逐字相等**
+         * ⇒ 两边装的是同一份字节,删掉它不可能丢任何内容。不堵这一格,实测就会看到
+         * 同一份"用 .js 文件名装着 TypeScript 语法"的影子被对侧一次带走、下一次合并又带回来
+         * (2026-09-29 一天内两次:01:12 删、04:27 回;后果是干净检出/服务重启即 `SyntaxError`,
+         * 而守门 98 的 D4 影子维是全仓唯一看得见这一型的尺子 —— 它只能事后喊,拦不住合并)。
+         * 只认 `.js/.cjs/.mjs → .ts/.tsx` 这一个方向:反过来(留 .js 扔 .ts)等于把本仓
+         * "`./x.js` 说明符指的是 `.ts`"这条约定倒过来写,那不是收口而是制造第二份真相。
+         */
+        const twin = shadowTwinOf(p, oursBlob, ours, cwd)
+        if (twin) {
+          run(['update-index', '--force-remove', p])
+          shadowDeletes.push({ path: p, twin: twin.path })
+          continue
+        }
+        // 票 G-977960 ②(2026-10-07 落地):「该路径的删除已是合并结果的祖先 ∧ 两侧相对删除点都未改动过它」
+        // ⇒ 传播删除 —— 这正是 git 三方合并自身的语义,可证不丢内容:被删掉的字节就是基底那一份,
+        // 本侧从未改过它(逐字同一 blob)⇒ 删除方对这一路径的处置权成立,不再默认折回。
+        // 本侧**改过**的(modify/delete 分叉)照旧不传播:处置权归改写方 —— 删除是旧信息,改写是新工作。
+        // 两种处置都必须像影子 .js 那一格一样逐路径报名,绝不静默。
+        // 失效方向:取不到基底 ⇒ 不传播(多留一份,复核可再删);绝不反向(误删别人的工作不可恢复)。
+        const delBase = base ? blobOf(base, p, cwd) : null
+        if (delBase && (oursBlob === null || oursBlob === delBase)) {
+          if (oursBlob !== null) run(['update-index', '--force-remove', p])
+          propagatedDeletes.push(p)
+          continue
+        }
+        skippedDeletes.push(p) // 对侧删除 ∧ 本侧对该路径有独有改动 ⇒ 不传播(处置权归改写方),仍逐条点名
+        continue
+      }
+      // 本侧未动(或本侧已删 ⇒ 删除同样不传播,与"对侧删除"对称)⇒ 整文件取对侧,语义与改前逐字一致
+      if (!touchedOurs.has(p) || oursBlob === null) {
+        // 同一个例外的反方向:对侧把那份等值影子**带回来**时不取(本侧已经没有它了)。
+        const twin = shadowTwinOf(p, theirsBlob, ours, cwd)
+        if (twin) {
+          shadowRestores.push({ path: p, twin: twin.path })
+          continue
+        }
+        run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
+        tookTheirs.push(p)
+        continue
+      }
+      // 两侧都动过:旧写法在这里"整文件取对侧",即静默丢掉本侧改动 —— 必须走真三方
+      //
+      // 但"真三方"只会在两侧改动互相重叠时报冲突,而**报冲突不等于必须交人工**:
+      // 若本树的内容已经让对侧那一版判据必红(实测:对侧留着"brand 里不得再有 CTA 档"
+      // 的回归锁,而 design-tokens 只有本侧改过、合并树必然含 brand.cta ⇒ 那条锁 100% 失败),
+      // 那么"取本侧"不是选边,而是被内容强制的唯一解。此判断不能悄悄做 —— 必须由操作者
+      // 显式声明 --take-ours <path>,并写进合并提交信息与输出,留下可追责的取证入口。
+      if (takeOurs.has(p)) {
+        keptOurs.push(p)
+        continue
+      }
+      // 对称的那一格(2026-09-28 补):两侧同一个功能各写一份、且**同一行被两种写法改写**时,
+      // `--resolve` 的零损失断言结构上喂不进去(两侧独有行都留 ⇒ 同名声明重复 ⇒ 编译不过),
+      // 于是这类合并永远"需人工"。缺的不是判断,是**声明式出口**:让持有裁决的人
+      // 显式说"这一路径本侧是被取代的那一份",整文件取对侧并大声留痕。
+      // 与 `--take-ours` 同一条纪律:必须逐条声明、必须打进输出与提交信息,不得默认。
+      if (takeTheirs.has(p)) {
+        run(['update-index', '--add', '--cacheinfo', `100644,${theirsBlob},${p}`])
+        keptTheirs.push(p)
+        continue
+      }
+      const mode = modeOf(ours, p, cwd)
+      if (mode !== '100644' && mode !== '100755') {
+        needHuman.push({
+          path: p,
+          kind: 'mode',
+          detail: `非普通文件(mode=${mode || '未取到'}),不做文本三方归并`,
+        })
+        continue
+      }
+      const baseBlob = blobOf(base, p, cwd) ?? emptyBlob(cwd)
+      if (baseBlob === null) {
+        needHuman.push({
+          path: p,
+          kind: 'error',
+          detail: '共同基底侧与空 blob 都取不到,无法三方归并',
+        })
+        continue
+      }
+      const m = mergeThreeBlobs(baseBlob, oursBlob, theirsBlob, cwd)
+      if (!m.ok) {
+        // 人工判必须有**受支持的出口**(2026-09-26 立):旧写法只丢一句"请人工判",而人工判完
+        // 没有任何回灌路径 —— 于是人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
+        // 绕过本工具的全部断言。"只判不修"的门逼人绕过,这条对**工具自己**同样成立。
+        // 出口是 `--resolve <path>=<文件>`:人工写好的整份内容。**但它不是选边的别名** ——
+        // 喂进去的内容照样过"两侧独有行不得减少"的断言,少了哪一侧就当场 violations。
+        // G-585:`--resolve` 现在收两种值 —— 裸文件路径(整份内容照收,不封顶)与
+        // `--union-capped <path>=<文件>`(先按两侧最大值机械封顶多余副本再入库)。
+        const via = resolutions.get(p)
+        const viaFile = typeof via === 'string' ? via : via?.file
+        const capFirst = via !== null && typeof via === 'object' && via.capped === true
+        if (!viaFile) {
+          /**
+           * 生成物路径(G-814415):两侧各自从各自词源重生成 ⇒ 独有行是**互斥的同形替代**,
+           * 任何合法内容都不可能同时含两侧 ⇒ "两侧独有行不得减少"这条锁在这一型路径上永无解,
+           * 后果不是这一项判不了,而是**整枚合并卡住**(其余 12 个可合路径一起躺在后面)。
+           * 生成物的权威在"重生成"而不是"合并",所以这里的正确处置是:按本侧内容留下、
+           * **点名登记为待重生成**、让其余路径照常落地 —— 并在提交信息里带上这份清单,
+           * 免得"落地了"被读成"内容已对齐"。非生成物路径一律照旧走 needHuman(反向锁由自检钉住:
+           * 这条分支绝不能变成新的选边后门)。
+           */
+          const sideTexts = [blobText(oursBlob, cwd), blobText(theirsBlob, cwd)]
+          const marker =
+            generatedArtifactMarker(sideTexts) || lockfileRegenMarker(p, sideTexts)
+          if (marker) {
+            generatedDeferred.push({ path: p, marker, detail: m.detail })
+            mergedClean.push(p)
+            continue
+          }
+          needHuman.push({ path: p, kind: m.kind, detail: m.detail })
+          continue
+        }
+        let text = null
+        try {
+          text = readFileSync(viaFile, 'utf8')
+        } catch (e) {
+          needHuman.push({
+            path: p,
+            kind: 'resolve-unreadable',
+            detail: `--resolve/--union-capped 的文件读不到:${viaFile}(${String(e.message).split('\n')[0]})`,
+          })
+          continue
+        }
+        const [baseText, oursText, theirsText] = [
+          blobText(baseBlob, cwd),
+          blobText(oursBlob, cwd),
+          blobText(theirsBlob, cwd),
+        ]
+        // 「防少」与「防多」必须在同一处落定 —— 先算多余、再决定写哪一份;若先写完再封顶,
+        // 被断言的就已经不是入库的那一份了。
+        let finalText = text
+        const excess = excessAddedLines(baseText, oursText, theirsText, text)
+        if (excess.length && capFirst) {
+          const capped = capAddedDuplicates(baseText, oursText, theirsText, text)
+          finalText = capped.text
+          caps.push({ label: `${p} 人工按两侧最大值封顶多余副本`, capped: capped.removed })
+          console.log(
+            `      · 已按两侧最大值封顶 ${capped.removed.length} 行多余副本(${p})`,
+          )
+        } else if (excess.length && isDupCapStrictPath(p)) {
+          violations.push(
+            `${p} 人工归并结果造出 ${excess.length} 行多余副本` +
+              `(重数超过两侧最大值:${excess
+                .slice(0, 3)
+                .map((e) => `多 ${e.excess} 份×「${String(e.line).trim().slice(0, 40)}」`)
+                .join('、')})` +
+              " —— 修复出口:改用 --union-capped '<path>=<文件>'(机械封顶,一条行都不删干净)",
+          )
+        }
+        // 其余路径**刻意不判也不报**:它们的判据按"登记行文本"这一族才有意义,拿同一条去判普通源码
+        // 文件会把"两侧各自加了一行相同的注释/闭合括号"读成多余副本 ⇒ 假阳;而假阳的代价是逼人绕出口。
+        const buf = Buffer.from(finalText.replace(/\r\n/g, '\n'), 'utf8')
+        const oid = writeBlob(buf, p, cwd)
+        if (oid !== oursBlob)
+          run(['update-index', '--add', '--cacheinfo', `${mode},${oid},${p}`])
+        mergedClean.push(p)
+        humanResolved.push(p)
+        recordSideLosses(
+          lostAddedLines(baseText, oursText, theirsText, finalText),
+          `${p} 人工归并结果丢本侧独有行`,
+          violations,
+          caps,
+        )
+        const lostTheirs = lostAddedLines(baseText, theirsText, oursText, finalText)
+        recordSideLosses(
+          lostTheirs,
+          `${p} 人工归并结果丢对侧独有行`,
+          violations,
+          caps,
+          declaredLoss?.get?.(p) ?? null,
+          lossCredits,
+        )
+        /**
+         * 声明未命中 ⇒ 陈旧或串档,不记通过(与 `--fold-keep` 的 stalePicks、`--supersede` 的
+         * 「本轮既未少带也未复活」同一条纪律):配了清单不等于这轮真放过东西。
+         * 只挂在"丢对侧独有行"那一侧 —— 本侧是本票自己的内容,不存在"替本侧声明作废"。
+         */
+        const declForPath = declaredLoss?.get?.(p)
+        if (declForPath?.size) {
+          const flagged = new Set(lostTheirs)
+          for (const [l, d] of declForPath)
+            if (!flagged.has(l)) lossStale.push({ path: p, line: l, why: d.why })
+        }
+        continue
+      }
+      const oid = writeBlob(m.buf, p, cwd)
+      if (oid === oursBlob) continue // 归并结果与本侧一致 ⇒ 连 mode 一起保持本侧条目
+      run(['update-index', '--add', '--cacheinfo', `${mode},${oid},${p}`])
+      mergedClean.push(p)
+      const [baseText, oursText, theirsText, mergedText] = [
+        blobText(baseBlob, cwd),
+        blobText(oursBlob, cwd),
+        blobText(theirsBlob, cwd),
+        m.buf.toString('utf8'),
+      ]
+      recordSideLosses(
+        lostAddedLines(baseText, oursText, theirsText, mergedText),
+        `${p} 两侧同改后本侧独有行丢失`,
+        violations,
+        caps,
+      )
+      recordSideLosses(
+        lostAddedLines(baseText, theirsText, oursText, mergedText),
+        `${p} 两侧同改后对侧独有行丢失`,
+        violations,
+        caps,
+      )
+    }
+    const tree = run(['write-tree'])
+    /**
+     * ── 落地前冲突标记自检(票 L33560,2026-11-01 接装)────────────────────────────────
+     * 位置纪律:必须在 `write-tree` **之后**(产物面已成树、内容已定,再判任何一侧的输入都晚了),
+     * 在返回/落地**之前**(判红就要折进 violations ⇒ plan().bad ⇒ main 的 `if (p.bad.length)` 退出 1,
+     * 该器既有的判红档,**不自创第二个退出码**)。
+     *
+     * 为什么这一格只能在旁路上补:守门 79 挂在 pre-commit / --rev / 全量三种**事后**面上,
+     * 而本器与 object-space-land 都走 `commit-tree + update-ref`,钩子链整条不跑 ⇒ 带标记的内容
+     * 可以直接进 HEAD,等门 79 看见时它已经在了(2026-11-01 实测的两轮回潮就是这么来的)。
+     *
+     * 判据不在这里重写(§0.6/§22c):配对问 `lib/conflict-marker-triples`(与守门 79 同一份),
+     * 分型问 `lib/conflict-marker-landing-gate`。两档口径:
+     *   must-block(区内任一侧有非空内容)⇒ 进 bad,不落地;
+     *   strippable(区内两侧零正文)⇒ 只打印"建议摘除",**不拦** —— 一律拦就回到本票立项现场
+     *   (空区永远只能靠人工摘),一律放就是静默丢内容,票面明令两档不许混。
+     */
+    const liveDocMarkerEntries = []
+    for (const p of LIVE_DOCS) {
+      let text = null
+      try {
+        const oid = run(['rev-parse', '--verify', '--quiet', `${tree}:${p}`])
+        if (oid) text = blobText(oid, cwd)
+      } catch {
+        text = null
+      }
+      // 产物面没有该路径 ⇒ 只有当两侧本来也都没有它时才算"无从判"(两侧删掉同一份文档);
+      // 某侧有而产物面没有 = 取不到输入 ⇒ 交 null 走"未判定",绝不冒充干净。
+      if (text === null && !blobOf(ours, p, cwd) && !blobOf(theirs, p, cwd)) continue
+      liveDocMarkerEntries.push({ path: p, text })
+    }
+    const markerGate = gateLandingMarkers(liveDocMarkerEntries, {
+      log: (s) => console.log(`   ${s}`),
+    })
+    for (const a of markerGate.advices) console.log(`   ⑂ ${a}`)
+    for (const v of markerGate.violations) violations.push(v)
+    for (const u of markerGate.undetermined) violations.push(u)
+    if (!markerGate.skipped) {
+      console.log(
+        `   落地前冲突标记自检(活文档):判 ${markerGate.judged} 份,判红 ${markerGate.violations.length} 处 / 建议摘除 ${markerGate.advices.length} 处` +
+          ` —— 有正文的冲突标记区一条不放过(与守门 79 同一套 P1/P2),空冲突区只建议不拦`,
+      )
+    }
+    // ── 任务状态分叉不得被归并放大(2026-09-26 立,守门 130 的同一条判据长在这里)──────────
+    // 为什么必须在落地闸里判,而不是等提交链:本收敛器用 commit-tree 造合并提交,
+    // **pre-commit 根本不跑**;而"每行重数取 max"的并集策略恰恰就是状态副本的产地
+    // (同一件事被两侧各写一份、一份已勾一份未勾 ⇒ 合并结果两行并存)。
+    // 所以判据放在提交链看不见的这一环上,否则"不再发生"这句话在收敛路径上是空的。
+    for (const p of mergedClean) {
+      if (!p.endsWith('PROJECT_PLAN.md')) continue
+      const mergedOid = run(['rev-parse', `${tree}:${p}`])
+      const sideTexts = [base, ours, theirs]
+        .map((rev) => blobOf(rev, p, cwd))
+        .filter((oid) => oid)
+        .map((oid) => blobText(oid, cwd))
+      const __cal = f3ExitCaliber(blobText(mergedOid, cwd), sideTexts)
+      if (__cal) console.log(`   ${__cal}`)
+      const __cl = mergeNoteCrossLineCaliber(blobText(mergedOid, cwd), sideTexts)
+      if (__cl) console.log(`   ${__cl}`)
+      const __sideBlobs = [base, ours, theirs].map((rev) => blobOf(rev, p, cwd)).map((oid) => (oid ? blobText(oid, cwd) : null))
+      const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {
+        suppress: null,
+        baseText: __sideBlobs[0],
+        oursText: __sideBlobs[1],
+        // G-815913: 同活文档调用点 —— F5 维只看两侧(此路是三方 merge-file,无折叠 ⇒ 不传 foldPairs)
+        f5SideTexts: [__sideBlobs[1], __sideBlobs[2]].filter((t) => typeof t === 'string' && t !== ''),
+      })
+      for (const msg of __rg2) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
+      for (const msg of __rg2.accepted || []) acceptedGrowth.push(msg)
+    }
+    return {
+      tree,
+      tookTheirs,
+      acceptedGrowth,
+      mergedClean,
+      skippedDeletes,
+      propagatedDeletes,
+      shadowDeletes,
+      shadowRestores,
+      needHuman,
+      generatedDeferred,
+      keptOurs,
+      keptTheirs,
+      // --take-theirs-doc(2026-10-27):整份取对侧已生效的活文档(逐条点名)与未判定格(拦落地的红住 verifyUnion)。
+      keptTheirsDocs,
+      // A6:整份取对侧已声明"本侧少内容"的格(逐条点名理由),不得折进零丢失。
+      takeTheirsDocCredits: takeDocCredits,
+      takeTheirsDocsUndetermined: takeDocsUndetermined,
+      humanResolved,
+      violations,
+      caps,
+      // 人工逐行声明放过的少带 + 声明未命中的陈旧项(两者都必须随报告点名,不得只留其一)。
+      lossCredits,
+      lossStale,
+      // 摘除台账拦下的补回候选(G-34/G-43):不拦落地,但随报告逐条点名(与 caps 同一条留痕纪律)。
+      ledgerWithheld,
+      // 空冲突区标记行的扣行账(2026-11-01,MARKERS 票):不拦落地,但必须逐行进报告与提交信息,
+      // 否则"归并器自己扣了三行"就会被下一手读成"对侧本来就没有这三行"(§0.3)。
+      markerWithheld,
+      liveDocs,
+      // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
+      foldLedgers,
+      // 折叠层拒绝裁定的组(逐文档):一条都没折,但必须交回落地闸点名,不得读成"没得折"。
+      foldAmbiguous,
+      // 声明式保留行没命中的那些(逐文档):"配了清单"不等于"这轮真放过东西"(§0.3)。
+      foldStalePicks,
+      resurrect,
+    }
+  } finally {
+    rmScratch(scratch, { bestEffort: true })
+  }
+}
+
+/** 逐路径列出 <rev> 的 blob oid(供"按内容判移动"用)。ls-tree -r 的格式是
+ *  `<mode> <type> <oid>\t<path>`,mode 可能是 120000(symlink)/ 160000(gitlink),一律如实带上。 */
+function oidMap(rev, cwd) {
+  const out = git(['ls-tree', '-r', rev], cwd)
+  const m = new Map()
+  for (const line of out.split('\n').filter(Boolean)) {
+    const tab = line.indexOf('\t')
+    if (tab < 0) continue
+    const oid = line.slice(0, tab).split(' ')[2]
+    if (!oid) continue
+    if (!m.has(oid)) m.set(oid, [])
+    m.get(oid).push(line.slice(tab + 1))
+  }
+  return m
+}
+
+/** 零丢失自证(路径面 + 活文档行面)。返回违规清单,空 = 可落地。
+ *  两侧同改的"独有行不丢"断言在 buildUnion 里(结果内容当场在手),由 plan 合并进同一道闸。
+ *
+ *  「对侧路径在合并树里找不到」有三种截然不同的成因,必须分开口径(2026-09-25 实测:
+ *  旧写法把第一种也判成吞并,于是收敛永远落不了地,而落地不了就等于各会话继续往 main 堆提交):
+ *    ① 本侧移动且内容逐字节未变 —— 同一 blob 在本侧另一路径上存在 ⇒ 按移动放行;
+ *    ② 本侧移动/删除,且**对侧相对基底根本没改这一路径**(theirs blob == base blob)——
+ *      这一路径的处置权按定义属于本侧(合并基底是本侧整棵树),放行;
+ *      它不弱化守门 100 的立罪面:A1 只管"某父提交有 ∧ 共同基底没有"的新增路径,
+ *      而②的前提恰恰是"基底里有",属本侧对既有路径的改名/搬家/删除;
+ *    ③ 真吞并 —— 对侧改过(或基底没有)而内容在合并树里无处可寻 ⇒ 判红,不落地。
+ *  ①② 一律逐条进 `bad.moved` 并在结论行点名,绝不静默成"0 处"。
+ *
+ *  `foldLedgers`(2026-10-16,本票的修法):活文档行面的**期望重数必须与产物面同形**。
+ *  `buildUnion` 对 PROJECT_PLAN.md 开 `dedupeTasks` 折叠同题行,而旧版自证侧对着"折叠前的重数"判红
+ *  —— 实测本机 CHECK ONLY 一轮 289 处「未存活行」,逐条量下来真丢失 0(阳性对照:关折叠 0 / 开折叠 289)。
+ *  台账由折叠那一次调用同轮带出(`unionLinesCore`),本侧只做**举证**(`attestFoldPair`):
+ *  少掉的份数只有能证明"折进了产物面里那一行、且那一行接住了它的注记与票号"才销账;
+ *  证不出来 ⇒ 照旧判红,主键算不出 ⇒ 记「未判定」并点名(§0.3),**绝不当成"没丢"**。
+ *  未接台账的调用方(旧六参签名、含全部既有测试)⇒ 逐字走原判据,一条都不放松。 */
+export function verifyUnion(
+  ours,
+  theirs,
+  tree,
+  cwd = ROOT,
+  base = null,
+  moveAwareCache = null,
+  foldLedgers = null,
+  supersede = null,
+  takeTheirsDocs = null,
+  lenient = false,
+) {
+  const M = new Set(listPaths(tree, cwd))
+  const bad = []
+  const moved = []
+  const pointerCaps = []
+  const moveAware = []
+  const foldCredited = []
+  const foldUndetermined = []
+  const supCredits = []
+  const dropLedgerCredited = []
+  for (const p of listPaths(ours, cwd)) {
+    if (M.has(p)) continue
+    /**
+     * "零损失"断言的**内容寻址豁免**(不是白名单、不信任调用方给的清单):
+     * 本侧这个路径没进合并结果,但它那份字节在合并树里由同 stem 的 `.ts/.tsx` **同一个 blob oid**
+     * 承载 ⇒ 内容一行都没少,少的是那个多余的影子文件名,这正是收口。
+     * 与下面"对侧丢失"分支里早已有的 blob 移动豁免(1046 行 `moved`)是同一条证明的两半 ——
+     * 本侧这一半此前缺,于是"影子删除被传播"会被自己的零损失断言判成丢内容,合并落地不了。
+     * 只有 blob oid 逐字相等才走这一支;内容不等值 ⇒ 照旧 `bad`(自检影子 C 臂钉住)。
+     */
+    const oid = blobOf(ours, p, cwd)
+    const sibOids = {}
+    for (const s of shadowTsSiblings(p)) sibOids[s] = blobOf(tree, s, cwd)
+    const twin = shadowTwinIsIdentical(p, oid, sibOids)
+    if (twin) {
+      moved.push(
+        `${p} 的字节由 ${twin.path} 同一个 blob(${String(oid).slice(0, 9)})承载 ⇒ 合并结果不含它属收口,不是丢失`,
+      )
+      continue
+    }
+    // 票 G-977960 ② 的对称豁免:对侧相对基底删除了它 ∧ 本侧那份逐字等于基底 ⇒ 删除随合并传播,
+    // 处置权归删除方。与下面 theirsLost 环里早已有的「本侧已移动或删除;对侧相对基底未改动 ⇒ 处置权归本侧」
+    // 是同一条内容寻址证明的另一半 —— 被删的字节就是基底字节,没有任何一侧的独有工作消失。
+    // 取不到基底 ⇒ 豁免不成立,照旧判红(失效方向 = 多拦,绝不把真吞并洗成传播)。
+    if (base) {
+      const delBaseOid = blobOf(base, p, cwd)
+      if (delBaseOid && delBaseOid === oid && blobOf(theirs, p, cwd) === null) {
+        moved.push(`${p}(对侧已删除;本侧相对基底未改动这一路径 ⇒ 删除随合并传播,零丢失由逐字同一 blob 证明)`)
+        continue
+      }
+    }
+    bad.push(`合并树丢了本侧路径 ${p}`)
+  }
+  const theirsLost = listPaths(theirs, cwd).filter((p) => !M.has(p))
+  if (theirsLost.length) {
+    const oursOids = oidMap(ours, cwd)
+    const treeOids = oidMap(tree, cwd)
+    for (const p of theirsLost) {
+      const oid = blobOf(theirs, p, cwd)
+      const landed = oid && treeOids.get(oid)
+      const carried = oid && oursOids.get(oid)
+      const to = landed && carried && landed.find((q) => q !== p && carried.includes(q))
+      if (to) {
+        moved.push(`${p} → ${to}(本侧移动,内容逐字节同一 blob)`)
+        continue
+      }
+      const baseOid = base ? blobOf(base, p, cwd) : null
+      if (baseOid && baseOid === oid) {
+        moved.push(`${p}(本侧已移动或删除;对侧相对基底未改动这一路径 ⇒ 处置权归本侧)`)
+      } else {
+        bad.push(`合并树丢了对侧路径 ${p}`)
+      }
+    }
+  }
+  for (const p of LIVE_DOCS) {
+    const a = show(ours, p, cwd)
+    const b = show(theirs, p, cwd)
+    // --take-theirs-doc 的自证语义(2026-10-27):对这类路径,"零丢失"= **整 blob 逐字等于对侧**。
+    // 行级期望表(liveDocExpectedCounts)不跑 —— 本侧独有行被整份取代是声明本身,不是归并失误;
+    // 但声明绝不因此免检:树里不是对侧那一份字节 ⇒ 照红,取不到对侧 ⇒ 未判定(不记通过)。
+    if (takeDocHas(takeTheirsDocs, p)) {
+      // A6:整份取代的自证不能只验"树 == 对侧"——先量本侧会少什么,少内容且无理由声明照样红。
+      // A6b(`--legacy-lenient`):逃生阀开启时自证也回到旧口径(只验 blob 逐字等于对侧)。
+      if (!lenient && a !== null && b !== null) {
+        const loss = takeTheirsDocLoss(a, b)
+        const why = takeDocReason(takeTheirsDocs, p)
+        if (!loss.ok && why.length < TAKE_DOC_MIN_REASON)
+          bad.push(
+            `${p} --take-theirs-doc 自证:本侧少内容(${loss.losses.join('; ')}),` +
+              '且未声明理由 ⇒ 整份取对侧不是零丢失,不记通过',
+          )
+      }
+      const tb = blobOf(theirs, p, cwd)
+      const mb = blobOf(tree, p, cwd)
+      if (!tb)
+        bad.push(
+          `${p} --take-theirs-doc 已声明但对侧取不到该路径(未判定,不记通过:路径不存在或对象不在本机,请核对声明)`,
+        )
+      else if (mb !== tb)
+        bad.push(
+          `${p} --take-theirs-doc 已声明但合并树该路径 blob 不等于对侧(自证失败,不记通过):树 ${String(mb).slice(0, 11)} ≠ 对侧 ${String(tb).slice(0, 11)}`,
+        )
+      continue
+    }
+    if (a === null || b === null) {
+      bad.push(`${p} 落地后取不到(本侧或对侧任一面读不出 = 无法自证,不记通过)`)
+      continue
+    }
+    const bt = base ? show(base, p, cwd) : null
+    // 断言必须用**同一个期望表**(liveDocExpectedCounts),不得各写一份:
+    // 上一版这里仍是旧的 max(本侧,对侧),于是三方化之后每一枚"本侧改写过别人的行"的合并
+    // 都被落地闸判成"丢了 12 行"而拒绝落地 —— 判据与实现不同形时,工具会把自己锁死。
+    // 搬运感知同一道理:抑制表若只在归并侧生效、断言侧不认,落地闸就会把"合法未取回"判成丢行。
+    const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
+    moveAware.push(ma)
+    const want = liveDocExpectedCounts(a, b, bt, ma.suppress, null, null, archiveDropSetFor(p, a, ours, cwd))
+    const mTree = show(tree, p, cwd)
+    const m = counter(mTree)
+    // 少带的份数在这一条路径上同样必须点名(本票防的就是"台账被静默少带")
+    const docCaps = bt === null ? [] : liveDocPointerCaps(bt, [a, b], mTree)
+    if (docCaps.length) pointerCaps.push({ doc: p, capped: docCaps })
+    /**
+     * 「未存活行」这一判据的**期望重数必须与产物面同形**(2026-10-16,本票)。
+     * 折叠台账只用于**举证**已经短了的格:一条都不短时期望表与旧版逐字等值 ⇒ 行为不变。
+     * 台账里没有这一行 ⇒ 折叠从未声明折掉它 ⇒ 原判据逐字照红(真丢失的牙一处不松)。
+     * 台账声明了 ⇒ 必须 `attestFoldPair` 四问全过才销账,否则分别记「未判定」/「真丢失」并点名。
+     */
+    const ledger = foldLedgers?.get?.(p) || null
+    const pairOf = new Map((ledger?.pairs || []).map((x) => [x.dropped, x]))
+    /**
+     * 声明式取代的出口(票 G-310):"本侧就地改写过这一行"和"对侧那一版已被另一版取代"这两型,
+     * 工具**结构上判不出来** —— 它能比字面,不能判语义住在哪一行。所以由人声明,而声明必须过
+     * `supersedeProof`(= 折叠那四问 + 必须带原因 + 不得自取代),**不许工具猜**。
+     * 两半判据共用这一份实现:各写一遍的固定代价是一条尺子绿灯、另一条同一改动判红(§0.6)。
+     */
+    const sup = supersede?.get?.(p) || null
+    const supHit = new Set()
+    const creditSupersede = (l, kind, short) => {
+      if (!sup?.has(l)) return null
+      supHit.add(l)
+      const declared = sup.get(l)
+      const sp = supersedeProof(declared, l, m)
+      if (sp.status !== 'attested') {
+        bad.push(
+          `${p} ${kind}(--supersede 已声明但举证不成立:${sp.reason}):${l.slice(0, 50)}`,
+        )
+        return 'rejected'
+      }
+      supCredits.push({
+        doc: p,
+        kind,
+        dropped: l,
+        copies: short,
+        kept: sp.kept,
+        why: String(declared.why).trim(),
+      })
+      return 'attested'
+    }
+    for (const [l, n] of want) {
+      const have = m.get(l) || 0
+      if (have >= n) continue
+      const pair = pairOf.get(l)
+      if (!pair) {
+        // 折叠台账没这一行 ⇒ 按旧判据本应逐字照红;G-310 之后人可以**声明**它被哪一行取代,
+        // 但声明证不出去向照样红(且比原句多带原因),放行了也必报名。
+        if (creditSupersede(l, '未存活行', n - have)) continue
+        bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+        continue
+      }
+      const short = n - have
+      if (short > pair.droppedCopies) {
+        bad.push(
+          `${p} 未存活行(折叠台账只解释 ${pair.droppedCopies} 份,仍缺 ${short - pair.droppedCopies} 份):${l.slice(0, 50)}`,
+        )
+        continue
+      }
+      const att = attestFoldPair(pair, m)
+      if (att.status === 'attested') {
+        foldCredited.push({
+          doc: p,
+          dropped: l,
+          copies: short,
+          kept: att.kept,
+          inherited: att.kept !== l,
+        })
+        continue
+      }
+      const label =
+        att.status === 'undetermined'
+          ? `${p} 折叠去向未判定(不当成"没丢",不记通过):${att.reason}`
+          : `${p} 未存活行(折叠去向不成立):${att.reason}`
+      ;(att.status === 'undetermined' ? foldUndetermined : bad).push(`${label}:${l.slice(0, 50)}`)
+    }
+    // 折叠产物新增/改写的那些行也是**欠账**:产物面没有它们,台账就是在替一次删除背书。
+    // (这一条与上面那条判据可能点到同一行,宁可重复点名也不许漏 —— 本票防的就是静默。)
+    for (const [l, n] of ledger?.foldedIn || [])
+      if ((m.get(l) || 0) < n)
+        bad.push(`${p} 折叠保留行不在产物面(台账与产物不同形):期望 ${n} 份、实有 ${m.get(l) || 0} 份 —— ${l.slice(0, 50)}`)
+    // 台账的反向自证:它报"折掉了"的份数必须是**期望表欠着的**份数。台账点一条期望表从不欠的行
+    // ⇒ 它不是由这三面算出来的(串档 / 陈旧 / 别的轮次)⇒ 该格记「未判定」并点名,不记通过(§0.3)。
+    for (const [l, n] of ledger?.foldedAway || []) {
+      if ((want.get(l) || 0) >= n) continue
+      foldUndetermined.push(
+        `${p} 折叠台账与三面不同形(未判定,不记通过:台账报折 ${n} 份,期望表只有 ${want.get(l) || 0} 份):${l.slice(0, 50)}`,
+      )
+    }
+    // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
+    // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
+    // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
+    const cb = bt !== null ? counter(bt) : null
+    const ca = counter(a)
+    // 本侧按摘除台账**正当删除且已逐字留痕**的那些行(判据同源 declaredDropCaps:
+    // 逐字命中台账 ∧ 本侧 0 份 ∧ 登记行形,三条缺一不成集)。台账从**判定面同一个根**取(cwd):
+    // 生产面 cwd 就是仓根 ⇒ 与改前逐字同形;夹具面能自带一份台账,这条放行才可被测。
+    // 台账读不到 ⇒ 空集 = 一条都不放行(照旧硬拒),安全方向永远是"多挡一次"而不是"多放一次"。
+    let dropCaps = new Set()
+    try {
+      dropCaps = declaredDropCaps(a, declaredRows(cwd).set)
+    } catch {
+      dropCaps = new Set()
+    }
+    /**
+     * 折叠"复原"账(2026-10-20):折叠层把**本侧独有**的改写版折进了基底那一行(「改写者优先」的反面 ——
+     * 改写版并入注记后与基底行逐字同形时,keeper 就是基底行)。此时归并产物里出现基底行不是"旧行被复活":
+     * 它是折叠当场裁定的保留行,而且四问(同一件事/去向在产物面/独有注记与票号被接住)全过。
+     * 只在被折行确属**本侧独有**(本侧有、基底没有)时才认这一格 —— 那证明本侧是就地改写,不是删了它。
+     * 取证:9 条实测全是这一型(G-196/G-69/G-158/G-222/G-262/D128/G-978002/G-1058619/G-36),
+     * 每条都能在 foldLedgers 里找到 dropped=本侧独有版、kept=基底行、attestFoldPair=attested 的对。
+     */
+    const foldRestitutions = new Map() // kept 行(基底行) -> 折进它的那些 pair
+    for (const pair of ledger?.pairs || []) {
+      if (!pair || !pair.kept || pair.dropped === pair.kept) continue
+      if (!ca.get(pair.dropped)) continue // 本侧没有它 ⇒ 不是本侧的改写版
+      if (cb && cb.get(pair.dropped)) continue // 基底也有它 ⇒ 不是本侧独有
+      if (!foldRestitutions.has(pair.kept)) foldRestitutions.set(pair.kept, [])
+      foldRestitutions.get(pair.kept).push(pair)
+    }
+    const creditFoldRestitution = (l) => {
+      for (const pair of foldRestitutions.get(l) || []) {
+        if (attestFoldPair(pair, m).status !== 'attested') continue
+        foldCredited.push({
+          doc: p,
+          dropped: pair.dropped,
+          copies: pair.droppedCopies,
+          kept: l,
+          inherited: true,
+          restitution: true,
+        })
+        return true
+      }
+      return false
+    }
+    if (cb !== null) {
+      for (const [l, n] of cb) {
+        if ((ca.get(l) || 0) >= n) continue // 本侧留着它 ⇒ 不是改写/删除
+        if ((m.get(l) || 0) > (want.get(l) || 0)) {
+          // 折叠复原:改写版并入注记后**就是**基底那一行 ⇒ keeper 是基底行,产物里出现它不是复活。
+          if (creditFoldRestitution(l)) continue
+          // G-310 的正主:归并按"失效方向只能多带一行"把**本侧已就地改写过**的旧行取回,
+          // 判据随即判它复活。这一型唯一合法的收法是声明"语义现在住在哪一行"并过四问举证,
+          // 之前这里一处出口都没有 ⇒ 每个会话走到这格只能停,或去裸做 git 手术绕过全部断言。
+          if (creditSupersede(l, '旧行被复活', (m.get(l) || 0) - (want.get(l) || 0))) continue
+          // 摘除台账已**逐字声明正当删除**的行(2026-11-01 接进本闸)。
+          // 为什么必须在这里认它,而不是逼人工再写一份 --supersede 声明档:
+          //   · 台账 `plan-row-drop.jsonl` 的 `rowBefore` 就是这条删除的既成留痕,`declaredDropCaps`
+          //     还额外要求「本侧 0 份 ∧ 是登记行形」两个条件才成立 —— 拿它放行不比人工声明档更宽;
+          //   · 本闸只挡正牌收敛通道,普通 `git merge` 结构上不走这里(实测 2026-11-01 那枚 8c9d77f9ef
+          //     正是"普通 merge 把旧台账侧带回来 → head-recall 兜底轮再摘掉"的产物),所以这道硬拒
+          //     **没有挡住 hazard,只挡住了安全通道**,每次撞上都要各席手工绕一次(§12f:只判不修
+          //     逼人绕过,这条对工具自己同样成立);
+          //   · 放行不静默:逐行点名进 `dropLedgerCredited`,随报告面打印并写进合并提交信息,
+          //     且这一型由兜底轮继续负责真正摘除(本器不假装已经把行删掉了)。
+          if (dropCaps.has(l)) {
+            dropLedgerCredited.push({
+              doc: p,
+              line: l,
+              copies: (m.get(l) || 0) - (want.get(l) || 0),
+            })
+            continue
+          }
+          bad.push(
+            `${p} 旧行被复活(本侧已改写/删除):重数 ${m.get(l)} > 期望 ${want.get(l) || 0} —— ${l.slice(0, 50)}`,
+          )
+        }
+      }
+    }
+    // 声明了却本轮没命中 ⇒ 不记通过(§0.3):清单陈旧/串档必须当场喊出来,
+    // 否则"配了清单"会被读成"这轮真放过东西"。
+    for (const l of sup?.keys() || []) {
+      if (!supHit.has(l))
+        bad.push(
+          `${p} --supersede 声明未命中(该行本轮既未少带也未复活 ⇒ 清单属陈旧或串档,不记通过):${l.slice(0, 50)}`,
+        )
+    }
+  }
+  bad.superseded = supCredits
+  bad.dropLedgerCredited = dropLedgerCredited
+  bad.moved = moved
+  bad.pointerCaps = pointerCaps
+  bad.moveAware = moveAware
+  bad.folded = foldCredited
+  bad.foldUndetermined = foldUndetermined
+  // 「未判定」永远折进落地闸:证不出去向的少带**不许**被读成"没丢"(§0.3/§0.10 的方向禁令)。
+  bad.push(...foldUndetermined)
+  return bad
+}
+
+/** 把一次"两侧独有行不得减少"断言的产物分流:真丢行进 `violations`(拦落地);
+ *  因副本指针有意少带进 `caps`(不拦,但必须逐条点名)。四个调用点必须同形 ⇒ 只许有这一个出口。
+ *
+ *  `decl`/`credit`(2026-10-25 补,出口是 CLI 的 `--declare-side-loss`):在 `--resolve` 这条**人已判过**
+ *  的路径上,对侧那一行可能与本侧的改写结构互斥 —— 实测本仓:对侧把硬编码 `'收起'` 原样按 prettier
+ *  收成单行 JSX,本侧同一元素已 i18n 化成 `t('chat.msg.collapse')` 并拆成三行。两侧独有行都留 =
+ *  同一元素两份标签 ⇒ UI 回归 + 门 70(端内硬编码中文)回潮;`lostAddedLines` 只比逐字文本,
+ *  判不出"这是一次有意的语义取代",于是这条锁在这一型路径上**永无解**。旧版只剩两把更坏的刀:
+ *  `--take-ours` 会连对侧其余 34 行独有内容(含新函数与其 import)一起丢,`--resolve` 又永远过不了闸
+ *  ⇒ 整枚合并卡死,其余可合路径一起躺在后面。
+ *  所以缺的不是判据而是**可追责的出口**:逐行给原文 + 逐行给原因才销账;未命中(陈旧/串档)由调用方
+ *  点名并进 bad,一条都不静默(§0.10:失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门")。 */
+function recordSideLosses(lost, label, violations, caps, decl = null, credit = null) {
+  for (const l of lost) {
+    const d = decl?.get?.(l)
+    if (d) {
+      credit?.push({ line: l, why: d.why, label })
+      continue
+    }
+    violations.push(`${label}:${String(l).slice(0, 60)}`)
+  }
+  const capped = lost.pointerCapped ?? []
+  if (capped.length) caps.push({ label, capped })
+}
+
+/**
+ * 把"因搬运感知而未取回"这一维排成人读行(纯函数,输入就是 plan() 的 `moveAware` 清单)。
+ * 三态必须分开、绝不并桶:
+ *  - `suppressedBlocks` —— 拿得到内容证据、**合法不取回**的条目块(逐块报行数与出处归档件);
+ *  - `keptBlocks` —— 占位在、但块与归档件不逐行连续(= 之后被就地改写)⇒ 照旧取回,并报为什么;
+ *  - `undetermined` —— 归档件取不到 / 块边界对不上 / 整批取材失败 ⇒ **照旧取回**并喊未判定,
+ *    绝不静默当成已归档(把"没判"写成"判过了"是本仓最高频失效型)。
+ */
+export function formatMoveAwareReport(list, { detail = false, maxEntries = 25 } = {}) {
+  const out = []
+  for (const ma of list ?? []) {
+    const s = ma.stats ?? {}
+    const blocks = ma.suppressedBlocks ?? []
+    const kept = ma.keptBlocks ?? []
+    const und = ma.undetermined ?? []
+    if (!s.blocksMatched && !kept.length && !und.length) continue
+    out.push(
+      `  · ${ma.doc} 因搬运感知未取回 ${s.suppressedLines || 0} 行` +
+        `(基准面已有 \`已归档\` 占位代表的条目块 ${blocks.length} 个 / 读过归档件 ${ma.archives || 0} 份;` +
+        `另有 ${kept.length} 块不逐字同形 ⇒ 照旧取回、${und.length} 块未判定 ⇒ 照旧取回)`,
+    )
+    const showAll = detail ? blocks.length : Math.min(blocks.length, maxEntries)
+    for (const e of blocks.slice(0, showAll))
+      out.push(`      - 未取回 ${e.suppressed} 行 ← 条目「${e.title}」代表于 ${e.archivePath}`)
+    if (blocks.length > showAll)
+      out.push(
+        `      …其余 ${blocks.length - showAll} 个条目块未逐条打印(计数已含;加 --move-aware-detail 全列)`,
+      )
+    if (detail)
+      for (const e of blocks) for (const l of e.lines) out.push(`        │ ${String(l).slice(0, 120)}`)
+    for (const k of kept)
+      out.push(`      · 照旧取回 ${k.lines} 行 ← 条目「${k.title}」:${k.reason}`)
+    for (const u of und)
+      out.push(`      ⚠️ 未判定 ⇒ 照旧取回 ← 条目「${u.title}」:${u.reason}`)
+  }
+  return out
+}
+
+/**
+ * 某枚 commit 的对象在不在本机。**ls-remote 只问引用、不下载对象**(§5b),所以"拿到了远端
+ * sha"与"能对它跑 merge-base"是两件事:2026-09-28 同一窗口踩到两次 —— `merge-base --is-ancestor
+ * <远端sha> HEAD` 回 `fatal: Not a valid commit name …`,而本器把它读成"不是祖先"继续往下,
+ * 直到 `plan()` 里那句 `merge-base` 抛 Node 堆栈,账面表现为"工具坏了"而不是"你还差一次 fetch"。
+ * 本器绝不代跑 fetch(网络动作与 ref 写入的归属留给调用方),只把这一维显式判出来。
+ */
+export function hasCommit(sha, cwd = ROOT) {
+  if (!/^[0-9a-f]{7,40}$/.test(String(sha || ''))) return false
+  return (
+    spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'cat-file', '-e', `${sha}^{commit}`], {
+      cwd,
+      windowsHide: true,
+      // 根治:同 git-sync-converge.mjs —— 本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60000,
+      encoding: 'utf8',
+    }).status === 0
+  )
+}
+
+/**
+ * 「本器没资格判」那一支的**唯一出路文案出口**(G-473 收口)。
+ *
+ * 为什么要单列成一份函数而不是在三个分支里各拼一句:调用方(git-sync-converge)按
+ * `UNDETERMINED` 分流,而**人**按这三条出口办事 —— 三处各写一遍必然漂开,而漂开的表现是
+ * "同一次故障,CLI 用户与 import 者拿到的指导不一样"(本仓"两处算同一件事必漂移"那一族)。
+ *
+ * 三条出口的**编号按种类固定,不随缺哪条而重排**:①=联网按分支 fetch、②=免联网显式喂可达 sha、
+ * ③=ref 存续体检。R-B 依赖这一点:缺的是**本地 HEAD** 时 ① 结构上无效(fetch 回不来本机 HEAD 的
+ * 对象,那是 gitdir/refs 受损),所以只发 ③ —— 编号若按位置重排,③ 就会被印成"出口①",
+ * 读的人照它去 fetch,白跑一轮还以为是自己网络的问题。
+ *
+ * 一条硬约束(由 R-A 的反向锁钉死):**不得把"按 sha 直取"包装成可执行命令**。
+ * 公共托管默认拒绝未公布对象,而那枚 sha 是否还公布着恰恰在并发高峰最先失效 ——
+ * 给出去就是第二条"文档写了却跑不通的出路"(§26 那一族的禁令)。
+ *
+ * @param {object} o
+ * @param {string[]} [o.missing]  本机取不到的 commit(对象不在本机那一型)
+ * @param {string} [o.theirs]     本轮想合的目标
+ * @param {string} [o.head]       本地 HEAD
+ * @param {string} [o.branch]     被审仓库的当前分支名(detached 时 --abbrev-ref 回的 "HEAD" 不算)
+ * @param {string|null} [o.noRemoteTruth]  远端当次真值根本没问到时的原因(那一型与"对象不在本机"不同因)
+ * @returns {string} 多行文本,首行定性,其后逐行是出口
+ */
+export function unreachableObjectGuidance({
+  missing = [],
+  theirs = '',
+  head = '',
+  branch = '',
+  noRemoteTruth = null,
+} = {}) {
+  // detached 仓库的 `--abbrev-ref HEAD` 回字面量 "HEAD",照抄会产出一条必败的 `fetch origin HEAD`
+  // ⇒ 归一成占位,让人自己补(G-RG 的变异自证抓的就是这一步被"简化")。
+  const b = branch && branch !== 'HEAD' ? branch : '<当前分支名>'
+  const list = (Array.isArray(missing) ? missing : [missing]).filter(Boolean)
+  const headMissing = list.length > 0 && !!head && list.includes(head)
+  const out = []
+  if (noRemoteTruth)
+    out.push(
+      `问不到远端当次真值:${String(noRemoteTruth).slice(0, 120)}(跟踪 ref 的残值不参与落槌 ⇒ 更不能据此说"已同步")`,
+    )
+  else if (headMissing)
+    out.push(`本地 HEAD 的那枚对象都取不到(${String(head).slice(0, 11)}) ⇒ 这不是"少 fetch 一次",是 gitdir/refs 受损`)
+  else {
+    // 每枚取不到的 sha 都**按角色**报名:只给一串截断哈希,读的人分不清该 fetch 的是远端还是本机坏了。
+    const role = (s) => (s === theirs ? '本轮目标' : s === head ? '本地 HEAD' : '另一枚对象')
+    out.push(`对象不在本机(${list.map((s) => `${role(s)} ${String(s).slice(0, 11)}`).join(' / ')})`)
+  }
+  if (!headMissing) {
+    out.push(`  出口① 联网取当次真值:git fetch origin ${b}(随后自行 rev-parse 复核,别信跟踪 ref 的残值)`)
+    out.push(
+      `  出口② 免联网:显式喂一枚本机已可达的目标 —— node scripts/union-converge.mjs --theirs <本机已可达的 sha>` +
+        `(本器不代跑 fetch:网络动作与 ref 写入的归属留给调用方)`,
+    )
+  }
+  out.push(
+    `  出口③ ref 存续体检:node scripts/git-refs-heal.mjs --status,缺失即 node scripts/git-refs-heal.mjs` +
+      `(§5b:嵌套 ref 会被清理层删掉,update-ref 对它还会假成功)`,
+  )
+  return out.join('\n')
+}
+
+/** 找一对需要合并的输入;skip 非空表示无事可做,undetermined 非空表示"这一步还没资格判"。 */
+export function resolveTargets(theirsArg, cwd = ROOT) {
+  const head = git(['rev-parse', 'HEAD'], cwd)
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
+  let theirs = theirsArg
+  // "调用方有没有点名一枚 --theirs" 决定"本地纯落后"能不能当短路用(见下面那条注释)。
+  const explicit = String(theirsArg || '').trim() !== ''
+  if (!theirs) {
+    try {
+      // 远端位置只认**当次真值**(§5b:跟踪 ref 会被清理层删掉,packed-refs 里的旧值照样被读回来)。
+      // 拿残值落槌有两种都不报错的错向:残值==本地 ⇒ 报"已同步"而根本不合并;残值落后 ⇒ 去合一个
+      // 早已不存在的分叉。取不到就当"无法判定"交回上层,绝不猜一个 stage 用。
+      // ⚠️ 这一支过去落 `skip`(⇒ CLI 打印"无需合并"并 exit 0),那是把"判不了"报成"无事可做":
+      // 调用方据此跳过一整轮收敛,账面全绿而分叉永久留着。现在落 undetermined ⇒ exit 2。
+      const r = resolveRemoteHead(branch, { root: cwd })
+      if (!r.sha)
+        return {
+          head,
+          theirs: '',
+          skip: null,
+          undetermined: unreachableObjectGuidance({ noRemoteTruth: r.reason, branch }),
+        }
+      theirs = r.sha
+    } catch (e) {
+      return {
+        head,
+        theirs: '',
+        skip: null,
+        undetermined: unreachableObjectGuidance({
+          noRemoteTruth: `取远端异常:${String((e && e.message) || e).slice(0, 90)}`,
+          branch,
+        }),
+      }
+    }
+  }
+  if (theirs === head) return { head, theirs, skip: '已同步' }
+  // 对象不在本机时,**任何祖先判据都不可信**:`isAncestor` 只因 cat-file 失败而回 false,于是
+  // "已被本地包含 / 纯落后"两条一起被跳过,一路走到 plan() 的 merge-base 才抛 Node 堆栈
+  // (G-473:读起来像工具坏了,而真相只是"还差一次 fetch")。这里显式判"未判定":
+  // 既不冒红(它不是内容裁决,不该和真冲突混在一张单子上),也不记绿(它什么都没判)。
+  const missing = [theirs, head].filter((s) => s && !hasCommit(s, cwd))
+  if (missing.length)
+    return {
+      head,
+      theirs,
+      skip: null,
+      undetermined: unreachableObjectGuidance({ missing, theirs, head, branch }),
+    }
+  if (isAncestor(theirs, head, cwd)) return { head, theirs, skip: '目标已被本地包含' }
+  // ⚠️ "本地纯落后 ⇒ 交给 ff/converge"这一短路**只对"远端真值自动解析"那一支成立**。
+  // 显式喂了 `--theirs` 却说这句是错的(G-815406 同族、G-814402 实测):调用方点名要合的那枚提交
+  // 是不是已经在本地,只有 `isAncestor(theirs, head)` 能回答;而"本地落后于它"完全不等于
+  // "无事可做"—— 它恰恰意味着**还差一次合并**。旧写法在这里 exit 0 并打印"无需合并",
+  // 一次已验证的交付差点就这么没了(票面:复核的人都被那句合理话术劝退)。
+  // 现在显式档照常走归并:落地闸仍然硬判"两侧路径零丢失",所以它不会比 ff 更危险,而它说真话。
+  if (!explicit && isAncestor(head, theirs, cwd))
+    return { head, theirs, skip: '本地纯落后 ⇒ 走 ff/converge,不用 union' }
+  return { head, theirs, skip: null }
+}
+
+function isAncestor(a, b, cwd) {
+  return (
+    spawnSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'merge-base', '--is-ancestor', a, b], {
+      cwd,
+      windowsHide: true,
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120000,
+      encoding: 'utf8',
+    }).status === 0
+  )
+}
+
+export function plan(
+  ours,
+  theirs,
+  cwd = ROOT,
+  takeOurs = new Set(),
+  resolutions = new Map(),
+  takeTheirs = new Set(),
+  accepted = null,
+  baseOverride = null,
+  supersede = null,
+  foldKeep = null,
+  declaredLoss = null,
+  takeTheirsDocs = null,
+  lenient = false,
+) {
+  // 直接走 API 的调用方也必须拿到同一句诊断,而不是 git 的 "Not a valid commit name" 加一串堆栈
+  // (G-473 ②:取不到要写成"未判定 + 出口",不得表现为工具故障)。CLI 那一支在 resolveTargets
+  // 已经拦下,这条是给 import 者的 —— 两处判据与**两处出路文案**同一份实现(unreachableObjectGuidance),
+  // 各写一遍的后果是"CLI 用户与 import 者拿到的指导不一样"。
+  const miss = [ours, theirs].filter((s) => s && !hasCommit(s, cwd))
+  if (miss.length) {
+    let branch = ''
+    try {
+      branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
+    } catch {
+      /* 分支名问不到 ⇒ guidance 自己落占位,不因此改变"未判定"这一结论 */
+    }
+    throw new Error(
+      `未判定:${unreachableObjectGuidance({ missing: miss, theirs, head: ours, branch })}`,
+    )
+  }
+  let base
+  if (baseOverride) {
+    // --base 覆盖口(2026-10-14,同日被迫补):远端被强制重写(force-push)后,git merge-base 返回的
+    // 是**被重写前**的旧分叉点,相对新的两侧历史它是个"空基底" —— 两侧独有的行在基底里都不存在,
+    // 于是三方归并把"对侧正常改的行"报成丢行、把 25 个文件炸成人工裁决(实测 b802e847fb0 下
+    // scripts/ 仅 8 个文件,plan-* 族全不在基底里)。真实共同祖先是被重写前的 origin tip。
+    // 口径:显式喂的 base 必须是本机可达的提交,否则一律"未判定"(exit 2),绝不静默退回 merge-base
+    //   —— 静默回退会把"空基底"这场事故重演一遍,而调用方看不出来自己用错了 base。
+    if (!hasCommit(baseOverride, cwd))
+      throw new Error(`未判定:--base ${baseOverride} 本机取不到该提交(先 fetch 或换一枚可达的 sha)`)
+    base = baseOverride
+  } else {
+    base = git(['merge-base', ours, theirs], cwd)
+  }
+  // 一张抑制表同时喂归并与落地断言(分开算必漂移,而漂移的固定代价是"落地闸把合法未取回判成丢行")。
+  const moveAwareCache = new Map()
+  const built = buildUnion(
+    base,
+    ours,
+    theirs,
+    cwd,
+    takeOurs,
+    resolutions,
+    moveAwareCache,
+    takeTheirs,
+    accepted,
+    foldKeep,
+    declaredLoss,
+    takeTheirsDocs,
+    lenient,
+  )
+  // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
+  //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
+  const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
+  // 折叠台账必须**同轮**交给落地自证(§0.4 同面同轮):产物面是折叠之后那一份,自证侧若拿不到
+  // 这本账,就会对着一个"产物面根本不存在的重数"判红 —— 本机实测 289 处「未存活行」而真丢失 0。
+  const vu = verifyUnion(
+    ours,
+    theirs,
+    built.tree,
+    cwd,
+    base,
+    moveAwareCache,
+    built.foldLedgers,
+    supersede,
+    takeTheirsDocs,
+    lenient,
+  )
+  // --take-theirs-doc 的陈旧/错道声明必须当场点名(§0.3:配了清单 ≠ 这轮真放过东西):
+  //  · 声明的路径两侧都取不到 ⇒ 未判定(不记通过);
+  //  · 声明的路径存在但不在活文档清单 ⇒ 未命中(该族整路径取对侧本就由 --take-theirs 负责,
+  //    --take-theirs-doc 只对"会被行级 union 覆盖选边"的活文档才有意义)。
+  // buildUnion 的活文档循环只遍历 LIVE_DOCS,不在清单里的声明那里永远看不见 ⇒ 只能在 plan() 这一层拦。
+  const staleDocPicks = []
+  for (const d of takeDocPaths(takeTheirsDocs)) {
+    if (LIVE_DOCS.includes(d)) continue
+    const exists = blobOf(ours, d, cwd) || blobOf(theirs, d, cwd)
+    staleDocPicks.push(
+      exists
+        ? `${d} --take-theirs-doc 声明未命中(该路径存在但不在活文档清单 ${LIVE_DOCS.join('/')} 里,行级 union 本就不覆盖它;整路径取对侧请改用 --take-theirs)⇒ 不记通过`
+        : `${d} --take-theirs-doc 未判定(声明的路径两侧都取不到:路径不存在或对象不在本机)⇒ 不记通过`,
+    )
+  }
+  // 折叠层拒绝裁定的组必须以「未判定」进落地闸(2026-10-20):两版并存不是"没得折",而是"机器不敢猜"。
+  // 让它静默通过 = 把下一次合并的裁定权交给并不在场的人;拦下来点名 = §0.10 要的那个方向。
+  const ambiguousRows = []
+  for (const [doc, list] of built.foldAmbiguous || [])
+    for (const a of list)
+      ambiguousRows.push(
+        `${doc} 同题两版并存、折叠层拒绝裁定(未判定,须人工判哪一版是当下状态):指纹「${a.fp}」共 ${a.lines.length} 版 —— ${a.lines
+          .map((l) => `「${l.slice(0, 40)}」`)
+          .join(' ⇄ ')}`,
+      )
+  // 声明式保留行的陈旧/串档:与「拒绝裁定」同一条纪律 —— 不命中就当场喊,绝不记成"这轮真放过"。
+  const stalePickRows = []
+  for (const [doc, list] of built.foldStalePicks || [])
+    for (const s of list)
+      stalePickRows.push(
+        `${doc} --fold-keep 声明未命中(${s.reason} ⇒ 陈旧或串档,不记通过):指纹「${s.fp}」`,
+      )
+  // 同一纪律的第三格(--declare-side-loss):声明了某行有意少带,而这行本轮并没有被判成丢对侧独有行
+  // ⇒ 要么清单陈旧/串档,要么那一侧的内容已换了写法 —— 两种都不能读成"这轮真放行了什么"。
+  const staleLossRows = (built.lossStale || []).map(
+    (s) =>
+      `${s.path} --declare-side-loss 声明未命中(该行本轮未被判少带 ⇒ 陈旧或串档,不记通过):${String(s.line).slice(0, 60)}`,
+  )
+  return {
+    base,
+    ...built,
+    bad: [
+      ...built.violations,
+      ...blocked,
+      ...vu,
+      ...ambiguousRows,
+      ...stalePickRows,
+      ...staleLossRows,
+      ...staleDocPicks,
+    ],
+    // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
+    // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
+    caps: [
+      ...(built.caps || []),
+      ...vu.pointerCaps.map((c) => ({ label: `${c.doc} 活文档行 union`, capped: c.capped })),
+    ],
+    // 按移动放行的那些路径(内容级判据,见 verifyUnion 头注)—— 报告必须逐条点名
+    movedPaths: vu.moved,
+    // 折叠销掉的份数(合法少带)与问不出去向的格:两条都必须随返回值交到报告与提交信息里,
+    // 静默折进"0 丢失"就是本仓记过最多次的那一型(与 caps / pointerCaps 同一条留痕纪律)。
+    folded: vu.folded,
+    superseded: vu.superseded,
+    foldUndetermined: vu.foldUndetermined,
+    foldLedgers: built.foldLedgers,
+    foldAmbiguous: built.foldAmbiguous,
+    // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
+    // 报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"。
+    moveAware: [...moveAwareCache.values()],
+  }
+}
+
+function selfTest() {
+  // 取数层缓存按 (cwd, sha) 分区,夹具之间本已隔离;显式清一次防同 cwd 下的陈旧 rev 解析
+  resetUnionCaches()
+  const dir = mkScratch('ihui-union-')
+  const run = (...a) => git(a, dir)
+  // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
+  const { t: ok, report } = makeRegistrar()
+  // 旗标白名单完备性自检(RP-79 剩余面,2026-11-01):扫描器**只在这里**当漏项报警器。
+  // 运行期只信白名单(见 main 的 judgeFlags),所以这一条红不会把同步链的合法转发拦停;
+  // 但白名单腐烂(源码长出新的 argv 消费点却没登记)必须在这里当场现形,不许等下游合并死机。
+  {
+    const cov = checkFlagCoverage(readFileSync(fileURLToPath(import.meta.url), 'utf8'))
+    ok(
+      '旗标白名单覆盖自检:源码消费的每一枚旗都在白名单内,且同步链转发族 ⊆ 白名单',
+      () => cov.verdict === 'ok',
+      `${cov.verdict}${cov.reason ? ` —— ${cov.reason}` : ''}`,
+    )
+  }
+  try {
+    run('init', '-q', '-b', 'main')
+    run('config', 'user.email', 't@t')
+    run('config', 'user.name', 't')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
+    writeFileSync(join(dir, 'keep.ts'), 'k\n', 'utf8')
+    // 本侧会把它 mv 成 moved-to.ts(先 mv 后 add,不是 git mv)—— 这是"旧路径在合并树里消失"
+    // 的第二种成因,与守门 100 立罪的那种(内容真的没了)必须分开口径。
+    writeFileSync(join(dir, 'moved-from.ts'), 'M\n', 'utf8')
+    // ② 型夹具:本侧搬家**并改了内容**(相对基底),对侧原封不动 —— 真仓 2026-09-25 就是这个形态
+    // (waiting-keys 用例从 packages/i18n/tests 挪进 packages/shared/tests/chat,顺手改了相对 import)
+    writeFileSync(join(dir, 'edited-from.ts'), 'E\n', 'utf8')
+    // ③ 型夹具:基底有、本侧删、**对侧改** —— 这是必须判红的真吞并(绝不能被①②的通道洗绿)
+    writeFileSync(join(dir, 'theirs-edited.ts'), 'T0\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'init')
+
+    // 本侧:新增一个模块 + 登记一行 + 把 moved-from.ts 挪到 moved-to.ts + 搬家并改内容 + 删掉对侧随后会改的那个
+    writeFileSync(join(dir, 'mine.ts'), 'export const m = 1\n', 'utf8')
+    writeFileSync(join(dir, 'moved-to.ts'), 'M\n', 'utf8')
+    rmSync(join(dir, 'moved-from.ts'), { force: true })
+    writeFileSync(join(dir, 'edited-to.ts'), 'E-changed\n', 'utf8')
+    rmSync(join(dir, 'edited-from.ts'), { force: true })
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+
+    // 对侧:从 init 分叉,另加一个模块、另一行,并删掉一个 init 就有的文件
+    run('checkout', '-q', 'HEAD~1')
+    run('branch', '-D', 'main')
+    writeFileSync(join(dir, 'theirs.ts'), 'export const t = 1\n', 'utf8')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
+    writeFileSync(join(dir, 'theirs-edited.ts'), 'T1-modified\n', 'utf8')
+    run('rm', '-q', 'keep.ts')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+
+    const p = plan(ours, theirs, dir)
+    ok('零丢失自证必须通过', p.bad.length === 0, p.bad.slice(0, 3).join(' / '))
+    const paths = new Set(listPaths(p.tree, dir))
+    ok('本侧独有新增不得丢', paths.has('mine.ts'))
+    ok('对侧独有新增照收', paths.has('theirs.ts'))
+    // 票 G-977960 ②(用户拍板):这一格的语义已从"删除不传播"改为"传播删除" ——
+    // 对侧删 ∧ 本侧未动 ⇒ 合并树里不该再有它,且必须逐路径点名(不是静默吞掉)。
+    ok(
+      '② 对侧删除 ∧ 本侧未动 ⇒ 删除随合并生效(合并树里没有它,且逐路径点名)',
+      !paths.has('keep.ts') && (p.propagatedDeletes || []).includes('keep.ts'),
+      `paths.has(keep.ts)=${paths.has('keep.ts')} propagated=${JSON.stringify(p.propagatedDeletes)}`,
+    )
+    ok(
+      'modify/delete 分叉之外不得再进"不传播"清单(keep.ts 不在其中的点名)',
+      !p.skippedDeletes.includes('keep.ts'),
+      JSON.stringify(p.skippedDeletes),
+    )
+    // 本侧 mv 走的那条路径:旧路径在合并树里消失,但内容以同一 blob 活在新路径上。
+    // 这一类若按"吞并"判红,收敛就永远落不了地(2026-09-25 实测:门自己把一次合法改名拦成了死局);
+    // 若不打勾点名,它又会变成任何人掩盖吞并的借口 —— 所以两头都要:放行 + 吼出来。
+    ok(
+      '本侧改名(mv 后 add)导致的旧路径消失按移动放行,并逐条点名',
+      p.bad.length === 0 && p.movedPaths.some((m) => m.startsWith('moved-from.ts → moved-to.ts')),
+      `bad=${p.bad.slice(0, 3).join(' / ')} moved=${(p.movedPaths || []).join(' / ')}`,
+    )
+    // ② 搬家**并改了内容**、对侧原封不动:合并树里旧路径消失不是吞并,处置权按定义归本侧。
+    // 真仓 2026-09-25 的拦阻就是这一型 —— waiting-keys 从 i18n/tests 挪进 shared/tests/chat 时顺手改了
+    // 相对 import,于是 blob 不再逐字节相等,旧判据把它当吞并,收敛落不了地。
+    ok(
+      '② 本侧搬家并改内容 ∧ 对侧相对基底未改 ⇒ 按移动放行(不判吞并)',
+      p.movedPaths.some((m) => m.startsWith('edited-from.ts(') && m.includes('对侧相对基底未改动')),
+      `moved=${(p.movedPaths || []).join(' / ')}`,
+    )
+    {
+      // ③ 边界:同一条路径,本侧删 ∧ 对侧改 —— 移动放行通道**不得**把它算成"本侧处置"。
+      // 真行为是保守侧:对侧改过的内容必须活下来(工具的既定纪律 —— "删除不随合并传播,
+      // 确要删必须在合并之后显式 git rm"),所以这里钉的是"它还在,且没被写进 moved 清单"。
+      run('checkout', '-q', '-b', 'ours-del', ours)
+      rmSync(join(dir, 'theirs-edited.ts'), { force: true })
+      run('add', '-A')
+      run('commit', '-qm', 'ours deletes a path theirs edited')
+      const p3 = plan(run('rev-parse', 'HEAD'), theirs, dir)
+      const stillThere = listPaths(p3.tree, dir).includes('theirs-edited.ts')
+      ok(
+        '③ 本侧删 ∧ 对侧改:对侧内容必须存活,且不得被移动通道算成本侧处置',
+        stillThere &&
+          !p3.movedPaths.some((m) => m.includes('theirs-edited.ts')) &&
+          p3.bad.length === 0,
+        JSON.stringify({ stillThere, bad: p3.bad.slice(0, 2), moved: p3.movedPaths }),
+      )
+      run('checkout', '-q', '--detach', ours)
+      run('branch', '-D', 'ours-del')
+    }
+    {
+      // 反向对照:真吞并不得被移动通道洗绿 —— 拿"本侧整棵树"当合并树,theirs.ts 的内容在本侧无处可寻
+      const oursTree = run('rev-parse', `${ours}^{tree}`)
+      const ghost = verifyUnion(ours, theirs, oursTree, dir)
+      ok(
+        '真吞并仍判红:对侧独有内容在本侧无处可寻时,移动通道不得放行',
+        ghost.some((b) => b.includes('丢了对侧路径') && b.includes('theirs.ts')) &&
+          !ghost.moved.some((m) => m.startsWith('theirs.ts')),
+        `${ghost.join(' / ')} | moved=${ghost.moved.join(' / ')}`,
+      )
+    }
+    const doc = show(p.tree, 'PROJECT_PLAN.md', dir)
+    ok(
+      '台账两侧登记行都必须存活',
+      doc.includes('ours-line') && doc.includes('theirs-line'),
+      doc.replace(/\n/g, '|'),
+    )
+
+    const sha = run('commit-tree', p.tree, '-p', ours, '-p', theirs, '-m', 'union merge')
+    ok(
+      '用守门 100 的 A1 复核本工具产物 ⇒ 0 丢失',
+      auditOne(sha, dir).lost.length === 0,
+      JSON.stringify(auditOne(sha, dir).lost),
+    )
+
+    // 反向对照:选边(取对侧整棵树)必须被同一套断言判失败
+    const oneSide = git(['rev-parse', `${theirs}^{tree}`], dir)
+    const bad = verifyUnion(ours, theirs, oneSide, dir)
+    ok(
+      '选边式合并必须判失败',
+      bad.some((b) => b.includes('mine.ts')),
+      bad.slice(0, 2).join(' / '),
+    )
+
+    // —— 两侧同改:第二个夹具,以免扰动上面那组的既有断言 ——
+    const d2 = mkScratch('ihui-union-3w-')
+    const r2 = (...a) => git(a, d2)
+    try {
+      r2('init', '-q', '-b', 'main')
+      r2('config', 'user.email', 't@t')
+      r2('config', 'user.name', 't')
+      r2('config', 'core.autocrlf', 'false') // 结果按字节断言,行尾必须确定(本机实测 autocrlf=true)
+      writeFileSync(join(d2, 'clean.ts'), 'l1\nl2\nl3\nl4\nl5\n', 'utf8')
+      writeFileSync(join(d2, 'clash.ts'), 'x1\nx2\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'only-theirs.ts'), 'ot-base\n', 'utf8')
+      writeFileSync(join(d2, 'both.bin'), Buffer.from('a\u0000b\u0000c\n'))
+      writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
+      writeFileSync(
+        join(d2, 'uv.lock'),
+        'version = 1\nrevision = 3\n\n[[package]]\nname = "a"\nversion = "1.0.0"\n',
+        'utf8',
+      )
+      r2('add', '-A')
+      r2('commit', '-qm', 'init')
+
+      writeFileSync(join(d2, 'clean.ts'), 'L1\nl2\nl3\nl4\nl5\n', 'utf8')
+      writeFileSync(join(d2, 'clash.ts'), 'x1\nOURS\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'gen.art'), 'GENERATED FILE — DO NOT EDIT\nOURS\n', 'utf8')
+      writeFileSync(join(d2, 'both.bin'), Buffer.from('A\u0000b\u0000c\n'))
+      writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
+      // 锁文件:两侧各自 lock 一次 ⇒ 同一行被两种版本改写(结构上无解的那一型)
+      writeFileSync(
+        join(d2, 'uv.lock'),
+        'version = 1\nrevision = 3\n\n[[package]]\nname = "a"\nversion = "1.0.1"\n',
+        'utf8',
+      )
+      r2('add', '-A')
+      r2('commit', '-qm', 'ours')
+      const o2 = r2('rev-parse', 'HEAD')
+
+      r2('checkout', '-q', 'HEAD~1')
+      writeFileSync(join(d2, 'clean.ts'), 'l1\nl2\nl3\nTHEIRS\nl5\n', 'utf8')
+      writeFileSync(join(d2, 'clash.ts'), 'x1\nTHEIRS\nx3\n', 'utf8')
+      writeFileSync(join(d2, 'gen.art'), 'GENERATED FILE — DO NOT EDIT\nTHEIRS\n', 'utf8')
+      writeFileSync(join(d2, 'only-theirs.ts'), 'ot-theirs\n', 'utf8')
+      writeFileSync(join(d2, 'both.bin'), Buffer.from('a\u0000B\u0000c\n'))
+      writeFileSync(join(d2, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
+      writeFileSync(
+        join(d2, 'uv.lock'),
+        'version = 1\nrevision = 3\n\n[[package]]\nname = "a"\nversion = "1.0.2"\n',
+        'utf8',
+      )
+      r2('add', '-A')
+      r2('commit', '-qm', 'theirs')
+      const t2 = r2('rev-parse', 'HEAD')
+      r2('update-ref', 'refs/heads/main', o2)
+
+      const q = plan(o2, t2, d2)
+      ok(
+        '两侧同改不同区域 ⇒ 走真三方并入 mergedClean',
+        q.mergedClean.includes('clean.ts') && !q.tookTheirs.includes('clean.ts'),
+        JSON.stringify([q.mergedClean, q.tookTheirs]),
+      )
+      const clean = show(q.tree, 'clean.ts', d2)
+      ok(
+        '干净三方:两侧新增行都必须在结果里',
+        clean === 'L1\nl2\nl3\nTHEIRS\nl5',
+        clean.replace(/\n/g, '|'),
+      )
+      const clash = q.needHuman.find((h) => h.path === 'clash.ts')
+      ok(
+        '两侧同改同一行 ⇒ 判需人工并点名该文件(不选边)',
+        clash?.kind === 'conflict',
+        JSON.stringify(q.needHuman),
+      )
+      ok(
+        '冲突必须同时进落地闸 bad',
+        q.bad.some((b) => b.includes('clash.ts')),
+        q.bad.slice(0, 3).join(' / '),
+      )
+      ok(
+        '冲突文件的树内容仍是本侧版本(未被悄悄换成对侧)',
+        show(q.tree, 'clash.ts', d2) === 'x1\nOURS\nx3',
+        show(q.tree, 'clash.ts', d2),
+      )
+      // —— 生成物通道(G-814415):冲突不得把整枚合并卡死,但要登记"待重生成" ——
+      ok(
+        '生成物两侧各自重生成 ⇒ 不进 needHuman、登记 generatedDeferred 并点名自证标记',
+        !q.needHuman.some((h) => h.path === 'gen.art') &&
+          q.generatedDeferred.some((d) => d.path === 'gen.art' && d.marker === 'GENERATED FILE — DO NOT EDIT'),
+        JSON.stringify([q.needHuman.map((h) => h.path), q.generatedDeferred]),
+      )
+      ok(
+        '生成物 Deferred 不得进落地闸 bad(否则还是卡死),且树内容按本侧留下',
+        !q.bad.some((b) => b.includes('gen.art')) &&
+          show(q.tree, 'gen.art', d2) === 'GENERATED FILE — DO NOT EDIT\nOURS',
+        `${q.bad.slice(0, 2).join(' / ')} | ${show(q.tree, 'gen.art', d2).replace(/\n/g, '|')}`,
+      )
+      ok(
+        '反向锁:同一枚合并里非生成物冲突必须照旧交人工(生成物通道不得变成选边后门)',
+        q.needHuman.some((h) => h.path === 'clash.ts' && h.kind === 'conflict'),
+        JSON.stringify(q.needHuman.map((h) => [h.path, h.kind])),
+      )
+      // —— 锁文件族(2026-10-29):包管理器整体重生成,双条件识别,处置与生成物一致 ——
+      ok(
+        '锁文件族两侧各自重生成 ⇒ 不进 needHuman、按本侧留下并点名 lockfile:uv.lock',
+        !q.needHuman.some((h) => h.path === 'uv.lock') &&
+          q.generatedDeferred.some(
+            (d) => d.path === 'uv.lock' && d.marker === 'lockfile:uv.lock',
+          ) &&
+          show(q.tree, 'uv.lock', d2).includes('1.0.1'),
+        JSON.stringify([
+          q.needHuman.map((h) => h.path),
+          q.generatedDeferred.map((d) => [d.path, d.marker]),
+          show(q.tree, 'uv.lock', d2).replace(/\n/g, '|'),
+        ]),
+      )
+      ok(
+        '锁文件族判据(纯函数):双条件缺一不认 —— 文件名不符/结构不符/空输入都回退人工',
+        lockfileRegenMarker('apps/ai-service/uv.lock', [
+          'version = 1\nrevision = 3\n\n[[package]]\nname = "a"\n',
+        ]) === 'lockfile:uv.lock' &&
+          lockfileRegenMarker('apps/ai-service/uv.lock', ['plain text, no lock skeleton']) ===
+            null &&
+          lockfileRegenMarker('apps/api/pyproject.toml', [
+            'version = 1\n[[package]]\n',
+          ]) === null &&
+          lockfileRegenMarker('uv.lock', []) === null &&
+          lockfileRegenMarker('a/b/pnpm-lock.yaml', ['lockfileVersion: 9.0\n']) ===
+            'lockfile:pnpm-lock.yaml',
+        JSON.stringify([
+          lockfileRegenMarker('apps/ai-service/uv.lock', ['version = 1\n[[package]]\n']),
+          lockfileRegenMarker('apps/ai-service/uv.lock', ['plain text']),
+          lockfileRegenMarker('apps/api/pyproject.toml', ['version = 1\n[[package]]\n']),
+          lockfileRegenMarker('uv.lock', []),
+        ]),
+      )
+      ok(
+        '二进制两侧同改 ⇒ 无法文本三方,交人工',
+        q.needHuman.find((h) => h.path === 'both.bin')?.kind === 'binary',
+        JSON.stringify(q.needHuman),
+      )
+      ok(
+        '仅对侧动过 ⇒ 与改前逐字一致(整文件取对侧)',
+        q.tookTheirs.includes('only-theirs.ts') &&
+          blobOf(q.tree, 'only-theirs.ts', d2) === blobOf(t2, 'only-theirs.ts', d2),
+        JSON.stringify(q.tookTheirs),
+      )
+      ok(
+        '活文档仍走行级 union(不经三方)',
+        show(q.tree, 'PROJECT_PLAN.md', d2).includes('theirs-line'),
+      )
+      ok('无丢行违规(干净三方那一个文件)', q.violations.length === 0, JSON.stringify(q.violations))
+
+      /**
+       * `--take-theirs` 的成对用例(2026-09-28 补,与上面的"选边必失败"成对而不是相反):
+       * 两侧把**同一行**改成两种写法时,`--resolve` 的零损失断言结构上喂不进去(两侧独有行都留
+       * ⇒ 同名声明重复 ⇒ 编译不过),所以缺的不是判断而是**声明式出口**。两条必须同时成立:
+       *  · 不声明 ⇒ 仍 needHuman(出口不能被静默打开,否则"选边"就成了默认动作);
+       *  · 声明 ⇒ 树内容逐字等于对侧、`keptTheirs` 点名该路径、且**不因此产生丢行违规**
+       *    (取代是本侧持有者的决定,不是归并器的失误)。
+       */
+      const forcedT = plan(o2, t2, d2, new Set(), new Map(), new Set(['clash.ts']))
+      ok(
+        'T-a 声明 --take-theirs ⇒ 该路径整文件取对侧并点名(不藏在 tookTheirs 里)',
+        forcedT.keptTheirs.includes('clash.ts') &&
+          blobOf(forcedT.tree, 'clash.ts', d2) === blobOf(t2, 'clash.ts', d2) &&
+          !forcedT.needHuman.some((h) => h.path === 'clash.ts'),
+        JSON.stringify([forcedT.keptTheirs, forcedT.needHuman.map((h) => h.path)]),
+      )
+      /**
+       * 反 TDZ 的形状锁(2026-09-28 实测:第一次 --apply 就是死在
+       * `Cannot access 'acceptedGrowth' before initialization` —— 累加器声明挂在 2) 的群里,
+       * 而 1) 活文档循环先用它;纯函数自检对此全绿,因为它是照着"函数会给答案"写的,
+       * 而不是照"有人调它"写的。声明必须先于使用,这条能由源码文本判,不需要真跑一次合并。)
+       */
+      ok(
+        '声明放行:累加器的声明必须早于第一次使用(1) 活文档循环在 2) 的累加器群之前)',
+        (() => {
+          const src = readFileSync(new URL(import.meta.url), 'utf8')
+          const decl = src.indexOf('const acceptedGrowth = []')
+          const use = src.indexOf('acceptedGrowth.push')
+          return decl >= 0 && use >= 0 && decl < use
+        })(),
+      )
+      ok(
+        '声明放行:accepted 必须真的传到落地闸的两处调用点(只加形参不传 = 自检绿而生效次数 0)',
+        (() => {
+          const src = readFileSync(new URL(import.meta.url), 'utf8')
+          return (
+            src.includes('planStateRegressions(mergedText, sides, accepted, {') &&
+            src.includes('planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {') &&
+            src.includes('moveAwareCache, takeTheirs, accepted,')
+          )
+        })(),
+      )
+      ok(
+        'F5 额度:有据额度与比较集必须由**调用点**喂进内容(搬运感知表 / 基底面 / 本侧面 / ' +
+          'F5 两侧集合 / 折叠台账)—— 只在判据函数里读形参而没人传,等价于这一维从未生效过' +
+          '(守门 70/76/81/105/115 同族)',
+        (() => {
+          const src = readFileSync(new URL(import.meta.url), 'utf8')
+          return (
+            src.includes('suppress: ma.suppress') &&
+            src.includes('baseText: bt') &&
+            src.includes('oursText: a') &&
+            src.includes('baseText: __sideBlobs[0]') &&
+            src.includes('oursText: __sideBlobs[1]') &&
+            // G-815913:活文档调用点必须把 F5 比较集收到两侧、并把折叠台账一起喂进来
+            src.includes('f5SideTexts: [a, b]') &&
+            src.includes('foldPairs: built0.ledger?.pairs || null') &&
+            src.includes('f5SideTexts: [__sideBlobs[1], __sideBlobs[2]]') &&
+            // ⑥ 归档整区移出:活文档调用点必须把行级 union 用的同一本 archiveDropCaps 账喂进 F5,
+            // 否则本侧有意移入归档的 `<!-- 已归档 -->` 存根会被 F5 判成未解释少带(2026-10-29 死结)。
+            src.includes('archiveDropSet: archiveDropSet')
+          )
+        })(),
+      )
+      ok(
+        'T-b 反向锁:不声明时同一夹具仍必须判需人工(声明式例外不得变成默认放行)',
+        q.needHuman.some((h) => h.path === 'clash.ts') && !q.keptTheirs?.length,
+        JSON.stringify(q.needHuman.map((h) => h.path)),
+      )
+      ok(
+        'T-c 取对侧只影响被声明的那一路径:其余文件的两侧独有行仍须全在',
+        show(forcedT.tree, 'clean.ts', d2) === 'L1\nl2\nl3\nTHEIRS\nl5' &&
+          show(forcedT.tree, 'PROJECT_PLAN.md', d2).includes('ours-line') &&
+          show(forcedT.tree, 'PROJECT_PLAN.md', d2).includes('theirs-line'),
+        show(forcedT.tree, 'clean.ts', d2).replace(/\n/g, '|'),
+      )
+
+      /**
+       * 形状锁:声明必须先于使用。起因是 2026-09-28 的一次真实卡死 —— 1) 里新加的"状态分叉"判据
+       * 往 `violations` push,而 `const violations = []` 声明在下面 2) 的清单堆里 ⇒
+       * `Cannot access 'violations' before initialization`,上层把它报成"union-converge 亦判需人工",
+       * 于是**所有会话的台账冲突都收敛不动、发布链卡死**。
+       * 为什么只能用源码序而不能用行为用例钉:抛不抛取决于 `planStateRegressions` 当期有没有报出
+       * 内容 —— 上面那个夹具恰好没报,于是自测 20 条全绿而真仓一撞分叉就崩(数据相关的崩溃,
+       * 行为用例天然测不到;源码序是这里唯一不依赖数据的锁)。
+       */
+      ok(
+        '形状锁:buildUnion 里 violations 的声明必须先于第一次 push',
+        (() => {
+          const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+          const decl = src.indexOf('const violations = []')
+          const use = src.indexOf('violations.push(')
+          return decl >= 0 && use >= 0 && decl < use
+        })(),
+      )
+
+      // —— --resolve:人工判完的回灌出口必须**不是**选边的别名 ——
+      const rfBoth = join(d2, '.resolve-both.txt')
+      writeFileSync(rfBoth, 'x1\nOURS\nTHEIRS\nx3\n', 'utf8')
+      const qr = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfBoth]]))
+      ok(
+        '--resolve 含两侧独有行 ⇒ 冲突消失、进 mergedClean、落地闸过',
+        !qr.needHuman.some((h) => h.path === 'clash.ts') &&
+          qr.humanResolved.includes('clash.ts') &&
+          !qr.bad.some((b) => b.includes('clash.ts')),
+        JSON.stringify([qr.needHuman.map((h) => h.path), qr.humanResolved, qr.bad]),
+      )
+      ok(
+        '--resolve 的落树内容 == 人工那份(不是本侧、也不是对侧)',
+        show(qr.tree, 'clash.ts', d2) === 'x1\nOURS\nTHEIRS\nx3',
+        show(qr.tree, 'clash.ts', d2).replace(/\n/g, '|'),
+      )
+      const rfOursOnly = join(d2, '.resolve-ours.txt')
+      writeFileSync(rfOursOnly, 'x1\nOURS\nx3\n', 'utf8')
+      const qo = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfOursOnly]]))
+      ok(
+        '反向锁:--resolve 只放本侧内容 ⇒ 判"丢对侧独有行"并进 bad(否则它就是选边后门)',
+        qo.bad.some((b) => b.includes('clash.ts') && /对侧独有行/.test(b)),
+        qo.bad.slice(0, 3).join(' / '),
+      )
+      const qb = plan(o2, t2, d2, new Set(), new Map([['clash.ts', join(d2, 'no-such-file.txt')]]))
+      ok(
+        '--resolve 指向读不到的文件 ⇒ 仍落 needHuman 并点名原因(不静默按本侧落地)',
+        qb.needHuman.some((h) => h.path === 'clash.ts' && h.kind === 'resolve-unreadable'),
+        JSON.stringify(qb.needHuman.map((h) => [h.path, h.kind])),
+      )
+      /**
+       * `--declare-side-loss` 的成对用例(2026-10-25 立,立因见 recordSideLosses 头注):
+       * 两侧把同一元素改成互斥写法时,`--resolve` 的零损失锁结构上无解,而 `--take-ours` 会连对侧
+       * 其余独有行一起丢 ⇒ 需要一条**逐行、带原因、可追责**的放行出口。三条必须同时成立:
+       *  · 声明命中 ⇒ bad 不再含那一行,且 lossCredits 逐行点名(放行必须留下凭据);
+       *  · 反向锁:没声明仍判红(复用上面 qo,那条已钉住)⇒ 出口不是默认动作;
+       *  · 反向锁:声明了本轮并未被判少带的行 ⇒ 进 bad「声明未命中」,不记通过(§0.3)。
+       */
+      const lossDecl = new Map([['clash.ts', new Map([['THEIRS', { why: '两侧同一元素互斥改写,本侧版为当下状态' }]])]])
+      const qdl = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfOursOnly]]), new Set(), null, null, null, null, lossDecl)
+      ok(
+        '--declare-side-loss 命中 ⇒ 那一行不再进 bad,且逐行留痕(lossCredits 点名 + 原因)',
+        !qdl.bad.some((b) => b.includes('clash.ts') && /对侧独有行/.test(b)) &&
+          qdl.lossCredits.length === 1 &&
+          qdl.lossCredits[0].line === 'THEIRS' &&
+          qdl.lossCredits[0].why.length >= 10,
+        JSON.stringify([qdl.bad.slice(0, 3), qdl.lossCredits]),
+      )
+      ok(
+        '正向对照:同一枚声明不得把该路径的其他对侧独有行一起放行(只销声明那一行)',
+        show(qdl.tree, 'clean.ts', d2) === 'L1\nl2\nl3\nTHEIRS\nl5',
+        show(qdl.tree, 'clean.ts', d2).replace(/\n/g, '|'),
+      )
+      const staleDecl = new Map([['clash.ts', new Map([['GHOST-LINE', { why: '本轮没有被判少带,属陈旧清单' }]])]])
+      const qds = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfBoth]]), new Set(), null, null, null, null, staleDecl)
+      ok(
+        '反向锁:声明未命中本轮判红行 ⇒ 进 bad 点名,绝不记成"这轮真放过东西"',
+        qds.bad.some((b) => b.includes('--declare-side-loss 声明未命中') && b.includes('GHOST-LINE')) &&
+          qds.lossCredits.length === 0,
+        JSON.stringify([qds.bad.slice(0, 3), qds.lossCredits]),
+      )
+      ok(
+        '纯函数 声明门槛:缺 line / 原因不足 10 字一律拒绝(空话放行 = 没有判据)',
+        sideLossEntryProblem({ line: '', why: 'x'.repeat(20) }) !== null &&
+          sideLossEntryProblem({ line: 'L', why: '太短' }) !== null &&
+          sideLossEntryProblem({ line: 'L', why: '两侧同一元素互斥改写,信息无损失' }) === null,
+        JSON.stringify([
+          sideLossEntryProblem({ line: '', why: 'x'.repeat(20) }),
+          sideLossEntryProblem({ line: 'L', why: '太短' }),
+        ]),
+      )
+    } finally {
+      rmScratch(d2, { bestEffort: true })
+    }
+
+    // 丢行判据本身的语义边界(纯函数,不需仓库)
+    ok(
+      '丢行判据:另一侧显式删掉的基底同名行不计为丢失',
+      lostAddedLines('d\nd\n', 'd\nd\nd\n', 'd\n', 'd\nd\n').length === 0,
+    )
+    ok(
+      '丢行判据:本侧新增行被吃掉必须点名',
+      lostAddedLines('b\n', 'b\nx\n', 'b\n', 'b\n').join() === 'x',
+    )
+    ok(
+      '丢行判据:重数下降也算丢失',
+      lostAddedLines('a\n', 'a\nn\nn\n', 'a\n', 'a\nn\n').join() === 'n',
+    )
+    // ── 多余副本判据(G-585):并集只判"少"不判"多",这一族补的是另一半 ──────────────
+    // 立因实测:2026-09-28 一份归档件用 `git merge-file --union` 手解后比两侧多 187 行,
+    // 其中 186 行是多余副本,而当时零损失断言一路报绿 ⇒ 脏数据无声入库。
+    ok(
+      '多余判据:同一行超过两侧最大值 ⇒ 点名并给出多几份',
+      (() => {
+        const r = excessAddedLines('base\n', 'base\nx\n', 'base\nx\n', 'base\nx\nx\nx\n')
+        return r.length === 1 && r[0].line === 'x' && r[0].excess === 2 && r[0].bound === 1
+      })(),
+    )
+    ok(
+      '多余判据的界:两侧都没有的一行不算多余(只管份数,不管凭空多一行)',
+      excessAddedLines('base\n', 'base\n', 'base\n', 'base\nz\nz\n').length === 0,
+    )
+    ok(
+      '多余判据:空行不参与(否则段落空行的增减会被整族读成副本)',
+      excessAddedLines('\n', '\n\n', '\n\n', '\n\n\n').length === 0,
+    )
+    ok(
+      '封顶出口:收回最大值、保留先出现的份,且封顶后仍过"不得减少"断言(不是删干净)',
+      (() => {
+        const c = capAddedDuplicates('b\n', 'b\nx\n', 'b\nx\n', 'b\nx\nx\n\ny\n')
+        return (
+          c.text === 'b\nx\n\ny\n' &&
+          c.removed.length === 1 &&
+          c.removed[0].line === 'x' &&
+          c.removed[0].dropped === 1 &&
+          lostAddedLines('b\n', 'b\nx\n', 'b\nx\n', c.text).length === 0 &&
+          lostAddedLines('b\n', 'b\nx\n', 'b\nx\n', c.text).pointerCapped.length === 0
+        )
+      })(),
+    )
+    ok(
+      '严格档边界:只按台账族路径判红,普通源码路径不判(把"两侧各写一行同样的注释"挡在判据之外)',
+      isDupCapStrictPath('PROJECT_PLAN.md') &&
+        isDupCapStrictPath('apps/web/PROJECT_PLAN.md') &&
+        isDupCapStrictPath('.ihui-agent/archive/PROJECT_PLAN_selftest.md') &&
+        !isDupCapStrictPath('src/NOT_PROJECT_PLAN.md') &&
+        !isDupCapStrictPath('apps/cli/src/tools/index.ts') &&
+        !isDupCapStrictPath(undefined),
+    )
+    // ── 副本指针 cap(G-814386):少带份数合法,少带信息非法 ──────────────────────────
+    // 三对正反例都必须"同一对输入、只差指针字样",否则例外一旦写宽,普通行的丢失也会被一起放过。
+    const PTR = '〔【归并】重复登记副本(2026-09-26):同主键另一条,派单以那条为准。〕'
+    ok(
+      '指针 cap:对侧新增 3 份带指针的行 ⇒ 只判"少带 2 份",不进丢失桶',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}`
+        const r = lostAddedLines('base\n', `base\n${l}\n${l}\n${l}\n`, 'base\n', `base\n${l}\n`)
+        return (
+          r.join() === '' &&
+          r.pointerCapped.length === 1 &&
+          r.pointerCapped[0].dropped === 2 &&
+          formatPointerCapReport(r.pointerCapped).length > 0
+        )
+      })(),
+    )
+    ok(
+      '指针 cap 的反面:同一形态但不带指针 ⇒ 必须照常判丢失(例外不得吞普通行)',
+      (() => {
+        const l = '- [ ] G-9 事甲 〔普通注记〕'
+        const r = lostAddedLines('base\n', `base\n${l}\n${l}\n${l}\n`, 'base\n', `base\n${l}\n`)
+        return r.join() === l && (r.pointerCapped?.length ?? 0) === 0
+      })(),
+    )
+    ok(
+      '指针 cap 的反面:指针行在合并结果里一份都不剩 ⇒ 仍判丢失("少带"不等于"带没带")',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}`
+        const r = lostAddedLines('base\n', `base\n${l}\n${l}\n`, 'base\n', 'base\n')
+        return r.join() === l
+      })(),
+    )
+    ok(
+      '期望表:指针行只许"从无到有带 1 份";本侧已有 2 份而对侧 5 份 ⇒ 期望仍是 2(不增长)',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}`
+        return (
+          liveDocExpectedCounts('', `${l}\n${l}\n${l}\n`, '').get(l) === 1 &&
+          liveDocExpectedCounts(`${l}\n${l}\n`, `${l}\n`.repeat(5), '').get(l) === 2
+        )
+      })(),
+    )
+    ok(
+      '期望表:基底有 2 份、本侧清成 0、对侧未动 ⇒ 期望 0(处置权仍在本侧,与改动前同形)',
+      liveDocExpectedCounts('', `- [ ] G-9 事甲 ${PTR}\n`.repeat(2), `- [ ] G-9 事甲 ${PTR}\n`.repeat(2)).get(
+        `- [ ] G-9 事甲 ${PTR}`,
+      ) ===
+        undefined,
+    )
+    ok(
+      '期望表:不带指针的行完全不受本维影响',
+      liveDocExpectedCounts('x\n', 'x\nx\nx\n', 'x\nx\n').get('x') === 2,
+    )
+    ok(
+      '期望表:**没有基底**时指针行也照旧全带(判不出谁加的 ⇒ 不许少带,失效方向只能是多带)',
+      liveDocExpectedCounts('', `- [ ] G-9 事甲 ${PTR}\n`.repeat(3)).get(`- [ ] G-9 事甲 ${PTR}`) === 3,
+    )
+    ok(
+      'F5:指针注记行被 cap 后不得判红(否则每一枚台账收敛都在落地闸自杀)',
+      (() => {
+        const l = `- [ ] G-9 事甲 ${PTR}〔【归并】落账:复测 2026-09-26〕\n`
+        const sides = [l.repeat(3), 'other\n']
+        return planStateRegressions(l + 'other\n', sides).length === 0
+      })(),
+    )
+    ok(
+      'F5 的反面:不带指针的注记行**整族消失** ⇒ 必须照常判红(④ 只认"仍留 ≥1 份"的逐字折半,方向不放宽)',
+      planStateRegressions(
+        'z\n',
+        ['- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n'.repeat(3), 'z\n'],
+      ).join('').includes('F5'),
+    )
+    // G-815405 ④:同一条注记行的第 2..N 份**逐字副本**折成一份 ⇒ 少的是份数,不是信息 ⇒ 不得判红。
+    ok(
+      'G-815405 ④:逐字副本折半(仍留 ≥1 份)不得判红;且红句里这一档必须单独报数(报数必须报名)',
+      (() => {
+        const l = '- [ ] G-9 事甲 〔【归并】落账:复测 2026-09-26〕\n'
+        const okFold = planStateRegressions(l, [l.repeat(3), 'z\n']).length === 0
+        // 反向臂(硬要求):同一形状里夹一条**真丢**的行(另有一条不带注记的行整族消失)
+        // ⇒ ④ 额度不得把真丢的那条也盖掉,且红句必须报出"逐字副本折半"这一档。
+        const l2 = '- [ ] G-9 真丢那件事 〔【归并】落账:复测 2026-09-26〕\n'
+        const r = planStateRegressions(l, [l.repeat(3), l2, 'z\n']).join('')
+        return (
+          okFold &&
+          r.includes('F5') &&
+          r.includes('逐字副本折半') &&
+          r.includes('真丢那件事') &&
+          !r.includes('逐字副本折半 3')
+        )
+      })(),
+    )
+    // 任务状态分叉不得被并集放大(纯函数;这正是"两份真相"的产地)
+    const PS_A = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
+    const PS_B = '- [ ] **D9 同一件事**:另一侧还挂着未勾。\n'
+    ok(
+      '状态判据:两侧各 0 分叉,并集归并出 1 组必须报(并集策略就是副本产地)',
+      planStateRegressions(PS_A + PS_B, [PS_A, PS_B]).join('').includes('F1'),
+      JSON.stringify(planStateRegressions(PS_A + PS_B, [PS_A, PS_B])),
+    )
+    ok('状态判据:结果与较好一侧持平 ⇒ 不得报', planStateRegressions(PS_A, [PS_A, PS_B]).length === 0)
+    // 声明式出口的三条对偶(缺一就把"放行"变成了"关掉判据"):不声明必红 / 声明后必绿且交出理由 / 维名写错必炸
+    ok(
+      '声明放行:accepted 缺省(空)时同一形状仍必须报红 —— 默认放过就等于没有这道闸',
+      planStateRegressions(PS_A + PS_B, [PS_A, PS_B], []).join('').includes('F1'),
+    )
+    ok(
+      '声明放行:声明 forks 后该维不再报红,但两个读数与理由必须一起交回(要写进合并提交信息)',
+      (() => {
+        const r = planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [
+          { dim: 'forks', reason: '两侧各登记一次同一件事,并集天然成对' },
+        ])
+        return (
+          !r.some((x) => x.includes('F1')) &&
+          r.accepted.length === 1 &&
+          r.accepted[0].includes('各侧最多 0 → 归并 1') &&
+          r.accepted[0].includes('并集天然成对')
+        )
+      })(),
+      JSON.stringify(
+        planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [
+          { dim: 'forks', reason: '两侧各登记一次同一件事,并集天然成对' },
+        ]).accepted,
+      ),
+    )
+    ok(
+      '声明放行:维名不认识必须抛(拼错的维名静默不生效 = 一张没写到的空白支票)',
+      (() => {
+        try {
+          planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [{ dim: 'F1', reason: 'r' }])
+          return false
+        } catch (e) {
+          return String(e && e.message).includes('维名不认识')
+        }
+      })(),
+    )
+    // 2026-10-19 补:名字**合法**(在 KEYS 里)但头注明文禁用的维,同样必须硬拒。
+    // 上面那条用 F1 试,F1 恰是可声明维 ⇒ 对这一族零覆盖;没有这两条,头注 :417-418 那句禁令
+    // 就只是一句注释(旧实现真的会把 voidRows / dupBlocks 放行掉)。
+    for (const banned of ['voidRows', 'dupBlocks']) {
+      ok(
+        `声明放行:被禁维 ${banned} 必须硬拒(名字合法 ≠ 可以放行)`,
+        (() => {
+          try {
+            planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [{ dim: banned, reason: '我有理由' }])
+            return false
+          } catch (e) {
+            return String(e && e.message).includes('不接受声明放行')
+          }
+        })(),
+      )
+    }
+    ok(
+      '声明放行:合法维(fork/dupOpenCopies/rotatedAuto)仍放行(禁令不得把出口整个堵死)',
+      (() => {
+        try {
+          planStateRegressions(PS_A + PS_B, [PS_A, PS_B], [{ dim: 'forks', reason: 'r' }])
+          return true
+        } catch {
+          return false
+        }
+      })(),
+    )
+    ok(
+      '状态判据:副本被正确翻勾(两侧并集但状态一致)⇒ 不算放大',
+      planStateRegressions(PS_A + PS_B.replace('- [ ]', '- [x] ✅(2026-09-26) '), [PS_A, PS_B]).length === 0,
+    )
+    ok(
+      '状态判据:输入取不到(空文本/无对照侧)⇒ 返回空且不声称已判(调用方只对真做了判定的路径说话)',
+      planStateRegressions('', [PS_A]).length === 0 && planStateRegressions(PS_A, []).length === 0,
+    )
+    // F5 存续性:方向与前四条相反 —— 注记**少了**才坏,这正是本会话被活文档并集抹掉两次的形状
+    const PS_N1 = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。〔【归并】D9 落账:复测 2026-09-26: 取证。\n'
+    const PS_N0 = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。\n'
+    ok(
+      'F5:一侧带落账注记、归并结果把注记顶掉 ⇒ 必须报(前四条此时全绿)',
+      planStateRegressions(PS_N0, [PS_N1, PS_N0]).join('').includes('F5'),
+    )
+    ok(
+      'F5:注记与较好一侧持平或更多 ⇒ 不得报(否则清完账反而恒红)',
+      planStateRegressions(PS_N1, [PS_N1, PS_N0]).length === 0 &&
+        planStateRegressions(PS_N1 + PS_N1, [PS_N1]).length === 0,
+    )
+    // ── F5 的三类"有据额度"(2026-09-29)──
+    // 立因:落地闸报「各侧最多 537,归并只剩 501」却不给逐份出处,而按行量下来 64 份缺口
+    // **全部**能落到两类合法机制上(38 份由基准面的 `已归档` 占位代表、26 份是本侧相对基底自缩)。
+    // 旧写法只认"副本指针行"一档,且**遍历结果面** ⇒ "一份都没剩下"那种行结构上不可申诉。
+    // 这三条成对用例钉的是:有据的两档必须认下来(否则每次台账合并自杀),而无据那一档**照旧判红**
+    // (放宽的是形状,不是方向 —— 把判据改成"永远放过"就等于没有这道门)。
+    const AR =
+      '<!-- 已归档(2026-09-26:某条目收口,随块带走的归并落账注记: 〔【归并】D9 落账:复测 2026-09-26〕 〔【归并】D10 落账:复测 2026-09-26〕 -->'
+    const ARn = (k) => (k > 0 ? `${AR}\n`.repeat(k) : '')
+    ok(
+      'F5 额度①:搬运感知表按行点名的"占位代表"份数 ⇒ 不得判红(结果里一份都没有也必须能申诉)',
+      planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
+        suppress: new Map([[AR, 2]]),
+        baseText: 'x\n',
+        oursText: 'x\n',
+      }).length === 0,
+    )
+    ok(
+      'F5 额度②:本侧相对共同基底自己缩了量 ⇒ 依"处置权在本侧"不判红(与 liveDocExpectedCounts 同形)',
+      planStateRegressions(ARn(1), [ARn(3), ARn(1), ARn(3)], null, {
+        suppress: null,
+        baseText: ARn(3),
+        oursText: ARn(1),
+      }).length === 0,
+    )
+    ok(
+      'F5 有牙:对侧相对基底**加**了注记(漂移副本,④ 只认逐字相同)、归并却没带 ⇒ 照常判红并点名未解释条数',
+      (() => {
+        const ARv = (sfx) => `${AR}${sfx}\n`
+        const r = planStateRegressions(ARn(1), [ARn(1), ARn(1), ARv(' 甲变体') + ARv(' 乙变体')], null, {
+          suppress: null,
+          baseText: ARn(1),
+          oursText: ARn(1),
+        }).join('')
+        return r.includes('F5') && r.includes('未被任何机制解释')
+      })(),
+    )
+    ok(
+      'F5 量纲:搬运感知表给的是**份数**,一行挂两条注记时必须换算成 2 个 occurrence —— ' +
+        '把行数当份数(本仓反复复发的那一单位错)会让这一档少扣一半,把正常合并钉成恒红',
+      planStateRegressions('x\n', ['x\n', 'x\n', ARn(1)], null, {
+        suppress: new Map([[AR, 1]]),
+        baseText: 'x\n',
+        oursText: 'x\n',
+      }).length === 0 &&
+        // 反向对照:同一张表什么都不给 ⇒ 必须红(有牙,不是"能解释就算过")
+        planStateRegressions('x\n', ['x\n', 'x\n', ARn(1)], null, {
+          suppress: new Map(),
+          baseText: 'x\n',
+          oursText: 'x\n',
+        }).join('')
+          .includes('F5') === true,
+    )
+    // ── G-815913 代裁:F5 ⑤ 档(折叠去向举证)与比较集只看两侧 ──
+    // 立因:折叠层(dedupeGroups)按标题指纹折同题行、把独有注记并入保留行 —— verifyUnion 早已认
+    // 这本账(attestFoldPair 四问销账),F5 却不认 ⇒ 合法折叠被判"未被任何机制解释的少带"(实测 7 条
+    // ⇒ 恒红,部署环 BLOCKED-DIVERGED 连续 120+ 轮)。成对纪律:举证的折叠必须放过,真少带
+    // (无去向/去向没接住注记/台账少报)照旧判红 —— 修红不削牙。
+    const FD77 = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕'
+    const FK77 = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕〔【归并】G-900077 补记:第二注〕'
+    const FK77X = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 补记:第二注〕'
+    const SIDE77 = `# 侧\n${FD77}\n${FD77}\n${FK77}\n`
+    const MERGED77 = `# 果\n${FK77}\n`
+    ok(
+      'F5 额度⑤:同题行被折、保留行接住了独有注记(四问全过)⇒ 不得判红(原恒红形状的落点)',
+      planStateRegressions(MERGED77, [SIDE77, 'z\n']).join('') === '' &&
+        planStateRegressions(MERGED77, [SIDE77, 'z\n'], null, {
+          foldPairs: [{ dropped: FD77, kept: FK77, droppedCopies: 2 }],
+        }).join('') === '',
+    )
+    ok(
+      'F5 ⑤ 有牙:去向行同题却**没接住**被折行的独有注记(Q4 信息守恒不过)⇒ 照旧判"未被任何机制解释"',
+      planStateRegressions(`# 果\n${FK77X}\n`, [SIDE77, 'z\n']).join('').includes('未被任何机制解释'),
+    )
+    ok(
+      'F5 ⑤ 有牙:被折行在结果面没有同指纹去向(真删除,不是折叠)⇒ 照常判红',
+      planStateRegressions('# 果\n无\n', [SIDE77, 'z\n']).join('').includes('F5'),
+    )
+    ok(
+      'F5 ⑤ 有牙:折叠台账少报(报折 1 份、结果面缺 2 份)⇒ 超出部分不记额度照常红(与 verifyUnion 的 droppedCopies 封顶同形)',
+      planStateRegressions(MERGED77, [SIDE77, 'z\n'], null, {
+        foldPairs: [{ dropped: FD77, kept: FK77, droppedCopies: 1 }],
+      }).join('').includes('F5'),
+    )
+    // 比较集(票面改法①):base 上两侧都已没有的历史缩量不得计入 F5 的"少带"差额
+    const CN78 = '- [x] ✅(2026-09-20) **G-900078 比较集例**:做完了。〔【归并】G-900078 落账:复测 2026-09-26〕'
+    const OLD79 = '- [x] ✅(2026-09-20) **G-900079 历史缩量例**:做完了。〔【归并】G-900079 落账:复测 2026-09-26〕'
+    const BASE78 = `# B\n${OLD79}\n${CN78}\n`
+    const OURS78 = `# O\n${CN78}\n`
+    const THEIRS78 = `# T\n${CN78}\n`
+    ok(
+      'F5 比较集:调用点声明 f5SideTexts=[ours,theirs] 后,base 历史缩量不计入差额 ⇒ 持平不红;' +
+        '反向对照:不传该参仍按旧口径判红(放宽只长在显式声明两侧的调用点上)',
+      planStateRegressions(`# M\n${CN78}\n`, [BASE78, OURS78, THEIRS78], null, {
+        f5SideTexts: [OURS78, THEIRS78],
+      }).join('') === '' &&
+        planStateRegressions(`# M\n${CN78}\n`, [BASE78, OURS78, THEIRS78]).join('').includes('F5'),
+    )
+    ok(
+      'F5 比较集有牙:某一侧独有的注记行被归并结果顶掉 ⇒ 换两侧集合后仍必须判红',
+      planStateRegressions('# M\n无\n', [BASE78, OURS78, THEIRS78], null, {
+        f5SideTexts: [OURS78, THEIRS78],
+      }).join('').includes('F5'),
+    )
+    // ── 2026-10-29 代裁:F5 ⑥ 档(归档整区移出),与行级 union 同一本 archiveDropCaps 账 ──
+    // 立因:本侧按 §1 把整区逐字移入 .ihui-agent/archive/ 并删掉 `<!-- 已归档 -->` 占位(该删除已是
+    // merge-base 的祖先);对侧滞后基线把那批占位原样带回,行级 union 用 archived 正确不补回,
+    // 而 F5 此前拿不到这本账 ⇒ 把"本侧有意移出的存根"判成"未解释少带"(实测扣 190 条/22 行,顶死部署环)。
+    ok(
+      'F5 额度⑥:本侧有意自缩(归档整区移出,archiveDropCaps 持有 ∧ 本侧 0 份)⇒ 不误报',
+      planStateRegressions('x\n', ['x\n', 'x\n', ARn(3)], null, {
+        suppress: null,
+        baseText: 'x\n',
+        oursText: 'x\n',
+        archiveDropSet: new Set([AR]),
+      }).length === 0,
+    )
+    ok(
+      'F5 ⑥ 有牙:对侧**独有的真注记行**(从未进任何归档件 ⇒ 不在集合)被归并结果顶掉 ⇒ 照常判红并点名;' +
+        '且归档面取不到(集合为 null)时同一行也照旧红(失效方向恒为多报,绝不静默吞)',
+      (() => {
+        const rEmpty = planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
+          suppress: null,
+          baseText: 'x\n',
+          oursText: 'x\n',
+          archiveDropSet: new Set(),
+        }).join('')
+        const rNull = planStateRegressions('x\n', ['x\n', 'x\n', ARn(2)], null, {
+          suppress: null,
+          baseText: 'x\n',
+          oursText: 'x\n',
+          archiveDropSet: null,
+        }).join('')
+        return (
+          rEmpty.includes('F5') &&
+          rEmpty.includes('未被任何机制解释') &&
+          rNull.includes('F5') &&
+          rNull.includes('未被任何机制解释')
+        )
+      })(),
+    )
+    ok(
+      'F5 ⑥ 混合有牙:一行确被归档件持有(记额度并报名)、另一行对侧独有真丢(照旧红)⇒ ' +
+        '红句必须**同时**出现"归档整区移出"额度与本维名单,合法额度不得替真丢失背书(与 ④ 反向臂同规)',
+      (() => {
+        const NB = '<!-- 对侧独有的真新增落账 〔【归并】ZZ 落账:复测 2026-09-26〕 -->'
+        const r = planStateRegressions('x\n', ['x\n', 'x\n', `${AR}\n${NB}\n`], null, {
+          suppress: null,
+          baseText: 'x\n',
+          oursText: 'x\n',
+          archiveDropSet: new Set([AR]),
+        }).join('')
+        return (
+          r.includes('F5') &&
+          r.includes('归档整区移出 2') &&
+          r.includes('归档整区移出名单') &&
+          r.includes('未被任何机制解释') &&
+          r.includes('对侧独有的真新增落账')
+        )
+      })(),
+    )
+    // ── G-977960 ①:跨行注记不得再造"无论怎么合并都差 N 条"的死局,但真抹掉行仍必须判红 ──
+    // `MERGE_NOTE_RE` 的字符类含换行 ⇒ 一条注记可以横写两行;旧写法拿"整面命中数"当份数,
+    // 而三类额度全部按行结算 ⇒ 这一档既进不了总额也进不了额度(实测名单为空而仍差 2)。
+    const CL_OPEN = '- [x] ✅(2026-09-20) **CL 跨行注记**:做完了。〔【归并】CL '
+    const CL_CLOSE = '落账:复测 2026-09-26: 取证〕'
+    const CL_SIDES = [CL_OPEN, CL_CLOSE, CL_OPEN, CL_CLOSE].join('\n') + '\n'
+    const CL_MERGED = [CL_OPEN, CL_OPEN, CL_CLOSE, CL_CLOSE].join('\n') + '\n'
+    ok(
+      '跨行注记:物理行一条没少、只是相邻顺序变了 ⇒ 落地闸不得判红(旧口径在这里必红,而名单为空)',
+      planStateRegressions(CL_MERGED, [CL_SIDES, 'z\n']).join('') === '',
+    )
+    ok(
+      '跨行注记的**变异对照**(证明上面那条不是恒真):同一形状按旧量纲(整面命中数)比 ⇒ 一定差 1 条 ' +
+        '—— 所以放掉的只有 phantom 残差,不是"比较量变小了所以什么都过"',
+      mergeNoteUnits(CL_SIDES).total - mergeNoteUnits(CL_MERGED).total === 1 &&
+        mergeNoteUnits(CL_SIDES).lineAttributable === mergeNoteUnits(CL_MERGED).lineAttributable,
+    )
+    ok(
+      '跨行注记必须**报名**:量纲说明行要同时给出各侧与结果的跨行条数,并写明"只报名不判红"',
+      (() => {
+        const line = mergeNoteCrossLineCaliber(CL_MERGED, [CL_SIDES, 'z\n'])
+        return (
+          line.includes('跨行书写的注记') &&
+          line.includes('各侧最多 2 条') &&
+          line.includes('归并结果 1 条') &&
+          line.includes('只报名,不参与判红')
+        )
+      })(),
+    )
+    ok(
+      'F5c 有牙:跨行注记的**承载行**在结果里一份不剩 ⇒ 必须判红并点名该行(换量纲不等于关掉这一维)',
+      planStateRegressions(CL_OPEN + '\n', [CL_SIDES, 'z\n']).join('').includes('F5c'),
+    )
+    ok(
+      'F5c 反向对照:同一形状里承载行都在位 ⇒ 不得判红(允许少带份数,不允许带走注记的行)',
+      planStateRegressions(CL_SIDES, [CL_SIDES, 'z\n']).join('') === '',
+    )
+    ok(
+      '形状锁:注记的形状判据与份数判据只许有一份实现 —— 本门不得再自带 new RegExp(MERGE_NOTE_RE,…) ' +
+        '抄第二份逐行计数(G-977960 ① 的根因就是"读数住整面量纲、额度住逐行量纲"两套并存)',
+      (() => {
+        const src = readFileSync(new URL(import.meta.url), 'utf8')
+        return (
+          /new RegExp\(\s*MERGE_NOTE_RE\.source/.test(src) === false &&
+          src.includes('lineNoteCount') &&
+          src.includes('mergeNoteUnits')
+        )
+      })(),
+    )
+    // ── F9b 畸形号 / F9 撞号两维进落地闸(2026-09-28 G-606)──
+    // 成对:① 归并自己造的必须点名;② 两侧本来就带着的存量不得钉红归并(否则每次收敛都红)。
+    // 这两维判的是**行集/键集**而不是计数 —— 计数档对"抹掉一侧旧的、带进一枚新的"恒净零。
+    const MAL_G = '- [ ] **G-G-354 门33的provider名单该由谁供给**:甲。\n'
+    const CLEAN_G = '- [ ] **G-360 部署环 ff 竞态**:乙。\n'
+    ok(
+      'F9b:两侧都没有畸形号而归并结果有 ⇒ 必须点名到逐行原文(只报数等于让人再跑一遍全量档)',
+      planStateRegressions(MAL_G, [CLEAN_G, CLEAN_G]).join('').includes('F9b') &&
+        planStateRegressions(MAL_G, [CLEAN_G, CLEAN_G]).join('').includes('G-G-354'),
+      JSON.stringify(planStateRegressions(MAL_G, [CLEAN_G, CLEAN_G])),
+    )
+    ok(
+      'F9b:畸形行是**某一侧原样带着的存量** ⇒ 不得报(那是他人的历史债,归并没有制造它)。' +
+        '对照行刻意用**另一个号**:G-G-354 与 G-354 在 keyOfRow 下取到的是同一枚主键(判据从正文里' +
+        '搜 `G-\\d+`,第一段 `G-` 被跳过),两行并排会同时红在 F9 上 —— 那既是本例要避开的噪声, ' +
+        '也是"逐条剥前缀必须先问目标号有没有人占着"的根据(见 lib planMalformedStrip 的 refused)',
+      planStateRegressions(MAL_G + CLEAN_G, [MAL_G, CLEAN_G]).length === 0,
+      JSON.stringify(planStateRegressions(MAL_G + CLEAN_G, [MAL_G, CLEAN_G])),
+    )
+    ok(
+      'F9b 反向锁:等量换号(抹掉一侧的旧畸形号、同时带进一枚新的)必须仍被点名 —— ' +
+        '这一条就是"两把棘轮只比数量"那一型的落地闸版本,把它并进计数档就恒绿',
+      planStateRegressions(MAL_G, [CLEAN_G, '- [ ] **G-G-399 另一议题**:乙。\n'])
+        .join('')
+        .includes('G-G-354'),
+    )
+    const COL_A = '- [ ] **G-500 甲议题**:一侧写的。\n'
+    const COL_B = '- [ ] **G-500 乙议题**:另一侧写的。\n'
+    ok(
+      'F9:两侧各自都不撞、归并把两条不同议题拼到同一编号下 ⇒ 必须逐组点名',
+      planStateRegressions(COL_A + COL_B, [COL_A, COL_B]).join('').includes('F9 归并新增撞号组') &&
+        planStateRegressions(COL_A + COL_B, [COL_A, COL_B]).join('').includes('G-500'),
+      JSON.stringify(planStateRegressions(COL_A + COL_B, [COL_A, COL_B])),
+    )
+    ok(
+      'F9:某一侧本来就撞的组 ⇒ 归并不判红(同组多挂一行只能人工让号;为它拒绝收敛的唯一出路是' +
+        '删掉某一侧的行,那违反本工具的零丢失承诺,更贵)',
+      planStateRegressions(COL_A + COL_B + '- [ ] **G-500 丙议题**:第三行。\n', [
+        COL_A + COL_B,
+        COL_A,
+      ]).length === 0,
+      JSON.stringify(
+        planStateRegressions(COL_A + COL_B + '- [ ] **G-500 丙议题**:第三行。\n', [
+          COL_A + COL_B,
+          COL_A,
+        ]),
+      ),
+    )
+
+    // ── 活文档三方行 union(2026-09-25 实测逼出:旧写法 max(ours,theirs) 会把"本侧就地改写"
+    //    之前的旧行复活。行首是状态位的行一旦被复活,刚翻勾的待办就重新变成"无人认领可派"。) ──
+    ok(
+      '活文档:本侧就地改写一行 ⇒ 改写前的旧行不得被对侧复活',
+      !unionLines('a\nb\nL2\n', 'a\nb\nL\n', 'a\nb\nL\n').split('\n').includes('L'),
+      '合并结果里仍出现旧行 L',
+    )
+    ok(
+      '活文档:对侧相对基底新增的行必须保住(本工具的存在理由)',
+      unionLines('a\nb\nL2\n', 'a\nb\nL\nT\n', 'a\nb\nL\n').includes('T'),
+    )
+    ok(
+      '活文档:两侧各自新增不同行 ⇒ 两行都在,不选边',
+      ['O-new', 'T-new'].every((s) => unionLines('a\nO-new\n', 'a\nT-new\n', 'a\n').includes(s)),
+    )
+    ok(
+      '活文档:两侧新增了**同一行** ⇒ 只留一份(旧写法在此已是 max,新公式不得回退成 2 份)',
+      counter(unionLines('a\nsame\n', 'a\nsame\n', 'a\n')).get('same') === 1,
+    )
+    ok(
+      '活文档:本侧删掉一行而对侧未动 ⇒ 删除归本侧处置,不被补回',
+      !unionLines('a\n', 'a\nb\n', 'a\nb\n').split('\n').includes('b'),
+    )
+    ok(
+      '活文档:无基底信息(两侧都是新增文件)⇒ 退回旧的 max 语义,一条都不丢',
+      ['x', 'y'].every((s) => counter(unionLines('x\n', 'y\n', null)).get(s) === 1),
+    )
+    ok(
+      '防复活必须是**有基底的三方判据**:只给两侧文本时旧行为不变(证明收紧靠的是 base 而不是削判据)',
+      counter(unionLines('a\n', 'a\nb\n')).get('b') === 1,
+    )
+    /**
+     * 空冲突区标记行不补回(2026-11-01,MARKERS 票;三型成对,缺一型就是"一律放行/一律禁止")。
+     * 这一族 2026-09-28 装过一次、同日 `7a075820d4` 改写下这段时被洗掉,此后靠人工反复摘 ——
+     * 所以用例必须钉住**形状**而不只是"结果里没有":扣错方向(把有正文的也扣了)同样要翻红。
+     */
+    const MK_LT = '<'.repeat(7)
+    const MK_GT = '>'.repeat(7)
+    const MK_EQ = '='.repeat(7)
+    const mkHas = (r) =>
+      r.split('\n').some((l) => l.startsWith(MK_LT) || l.startsWith(MK_GT) || l === MK_EQ)
+    ok(
+      '活文档:对侧的**空冲突区**三行(区域内零正文)不得被补回(手工摘除后不再回潮的源头腿)',
+      !mkHas(unionLines(`# d\ntail\n`, `# d\n${MK_LT} cf\n${MK_EQ}\n${MK_GT} c97\ntail\n`, '# d\ntail\n')),
+    )
+    ok(
+      '活文档:**有正文**的冲突区一条不扣 —— 标记行照旧补回、两侧正文都必须在场(不得一律放行)',
+      (() => {
+        const r = unionLines('A\n', `A\n${MK_LT} HEAD\nX\n${MK_EQ}\nY\n${MK_GT} f\n`, 'A\n')
+        return r.includes(`${MK_LT} HEAD`) && r.includes('X') && r.includes('Y')
+      })(),
+    )
+    ok(
+      '活文档:本侧自己带着空冲突区三行时,归并器**不替本侧删**(扣的是补回量,不是既有份数)',
+      (() => {
+        const r = unionLines(`A\n${MK_LT} z\n${MK_EQ}\n${MK_GT} w\n`, 'A\n', 'A\n')
+        const ls = r.split('\n')
+        return (
+          ls.filter((l) => l.startsWith(MK_LT)).length === 1 &&
+          ls.filter((l) => l.startsWith(MK_GT)).length === 1 &&
+          ls.filter((l) => l === MK_EQ).length === 1
+        )
+      })(),
+    )
+    ok(
+      '扣行必须点名:report 里逐条带 via=marker-empty-triple 与整行原文,没扣时该桶为 0(不许静默)',
+      (() => {
+        const rep = []
+        unionLines('A\n', `A\n${MK_LT} cf\n${MK_EQ}\n${MK_GT} c97\n`, 'A\n', null, { report: rep })
+        const hit = rep.filter((w) => w.via === 'marker-empty-triple')
+        const rep2 = []
+        unionLines('A\n', `A\n${MK_LT} HEAD\nX\n${MK_EQ}\nY\n${MK_GT} f\n`, 'A\n', null, { report: rep2 })
+        return (
+          hit.length === 3 &&
+          hit.every((w) => typeof w.why === 'string' && w.why.includes('空冲突区')) &&
+          hit.some((w) => w.line === `${MK_LT} cf`) &&
+          rep2.filter((w) => w.via === 'marker-empty-triple').length === 0
+        )
+      })(),
+    )
+    // 「对侧改写、本侧未动」那一族的四条成对用例(正例 + 三条"判不准就不许折"的反向对照)。
+    // 反向三条各自的失效方向都是**多留一份**,绝不是少带 —— 少带就是丢别人的行,比 F9 红更贵。
+    const RW_BASE = '- [ ] G-770 折叠夹具:同一议题的甲写法,含落点与判据两段说明。\n'
+    const RW_NEW = '- [x] G-770 折叠夹具:同一议题的乙写法,含落点与判据两段说明。\n'
+    const RW_MINE = '- [ ] G-770 折叠夹具:本侧自己改成的第三种形态。\n'
+    const rwHas = (r, s) => (s === '' ? false : r.includes(s.trim()))
+    ok(
+      '对侧就地改写 ∧ 本侧对该主键逐字未动 ⇒ 结果只带改写那一份(旧写法把改写读成「对侧新增」,' +
+        '于是同号两个形态并存 —— 实测 G-823 与 G-814425 两组 F9 就是这么造出来的)',
+      (() => {
+        const r = unionLines(`a\n${RW_BASE}`, `a\n${RW_NEW}`, `a\n${RW_BASE}`)
+        return rwHas(r, RW_NEW) && !rwHas(r, RW_BASE)
+      })(),
+    )
+    ok(
+      '反向锁:本侧对同一主键**也改过** ⇒ 两侧同改,机器不许折(交人工),两份形态都必须留在结果里',
+      (() => {
+        const r = unionLines(`a\n${RW_MINE}`, `a\n${RW_NEW}`, `a\n${RW_BASE}`)
+        return rwHas(r, RW_MINE) && rwHas(r, RW_NEW)
+      })(),
+    )
+    ok(
+      '反向锁:对侧是**增行**而不是改写(该主键行数不等)⇒ 不折,本侧那份基底行一份都不能少',
+      (() => {
+        const r = unionLines(`a\n${RW_BASE}`, `a\n${RW_BASE}${RW_NEW}`, `a\n${RW_BASE}`)
+        return rwHas(r, RW_BASE) && rwHas(r, RW_NEW)
+      })(),
+    )
+    ok(
+      '反向锁:同一枚号被两侧各登记成**不同议题**(并发取号撞的)⇒ 不许折 —— 折掉任何一侧都是替别人删一件活账,比 F9 红贵得多;这条就是本判据唯一的假阳方向',
+      (() => {
+        const A = '- [ ] G-773 构建脚本的包名解析恒为空,versionCode 读错 app 的清单。'
+        const B = '- [ ] G-773 派单阻塞登记:排队语义在满载时把已终态任务再次入队。'
+        const r = unionLines(`a\n${A}\n`, `a\n${B}\n`, `a\n${A}\n`)
+        return r.includes(A.trim()) && r.includes(B.trim())
+      })(),
+    )
+    ok(
+      '反向锁:对侧把该主键**整族删掉** ⇒ 删除不随合并传播(本侧那份照留),与上面「本侧删而对侧未动」那条对称',
+      (() => {
+        const r = unionLines(`a\n${RW_BASE}`, 'a\n', `a\n${RW_BASE}`)
+        return rwHas(r, RW_BASE)
+      })(),
+    )
+    ok(
+      '期望表与产出面必须同一张尺:折叠登记在 liveDocExpectedCounts 里,自证侧读到同一个数 ' +
+        '(否则落地闸对着一个产出面根本不存在的数字红,而那种红会被读成「别人把我的行改坏了」)',
+      (() => {
+        const want = liveDocExpectedCounts(`a\n${RW_BASE}`, `a\n${RW_NEW}`, `a\n${RW_BASE}`)
+        return (want.get(RW_BASE.trimEnd()) || 0) === 0 && want.get(RW_NEW.trimEnd()) === 1
+      })(),
+    )
+    // ── 折叠台账(2026-10-16,在册票 G-32「归并侧那半格」)────────────────────────
+    // 立因:`buildUnion` 对 PROJECT_PLAN.md 开 dedupeTasks 折叠同题行,而折叠住在 unionLines 守恒
+    //   断言**之后**;自证侧(verifyUnion)重算期望表时不传折叠信息 ⇒ 对着"产物面根本不存在的重数"判红。
+    //   本机 CHECK ONLY 现读:关折叠 flagged=0 / 开折叠 flagged=289,289 条真丢失 0 ⇒ 纯误拒收。
+    const FOLD_A = '- [ ] G-780 **落地闸不许对着折叠前的重数判红**,夹具标题够长以过指纹权重门。'
+    const FOLD_B = '- [ ] G-781 **落地闸不许对着折叠前的重数判红**,夹具标题够长以过指纹权重门。〔取证:2026-10-16〕'
+    const foldPair = (before, after) => foldLedgerOf(before, after)
+    ok(
+      '折叠台账:同题两行折成一份 ⇒ 必须记出一条去向,且去向就是产物面里那一行(不许只记"少了")',
+      (() => {
+        const before = `# 台账\n${FOLD_A}\n${FOLD_B}\n`
+        const after = foldDedupe(before).text
+        const led = foldPair(before, after)
+        const away = [...led.foldedAway.values()].reduce((s, v) => s + v, 0)
+        const into = [...led.foldedIn.values()].reduce((s, v) => s + v, 0)
+        return (
+          led.pairs.length >= 1 &&
+          led.pairs.every((x) => x.kept !== null && after.includes(x.kept)) &&
+          // 记账恒等式:少掉的行数 = 折走的份数 − 折叠新写出来的份数(账目必须闭合,不许平白蒸发)
+          away - into === before.split('\n').length - after.split('\n').length
+        )
+      })(),
+    )
+    ok(
+      '折叠台账只有一份实现:foldDedupe(未折叠产物) 必须逐字等于 unionLines({dedupeTasks:true}) ' +
+        '(两条路若各写一遍,产物面与自证面就会各自漂移,而表现仍然是「落地闸红」)',
+      (() => {
+        const before = `# 台账\n${FOLD_A}\n${FOLD_B}\n`
+        return foldDedupe(unionLines(before, before, before)).text === unionLines(before, before, before, null, { dedupeTasks: true })
+      })(),
+    )
+    // ── 「改写者优先」(2026-10-20,实测成因全是现读:G-69 base1023/本侧830、G-158 1539/1524、
+    //    G-222 629/613 三条在合并稿里本侧版一条都不在 ⇒ 台账状态集体倒退)。
+    //    四条臂:正臂证明新维度真生效,阳臂证明"没给基底"时逐字走旧判据,牙臂证明不敢猜时是拦不是放,
+    //    最后一臂证明 F4/F10 那族(同指纹不同票号)没被误拦成交人工。
+    {
+      const KB = '- [ ] G-790 **改写者优先判据夹具题面**,基底原文长版带一大段取证流水以示范长度差 AAAABBBBCCCCDDDD'
+      const KN = '- [ ] G-790 **改写者优先判据夹具题面**,本侧改写版把失效证据段摘掉了'
+      const KO = '- [ ] G-790 **改写者优先判据夹具题面**,对侧另写的第二版 EEEEEEEEFFFF'
+      const kbNew = `# 台账\n${KN}\n${KB}\n`
+      ok(
+        '改写者优先(正):同票号两版里"等于基底原文"的那条必须被折掉,keeper 是改写版 —— 旧判据按字节长会反过来留旧版',
+        (() => {
+          const r = dedupeGroups(kbNew, new Set([KB]))
+          return r.text.includes(KN) && !r.text.includes(KB) && r.ambiguous.length === 0
+        })(),
+      )
+      ok(
+        '改写者优先(阳性对照):不给基底 ⇒ 必须逐字走旧判据(留字节最长那版),证明新维度只在真拿到基底时才生效',
+        (() => {
+          const r = dedupeGroups(kbNew, null)
+          return r.text.includes(KB) && !r.text.includes(KN)
+        })(),
+      )
+      ok(
+        '拒绝裁定的牙:同一票号下两版都不是基底原文 ⇒ 一条不折、整组点名(绝不静默猜哪版是当下状态)',
+        (() => {
+          const r = dedupeGroups(`# 台账\n${KN}\n${KO}\n`, new Set([KB]))
+          return r.text.includes(KN) && r.text.includes(KO) && r.ambiguous.length === 1 && !!r.ambiguous[0].fp
+        })(),
+      )
+      ok(
+        '不退化:同指纹而票号不同(F4/F10 那族)照旧折成一份,不得被上面那一维误拦成交人工',
+        (() => {
+          const r = dedupeGroups(`# 台账\n${FOLD_A}\n${FOLD_B}\n`, new Set([FOLD_A]))
+          return (
+            r.text.split('\n').filter((l) => l.includes('落地闸不许对着折叠前的重数判红')).length === 1 &&
+            r.ambiguous.length === 0
+          )
+        })(),
+      )
+    }
+    // ── 让号摘除(2026-10-22,在册票 G-32):union 不得把"本侧已让号删除的旧形态"补回 ──
+    // 立因现读:让号枚 `c8cecd2572` 之后 F9 从 7 组降到 2 组,余下两组的键位行本面已经没有 ⇒
+    // 补回只可能来自 base/对侧;落地闸只判"合并结果是否放大",本侧无法自清 ⇒ 死锁。
+    {
+      const Y_OLD =
+        '- [ ] G-791 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+      const Y_NEW =
+        '- [ ] G-792 〔改号(2026-10-22):原G-791〕 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+      const Y_VAR = Y_OLD + '〔对侧新取证@2026-10-22:仍红〕'
+      const Y_OTHER =
+        '- [ ] G-791 **完全另一件事的题面,同样长到能过指纹权重门,与让号夹具无关**,取证段 KKKKLLLLMMMMNNNN,尾段 PPPPQQQQRRRRSSSS 也不同。'
+      const oursY = `# 台账\n${Y_NEW}\n`
+      const theirsY = `# 台账\n${Y_VAR}\n${Y_OTHER}\n`
+      const baseY = `# 台账\n${Y_OLD}\n`
+      ok(
+        '让号摘除(正):对侧改写出新取证的旧形态,本侧已按留痕让号 ⇒ 期望表与产出面都不得再补回它',
+        (() => {
+          const want = liveDocExpectedCounts(oursY, theirsY, baseY)
+          const merged = unionLines(oursY, theirsY, baseY)
+          return !want.has(Y_VAR) && !merged.includes(Y_VAR) && merged.includes(Y_NEW)
+        })(),
+      )
+      ok(
+        '让号摘除反向对照(真冲突仍拦/别人的活账仍带):对侧同号**异题**的登记行必须照常补回,摘除只咬同一件事的旧形态',
+        (() => {
+          const want = liveDocExpectedCounts(oursY, theirsY, baseY)
+          return want.has(Y_OTHER) && unionLines(oursY, theirsY, baseY).includes(Y_OTHER)
+        })(),
+      )
+      ok(
+        '让号摘除反向锁(无留痕不摘):本侧新号行没带改号/同题原号/让号箭头 ⇒ 旧形态照常补回(判据只在有证据时生效)',
+        (() => {
+          const bare = Y_NEW.replace(' 〔改号(2026-10-22):原G-791〕', '')
+          return liveDocExpectedCounts(`# 台账\n${bare}\n`, theirsY, baseY).has(Y_VAR)
+        })(),
+      )
+      ok(
+        '让号摘除:三种在册留痕形态(改号/同题原号/让号箭头)同样生效;箭头右端不等于行主键(散文转述)不生效',
+        (() => {
+          const twin =
+            '- [ ] G-792 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。〔同题原号 G-791〕'
+          const arrow =
+            '- [ ] G-792 〔2026-10-22 让号:G-791 → G-792 —— 同号异题撞上,本侧让;正文一字未改〕 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+          const prose =
+            '- [ ] G-793 **另一枚票的正文里转述了别人的让号:G-791 → G-792,标题同样长到能过指纹权重门**,与夹具正文无关的取证段 TTTTVVVVWWWWXXXX,尾段 YYYYZZZZAAAABBBB。'
+          return (
+            !liveDocExpectedCounts(`# 台账\n${twin}\n`, theirsY, baseY).has(Y_VAR) &&
+            !liveDocExpectedCounts(`# 台账\n${arrow}\n`, theirsY, baseY).has(Y_VAR) &&
+            liveDocExpectedCounts(`# 台账\n${prose}\n`, theirsY, baseY).has(Y_VAR)
+          )
+        })(),
+      )
+      ok(
+        '让号摘除的失效方向:新号行不在册 ⇒ 不摘(多留一份交人工,绝不反向把对侧的活账少带掉)',
+        (() => {
+          const noReg = liveDocExpectedCounts('# 台账\n', theirsY, baseY)
+          return noReg.has(Y_VAR) && noReg.has(Y_OTHER)
+        })(),
+      )
+      ok(
+        '让号摘除接进落地闸同一张尺:死锁夹具的产物面不再被"未存活行"追讨旧形态,而经典撞号(两侧各一件活账)的 F9 一处不松',
+        (() => {
+          const mergedY = unionLines(oursY, theirsY, baseY)
+          const gate = planStateRegressions(mergedY, [baseY, oursY, theirsY])
+          const noYield = `- [ ] G-791 ${'经典撞号本侧活账的题面长到能过指纹权重门,与让号夹具无关的取证段 ' + 'UUUUWWWWXXXXYYYY,尾段 ZZZZAAAABBBBCCCC。'}`
+          const theirOwn = `- [ ] G-791 ${'对侧另一件活账的题面同样长到能过指纹权重门,取证段 ' + 'DDDDFFFFGGGGHHHHJJJJ,尾段 KKKKLLLLMMMMNNNN。'}`
+          const classic = planStateRegressions(
+            `# 台账\n${noYield}\n${theirOwn}\n`,
+            [`# 台账\n${noYield}\n`, `# 台账\n${theirOwn}\n`],
+          )
+          return (
+            !gate.some((b) => String(b).includes('F9') || String(b).includes('未存活行') || String(b).includes(Y_VAR.slice(0, 40))) &&
+            classic.some((b) => String(b).includes('F9 归并新增撞号组'))
+          )
+        })(),
+      )
+    }
+    // ── 归档移出(2026-10-25,守门 207 第二刀①):本侧按 §1 把整区逐字移入 archive 的行不得被补回 ──
+    // 立因现读:AGENTS 的重复登记副本搬走后,对侧那份逐字同行会被本表读成"对侧新增"⇒ 补回一份,
+    // 20KB 清偿成果一轮被吞(实测 merge-live-doc --apply 407 → 442 行)。凭据判据住 lib,本器只用它。
+    {
+      const AR_MOVED = '**速查区重复登记副本甲:这一整行已按 §1 移入 archive,长度足够充当"整区移出"的一行正文**'
+      const AR_OTHER = '**另一行与归档无关的正文,同样够长,用来当反向对照的凭据(不得咬到上面那行)**'
+      const AR_NEW = '**本侧新增的一行正文:归档这一维不许连本侧自己的活账一起吞掉**'
+      const oursA = `# 文档\n${AR_NEW}\n`
+      const theirsA = `# 文档\n${AR_MOVED}\n${AR_NEW}\n`
+      ok(
+        '归档移出(正):无共同基底时对侧带回来的那行若本侧 0 份且已移入 archive ⇒ 期望表不补、产出面也不补',
+        (() => {
+          const caps = new Set([AR_MOVED])
+          const want = liveDocExpectedCounts(oursA, theirsA, null, null, null, null, caps)
+          const merged = unionLines(oursA, theirsA, null, null, { archived: caps })
+          return !want.has(AR_MOVED) && !merged.includes(AR_MOVED) && merged.includes(AR_NEW)
+        })(),
+      )
+      ok(
+        '归档移出(阳性对照):同一对输入、不给凭据 ⇒ 必须照旧补回(证明这一维只在真拿到凭据时才生效,不是把补回关了)',
+        (() => {
+          const want = liveDocExpectedCounts(oursA, theirsA)
+          return want.has(AR_MOVED) && unionLines(oursA, theirsA).includes(AR_MOVED)
+        })(),
+      )
+      ok(
+        '归档移出(反向对照):凭据命中另一行 ⇒ 不得误伤本行(扣行必须逐字对上,不是按族/按前缀)',
+        (() => unionLines(oursA, theirsA, null, null, { archived: new Set([AR_OTHER]) }).includes(AR_MOVED))(),
+      )
+      ok(
+        '归档移出(本侧仍持有则不扣):本侧还留着这一行 ⇒ 处置权未行使,一条不扣',
+        (() => {
+          const want = liveDocExpectedCounts(oursA, theirsA, null, null, null, null, new Set([AR_NEW]))
+          return want.has(AR_NEW) && (want.get(AR_NEW) || 0) >= 1
+        })(),
+      )
+    }
+    ok(
+      '举证判据的牙:伪造一本"把它折进了另一件事"的台账必须给 lost(信台账 ≠ 信调用方)',
+      (() => {
+        const dropped = FOLD_A
+        const other = '- [ ] G-782 **另一件完全不同的事,标题同样长到能过指纹权重门**,拿去顶包。'
+        const m = counter(other + '\n')
+        const att = attestFoldPair({ dropped, droppedCopies: 1, kept: other, keptCopies: 1 }, m)
+        return att.status === 'lost' && /不是同一件事/.test(att.reason)
+      })(),
+    )
+    ok(
+      '三态纪律:去向行不在产物面 ⇒ lost;主键/指纹算不出 ⇒ undetermined —— 两种都不许被读成"没丢"',
+      (() => {
+        const nowhere = counter(`${FOLD_A}\n`)
+        const lost = attestFoldPair({ dropped: FOLD_B, droppedCopies: 1, kept: '这一行产物面没有', keptCopies: 0 }, nowhere)
+        const noKey = attestFoldPair({ dropped: '一句不是登记行的话', droppedCopies: 1, kept: null, keptCopies: 0 }, nowhere)
+        return lost.status === 'lost' && noKey.status === 'undetermined'
+      })(),
+    )
+    ok(
+      '信息守恒举证:被折行的独有注记/票号若没被保留行接住 ⇒ 判红(折叠的承诺就是这两样)',
+      (() => {
+        const keptBare = '- [ ] G-783 **保留行没有接住被折行的独有注记,标题同样长到能过权重门**。'
+        const droppedNote =
+          '- [ ] G-784 **保留行没有接住被折行的独有注记,标题同样长到能过权重门**。〔独有:2026-10-16 取证〕'
+        const att = attestFoldPair({ dropped: droppedNote, droppedCopies: 1, kept: keptBare, keptCopies: 1 }, counter(keptBare))
+        return att.status === 'lost' && /注记|票号/.test(att.reason)
+      })(),
+    )
+
+    // 多重行的口径(真仓第一天就把我这条反向对照判成假阳:台账同一行本来就有 4 份)
+    ok(
+      '活文档:同一行有多份时按重数算,本侧删掉一份 ≠ "旧行被复活"',
+      liveDocExpectedCounts('x\n', 'x\nx\n', 'x\nx\n').get('x') === 1,
+    )
+    ok(
+      '活文档:多份行且对侧又加了一份 ⇒ 期望重数 = 本侧 + 对侧净增,不重复计',
+      liveDocExpectedCounts('x\n', 'x\nx\nx\n', 'x\nx\n').get('x') === 2,
+    )
+    // 端到端:走真临时仓的 plan(),而不是只测纯函数 —— 纯函数过而调用点忘传 base 是本类缺陷最常见的残法。
+    // ⚠️ 两侧必须是**真分叉**(同一基底的两个兄弟提交)。第一版这里写成"提交对侧 → 在同一线上
+    //   接着提交本侧",于是 merge-base 就是对侧那枚,基底里根本没有那行,"不复活"与"保住对侧行"
+    //   两条断言同时变成空转 —— 是反向对照(必须保住对侧独有行)当场把它抓出来的。
+    {
+      const d3 = mkScratch('ihui-union-resurrect-')
+      try {
+        const g3 = (...a) => git(a, d3)
+        g3('init', '-q', '-b', 'main')
+        g3('config', 'user.email', 't@t')
+        g3('config', 'user.name', 't')
+        const DOC0 = '- [ ] 待办 T9\n- [ ] 别人的行\n'
+        writeFileSync(join(d3, 'PROJECT_PLAN.md'), DOC0, 'utf8')
+        writeFileSync(join(d3, 'x.ts'), '1\n', 'utf8')
+        g3('add', '-A')
+        g3('commit', '-qm', 'base')
+        // 对侧分支:只在文档尾部加自己的一行(不动 T9)
+        g3('checkout', '-q', '-b', 'theirs')
+        writeFileSync(join(d3, 'PROJECT_PLAN.md'), DOC0 + '- [ ] 对侧新行\n', 'utf8')
+        g3('add', '-A')
+        g3('commit', '-qm', 'theirs')
+        const theirs3 = g3('rev-parse', 'HEAD').trim()
+        // 本侧:回到兄弟分支的同一个基底,把 T9 **就地改写**(翻勾)
+        g3('checkout', '-q', '-B', 'ours', g3('rev-parse', 'theirs~1').trim())
+        writeFileSync(
+          join(d3, 'PROJECT_PLAN.md'),
+          '- [x] ✅ 待办 T9 已闭环\n- [ ] 别人的行\n',
+          'utf8',
+        )
+        g3('add', '-A')
+        g3('commit', '-qm', 'ours')
+        const base3 = g3('merge-base', 'ours', 'theirs').trim()
+        const merged3 = show(
+          plan(g3('rev-parse', 'HEAD').trim(), theirs3, d3).tree,
+          'PROJECT_PLAN.md',
+          d3,
+        )
+        // 夹具自证:这确实是一枚真分叉(否则下面两条断言都是空转)
+        ok(
+          '端到端夹具自证:两侧是同一基底的两个兄弟提交(merge-base 就是 base)',
+          base3 === g3('rev-parse', 'theirs~1').trim() && DOC0.includes('- [ ] 待办 T9'),
+          `merge-base=${base3}`,
+        )
+        ok(
+          '端到端(真临时仓):本侧翻勾的一行在对侧未动的情况下不得被复活成未勾',
+          !/^- \[ \] 待办 T9$/m.test(merged3),
+          `合并树里又出现了未勾的 T9:\n${merged3}`,
+        )
+        ok(
+          '端到端:同一次合并仍必须保住对侧独有新增行(反向对照,防"不复活"被写成"丢对侧")',
+          /^- \[ \] 对侧新行$/m.test(merged3),
+          `对侧独有行被吞了:\n${merged3}`,
+        )
+        // 再一条反向:改写前的旧行确实存在于基底与对侧,否则"没复活"只是因为从来就没有过
+        ok(
+          '端到端夹具自证:旧行 T9 在未合并的两父里都在(证明第一条是"防复活"而不是"本来没有")',
+          /^- \[ \] 待办 T9$/m.test(show(theirs3, 'PROJECT_PLAN.md', d3)) &&
+            /^- \[ \] 待办 T9$/m.test(show(base3, 'PROJECT_PLAN.md', d3)),
+        )
+      } finally {
+        rmScratch(d3, { bestEffort: true })
+      }
+    }
+    // ── 折叠台账端到端(2026-10-16,在册票 G-32 归并侧那半格)──────────────────────
+    // 两色必须**同轮**量到:接台账绿(修复生效)、摘台账红(证明这条判据真的在咬,不是空跑)。
+    // 端到端必要:纯函数全绿而调用点没接线,是本仓记过最多次的残法(守门 70/76/81/105/115 同族)。
+    {
+      const dF = mkScratch('ihui-union-fold-')
+      try {
+        const gF = (...a) => git(a, dF)
+        gF('init', '-q', '-b', 'main')
+        gF('config', 'user.email', 't@t')
+        gF('config', 'user.name', 't')
+        writeFileSync(join(dF, 'PROJECT_PLAN.md'), '# 台账\nbase-line\n', 'utf8')
+        writeFileSync(join(dF, 'keep.ts'), 'k\n', 'utf8')
+        gF('add', '-A')
+        gF('commit', '-qm', 'base')
+        const baseF = gF('rev-parse', 'HEAD').trim()
+        writeFileSync(join(dF, 'PROJECT_PLAN.md'), `# 台账\nbase-line\n${FOLD_A}\n`, 'utf8')
+        writeFileSync(join(dF, 'ours.ts'), 'o\n', 'utf8')
+        gF('add', '-A')
+        gF('commit', '-qm', 'ours')
+        const oursF = gF('rev-parse', 'HEAD').trim()
+        gF('update-ref', 'refs/heads/main', baseF)
+        writeFileSync(join(dF, 'PROJECT_PLAN.md'), `# 台账\nbase-line\n${FOLD_B}\n`, 'utf8')
+        writeFileSync(join(dF, 'theirs.ts'), 't\n', 'utf8')
+        gF('add', '-A')
+        gF('commit', '-qm', 'theirs')
+        const theirsF = gF('rev-parse', 'HEAD').trim()
+        gF('update-ref', 'refs/heads/main', oursF)
+        const pF = plan(oursF, theirsF, dF)
+        const shortRows = (list) => list.filter((s) => String(s).includes('未存活行'))
+        ok(
+          '端到端夹具自证:本轮确实发生了折叠(否则后面两条都是空转)',
+          (pF.folded || []).length >= 1 && !!pF.foldLedgers.get('PROJECT_PLAN.md'),
+          `folded=${(pF.folded || []).length} / 台账键 ${[...(pF.foldLedgers || new Map()).keys()].join(',')}`,
+        )
+        ok(
+          '端到端(真临时仓):接折叠台账 ⇒ 落地闸一处不红(本机修复前这里是 289 处误拒收)',
+          pF.bad.length === 0,
+          `实测 bad:${pF.bad.slice(0, 3).map(String).join(' | ')}`,
+        )
+        const bareF = verifyUnion(oursF, theirsF, pF.tree, dF, baseF)
+        ok(
+          '端到端反向对照(修改前形态):同一枚产物**摘掉台账**必须红 —— 这条红证明台账确实在替合法折叠销账',
+          shortRows(bareF).length >= 1,
+          `摘台账却绿 ⇒ 折叠根本没进产物面,或这条判据被做成了空壳;实测 ${bareF.slice(0, 2).map(String).join(' | ')}`,
+        )
+        ok(
+          '端到端:折叠的份数必须被点名(不得静默折进"0 丢失")',
+          formatFoldReport(pF.folded).some((l) => l.includes('同题折叠少带')),
+          `实测报告 ${JSON.stringify(formatFoldReport(pF.folded))}`,
+        )
+        // 真吞并的那一颗牙必须长在产物面上:把产物里的台账整行换成别的内容 ⇒ 必须红
+        const wrongTree = (() => {
+          const idx = mkScratch('ihui-union-fold-idx-')
+          try {
+            const envF = { ...process.env, GIT_INDEX_FILE: join(idx, 'index') }
+            const rF = (a) =>
+              execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...a], {
+                cwd: dF,
+                env: envF,
+                windowsHide: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                timeout: GIT_TIMEOUT,
+                encoding: 'utf8',
+              }).trim()
+            writeFileSync(join(idx, 'PLAN.md'), '# 台账\nbase-line\n这一侧把对侧的行整块吃掉了\n', 'utf8')
+            const oidF = rF(['hash-object', '-w', join(idx, 'PLAN.md')])
+            rF(['read-tree', pF.tree])
+            rF(['update-index', '--add', '--cacheinfo', `100644,${oidF},PROJECT_PLAN.md`])
+            return rF(['write-tree'])
+          } finally {
+            rmScratch(idx, { bestEffort: true })
+          }
+        })()
+        const stolenF = verifyUnion(oursF, theirsF, wrongTree, dF, baseF, null, pF.foldLedgers)
+        ok(
+          '端到端牙:接了台账而产物面真把两侧的行都吃了 ⇒ 必须红(台账不是免死金牌)',
+          stolenF.length >= 1,
+          `实测 ${stolenF.slice(0, 2).map(String).join(' | ')}`,
+        )
+      } finally {
+        rmScratch(dF, { bestEffort: true })
+      }
+    }
+    // ── 搬运感知(2026-09-28):被 `已归档` 占位代表着的行不得再从对侧取回 ──────────
+    // 四条纯函数 + 一条端到端。端到端那条必要:纯函数过而调用点没接线是本类缺陷最常见的残法。
+    {
+      const PH1 = '<!-- 已归档(2026-09-28:甲条目 ✅,完整内容在 .ihui-agent/archive/A.md -->'
+      const OURS_MA = `# 台账\n${PH1}\n- [ ] 活账\n`
+      const THEIRS_MA = OURS_MA + '## 甲条目 ✅\n\n- [x] 甲一\n- [ ] 别人刚在块里补的一行\n- [x] 甲二\n'
+      const ARC = '# 归档\n\n## 甲条目 ✅\n\n- [x] 甲一\n- [x] 甲二\n\n---\n\n'
+      const m1 = archivedLineSuppressions({
+        oursText: OURS_MA,
+        theirsText: THEIRS_MA,
+        archiveOf: (p) => (p === '.ihui-agent/archive/A.md' ? ARC : null),
+      })
+      ok(
+        '搬运感知:只抑制"与归档件逐行连续"的段;块内别人新写那一行永远不进抑制表(失效方向只能是多带)',
+        m1.suppress.get('## 甲条目 ✅') === 1 &&
+          m1.suppress.get('- [x] 甲一') === 1 &&
+          !m1.suppress.has('- [ ] 别人刚在块里补的一行') &&
+          !m1.suppress.has('') &&
+          m1.stats.suppressedLines === 2,
+        JSON.stringify(m1.stats),
+      )
+      const m2 = archivedLineSuppressions({
+        oursText: OURS_MA,
+        theirsText: THEIRS_MA,
+        archiveOf: () => null,
+      })
+      ok(
+        '搬运感知:归档件取不到 = 坏指针 ⇒ 一分都不抑制并记未判定(绝不把"没证据"写成"已归档")',
+        m2.suppress.size === 0 && m2.undetermined.length === 1,
+        JSON.stringify(m2.undetermined),
+      )
+      const m3 = archivedLineSuppressions({
+        oursText: OURS_MA.replace('/A.md', '/A_*.md'),
+        theirsText: THEIRS_MA,
+        archiveOf: () => ARC,
+      })
+      ok(
+        '搬运感知:通配归档件名不指向可核验内容 ⇒ 照旧取回并点名原因',
+        m3.suppress.size === 0 && /通配/.test(m3.undetermined[0]?.reason || ''),
+        JSON.stringify(m3.undetermined),
+      )
+      ok(
+        '搬运感知:抑制表只减对侧贡献,本侧自己的行一份都不能少',
+        counter(unionLines('a\nb\n', 'a\na\na\n', 'a\n', new Map([['a', 99]]))).get('a') === 1,
+      )
+    }
+    {
+      // 端到端夹具:基底**就是"已归档形态"** —— 否则三方判据自己就把这些行拦了,新判据无从表现
+      const d4 = mkScratch('ihui-union-moveaware-')
+      const ARC4 = '.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md'
+      try {
+        const g4 = (...a) => git(a, d4)
+        const PH4 = `<!-- 已归档(2026-09-28:甲条目 ✅,完整内容在 ${ARC4} -->`
+        const DOC4 = `# 台账\n${PH4}\n- [ ] 活账\n`
+        g4('init', '-q', '-b', 'main')
+        g4('config', 'user.email', 't@t')
+        g4('config', 'user.name', 't')
+        g4('config', 'core.autocrlf', 'false')
+        writeFileSync(join(d4, 'PROJECT_PLAN.md'), DOC4, 'utf8')
+        mkdirSync(join(d4, '.ihui-agent', 'archive'), { recursive: true })
+        writeFileSync(join(d4, ARC4), '## 甲条目 ✅\n\n- [x] 甲一\n- [x] 甲二\n\n---\n\n', 'utf8')
+        g4('add', '-A')
+        g4('commit', '-qm', 'base(已归档形态)')
+        const base4 = g4('rev-parse', 'HEAD').trim()
+        g4('checkout', '-q', '-b', 'theirs', base4)
+        writeFileSync(
+          join(d4, 'PROJECT_PLAN.md'),
+          `${DOC4}## 甲条目 ✅\n\n- [x] 甲一\n- [x] 甲二\n\n- [ ] 别人新写的待办\n`,
+          'utf8',
+        )
+        g4('add', '-A')
+        g4('commit', '-qm', 'theirs(滞后台账)')
+        const theirs4 = g4('rev-parse', 'HEAD').trim()
+        g4('checkout', '-q', '-B', 'ours', base4)
+        writeFileSync(join(d4, 'PROJECT_PLAN.md'), `${DOC4}ours-line\n`, 'utf8')
+        g4('add', '-A')
+        g4('commit', '-qm', 'ours')
+        const p4 = plan(g4('rev-parse', 'HEAD').trim(), theirs4, d4)
+        const doc4 = show(p4.tree, 'PROJECT_PLAN.md', d4)
+        ok(
+          '端到端夹具自证:merge-base 就是"已归档形态"那枚基底,被搬走的正文只在**对侧**而不在基底与本侧',
+          g4('merge-base', 'ours', 'theirs').trim() === base4 &&
+            /^- \[x\] 甲一$/m.test(show(theirs4, 'PROJECT_PLAN.md', d4)) &&
+            !/^- \[x\] 甲一$/m.test(show(base4, 'PROJECT_PLAN.md', d4)) &&
+            collectReferencedArchives(DOC4, show(theirs4, 'PROJECT_PLAN.md', d4)).size === 1,
+        )
+        ok(
+          '端到端:被占位代表的已归档正文不进合并树,而别人新写的行必须在(少带就是丢内容)',
+          !/^- \[x\] 甲[一二]$/m.test(doc4) &&
+            !/^## 甲条目 ✅$/m.test(doc4) &&
+            /^- \[ \] 别人新写的待办$/m.test(doc4) &&
+            doc4.includes(PH4),
+          doc4.replace(/\n/g, '|'),
+        )
+        ok(
+          '端到端:落地闸对这一维必须计得出数并点名条目,不得静默(否则报告答不出为什么少带)',
+          p4.bad.length === 0 &&
+            p4.moveAware.some(
+              (x) =>
+                x.doc === 'PROJECT_PLAN.md' &&
+                x.stats.suppressedLines === 3 &&
+                x.suppressedBlocks[0]?.title === '甲条目 ✅' &&
+                x.suppressedBlocks[0]?.archivePath === ARC4,
+            ),
+          JSON.stringify(p4.moveAware.map((x) => [x.doc, x.stats])),
+        )
+        ok(
+          '端到端:报告必须把"因搬运感知未取回 N 行"与出处归档件都说出来(计数行与出处行各说一半 ⇒ 合起来判)',
+          /因搬运感知未取回 3 行/.test(formatMoveAwareReport(p4.moveAware).join('\n')) &&
+            formatMoveAwareReport(p4.moveAware).some((l) => l.includes(ARC4)),
+          formatMoveAwareReport(p4.moveAware).join(' / '),
+        )
+      } finally {
+        rmScratch(d4, { bestEffort: true })
+      }
+      // ── 端到端:副本指针 cap(G-814386)——纯函数过了不代表 plan() 在真仓里也认这条例外 ──
+      {
+        const d5 = mkScratch('ihui-union-cap-')
+        try {
+          const g5 = (...a) => git(a, d5)
+          const PTR5 = '〔【归并】重复登记副本(2026-09-26):同主键另一条,派单以那条为准。〕'
+          const ROW5 = `- [ ] G-9 同一件事 ${PTR5}`
+          g5('init', '-q', '-b', 'main')
+          g5('config', 'user.email', 't@t')
+          g5('config', 'user.name', 't')
+          g5('config', 'core.autocrlf', 'false')
+          writeFileSync(join(d5, 'PROJECT_PLAN.md'), `# 台账\n- [ ] 公共行\n`, 'utf8')
+          g5('add', '-A')
+          g5('commit', '-qm', 'base')
+          const base5 = g5('rev-parse', 'HEAD').trim()
+          // 对侧 = 一份"滞后的台账副本":同一行指针行被并集追加了三遍
+          g5('checkout', '-q', '-b', 'theirs', base5)
+          writeFileSync(
+            join(d5, 'PROJECT_PLAN.md'),
+            `# 台账\n- [ ] 公共行\n${ROW5}\n${ROW5}\n${ROW5}\n- [ ] 别人新写的行\n`,
+            'utf8',
+          )
+          g5('add', '-A')
+          g5('commit', '-qm', 'theirs(滞后副本把指针行追加了三遍)')
+          const theirs5 = g5('rev-parse', 'HEAD').trim()
+          g5('checkout', '-q', '-B', 'ours', base5)
+          writeFileSync(join(d5, 'PROJECT_PLAN.md'), '# 台账\n- [ ] 公共行\n- [ ] ours 独有\n', 'utf8')
+          g5('add', '-A')
+          g5('commit', '-qm', 'ours')
+          const p5 = plan(g5('rev-parse', 'HEAD').trim(), theirs5, d5)
+          const doc5 = show(p5.tree, 'PROJECT_PLAN.md', d5)
+          const copies = doc5.split('\n').filter((l) => l === ROW5).length
+          ok(
+            '端到端 cap:对侧带指针的同一行有三份 ⇒ 合并树只取回一份(重放被当场拦住)',
+            copies === 1 && p5.bad.length === 0,
+            JSON.stringify([copies, p5.bad]),
+          )
+          ok(
+            '端到端 cap:同一枚合并必须保住对侧**不带指针**的独有行(不复活 ≠ 丢内容)',
+            /^- \[ \] 别人新写的行$/m.test(doc5) && /^- \[ \] ours 独有$/m.test(doc5),
+            doc5.replace(/\n/g, '|'),
+          )
+          ok(
+            '端到端 cap:少带的份数必须进 caps 并被点名,不得静默(否则读者只看到"0 丢失")',
+            (p5.caps ?? []).length > 0 &&
+              /因副本指针有意少带 2 份/.test(
+                (p5.caps ?? []).flatMap((c) => formatPointerCapReport(c.capped)).join('\n'),
+              ),
+            JSON.stringify(p5.caps),
+          )
+        } finally {
+          rmScratch(d5, { bestEffort: true })
+        }
+      }
+      // ── 端到端:影子 .js 不得随合并恢复,而它的**删除**要传播(2026-09-29 用户拍板"在合并规则里堵死")──
+      // 三臂成对:A=对侧删影子 ⇒ 删除传播;B=对侧带回与 .ts 同一份字节的影子 ⇒ 拦住;
+      // C=对侧那份影子内容与 .ts **不等值** ⇒ 照旧取对侧(证明这一刀是按字节切的,不是按名字切的)。
+      {
+        const d6 = mkScratch('ihui-union-shadow-')
+        try {
+          const g6 = (...a) => git(a, d6)
+          const TS = 'a.ts'
+          const JS = 'a.js'
+          const C = 'export const v = 1\n'
+          const treeHas = (tree, p) => {
+            try {
+              git(['rev-parse', `${tree}:${p}`], d6)
+              return true
+            } catch {
+              return false
+            }
+          }
+          g6('init', '-q', '-b', 'main')
+          g6('config', 'user.email', 't@t')
+          g6('config', 'user.name', 't')
+          g6('config', 'core.autocrlf', 'false')
+          writeFileSync(join(d6, TS), C, 'utf8')
+          writeFileSync(join(d6, JS), C, 'utf8') // 影子:与 .ts 同一份字节
+          writeFileSync(join(d6, 'keep.md'), '# keep\n', 'utf8')
+          g6('add', '-A')
+          g6('commit', '-qm', 'base(ts + 等值影子)')
+          const base6 = g6('rev-parse', 'HEAD').trim()
+
+          // A 臂:对侧删掉影子,本侧没动 ⇒ 本工具的产物树里也不该再有它
+          g6('checkout', '-q', '-b', 'theirs', base6)
+          g6('rm', '-q', JS)
+          g6('commit', '-qm', 'theirs(删影子)')
+          const theirs6a = g6('rev-parse', 'HEAD').trim()
+          g6('checkout', '-q', '-B', 'ours', base6)
+          g6('commit', '-q', '--allow-empty', '-m', 'ours(没动)')
+          const pa = plan(g6('rev-parse', 'HEAD').trim(), theirs6a, d6)
+          ok(
+            '端到端 影子A:对侧删掉"与 .ts 同一份字节"的影子 ⇒ 删除随合并传播(不再走 skippedDeletes)',
+            !treeHas(pa.tree, JS) &&
+              treeHas(pa.tree, TS) &&
+              // 字节没丢:合并树里那份 .ts 的 oid **就是**原影子的 oid(内容寻址证明,不是文字比对)
+              blobOf(pa.tree, TS, d6) === blobOf(base6, JS, d6) &&
+              (pa.shadowDeletes ?? []).length === 1 &&
+              pa.shadowDeletes[0].path === JS &&
+              !(pa.skippedDeletes ?? []).includes(JS) &&
+              pa.bad.length === 0,
+            JSON.stringify([pa.shadowDeletes, pa.skippedDeletes, pa.bad]),
+          )
+
+          // B 臂:对侧把影子**加回来**(内容仍等于 .ts),本侧从未有过 ⇒ 不恢复
+          g6('checkout', '-q', '-B', 'theirs', base6)
+          g6('rm', '-q', JS)
+          g6('commit', '-qm', 'theirs 基线调整')
+          const tb6 = g6('rev-parse', 'HEAD').trim()
+          writeFileSync(join(d6, JS), C, 'utf8')
+          g6('add', '-A')
+          g6('commit', '-qm', 'theirs(把同一份字节又写成 .js)')
+          const theirs6b = g6('rev-parse', 'HEAD').trim()
+          g6('checkout', '-q', '-B', 'ours', tb6)
+          const pb = plan(g6('rev-parse', 'HEAD').trim(), theirs6b, d6)
+          ok(
+            '端到端 影子B:对侧新增等值影子 ⇒ 不恢复,且必须点名(不得静默当成"这一侧没有")',
+            !treeHas(pb.tree, JS) &&
+              treeHas(pb.tree, TS) &&
+              blobOf(pb.tree, TS, d6) === blobOf(theirs6b, JS, d6) &&
+              (pb.shadowRestores ?? []).length === 1 &&
+              pb.shadowRestores[0].path === JS &&
+              !(pb.tookTheirs ?? []).includes(JS),
+            JSON.stringify([pb.shadowRestores, pb.tookTheirs]),
+          )
+
+          // C 臂(反向对照,这条才是"没有放宽"):内容与 .ts **不等值** ⇒ 照旧取对侧
+          g6('checkout', '-q', '-B', 'theirs', base6)
+          writeFileSync(join(d6, JS), C + 'export const other = 2\n', 'utf8')
+          g6('add', '-A')
+          g6('commit', '-qm', 'theirs(影子有独有内容)')
+          const theirs6c = g6('rev-parse', 'HEAD').trim()
+          g6('checkout', '-q', '-B', 'ours', base6)
+          const pc = plan(g6('rev-parse', 'HEAD').trim(), theirs6c, d6)
+          // 内容等值一律按 **blob oid** 证(不按文本比 —— 换行风格会骗人,而 oid 不会)
+          const cTreeOid = blobOf(pc.tree, JS, d6)
+          const cTheirsOid = blobOf(theirs6c, JS, d6)
+          const cTsOid = blobOf(pc.tree, TS, d6)
+          ok(
+            '端到端 影子C:影子内容与 .ts 不等值 ⇒ 本规则**不触发**,照旧取对侧(按字节切,不按名字切)',
+            (pc.tookTheirs ?? []).includes(JS) &&
+              cTreeOid === cTheirsOid &&
+              cTreeOid !== cTsOid &&
+              (pc.shadowRestores ?? []).length === 0 &&
+              (pc.shadowDeletes ?? []).length === 0 &&
+              pc.bad.length === 0,
+            JSON.stringify([pc.tookTheirs, pc.shadowRestores, pc.shadowDeletes, pc.bad]),
+          )
+        } finally {
+          rmScratch(d6, { bestEffort: true })
+        }
+      }
+      // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
+      ok(
+        '纯函数 影子:候选名方向唯一(.js/.cjs/.mjs → .ts/.tsx;给 .ts 返回空 ⇒ 不会反过来丢 TS 保 JS)',
+        JSON.stringify(shadowTsSiblings('a/b.js')) === JSON.stringify(['a/b.ts', 'a/b.tsx']) &&
+          JSON.stringify(shadowTsSiblings('a/b.mjs')) === JSON.stringify(['a/b.ts', 'a/b.tsx']) &&
+          shadowTsSiblings('a/b.ts').length === 0 &&
+          shadowTsSiblings('a/b.md').length === 0 &&
+          shadowTsSiblings('a/b').length === 0 &&
+          shadowTwinIsIdentical('a/b.js', 'oid1', { 'a/b.ts': 'oid2' }) === null &&
+          shadowTwinIsIdentical('a/b.js', 'oid1', { 'a/b.ts': 'oid1' }).path === 'a/b.ts' &&
+          shadowTwinIsIdentical('a/b.ts', 'oid1', { 'a/b.js': 'oid1' }) === null,
+      )
+    }
+    // ── 票 G-977960 ②(用户拍板):「删除活不过合并」的对症格 —— 传播删除 ──
+    {
+      const d7 = mkScratch('ihui-union-del-')
+      const g7 = (...a) => git(a, d7)
+      try {
+        g7('init', '-q', '-b', 'main')
+        g7('config', 'user.email', 't@t')
+        g7('config', 'user.name', 't')
+        g7('config', 'core.autocrlf', 'false')
+        // 四个基底路径:orph1(对侧删 ∧ 本侧未动 ⇒ 传播)、orph2(本侧改 ∧ 对侧删 ⇒ modify/delete 分叉,
+        // 不传播)、orph3(两侧同删 ⇒ 结果里也不该有)、orph4(本侧删 ∧ 对侧未动 ⇒ 本来就活,钉住不折回)。
+        writeFileSync(join(d7, 'orph1.ts'), 'O1\n', 'utf8')
+        writeFileSync(join(d7, 'orph2.ts'), 'O2\n', 'utf8')
+        writeFileSync(join(d7, 'orph3.ts'), 'O3\n', 'utf8')
+        writeFileSync(join(d7, 'orph4.ts'), 'O4\n', 'utf8')
+        writeFileSync(join(d7, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
+        g7('add', '-A')
+        g7('commit', '-qm', 'base(带四条零引用路径)')
+        const base7 = g7('rev-parse', 'HEAD').trim()
+
+        g7('checkout', '-q', '-b', 'theirs', base7)
+        g7('rm', '-q', 'orph1.ts')
+        g7('rm', '-q', 'orph2.ts')
+        g7('rm', '-q', 'orph3.ts')
+        writeFileSync(join(d7, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
+        g7('add', '-A')
+        g7('commit', '-qm', 'theirs 删三条')
+        const theirs7 = g7('rev-parse', 'HEAD').trim()
+
+        g7('checkout', '-q', '-B', 'main', base7)
+        writeFileSync(join(d7, 'orph2.ts'), 'O2-OURS-EDIT\n', 'utf8')
+        g7('rm', '-q', 'orph3.ts')
+        g7('rm', '-q', 'orph4.ts')
+        writeFileSync(join(d7, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
+        g7('add', '-A')
+        g7('commit', '-qm', 'ours 改 orph2、删 orph3/orph4')
+        const ours7 = g7('rev-parse', 'HEAD').trim()
+
+        const pd = plan(ours7, theirs7, d7)
+        const paths7 = new Set(listPaths(pd.tree, d7))
+        ok(
+          '② 端到端:对侧删除 ∧ 本侧未动 ⇒ 删除随合并传播(合并树里没有它,且逐路径点名)',
+          !paths7.has('orph1.ts') &&
+            (pd.propagatedDeletes || []).includes('orph1.ts') &&
+            pd.bad.length === 0,
+          JSON.stringify([paths7.has('orph1.ts'), pd.propagatedDeletes, pd.skippedDeletes, pd.bad.slice(0, 2)]),
+        )
+        ok(
+          '② 反向锁:对侧删除 ∧ 本侧改过 ⇒ 不传播(modify/delete 分叉,处置权归改写方,本侧内容照旧在)',
+          paths7.has('orph2.ts') &&
+            blobOf(pd.tree, 'orph2.ts', d7) === blobOf(ours7, 'orph2.ts', d7) &&
+            !(pd.propagatedDeletes || []).includes('orph2.ts') &&
+            pd.skippedDeletes.length === 1 &&
+            pd.skippedDeletes[0] === 'orph2.ts',
+          JSON.stringify([pd.propagatedDeletes, pd.skippedDeletes, pd.bad.slice(0, 2)]),
+        )
+        ok(
+          '② 两侧同删 ⇒ 合并结果里也不该有,且一样点名(不得静默)',
+          !paths7.has('orph3.ts') && (pd.propagatedDeletes || []).includes('orph3.ts'),
+          JSON.stringify([pd.propagatedDeletes, pd.bad.slice(0, 2)]),
+        )
+        ok(
+          '② 另一半:本侧删 ∧ 对侧未动 ⇒ 已删路径不得被合并折回(处置权归本侧,老规矩)',
+          !paths7.has('orph4.ts') && !pd.bad.some((b) => b.includes('orph4')),
+          JSON.stringify([paths7.has('orph4.ts'), pd.bad.slice(0, 2)]),
+        )
+        const sha7 = g7('commit-tree', pd.tree, '-p', ours7, '-p', theirs7, '-m', 'union(删除传播)')
+        ok(
+          '② 传播删除的产物经守门 100 复核 0 丢失(A1 只立罪新增,不管删除)',
+          auditOne(sha7, d7).lost.length === 0,
+          JSON.stringify(auditOne(sha7, d7).lost),
+        )
+      } finally {
+        rmScratch(d7, { bestEffort: true })
+      }
+    }
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+  const { fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— ${c.got}`}`)
+  console.log(fail ? `\n❌ ${fail} 例失败` : `全部 ${cases.length} 例通过`)
+  process.exit(fail ? 1 : 0)
+}
+
+async function main() {
+  resetUnionCaches()
+  const argv = process.argv.slice(2)
+  // 未知旗闸(RP-79 剩余面):清单、判据、放行出路全在 lib/union-converge-flags.mjs,本处只接线、零复算。
+  // 失效方向按 §0.10:拿不准的旗标要一次定向说明,而不是把同步链的正当动作拦停。
+  const flagVerdict = judgeFlags(process.argv)
+  if (flagVerdict.verdict === 'undetermined') {
+    console.log(`❌ 闸未判定:${flagVerdict.reason}`)
+    process.exit(2)
+  }
+  if (flagVerdict.verdict === 'unknown') {
+    const esc = unknownFlagEscape()
+    if (!esc.allowed) {
+      console.log(`❌ 用法错:${flagVerdict.flag} 不在已登记旗标清单里 ⇒ ${esc.problem}`)
+      console.log(FLAG_USAGE.join('\n'))
+      process.exit(2)
+    }
+    console.log(`⚠️ 未知旗 ${flagVerdict.flag} 按定向说明放行:${esc.reason}`)
+  }
+  if (argv.includes('--help') || argv.includes('-h')) {
+    console.log(FLAG_USAGE.join('\n'))
+    return
+  }
+  if (argv.includes('--self-test')) return selfTest()
+  const apply = argv.includes('--apply')
+  // A6b 逃生阀:显式退回旧口径(整份取对侧不再量本侧三项差)。告警必须每次开跑都打且足够醒目,
+  // 不许静默 —— 逃生阀本身也是"少带内容"的合法入口,账面必须能看见它被开了。
+  const legacyLenient = argv.includes('--legacy-lenient')
+  if (legacyLenient) {
+    console.error(
+      '⚠️ [union-converge] --legacy-lenient:--take-theirs-doc 的三项丢失检测已关闭' +
+        '(带号键/空行/非空行任一减少都不再阻断,整份取对侧回到旧行为)。仅限确知风险时使用。',
+    )
+  }
+  // --theirs <sha> 的取值交单源出口(G-322)。旧写法 `argv[i + 1]` 有两型吞值都**静默降级**:
+  //   ① `--theirs` 收尾(无值)⇒ undefined 进 resolveTargets,被读成"调用方没点名" ⇒ 回落到自动
+  //      解析 origin/<branch>,`explicit` 那一维也翻假,于是"本地纯落后"短路把一次显式点名的合并
+  //      报成"无需合并"(与 G-815406 同型的第二次入口);
+  //   ② `--theirs --apply` ⇒ 把 `--apply` 当提交规格喂 git。
+  //   现在两型都 exit 2 并点名"实得的是什么",不再由本器替调用方改动作。
+  const theirsFlag = requireFlagValue(argv, '--theirs', { noun: '提交规格', fallback: '' })
+  if (theirsFlag.error) {
+    console.log(`❌ ${theirsFlag.error}`)
+    process.exit(2)
+  }
+  // --take-ours <path>(可重复):仅在"两侧同改且能证明对侧那一版在本树必红"时使用。
+  //   它不隐藏任何事:输出会逐条列出,合并提交信息里也带同一份清单(见 msg 拼装处)。
+  const takeOurs = new Set()
+  for (let i = 0; i < argv.length; i++)
+    if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])
+  // --take-theirs <path>(可重复):与 --take-ours 对称的那一格(2026-09-28 补)。
+  //   用它的唯一正当场景是"两侧同一个功能各写一份,而**同一行**被两种写法改写"——
+  //   这种冲突 `--resolve` 结构上无解(两侧独有行都留 ⇒ 同名声明重复 ⇒ 编译不过),
+  //   于是它只会一路"需人工",把发布链卡在分叉上。声明它 = 该路径的持有者说"本侧是被取代的那一份"。
+  //   纪律与 --take-ours 完全一致:逐条声明、逐条打印、写进合并提交信息,绝不默认生效。
+  const takeTheirs = new Set()
+  for (let i = 0; i < argv.length; i++)
+    if (argv[i] === '--take-theirs' && argv[i + 1]) takeTheirs.add(argv[++i])
+  // --take-theirs-doc <path>(可重复,2026-10-27):活文档专用 —— 整份 blob 取对侧、跳过行级 union。
+  //   为什么与 --take-theirs 分开:活文档走 1) 的行级 union,路径级选边在那里**不生效**,
+  //   对侧滞后的基线形态会照旧并回结果(生产签出实测 121 行回灌)。本旗标让"整份取对侧"
+  //   真正落到树上,自证语义 = 合并树该路径 blob 逐字等于对侧 blob(见 verifyUnion 该分支)。
+  //   纪律照抄 --take-ours/--take-theirs:逐条声明、逐条打印、写进合并提交信息,绝不默认生效。
+  // A6(2026-11-03):值可写成 `<path>=<理由>` —— 整份取对侧若让本侧少带号行/空行/非空行,
+  //   必须用这份理由显式声明;只写 path(旧形态)在无丢失时仍照旧可用,有丢失则阻断。
+  const takeTheirsDocs = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--take-theirs-doc' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const at = spec.indexOf('=')
+    takeTheirsDocs.set(at > 0 ? spec.slice(0, at) : spec, at > 0 ? spec.slice(at + 1).trim() : '')
+  }
+  // --resolve <path>=<文件>(可重复):人工判完冲突后的**回灌出口**。与 --take-ours 的关键区别:
+  //   它不选边 —— 喂进来的整份内容照样过"两侧独有行不得减少"的断言,少哪一侧当场 violations。
+  // --union-capped <path>=<文件>(可重复,G-585):同一个入口,但先按"两侧最大值"机械封顶多余副本
+  //   再入库。它的存在理由:并集的**另一半**判据(防"多")在台账类路径上判红时,人工要么手删重复行
+  //   (可能删多 = 丢内容),要么被迫绕过本器去做裸 git 手术。封顶出口让"收回份数"这一步由代码做,
+  //   且封顶后的内容仍过同一条零损失断言 ⇒ 少一条行就当场红,不是静默。
+  const resolutions = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    const capped = a === '--union-capped'
+    if (a !== '--resolve' && !capped) continue
+    if (!argv[i + 1]) continue
+    const eq = argv[++i].indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ ${a} 需要 <path>=<内容文件>,得到的是:${argv[i]}`)
+      process.exit(2)
+    }
+    const file = argv[i].slice(eq + 1)
+    resolutions.set(argv[i].slice(0, eq), capped ? { file, capped: true } : file)
+  }
+  // --supersede <path>=<声明档>(可重复,票 G-310):**声明式取代**的入口。判据在这两格
+  //   ("未存活行" / "旧行被复活")结构上判不出语义搬到了哪一行 —— 它能比字面,不能判"同一件事"。
+  //   此前它只在报错文案里喊"请人工判",而人工结果没有任何回灌路径,于是每个走到这格的会话
+  //   只有两条出路:停住,或绕开本器去裸做 git 手术(把全部断言一起绕过)。本旗标是那第三条出路。
+  // 声明档 = JSON `[{dropped, kept, why}]`(也接受 `{items:[…]}`):
+  //   dropped = 被判红的那一行**逐字字面**;kept = 该语义现在住在合并稿的哪一行(逐字字面);
+  //   why = 为什么它已被取代。三条都得当场给全:缺原因 ⇒ `supersedeProof` 判不成立(照红),
+  //   本轮没命中 ⇒ "声明未命中"判红(不记通过)—— 放行通道不收"配了个空清单"这种写法。
+  const supersede = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--supersede' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const eq = spec.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --supersede 需要 <path>=<声明档 JSON>,得到的是:${spec}`)
+      process.exit(2)
+    }
+    const doc = spec.slice(0, eq)
+    const file = spec.slice(eq + 1)
+    let raw
+    try {
+      raw = readFileSync(file, 'utf8')
+    } catch (e) {
+      // 取不到输入 ⇒ 当场退 2 点名,绝不当成"这一路径没有声明"(那会把配错文件读成放行)。
+      console.log(`❌ --supersede 读不到声明档 ${doc}=${file}:${e?.message ?? e}`)
+      process.exit(2)
+    }
+    let parsed
+    try {
+      const j = JSON.parse(raw)
+      parsed = Array.isArray(j) ? j : j?.items
+    } catch (e) {
+      console.log(`❌ --supersede 声明档不是 JSON(${doc}=${file}):${e?.message ?? e}`)
+      process.exit(2)
+    }
+    if (!Array.isArray(parsed)) {
+      console.log(`❌ --supersede 声明档既不是数组也没有 items 字段(${doc}=${file})⇒ 无从判定,拒绝执行`)
+      process.exit(2)
+    }
+    const m = supersede.get(doc) || new Map()
+    for (const [k, d] of parsed.entries()) {
+      const dropped = typeof d?.dropped === 'string' ? d.dropped : ''
+      if (dropped === '') {
+        console.log(`❌ --supersede 声明档第 ${k + 1} 项没有 dropped(被取代行的逐字字面)⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      if (m.has(dropped)) {
+        console.log(`❌ --supersede ${doc} 第 ${k + 1} 项与前面某条同 dropped(一行两条取代去向 ⇒ 歧义,拒绝执行)`)
+        process.exit(2)
+      }
+      m.set(dropped, { kept: typeof d?.kept === 'string' ? d.kept : '', why: typeof d?.why === 'string' ? d.why : '' })
+    }
+    supersede.set(doc, m)
+  }
+  // --fold-keep <path>=<声明档>(可重复):折叠层**拒绝裁定**的那一组由谁当选 keeper。
+  //   折叠层只在"同指纹、同自持票号、两条都不等于基底"时才拒绝(机器无从判哪版是当下状态),
+  //   此时整组一条不折并进 `bad` 点名 —— 正确失效方向,但人工结果同样没有回灌路径。
+  // 声明档 = JSON `[{keep, why, fp?}]`(也接受 `{items:[…]}`):
+  //   keep = 当选 keeper 的那一行**逐字字面**(必须真在本组里,否则记"未命中"判红,不静默跳过);
+  //   why  = 为什么它才是当下状态(空理由 = 配了个空放行,当场退 2);
+  //   fp   = 可选的指纹自述:给了就与 `extractTaskFingerprint(keep)` 对账,不一致 ⇒ 串档退 2。
+  // 指纹一律由 keep 行现算(与折叠层同一把尺子),不接受"手填一个数对不上也算"。
+  const foldKeep = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--fold-keep' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const eq = spec.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --fold-keep 需要 <path>=<声明档 JSON>,得到的是:${spec}`)
+      process.exit(2)
+    }
+    const doc = spec.slice(0, eq)
+    const file = spec.slice(eq + 1)
+    let raw
+    try {
+      raw = readFileSync(file, 'utf8')
+    } catch (e) {
+      console.log(`❌ --fold-keep 读不到声明档 ${doc}=${file}:${e?.message ?? e}`)
+      process.exit(2)
+    }
+    let parsed
+    try {
+      const j = JSON.parse(raw)
+      parsed = Array.isArray(j) ? j : j?.items
+    } catch (e) {
+      console.log(`❌ --fold-keep 声明档不是 JSON(${doc}=${file}):${e?.message ?? e}`)
+      process.exit(2)
+    }
+    if (!Array.isArray(parsed)) {
+      console.log(`❌ --fold-keep 声明档既不是数组也没有 items 字段(${doc}=${file})⇒ 无从判定,拒绝执行`)
+      process.exit(2)
+    }
+    const m = foldKeep.get(doc) || new Map()
+    for (const [k, d] of parsed.entries()) {
+      const keep = typeof d?.keep === 'string' ? d.keep : ''
+      const why = typeof d?.why === 'string' ? d.why.trim() : ''
+      if (keep === '') {
+        console.log(`❌ --fold-keep 声明档第 ${k + 1} 项没有 keep(当选 keeper 的逐字字面)⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      if (why === '') {
+        console.log(`❌ --fold-keep ${doc} 第 ${k + 1} 项没有 why(不说明理由的选边等于替人猜)⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      const fp = extractTaskFingerprint(keep)
+      if (!fp) {
+        console.log(
+          `❌ --fold-keep ${doc} 第 ${k + 1} 项:该行算不出标题指纹(过短/无标题)` +
+            `⇒ 它不可能是同题组的一员,拒绝执行:${keep.slice(0, 50)}`,
+        )
+        process.exit(2)
+      }
+      if (typeof d?.fp === 'string' && d.fp !== fp) {
+        console.log(
+          `❌ --fold-keep ${doc} 第 ${k + 1} 项:声明的 fp「${d.fp}」与 keep 行算出的「${fp}」不一致` +
+            `(串档了 ⇒ 放行会落到别的组上),拒绝执行`,
+        )
+        process.exit(2)
+      }
+      if (m.has(fp)) {
+        console.log(`❌ --fold-keep ${doc} 第 ${k + 1} 项与前面某条同指纹「${fp}」却给了两个 keeper ⇒ 歧义,拒绝执行`)
+        process.exit(2)
+      }
+      m.set(fp, keep)
+    }
+    foldKeep.set(doc, m)
+  }
+  // --declare-side-loss <path>=<声明档>(可重复):`--resolve` 那条路径上"对侧某一行被本侧的改写
+  //   结构性取代"的**逐行具名出口**(判据与纪律见 recordSideLosses 头注;立因见本文件 :74 那格)。
+  // 声明档 = JSON `[{line, why}]`(也接受 `{items:[…]}`):
+  //   line = 有意少带的那一行**逐字字面**(与 lostAddedLines 报出的那一条等值才算命中);
+  //   why  = 为什么它已被取代且信息无损失(<10 字的定向说明当场退 2 —— 空话放行等于没判据)。
+  // 未命中的声明进 `bad` 点名(陈旧/串档不记通过);放行的每一行打印并进合并提交信息。
+  const declaredLoss = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--declare-side-loss' || !argv[i + 1]) continue
+    const spec = argv[++i]
+    const eq = spec.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --declare-side-loss 需要 <path>=<声明档 JSON>,得到的是:${spec}`)
+      process.exit(2)
+    }
+    const doc = spec.slice(0, eq)
+    const file = spec.slice(eq + 1)
+    let parsed
+    try {
+      const j = JSON.parse(readFileSync(file, 'utf8'))
+      parsed = Array.isArray(j) ? j : j?.items
+    } catch (e) {
+      console.log(`❌ --declare-side-loss 读不到或解不开声明档 ${doc}=${file}:${e?.message ?? e}`)
+      process.exit(2)
+    }
+    if (!Array.isArray(parsed)) {
+      console.log(`❌ --declare-side-loss 声明档既不是数组也没有 items 字段(${doc}=${file})⇒ 无从判定,拒绝执行`)
+      process.exit(2)
+    }
+    const m = declaredLoss.get(doc) || new Map()
+    for (const [k, d] of parsed.entries()) {
+      const problem = sideLossEntryProblem(d)
+      if (problem) {
+        console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项${problem} ⇒ 拒绝执行`)
+        process.exit(2)
+      }
+      const line = d.line
+      if (m.has(line)) {
+        console.log(`❌ --declare-side-loss ${doc} 第 ${k + 1} 项与前一条同 line(一行两条裁定 ⇒ 歧义,拒绝执行)`)
+        process.exit(2)
+      }
+      m.set(line, { why: d.why.trim() })
+    }
+    declaredLoss.set(doc, m)
+  }
+  // --accept-state-growth <维>=<理由>(可重复):并集天然放大的三条量纲(F1 / F4 / F3-rotatedAuto)
+  //   的**声明式出口**。它不是"关掉判据" —— 每条都必须带理由,两个读数与理由一起打印,并写进
+  //   合并提交信息;维名不认识直接退 2;F5/F6/F9/F9b 与路径零丢失不接受放行(见 planStateRegressions 头注)。
+  const accepted = []
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a !== '--accept-state-growth' || !argv[i + 1]) continue
+    const v = String(argv[++i])
+    const eq = v.indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --accept-state-growth 需要 <维>=<理由>,得到的是:${v}`)
+      process.exit(2)
+    }
+    const dim = v.slice(0, eq).trim()
+    const reason = v.slice(eq + 1).trim()
+    if (!dim || !reason) {
+      console.log(`❌ --accept-state-growth ${dim || v}:维与理由都不得为空(空理由的放行等于没有判据)`)
+      process.exit(2)
+    }
+    accepted.push({ dim, reason })
+  }
+  // --move-aware-detail:把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块报计数)。
+  const moveAwareDetail = argv.includes('--move-aware-detail')
+  // --resurrect-block(G-383 最后一格):行级复活对账的"新增强"参与退出码。缺省只报数 ——
+  // 推送链零风险:对侧一份滞后台账副本就能让每一次收敛判红,那等于把收敛器自己变成恒红门
+  // (§12e/§12f:被恒红逼出来的放行开关,连事故那一型也一起放行)。存量与未判定任何档位都不拦。
+  const resurrectBlock = argv.includes('--resurrect-block')
+  // --show-all-bad:全列落地闸障碍。缺省只印前 15 条**并报名余下几条 + 给出这条路**(见 formatBadReport);
+  // 只裁不报的形状会让读账的人以为"就这么些",而真数常是几十上百条。
+  const showAllBad = argv.includes('--show-all-bad')
+  // --base <sha>(2026-10-14):显式指定三方归并的基底。仅在远端被强制重写过、merge-base 返回
+  //   "被重写前的旧分叉点"(相对新两侧是空基底,炸出大片假人工裁决)时才需要喂 —— 此时真实共同
+  //   祖先是被重写前的远端 tip。缺省行为完全不变(仍走 merge-base)。
+  //   G-322(本器首害):旧写法 `argv[bi + 1] ? argv[bi + 1] : null` 把"值被吞"折成 null ⇒
+  //   **静默回落 merge-base**,恰好是本文件头注那场"空基底 ⇒ 大片假人工裁决"事故的复现口,
+  //   而调用方看不出自己用错了 base。现在取值交单源:给了 `--base` 就必须有合法值,否则 exit 2;
+  //   "本机取不到该提交"仍由 plan() 判未判定(职责分层不变)。
+  const baseFlag = requireFlagValue(argv, '--base', { noun: '提交对象' })
+  if (baseFlag.error) {
+    console.log(`❌ ${baseFlag.error}`)
+    process.exit(2)
+  }
+  const baseOverride = baseFlag.value
+  const t = resolveTargets(theirsFlag.value)
+  if (t.skip) {
+    console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
+    process.exit(0)
+  }
+  if (t.undetermined) {
+    // 退出码 2 = "本器没资格判",刻意区别于 1("判了,需人工"):调用方把 2 读成内容裁决,
+    // 就会把一次 fetch 说成一次归并失败(git-sync-converge 那一支按措辞分流,见其 ③ 段)。
+    // `UNDETERMINED` 是给调用方的**机器可读契约**:git-sync-converge 用它把"没资格判"与
+    // "判了、需人工"分开(对面那侧的调用方按这个 token 分流,按中文措辞分流会在换措辞时静默失效)。
+    console.log(`[union-converge] UNDETERMINED 未判定:${t.undetermined}`)
+    process.exit(2)
+  }
+  // 显式点名了 --theirs 而本地又落后于它:不再打印"无需合并"(G-815406 同族、G-814402 实测的那次
+  // 差点吞掉一整个已验证交付),而是**照常归并并说清为什么**。快进确实是更省的动作,但那是对调用方
+  // 说的,不该由本器代替他下结论后 exit 0。
+  if (String(theirsFlag.value || '').trim() !== '' && isAncestor(t.head, t.theirs, ROOT))
+    console.log(
+      '[union-converge] 本地落后于所点名的 --theirs ⇒ 这不是"无需合并";按显式目标照常归并' +
+        '(要快进请自己跑 git merge --ff-only,本器不替调用方决定动作)',
+    )
+  const p = plan(
+    t.head,
+    t.theirs,
+    ROOT,
+    takeOurs,
+    resolutions,
+    takeTheirs,
+    accepted,
+    baseOverride,
+    supersede.size ? supersede : null,
+    foldKeep.size ? foldKeep : null,
+    declaredLoss.size ? declaredLoss : null,
+    takeTheirsDocs.size ? takeTheirsDocs : null,
+    legacyLenient,
+  )
+  console.log(
+    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 活文档整份取对侧 ${p.keptTheirsDocs?.length ?? 0} / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
+  )
+  for (const d of p.skippedDeletes)
+    console.log(
+      `  · 对侧删除 ∧ 本侧在该路径有独有改动 ⇒ 不随合并生效:${d}(处置权归改写方;确要删请在合并之后显式 git rm)`,
+    )
+  // 票 G-977960 ②:删除传播必须逐路径报名 —— 静默生效的例外等于没写判据(与影子 .js 两格同一留痕纪律)。
+  for (const d of p.propagatedDeletes || [])
+    console.log(
+      `  · 删除随合并传播:${d}(对侧相对基底删除 ∧ 本侧相对基底未改动 ⇒ 处置权归删除方,零丢失由逐字同一 blob 证明)`,
+    )
+  // 移动放行必须吼出来:它放的是"本侧把文件 mv 走了"这一类,不是"对侧新增被吞了"那一类。
+  // 不点名的话,这条通道就会变成任何人掩盖吞并的借口。
+  for (const mv of p.movedPaths || [])
+    console.log(`  · 按移动放行(内容逐字节同一 blob,本侧另有该路径):${mv}`)
+  // 「未取回」这一维必须自己说话:报告要能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"。
+  for (const line of formatMoveAwareReport(p.moveAware, { detail: moveAwareDetail }))
+    console.log(line)
+  if (p.mergedClean.length)
+    console.log(
+      `  · 两侧同改的 ${p.mergedClean.length} 个文件已走真三方归并(判据底线 = 各侧独有行重数不减少;\n` +
+        '    不判顺序与语义交织 —— 真三方把两侧改动接到不同位置时顺序本就会变,这属局限而非已验证正确)',
+    )
+  for (const h of p.needHuman)
+    console.log(
+      `  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件;` +
+        `判好后用 --resolve '${h.path}=<整份内容文件>' 回灌,它会替你的判断做两侧丢行断言)`,
+    )
+  for (const d of p.generatedDeferred || [])
+    console.log(
+      `  🧾 ${d.path} —— 生成物冲突(自证标记 "${d.marker}")⇒ 不按人工判、也不选边:` +
+        `内容权威在"重生成"而不是"合并"。本枚按本侧内容留下,**落地后必须立刻跑该文件的生成器**` +
+        `(否则 HEAD 里留着的是一份旧产物,而守门 105 一类的钉判据会咬到陈旧)。`,
+    )
+  for (const r of p.humanResolved || [])
+    console.log(
+      `  · 人工归并已回灌:${r}(内容取自 --resolve;两侧独有行丢行断言已在这份内容上跑过,未过即 bad)`,
+    )
+  // 声明式放行过的量纲必须在这里说话:它放的是"并集的天然后果",不是"这条判据不成立"。
+  for (const r of p.acceptedGrowth || []) console.log(`  ⚠️ 已声明放行:${r}`)
+  for (const r of p.keptTheirs || [])
+    console.log(
+      `  · 取对侧(已声明):${r} —— 本侧在该路径的独有行被取代(同一行两种写法,--resolve 无解);声明者须附"哪一份是被消费的"取证`,
+    )
+  // --take-theirs-doc 的逐条点名与未判定格(2026-10-27):与 keptTheirs 同一条留痕纪律 ——
+  // 整份取代必须当着落地这一刻说清,未判定的声明更要报出"它没生效"(落地闸会拦,但不许安静)。
+  for (const r of p.keptTheirsDocs || [])
+    console.log(
+      `  · 活文档整份取对侧(已声明 --take-theirs-doc):${r} —— 行级 union 已跳过,该路径整 blob 等于对侧(对侧行级 union 会回灌滞后基线时才用,声明者须附取证)`,
+    )
+  // A6(2026-11-03):整份取代让本侧少内容的格必须逐条点名 —— 不许把它折进"零丢失"。
+  for (const c of p.takeTheirsDocCredits || [])
+    console.log(
+      `  · 整份取对侧已声明少内容(非零丢失,凭理由放行):${c.doc} —— ${c.losses.join('; ')};理由:${c.why}`,
+    )
+  for (const u of p.takeTheirsDocsUndetermined || [])
+    console.log(
+      `  ⚠️ 未判定:--take-theirs-doc ${u.doc} —— ${u.reason};该声明未生效,落地闸已按未判定点名(不记通过)`,
+    )
+  // 副本指针 cap 必须**当着落地那一刻**打出来 —— 它不是违规,但把它静默折进"0 丢失"就等于
+  // 用一条从未被点名的例外,替下一次的人做出"什么都没少"的判断(§"把没判写成判过了"同一条禁令)。
+  const capRows = (p.caps || []).flatMap((c) => [
+    `  ℹ ${c.label}:本族带「重复登记副本」指针,有意只带一份(每条仍保留 ≥1 份 ⇒ 少的是份数,不是信息)`,
+    ...formatPointerCapReport(c.capped),
+  ])
+  for (const line of capRows) console.log(line)
+  // 摘除台账拦下的补回(G-34/G-43)必须当着落地这一刻报名:与 caps/pointerCaps 同一条纪律 ——
+  // 把它静默折进"0 丢失",下一次的人就会把"台账认账没带回"读成"什么都没少"。
+  const withheld = p.ledgerWithheld || []
+  if (withheld.length) {
+    const nUnd = withheld.filter((w) => w.via === 'undetermined').length
+    console.log(
+      `  · 摘除台账拦下的补回:${withheld.length} 行(按复合主键/指纹认账,不回补;其中未判定 ${nUnd} 行 —— 台账读不到/坏行含其编号,同样不回补但逐条给原因)`,
+    )
+    for (const w of withheld.slice(0, 8))
+      console.log(`      │ [${w.via}] ${w.doc} 「${String(w.line).trim().slice(0, 60)}」`)
+    if (withheld.length > 8) console.log(`      …其余 ${withheld.length - 8} 行同批(计数已含)`)
+  }
+  // 空冲突区标记行的扣行(2026-11-01,MARKERS 票)必须当着落地这一刻单独报名:
+  // 它的凭据不是摘除台账,而是"这一族三行区域内零正文"这条当场判得出的形状,混进上面那句
+  // 就是拿"台账认账"这顶帽子盖住一次没有台账的扣行(§0.3「没判的不得说成判过」同一条)。
+  const markerRowsP = p.markerWithheld || []
+  if (markerRowsP.length) {
+    console.log(
+      `  · 空冲突区标记行不补回:${markerRowsP.length} 行(区域内零正文 ⇒ 摘掉不丢任何一侧内容;有正文的冲突区一条不扣,照旧补回 ⇒ 由守门 79 判红喊人给定向说明)`,
+    )
+    for (const w of markerRowsP.slice(0, 8))
+      console.log(`      ⑂ [${w.via}] ${w.doc} 「${String(w.line).trim().slice(0, 60)}」`)
+    if (markerRowsP.length > 8) console.log(`      …其余 ${markerRowsP.length - 8} 行同批(计数已含)`)
+  }
+  const capDropped = (p.caps || []).reduce((s, c) => s + (c.capped?.reduce((a, e) => a + e.dropped, 0) ?? 0), 0)
+  // 折叠的少带必须同样当着落地那一刻打出来并写进提交信息:它放的是"同一件事的多余副本",
+  // 不是"这一行没了"—— 分不清这两件事的下一手会把一次零信息损失的合并读成一次丢内容。
+  for (const line of formatFoldReport(p.folded)) console.log(line)
+  const foldCopies = (p.folded || []).reduce((s, e) => s + e.copies, 0)
+  // 声明式取代(G-310)同样必须报名:放过的每一行都要说清"它现在住在合并稿哪一行、为什么",
+  // 因为这条判据的失效方向和它守的那条律一样 —— 安静地放行比判红更危险。
+  // 摘除台账放行也必须报名(2026-11-01):放过的每一行逐条点名,并说明"这一型由兜底轮继续真正摘除",
+  // 免得"落地了"被读成"台账已经生效"。判据同源 declaredDropCaps,本器不复算任何一条。
+  const dropCredited = p.dropLedgerCredited || []
+  if (dropCredited.length) {
+    console.log(
+      `  · 摘除台账已声明正当删除、本闸不再硬拒 ${dropCredited.length} 行(逐字命中台账 ∧ 本侧 0 份 ∧ 登记行形;逐条如下)`,
+    )
+    for (const d of dropCredited)
+      console.log(
+        `      [${d.doc}] 旧行被复活销账 ×${d.copies} ← ${JSON.stringify(String(d.line).slice(0, 72))}` +
+          ` | 这一型由 head-recall 兜底轮继续摘除,本器不在此处写台账`,
+      )
+  }
+  const supCredits = p.superseded || []
+  if (supCredits.length) {
+    console.log(
+      `  · 声明式取代少带/复活销账 ${supCredits.length} 行(--supersede 已声明且四问举证通过;逐条如下)`,
+    )
+    for (const s of supCredits)
+      console.log(
+        `      [${s.doc}] ${s.kind}${s.copies ? ` ×${s.copies}` : ''} ← ${JSON.stringify(s.dropped.slice(0, 46))}\n` +
+          `        去向:${JSON.stringify(String(s.kept).slice(0, 60))} | 原因:${s.why}`,
+      )
+  }
+  // 逐行声明放过的对侧少带必须同样报名 —— 与 --supersede / --fold-keep 一条纪律:放过的每一行
+  // 都要说清是哪一行、为什么,免得"落地了"被读成"两侧内容都在"。
+  const lossCredits = p.lossCredits || []
+  if (lossCredits.length) {
+    console.log(
+      `  · 逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 已声明 + 带原因;逐条如下)`,
+    )
+    for (const s of lossCredits)
+      console.log(
+        `      ${s.label} ← ${JSON.stringify(String(s.line).slice(0, 64))}\n` +
+          `        原因:${s.why}`,
+      )
+  }
+  // 显式旗标才把"新增强"折进落地闸(缺省只报数;存量/未判定永远不折,见 --resurrect-block 的用法注)。
+  if (resurrectBlock) applyResurrectBlock(p)
+  if (p.bad.length) {
+    console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
+    for (const line of formatBadReport(p.bad, { showAll: showAllBad })) console.log(line)
+    // F9 判红时必须给出**可执行的出路**,只喊"需人工"的结局本仓写死了(§12e/§12f):每台每次跳钩子。
+    // 只打印出路,不碰判据本体;出路里插的是**当次那枚远端 sha**,不是占位文案。
+    if (p.bad.some((b) => String(b).includes('F9 归并新增撞号组')))
+      console.log(
+        `  ➜ F9 出路(可执行,缺省档零副作用,从不写工作树):\n` +
+          `     node scripts/plan-collide-renumber.mjs ${t.theirs}\n` +
+          `     —— 它用台账那一份键位口径(编号/标题/畸形号全在 lib/plan-task-index.mjs)算出本次归并会新增的撞号组,` +
+          `只让未推的本地一侧改号;\n` +
+          `     并把**改前整行原文**逐字追加进已入库的归档件(门 71 的归档豁免因此当场成立,而不是等 60 枚提交窗口过去)。` +
+          `让号有效性按 own + max(0, 对侧 − max(基底, own)) 现读,该式子的唯一实现就是本器 import 的 liveDocExpectedCounts。\n` +
+          `     核对报告后加 --apply 产出 blob(仍不写工作树、从不 commit);判不出的组一律点名拒绝构造。\n` +
+          `     禁止的出路:放宽 F9、删任一侧的行、把注记插进编号位(那会改掉复合主键,反而造出新的撞号组)。`,
+      )
+    process.exit(1)
+  }
+  if (!apply) {
+    console.log('  未落地(加 --apply 才建合并提交;本工具从不 checkout、不碰共享工作区)')
+    process.exit(0)
+  }
+  const msg =
+    `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
+    (p.humanResolved?.length
+      ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
+      : '') +
+    (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
+    // 票 G-977960 ② 的留痕:删除传播不再走"默认折回",后来人只读 git log 也必须看得出
+    // **这条不在旧通则里**(对侧删除本来是刻意不传播的),以及它是按什么证明零丢失的。
+    (p.propagatedDeletes?.length
+      ? `;删除随合并传播(对侧相对基底删除 ∧ 本侧相对基底未改动,零丢失由逐字同一 blob 证明): ${p.propagatedDeletes.join(' ')}`
+      : '') +
+    // 影子 .js 两格的留痕:这一型是"删除被传播 / 回归被拦住",零损失由 blob oid 逐字相等证明,
+    // 但后来人只读 git log 也必须能看出**这两条不在默认通则里**(对侧删除本来是刻意不传播的)。
+    (p.shadowDeletes?.length
+      ? `;影子 .js 删除已传播(与同 stem .ts 同一份字节,零损失由内容寻址证明): ${p.shadowDeletes.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
+      : '') +
+    (p.shadowRestores?.length
+      ? `;影子 .js 未随合并恢复(同一份字节): ${p.shadowRestores.map((x) => `${x.path}⇔${x.twin}`).join(' ')}`
+      : '') +
+    (p.keptTheirs?.length ? `;取对侧(已声明+可复核): ${p.keptTheirs.join(' ')}` : '') +
+    (p.keptTheirsDocs?.length
+      ? `;活文档整份取对侧(已声明 --take-theirs-doc,整 blob 等于对侧、跳过行级 union): ${p.keptTheirsDocs.join(' ')}`
+      : '') +
+    (p.takeTheirsDocCredits?.length
+      ? `;整份取对侧已声明少内容(带理由,非零丢失): ${p.takeTheirsDocCredits.map((c) => `${c.doc}(${c.losses.join('|')})`).join(' ')}`
+      : '') +
+    (p.acceptedGrowth?.length
+      ? `;已声明放行的量纲放大(带理由,非静默): ${p.acceptedGrowth.join(' | ')}`
+      : '') +
+    // 空冲突区标记行的扣行必须进提交信息(2026-11-01,MARKERS 票):归并器自己扣掉的每一行都要
+    // 逐条点名 + 给理由,后来人只读 git log 也看得出"这三行不是对侧没有,是本器判成脚手架没带"。
+    (p.markerWithheld?.length
+      ? `;空冲突区标记行不补回(区域内零正文 ⇒ 摘掉不丢任何一侧内容;判据单源 lib/conflict-marker-triples): ${p.markerWithheld.map((w) => `${w.doc}「${String(w.line).trim().slice(0, 40)}」`).join(' | ')}`
+      : '') +
+    // 生成物"待重生成"必须进提交信息:后来人只读 git log 也要知道这一项不是已对齐
+    (p.generatedDeferred?.length
+      ? `;生成物按本侧留下、落地后需重生成: ${p.generatedDeferred.map((d) => d.path).join(' ')}`
+      : '') +
+    // 例外必须进提交信息:后来人只读 `git log` 也要知道"份数少带"是本票的判据,不是一次丢行
+    (capDropped
+      ? `;副本指针行有意少带 ${capDropped} 份(每条仍保留 ≥1 份;判据见台账 G-814386)`
+      : '') +
+    // 同题折叠的少带同样必须进提交信息(2026-10-16):去向已在落地闸按产物面逐处举证
+    (foldCopies
+      ? `;同题折叠少带 ${foldCopies} 份/${(p.folded || []).length} 条逐字行(去向与注记·票号承接已举证;判据见 lib/dedupe-ledger + attestFoldPair)`
+      : '') +
+    (p.foldUndetermined?.length
+      ? `;折叠去向未判定 ${(p.foldUndetermined).length} 格(未记通过,落地闸据此拒绝推进)`
+      : '') +
+    // 声明式取代的留痕(G-310):后来人只读 `git log` 也必须看出这些行是**人声明被取代、且过了
+    // 折叠那四问举证**才少带的,不是一次丢内容,也不是一条自动放行的例外。
+    (supCredits.length
+      ? `;声明式取代 ${supCredits.length} 行(--supersede 声明 + attestFoldPair 四问通过;逐条见 ${supCredits
+          .map((s) => `${s.kind}←${String(s.dropped).slice(0, 24)}`)
+          .join(' / ')})`
+      : '') +
+    // 逐行声明放过的对侧少带必须进提交信息:落地闸只留下"过了",可追责的凭据在信息里(与上两格同纪律)。
+    (lossCredits.length
+      ? `;逐行声明放过的对侧少带 ${lossCredits.length} 行(--declare-side-loss 逐行声明 + 逐条带原因;` +
+        `这一型是两侧把同一元素改成互斥写法,同时保留即双份标签/死代码塞行;逐条见 ${lossCredits
+          .map((s) => String(s.line).trim().slice(0, 24))
+          .join(' / ')})`
+      : '')
+  const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
+  const cas = spawnSync(
+    GIT,
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'update-ref', 'refs/heads/main', sha, t.head],
+    {
+      cwd: ROOT,
+      windowsHide: true,
+      // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY,git 不吃 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120000,
+      encoding: 'utf8',
+    },
+  )
+  if (cas.status !== 0) {
+    // CAS 失败留下的这枚悬空提交**本工具自己兜掉**:守门 30a 会因为"未备份悬空 commit"
+    // 拦下此后每一次提交(今天实测连吃数轮 --no-verify,而一次绕过 = 约 130 道门作废)。
+    // 与其把噪声留给下一个人,就地按 §22 的规矩打 tag —— tag 只是加引用,不改任何历史。
+    // (2026-10-29 门 30a 根因票)原先本器手拼 `lost-commit/wip-<sha10>` 是 converge 那份
+    // `wip-conv-<sha7>` 之外漂开的第二份(§0.6 违规),现已整体并库到 lib/orphan-backup.mjs
+    // 的 uni 档:拼名、查重、annotated tag、pack-refs、留痕、永不抛 全在那一份里。
+    const tagName = orphanBackupRefName(sha, 'uni')
+    const bk = backupOrphanCommit({
+      sha,
+      kind: 'uni',
+      why: 'union-converge CAS 失败(HEAD 被他人推进)',
+      root: ROOT,
+      logger: (m) => console.log(m),
+    })
+    // tag 失败不得掩盖原始故障:下面 ❌ 行仍如实给手工出路(tagged 即"本轮是否已兜住")
+    const tagged = bk.ok
+    console.log(
+      `❌ CAS 失败(HEAD 被他人推进)⇒ 本轮作废,重跑即可;产物 ${sha.slice(0, 11)} ${tagged ? `已按 §22 备份为 ${tagName}(随后由 tag-sync 推远端)` : `是悬空提交且 tag 失败 ⇒ 手工:git tag ${tagName} ${sha}`} —— 不这么做,守门 30a 会替我们记住这笔`,
+    )
+    process.exit(1)
+  }
+  const lost = auditOne(sha)
+  console.log(
+    `✅ 合并落地 ${sha.slice(0, 12)}${lost.lost.length ? ` —— ⚠️ A1 复核仍报 ${lost.lost.length} 处` : ',A1 复核 0 丢失'}`,
+  )
+  // 旁路合并不跑 post-commit ⇒ 守门 71 的登记行自愈永不触发;而 commit-tree + CAS 也不写钩子链那本
+  // 跳门台账 ⇒ 这枚提交在总量统计里会永远落进 unknown(AGENTS §12f 那条"两个来源合起来才是总量")。
+  // 两条都在落地这一刻补上,且**都不改本轮结论**:自愈失败只喊一行,留痕按 lib 契约永不抛。
+  recordBypassLanding({
+    root: ROOT,
+    source: 'union-converge --apply',
+    landedSha: sha,
+    headBefore: t.head,
+    declaredFiles: [...new Set([...LIVE_DOCS, ...p.tookTheirs])],
+    reason:
+      '旁路合并落地(commit-tree + CAS)不触发钩子 ⇒ 提交链上的门禁对本枚未执行;' +
+      '声明路径 = 本器构造出内容的那些(活文档 ∪ 取对侧版本的路径)',
+  })
+  postMergeLedgerSync({ root: ROOT })
+  // 落地即派一次现场对齐(2026-10-15 立)。本器刻意"绝不 checkout、绝不碰共享工作区",于是
+  // HEAD 推进后那条「索引/工作区仍停在落地前像」的悬留只能等守护下一拍才被人补 —— 而 git-sync-converge
+  // 派对它、单独调用本器时没人派。悬留的代价不是"难看":一次不带 pathspec 的提交会把对侧已入库的
+  // 内容写回旧态(守门 84 判红),且 `git merge --ff-only` 会被这条脏索引挡下 ⇒ 停部署。
+  // 判据与写动作全住在 heal-worktree-tracked(单一真相源),本处只负责"落地这一刻派一次",
+  // 并且**不改本轮结论**(对齐失败与合并成败是两件事,混在一起会让人以为合并没成)。
+  try {
+    const al = spawnSync(process.execPath, ['scripts/heal-worktree-tracked.mjs', '--align-drift', '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      // 封顶取 600s 而非 90s:内层 makeGit 刻意无界(它的 g 承载 update-index/read-tree 等**写**操作,
+      // 中途 SIGTERM 会把 .git/index.lock 留在现场)。同族教训记在 git-sync-converge 那侧。
+      timeout: 600_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let a = {}
+    try {
+      a = JSON.parse(String(al.stdout || '').trim().split('\n').pop() || '{}')
+    } catch {
+      /* 末行不是 JSON ⇒ 只报"没读到",不得把它当成对齐失败或成功 */
+    }
+    console.log(
+      `  🧹 落地后现场对齐:漂移 ${a.aligned ?? '?'} / 索引刷新 ${a.refreshed ?? '?'} / 落地欠回写 ${a.landingAligned ?? '?'}` +
+        (a.landingHeld?.length ? ` —— 另有 ${a.landingHeld.length} 格证明不了归属,只报数不代裁` : ''),
+    )
+    if (al.error || al.status !== 0) {
+      console.log(
+        `  ⚠️ 对齐子进程未完成(exit=${al.status ?? 'n/a'}${al.error ? ` / ${String(al.error.message).slice(0, 80)}` : ''})⇒ 不影响本轮结论,守护下一拍补`,
+      )
+    }
+  } catch (e) {
+    console.log(`  ⚠️ 落地后对齐未派成(不影响本轮结论):${String(e?.message ?? e).slice(0, 160)}`)
+  }
+  /**
+   * G-113(2026-10-23,补 object-space-land 头注④登记的未闭环格):落地、回读、对齐全部完成后
+   * **复跑受影响判据**。位置纪律与 object-space-land 同形 —— 必须在 CAS 成功且主索引/工作区
+   * 对齐派过之后(tsc --files 档读盘上那份)。声明面 = 本器构造出内容的路径(活文档 ∪ 取对侧
+   * 版本的路径),与 recordBypassLanding 的 declaredFiles 同一集合。语义:不回滚(落地是既成
+   * 事实),但拒绝静默 —— blocking 臂判红 ⇒ 大声 exit 1;有臂无法判定 ⇒ exit 2(未判定≠通过);
+   * lost 复核的红保持原有优先级。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
+   */
+  const affected = rerunAffectedGates({ root: ROOT, paths: [...new Set([...LIVE_DOCS, ...p.tookTheirs])] })
+  if (affected.verdict === 1) {
+    console.error(
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+    )
+  }
+  if (affected.verdict === 2) {
+    console.error(
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+  }
+  process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {
+  buildUnion,
+  unionLines,
+  verifyUnion,
+  // A6(2026-11-03):整份取对侧的零丢失判据只此一份,镜像测试直接 import,不得复算第二份
+  takeTheirsDocLoss,
+  takeDocPaths,
+  resolveTargets,
+  hasCommit,
+  unreachableObjectGuidance,
+  plan,
+  listPaths,
+  show,
+  blobOf,
+  diffNames,
+  lostAddedLines,
+  excessAddedLines,
+  capAddedDuplicates,
+  isDupCapStrictPath,
+  planStateRegressions,
+  mergeNoteCrossLineCaliber,
+  mergeThreeBlobs,
+  // 空冲突区标记行的补回扣减表(2026-11-01):镜像测试直接用它,不得在测试里再写一份
+  // 「三行相邻算不算空区」的判据(§22c)
+  markerTripleRecallCaps,
+  liveDocExpectedCounts,
+  theirsRewriteCaps,
+  // 让号摘除(G-32, 2026-10-22):镜像测试直接用它,不得在测试里再写一份留痕/相似度判据(§22c)
+  yieldedIdCaps,
+  // 完成即删的摘除台账(2026-10-23):镜像测试直接用它,不得在测试里再写一份台账比对判据(§22c)
+  declaredDropCaps,
+  // 摘除台账的复合主键/指纹维(G-34/G-43, 2026-10-25):镜像测试直接用它,判序里所有键/指纹
+  // 均取自单源,测试同样不得复制第二份(§22c)
+  declaredFamilyCaps,
+  // 扣行凭据的排版出口(2026-10-26):测试直接用它验"每一处扣减都出得了台账凭据",不复制一份排版
+  formatLedgerEvidence,
+  // 折叠台账这一族(2026-10-16):镜像测试直接用它,不得在测试里再写一份折叠/举证判据(§22c)
+  foldLedgerOf,
+  foldDedupe,
+  attestFoldPair,
+  supersedeProof,
+  sideLossEntryProblem,
+  formatBadReport,
+  formatFoldReport,
+  ensureTrailingNewline,
+  moveAwareForDoc,
+  formatMoveAwareReport,
+  formatPointerCapReport,
+  resurrectWatchForDoc,
+  renderResurrectWatch,
+  applyResurrectBlock,
+  LIVE_DOCS,
+  dedupeByFingerprint,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

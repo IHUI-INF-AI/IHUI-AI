@@ -1,0 +1,811 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * D43 会话内快捷笔记 — 语音笔记面板(mobile-rn 腿,票③ RN 接线)。
+ *
+ * 与 apps/web/src/components/chat/voice-note.tsx 同语义:
+ * - 12 相收敛全部走 `@ihui/shared/chat/voice-note` 的 transitionVoiceNotePhase(唯一入口,
+ *   端内不散写 phase 判断 / switch / 本地判定表;phase-matrix 结构锁把本文件登记为消费点);
+ * - 录音/转写复用 useVoiceRecorder(expo-audio → ai-service /api/voice/stt);
+ * - 归档事实源 = 服务端 chat_voice_notes(listVoiceNotes / createVoiceNote / deleteVoiceNote:
+ *   列表分页 + 检索/分组交给服务端 + 乐观上行 + 写失败当场回滚 + 读失败显式喊错);
+ * - 「插入对话」经 onInsert 回调交调用方(输入框既有 onChangeText 通道),不新建注入通道;
+ * - 降级:sttEnabled=false → 松开后停留 waitingTranscript pending(明确文案,不崩)。
+ *
+ * 与 web 的两处端差(如实登记,不是缺陷藏匿):
+ * ① useVoiceRecorder 契约把「失败/无权限/空录音」统一压成 onComplete(''),端侧无从区分
+ *    空转写与识别失败 ⇒ 空串按 transcriptFailed + recognitionFailed 处理(web 的
+ *    errors.emptyTranscript 档在 RN 不可达,键仍随五语同批落库,不删);
+ * ② 授权/准备/连接三段在 hook 内部一次异步链完成,无逐段回调 ⇒ recording 翻真时按序
+ *    补发 permissionGranted → mediaReady → connected,相序仍逐格走共享表推进。
+ *
+ * 2026-10-27(D03 移动端补齐)补上的三格(共享 12 相机未动一格,事件词表本就含这两事件):
+ * ③ completed 相「转写完成即插入当前对话」入口(与 web 的 voice-note-insert-current 同形):
+ *    走既有 onInsert 回调,不依赖归档行落库成功 —— 落库失败回滚时这条路径仍通;
+ * ④ cancel 事件接线:录音中可显式取消 ⇒ cancelled 相在 RN 端首次可达(此前 RN 从不派发
+ *    cancel,共享表里 recording --cancel--> cancelled 这条边在 RN 是死边);
+ * ⑤ interrupt 事件接线:AppState 转后台/非 active ⇒ interrupted 相在 RN 端首次可达
+ *    (后台回收的端侧近似:共享层事件词表无「回收后复位」出口,故按矩阵测试第④型结论,
+ *    用 interrupt 收成终态;复位走终态唯一合法出边 retry → ready)。
+ *    三处相推进一律经 transitionVoiceNotePhase,端内不散写 phase 判断 / 本地 switch。
+ *
+ * 2026-10-27(D03 第②格 RN 腿)再补两环:归档/恢复(分区切到 archived 时同位置换成
+ * unarchive 出口)与行内改分组,两跳都只经 `@ihui/api-client`(setVoiceNoteArchived /
+ * updateVoiceNote),端内零裸 fetch、零本地桶;查询条件(partition/groupKey/q)交给服务端。
+ */
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  ActivityIndicator,
+  AppState,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
+import {
+  Archive,
+  ArchiveRestore,
+  Check,
+  ClipboardPaste,
+  Mic,
+  Square,
+  Tag,
+  Trash2,
+  X,
+} from 'lucide-react-native'
+import { TextField } from '@ihui/rn-app'
+import {
+  createVoiceNote,
+  deleteVoiceNote,
+  listVoiceNotes,
+  setVoiceNoteArchived,
+  updateVoiceNote,
+} from '@ihui/api-client'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import type { VoiceNoteGroupFacet } from '@ihui/types'
+import {
+  formatVoiceNoteDuration,
+  isVoiceNotePhaseTerminal,
+  isVoiceNoteTranscriptPending,
+  removeVoiceNote,
+  toVoiceNoteRecord,
+  transitionVoiceNotePhase,
+  upsertVoiceNote,
+  VOICE_NOTE_ARCHIVE_LIMIT,
+  voiceNoteHasInsertableText,
+  type VoiceNoteEvent,
+  type VoiceNotePhase,
+  type VoiceNoteRecord,
+} from '@ihui/shared/chat/voice-note'
+import { useI18n } from '../../i18n'
+import { useVoiceRecorder } from '../../hooks/use-voice-recorder'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
+import { Tappable } from '@ihui/ui-native'
+
+/** RN locale → whisper 语言提示(兜底 zh,与 VoiceInput/useVoiceRecorder 默认同档) */
+const STT_LANGUAGE: Record<string, string> = {
+  'zh-CN': 'zh',
+  'zh-TW': 'zh',
+  en: 'en',
+  ja: 'ja',
+  ko: 'ko',
+}
+
+export interface VoiceNoteProps {
+  /** 所属会话(随笔记落库;无会话上下文传 null,与 web 组件默认一致) */
+  conversationId?: string | null
+  /** 转写端点开关:false = 显式降级(转写占位相可达但停留 pending,不崩) */
+  sttEnabled?: boolean
+  /** 「插入对话」出口:调用方把文本写进输入框(HomeScreen 走 onChangeText 追加通道) */
+  onInsert: (text: string) => void
+}
+
+export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }: VoiceNoteProps) {
+  const { t, locale } = useI18n()
+
+  const [open, setOpen] = useState(false)
+  const [phase, setPhase] = useState<VoiceNotePhase>('ready')
+  const [errorCode, setErrorCode] = useState<
+    'permission' | 'startFailed' | 'saveFailed' | 'recognitionFailed' | null
+  >(null)
+  const [transcript, setTranscript] = useState('')
+  const [archived, setArchived] = useState<VoiceNoteRecord[]>([])
+  const [listError, setListError] = useState(false)
+  // 检索与分组都落在服务端(与 web 同形):面板只持有查询条件,不持数据
+  const [query, setQuery] = useState('')
+  const [groupKey, setGroupKey] = useState<string | null>(null)
+  const [groups, setGroups] = useState<VoiceNoteGroupFacet[]>([])
+  // 归档分区同理由服务端切(缺省 active:默认视图混入归档行等于「没归档」)
+  const [partition, setPartition] = useState<'active' | 'archived'>('active')
+  // 行内改分组:只为一行开一个输入位
+  const [groupEditing, setGroupEditing] = useState<string | null>(null)
+  const [groupDraft, setGroupDraft] = useState('')
+
+  const dispatch = useCallback((event: VoiceNoteEvent) => {
+    setPhase((prev) => transitionVoiceNotePhase(prev, event))
+  }, [])
+
+  // 归档事实源 = 服务端 chat_voice_notes;archivedRef 只是删除/归档回滚镜像,不参与渲染
+  const archivedRef = useRef<VoiceNoteRecord[]>([])
+  archivedRef.current = archived
+
+  const loadArchive = useCallback(async () => {
+    const res = await listVoiceNotes({
+      pageSize: VOICE_NOTE_ARCHIVE_LIMIT,
+      partition,
+      withGroups: '1',
+      ...(query.trim() ? { q: query.trim() } : {}),
+      ...(groupKey ? { groupKey } : {}),
+    })
+    if (!res.success) {
+      // 读失败必须喊出来:静默兜空列表会让人以为「笔记都丢了」
+      setListError(true)
+      return
+    }
+    setListError(false)
+    setArchived(res.data.list.map(toVoiceNoteRecord))
+    setGroups(res.data.groups ?? [])
+  }, [groupKey, partition, query])
+
+  // 输入即搜去抖 300ms(每敲一个字符打一次后端会把列表打抖);首帧不去抖
+  const firstLoadRef = useRef(true)
+  useEffect(() => {
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false
+      void loadArchive()
+      return
+    }
+    const timer = setTimeout(() => void loadArchive(), 300)
+    return () => clearTimeout(timer)
+  }, [loadArchive])
+
+  // 落一条笔记时「松手这一瞬」的时长镜像(hook 的 duration 是每秒 state,stop 续体读 ref)
+  const durationSecRef = useRef(0)
+
+  /**
+   * 乐观上行,写失败当场回滚 + 显式报错 —— 不留 renderer-only 假记录
+   * (那正是本仓反复登记的「看着存上了,刷新就没」那一型,与 web 组件同判据)。
+   */
+  const persistNote = useCallback(
+    async (text: string | null) => {
+      const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const durationMs = durationSecRef.current * 1000
+      const optimistic: VoiceNoteRecord = {
+        id: pendingId,
+        conversationId,
+        createdAt: new Date().toISOString(),
+        durationMs,
+        transcript: text,
+      }
+      setArchived((prev) => upsertVoiceNote(prev, optimistic))
+      const res = await createVoiceNote({
+        // 标题优先取转写起首;仅存音频时回落到本命名空间自带的「语音笔记」文案(不写死中文)
+        title: (text?.trim() || t('chat.voiceNote.title')).slice(0, 200),
+        transcript: text,
+        durationMs,
+        conversationId,
+      })
+      if (!res.success) {
+        setArchived((prev) => removeVoiceNote(prev, pendingId))
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [conversationId, loadArchive, t],
+  )
+
+  const removeNote = useCallback(async (id: string) => {
+    const snapshot = archivedRef.current
+    setArchived(removeVoiceNote(snapshot, id))
+    const res = await deleteVoiceNote(id)
+    if (!res.success) setArchived(snapshot)
+  }, [])
+
+  /**
+   * 归档/恢复(票面②「新建→归档」的 RN 腿):归档是写时刻、可撤销,与硬删分家。
+   * 方向由当前分区决定(共享层 toVoiceNoteRecord 不带归档维,分区即真相)。
+   */
+  const toggleArchived = useCallback(
+    async (id: string, nextArchived: boolean) => {
+      const snapshot = archivedRef.current
+      setArchived(removeVoiceNote(snapshot, id))
+      const res = await setVoiceNoteArchived(id, nextArchived)
+      if (!res.success) {
+        setArchived(snapshot)
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [loadArchive],
+  )
+
+  /** 行内改分组:分组键只落服务端,不做本地兜底 */
+  const assignGroup = useCallback(
+    async (id: string, value: string) => {
+      const next = value.trim()
+      if (!next) return
+      setGroupEditing(null)
+      setGroupDraft('')
+      const res = await updateVoiceNote(id, { groupKey: next })
+      if (!res.success) {
+        setErrorCode('saveFailed')
+        return
+      }
+      void loadArchive()
+    },
+    [loadArchive],
+  )
+
+  const handleTranscript = useCallback(
+    (text: string) => {
+      if (!sttEnabled) return
+      // hook 契约:空串 = 失败/无权限/空录音,端侧无从细分(见文件头端差①)
+      if (text.trim().length === 0) {
+        setErrorCode('recognitionFailed')
+        dispatch('transcriptFailed')
+        return
+      }
+      setTranscript(text)
+      void persistNote(text)
+      dispatch('transcriptReady')
+    },
+    [dispatch, persistNote, sttEnabled],
+  )
+
+  const handleUnavailable = useCallback(
+    (reason: 'permission-denied' | 'record-failed') => {
+      setErrorCode(reason === 'permission-denied' ? 'permission' : 'startFailed')
+      dispatch('permissionDenied')
+    },
+    [dispatch],
+  )
+
+  const { recording, transcribing, duration, start, stop, cancel } = useVoiceRecorder({
+    onComplete: handleTranscript,
+    onUnavailable: handleUnavailable,
+    transcribe: sttEnabled,
+    language: STT_LANGUAGE[locale] ?? 'zh',
+  })
+
+  // 授权/准备/连接在 hook 内一次异步链完成 ⇒ recording 翻真时按序补发三段(端差②)
+  useEffect(() => {
+    if (recording) {
+      dispatch('permissionGranted')
+      dispatch('mediaReady')
+      dispatch('connected')
+    }
+  }, [recording, dispatch])
+
+  /**
+   * 中止录音(cancel / interrupt 两条事件共用):走 hook 的 cancel 出口 ——
+   * 只释放麦克风,**不上传、不转写、不回调** ⇒ 被取消的录音不会产生任何迟到结果,
+   * 上层不必再判「这条结果是不是被丢弃的那次」(那等于把状态机语义搬到端内二次判定)。
+   * 相推进一律经共享推进入口;cancelled / interrupted 是终态(共享表内唯一出边 retry→ready)。
+   */
+  const abortRecording = useCallback(
+    (event: 'cancel' | 'interrupt') => {
+      dispatch(event)
+      void cancel()
+    },
+    [cancel, dispatch],
+  )
+
+  /**
+   * 后台回收(票面①型④):App 退到后台或失去焦点 ⇒ 录音被系统打断 ⇒ 收成 interrupted 终态。
+   * 共享层事件词表**无**「回收后复位」出口(矩阵测试第④型明确钉住这一维),端侧唯一可用
+   * 近似就是自己派发 interrupt —— 这里就是这么用的,不是各写一份判定。
+   * 复位走终态唯一合法出边(retry → ready),由界面的「重试」按钮承担。
+   */
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') return
+      if (!recording) return
+      abortRecording('interrupt')
+    })
+    return () => sub.remove()
+  }, [abortRecording, recording])
+
+  durationSecRef.current = duration
+
+  const startRecording = useCallback(() => {
+    setErrorCode(null)
+    setTranscript('')
+    dispatch('start')
+    start()
+  }, [dispatch, start])
+
+  const stopRecording = useCallback(() => {
+    dispatch('stop')
+    void stop()
+    dispatch('saved')
+  }, [dispatch, stop])
+
+  const resetToReady = useCallback(() => {
+    setErrorCode(null)
+    setTranscript('')
+    // 终态唯一合法回 ready 出边;非终态 no-op 原地(不散写 setPhase)
+    dispatch('retry')
+  }, [dispatch])
+
+  /**
+   * 转写完成即插入当前对话(与 web 的 voice-note-insert-current 同形):
+   * 走既有 onInsert 回调(输入框既有通道),**不经服务端归档行** ——
+   * 落库失败被回滚时这条路径仍通,这是本切片的主链路。
+   */
+  const insertTranscriptToInput = useCallback(() => {
+    if (!transcript.trim()) return
+    onInsert(transcript)
+  }, [onInsert, transcript])
+
+  const saveAudioOnly = useCallback(() => {
+    void persistNote(null)
+    dispatch('dismiss')
+  }, [dispatch, persistNote])
+
+  const closePanel = useCallback(() => {
+    if (recording) stopRecording()
+    setOpen(false)
+  }, [recording, stopRecording])
+
+  const busy = !isVoiceNotePhaseTerminal(phase) && phase !== 'ready'
+  const showPhaseLabel = busy || isVoiceNotePhaseTerminal(phase)
+
+  return (
+    <View>
+      <Tappable
+        onPress={() => setOpen((v) => !v)}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityLabel={t('chat.voiceNote.title')}
+        testID="voice-note-trigger"
+        style={styles.trigger}
+      >
+        <Mic size={16} color={tokens.text.secondary} />
+      </Tappable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={closePanel}>
+        <View style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closePanel} />
+          <View style={styles.panel} testID="voice-note-panel">
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
+              <Tappable
+                onPress={closePanel}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.voiceNote.action.dismiss')}
+                testID="voice-note-close"
+              >
+                <X size={16} color={tokens.text.secondary} />
+              </Tappable>
+            </View>
+
+            {/* phase 徽章(12 相文案全量走 i18n,与 web 同命名空间);
+                testID 带相名后缀 ⇒ 端上用例能机读「当前处于哪一相」(web 侧同形 data-phase) */}
+            {showPhaseLabel && (
+              <View style={styles.phaseBadge} testID={`voice-note-phase-${phase}`}>
+                <Text style={styles.phaseText}>{t(`chat.voiceNote.phase.${phase}`)}</Text>
+                {(recording || isVoiceNoteTranscriptPending(phase)) && (
+                  <Text style={styles.phaseDuration}>
+                    {formatVoiceNoteDuration(durationSecRef.current * 1000)}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {errorCode && (
+              <Text style={styles.errorText} testID="voice-note-error">
+                {t(`chat.voiceNote.errors.${errorCode}`)}
+              </Text>
+            )}
+
+            {phase === 'completed' && transcript && (
+              <ScrollView style={styles.transcriptBox} testID="voice-note-transcript">
+                <Text style={styles.transcriptText}>{transcript}</Text>
+              </ScrollView>
+            )}
+
+            {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
+            {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
+              <Text style={styles.pendingText} testID="voice-note-stt-pending">
+                {t('chat.voiceNote.errors.sttPending')}
+              </Text>
+            )}
+
+            <View style={styles.actionRow}>
+              {phase === 'ready' && (
+                <Tappable
+                  style={styles.primaryBtn}
+                  onPress={startRecording}
+                  accessibilityRole="button"
+                  testID="voice-note-start"
+                >
+                  <Mic size={14} color={tokens.brand.ctaForeground} />
+                  <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.start')}</Text>
+                </Tappable>
+              )}
+              {busy && (
+                <Tappable
+                  style={styles.stopBtn}
+                  onPress={stopRecording}
+                  accessibilityRole="button"
+                  disabled={!recording}
+                  testID="voice-note-stop"
+                >
+                  {transcribing ? (
+                    <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                  ) : (
+                    <Square size={12} color={tokens.brand.ctaForeground} />
+                  )}
+                  <Text style={styles.primaryBtnText}>{t('chat.voiceNote.action.stop')}</Text>
+                </Tappable>
+              )}
+              {/* 转写 pending 中用户显式存盘(dismiss → completed) */}
+              {isVoiceNoteTranscriptPending(phase) && sttEnabled && (
+                <Tappable
+                  style={styles.outlineBtn}
+                  onPress={saveAudioOnly}
+                  accessibilityRole="button"
+                  testID="voice-note-save-audio-only"
+                >
+                  <Text style={styles.outlineBtnText}>
+                    {t('chat.voiceNote.action.saveAudioOnly')}
+                  </Text>
+                </Tappable>
+              )}
+              {/* 录音中显式取消 ⇒ cancelled 相(共享表 recording --cancel--> cancelled) */}
+              {phase === 'recording' && (
+                <Tappable
+                  style={styles.outlineBtn}
+                  onPress={() => abortRecording('cancel')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.voiceNote.action.cancel')}
+                  testID="voice-note-cancel"
+                >
+                  <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.cancel')}</Text>
+                </Tappable>
+              )}
+              {/* 转写完成即插入当前对话(不经服务端归档行,落库失败回滚时这条路径仍通) */}
+              {phase === 'completed' && transcript.trim().length > 0 && (
+                <Tappable
+                  style={styles.outlineBtn}
+                  onPress={insertTranscriptToInput}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
+                  testID="voice-note-insert-current"
+                >
+                  <ClipboardPaste size={12} color={tokens.text.secondary} />
+                  <Text style={styles.outlineBtnText}>
+                    {t('chat.voiceNote.action.insertToInput')}
+                  </Text>
+                </Tappable>
+              )}
+              {isVoiceNotePhaseTerminal(phase) && (
+                <Tappable
+                  style={styles.outlineBtn}
+                  onPress={resetToReady}
+                  accessibilityRole="button"
+                  testID="voice-note-retry"
+                >
+                  <Text style={styles.outlineBtnText}>{t('chat.voiceNote.action.retry')}</Text>
+                </Tappable>
+              )}
+            </View>
+
+            <TextField
+              colorScheme={currentRnTheme()}
+              style={styles.searchInput}
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('chat.voiceNote.searchPlaceholder')}
+              placeholderTextColor={tokens.text.tertiary}
+              testID="voice-note-search"
+            />
+
+            {/* 分区切换:活跃 ⇄ 已归档(票面②「新建→归档」在 RN 上可见的那一半) */}
+            <View style={styles.groupRow}>
+              <Tappable
+                style={[styles.chip, partition === 'archived' ? styles.chipActive : null]}
+                onPress={() => setPartition((prev) => (prev === 'active' ? 'archived' : 'active'))}
+                accessibilityRole="button"
+                accessibilityLabel={t('quickNotes.archived')}
+                testID="voice-note-partition-toggle"
+              >
+                <Text style={[styles.chipText, partition === 'archived' && styles.chipActiveText]}>
+                  {t('quickNotes.archived')}
+                </Text>
+              </Tappable>
+            </View>
+
+            {groups.length > 0 && (
+              <View style={styles.groupRow} testID="voice-note-filters">
+                <Tappable
+                  style={[styles.chip, groupKey === null ? styles.chipActive : null]}
+                  onPress={() => setGroupKey(null)}
+                  accessibilityRole="button"
+                  testID="voice-note-group-chip-all"
+                >
+                  <Text style={[styles.chipText, groupKey === null && styles.chipActiveText]}>
+                    {t('chat.voiceNote.groupAll')}
+                  </Text>
+                </Tappable>
+                {groups.map((facet) => (
+                  <Tappable
+                    key={facet.groupKey}
+                    style={[styles.chip, groupKey === facet.groupKey ? styles.chipActive : null]}
+                    onPress={() => setGroupKey(facet.groupKey)}
+                    accessibilityRole="button"
+                    testID="voice-note-group-chip"
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        groupKey === facet.groupKey && styles.chipActiveText,
+                      ]}
+                    >
+                      {facet.groupKey} {facet.count}
+                    </Text>
+                  </Tappable>
+                ))}
+              </View>
+            )}
+
+            {listError && (
+              <Text style={styles.errorText} testID="voice-note-list-error">
+                {t('chat.voiceNote.errors.loadFailed')}
+              </Text>
+            )}
+
+            {/* 归档列表(服务端事实源:新建→落库→插入对话→归档/分组/删除) */}
+            <ScrollView style={styles.archiveList} keyboardShouldPersistTaps="handled">
+              {archived
+                .slice()
+                .reverse()
+                .map((note) => (
+                  <View key={note.id}>
+                    <View style={styles.archiveItem} testID="voice-note-archive-item">
+                      <Text style={styles.archiveDuration}>
+                        {formatVoiceNoteDuration(note.durationMs)}
+                      </Text>
+                      <Text style={styles.archiveText} numberOfLines={1}>
+                        {/* 无转写=只存了音频,给命名空间自带的「语音笔记」文案,不猜任何相 */}
+                        {note.transcript ?? t('chat.voiceNote.title')}
+                      </Text>
+                      {voiceNoteHasInsertableText(note) && (
+                        <Tappable
+                          onPress={() => onInsert(note.transcript ?? '')}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('chat.voiceNote.action.insertToInput')}
+                          testID="voice-note-insert"
+                        >
+                          <Text style={styles.archiveAction}>
+                            {t('chat.voiceNote.action.insertToInput')}
+                          </Text>
+                        </Tappable>
+                      )}
+                      {/* 改分组:分组键只落服务端,输入框开在本行下方 */}
+                      <Tappable
+                        onPress={() => {
+                          setGroupEditing(note.id)
+                          setGroupDraft('')
+                        }}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('quickNotes.groupPlaceholder')}
+                        testID="voice-note-group-set"
+                      >
+                        <Tag size={14} color={tokens.text.secondary} />
+                      </Tappable>
+                      {/* 归档/恢复:方向由当前分区决定 */}
+                      {partition === 'active' ? (
+                        <Tappable
+                          onPress={() => void toggleArchived(note.id, true)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('quickNotes.archive')}
+                          testID="voice-note-archive-action"
+                        >
+                          <Archive size={14} color={tokens.text.secondary} />
+                        </Tappable>
+                      ) : (
+                        <Tappable
+                          onPress={() => void toggleArchived(note.id, false)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('quickNotes.unarchive')}
+                          testID="voice-note-unarchive-action"
+                        >
+                          <ArchiveRestore size={14} color={tokens.text.secondary} />
+                        </Tappable>
+                      )}
+                      <Tappable
+                        onPress={() => void removeNote(note.id)}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('chat.voiceNote.action.dismiss')}
+                        testID="voice-note-archive-delete"
+                      >
+                        <Trash2 size={14} color={tokens.text.secondary} />
+                      </Tappable>
+                    </View>
+                    {groupEditing === note.id && (
+                      <View style={styles.groupEditor} testID="voice-note-group-editor">
+                        <TextField
+                          colorScheme={currentRnTheme()}
+                          style={styles.groupInput}
+                          value={groupDraft}
+                          onChangeText={setGroupDraft}
+                          placeholder={t('quickNotes.groupPlaceholder')}
+                          placeholderTextColor={tokens.text.tertiary}
+                          testID="voice-note-group-input"
+                        />
+                        <Tappable
+                          onPress={() => void assignGroup(note.id, groupDraft)}
+                          hitSlop={6}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('quickNotes.edit')}
+                          testID="voice-note-group-submit"
+                        >
+                          <Check size={14} color={tokens.text.secondary} />
+                        </Tappable>
+                      </View>
+                    )}
+                  </View>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  trigger: { paddingHorizontal: rnSpacing.xs, paddingVertical: rnSpacing.xs },
+  backdrop: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'flex-end' },
+  panel: {
+    backgroundColor: tokens.surface.card,
+    borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
+    borderTopRightRadius: rnRadius.xl,
+    padding: rnSpacing.md,
+    maxHeight: '70%',
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: rnSpacing.sm,
+  },
+  panelTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
+  phaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.md, // chip 档 md(6)
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing.xs,
+    marginBottom: rnSpacing.sm,
+  },
+  phaseText: { fontSize: rnType.label.size, color: tokens.text.secondary },
+  phaseDuration: {
+    marginLeft: rnSpacing.sm,
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  },
+  errorText: {
+    fontSize: rnType.label.size,
+    color: tokens.danger.DEFAULT,
+    marginBottom: rnSpacing.sm,
+  },
+  pendingText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+    marginBottom: rnSpacing.sm,
+  },
+  transcriptBox: {
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    padding: rnSpacing.sm,
+    marginBottom: rnSpacing.sm,
+    maxHeight: 128,
+  },
+  transcriptText: { fontSize: rnType.label.size, color: tokens.text.primary },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['xs-loose'],
+    marginBottom: rnSpacing.sm,
+  },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.xs,
+    backgroundColor: tokens.brand.cta,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
+  },
+  stopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing.xs,
+    backgroundColor: tokens.danger.DEFAULT,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
+  },
+  primaryBtnText: { fontSize: rnType.label.size, color: tokens.brand.ctaForeground },
+  outlineBtn: {
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    paddingHorizontal: rnSpacing['sm-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
+  },
+  outlineBtnText: { fontSize: rnType.label.size, color: tokens.text.secondary },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: rnSpacing['xs-loose'],
+    fontSize: rnType.label.size,
+    color: tokens.text.primary,
+    marginBottom: rnSpacing.sm,
+  },
+  groupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: rnSpacing.xs,
+    marginBottom: rnSpacing.sm,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.md, // chip 档 md(6)
+    paddingHorizontal: rnSpacing.sm,
+    paddingVertical: 3,
+  },
+  // 选中胶囊走 RN 既有范式(ChatTemplatesScreen/ArticleEditScreen 同尺):brand.cta 底 +
+  // ctaForeground 字,两态自适应;不得用 surface.light(两态恒白 ⇒ 白卡上选中态不可见)
+  chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+  chipActiveText: { color: tokens.brand.ctaForeground },
+  chipText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
+  archiveList: { maxHeight: 220 },
+  archiveItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['2xs'],
+  },
+  archiveDuration: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
+  archiveText: { flex: 1, fontSize: rnType.label.size, color: tokens.text.primary },
+  archiveAction: { fontSize: rnType.caption.size, color: tokens.text.secondary },
+  groupEditor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['2xs'],
+  },
+  groupInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    borderRadius: rnRadius.sm, // control 档 sm(4)
+    paddingHorizontal: rnSpacing['xs-loose'],
+    paddingVertical: rnSpacing.xs,
+    fontSize: rnType.label.size,
+    color: tokens.text.primary,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

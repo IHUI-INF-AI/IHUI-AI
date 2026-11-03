@@ -1,0 +1,797 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
+import { hashPassword } from '../src/utils/password-crypto.js'
+
+vi.hoisted(() => {
+  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
+  process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+  process.env.NODE_ENV = 'test'
+  // 短信三档全未配置时不回显;测试档要显式 opt-in 才走 dev_console(2026-10-22 起的契约)
+  process.env.SMS_DEV_ECHO ??= '1'
+})
+
+// ---------- 可控 mock ----------
+const {
+  mockVerifyRefreshToken,
+  mockCreateFamilyId,
+  mockIssueTokenPair,
+  mockAuthenticate,
+  mockFindUserByPhone,
+  mockFindUserByAccount,
+  mockFindUserById,
+  mockCreateUser,
+  mockUpdateUser,
+  mockFindRefreshToken,
+  mockFindLiveFamilyToken,
+  mockRevokeRefreshToken,
+  mockRevokeRefreshTokenFamily,
+  mockRevokeAllUserRefreshTokens,
+  mockIsSystemAdminUser,
+  mockGetUserPermissions,
+  mockGetLockRemainingMs,
+  mockRecordLoginFailure,
+  mockClearLoginFailures,
+} = vi.hoisted(() => ({
+  mockVerifyRefreshToken: vi.fn(),
+  mockCreateFamilyId: vi.fn(),
+  mockIssueTokenPair: vi.fn(),
+  mockAuthenticate: vi.fn(),
+  mockFindUserByPhone: vi.fn(),
+  mockFindUserByAccount: vi.fn(),
+  mockFindUserById: vi.fn(),
+  mockCreateUser: vi.fn(),
+  mockUpdateUser: vi.fn(),
+  mockFindRefreshToken: vi.fn(),
+  mockFindLiveFamilyToken: vi.fn(),
+  mockRevokeRefreshToken: vi.fn(),
+  mockRevokeRefreshTokenFamily: vi.fn(),
+  mockRevokeAllUserRefreshTokens: vi.fn(),
+  mockIsSystemAdminUser: vi.fn(),
+  mockGetUserPermissions: vi.fn(),
+  mockGetLockRemainingMs: vi.fn(),
+  mockRecordLoginFailure: vi.fn(),
+  mockClearLoginFailures: vi.fn(),
+}))
+
+vi.mock('@ihui/auth', () => ({
+  verifyRefreshToken: mockVerifyRefreshToken,
+  createFamilyId: mockCreateFamilyId,
+  signAccessToken: vi.fn().mockResolvedValue('access'),
+  signRefreshToken: vi.fn().mockResolvedValue('refresh'),
+}))
+
+vi.mock('../src/plugins/auth.js', () => ({
+  authenticate: mockAuthenticate,
+  checkAuth: vi.fn(),
+}))
+
+vi.mock('../src/services/token-service.js', () => ({
+  issueTokenPair: mockIssueTokenPair,
+}))
+
+vi.mock('../src/db/queries.js', () => ({
+  findUserByPhone: mockFindUserByPhone,
+  findUserByAccount: mockFindUserByAccount,
+  findUserById: mockFindUserById,
+  createUser: mockCreateUser,
+  updateUser: mockUpdateUser,
+  cancelUserAccount: vi.fn(),
+  findRefreshToken: mockFindRefreshToken,
+  findLiveFamilyToken: mockFindLiveFamilyToken,
+  revokeRefreshToken: mockRevokeRefreshToken,
+  revokeRefreshTokenFamily: mockRevokeRefreshTokenFamily,
+  revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
+  isSystemAdminUser: mockIsSystemAdminUser,
+}))
+
+vi.mock('../src/db/rbac-queries.js', () => ({
+  getUserPermissions: mockGetUserPermissions,
+  checkPermission: vi.fn(),
+}))
+
+vi.mock('../src/db/promotion-queries.js', () => ({
+  findInvitationByCode: vi.fn().mockResolvedValue(null),
+  markInvitationUsed: vi.fn(),
+}))
+
+vi.mock('../src/services/points-service.js', () => ({ earnPoints: vi.fn() }))
+
+vi.mock('../src/services/account-lockout.js', () => ({
+  recordLoginFailure: mockRecordLoginFailure,
+  clearLoginFailures: mockClearLoginFailures,
+  getLockRemainingMs: mockGetLockRemainingMs,
+  ACCOUNT_LOCKOUT_CONFIG: { lockDurationSec: 900, maxFailures: 5 },
+}))
+
+vi.mock('../src/services/oauth-providers.js', () => ({
+  jscode2session: vi.fn(),
+  isWechatMiniConfigured: vi.fn().mockReturnValue(false),
+}))
+
+vi.mock('../src/db/oauth-queries.js', () => ({
+  findThirdPartyAccount: vi.fn(),
+  createThirdPartyBinding: vi.fn(),
+  listOAuthApps: vi.fn(),
+  findAuditLogList: vi.fn(),
+  findAuditLogStats: vi.fn(),
+  findOAuthAppByClientId: vi.fn(),
+  createOAuthApp: vi.fn(),
+  updateOAuthApp: vi.fn(),
+  deleteOAuthApp: vi.fn(),
+  regenerateOAuthAppSecret: vi.fn(),
+  listActiveScopeMeta: vi.fn(),
+}))
+
+vi.mock('../src/db/user-preferences-queries.js', () => ({
+  // 2026-10-22 补:该具名出口由 f214e8b4854 引入,当时没回头更新这份 mock ⇒ 本文件整轮
+  // 收集期就炸("No USER_PREFERENCE_GROUPS export is defined on the mock")。形态照
+  // tests/auth-sso.test.ts / ip-whitelist-login-guard.test.ts 的既有写法,不另发明一套。
+  USER_PREFERENCE_GROUPS: {
+    notifications: 'notifications',
+    preferences: 'preferences',
+    security: 'security',
+  },
+  findUserPreferences: vi.fn().mockResolvedValue({ list: [] }),
+  upsertUserPreference: vi.fn(),
+}))
+
+vi.mock('../src/services/totp-service.js', () => ({
+  signChallengeToken: vi.fn().mockResolvedValue('challenge-token'),
+  CHALLENGE_TOKEN_TTL_SECONDS: 300,
+}))
+
+vi.mock('../src/config/index.js', () => ({
+  config: {
+    NODE_ENV: 'test',
+    JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
+    DATABASE_URL: 'postgres://localhost:5432/test',
+    // G-192 改造后 code-store/频控会真连这个地址。指到死端口 ⇒ 两档后端中的
+    // 「内存兜底」档(与 tests/code-store.test.ts、api-key-quota-enforcement.test.ts 同口径),
+    // 避免与并行测试文件/本机常驻 Redis 共享 code:* 键 —— 他文件 beforeEach 的
+    // codeStoreTest.reset() 会 SCAN 删光全部 code:*,把本文件刚 putCodeEntry 的码吃掉,
+    // verifyCode 转而去信 Redis("在线但查无 ⇒ 以 Redis 为准")⇒ 间歇 400/401。
+    REDIS_URL: 'redis://127.0.0.1:1/0',
+    AI_SERVICE_URL: 'http://localhost:8803',
+  },
+}))
+
+import { authRoutes } from '../src/routes/auth.js'
+import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store.js'
+import { resetSendQuotaForTests } from '../src/utils/code-echo-guard.js'
+import { __test__ as windowCounterTest } from '../src/utils/window-counter.js'
+import { config } from '../src/config/index.js'
+
+const NOW = new Date('2026-07-23T00:00:00Z')
+
+/**
+ * G-876:注册路径按 isSmsConfigured()(读 process.env,不是上面的 config mock)判
+ * fail-closed 503。本文件其余用例依赖"未配置"态(send-code 不发但 200),所以只在
+ * 需要注册的档位里临时开、finally 还原 —— 注册只校验验证码,不触发发送链路。
+ */
+async function withSmsConfigured<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = process.env.SMS_API_BASE_URL
+  process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
+  try {
+    return await fn()
+  } finally {
+    if (prev === undefined) delete process.env.SMS_API_BASE_URL
+    else process.env.SMS_API_BASE_URL = prev
+  }
+}
+
+function makeUser(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'user-001',
+    phone: '13800000001',
+    email: 'u1@example.com',
+    username: 'tester',
+    nickname: 'tester',
+    avatar: '',
+    bio: '',
+    gender: 0,
+    birthday: '',
+    familyId: 'fam-001',
+    roleId: 0,
+    status: 1,
+    isVip: 0,
+    level: 0,
+    inviteCode: '',
+    parentId: '',
+    passwordHash: '',
+    twoFactorEnabled: false,
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  }
+}
+
+function tokenPair() {
+  return { accessToken: 'access-token', refreshToken: 'refresh-token', expiresIn: 3600 }
+}
+
+describe('auth routes', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    // (setAuthCookies 写 httpOnly auth cookie),测试 app 此前未注册该插件导致
+    // reply.setCookie is not a function → 500。生产 server.ts 已注册,此处补齐。
+    await app.register(cookie)
+    // login 路由依赖 server.riskEngine.evaluateRisk
+    app.decorate('riskEngine', {
+      evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: 0 }),
+    } as never)
+    // 注册埋点由 business-metrics 插件在生产 app 上装饰;本测试只挂 authRoutes,
+    // 用 no-op 保持与生产同形(注册路由会同步调它,缺装饰器即 TypeError 500)。
+    app.decorate('recordFunnel', () => {})
+    await app.register(authRoutes, { prefix: '/api/auth' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    await codeStoreTest.reset()
+    await resetSendQuotaForTests()
+    delete process.env.AUTH_DEBUG_ECHO_CODE
+    config.isDevelopmentRuntime = false
+    // 默认鉴权失败(401)
+    mockAuthenticate.mockImplementation(() => {
+      const err = new Error('Authentication required')
+      ;(err as Error & { statusCode: number }).statusCode = 401
+      throw err
+    })
+    mockGetLockRemainingMs.mockResolvedValue(0)
+    mockRecordLoginFailure.mockResolvedValue(4)
+    mockClearLoginFailures.mockResolvedValue(undefined)
+    mockIsSystemAdminUser.mockResolvedValue(false)
+    mockGetUserPermissions.mockResolvedValue([])
+    mockCreateFamilyId.mockReturnValue('fam-mock')
+    mockIssueTokenPair.mockResolvedValue(tokenPair())
+  })
+
+  describe('POST /api/auth/send-code', () => {
+    it('手机号格式不正确返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '123' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('合法手机号返回 200,响应体不含 code(G-192:默认不回显验证码)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000001', scene: 'register' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.sent).toBe(true)
+      // G-192 回归锁:钉在响应体序列化层 —— 生产/测试档 data 里不得出现 code 键
+      expect(body.data).not.toHaveProperty('code')
+    })
+
+    it('G-192:显式调试开关 + development 档 + loopback 三条件同时成立才回显 code', async () => {
+      process.env.AUTH_DEBUG_ECHO_CODE = '1'
+      config.isDevelopmentRuntime = true
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000002', scene: 'login' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.code).toMatch(/^\d{6}$/)
+    })
+
+    it('G-192:开关打开但非 development 档 ⇒ 仍不回显 code', async () => {
+      process.env.AUTH_DEBUG_ECHO_CODE = '1'
+      config.isDevelopmentRuntime = false
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000003', scene: 'login' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).not.toHaveProperty('code')
+    })
+
+    it('G-192:/sms/send 同款不回显(小程序别名走同一闸)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sms/send',
+        payload: { phone: '13800000004', scene: 'login' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).not.toHaveProperty('code')
+    })
+
+    it('G-192:同一手机号+IP 超出取码配额返回 429 + Retry-After', async () => {
+      // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效。
+      // 2026-10-28:10-27 给投递侧补了号码三档硬顶(sms:rl:,60s 档"同一号码一次"),
+      // 它排在「手机号+IP 配额」(echo:q:)之前 ⇒ 只清 code-store 的话第二帧就被
+      // 60s 档挡成 429,量到的根本不是本用例要量的那一层。投递侧 IP/设备档
+      // (sms:guard:)同理会跨帧累积,一并清干净。
+      for (let i = 0; i < 5; i += 1) {
+        await codeStoreTest.reset()
+        await windowCounterTest.reset(['sms:rl:', 'sms:guard:'])
+        const ok = await app.inject({
+          method: 'POST',
+          url: '/api/auth/send-code',
+          payload: { phone: '13800000005', scene: 'login' },
+        })
+        expect(ok.statusCode).toBe(200)
+      }
+      await codeStoreTest.reset()
+      await windowCounterTest.reset(['sms:rl:', 'sms:guard:'])
+      const blocked = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13800000005', scene: 'login' },
+      })
+      expect(blocked.statusCode).toBe(429)
+      expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0)
+      expect(blocked.json().message).toContain('过于频繁')
+    })
+
+    it('60 秒内重发返回 429', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13900000000' },
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/send-code',
+        payload: { phone: '13900000000' },
+      })
+      expect(res.statusCode).toBe(429)
+      expect(res.json().message).toContain('60 秒')
+    })
+  })
+
+  describe('POST /api/auth/reset-password', () => {
+    it('参数校验失败(密码过短)返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/reset-password',
+        payload: { phone: '13800000001', code: '123456', newPassword: 'short' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('验证码错误返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/reset-password',
+        payload: { phone: '13800000001', code: '000000', newPassword: 'newpass12' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('验证码错误')
+    })
+
+    // CWE-204 防用户枚举攻击:用户不存在时统一返回"验证码错误或已过期",
+    // 攻击者无法通过响应区分"用户不存在"和"验证码错误"(2026-07-24 安全加固)
+    it('用户不存在时统一返回验证码错误(防枚举)返回 400', async () => {
+      await putCodeEntry('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 60000,
+        sentAt: Date.now(),
+      })
+      mockFindUserByPhone.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/reset-password',
+        payload: { phone: '13800000001', code: '123456', newPassword: 'newpass12' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('验证码错误或已过期')
+    })
+
+    it('系统管理员密码不可重置返回 403', async () => {
+      await putCodeEntry('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 60000,
+        sentAt: Date.now(),
+      })
+      mockFindUserByPhone.mockResolvedValueOnce(makeUser({ id: 'admin' }))
+      mockIsSystemAdminUser.mockResolvedValueOnce(true)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/reset-password',
+        payload: { phone: '13800000001', code: '123456', newPassword: 'newpass12' },
+      })
+      expect(res.statusCode).toBe(403)
+    })
+
+    it('重置成功返回 200 并删除验证码', async () => {
+      await putCodeEntry('13800000001', {
+        code: '123456',
+        expiresAt: Date.now() + 60000,
+        sentAt: Date.now(),
+      })
+      mockFindUserByPhone.mockResolvedValueOnce(makeUser())
+      mockUpdateUser.mockResolvedValueOnce(undefined)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/reset-password',
+        payload: { phone: '13800000001', code: '123456', newPassword: 'newpass12' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.reset).toBe(true)
+      expect(mockUpdateUser).toHaveBeenCalled()
+      // 验证码一次性使用
+      expect(await codeStoreTest.exists('13800000001')).toBe(false)
+    })
+  })
+
+  describe('POST /api/auth/register', () => {
+    it('参数校验失败(密码过短)返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: { phone: '13800000001', password: '123' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('手机号已注册返回 409', async () => {
+      await withSmsConfigured(async () => {
+        // G-876:注册必须带 register 场景发出的短信验证码(匿名占号已封)
+        await putCodeEntry('13800000001', {
+          code: '123456',
+          expiresAt: Date.now() + 60000,
+          sentAt: Date.now(),
+          scene: 'register',
+        })
+        mockFindUserByPhone.mockResolvedValueOnce(makeUser())
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/auth/register',
+          payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
+        })
+        expect(res.statusCode).toBe(409)
+        expect(res.json().message).toContain('已注册')
+      })
+    })
+
+    it('注册成功返回 200 与 token + user', async () => {
+      await withSmsConfigured(async () => {
+        await putCodeEntry('13800000001', {
+          code: '123456',
+          expiresAt: Date.now() + 60000,
+          sentAt: Date.now(),
+          scene: 'register',
+        })
+        mockFindUserByPhone.mockResolvedValueOnce(null)
+        mockCreateUser.mockResolvedValueOnce(makeUser())
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/auth/register',
+          payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
+        })
+        expect(res.statusCode).toBe(200)
+        const body = res.json()
+        expect(body.data.accessToken).toBe('access-token')
+        expect(body.data.user.id).toBe('user-001')
+        expect(mockCreateUser).toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('POST /api/auth/login', () => {
+    it('参数校验失败(空账号)返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { account: '', password: 'x' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('账号锁定返回 429', async () => {
+      mockGetLockRemainingMs.mockResolvedValueOnce(60000)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { account: '13800000001', password: 'pass1234' },
+      })
+      expect(res.statusCode).toBe(429)
+      expect(res.headers['retry-after']).toBeTruthy()
+    })
+
+    it('用户不存在返回 401', async () => {
+      mockFindUserByAccount.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { account: '13800000001', password: 'pass1234' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('用户不存在或密码错误')
+    })
+
+    it('密码错误返回 401 并记录失败', async () => {
+      mockFindUserByAccount.mockResolvedValueOnce(
+        makeUser({ passwordHash: await hashPassword('correct') }),
+      )
+      mockRecordLoginFailure.mockResolvedValueOnce(4)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { account: '13800000001', password: 'wrongpass' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(mockRecordLoginFailure).toHaveBeenCalled()
+    })
+
+    it('账号被禁用返回 403', async () => {
+      mockFindUserByAccount.mockResolvedValueOnce(
+        makeUser({ passwordHash: await hashPassword('pass1234'), status: 0 }),
+      )
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { account: '13800000001', password: 'pass1234' },
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('禁用')
+    })
+
+    it('登录成功返回 200 与 token + user', async () => {
+      mockFindUserByAccount.mockResolvedValueOnce(
+        makeUser({ passwordHash: await hashPassword('pass1234') }),
+      )
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { account: '13800000001', password: 'pass1234' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.data.accessToken).toBe('access-token')
+      expect(body.data.user.id).toBe('user-001')
+      expect(mockClearLoginFailures).toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /api/auth/refresh', () => {
+    it('参数校验失败(空 token)返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: '' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('refresh token 签名无效返回 401', async () => {
+      mockVerifyRefreshToken.mockRejectedValueOnce(new Error('expired'))
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'bad-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('Invalid refresh token')
+    })
+
+    it('refresh token 已吊销返回 401', async () => {
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: NOW })
+      mockRevokeRefreshTokenFamily.mockResolvedValueOnce(2)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'revoked-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      // 重用检测:吊销整个 family
+      expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
+    })
+
+    it('宽限期内的已吊销 token 重放视为多标签页竞态,放行轮转且不吊销家族', async () => {
+      // 竞态复现路径:两个页签同秒刷新,后到者重放已被轮转吊销的 v1。
+      // 修复前:走进重用检测 → revokeRefreshTokenFamily 吊销全家 → 15min 后自动登录丢失。
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      // 吊销时间 = 刚刚(revokedAt 距今 0ms < 30s 宽限期)
+      mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: new Date() })
+      mockFindUserById.mockResolvedValueOnce(makeUser())
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'race-replayed-token' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.accessToken).toBe('access-token')
+      // 不吊销家族(family 里 tab A 刚拿到的 v2 保持有效)
+      expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      // 固定窗口:放行分支跳过重复 revoke(revokedAt 保持首次吊销时间,不滑动续窗)
+      expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
+    })
+
+    it('超过宽限期(31s)的已吊销 token 重放仍触发家族吊销', async () => {
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      // 吊销时间 = 31s 前(> 30s 宽限期)
+      mockFindRefreshToken.mockResolvedValueOnce({
+        revokedAt: new Date(Date.now() - 31_000),
+      })
+      mockRevokeRefreshTokenFamily.mockResolvedValueOnce(2)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'late-replayed-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
+    })
+
+    it('超出宽限期但族里仍有活 token:放行轮转,不吊销整族(2026-10-27 改判)', async () => {
+      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文 / API 重启打断刷新响应后
+      // 浏览器仍留着旧 cookie —— 迟到的是旧副本,而这一族还有活 token。
+      // 改判前只拒绝本次(401),合法用户每次冷启动撞一次,只能手登并新建 family;
+      // 吊销整族(原 2026-10-20 之前的行为)更会把另一个正常上下文刚拿到的活 token 打死。
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      mockFindRefreshToken.mockResolvedValueOnce({
+        revokedAt: new Date(Date.now() - 120_000),
+      })
+      mockFindLiveFamilyToken.mockResolvedValueOnce({ id: 'live-sibling' })
+      mockFindUserById.mockResolvedValueOnce(makeUser())
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'stale-sibling-token' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.accessToken).toBe('access-token')
+      expect(res.json().errorCode).toBeUndefined()
+      expect(mockFindLiveFamilyToken).toHaveBeenCalledWith('fam-1')
+      expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      // 固定窗口:旧 token 已吊销,重复 revoke 会把 revokedAt 刷成 now
+      expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
+    })
+    it('用户不存在或被禁用返回 401', async () => {
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: null })
+      mockFindUserById.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'valid-token' },
+      })
+      expect(res.statusCode).toBe(401)
+    })
+
+    it('刷新成功返回 200 与新 token', async () => {
+      mockVerifyRefreshToken.mockResolvedValueOnce({
+        userId: 'user-001',
+        familyId: 'fam-1',
+      })
+      mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: null })
+      mockFindUserById.mockResolvedValueOnce(makeUser())
+      mockRevokeRefreshToken.mockResolvedValueOnce(undefined)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: 'valid-token' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.data.accessToken).toBe('access-token')
+      expect(mockRevokeRefreshToken).toHaveBeenCalledWith('valid-token')
+    })
+  })
+
+  describe('GET /api/auth/me', () => {
+    it('未登录返回 401', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/auth/me' })
+      expect(res.statusCode).toBe(401)
+    })
+
+    it('用户不存在返回 404', async () => {
+      mockAuthenticate.mockImplementationOnce(
+        (request: { userId?: string; jwtPayload?: unknown }) => {
+          request.userId = 'user-001'
+          request.jwtPayload = { userId: 'user-001', roleId: 0 } as never
+          return Promise.resolve(request.jwtPayload)
+        },
+      )
+      mockFindUserById.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/me',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('登录用户返回 200 与 user 信息', async () => {
+      mockAuthenticate.mockImplementationOnce(
+        (request: { userId?: string; jwtPayload?: unknown }) => {
+          request.userId = 'user-001'
+          request.jwtPayload = { userId: 'user-001', roleId: 0 } as never
+          return Promise.resolve(request.jwtPayload)
+        },
+      )
+      mockFindUserById.mockResolvedValueOnce(makeUser())
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/me',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.data.user.id).toBe('user-001')
+      expect(body.data.user.permissions).toEqual([])
+    })
+  })
+
+  describe('POST /api/auth/logout', () => {
+    it('参数校验失败(空 token)返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/logout',
+        payload: { refreshToken: '' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('未找到 token 记录仍返回 200(幂等退出)', async () => {
+      mockFindRefreshToken.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/logout',
+        payload: { refreshToken: 'unknown-token' },
+      })
+      // 2026-09-27 期望值翻转(第二十八批):`revoked` 现由 revokeRefreshToken 的库侧命中集合派生。
+      // 本用例下一行就断言 `not.toHaveBeenCalled()` —— 既然一次吊销都没发出,
+      // 旧断言 `revoked:true` 是把"什么都没撤销"与"撤销成功"钉成同形的那份契约,正是本批要消灭的形状。
+      // 幂等性体现在**状态码 200**(未变),不在布尔值上。
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.revoked).toBe(false)
+      expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
+    })
+
+    it('有效 token 吊销成功返回 200', async () => {
+      mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: null })
+      // 委托改为回报**库侧确认吊销的令牌集合**(旧契约是 void);给空集合就等于宣称"库里没吊销任何行"。
+      mockRevokeRefreshToken.mockResolvedValueOnce(['valid-token'])
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/logout',
+        payload: { refreshToken: 'valid-token' },
+      })
+      expect(res.statusCode).toBe(200)
+      // 正向对照:命中集合非空 ⇒ revoked 必须为 true(与上一例的 false 成对,防"恒 false"式假修)
+      expect(res.json().data.revoked).toBe(true)
+      expect(mockRevokeRefreshToken).toHaveBeenCalledWith('valid-token', 'logout')
+    })
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

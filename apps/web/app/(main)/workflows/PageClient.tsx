@@ -1,0 +1,116 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { Workflow } from 'lucide-react'
+import { BackButton } from '@/components/common'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { WorkflowCreateDialog } from './WorkflowCreateDialog'
+import { WorkflowCardList } from './WorkflowCardList'
+import { api, EMPTY_FORM } from './helpers'
+import type { WorkflowItem } from './types'
+
+export default function WorkflowsPageClient() {
+  const t = useTranslations('workflows')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/workflows = 当前用户的工作流,
+  // 未就绪/未登录不发注定 401 的查询(失败仅落空态,不加渲染门)
+  const { allow } = useAuthGate()
+  const router = useRouter()
+  const qc = useQueryClient()
+
+  const wfsQ = useQuery({
+    queryKey: ['workflows'],
+    queryFn: () => api<{ list: WorkflowItem[] }>('/api/workflows').then((d) => d.list ?? []),
+    enabled: allow,
+  })
+
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [form, setForm] = React.useState(EMPTY_FORM)
+  const [formErr, setFormErr] = React.useState<string | null>(null)
+
+  const createMut = useMutation({
+    mutationFn: (stepsToSubmit: string) => {
+      let steps: unknown
+      try {
+        steps = JSON.parse(stepsToSubmit)
+      } catch {
+        throw new Error(t('create.invalidSteps'))
+      }
+      return api('/api/workflows', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description,
+          triggerType: form.triggerType,
+          steps,
+        }),
+      })
+    },
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ['workflows'] })
+      setCreateOpen(false)
+      setForm(EMPTY_FORM)
+      setFormErr(null)
+      const created = d as { workflow?: { id?: string } }
+      const wfId = created?.workflow?.id
+      if (wfId) router.push(`/workflows/${wfId}`)
+    },
+    onError: (e: Error) => setFormErr(e.message),
+  })
+
+  const handleCreate = (e: React.FormEvent, steps: string) => {
+    e.preventDefault()
+    setFormErr(null)
+    if (!form.name.trim()) {
+      setFormErr(t('create.nameRequired'))
+      return
+    }
+    createMut.mutate(steps)
+  }
+
+  const handleOpenChange = (o: boolean) => {
+    if (!o && createMut.isPending) return
+    setCreateOpen(o)
+    if (!o) {
+      setForm(EMPTY_FORM)
+      setFormErr(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4 px-4 py-4">
+      <BackButton />
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
+            <Workflow className="h-6 w-6 text-primary" />
+            {t('title')}
+          </h1>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <WorkflowCreateDialog
+          open={createOpen}
+          onOpenChange={handleOpenChange}
+          form={form}
+          setForm={setForm}
+          formErr={formErr}
+          createPending={createMut.isPending}
+          onSubmit={handleCreate}
+          onCancel={() => setCreateOpen(false)}
+        />
+      </div>
+      <WorkflowCardList
+        wfs={wfsQ.data ?? []}
+        isLoading={wfsQ.isLoading}
+        onItemClick={(id) => router.push(`/workflows/${id}`)}
+      />
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

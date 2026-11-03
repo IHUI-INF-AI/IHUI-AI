@@ -1,0 +1,296 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: e2e
+
+# =============================================================================
+# E2E (Playwright) 测试 workflow — 新架构 (apps/web + apps/api)
+#
+# 架构: Monorepo (pnpm workspace + Turborepo)
+#   - apps/web: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+#   - apps/api: Fastify 5 + Drizzle ORM + PostgreSQL
+#
+# 流程:
+#   1. 安装 pnpm 依赖
+#   2. 安装 Playwright 浏览器 (chromium)
+#   3. 构建 Next.js 前端 (production build)
+#   4. 启动 Next.js 预览服务器 (localhost:8801)
+#   5. 运行 Playwright E2E 测试 (apps/web/e2e/*.spec.ts)
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - 'apps/api/**'
+      - 'packages/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 并发闸(2026-11-03):e2e 单跑 54~75min,是唯一能单独把 runner 池占满的工作流
+# (实测 2026-11-03T04:16Z 同时 8 枚 e2e in_progress + 3 枚 queued,占当时 19 个
+# in-progress run 的 42%)。e2e **不承载 required check**(分支保护现读只有
+# `CI / lint-typecheck-test (push)`),所以这里只管"同时占几个 runner",不承担分支保护结论。
+#
+# 两档策略:
+#  · main / develop(push 档):按 ref 分组 + cancel-in-progress true ⇒ 同一 ref 只保留
+#    最新一枚,陈旧 run 秒让位。代价:main 若持续 3~5min 一推,main 档 e2e 会长期停在
+#    "最新那枚"而跑不完 —— 刻意的取舍:用"永远在跑最新"换"不占池";e2e 不是门禁,不欠结论。
+#  · 其余 ref(PR / 特性分支):统一进同一条 `pr-queue` + cancel-in-progress false
+#    ⇒ PR 侧全仓同时最多 1 枚 e2e。代价:PR 的 e2e 要排队(最长约一个 e2e 时长),且队列里
+#    更早的 pending 会被新 pending 顶掉(GitHub 原生语义;被顶掉的 PR 只是没跑 e2e,不挡合并)。
+#  合计硬上限 = 1(main) + 1(develop) + 1(PR 队列) = 3,正常态 ≤2。
+#
+# 为什么不是"2 槽轮转":GitHub 表达式**没有算术运算符**(没有 `%`,也没有 `+ - * /`),
+# 写 `run_number % 2` 会直接让整个 workflow 变成 startup failure(实测 run 41579143968
+# 与 41578405565:created 与 updated 同一秒、jobs=0)。既然无法确定性轮转,就退到
+# "一条 PR 队列"—— 它给出的上限 3 比原来 8 低得多,且语义可读。
+#
+# 为什么不用第三方限流 action:GitHub 原生没有"全仓并发上限",第三方 action 会新增一条
+# 失败面(其 token/网络抖动会让 e2e 直接红);单队列是确定性的、零依赖。
+concurrency:
+  group: "e2e-${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.ref || 'pr-queue' }}"
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.15'
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    # 2026-09-14 复评:647 例全量在 2 workers 下实测 ~14m(本地同量级机器),
+    # CI runner(4c)按 1.5x 余量 + install/build/migrate ≈ 10m → 60min 消除 30min 硬顶
+    # (2026-08-20 起 e2e 连续 400+ 次 cancelled 的直接根因,见 PROJECT_PLAN 2-18)
+    # 2026-10-28 复测并抬到 75min:顶不是被"判红"顶掉的,是被 cancelled 顶掉的 ——
+    # 现读 run 40631427897 / 40634584194 两枚 #1-#17 步全绿、#18「Run Playwright E2E tests」
+    # 结论=cancelled,job 起止 04:16:53→05:18:03 与 04:50:38→05:51:42(均 ≈61m,恰撞 60min 顶);
+    # 同族 run 40651484526 未被砍完,末行现读「31 failed / 664 passed (46.3m)」,整 job 54m。
+    # 60min 只够"全绿"那一档(2026-10-26 最后六枚 success 实测 21-39m):一旦有用例红,
+    # CI 档 retries=2(playwright.config.ts:39)使红用例跑满 3 次尝试,墙钟立刻越过 60m,
+    # 于是"哪个用例红"这份唯一证据被 cancelled 吞掉(§0.3:取不到判定不得写成判过)。
+    # 75 = 最长完整实测 54m + 约 21m 余量;仓为 public(ubuntu-latest 分钟数不受配额限),
+    # 抬高不换成本,只换"红的时候看得见红在哪"。
+    timeout-minutes: 75
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ihui
+          POSTGRES_PASSWORD: ihui_test
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ihui"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      # 2026-09-27 移到 seed 之前:aa83eb70198 把 7 个包 exports 从 src 改 dist 后,
+      # seed 的 tsx 链路(scoped-guard.ts → @ihui/types/dist/index.js)必须先有 dist,
+      # 否则 seed 步 ERR_MODULE_NOT_FOUND,e2e 每轮 2 分钟即败(CI 连红根因,实测 8/8 failure)。
+      - name: Build database package
+        # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时
+        # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
+        run: pnpm --filter @ihui/database run build
+
+      - name: Build workspace deps (topological closure)
+        # `@ihui/api-client` 的 main/module/types/exports **全部指向 ./dist/*,没有 source 兜底**,
+        # 而 dist 不入库 ⇒ 任何把 packages/shared/src/** 拉进 program 的构建都会 TS2307。
+        # 实测受害者:`pnpm --filter @ihui/api run build`(下一步)与 `pnpm --filter @ihui/web run build`
+        # —— `--filter` 直跑 pnpm 不做拓扑构建,不会替我把依赖建好(照 ci.yml 的同名步骤补,
+        # 那条自 2026-08 起就在那儿,只是没被抄进本文件)。
+        # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
+        # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
+        # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
+        # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
+        # 2026-09-27 补:web 的 prebuild 会先构建 extension(wxt),而 @ihui/dom-actions
+        # 只被 extension 依赖、不在 @ihui/web^... / @ihui/api^... 闭包内 ⇒ dist 缺失,
+        # web build 解析失败(run 36261667875 实测)。追加 extension 的依赖闭包(不含本包,
+        # 本包由 web 的 prebuild 构建)。
+        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." --filter "@ihui/extension^..." run build
+
+      # 2026-10-18 根修:与 test-real-db.yml 同款「两遍迁移+守卫」(复用同一守卫脚本,
+      # 判据单点,不复制)。根因:从零库跑迁移链在 journal idx 325(20261018160000,
+      # 按生产库现状写成 no-op)对 0000 初始迁移建出的 uuid id 撞 PG 42804
+      # (dp_noise_added real→boolean 撞 42846),drizzle-kit migrate 只 exit 1 不打原因。
+      # 两遍迁移:第一遍把 1..324 逐条落库(325 预期失败回滚),守卫脚本把 uuid/real/text[]
+      # 形状收敛成迁移与 TS schema 共同期望的形状,第二遍 325 变 no-op 通过。
+      # 生产形状(bigint/boolean/jsonb)上守卫为零动作 no-op,三步全幂等。
+      - name: Run database migrations (with fresh-DB shape guard)
+        working-directory: packages/database
+        env:
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+        run: |
+          if ! pnpm exec drizzle-kit migrate; then
+            echo "::notice::第一遍 migrate 在 idx 325 处失败(从零库预期行为,错误被 drizzle-kit spinner 吞掉;1..324 已逐条提交)"
+          fi
+          node scripts/pre-migrate-fresh-db-guard.mjs
+          pnpm exec drizzle-kit migrate
+
+      - name: Generate ephemeral E2E admin credentials
+        # 管理员口令每次运行随机生成,不落仓库;seed 与 Playwright 步骤经 GITHUB_ENV 共用。
+        run: |
+          echo "E2E_ADMIN_ACCOUNT=e2e_admin" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+
+      - name: Seed E2E 测试用户(test@aizhs.top)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        run: pnpm --filter @ihui/api run seed:test-users
+
+      - name: Seed E2E 知识库条目(knowledge-base.spec 依赖)
+        # JWT_SECRET/CREDENTIALS_ENCRYPTION_KEY 必传:src/config import 链顶层 zod 校验
+        # 缺失即 process.exit(1);CI 无 apps/api/.env,dotenv 无从兜底(2026-09-14 实锤)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        run: pnpm --filter @ihui/api run seed:e2e-knowledge
+
+      - name: Build API
+        run: pnpm --filter @ihui/api run build
+
+      - name: Build web (production)
+        # JWT_SECRET 构建期必传:proxy.ts 中间件 verifyAccessTokenEdge 在 edge bundle
+        # 中读取 process.env.JWT_SECRET;构建期缺失 → 验签恒败 → 所有 /admin/* 被
+        # 307 进 SSO 授权链(im-channels ×4 卡死「授权并跳转」,2026-09-14 实锤;
+        # 本地 .next-e2e 构建带了该 secret 所以从未暴露)
+        # NEXT_PUBLIC_E2E_EXPOSE_STORE(2026-10-21 立):e2e/work-panel.spec P4-5 直调
+        # window.__workPanelStore,production 构建默认不暴露(见 apps/web/src/stores/
+        # work-panel.ts 暴露条件注释);必须构建期注入 —— NEXT_PUBLIC_ 值在 build 时
+        # 内联进客户端 bundle,next start 再设也来不及。
+        env:
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          NEXT_PUBLIC_E2E_EXPOSE_STORE: '1'
+        run: pnpm --filter @ihui/web run build
+
+      - name: Start API server (background)
+        working-directory: apps/api
+        env:
+          NODE_ENV: test
+          PORT: '8802'
+          HOST: '0.0.0.0'
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          # 2026-09-14 CI 实锤(2-18):access token 默认 TTL 15min,CI 全量 45.6m
+          # → 中途过期;应用侧 refresh 轮转消费与 storage 文件互踩 → 晚段用例被
+          # SSO 授权页接管(im-channels ×4 等)。e2e 拉长到 24h 根治,生产不变。
+          JWT_ACCESS_TTL_SECONDS: '86400'
+          # 2026-10-31:只对本环境放开"终端路由"这一格的鉴权档。
+          # 立因:POST /api/terminal/sessions 的 requireAdmin 自 2026-10-28 起多一道管理员
+          # TOTP 闸(plugins/require-permission.ts:265-281,ADMIN_TOTP_MODE 默认 enforce),
+          # 而 e2e_admin 是 seed 出来的测试管理员、不绑 TOTP ⇒ 403 ⇒ 前端 createSession 失败
+          # ⇒ sessions 恒空 ⇒ TerminalPanel 只渲染空态,`.xterm` 结构上永不出现
+          # (ide-editor 用例三连红)。选这个开关而不是 ADMIN_TOTP_MODE=warn:后者会把**全部
+          # admin 面**的 TOTP 闸一起降档,削弱 e2e 对其它 admin 路由的覆盖;本开关是产品已声明
+          # 的自托管出口(routes/terminal.ts 头注),射程只到终端路由(改走 requireAuth)。
+          IHUI_TERMINAL_LOCAL_ENABLED: '1'
+        run: |
+          # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
+          # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)
+          node --import tsx dist/index.js &
+          # 服务冷启动(加载路由/BullMQ/scheduler)在 CI 上实测 >5s,单次 curl 会抢跑;
+          # 轮询等待就绪,最多 60s(2026-09-10 修复:server listening 前单次 curl 失败直接 exit 1)
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8802/health; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API health check timeout after 60s"
+          exit 1
+
+      - name: Start web server (background)
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8802
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+        run: |
+          pnpm start &
+          sleep 5
+          curl -sf http://localhost:8801 || exit 1
+
+      - name: Run Playwright E2E tests
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8801
+          # CI 已在上方 "Seed E2E 测试用户" step 显式 seed,跳过 globalSetup 的重复 seed
+          E2E_SKIP_SEED: '1'
+          # CI 数据库为临时容器,跑完即销毁,无需 globalTeardown cleanup 节省时间
+          E2E_AUTO_CLEANUP: '0'
+          # web 服务器已由上方 "Start web server" step 启动并健康检查;
+          # 不设此项 playwright webServer 会再起一个 → 8801 端口冲突(2026-09-10 CI 实测)
+          PLAYWRIGHT_REUSE_SERVER: '1'
+        # 2026-10-20 实测:red 的成因不是功能坏,是本 workflow 的 services 段只有 postgres + redis
+        #   —— 没有 ai-service(8803)、没有 python Chromium ⇒ 任何"真画面"档用例在这里必然 500
+        #   (apps/web/e2e/browser-hub-smoke.spec.ts 头注自述同一分工:该档归 e2e-browser-hub.yml)。
+        #   覆盖率不丢:专用 workflow 以 `--grep '@browser-hub'` 跑这一档(现读 :358-362)。
+        #   本地现读 `--list`:不加过滤含 browser-hub-smoke 2 条;加本旗后 0 条(余 721 项/107 文件)。
+        run: pnpm exec playwright test --grep-invert "@browser-hub"
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

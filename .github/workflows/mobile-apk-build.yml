@@ -1,0 +1,204 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Build Android APK
+
+# Android APK 全自动构建(2026-08-06 立;2026-11-03 定性为 **dev 包**)。
+# 背景:本机(Windows)clang 存在系统级 rename 问题,RN 原生编译无法完成;
+#       改用 GitHub Actions ubuntu runner 构建(干净 Linux,无此问题)。
+# 流程(全自动):
+#   - 触发:① main 分支 push(仅移动端相关代码变更)② 手动 workflow_dispatch ③ v* tag
+#   - **出包门链(任一红即中止)**:node scripts/mobile-release-gate.mjs
+#     ⇒ RN 闭包 typecheck / RN 闭包测试 / check-mobile-version-code / check-mobile-api-base-bake
+#     与本地构建入口 scripts/build-mobile-rn-release.ps1 共用同一份实现,失败行点名是哪道门。
+#   - ubuntu runner 构建 release 变体 APK + AAB
+#   - 产物定性为 **dev 包**:文件名 ihui-ai-dev-<run_number>.apk/.aab,**禁止发布到 GitHub Release**
+#
+# 2026-11-03 为什么选 dev 包而不是"注入 IHUI_RELEASE_* 走正式签名":
+#   CI 里没有正式 keystore/密码(它们只在机主用户级 ~/.gradle 与 ~/.android,不入库)。
+#   要"正式签名"就得先把私钥搬进 GitHub Secrets —— 那是外部凭据动作,且一旦注入后
+#   build.gradle 缺凭据仍会静默回退 debug 签名,等于把"正式包"的名义挂在一个可能仍是
+#   debug 签名的产物上。当前 CI 无凭据,改名 dev + 禁发布是风险最低且今天就能落地的选项:
+#   用户不会再从 Release 下到一枚 debug 签名的"latest.apk";正式 APK 仍走机主本地
+#   build-mobile-rn-release.ps1(该入口缺凭据直接拒绝构建,产物验收按证书指纹判死)。
+#
+# 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
+#
+# 2026-09-15 修复(GitHub runner 环境漂移,与仓库代码无关):
+#   run #318~#327 连续 10 次失败,均 51~55s 挂在 `Setup Android SDK` 步骤,其后
+#   prebuild / gradle / 打包 / 发布全部 skipped —— APK 完全出不来(#317 及之前全 success)。
+#   失败日志实锤(run #327 的 "6_Setup Android SDK" 段):
+#     Found preinstalled sdkmanager in /usr/local/lib/android/sdk/cmdline-tools/latest ...
+#     Wrong version in preinstalled sdkmanager      ← action 版本判定写死,不认新镜像
+#     [command] .../cmdline-tools/16.0/bin/sdkmanager tools
+#     Warning: Failed to find package 'tools'       ← Google 已下架 legacy tools 包
+#     Error: The process '.../sdkmanager' failed with exit code 1
+#   根因:runner 镜像把 cmdline-tools 升到 16.0,android-actions/setup-android@v3 判定
+#        "Wrong version" 后回退去装早已下架的 `tools` 包,非零退出掐死整条流水线。
+#   修法:直接删掉该 action。ubuntu-latest 本身预装完整 Android SDK
+#        (/usr/local/lib/android/sdk),下面只做「导出 ANDROID_HOME + 接受 licenses」,
+#        AGP 会据此自动补装缺失的 platform/NDK。不引第三方 action = 不再被其版本判定绑架。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    # 仅移动端相关代码变更才自动构建,避免无关提交浪费 CI 分钟数
+    paths:
+      - 'apps/mobile-rn/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      # 本 workflow 自身也纳入触发:改流水线必须能立即自验,否则修了也不知道通没通
+      - '.github/workflows/mobile-apk-build.yml'
+    tags: ['v*']
+
+# 2026-11-03(排队治理):原 group 是**全仓单一槽**且 cancel-in-progress:false —— 实测
+#   本 job 单次执行 3000~3200s(54min 量级,run 41581262015 同族),而 main 每 15~25min
+#   就有新提交;一枚 54min 构建会持续占住 1 个 runner 槽,并把后续 push 的 run 压成
+#   pending(jobs=0,实测 41583759575 / 41581261698)。最近 12 次运行 10 次 cancelled、
+#   0 次产出可用 dev APK —— 现状本来就是"跑不完"。
+# 改为**按 ref 独立槽** + cancel-in-progress:true:main 上永远只建最新提交,旧构建被新提交
+#   挤掉(它们本来也赶不上下一枚提交);tag / workflow_dispatch 在自己的 ref 组里互不干扰,
+#   发版构建不会被 main 的普通提交取消。代价:main 上的 dev APK 只在两次 push 间隔
+#   > 54min 时才会完成。这与改前观测一致,没有净损失;需要可复现产物时走 tag 或手动
+#   workflow_dispatch(那两个 ref 组不与 main 争槽)。
+concurrency:
+  group: android-apk-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    # 2026-10-13 修(P0,真机实测立因):这两个 EXPO_PUBLIC_* 原先只挂在 `expo prebuild` 那一步,
+    # 而真正把 `process.env.EXPO_PUBLIC_*` **内联进 JS 产物**的是其后 gradle 的
+    # `createBundleReleaseJsAndAssets`(metro/babel 在转换期求值)—— 它不在那一步的 env 作用域内
+    # ⇒ 打包时变量为空,`apps/mobile-rn/src/lib/config.ts` 的回退值 `http://localhost:8802`
+    # 被原样内联进 bundle。
+    # 取证(nightly run 38279405459 产物,现读):assets/index.android.bundle 内
+    # `https://api.aizhs.top` 命中 **0** 次、`http://localhost:8802` 命中 1 次;
+    # 且该包 targetSdk=36、清单无 usesCleartextTraffic ⇒ 明文到本地回环也被平台拦
+    # ⇒ 线上 App 每一个请求都失败,登录页恒「网络连接异常」。
+    # iOS 侧 mobile-ios-ipa-build.yml 早已在 xcodebuild 那步补了同款 env ⇒ 只有安卓漏抄。
+    # 提到 job 级:prebuild 与 gradle 打包同读一份,不再有两处可漂移。
+    # 2026-10-21 基址改判:REST 走 www 臂(EdgeOne → 家宽源站,ttfb 现测 0.23~0.29s),
+    # WS 钉在 api 臂(同构造实测 www=404 / api=101,证据与判据见 apps/mobile-rn/src/lib/config.ts
+    # 的 WS_BASE_URL)。两个域名都必须继续活着:EXPO_PUBLIC_* 是 metro 转换期内联进 JS 的,
+    # 已经装在用户机上的旧包仍指向 api.aizhs.top,撤臂等于把没升级的用户整体断网。
+    env:
+      EXPO_PUBLIC_API_BASE_URL: https://www.aizhs.top
+      EXPO_PUBLIC_WS_BASE_URL: https://api.aizhs.top
+      EXPO_PUBLIC_WEB_URL: https://aizhs.top
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup pnpm
+        # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
+        # 显式 version 会触发 "Multiple versions of pnpm specified" 错误(2026-08-17 实测,曾致 workflow 永久失败)
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup Java (Temurin 17)
+        # v4 已进入弃用状态(GitHub 注解明确建议迁移到 v5),v5 参数签名与之兼容
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 替代原 android-actions/setup-android@v3(2026-09-15 移除,原因见文件头注释)。
+      # runner 已预装 SDK,这里只补齐两件 AGP 依赖的前提:环境变量 + licenses。
+      - name: Setup Android SDK (runner 预装,仅接受 licenses)
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)"
+          fi
+          echo "sdkmanager = $SDKMANAGER"
+          "$SDKMANAGER" --version || true
+          # licenses 必须接受,否则 AGP 无法自动下载缺失的 platform / NDK;
+          # 用 || true 兜底:个别 license 交互失败不应掐死整条流水线(build 阶段会再暴露)。
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          echo "--- 已装组件(前 30 行) ---"
+          "$SDKMANAGER" --list_installed 2>/dev/null | head -30 || true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 构建 mobile-rn 的**全部 workspace 依赖闭包**(拓扑序,不含本包)。
+      # 为什么必须有这一步:多个共享包的 package.json 把 exports 指向 dist(产物不入库),
+      # 而 metro / tailwind 是**按运行时 require 去解析**的 —— 这一步缺失时,报错点不在 install、
+      # 不在 typecheck,而是在 gradle 的 createBundleReleaseJsAndAssets:
+      #   Error: Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'
+      # 选择器用 `^...`(该包所有 workspace 依赖的闭包)而不是手工点名:手工清单必然落后于新增依赖
+      # (同型事故本仓记过三次:ci.yml 缺 api-client 前置、test-real-db 缺闭包、这次轮到 design-tokens)。
+      - name: Build mobile-rn's workspace deps (topological closure — their exports point at dist)
+        run: pnpm --filter "@ihui/mobile-rn^..." run build
+
+      # 2026-10-17 起:版本号自动派生 —— 每次构建都按构建时刻算出一个必然比上次大的版本号。
+      #   IHUI_MOBILE_VERSION              → app.config.js → build.gradle 的 versionName(原生)
+      #   EXPO_PUBLIC_IHUI_MOBILE_VERSION  → metro/babel 内联进 JS bundle(src/lib/config.ts)
+      # 两个变量由**同一次计算**产出 ⇒ 界面显示与用户实际安装的包号永远一致。
+      # 为什么不用 "git commit 计数":本仓主干会被并行会话整谱系重写,计数会缩,
+      # 缩一次就等于给用户发一个版本倒退的包 —— Android 降级保护会直接拒绝覆盖安装
+      # (2026-10-12 实测:CI 包 vc=1 覆盖手机上 vc=4 时 install -r 连拒)。
+      - name: Resolve mobile version (auto-derived from build time)
+        run: |
+          KIND=nightly
+          TAG=""
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then KIND=release; TAG="$GITHUB_REF_NAME"; fi
+          # tag 构建必须把 tag 传进去:否则会算出"下载页显示 v0.1.74、装到手机上 App 内显示 0.0.5"
+          # 那种两号对不上(实测到过)。对外发布的构建,版本号必须与发布它的那个 tag 同源。
+          # tee 到 stdout 的同时写进 $GITHUB_ENV ⇒ 后续 prebuild / gradle 两步都能读到
+          node scripts/resolve-mobile-version.mjs --app mobile-rn --kind "$KIND" --tag "$TAG" --emit github | tee -a "$GITHUB_ENV"
+
+      # 门→包绑定(2026-11-03 立):与本地 scripts/build-mobile-rn-release.ps1 共用同一份实现。
+      # 顺序:RN 闭包 typecheck → RN 闭包测试 → check-mobile-version-code → check-mobile-api-base-bake。
+      # 任一红即 step 失败,后续 prebuild/gradle/upload 全部跳过 ⇒ 不产出可发布产物。
+      # 放在 Resolve mobile version 之后:版本号门审的是 IHUI_VERSION_CODE 解析出的那份配置。
+      - name: 'Release gate chain (typecheck → RN tests → version-code → base-bake)'
+        run: node scripts/mobile-release-gate.mjs
+
+      - name: Generate Android project (expo prebuild)
+        working-directory: apps/mobile-rn
+        # EXPO_PUBLIC_* 见 job 级 env(2026-10-13):必须覆盖到 gradle 打包那一步,不能只挂在 prebuild。
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release-variant APK + AAB (dev package)
+        working-directory: apps/mobile-rn/android
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+
+      # dev 包固定带 dev- 前缀,文件名本身即定性:任何人从 artifact 下载页看到的都不是
+      # ihui-ai-latest.apk;CI 不再有发布 Release 的权限(permissions: contents: read)。
+      - name: Prepare dev artifacts (ihui-ai-dev-<run_number>)
+        run: |
+          ls apps/mobile-rn/android/app/build/outputs/apk/release/
+          ls apps/mobile-rn/android/app/build/outputs/bundle/release/
+          cp apps/mobile-rn/android/app/build/outputs/apk/release/app-release.apk "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.apk"
+          cp apps/mobile-rn/android/app/build/outputs/bundle/release/app-release.aab "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.aab"
+          ls -lh ./*.apk ./*.aab
+
+      # 验签(dev 档只判"签名有效",不比对正式 keystore —— CI 没有正式凭据):
+      # 至少保证坏签名/未签名产物不会被当成 dev 包流传。体积基线不在 dev 档判(见脚本头注)。
+      - name: Verify dev APK/AAB signature
+        run: node scripts/mobile-release-artifact-check.mjs --mode dev --apk "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.apk" --aab "./ihui-ai-dev-${GITHUB_RUN_NUMBER}.aab"
+
+      - name: Upload dev artifacts (NOT a release)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ihui-ai-android-dev-apk
+          path: |
+            ihui-ai-dev-${{ github.run_number }}.apk
+            ihui-ai-dev-${{ github.run_number }}.aab
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

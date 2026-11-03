@@ -1,0 +1,116 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { createHmac, randomBytes } from 'node:crypto'
+import { secretsEqual } from '../plugins/internal-service-token.js'
+import { resolveEffectiveNodeEnv } from '../config/index.js'
+
+/**
+ * 视频签名 URL 服务。
+ *
+ * 用于为 lesson/section 视频生成带过期时间的签名 URL,
+ * 防止他人盗链播放。签名算法 HMAC-SHA256,
+ * 签名 payload = `${userId}|${resourceId}|${expiresAt}`,
+ * 附在 URL query 上:`?uid=...&rid=...&exp=...&sig=...`。
+ *
+ * 验证时同样 payload 重新计算 HMAC,与 sig 用 timingSafeEqual 比对。
+ *
+ * 安全加固(2026-07-21):移除硬编码默认 secret,生产环境强制要求 ≥32 字符随机密钥。
+ */
+
+const DEFAULT_TTL_SECONDS = 3600
+let devEphemeralSecret: string | null = null
+
+function getDevEphemeralSecret(): string {
+  if (!devEphemeralSecret) devEphemeralSecret = randomBytes(32).toString('hex')
+  return devEphemeralSecret
+}
+
+function getSecret(): string {
+  const env = process.env.VIDEO_SIGN_SECRET
+  // 判据在**请求期**求值,且复用 config 的唯一解析器 `resolveEffectiveNodeEnv`
+  // (不在本文件另写一份 `NODE_ENV === 'production'`,§22c)。
+  // 为什么不在加载期用 `isProductionGuard` 常量:那是启动瞬间冻结的 bool,于是"生产未配
+  // 密钥"这条 fail-closed 根本无法被驱动 —— 用例改 process.env 后再请求,读到的仍是
+  // 加载时的档位,走开发兜底密钥照样签出可播放链接。生产里两者恒等价(启动即 production),
+  // 差别只在于这一档现在真的能被证明。
+  if (resolveEffectiveNodeEnv() === 'production') {
+    if (!env || env.length < 32 || env === 'ihui-video-sign-secret-change-me') {
+      throw new Error(
+        'VIDEO_SIGN_SECRET 未配置或强度不足(生产环境必须 ≥32 字符随机字符串),请在 .env 中配置后重启。',
+      )
+    }
+    return env
+  }
+  // 开发/测试环境:未配置时使用进程内临时密钥(仅限本地,重启后失效)
+  return env && env.length >= 32 ? env : getDevEphemeralSecret()
+}
+
+export function getDefaultTtlSeconds(): number {
+  const raw = process.env.VIDEO_SIGN_TTL_SECONDS
+  const n = raw ? Number.parseInt(raw, 10) : NaN
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TTL_SECONDS
+}
+
+export function signVideoToken(payload: {
+  userId: string
+  resourceId: string
+  expiresAt: number
+}): string {
+  const base = `${payload.userId}|${payload.resourceId}|${payload.expiresAt}`
+  return createHmac('sha256', getSecret()).update(base).digest('hex')
+}
+
+export function verifyVideoToken(payload: {
+  userId: string
+  resourceId: string
+  expiresAt: number
+  signature: string
+}): boolean {
+  if (!payload.signature || payload.signature.length !== 64) return false
+  const expected = signVideoToken({
+    userId: payload.userId,
+    resourceId: payload.resourceId,
+    expiresAt: payload.expiresAt,
+  })
+  try {
+    // 原实现是 hex 解码后比字节(hex 大小写不敏感),toString('hex') 归一保持该语义;
+    // 比较出口收敛到 secretsEqual(定长散列,无长度泄漏)。
+    const providedHex = Buffer.from(payload.signature, 'hex').toString('hex')
+    return secretsEqual(expected, providedHex)
+  } catch {
+    return false
+  }
+}
+
+export interface SignedVideoUrlInput {
+  baseUrl: string
+  userId: string
+  resourceId: string
+  ttlSeconds?: number
+}
+
+export interface SignedVideoUrlOutput {
+  url: string
+  expiresAt: number
+  signature: string
+}
+
+export function buildSignedVideoUrl(input: SignedVideoUrlInput): SignedVideoUrlOutput {
+  const ttl = input.ttlSeconds ?? getDefaultTtlSeconds()
+  const expiresAt = Math.floor(Date.now() / 1000) + ttl
+  const signature = signVideoToken({
+    userId: input.userId,
+    resourceId: input.resourceId,
+    expiresAt,
+  })
+  const sep = input.baseUrl.includes('?') ? '&' : '?'
+  const url =
+    `${input.baseUrl}${sep}uid=${encodeURIComponent(input.userId)}` +
+    `&rid=${encodeURIComponent(input.resourceId)}` +
+    `&exp=${expiresAt}` +
+    `&sig=${signature}`
+  return { url, expiresAt, signature }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\candidate.json",
+    "sha256": "682b008ce2ceeb45311038920b424b7744b5ca7819f9af8256090164fcb6dee8",
+    "bytes": 8073
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.html",
+    "sha256": "97c0b80bc8318f66683792f3579c65b5701bc33558035c0cfdc8e85896bb5881",
+    "bytes": 869647
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-qoder-trae-deep-20261031-1045\\qoder-trae-deep.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-30T13:12:56.719Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 7547,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 14,
+      "routesOverSuggestedBends": 5,
+      "routesOverSuggestedStretch": 2
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "harness-ckg",
+            "from": "trae-harness",
+            "to": "trae-ckg",
+            "label": "ckg/ 域",
+            "collectionIndex": 1,
+            "artifactIndex": 2
+          },
+          "right": {
+            "id": "cmp-mcp",
+            "from": "trae-toolhost",
+            "to": "ihui-mcp",
+            "label": "对位:MCP server",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "point": [284.00000000000006, 309]
+        },
+        {
+          "left": {
+            "id": "harness-ckg",
+            "from": "trae-harness",
+            "to": "trae-ckg",
+            "label": "ckg/ 域",
+            "collectionIndex": 1,
+            "artifactIndex": 2
+          },
+          "right": {
+            "id": "cmp-aigc",
+            "from": "trae-toolhost",
+            "to": "ihui-aigc",
+            "label": "对齐+超越",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "point": [284.00000000000006, 480]
+        },
+        {
+          "left": {
+            "id": "harness-ckg",
+            "from": "trae-harness",
+            "to": "trae-ckg",
+            "label": "ckg/ 域",
+            "collectionIndex": 1,
+            "artifactIndex": 2
+          },
+          "right": {
+            "id": "cmp-dev",
+            "from": "qoder-remote",
+            "to": "ihui-devices",
+            "label": "对齐(b39)",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "point": [283, 261.4]
+        },
+        {
+          "left": {
+            "id": "q-inbox",
+            "from": "qoder-remote",
+            "to": "qoder-inbox",
+            "label": "同宿主",
+            "collectionIndex": 2,
+            "artifactIndex": 3
+          },
+          "right": {
+            "id": "cmp-harness",
+            "from": "trae-harness",
+            "to": "ihui-ai",
+            "label": "对位:引擎/编排",
+            "collectionIndex": 4,
+            "artifactIndex": 5
+          },
+          "point": [564, 183]
+        },
+        {
+          "left": {
+            "id": "q-imp",
+            "from": "qoder-inbox",
+            "to": "qoder-import",
+            "label": "迁移流(记忆一等)",
+            "collectionIndex": 3,
+            "artifactIndex": 4
+          },
+          "right": {
+            "id": "cmp-mcp",
+            "from": "trae-toolhost",
+            "to": "ihui-mcp",
+            "label": "对位:MCP server",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "point": [546.0666666666667, 265]
+        },
+        {
+          "left": {
+            "id": "cmp-harness",
+            "from": "trae-harness",
+            "to": "ihui-ai",
+            "label": "对位:引擎/编排",
+            "collectionIndex": 4,
+            "artifactIndex": 5
+          },
+          "right": {
+            "id": "cmp-dev",
+            "from": "qoder-remote",
+            "to": "ihui-devices",
+            "label": "对齐(b39)",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "point": [415, 183]
+        },
+        {
+          "left": {
+            "id": "cmp-mcp",
+            "from": "trae-toolhost",
+            "to": "ihui-mcp",
+            "label": "对位:MCP server",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "right": {
+            "id": "cmp-dev",
+            "from": "qoder-remote",
+            "to": "ihui-devices",
+            "label": "对齐(b39)",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "point": [283, 309]
+        },
+        {
+          "left": {
+            "id": "cmp-aigc",
+            "from": "trae-toolhost",
+            "to": "ihui-aigc",
+            "label": "对齐+超越",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "right": {
+            "id": "cmp-dev",
+            "from": "qoder-remote",
+            "to": "ihui-devices",
+            "label": "对齐(b39)",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "point": [283, 480]
+        }
+      ],
+      "detours": [
+        {
+          "relationship": {
+            "id": "q-imp",
+            "from": "qoder-inbox",
+            "to": "qoder-import",
+            "label": "迁移流(记忆一等)",
+            "collectionIndex": 3,
+            "artifactIndex": 4
+          },
+          "bends": 2,
+          "stretch": 1.372
+        },
+        {
+          "relationship": {
+            "id": "cmp-mcp",
+            "from": "trae-toolhost",
+            "to": "ihui-mcp",
+            "label": "对位:MCP server",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "bends": 3,
+          "stretch": 1
+        },
+        {
+          "relationship": {
+            "id": "cmp-aigc",
+            "from": "trae-toolhost",
+            "to": "ihui-aigc",
+            "label": "对齐+超越",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "bends": 3,
+          "stretch": 1.1,
+          "directCorridorBlockers": [
+            {
+              "id": "qoder-import",
+              "label": "竞品数据导入",
+              "box": [290, 360, 250, 96]
+            }
+          ]
+        },
+        {
+          "relationship": {
+            "id": "cmp-dev",
+            "from": "qoder-remote",
+            "to": "ihui-devices",
+            "label": "对齐(b39)",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "bends": 6,
+          "stretch": 1.479
+        },
+        {
+          "relationship": {
+            "id": "gap-q",
+            "from": "qoder-import",
+            "to": "gap-exec",
+            "label": "独立票",
+            "collectionIndex": 10,
+            "artifactIndex": 11
+          },
+          "bends": 3,
+          "stretch": 1.099
+        },
+        {
+          "relationship": {
+            "id": "beyond-in",
+            "from": "ihui-aigc",
+            "to": "beyond",
+            "label": "证据",
+            "collectionIndex": 11,
+            "artifactIndex": 12
+          },
+          "bends": 4,
+          "stretch": 1.176
+        }
+      ],
+      "truncated": true
+    },
+    "hints": [
+      "trae-harness → trae-ckg crosses trae-toolhost → ihui-mcp: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "trae-harness → trae-ckg crosses trae-toolhost → ihui-aigc: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "trae-harness → trae-ckg crosses qoder-remote → ihui-devices: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "qoder-remote → qoder-inbox crosses trae-harness → ihui-ai: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "qoder-inbox → qoder-import crosses trae-toolhost → ihui-mcp: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "trae-harness → ihui-ai crosses qoder-remote → ihui-devices: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "trae-toolhost → ihui-mcp crosses qoder-remote → ihui-devices: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
+      "trae-toolhost → ihui-aigc crosses qoder-remote → ihui-devices: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

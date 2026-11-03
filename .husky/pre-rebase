@@ -1,0 +1,14 @@
+#!/bin/sh
+# ─── rebase 硬拦(2026-10-24,凌晨 stash+rebase 烂尾事故根治)─────────────
+# AGENTS §5b 明令:同步一律 git fetch origin main + git merge --ff-only FETCH_HEAD,
+# 禁止 git pull --rebase;§9b 单分支开发,本仓没有合法 rebase 场景。2026-10-24 02:06
+# 凌晨一次 rebase 重写提交后 stash pop 炸冲突、会话逃逸,index 烂尾 12 小时
+# (事故记录见提交 33d756ebbb3 与 index 烂尾哨兵 check-index-unmerged-age.mjs)。
+# 真有 rebase 需求:IHUI_ALLOW_REBASE=1 + IHUI_ALLOW_REBASE_REASON(≥10 字定向说明)
+# 一并给出才放行,并在 stderr 留痕 —— 失效方向恒为"多要一次定向说明",不是多放一次跳门(§0.10)。
+if [ "$IHUI_ALLOW_REBASE" = "1" ] && [ "${#IHUI_ALLOW_REBASE_REASON}" -ge 10 ]; then
+  printf >&2 "[pre-rebase] 放行(IHUI_ALLOW_REBASE=1):%s\n" "$IHUI_ALLOW_REBASE_REASON"
+  exit 0
+fi
+printf >&2 "\n❌ 本仓禁止 rebase(AGENTS §5b/§9b):同步走 git fetch origin main + git merge --ff-only FETCH_HEAD,或 node scripts/git-sync-converge.mjs;历史重写走 guardian 器物。确需 rebase:IHUI_ALLOW_REBASE=1 IHUI_ALLOW_REBASE_REASON=\"<≥10字定向说明>\" git rebase …\n\n"
+exit 1

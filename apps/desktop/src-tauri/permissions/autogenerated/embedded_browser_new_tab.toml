@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-embedded-browser-new-tab"
+description = "Enables the embedded_browser_new_tab command without any pre-configured scope."
+commands.allow = ["embedded_browser_new_tab"]
+
+[[permission]]
+identifier = "deny-embedded-browser-new-tab"
+description = "Denies the embedded_browser_new_tab command without any pre-configured scope."
+commands.deny = ["embedded_browser_new_tab"]

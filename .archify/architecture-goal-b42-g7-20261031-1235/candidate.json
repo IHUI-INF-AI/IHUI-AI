@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "goal-b42:G7 本地 embedding 回落(离线索引可识别)+ toolhost/Qoder 新证据",
+    "locale": "zh-CN",
+    "subtitle": "对标 Trae ckg -local_embedding 常开能力 · 先对齐再超越 · 2026-10-31",
+    "output": ".archify/architecture-goal-b42-g7-20261031-1235/goal-b42-g7.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1100,
+      880
+    ]
+  },
+  "components": [
+    {
+      "id": "trae-const",
+      "type": "backend",
+      "label": "Trae ckg 本地向量常开",
+      "sublabel": "-local_embedding -embedding_storage_type=sqlite_vec 命令行常量",
+      "tag": "Trae 原生",
+      "pos": [
+        20,
+        60
+      ],
+      "size": [
+        280,
+        100
+      ]
+    },
+    {
+      "id": "indexer",
+      "type": "backend",
+      "label": "codebase_indexer 批量生成",
+      "sublabel": "远端成功→remote · 失败→本地回落(不再整批落空)",
+      "tag": "IHUI 改",
+      "pos": [
+        330,
+        60
+      ],
+      "size": [
+        280,
+        100
+      ]
+    },
+    {
+      "id": "remote",
+      "type": "cloud",
+      "label": "远端 embedding(litellm)",
+      "sublabel": "1536 维神经向量 · 在线通道",
+      "tag": "IHUI",
+      "pos": [
+        640,
+        60
+      ],
+      "size": [
+        250,
+        100
+      ]
+    },
+    {
+      "id": "fallback",
+      "type": "backend",
+      "label": "llm_gateway.embed_local_fallback",
+      "sublabel": "1536 维 char-trigram 哈希 · L2 归一 · 确定性 · 零依赖",
+      "tag": "IHUI 新增",
+      "pos": [
+        640,
+        220
+      ],
+      "size": [
+        270,
+        120
+      ]
+    },
+    {
+      "id": "api-write",
+      "type": "backend",
+      "label": "api indexChunks",
+      "sublabel": "embeddingProvider 列落库 · localEmbedded 计数回传",
+      "tag": "IHUI 改",
+      "pos": [
+        330,
+        230
+      ],
+      "size": [
+        280,
+        100
+      ]
+    },
+    {
+      "id": "pg",
+      "type": "database",
+      "label": "codebase_chunks",
+      "sublabel": "+embedding_provider varchar(32) 迁移 idx359",
+      "tag": "IHUI 改",
+      "pos": [
+        330,
+        400
+      ],
+      "size": [
+        280,
+        100
+      ]
+    },
+    {
+      "id": "search",
+      "type": "frontend",
+      "label": "search / hybrid 检索",
+      "sublabel": "SearchResult 带出 provider(可识别不冒充)",
+      "tag": "IHUI 改",
+      "pos": [
+        330,
+        560
+      ],
+      "size": [
+        280,
+        100
+      ]
+    },
+    {
+      "id": "beyond",
+      "type": "external",
+      "label": "超越轴",
+      "sublabel": "来源可识别 · 不冒充 · 确定性可测 · 存量不回填",
+      "tag": "结论",
+      "pos": [
+        660,
+        420
+      ],
+      "size": [
+        250,
+        180
+      ]
+    },
+    {
+      "id": "evidence",
+      "type": "external",
+      "label": "本轮新证据",
+      "sublabel": "Qoder 扩展重权限面 · contextfs 默认路由 · toolhost 反编译",
+      "tag": "取证",
+      "pos": [
+        20,
+        230
+      ],
+      "size": [
+        280,
+        170
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "c1",
+      "from": "trae-const",
+      "to": "indexer",
+      "label": "对齐:常开→回落档",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c2",
+      "from": "indexer",
+      "to": "remote",
+      "label": "优先"
+    },
+    {
+      "id": "c3",
+      "from": "remote",
+      "to": "fallback",
+      "label": "失败时",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c4",
+      "from": "fallback",
+      "to": "api-write",
+      "label": "local-hash 标注"
+    },
+    {
+      "id": "c5",
+      "from": "indexer",
+      "to": "api-write",
+      "label": "payload 带 provider"
+    },
+    {
+      "id": "c6",
+      "from": "api-write",
+      "to": "pg",
+      "label": "INSERT 带列"
+    },
+    {
+      "id": "c7",
+      "from": "pg",
+      "to": "search",
+      "label": "SELECT 带出"
+    },
+    {
+      "id": "c8",
+      "from": "search",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "c9",
+      "from": "fallback",
+      "to": "beyond",
+      "label": "证据"
+    },
+    {
+      "id": "c10",
+      "from": "evidence",
+      "to": "trae-const",
+      "label": "T5 §2",
+      "fromSide": "right",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "T2§8 缺口当日收口(12:0x 现读)",
+      "items": [
+        "G1/G3/G4/G6 并行席已落地(editor_state/sandbox_metrics/ai-authorship-notes/failure-vocabulary)",
+        "G2 = goal-b41 本席(knowledge_fs ∈ origin)",
+        "G7 = 本席本轮(唯一空白,全链五处)",
+        "G5 形态不同等价物已在;G8 登记不落地(ExecParams 零消费方,死代码禁造)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "诚实性设计(§0.3)",
+      "items": [
+        "local-hash 无神经语义精度:头注/列注释双层声明,不冒充在线质量",
+        "存量行 NULL 不回填不猜测;空文本如实全零(L2=0 不编造方向)",
+        "检索退化由 hybrid keyword 腿兜底;zod 白名单杜绝自由文本冒充通道"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1873 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * API 接口定义 - 对接新架构后端 http://localhost:8801/api
+ */
+import Taro from '@tarojs/taro'
+import { BASE_URL } from '../utils/api-config'
+import { t } from '../i18n'
+import { type UserInfo, type LoginResult } from '../utils/auth'
+import type { SSEEvent } from '../utils/sse-parse'
+import { formatDateByTemplate } from '@ihui/shared'
+// #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
+// @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
+// 仅本端保留读超时常量传参。
+import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
+// W5:chatStream 传输层经 src/lib/sse.ts 薄壳接入共享 runner(传输介质:
+// weapp enableChunked / H5 fetch,由 utils/taro-stream-transport.ts 注入 api-client)
+import { streamSSE } from '@/lib/sse'
+import { resolveAgentTools } from '@/lib/ui-control-tools'
+import type {
+  FetchModelsResult,
+  AgentPermission,
+  VipLevel,
+  SignContractResponse,
+  AlipayMiniappPayResponse,
+  ExamQuestion,
+  // 共享类型(从 api-client 下沉,直接 re-export)
+  Banner,
+  Teacher,
+  MemberInfo,
+  VipPayInfo,
+  VipOrderResult,
+  StudyRecord,
+  ExamPaper,
+  ExamRecord,
+  ChatOptions,
+  ChatResult,
+  // W5:流式事件负载类型(复用 api-client 导出,禁止本端重复定义,保证字段与 web 端一致)
+  InjectionAppliedEvent,
+  RetryScheduledEvent,
+  CitationsEvent,
+  SteerEvent,
+  ToolCallEvent,
+  ToolSummaryEvent,
+  FallbackEvent,
+  ToolDelegateEvent,
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
+  // G-425:done 帧 finishReason 透传事件(载荷口径与 web 端 streamChat.onFinishReason 同一份契约)
+  FinishReasonEvent,
+  // api-client 已有类型(用于本地映射,字段差异见各 mapped type 注释)
+  Course as ApiCourse,
+  Live as ApiLive,
+  Order as ApiOrder,
+} from '@ihui/api-client'
+// D19:terminal_delta 载荷类型复用 @ihui/api-client(与共享 sse-parse 产出 evt.terminalDelta 同一份契约),
+// 禁止端内再声明第二份同名接口(§3 共享层优先)。
+import type { TerminalDeltaEvent } from '@ihui/api-client'
+// D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
+import type { ToolDeltaEvent } from '@ihui/api-client'
+// D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
+import type { TerminalInteractionEvent } from '@ihui/api-client'
+// D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
+// @ihui/api-client 的 GoalUpdateEvent,本端不得抄第二份字段(§3 共享层优先)。
+import type { GoalUpdateEvent } from '@ihui/api-client'
+// D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
+import type { ToolApprovalEvent } from '@ihui/api-client'
+// D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
+import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
+// D77(2026-10-17 落地小程序腿 / 2026-10-19 收编):form_request 帧的**认领层 + 投影**单源在共享层
+// (@ihui/shared/chat/form-request-frame)。端内**不再走 onRawLine 二次认领**:共享解析面
+// (@ihui/shared/utils/sse-parse)已于 2026-10-18 在 meta 泛化兜底之前认领该帧族,
+// 原先"共享面不认领 ⇒ 不走旁路该帧会被折成 meta、kind/fields/actions 全丢"的前提已不成立;
+// 留着旁路就是同一条帧两处认领 —— 共享面改了字段口径时端内这份会静默比它旧。
+// 投影层仍从该共享件取(与 web/RN 同一份判定),只是接线改由 dispatch 承接已认领的事件。
+import type { FormRequestFramePayload } from '@ihui/shared'
+import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
+import type {
+  PlanUpdateEvent,
+  TerminalStartEvent,
+  TerminalEndEvent,
+  // D130(2026-09-30 立):推理强度档位封闭集 —— 值域唯一源在 @ihui/types,端内不抄第二份
+  ReasoningEffort,
+} from '@ihui/types'
+import type { AICardsData } from '@/pkg-ai/ai/cards/types'
+import {
+  signRecurringContract as _signRecurringContract,
+  listRecurringContracts as _listRecurringContracts,
+  getRecurringContract as _getRecurringContract,
+  cancelRecurringContract as _cancelRecurringContract,
+  getSubscriptionStatus as _getSubscriptionStatus,
+  loginBySms as _loginBySms,
+  loginByPhone as _loginByPhone,
+  loginByEmailCode as _loginByEmailCode,
+  sendEmailCode as _sendEmailCode,
+  sendSmsCode as _sendSmsCode,
+  confirmQrLogin as _confirmQrLogin,
+  getBalance as _getBalance,
+  createAlipayMiniappPayment as _createAlipayMiniappPayment,
+} from '@ihui/api-client'
+// D49① + D111:评价(rateChatMessage)/审批(sendToolApprovalResponse)共享端点 re-export(§3 共享层优先,
+// 端内经 @ihui/api-client,不另起传输层);与 web / mobile-rn / extension 三端共用同一把函数。
+import {
+  rateChatMessage as _rateChatMessage,
+  sendToolApprovalResponse as _sendToolApprovalResponse,
+} from '@ihui/api-client'
+// HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
+// 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
+import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
+export type { UserInfo }
+// HTTP 方法 re-export:保持外部 `import { get, post, ... } from '@/api'` 引用不变
+export { get, post, put, patch, del }
+// D136(2026-10-01 立,承 V4 #94/D84):主对话流(chat-stream 通道)审批决议回传的唯一出口。
+// 与 agent 任务流的 sendToolApprovalResponse 分属两套注册表、回传端点不同(V3 #58 路由纪律);
+// 端内一律经 @ihui/api-client,不另起传输层(§3 共享层优先)。
+export { postToolApprovalResponse } from '@ihui/api-client'
+// D49① + D111:评价 / 审批端点 re-export 为本地具名导出,保持 `import { rateChatMessage, sendToolApprovalResponse } from '@/api'`
+// 四端(web / mobile-rn / extension / miniapp)引用一致;真实调用走 @ihui/api-client,不另起传输层(§3 共享层优先)。
+export const rateChatMessage = _rateChatMessage
+export const sendToolApprovalResponse = _sendToolApprovalResponse
+// 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse / ExamQuestion 复用 @ihui/api-client,本地 re-export 保持外部引用不变
+export type {
+  LlmModel,
+  FetchModelsResult,
+  AgentPermission,
+  VipLevel,
+  WechatPayContract,
+  ExamQuestion, // 共享类型(从 api-client 下沉, 直接 re-export)
+  Banner,
+  Teacher,
+  MemberInfo,
+  VipPayInfo,
+  VipOrderResult,
+  StudyRecord,
+  ExamPaper,
+  ExamRecord,
+} from '@ihui/api-client'
+// 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
+export type SignContractResult = SignContractResponse
+// 向后兼容别名:AlipayMiniappPayResult → AlipayMiniappPayResponse(api-client canonical 名)
+export type AlipayMiniappPayResult = AlipayMiniappPayResponse
+
+/* ============ 认证相关(已迁移到 @ihui/api-client 共享端点) ============ */
+
+/** 发送短信验证码 — POST /auth/sms/send (scene='login' 硬编码,与原行为一致) */
+export const sendSmsCode = (phone: string) => unwrapApi(_sendSmsCode(phone, 'login'))
+
+/** 手机号验证码登录 — POST /auth/login/sms (返回 LoginResult,user 为 UserInfo 扩展) */
+export const loginBySms = (phone: string, code: string) =>
+  unwrapApi(_loginBySms(phone, code)) as Promise<LoginResult>
+
+/** 发送邮箱验证码 — POST /auth/email/code (对齐 RN 端 sendEmailCode 用法) */
+export const sendEmailCode = (email: string) => unwrapApi(_sendEmailCode(email, 'login'))
+
+/** 邮箱验证码登录 — POST /auth/login/email (对齐 RN 端 loginByEmailCode) */
+export const loginByEmailCode = (email: string, code: string) =>
+  unwrapApi(_loginByEmailCode(email, code)) as Promise<LoginResult>
+
+/** PC 扫码登录的移动端确认 — POST /auth/qr/confirm(需已登录态) */
+export const confirmQrLogin = (ticket: string) => unwrapApi(_confirmQrLogin(ticket))
+
+/** 手机号密码登录 — POST /auth/login/password (api-client 别名 loginByPhone) */
+export const loginByPassword = (phone: string, password: string) =>
+  unwrapApi(_loginByPhone(phone, password)) as Promise<LoginResult>
+
+/**
+ * 微信登录 —— 小程序端只可能是"小程序登录"这一条腿。
+ *
+ * 2026-10-23 真机实测(微信开发者工具 Stable 2.02.2608080):这里原先转调的是共享客户端的
+ * `loginByWechat`,而它打的是 `POST /auth/login/wechat` —— 那是 **react-native-wechat-lib
+ * 的移动应用授权**端点(本机未配置 WECHAT_MOBILE_*,它如实回 501「微信移动应用登录未配置」),
+ * 与小程序的 jscode2session 完全不是一回事。这条错配一直被"请求根本发不出去"挡着看不见,
+ * 传输层修好后才露出来。URL 的唯一出口 = 下面的 `openId()`。
+ */
+export const loginByWechat = (code: string) => openId(code) as Promise<LoginResult>
+
+/**
+ * 退出登录 — POST /auth/logout(本地实现)
+ *
+ * 2026-10-05(G-1058614):无 body 已是**正确形态**,不必再传 refreshToken ——
+ * P2-18 httpOnly cookie 化之后客户端读不到 refresh_token,吊销只能靠 cookie;
+ * 后端 logoutSchema 是 `z.string().min(1).optional()`,传空串反而被 min(1) 判失败 ⇒ 400。
+ * 旧的"api-client 需传 refreshToken,签名不兼容"注记已失效:api-client 的 `logout()`
+ * 现已接受可选形参,两端契约一致(它发 `{}`,本实现发无 body,后端 route schema 均判通过)。
+ */
+export const logout = () => post('/auth/logout')
+
+/** 获取当前用户信息 — GET /user/profile (本地实现,api-client 用 /auth/me 端点不兼容) */
+export const getProfile = () => get<UserInfo>('/user/profile')
+
+/* ============ 首页 ============ */
+
+// Banner 类型已下沉到 @ihui/api-client(endpoints/banner.ts),上方 re-export
+
+/** 首页资源(轮播、工具栏等) */
+export const getHomePage = () => get<{ banner: Banner[] }>('/content/home')
+
+/**
+ * 运营 banner 列表(独立接口,支持按位置筛选)。
+ * 对接后端 GET /content/banner/list?position=home&status=1
+ * 返回结构: { list: Banner[], total: number }
+ */
+export const getBannerList = (params?: { position?: string; status?: number }) =>
+  get<{ list: Banner[]; total: number }>('/content/banner/list', params)
+
+/* ============ 课程 ============ */
+
+/**
+ * Miniapp-taro Course 类型(基于 api-client Course 做字段映射)
+ * 字段差异:cover → coverUrl,instructor → teacher
+ * miniapp-taro 独有:subtitle / duration / outline
+ * 参考:packages/api-client/src/endpoints/course.ts
+ */
+export type Course = Pick<ApiCourse, 'title'> & {
+  id: string | number
+  subtitle?: string
+  coverUrl: string
+  teacher?: string
+  duration?: string
+  level?: string
+  price?: number
+  description?: string
+  outline?: Array<{ title: string; duration: string; description: string }>
+}
+
+/** 课程列表 */
+export const getCourseList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
+  get<{ list: Course[]; total: number }>('/api/content/course/list', params)
+
+/** 课程详情(与列表同投影,额外带 outline 章节大纲) */
+export const getCourseDetail = (id: string | number) =>
+  get<Course>(`/api/content/course/${encodeURIComponent(String(id))}`)
+
+/* ============ 直播 ============ */
+
+/**
+ * Miniapp-taro Live 类型(基于 api-client Live 做字段映射)
+ * 字段差异:coverUrl → coverImage,status(enum) vs status(number),anchor vs lecturerName,watchCount vs viewCount
+ * 参考:packages/api-client/src/endpoints/live.ts
+ */
+export type Live = Pick<ApiLive, 'title'> & {
+  id: string | number
+  coverUrl: string
+  status: 'upcoming' | 'living' | 'ended'
+  startTime?: string
+  anchor?: string
+  playUrl?: string
+  watchCount?: number
+}
+
+/** 直播列表 */
+export const getLiveList = (params?: { page?: number; pageSize?: number; status?: string }) =>
+  get<{ list: Live[]; total: number }>('/live/list', params)
+
+/** 直播详情 */
+export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
+
+/* ============ 订单 ============ */
+
+/**
+ * Miniapp-taro Order 类型(基于 api-client Order 做字段映射)
+ * 字段差异:id(string|number vs string),type(string vs OrderType),title vs targetTitle,
+ * status(4 值 vs 7 值 OrderStatus),createTime vs createdAt
+ * 参考:packages/api-client/src/endpoints/order.ts
+ */
+export type Order = Pick<ApiOrder, 'orderNo' | 'amount'> & {
+  id: string | number
+  type: string
+  title: string
+  status: 'pending' | 'paid' | 'cancelled' | 'refunded'
+  createTime: string
+}
+
+/** 我的订单列表 — 对接后端 GET /orders/me(返回 { list, total, page, pageSize }) */
+export const getOrderList = (params?: { page?: number; pageSize?: number; status?: string }) =>
+  get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/orders/me', params)
+
+/* ============ AI 对话 ============ */
+
+/**
+ * Miniapp-taro 端聊天消息类型(本地保留:依赖 @ihui/shared BaseChatMessage)。
+ *
+ * 继承 @ihui/shared 的 ChatMessage 通用基类,扩展小程序端独占字段。
+ * 与基类的差异:role 限制为 user/assistant;不使用基类 createdAt。
+ * id 在基类是必填,这里改成可选 —— 端内流式新产生的消息还没有 id,而服务端回放行必须带
+ * (向前翻页按 id 去重的唯一锚点,见 pkg-ai/ai/server-chat-replay.ts 的 mapServerMessage)。
+ * 注:api-client chat.ts 有 ConversationMessage(DB 持久化层),与此处 UI 层 ChatMessage 语义不同。
+ */
+export interface ChatMessage extends Omit<
+  BaseChatMessage,
+  'id' | 'createdAt' | 'role' | 'parentMessageId'
+> {
+  /** Miniapp 端只使用 user / assistant 两种角色(不发送 system) */
+  role: 'user' | 'assistant'
+  /** 服务端消息 id;端内流式行在拿到落库 id 前为空,故不得当必填读 */
+  id?: string
+  /** 创建时间戳(ms) — 对标原 ai_assistant.vue */
+  timestamp?: number
+  /** 图片 URL 列表(对标原 ai_assistant.vue imgUrlList) */
+  images?: string[]
+  /** 视频 URL 列表(对标原 ai_assistant.vue videoUrlList) */
+  videos?: string[]
+  /** 音频 URL(对标原 ai_assistant.vue 语音消息字段;ChatMessageItem 语音气泡的播放腿,
+   *  正文抽取补齐时由 answer-media-extract 写入首条 —— 字段住基类,渲染守卫照旧) */
+  audioUrl?: string
+  /** 语音时长(秒,可选;与 audioUrl 同族) */
+  audioDuration?: number
+  /** token 消耗(对标原 ai_assistant.vue total_tokens) */
+  tokenCount?: number
+  /** 代码块内容(对标原 ai_assistant.vue content_code) */
+  codeContent?: string
+  /** #12 小程序 AI 增强:工具卡片渲染数据(计划 / 工具 / 终端),
+   *  由 SSE 事件累积写入助手消息,随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks */
+  aiCards?: AICardsData
+  /**
+   * 版本族坐标(服务端盖章;端内 live 行没有这两个字段)。
+   * 族根 = `parentMessageId ?? id`,成员按 `siblingIndex` 升序 —— 判族/枚举的唯一入口是
+   * `@ihui/shared/chat/message-version-family` 的 `hasVersionFamilyCoords` / `versionFamilyMembers`,
+   * 端内**不得**另写一套判据(§22c)。
+   */
+  parentMessageId?: string | null
+  siblingIndex?: number | null
+}
+
+// ChatOptions / ChatResult 已下沉到 @ihui/api-client(endpoints/chat.ts),上方 re-export
+
+/** AI 对话（流式可由后端 SSE 处理，此处提供普通接口） */
+export const chat = (messages: ChatMessage[], sessionId?: string, options?: ChatOptions) =>
+  post<ChatResult>('/ai/chat', {
+    messages,
+    sessionId,
+    model: options?.model ?? options?.modelId,
+    agentId: options?.agentId,
+    materialContent: options?.materialContent,
+  })
+
+/**
+ * W5:小程序端流式请求选项(在 @ihui/api-client 的 ChatOptions 之上扩展)。
+ *
+ * 补齐 apps/api/src/routes/ai-chat-stream.ts 的 chatStreamSchema 已支持、
+ * 但跨端共享 ChatOptions 暂未收录的字段。此处本地扩展,避免直接修改
+ * ChatOptions 波及 extension / cli / mobile-rn 等既有引用方。
+ */
+export interface MiniappStreamOptions extends ChatOptions {
+  /** 工作区上下文(对齐 chatStreamSchema.workspaceContext) */
+  workspaceContext?: string
+  /** 智能体可用工具名列表(对齐 chatStreamSchema.agentTools) */
+  agentTools?: string[]
+  /** 计划模式(对齐 chatStreamSchema.plan_mode,snake_case 与后端一致) */
+  plan_mode?: string
+  /** 工具定义列表(对齐 chatStreamSchema.tools) */
+  tools?: Array<Record<string, unknown>>
+  /** 工具选择策略(对齐 chatStreamSchema.tool_choice) */
+  tool_choice?: string | Record<string, unknown>
+  /** D130(2026-09-30 立):推理强度档位(对齐 chatStreamSchema.reasoningEffort)。
+   *  值域唯一源 = @ihui/types 的封闭联合,端内不得抄第二份档位字面量。
+   *  小程序侧首票只做**通道**(控件另票,见 D130 第 5 栏"通道在位、控件另票")。 */
+  reasoningEffort?: ReasoningEffort
+  /** 票59 小程序腿(2026-11-01):regenerate sibling 新回复的版本族坐标。
+   *  经请求体 metadata 透传(网关 chatStreamSchema.metadata 已显式声明这两键,
+   *  载荷键与 web streamChat 的 metadata.parentMessageId/siblingIndex 逐字同形);
+   *  不声明/不发 ⇒ 回复落库不带族,版本切换整链空转。 */
+  parentMessageId?: string
+  siblingIndex?: number
+}
+
+/**
+ * W5:新增流式事件回调集合(chatStream 第 10 个可选参数)。
+ *
+ * 收敛后置于既有 9 个位置参数之后,保证 chat.tsx / ai-assistant / 首页
+ * 三处既有调用完全兼容。事件负载类型直接复用 @ihui/api-client / @ihui/types,
+ * 本端不重复定义,保证与 web 端字段零漂移。
+ */
+export interface StreamEventCallbacks {
+  /** 工具调用开始 */
+  onToolCallStart?: (evt: ToolCallEvent) => void
+  /** 工具调用返回 */
+  onToolResult?: (evt: ToolCallEvent) => void
+  /** subagent 派发 */
+  onSubagentSpawn?: (evt: SubagentSpawnEvent) => void
+  /** subagent 执行进度 */
+  onSubagentProgress?: (evt: SubagentProgressEvent) => void
+  /** subagent 执行结束 */
+  onSubagentEnd?: (evt: SubagentEndEvent) => void
+  /** 工具调用汇总 */
+  onToolSummary?: (evt: ToolSummaryEvent) => void
+  /** 工具委托执行(前端本地工具代理) */
+  onToolDelegate?: (evt: ToolDelegateEvent) => void
+  /** 计划更新 */
+  onPlanUpdate?: (evt: PlanUpdateEvent) => void
+  /** 终端任务开始 */
+  onTerminalStart?: (evt: TerminalStartEvent) => void
+  /** D19 终端实时输出增量(terminal_delta):载荷类型复用 @ihui/api-client,与共享 sse-parse 的 evt.terminalDelta 同构 */
+  onTerminalDelta?: (evt: TerminalDeltaEvent) => void
+  /** D113 工具流中 diff 预览(tool-delta):同一纪律 —— 载荷复用 @ihui/api-client 的 ToolDeltaEvent */
+  onToolDelta?: (evt: ToolDeltaEvent) => void
+  /** D151 命令在等键盘输入(terminal_interaction):载荷复用 @ihui/api-client 的 TerminalInteractionEvent。
+   *  本端只用于渲染"在等什么 + 这里不能代答"的降级文案,**不**接输入口(手机送不进那条进程)。 */
+  onTerminalInteraction?: (evt: TerminalInteractionEvent) => void
+  /** 终端任务结束 */
+  onTerminalEnd?: (evt: TerminalEndEvent) => void
+  /** 主模型失败切换到备用模型 */
+  onFallback?: (evt: FallbackEvent) => void
+  /** token 用量(独立 usage 事件;done 事件的 usage 仍走 onDone)。
+   *  G-403(2026-10-07):缓存两维三态透传 —— 数字(含 0)=真回报;null/缺席=没采到(未知),
+   *  与 api-client UsageEvent、shared sse contract 同口径,绝不把"没采到"写成 0。 */
+  onUsage?: (info: {
+    promptTokens?: number
+    completionTokens?: number
+    totalTokens?: number
+    cacheReadTokens?: number | null
+    cacheWriteTokens?: number | null
+  }) => void
+  /** 断点重连通知(指数退避重试前触发,attempt 从 1 起) */
+  onReconnect?: (attempt: number, delayMs: number) => void
+  /** D34 上下文注入交代(第 45 轮承接):本轮回答真正带上了哪些注入 */
+  onInjectionApplied?: (evt: InjectionAppliedEvent) => void
+  /** D39 重试交代:网关换 key / 退避重试时下发,没有它用户看到的只是"卡住" */
+  onRetryScheduled?: (evt: RetryScheduledEvent) => void
+  /** #11 引用溯源 */
+  onCitations?: (evt: CitationsEvent) => void
+  /** D106 中途引导注入确认(Steer 全链路):载荷与 @ihui/api-client 的 SteerEvent 严格对齐 */
+  onSteer?: (evt: SteerEvent) => void
+  /**
+   * D152(2026-09-29 立,拍板「服务化,但存会话元数据、不建新表」):会话目标(goal)的服务端
+   * 主副本变了 ⇒ 一帧 `goal_updated`。载荷复用 @ihui/api-client 的 GoalUpdateEvent。
+   * 本端**只把状态看见**(一行活动条 / 胶囊),不做输入口 —— 手机上没有 `/goal` 的发起面,
+   * 给一个"看得见状态却改不了状态"的控件是假 affordance(与 D151 本端不接输入口同一口径)。
+   */
+  onGoalUpdate?: (evt: GoalUpdateEvent) => void
+  /**
+   * D136(2026-10-01 立,承 V4 #94/D84):高危工具审批请求帧(tool-approval)。
+   * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseToolApprovalLine 认领解析,
+   * 字段口径与 @ihui/api-client 的 chat-stream 解析腿逐字同(镜像锁见
+   * pkg-ai/ai/__tests__/tool-approval-wiring.test.ts);不注册回调 ⇒ 帧照旧静默丢弃。
+   * 决议回传走 re-export 的 postToolApprovalResponse(端内不另起传输层)。
+   */
+  onToolApproval?: (evt: ToolApprovalEvent) => void
+  /**
+   * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
+   * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
+   * (字段口径与 @ihui/api-client 的 tryParseFormRequest 逐字同,镜像锁见
+   * pkg-ai/ai/__tests__/business-form-wiring.test.ts);不注册回调 ⇒ 该帧族照旧
+   * 走共享解析面的 meta 兜底静默折叠(与 D136 同纪律:注册了才有通道)。
+   * 应答回传走 @ihui/api-client 导出的 buildFormResponseEvent + postFormResponse
+   * (端内不另起传输层;渲染/填写态在 pkg-ai/ai/business-form-card.tsx)。
+   */
+  onFormRequest?: (evt: FormRequestFramePayload) => void
+  /**
+   * G-248 R2(2026-10-16 立):帧级 traceId 的端内投影出口。
+   * 值由共享解析层(@ihui/shared/utils/sse-parse 的唯一认领点)挂在 SSEEvent 信封上,
+   * 本层只透传不另判 —— 键名/合法性口径与 @ihui/api-client 的 streamChat.onTraceId 同名同义:
+   * 本轮首次见到合法值时回调一次,之后同值帧不再重复回调;从未见过 ⇒ 一次都不回调
+   * (消费侧保持"未知",不得折成空串顶掉这一态)。
+   */
+  onTraceId?: (traceId: string) => void
+  /**
+   * G-425(2026-10-07 立,web 腿先行):done 帧的 finish/stop reason 透传通道。
+   * 值由共享解析层(@ihui/shared/utils/sse-parse 的 done 认领点)挂进 SSEEvent,
+   * 上游原样值不归一;**缺席 = 上游没给(旧服务端/老 provider),不是"正常结束"**
+   * —— 缺席时本通道不触发,绝不把"没采到"折成 stop(与 api-client
+   * streamChat.onFinishReason 同一纪律)。
+   */
+  onFinishReason?: (evt: FinishReasonEvent) => void
+}
+
+/**
+ * G-425:done 帧 finishReason 是否表示"输出被 max_tokens 截断"。
+ * 判据已下沉共享层(2026-10-19):唯一实现 = `@ihui/shared/utils/finish-reason`,
+ * 与 web/extension/mobile-rn 同一份。此处只做出口转发,端内不再留判据副本。
+ */
+export { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
+
+/** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
+type SSEError = Error & { code?: number; errorCode?: string; retryAfter?: number }
+
+/** AI 对话 SSE 流式（小程序端 enableChunked / H5 端 fetch ReadableStream 自动降级） */
+export const chatStream = async (
+  messages: ChatMessage[],
+  sessionId: string,
+  options: MiniappStreamOptions,
+  onChunk: (delta: string) => void,
+  onReasoning?: (delta: string) => void,
+  onMeta?: (meta: { sessionId?: string }) => void,
+  signal?: AbortSignal,
+  onCompaction?: (info: {
+    tokensBefore: number
+    tokensAfter: number
+    removedCount: number
+    usageRatio: number
+  }) => void,
+  /** 流结束回调(对标原 ai_assistant.vue total_tokens 显示):ai-service event:done 下发 usage */
+  onDone?: (info: {
+    totalTokens?: number
+    promptTokens?: number
+    completionTokens?: number
+    model?: string
+  }) => void,
+  /** W5:新增事件回调集合(第 10 个可选参数,保持既有位置参数调用兼容) */
+  callbacks?: StreamEventCallbacks,
+  /**
+   * G-815976 流式中断标记帧(partial_done):llm_gateway 在流异常中断且已发过 chunk 时下发,
+   * 载荷字段口径与共享 sse-parse 的 evt.partialDone 逐字一致(fallback_applied/reason/model?)。
+   * 追加为第 11 个可选参数 —— 与 W5 callbacks 同一纪律,不动既有位置参数,老调用方
+   * (含只传到 onDone 的页面与只传 callbacks 的测试驱动)零变化;不注册 ⇒ 帧静默丢弃。
+   */
+  onPartialDone?: (info: { fallback_applied: boolean; reason: string; model?: string }) => void,
+): Promise<void> => {
+  const resolvedModel = options.model ?? options.modelId
+
+  // #12 小程序 AI 增强:内容前缀去重状态(重连后由 sse.ts streamSSE 触发 onReconnect 时启用,
+  // 跳过已渲染前缀;断点续传游标 / 重试 / 读超时 / abort 统一收敛到 sse.ts)
+  let receivedContent = ''
+  let dedupeBuffer = ''
+  let dedupeActive = false
+  let seenTraceId: string | undefined
+
+  const emitDelta = (delta: string): void => {
+    if (!dedupeActive) {
+      receivedContent += delta
+      onChunk(delta)
+      return
+    }
+    dedupeBuffer += delta
+    if (dedupeBuffer.length < receivedContent.length) {
+      if (receivedContent.startsWith(dedupeBuffer)) return
+      onChunk(dedupeBuffer)
+      receivedContent += dedupeBuffer
+      dedupeBuffer = ''
+      dedupeActive = false
+      return
+    }
+    const tail = dedupeBuffer.slice(receivedContent.length)
+    if (dedupeBuffer.slice(0, receivedContent.length) === receivedContent) {
+      if (tail) onChunk(tail)
+      receivedContent += tail
+    } else {
+      onChunk(dedupeBuffer)
+      receivedContent += dedupeBuffer
+    }
+    dedupeBuffer = ''
+    dedupeActive = false
+  }
+
+  // W5:统一事件分发(6 类既有 + 12 类新增 = 18 类,字段名严格对齐 client.ts 契约)
+  const dispatch = (evt: SSEEvent) => {
+    // G-248 R2:帧级 traceId 的透传挂在认领链最外层(与共享 sse-parse 的挂法同形)——
+    // 本层的 switch 会把多数帧折进窄载荷,放在分支里就会漏掉被折掉的那些。
+    if (seenTraceId === undefined && evt.traceId) {
+      seenTraceId = evt.traceId
+      callbacks?.onTraceId?.(evt.traceId)
+    }
+    switch (evt.type) {
+      case 'chunk':
+        if (evt.content) emitDelta(evt.content)
+        break
+      case 'reasoning':
+        if (evt.content) onReasoning?.(evt.content)
+        break
+      case 'meta':
+        if (evt.sessionId) onMeta?.({ sessionId: evt.sessionId })
+        break
+      case 'compaction':
+        if (evt.compaction) onCompaction?.(evt.compaction)
+        break
+      // G-815976:partial_done —— 流异常中断且已发过 chunk 的标记帧。共享 sse-parse 已在
+      // 兜底链之前认领该帧(不认领就整帧丢失),这里只承接已认领的 evt.partialDone;
+      // 不注册回调 ⇒ 帧照旧静默丢弃,半截回答与完整回答完全同形(截断可见性由调用方提示补上)。
+      case 'partial_done':
+        if (evt.partialDone) onPartialDone?.(evt.partialDone)
+        break
+      // D77(2026-10-19 收编,与上一条 partial_done 同一形状):共享 sse-parse 已认领 form_request,
+      // 端内只承接已认领的事件 —— 不在 onRawLine 里再解析一次(见文件头那条注记的理由)。
+      case 'form_request':
+        if (evt.formRequest) callbacks?.onFormRequest?.(evt.formRequest)
+        break
+      case 'done':
+        onDone?.({
+          totalTokens: evt.usage?.totalTokens,
+          promptTokens: evt.usage?.promptTokens,
+          completionTokens: evt.usage?.completionTokens,
+          model: evt.model,
+        })
+        // G-425:done 帧携带的 finishReason 原样透传(共享 sse-parse 已认领该字段);
+        // 缺席 = 上游没给,不触发通道(绝不把"没采到"折成 stop)。
+        if (evt.finishReason) callbacks?.onFinishReason?.({ finishReason: evt.finishReason })
+        break
+      case 'error': {
+        if (!evt.content) break
+        const err = new Error(evt.content) as SSEError
+        err.name = 'SSEError'
+        if (typeof evt.code === 'number') err.code = evt.code
+        if (typeof evt.errorCode === 'string') err.errorCode = evt.errorCode
+        if (typeof evt.retryAfter === 'number') err.retryAfter = evt.retryAfter
+        throw err
+      }
+      // ===== W5 新增事件(负载类型复用 @ihui/api-client / @ihui/types) =====
+      case 'tool-call-start':
+        if (evt.toolCall) callbacks?.onToolCallStart?.(evt.toolCall)
+        break
+      case 'tool-result':
+        if (evt.toolCall) callbacks?.onToolResult?.(evt.toolCall)
+        break
+      // D113:工具流中 diff 预览。共享 sse-parse 已在兜底链之前认领该帧(字段不合法即丢弃,
+      // 绝不回落 chunk),所以"不污染正文"由解析层保证;这里只承接已认领的 evt.toolDelta
+      // —— 与 api-client 的 onToolDelta 专用通道同语义(不注册就等于没接)。
+      case 'tool-delta':
+        if (evt.toolDelta) callbacks?.onToolDelta?.(evt.toolDelta)
+        break
+      case 'subagent_spawn':
+        if (evt.subagentSpawn) callbacks?.onSubagentSpawn?.(evt.subagentSpawn)
+        break
+      case 'subagent_progress':
+        if (evt.subagentProgress) callbacks?.onSubagentProgress?.(evt.subagentProgress)
+        break
+      case 'subagent_end':
+        if (evt.subagentEnd) callbacks?.onSubagentEnd?.(evt.subagentEnd)
+        break
+      case 'tool-summary':
+        if (evt.toolSummary) callbacks?.onToolSummary?.(evt.toolSummary)
+        break
+      case 'tool-delegate':
+        if (evt.toolDelegate) callbacks?.onToolDelegate?.(evt.toolDelegate)
+        break
+      case 'plan_updated':
+        if (evt.planUpdate) callbacks?.onPlanUpdate?.(evt.planUpdate)
+        break
+      case 'terminal_start':
+        if (evt.terminalStart) callbacks?.onTerminalStart?.(evt.terminalStart)
+        break
+      // D19:terminal_delta 实时增量。共享 sse-parse(D19-A1)已在兜底抽取链之前认领该帧
+      // (校验不过直接丢弃,绝不回落 chunk),所以"不得混进正文 delta"由解析层保证;
+      // 这里只承接已认领的 evt.terminalDelta —— 与 api-client 的 onTerminalDelta 专用通道同语义。
+      case 'terminal_delta':
+        if (evt.terminalDelta) callbacks?.onTerminalDelta?.(evt.terminalDelta)
+        break
+      // D151(2026-09-29 立):命令在等键盘输入。共享 sse-parse 已在兜底链之前认领该帧 ——
+      // 在那之前它带一个字符串 sessionId,会一路滑到 `⇒ {type:'meta', sessionId}` 的泛化兜底,
+      // terminalId 与提示原文全丢 ⇒ 本端**结构上不可能**知道命令在等人(派单代理实测探针
+      // 打出 EVENTS=[{type:meta,sessionId:s-9}] 抓到的就是这一格)。
+      // 本端**只渲染降级文案、不接输入口**:手机键盘送不进 ai-service 那条进程,
+      // 给一个按了没反应的输入框是假 affordance,比不给更坏。
+      case 'terminal_interaction':
+        if (evt.terminalInteraction) callbacks?.onTerminalInteraction?.(evt.terminalInteraction)
+        break
+      case 'terminal_end':
+        if (evt.terminalEnd) callbacks?.onTerminalEnd?.(evt.terminalEnd)
+        break
+      case 'fallback':
+        if (evt.fallback) callbacks?.onFallback?.(evt.fallback)
+        break
+      case 'usage':
+        if (evt.usage) callbacks?.onUsage?.(evt.usage)
+        break
+      // ===== D106 第 45 轮:parser 已补齐,这里注册到端内回调表(不注册就等于没接) =====
+      case 'injection_applied':
+        if (evt.injectionApplied) callbacks?.onInjectionApplied?.(evt.injectionApplied)
+        break
+      case 'retry_scheduled':
+        if (evt.retryScheduled) callbacks?.onRetryScheduled?.(evt.retryScheduled)
+        break
+      case 'citations':
+        if (evt.citations) callbacks?.onCitations?.(evt.citations)
+        break
+      // ===== D106:parser 已产出 evt.steer(@ihui/shared/utils/sse-parse),这里注册到端内回调表。
+      // 逐字段显式承接,不透传整个对象,与既有事件分发同口径。
+      case 'steer':
+        if (evt.steer)
+          callbacks?.onSteer?.({
+            phase: evt.steer.phase,
+            text: evt.steer.text,
+            timestamp: evt.steer.timestamp,
+            messageId: evt.steer.messageId,
+          })
+        break
+      // D152(2026-09-29 立):会话目标状态帧。共享 sse-parse 已在 `sessionId ⇒ meta` 的泛化
+      // 兜底**之前**认领该帧(状态与目标原文都在载荷里,不认领就整帧丢失),这里只承接
+      // evt.goalUpdated —— 与 api-client 的 onGoalUpdate 专用通道同语义(不注册就等于没接)。
+      case 'goal_updated':
+        if (evt.goalUpdated) callbacks?.onGoalUpdate?.(evt.goalUpdated)
+        break
+      default:
+        break
+    }
+  }
+
+  // AI 操控本站(2026-09-21):调用方没显式指定时,按"这一句是不是在要求操作程序"预筛本端工具。
+  const agentTools = resolveAgentTools(options.agentTools, messages)
+
+  // W5:请求体(两分支共用,避免字段漂移;对齐 apps/api chatStreamSchema 的 11 个字段)
+  const buildBody = () => ({
+    messages,
+    sessionId,
+    model: resolvedModel,
+    agentId: options.agentId,
+    materialContent: options.materialContent,
+    contextLimit: options.contextLimit ?? 0,
+    workspaceContext: options.workspaceContext,
+    agentTools,
+    plan_mode: options.plan_mode,
+    // D130(2026-09-30 立):推理强度档位。键名按**网关** chatStreamSchema 的 camel 拼写发
+    // (与本 body 里 plan_mode/tool_choice 的 snake 不同形,是网关 schema 就长这样的两套:
+    // 网关只对 permissionMode/reasoningEffort 用 camel,转发行再改 snake 给 ai-service)。
+    // undefined 时 JSON.stringify 省略该键 ⇒ 旧版本小程序零行为变化。
+    reasoningEffort: options.reasoningEffort,
+    tools: options.tools,
+    tool_choice: options.tool_choice,
+    // 票59 小程序腿:版本族坐标走 metadata(与 apps/api ai-chat-stream.ts 的
+    // chatStreamSchema.metadata 声明面对齐;两键缺一即不发 ⇒ 普通回复请求体零变化)。
+    metadata:
+      options.parentMessageId !== undefined && options.siblingIndex !== undefined
+        ? { parentMessageId: options.parentMessageId, siblingIndex: options.siblingIndex }
+        : undefined,
+  })
+
+  // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
+  // @ihui/api-client 的 runResumableSSEStream(重连/指数退避/读超时/断点续传游标的
+  // 唯一实现,与 web 端 streamChat 同源;传输介质经 utils/taro-stream-transport.ts 注入)。
+  // 本端仅保留事件分发(dispatch)与内容前缀去重(dedupe)。
+  await streamSSE({
+    url: BASE_URL + '/ai/chat/stream',
+    body: buildBody(),
+    signal,
+    onEvent: dispatch,
+    // D136(2026-10-01 立,承 V4 #94/D84):tool-approval 帧认领。共享解析面不认领该帧族
+    // ⇒ 不走旁路它就一路静默丢弃(D113 tool-delta 同型缺陷);认领层对非本族行零成本直返。
+    // D77(2026-10-17):form_request 同一旁路追加认领(同一纪律:共享解析面在禁改面内,
+    // 两族各自认领、互不串门 —— tool-approval 命中即 return,form_request 只在其后补问一次)。
+    onRawLine: (line) => {
+      // D136:tool-approval 仍走旁路(共享 sse-parse 至今不认领该帧族,不走旁路它一路静默丢弃)。
+      // D77 的 form_request 已收编到 dispatch 承接共享认领(2026-10-19)—— 两族先例不同,别照着抄。
+      const evt = parseToolApprovalLine(line)
+      if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
+        callbacks.onToolApproval(evt)
+      }
+    },
+    onReconnect: (attempt, delayMs) => {
+      // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
+      dedupeActive = receivedContent.length > 0
+      // 重连是一条新请求 ⇒ 新一轮的 trace 归新一轮(与 api-client 的 onAttemptStart 复位同口径)
+      seenTraceId = undefined
+      callbacks?.onReconnect?.(attempt, delayMs)
+    },
+    readTimeoutMs: STREAM_READ_TIMEOUT_MS,
+  })
+}
+
+/* ============ 用户设置 ============ */
+
+/** 更新用户资料 */
+export const updateProfile = (data: Partial<UserInfo>) => put<UserInfo>('/api/auth/profile', data)
+
+/* ============ VIP / 会员 ============ */
+
+export interface VipInfo {
+  level: number
+  name: string
+  expireTime?: string
+  privileges?: string[]
+  price?: number
+  originalPrice?: number
+}
+
+export const getVipInfo = () => get<VipInfo>('/vip/my')
+export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
+/**
+ * 会员权益清单 —— 打的是在册路由 GET /api/vip/benefits(misc-routes.ts 直出 vip_levels)。
+ * 库里 `benefits` 是**机器键**数组(["unlimitedChat",…] ⇒ 生产现读),这里摊平成页面用的
+ * `{id,title,desc}`:title 走 `vip.benefitList.*` 五语译名(与 web/RN 同一张表、逐字同源),
+ * 没登记译名的键原样透出(不在 api 层拼中文,§19);desc 取档位名,库里无第二行说明文字。
+ */
+const TRANSLATED_BENEFITS = new Set([
+  'unlimitedChat',
+  'exclusiveModel',
+  'prioritySupport',
+  'referral',
+])
+export const getVipPrivilege = () =>
+  get<{
+    list: Array<{ id: string; levelName: string; benefits?: unknown }>
+  }>('/api/vip/benefits').then((r) => ({
+    list: (r.list ?? []).flatMap((lv) =>
+      (Array.isArray(lv.benefits)
+        ? lv.benefits.filter((b): b is string => typeof b === 'string')
+        : []
+      ).map((k) => ({
+        id: `${lv.id}:${k}`,
+        title: TRANSLATED_BENEFITS.has(k) ? t(`vip.benefitList.${k}`) : k,
+        desc: lv.levelName,
+      })),
+    ),
+  }))
+// VipPayInfo / VipOrderResult 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
+export const upgradeVip = (vipLevelId: string) =>
+  post<VipOrderResult>('/vip/order', { vipLevelId, quantity: 1 })
+export const getVipOrderPayInfo = (orderNo: string) =>
+  get<{ status: string; payInfo?: VipPayInfo }>(`/vip/order/${orderNo}/payinfo`)
+
+// MemberInfo 已下沉到 @ihui/api-client(endpoints/member.ts),上方 re-export
+// 旧端点 member/info 两后端零注册(2026-10-17 现读)⇒ 会员页三统计与积分页余额全落 404。
+// 改打活端点 api/levels/current(gamification 注册,需登录;响应 = findCurrentLevel 的
+// {current,next,experience,progress} + points 行),一次带回等级/成长/积分,契约不变、
+// 调用方零改动:integral ← points.points、growth ← experience、level ← current.name,
+// 与 web points/page.tsx 的 levelQ 同源;coupons 后端无用户侧查询端点(现读零命中)⇒ 恒 0,
+// 与调用方 catch 空对象的既有显示一致。
+export const getMemberInfo = (): Promise<MemberInfo> =>
+  get<{
+    current?: { name: string }
+    experience?: number
+    points?: { points: number }
+  }>('/api/levels/current').then((r) => ({
+    level: r.current?.name ?? '',
+    integral: r.points?.points ?? 0,
+    growth: r.experience ?? 0,
+    coupons: 0,
+  }))
+export const getMemberBenefits = () =>
+  get<{ list: Array<{ id: string; title: string; desc: string; icon?: string }> }>(
+    '/member/benefits',
+  )
+// 旧端点 member/integral 同为两后端零注册(2026-10-17 现读)。改打活端点
+// api/points/transactions(gamification 注册,success({list,total,page,pageSize})),逐字段
+// 映射成调用方 IntegralItem 契约(页内零改动,同 RN PointHistoryScreen 口径):
+// type ← description ?? source(description 可空回落 source,不读空串)、
+// amount ← type=spend 取负(后端 amount 恒正)、time ← createdAt 格式化。
+export const getIntegral = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      type: string
+      source: string
+      amount: number
+      description: string | null
+      createdAt: string
+    }>
+    total: number
+  }>('/api/points/transactions', params).then((r) => ({
+    list: (r.list ?? []).map((row) => ({
+      id: row.id,
+      type: row.description ?? row.source,
+      amount: row.type === 'spend' ? -Math.abs(row.amount) : row.amount,
+      time: formatDateByTemplate(row.createdAt, 'YYYY-MM-DD HH:mm:ss'),
+    })),
+    total: r.total,
+  }))
+export const getCouponList = (params?: { status?: string }) =>
+  get<{
+    list: Array<{
+      id: string
+      name: string
+      amount: number
+      minSpend: number
+      expiresAt: string
+      status: 'unused' | 'used' | 'expired'
+    }>
+    total: number
+  }>('/api/coupons', params).then((r) => ({
+    // 后端投影与 web 会员券页同形(title/threshold/expireTime 是本端展示键,映射只在这一层)
+    list: (r.list ?? []).map((row) => ({
+      id: row.id,
+      title: row.name,
+      amount: row.amount,
+      threshold: row.minSpend,
+      expireTime: row.expiresAt,
+      status: row.status,
+    })),
+    total: r.total,
+  }))
+
+/**
+ * 领券中心:现在可领的券模板(承 GET /api/coupons/available)。
+ *
+ * 后端**刻意不返回 code** —— 券码是「按码领取」那条入口的凭据,公开列表里带上它等于
+ * 把入口连同凭据发给所有人。因此本页只能走 claimAvailableCoupon 的按 id 领取,
+ * 不能复用 developer-relay 的按码入口。
+ */
+export const getAvailableCoupons = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      name: string
+      type: string
+      value: number | null
+      minSpend: number | null
+      perUserLimit: number
+      startsAt: string
+      expiresAt: string
+      remaining: number | null
+    }>
+    total: number
+    page: number
+    pageSize: number
+  }>('/api/coupons/available', params).then((r) => ({
+    // title/threshold/expireTime 是本端展示键,映射只在这一层(与 getCouponList 同法)
+    list: (r.list ?? []).map((row) => ({
+      id: row.id,
+      title: row.name,
+      amount: row.value ?? 0,
+      threshold: row.minSpend ?? 0,
+      expireTime: row.expiresAt,
+      remaining: row.remaining ?? null,
+    })),
+    total: r.total ?? 0,
+  }))
+
+/** 领券中心:按券模板 id 领取。归属主体由后端取自鉴权结果,前端不传 userId。 */
+export const claimAvailableCoupon = (couponId: string) =>
+  post<{ id: string; couponId: string; status: string }>(
+    `/api/coupons/${encodeURIComponent(couponId)}/claim`,
+    {},
+  )
+
+/* ============ 支付 / 订单 ============ */
+
+export const getPayResult = async (orderNo: string) => {
+  const res = await get<{ order: { status: string; amount: number } }>(`/payment/orders/${orderNo}`)
+  const raw = res.order.status
+  const status: 'pending' | 'paid' | 'failed' =
+    raw === 'paid' ? 'paid' : raw === 'pending' ? 'pending' : 'failed'
+  return { status, amount: res.order.amount }
+}
+/**
+ * 订单详情 — 对接后端 GET /orders/:orderNo(支持 orderNo 或 UUID id 查询)。
+ * 后端响应 `{ order: EduOrder }`,此处解包返回 Order 本体,保持调用方签名不变。
+ */
+export const getOrderDetail = (id: string | number) =>
+  get<{ order: Order }>(`/orders/${id}`).then((r) => (r.order ?? (r as unknown as Order)) as Order)
+/**
+ * 申请退款 — 对接后端 POST /orders/:id/refund(参数 :id 必须是 UUID)。
+ * 后端响应 `{ refund: EduRefund }`,此处仅返回 void(调用方不读取返回值)。
+ */
+export const refund = (data: { orderId: string; reason: string }) =>
+  post(`/orders/${data.orderId}/refund`, { reason: data.reason })
+/** 我的退款记录列表 — 对接后端 GET /refunds/me(返回 { list, total, page, pageSize }) */
+export const getRefundList = (params?: { page?: number; pageSize?: number; status?: string }) =>
+  get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/refunds/me', params)
+
+/** 创建充值订单（对接 payments/wechat|alipay/create） */
+export interface RechargeCreateResult {
+  outTradeNo: string
+  mock?: boolean
+  payParams?: Record<string, unknown>
+}
+export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
+  post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
+
+/** 创建支付宝小程序支付订单 — POST /payments/alipay/miniapp/create (已迁移到 @ihui/api-client 共享端点) */
+export const createAlipayMiniappPayment = (params: {
+  amount: number
+  orderType?: number
+  subject?: string
+  productId?: string
+  buyerId?: string
+}) => unwrapApi(_createAlipayMiniappPayment(params))
+
+/** 钱包余额 — GET /wallet/balance (已迁移到 @ihui/api-client getBalance 共享端点) */
+export const getWalletBalance = () => unwrapApi(_getBalance())
+
+/* ============ 分销 ============ */
+
+export interface DistributionInfo {
+  level: number
+  totalCommission: number
+  available: number
+  withdrawn: number
+  teamCount: number
+}
+export const getDistributionInfo = () =>
+  get<{
+    totalCommission: number
+    pendingCommission: number
+    withdrawnCommission: number
+    inviteCode: string | null
+  }>('/distribution/overview').then((res) => ({
+    level: 0,
+    totalCommission: res.totalCommission,
+    available: res.pendingCommission,
+    withdrawn: res.withdrawnCommission,
+    teamCount: 0,
+    inviteCode: res.inviteCode,
+  })) as Promise<DistributionInfo & { inviteCode: string | null }>
+export const getDistributionTeam = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      username: string
+      nickname: string | null
+      avatar: string | null
+      createdAt: string
+    }>
+    total: number
+  }>('/distribution/invited-users', params)
+export const getWithdrawalRecords = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      amount: number
+      originalAmount: number
+      fee: number
+      status: number
+      method: string
+      rejectReason: string | null
+      processedAt: string | null
+      createdAt: string
+    }>
+    total: number
+  }>('/distribution/withdrawals', params)
+export const getCommissionRecords = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{ id: string; amount: number; type: string; time: string; nickname?: string }>
+    total: number
+  }>('/distribution/commission', params)
+export const withdraw = (data: { amount: number; type: string }) =>
+  post('/distribution/withdraw', { amount: data.amount, method: data.type })
+export const getDistributionRank = () =>
+  get<
+    Array<{
+      userId: string | null
+      nickname: string | null
+      avatar: string | null
+      totalCommission: number
+    }>
+  >('/distribution/ranking').then((rows) => ({
+    list: (rows ?? []).map((r) => ({
+      id: r.userId ?? '',
+      nickname: r.nickname ?? '',
+      avatar: r.avatar ?? undefined,
+      commission: Number(r.totalCommission),
+    })),
+  }))
+
+/* ============ 用户中心扩展 ============ */
+
+export const updateUserAvatar = (avatar: string) => put('/user/avatar', { avatar })
+export const updateUserNickname = (nickname: string) => put('/user/nickname', { nickname })
+export const bindPhone = (phone: string, code: string) => post('/user/phone/bind', { phone, code })
+export const updatePassword = (oldPwd: string, newPwd: string) =>
+  post('/user/password', { oldPwd, newPwd })
+export const bindEmail = (email: string, code: string) => post('/user/email/bind', { email, code })
+export const realNameAuth = (data: { realName: string; idCard: string }) =>
+  post('/user/realname', data)
+export const submitFeedback = (data: { content: string; contact?: string; images?: string[] }) =>
+  post('/user/feedback', data)
+
+/* ============ 内容 / 社区 ============ */
+
+export interface News {
+  id: string | number
+  title: string
+  coverUrl?: string
+  summary?: string
+  content?: string
+  createTime: string
+  views?: number
+}
+export const getNewsList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
+  get<{ list: News[]; total: number }>('/news/articles', params)
+export const getNewsDetail = (id: string | number) => get<News>(`/news/articles/${id}`)
+/**
+ * 相关新闻推荐 — 复用 GET /news/articles/recommended(后端暂无 :id/related 端点,
+ * 返回运营推荐位文章列表,语义最接近"相关推荐")。
+ * 失败由调用方(detail.tsx) catch 后 fallback 为空数组。
+ */
+export const getRelatedNews = (
+  _id: string | number,
+  params?: { page?: number; pageSize?: number },
+) => get<{ list: News[]; total: number }>('/news/articles/recommended', params)
+/**
+ * 点赞资讯 — POST /news/articles/:id/like(后端已实现,复用 resource_likes 表 toggleLike,
+ * 返回 { liked, likeCount })。调用方 detail.tsx 按返回回滚 UI 状态。
+ */
+export const likeNews = (id: string | number) =>
+  post<{ liked?: boolean; likeCount?: number }>(`/news/articles/${id}/like`)
+
+export interface Circle {
+  id: string | number
+  title: string
+  content: string
+  images?: string[]
+  author?: string
+  avatar?: string
+  createTime: string
+  likes?: number
+  comments?: number
+}
+export const getCircleList = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: Circle[]; total: number }>('/circles', params)
+export const getCircleDetail = (id: string | number) =>
+  get<{ circle: Circle }>(`/circles/${id}`).then((r) => r.circle)
+export const createCircle = (data: { title: string; content: string; images?: string[] }) =>
+  post('/circles', data)
+
+export interface Ask {
+  id: string | number
+  title: string
+  content: string
+  author?: string
+  avatar?: string
+  createTime: string
+  answers?: number
+  adopted?: boolean
+}
+export const getAskList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
+  get<{ list: Ask[]; total: number }>('/asks', params)
+export const getAskDetail = (id: string | number) =>
+  get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
+export const createAsk = (data: { title: string; content: string }) => post('/asks', data)
+
+/* Ask 模块扩展（M-64 + D7/D8 端点） */
+export const getAskCategories = () =>
+  get<{ list: Array<{ id: string; name: string }> }>('/asks/categories')
+export const likeAsk = (id: string | number) =>
+  post<{ id: string; liked: boolean }>(`/asks/${id}/like`)
+export const favoriteAsk = (id: string | number) =>
+  post<{ id: string; favorited: boolean }>(`/asks/${id}/favorite`)
+export const getAskComments = (id: string | number) =>
+  get<{
+    list: Array<{ id: string; content: string; userId: string; createdAt: string }>
+    total: number
+  }>(`/asks/${id}/comments`)
+export const createAskComment = (id: string | number, data: { content: string; pid?: string }) =>
+  post(`/asks/${id}/comments`, data)
+export const updateAskAnswer = (id: string, data: { content: string }) =>
+  patch(`/asks/answers/${id}`, data)
+export const deleteAskAnswer = (id: string) => del(`/asks/answers/${id}`)
+export const getAskMemberAnswers = (params: { userId: string; page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{ id: string; content: string; askId: string; createdAt: string }>
+    page: number
+    pageSize: number
+  }>('/asks/member/answers', params)
+
+export const getTopicList = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{ id: string; name: string; count: number; coverUrl?: string }>
+    total: number
+  }>('/topics', params)
+export const getTopicDetail = (id: string | number) =>
+  get<{ id: string; name: string; posts: Circle[] }>(`/topics/${id}`)
+
+/* ============ 教育扩展 ============ */
+
+// StudyRecord 已下沉到 @ihui/api-client(endpoints/study.ts),上方 re-export
+export const getStudyInfo = () =>
+  get<{ todayMinutes: number; totalMinutes: number; continuousDays: number; courses: number }>(
+    '/study/info',
+  )
+export const getStudyRecords = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: StudyRecord[]; total: number }>('/study/records', params)
+export const getStudyPlan = () =>
+  get<{ list: Array<{ id: string; title: string; target: number; progress: number }> }>(
+    '/study/plan',
+  )
+export const getStudyRank = () =>
+  get<{ list: Array<{ id: string; nickname: string; avatar?: string; minutes: number }> }>(
+    '/study/rank',
+  )
+
+export interface Exam {
+  id: string
+  title: string
+  description?: string | null
+  categoryId?: string | null
+  paperType?: 'normal' | 'random' | 'mock' | 'exam'
+  totalScore: string
+  passScore: string
+  duration: number
+  isPublished?: boolean
+  questionCount: number
+  status?: number
+  categoryName?: string | null
+  createdAt?: string
+}
+export const getExamList = (params?: {
+  page?: number
+  pageSize?: number
+  search?: string
+  categoryId?: string
+  paperType?: 'normal' | 'random' | 'mock' | 'exam'
+}) => get<{ list: Exam[]; total: number }>('/exam/papers', params)
+// 题型词表与作答判据的单一来源:@ihui/api-client(endpoints/exam.ts) 的
+// ShellQuestionType / toShellQuestionType / toShellOptionTexts / toShellOptionKeys /
+// serializeExamAnswers,三端同一份。端内不再自留 'multi_choice'/'fill_blank' 那套旧词表 ——
+// 它与后端实际返回值不符,曾让 answer.tsx 的 typeLabel 五种题型全部落进 default(一律显示"单选题"),
+// 并让作答按下标提交(题库 answer 存的是选项 key "A"/["A","B"],下标恒判错)。
+export {
+  serializeExamAnswers,
+  toShellOptionTexts,
+  toShellQuestionType,
+  type ExamAnswerValue,
+  type ShellQuestionType,
+} from '@ihui/api-client'
+// ExamPaper / ExamQuestion 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export。
+// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder };
+// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null },
+// 与后端 /exam/papers/:id/questions 的实际返回一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)。
+// ⇒ 本端一律吃 api-client 的原始形状,渲染时才用 toShellQuestionType/toShellOptionTexts 投影。
+export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
+export const getExamQuestions = (id: string) =>
+  get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then((r) => ({
+    list: r.questions ?? [],
+  }))
+// ExamRecord 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
+export const getExamRecords = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: ExamRecord[]; total: number }>('/exam/records', params)
+export interface ExamSubmitResult {
+  score: number
+  isPassed: boolean
+  duration: number
+  answers: Array<{ questionId: string; answer: unknown; isCorrect: boolean; score: number }>
+}
+export const startExamRecord = (paperId: string) =>
+  post<{ record: ExamRecord }>(`/exam/papers/${paperId}/start`)
+export const submitExam = (data: {
+  recordId: string
+  answers: Array<{ questionId: string; answer: unknown }>
+}) =>
+  post<{ result: ExamSubmitResult }>(`/exam/records/${data.recordId}/submit`, {
+    answers: data.answers,
+  })
+export const getExamResult = (id: string | number) =>
+  get<{ score: number; pass: boolean; rank?: number; total?: number }>(`/exam/${id}/result`)
+
+/* Exam 模块扩展（D1/D2 端点） */
+export const getExamSignups = (params?: {
+  examId?: string
+  userId?: string
+  page?: number
+  pageSize?: number
+}) =>
+  get<{
+    list: Array<{ id: string; paperId: string; userId: string }>
+    total: number
+    page: number
+    pageSize: number
+  }>('/exam/signups', params)
+export const createExamSignup = (data: { examId: string; userId: string }) =>
+  post<{ id: string; paperId: string; userId: string }>('/api/legacy/exam/signups', data)
+/**
+ * 单条报名详情 —— 在册的是 GET /api/legacy/exam/signups/{id}
+ * (同族 create/cancel/check 三条一直打在 legacy 前缀上，只有这条写成
+ * `/exam/signups/${id}`；裸前缀那条只注册了列表 GET /api/exam/signups，
+ * 没有 /:id ⇒ 这一调用此前必 404)。id 一并过 encodeURIComponent。
+ */
+export const getExamSignup = (id: string) =>
+  get<{ id: string; paperId: string; userId: string }>(
+    `/api/legacy/exam/signups/${encodeURIComponent(id)}`,
+  )
+export const cancelExamSignup = (id: string) =>
+  del<{ deleted: boolean }>(`/api/legacy/exam/signups/${id}`)
+export const checkExamSignup = (params: { examId: string; userId: string }) =>
+  get<{ signed: boolean; signup: { id: string } | null }>('/api/legacy/exam/signups/check', params)
+export const getExamRecommend = () => get<{ list: Exam[] }>('/api/legacy/exam/recommend')
+export const getExamHot = () => get<{ list: Exam[] }>('/api/legacy/exam/hot')
+export const getExamFavorites = (userId: string) =>
+  get<{ list: Exam[] }>('/api/legacy/exam/favorites', { userId })
+export const deleteExamWrongQuestion = (id: string) =>
+  del<{ deleted: boolean }>(`/api/legacy/exam/wrong-questions/${id}`)
+
+/* ============ AI 模块 ============ */
+
+export const getChatHistory = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{ id: string; title: string; time: string; messages: ChatMessage[] }>
+    total: number
+  }>('/ai/history', params)
+/** 页面画幅 → Agnes 档位(后端 agnesImageBody 推荐 1K/2K/3K/4K + ratio,不收 512x512 这类像素值) */
+const AGNES_IMAGE_DIAL: Record<string, { size: string; ratio: string }> = {
+  '512x512': { size: '1K', ratio: '1:1' },
+  '1024x1024': { size: '1K', ratio: '1:1' },
+  '1024x1792': { size: '2K', ratio: '9:16' },
+}
+const AGNES_IMAGE_DEFAULT = AGNES_IMAGE_DIAL['1024x1024']!
+export const generateImage = async (data: { prompt: string; size?: string }) => {
+  // 后端无通用 /ai/image:同栈里只有 Agnes 是同步出图,其余厂商返回异步 taskId(本页只处理单次结果)
+  const dial = AGNES_IMAGE_DIAL[data.size ?? ''] ?? AGNES_IMAGE_DEFAULT
+  const res = await post<{
+    taskId?: string
+    status?: string
+    raw?: { data?: Array<{ url?: string; b64_json?: string }> }
+  }>('/ai/agnes/image', {
+    prompt: data.prompt,
+    model: 'agnes-image-2.5-flash',
+    size: dial.size,
+    ratio: dial.ratio,
+  })
+  const first = res?.raw?.data?.[0]
+  const url = first?.url ?? (first?.b64_json ? `data:image/png;base64,${first.b64_json}` : '')
+  if (!url) throw new Error('image generation returned no url')
+  return { url }
+}
+export const voiceChat = (data: { audio: string }) =>
+  post<{ ai_text?: string; reply?: string; audio?: string }>('/api/ai/audio/chat', {
+    audio_base64: data.audio,
+  }).then((r) => ({ reply: r.ai_text ?? r.reply ?? '', audio: r.audio }))
+/** 后端 agents 表原始字段(用于内部映射,不对外暴露) */
+interface AgentRawRow {
+  agentId: string
+  name: string
+  description: string | null
+  avatar: string | null
+  usageCount: number
+  isVipExclusive: boolean | null
+  agentPrompt: string | null
+  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  prologue?: string | null
+}
+
+/**
+ * 获取智能体列表(对接后端 GET /api/agents/list)。
+ * 后端返回 { list: Agent[], total, page, pageSize },此处映射为前端 AgentInfo 兼容结构。
+ */
+export const getAgentList = () =>
+  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list', {
+    pageSize: 200,
+  }).then((res) => ({
+    list: (res.list || []).map((a) => ({
+      id: String(a.agentId),
+      name: a.name,
+      desc: a.description ?? '',
+      avatar: a.avatar ?? undefined,
+      uses: a.usageCount,
+      isVipExclusive: a.isVipExclusive ?? false,
+    })),
+    total: res.total,
+    page: res.page,
+    pageSize: res.pageSize,
+  }))
+
+/**
+ * 获取智能体详情(对接后端 GET /api/agents/:agentId)。
+ * 后端返回 agent 完整行(含 agentId/description/agentPrompt/isVipExclusive 等驼峰字段),
+ * 此处映射为前端 AgentDetail 兼容结构(id/desc/prompt)。
+ */
+export const getAgentDetail = (id: string | number) =>
+  get<AgentRawRow>(`/agents/${id}`).then((a) => ({
+    id: String(a.agentId),
+    name: a.name,
+    desc: a.description ?? '',
+    avatar: a.avatar ?? undefined,
+    prompt: a.agentPrompt ?? '',
+    prologue: a.prologue ?? '',
+    config: undefined,
+    isVipExclusive: a.isVipExclusive ?? false,
+  }))
+
+/**
+ * 获取指定 Agent 的访问权限 —— 对接后端 GET /api/agent-ext/permission/:agentId。
+ * 类型与路径口径都以共享实现为准:类型复用 @ihui/api-client AgentPermission(单一来源),
+ * 路径同 packages/api-client/src/endpoints/agent.ts。此前本地写成
+ * `/agent-ext/${id}/permission`(段序颠倒)⇒ 两台后端都没有这条路径,
+ * 智能体详情页的权限区恒失败。
+ */
+export const getAgentPermission = (id: string | number) =>
+  get<AgentPermission>(`/api/agent-ext/permission/${encodeURIComponent(String(id))}`)
+
+/* ============ 直播扩展 ============ */
+
+export const getLiveHistory = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: Live[]; total: number }>('/live/history', params)
+export const getLiveCalendar = (params?: { month?: string }) =>
+  get<{ list: Array<{ date: string; lives: Live[] }> }>('/live/calendar', params)
+export const subscribeLive = (id: string | number) => post(`/live/${id}/subscribe`)
+
+// Teacher 已下沉到 @ihui/api-client(endpoints/teacher.ts),上方 re-export
+export const getTeacherList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
+  get<{ list: Teacher[]; total: number }>('/teacher/list', params)
+export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/${id}`)
+
+/* ============ 设置 / 其他 ============ */
+
+/**
+ * 关于页 —— 打在册的 GET /api/about(docs 表 admin 已发布的 about-us 文档)。
+ * 分工不造假：正文取服务端真实文档，App 版本号取端内 `Taro.getAccountInfoSync()`
+ * (服务端版本号不是用户看到的 App 版本)，logo 缺省由页面用本地图 `/pkg-about/assets/images/logo.png`。
+ * 未发布时后端如实 404 ⇒ 这里抛出，页面保留既有"加载失败"提示而不是显示编出来的文案。
+ */
+export const getAbout = async (): Promise<{
+  name: string
+  version: string
+  intro: string
+  logo?: string
+}> => {
+  const r = await get<{ doc: { title: string; content: string } }>('/api/about')
+  const firstBlock = (r?.doc?.content ?? '')
+    .split(/\n\s*\n/)
+    .map((s) => s.trim())
+    .find((s) => s.length > 0)
+  return {
+    name: r?.doc?.title ?? '',
+    version: Taro.getAccountInfoSync?.()?.miniProgram?.version ?? '',
+    intro: (firstBlock ?? '').replace(/^#{1,6}\s*/, ''),
+  }
+}
+export const getHelp = () =>
+  get<{ list: Array<{ id: string; title: string; content: string }> }>('/api/help/articles')
+export const getPrivacy = () => get<{ content: string }>('/privacy')
+export const getContact = () =>
+  get<{ phone: string; email: string; address: string; qq?: string }>('/contact')
+export const getNotificationSettings = () =>
+  get<{ list: Array<{ key: string; title: string; enabled: boolean }> }>('/settings/notification')
+export const updateNotificationSettings = (data: Record<string, boolean>) =>
+  put('/settings/notification', data)
+export const clearCache = () => post('/settings/cache/clear')
+export const clearCacheSize = () => get<{ size: string }>('/settings/cache/size')
+export const setLanguage = (lang: string) => post('/settings/language', { language: lang })
+export const setTheme = (theme: string) => post('/settings/theme', { theme })
+
+/* ============ 智能体市场 ============ */
+// 注：getAgentList / getAgentDetail 已在上方 AI 模块定义，此处不再重复声明
+export const getAgentCategories = () => get('/agents/categories')
+export const collectAgent = (id: string) => post(`/agents/${id}/collect`)
+export const likeAgent = (id: string) => post(`/agents/${id}/like`)
+export const recordAgentUse = (id: string) => post(`/agents/${id}/use`)
+export const getAgentUseHistory = () => get('/agents/use-history')
+export const getAgentCollections = () => get('/agents/collections')
+
+/* ============ 消息中心 ============ */
+export interface AggregateMessages {
+  announcements: Array<{
+    id: string
+    title: string
+    content: string | null
+    isPublished: boolean
+    status: number
+    createdAt: string
+  }>
+  privateMessages: Array<{
+    id: number
+    senderId: string
+    receiverId: string
+    content: string
+    isRead: boolean
+    readTime: string | null
+    createdAt: string
+  }>
+  systemNotices: Array<{
+    id: string
+    title: string
+    content: string | null
+    type: string | null
+    createdAt: string
+  }>
+  unreadCount: {
+    total: number
+    announcements: number
+    private: number
+    system: number
+  }
+}
+export const getMessageRooms = () => get<AggregateMessages>('/messages/aggregate')
+export const getSystemNotices = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: string
+      title: string
+      content: string | null
+      type: string | null
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+  }>('/messages/system-notice/list', params)
+export const getPrivateMessages = (params?: { page?: number; pageSize?: number }) =>
+  get<{
+    list: Array<{
+      id: number
+      senderId: string
+      receiverId: string
+      content: string
+      isRead: boolean
+      readTime: string | null
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+  }>('/messages/private/list', params)
+export const getRoomHistory = (roomId: string, page = 1) =>
+  get(`/messages/rooms/${roomId}/history`, { page })
+export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
+/** 站内消息分页(GET /messages;参数名 msgType 与后端 schema 现读对齐,RN 屏旧写法 `type=` 不在 schema 内) */
+export const getMessages = (params: { page?: number; pageSize?: number; msgType?: string }) =>
+  get<{
+    list: Array<{
+      id: string
+      title: string | null
+      content: string | null
+      msgType: string
+      isRead: boolean
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+    total: number
+  }>('/messages', params)
+/** 标记单条站内消息已读(PUT /messages/:id/read,后端按属主校验) */
+export const markMessageRead = (id: string) => put(`/messages/${id}/read`)
+/** 删除单条站内消息(DELETE /messages/:id) */
+export const deleteMessage = (id: string) => del(`/messages/${id}`)
+/** 标记私信已读(POST /messages/private/:pid/read) */
+export const markPrivateRead = (pid: string) => post(`/messages/private/${pid}/read`)
+/** 删除私信(DELETE /messages/private/:pid) */
+export const deletePrivateMessage = (pid: string) => del(`/messages/private/${pid}`)
+
+/* ============ 通知偏好 ============ */
+export interface NotificationPreferences {
+  emailEnabled: boolean
+  smsEnabled: boolean
+  pushEnabled: boolean
+  inAppEnabled: boolean
+  types: string[]
+}
+export const getNotificationPreferences = () =>
+  get<NotificationPreferences>('/notifications/preferences')
+export const updateNotificationPreferences = (data: Partial<NotificationPreferences>) =>
+  put('/notifications/preferences', data)
+
+/* ============ AIGC ============ */
+export const getAigcList = (params?: { page?: number; pageSize?: number }) =>
+  get<{ list: unknown[]; total: number; page: number; pageSize: number }>(
+    '/content/aigc/list',
+    params,
+  )
+export const publishAigc = (data: unknown) => post('/aigc/publish', data)
+
+/* ============ 模型广场 ============ */
+export const getModelPlazaList = () => get('/models/plaza')
+
+/**
+ * 获取可用模型列表 — GET /llm/models (代理到 AI-service)
+ * 类型复用 @ihui/api-client FetchModelsResult(单一来源)
+ */
+export const fetchModels = () => get<FetchModelsResult>('/llm/models')
+
+/* ============ 排行榜 ============ */
+export const getRankingList = (type?: string) => get('/ranking', { type })
+
+/* ============ Token 智汇值 ============ */
+export const getTokenBalance = () => get('/token/balance')
+export const getTokenRecords = (page = 1) => get('/token/records', { page })
+
+/* ============ 开发者 ============ */
+export const getDeveloperIncome = () => get('/developer/income')
+export const getDeveloperWithdrawalList = () => get('/developer/withdrawals')
+
+export interface DeveloperPricing {
+  id: string
+  name: string
+  price: string
+  period: string | null
+  features: string[]
+  status: number
+  sort: number
+  createdAt: string
+}
+export interface DeveloperSubscription {
+  id: string
+  userId: string
+  pricingId: string | null
+  period: string | null
+  startTime: string
+  endTime: string
+  status: number
+  autoRenew: number
+  orderId: string | null
+}
+export const getDeveloperPricingList = () => get<{ list: DeveloperPricing[] }>('/developer/price')
+export const subscribeDeveloper = (data: {
+  pricingId: string
+  period?: 'monthly' | 'yearly'
+  paymentMethod?: string
+}) =>
+  post<{ orderId: string; orderNo: string; amount: number; pricingId: string; period: string }>(
+    '/developer/subscribe',
+    data,
+  )
+export const getMyDeveloperSubscription = () =>
+  get<{ subscription: DeveloperSubscription | null }>('/developer/subscription')
+
+/* ============ N8N 工作流 ============ */
+export const getN8nWorkflows = () => get('/workflows/n8n')
+export const createN8nAgent = (data: unknown) => post('/workflows/n8n/create', data)
+
+/* ============ 名片 ============ */
+export const getBusinessCard = async () => {
+  const res = await get<{ list?: Array<Record<string, unknown>> }>('/api/business-card/mine')
+  const card = res.list?.[0] ?? {}
+  return { ...card, qrcode: (card['qrCode'] as string) ?? '' }
+}
+
+// 名片保存 —— 对齐后端**唯一**的写入口 `POST /api/business-card/:id`(按 request.userId 做
+// upsert,路径里的 id 被忽略 ⇒ 传 `me` 即可)。web 端 `business-card/edit/PageClient.tsx:130-138`
+// 对这条契约有逐字记录:旧写法 `PUT /business-card/:id` **全仓零注册**、`POST /business-card`(空 id)
+// 也没有 ⇒ 本端原先的 `put('/user/business-card')` 是必然 404 的过期路径(改前实测 404)。
+export const updateBusinessCard = (data: unknown) => post('/business-card/me', data)
+
+/* ============ 知识星球 ============ */
+export const getKnowledgePlanetInfo = () => get('/knowledge-planet/info')
+export const getKnowledgePlanetNews = (page = 1) => get('/knowledge-planet/news', { page })
+
+/* ============ 课程星球 ============ */
+export const getCoursePlanet = () => get('/course-planet')
+
+/* ============ 多登录方式 ============ */
+// 支付宝小程序登录未建:后端只有 GET /auth/alipay/pc/wxCode(换厂商身份),
+// 没有发本站 accessToken/refreshToken 的出口 ⇒ 原先的 post('/auth/alipay/login') 必然 404,
+// 该调用与它的死导出一起摘掉,登录入口在 utils/miniapp-login.ts 当场说明并降级手机号。
+export const register = (data: unknown) => post('/auth/register', data)
+export const changePassword = (data: unknown) => put('/auth/password', data)
+export const accountCancel = () => del('/auth/account')
+
+/* ============ 学习扩展 ============ */
+export const getStudyGroups = () => get('/study/groups')
+export const getStudyGroupDetail = (id: string) => get(`/study/groups/${id}`)
+export const getVideoDetail = (id: string) => get(`/study/videos/${id}`)
+export const getStudyRanking = () => get('/study/ranking')
+
+/* ============ 分销扩展 ============ */
+export const getSubordinates = () => get('/distribution/subordinates')
+export const getInviteeOrders = () => get('/distribution/invitee-orders')
+
+/* ============ 设置扩展 ============ */
+export const getSettings = () => get('/settings')
+export const getPrivacyPolicy = () => get('/settings/privacy')
+export const getUserAgreement = () => get('/settings/agreement')
+
+/* ============ 智能体对话上下文 ============ */
+type ApiParams = Record<string, unknown>
+
+/** 获取智能体 token */
+export const getAgentTokens = (params: ApiParams) => get('/agent/tokens', params)
+/** 保存对话上下文 */
+export const postContext = (data: unknown) => post('/agent/context', data)
+/** 获取用户对话上下文 */
+export const getUserContext = (params: ApiParams) => get('/agent/context', params)
+/** 获取用户对话上下文某个字段 */
+export const getUserContextField = (field: string) =>
+  get<{ field: string; value: unknown }>(`/agent/context/${encodeURIComponent(field)}`)
+/** 删除用户对话上下文某个字段 */
+export const removeContextField = (field: string) =>
+  del<{ success: boolean; deleted: number }>(`/agent/context/${encodeURIComponent(field)}`)
+/** 保存聊天记录 */
+export const saveChatHistory = (data: unknown) => post('/chat/history', data)
+/** 删除聊天记录 */
+export const removeChatHistory = (id: string) => del(`/chat/history/${id}`)
+/** 查询智能体上下文 */
+export const queryAgentContext = (params: ApiParams) => get('/agent/context/query', params)
+/** 创建模型对话 */
+export const createModelChat = (data: unknown) => post('/model/chat', data)
+/** 删除模型对话 */
+export const removeModelChat = (id: string) => del(`/model/chat/${id}`)
+
+/* ============ 语音转文字 ============ */
+/** 语音转文字（调用 DashScope Paraformer / qwen3-asr） */
+export const fetchAudioText = (audioUrl: string) =>
+  post<{ text: string }>('/ai/audio/recognize', { audio_url: audioUrl })
+
+/* ============ AIGC 多媒体生成（后端 aiVendorRoutes 注册于 /api/ai 前缀） ============ */
+/** 通义万相 - 图片生成（POST /api/ai/dashscope/image） */
+export const generateImageDashscope = (data: unknown) => post('/ai/dashscope/image', data)
+/** 通义万相 - 图片编辑（POST /api/ai/dashscope/image-edit） */
+export const editImageDashscope = (data: unknown) => post('/ai/dashscope/image-edit', data)
+/** 通义万相 - 视频生成（POST /api/ai/dashscope/video） */
+export const generateVideoDashscope = (data: unknown) => post('/ai/dashscope/video', data)
+/** 腾讯混元3D - 提交生成（POST /api/ai/tencent/hunyuan3d/submit） */
+export const generate3dTencent = (data: unknown) => post('/ai/tencent/hunyuan3d/submit', data)
+/** 豆包 - 图片生成（POST /api/ai/doubao/image） */
+export const generateImageDoubao = (data: unknown) => post('/ai/doubao/image', data)
+/** 豆包 - 图片编辑（POST /api/ai/doubao/image-edit） */
+export const editImageDoubao = (data: unknown) => post('/ai/doubao/image-edit', data)
+/** 豆包 - 视频生成（POST /api/ai/doubao/video） */
+export const generateVideoDoubao = (data: unknown) => post('/ai/doubao/video', data)
+/** 即梦 - 图片生成（POST /api/ai/volcengine/jimeng/image） */
+export const generateImageJimeng = (data: unknown) => post('/ai/volcengine/jimeng/image', data)
+/** 火山引擎 - 图片生成（POST /api/ai/volcengine/visual/generate，匹配 :reqKey 路由） */
+export const generateImageVolcengine = (data: unknown) =>
+  post('/ai/volcengine/visual/generate', data)
+/** 可灵 - 视频生成（POST /api/ai/kling/task/create，对口型 lip-sync 任务） */
+export const generateVideoKling = (data: unknown) => post('/ai/kling/task/create', data)
+/** 可灵 - 图片生成（POST /api/ai/kling/image，后端暂无此路由，调用将返回 404） */
+export const generateImageKling = (data: unknown) => post('/ai/kling/image', data)
+
+/* ============ 课程 / 视频内容管理 ============ */
+/** 课程分组详情 */
+export const getGroupDetail = (id: string) => get(`/learn/group/${id}`)
+/** 新增课程分组 */
+export const addGroup = (data: unknown) => post('/learn/group', data)
+/** 更新课程 */
+export const coursePut = (id: string, data: unknown) => put(`/learn/course/${id}`, data)
+/** 删除课程 */
+export const courseDelete = (id: string) => del(`/learn/course/${id}`)
+/** 新增视频 */
+export const addVideo = (data: unknown) => post('/learn/video', data)
+/** 更新视频 */
+export const videoPut = (id: string, data: unknown) => put(`/learn/video/${id}`, data)
+/** 删除视频 */
+export const videoDelete = (id: string) => del(`/learn/video/${id}`)
+/** 发布课程 */
+export const issueCourse = (id: string) => post(`/learn/course/${id}/issue`)
+/** 下架课程 */
+export const delistCourse = (id: string) => post(`/learn/course/${id}/delist`)
+/** 视频评论列表 */
+export const getVideoCommentList = (params: ApiParams) => get('/learn/video/comments', params)
+/** 新增视频评论 */
+export const addVideoComment = (data: unknown) => post('/learn/video/comment', data)
+/** 视频日志操作 */
+export const videoLogOperate = (data: unknown) => post('/learn/video/log', data)
+
+/* ============ 分销高级功能 ============ */
+/** 获取微信二维码 */
+export const getWxCode = (params: ApiParams) => get('/distribution/wx-code', params)
+/** 分销流量列表 */
+export const getFlowList = (params: ApiParams) => get('/distribution/flow', params)
+/** 分销流量订单列表 */
+export const getFlowOrderList = (params: ApiParams) => get('/distribution/flow/orders', params)
+/** 提现状态查询 */
+export const getWithdrawalStatus = (id: string) => get(`/distribution/withdrawal/${id}/status`)
+
+/* ============ 分享功能 ============ */
+/** 智能体创建分享 */
+export const agentCreationShare = (data: unknown) => post('/agent/creation/share', data)
+/** 首次分享状态查询 */
+export const checkFirstShareStatus = () => get('/agent/creation/share/first-status')
+/** 首次分享 */
+export const firstShare = (data: unknown) => post('/api/share/first-claim', data)
+/** 根据分享码获取内容 */
+export const getShareContentByCode = (code: string) => get(`/api/share/content/${code}`)
+
+/* ============ 其他扩展 API ============ */
+/** 绑定用户 */
+export const bindUser = (data: unknown) => post('/auth/bind-user', data)
+/** 微信手机号登录 — 对齐后端 POST /auth/wechat/mini/phone */
+export const getPhoneNumber = (data: { code: string; phoneCode?: string }) =>
+  post('/auth/wechat/mini/phone', data)
+/** 微信手机号「一键登录」— 对齐后端 POST /auth/wechat/mini/one-tap-login
+ *
+ * 与上面 getPhoneNumber 的区别不是命名偏好:那支第 1145 行 `await authenticate(request)`
+ * 要求已登录、且只回 {userId, phone} 不发 token,所以它只能用于「已登录用户换绑手机号」,
+ * 拿它做登录是结构性死路(新用户进不去、老前端读 .token 恒为空)。
+ * 两个 code 都由微信服务端签发、一次性;手机号是微信验证过的结果,不是客户端自报字段。
+ *
+ * 2026-10-23 真机实测:这一腿后端已回 200 `{code:0,data:{accessToken,refreshToken,user}}`,
+ * 端上却仍是游客 —— 因为这里把 `post()` 的结果又喂了一遍 `unwrapApi`。`post()` 内部**已经**
+ * 调过 unwrapApi 并返回解包后的 data,第二次解包读到的是 `{accessToken,...}`,它的 `.success`
+ * 恒为 undefined ⇒ 直接落进失败分支:`showToast({title: r.error})` 的 title 是 undefined,
+ * 微信当场抛 `errno 1001 parameter.title should be String instead of Undefined`,
+ * 再 `throw new Error(undefined)` 被调用方的 catch 吃掉 ⇒ 按钮看起来"没反应"。
+ * 同文件其余 unwrapApi 包的都是 `@ihui/api-client` 的裸 endpoint(`_` 前缀那些),
+ * 只有这一处包的是端内 helper —— 形状锁见 tests/api-no-double-unwrap.test.ts。 */
+export const oneTapLogin = (data: { loginCode: string; phoneCode: string }) =>
+  post<LoginResult>('/auth/wechat/mini/one-tap-login', data)
+/** 查询是否已设置密码 */
+export const pwdExist = (phone: string) =>
+  get<{ exists?: boolean }>(`/api/auth/exist/${phone}`).then((r) => !!r.exists)
+/** 关闭订单 — 对接后端 POST /orders/:id/cancel(参数 :id 必须是 UUID) */
+export const closeOrder = (orderId: string) => post(`/orders/${orderId}/cancel`, {})
+/** 微信支付 JSAPI — 对齐后端 POST /payments/wechat/create(query 传参) */
+export const wechatPay = (params: {
+  amount: number
+  openId?: string
+  orderType?: string
+  productId?: string
+  description?: string
+}) => {
+  const qs = new URLSearchParams()
+  qs.append('amount', String(params.amount))
+  if (params.openId !== undefined) qs.append('openId', params.openId)
+  if (params.orderType !== undefined) qs.append('orderType', params.orderType)
+  if (params.productId !== undefined) qs.append('productId', params.productId)
+  if (params.description !== undefined) qs.append('description', params.description)
+  return post(`/payments/wechat/create?${qs.toString()}`)
+}
+/** Base64 上传文件 */
+export const uploadByBase64 = (data: unknown) => post('/files/upload/base64', data)
+/** 资讯分类 */
+export const getInformationCategory = () => get('/news/categories')
+/** 商品选择列表 */
+export const selectGoods = (params: ApiParams) => get('/goods/select', params)
+/** 商品详情 */
+export const getProduct = (id: string) => get(`/goods/${id}`)
+
+/* ============ 智能体收费配置 ============ */
+/** 根据智能体 ID 获取收费配置 */
+export const getChargeInfoById = (agentId: string | number) => get(`/agents/charge/${agentId}`)
+/** 创建付费记录 */
+export const createPayHistory = (data: unknown) => post('/agents/charge/pay-history', data)
+/** 创建智能体收费配置 */
+export const createZntCharge = (data: unknown) => post('/agents/charge', data)
+/** 修改智能体收费配置 */
+export const putZntCharge = (data: unknown) => put('/agents/charge', data)
+/** 删除智能体收费配置 */
+export const deleteZntCharge = (id: string | number) => del(`/agents/charge/${id}`)
+/** 获取智能体审核记录列表 */
+export const getZntList = (params: ApiParams) => get('/agents/charge/list', params)
+
+/* ============ 开发者收入明细 ============ */
+/** 收入详情 */
+export const getBuyInfo = (params: ApiParams) => get('/api/developer/income', params)
+/** 收入列表 */
+export const getBuyList = (params: ApiParams) => get('/api/developer/income', params)
+
+/* ============ 广场发布管理 ============ */
+/** 发布广场列表 */
+export const getPlazaList = (params: ApiParams) => get('/plaza/list', params)
+/** 发布广场详情 */
+export const getPlazaInfoById = (id: string | number) => get(`/plaza/${id}`)
+
+/* ============ 视频分片上传 ============ */
+
+/* ============ 操盘手数据统计 ============ */
+/** 获取操盘手个人信息卡数据 */
+export const getOperatorDataCardData = (params: ApiParams) => get('/operator/data-card', params)
+
+/* ============ AI 模型扩展 ============ */
+/** 获取我的创作内容 */
+export const getMyCreation = (params: ApiParams) => get('/ai/my-creation', params)
+/** 获取 AI 团队智能体类型 */
+export const getAgentType = () => get('/agents/types')
+/** 获取模型列表（统一接口） */
+export const getCozeApiList = (params?: ApiParams) => get('/api/llm/models', params)
+
+/* ============ 音频 / Sora ============ */
+/** Sora 请求结束 */
+export const soraRequestEnd = (data: unknown) => post('/api/ai/sora/request/end', data)
+
+/* ============ 智能体列表变体 ============ */
+/** 获取智能体列表（base1） */
+export const getAgentListBase1 = (params: ApiParams) => get('/agents/base1-list', params)
+/** 获取智能体列表（全部） */
+export const getAgentListAll = (params: ApiParams) => get('/agents/all-list', params)
+/** 获取智能体信息 */
+export const getAgentInfo = (params: ApiParams) => get('/agents/info', params)
+
+/* ============ 智汇值消耗记录 ============ */
+/** 获取智汇值消耗记录 */
+export const getZHZ = (params: ApiParams) => get('/agents/zhz', params)
+/** 获取智汇值消耗详情 */
+export const getZHZDMX = (params: ApiParams) => get('/agents/zhz-detail', params)
+
+/* ============ 登录变体 ============ */
+/** 微信小程序登录(获取 openId)— 对齐后端 GET /auth/wechat/mini/login */
+export const openId = (code: string) => get('/auth/wechat/mini/login', { code })
+/* ============ 学习 / 视频管理扩展 ============ */
+/** 获取智能体列表（学习用） */
+export const getAgentsAlllist = (params: ApiParams) => get('/agents/all-list-study', params)
+
+/* ============ 名片变体 ============ */
+/** 上传名片（变体 a） */
+export const uploadBusinessCarda = (data: unknown) => post('/business-card/upload-a', data)
+
+/* ============ 其他 ============ */
+
+/* ============ 连续包月/自动续费(已迁移到 @ihui/api-client 共享端点) ============= */
+// WechatPayContract 类型已 re-export 自 @ihui/api-client(见文件顶部)
+
+export const signRecurringContract = (params: {
+  planId: string
+  productId?: string
+  openid?: string
+}) => unwrapApi(_signRecurringContract(params))
+
+export const listRecurringContracts = () => unwrapApi(_listRecurringContracts())
+
+export const getRecurringContract = (id: string | number) => unwrapApi(_getRecurringContract(id))
+
+export const cancelRecurringContract = (id: string | number, reason?: string) =>
+  unwrapApi(_cancelRecurringContract(id, reason))
+
+export const getSubscriptionStatus = () => unwrapApi(_getSubscriptionStatus())
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

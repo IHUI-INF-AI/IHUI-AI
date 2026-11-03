@@ -1,0 +1,896 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * gen-rn-compat.mjs —— 小程序端 RN 兼容层的**图标面**生成器(默认只读预演,`--write` 才落盘)。
+ *
+ * 为什么必须生成而不是手写:共享层(packages/app)取图标走 `lucide-react-native` 具名导入,
+ * 小程序端只要有一个名字没人产出,那一屏就整块编译失败。手写清单必然追不上屏的增长
+ * (2026-10-26 现读:共享层 78 个文件用了 87 个图标名)。本器把"图标覆盖面"变成
+ * 一条可重跑的生成腿 —— 新增图标只需重跑本器,不需要任何人记得登记。
+ *
+ * 判据零复算(§0.6):SVG 构形 import scripts/gen-taro-lucide-icons.mjs 的 __test__.generate
+ * (与端内静态 svg 同一个 lucide 取源与同一段解析代码)。
+ *
+ * 取材:名字全集来自 **HEAD blob**(§0.4),扫 packages/app/src 与 apps/mobile-rn/src 两处
+ * `import { ... } from 'lucide-react-native'`;取不到 HEAD ⇒ exit 2「未判定」,不回落工作树。
+ *
+ * Usage:
+ *   node scripts/gen-rn-compat.mjs              # 预演:打印将产出的图标名与缺口
+ *   node scripts/gen-rn-compat.mjs --write      # 写 icons-generated.tsx + route-map.generated.ts
+ *   node scripts/gen-rn-compat.mjs --check      # 已产出文件与现读全集对账(供守门 import)
+ */
+/* eslint-disable no-console -- CLI 工具,需 console 输出预演/落地清单 */
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { __test__ as lucide } from './gen-taro-lucide-icons.mjs'
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
+// 载荷完好性判据取 watermark.mjs 那一份(§0.6 单一真相源):本文件不得再抄第二个标记字面量。
+// 该模块受 isDirectRun 守卫(§22d),被 import 时不跑主流程。
+import { __test__ as watermark } from './watermark.mjs'
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
+const R = (...p) => join(ROOT, ...p)
+const OUT_REL = 'apps/miniapp-taro/src/rn-compat/icons-generated.tsx'
+/**
+ * 归属闸 + 落点申报(2026-11-03 立,这是本器能挂守护自动档的**前置条件**)。
+ * 判据一律借单源,本文件不写第二份(§0.6 / 门 191):
+ *   · `ownershipGate`/`isCleanOwned` ← lib/git-paths.mjs(三枚 lander 与 fix-rn-color-literals 同尺);
+ *   · `worktreeBlobOid` 本文件自带局部包装,但**命令借单源** `lib/face-reader.mjs` 的 `gitRaw`
+ *     (与 gen-ui-mirror.mjs:99 同一形制:同一把 `hash-object -- <rel>`,自拼裸 git 或换参数
+ *      = 两侧算法不一致 ⇒ 收编侧永远 contested);
+ *     —— 原写法 import `auto-register-cross-end.mjs` 取同名 helper,实测**一 import 就跑批**
+ *     (它自己的 isDirectRun 守卫挡不住顶层副作用:未知旗那轮先打出了它的结论行),
+ *     被 import 的模块有写盘副作用 ⇒ 本器每次被调用(含守护腿、含门 251 的 --check 出口)都会
+ *     连带执行别人的主流程,这条依赖必须拆掉。
+ *   · `appendLanding` ← lib/cross-end-landing-ledger.mjs。
+ * 立因:本器写的是两份派生产物,而多会话共享工作区里这些产物常年被并发会话/守护轮持有现场;
+ * 没有归属闸就自动写档 = 覆盖别人的未提交工作(§12/§16 事故型),与本仓"提交链不代摘他人暂存"同条禁令。
+ */
+import { appendLanding } from './lib/cross-end-landing-ledger.mjs'
+import { isCleanOwned, ownershipGate } from './lib/git-paths.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
+
+/** 实测工作树 blob 的 oid;取不到返回 null(调用方不得把 null 当"已核验")。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root))
+      .trim()
+      .toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 在册短名:与 parity-auto 的 stage id / 守护腿标签同一族命名(逐字取既有自称,不自立新名)。 */
+export const CROSS_END_LEG = 'rn-compat'
+
+/** lucide PascalCase 名 → kebab-case 文件名(BarChart3 → bar-chart-3;数字前后都要断) */
+function kebab(name) {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2')
+    .replace(/([a-zA-Z])(\d)/g, '$1-$2')
+    .replace(/(\d)([a-zA-Z])/g, '$1-$2')
+    .toLowerCase()
+}
+
+/**
+ * PascalCase 名 → 实际图标文件。
+ * 先按 kebab 直取;取不到就按**每个图标文件自述的默认导出名**建一张权威表
+ * (`export { __iconNode, Trash2 as default }`)。理由:lucide 版本升级会改名文件
+ * (bar-chart-3 → chart-column 这类),按名猜文件必然腐烂;而文件里的默认导出名
+ * 就是 `lucide-react` 对外出口的那个名字 —— 以它为准才叫现读,不是以我的拼写规则为准。
+ */
+let ICON_INDEX_CACHE = null
+function iconFileIndex() {
+  if (ICON_INDEX_CACHE) return ICON_INDEX_CACHE
+  const map = new Map()
+  for (const file of readdirSync(lucide.LUCIDE_DIR)) {
+    if (!file.endsWith('.mjs')) continue
+    const src = readFileSync(join(lucide.LUCIDE_DIR, file), 'utf8')
+    const m = /export \{ __iconNode, ([A-Za-z0-9]+) as default \}/.exec(src)
+    if (m) map.set(m[1], file.replace(/\.mjs$/, ''))
+    const alias = /export \{ default \} from '\.\/([\w-]+)\.mjs;?/.exec(src)
+    if (alias) map.set(file.replace(/\.mjs$/, ''), alias[1])
+  }
+  ICON_INDEX_CACHE = map
+  return map
+}
+
+function resolveIconKey(name) {
+  const direct = kebab(name)
+  if (existsSync(join(lucide.LUCIDE_DIR, `${direct}.mjs`))) return direct
+  const idx = iconFileIndex()
+  const byPascal = idx.get(name)
+  if (byPascal) return byPascal
+  const kebabToPascal = new Map([...idx.entries()].map(([p, k]) => [k, p]))
+  const viaKebab = kebabToPascal.get(direct)
+  return viaKebab ? idx.get(viaKebab) : null
+}
+
+/** 从某个面的源码里抽出 lucide 具名导入全集 */
+function collectIconNames(files) {
+  const names = new Set()
+  for (const { path: filePath, text } of files) {
+    const re = /import\s*\{([^}]*)\}\s*from\s*'lucide-react-native'/g
+    let m
+    while ((m = re.exec(text))) {
+      for (const raw of m[1].split(',')) {
+        const t = raw
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim()
+        if (t && !t.startsWith('type ')) names.add(t)
+      }
+    }
+    void filePath
+  }
+  return [...names].sort()
+}
+
+/** 列目录(HEAD 面)再逐文件取正文 —— 与守门同口径,不读工作树 */
+function readHeadFace(dirs) {
+  const stdout = execFileSync('git', ['grep', '-l', 'lucide-react-native', 'HEAD', '--', ...dirs], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 1 << 26,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  return stdout
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((spec) => ({
+      path: spec.replace(/^HEAD:/, ''),
+      text: execFileSync('git', ['show', spec], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 1 << 26,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      }),
+    }))
+}
+
+function buildTable(names) {
+  const rows = []
+  const missing = []
+  for (const name of names) {
+    const key = resolveIconKey(name)
+    if (!key) {
+      missing.push(name)
+      continue
+    }
+    // 描边固定纯黑:本层的图标是 CSS mask(只取 alpha),颜色由 background 决定 ⇒ 随主题换色
+    rows.push(`  '${name}': ${JSON.stringify(lucide.generate(key, '#000000'))},`)
+  }
+  return { rows, missing }
+}
+
+function renderSource(names, rows) {
+  const declared = rows
+    .map((r) => /^  '([A-Za-z0-9]+)':/.exec(r)?.[1])
+    .filter(Boolean)
+    // 走 src(name) 而不是 S[name]:本仓 ts 开了 noUncheckedIndexedAccess ⇒ 直接索引会读成
+    // string | undefined,而 makeIcon 的入参是 string ⇒ 216 处类型错全落在这一行模板上(2026-10-26 实测)
+    .map(
+      (name) =>
+        `export const ${name} = makeIcon(${JSON.stringify(name)}, src(${JSON.stringify(name)}))`,
+    )
+  return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+/**
+ * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
+ *
+ * 内容:共享层(packages/app)与 RN 端取用的全部 lucide 图标 —— 一个名字一枚具名导出,
+ * 与 \`import { Heart } from 'lucide-react-native'\` 同形,所以 alias 过去后各屏零改动可用。
+ * 名字全集按 HEAD 面现算:新增图标只要被任何一屏 import,重跑生成器即覆盖,不需要人工登记。
+ * (缺这一格时的现场:webpack 具名导入取不到 ⇒ 该屏整块编译失败,而不是少一个图标。)
+ *
+ * 渲染口径:SVG 为纯黑描边,由 CSS mask 只取 alpha ⇒ 实际颜色走 background-color,
+ * 与端内 LineIcon 同一手法,主题切换时随 token 换色(不会定死成黑色)。
+ */
+import { makeIcon } from './icons-runtime'
+
+/**
+ * lucide-react-native 的组件类型名(消费面有写 import type { LucideIcon } 的)—— 别名指到本文件,
+ * 这个类型位也必须在这里。取 makeIcon 的返回值本身,不再外包一层函数壳:lucide 的类型是**组件**
+ * (可直接当 JSX 用),外包成"返回组件的函数"会让 <Icon /> 报 TS2786、
+ * 把生成出来的图标赋给 LucideIcon 报 TS2322。
+ */
+export type LucideIcon = ReturnType<typeof makeIcon>
+
+const S = {
+${rows.join('\n')}
+} as const
+
+/**
+ * 按图标名取 SVG。名字与表同批生成 ⇒ 正常跑不会缺;真缺了(手动改过本文件/生成器漏名)
+ * **大声告警并画占位**,而不是把 undefined 交给 makeIcon —— 那既过不了类型,也会在运行期静默少一枚图标。
+ */
+function src(name: string): string {
+  const hit: string | undefined = S[name as keyof typeof S]
+  if (hit === undefined)
+    console.warn(\`[rn-compat] 图标表里没有 '\${name}' ⇒ 渲染为占位,请重跑 node scripts/gen-rn-compat.mjs --write\`)
+  return hit ?? ''
+}
+
+${declared.join('\n')}
+`
+}
+
+/**
+ * 路由名映射(供 rn-compat/navigation 用)。
+ * 两条现读事实 join,不靠名字猜:
+ *   ① RN 导航器里 `<Stack.Screen name="Login" component={LoginScreen} />` + 该组件的 import 路径
+ *      ⇒ 路由名 ↔ RN 壳文件;
+ *   ② 跨端登记表(scripts/data/cross-end-screen-registry.json)的 rn ↔ miniapp 路由
+ *      ⇒ RN 壳文件 ↔ 小程序页面路径。
+ * 映射不到的名字**不进表**(运行时由 shim 点名"这一跳没执行"),而不是给一个近似路径 ——
+ * 跳错页比停在原地更难查(§0.3 同源口径:取不到不冒绿)。
+ */
+const RN_NAVIGATOR = 'apps/mobile-rn/src/navigation/RootNavigator.tsx'
+const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
+/**
+ * 第三桶:RN 独有屏(共享层没有同物)的「路由名 → 小程序镜像页」补充声明。
+ *
+ * 为什么另一张表而不是往登记表塞:登记表按定义只收「shared 在
+ * packages/app/src/index.ts 有同名导出」的三元组(见其 comment 字段,R1 逐条核验),
+ * RN 独有屏永远进不去。而这类路由在小程序端确实有镜像页 —— 例如 DevEnterScreen ↔
+ * pkg-ai/developer/index(该页头注已写明"我的智能体列表,RN 同物是端内屏 DevEnterScreen,
+ * 共享层还没有这一族屏")。不补这一桶,那个入口在壳化后就是"点了不动":
+ * navigation 垫片拿不到路径只 console.warn。声明本身不构成证据 —— 导航器里该路由名
+ * 必须真的挂在声明的那个壳文件上、小程序页必须真的在盘上,对不上的逐条点名且不入表。
+ */
+const RN_ONLY_SUPPLEMENT = 'scripts/data/rn-route-supplement.json'
+const ROUTE_OUT_REL = 'apps/miniapp-taro/src/rn-compat/route-map.generated.ts'
+
+function headBlob(rel) {
+  return execFileSync('git', ['show', `HEAD:${rel}`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 1 << 26,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+}
+
+function buildRouteMap() {
+  const accepted = []
+  const rejected = []
+  for (const item of readSupplementEntries()) {
+    const miniapp = String(item?.miniapp ?? '')
+    if (!miniapp || !existsSync(R(`apps/miniapp-taro/src/${miniapp}.tsx`))) {
+      rejected.push(`小程序页不在盘上:${miniapp || '(空)'}`)
+      continue
+    }
+    accepted.push(item)
+  }
+  const info = buildRouteMapFromText(
+    headBlob(RN_NAVIGATOR),
+    JSON.parse(headBlob(REGISTRY)).entries,
+    accepted,
+  )
+  return { ...info, supplementProblems: [...rejected, ...info.supplementProblems] }
+}
+
+/**
+ * 读补充声明。事实源恒为 HEAD(§0.4,与导航器/登记表同面);只有「该文件尚未进 HEAD」时
+ * 才回落到工作树 —— 否则首次引入它的那一轮 `--write` 永远看不见自己刚写的声明。
+ *
+ * 但 HEAD-only 对「已进 HEAD 的声明文件**追加/修改**条目」是同一把尺的盲区:未提交的
+ * 新条目被 HEAD 旧副本静默顶掉,`--write` 空转还报"路由映射无变化"(2026-11-01 实测:
+ * 补 WebView 条目后重跑,补充声明仍只入表 1 条 = 旧 DevEnter)。修法:工作树副本与
+ * HEAD 不同时**两份都读**,按 route 键合并(工作树胜出;HEAD 独有条目保留)。证据面
+ * 不放松:合并后的每一条仍过 buildRouteMapFromText 的三重核对(路由名在导航器 /
+ * 壳文件对得上 / 小程序页在盘上),对不上的照旧逐条点名且不入表。
+ */
+function parseSupplement(text) {
+  try {
+    const parsed = JSON.parse(text)
+    return Array.isArray(parsed?.entries) ? parsed.entries : []
+  } catch {
+    return []
+  }
+}
+
+function readSupplementEntries() {
+  let headText = null
+  try {
+    headText = headBlob(RN_ONLY_SUPPLEMENT)
+  } catch {
+    try {
+      headText = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+    } catch {
+      return []
+    }
+  }
+  const headEntries = parseSupplement(headText)
+  let workText = null
+  try {
+    workText = readFileSync(R(RN_ONLY_SUPPLEMENT), 'utf8')
+  } catch {
+    // 工作树读不到(被删) ⇒ 按 HEAD 面算,不冒充空表
+    return headEntries
+  }
+  if (workText === headText) return headEntries
+  // 工作树有未提交的声明改动:按 route 键合并,工作树条目胜出。
+  // (工作树**删除**条目不在此合并语义内 —— 撤声明请连提交一起落,别指望工作树半途生效。)
+  const merged = new Map()
+  for (const e of headEntries) {
+    const key = String(e?.route ?? '')
+    if (key) merged.set(key, e)
+  }
+  for (const e of parseSupplement(workText)) {
+    const key = String(e?.route ?? '')
+    if (key) merged.set(key, e)
+  }
+  return [...merged.values()]
+}
+
+/**
+ * 纯函数版(镜像测试直接打,不碰 git 也不写盘):导航器正文 + 登记表 entries ⇒ 路由映射三桶。
+ */
+export function buildRouteMapFromText(nav, registryEntries, supplementEntries = []) {
+  const regRows = (registryEntries || []).filter((e) => e.rn && e.miniapp)
+  const byRn = new Map(regRows.map((e) => [e.rn, e.miniapp]))
+  /**
+   * 同一个 rn 被多条登记条目共用时,上面的 new Map 是**后写静默覆盖** —— 前一条的 miniapp 页
+   * 从此在映射表里不存在,而这条错跳在守门上是合规的(C3 只验目标页在 app.config 在册)。
+   * 现读实证:登记表 home 条目把 rn 写成 AgentScreen.tsx,与真 agent 条目抢同一个键,
+   * 结果小程序路由表把 Agent/AiMain 都指到首页镜像壳(2026-10-29 提交 8fa01c3233 修的那一组);
+   * 同一张表当天现读还有 15 组同型撞键。
+   * 本字段只**点名不出手**:不改 byRn 的胜出结果(改语义要另立票 + 微信 IDE 真机走查),
+   * 也不判红 —— 存量未归零前升 blocking 就是 §12e 明令禁止的恒红门(唯一结局是逼人
+   * --no-verify 连带废掉全部守门)。失效方向恒为"多要一次定向说明"。
+   */
+  const regByRnSeen = new Map()
+  for (const e of regRows) {
+    const list = regByRnSeen.get(e.rn)
+    if (list) list.push(e)
+    else regByRnSeen.set(e.rn, [e])
+  }
+  const rnCollisions = []
+  for (const [rn, list] of regByRnSeen) {
+    if (list.length < 2) continue
+    rnCollisions.push({
+      rn,
+      winner: list[list.length - 1].miniapp,
+      losers: list.slice(0, -1).map((e) => ({ shared: e.shared, miniapp: e.miniapp })),
+    })
+  }
+  // 组件名 → 壳文件。两种导入形态都要认:
+  //   ① 默认导入 `import X from '../screens/Y'`
+  //   ② 具名导入 `import { X } from '../screens/Y'`(可带 `as` 别名,别名后的**本地名**才是
+  //      Screen 的 component 取值)
+  // 现读血案:旧解析只有 ①,而导航器里 AIMultimodalScreen 等一整批走的是 ②
+  // (`import { AIMultimodalScreen } from '../screens/AIMultimodalScreen'`,
+  //  `<RootStack.Screen name="AIMultimodal" component={AIMultimodalScreen} />`)
+  // ⇒ 这些路由名整批从映射表里消失。后果不是"少一行注释":小程序端那一跳由
+  // rn-compat/navigation 运行时点名"未执行"(点了不动),而转换门 ⑤ 又据此把页面判成
+  // "跳过去会不动"⇒ 拒转。一条解析缺漏同时造出运行时缺陷与假缺口。
+  const compToFile = new Map()
+  for (const m of nav.matchAll(/import\s+(\w+)\s+from\s*'\.\.\/screens\/([\w/-]+)'/g)) {
+    compToFile.set(m[1], `apps/mobile-rn/src/screens/${m[2]}.tsx`)
+  }
+  for (const m of nav.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\.\/screens\/([\w/-]+)'/g)) {
+    const file = `apps/mobile-rn/src/screens/${m[2]}.tsx`
+    for (const piece of m[1].split(',')) {
+      const t = piece.trim().replace(/^type\s+/, '')
+      if (!t) continue
+      const [orig, alias] = t.split(/\s+as\s+/).map((s) => String(s).trim())
+      if (!orig) continue
+      compToFile.set(alias || orig, file)
+    }
+  }
+  const map = new Map()
+  const unmapped = []
+  const unbound = []
+  const routeToFile = new Map()
+  for (const m of nav.matchAll(/\.Screen\s*\n?\s*name=["']([\w-]+)["']\s+component=\{(\w+)\}/g)) {
+    const [, routeName, comp] = [m[0], m[1], m[2]]
+    const file = compToFile.get(comp)
+    // 组件名在两种导入形态里都找不到 ⇒ 单独点名(旧版在这里静默 continue,
+    // 于是"解析形态不够"与"确实没这屏"读出同一个数,没人能发现是尺子瞎了)
+    if (!file) {
+      unbound.push(`${routeName}(component=${comp})`)
+      continue
+    }
+    // 路由名 ↔ 壳文件:供补充声明核对「声明的壳文件是否真是导航器挂的那个」
+    routeToFile.set(routeName, file)
+    const miniapp = byRn.get(file)
+    if (!miniapp) {
+      unmapped.push(`${routeName}(${comp})`)
+      continue
+    }
+    map.set(routeName, `/${miniapp}`)
+  }
+  // RN 独有屏补充声明:登记表已覆盖的路由名一律以登记表为准(补充表不抢登记表),
+  // 导航器里查无此名、或声明挂的壳文件与导航器实际挂的不一致 ⇒ 逐条点名且不入表。
+  const supplementProblems = []
+  let supplementApplied = 0
+  for (const item of supplementEntries || []) {
+    const route = String(item?.route ?? '')
+    const rnFile = String(item?.rn ?? '')
+    const miniapp = String(item?.miniapp ?? '')
+    if (!route || !rnFile || !miniapp) {
+      supplementProblems.push(`字段不全:${JSON.stringify(item)}`)
+      continue
+    }
+    const actual = routeToFile.get(route)
+    if (!actual) {
+      supplementProblems.push(`${route}:导航器里没有这条路由名`)
+      continue
+    }
+    if (actual !== rnFile) {
+      supplementProblems.push(`${route}:声明挂在 ${rnFile},导航器实际挂 ${actual}`)
+      continue
+    }
+    if (map.has(route)) continue
+    map.set(route, `/${miniapp}`)
+    supplementApplied += 1
+  }
+  return {
+    map,
+    unmapped,
+    unbound,
+    rnCollisions,
+    supplementProblems,
+    supplementApplied,
+    total: compToFile.size,
+  }
+}
+
+/**
+ * 盘上生成物是否已覆盖现读映射 —— **键在册 ∧ 该键指向逐字相等**,两条缺一不可。
+ *
+ * 为什么不能只比键名(2026-10-30 实测的"绿灯即缺陷"):登记表回正 `CourseMain`/`NewsCategory`/
+ * `Assistant` 三条的 miniapp 指向后,键名一条没变,于是旧判据自报「✓ 路由映射无变化(盘上已覆盖
+ * 现读 257 条)」并**拒绝写盘** —— 盘上/HEAD 那三条仍是旧指向。`--write` 是门 251 C3 点名的修复
+ * 出口,出口安静不干活就是 §0.8 禁止的"文档写了跑不通的出路"。
+ * 形态尺子与落盘终态一致:`renderRouteMap` 写双引号,过 prettier 后是裸键 + 单引号值,三种写法都收。
+ * 盘上取到 0 条 ⇒ false(读不到不冒充"已覆盖",与 §0.3 同向)。
+ */
+export function routeMapCovers(entries, diskText) {
+  if (!diskText || diskText.length === 0) return false
+  const onDisk = new Map(
+    [
+      ...diskText.matchAll(/^\s*(?:["']([A-Za-z0-9_]+)["']|([A-Za-z0-9_]+)):\s*["']([^"']+)["']/gm),
+    ].map((m) => [m[1] ?? m[2], m[3]]),
+  )
+  if (onDisk.size === 0) return false
+  return [...entries].every(([k, v]) => onDisk.get(k) === v)
+}
+
+/**
+ * 图标表的幂等判据 —— 与 routeMapCovers 同一把尺:**名在册 ∧ 该名的 SVG 取值逐字相等**。
+ *
+ * 为什么不能只比名(2026-10-30 审计确证):产物 `icons-generated.tsx` 的 `const S` 里，每个名字的**值是
+ * 现算的 SVG data URI**;lucide 升版或某个图标的路径改动时，名字集合一条不变 ⇒ 旧判据打「✓ 图标无变化」
+ * 并拒绝写盘，端上继续用旧字形而没有任何一门看得见(门 251 C2 也只比名)。与路由腿那一枚同型，
+ * 所以两腿共用同一形态：解码后比值，不比字节。
+ * 值两侧都先**解码**再比：`buildTable` 出 JSON 双引号形态，prettier 归一后可能是单引号形态，
+ * 拿字面串直接比会把同一内容读成"有变化"(每轮都重写 = 改动面被噪声长期占用)。
+ * 盘上取到 0 条 ⇒ false(读不到不冒充"已覆盖",§0.3)。
+ */
+export function iconTableCovers(rows, diskText) {
+  if (!diskText || diskText.length === 0) return false
+  const disk = parseIconTable(diskText)
+  if (disk.size === 0) return false
+  return rows.every((r) => {
+    const m = /^  (?:'([A-Za-z0-9_]+)'|"([A-Za-z0-9_]+)"|([A-Za-z0-9_]+)):\s*(.+?),\s*$/.exec(r)
+    if (!m) return false
+    return disk.get(m[1] ?? m[2] ?? m[3]) === decodeJsString(stripQuotes(m[4]))
+  })
+}
+
+/**
+ * 扫 `const S = { … }` 块，按**转义感知**逐条取 `键 → 解码后的值`。
+ *
+ * 为什么不能用正则按行切：prettier 会把长值折到键的下一行（实测产物里 `Activity:` 与它的
+ * SVG 串分处两行），单行正则要么漏条、要么把值截断 ⇒ 判据假阴性 ⇒ 每轮白重写一次；
+ * 而值里本身含逗号（`data:image/svg+xml,…`），按逗号切同样不成立。
+ */
+function parseIconTable(text) {
+  const out = new Map()
+  const start = text.indexOf('const S')
+  if (start < 0) return out
+  let i = text.indexOf('{', start)
+  if (i < 0) return out
+  const isId = (c) => c !== undefined && /[A-Za-z0-9_]/.test(c)
+  const skipWs = () => {
+    while (i < text.length && /\s/.test(text[i])) i++
+  }
+  i++
+  while (i < text.length) {
+    while (i < text.length && /[\s,]/.test(text[i])) i++
+    if (i >= text.length || text[i] === '}') break
+    let key = ''
+    if (text[i] === "'" || text[i] === '"') {
+      const q = text[i++]
+      while (i < text.length && text[i] !== q) key += text[i++]
+      i++
+    } else {
+      while (isId(text[i])) key += text[i++]
+    }
+    skipWs()
+    if (text[i] !== ':') break
+    i++
+    skipWs()
+    const q = text[i]
+    if (q !== "'" && q !== '"') break
+    i++
+    let raw = ''
+    while (i < text.length) {
+      const c = text[i]
+      if (c === '\\') {
+        raw += c + (text[i + 1] ?? '')
+        i += 2
+        continue
+      }
+      if (c === q) {
+        i++
+        break
+      }
+      raw += c
+      i++
+    }
+    out.set(key, decodeJsString(raw))
+  }
+  return out
+}
+
+/** 去掉一层外层引号（值字面量两侧的 `'`/`"`），保留内部转义交给 decodeJsString。 */
+function stripQuotes(s) {
+  const t = s.trim()
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    return t.slice(1, -1)
+  }
+  return t
+}
+
+/** 解 JS 字符串转义里会真实出现的几种；`\uXXXX` 一并还原，其余原样保留（宁可判"有变化"也不误判相等）。 */
+function decodeJsString(raw) {
+  return raw.replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/g, (_, e) => {
+    if (e[0] === 'u' || e[0] === 'x') return String.fromCharCode(parseInt(e.slice(1), 16))
+    return { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', 0: '\0' }[e] ?? e
+  })
+}
+
+function renderRouteMap(map) {
+  const lines = [...map.entries()]
+    .sort()
+    .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`)
+  return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+/**
+ * ⚠️ 生成物,请勿手改 —— 重新生成:\`node scripts/gen-rn-compat.mjs --write\`
+ *
+ * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对
+ * ∪ RN 独有屏的补充声明(scripts/data/rn-route-supplement.json,逐条核「声明的壳文件是否真是
+ * 导航器挂的那个」与「小程序页是否真在盘上」),三处现读事实 join(取名规则猜路径必然漂移)。
+ * 不在表里的路由名 = 小程序端尚无对应页,由 rn-compat/navigation 运行时点名"这一跳未执行",
+ * 绝不跳到一个像的名字上去。
+ */
+export const RN_ROUTE_MAP: Record<string, string> = {
+${lines.join('\n')}
+}
+`
+}
+
+/**
+ * 生成物落盘后先过 prettier(按仓库自己的配置),**再**注入水印。
+ * 为什么必须同轮归一:lint-staged 会在提交前重排生成物(实测把 `'AccountCancel': "/x"` 改成
+ * `AccountCancel: '/x'`)⇒ 生成器下次跑就报"有变化"、门按旧形态匹配就读到 0 条 ——
+ * 差异与正确性无关却常年占用改动面,还会把尺子喂成假绿(派生钉要按格式化后的最终形态重算)。
+ */
+async function formatWithPrettier(relPath) {
+  const abs = R(relPath)
+  const prettier = await import('prettier')
+  const options = await prettier.resolveConfig(abs)
+  const formatted = await prettier.format(readFileSync(abs, 'utf8'), {
+    ...options,
+    parser: relPath.endsWith('.tsx') ? 'typescript' : 'typescript',
+    filepath: abs,
+  })
+  atomicWriteFileSync(abs, formatted, { encoding: 'utf8' })
+}
+
+/**
+ * 生成物落盘后**紧随**注入溯源水印(§5c:生成器 writeFileSync 后必须注入,用 process.execPath +
+ * 绝对路径)。不注入的后果不是"少一行注释":check-watermark-coverage 会把这一枚判成
+ * 未覆盖/残迹,而它按被审面判 ⇒ 下一次提交链直接红,且红在没人写过这行的地方。
+ *
+ * 注入不是"派生一条命令返回 0 就算做完",三条同批(实测 g33-s11 @2026-10-29):
+ *  ① **退避重试**——本仓共享工作区里,刚写完盘的头几百毫秒这一枚文件常被并发会话/守护轮/
+ *     杀软持有,子进程 open 抛 `UNKNOWN: unknown error, open <file>`(errno -4094)。实测一轮
+ *     `--write` 走到"重写路由映射"那一支时 100% 栽在这里(连撞两次,而 `✓ 图标无变化` 照打,
+ *     看起来像偶发);**同一枚文件隔 2 秒再注即成功** ⇒ 争用是瞬时的,不重试就是
+ *     把 §0.8 禁止的"跑不通的出路"钉在门 251 的修复出口上(`gen-rn-compat.mjs --write`)。
+ *  ② **失败原因要出得来**——旧写法 `String(error.message).slice(0,140)` 截出来的整串只是
+ *     命令本身,一个字的原因都没有(§12f:失效的表现永远是安静);改取子进程 stderr,再兜 errno。
+ *  ③ **回读自证**(§13)——命令返回 0 也可能是"写了又没落全";载荷完好性直接问 watermark.mjs
+ *     自己的 `payloadIntact`,本文件零抄标记字面量(§0.6 单一真相源)。
+ * 三条的失效方向一致:证不了就 exit 2 点名未注入,绝不把"注了"说成做完。
+ * `opts` 是注入面(与 `lib/atomic-write.mjs` 的 `fs`/`sleep`/`tmpName` 同一条纪律):镜像测试
+ * 据此证真/证伪各条失败分支,不必真去把并发句柄争用造出来。生产调用一律走默认值。
+ */
+function injectWatermark(relPath, opts = {}) {
+  const abs = R(relPath)
+  const spawn =
+    opts.spawn ??
+    ((target) =>
+      execFileSync(process.execPath, [R('scripts', 'watermark.mjs'), 'inject', target], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 1 << 24,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      }))
+  const sleep =
+    opts.sleep ?? ((ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms))
+  // 回读面也留注入位:镜像测试打的是"命令返回 0 之后盘上到底有没有载荷"这一判序,
+  // 不需要真去和临时件清理轮抢一枚文件(实测探针件会在写后毫秒级被清掉 ⇒ 用例变红的是环境)
+  const read = opts.read ?? ((target) => readFileSync(target, 'utf8'))
+  const intact = opts.payloadIntact ?? ((text) => watermark.payloadIntact(text))
+  const die =
+    opts.die ??
+    ((message) => {
+      console.error(message)
+      process.exit(2)
+    })
+  const attempts = 4
+  let last = '未执行'
+  for (let i = 1; i <= attempts; i++) {
+    let spawnFailed = false
+    try {
+      spawn(abs)
+    } catch (error) {
+      spawnFailed = true
+      last =
+        String(error?.stderr ?? '')
+          .trim()
+          .slice(0, 600) ||
+        String(error?.message ?? error)
+          .trim()
+          .slice(0, 600) ||
+        '子进程无输出'
+      if (error?.code) last += `(errno=${error.code})`
+    }
+    // 回读自证:命令绿了不算,载荷必须真在盘上(取 watermark.mjs 那一份判据,不抄第二份)
+    if (!spawnFailed) {
+      if (intact(read(abs))) return
+      last = '注入命令返回 0,但回读不到完好载荷(按未注入处理,不记成功)'
+    }
+    if (i < attempts) sleep(i * 1500)
+  }
+  die(
+    `❌ 水印注入失败(${relPath},已试 ${attempts} 轮):注入子进程未成功或回读不到载荷` +
+      `(errno=-4094/UNKNOWN 一型属共享工作区的瞬时句柄争用);最后一手:${last}`,
+  )
+}
+
+async function main() {
+  const argv = process.argv.slice(2)
+  /**
+   * 旗必须逐根认:原实现是 `argv.includes(...)`,未知旗被**静默忽略** —— 而守护派发体的取结论
+   * 正则是 `/^.*landing=\d+.*$/m`,一旦哪天有人按同族惯例传 `--apply`/`--head`,本器会照默认走
+   * "预演不写盘",于是那条自动腿每轮都判"无变化",成为§0.9 禁的"看着有守卫其实空转"。
+   * 失效方向固定为"多要一次定向说明"(§0.10),不是"多放一次"。
+   */
+  const KNOWN_FLAGS = new Set(['--write', '--check', '--self-test'])
+  const unknown = argv.filter((a) => !KNOWN_FLAGS.has(a))
+  if (unknown.length > 0) {
+    console.error(
+      `❌ 未判定:未知参数 ${unknown.join(' ')} —— 本器只认 ${[...KNOWN_FLAGS].join(' / ')};` +
+        '不接受把未知旗当默认档(那会让自动腿静默退化成"什么都不做还报绿")。',
+    )
+    process.exit(2)
+  }
+  const write = argv.includes('--write')
+  const check = argv.includes('--check')
+  let face
+  try {
+    face = readHeadFace(['packages/app/src', 'apps/mobile-rn/src'])
+  } catch (error) {
+    console.error(`❌ 未判定:HEAD 面取不到(${String(error).slice(0, 160)})`)
+    process.exit(2)
+  }
+  if (face.length === 0) {
+    console.error('❌ 未判定:HEAD 面枚举到 0 个 lucide 消费文件(判据面异常,不记绿)')
+    process.exit(2)
+  }
+  const names = collectIconNames(face)
+  const { rows, missing } = buildTable(names)
+  const outPath = R(OUT_REL)
+  const current = existsSync(outPath) ? readFileSync(outPath, 'utf8') : ''
+  const next = renderSource(names, rows)
+
+  console.log(
+    `lucide 消费文件 ${face.length} 个 · 图标名 ${names.length} 个 · 可产出 ${rows.length} 个`,
+  )
+  if (missing.length > 0) {
+    console.log(
+      `⚠️ lucide 词表里取不到形体的名字 ${missing.length} 个(将被渲染为占位,须人工换名):${missing.join(' ')}`,
+    )
+  }
+  if (check) {
+    // 盘上生成物是 `export const X = makeIcon(...)` 形态(渲染器换代后已无 `  'X':` 表格)。
+    // 旧尺子按表格正则取「在册」,于是永远量到"一个都没有" ⇒ --check 恒 exit 1、门 251 C2 的
+    // 修复出口变成跑不通的出路(§0.8)。改成与写出口同一形态,"在册"只有这一种读法。
+    const covered = new Set(
+      [...current.matchAll(/^export const ([A-Za-z0-9]+) =/gm)].map((m) => m[1]),
+    )
+    const uncovered = names.filter((n) => !covered.has(n))
+    if (uncovered.length > 0) {
+      console.log(`❌ 已产出文件缺 ${uncovered.length} 个名字:${uncovered.join(' ')}`)
+      console.log('   出路:node scripts/gen-rn-compat.mjs --write')
+      process.exit(1)
+    }
+    console.log(`✅ 图标覆盖面与现读全集对平(${names.length} 个)`)
+    return
+  }
+  const routeInfo = buildRouteMap()
+  const routeOut = R(ROUTE_OUT_REL)
+  const routeCurrent = existsSync(routeOut) ? readFileSync(routeOut, 'utf8') : ''
+  const routeNext = renderRouteMap(routeInfo.map)
+
+  // 幂等判据取**语义档**(名字集合/映射键集合),不取字节:落盘内容会先过 prettier 再注水印,
+  // 拿未格式化的稿与盘上副本比字节必然永不相等 ⇒ 每轮都"有变化",改动面被无意义的重写长期占用。
+  const iconsAlreadyCovered = iconTableCovers(rows, current)
+  const routesAlreadyCovered = routeMapCovers([...routeInfo.map.entries()], routeCurrent)
+  console.log(
+    `路由名映射:${routeInfo.map.size} 条在册 / 映射不到 ${routeInfo.unmapped.length} 条(运行时点名)/ 导航器壳文件 ${routeInfo.total} 个` +
+      // 第三种形态必须单独出声:组件名在两种 import 里都找不到 = 解析面不够(尺子瞎),
+      // 与"确实没这屏"不同形,混在一起就把解析缺陷读成缺口数。
+      ` / 组件名解析不到 ${routeInfo.unbound.length} 条${routeInfo.unbound.length ? `(逐条:${routeInfo.unbound.slice(0, 8).join(', ')}${routeInfo.unbound.length > 8 ? ' …' : ''})` : ''}`,
+  )
+  // 撞键逐组点名走 stderr(不污染结论行的可机器读形态)+ 末了给总组数。
+  // 只报数:不改 map 胜出结果,也不改 exit code —— 见 buildRouteMapFromText 里那段注记。
+  for (const c of routeInfo.rnCollisions) {
+    console.error(
+      `⚠️ rn 撞键:${c.rn} 被 ${c.losers.length + 1} 条登记共用 ⇒ 胜出 ${c.winner},被静默丢弃 ${c.losers
+        .map((l) => `${l.shared ?? '(未登记 shared)'}→${l.miniapp}`)
+        .join(' / ')}`,
+    )
+  }
+  if (routeInfo.rnCollisions.length > 0) {
+    console.error(
+      `⚠️ 登记表同 rn 撞键共 ${routeInfo.rnCollisions.length} 组(只报数不判红:存量未归零前升档即 §12e 恒红门;逐组核 shared↔rn 同名并真机走查后才谈收口)`,
+    )
+  }
+  // 补充声明单独出声:被拒的条目是"声明与现读事实不符",不能静默吞掉当没写过。
+  if (routeInfo.supplementApplied > 0 || routeInfo.supplementProblems.length > 0) {
+    console.log(
+      `RN 独有屏补充声明:${routeInfo.supplementApplied} 条入表` +
+        (routeInfo.supplementProblems.length
+          ? ` / ${routeInfo.supplementProblems.length} 条被拒(逐条:${routeInfo.supplementProblems.join('; ')})`
+          : ''),
+    )
+  }
+  if (write) {
+    /**
+     * 落盘一律走 `lib/atomic-write.mjs`(工具层唯一出口),不再裸 `writeFileSync`:
+     * 实测(g33-s11 @2026-10-29,同一枚文件连撞三轮)——共享工作区里这些生成件常年被并发
+     * 会话 / 守护轮 / 杀软持有句柄,裸覆盖写的 `open(path,'w')`(O_TRUNC 那一步)直接抛
+     * `UNKNOWN: unknown error, open <file>`(errno -4094),子进程去 open 同一枚也是同一个码;
+     * `--write` 于是栽在"正文已换、水印未落"或"正文都没写进去"这两格并以 exit 2 收场 —— 即 §0.8 禁止的"文档写了跑不通的出路"(门 251 的修复出口
+     * 就是这条命令)。原子替换开的是**同目录新临时名**(不碰被占的目标),失败不留半成品、
+     * 也不截目标;退避用层里那一份,本文件不再写第二个重试器(§0.6)。
+     *
+     * 归属闸(挂自动档的前置条件,2026-11-03):脏集取不到 ⇒ **一份都不写**并按未判定收场(§0.3);
+     * 某份产物在脏集里 ⇒ 只跳过那一枚、其余照写(收窄口径,与护栏③ 同一条判序)。
+     */
+    const gate = ownershipGate({ root: ROOT })
+    const held = []
+    const written = []
+    let unchanged = 0
+    const ownedOrNull = (rel) => {
+      if (!gate.ok) return false
+      return isCleanOwned(rel, gate.paths)
+    }
+    if (!gate.ok) {
+      held.push(OUT_REL, ROUTE_OUT_REL)
+      console.error(
+        `❌ 未判定:归属闸读不到脏集(${String(gate.why ?? '').slice(0, 120)})⇒ 两份产物一律不写`,
+      )
+    }
+    if (gate.ok && iconsAlreadyCovered) {
+      unchanged += 1
+      console.log(`✓ 图标无变化(盘上生成物已逐名覆盖现读全集 ${rows.length} 名,含 SVG 取值)`)
+    } else if (gate.ok && !ownedOrNull(OUT_REL)) {
+      held.push(OUT_REL)
+      console.log(`🔒 held(工作树该路径归属未明 ⇒ 本轮不写):${OUT_REL}`)
+    } else if (gate.ok) {
+      atomicWriteFileSync(outPath, next, { encoding: 'utf8' })
+      await formatWithPrettier(OUT_REL)
+      injectWatermark(OUT_REL)
+      written.push(OUT_REL)
+      console.log(`✓ 已写 ${OUT_REL}(${rows.length} 个图标,已按仓库 prettier 配置归一并注入水印)`)
+    }
+    if (gate.ok && routesAlreadyCovered) {
+      unchanged += 1
+      console.log(`✓ 路由映射无变化(盘上已逐键覆盖现读 ${routeInfo.map.size} 条,含指向)`)
+    } else if (gate.ok && !ownedOrNull(ROUTE_OUT_REL)) {
+      held.push(ROUTE_OUT_REL)
+      console.log(`🔒 held(工作树该路径归属未明 ⇒ 本轮不写):${ROUTE_OUT_REL}`)
+    } else if (gate.ok) {
+      atomicWriteFileSync(routeOut, routeNext, { encoding: 'utf8' })
+      await formatWithPrettier(ROUTE_OUT_REL)
+      injectWatermark(ROUTE_OUT_REL)
+      written.push(ROUTE_OUT_REL)
+      console.log(`✓ 已写 ${ROUTE_OUT_REL}(${routeInfo.map.size} 条路由,已归一 + 注水印)`)
+    }
+    // 批末申报:写了盘的逐枚**实测 oid** 进落点账本 ⇒ 收编侧按 blob 核验才收(不凭"我写过")。
+    // 写了盘却没登记上 ⇒ 不得按成功交出去(与结论行同批点名)。
+    const entries = []
+    const unhashable = []
+    for (const rel of written) {
+      const oid = worktreeBlobOid(rel, ROOT)
+      if (oid)
+        entries.push({ at: new Date().toISOString(), leg: CROSS_END_LEG, path: rel, blobOid: oid })
+      else unhashable.push(rel)
+    }
+    let ap = { appended: 0, deduped: 0, rejected: [] }
+    try {
+      ap = appendLanding(entries, { root: ROOT })
+    } catch (e) {
+      ap = { appended: 0, deduped: 0, rejected: [], failed: String(e?.message ?? e).slice(0, 120) }
+    }
+    const landing = ap.appended + ap.deduped
+    const bad = []
+    if (ap.rejected?.length)
+      bad.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (ap.failed) bad.push(`账本写入异常:${ap.failed}`)
+    if (unhashable.length) bad.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    // `ledger=` 必须与事实同批出:派发体按这一维把整轮折成 unjudged-ledger(而不是"无漂移可落")。
+    const ledgerState = bad.length ? 'unjudged' : 'ok'
+    console.log('─'.repeat(64))
+    console.log(
+      `结论 landing=${landing}(新登记 ${ap.appended}/在册去重 ${ap.deduped})` +
+        ` 无变化=${unchanged}` +
+        ` held=${held.length}` +
+        (gate.ok ? '' : ' ownership=unjudged') +
+        ` 写出=${written.length}` +
+        ` leg=${CROSS_END_LEG}` +
+        ` ledger=${ledgerState}` +
+        ` landingPath=.ihui-agent/state/cross-end-landing.jsonl`,
+    )
+    if (bad.length) {
+      console.error(`❌ 写了盘但申报未竟全功 ⇒ 不按成功收场:${bad.join(' | ')}`)
+      process.exit(1)
+    }
+    if (!gate.ok) process.exit(2)
+    return
+  }
+  console.log('(预演模式,未写盘;加 --write 落地)')
+}
+
+const isDirectRun = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(`❌ ${String(error?.message ?? error)}\n${error?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {
+  kebab,
+  collectIconNames,
+  buildTable,
+  renderSource,
+  renderRouteMap,
+  routeMapCovers,
+  iconTableCovers,
+  OUT_REL,
+  ROUTE_OUT_REL,
+  // 供镜像测试打真出口(§22c:测试 import 源脚本,禁复制注入逻辑)
+  injectWatermark,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

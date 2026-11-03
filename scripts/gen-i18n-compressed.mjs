@@ -1,0 +1,590 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 离线 i18n 压缩生成脚本:把非中文 4 语言包(shared + miniapp-taro)合并后
+// JSON.stringify → gzip(level 9) → base64,生成 src/i18n/generated/remote-locales.gen.ts。
+// 运行时经 fflate 解压还原,与源 JSON 无损等价(见 src/i18n/__tests__/i18n-compressed.test.ts)。
+// 用法:node scripts/gen-i18n-compressed.mjs [--worktree|--staged|--head]  (package.json: pnpm gen:i18n)
+//
+// 取材面(2026-10-15 加,AGENTS §0.4 同一口径):
+//   缺省 **worktree(磁盘)** —— `build`/`build:weapp` 走的就是这一档,开发者改了语言包还没提交,
+//   构建里就该带上他改的;把它悄悄改成 HEAD 会让构建吞掉未入库的文案改动(实测本仓 build 链确实调本器)。
+//   `--staged` 取索引 blob,`--head` 取 HEAD blob —— 这两档是给**对账/落地**用的:守门 105 的 G5 判据
+//   量的是"HEAD 里的产物钉 == HEAD 里的输入算出的哈希",而在共享工作树里 HEAD 的输入与磁盘上的输入
+//   常年不同(2026-10-15 实测:`packages/i18n/messages/shared/{en,ja,ko,zh-TW,zh-CN}.json` 五份同时被
+//   他人 ` M` 占着)。那一时用缺省档复跑,会把**未入库的他人内容烘进产物与自述钉**(§16/§12c 同型),
+//   所以要按被审面重算。取不到(该面没有这份)⇒ exit 2 点名,绝不回落另一个面;多面旗同给 ⇒ exit 2。
+//
+// 2026-10-15 主包选项 A(机主已拍板,与上面取材面开关**同日两特性合流**):zh-CN 也改成 gzip+b64,
+// 但**必须随包内联** —— 它是回落语(按需包未就绪时全端读它),走 CDN 等于"弱网时连回落语都没有"。
+//   ④ src/i18n/generated/zh-cn-pack.gen.ts —— 运行时**要 import** 的那一份:
+//      b64(约 104KB)取代原先静态 import 的明文 JSON(约 230KB),主包净降约 126KB。
+//      同批派生一份**不参与压缩**的最小内置键集 ZH_CN_CRITICAL(tabBar 命名空间,纯 JSON),
+//      供 gunzip / JSON.parse 任一环失败时 fail-closed 回落:兜底刻意不复用失败的那条
+//      解码链路 —— 复用等于没有兜底。
+//   为什么 ④ 的钉输入清单**单独一份**:守门 check-miniapp-generated 的 G5 按"remote 那
+//      8 份"现算 inputsSha256,把 zh-CN 混进 ① 的钉 ⇒ ① 恒判 stale(恒红门)。
+//   兜底键集取哪些命名空间:只取 `tabBar`。理由是 i18n/index.tsx 里那条既有不变式 ——
+//      「tabBar 页文案在 zh-CN 内置集里,始终可达」(原生 tabBar 的 text 是 app.json 静态
+//      配置,靠 setTabBarItem 运行时覆盖)。主包解码失败时,外壳这几个词必须还是人话;
+//      其余键走既有"取不到就返回 key"的路径(不是空串,也不是崩)。
+//
+// 2026-10-06 主包余量治理(按需拉取改造):同一份 base64 载荷现在产出**三个消费面**,
+// 全部由本生成器从同一批输入派生(单源多产物,与 record_back.png"单一源→两份产物"同规矩):
+//   ① src/i18n/generated/remote-locales.gen.ts —— 离线对账真相(gzip+b64 内联),运行时
+//      **不再 import 它**(否则 440KB 重新进 common.js);check-i18n-messages-exist /
+//      check-tool-display-resolvable / check-word-table-resolvable / G5 钉门等守门脚本
+//      仍从磁盘读它对账,格式一字不变。
+//   ② src/assets/remote-locales/<locale>.b64.txt —— CDN 部署载荷(与 ① 逐字节相同),
+//      由运维把该目录拷进 cdn-server.js 的 server-root(与 src/assets/remote-images/ 同一
+//      部署通道),运行时经 aizhsUrl('remote-locales/<locale>.b64.txt?v=<version>') 按需拉取
+//      (?v= 只做缓存击穿;cdn-server.js 用 URL(...).pathname 取文件,query 不参与路径解析)。
+//      .txt 不在水印分母(watermark.mjs EXT_MAP 只映射源码扩展),载荷保持无横幅字节精确。
+//   ③ src/i18n/generated/remote-locale-manifest.gen.ts —— 运行时轻量清单(version=载荷
+//      sha256,bytes=载荷字节数),进主包(约 0.5KB):version 作 storage 缓存 key 与失效
+//      判据,bytes 作下载完整性粗校验。真完整校验靠"b64 字符集 + gunzip + JSON.parse"
+//      结构性校验(解码失败一律回落,不进缓存)。
+
+import { createRequire } from 'node:module'
+import { existsSync, writeFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+
+// 正解 = 把本生成器搬到根 scripts/(与 sync-miniapp-tokens.mjs 同一条先例;D2 只比 rank,
+// 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
+// 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
+// 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
+import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
+// 输入清单的唯一构造规则(与守门 105 的现算同一份):此前这里自列两层,承载层没进,
+// 钉与门现算的哈希结构性不等 ⇒ 门 105 的 G5 在完好仓库上恒 stale(2026-10-30 实测两哈希逐位不等)。
+import { bundleInputRels, carriedSourceRel } from './lib/i18n-bundle-inputs.mjs'
+// 承载层(mobile-rn 词包)的**补键算式**只有一份:可达键集 + "只补端内没有的键"都在这里,
+// 生成器写盘、门 251 判定共用(§0.6)。自己另写一遍 mergeMessages 全量合并就是"承载层覆盖端内措辞"
+// ——那会让门 105 的 B2(同键取值不一致)在完好仓库上红。
+import { carriedKeysFromRepo, subsetMissing } from './lib/rn-carried-keys.mjs'
+// 取材面的解析与读取一律复用守门那一份实现(§22c:同一件事不写第二套)——
+// `catBatch` 是"清单与内容同面同轮"的批量出口,`readWorktreeFile` 是磁盘面的 sanctioned 读法。
+import { catBatch, readWorktreeFile, FACE_LABEL, gitRaw } from './lib/face-reader.mjs'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+// 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
+const repoRoot = resolve(__dirname, '..')
+// fflate 从端内依赖面取:pnpm isolated node_modules(shamefully-hoist=false)下,根 scripts/
+// 解析不到端内依赖 —— 用 createRequire 钉在 @ihui/miniapp-taro 的依赖面上,与运行时同一份包。
+const { gzipSync, strToU8 } = createRequire(
+  resolve(repoRoot, 'apps/miniapp-taro/package.json'),
+)('fflate')
+// 消息源的仓库相对根:只在这里写一次,INPUT_RELS 与 loadJson 的钉 rel 都从它拼(两处各拼必然漂移)
+const MESSAGES_REL = 'packages/i18n/messages'
+const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
+const outFile = resolve(outDir, 'remote-locales.gen.ts')
+const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
+// 产物④:zh-CN 内联包(运行时 import;回落语不得走 CDN)
+const zhPackFile = resolve(outDir, 'zh-cn-pack.gen.ts')
+// CDN 部署载荷目录:与 src/assets/remote-images/ 同一镜像约定 —— 目录名即 CDN URL 路径段,
+// 运维把它整体拷进 cdn-server.js 的 server-root 后,载荷即出现在 /remote-locales/<locale>.b64.txt。
+const cdnPayloadDir = resolve(repoRoot, 'apps/miniapp-taro/src/assets/remote-locales')
+const GENERATOR_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
+
+const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
+/** zh-CN 的钉输入清单单独一份(G5 只按 remote 那 8 份现算 ①,混进去 ⇒ ① 恒判 stale) */
+const ZH_CN_CRITICAL_NAMESPACES = ['tabBar']
+
+// ── 取材面解析(三面互斥,口径与 lib/face-reader.mjs::selectFace 同一条:多面旗同给 ⇒ 不判)──
+// 缺省 worktree 是刻意保留的既有行为(见文件头「取材面」段),不是偷懒档。
+const faceFlags = [
+  ['--head', 'head'],
+  ['--staged', 'staged'],
+  ['--worktree', 'worktree'],
+].filter(([f]) => process.argv.includes(f))
+if (faceFlags.length > 1) {
+  console.error(
+    `❌ [gen:i18n] 取材面旗互斥,本次同时给了 ${faceFlags.map(([f]) => f).join(' + ')} ⇒ exit 2(两个面读出来的东西不同,拿哪个算哪个必须由人指定)`,
+  )
+  process.exit(2)
+}
+const FACE = faceFlags[0] ? faceFlags[0][1] : 'worktree'
+const specOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
+// 存在性判断必须在**同一个被审面**上(lib 头注:两侧各列一遍清单必然漂)。
+const faceHas = (rel) => {
+  if (FACE === 'worktree') return existsSync(join(repoRoot, rel))
+  try {
+    gitRaw(['cat-file', '-e', specOf(rel)], repoRoot)
+    return true
+  } catch {
+    return false
+  }
+}
+const INPUT_RELS = bundleInputRels(REMOTE_LOCALES, faceHas)
+// zh-CN 两份输入(产物④):与 remote 8 份同一取材面、同一批量读 —— 缺一份就 exit 2,
+// 绝不回落另一个面(否则 ④ 的钉会说自己是从没读全的输入派生的,§0.3 同型)。
+const ZH_INPUT_RELS = bundleInputRels(['zh-CN'], faceHas)
+const ALL_INPUT_RELS = [...INPUT_RELS, ...ZH_INPUT_RELS]
+// 非磁盘面:一次批量读满。逐份 `git show` 会让并行会话在第 3 份和第 4 份之间推进 HEAD,
+// 产出自洽却错位的钉(守门 118 的"少扫不红"同型)。
+let FACE_BATCH = null
+if (FACE !== 'worktree') {
+  try {
+    FACE_BATCH = catBatch(repoRoot, ALL_INPUT_RELS.map(specOf), { timeout: 60000 })
+  } catch (e) {
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 批量读取失败(${ALL_INPUT_RELS.length} 份输入):${e?.message ?? e} ⇒ exit 2,不回落磁盘面重算`,
+    )
+    process.exit(2)
+  }
+}
+
+// 自述钉(G-680):产物必须能自己说清"我是从哪些输入、哪个提交算出来的"。
+// 为什么不全靠 --check / 靠 mtime:本仓实录过两次「产物存在但内容是旧的」——
+// 一次是离线语言包只有 release 才发现过期,一次是改 src 后产物只动时间戳(生成器读了 dist)。
+// 判"真的按当前输入重生成过"的唯一办法,是让哈希落在产物里,由守门 105 现算现比。
+//
+// 幂等性(AGENTS §5c 同一条规矩)的两个设计点:
+//   ① 哈希只吃**输入字节**,不吃时刻、不吃 HEAD —— 所以"重跑两次产物逐字节相同"在屏蔽时刻行之后成立;
+//   ② 时刻行 generatedAt 留在钉里给人看,但既**不参与陈旧判据**也**不参与逐字节比对**
+//      (出口 = lib 的 maskGeneratedAt())。留它的理由:"这产物什么时候生成的"与
+//      "这产物是不是按当前输入生成的"是两个问题,后者才是判据,前者只是台账。
+//   ③ 字节归一(剥 BOM + CRLF→LF)只在 lib 里有一份实现,生成器与门共用 —— 否则 Windows
+//      检出带 CRLF 的磁盘算出的哈希,会和门在 HEAD blob(LF)上算出的永不相等,门恒红。
+
+// 与 @ihui/i18n/loader#mergeMessages 语义完全一致:
+// 浅拷贝 base,遍历 override 的 key;当双方都是普通对象(非数组)时递归合并,否则 override 覆盖。
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v)
+}
+function mergeMessages(base, override) {
+  const result = { ...base }
+  for (const key of Object.keys(override)) {
+    const val = override[key]
+    const baseVal = result[key]
+    if (isPlainObject(val) && isPlainObject(baseVal)) {
+      result[key] = mergeMessages(baseVal, val)
+    } else if (val !== undefined) {
+      result[key] = val
+    }
+  }
+  return result
+}
+
+/** 读一份消息源:同时把它按「仓库根相对路径 + 原始文本」记进指定钉的输入清单 */
+const pinInputs = []
+const zhPinInputs = []
+/**
+ * 按**仓库根相对路径**读一份消息源。承载层的 rel 必须取自 lib 的 carriedSourceRel(单源),
+ * 所以「拼 rel」与「读 rel」在这里分成两层:拼仍只此一处(loadJsonInto),承载层直接给 rel。
+ */
+function loadJsonRel(pinList, rel) {
+  let text
+  if (FACE === 'worktree') {
+    text = readWorktreeFile(repoRoot, rel)
+  } else {
+    text = FACE_BATCH.get(specOf(rel))
+  }
+  if (text === null || text === undefined) {
+    // 「取不到」永远不许变成"那就不算一份"或"改用另一个面"—— 那样产物钉会说自己是从一批
+    // 根本没读全的输入派生的(§0.3:把没判写成判过了)。
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 取不到 ${rel} ⇒ exit 2(不回落另一个面;这一份缺席就不出合格证)`,
+    )
+    process.exit(2)
+  }
+  // 每份**实际加载过**的源都进钉:钉与门现算必须在同一集合上比(门按 bundleInputRels 现算)。
+  pinList.push({ rel, text })
+  return JSON.parse(text)
+}
+function loadJsonInto(pinList, ...parts) {
+  return loadJsonRel(pinList, `${MESSAGES_REL}/${parts.join('/')}`)
+}
+function loadJson(...parts) {
+  return loadJsonInto(pinInputs, ...parts)
+}
+
+/* ─────────────── 承载层(mobile-rn 词包):补键算式 + 面读取器 ───────────────
+ *
+ * 语义唯一出处 = lib/i18n-bundle-inputs.mjs 头注:承载层是**增强层**,"承载页可达而端内没有的键
+ * 从这里补";面上没有 RN 词包时它**不算一份输入**,生成器显式跳过并在产物里记 `carried:skipped`。
+ * 补哪些键由 lib/rn-carried-keys.mjs 的闭包尺算(与门 251 同一份),本器不另立规则:
+ *   · 可达键集 = 承载页 import 闭包 + 共享特性屏整片(见该 lib 的第二格注释);
+ *   · subsetMissing 只保留"端内已有取不到"的键 ⇒ **已有措辞一律不被承载层覆盖**。
+ * 三层优先级因此是:基础层 shared → 端内覆盖 miniapp-taro → 承载层 mobile-rn **补缺**。
+ */
+const SOURCE_TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
+/** 磁盘枚举:与守门 105 的 walkDir 同一组跳过项(构建产物与依赖树里没有"源") */
+const CARRIED_SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'dist-alipay',
+  '.swc',
+  '.turbo',
+  '.git',
+  'coverage',
+])
+
+function listDiskFiles(prefix) {
+  const out = []
+  const walk = (rel) => {
+    let ents
+    try {
+      ents = readdirSync(resolve(repoRoot, rel), { withFileTypes: true })
+    } catch {
+      return // 目录不存在 ⇒ 该前缀零文件(闭包尺按"这一支不走"处理)
+    }
+    for (const e of ents) {
+      if (CARRIED_SKIP_DIRS.has(e.name)) continue
+      if (e.isSymbolicLink()) continue // junction/软链不穿透(§26:递归枚举会顺着改道链接跑出仓外)
+      const child = `${rel}/${e.name}`
+      if (e.isDirectory()) walk(child)
+      else if (e.isFile()) out.push(child)
+    }
+  }
+  walk(prefix.replace(/\/+$/, ''))
+  return out
+}
+
+/**
+ * 承载键集的 git 面读取器:一次列清单 + 一次 `cat-file --batch` 读满源码面。
+ * 闭包尺要反复探路(每说明符 9 个候选),逐份派生 git 在本仓是上千次进程 —— 那会让
+ * `--head` 档从秒级变成分钟级,等于没装(§12g 的性能面同型);批量版由 lib 的
+ * makeBatchResolver 消费(它一次问完 9 个候选)。
+ */
+function makeGitSourceReader() {
+  const listArgs =
+    FACE === 'staged'
+      ? ['ls-files', '--full-name', '-z']
+      : ['ls-tree', '-r', '--name-only', 'HEAD', '-z']
+  let tracked
+  try {
+    tracked = gitRaw(listArgs, repoRoot, { timeout: 120000 }).split('\0').filter(Boolean)
+  } catch (e) {
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 列不出源码清单 ⇒ 承载键集判不了,exit 2(不回落磁盘面):${e?.message ?? e}`,
+    )
+    process.exit(2)
+  }
+  const srcFace = tracked.filter(
+    (p) => /^(apps|packages)\/[^/]+\/src\//.test(p) && SOURCE_TEXT_RE.test(p),
+  )
+  if (srcFace.length === 0) {
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 在 (apps|packages)/*/src 下枚举到 0 份源码 ⇒ 承载键集判不了,exit 2(§0.3:枚举到 0 不许记绿)`,
+    )
+    process.exit(2)
+  }
+  let map = null
+  const load = () => {
+    if (map) return map
+    let batch
+    try {
+      batch = catBatch(repoRoot, srcFace.map(specOf), { timeout: 180000 })
+    } catch (e) {
+      console.error(
+        `❌ [gen:i18n] ${FACE_LABEL[FACE]} 批量读取源码面失败(${srcFace.length} 份)⇒ 承载键集判不了,exit 2:${e?.message ?? e}`,
+      )
+      process.exit(2)
+    }
+    map = new Map(srcFace.map((rel) => [rel, batch.get(specOf(rel)) ?? null]))
+    return map
+  }
+  return {
+    listFiles: (prefix) => srcFace.filter((p) => p.startsWith(prefix)),
+    readFile: (rel) => load().get(rel) ?? null,
+    readBatch: (rels) => {
+      const m = load()
+      return new Map(rels.map((r) => [r, m.get(r) ?? null]))
+    },
+  }
+}
+
+let carriedKeySet = null
+function carriedKeysOf() {
+  if (carriedKeySet) return carriedKeySet
+  const readers =
+    FACE === 'worktree'
+      ? { listFiles: listDiskFiles, readFile: (rel) => readWorktreeFile(repoRoot, rel) }
+      : makeGitSourceReader()
+  const t0 = Date.now()
+  const r = carriedKeysFromRepo(readers)
+  carriedKeySet = {
+    keys: r.keys,
+    carriers: r.carriers.length,
+    files: r.files.length,
+    featureFiles: r.featureFiles,
+    ms: Date.now() - t0,
+  }
+  return carriedKeySet
+}
+
+/** 摊成点分叶子 → 值的表(只用于"已有键一个不许被动"的机器断言) */
+function leafPairs(obj, prefix = '', out = new Map()) {
+  for (const [k, v] of Object.entries(obj)) {
+    const p = prefix ? `${prefix}.${k}` : k
+    if (isPlainObject(v)) leafPairs(v, p, out)
+    else out.set(p, v)
+  }
+  return out
+}
+
+/**
+ * 第三层:承载层补缺。
+ * @param {object} base 两层合并结果(shared ⊕ miniapp-taro)
+ * @param {string} locale
+ * @param {Array} pinList 该组产物自己的钉清单(remote 与 zh-CN 各一份,不得互串)
+ * @param {string[]} presentRels 该组语言在**被审面**上的输入清单(bundleInputRels 的产物)
+ * @returns {{merged:object, carried:'present'|'skipped', addedKeys:number, rnLeafKeys:number}}
+ */
+function mergeCarried(base, locale, pinList, presentRels) {
+  const rel = carriedSourceRel(locale)
+  // 面上没有 RN 词包 ⇒ 这一层不算一份输入(lib 头注),显式跳过并记 carried:skipped
+  if (!presentRels.includes(rel))
+    return { merged: base, carried: 'skipped', addedKeys: 0, rnLeafKeys: 0 }
+  const rnPack = loadJsonRel(pinList, rel)
+  const ks = carriedKeysOf()
+  const add = subsetMissing([base], ks.keys, rnPack)
+  const merged = mergeMessages(base, add)
+  // 硬红线机器化:承载层只许补缺 —— 两层里已有的叶子键一个都不许消失、也不许改值。
+  // 若 subsetMissing 的口径被后人改坏(或某语的词包结构把标量盖成对象),这里当场 exit 2,
+  // 绝不让"承载层覆盖了端内措辞"的产物写盘(那会让门 105 的 B2 在完好仓库上红)。
+  const before = leafPairs(base)
+  const after = leafPairs(merged)
+  for (const [p, v] of before) {
+    if (!after.has(p) || JSON.stringify(after.get(p)) !== JSON.stringify(v)) {
+      console.error(
+        `❌ [gen:i18n] 承载层覆盖了端内已有键 ${rel} · ${p} ⇒ exit 2(承载层只许补缺,已有措辞不得被覆盖)`,
+      )
+      process.exit(2)
+    }
+  }
+  return {
+    merged,
+    carried: 'present',
+    addedKeys: leafPairs(add).size,
+    rnLeafKeys: leafPairs(rnPack).size,
+  }
+}
+
+console.log(
+  `[gen:i18n] 取材面 = ${FACE_LABEL[FACE]}(${ALL_INPUT_RELS.length} 份输入${FACE === 'worktree' ? ',逐份读磁盘' : ',一次批量读满'})`,
+)
+if (FACE !== 'worktree') {
+  // 脏输入点名:按被审面重算时,磁盘上若有不同内容必须喊出来 —— 否则操作者会以为
+  // "产物和我盘上看到的一样",而它其实是 HEAD 那份(这正是本次要能安全做到的那件事)。
+  const dirty = ALL_INPUT_RELS.filter((rel) => {
+    const disk = readWorktreeFile(repoRoot, rel)
+    return disk !== null && disk !== FACE_BATCH.get(specOf(rel))
+  })
+  if (dirty.length) {
+    console.log(
+      `[gen:i18n] ⚠️ 其中 ${dirty.length} 份的磁盘副本与所读取的面不同(本次**不采用**它们;` +
+        `两种都可能:他人在飞的新改动,或工作树滞后于 HEAD 的旧基线 —— 要区分用 ` +
+        '`git rev-list --first-parent HEAD --<路径> 比磁盘 blob):' +
+        dirty.join(', '),
+    )
+  }
+}
+
+const REMOTE_LOCALE_B64 = {}
+let totalOriginal = 0
+let totalB64 = 0
+/** 逐语承载层读数(进产物自述钉的 extraLines:补了几个键 / 是否跳过 —— 与输入清单同块自述) */
+const CARRIED_SUMMARY = []
+
+for (const locale of REMOTE_LOCALES) {
+  const shared = loadJson('shared', `${locale}.json`)
+  const miniapp = loadJson('miniapp-taro', `${locale}.json`)
+  // 三层优先级:基础层 shared → 端内覆盖 miniapp-taro → 承载层 mobile-rn **只补缺**
+  const twoLayer = mergeMessages(shared, miniapp)
+  const carried = mergeCarried(twoLayer, locale, pinInputs, INPUT_RELS)
+  const merged = carried.merged
+  CARRIED_SUMMARY.push({ locale, carried: carried.carried, addedKeys: carried.addedKeys })
+  const json = JSON.stringify(merged) // 无缩进,与运行时 JSON.parse 对称
+  // mtime:0 强制确定性(否则 fflate 默认写入当前时间戳到 gzip 头,跨进程运行产物不一致)
+  const gz = gzipSync(strToU8(json), { level: 9, mtime: 0 })
+  const b64 = Buffer.from(gz).toString('base64')
+  REMOTE_LOCALE_B64[locale] = b64
+
+  const originalKB = json.length / 1024
+  const b64KB = b64.length / 1024
+  totalOriginal += originalKB
+  totalB64 += b64KB
+  console.log(
+    `[gen:i18n] ${locale}: ${originalKB.toFixed(1)}KB (JSON) → ${b64KB.toFixed(1)}KB (b64, gzip${(gz.length / 1024).toFixed(1)}KB)` +
+      ` · 承载层 ${carried.carried}${carried.carried === 'present' ? `,补 ${carried.addedKeys} 个叶子键(RN 包 ${carried.rnLeafKeys} 键)` : '(面上无 RN 词包,不算一份输入)'}`,
+  )
+}
+
+if (carriedKeySet) {
+  // 这一行是"第三层真的跑了"的读数:承载层若被整体跳过,这里一个字都不会有。
+  console.log(
+    `[gen:i18n] 承载键集:可达键 ${carriedKeySet.keys.size} 个(承载页 ${carriedKeySet.carriers} / 闭包文件 ${carriedKeySet.files} / 共享特性屏 ${carriedKeySet.featureFiles},耗时 ${carriedKeySet.ms}ms,面=${FACE_LABEL[FACE]})`,
+  )
+}
+console.log(
+  `[gen:i18n] 合计: 原始 ${totalOriginal.toFixed(1)}KB → b64 ${totalB64.toFixed(1)}KB (净省 ${(totalOriginal - totalB64).toFixed(1)}KB)`,
+)
+
+// ── 产物④:zh-CN 内联包(回落语 ⇒ 随包内联,不走 CDN;选项 A,2026-10-15)──
+// 合并口径与 remote 各语言完全一致(shared 为 base,miniapp-taro 覆盖),b64 规约也一致
+// (gzip level 9 + mtime:0 ⇒ 跨进程逐字节确定)。
+const zhShared = loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json')
+const zhMiniapp = loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json')
+const zhTwoLayer = mergeMessages(zhShared, zhMiniapp)
+const zhCarried = mergeCarried(zhTwoLayer, 'zh-CN', zhPinInputs, ZH_INPUT_RELS)
+const zhMerged = zhCarried.merged
+const zhJson = JSON.stringify(zhMerged) // 无缩进,与运行时 JSON.parse 对称
+const zhGz = gzipSync(strToU8(zhJson), { level: 9, mtime: 0 })
+const zhB64 = Buffer.from(zhGz).toString('base64')
+const zhCritical = {}
+for (const ns of ZH_CN_CRITICAL_NAMESPACES) {
+  if (isPlainObject(zhMerged[ns])) zhCritical[ns] = zhMerged[ns]
+}
+console.log(
+  `[gen:i18n] zh-CN(内联): ${(zhJson.length / 1024).toFixed(1)}KB (JSON) → ${(zhB64.length / 1024).toFixed(1)}KB (b64, gzip ${(zhGz.length / 1024).toFixed(1)}KB) · 兜底键集 ${JSON.stringify(zhCritical).length}B` +
+    ` · 承载层 ${zhCarried.carried}${zhCarried.carried === 'present' ? `,补 ${zhCarried.addedKeys} 个叶子键` : ''}`,
+)
+
+// 运行时清单:version = 载荷 sha256(storage 缓存 key 与失效判据),bytes = 载荷字节数
+// (下载完整性粗校验)。哈希一律经 lib/generated-input-pin.mjs 的 sha256Hex(唯一实现,
+// 与守门 105 的自述钉同值),只在生成期算,运行时只做字符串比较,不带依赖进主包。
+const REMOTE_LOCALE_MANIFEST = {}
+for (const locale of REMOTE_LOCALES) {
+  REMOTE_LOCALE_MANIFEST[locale] = {
+    version: sha256Hex(REMOTE_LOCALE_B64[locale]),
+    bytes: REMOTE_LOCALE_B64[locale].length,
+  }
+}
+
+// 源版本钉里的出处行:HEAD 的 sha。取不到一律写 unknown —— 它只是给人看的台账,
+// 不参与陈旧判据(判据只认 inputsSha256),所以「git 此刻不可用」绝不允许变成生成失败。
+function readSourceCommit() {
+  try {
+    // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带绝对路径 git + safe.directory
+    // + core.quotepath=false + -C repoRoot + windowsHide + 显式 stdio,原显式 -c/-C 剥掉避免重复;
+    // timeout 15000 按守门 80"钩子/守护链可达的 git 只读调用必须有界"显式保留)
+    return gitRaw(['rev-parse', 'HEAD'], repoRoot, { timeout: 15000 })
+      .trim()
+      .split('\n')[0]
+  } catch {
+    return 'unknown'
+  }
+}
+
+// 自述钉两份产物共用同一份(同批输入 + 同一时刻行 ⇒ 幂等性对两份产物同时成立)
+// extraLines 是**非判据**自述行:承载层到底补了没补、补了几个键 —— 与输入清单同块,
+// 读钉的人一眼能看出"这包是三层合出来的"还是"承载层被跳过了",不用去猜(补 0 个也照实写)。
+const carriedState = CARRIED_SUMMARY.every((s) => s.carried === 'present')
+  ? 'present'
+  : CARRIED_SUMMARY.some((s) => s.carried === 'present')
+    ? 'partial'
+    : 'skipped'
+const pinLines = renderPin({
+  generator: GENERATOR_REL,
+  sourceCommit: readSourceCommit(),
+  inputs: pinInputs,
+  generatedAt: new Date().toISOString(),
+  extraLines: [
+    `carried: ${carriedState}`,
+    `carriedKeys: ${CARRIED_SUMMARY.map((s) => `${s.locale}=${s.addedKeys}`).join(' ')}`,
+  ],
+})
+
+const lines = [
+  '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
+  '// 非中文语言包离线 gzip+base64 内联,运行时经 fflate 解压,数据与源 JSON 无损等价(见 __tests__/i18n-compressed.test.ts)',
+  // 自述钉:紧贴上面两行说明之后、在任何数据行之前 —— 解析器按行取,位置不影响内容,
+  // 但放在文件头才会在 `head` / PR diff 里第一眼可见(本票的动机正是"没人愿意去猜产物新不新")。
+  // 2026-10-06 起运行时不再 import 本文件(载荷改 CDN 按需拉取);它仍是守门对账与 CDN 载荷的唯一真相。
+  ...pinLines,
+  "export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'",
+  'export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {',
+]
+
+for (const locale of REMOTE_LOCALES) {
+  // base64 单行字符串(很长没关系,该目录已加入 prettier/eslint 忽略)
+  lines.push(`  ${locale === 'zh-TW' ? "'zh-TW'" : locale}: '${REMOTE_LOCALE_B64[locale]}',`)
+}
+lines.push('}')
+lines.push('')
+
+mkdirSync(outDir, { recursive: true })
+writeFileSync(outFile, lines.join('\n'), 'utf8')
+
+// 产物③:运行时轻量清单(进主包,约 0.5KB)。与 ① 同钉,保证"缓存 key/字节校验的判据"
+// 与"离线真相"出自同一批输入 —— 两份产物任何一份单独重生成都会被 G5 钉门点名为陈旧。
+const manifestLines = [
+  '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
+  '// 按需拉取语言包的运行时清单:version = 载荷 gzip+b64 的 sha256(storage 缓存 key 与失效判据),',
+  '// bytes = 载荷字节数(下载完整性粗校验)。载荷真相在 generated/remote-locales.gen.ts(离线对账)',
+  '// 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。',
+  ...pinLines,
+  "export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'",
+  'export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {',
+]
+for (const locale of REMOTE_LOCALES) {
+  const { version, bytes } = REMOTE_LOCALE_MANIFEST[locale]
+  manifestLines.push(
+    `  ${locale === 'zh-TW' ? "'zh-TW'" : locale}: { version: '${version}', bytes: ${bytes} },`,
+  )
+}
+manifestLines.push('}')
+manifestLines.push('')
+writeFileSync(manifestFile, manifestLines.join('\n'), 'utf8')
+
+// 产物②:CDN 部署载荷(与 ① 的 b64 逐字节相同,无换行尾巴 —— 运行时按清单 bytes 粗校验)。
+// 部署动作属运维既有通道:把本目录拷进 cdn-server.js 的 server-root(与 remote-images 同法)。
+mkdirSync(cdnPayloadDir, { recursive: true })
+for (const locale of REMOTE_LOCALES) {
+  writeFileSync(resolve(cdnPayloadDir, `${locale}.b64.txt`), REMOTE_LOCALE_B64[locale], 'utf8')
+}
+
+// 产物④:zh-CN 内联包。**钉单独一份**(zhPinInputs)—— 输入集与 ① 不同,G5 只按 remote 8 份
+// 现算 ①,两份钉不得互串(否则 ① 恒判 stale)。version/bytes 口径与清单 ③ 同一约定。
+const zhPinLines = renderPin({
+  generator: GENERATOR_REL,
+  sourceCommit: readSourceCommit(),
+  inputs: zhPinInputs,
+  generatedAt: new Date().toISOString(),
+  extraLines: [`carried: ${zhCarried.carried}`, `carriedKeys: zh-CN=${zhCarried.addedKeys}`],
+})
+const zhLines = [
+  '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
+  '// zh-CN 内联包:回落语必须随包内联(不得走 CDN),故这里是**压缩后**的 b64 ——',
+  '// 运行时在模块加载期同步 gunzip 一次还原 messages(fflate + 查表 b64,不引新依赖)。',
+  '// ZH_CN_CRITICAL 是同批派生的**最小内置键集**(纯 JSON、不参与压缩):gunzip/JSON.parse',
+  '// 任一环失败时 fail-closed 回落到它 —— 兜底刻意不复用那条失败的解码链路。',
+  ...zhPinLines,
+  `export const ZH_CN_PACK_VERSION = '${sha256Hex(zhB64)}'`,
+  `export const ZH_CN_PACK_BYTES = ${zhB64.length}`,
+  `export const ZH_CN_PACK_B64 = '${zhB64}'`,
+  `export const ZH_CN_CRITICAL: Record<string, unknown> = ${JSON.stringify(zhCritical)}`,
+  '',
+]
+writeFileSync(zhPackFile, zhLines.join('\n'), 'utf8')
+
+// 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
+// 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。
+// 统一改为复用仓库水印工具(单一事实源),幂等:重复生成不产生 diff。
+// (三份 .ts 产物都要注入;.b64.txt 载荷不在水印分母,保持字节精确。)
+const watermarkScript = resolve(repoRoot, 'scripts/watermark.mjs')
+for (const generatedFile of [outFile, manifestFile, zhPackFile]) {
+  try {
+    execFileSync(process.execPath, [watermarkScript, 'inject', generatedFile], {
+      stdio: 'inherit',
+      windowsHide: true, // 防 Windows 弹可见控制台窗口
+    })
+  } catch (e) {
+    console.error(
+      `[gen:i18n] ❌ 溯源水印注入失败(${generatedFile}),产物将导致 check-watermark-coverage 红: ${e.message || e}`,
+    )
+    process.exit(1)
+  }
+}
+
+console.log(`[gen:i18n] 已写入 ${outFile} (${readFileSync(outFile).length} 字节, 含溯源水印)`)
+console.log(`[gen:i18n] 已写入 ${manifestFile} (${readFileSync(manifestFile).length} 字节, 含溯源水印)`)
+console.log(`[gen:i18n] 已写入 ${zhPackFile} (${readFileSync(zhPackFile).length} 字节, 含溯源水印)`)
+console.log(
+  `[gen:i18n] 已写入 CDN 载荷 ${cdnPayloadDir}/{${REMOTE_LOCALES.join(',')}}.b64.txt (部署: 整目录拷入 cdn-server.js 的 server-root)`,
+)
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

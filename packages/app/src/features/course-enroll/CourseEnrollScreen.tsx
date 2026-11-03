@@ -1,0 +1,234 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { CourseEnrollItem, CourseEnrollScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { TextField } from '../../components/TextField'
+
+/** 课程报名共享屏 — props 注入式跨端组件 */
+export type { CourseEnrollItem, CourseEnrollScreenProps }
+
+function formatPrice(item: CourseEnrollItem): string {
+  if (item.isFree || item.price === 0) return ''
+  return `\u00a5${item.price.toFixed(2)}`
+}
+
+export function CourseEnrollScreen({
+  t,
+  items,
+  loading,
+  refreshing,
+  error,
+  keyword,
+  enrollingId,
+  toast,
+  userNickname,
+  onKeywordChange,
+  onSearch,
+  onRefresh,
+  onEnroll,
+  onBack,
+  colorScheme = 'light',
+}: CourseEnrollScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('courseEnroll.title')}</Text>
+        <Text style={styles.subtitle}>{t('courseEnroll.subtitle')}</Text>
+        {userNickname ? <Text style={styles.userText}>{userNickname}</Text> : null}
+      </View>
+
+      <View style={styles.searchRow}>
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.searchInput}
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder={t('courseEnroll.searchPlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+          returnKeyType="search"
+          onSubmitEditing={onSearch}
+        />
+        <TouchableOpacity style={styles.searchBtn} onPress={onSearch}>
+          <Text style={styles.searchBtnText}>{t('common.search')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {toast ? <Text style={styles.toastText}>{toast}</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <FlatList<CourseEnrollItem>
+        style={styles.list}
+        data={items}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('courseEnroll.empty')} colorScheme={colorScheme} />
+          )
+        }
+        renderItem={({ item }) => {
+          const isEnrolling = enrollingId === item.id
+          const isDisabled = item.isEnrolled || isEnrolling
+          return (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                {item.isEnrolled ? (
+                  <View style={styles.badgeEnrolled}>
+                    <Text style={styles.badgeText}>{t('courseEnroll.enrolled')}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.cardMeta}>
+                {t('courseEnroll.instructor')}:{item.instructor}
+              </Text>
+              <View style={styles.cardMetaRow}>
+                <Text style={styles.cardMetaText}>
+                  {t('courseEnroll.level')}:{item.level}
+                </Text>
+                <Text style={styles.cardMetaText}>
+                  {t('courseEnroll.lessons')}:{item.lessonCount}
+                </Text>
+                <Text style={styles.cardMetaText}>
+                  {t('courseEnroll.students')}:{item.studentCount}
+                </Text>
+              </View>
+              <View style={styles.cardFooter}>
+                <Text style={styles.priceText}>
+                  {item.isFree ? t('courseEnroll.free') : formatPrice(item)}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.enrollBtn, isDisabled && styles.enrollBtnDisabled]}
+                  onPress={() => onEnroll(item)}
+                  disabled={isDisabled}
+                >
+                  <Text style={styles.enrollBtnText}>
+                    {isEnrolling
+                      ? t('common.loading')
+                      : item.isEnrolled
+                        ? t('courseEnroll.enrolled')
+                        : t('courseEnroll.enroll')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        }}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    searchRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      gap: rnSpacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      height: 50,
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+    },
+    searchBtn: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    searchBtnText: { color: tk.surface.light, fontSize: rnType.title.size },
+    toastText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
+      fontSize: rnType.body.size,
+      color: tk.success.DEFAULT,
+    },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      marginBottom: rnSpacing.md,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginRight: rnSpacing.sm,
+    },
+    badgeEnrolled: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.success.lighter,
+    },
+    badgeText: { fontSize: rnType.caption.size, color: tk.success.deepText },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    cardMetaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
+    cardMetaText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    cardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: rnSpacing['sm-loose'],
+    },
+    priceText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
+    enrollBtn: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    enrollBtnDisabled: { backgroundColor: tk.text.tertiary },
+    enrollBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

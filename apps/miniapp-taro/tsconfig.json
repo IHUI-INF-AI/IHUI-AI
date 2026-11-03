@@ -1,0 +1,36 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "allowJs": false,
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/apps-miniapp-taro.tsbuildinfo",
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "isolatedModules": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "react-native": ["./src/rn-compat/index.ts"],
+      "lucide-react-native": ["./src/rn-compat/icons-generated.tsx"],
+      "@react-navigation/native": ["./src/rn-compat/navigation.tsx"],
+      "@react-navigation/native-stack": ["./src/rn-compat/navigation.tsx"],
+      "@react-native-async-storage/async-storage": ["./src/rn-compat/storage.ts"],
+      "@react-native-clipboard/clipboard": ["./src/rn-compat/platform.tsx"],
+      "expo-image-picker": ["./src/rn-compat/platform.tsx"],
+      "expo-media-library": ["./src/rn-compat/platform.tsx"],
+      "react-native-safe-area-context": ["./src/rn-compat/platform.tsx"],
+      "@rn-shells/*": ["../../../apps/mobile-rn/src/screens/*"],
+      "@ihui/rn-app/*": ["../../../packages/app/src/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["./src", "./types", "./config", "./tests"],
+  "exclude": ["node_modules", "dist", ".swc"]
+}

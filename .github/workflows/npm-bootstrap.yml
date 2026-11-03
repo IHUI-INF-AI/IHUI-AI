@@ -1,0 +1,130 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# npm 账号首发引导(一次性):本机与生产机出口 IP 均被 www.npmjs.com 403,
+# 由 GitHub Actions runner(Azure 出口)代行注册/验证/取 token。
+# 凭据经 RSA-OAEP+AES-GCM 加密落 artifact(李总本地持私钥),公开仓零泄露。
+# action=signup | verify_token;publish 走本文件独立 job(标准 npm publish)。
+name: npm Bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'signup | verify_token | publish | trusted_publisher | signpath | org_create'
+        required: true
+        default: 'signup'
+      attempts:
+        description: '整轮重试次数(诊断时可传 1 快速拿结果)'
+        required: false
+        default: '3'
+      otp_code:
+        description: 'npm 邮箱 OTP 验证码(trusted_publisher / org_create 登录被要求邮箱验证时传,一次性)'
+        required: false
+        default: ''
+
+concurrency:
+  group: npm-bootstrap
+  cancel-in-progress: false
+
+# 2026-11-01 安全强化:显式最小权限(此前不声明 ⇒ 拿仓库/组织默认档位,可能含写权)。
+# 逐枚按需给,多一枚都不给:
+#   contents: read  —— 两个 job(browser / publish)各自的 actions/checkout@v4。
+#   actions: write  —— browser job 的 actions/upload-artifact@v4。声明块一旦写上,
+#                      未列出的 scope 一律变 none,漏了这条那一步会**当场失败**
+#                      (同 release-desktop.yml 为读产物显式补 actions: read 那条教训的反向)。
+# 不给 packages/deployments/id-token:本作业发包用的是 npm 用户名+口令(NPM_BOOT_* 系列
+# secrets),不用 GITHUB_TOKEN,也不用 OIDC 可信发布(现读全文对 GITHUB_TOKEN/gh api 零命中)。
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  browser:
+    if: github.event.inputs.action != 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ACTION: ${{ github.event.inputs.action }}
+      BOOT_ATTEMPTS: ${{ github.event.inputs.attempts || '3' }}
+      PUBKEY_PEM: ${{ secrets.NPM_BOOT_PUBKEY }}
+      NPM_EMAIL: ${{ secrets.NPM_BOOT_EMAIL }}
+      NPM_USERNAME: ${{ secrets.NPM_BOOT_USERNAME }}
+      NPM_PASSWORD: ${{ secrets.NPM_BOOT_PASSWORD }}
+      NPM_VERIFY_URL: ${{ secrets.NPM_VERIFY_URL }}
+      # trusted_publisher:网页登录凭据(npm 已禁用 API 换 token,Trusted Publisher 只能网页登记)
+      NPM_WEB_USERNAME: ${{ secrets.NPM_WEB_USERNAME }}
+      NPM_WEB_PASSWORD: ${{ secrets.NPM_WEB_PASSWORD }}
+      # trusted_publisher / org_create:npm 新设备登录的邮箱 OTP(李总读邮件提供,一次性)
+      NPM_OTP_CODE: ${{ github.event.inputs.otp_code || '' }}
+      # reCAPTCHA 闭环:把挑战截图实时推到 rc-live 分支供李总侧识别
+      GH_TOKEN: ${{ github.token }}
+      # signpath:申请联系邮箱
+      SIGNPATH_EMAIL: ${{ secrets.SIGNPATH_EMAIL }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install playwright + real Google Chrome
+        run: |
+          cd .github/scripts
+          npm init -y >/dev/null 2>&1 || true
+          npm i playwright@1.49.1 --no-fund --no-audit
+          npx playwright install chromium --with-deps
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb >/dev/null
+          # 官方真 Chrome:userAgentData.brands 含 "Google Chrome"(CFT/Playwright chromium 缺这一项,
+          # CF 一测即识破);配合 --disable-blink-features=AutomationControlled 使 navigator.webdriver
+          # 原生为 false,零 JS 伪造痕迹。Playwright 仅作 connectOverCDP 的客户端。
+          cd /tmp
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
+          google-chrome --version
+      - name: Run browser automation (real Chrome + CDP, xvfb headed)
+        timeout-minutes: 40
+        # 防挂死:xvfb-run 在脚本异常退出后不会回收(实测挂满 45 分钟),用 timeout 硬杀并核对退出码。
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb >/dev/null
+          cd .github/scripts
+          set +e
+          UNDER_XVFB=1 timeout -s KILL 1500 xvfb-run -a -s "-screen 0 1280x860x24" node npm-bootstrap-runner.mjs
+          ec=$?
+          pkill -f Xvfb || true
+          echo "RUNNER-EXIT=$ec"
+          if [ "$ec" -eq 137 ] || [ "$ec" -eq 124 ]; then
+            echo "::error::runner 超过 25 分钟未结束,已硬杀(脚本自身挂死),详见 rc-live 分支 .github/rc-log.txt"
+          fi
+          exit $ec
+      - name: Upload evidence + encrypted secrets
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-bootstrap-${{ github.event.inputs.action }}-${{ github.run_number }}
+          path: .github/scripts/shots/
+          if-no-files-found: warn
+
+  publish:
+    if: github.event.inputs.action == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - name: Install + build npm bundle
+        run: |
+          pnpm install --frozen-lockfile --filter ihui-cli...
+          pnpm --filter "ihui-cli^..." run build
+          pnpm --filter ihui-cli build:npm
+      - name: Publish ihui-cli to npm
+        run: |
+          cd apps/cli/npm-dist
+          npm publish --registry=https://registry.npmjs.org/ --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

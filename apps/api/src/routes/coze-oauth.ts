@@ -1,0 +1,346 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Coze OAuth 路由 (Fastify)。
+ * 迁移自 v1.0.2-sealed: server/app/api/v1/auth/coze_oauth.py
+ *
+ * 提供 4 种 OAuth 模式:
+ * - device: 设备码授权
+ * - web: Web 授权码流程
+ * - pkce: PKCE 扩展授权码流程
+ * - jwt: JWT 授权 (最常用, 服务端直接签发)
+ *
+ * 端点:
+ * - GET  /authorize  获取授权 URL (支持 device/web/pkce/jwt 四种模式)
+ * - POST /token      获取 access_token
+ * - POST /refresh    刷新 token
+ * - POST /jwt        直接获取 JWT access_token (最常用)
+ * - GET  /config     查看 Coze OAuth 配置 (脱敏)
+ *
+ * 注册前缀: /api/coze/oauth
+ */
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { randomBytes } from 'node:crypto'
+import { success, error } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
+import { attributeError } from '@ihui/shared/utils/error-attribution'
+import { loadCozeOAuthConfig, getCozeAccessToken } from '../services/coze-auth-utils.js'
+import {
+  DeviceOAuthApp,
+  WebOAuthApp,
+  PKCEOAuthApp,
+  JWTOAuthApp,
+} from '../services/coze-oauth-apps.js'
+
+const OAUTH_TYPES = ['device', 'web', 'pkce', 'jwt'] as const
+
+/**
+ * base_url 白名单(2026-10-27 安全加固,P0)。
+ *
+ * `resolveBaseUrl()` 允许调用方用 base_url 覆盖 COZE_API_BASE,而 device/web/pkce 三支
+ * 都会把 **client_id + client_secret** POST 到 `${baseUrl}/api/permission/oauth2/...`。
+ * 也就是说任意能打这个路由的人只要传 `base_url=https://attacker.tld`,就能让服务器
+ * 带着平台应用凭据去敲他的域名 —— 这不是普通 SSRF,是**凭据主动外送**。
+ * 官方只可能有这两个域(coze.cn / coze.com),其余一律 400,不做"猜它想干什么"。
+ */
+const COZE_BASE_URL_HOSTS = new Set([
+  'coze.cn',
+  'api.coze.cn',
+  'www.coze.cn',
+  'coze.com',
+  'api.coze.com',
+  'www.coze.com',
+])
+
+function isAllowedCozeBase(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'https:' && COZE_BASE_URL_HOSTS.has(u.hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+/** 三份 schema 共用的 base_url 字段:缺省 ⇒ 走环境变量默认;给了就必须是官方域名 */
+const baseUrlField = z
+  .string()
+  .optional()
+  .refine((v) => v === undefined || isAllowedCozeBase(v), {
+    message: 'base_url 只允许 Coze 官方域名(api.coze.cn / api.coze.com)',
+  })
+
+const authorizeQuerySchema = z.object({
+  type: z.enum(OAUTH_TYPES).default('jwt'),
+  redirect_uri: z.string().optional(),
+  state: z.string().optional(),
+  scope: z.string().optional(),
+  workspace_id: z.string().optional(),
+  code_verifier: z.string().optional(),
+  code_challenge_method: z.string().default('S256'),
+  base_url: baseUrlField,
+})
+
+const tokenBodySchema = z.object({
+  type: z.enum(OAUTH_TYPES).default('jwt'),
+  device_code: z.string().optional(),
+  code: z.string().optional(),
+  redirect_uri: z.string().optional(),
+  client_id: z.string().optional(),
+  client_secret: z.string().optional(),
+  code_verifier: z.string().optional(),
+  user_uuid: z.string().nullable().optional(),
+  scope: z.string().optional(),
+  ttl: z.number().optional(),
+  force_refresh: z.boolean().default(false),
+  base_url: baseUrlField,
+})
+
+const refreshBodySchema = z.object({
+  type: z.enum(OAUTH_TYPES).default('jwt'),
+  refresh_token: z.string().optional(),
+  client_id: z.string().optional(),
+  client_secret: z.string().optional(),
+  user_uuid: z.string().nullable().optional(),
+  base_url: baseUrlField,
+})
+
+const jwtBodySchema = z.object({
+  user_uuid: z.string().nullable().optional(),
+  scope: z.string().optional(),
+  ttl: z.number().optional(),
+  force_refresh: z.boolean().default(false),
+})
+
+function genState(): string {
+  return randomBytes(16).toString('base64url')
+}
+
+export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
+  // 2026-10-27 安全加固(P0):本插件此前**完全无鉴权**(挂在 /api/coze/oauth,不在任何
+  // barrel 鉴权钩子的射程内)。匿名者可:
+  //   ① POST /jwt、POST /token(type=jwt) —— 用平台私钥给**任意 user_uuid** 铸造 Coze
+  //      access_token(等于白送上游账号权限);
+  //   ② POST /token(type=device) 传 base_url —— 把 client_secret 送到攻击者域名(见上);
+  //   ③ GET /config 读集成配置。
+  // 这些是运维/后台集成面,一律要求管理员。
+  server.addHook('preHandler', requireAdmin)
+
+  // GET /authorize - 获取授权 URL
+  server.get('/authorize', async (request, reply) => {
+    const parsed = authorizeQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const q = parsed.data
+    try {
+      if (q.type === 'jwt') {
+        return reply.send(
+          success({
+            type: 'jwt',
+            message: 'JWT 模式无需授权 URL, 请直接 POST /api/coze/oauth/jwt 获取 access_token',
+          }),
+        )
+      }
+      if (q.type === 'device') {
+        const app = new DeviceOAuthApp({ baseUrl: q.base_url })
+        const data = await app.getDeviceCode(q.workspace_id)
+        return reply.send(success(data))
+      }
+      if (q.type === 'web') {
+        if (!q.redirect_uri) {
+          return reply.status(400).send(error(400, 'web 模式需要 redirect_uri'))
+        }
+        const app = new WebOAuthApp({ baseUrl: q.base_url })
+        const st = q.state ?? genState()
+        const url = app.getOAuthUrl(q.redirect_uri, st, q.scope)
+        return reply.send(success({ auth_url: url, state: st }))
+      }
+      // pkce
+      if (!q.redirect_uri) {
+        return reply.status(400).send(error(400, 'pkce 模式需要 redirect_uri'))
+      }
+      const app = new PKCEOAuthApp({ baseUrl: q.base_url })
+      const verifier = q.code_verifier ?? PKCEOAuthApp.generateCodeVerifier()
+      const st = q.state ?? genState()
+      const url = app.getOAuthUrl({
+        redirectUri: q.redirect_uri,
+        codeVerifier: verifier,
+        codeChallengeMethod: q.code_challenge_method,
+        state: st,
+        scope: q.scope,
+      })
+      return reply.send(
+        success({
+          auth_url: url,
+          state: st,
+          code_verifier: verifier,
+          code_challenge_method: q.code_challenge_method,
+        }),
+      )
+    } catch (e) {
+      request.log.error({ err: e }, '[coze-oauth] 授权失败')
+      return reply.status(500).send(error(500, '授权失败,请稍后重试'))
+    }
+  })
+
+  // POST /token - 获取 access_token
+  server.post('/token', async (request, reply) => {
+    const parsed = tokenBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const b = parsed.data
+    // 返回 access_token,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
+    try {
+      if (b.type === 'jwt') {
+        const accessToken = await getCozeAccessToken({
+          userUuid: b.user_uuid,
+          forceRefresh: b.force_refresh,
+        })
+        if (!accessToken) return reply.status(500).send(error(500, '获取 JWT access_token 失败'))
+        return reply.send(
+          success({
+            access_token: accessToken,
+            token_type: 'Bearer',
+            expires_in: b.ttl ?? 86399,
+          }),
+        )
+      }
+      if (b.type === 'device') {
+        if (!b.device_code) {
+          return reply.status(400).send(error(400, 'device 模式需要 device_code'))
+        }
+        const app = new DeviceOAuthApp({ clientId: b.client_id, baseUrl: b.base_url })
+        const result = await app.getAccessToken(b.device_code)
+        return reply.send(success(result))
+      }
+      if (b.type === 'web') {
+        if (!b.code || !b.redirect_uri) {
+          return reply.status(400).send(error(400, 'web 模式需要 code 与 redirect_uri'))
+        }
+        const app = new WebOAuthApp({
+          clientId: b.client_id,
+          clientSecret: b.client_secret,
+          baseUrl: b.base_url,
+        })
+        const result = await app.getAccessToken(b.code, b.redirect_uri)
+        return reply.send(success(result))
+      }
+      // pkce
+      if (!b.code || !b.redirect_uri || !b.code_verifier) {
+        return reply.status(400).send(error(400, 'pkce 模式需要 code, redirect_uri, code_verifier'))
+      }
+      const app = new PKCEOAuthApp({ clientId: b.client_id, baseUrl: b.base_url })
+      const result = await app.getAccessToken({
+        redirectUri: b.redirect_uri,
+        code: b.code,
+        codeVerifier: b.code_verifier,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '获取 token 失败,请稍后重试'))
+    }
+  })
+
+  // POST /refresh - 刷新 token
+  server.post('/refresh', async (request, reply) => {
+    const parsed = refreshBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const b = parsed.data
+    // 返回 access_token,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
+    try {
+      if (b.type === 'jwt') {
+        const accessToken = await getCozeAccessToken({
+          userUuid: b.user_uuid,
+          forceRefresh: true,
+        })
+        if (!accessToken) return reply.status(500).send(error(500, '刷新 JWT access_token 失败'))
+        return reply.send(
+          success({
+            access_token: accessToken,
+            token_type: 'Bearer',
+            expires_in: 86399,
+          }),
+        )
+      }
+      if (!b.refresh_token) {
+        return reply.status(400).send(error(400, '需要 refresh_token'))
+      }
+      let result
+      if (b.type === 'device') {
+        const app = new DeviceOAuthApp({ clientId: b.client_id, baseUrl: b.base_url })
+        result = await app.refreshAccessToken(b.refresh_token)
+      } else if (b.type === 'web') {
+        const app = new WebOAuthApp({
+          clientId: b.client_id,
+          clientSecret: b.client_secret,
+          baseUrl: b.base_url,
+        })
+        result = await app.refreshAccessToken(b.refresh_token)
+      } else {
+        // pkce
+        const app = new PKCEOAuthApp({ clientId: b.client_id, baseUrl: b.base_url })
+        result = await app.refreshAccessToken(b.refresh_token)
+      }
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '刷新 token 失败,请稍后重试'))
+    }
+  })
+
+  // POST /jwt - 直接获取 JWT access_token (最常用)
+  server.post('/jwt', async (request, reply) => {
+    const parsed = jwtBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const b = parsed.data
+    // 返回 access_token,旁路 response-sanitizer 防止脱敏
+    request.skipResponseSanitization = true
+    try {
+      const app = new JWTOAuthApp()
+      const result = await app.getAccessToken({
+        userUuid: b.user_uuid,
+        scope: b.scope,
+        ttl: b.ttl,
+        forceRefresh: b.force_refresh,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      // 配置缺失 ⇒ 400 档(成因判据走错误归因唯一出口 G-816012;未命中落 unknown,仍走 500 兜底)
+      const attribution = attributeError(e)
+      if (attribution.errorSource === 'config' && attribution.failureReason === 'not-configured') {
+        return reply.status(400).send(error(400, e instanceof Error ? e.message : String(e)))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '获取访问凭证失败,请稍后重试'))
+    }
+  })
+
+  // GET /config - 查看当前 OAuth 配置 (脱敏)
+  server.get('/config', async (_request, reply) => {
+    const cfg = loadCozeOAuthConfig()
+    if (!cfg) return reply.status(500).send(error(500, 'OAuth 配置不可用'))
+    return reply.send(
+      success({
+        client_type: cfg.clientType,
+        client_id: cfg.clientId,
+        coze_www_base: cfg.cozeWwwBase,
+        coze_api_base: cfg.cozeApiBase,
+        public_key_id: cfg.publicKeyId,
+        private_key_configured: Boolean(cfg.privateKey),
+      }),
+    )
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,112 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { useAuthGate } from '@/hooks/use-auth-gate'
+import { AuthGatePrompt } from '@/components/common'
+
+import { BackButton } from '@/components/common'
+import { TeamDialog } from './TeamDialog'
+import { TeamList } from './TeamList'
+import { fetchTeams, createTeam } from './helpers'
+
+export default function TeamsPage() {
+  const t = useTranslations('teams')
+  // 2026-10-15 登录态门(与 settings/notifications 同型):/api/teams = 当前用户的团队列表,
+  // 未就绪/未登录不发注定 401 的请求,改显登录引导
+  const tGate = useTranslations('chatHistory')
+  const { allow } = useAuthGate()
+  const queryClient = useQueryClient()
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['teams'],
+    queryFn: fetchTeams,
+    enabled: allow,
+  })
+
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [name, setName] = React.useState('')
+  const [slug, setSlug] = React.useState('')
+  const [description, setDescription] = React.useState('')
+  const [formError, setFormError] = React.useState<string | null>(null)
+
+  const resetForm = () => {
+    setName('')
+    setSlug('')
+    setDescription('')
+    setFormError(null)
+  }
+
+  const createMutation = useMutation({
+    mutationFn: createTeam,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
+      setDialogOpen(false)
+      resetForm()
+    },
+    onError: (e: Error) => setFormError(e.message),
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError(null)
+    if (!name.trim()) {
+      setFormError(t('nameRequired'))
+      return
+    }
+    if (!slug.trim()) {
+      setFormError(t('slugRequired'))
+      return
+    }
+    createMutation.mutate({
+      name: name.trim(),
+      slug: slug.trim(),
+      description: description.trim() || undefined,
+    })
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open && createMutation.isPending) return
+    setDialogOpen(open)
+    if (!open) resetForm()
+  }
+
+  return (
+    <div className="py-4 mx-auto w-full max-w-6xl space-y-4 px-4">
+      <BackButton />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <TeamDialog
+          open={dialogOpen}
+          onOpenChange={handleOpenChange}
+          name={name}
+          setName={setName}
+          slug={slug}
+          setSlug={setSlug}
+          description={description}
+          setDescription={setDescription}
+          formError={formError}
+          onSubmit={handleSubmit}
+          isPending={createMutation.isPending}
+        />
+      </div>
+
+      {!allow ? (
+        <AuthGatePrompt message={tGate('loginRequired')} />
+      ) : (
+        <TeamList data={data} isLoading={isLoading} error={error} />
+      )}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

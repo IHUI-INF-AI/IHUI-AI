@@ -1,0 +1,206 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+.following-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: var(--spacing-md);
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部:统计 + 搜索 ===== */
+.following-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.following-stats {
+  display: flex;
+  align-items: baseline;
+}
+.following-stats-label {
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+}
+.following-stats-num {
+  margin: 0 8rpx;
+  font-size: var(--text-heading);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.following-stats-suffix {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+}
+.following-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  padding: 0 20rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.following-search-icon {
+  margin-right: var(--spacing-xs-loose);
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.following-search-input {
+  flex: 1;
+  font-size: var(--text-body);
+  color: var(--color-foreground);
+}
+
+/* ===== 排序 tab ===== */
+.following-sort {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm-loose);
+}
+.following-sort-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--spacing-3xl);
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.following-sort-btn-active {
+  color: var(--color-primary);
+  border-color: var(--color-brand-accent-deep);
+  font-weight: 600;
+}
+
+/* ===== 关注列表 ===== */
+.following-list {
+  margin-top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.following-card {
+  display: flex;
+  padding: var(--spacing-md);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.following-avatar {
+  width: var(--spacing-5xl);
+  height: var(--spacing-5xl);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  margin-right: var(--spacing-sm-loose);
+  flex-shrink: 0;
+}
+.following-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.following-avatar-text {
+  font-size: var(--text-title);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.following-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.following-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.following-nickname {
+  font-size: var(--text-strong);
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.following-status {
+  padding: var(--spacing-2xs) 12rpx;
+  background: var(--color-border);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.following-status-text {
+  font-size: var(--text-badge);
+  color: var(--color-primary);
+}
+.following-bio {
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.following-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.following-time {
+  font-size: var(--text-caption);
+  color: var(--color-muted-foreground);
+}
+.following-unfollow-btn {
+  padding: var(--spacing-xs) 20rpx;
+  font-size: var(--text-label);
+  color: var(--color-destructive);
+  background: var(--color-danger-tint);
+  border: 2rpx solid var(--color-danger-tint-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* ===== 空状态 ===== */
+.following-empty {
+  margin-top: 120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.following-empty-icon {
+  font-size: 80rpx;
+}
+.following-empty-text {
+  margin-top: var(--spacing-sm-loose);
+  font-size: var(--text-body);
+  color: var(--color-muted-foreground);
+}
+.following-empty-btn {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 40rpx;
+  background: var(--color-cta);
+  border-radius: var(--radius-sm);
+}
+.following-empty-btn-text {
+  color: var(--color-cta-foreground);
+  font-size: var(--text-body-sm);
+}
+
+/* ===== 加载状态 ===== */
+.following-loading,
+.following-loading-more,
+.following-no-more {
+  text-align: center;
+  padding: var(--spacing-xl) 0;
+  font-size: var(--text-label);
+  color: var(--color-muted-foreground);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

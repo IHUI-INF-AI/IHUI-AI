@@ -1,0 +1,170 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt } from '@/i18n'
+import { View, Text, Button, Input } from '@tarojs/components'
+// 描边画在外层输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
+import LineIcon from '@/components/LineIcon'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useRef } from 'react'
+import { getDistributionInfo, withdraw } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
+
+const priceFmt = new Intl.NumberFormat('zh-CN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+export default function WithdrawalPage() {
+  const tt = useTt()
+  const gate = useAuthReadyGate()
+  const [available, setAvailable] = useState(0)
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState('wechat')
+  const [submitting, setSubmitting] = useState(false)
+  // 提现金额输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
+  const ffAmount = useFieldFocus()
+  const availableRef = useRef(0)
+
+  const methods = [
+    { value: 'wechat', label: tt('distribution.withdraw.methodWechat', '微信'), icon: '微' },
+    { value: 'alipay', label: tt('distribution.withdraw.methodAlipay', '支付宝'), icon: '支' },
+  ]
+
+  const load = async () => {
+    try {
+      const info = await getDistributionInfo()
+      setAvailable(info.available)
+      availableRef.current = info.available
+    } catch {
+      // ignore
+    }
+  }
+
+  const fillAll = () => {
+    setAmount(priceFmt.format(availableRef.current))
+  }
+
+  const onSubmit = async () => {
+    const amt = Number(amount)
+    if (!amt || amt <= 0) {
+      onToast(tt('distribution.withdraw.invalidAmount', '请输入有效金额'), { kind: 'error' })
+      return
+    }
+    if (amt > availableRef.current) {
+      onToast(tt('distribution.withdraw.insufficient', '可提现余额不足'), { kind: 'info' })
+      return
+    }
+    setSubmitting(true)
+    try {
+      await withdraw({ amount: amt, type: method })
+      onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
+      setTimeout(() => Taro.navigateBack(), 800)
+    } catch {
+      // ignore
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const goRecords = () => {
+    Taro.navigateTo({ url: '/pkg-ai/developer/withdrawal' })
+  }
+
+  useDidShow(() => {
+    // G-933 冷启动门控:可提现金额(GET /distribution/overview,组级 authenticate)需鉴权
+    gate.waitUntilReady(() => {
+      void load()
+    })
+  })
+
+  return (
+    <ThemeRoot>
+      <View className="min-h-screen bg-background p-lg">
+        {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
+        <View className="px-lg py-md rounded-lg bg-card mb-lg">
+          <Text className="block text-body text-muted-foreground">
+            {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
+          </Text>
+          <Text className="block text-display font-bold text-foreground mt-sm">
+            {priceFmt.format(available)}
+          </Text>
+        </View>
+
+        {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
+        <View className="rounded-lg border border-border bg-card p-lg">
+          <Text className="block text-body text-muted-foreground">
+            {tt('wallet.withdrawal.amountLabel', '提现金额')}
+          </Text>
+          <View
+            className="flex items-center mt-sm h-[50px] px-md rounded-xl border border-border bg-[var(--color-muted)]"
+            style={ffAmount.focusStyle}
+          >
+            <Text className="text-title font-semibold text-foreground">¥</Text>
+            <Input
+              className="flex-1 text-title font-normal text-foreground ml-[12rpx]"
+              {...ffAmount.spread}
+              type="digit"
+              value={amount}
+              onInput={(e) => setAmount(e.detail.value)}
+              placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
+            />
+            <Text className="text-caption text-[var(--color-text-tertiary)]" onClick={fillAll}>
+              {tt('distribution.withdraw.all', '全部提现')}
+            </Text>
+          </View>
+
+          <Text className="block text-body text-muted-foreground mt-lg mb-sm">
+            {tt('distribution.withdraw.method', '提现方式')}
+          </Text>
+          <View className="flex gap-md">
+            {methods.map((m) => (
+              <View
+                key={m.value}
+                className={`flex-1 flex items-center p-[28rpx] border-[length:2rpx] rounded-xl bg-card ${method === m.value ? 'border-[var(--color-primary)]' : 'border-border'}`}
+                onClick={() => setMethod(m.value)}
+                hoverClass="opacity-60"
+              >
+                <View
+                  className={`w-[56rpx] h-[56rpx] rounded-lg flex items-center justify-center text-body-sm leading-[normal] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
+                >
+                  {m.icon}
+                </View>
+                <Text className="flex-1 text-title font-normal text-foreground">{m.label}</Text>
+                <View
+                  className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-brand-accent-deep' : 'border-border bg-card'}`}
+                >
+                  {method === m.value && (
+                    <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <Button
+          className="mt-5 bg-cta text-cta-foreground rounded-sm text-title font-semibold"
+          loading={submitting}
+          disabled={submitting}
+          onClick={onSubmit}
+        >
+          {tt('distribution.withdraw.submit', '提交申请')}
+        </Button>
+
+        <View
+          className="mt-md text-center text-caption text-[var(--color-text-tertiary)]"
+          onClick={goRecords}
+          hoverClass="opacity-60"
+        >
+          <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
+        </View>
+      </View>
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

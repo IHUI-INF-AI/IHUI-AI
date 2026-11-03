@@ -1,0 +1,116 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Guardian Full
+
+# 全量守门 CI(2026-10-22 立,机主要求"业务代码提交也要快,但不能漏判")。
+#
+# 背景:本地 pre-commit 只跑**元门档**(27 道,实测约 49s)—— 判据见 scripts/lib/gate-scope.mjs。
+# 全量 271 道门在本机 12 物理核上要约 400s,那是算力下限,不是代码问题。
+# 分工:**本地求快**(元门档,覆盖"本次改动直接相关的工具/仓库状态"判据),
+#       **CI 求全**(271 道,400s 由 CI 机器承担)。
+#
+# 触发:**当前只开手动**(workflow_dispatch)。
+#
+# 为什么先不开 push / pull_request 自动触发(2026-10-22,机主要求"不能出任何 bug"):
+# 本地全量实测 269 门有 7 道红,其中 6 道是门 168 判"未入 origin/main 的合并复活" ——
+# 那些复活文件其实**已在 origin/main 里**(本地只领先 1 枚),CI 的 HEAD 就是 origin/main,
+# 按门自己的判据(只判未入 origin 的合并)CI 应当不判它们。但"应当"不是"验证过":
+# 在真跑过一次并确认全绿之前,不开放自动触发 —— 否则第一次 push 就是一道无意义的红。
+#
+# 2026-10-22 首次手动全量实测(run 39787486152,触发面 9a96efd75e):271 门 246 通过 / 5 警告 /
+# 20 blocking 红 —— 前置(全绿)未达成,**继续只开手动**。红门分三类:
+#   · 判据/接线缺陷(3):[62] NSIS 模板按平台原生模块取材(win 绿/linux 漂移)、[65] 硬编码 Windows git 路径、
+#     [222] 面名 head 被当 git rev(Linux 大小写敏感崩溃且未折成 exit 2);
+#   · CI 环境门(7,干净 checkout 结构上无输入):[4] dist 未构建、[33] 缺 ai-service/.env、[98] 悬空导入指向未构建 dist、
+#     [226] 未装 husky、[228]/[187] 缺 ai-service venv、[170] 缺 .ihui-agent/state 留痕台账;
+#   · 真存量(10):[8] 前端路由 /api/admin/relay/account-pool 与后端不一致、[47] HEAD 7 文件水印欠账、
+#     [83] UsageScreen 品牌实底无配对前景、[103] 架构契约 3 条(测试位置/反向依赖/6240 行>6000)、
+#     [105] ui-routes.generated 陈旧、[130] F9 撞号 2 组、[150] monitor/panels 4 处 control 圆角、
+#     [198] 三处 updatedAt 盲写、[200] provider 健康四档第二份声明、[234] 台账标头 malformed(后续 HEAD 可能已修)。
+# 处置纪律:环境门按"输入缺失 ⇒ 未判定 exit 0"修语义;判据缺陷按平台/大小写修;真存量逐条修后重跑本工作流。
+# 在红集清零并真跑一次全绿之前,不得取消下面 on: 的注释。
+#
+# 手动验证通过后,把下面 on: 里的 push / pull_request 两段取消注释即可。
+on:
+  workflow_dispatch:
+
+# 同一分支新推送就取消上一轮(省额度,也避免旧结论盖住新结论)
+# concurrency:
+#   group: guardian-full-${{ github.ref }}
+#   cancel-in-progress: true
+
+env:
+  # 与 ci-monorepo / golden-e2e / e2e-browser-hub 同一档(那三处各有一份,跨文件无法共享 env,
+  # 这里取值现读一致;门 254 的 ruff 由 uvx 按 apps/ai-service/pyproject.toml 的 pin 拉起,
+  # 本值只决定 runner 上的 python 解释器,不参与 lint 版本判定)。
+  PYTHON_VERSION: '3.12'
+
+# 2026-11-01 安全强化:显式最小权限(与 ci.yml 同档)。此前本文件不声明 permissions,
+# 拿的是仓库/组织**默认**那一份;而默认档位可能含写权。声明之后未列出的 scope 一律
+# 降为 none(同 release-desktop.yml 头注那条事实)。
+# 本作业只做 checkout + 装依赖 + 构建 packages + 跑全量守门:不建 PR、不上传产物、
+# 不动 release、不调 GITHUB_TOKEN 写接口 ⇒ `contents: read` 就是它需要的全部。
+permissions:
+  contents: read
+
+jobs:
+  guardian-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # fetch-depth: 0 —— 守门要读历史(reflog / lost-commit tag / git log 派生),
+          # 浅克隆会让 30a(commit 丢失防护)这类门读不到真历史。
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建 packages(门 4/98 的 dist 取材面)
+        # check-stale-dist / check-dangling-local-imports 读 packages/*/dist;
+        # 干净 checkout 没有构建产物,不补就会把"未构建"判成"陈旧/悬空"。
+        # 只构建 packages,不构建 apps(门对 apps dist 缺失只跳过)。
+        run: pnpm -r --filter "./packages/*" build
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装 uv(门 254 ruff 的执行器)
+        # 门 254 判 Python lint,它只认 uvx。本 job 此前没有任何 python 面 ⇒ 干净 runner 上取不到
+        # 执行器,门会落 exit 2「未判定」并把整批守门顶红 —— 那正是 §12e 禁的恒红门,而 §0.3 又不许
+        # 把"没判"读成"判过"。装不上是本步当场红,原因一眼可见,不会混进守门汇总让人误读成
+        # Python 代码有了新问题。形态照 ci-monorepo / golden-e2e / e2e-browser-hub 同一条
+        # (setup-python 之后 pip install uv):不碰系统 python —— Ubuntu 24.04 是
+        # externally-managed 环境,在那里 `pip install --user` 会当场报 externally-managed-environment。
+        run: |
+          # uv 档钉死,完整理由见 .github/workflows/ci.yml 的 install-uv 那格
+          pip install uv==0.12.1
+          uvx --version
+
+      - name: 全量守门(271 道)
+        # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
+        # 门的判据面回落到"磁盘全量";同时本地那套元门档裁剪也不生效
+        # (passStaged=false ⇒ 不裁剪),这正是我们要的全量。
+        run: node scripts/guardian-runner.mjs --timing
+
+      - name: 失败时给出下一步
+        if: failure()
+        run: |
+          {
+            echo "::error::全量守门有红。本地复跑:node scripts/guardian-runner.mjs"
+            echo "::error::确认与本次改动无关再逃生:HUSKY_SKIP_<NAME>=1(见 AGENTS.md §12e,须在报告留痕)"
+          }
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

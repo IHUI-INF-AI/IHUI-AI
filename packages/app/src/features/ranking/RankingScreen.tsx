@@ -1,0 +1,235 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, FlatList, RefreshControl, Image, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
+import type { RankingItem, RankingRange, RankingScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 排行榜/Props 类型 re-export(单一来源 @ihui/types) */
+export type { RankingItem, RankingRange, RankingScreenProps }
+
+const RANGES: RankingRange[] = ['weekly', 'monthly', 'allTime']
+
+const RANGE_KEYS: Record<RankingRange, string> = {
+  weekly: 'ranking.weekly',
+  monthly: 'ranking.monthly',
+  allTime: 'ranking.total',
+}
+
+/** 取昵称首字符(用作头像占位文字) */
+function initials(name: string): string {
+  if (!name) return '?'
+  return name.slice(0, 1).toUpperCase()
+}
+
+/**
+ * 排行榜共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header + range 切换 + top3 颁奖台 + 剩余列表 + 下拉刷新。
+ * 平台特定(导航 / API 调用 / 当前用户匹配 isMe)由 wrapper 通过 props 注入。
+ */
+export function RankingScreen({
+  t,
+  top3,
+  rest,
+  range,
+  onSelectRange,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onBack,
+  onRetry,
+  colorScheme = 'light'
+}: RankingScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const rangeItems = useMemo(() => RANGES.map((r) => ({ id: r, label: t(RANGE_KEYS[r]!) })), [t])
+
+  const rankColor = (rank: number) => {
+    if (rank === 1) return tk.warning.amber
+    if (rank === 2) return tk.text.tertiary
+    if (rank === 3) return tk.warning.amberText
+    return tk.text.secondary
+  }
+
+  if (loading) {
+    return <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
+        <Text style={styles.title}>{t('ranking.title')}</Text>
+        <Text style={styles.subtitle}>{t('ranking.subtitle')}</Text>
+      </View>
+
+      <CategoryInlineBar
+        items={rangeItems}
+        selectedId={range}
+        onSelect={onSelectRange}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={6}
+      />
+
+      {error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('ranking.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : null}
+
+      {top3.length > 0 ? (
+        <View style={styles.podiumRow}>
+          {top3.map((item) => (
+            <View key={item.id} style={[styles.podiumItem, item.rank === 1 && styles.podiumFirst]}>
+              <View style={[styles.podiumAvatar, { borderColor: rankColor(item.rank) }]}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatarImg} />
+                ) : (
+                  <Text style={styles.avatarInitial}>{initials(item.nickname)}</Text>
+                )}
+              </View>
+              <Text style={styles.podiumName} numberOfLines={1}>
+                {item.nickname || t('ranking.anonymous')}
+              </Text>
+              <Text style={styles.podiumPoints}>{item.points}</Text>
+              <View style={[styles.rankBadge, { backgroundColor: rankColor(item.rank) }]}>
+                <Text style={styles.rankBadgeText}>#{item.rank}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <FlatList<RankingItem>
+        data={rest}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listBody}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={<EmptyState title={t('ranking.empty')} colorScheme={colorScheme} />}
+        renderItem={({ item }) => (
+          <View style={[styles.card, item.isMe && styles.cardMe]}>
+            <Text style={[styles.rankText, { color: rankColor(item.rank) }]}>#{item.rank}</Text>
+            <View style={[styles.listAvatar, { borderColor: rankColor(item.rank) }]}>
+              {item.avatar ? (
+                <Image source={{ uri: item.avatar }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarInitial}>{initials(item.nickname)}</Text>
+              )}
+            </View>
+            <View style={styles.listInfo}>
+              <Text style={styles.listName} numberOfLines={1}>
+                {item.nickname || t('ranking.anonymous')}
+                {item.isMe ? ` (${t('ranking.me')})` : ''}
+              </Text>
+              <Text style={styles.listMeta}>
+                {t('ranking.studyHours', { count: item.studyHours })}
+              </Text>
+            </View>
+            <Text style={styles.listPoints}>{item.points}</Text>
+          </View>
+        )}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    backBtn: { marginBottom: rnSpacing.sm },
+    title: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    podiumRow: {
+      flexDirection: 'row',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.sm,
+    },
+    podiumItem: {
+      flex: 1,
+      alignItems: 'center',
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+    },
+    podiumFirst: { backgroundColor: tk.warning.amberLight },
+    podiumAvatar: {
+      width: 48,
+      height: 48,
+      borderRadius: rnRadius['2xl'],
+      borderWidth: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+      overflow: 'hidden',
+    },
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius.lg },
+    avatarInitial: { fontSize: 22, fontWeight: '600', color: tk.text.secondary },
+    podiumName: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    podiumPoints: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.success.DEFAULT,
+    },
+    rankBadge: {
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    rankBadgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
+    separator: { height: 8 },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.bg,
+    },
+    cardMe: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
+    rankText: { width: 36, fontSize: rnType.title.size, fontWeight: '700' },
+    listAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: rnRadius['2xl'],
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.muted,
+      overflow: 'hidden',
+    },
+    listInfo: { flex: 1, marginLeft: rnSpacing['sm-loose'], marginRight: rnSpacing.sm },
+    listName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    listMeta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    listPoints: { fontSize: rnType.title.size, fontWeight: '700', color: tk.success.DEFAULT },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

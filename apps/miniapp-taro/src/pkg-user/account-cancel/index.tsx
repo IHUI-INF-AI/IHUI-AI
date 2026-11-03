@@ -1,0 +1,339 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 对齐目标(RN 共享屏): packages/app/src/features/account-cancel/AccountCancelScreen.tsx
+import { useI18n } from '@/i18n'
+import { goToLogin } from '@/utils/auth'
+import { logger } from '@/utils/logger'
+import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
+import { useDidShow } from '@tarojs/taro'
+import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
+import * as api from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
+import { onToast } from '@/host/on-toast'
+
+const CONSEQUENCE_KEYS = [
+  'accountCancel.consequence1',
+  'accountCancel.consequence2',
+  'accountCancel.consequence3',
+  'accountCancel.consequence4',
+  'accountCancel.consequence5',
+  'accountCancel.consequence6',
+  'accountCancel.consequence7',
+]
+
+// 样式对齐 RN 共享 AccountCancelScreen(packages/app/src/features/account-cancel):
+// 尺寸换算 raw dp ×2 = rpx;颜色 tk.* → tokens.css 语义变量
+const INPUT_STYLE: CSSProperties = {
+  height: '100rpx', // RN input height 50 → 100rpx
+  background: 'var(--color-muted)', // tk.surface.muted
+  borderRadius: rnRadius.xl, // RN radius 12 → 24rpx
+  padding: '0 24rpx', // RN paddingHorizontal 12 → 24rpx
+  fontSize: '32rpx', // RN 16 → 32rpx
+  color: 'var(--color-foreground)', // tk.text.primary
+  border: '2rpx solid var(--color-border)', // RN borderWidth 1 + tk.border.light
+  width: '100%',
+  boxSizing: 'border-box',
+}
+
+const CODE_INPUT_STYLE: CSSProperties = {
+  ...INPUT_STYLE,
+  flex: 1,
+  minWidth: 0,
+}
+
+const SECTION_TITLE_STYLE: CSSProperties = {
+  display: 'block',
+  fontSize: '32rpx', // RN label 16 → 32rpx
+  fontWeight: 600,
+  color: 'var(--color-foreground)', // tk.text.primary
+  margin: `${rpx(taroSpacing.md)} 0 ${rpx(taroSpacing.sm)}`, // fieldGroup gap 8 → 16rpx
+}
+
+const CONSEQUENCE_ITEM_STYLE: CSSProperties = {
+  display: 'block',
+  fontSize: '28rpx', // RN desc 14 → 28rpx
+  color: 'var(--color-muted-foreground)', // tk.text.secondary
+  lineHeight: '36rpx', // RN lineHeight 18 → 36rpx
+}
+
+// RN desc 卡片:tk.surface.light 底 + radius 12 → 24rpx + padding 12 → 24rpx
+const DESC_CARD_STYLE: CSSProperties = {
+  background: 'var(--color-surface-light)',
+  borderRadius: rnRadius.xl,
+  padding: rpx(taroSpacing.md),
+  marginBottom: rpx(taroSpacing.sm),
+}
+
+// 手机号只读展示盒:复用 RN input 视觉(muted 底 + 描边 + radius 24rpx)
+const PHONE_BOX_STYLE: CSSProperties = {
+  ...DESC_CARD_STYLE,
+  marginBottom: 0,
+  height: '100rpx',
+  padding: '0 24rpx',
+  display: 'flex',
+  alignItems: 'center',
+  background: 'var(--color-muted)',
+  border: '2rpx solid var(--color-border)',
+  boxSizing: 'border-box',
+}
+
+const CODE_BLOCK_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  marginBottom: 0,
+}
+
+// RN smsBtn:height 44 → 88rpx,brand 底(radius 12 → 24rpx);
+// 文字 RN 用 tk.surface.light(暗色下白底白字不可读)→ 语义修正为 --color-primary-foreground
+const SEND_CODE_BASE_STYLE: CSSProperties = {
+  height: '88rpx',
+  lineHeight: '88rpx',
+  padding: '0 24rpx',
+  marginLeft: rpx(taroSpacing.sm),
+  borderRadius: rnRadius.xl,
+  background: 'var(--color-primary)',
+  fontSize: '28rpx', // RN 14 → 28rpx
+  fontWeight: 600,
+  color: 'var(--color-primary-foreground)',
+  textAlign: 'center',
+  flexShrink: 0,
+  boxSizing: 'border-box',
+}
+
+const SEND_CODE_DISABLED_STYLE: CSSProperties = {
+  ...SEND_CODE_BASE_STYLE,
+  background: 'var(--color-muted)',
+  color: 'var(--color-text-tertiary)', // tk.text.tertiary
+}
+
+const PHONE_TEXT_STYLE: CSSProperties = {
+  fontSize: '32rpx', // RN input 16 → 32rpx
+  color: 'var(--color-foreground)',
+  fontWeight: 500,
+}
+
+export default function AccountCancel() {
+  const { t } = useI18n()
+  const gate = useAuthReadyGate()
+  const [info, setInfo] = useState<Record<string, unknown> | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [code, setCode] = useState('')
+  const [countdown, setCountdown] = useState(0)
+  const [confirmCountdown, setConfirmCountdown] = useState(5)
+  const codeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const confirmTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const codeSendingRef = useRef(false)
+
+  const requiredSentence = t('accountCancel.confirmSentence')
+  const phone = (info?.phone as string) || ''
+  const maskedPhone = phone ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : ''
+  const codeBtnDisabled = countdown > 0 || !phone
+  const canSubmit =
+    confirmCountdown === 0 &&
+    !!phone &&
+    !!code.trim() &&
+    confirmText === requiredSentence &&
+    !submitting
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = (await api.getProfile()) as Record<string, unknown>
+      setInfo(res)
+    } catch (e) {
+      logger.error('unknown', '加载用户信息', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useDidShow(() => {
+    // G-933 冷启动门控:资料自查 GET /user/profile(checkAuth)需鉴权
+    gate.waitUntilReady(() => {
+      void loadData()
+    })
+  })
+
+  // 5 秒强制阅读倒计时(进入页面即开始,结束前禁止提交)
+  useEffect(() => {
+    confirmTimerRef.current = setInterval(() => {
+      setConfirmCountdown((prev) => {
+        if (prev <= 1 && confirmTimerRef.current) {
+          clearInterval(confirmTimerRef.current)
+          confirmTimerRef.current = null
+        }
+        return prev <= 1 ? 0 : prev - 1
+      })
+    }, 1000)
+    return () => {
+      if (confirmTimerRef.current) clearInterval(confirmTimerRef.current)
+    }
+  }, [])
+
+  // 短信验证码倒计时清理
+  useEffect(() => {
+    return () => {
+      if (codeTimerRef.current) clearInterval(codeTimerRef.current)
+    }
+  }, [])
+
+  const onSendCode = useCallback(async () => {
+    if (codeBtnDisabled) return
+    // 2026-08-21 修复(双击重发竞态):codeBtnDisabled 依赖的 countdown 在
+    // await sendSmsCode 网络往返期间仍为 0,快速双击会两次通过守卫 →
+    // 发两条短信 + 启动两个 interval(第一个引用被覆盖泄漏,倒计时 2 倍速)。
+    // 用同步 ref 守卫覆盖整个 await 窗口。
+    if (codeSendingRef.current) return
+    codeSendingRef.current = true
+    try {
+      if (!phone) {
+        onToast(t('accountCancel.noPhone'), { kind: 'error' })
+        return
+      }
+      await api.sendSmsCode(phone)
+      onToast(t('accountCancel.codeSent'), { kind: 'success' })
+      setCountdown(60)
+      codeTimerRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1 && codeTimerRef.current) {
+            clearInterval(codeTimerRef.current)
+            codeTimerRef.current = null
+          }
+          return prev <= 1 ? 0 : prev - 1
+        })
+      }, 1000)
+    } catch {
+      // 错误已由 request 统一提示
+    } finally {
+      codeSendingRef.current = false
+    }
+  }, [codeBtnDisabled, phone, t])
+
+  const onSubmit = useCallback(async () => {
+    if (submitting) return
+    if (confirmCountdown > 0) return
+    if (!phone) {
+      onToast(t('accountCancel.noPhone'), { kind: 'error' })
+      return
+    }
+    if (!code.trim()) {
+      onToast(t('accountCancel.codeInvalid'), { kind: 'error' })
+      return
+    }
+    if (confirmText !== requiredSentence) {
+      onToast(t('accountCancel.confirmTextMismatch'), { kind: 'info' })
+      return
+    }
+    setSubmitting(true)
+    try {
+      // A 档改接真端点(2026-10-26 守门 8 存量代裁):`POST /api/auth/cancel-account` 在两后端
+      // HEAD 面零注册(死调用),注销真身 = `POST /api/settings/delete-account`
+      // (apps/api/src/routes/user/settings-routes.ts:383 → missingUserRoutes,index.ts:1081 prefix '/api'),
+      // 与 @ihui/api-client 的 deleteAccount()(packages/api-client/src/endpoints/system.ts:478)
+      // 及 RN AccountCancelScreen:92 同一条路径 —— 三端同一真值,小程序此前是唯一打错的一腿。
+      // 只上行 code:身份由令牌在承载层解析(userAuthPreHandler → request.userId),手机号取库侧
+      // user.phone 后 verifyCode(user.phone, code),不信客户端自报 phone(§5 认证不等于授权);
+      // confirmText 后端 schema 不消费,继续留作端内二次确认闸门(上面的校验一条没减)。
+      await api.post('/settings/delete-account', { code })
+      onToast(t('accountCancel.cancelled'), { kind: 'success' })
+      setTimeout(goToLogin, 800)
+    } catch (e) {
+      // 真实失败:如实提示,不假装注销成功
+      logger.error('unknown', '注销', e)
+      onToast(t('accountCancel.failed') || '注销失败,请重试', { kind: 'error' })
+    } finally {
+      setSubmitting(false)
+    }
+  }, [submitting, confirmCountdown, phone, code, confirmText, requiredSentence, t])
+
+  const submitText =
+    confirmCountdown > 0
+      ? t('accountCancel.countdown', { s: confirmCountdown })
+      : submitting
+        ? t('accountCancel.submitting')
+        : t('accountCancel.submit')
+
+  return (
+    // 对齐 RN 共享 AccountCancelScreen:header(返回+标题)由原生导航栏承载;
+    // 内容区 padding 14 → 28rpx、底部 32 → 64rpx
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="px-[20rpx] pt-[24rpx] pb-[24rpx]">
+          <Text className="text-heading font-bold text-foreground">{t('accountCancel.title')}</Text>
+        </View>
+        <View className="p-[28rpx] pb-[64rpx]">
+          {loading ? (
+            <ScreenSkeleton variant="card" count={3} />
+          ) : info ? (
+            <View>
+              <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.consequenceTitle')}</Text>
+              <View style={DESC_CARD_STYLE}>
+                {CONSEQUENCE_KEYS.map((k) => (
+                  <Text key={k} style={CONSEQUENCE_ITEM_STYLE}>
+                    · {t(k)}
+                  </Text>
+                ))}
+              </View>
+
+              <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.phoneLabel')}</Text>
+              <View style={PHONE_BOX_STYLE}>
+                <Text style={PHONE_TEXT_STYLE}>
+                  {phone ? maskedPhone : t('accountCancel.noPhone')}
+                </Text>
+              </View>
+
+              <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.codeLabel')}</Text>
+              <View style={CODE_BLOCK_STYLE}>
+                <FocusInput
+                  style={CODE_INPUT_STYLE}
+                  type="number"
+                  maxlength={6}
+                  placeholder={t('accountCancel.codePlaceholder')}
+                  value={code}
+                  onInput={(e) => setCode(e.detail.value)}
+                />
+                <Text
+                  style={codeBtnDisabled ? SEND_CODE_DISABLED_STYLE : SEND_CODE_BASE_STYLE}
+                  onClick={onSendCode}
+                >
+                  {countdown > 0 ? `${countdown}s` : t('accountCancel.getCode')}
+                </Text>
+              </View>
+
+              <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.confirmLabel')}</Text>
+              <FocusInput
+                style={INPUT_STYLE}
+                placeholder={t('accountCancel.confirmPlaceholder')}
+                value={confirmText}
+                onInput={(e) => setConfirmText(e.detail.value)}
+              />
+
+              {/* 对齐 RN submitBtn:danger 底 + 白字,height 50 → 100rpx,radius 12 → 24rpx */}
+              <View
+                className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-[var(--color-danger)]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
+                hoverClass="opacity-60"
+                onClick={onSubmit}
+              >
+                <Text className="text-subtitle font-semibold text-[var(--color-danger-foreground)]">
+                  {submitText}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <EmptyState title={t('accountCancel.noInfo')} />
+          )}
+        </View>
+      </View>
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

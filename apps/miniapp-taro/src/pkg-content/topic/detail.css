@@ -1,0 +1,262 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* 对齐共享屏 packages/app/src/features/topic-detail/TopicDetailScreen.tsx:rpx 1:1,raw 数字 ×2 */
+
+.topic-detail-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+}
+
+.topic-detail-body {
+  flex: 1;
+  padding-bottom: var(--spacing-xl);
+  box-sizing: border-box;
+}
+
+/* ===== 话题头部(RN header: row/center/gap24/padding24 白底) ===== */
+.topic-detail-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-card);
+}
+
+.topic-detail-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.topic-detail-name {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  line-height: 1.4;
+}
+
+.topic-detail-desc {
+  display: block;
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+  line-height: 36rpx;
+}
+
+.topic-detail-followers {
+  display: block;
+  font-size: var(--text-label);
+  color: var(--color-text-tertiary);
+}
+
+/* 关注按钮(RN followBtn: px32/py12/brand 底;激活态 muted 底 + secondary 字;圆角按角色档 control→sm) */
+.topic-detail-follow-btn {
+  flex-shrink: 0;
+  margin: 0;
+  padding: var(--spacing-xs-loose) 32rpx;
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
+  border-radius: var(--radius-sm);
+  border: none;
+}
+
+.topic-detail-follow-btn::after {
+  border: none;
+}
+
+.topic-detail-follow-btn.followed {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+.topic-detail-follow-btn[disabled] {
+  opacity: 0.6;
+}
+
+/* ===== 发布入口(RN publishBar: row/center/gap16/px24/py20 白底 + 上下 hairline) ===== */
+.topic-detail-publish {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm-loose) 24rpx;
+  background: var(--color-card);
+}
+
+.topic-detail-publish-icon {
+  font-size: var(--text-strong);
+  color: var(--color-text-tertiary);
+}
+
+.topic-detail-publish-text {
+  flex: 1;
+  font-size: var(--text-body-sm);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-detail-publish-btn {
+  flex-shrink: 0;
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* ===== 帖子列表(RN listContent: padding24/pb40/gap16) ===== */
+.topic-detail-list {
+  padding: var(--spacing-md) 24rpx 40rpx;
+}
+
+/* 帖子卡(RN post: gap12/padding24/radius16 白底) */
+.topic-detail-post {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* 帖子用户信息(RN postUser: row/center/gap16) */
+.topic-detail-post-user {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs-loose);
+}
+
+.topic-detail-avatar {
+  width: var(--spacing-3xl);
+  height: var(--spacing-3xl);
+  border-radius: var(--radius-2xl);
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.topic-detail-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2xs);
+}
+
+.topic-detail-author {
+  font-size: var(--text-body-sm);
+  color: var(--color-foreground);
+  font-weight: 500;
+}
+
+.topic-detail-time {
+  font-size: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+/* 帖子内容 */
+.topic-detail-post-title {
+  display: block;
+  font-size: var(--text-strong);
+  color: var(--color-foreground);
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: var(--spacing-xs-loose);
+}
+
+/* 帖子内容(对齐共享屏 numberOfLines=3:三行截断) */
+.topic-detail-post-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+  line-height: 38rpx;
+}
+
+/* 帖子图片(RN imgRow: gap12) */
+.topic-detail-post-images {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-xs-loose);
+  margin-top: var(--spacing-xs-loose);
+}
+
+.topic-detail-post-img {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+}
+
+.topic-detail-post-img-more {
+  width: 200rpx;
+  height: 200rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
+  color: var(--color-muted-foreground);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+/* 帖子底部统计(RN postFooter: gap32;stat: gap8;数字 tertiary) */
+.topic-detail-post-footer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-xs-loose);
+}
+
+.topic-detail-post-stat {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.topic-detail-post-stat-icon {
+  font-size: var(--text-body);
+  color: var(--color-text-tertiary);
+}
+
+.topic-detail-post-stat-num {
+  font-size: var(--text-label);
+  color: var(--color-text-tertiary);
+}
+
+/* 状态提示(RN center: py120/gap16;stateText tertiary) */
+.topic-detail-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-body-sm);
+}
+
+/* 加载更多/没有更多(RN footer: py24 居中) */
+.topic-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md) 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-body-sm);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

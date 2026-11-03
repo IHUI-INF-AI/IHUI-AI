@@ -1,0 +1,550 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * packages/types/src/app.ts 的业务域拆分产物之一 —— 本文件承载「commerce」域。
+ *
+ * 拆分原因:原 app.ts 单文件行数已超架构契约表对受管模块的单文件上限(config/architecture-policy.yaml
+ * 的 contract-file-lines / C1),按业务域拆多入口是既定出路(EX-C2-1 的理由原文即此)。
+ * 公开导出面由 ./app.ts 这个 barrel 用 export * 原样递出,与拆分前逐名等值 —— 消费端不得因此改动。
+ * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
+ */
+
+import type { TFunction } from './app-shared.js'
+
+/**
+ * 订单状态(用户端共享屏展示子集,与后端 /api/orders 契约对齐)。
+ *
+ * 注意:admin-types.ts 的 `OrderStatus` 是后台完整状态机(7 值含 refunding/failed),
+ * 此处 `AppOrderStatus` 是用户端展示子集(含 shipped 实物发货),两者语义不同,
+ * 故加 `App` 前缀避免 `export *` 冲突。
+ */
+export type AppOrderStatus =
+  'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded' | string
+
+/** 订单 Tab */
+export type OrderTab = 'all' | 'pending' | 'paid' | 'shipped' | 'completed' | string
+
+/** 订单列表项(平台注入,字段对齐 mobile-rn OrderScreen Order) */
+export interface OrderItem {
+  id: string
+  orderNo: string
+  title: string
+  /** 商品图 URL,有值则卡片渲染 130×130 圆角图 */
+  image?: string
+  /**
+   * 实付金额(元)。`null` = 这枚订单**没有金额可显示**,共享屏据此渲染 `—` 占位;
+   * 不得用 0 冒充"没有金额" —— 屏幕上读起来就是"免费"。
+   */
+  amount: number | null
+  status: AppOrderStatus
+  createdAt: string
+}
+
+/** Order 屏 props */
+export interface OrderScreenProps {
+  t: TFunction
+  items: OrderItem[]
+  /** 当前激活 tab */
+  activeTab: OrderTab
+  /** tab 切换回调,平台注入重新拉取逻辑 */
+  onSelectTab: (tab: OrderTab) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击订单卡片回调,平台注入导航跳转 */
+  onPressItem: (item: OrderItem) => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 钱包余额信息(平台注入,字段对齐 @ihui/api-client WalletBalance) */
+export interface WalletBalance {
+  /** 可用余额 */
+  balance: number
+  /** 冻结金额 */
+  frozenBalance: number
+  /** 累计充值 */
+  totalRecharge: number
+  /** 累计提现 */
+  totalWithdraw: number
+}
+
+/** 钱包记录类型(与后端 /api/wallet/records 契约对齐) */
+export type WalletRecordType =
+  'recharge' | 'withdraw' | 'consume' | 'refund' | 'commission' | string
+
+/** 钱包记录列表项(平台注入) */
+export interface WalletRecordItem {
+  id: string
+  amount: number
+  balanceAfter: number
+  type: WalletRecordType
+  status: string
+  payMethod: string | null
+  remark: string | null
+  createdAt: string
+}
+
+/** 资金流水行(平台注入;金额单位分,时间为平台格式化好的文本) */
+export interface WalletFlowItem {
+  id: string
+  /** 1 充值 / 2 扣减 / 3 过期 / 4 退款 / 5 佣金;其余值原样展示数字 */
+  opType: number
+  /** 变动金额(分) */
+  quantity: number
+  /** 变动后余额(分) */
+  balanceAfter: number
+  remark: string | null
+  /** 平台格式化好的流水时间文本 */
+  createdAtText: string
+}
+
+/** 资金流水分区状态;undefined 整体不传 ⇒ 保持旧行为(不渲染该分区) */
+export interface WalletFlowsState {
+  items: WalletFlowItem[]
+  total: number
+  /** 首屏/重试加载中 */
+  loading?: boolean
+  /** 加载更多进行中(防重复请求) */
+  loadingMore?: boolean
+  /** 非空 ⇒ 仅该分区渲染错误 + 重试,不影响余额卡片 */
+  error?: string
+  /** true ⇒ 未登录:不渲染列表,显示占位文案 + 登录入口 */
+  loginRequired?: boolean
+}
+
+/** Wallet 屏 props */
+export interface WalletScreenProps {
+  t: TFunction
+  balance: WalletBalance | null
+  loading: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击充值/提现等操作回调,平台注入导航跳转 */
+  onAction?: (action: 'recharge' | 'withdraw') => void
+  onBack: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
+  colorScheme?: 'light' | 'dark'
+  /** 资金流水分区;undefined ⇒ 不渲染(旧行为) */
+  flows?: WalletFlowsState
+  /** 流水首屏/重试失败后的重试回调;undefined ⇒ 分区只显示错误文本 */
+  onRetryFlows?: () => void
+  /** 加载更多回调;undefined ⇒ 隐藏加载更多按钮 */
+  onLoadMoreFlows?: () => void
+  /** 未登录流水分区内的登录入口回调;undefined ⇒ 只显示占位文案 */
+  onLogin?: () => void
+  /** 契约别名:登录门(等价 flows.loginRequired) */
+  loginRequired?: boolean
+  /** 契约别名:登录占位文案(默认 wallet.loginRequiredHint) */
+  loginRequiredText?: string
+  /** 契约别名:请求下一页(未传 onLoadMoreFlows 时生效,page 从 1 起) */
+  onFlowsPageChange?: (page: number) => void
+  /** 契约别名:流水重试(未传 onRetryFlows 时生效) */
+  onRetry?: () => void
+}
+
+/** 退款状态(用户端共享屏展示子集,与后端 /api/refund 契约对齐)。
+ * 注意:admin-types.ts 的 `RefundStatus` 是后台完整状态机,此处 `AppRefundStatus` 是用户端展示子集,
+ * 加 `App` 前缀避免 `export *` 冲突(同 `AppOrderStatus` 模式)。
+ */
+export type AppRefundStatus = 'pending' | 'approved' | 'rejected' | 'refunded' | string
+
+/** 退款历史列表项(平台注入,字段对齐 mobile-rn RefundHistoryScreen Item) */
+export interface RefundHistoryItem {
+  id: string
+  amount: number
+  status: AppRefundStatus
+  reason: string
+  createdAt: string
+}
+
+/** RefundHistory 屏 props */
+export interface RefundHistoryScreenProps {
+  t: TFunction
+  items: RefundHistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击退款卡片回调,平台注入导航跳转 */
+  onPressItem: (item: RefundHistoryItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 退款详情(平台注入,字段对齐 mobile-rn RefundDetailScreen Detail) */
+export interface RefundDetailItem {
+  id: string
+  orderNo: string
+  amount: number
+  status: string
+  reason: string
+  createdAt: string
+}
+
+/** RefundDetail 屏 props */
+export interface RefundDetailScreenProps {
+  t: TFunction
+  item: RefundDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 订单详情(平台注入,字段对齐 mobile-rn OrderDetailScreen OrderDetail) */
+export interface OrderDetailItem {
+  id: string
+  orderNo: string
+  amount: number
+  status: string
+  productName: string
+  createdAt: string
+  paidAt?: string
+}
+
+/** OrderDetail 屏 props */
+export interface OrderDetailScreenProps {
+  t: TFunction
+  item: OrderDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** WithdrawScreen props(表单屏,状态由 wrapper 管理,共享层只负责渲染) */
+export interface WithdrawScreenProps {
+  t: TFunction
+  amount: string
+  bankCardId: string
+  loading: boolean
+  error: string
+  success: string
+  onAmountChange: (text: string) => void
+  onBankCardIdChange: (text: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 10(2026-07-29):订单日志/订单跟踪/课程章节/学习进度 */
+
+/** 订单日志项(平台注入,字段对齐 mobile-rn OrderLogScreen Item) */
+export interface OrderLogItem {
+  id: string
+  action: string
+  operator: string
+  time: string
+  note: string
+}
+
+/** OrderLogScreen props */
+export interface OrderLogScreenProps {
+  t: TFunction
+  items: OrderLogItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 订单跟踪项(平台注入,字段对齐 mobile-rn OrderTrackScreen Item) */
+export interface OrderTrackItem {
+  id: string
+  status: string
+  time: string
+  location: string
+  desc: string
+}
+
+/** OrderTrackScreen props */
+export interface OrderTrackScreenProps {
+  t: TFunction
+  items: OrderTrackItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 优惠券状态 */
+export type CouponStatus = 'available' | 'used' | 'expired' | string
+
+/** 优惠券列表项(平台注入,字段对齐 mobile-rn CouponScreen CouponItem) */
+export interface CouponItem {
+  id: string
+  name: string
+  amount: number
+  minSpend: number
+  validUntil: string
+  status: CouponStatus
+}
+
+/** CouponScreen props */
+export interface CouponScreenProps {
+  t: TFunction
+  items: CouponItem[]
+  activeTab: CouponStatus
+  onSelectTab: (tab: CouponStatus) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /**
+   * 「立即使用」可用券的交互出口(2026-10-28 补,小程序 member/coupon 页迁壳的缺口)。
+   * **可选且不默认渲染**:宿主不传 ⇒ RN 现状零变化;传入 ⇒ 可用券卡片出现「立即使用」按钮。
+   * 文案走共享键 coupon.use(宿主词包须有 use/useHint/couponCenter 五语言值)。
+   */
+  onUseCoupon?: (item: CouponItem) => void
+  /** 底部「领券中心」入口(宿主传入才渲染;小程序侧跳 pages/member/coupon-list,RN 暂无对应页则不传)。 */
+  onOpenCouponCenter?: () => void
+}
+
+/** 收益记录(对齐 mobile-rn IncomeScreen CommissionItem) */
+export interface IncomeCommissionItem {
+  id: string
+  title: string
+  amount: number
+  time: string
+  settled: boolean
+  /** 关联订单号(复制按钮用;后端无订单数据时为 undefined) */
+  orderId?: string
+  /** 是否取消结算(后端无该状态时为 undefined,与 settled=false 的待结算区分) */
+  cancelled?: boolean
+}
+export interface IncomeData {
+  /** 累计收益(overview.totalCommission,分) */
+  totalEarnings: number
+  /** 今日收益(day-month-summary daySummary 今日合计,分) */
+  todayCommission: number
+  /** 可提现余额(overview.availableCommission,分) */
+  balance: number
+  /** 待结算佣金(overview.pendingCommission,分) */
+  pendingCommission: number
+  /** 已提现(overview.withdrawnCommission,分) */
+  withdrawnCommission: number
+  list: IncomeCommissionItem[]
+}
+export interface IncomeScreenProps {
+  t: TFunction
+  data: IncomeData
+  loading: boolean
+  error: string
+  onWithdraw: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 模型收益 Tab key(全部/待结算/已结算) */
+export type ModelIncomeTab = 'all' | 'pending' | 'settled' | string
+
+/** 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
+export interface ModelIncomeItem {
+  id: string
+  orderId: string
+  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算) */
+  status: string
+  createdAt: string
+  userNickname: string
+  orderAmount: number
+  /** 佣金费率(百分比) */
+  rate: number
+  commissionAmount: number
+}
+
+/** 模型收益概要(平台注入,字段对齐 @ihui/api-client CommissionOverview + DayMonthSummary) */
+export interface ModelIncomeSummary {
+  /** 累计收益 */
+  totalCommission: number
+  /** 可提现 */
+  availableCommission: number
+  /** 已提现 */
+  withdrawnCommission: number
+  /** 待结算 */
+  pendingCommission: number
+  /** 今日收益 */
+  day: number
+}
+
+/** ModelIncomeScreen props */
+export interface ModelIncomeScreenProps {
+  t: TFunction
+  items: ModelIncomeItem[]
+  summary: ModelIncomeSummary | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  activeTab: ModelIncomeTab
+  onSelectTab: (tab: ModelIncomeTab) => void
+  onRefresh: () => void
+  /** 提现弹窗可见性(wrapper 控制) */
+  showWithdrawModal: boolean
+  onOpenWithdraw: () => void
+  onCloseWithdraw: () => void
+  onConfirmWithdraw: () => void
+  /** 触底续取下一页中(列表尾部显示"加载中…") */
+  loadingMore?: boolean
+  /** 是否还有下一页(壳按 total 算出;false 且已有数据时列表尾部显示"没有更多了") */
+  hasMore?: boolean
+  /** 触底回调:壳负责向后端取下一页并追加 */
+  onLoadMore?: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Token 记录 Tab key(全部/消耗/充值) */
+export type TokenRecordType = 'all' | 'cost' | 'recharge' | string
+
+/** Token 余额(平台注入,字段对齐 @ihui/api-client TokenBalance,补充 frozen 占位) */
+export interface TokenValueBalance {
+  /** 可用算力 */
+  balance: number
+  /** 冻结(TokenBalance API 不返回,占位 0) */
+  frozen: number
+  /** 累计消耗 */
+  totalUsed: number
+}
+
+/** Token 流水记录项(平台注入,合并消耗 + 充值,字段对齐 mobile-rn TokenValueScreen Record) */
+export interface TokenValueRecord {
+  id: string
+  type: 'cost' | 'recharge'
+  title: string
+  /** 金额(消耗为负,充值为正) */
+  amount: number
+  /** 已格式化的时间文本 */
+  time: string
+}
+
+/** Token 充值套餐(产品配置,静态前端数据,字段对齐 mobile-rn TokenValueScreen Package) */
+export interface TokenValuePackage {
+  id: string
+  tokens: number
+  price: number
+  bonus: number
+  popular?: boolean
+}
+
+/** TokenValueScreen props */
+export interface TokenValueScreenProps {
+  t: TFunction
+  balance: TokenValueBalance | null
+  records: TokenValueRecord[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  activeTab: TokenRecordType
+  onSelectTab: (tab: TokenRecordType) => void
+  onRefresh: () => void
+  /** 点击充值套餐回调,平台注入支付确认(Alert/弹窗/导航) */
+  onRecharge: (pkg: TokenValuePackage) => void
+  onBack: () => void
+  /** 列表触底回调(平台请求下一页;不传则不分页) */
+  onLoadMore?: () => void
+  /** 正在加载下一页 */
+  loadingMore?: boolean
+  /** 是否还有下一页(undefined=未知,不渲染结束提示) */
+  hasMore?: boolean
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 财务汇总(平台注入,字段对齐 mobile-rn FinanceScreen FinanceSummary) */
+export interface FinanceSummary {
+  balance: number
+  todayIncome: number
+  totalIncome: number
+  totalExpense: number
+}
+
+/** FinanceScreen props(注入式:wrapper 保留 API 调用) */
+export interface FinanceScreenProps {
+  t: TFunction
+  summary: FinanceSummary | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 优惠券状态(available/used/expired) */
+export type PromotionCouponStatus = 'available' | 'used' | 'expired'
+
+/** 优惠券条目(平台注入,字段对齐 mobile-rn PromotionScreen Coupon) */
+export interface PromotionCoupon {
+  id: string
+  name: string
+  amount: number
+  minSpend: number
+  expireDate: string
+  status: PromotionCouponStatus
+}
+
+export interface TopupFailScreenProps {
+  t: TFunction
+  reason?: string
+  onRetry: () => void
+  onContactService?: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+export interface TopupSuccessScreenProps {
+  t: TFunction
+  amount: number
+  orderId: string
+  time?: string
+  onViewOrder?: () => void
+  onGoHome?: () => void
+  faqItems?: readonly string[]
+  onFaqVisibleChange?: (v: boolean) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+export interface EarnCommissionScreenProps {
+  t: TFunction
+  onBack: () => void
+  overview: { totalCommission: number; invitedCount: number } | null
+  onOpenVip: () => void
+  colorScheme?: 'light' | 'dark'
+  /**
+   * 分佣比例真值(可选,来自 GET /distribution/commission-rates 的 key→value)。
+   * 缺省/空数组 ⇒ 共享屏渲染空态(earnCommission.rateEmpty),不由前端补默认档位。
+   */
+  rates?: { level: string; rate: string; desc?: string }[]
+}
+
+/** 充值 Screen Props */
+export interface AppTopupScreenProps {
+  t: TFunction
+  selectedId: string
+  customAmount: string
+  payMethod: string
+  balance: number
+  refreshing: boolean
+  introVisible: boolean
+  /** 当前用户档位,用于高亮对应充值比例(normal 普通 / vip 会员 / trader 操盘手;trader 由 AuthUser.identityType === 'trader' 判定) */
+  userTier: 'normal' | 'vip' | 'trader'
+  amountOptions: { id: string; amount: number; label: string }[]
+  payMethods: { id: string; label: string; icon?: string }[]
+  onSelectAmount: (id: string) => void
+  onCustomAmountChange: (text: string) => void
+  onSelectPayMethod: (id: string) => void
+  onRefresh: () => void
+  onSubmit: () => void
+  onCloseIntro: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

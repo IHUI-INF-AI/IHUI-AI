@@ -1,0 +1,211 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useEffect, useMemo, useRef } from 'react'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { TextField } from '../../components/TextField'
+import { ChevronLeft } from 'lucide-react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { TFunction } from '../../types'
+
+import { rnRadius, rnCssLight, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 私聊消息(平台注入,字段对齐 mobile-rn MessageChatScreen ChatMsg) */
+export interface MessageChatMessage {
+  id: string
+  /** 发送者 ID(= fromUserId 别名) */
+  senderId: string
+  /** 是否为本机用户发送(决定左右对齐) */
+  isMine: boolean
+  content: string
+  createdAt: string
+}
+
+/** MessageChatScreen props(注入式:wrapper 保留 API 调用) */
+export interface MessageChatScreenProps {
+  t: TFunction
+  /** 对端昵称(header 标题) */
+  title: string
+  messages: MessageChatMessage[]
+  loading: boolean
+  error: string
+  input: string
+  sending: boolean
+  onInputChange: (text: string) => void
+  onSend: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * 私聊共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 对端昵称)+ 消息列表(本机右对齐 + 对端左对齐)
+ * + 输入框 + 发送按钮 + 自动滚动到底部。平台特定(API/导航)由 wrapper 注入。
+ */
+export function MessageChatScreen({
+  t,
+  title,
+  messages,
+  loading,
+  error,
+  input,
+  sending,
+  onInputChange,
+  onSend,
+  onBack,
+  colorScheme = 'light',
+}: MessageChatScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  const listRef = useRef<FlatList<MessageChatMessage> | null>(null)
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
+      return () => clearTimeout(timer)
+    }
+    return undefined
+  }, [messages.length])
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      </View>
+    )
+  }
+
+  if (error && messages.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error}</Text>
+        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
+          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
+      <FlatList
+        ref={(r) => {
+          listRef.current = r
+        }}
+        data={messages}
+        keyExtractor={(item) => item.id}
+        style={styles.list}
+        ListEmptyComponent={<EmptyState title={t('messageChat.empty')} colorScheme={colorScheme} />}
+        renderItem={({ item }) => (
+          <View style={[styles.msg, item.isMine ? styles.msgMine : styles.msgPeer]}>
+            <Text style={styles.content}>{item.content}</Text>
+            <Text style={styles.meta}>{item.createdAt}</Text>
+          </View>
+        )}
+      />
+      <View style={styles.inputRow}>
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.input}
+          value={input}
+          onChangeText={onInputChange}
+          placeholder={t('messageChat.placeholder')}
+          placeholderTextColor={tk.text.tertiary}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]}
+          onPress={onSend}
+          disabled={!input.trim() || sending}
+        >
+          <Text style={styles.sendText}>{t('messageChat.send')}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+      padding: rnSpacing.lg,
+    },
+    error: {
+      fontSize: rnType.body.size,
+      color: tk.error.text,
+      marginBottom: rnSpacing.sm,
+      textAlign: 'center',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      marginBottom: rnSpacing.sm,
+    },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    list: { flex: 1 },
+    msg: {
+      padding: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.xl,
+      marginBottom: rnSpacing.sm,
+      maxWidth: '80%',
+    },
+    msgMine: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
+    msgPeer: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
+    content: { fontSize: rnType.title.size, color: tk.surface.light },
+    meta: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: rnCssLight.white70 },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.sm,
+    },
+    input: {
+      flex: 1,
+      height: 50,
+      paddingHorizontal: rnSpacing.lg,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.surface.muted,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+    },
+    sendBtn: {
+      height: 50,
+      paddingHorizontal: rnSpacing.lg,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendDisabled: { backgroundColor: tk.text.tertiary },
+    sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
+    btn: {
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing.lg,
+      height: 44,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

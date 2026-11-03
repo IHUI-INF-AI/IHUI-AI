@@ -1,0 +1,539 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+/**
+ * 票60 步序四(2026-10-20):非根窗格的聊天主体。
+ *
+ * 根窗格仍由 AISidePanel 的单例主体承载(全局会话/侧栏状态在那一份上);
+ * 非根窗格各自挂 ChatPaneProvider + 本组件,读写都落在该窗格的独立 chat store。
+ *
+ * 历史加载只覆盖首屏 + 向上翻页(与根窗格同一 getMessages keyset 通道);
+ * 切换会话的 LRU 与翻页态走同一出口 `useConversationPaneCache`(键含窗格身份),
+ * 导入来源横幅走同一组件 `ImportProvenanceSlot` —— 都是"接现成出口",本组件不另写一份。
+ * 断点续传(片3,2026-10-21 起):本窗格的历史结算后同样走 `useResumeBranch`(其内部即
+ * `autoResumeAfterHistory`),捕获/续接/收尾全部落在该窗格的 store 实例 —— 与根窗格同一份
+ * 编排出口,不另写一套。
+ */
+
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
+
+import { getConversation, getConversationHistory, getMessages } from '@ihui/api-client'
+import { toast } from '@/components/common'
+import { ImportProvenanceSlot } from '@/components/ai/import-source-banner'
+import { MessageInput } from '@/components/chat/message-input'
+import { MessageList } from '@/components/chat/message-list/MessageList'
+import { QuestionDialog } from '@/components/chat/question-dialog'
+import { useChat } from '@/hooks/use-chat'
+// D35(2026-10-31 挂载):长会话分页投影钩子此前是"建好没装车"的形态(实现/单测在位,
+// 零生产入口)。本窗格是它接入的第一处真实消费面:首屏 loadLatest 拿 turn 分片投影,
+// 流式结束后 refreshNewer 走增量续读,投影行按 id 去重补进本窗格 store。
+import { useChatHistoryProjection } from '@/hooks/use-chat-history-projection'
+import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
+import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
+import { useResumeBranch } from '@/hooks/use-chat/resume-stream'
+import { noteRuntimeCapabilities } from '@/hooks/use-chat/runtime-capabilities'
+import { useApplyDiff } from '@/hooks/use-apply-diff'
+import { judgePageAdvance } from '@/lib/pagination-stall'
+import { parsePendingQuestion } from '@/lib/pending-question'
+// 差距⑤补全(2026-10-30 立):回合深链盖号(与根窗格 ai-side-panel 同一把尺)
+// 差距⑤遗留边界2:窗格化深链消费面(peek 按窗格归属命中 / around 锚点 / 版本号订阅)
+import {
+  consumeTurnDeepLink,
+  getTurnDeepLinkVersionForPane,
+  markPageTurnOrdinals,
+  peekTurnDeepLink,
+  pickTurnAnchorMessageId,
+  stampCompletePageTurnOrdinals,
+  subscribeTurnDeepLink,
+} from '@/lib/turn-deeplink'
+import { getProgressJumpStoreForPane } from '@/stores/progress-jump-store'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { usePaneModeStore } from '@/stores/mode'
+import type { ImportProvenance } from '@ihui/shared/import-analysis'
+import { readImportProvenance } from '@ihui/shared/import-analysis'
+
+/** 「用场景分析」弹窗:与根窗格同一组件、同一懒加载边界(210 条模板正文 ≈493KB 不进窗格 chunk) */
+const ImportAnalysisDialog = dynamic(
+  () => import('@/components/ai/import-analysis-dialog').then((m) => m.ImportAnalysisDialog),
+  { ssr: false },
+)
+/** 工具面板(tab 托盘):与根窗格同一组件、同一懒加载边界;展开态与数据面都按窗格走(片3) */
+const AiSidePanelTools = dynamic(
+  () => import('@/components/ai/ai-side-panel-tools').then((m) => m.AiSidePanelTools),
+  { ssr: false },
+)
+
+/** D35 投影每页取的 turn 数:与 MessageList 首屏 50 条消息同量级(一轮 ≈2 条),
+ *  与 API 的 historyListSchema 默认 20 同档 —— 不为投影另立一套分页常量。 */
+const PROJECTION_PAGE_TURNS = 25
+
+export interface ChatPaneBodyProps {
+  /** 布局树叶 id(= chat-panes 注册表键) */
+  paneId: string
+  /** 该窗格承载的会话 id(来自布局树) */
+  conversationId: string
+}
+
+/**
+ * 窗格侧 recentMessages 预填充判据(G-935 缺口B,与根主体 ai-side-panel.tsx:803-814 同口径)。
+ * - 缓存命中不得覆盖(内存 LRU 比持久快照新);
+ * - 仅 messages 为空时填,避免抹掉同会话重挂载保留的本地半截流;
+ * - recentMessages 必须属于当前会话且 messages 是数组。
+ */
+export function shouldPrefillRecentMessages(
+  state: {
+    readonly messages: readonly unknown[]
+    readonly recentMessages: { conversationId: string; messages: readonly unknown[] } | null
+  },
+  conversationId: string,
+  cacheHit: boolean,
+): boolean {
+  return (
+    !cacheHit &&
+    state.messages.length === 0 &&
+    state.recentMessages !== null &&
+    state.recentMessages.conversationId === conversationId &&
+    Array.isArray(state.recentMessages.messages)
+  )
+}
+
+export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
+  const t = useTranslations('chat')
+  const tcommon = useTranslations('common')
+  const chatStore = usePaneChatStore()
+  // 票60 普查批:模式档按窗格分家(此前直读根单例 ⇒ 切档把根窗格一起切走)
+  const modeStore = usePaneModeStore()
+  const currentMode = modeStore((s) => s.currentMode)
+  const {
+    messages,
+    isStreaming,
+    currentModel,
+    pendingQuestion,
+    sendMessage,
+    sendAnswer,
+    skipQuestion,
+    stop,
+    setModel,
+  } = useChat()
+  const { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs, applyDiffSelection } =
+    useApplyDiff()
+  const subAgentActivities = chatStore((s) => s.subAgentActivities)
+  // 窗格化的会话缓存 + 翻页态(与根窗格同一出口,键含窗格身份 ⇒ 两窗格各走各的)
+  const {
+    read: readCache,
+    write: writeCache,
+    patch: patchCache,
+    resetPager,
+    oldestCursorRef,
+    hasMoreHistory,
+    setHasMoreHistory,
+    loadingMoreHistory,
+    setLoadingMoreHistory,
+  } = useConversationPaneCache()
+
+  const [loadingHistory, setLoadingHistory] = React.useState(false)
+  const [importProvenance, setImportProvenance] = React.useState<ImportProvenance | null>(null)
+  // 「用场景分析」开合(与根窗格同判据:只有导入会话才有入口,自建会话不挂空壳弹窗)
+  const [analysisOpen, setAnalysisOpen] = React.useState(false)
+  const requestSeqRef = React.useRef(0)
+
+  // ── D35 长会话分页投影挂载(2026-10-31) ──────────────────────────────────
+  // 之前 `use-chat-history-projection` 只有实现与单测、没有任何页面消费(§0.9 造好没装车)。
+  // 本窗格把它接到真实消费面,三件事:
+  //  ① 历史结算后 loadLatest:拿 turn 分片投影与 newer 端断点(投影判据全在 @ihui/shared/chat);
+  //  ② 流式结束后 refreshNewer:增量续读补回中途进入会话时看到的"半截最新轮";
+  //  ③ 投影行按 id 去重补进本窗格 store —— 已有行(流式在途/本地乐观)一律优先,
+  //     投影只补 store 里没有的 id,不覆盖任何本地现场。
+  // 上翻仍走既有 getMessages keyset 通道:它的游标与投影的 turn 游标不是同一空间,
+  // 两套游标混灌就是"上翻丢帧"(hook 头注同一条纪律),故不在此把 loadOlder 接进列表。
+  const projection = useChatHistoryProjection(conversationId)
+  const projectionStartedForRef = React.useRef<string | null>(null)
+  const projectionWasStreamingRef = React.useRef(false)
+  React.useEffect(() => {
+    // 历史结算后才接管;缓存命中时 loadingHistory 恒 false,切会话即生效。
+    if (loadingHistory) return
+    if (projectionStartedForRef.current === conversationId) return
+    projectionStartedForRef.current = conversationId
+    void projection.loadLatest(PROJECTION_PAGE_TURNS)
+  }, [conversationId, loadingHistory, projection])
+
+  React.useEffect(() => {
+    if (isStreaming) {
+      projectionWasStreamingRef.current = true
+      return
+    }
+    // 只判「流式结束」这一个沿:初次挂载/store 空闲时 newerCursor 恒 null,不空发请求。
+    if (!projectionWasStreamingRef.current) return
+    projectionWasStreamingRef.current = false
+    if (!projection.boundary.newerCursor) return
+    void projection.refreshNewer(PROJECTION_PAGE_TURNS)
+  }, [isStreaming, projection])
+
+  React.useEffect(() => {
+    const current = chatStore.getState()
+    if (current.conversationId !== conversationId) return
+    const known = new Set(current.messages.map((message) => message.id))
+    const missing = projection.turns.flatMap((turn) =>
+      turn.messages
+        .filter((message) => !known.has(message.id))
+        .map((message) => {
+          known.add(message.id)
+          return { ...message, turnOrdinal: turn.turnOrdinal }
+        }),
+    )
+    if (missing.length === 0) return
+    const merged = [...current.messages, ...hydrateHistoryMessages(missing)].sort(
+      (a, b) => a.createdAt - b.createdAt,
+    )
+    chatStore.setState({ messages: merged })
+  }, [projection, chatStore, conversationId])
+  // P1-6 续接(片3,2026-10-21):与根主体共用同一份编排出口 useResumeBranch ——
+  // 捕获/结算后续接/中止三条时序只在一处实现(§0.6),本窗格只负责在历史 effect 里挂三个点。
+  const resume = useResumeBranch(chatStore, paneId, t)
+  // 差距⑤遗留边界1+2(2026-10-30):订阅"归属本窗格"的深链目标版本号 —— ?turn= 变化
+  // (含同会话换 turn 重锚)即进下方历史 effect 依赖重跑;归属别窗格/根窗格的目标
+  // 不动本快照(恒 0),本窗格不为无关目标空重放。与根主体 ai-side-panel 同一形态。
+  const turnDeepLinkVersion = React.useSyncExternalStore(
+    subscribeTurnDeepLink,
+    () => getTurnDeepLinkVersionForPane(paneId),
+    () => getTurnDeepLinkVersionForPane(paneId),
+  )
+
+  React.useEffect(() => {
+    const seq = ++requestSeqRef.current
+    let cancelled = false
+
+    // 最新页拉取(常规路径的异步半程;around 降级支与常规支共用一份实现,§0.6)
+    const runLatestFetch = async (): Promise<void> => {
+      const localBefore = chatStore.getState().messages
+      try {
+        const [convRes, msgRes] = await Promise.all([
+          getConversation(conversationId),
+          getMessages(conversationId, { direction: 'initial', pageSize: 50 }),
+        ])
+        if (cancelled || seq !== requestSeqRef.current) return
+        if (!convRes.success || !msgRes.success) return
+        // 差距⑤补全:最新页盖号(完整页计数 / 截断页整页 null,与根窗格同一把尺)
+        const hydrated = hydrateHistoryMessages(
+          markPageTurnOrdinals(msgRes.data.messages, msgRes.data.hasMore),
+        )
+        // 拉取期间窗格内已有本地写入(流式首帧/新消息)时不覆盖;
+        // 窗口标志与消息同进同出(守卫失败时列表还是旧来源,provenance 不得单独改写)。
+        if (chatStore.getState().messages === localBefore) {
+          chatStore.setState({ messages: hydrated, messagesTurnWindowed: false, error: null })
+        }
+        resetPager(msgRes.data.nextCursor, msgRes.data.hasMore)
+        writeCache(conversationId, {
+          messages: hydrated,
+          hasMore: msgRes.data.hasMore,
+          oldestCursor: msgRes.data.nextCursor,
+          turnWindowed: false,
+        })
+        const meta = convRes.data.conversation.metadata as { pendingQuestion?: unknown } | null
+        noteRuntimeCapabilities(meta)
+        const pending = parsePendingQuestion(meta?.pendingQuestion)
+        if (pending) chatStore.getState().setPendingQuestion(pending)
+        else chatStore.getState().clearPendingQuestion()
+        // 导入来源必须等消息就位后再算(发言人/时间跨度是从正文现算的),与根窗格同一判据。
+        const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
+        setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
+      } catch {
+        // 拉取失败保留当前消息,不阻塞输入
+      } finally {
+        if (!cancelled && seq === requestSeqRef.current) {
+          setLoadingHistory(false)
+          // 历史结算之后才续接(覆盖前会把未落库的本地消息整条抹掉)
+          resume.runAfterHistory(conversationId)
+        }
+      }
+    }
+
+    // 差距⑤遗留边界2(2026-10-30):窗格化深链 —— 目标 paneId 命中本窗格时**绕缓存**直走
+    // around 居中窗口(缓存装的是"上次落点",与分享链接指向的轮次无关;与根主体
+    // ai-side-panel 同一把尺)。锚点跳转投递**本窗格**的 ProgressJumpStore 实例
+    // (MessageList 经 useProgressJumpStoreForPane 消费,通道现成,不另造第二条事件总线)。
+    // 降级同根主体口径:turn 不存在(404)/拉取失败 ⇒ 静默消费目标、就地取最新页。
+    const aroundTarget = peekTurnDeepLink(conversationId, paneId)
+    if (aroundTarget) {
+      chatStore.setState({ conversationId, error: null })
+      setLoadingHistory(true)
+      const localBefore = chatStore.getState().messages
+      resume.capture(conversationId)
+      void (async () => {
+        try {
+          const [convRes, histRes] = await Promise.all([
+            getConversation(conversationId),
+            getConversationHistory(conversationId, {
+              aroundTurnId: String(aroundTarget.turnOrdinal),
+              aroundWindow: 5,
+            }),
+          ])
+          if (cancelled || seq !== requestSeqRef.current) return
+          if (histRes.success) {
+            const hydrated = hydrateHistoryMessages(
+              histRes.data.turns.flatMap((turn) =>
+                turn.messages.map((msg) => ({ ...msg, turnOrdinal: turn.turnOrdinal })),
+              ),
+            )
+            // 在途消息守卫与常规路径同一把尺
+            if (chatStore.getState().messages === localBefore) {
+              chatStore.setState({
+                messages: hydrated,
+                messagesTurnWindowed: true,
+                error: null,
+              })
+            }
+            if (convRes.success) {
+              const meta = convRes.data.conversation.metadata as {
+                pendingQuestion?: unknown
+              } | null
+              noteRuntimeCapabilities(meta)
+              const pending = parsePendingQuestion(meta?.pendingQuestion)
+              if (pending) chatStore.getState().setPendingQuestion(pending)
+              else chatStore.getState().clearPendingQuestion()
+              const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
+              setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
+            }
+            resetPager(null, false)
+            writeCache(conversationId, {
+              messages: hydrated,
+              hasMore: false,
+              oldestCursor: null,
+              turnWindowed: true,
+            })
+            const anchorMessageId = pickTurnAnchorMessageId(
+              histRes.data.turns,
+              aroundTarget.turnOrdinal,
+            )
+            if (anchorMessageId) {
+              getProgressJumpStoreForPane(paneId).getState().requestJumpToMessage(anchorMessageId)
+            }
+            setLoadingHistory(false)
+            resume.runAfterHistory(conversationId)
+            return
+          }
+          consumeTurnDeepLink()
+        } catch {
+          consumeTurnDeepLink()
+        }
+        if (cancelled || seq !== requestSeqRef.current) return
+        setLoadingHistory(false)
+        // 不 return 到外面:降级就地取最新页(不经缓存恢复,避免旧落点闪现);
+        // runLatestFetch 的 finally 会补结算后续接
+        void runLatestFetch()
+      })()
+      return () => {
+        cancelled = true
+        resume.abort()
+      }
+    }
+
+    const prevConversationId = chatStore.getState().conversationId
+    const switching = prevConversationId !== conversationId
+    // 命中本窗格缓存 ⇒ 同步恢复(不闪空列表、不进 loadingHistory),后台仍复核最新页;
+    // 未命中才清空 —— 切到另一条会话时避免把上一窗格内容当成新会话的基线,
+    // 同一会话重挂载则保留(可能是流式中途的本地消息),下面的守卫会防止覆盖。
+    const cached = readCache(conversationId)
+    const restoredMessages = cached
+      ? cached.messages
+      : switching
+        ? []
+        : chatStore.getState().messages
+    // 差距⑤补全:窗口 provenance 随快照恢复;未命中缓存且非切换(同会话重挂载)时
+    // 消息与标志都不动 —— 标志必须与列表实际来源一致。
+    chatStore.setState(
+      switching
+        ? {
+            conversationId,
+            messages: restoredMessages,
+            messagesTurnWindowed: cached?.turnWindowed ?? false,
+            error: null,
+            isStreaming: false,
+          }
+        : cached
+          ? {
+              conversationId,
+              messages: restoredMessages,
+              messagesTurnWindowed: cached.turnWindowed ?? false,
+              error: null,
+            }
+          : { conversationId, messages: restoredMessages, error: null },
+    )
+    setImportProvenance(null)
+    resetPager(cached ? cached.oldestCursor : null, cached ? cached.hasMore : false)
+    setLoadingHistory(cached === null)
+    // G-935 缺口B:窗格 store 的 recentMessages(半截流快照)先回填,再捕获续接候选。
+    // 根主体同口径(ai-side-panel.tsx:803-814);缓存命中不覆盖(内存 LRU 更新)。
+    const currentStore = chatStore.getState()
+    const recent = currentStore.recentMessages
+    if (recent && shouldPrefillRecentMessages(currentStore, conversationId, cached !== null)) {
+      chatStore.setState({
+        messages: recent.messages,
+        error: null,
+      })
+    }
+    // 续接候选在远端快照覆盖 messages 之前捕获(未落库的本地助手消息不在快照里)
+    resume.capture(conversationId)
+
+    void runLatestFetch()
+
+    return () => {
+      cancelled = true
+      resume.abort()
+    }
+  }, [
+    conversationId,
+    chatStore,
+    readCache,
+    writeCache,
+    resetPager,
+    resume,
+    paneId,
+    turnDeepLinkVersion,
+  ])
+
+  // #11 LRU 缓存同步(G-935 缺口B,与根主体 ai-side-panel.tsx:882-885 同一口径):
+  // messages 变化(流式增量/新消息/续接回写)时同步回写本窗格缓存桶,
+  // 切回或 reload(快照落盘后)拿到的是现值而不是历史基线。
+  React.useEffect(() => {
+    patchCache(conversationId, chatStore.getState().messages)
+  }, [conversationId, messages, hasMoreHistory, patchCache, chatStore])
+
+  const handleLoadMoreHistory = React.useCallback(async () => {
+    const cursor = oldestCursorRef.current
+    if (!cursor || loadingMoreHistory || !hasMoreHistory) return
+    setLoadingMoreHistory(true)
+    try {
+      const res = await getMessages(conversationId, { cursor, direction: 'older', pageSize: 50 })
+      if (!res.success) return
+      // 差距⑤补全:更早页序号未知 ⇒ 整页 null(翻到底时整体重盖,见下)
+      const older = hydrateHistoryMessages(markPageTurnOrdinals(res.data.messages, true))
+      const advance = judgePageAdvance({
+        requestCursor: cursor,
+        responseCursor: res.data.nextCursor,
+        responseHasMore: res.data.hasMore,
+        rows: older,
+      })
+      if (advance.retryable) {
+        // 票60 残余②(2026-10-21):与根窗格 ai-side-panel 同一表现 —— 此前非根窗格静默
+        // 收起"加载更多"且无任何提示,用户读不出是失败,只当历史到底了。
+        toast.error(tcommon('loadFailed'))
+        setHasMoreHistory(false)
+        return
+      }
+      if (older.length === 0) {
+        // 差距⑤补全:空尾批 + hasMore=false 同样是"已翻到底"事件 ⇒ 整体重盖(与根窗格同口径)
+        if (res.data.hasMore === false) {
+          chatStore.setState((s) => ({
+            messages: stampCompletePageTurnOrdinals(s.messages),
+            messagesTurnWindowed: false,
+          }))
+        }
+        resetPager(null, false)
+        return
+      }
+      // 差距⑤补全:翻到最早页 ⇒ 整表自 turn 1 完整,按服务端口径整体重盖;未到底维持 null(不猜)
+      if (res.data.hasMore === false) {
+        chatStore.setState((s) => ({
+          messages: stampCompletePageTurnOrdinals([...older, ...s.messages]),
+          messagesTurnWindowed: false,
+        }))
+      } else {
+        chatStore.setState((s) => ({ messages: [...older, ...s.messages] }))
+      }
+      resetPager(res.data.nextCursor, res.data.hasMore)
+      patchCache(conversationId, chatStore.getState().messages)
+    } finally {
+      setLoadingMoreHistory(false)
+    }
+    // tcommon 是 next-intl 取词函数,按 ai-side-panel 同一口径不进依赖(取词函数恒同一引用)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tcommon 取词函数不进依赖
+  }, [
+    conversationId,
+    chatStore,
+    oldestCursorRef,
+    loadingMoreHistory,
+    hasMoreHistory,
+    patchCache,
+    resetPager,
+    setHasMoreHistory,
+    setLoadingMoreHistory,
+  ])
+
+  return (
+    <div
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+      data-chat-pane-body={paneId}
+    >
+      <div className="relative min-h-0 flex-1">
+        {/* D28 补齐层:导入会话的来源交代 + 分析入口(与根窗格同一组件、同一显示条件;
+            自建会话整块不渲染)。入口在片3 才接通 —— 弹窗草稿此前恒写根单例,点了不落本窗格。 */}
+        {importProvenance && (
+          <ImportProvenanceSlot
+            provenance={importProvenance}
+            onOpenAnalysis={() => setAnalysisOpen(true)}
+          />
+        )}
+        <MessageList
+          messages={messages}
+          isStreaming={isStreaming}
+          isLoading={loadingHistory}
+          emptyTitle={t('empty')}
+          emptyHint={t('emptyHint')}
+          assistantLabel={t('assistant')}
+          loadingLabel={t('loading')}
+          hasMoreHistory={hasMoreHistory}
+          loadingMoreHistory={loadingMoreHistory}
+          onLoadMoreHistory={handleLoadMoreHistory}
+          onApplyDiff={applyDiff}
+          onRejectDiff={rejectDiff}
+          onApplyAllDiffs={applyAllDiffs}
+          onRejectAllDiffs={rejectAllDiffs}
+          onApplyPartialDiff={applyDiffSelection}
+          onTemplateSelect={(content) => chatStore.setState({ draftInput: content })}
+          subAgentActivities={subAgentActivities}
+          stepBudget={
+            subAgentActivities.length > 0
+              ? {
+                  used: subAgentActivities.reduce((sum, a) => sum + a.completedSteps.length, 0),
+                  total: 60,
+                }
+              : undefined
+          }
+        />
+      </div>
+
+      {/* W10 工具面板(片3 接进非根窗格):与根窗格同一组件,tab 数据源/展开态都读本窗格 */}
+      <AiSidePanelTools />
+
+      <MessageInput
+        onSend={sendMessage}
+        onStop={stop}
+        isStreaming={isStreaming}
+        placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+        sendLabel={t('send')}
+        stopLabel={t('stop')}
+        model={currentModel}
+        onModelChange={setModel}
+        modelLabel={t('model')}
+      />
+
+      <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
+
+      {/* D28 补齐层:「用场景分析」弹窗(片3 闭合)—— 草稿经 usePaneChatStore 落**本窗格**输入框 */}
+      {importProvenance && (
+        <ImportAnalysisDialog
+          open={analysisOpen}
+          onOpenChange={setAnalysisOpen}
+          source={importProvenance.source}
+        />
+      )}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,387 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 指针棘轮门 + 清偿脚本镜像测试 —— 从外部 import 生产出口,证明判据确实接在实现上。
+ * 覆盖:① 棘轮差值(新增⇒红 / 不新增⇒绿 / 存量不担责);② 剥注记器三形态(〔〕/【】/（）)
+ *      + 括号平衡(不误剥中文正文里的普通括注);③ 清偿分层(L1 外部持有行 / L2 族内 / L3 纯指针)
+ *      + 认领转移;④ 守恒断言(A1 勾选态 / A3 注记归零 / A4 族级认领守恒)。
+ */
+import { test } from 'node:test'
+import {
+  ratchetVerdict,
+  countPointerRows,
+  pointerRows,
+  twinRatchetVerdict,
+  redundantNoteCount,
+  redundantNoteCountInLine,
+  stripCarrySegments,
+  noteRedundancyVerdict,
+  prefixTwinPairs,
+  prefixTwinVerdict,
+  __test__ as T,
+} from '../check-plan-dup-pointer-ratchet.mjs'
+import { DUP_POINTER_RE } from '../lib/plan-task-index.mjs'
+import { stripMergeNotes, buildPlan, renderPurge, verifyPurge } from '../plan-pointer-purge.mjs'
+
+const NOTE =
+  '〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记,派单以那条为准,本行不再单独派单。〕'
+const NOTE2 =
+  '**[归并]** 【归并】重复登记副本:本行与同标题登记 L6542(枚 b0d91000e)重复,以主行为准。'
+const NOTE3 =
+  '（【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,派单以持有行为准）'
+const NOTE4 = '（【归并】重复登记副本:行首那个号是改派工具造出来的,派单以持有行为准。）'
+const PROSE_PAREN = '正常正文(含中文括注:说明)保持不变。'
+
+test('R1 棘轮:本次提交新增指针注记 ⇒ 红;不新增 ⇒ 绿', () => {
+  const before = '- [ ] G-1 做点啥\n'
+  const after = `- [ ] G-1 做点啥 ${NOTE}\n`
+  const v1 = ratchetVerdict(before, after)
+  if (v1.compliant) throw new Error('新增注记应判红')
+  const v2 = ratchetVerdict(after, after)
+  if (!v2.compliant) throw new Error('存量不担责:同面比对应绿')
+  const v3 = ratchetVerdict(before, '- [ ] G-1 做点啥\n')
+  if (!v3.compliant) throw new Error('未带注记应绿')
+})
+
+test('R2 countPointerRows/pointerRows:只数登记行,散文占位注释不数', () => {
+  const doc = [
+    `- [ ] A ${NOTE}`,
+    '<!-- 已归档(2026-10-08:✅(2026-10-07) 〔【归并】重复登记副本(2026-09-28):x,完整内容在 archive.md -->',
+    '- [ ] B 正常行',
+    '[x] ✅(2026-10-09) 残缺行也带注记 ' + NOTE,
+  ].join('\n')
+  const n = countPointerRows(doc)
+  if (n !== 2) throw new Error(`登记行注记数=${n},期望 2(A + 残缺行;占位注释不计)`)
+  const rows = pointerRows(doc)
+  if (rows.length !== 2 || rows[0].line !== 1 || rows[1].line !== 4)
+    throw new Error(`行号=${JSON.stringify(rows.map((r) => r.line))},期望 [1,4]`)
+})
+
+test('P1 剥注记:〔〕/【】/（）三形态全剥,不动普通中文括注', () => {
+  const cases = [
+    [`- [ ] x ${NOTE}`, '- [ ] x'],
+    [NOTE2, ''],
+    [NOTE3, ''],
+    [NOTE4, ''],
+    [`- [ ] x ${PROSE_PAREN}`, `- [ ] x ${PROSE_PAREN}`],
+  ]
+  for (const [input, expect] of cases) {
+    const got = stripMergeNotes(input).trim()
+    if (got !== expect.trim())
+      throw new Error(
+        `输入=${JSON.stringify(input.slice(0, 60))}\n得到=${JSON.stringify(got)}\n期望=${JSON.stringify(expect)}`,
+      )
+  }
+})
+
+test('P2 清偿分层:L1 删副本留持有行 / L3 删纯指针 / 认领转移到持有行', () => {
+  const lines = [
+    '# 计划',
+    // G-1 题面刻意与 G-2 不同:L5/L6(A5 单调性,2026-10-14)之后,剥注记会让行重新进入
+    // foldTwins 的候选面 —— 若两行同题面而编号不同,剥注记会"造出"一个新的 F10 族,
+    // A5 当场拦(它在真仓 HEAD 面实测为净减,不拦;这里改题面让夹具只测 L1/L3/认领转移)。
+    `- [ ]（进行中）G-1 另一件真任务 ${NOTE}`, // L4:剥注记保留(无同题持有行)
+    `- [ ] G-2 真任务持有行`,
+    `- [ ] G-2 真任务持有行 ${NOTE}`, // L1:外部持有行存在 ⇒ 删
+    `- [ ] ${NOTE}`, // L3:纯指针行
+    `- [ ]（进行中@2026-10-01/张三）G-3 认领在副本上 ${NOTE}`, // 认领转移
+    `- [ ] G-3 认领在副本上`, // 持有行(无认领)
+  ]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  const text = next.join('\n')
+  if (countPointerRows(text) !== 0) throw new Error(`注记残留:\n${text}`)
+  // 持有行仍在(未丢任务;认领转移后持有行带认领前缀,故按任务文本判在场)
+  if (!text.includes('G-2 真任务持有行')) throw new Error('L1 持有行被误删')
+  if (!text.includes('G-3 认领在副本上')) throw new Error('L4/认领行被误删')
+  // 认领已转移到持有行(剥除器可能留一个空格,允许)
+  if (!/- \[ \]（进行中@2026-10-01\/张三）\s*G-3 认领在副本上/.test(text))
+    throw new Error(`认领未转移到持有行:\n${text}`)
+  // 纯指针行已删
+  if (/^- \[ \]\s*$/m.test(text)) throw new Error('纯指针行未删')
+  const errs = verifyPurge(lines, next, plan)
+  if (errs.length) throw new Error(`守恒断言失败:${errs.join('; ')}`)
+})
+
+test('P2b L5/L6 真归并:无注记重复行真删行,注记移植到幸存行,独有增量整行跳过(2026-10-14)', () => {
+  // L6(F4):同复合主键的未勾副本(无任何注记)⇒ 删副本留幸存者(组内最长行),一行注记不产
+  // (夹具形态照抄真仓实测:副本 = 幸存者标题的精确前缀,D18/82 两族都是这个形状)
+  const l6 = [
+    '# 计划',
+    '- [ ] D21 同一件事(G-9)',
+    '- [ ] D21 同一件事(G-9)。较长的那条登记,承载了更多上下文说明,是幸存行。',
+  ]
+  const p6 = buildPlan(l6)
+  if (!p6.deleteSet.has(1)) throw new Error(`L6 应删短副本行,实得 ${[...p6.deleteSet]}`)
+  const n6 = renderPurge(l6, p6)
+  if (n6.length !== 2 || !n6[1].includes('较长的那条登记')) throw new Error(`L6 幸存行不对:${n6}`)
+  if (verifyPurge(l6, n6, p6).length) throw new Error('L6 清偿不应触发守恒断言')
+  if (countPointerRows(n6.join('\n')) !== 0) throw new Error('L6 不得产任何指针注记(用户禁令)')
+  // L5(F10):同题面不同编号的可折行 ⇒ 删被折行留 keeper,候选行尾的让号/拍板段移植过去
+  // (候选正文必须是幸存行的子串 —— 本夹具候选=纯标题行+注记,正文即题面,幸存行天然承载)
+  const l5 = [
+    '# 计划',
+    '- [ ] G-801. 同一件事被并发登记成两个不同的号:第一份登记,持有行,后面是它的正文交代。',
+    '- [ ] G-802. 同一件事被并发登记成两个不同的号 〔让号记录(2026-10-14):原号 G-802 同号多题,本行让出。〕',
+  ]
+  const p5 = buildPlan(l5)
+  if (!p5.deleteSet.has(2)) throw new Error(`L5 应删被折行,实得 ${[...p5.deleteSet]}`)
+  const n5 = renderPurge(l5, p5)
+  if (n5.length !== 2) throw new Error(`L5 应一行不增不删地并成一行:${n5}`)
+  if (!n5[1].includes('G-801') || !n5[1].includes('让号记录'))
+    throw new Error(`keeper 丢失或移植段丢失:${n5[1].slice(0, 120)}`)
+  if (verifyPurge(l5, n5, p5).length) throw new Error('L5 清偿不应触发守恒断言')
+  // 准入闸:候选正文有幸存行未承载的独有增量 ⇒ 整行跳过点名,绝不硬删
+  const lSkip = [
+    '# 计划',
+    '- [ ] G-901. 同一件事的两个号:第一份登记,持有行,正文很短。',
+    '- [ ] G-902. 同一件事的两个号:第二份登记带着大量只有本行才有的关键发现与待拍板决定,幸存行完全没有这些内容,所以本行必须保留。',
+  ]
+  const pSkip = buildPlan(lSkip)
+  if (pSkip.deleteSet.has(2) && !pSkip.skipped.some((s) => s.i === 2))
+    throw new Error('独有增量的行被硬删了 ⇒ 准入闸失明')
+  const nSkip = renderPurge(lSkip, pSkip)
+  if (!nSkip.some((l) => l.includes('G-902'))) throw new Error('独有增量行被删 = 丢活账')
+})
+
+test('P3 守恒断言:A3 注记残留必红(有牙证明:注入一行注记,断言必须报错)', () => {
+  const lines = ['# t', '- [ ] A 任务', `- [ ] A 任务 ${NOTE}`]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  // 正向:清偿后通过
+  if (verifyPurge(lines, next, plan).length !== 0) throw new Error('清偿后应无断言失败')
+  // 反向:手动在 next 里注入一行注记,断言必报 A3(证明判据真的在数,不是空过)
+  const corrupted = next.slice()
+  corrupted.push(`- [ ] 注入的 ${NOTE}`)
+  const errs = verifyPurge(lines, corrupted, plan)
+  if (!errs.some((e) => e.startsWith('A3'))) throw new Error(`A3 未报警:${errs.join('; ')}`)
+})
+
+test('P4 守恒断言:A1 已勾选行数变化必红(有牙证明)', () => {
+  const lines = ['# t', '- [x] A 已完成', `- [x] A 已完成 ${NOTE}`]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  // 清偿:已勾带注记的只剥注记不删行
+  const errs = verifyPurge(lines, next, plan)
+  if (errs.length) throw new Error(`已勾剥注记不应触发断言:${errs.join('; ')}`)
+  // 反向:删掉一条已勾行,断言必报 A1
+  const corrupted = next.filter((l) => !l.includes('A 已完成'))
+  const errs2 = verifyPurge(lines, corrupted, plan)
+  if (!errs2.some((e) => e.startsWith('A1'))) throw new Error(`A1 未报警:${errs2.join('; ')}`)
+})
+
+test('P5 认领守恒按族断言:副本带认领、持有行无认领 ⇒ 认领必须转移到持有行后保留', () => {
+  const lines = [
+    '- [ ] G-5 持有行无认领',
+    `- [ ]（进行中@2026-10-02/李四）G-5 持有行无认领 ${NOTE}`,
+  ]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  const errs = verifyPurge(lines, next, plan)
+  if (errs.length) throw new Error(`守恒断言失败:${errs.join('; ')}`)
+  const text = next.join('\n')
+  if (!/（进行中@2026-10-02\/李四）/.test(text)) throw new Error('认领标记随副本删除而消失')
+})
+
+test('P6 F10 差值棘轮(维②):同题不同编号可折重复登记只拦变多,同键副本(F4)不归它管', () => {
+  // 正向:HEAD 面 1 族,staged 面多登记一份同题不同号 ⇒ grew=true(拦)
+  const head = [
+    '# 计划',
+    '- [ ] G-601. 同一件事被并发登记成两个号:第一份登记,持有行,正文交代。',
+    '- [ ] G-602. 同一件事被并发登记成两个号',
+  ]
+  const staged = [...head, '- [ ] G-603. 同一件事被并发登记成两个号:又一份登记,题面同、号不同。']
+  const grew = twinRatchetVerdict(head.join('\n'), staged.join('\n'))
+  if (grew.undetermined) throw new Error('判据未判定 ⇒ 不得当通过')
+  if (!grew.grew) throw new Error(`新增同题不同号应判 grew,实得 ${JSON.stringify(grew)}`)
+  // 反向一:面不变 ⇒ 不增(存量豁免的差值棘轮纪律)
+  const same = twinRatchetVerdict(head.join('\n'), head.join('\n'))
+  if (same.grew) throw new Error('面不变不得判 grew')
+  // 反向二:F4 同键副本(编号同、题面同)不进本维 —— 那是守门 130 的 F4 维,重复设门=同罪两罚
+  const f4pair = ['# 计划', '- [ ] D31 同一件事(G-9)', '- [ ] D31 同一件事(G-9)。较长的正文。']
+  const f4 = twinRatchetVerdict('# 计划', f4pair.join('\n'))
+  if (f4.grew) throw new Error('同键副本被算进 F10 维 ⇒ 与守门 130 重复设门')
+  // 收敛方向:删掉一份 ⇒ 不增(变少永远放行)
+  const shrunk = twinRatchetVerdict(staged.join('\n'), head.join('\n'))
+  if (shrunk.grew) throw new Error('变少被拦 ⇒ 棘轮方向反了')
+})
+
+test('P7 A5 归一化:剥注记让同题副本"露出"不得算反增(实测 8→18 那一型)', () => {
+  // 复现形状(与 HEAD 面诊断输出同型):持有行是裸行,副本带指针注记且**正文与持有行不同**
+  // ⇒ 清偿对它只能走 L4 剥注记保留(指纹不同 ⇒ 落不进 L1/L2 的删除条件;正文 >30 字 ⇒ 不落 L3)。
+  // foldTwins 把带注记的行整个排除在候选外(plan-tasks-merge.mjs:2639)⇒ 清偿前可折 0;
+  // 剥完注记 ⇒ 同题两条裸行 ⇒ 可折 1。这 1 不是本轮造出来的重复,是本来就存在的重复被看见。
+  const lines = [
+    '- [ ] G-701. 同题甲的第一份登记：持有行正文交代得很长很长,以便稳稳过最短正文闸阈值。',
+    `- [ ] G-702. 同题甲的第一份登记：副本正文是另一批取证,内容完全不同但也够长过闸。${NOTE}`,
+  ]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  const errs = verifyPurge(lines, next, plan)
+  const a5 = errs.filter((e) => e.startsWith('A5'))
+  if (a5.length) throw new Error(`剥注记被 A5 误判反增:${a5.join('; ')}`)
+  // 这条断言自身也得有前提证明:本轮确实剥了一行注记(否则"通过"是因为压根没动)
+  if (countPointerRows(lines.join('\n')) !== 1 || countPointerRows(next.join('\n')) !== 0)
+    throw new Error('夹具没有复现"注记被剥净"的前提')
+})
+
+test('P8 A5 仍有牙:未勾选行数不变而重复度上升 ⇒ 必红(不许归一化把判据磨平)', () => {
+  const lines = [
+    '- [ ] G-801. 甲题正文够长：第一份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-802. 乙题正文够长：第二份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-803. 丙题正文够长：第三份登记,交代得很长以便过闸阈值。',
+  ]
+  const plan = buildPlan(lines)
+  const next = renderPurge(lines, plan)
+  if (verifyPurge(lines, next, plan).length !== 0) throw new Error('无事发生的批次不该红')
+  // 把 G-802 改成与 G-801 同题同号不冲突的副本(未勾选行数不变 ⇒ A2 静默;无注记 ⇒ A3 静默;
+  // 无认领 ⇒ A4 静默;已勾行数不变 ⇒ A1 静默)⇒ 只有 A5 该响
+  const corrupted = [
+    '- [ ] G-801. 甲题正文够长：第一份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-802. 甲题正文够长：第一份登记,交代得很长以便过闸阈值。',
+    '- [ ] G-803. 丙题正文够长：第三份登记,交代得很长以便过闸阈值。',
+  ]
+  const errs = verifyPurge(lines, corrupted, plan)
+  if (!errs.some((e) => e.startsWith('A5'))) throw new Error(`A5 未报警:${errs.join('; ')}`)
+  if (errs.some((e) => e.startsWith('A2'))) throw new Error('A2 被误触发(行数未变) ⇒ 夹具失真')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;识别集不并入 DUP_POINTER_RE', () => {
+  const one = '- [ ] G-9 做点啥 〔同题原号 G-191〕\n'
+  const two = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕\n'
+  const three = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔同题原号 G-191〕\n'
+  if (redundantNoteCount(one) !== 0) throw new Error('单份留痕不该计重叠(阳性对照失败)')
+  if (redundantNoteCount(two) !== 1) throw new Error('同一行叠同一注记 2 份应被识别(计 1 份多余)')
+  if (redundantNoteCount(three) !== 2) throw new Error('三份同注记应计 2 份多余')
+  if (redundantNoteCountInLine('') !== 0) throw new Error('空行必须读成 0')
+  const prose = '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n'
+  if (redundantNoteCount(prose) !== 0) throw new Error('登记行以外的文本不得计入重数')
+  // 承载段豁免(2026-10-25):〔副本正文并入·承载整段:…〕是折并时逐字搬来的旧正文,
+  // 里面必带旧注记;那与活注记同 token 但属设计形态,数进来会造出"清不掉"的存量。
+  const carry =
+    '- [ ] G-9 做点啥 〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〔同题原号 G-191〕〕\n'
+  if (redundantNoteCount(carry) !== 0) throw new Error('承载段内的同 token 不该计重叠')
+  const nested = '- [ ] G-9 做点啥 〔副本正文并入·承载整段:甲〔乙:丙〕丁〕〔同题原号 G-191〕\n'
+  if (stripCarrySegments(nested) !== '- [ ] G-9 做点啥 〔同题原号 G-191〕\n')
+    throw new Error('承载段摘除必须按括号深度配平,不得吃外文本')
+  const liveStill =
+    '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔副本正文并入·承载整段:旧正文〕\n'
+  if (redundantNoteCount(liveStill) !== 1) throw new Error('承载段豁免不得吞掉承载段外的真叠注')
+  const grew = noteRedundancyVerdict(one, three)
+  if (!grew.grew || grew.before !== 0 || grew.after !== 2) throw new Error('叠注变多必须判红')
+  const shrank = noteRedundancyVerdict(three, one)
+  if (shrank.grew || shrank.after !== 0) throw new Error('折并后应判绿且归零')
+  // 形状锁:维③自带识别集,**没有**扩大 DUP_POINTER_RE —— 那个字面一旦扩到通用括注族,
+  // 维①与 T3 元判据会把台账里合法的改号留痕一起判红(§12e 恒红门)。
+  if (DUP_POINTER_RE.source.includes('同题原号'))
+    throw new Error('DUP_POINTER_RE 被扩大 ⇒ 会造恒红门')
+})
+
+test('P10 维④前缀型副本对:只数严格前缀,逐字相同归 fold-identical 通道,已勾行不计', () => {
+  const A = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧\n'
+  const B = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧 追加了一段\n'
+  const C = '- [ ] G-7 做点啥这件事项的正文要长过承载下限才算副本短侧 追加了一段 又追加\n'
+  if (prefixTwinPairs(A + B) !== 1) throw new Error('两行成对应计 1 对(阳性对照失败)')
+  if (prefixTwinPairs(A + A) !== 0)
+    throw new Error('逐字相同的两行不由本维计(那是 --fold-identical-open-rows 的地盘)')
+  if (
+    prefixTwinPairs(
+      '- [ ] 不相关甲事项正文足够长可以独立派单\n- [ ] 不相关乙事项正文足够长可以独立派单\n',
+    ) !== 0
+  )
+    throw new Error('无前缀关系必须读成 0')
+  if (prefixTwinPairs(A + B + C) !== 3) throw new Error('链式 A⊂BC 应计 3 对')
+  if (
+    prefixTwinPairs(
+      '- [x] ✅(2026-01-01) G-7 做点啥这件事项的正文要长过承载下限才算副本短侧\n' + B,
+    ) !== 0
+  )
+    throw new Error('已勾行不参与本维')
+  // 反证(今天实测到的误咬型):裸认领标记行剥完括注后正文为空,却是所有同前缀行的公共前缀;
+  // 不设承载下限时,实测一条长度 10 的行在本维配到 26 条 ⇒ 读数全是假的。
+  const bare = '- [ ]（进行中）\n'
+  const filledA = '- [ ]（进行中）甲事项正文足够长可以独立派单干活现在补长一些以便越过承载下限\n'
+  const filledB =
+    '- [ ]（进行中）甲事项正文足够长可以独立派单干活现在补长一些以便越过承载下限 又补了一句\n'
+  const filledC = '- [ ]（进行中）乙事项正文足够长可以独立派单干活现在补长一些以便越过承载下限\n'
+  if (prefixTwinPairs(bare + filledA + filledC) !== 0)
+    throw new Error('裸认领标记行不得作为副本短侧(误咬)')
+  if (prefixTwinPairs(filledA + filledB + filledC) !== 1)
+    throw new Error('阳性对照:剥掉认领括注后正文够长的短侧,仍必须读得出 1 对')
+  const grew = prefixTwinVerdict(A, A + B)
+  if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('新增副本对必须判红')
+  if (prefixTwinVerdict(A + B, A).grew) throw new Error('折并后不得判红')
+})
+
+test('P11 维③字族补入(2026-10-22 票面修法①):〔同题原号 …〕与〔改号(…):原…〕超窗形态可识别,单份不红', () => {
+  const row = (notes) => `- [ ] G-9 做点啥 ${notes}\n`
+  // 7 位原号的改号留痕内文 25 字,超通用窗上界(HEAD 面实测 16 个这种 token / 15 行)
+  const renum = '〔改号(2026-10-22):原G-1058619〕'
+  if (redundantNoteCount(row(renum)) !== 0) throw new Error('单份改号留痕不得计重叠(阳性对照)')
+  if (redundantNoteCount(row(renum + renum)) !== 1)
+    throw new Error('同一行叠两份 25 字超窗改号留痕必须被识别(票面点名形态)')
+  // 省略号形同题原号内文 6 字,低于通用窗下界(HEAD 面实测存在此形态)
+  const ell = '〔同题原号 …〕'
+  if (redundantNoteCount(row(ell + ell)) !== 1)
+    throw new Error('同一行叠两份 6 字低于窗形的同题原号必须被识别')
+  if (redundantNoteCount(row(ell)) !== 0) throw new Error('单份省略号形不得计重叠')
+  // 差值方向:叠两份即红 / 折并归零判绿
+  const grew = noteRedundancyVerdict(row(renum), row(renum + renum))
+  if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('超窗字族叠两份必须判红')
+  if (noteRedundancyVerdict(row(renum + renum), row(renum)).grew)
+    throw new Error('折并回单份不得判红')
+  // 形状锁:补字族只进维③自带识别集,DUP_POINTER_RE 仍只有原字面(维①/T3 不担责)
+  if (DUP_POINTER_RE.source.includes('同题原号') || DUP_POINTER_RE.source.includes('改号'))
+    throw new Error('DUP_POINTER_RE 被扩大 ⇒ 合法改号留痕会被维①/T3 算成存量判红(§12e)')
+})
+
+test('P12 维③「重复登记副本」族(2026-10-25 补):三形态叠两份即计重 / 两个不同注记各一份不计 / 差值档存量只报数', () => {
+  const row = (s) => `- [ ] G-9 做点啥 ${s}\n`
+  const bag =
+    '〔【归并】重复登记副本(2026-09-27):逐字相同的另一条登记,派单以那条为准,本行不再单独派单。〕'
+  const paren = '（【归并】重复登记副本·同题不同编号·本行与同题登记的持有行重复,派单以持有行为准）'
+  const prose = '【归并】重复登记副本:本行与同标题登记重复,以主行为准。'
+  // ① 同一行叠两份同种注记 ⇒ 判红(三种承载形态各一条;此前识别集只认〔〕短窗,三型全部判不到)
+  for (const [name, note] of [
+    ['〔…重复登记副本…〕', bag],
+    ['（…重复登记副本…）', paren],
+    ['散文形【归并】重复登记副本', prose],
+  ]) {
+    const n = T.redundantNoteCount(row(note + note))
+    if (n !== 1) throw new Error(`${name} 叠两份应计 1,实测 ${n}`)
+    if (!T.noteRedundancyVerdict(row(note), row(note + note)).grew)
+      throw new Error(`${name} 叠两份未判 grew(没有牙)`)
+  }
+  // 阳性对照:单份留痕读数必须为 0,否则合法单份注记会被判红
+  for (const note of [bag, paren, prose])
+    if (T.redundantNoteCount(row(note)) !== 0)
+      throw new Error('单份注记被计重 ⇒ 假红(阳性对照失败)')
+  // 2026-10-25 取消 24 字上界:现读长注记族(拍板/批注/让号记录)叠两份同样要被抓
+  const longA = '〔拍板@2026-10-07 机主:授权值守低峰窗口 ff-only 收敛分叉后切流〕'
+  const longB = '〔拍板@2026-10-07 机主:选③——实证下游确验真+落台账条目〕'
+  if (T.redundantNoteCount(row(longA + longA)) !== 1)
+    throw new Error('长注记族叠两份未识别(长度上界未放开?)')
+  if (T.redundantNoteCount(row(longA + longB)) !== 0) throw new Error('两个不同长注记各一份被误判')
+  // ② 一行里两个**不同**注记各一份 ⇒ 不判红(本维头号误判风险)
+  if (T.redundantNoteCount(row('〔同题原号 G-1〕〔同题原号 G-2〕')) !== 0)
+    throw new Error('两个不同的同题原号各一份被误判')
+  if (T.redundantNoteCount(row(bag + paren)) !== 0)
+    throw new Error('两个不同的重复登记副本注记各一份被误判')
+  if (T.redundantNoteCount(row(prose + paren)) !== 0) throw new Error('散文形+括号形不同内容被误判')
+  // 括号 token 内的散文起点不得被两种切法双计:单份 `（【归并】重复登记副本…）` 若被括号+散文
+  // 各数一遍,上面的单份阳性对照会读成 1 ⇒ 该对照同时就是这条反证(不另设重复断言)。
+  // ③ 存量行在差值档下只报数不拦:同一面自比不得 grew(否则就是按存量判红的 §12e 恒红门)
+  const stock = row(bag + bag + paren + paren)
+  const self = T.noteRedundancyVerdict(stock, stock)
+  if (self.grew) throw new Error('存量面自比被判 grew ⇒ 差值档退化成按存量判红')
+  if (self.after !== 2) throw new Error(`存量夹具应读 2 份超额,实测 ${self.after}`)
+  // ④ 新判据只长在维③:维①/T3 的 DUP_POINTER_RE 仍不得扩到通用括注族
+  if (DUP_POINTER_RE.source.includes('〔') || DUP_POINTER_RE.source.includes('【…'))
+    throw new Error('DUP_POINTER_RE 被扩到括注族 ⇒ 维①/T3 会把合法注记行算成存量判红(§12e)')
+  // §22c:测试取的是生产导出的 __test__,识别集只有一份
+  if (typeof T.noteTokensInLine !== 'function' || !T.NOTE_TOKEN_SRC.includes('重复登记副本'))
+    throw new Error('维③识别集未含「重复登记副本」族(补牙被摘掉?)')
+})

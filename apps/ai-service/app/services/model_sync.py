@@ -1,0 +1,3087 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""LLM 模型自动同步服务(2026-07-31 立,深度优化 v3)。
+
+从已配置 key 的 provider 的 /v1/models 端点自动拉取最新模型清单,
+注册到 DB(ai_model_config_models 表),实现"模型名自动更新,无需手动改 default_models.json"。
+
+与 ModelAvailabilityService 协同:
+- ModelAvailabilityService:5 分钟后台 ping 健康状态(过滤 DOWN 的 provider)
+- ModelSyncService:6 小时后台拉取模型清单(注册新增 / 下架移除)
+
+深度优化 v2(2026-07-31,15 项):
+- F1.1 DB 事务包裹 upsert(防止中途失败留脏数据)
+- F1.2 失败重试(网络/超时错误指数退避 3 次,4xx 不重试)
+- F1.3 同步历史持久化(ai_model_sync_log 表,重启不丢失)
+- F1.4 Cloudflare 适配改用 provider_code 判断(不再字符串匹配 base_url)
+- F2.1 单 provider 同步(sync_single_provider + POST ?provider=xxx)
+- F2.2 dry-run 预览模式(只比对不写入,返回 new/removed model_id 列表)
+- F2.3 调度间隔可调(settings.model_sync_interval_s)
+- F2.4 并发限流可配(settings.model_sync_concurrency)
+- F3.1 display_name 智能派生(gpt-4o-mini → GPT-4o Mini)
+- F3.2 多 provider pricing schema 适配(OpenRouter/Cloudflare/NVIDIA NIM)
+- F3.3 context_length 多层级 fallback(6 级)
+- F3.4 模型分类标签(vision/tool/reasoning/fast/embedding/chat)
+- F3.5 价格上限过滤(>$1/1k tokens 跳过)
+- F3.6 模型别名映射(openai/gpt-4o → gpt-4o)
+
+深度优化 v3(2026-07-31,8 项新增):
+- F4.3 错误分类精细化(401/403/404/429/5xx 分类 + 永久禁用机制)
+- F4.4 多 provider 适配扩展(Anthropic /v1/models + Google Gemini /v1beta/models)
+- F4.5 元数据深度提取(description/vendor/max_output_tokens/supports_tool_call/
+      supports_vision/rate_limit/release_date/deprecation_date)
+- F4.6 Prometheus metrics 暴露同步指标(6 指标:ops/latency/new/removed/health/total)
+- F4.7 连续失败自动禁用(N>=3 失败 → 标记 unhealthy + admin 告警日志)
+- F4.8 增量同步(ETag / Last-Modified 缓存,304 跳过 upsert)
+- Provider 级别并发锁(单 provider 同时只允许一个同步,避免冲突)
+
+深度优化 v4(2026-09-08,token6688 目录极致深化):
+- D1 /v1/logical-models 富元数据全量利用:param_schema/capabilities/linkages/
+  input_hint_zh/max_prompt_chars/max_prompt_bytes/special_tier_notice/sort_weight/
+  supported_vendors/public_id 入 metadata jsonb 列(迁移 20260908010000)
+- D2 中文描述优先(description_zh);special_tier_notice 随官方价拼进 description
+- D3 supports_vision/supports_tool_call 优先级修正:上游模型级显式声明 >
+  provider 级 cap(capabilities 含 "vision" → True 否则 False,修正全量误标)
+- D4 下架模型带上游原因落日志(unavailable_reason/deprecation_note)
+
+设计参考:
+- scripts/scan-upstream-models.mjs(Node CLI 一次性扫描脚本,本服务是 Python 服务化版本)
+- model_availability.py(缓存 + 并发 + 生命周期模式)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+import re
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+
+import httpx
+from prometheus_client import Counter, Gauge, Histogram
+
+from ..core.background_tasks import spawn
+from ..core.config import settings
+from ..core.db_pool import get_shared_pool
+from ..core.default_model import RETIRED_PROVIDERS
+from ..core.provider_caps import get_provider_cap
+from .free_provider_registry import ProviderCategory, free_provider_registry
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# 常量配置
+# ============================================================================
+
+# 单 provider /v1/models 拉取超时(秒)
+SYNC_TIMEOUT_S = 30.0
+
+# 启动后延迟首次同步(秒,避免与 FastAPI 启动竞争)
+INITIAL_DELAY_S = 60
+
+# 同步间隔(秒)— 默认 6 小时,可由 settings.model_sync_interval_s 覆盖
+_DEFAULT_SYNC_INTERVAL_S = 6 * 3600
+
+# 并发拉取数(同时拉取的 provider 数量)— 默认 5,可由 settings.model_sync_concurrency 覆盖
+_DEFAULT_SYNC_CONCURRENCY = 5
+
+# F1.2 失败重试配置(指数退避:1s, 2s, 4s)
+_RETRY_BASE_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0)
+
+# F3.5 价格上限过滤(cents per 1k tokens,即 $1/1k tokens = $1000/1M tokens)
+# 超过此阈值的模型视为极端高价,跳过 INSERT 并 log warning
+MAX_PRICE_PER_1K_TOKENS = 100
+
+# xAI /v1/models 的 *_text_token_price 单位是 1e-10 USD/token(12500 = $1.25/1M)。
+# 换到 cents/1k:× 1e-10(→USD/token) × 1000(k) × 100(→cents)= × 1e-5
+_XAI_TOKEN_PRICE_TO_CENTS_PER_1K = 1e-5
+
+# F4.7 连续失败自动禁用阈值(N 次失败后标记 unhealthy,跳过后续同步)
+FAILURE_THRESHOLD = 3
+
+# 启动恢复:只认最近 N 小时内的 ai_model_sync_log 记录(默认 24h)。
+# 取 24h 是因为默认同步间隔 21600s(=6h),连续 FAILURE_THRESHOLD=3 次失败最慢要跨
+# 3 轮 = 18h;24h 留了余量又不至于把几天前的历史脏数据当成"当前仍坏"来误报。
+_RESTORE_WINDOW_HOURS = 24
+
+# F4.8 增量同步:429 长退避时间(秒)
+_RATE_LIMIT_BACKOFF_S = 60.0
+
+# 占位符 key(用户未填 key 时的默认值,不应触发同步)
+_PLACEHOLDER_KEYS: frozenset[str] = frozenset({
+    "<your-xxx-api-key>",
+    "<your-cf-api-token>",
+    "nvapi-<your-key>",
+    "",
+})
+
+
+def _is_placeholder_key(api_key: str) -> bool:
+    """key 是否等于"未配置"(空 / 白名单占位符 / 含 placeholder 字样)。
+
+    2026-10-26 实测:ai_model_config 里 github_models / cloudflare_workers_ai /
+    huggingface 三行的密文解出来全是 `sk-placeholder-…`(28 字符)—— 精确匹配的
+    `_PLACEHOLDER_KEYS` 拦不住这种变体,于是三家被当成"已配置 key"拉进同步:
+    cloudflare 缺 account_id 拼出 404 端点、github/hf 直连被墙 ConnectError,
+    连续 3 次后 F4.7 永久禁用 + `model_sync_provider_health==0` ⇒
+    LlmProviderUnhealthy 对三家**账户侧未配置**的厂商长期 firing。
+    机主定案:未配置凭据的厂商不进到人告警通道。判据按"失败原因=未配置凭据"
+    收敛在选取层(根本不进同步),而不是在告警侧打补丁。
+    """
+    if not api_key or api_key in _PLACEHOLDER_KEYS:
+        return True
+    return "placeholder" in api_key.lower()
+
+
+# ---------------------------------------------------------------------------
+# 2026-10-26 永久退役 provider
+# ---------------------------------------------------------------------------
+# 与 F4.7「连续失败自动 unhealthy」不同:那是**技术性**临时跳过key 修好还能自己回来;
+# 这里是**商务性**永久退役 —— 同步服务既不拉它的清单,也不允许它再被注册回来,
+# 且管理端 reset 接口**不能**把它解除(见 reset_provider 里的守卫)。
+# 机主 2026-10-26 明确:stepfun 不再续费,不得再以任何形式回到主聊链路。
+#
+# 名单本体在 app/core/default_model.py(RETIRED_PROVIDERS):退役要同时管住
+# 同步面(这里)、可用性面(model_availability 不 ping、不进模型列表)、
+# 面板面(管理端不列已退役厂商)、调用面(不再当默认模型)四个面;
+# 名单若只存在本模块,另外三个面就只剩各抄一份前缀表的命 —— 漂移即漏改。
+# 故本模块只**取用**同一份,不再另存一份。
+
+# ---------------------------------------------------------------------------
+# 2026-10-26 上游模型自动更新替换
+# ---------------------------------------------------------------------------
+# 背景:同步服务此前只做"新增注册 + 消失下架",且下架只置 is_relay_public=false,
+# enabled 仍为 true ⇒ 上游已 EOL 的模型(如 nvidia_nim 一批 410、sambanova 404)
+# 依然可被前端选中,一调用就炸,且没有任何自动修复路径 —— 只能人工去库里改。
+# 现补上"自动替换":上游消失的旧模型在同族里找后继,找到就把引用点整体切过去
+# (is_default / ai_model_config.default_model_id / model_id_for_test),
+# 找不到才把旧行彻底停用,并留下可追溯的 replaced_by / retired_reason。
+_AUTO_REPLACE_ENABLED = True
+
+# 安全阀:单轮下架数 / 该 provider 库内已有行数 超过此比例时,
+# 判定为"上游清单异常或部分返回",本轮**只下架不硬禁用**,避免整家被误伤。
+_AUTO_DISABLE_MAX_REMOVAL_RATIO = 0.5
+
+# 安全阀的绝对下限:下架条数 <= 该值时**不看比例**,一律执行替换/停用。
+# 2026-10-26 实测:小目录 provider(mimo 只有 3 行、下架 2 条 ⇒ 67%)会被 50% 比例
+# 误判成"上游清单异常",结果本该停用的模型只被摘下中继市场、enabled 仍为 true。
+# 目录小的时候比例天然失真,故用绝对条数兜底:2 条以内一律照常处理。
+_AUTO_DISABLE_ABS_FLOOR = 2
+
+# provider_code → LLM_PROVIDERS JSON name 映射
+# (与 model_availability._PROVIDER_CODE_TO_LLM_PROVIDERS_NAME 对齐,需保持同步)
+_PROVIDER_CODE_TO_CFG_NAME: dict[str, str] = {
+    "cloudflare_workers_ai": "cloudflare",
+    "nvidia_nim": "nvidia",
+    "github_models": "github",
+    "vercel_ai_gateway": "vercel",
+    "opencode_zen": "opencode",
+}
+
+
+def _to_cfg_name(provider_code: str) -> str:
+    """provider_code → LLM_PROVIDERS JSON name(用于读 settings.get_provider_config)。"""
+    return _PROVIDER_CODE_TO_CFG_NAME.get(provider_code, provider_code)
+
+
+# ============================================================================
+# F4.3 错误分类枚举
+# ============================================================================
+
+
+class SyncErrorType(StrEnum):
+    """同步错误分类(F4.3)。
+
+    用于精细化错误处理:不同错误类型对应不同重试策略与禁用策略。
+    """
+
+    INVALID_KEY = "invalid_key"        # 401 - key 失效,应禁用 provider 同步
+    FORBIDDEN = "forbidden"            # 403 - 无权限
+    NOT_FOUND = "not_found"            # 404 - 端点不存在,应永久跳过此 provider
+    RATE_LIMIT = "rate_limit"          # 429 - 速率限制,长退避(60s)
+    SERVER_ERROR = "server_error"      # 5xx - 服务端错误,短退避重试
+    NETWORK = "network"               # timeout/connect 错误,短退避重试
+    UNKNOWN = "unknown"                # 其他
+
+
+# ============================================================================
+# 数据类
+# ============================================================================
+
+
+@dataclass
+class SyncResult:
+    """单个 provider 的同步结果。"""
+
+    provider_code: str
+    success: bool
+    total_models: int = 0
+    new_models: int = 0
+    removed_models: int = 0
+    error: str = ""
+    latency_ms: int = 0
+    # F2.2 dry-run 预览:将要新增/下架的 model_id 列表
+    preview_new_model_ids: list[str] = field(default_factory=list)
+    preview_removed_model_ids: list[str] = field(default_factory=list)
+    # F3.4 模型分类标签(provider 维度汇总,供前端展示)
+    tags: list[str] = field(default_factory=list)
+    # F4.3 错误分类(SyncErrorType 值,成功时为空)
+    error_type: str = ""
+    # F4.8 304 Not Modified 跳过 upsert(增量同步命中缓存)
+    skipped: bool = False
+
+
+@dataclass
+class SyncStatus:
+    """全局同步状态(缓存,供 GET /llm/models/sync/status 查询)。"""
+
+    last_sync_at: str = ""  # ISO 8601 时间戳
+    last_sync_duration_ms: int = 0
+    total_providers: int = 0
+    total_new_models: int = 0
+    total_removed_models: int = 0
+    results: list[SyncResult] = field(default_factory=list)
+    is_syncing: bool = False  # 防止并发同步
+    # F2.2 dry-run 预览(全局汇总)
+    preview: dict[str, Any] = field(default_factory=dict)
+
+
+# ============================================================================
+# F4.6 Prometheus 指标
+# ============================================================================
+
+SYNC_OPERATIONS_TOTAL = Counter(
+    "model_sync_operations_total",
+    "Total model sync operations by provider and status",
+    ["provider_code", "status"],  # status: success / failure / skipped
+)
+
+SYNC_LATENCY_SECONDS = Histogram(
+    "model_sync_latency_seconds",
+    "Model sync latency per provider",
+    ["provider_code"],
+    buckets=(0.5, 1, 2.5, 5, 10, 30, 60, 120),
+)
+
+SYNC_NEW_MODELS = Gauge(
+    "model_sync_new_models",
+    "Number of new models added in last sync per provider",
+    ["provider_code"],
+)
+
+SYNC_REMOVED_MODELS = Gauge(
+    "model_sync_removed_models",
+    "Number of models removed in last sync per provider",
+    ["provider_code"],
+)
+
+# 2026-10-26:自动替换计数 —— 上游下架旧模型后引用点切到同族后继的次数。
+# 分两类:replaced=找到后继并改写引用;retired=上游消失且无后继,只能停用。
+SYNC_REPLACED_MODELS = Counter(
+    "model_sync_model_replacements_total",
+    "Models auto-replaced/retired after upstream delisting, by provider and outcome",
+    ["provider_code", "outcome"],  # outcome: replaced / retired
+)
+
+PROVIDER_HEALTH = Gauge(
+    "model_sync_provider_health",
+    "Provider health: 1=healthy, 0=unhealthy(>=3 consecutive failures)",
+    ["provider_code"],
+)
+
+TOTAL_MODELS_IN_DB = Gauge(
+    "model_sync_total_models_in_db",
+    "Total models in DB per provider",
+    ["provider_code"],
+)
+
+
+# ============================================================================
+# 服务单例
+# ============================================================================
+
+
+class ModelSyncService:
+    """模型自动同步服务(单例)。
+
+    生命周期:
+    - main.py lifespan 启动时调用 initialize():启动后台定时同步任务(每 N 小时)
+    - admin 端点 POST /llm/models/sync 手动触发 sync_all_providers()
+    - admin 端点 POST /llm/models/sync?provider=xxx 触发 sync_single_provider()
+    - admin 端点 GET /llm/models/sync/status 查询 get_status()
+    - admin 端点 GET /llm/models/sync/history 查询 get_history()
+    - admin 端点 GET /llm/models/sync/health 查询 get_health()(F4.7)
+    - main.py lifespan 关闭时调用 shutdown():取消定时任务
+
+    线程安全:用 asyncio.Lock 保护 is_syncing 标志(防止并发同步)。
+    F4.7 provider 级别并发锁:单 provider 同时只允许一个同步(避免冲突)。
+    """
+
+    def __init__(self) -> None:
+        self._status = SyncStatus()
+        self._lock = asyncio.Lock()
+        self._refresh_task: asyncio.Task[None] | None = None
+        self._initialized = False
+        # F3.4 缓存 ai_model_config_models 表是否有 tags 字段(None=未查询)
+        self._tags_column_cache: bool | None = None
+        # F4.5 新字段列存在性缓存(column_name → exists)
+        self._columns_cache: dict[str, bool] = {}
+        # F4.7 连续失败计数 + 永久禁用集合
+        self._provider_failure_counter: dict[str, int] = {}
+        self._permanently_disabled_providers: set[str] = set()
+        # F4.8 增量同步:ETag / Last-Modified 缓存
+        self._provider_etag: dict[str, str] = {}
+        self._provider_last_modified: dict[str, str] = {}
+        # v4 运行时配置(优先于 settings,由 PUT /llm/models/sync/config 更新)
+        self._runtime_interval_s: int | None = None
+        self._runtime_concurrency: int | None = None
+        # Provider 级别并发锁(单 provider 同时只允许一个同步)
+        self._provider_locks: dict[str, asyncio.Lock] = {}
+
+    # ------------------------------------------------------------------
+    # F4.7 Provider 级别并发锁
+    # ------------------------------------------------------------------
+
+    def _get_provider_lock(self, provider_code: str) -> asyncio.Lock:
+        """获取 provider 级别的并发锁(每个 provider 一把锁,懒初始化)。
+
+        确保:同一个 provider 同时只允许一个同步任务执行,避免并发冲突。
+        不同 provider 之间不互斥(可并行)。
+        """
+        if provider_code not in self._provider_locks:
+            self._provider_locks[provider_code] = asyncio.Lock()
+        return self._provider_locks[provider_code]
+
+    # ------------------------------------------------------------------
+    # 生命周期
+    # ------------------------------------------------------------------
+
+    async def initialize(self) -> None:
+        """启动时调用:启动后台定时同步任务(每 N 小时全量同步)。
+
+        幂等:多次调用只初始化一次。
+        不阻塞:后台异步执行,FastAPI 启动立即返回。
+        """
+        if self._initialized:
+            return
+        self._initialized = True
+        # 2026-10-18:先接回 DB 里的失败态并给 gauge 打点,再起定时任务。
+        # 顺序不可颠倒 —— 恢复依赖"两个集合仍为空"的冷启动前提(见其运行期保护)，
+        # 且必须赶在首轮同步前让 `model_sync_provider_health` 有样本,
+        # 否则 Prometheus 侧 LlmProviderUnhealthy 对无样本序列不成立,等于静默。
+        await self._restore_failure_state_from_db()
+        self._refresh_task = asyncio.create_task(self._sync_loop())
+        interval = self._sync_interval_s()
+        logger.info(
+            "[ModelSyncService] 后台定时同步任务已启动(每 %ds,首次延迟 %ds)",
+            interval, INITIAL_DELAY_S,
+        )
+        # v4 启动自愈:提示被永久禁用的 provider(不自动重置,让 admin 显式调用 reset)。
+        # 注:本段此前是死代码 —— 它读的是内存集合,而内存集合重启后必为空,永不打印。
+        #     现由上面的 _restore_failure_state_from_db() 从 DB 恢复后才真正可能非空。
+        if self._permanently_disabled_providers:
+            logger.warning(
+                "[ModelSyncService] 上次运行中以下 provider 被永久禁用,"
+                "如需重新同步请调用 POST /llm/models/sync/reset?provider=xxx: %s",
+                sorted(self._permanently_disabled_providers),
+            )
+
+    async def shutdown(self) -> None:
+        """关闭时调用:取消定时同步任务。"""
+        if self._refresh_task is not None and not self._refresh_task.done():
+            self._refresh_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._refresh_task
+            self._refresh_task = None
+        self._initialized = False
+
+    def _sync_interval_s(self) -> int:
+        """F2.3 读取同步间隔(秒),优先 _runtime_interval_s,其次 settings,最后默认 21600。"""
+        if self._runtime_interval_s is not None:
+            return self._runtime_interval_s
+        val = getattr(settings, "model_sync_interval_s", _DEFAULT_SYNC_INTERVAL_S)
+        try:
+            n = int(val)
+            return n if n > 0 else _DEFAULT_SYNC_INTERVAL_S
+        except (TypeError, ValueError):
+            return _DEFAULT_SYNC_INTERVAL_S
+
+    def _sync_concurrency(self) -> int:
+        """F2.4 读取并发限流,优先 _runtime_concurrency,其次 settings,最后默认 5。"""
+        if self._runtime_concurrency is not None:
+            return self._runtime_concurrency
+        val = getattr(settings, "model_sync_concurrency", _DEFAULT_SYNC_CONCURRENCY)
+        try:
+            n = int(val)
+            return n if n > 0 else _DEFAULT_SYNC_CONCURRENCY
+        except (TypeError, ValueError):
+            return _DEFAULT_SYNC_CONCURRENCY
+
+    async def _sync_loop(self) -> None:
+        """定时同步循环(启动后延迟 60s 首次同步,之后每 N 小时一次)。"""
+        await asyncio.sleep(INITIAL_DELAY_S)
+        while True:
+            try:
+                await self.sync_all_providers()
+            except asyncio.CancelledError:
+                logger.info("[ModelSyncService] sync loop cancelled")
+                raise
+            except Exception as e:
+                logger.warning("[ModelSyncService] 定时同步失败: %s", e)
+            # v4 日志自动清理(每次全量同步完成后,失败不影响主流程)
+            try:
+                cleanup_result = await self.cleanup_old_logs(before_days=30)
+                logger.info(
+                    "[ModelSyncService] 自动清理 %d 天前同步日志完成:删除 %d 条",
+                    30, cleanup_result.get("deleted_count", 0),
+                )
+            except Exception as e:
+                logger.warning("[ModelSyncService] 自动清理同步日志失败: %s", e)
+            await asyncio.sleep(self._sync_interval_s())
+
+    # ------------------------------------------------------------------
+    # 同步入口(全量 / 单 provider / dry-run)
+    # ------------------------------------------------------------------
+
+    async def sync_all_providers(self, dry_run: bool = False) -> dict[str, Any]:
+        """全量同步所有已配置 key 的 provider(并发拉取)。
+
+        Args:
+            dry_run: True=只预览不写入 DB,返回将新增/下架的 model_id 列表。
+
+        Returns:
+            同步状态字典(含每个 provider 的结果 + preview 字段),供 admin 端点直接返回。
+
+        防止并发:如果 is_syncing=True,直接返回当前状态。
+        F4.7:已永久禁用或连续失败 >= FAILURE_THRESHOLD 的 provider 自动跳过。
+        """
+        async with self._lock:
+            if self._status.is_syncing:
+                logger.warning("[ModelSyncService] 同步进行中,跳过本次触发")
+                return self.get_status()
+            self._status.is_syncing = True
+
+        start_time = datetime.now(UTC)
+        providers_to_sync = await self._get_configured_providers()
+
+        if not providers_to_sync:
+            logger.info("[ModelSyncService] 无已配置 key 的 provider,跳过同步")
+            self._status.is_syncing = False
+            self._status.last_sync_at = start_time.isoformat()
+            self._status.last_sync_duration_ms = 0
+            return self.get_status()
+
+        # 并发拉取(信号量限流)
+        sem = asyncio.Semaphore(self._sync_concurrency())
+        tasks = [
+            self._sync_single_provider(sem, code, base_url, api_key, dry_run=dry_run)
+            for code, base_url, api_key in providers_to_sync
+        ]
+        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 汇总结果(过滤异常)
+        results: list[SyncResult] = []
+        for i, r in enumerate(raw_results):
+            if isinstance(r, BaseException):
+                code = providers_to_sync[i][0]
+                results.append(SyncResult(
+                    provider_code=code, success=False,
+                    error=f"{type(r).__name__}: {str(r)[:200]}",
+                    error_type=SyncErrorType.UNKNOWN.value,
+                ))
+            else:
+                results.append(r)
+
+        self._status.results = results
+        self._status.total_providers = len(results)
+        self._status.total_new_models = sum(r.new_models for r in results if r.success)
+        self._status.total_removed_models = sum(r.removed_models for r in results if r.success)
+        self._status.last_sync_at = start_time.isoformat()
+        self._status.last_sync_duration_ms = int(
+            (datetime.now(UTC) - start_time).total_seconds() * 1000
+        )
+        self._status.is_syncing = False
+
+        # F2.2 dry-run 预览汇总
+        if dry_run:
+            self._status.preview = {
+                "new_model_ids": [mid for r in results for mid in r.preview_new_model_ids],
+                "removed_model_ids": [mid for r in results for mid in r.preview_removed_model_ids],
+            }
+        else:
+            self._status.preview = {}
+
+        # F1.3 同步历史持久化(非 dry_run 才写)
+        if not dry_run:
+            finished = datetime.now(UTC)
+            for r in results:
+                await self._write_sync_log(r, start_time, finished)
+
+        # 同步后触发 ModelAvailabilityService 刷新(避免等 5 分钟)
+        if not dry_run:
+            try:
+                from .model_availability import model_availability
+                spawn(model_availability._refresh_all_providers())
+            except Exception:
+                pass
+
+        logger.info(
+            "[ModelSyncService] 全量同步完成(dry_run=%s): %d providers, +%d new, -%d removed, %dms",
+            dry_run, self._status.total_providers, self._status.total_new_models,
+            self._status.total_removed_models, self._status.last_sync_duration_ms,
+        )
+        return self.get_status()
+
+    async def sync_single_provider(
+        self, provider_code: str, dry_run: bool = False
+    ) -> dict[str, Any]:
+        """F2.1 同步单个 provider。
+
+        Args:
+            provider_code: provider 唯一标识(如 stepfun / openai / cloudflare_workers_ai)。
+            dry_run: True=只预览不写入 DB。
+
+        Returns:
+            同步状态字典(只含该 provider 的结果)。
+
+        Raises:
+            ValueError: provider_code 未配置 key 或不在 registry 中。
+
+        F4.7 provider 级别并发锁:确保同一 provider 同时只允许一个同步。
+        """
+        async with self._lock:
+            if self._status.is_syncing:
+                logger.warning("[ModelSyncService] 同步进行中,跳过本次触发")
+                return self.get_status()
+            self._status.is_syncing = True
+
+        start_time = datetime.now(UTC)
+
+        # 在 registry 中找该 provider
+        provider = free_provider_registry.get_by_code(provider_code)
+        if provider is None:
+            self._status.is_syncing = False
+            raise ValueError(f"unknown provider_code: {provider_code}")
+
+        # 从 settings 获取 api_key / api_base
+        cfg_name = _to_cfg_name(provider_code)
+        cfg = settings.get_provider_config(cfg_name)
+        api_key = cfg.api_key
+        api_base = cfg.api_base or provider.default_base_url
+
+        if not api_base or (
+            _is_placeholder_key(api_key)
+            and not provider.keyless_model_list
+        ):
+            self._status.is_syncing = False
+            raise ValueError(
+                f"provider {provider_code} 未配置有效 api_key/api_base,无法同步"
+            )
+
+        sem = asyncio.Semaphore(1)
+        # provider 级并发锁由 _sync_single_provider 内部统一持有:asyncio.Lock 非重入,
+        # 外层再取同一把锁会让单厂同步永久挂起,并把 is_syncing 卡在 True(此后全量同步也被静默跳过)
+        result = await self._sync_single_provider(
+            sem, provider_code, api_base, api_key, dry_run=dry_run
+        )
+
+        self._status.results = [result]
+        self._status.total_providers = 1
+        self._status.total_new_models = result.new_models if result.success else 0
+        self._status.total_removed_models = result.removed_models if result.success else 0
+        self._status.last_sync_at = start_time.isoformat()
+        self._status.last_sync_duration_ms = result.latency_ms
+        self._status.is_syncing = False
+
+        if dry_run:
+            self._status.preview = {
+                "new_model_ids": list(result.preview_new_model_ids),
+                "removed_model_ids": list(result.preview_removed_model_ids),
+            }
+        else:
+            self._status.preview = {}
+            # F1.3 同步历史持久化
+            finished = datetime.now(UTC)
+            await self._write_sync_log(result, start_time, finished)
+            # 触发 ModelAvailabilityService 刷新
+            try:
+                from .model_availability import model_availability
+                spawn(model_availability._refresh_all_providers())
+            except Exception:
+                pass
+
+        logger.info(
+            "[ModelSyncService] 单 provider 同步完成(%s, dry_run=%s): +%d new, -%d removed, %dms",
+            provider_code, dry_run, result.new_models, result.removed_models, result.latency_ms,
+        )
+        return self.get_status()
+
+    async def _db_api_key_for(self, code: str) -> str | None:
+        """从 ai_model_config 读并解密该 provider 的 key(2026-10-26 新增)。
+
+        为什么必须有这一格:`settings.get_provider_config()` 只认 LLM_PROVIDERS JSON /
+        .env 明文,**不看库**。而库里 ai_model_config 那 28 行 key 在 2026-10-26 用旧密钥
+        重解 + 用当前密钥重加密之后已经**全部可解密**(此前 26 行解不开)。
+        同步服务只走 env 那条路 ⇒ 24 家拿不到 key ⇒ 从未同步过
+        (Prometheus 里 model_sync_operations_total 长期只有 stepfun / token6688 /
+        agnes / openrouter 四家各 1 次),于是模型清单永远停在入库那一刻的历史快照:
+        上游早已 EOL 的模型(nvidia_nim 410、sambanova 404、siliconflow "模型不存在" …)
+        一直 enabled 着,用户选了才在调用时报 410。
+
+        这里与 llm_gateway._resolve_from_db 取同一张表、同一把密钥,保证
+        "能调得通的 provider" 与 "能同步清单的 provider" 是同一个集合 —— 否则就会出现
+        "这家其实能用,但清单从不更新"的半死状态。
+        """
+        try:
+            # 延迟导入:llm_gateway 与本模块存在潜在循环引用
+            from ..core.llm_gateway import _decrypt_api_key, _get_pool
+
+            pool = await _get_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT api_key_enc FROM ai_model_config "
+                    "WHERE enabled = true AND owner_uuid IS NULL AND provider_code = $1 "
+                    "ORDER BY id LIMIT 1",
+                    code,
+                )
+            if not row:
+                return None
+            return _decrypt_api_key(row["api_key_enc"], code)
+        except Exception as e:  # noqa: BLE001 - 取不到 key 只是少同步一家,不得拖垮整轮
+            logger.debug("[ModelSyncService] %s 库内 key 读取失败: %s", code, e)
+            return None
+
+    async def _get_configured_providers(self) -> list[tuple[str, str, str]]:
+        """获取已配置 key 的 provider 列表(从 settings + free_provider_registry)。
+
+        过滤规则:
+        - zero_cost provider(pollinations/llm7/aihorde/opencode_zen):无需同步,模型清单固定
+        - LOCAL provider(ollama/lmstudio/llamacpp/vllm):本地模型,无需同步
+        - 未配置 key 的 provider:无法调 /v1/models,跳过
+        - 占位符 key(如 <your-xxx-api-key>):跳过
+        - F4.7 永久禁用 provider(404 端点不存在 / 401-403 连续 3 次):跳过并 log warning
+        - F4.7 连续失败 >= FAILURE_THRESHOLD:跳过并 log warning
+
+        Returns:
+            [(provider_code, base_url, api_key), ...]
+        """
+        result: list[tuple[str, str, str]] = []
+        for provider in free_provider_registry.list_all():
+            code = provider.provider_code
+            # zero_cost / LOCAL provider 不需要同步模型清单
+            if provider.zero_cost or provider.category == ProviderCategory.LOCAL:
+                continue
+            # 2026-10-26 永久退役 provider 跳过(商务原因,不因 key 恢复而回来)
+            if code in RETIRED_PROVIDERS:
+                logger.info(
+                    "[ModelSyncService] %s 已永久退役,跳过同步(原因:%s)",
+                    code, RETIRED_PROVIDERS[code],
+                )
+                continue
+            # F4.7 永久禁用 provider 跳过
+            if code in self._permanently_disabled_providers:
+                logger.warning(
+                    "[ModelSyncService] %s 已永久禁用(404/连续认证失败),跳过同步",
+                    code,
+                )
+                continue
+            # F4.7 连续失败 >= 阈值跳过(unhealthy)
+            failures = self._provider_failure_counter.get(code, 0)
+            if failures >= FAILURE_THRESHOLD:
+                logger.warning(
+                    "[ModelSyncService] %s 连续失败 %d 次(>= %d),标记 unhealthy 跳过同步",
+                    code, failures, FAILURE_THRESHOLD,
+                )
+                continue
+            # 从 settings 获取 api_key 和 api_base(与 model_availability.py 同源)
+            cfg_name = _to_cfg_name(code)
+            cfg = settings.get_provider_config(cfg_name)
+            api_key = cfg.api_key
+            # 2026-10-26:env/LLM_PROVIDERS 取不到时回落到库内密文(见 _db_api_key_for 的注释)。
+            # 顺序不改:env 仍优先 —— 运维在 .env 显式覆盖的 key 必须说了算。
+            if not api_key:
+                api_key = (await self._db_api_key_for(code)) or ""
+            api_base = cfg.api_base or provider.default_base_url
+            # keyless_model_list(token6688/huggingface 等):目录端点免鉴权,无 key 也可同步清单
+            # 2026-10-26:key_ok 判据从"精确匹配占位符表"换成 _is_placeholder_key
+            # (库里 sk-placeholder-… 变体拦不住是 LlmProviderUnhealthy 长期 firing 的根因);
+            # 占位 key 即便放行(免鉴权厂商)也**不带出去**——发 `Bearer sk-placeholder-…`
+            # 可能被上游判成失效凭据 401,不如干净地空 key 请求。
+            key_ok = not _is_placeholder_key(api_key)
+            if api_base and (key_ok or provider.keyless_model_list):
+                result.append((code, api_base, api_key if key_ok else ""))
+        return result
+
+    async def _sync_single_provider(
+        self,
+        sem: asyncio.Semaphore,
+        provider_code: str,
+        base_url: str,
+        api_key: str,
+        dry_run: bool = False,
+    ) -> SyncResult:
+        """同步单个 provider:拉取 /v1/models → 比对 DB → 注册新增/下架移除。
+
+        F1.2 失败重试:网络/超时错误指数退避 3 次(1s/2s/4s),4xx 不重试。
+        F4.3 错误分类:401/403/404/429/5xx 分别处理,404 永久禁用,429 长退避。
+        F4.6 Prometheus metrics:成功/失败/latency/health 埋点。
+        F4.7 连续失败计数:成功清零,失败累加,>= 阈值标记 unhealthy。
+        F4.8 增量同步:304 Not Modified 跳过 upsert。
+        """
+        # F4.7 provider 级别并发锁(确保同一 provider 同时只允许一个同步)
+        async with self._get_provider_lock(provider_code):
+            async with sem:
+                start = datetime.now(UTC)
+                upstream_models: list[dict[str, Any]] = []
+                last_exc: BaseException | None = None
+                last_error_type: str = ""
+                skip_upsert = False
+
+                # F1.2 重试循环(只重试网络/超时/5xx 错误,4xx 不重试)
+                expected_key_skip = False
+                for attempt, delay in enumerate(_RETRY_BASE_DELAYS, start=1):
+                    try:
+                        upstream_models, skip_upsert = await self._fetch_upstream_models(
+                            provider_code, base_url, api_key
+                        )
+                        last_exc = None
+                        last_error_type = ""
+                        break
+                    except (httpx.TimeoutException, httpx.NetworkError) as e:
+                        # F4.3 NETWORK 错误:短退避重试
+                        last_exc = e
+                        last_error_type = SyncErrorType.NETWORK.value
+                        logger.warning(
+                            "[ModelSyncService] %s 拉取失败(第 %d 次, %s),%0.1fs 后重试",
+                            provider_code, attempt, type(e).__name__, delay,
+                        )
+                        if attempt < len(_RETRY_BASE_DELAYS):
+                            await asyncio.sleep(delay)
+                    except httpx.HTTPStatusError as e:
+                        # F4.3 HTTP 状态码错误分类
+                        status_code = e.response.status_code if e.response is not None else 0
+                        last_error_type = self._classify_http_error(status_code)
+                        last_exc = e
+
+                        if last_error_type == SyncErrorType.NOT_FOUND.value:
+                            # 404:端点不存在,永久禁用此 provider
+                            self._permanently_disabled_providers.add(provider_code)
+                            logger.warning(
+                                "[ModelSyncService] %s 返回 404(端点不存在),已永久禁用",
+                                provider_code,
+                            )
+                            break
+                        elif last_error_type == SyncErrorType.INVALID_KEY.value:
+                            # 401:key 失效/过期。这是"用户侧待补充有效 key"的预期状态(非事故):
+                            # 不计入 unhealthy 失败计数、不触发 LlmProviderUnhealthy 告警、不永久禁用;
+                            # 补充有效 key 后下一轮同步自动恢复。记 INFO 即可(2026-10-26 按机主指示)。
+                            expected_key_skip = True
+                            logger.info(
+                                "[ModelSyncService] %s 返回 401(key 失效/过期),跳过同步"
+                                "(预期状态,补充有效 key 后自动恢复)",
+                                provider_code,
+                            )
+                            break
+                        elif last_error_type == SyncErrorType.FORBIDDEN.value:
+                            # 403:无权限/配额受限。同 401,属用户侧待补充有效 key 的预期状态,
+                            # 静默跳过(不计入 unhealthy、不告警、不永久禁用);补充 key 后自动恢复。
+                            expected_key_skip = True
+                            logger.info(
+                                "[ModelSyncService] %s 返回 403(无权限/配额受限),跳过同步"
+                                "(预期状态,补充有效 key 后自动恢复)",
+                                provider_code,
+                            )
+                            break
+                        elif last_error_type == SyncErrorType.RATE_LIMIT.value:
+                            # 429:速率限制,长退避(60s)后重试 1 次
+                            if attempt < len(_RETRY_BASE_DELAYS):
+                                logger.warning(
+                                    "[ModelSyncService] %s 返回 429(速率限制),%0.1fs 后重试",
+                                    provider_code, _RATE_LIMIT_BACKOFF_S,
+                                )
+                                await asyncio.sleep(_RATE_LIMIT_BACKOFF_S)
+                                continue
+                            else:
+                                self._bump_failure(provider_code)
+                                break
+                        elif last_error_type == SyncErrorType.SERVER_ERROR.value:
+                            # 5xx:服务端错误,沿用指数退避重试
+                            logger.warning(
+                                "[ModelSyncService] %s 返回 5xx(%d),第 %d 次重试,%0.1fs 后",
+                                provider_code, status_code, attempt, delay,
+                            )
+                            if attempt < len(_RETRY_BASE_DELAYS):
+                                await asyncio.sleep(delay)
+                                continue
+                            else:
+                                self._bump_failure(provider_code)
+                                break
+                        else:
+                            # UNKNOWN:不重试
+                            self._bump_failure(provider_code)
+                            break
+                    except Exception as e:
+                        # 其他未知错误不重试
+                        last_exc = e
+                        last_error_type = SyncErrorType.UNKNOWN.value
+                        self._bump_failure(provider_code)
+                        break
+
+                latency_ms = int((datetime.now(UTC) - start).total_seconds() * 1000)
+                latency_s = latency_ms / 1000.0
+
+                if last_exc is not None:
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    if expected_key_skip:
+                        # 预期状态(key 失效/过期):静默跳过,不计入 unhealthy、不触发告警。
+                        # 指标记 skipped(与 304 增量跳过同口径),health 保持 1。
+                        SYNC_OPERATIONS_TOTAL.labels(provider_code, "skipped").inc()
+                        PROVIDER_HEALTH.labels(provider_code).set(1)
+                        return SyncResult(
+                            provider_code=provider_code, success=False,
+                            error=f"{type(last_exc).__name__}: {str(last_exc)[:200]}",
+                            latency_ms=latency_ms, skipped=True,
+                            error_type=last_error_type,
+                        )
+                    # F4.6 Prometheus metrics 失败埋点(真实故障:网络/5xx/404/未知)
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
+                    failures = self._provider_failure_counter.get(provider_code, 0)
+                    PROVIDER_HEALTH.labels(provider_code).set(
+                        1 if failures < FAILURE_THRESHOLD else 0
+                    )
+                    return SyncResult(
+                        provider_code=provider_code, success=False,
+                        error=f"{type(last_exc).__name__}: {str(last_exc)[:200]}",
+                        latency_ms=latency_ms,
+                        error_type=last_error_type,
+                    )
+
+                # F4.8 增量同步:304 Not Modified 跳过 upsert
+                if skip_upsert:
+                    # F4.7 成功清零失败计数
+                    self._provider_failure_counter[provider_code] = 0
+                    # F4.6 Prometheus metrics 成功埋点(skipped)
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "skipped").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    PROVIDER_HEALTH.labels(provider_code).set(1)
+                    logger.info(
+                        "[ModelSyncService] %s 增量同步命中缓存(304),跳过 upsert,%dms",
+                        provider_code, latency_ms,
+                    )
+                    return SyncResult(
+                        provider_code=provider_code, success=True,
+                        total_models=0, skipped=True,
+                        latency_ms=latency_ms,
+                    )
+
+                if not upstream_models:
+                    # F4.7 成功清零失败计数
+                    self._provider_failure_counter[provider_code] = 0
+                    # F4.6 Prometheus metrics 成功埋点
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "success").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    SYNC_NEW_MODELS.labels(provider_code).set(0)
+                    SYNC_REMOVED_MODELS.labels(provider_code).set(0)
+                    PROVIDER_HEALTH.labels(provider_code).set(1)
+                    return SyncResult(
+                        provider_code=provider_code, success=True, total_models=0,
+                        latency_ms=latency_ms,
+                    )
+
+                try:
+                    new_count, removed_count, preview_new, preview_removed, tags = (
+                        await self._upsert_models_to_db(
+                            provider_code, upstream_models, dry_run=dry_run
+                        )
+                    )
+                except Exception as e:
+                    logger.warning("[ModelSyncService] %s upsert 失败: %s", provider_code, e)
+                    # F4.6 Prometheus metrics 失败埋点
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    self._bump_failure(provider_code)
+                    failures = self._provider_failure_counter.get(provider_code, 0)
+                    PROVIDER_HEALTH.labels(provider_code).set(
+                        1 if failures < FAILURE_THRESHOLD else 0
+                    )
+                    return SyncResult(
+                        provider_code=provider_code, success=False, error=str(e)[:200],
+                        latency_ms=latency_ms,
+                        error_type=SyncErrorType.UNKNOWN.value,
+                    )
+
+                # F4.7 成功清零失败计数
+                self._provider_failure_counter[provider_code] = 0
+
+                # F4.6 Prometheus metrics 成功埋点
+                SYNC_OPERATIONS_TOTAL.labels(provider_code, "success").inc()
+                SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                SYNC_NEW_MODELS.labels(provider_code).set(new_count)
+                SYNC_REMOVED_MODELS.labels(provider_code).set(removed_count)
+                PROVIDER_HEALTH.labels(provider_code).set(1)
+                TOTAL_MODELS_IN_DB.labels(provider_code).set(len(upstream_models))
+
+                return SyncResult(
+                    provider_code=provider_code, success=True,
+                    total_models=len(upstream_models),
+                    new_models=new_count, removed_models=removed_count,
+                    latency_ms=latency_ms,
+                    preview_new_model_ids=preview_new,
+                    preview_removed_model_ids=preview_removed,
+                    tags=tags,
+                )
+
+    # ------------------------------------------------------------------
+    # F4.3 错误分类辅助
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _classify_http_error(status_code: int) -> str:
+        """F4.3 根据 HTTP 状态码分类错误类型。
+
+        Args:
+            status_code: HTTP 响应状态码。
+
+        Returns:
+            SyncErrorType 枚举值(str)。
+        """
+        if status_code == 401:
+            return SyncErrorType.INVALID_KEY.value
+        if status_code == 403:
+            return SyncErrorType.FORBIDDEN.value
+        if status_code == 404:
+            return SyncErrorType.NOT_FOUND.value
+        if status_code == 429:
+            return SyncErrorType.RATE_LIMIT.value
+        if 500 <= status_code < 600:
+            return SyncErrorType.SERVER_ERROR.value
+        return SyncErrorType.UNKNOWN.value
+
+    def _bump_failure(self, provider_code: str) -> None:
+        """F4.7 递增 provider 的连续失败计数。"""
+        self._provider_failure_counter[provider_code] = (
+            self._provider_failure_counter.get(provider_code, 0) + 1
+        )
+
+    # ------------------------------------------------------------------
+    # 启动恢复(2026-10-18 立):把"进程内存态"接回 DB
+    # ------------------------------------------------------------------
+
+    async def _restore_failure_state_from_db(self) -> dict[str, int]:
+        """冷启动时从 ai_model_sync_log 恢复 provider 连续失败态,并立刻给 gauge 打点。
+
+        为什么必须有这一段(不是锦上添花,是修两个真缺陷):
+        ① `_provider_failure_counter` / `_permanently_disabled_providers` / `PROVIDER_HEALTH`
+           三者**全是进程内存态**,ai-service 一重启就归零。而 Prometheus 侧
+           `LlmProviderUnhealthy` 的判据是 `model_sync_provider_health == 0`,
+           **序列无样本时不成立**(不是 0,是没有)⇒ 坏 provider 重启后最长要
+           3 轮 x 6h = 18h 才重新告警,告警出现长达大半天的静默盲区。
+        ② `initialize()` 里"启动自愈:提示上次运行中被永久禁用的 provider"那段是**死代码**:
+           它打印的是内存集合,而内存集合在重启后必然是空集 ⇒ 永不打印。
+        恢复后两处都真正生效:gauge 启动即有正确样本,禁用名单也能跨重启被提示。
+
+        误报防护(三条,缺一不可):
+        ① **只恢复本服务自己配置的 provider**。ai_model_sync_log 也会被 apps/api 侧的
+           relay 模型同步写入其他 provider_code(由 api 侧负责,本服务从不同步它们)。
+           若不按本服务的配置清单收敛,就会凭空给这些外部 provider 打 gauge=0,
+           造出一条本服务修不了的假告警。
+        ② 只看每个 provider 最近 FAILURE_THRESHOLD 条里的**尾部连续**失败,
+           遇到任意 success=true 立即截断(不把"失败-成功-失败"累计成 2)。
+        ③ 只认 `_RESTORE_WINDOW_HOURS` 小时内的记录,避免把几天前的历史当现状。
+
+        调用时机:只能冷启动调用。运行期(两个集合已有值)调用会直接跳过,
+        绝不覆盖运行期积累的真实状态。
+
+        Returns:
+            {provider_code: 恢复出的连续失败次数},只含 >0 的;DB 不可用时返回 {}。
+        """
+        # 运行期保护:非冷启动绝不覆盖内存里积累的真实状态
+        if self._provider_failure_counter or self._permanently_disabled_providers:
+            logger.debug(
+                "[ModelSyncService] 非冷启动(已有运行期失败态),跳过 DB 恢复"
+            )
+            return {}
+
+        try:
+            pool = await get_shared_pool()
+        except Exception as e:
+            logger.info(
+                "[ModelSyncService] DB 池不可用,跳过启动恢复(gauge 待首轮同步): %s",
+                e,
+            )
+            return {}
+
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """SELECT provider_code, success, error
+                         FROM (
+                           SELECT provider_code, success, error, sync_finished_at,
+                                  ROW_NUMBER() OVER (
+                                    PARTITION BY provider_code
+                                    ORDER BY sync_finished_at DESC
+                                  ) AS rn
+                             FROM ai_model_sync_log
+                            WHERE sync_finished_at >= now() - make_interval(hours => $1)
+                         ) t
+                        WHERE rn <= $2
+                        ORDER BY provider_code, sync_finished_at DESC""",
+                    _RESTORE_WINDOW_HOURS,
+                    FAILURE_THRESHOLD,
+                )
+        except Exception as e:
+            # 表不存在 / 权限 / 连接问题 -> 与 _write_sync_log 一致,静默降级,不影响启动
+            logger.info(
+                "[ModelSyncService] 启动恢复查询失败(表可能不存在),按全新状态启动: %s",
+                e,
+            )
+            return {}
+
+        by_provider: dict[str, list[tuple[bool, str]]] = {}
+        for r in rows:
+            by_provider.setdefault(r["provider_code"], []).append(
+                (bool(r["success"]), r["error"] or "")
+            )
+
+        # 收敛到"本服务实际会同步的 provider"。注意此刻两个集合仍为空,
+        # 所以 _get_configured_providers() 返回的是未剔除禁用项的完整清单。
+        configured = {code for code, _base, _key in await self._get_configured_providers()}
+
+        restored: dict[str, int] = {}
+        for code in sorted(configured):
+            seq = by_provider.get(code, [])
+            streak = 0
+            for ok, err in seq:
+                if ok:
+                    break
+                # 2026-10-26:认证失败(401/403 key 失效/过期)属**预期状态**,
+                # 不计入连续失败、不置 unhealthy、不触发 LlmProviderUnhealthy 告警。
+                # 补充有效 key 后下一轮同步即自动恢复为健康。
+                if (
+                    "401" in err
+                    or "403" in err
+                    or "key" in err.lower()
+                    or "权限" in err
+                ):
+                    break
+                streak += 1
+            # 关键:无论恢复出几,都给 gauge 打点 —— 这样重启后序列立刻有样本,
+            # 盲区(无样本 == 不告警)被彻底消除。认证类失败一律按健康(=1)打点。
+            PROVIDER_HEALTH.labels(code).set(1 if streak < FAILURE_THRESHOLD else 0)
+            if streak:
+                restored[code] = min(streak, FAILURE_THRESHOLD)
+                self._provider_failure_counter[code] = min(streak, FAILURE_THRESHOLD)
+                if streak >= FAILURE_THRESHOLD:
+                    self._permanently_disabled_providers.add(code)
+
+        if restored:
+            logger.warning(
+                "[ModelSyncService] 启动恢复:从 ai_model_sync_log 恢复 %d 个 provider 的失败态 %s"
+                "(阈值 %d,窗口 %dh)。已置 unhealthy 的: %s;"
+                "修好后调用 POST /llm/models/sync/reset?provider=xxx 复位",
+                len(restored), restored, FAILURE_THRESHOLD, _RESTORE_WINDOW_HOURS,
+                sorted(self._permanently_disabled_providers) or "无",
+            )
+        else:
+            logger.info(
+                "[ModelSyncService] 启动恢复:近 %dh 内无连续失败记录,"
+                "%d 个 provider 全部按健康打点",
+                _RESTORE_WINDOW_HOURS, len(configured),
+            )
+        return restored
+
+    # ------------------------------------------------------------------
+    # F4.7 健康状态查询
+    # ------------------------------------------------------------------
+
+    def get_health(self) -> dict[str, Any]:
+        """F4.7 查询每个 provider 的健康状态。
+
+        Returns:
+            {
+                "failure_counters": {provider_code: 连续失败次数, ...},
+                "permanently_disabled": [provider_code, ...],
+                "failure_threshold": 3,
+            }
+        """
+        return {
+            "failure_counters": dict(self._provider_failure_counter),
+            "permanently_disabled": sorted(self._permanently_disabled_providers),
+            "failure_threshold": FAILURE_THRESHOLD,
+        }
+
+    # ------------------------------------------------------------------
+    # v4 运维端点配套方法(reset / config / stats / cleanup)
+    # ------------------------------------------------------------------
+
+    def reset_provider(self, provider_code: str) -> dict[str, Any]:
+        """v4 重置 provider 的失败计数 + 从永久禁用列表移除,允许重新同步。
+
+        操作:
+        - 清零 _provider_failure_counter 中该 provider 的计数(记录 previous_failures)
+        - 从 _permanently_disabled_providers 移除(was_disabled=True/False)
+        - 清除 ETag/Last-Modified 缓存(强制下次全量同步)
+
+        Args:
+            provider_code: provider 唯一标识(如 stepfun / openai / cloudflare_workers_ai)。
+
+        Returns:
+            含 provider_code / reset=True / previous_failures / was_disabled 的字典。
+
+        2026-10-26:永久退役 provider(RETIRED_PROVIDERS)拒绝解除 ——
+        reset 只用于"技术性故障修好后恢复",不能绕过商务性退役。
+        """
+        if provider_code in RETIRED_PROVIDERS:
+            logger.warning(
+                "[ModelSyncService] provider %s 已永久退役,reset 被拒绝(原因:%s)",
+                provider_code, RETIRED_PROVIDERS[provider_code],
+            )
+            return {
+                "provider_code": provider_code,
+                "reset": False,
+                "retired": True,
+                "reason": RETIRED_PROVIDERS[provider_code],
+            }
+        previous_failures = self._provider_failure_counter.pop(provider_code, 0)
+        was_disabled = provider_code in self._permanently_disabled_providers
+        self._permanently_disabled_providers.discard(provider_code)
+        # 清除 ETag/Last-Modified 缓存(强制下次全量同步,不走 304)
+        self._provider_etag.pop(provider_code, None)
+        self._provider_last_modified.pop(provider_code, None)
+        logger.info(
+            "[ModelSyncService] provider %s 已重置(previous_failures=%d, was_disabled=%s)",
+            provider_code, previous_failures, was_disabled,
+        )
+        return {
+            "provider_code": provider_code,
+            "reset": True,
+            "previous_failures": previous_failures,
+            "was_disabled": was_disabled,
+        }
+
+    def update_config(
+        self,
+        interval_s: int | None = None,
+        concurrency: int | None = None,
+    ) -> dict[str, Any]:
+        """v4 运行时更新同步间隔 + 并发限流(无需重启 ai-service)。
+
+        优先级:_runtime_* > settings.model_sync_* > 默认值。
+        调用后 _sync_interval_s() / _sync_concurrency() 会返回新值。
+
+        Args:
+            interval_s: 同步间隔(秒),必须 > 0 且 <= 86400(最大 24 小时)。None 表示不更新。
+            concurrency: 并发限流,必须 > 0 且 <= 20。None 表示不更新。
+
+        Returns:
+            含当前生效的 interval_s / concurrency / applied=True 的字典。
+
+        Raises:
+            ValueError: 参数校验失败(interval_s 或 concurrency 超出范围,或两者都为 None)。
+        """
+        if interval_s is None and concurrency is None:
+            raise ValueError("至少传一个参数(interval_s 或 concurrency)")
+        if interval_s is not None:
+            if not isinstance(interval_s, int) or interval_s <= 0 or interval_s > 86400:
+                raise ValueError(
+                    f"interval_s 必须 > 0 且 <= 86400(最大 24 小时),得到 {interval_s}"
+                )
+            self._runtime_interval_s = interval_s
+        if concurrency is not None:
+            if not isinstance(concurrency, int) or concurrency <= 0 or concurrency > 20:
+                raise ValueError(
+                    f"concurrency 必须 > 0 且 <= 20,得到 {concurrency}"
+                )
+            self._runtime_concurrency = concurrency
+        logger.info(
+            "[ModelSyncService] 配置已更新(interval_s=%s, concurrency=%s)",
+            self._runtime_interval_s, self._runtime_concurrency,
+        )
+        return {
+            "interval_s": self._sync_interval_s(),
+            "concurrency": self._sync_concurrency(),
+            "applied": True,
+        }
+
+    async def get_aggregated_stats(self, days: int = 7) -> dict[str, Any]:
+        """v4 查询最近 N 天的聚合统计(成功率、平均延迟、新增/下架模型数)。
+
+        查询 ai_model_sync_log 表 WHERE sync_started_at >= now() - interval 'N days',
+        聚合计算 total_syncs / success_count / failure_count / success_rate /
+        avg/max/min latency / total_new_models / total_removed_models,
+        并按 provider_code GROUP BY 输出 by_provider 列表。
+
+        Args:
+            days: 查询天数,默认 7,最大 90。
+
+        Returns:
+            聚合统计字典。表不存在或查询失败时返回零值 dict(不抛异常)。
+        """
+        # 参数 clamp
+        days = max(1, min(days, 90))
+        zero_result: dict[str, Any] = {
+            "days": days,
+            "total_syncs": 0,
+            "success_count": 0,
+            "failure_count": 0,
+            "success_rate": 0.0,
+            "avg_latency_ms": 0,
+            "max_latency_ms": 0,
+            "min_latency_ms": 0,
+            "total_new_models": 0,
+            "total_removed_models": 0,
+            "by_provider": [],
+        }
+        try:
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                # 总体聚合
+                row = await conn.fetchrow(
+                    """SELECT
+                        COUNT(*) AS total_syncs,
+                        COUNT(*) FILTER (WHERE success = true) AS success_count,
+                        COUNT(*) FILTER (WHERE success = false) AS failure_count,
+                        COALESCE(AVG(latency_ms), 0)::int AS avg_latency_ms,
+                        COALESCE(MAX(latency_ms), 0) AS max_latency_ms,
+                        COALESCE(MIN(latency_ms), 0) AS min_latency_ms,
+                        COALESCE(SUM(new_models), 0) AS total_new_models,
+                        COALESCE(SUM(removed_models), 0) AS total_removed_models
+                       FROM ai_model_sync_log
+                       WHERE sync_started_at >= now() - make_interval(days => $1)""",
+                    days,
+                )
+                if row is None:
+                    return zero_result
+                total = row["total_syncs"] or 0
+                success = row["success_count"] or 0
+                failure = row["failure_count"] or 0
+                success_rate = (success / total) if total > 0 else 0.0
+                # by_provider 按 provider_code GROUP BY 聚合
+                provider_rows = await conn.fetch(
+                    """SELECT provider_code,
+                              COUNT(*) AS total,
+                              COUNT(*) FILTER (WHERE success = true) AS success,
+                              COUNT(*) FILTER (WHERE success = false) AS failure,
+                              COALESCE(AVG(latency_ms), 0)::int AS avg_latency_ms,
+                              MAX(sync_finished_at) AS last_sync_at
+                       FROM ai_model_sync_log
+                       WHERE sync_started_at >= now() - make_interval(days => $1)
+                       GROUP BY provider_code
+                       ORDER BY provider_code""",
+                    days,
+                )
+                by_provider: list[dict[str, Any]] = []
+                for r in provider_rows:
+                    p_total = r["total"] or 0
+                    p_success = r["success"] or 0
+                    p_rate = (p_success / p_total) if p_total > 0 else 0.0
+                    last_sync = r["last_sync_at"]
+                    by_provider.append({
+                        "provider_code": r["provider_code"],
+                        "total": p_total,
+                        "success": p_success,
+                        "failure": r["failure"] or 0,
+                        "success_rate": p_rate,
+                        "avg_latency_ms": r["avg_latency_ms"] or 0,
+                        "last_sync_at": last_sync.isoformat() if last_sync else "",
+                    })
+                return {
+                    "days": days,
+                    "total_syncs": total,
+                    "success_count": success,
+                    "failure_count": failure,
+                    "success_rate": success_rate,
+                    "avg_latency_ms": row["avg_latency_ms"] or 0,
+                    "max_latency_ms": row["max_latency_ms"] or 0,
+                    "min_latency_ms": row["min_latency_ms"] or 0,
+                    "total_new_models": row["total_new_models"] or 0,
+                    "total_removed_models": row["total_removed_models"] or 0,
+                    "by_provider": by_provider,
+                }
+        except Exception as e:
+            logger.warning(
+                "[ModelSyncService] 查询聚合统计失败(表可能不存在): %s", e
+            )
+            return zero_result
+
+    async def cleanup_old_logs(self, before_days: int = 30) -> dict[str, Any]:
+        """v4 清理 N 天前的同步日志(防止表无限增长)。
+
+        执行 DELETE FROM ai_model_sync_log WHERE sync_started_at < now() - interval 'N days'。
+        表不存在时返回 deleted_count=0(不抛异常)。
+
+        Args:
+            before_days: 清理多少天前的日志,默认 30,最小 1。
+
+        Returns:
+            含 deleted_count / before_days 的字典。
+        """
+        before_days = max(1, before_days)
+        try:
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                result = await conn.execute(
+                    """DELETE FROM ai_model_sync_log
+                       WHERE sync_started_at < now() - make_interval(days => $1)""",
+                    before_days,
+                )
+                # asyncpg execute 返回 "DELETE N" 格式,解析 N
+                deleted = 0
+                if isinstance(result, str):
+                    parts = result.split()
+                    if len(parts) >= 2 and parts[0] == "DELETE":
+                        try:
+                            deleted = int(parts[1])
+                        except (ValueError, IndexError):
+                            deleted = 0
+                return {"deleted_count": deleted, "before_days": before_days}
+        except Exception as e:
+            logger.warning(
+                "[ModelSyncService] 清理旧日志失败(表可能不存在): %s", e
+            )
+            return {"deleted_count": 0, "before_days": before_days}
+
+    async def _fetch_upstream_models(
+        self, provider_code: str, base_url: str, api_key: str
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """从上游拉取模型清单(多 provider 适配)。
+
+        F1.4:Cloudflare 适配改用 provider_code == "cloudflare_workers_ai" 判断。
+        F4.4:新增 Anthropic /v1/models + Google Gemini /v1beta/models 适配。
+        F4.8:增量同步,带 If-None-Match / If-Modified-Since header,304 返回 (空 list, True)。
+
+        Returns:
+            (models, skip_upsert) 元组:
+            - models: [{"id": "...", "context_length": ..., "pricing": {...}}, ...]
+            - skip_upsert: True 表示 304 Not Modified 命中缓存,应跳过 upsert。
+        """
+        url = base_url.rstrip("/")
+        is_cloudflare = provider_code == "cloudflare_workers_ai"
+        is_anthropic = provider_code == "anthropic"
+        is_gemini = provider_code in ("google_gemini", "gemini", "google")
+        # token6688:/v1/skills/models 免鉴权(2026-09-08 实测 200,无 key 可拉 112 模型)
+        is_token6688 = provider_code == "token6688"
+
+        # 构造请求 URL + headers
+        headers: dict[str, str] = {"Accept": "application/json"}
+
+        if is_token6688:
+            # 免鉴权目录端点;不带 Authorization(空 key 发 "Bearer " 反而可能被拒)
+            url = f"{url}/skills/models" if url.endswith("/v1") else f"{url}/v1/skills/models"
+        elif is_cloudflare:
+            # Cloudflare Workers AI: /models/search
+            if url.endswith("/v1"):
+                url = url[:-3]
+            url = f"{url}/models/search"
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+        elif is_anthropic:
+            # F4.4 Anthropic: /v1/models,header 用 x-api-key + anthropic-version
+            url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
+            headers["x-api-key"] = api_key
+            headers["anthropic-version"] = "2023-06-01"
+        elif is_gemini:
+            # F4.4 Google Gemini: 原生 /v1beta/models,凭据走 x-goog-api-key 头
+            # 2026-08-02 立:api_base 为 OpenAI 兼容端点(以 /openai 结尾,如
+            # https://generativelanguage.googleapis.com/v1beta/openai)时,
+            # 直接拼 /models 且 key 走 Bearer header。
+            # 2026-11-01 安全强化:原生形态原先把 key 拼进 URL 查询串 ⇒ 同一枚服务端
+            # 密钥会随 URL 进 httpx DEBUG 逐请求日志、中间层访问日志与异常文本。Google
+            # 原生 REST 认 x-goog-api-key 头(本仓 Node 侧调同一端点已在用该头),
+            # 查询串形态只剩泄露面、没有收益。
+            if url.endswith("/v1beta"):
+                url = f"{url}/models"
+                if api_key:
+                    headers["x-goog-api-key"] = api_key
+            elif url.endswith("/openai") or url.endswith("/v1"):
+                url = f"{url}/models"
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+            else:
+                url = f"{url}/v1beta/models"
+                if api_key:
+                    headers["x-goog-api-key"] = api_key
+        else:
+            # 默认 OpenAI 兼容: /v1/models
+            # 2026-10-26:空 key(免鉴权目录端点 huggingface 等)不设 Authorization —— 发
+            # "Bearer " 会被 httpx 判 LocalProtocolError(Illegal header value),
+            # 本该免鉴权的目录因此变成失败,反而又把 health 打成 0。
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
+
+        # F4.8 增量同步:带 If-None-Match / If-Modified-Since header
+        etag = self._provider_etag.get(provider_code)
+        last_modified = self._provider_last_modified.get(provider_code)
+        if etag:
+            headers["If-None-Match"] = etag
+        if last_modified:
+            headers["If-Modified-Since"] = last_modified
+
+        # token6688 目录加深(2026-09-08):/v1/logical-models 免鉴权富元数据
+        # (123 条:display_name_zh/description_zh/billing_mode/billing_unit/
+        #  unit_price_micro_usd/input_price_per_million/context_window/health_score/
+        #  available/deprecated/tags)。按 id 建索引合并进 skills/models 清单;
+        # 拉取失败降级为仅 skills/models(不阻塞同步主流程)。
+        logical_index: dict[str, dict[str, Any]] = {}
+
+        # 2026-10-26:经 SYNC_PROXY_URL 出网(本机对 US/EU provider 无直连出口,
+        # 直连超时/本地 DNS 失败;Clash 7897 可通)。空值→None 即直连,
+        # 国内系 provider 经代理侧 geo 规则直连,不受影响。
+        # 增补:provider_code 命中 sync_proxy_url_by_provider 时优先用其专用代理
+        # (如 huggingface/github_models 经第二份不被封锁的订阅出网),否则回退全局。
+        _sync_proxy = (
+            (settings.sync_proxy_url_by_provider.get(provider_code)
+             or settings.sync_proxy_url or "").strip()
+        ) or None
+        async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S, proxy=_sync_proxy) as client:
+            resp = await client.get(url, headers=headers)
+
+            # F4.8 304 Not Modified:命中缓存,跳过 upsert
+            if resp.status_code == 304:
+                return ([], True)
+
+            resp.raise_for_status()
+
+            # F4.8 提取 ETag / Last-Modified 缓存
+            new_etag = resp.headers.get("ETag")
+            new_last_modified = resp.headers.get("Last-Modified")
+            if new_etag:
+                self._provider_etag[provider_code] = new_etag
+            if new_last_modified:
+                self._provider_last_modified[provider_code] = new_last_modified
+
+            data = resp.json()
+
+            # token6688:二次拉取 /v1/logical-models(免鉴权,不带 Authorization)
+            if is_token6688:
+                try:
+                    lurl = url.rsplit("/skills/models", 1)[0] + "/logical-models"
+                    lresp = await client.get(lurl, headers={"Accept": "application/json"})
+                    if lresp.status_code == 200:
+                        for lm in ((lresp.json() or {}).get("models") or []):
+                            if isinstance(lm, dict) and lm.get("id"):
+                                logical_index[str(lm["id"])] = lm
+                        logger.info(
+                            "[ModelSyncService] token6688 logical-models 加深索引: %d 条",
+                            len(logical_index),
+                        )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "[ModelSyncService] token6688 logical-models 拉取失败(降级仅 skills/models): %s", e,
+                    )
+
+        # 解析响应:Cloudflare 用 result 字段,OpenAI 兼容用 data 字段,
+        # Anthropic 用 data 字段(同 OpenAI),Gemini 用 models 字段,
+        # token6688 用 models 字段(name 为可调用 ID,type 区分 chat/video/image/audio)
+        models: list[Any]
+        if is_token6688:
+            raw_models = data.get("models", []) if isinstance(data, dict) else []
+            models = []
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                mid = m.get("name") or m.get("id", "")
+                if not mid:
+                    continue
+                normalized: dict[str, Any] = {"id": mid}
+                if m.get("display_name"):
+                    normalized["name"] = m["display_name"]
+                # 中文界面优先 description_zh(skills/models 112/112 提供),英文兜底
+                _sk_desc = m.get("description_zh") or m.get("description")
+                if _sk_desc:
+                    normalized["description"] = _sk_desc
+                mtype = str(m.get("type") or "").lower()
+                endpoint = m.get("api_endpoint") or ""
+                if endpoint == "/v1/chat/completions" or mtype == "chat":
+                    meta: dict[str, Any] = {"is_chat": True, "modality": "chat"}
+                elif mtype in ("video", "image", "audio"):
+                    # 媒体模型:非 chat 调用方式,metadata 供路由/展示用
+                    meta = {"is_chat": False, "modality": mtype}
+                else:
+                    meta = {}
+                normalized["metadata"] = meta
+
+                # --- 目录加深 v2(2026-09-08):/v1/logical-models 富元数据全量利用 ---
+                # 逐字段(实测 123 条):display_name_zh/context_window/billing_mode/
+                # billing_unit/health_score/icon_key/tags 之外,本次补齐:
+                # param_schema(123/123,参数枚举+默认值+available_when 机读,avg 1.8KB)/
+                # capabilities(123/123,chat 含 "vision" → supports_vision 精确派生)/
+                # linkages(参数联动,如 veo-3.1 mode=first-frame 需传 images)/
+                # input_hint_zh(79 条输入提示)/max_prompt_chars(46 条 prompt 上限)/
+                # max_prompt_bytes(7 条)/special_tier_notice(19 条特价档稳定性提示)/
+                # sort_weight(展示排序)/supported_vendors(渠道路由)/public_id/
+                # provider(官方厂商 3 字母代码,存 provider_code 参考)
+                lm = logical_index.get(str(mid))
+                if lm is not None:
+                    # 上游 available=false / deprecated=true → 已停用不可调用:
+                    # 跳过注册且不进 upstream_ids,下架比对自动 is_relay_public=false。
+                    # 带上游原因落 warning(unavailable_reason/deprecation_note),
+                    # 管理员在日志可见下架原因,不再静默 continue
+                    if lm.get("available") is False or lm.get("deprecated"):
+                        _reason = (
+                            lm.get("unavailable_reason")
+                            or lm.get("deprecation_note")
+                            or ("deprecated" if lm.get("deprecated") else "unavailable")
+                        )
+                        logger.warning(
+                            "[ModelSyncService] token6688 %s 上游已停用(%s),跳过注册并下架",
+                            mid, str(_reason)[:120],
+                        )
+                        continue
+                    if lm.get("display_name_zh") or lm.get("display_name"):
+                        normalized["name"] = lm.get("display_name_zh") or lm.get("display_name")
+                    if isinstance(lm.get("context_window"), int) and lm["context_window"] > 0:
+                        normalized["context_length"] = lm["context_window"]
+                    meta["billing_mode"] = str(lm.get("billing_mode") or "")
+                    meta["billing_unit"] = str(lm.get("billing_unit") or "")
+                    if isinstance(lm.get("health_score"), (int, float)):
+                        meta["health_score"] = lm["health_score"]
+                    if lm.get("icon_key"):
+                        meta["vendor"] = str(lm["icon_key"]).strip().lower()
+                    up_tags = [
+                        str(t).strip().lower() for t in (lm.get("tags") or []) if str(t).strip()
+                    ]
+                    if up_tags:
+                        meta["upstream_tags"] = up_tags
+
+                    # ---- 富元数据全量入 metadata(经 upsert 写 DB metadata jsonb 列)----
+                    if isinstance(lm.get("capabilities"), list) and lm["capabilities"]:
+                        meta["capabilities"] = [str(c) for c in lm["capabilities"]]
+                        # capabilities 是上游模型级权威声明:含 "vision" 才支持视觉输入,
+                        # 否则显式 False(修正 provider 级 supports_vision=True 对
+                        # 纯文本 chat 的误标;_extract_supports_vision 已改为
+                        # metadata 显式声明优先于 provider cap)
+                        meta["supports_vision"] = "vision" in meta["capabilities"]
+                    if isinstance(lm.get("param_schema"), dict) and lm["param_schema"]:
+                        meta["param_schema"] = lm["param_schema"]
+                    if isinstance(lm.get("linkages"), list) and lm["linkages"]:
+                        meta["linkages"] = [
+                            lk for lk in lm["linkages"] if isinstance(lk, dict)
+                        ]
+                    if lm.get("input_hint_zh"):
+                        meta["input_hint_zh"] = str(lm["input_hint_zh"])[:500]
+                    if isinstance(lm.get("max_prompt_chars"), int) and lm["max_prompt_chars"] > 0:
+                        meta["max_prompt_chars"] = lm["max_prompt_chars"]
+                    if isinstance(lm.get("max_prompt_bytes"), int) and lm["max_prompt_bytes"] > 0:
+                        meta["max_prompt_bytes"] = lm["max_prompt_bytes"]
+                    if lm.get("special_tier_notice"):
+                        meta["special_tier_notice"] = str(lm["special_tier_notice"])[:300]
+                    if isinstance(lm.get("sort_weight"), (int, float)):
+                        meta["sort_weight"] = lm["sort_weight"]
+                    if isinstance(lm.get("supported_vendors"), list) and lm["supported_vendors"]:
+                        meta["supported_vendors"] = [str(v) for v in lm["supported_vendors"]]
+                    if lm.get("provider"):
+                        meta["provider_code"] = str(lm["provider"])
+                    if lm.get("public_id"):
+                        meta["public_id"] = str(lm["public_id"])
+                    if lm.get("type"):
+                        meta["logical_type"] = str(lm["type"])
+
+                    # 官方价如实进 description(展示用):价格列是整型 分/1k tokens,
+                    # 承载不了 USD/1M 精度,且该列是 relay 计费兜底,写近似值会失真计费。
+                    # 描述中文优先(logical description_zh > skills description_zh)
+                    note = self._token6688_price_note(lm)
+                    base_desc = (
+                        lm.get("description_zh") or lm.get("description")
+                        or m.get("description_zh") or m.get("description") or ""
+                    )
+                    if note:
+                        base_desc = f"{base_desc};{note}" if base_desc else note
+                    if base_desc:
+                        normalized["description"] = base_desc
+                models.append(normalized)
+        elif is_cloudflare:
+            # 2026-08-02 修复:Cloudflare /models/search 的 result[].id 是 UUID(内部 id),
+            # 调用时用的模型名在 result[].name(如 "@cf/meta/llama-3.3-70b-instruct-fp8-fast")。
+            # 必须用 name 作为模型 id,否则同步进来的 UUID 无法匹配调用前缀被过滤。
+            raw_models = data.get("result", []) if isinstance(data, dict) else []
+            models = []
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                # name 字段是真正可调用的模型名(@cf/ 或 @hf/ 前缀);
+                # 兼容旧响应:无 name 时回退 id(且 id 已是 @cf/ 格式则直接用)
+                raw_name = m.get("name") or m.get("id", "")
+                if not raw_name:
+                    continue
+                normalized = {"id": raw_name}
+                # description → 显示名候选
+                if m.get("description"):
+                    normalized["description"] = m["description"]
+                # task.name 补充显示信息(Text Generation 等)
+                task = m.get("task") or {}
+                if isinstance(task, dict) and task.get("name"):
+                    normalized["vendor"] = task["name"]
+                models.append(normalized)
+        elif is_gemini:
+            # F4.4 Gemini 响应:{"models": [{"name": "models/gemini-1.5-flash", ...}]}
+            # 2026-08-02 立:api_base 为 OpenAI 兼容端点时返回
+            # {"data": [{"id": "gemini-2.5-flash", ...}]} 格式,两种格式都要兼容
+            if isinstance(data, dict) and "data" in data:
+                raw_models = data["data"]
+            else:
+                raw_models = data.get("models", []) if isinstance(data, dict) else []
+            models = []
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                # Gemini 原生格式 name 字段为 "models/gemini-1.5-flash",
+                # OpenAI 兼容格式 id 无 "models/" 前缀,统一去掉 "models/" 前缀
+                raw_name = m.get("id", "") or m.get("name", "")
+                model_id = raw_name.split("models/", 1)[-1] if raw_name.startswith("models/") else raw_name
+                if not model_id:
+                    continue
+                # 构造兼容的 model dict(id 字段是必须的)
+                normalized = {"id": model_id}
+                # Gemini:displayName → name 字段(供 _extract_display_name 用)
+                if m.get("displayName"):
+                    normalized["name"] = m["displayName"]
+                # Gemini:inputTokenLimit + outputTokenLimit
+                input_limit = m.get("inputTokenLimit")
+                output_limit = m.get("outputTokenLimit")
+                if isinstance(input_limit, int) and input_limit > 0:
+                    normalized["context_length"] = input_limit
+                    normalized["max_input_tokens"] = input_limit
+                if isinstance(output_limit, int) and output_limit > 0:
+                    normalized["max_output_tokens"] = output_limit
+                # Gemini:supportedGenerationMethods 含 "generateContent" 视为 chat 模型
+                methods = m.get("supportedGenerationMethods", [])
+                if isinstance(methods, list) and "generateContent" in methods:
+                    normalized["metadata"] = {"is_chat": True}
+                models.append(normalized)
+        elif isinstance(data, dict):
+            models = data.get("data", [])
+        elif isinstance(data, list):
+            models = data
+        else:
+            models = []
+
+        # F4.4 Anthropic 的 display_name 写入 name 字段(优先于 _extract_display_name 派生)
+        if is_anthropic:
+            for m in models:
+                if isinstance(m, dict) and m.get("display_name") and not m.get("name"):
+                    m["name"] = m["display_name"]
+
+        return ([m for m in models if isinstance(m, dict) and m.get("id")], False)
+
+    async def _ensure_provider_config(self, conn: Any, provider_code: str) -> int | None:
+        """查 provider config 行;token6688 无行时自动注册,其余 provider 返回 None。
+
+        2026-09-08 修复:此前 config 行缺失时同步静默跳过(sync log 记 success
+        但 new_models=0),112 个 token6688 模型永远进不了对话模型选择器。
+        token6688 目录免鉴权(零 key 可拉清单),属"单 key 配置即完整可用"目标
+        的前置条件,故自动注册 config 行;其他 provider 保持管理员手工注册语义。
+        """
+        config_row = await conn.fetchrow(
+            """SELECT id FROM ai_model_config
+               WHERE provider_code = $1 AND enabled = true
+               ORDER BY sort_order NULLS LAST, id LIMIT 1""",
+            provider_code,
+        )
+        if config_row:
+            return int(config_row["id"])
+
+        # 2026-10-18 根治:没有 enabled 的行时,**不能直接 INSERT**。
+        # 原逻辑在这里只看 `enabled = true`,一旦管理员临时禁用或并发下该行短暂不可见,
+        # 查询落空就再插一行 —— 线上 token6688 就是这样长出 id=1 与 id=46 两条逐字节相同
+        # 的全局配置(id=46 之后再没被同步更新过,成了停在 2026-09-22 的僵尸行,
+        # 还让 8 个本已被下架的模型靠僵尸行继续错误上架)。
+        # 现改为:只要有同 provider_code 的既有行(无论 enabled),一律**复用**,
+        # 由管理员决定是否重新启用,同步服务绝不擅自新建第二行、也绝不擅自改 enabled。
+        fallback_row = await conn.fetchrow(
+            """SELECT id, enabled FROM ai_model_config
+               WHERE provider_code = $1
+               ORDER BY id LIMIT 1""",
+            provider_code,
+        )
+        if fallback_row:
+            logger.warning(
+                "[ModelSyncService] provider %s 无启用中的 config 行,"
+                "复用既有 id=%s(enabled=%s)而不是新建 -> 避免产生僵尸重复行;"
+                "如需恢复同步请由 admin 把该行置为 enabled",
+                provider_code, fallback_row["id"], fallback_row["enabled"],
+            )
+            return int(fallback_row["id"])
+
+        if provider_code != "token6688":
+            return None
+        from ..core.config import settings
+
+        cfg = settings.get_provider_config("token6688")
+        base_url = (cfg.api_base or "https://k.token6688.com").rstrip("/")
+        row = await conn.fetchrow(
+            """INSERT INTO ai_model_config
+                 (name, provider_code, is_builtin, base_url, api_format, enabled, description)
+               VALUES ($1, $2, true, $3, 'openai_chat', true, $4)
+               RETURNING id""",
+            "Token6688 名创AI(自动注册)",
+            provider_code,
+            base_url,
+            "TokenGo 聚合网关(单 key 全模态);由模型同步服务自动注册,免鉴权目录 /v1/skills/models",
+        )
+        logger.info(
+            "[ModelSyncService] token6688 无 config 行,已自动注册 id=%s base_url=%s",
+            row["id"], base_url,
+        )
+        return int(row["id"])
+
+    # ------------------------------------------------------------------
+    # 2026-10-26 上游模型自动更新替换(后继识别)
+    # ------------------------------------------------------------------
+
+    # 版本号 token 形态:纯数字(3/4/3p5)、v 前缀(v2/v2.5)、日期(2024-08-06)、
+    # 数字+尾缀(4o、3-5、2-0、16k、32k、1m)
+    _VERSION_TOKEN_RE = re.compile(
+        r"^(?:\d{4}-\d{2}-\d{2}|v?\d+(?:[._-]\d+)*[a-z]?|\d+[km])$", re.IGNORECASE
+    )
+
+    @classmethod
+    def _split_stem_version(cls, model_id: str) -> tuple[str, str]:
+        """把模型 id 拆成 (主干 stem, 版本 version)。
+
+        例:
+          step-3.5-flash       -> ("step", "3.5-flash")
+          gpt-4o-2024-08-06    -> ("gpt", "4o-2024-08-06")
+          qwen2.5-72b-instruct -> ("qwen", "2.5-72b-instruct")
+          agnes-2.5-flash      -> ("agnes", "2.5-flash")
+          llama-3.3-70b        -> ("llama", "3.3-70b")
+        主干相同的两个 id 视为**同族**,可比较版本先后。
+        """
+        # 去 provider 前缀(qwen/xxx、openrouter/xxx …)
+        body = model_id.split("/", 1)[1] if "/" in model_id else model_id
+        tokens = body.split("-")
+        # 从后往前?不行:版本在中间(step-3.5-flash),必须从前往后找第一个版本 token
+        cut = len(tokens)
+        for i, tok in enumerate(tokens):
+            if tok and cls._VERSION_TOKEN_RE.match(tok):
+                cut = i
+                break
+        if cut == 0:
+            # 首 token 即版本(罕见):主干留空串,整串当版本
+            return "", body
+        stem = "-".join(tokens[:cut]).lower()
+        version = "-".join(tokens[cut:]).lower()
+        return stem, version
+
+    @staticmethod
+    def _version_sort_key(version: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
+        """把版本串转成可比较的 key,用于判定"谁更新"。
+
+        数字段按数值比较(3.10 > 3.9),非数字段按字符串比较;
+        含日期段的追加到末尾参与比较。无法解析时退回字符串序。
+        """
+        parts = re.split(r"[-._]", version)
+        nums: list[int] = []
+        rest: list[str] = []
+        for p in parts:
+            if p.isdigit():
+                nums.append(int(p))
+            else:
+                # "4o" -> 4 + "o";"16k" -> 16 + "k";"v1"/"v2.5" -> 1 / 2
+                m = re.match(r"^(\d+)([a-z]+)$", p)
+                mv = re.match(r"^[vV](\d+)$", p)
+                if m:
+                    nums.append(int(m.group(1)))
+                    rest.append(m.group(2))
+                elif mv:
+                    nums.append(int(mv.group(1)))
+                else:
+                    rest.append(p)
+        return (tuple(nums), tuple(rest))
+
+    @classmethod
+    def _find_successor(
+        cls,
+        old_id: str,
+        candidate_ids: set[str],
+        already_taken: set[str],
+    ) -> str | None:
+        """在候选 id 里找 old_id 的同族后继(主干相同、版本更新)。
+
+        找不到同族时,用 difflib 做一次高阈值模糊匹配(>=0.82 且版本更高),
+        覆盖改名型迭代(如 xxx-turbo -> xxx-turbo-preview 之外的小改)。
+        一个候选只能被一个旧模型认领(already_taken),避免多个旧模型挤到同一个后继。
+        """
+        import difflib
+
+        old_stem, old_ver = cls._split_stem_version(old_id)
+        old_nums = cls._version_sort_key(old_ver)[0]
+        if not old_stem:
+            return None
+
+        # 只按**数字段**判定先后(3.10 > 3.9、2024-11-20 > 2024-08-06)。
+        # 不比非数字段:gpt-4o 与 gpt-4o-mini 数字段相同(都是 4),
+        # 那是"尺寸变体"不是"版本迭代",认作后继会把大模型错替成 mini。
+        pool = [c for c in candidate_ids if c != old_id and c not in already_taken]
+        best: tuple[tuple[tuple[int, ...], tuple[str, ...]], str] | None = None
+        for cand in pool:
+            c_stem, c_ver = cls._split_stem_version(cand)
+            if c_stem != old_stem:
+                continue
+            c_key = cls._version_sort_key(c_ver)
+            if c_key[0] <= old_nums:
+                continue
+            if best is None or c_key > best[0]:
+                best = (c_key, cand)
+
+        if best is not None:
+            return best[1]
+
+        # 模糊兜底:主干不同但整体高度相似(上游改名/加后缀)
+        old_body = old_id.lower()
+        scored: list[tuple[float, str]] = []
+        for cand in pool:
+            c_body = cand.lower()
+            ratio = difflib.SequenceMatcher(None, old_body, c_body).ratio()
+            if ratio < 0.82:
+                continue
+            _cs, c_ver = cls._split_stem_version(cand)
+            if cls._version_sort_key(c_ver)[0] <= old_nums:
+                continue
+            scored.append((ratio, cand))
+        if not scored:
+            return None
+        scored.sort(key=lambda t: (-t[0], t[1]))
+        return scored[0][1]
+
+    async def _apply_model_replacement(
+        self,
+        conn: Any,
+        config_id: int,
+        provider_code: str,
+        old_id: str,
+        new_id: str | None,
+        has_metadata_column: bool,
+    ) -> None:
+        """把"上游已下架"的旧模型及其引用点整体切到后继(2026-10-26)。
+
+        new_id 非空(找到后继):
+          - 旧行 enabled=false / is_relay_public=false,metadata 记 replaced_by
+          - 旧行的 is_default 转移给后继行
+          - ai_model_config.default_model_id / model_id_for_test 指向旧 id 的改成新 id
+        new_id 为空(无后继):
+          - 旧行 enabled=false / is_relay_public=false,metadata 记 retired_reason
+
+        为什么必须改 enabled 而不只是 is_relay_public:
+          is_relay_public=false 只摘出中继市场,模型行仍是 enabled=true,
+          前端 /api/llm/models 照样把它列为可选,用户一选就 410/404。
+        """
+        now_iso = datetime.now(UTC).isoformat()
+        if new_id:
+            note = (
+                f"上游已下架 {old_id},自动替换为 {new_id}"
+                f"(auto-replaced at {now_iso})"
+            )
+            replace_meta = {
+                "replaced_by": new_id,
+                "replaced_at": now_iso,
+                "replace_reason": "upstream_absent",
+                "replace_source": "model_sync",
+            }
+            outcome = "replaced"
+        else:
+            note = (
+                f"上游已下架 {old_id} 且未找到同族后继,自动停用"
+                f"(auto-retired at {now_iso})"
+            )
+            replace_meta = {
+                "retired_reason": "upstream_absent_no_successor",
+                "retired_at": now_iso,
+                "replace_source": "model_sync",
+            }
+            outcome = "retired"
+
+        # 1) 旧行停用 + 留痕
+        if has_metadata_column:
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET enabled = false,
+                          is_relay_public = false,
+                          metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
+                          updated_at = now()
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, old_id, json.dumps(replace_meta),
+            )
+        else:
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET enabled = false,
+                          is_relay_public = false,
+                          updated_at = now()
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, old_id,
+            )
+
+        if new_id:
+            # 2) is_default 转移(旧行曾是默认 ⇒ 后继接管默认)
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET is_default = true, updated_at = now()
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, new_id,
+            )
+            await conn.execute(
+                """UPDATE ai_model_config_models
+                      SET is_default = false
+                    WHERE config_id = $1 AND model_id = $2""",
+                config_id, old_id,
+            )
+            # 3) provider 级引用点跟随
+            await conn.execute(
+                """UPDATE ai_model_config
+                      SET default_model_id = $2,
+                          updated_at = now()
+                    WHERE id = $1 AND default_model_id = $3""",
+                config_id, new_id, old_id,
+            )
+            await conn.execute(
+                """UPDATE ai_model_config
+                      SET model_id_for_test = $2,
+                          updated_at = now()
+                    WHERE id = $1 AND model_id_for_test = $3""",
+                config_id, new_id, old_id,
+            )
+
+        SYNC_REPLACED_MODELS.labels(provider_code=provider_code, outcome=outcome).inc()
+        logger.warning("[ModelSyncService] %s/%s %s", provider_code, old_id, note)
+
+    async def _upsert_models_to_db(
+        self,
+        provider_code: str,
+        upstream_models: list[dict[str, Any]],
+        dry_run: bool = False,
+    ) -> tuple[int, int, list[str], list[str], list[str]]:
+        """比对 DB,注册新增模型 / 下架移除模型。
+
+        F1.1:用事务包裹整个 upsert 流程,中途失败回滚不留脏数据。
+        F2.2:dry_run=True 时只比对返回 preview 列表,不写 DB。
+        F3.5:价格超过 MAX_PRICE_PER_1K_TOKENS 的模型跳过 INSERT 并 log warning。
+        F3.4:若 ai_model_config_models 表有 tags 字段,则写入 tags;否则只在内存返回。
+        F4.5:深度元数据提取(description/vendor/max_output_tokens/supports_tool_call/
+             supports_vision/rate_limit/release_date/deprecation_date),新字段缺失时降级。
+
+        Returns:
+            (new_count, removed_count, preview_new_ids, preview_removed_ids, tags)
+        """
+        pool = await get_shared_pool()
+        preview_new: list[str] = []
+        preview_removed: list[str] = []
+        all_tags: set[str] = set()
+        new_count = 0
+        removed_count = 0
+
+        async with pool.acquire() as conn:
+            # F1.1 事务包裹整个 upsert(查 config + 查 existing + INSERT + UPDATE + 下架)
+            async with conn.transaction():
+                # 1. 查 provider 的 config_id(第一个启用的配置行);
+                #    token6688 无行时自动注册(免鉴权目录,零 key 即可同步清单)
+                config_id = await self._ensure_provider_config(conn, provider_code)
+                if config_id is None:
+                    logger.info("[ModelSyncService] %s 未在 DB 注册 config,跳过同步", provider_code)
+                    return 0, 0, [], [], []
+
+                # 2. 查 DB 现有模型
+                existing_rows = await conn.fetch(
+                    """SELECT model_id, is_relay_public FROM ai_model_config_models
+                       WHERE config_id = $1""",
+                    config_id,
+                )
+                existing_map: dict[str, bool] = {
+                    r["model_id"]: bool(r["is_relay_public"]) for r in existing_rows
+                }
+
+                # F3.4 查 tags 字段是否存在(带缓存)
+                tags_column_exists = await self._check_tags_column_exists(conn)
+
+                # F4.5 查新字段是否存在(带缓存)
+                columns = await self._check_columns_exists(conn, [
+                    "vendor", "max_output_tokens", "supports_tool_call", "supports_vision",
+                    "description", "rate_limit_rpm", "rate_limit_tpd",
+                    "release_date", "deprecation_date",
+                    # v4(2026-09-08):token6688 富元数据落库列(param_schema 等)
+                    "metadata",
+                ])
+
+                # F3.6 别名映射后的 upstream_ids(用于下架比对)
+                upstream_ids: set[str] = set()
+                # Fix A(2026-09-02)同批去重:唯一索引建在 (config_id, LOWER(model_id))
+                # 上(见 20260913120000_unify_model_names.sql),而上游清单里常有两条记录
+                # 别名归一后只差大小写(如 siliconflow 的 pro/moonshotai/Kimi-K2.6 与
+                # pro/moonshotai/kimi-k2.6)。首条 INSERT 后第二条仍走 INSERT 会撞唯一约束,
+                # 导致整个 provider 事务回滚。故按 lower(aliased_id) 只保留首条。
+                seen_lower_ids: set[str] = set()
+                # Fix A 第二层:DB 里已存在大小写不同的旧行时,用 lower 反查到的"库里真实
+                # 写法"走 UPDATE,而不是 INSERT(否则同样撞 lower 唯一索引)。
+                existing_by_lower: dict[str, str] = {
+                    mid.lower(): mid for mid in existing_map
+                }
+
+                # 3. 注册新增模型 + 更新已存在模型的 context_length/pricing
+                for m in upstream_models:
+                    raw_id = m["id"]
+                    aliased_id, is_aliased = self._apply_alias(raw_id, provider_code)
+                    upstream_ids.add(aliased_id)
+                    lower_id = aliased_id.lower()
+                    # 下架比对也按 lower 做,DB 旧行大小写不同不算"上游已下架"
+                    upstream_ids.add(existing_by_lower.get(lower_id, aliased_id))
+                    if lower_id in seen_lower_ids:
+                        logger.info(
+                            "[ModelSyncService] %s/%s 与同批前序模型归一后同名"
+                            "(lower=%s),跳过后者",
+                            provider_code, raw_id, lower_id,
+                        )
+                        continue
+                    seen_lower_ids.add(lower_id)
+
+                    # F3.3 context_length 多层级 fallback
+                    ctx_len = self._extract_context_length(m)
+                    # F3.2 多 provider pricing schema 适配
+                    input_price, output_price = self._extract_pricing(provider_code, m)
+                    # F3.1 display_name 智能派生
+                    display_name = self._extract_display_name(aliased_id, m.get("name"))
+                    if is_aliased:
+                        display_name = f"{display_name} (原: {raw_id})"
+                    # F3.4 模型分类标签
+                    model_tags = self._classify_model(aliased_id, m)
+                    # token6688:上游官方 tags(gemini/google/flash 等)并入,
+                    # 供 model_catalog 分类与前端/检索按标签过滤
+                    _up_tags = [
+                        str(t).strip().lower()
+                        for t in ((m.get("metadata") or {}).get("upstream_tags") or [])
+                        if str(t).strip()
+                    ]
+                    if _up_tags:
+                        model_tags = model_tags + [t for t in _up_tags if t not in model_tags]
+                    # token6688 等:上游 metadata.modality(chat/video/image/audio)优先于
+                    # 名字推断,避免 seedance-2-5(视频)等媒体模型被默认标 "chat" 混入对话列表
+                    _modality = str((m.get("metadata") or {}).get("modality") or "").lower()
+                    if _modality and _modality != "chat":
+                        model_tags = [_modality] + [t for t in model_tags if t != "chat"]
+                    all_tags.update(model_tags)
+
+                    # F4.5 深度元数据提取
+                    vendor = self._extract_vendor(aliased_id, m)
+                    max_output_tokens = self._extract_max_output_tokens(m)
+                    supports_tool_call = self._extract_supports_tool_call(
+                        provider_code, aliased_id, m
+                    )
+                    supports_vision = self._extract_supports_vision(
+                        provider_code, aliased_id, m
+                    )
+                    description = self._extract_description(m)
+                    rpm, tpd = self._extract_rate_limit(m)
+                    release_date = self._extract_release_date(m)
+                    deprecation_date = self._extract_deprecation_date(m)
+                    # v4(2026-09-08)富元数据落库(token6688 param_schema/capabilities/
+                    # linkages 等):仅 metadata 列存在时写入;is_chat 是同步内部路由
+                    # 标志,不入库
+                    metadata_json: dict[str, Any] = {}
+                    if columns.get("metadata", False):
+                        raw_meta = m.get("metadata")
+                        if isinstance(raw_meta, dict):
+                            metadata_json = {
+                                k: v for k, v in raw_meta.items() if k != "is_chat"
+                            }
+
+                    # F3.5 价格上限过滤(极端高价跳过)
+                    if input_price > MAX_PRICE_PER_1K_TOKENS:
+                        logger.warning(
+                            "[ModelSyncService] %s/%s 价格超限(input=%d cents/1k > %d),跳过",
+                            provider_code, aliased_id, input_price, MAX_PRICE_PER_1K_TOKENS,
+                        )
+                        continue
+
+                    # Fix A 第二层:命中同一下标(lower)的 DB 旧行 → 用库里的真实写法
+                    # 走 UPDATE,避免 INSERT 撞 (config_id, LOWER(model_id)) 唯一索引
+                    db_model_id = existing_by_lower.get(lower_id)
+                    if db_model_id is None:
+                        if dry_run:
+                            preview_new.append(aliased_id)
+                        else:
+                            # 新模型:INSERT(chat 档自动上架;图像/视频等媒体档默认不上架)
+                            await self._insert_model(
+                                conn, config_id, aliased_id, display_name, ctx_len,
+                                input_price, output_price, model_tags,
+                                tags_column_exists, columns,
+                                vendor=vendor,
+                                max_output_tokens=max_output_tokens,
+                                supports_tool_call=supports_tool_call,
+                                supports_vision=supports_vision,
+                                description=description,
+                                rate_limit_rpm=rpm,
+                                rate_limit_tpd=tpd,
+                                release_date=release_date,
+                                deprecation_date=deprecation_date,
+                                metadata=metadata_json,
+                                is_relay_public="chat" in model_tags,
+                            )
+                        new_count += 1
+                    else:
+                        # 已存在:更新 context_length + pricing + F4.5 新字段
+                        # (不改变 is_relay_public,尊重 admin 手动下架)
+                        if not dry_run:
+                            await self._update_model(
+                                conn, config_id, db_model_id, ctx_len,
+                                input_price, output_price, model_tags,
+                                tags_column_exists, columns,
+                                vendor=vendor,
+                                max_output_tokens=max_output_tokens,
+                                supports_tool_call=supports_tool_call,
+                                supports_vision=supports_vision,
+                                description=description,
+                                rate_limit_rpm=rpm,
+                                rate_limit_tpd=tpd,
+                                release_date=release_date,
+                                deprecation_date=deprecation_date,
+                                metadata=metadata_json,
+                            )
+
+                # 4. 下架的模型(DB 有、上游不再返回)
+                #    2026-10-26 改为"自动更新替换":
+                #    ① 同族里找后继 → 旧行停用 + 引用点(is_default / default_model_id /
+                #       model_id_for_test)整体切到后继;
+                #    ② 找不到后继 → 旧行停用并留 retired_reason;
+                #    ③ 单轮下架比例超阈值 → 判定上游清单异常,只下架不硬禁用(安全阀)。
+                stale_ids = [
+                    mid for mid, is_public in existing_map.items()
+                    if mid not in upstream_ids and is_public
+                ]
+                if stale_ids:
+                    total_existing = max(len(existing_map), 1)
+                    ratio = len(stale_ids) / total_existing
+                    # 绝对下限:2 条以内不看比例(小目录比例天然失真,见常量注释)
+                    anomalous = (
+                        len(stale_ids) > _AUTO_DISABLE_ABS_FLOOR
+                        and ratio > _AUTO_DISABLE_MAX_REMOVAL_RATIO
+                    )
+                    if anomalous:
+                        logger.warning(
+                            "[ModelSyncService] %s 本轮下架 %d/%d(%.0f%%) 超过 %.0f%% 安全阀,"
+                            "判定上游清单异常或部分返回,本轮只置 is_relay_public=false 不硬禁用",
+                            provider_code, len(stale_ids), total_existing,
+                            ratio * 100, _AUTO_DISABLE_MAX_REMOVAL_RATIO * 100,
+                        )
+
+                    # 候选后继 = 本轮上游返回的、且库里此前没有的"新增"id,
+                    # 再补上已存在但同族版本更高的 id(上游改名后旧行仍在的情况)
+                    candidate_ids: set[str] = set(upstream_ids)
+                    taken: set[str] = set()
+
+                    for mid in stale_ids:
+                        if dry_run:
+                            preview_removed.append(mid)
+                            removed_count += 1
+                            continue
+                        removed_count += 1
+                        successor: str | None = None
+                        if _AUTO_REPLACE_ENABLED and not anomalous:
+                            successor = self._find_successor(mid, candidate_ids, taken)
+                            if successor:
+                                taken.add(successor)
+                        if anomalous:
+                            # 安全阀生效:保持原有只下架行为,不动 enabled
+                            await conn.execute(
+                                """UPDATE ai_model_config_models
+                                   SET is_relay_public = false, updated_at = now()
+                                   WHERE config_id = $1 AND model_id = $2""",
+                                config_id, mid,
+                            )
+                            continue
+                        await self._apply_model_replacement(
+                            conn, config_id, provider_code, mid, successor,
+                            bool(columns.get("metadata", False)),
+                        )
+
+        # v4:token6688 目录消费层(TTL 缓存)即时失效,新元数据立即可见
+        if provider_code == "token6688" and not dry_run:
+            try:
+                from .token6688_catalog import invalidate_metadata_cache
+
+                invalidate_metadata_cache()
+            except Exception:  # noqa: BLE001 — 缓存失效失败不影响同步结果
+                pass
+
+        return new_count, removed_count, preview_new, preview_removed, sorted(all_tags)
+
+    # ------------------------------------------------------------------
+    # F4.5 INSERT / UPDATE 辅助(根据列存在性动态构造 SQL)
+    # ------------------------------------------------------------------
+
+    async def _insert_model(
+        self,
+        conn: Any,
+        config_id: int,
+        model_id: str,
+        display_name: str,
+        ctx_len: int,
+        input_price: float,
+        output_price: float,
+        model_tags: list[str],
+        tags_column_exists: bool,
+        columns: dict[str, bool],
+        vendor: str | None,
+        max_output_tokens: int,
+        supports_tool_call: bool,
+        supports_vision: bool,
+        description: str,
+        rate_limit_rpm: int,
+        rate_limit_tpd: int,
+        release_date: str,
+        deprecation_date: str,
+        metadata: dict[str, Any] | None = None,
+        is_relay_public: bool = True,
+    ) -> None:
+        """F4.5 动态构造 INSERT SQL(根据列存在性决定写哪些字段)。
+
+        新字段不存在时降级为只写存在的字段(类似 tags 的降级模式)。
+        v4:metadata(jsonb,token6688 param_schema/capabilities/linkages 等富元数据)
+        is_relay_public:调用方按 model_tags 判定 —— 非 chat(图像/视频/embedding)默认不上架,
+        否则 /llm/models 会把用户选不了的模型塞进对话选择器。
+        """
+        # 基础字段(一定存在)
+        fields = [
+            "config_id", "model_id", "display_name", "context_length",
+            "input_price_per_1k", "output_price_per_1k",
+            "enabled", "is_relay_public", "relay_price_multiplier",
+        ]
+        placeholders = ["$1", "$2", "$3", "$4", "$5", "$6", "true", "$7", "'1.0000'"]
+        params: list[Any] = [
+            config_id, model_id, display_name, ctx_len, input_price, output_price,
+            is_relay_public,
+        ]
+        idx = 8  # 下一个 placeholder 编号
+
+        # tags 字段(v2 已有)
+        if tags_column_exists:
+            fields.append("tags")
+            placeholders.append(f"${idx}")
+            params.append(model_tags)
+            idx += 1
+
+        # F4.5 新字段
+        f4_5_fields = [
+            ("vendor", vendor),
+            ("max_output_tokens", max_output_tokens),
+            ("supports_tool_call", supports_tool_call),
+            ("supports_vision", supports_vision),
+            ("description", description),
+            ("rate_limit_rpm", rate_limit_rpm),
+            ("rate_limit_tpd", rate_limit_tpd),
+            ("release_date", release_date),
+            ("deprecation_date", deprecation_date),
+            # v4 富元数据(jsonb;asyncpg 无 jsonb codec,按项目惯例 json.dumps
+            # 传字符串 + SQL 里 ::jsonb 显式转换)
+            ("metadata", json.dumps(metadata or {}, ensure_ascii=False)),
+        ]
+        for col_name, param_value in f4_5_fields:
+            if columns.get(col_name, False):
+                fields.append(col_name)
+                placeholders.append(
+                    f"${idx}::jsonb" if col_name == "metadata" else f"${idx}"
+                )
+                params.append(param_value)
+                idx += 1
+        # last_synced_at(INSERT 时也写入 now(),新模型也有同步时间)
+        if columns.get("last_synced_at", False):
+            fields.append("last_synced_at")
+            placeholders.append("now()")  # SQL 函数,不需要 placeholder
+
+        # ON CONFLICT DO UPDATE:更新存在的字段
+        update_parts = [
+            "is_relay_public = excluded.is_relay_public",
+            "enabled = true",
+            "context_length = $4",
+            "updated_at = now()",
+        ]
+        if tags_column_exists:
+            update_parts.append("tags = $8")
+        # F4.5 新字段的 ON CONFLICT UPDATE
+        update_idx = 8
+        if tags_column_exists:
+            update_idx = 9
+        for col_name, _param_value in f4_5_fields:
+            if columns.get(col_name, False):
+                update_parts.append(
+                    f"{col_name} = ${update_idx}::jsonb"
+                    if col_name == "metadata"
+                    else f"{col_name} = ${update_idx}"
+                )
+                update_idx += 1
+        # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
+        if columns.get("last_synced_at", False):
+            update_parts.append("last_synced_at = now()")
+
+        fields_str = ", ".join(fields)
+        placeholders_str = ", ".join(placeholders)
+        update_str = ", ".join(update_parts)
+
+        sql = (
+            f"INSERT INTO ai_model_config_models ({fields_str}) "
+            f"VALUES ({placeholders_str}) "
+            f"ON CONFLICT (config_id, model_id) DO UPDATE SET {update_str}"
+        )
+        await conn.execute(sql, *params)
+
+    async def _update_model(
+        self,
+        conn: Any,
+        config_id: int,
+        model_id: str,
+        ctx_len: int,
+        input_price: float,
+        output_price: float,
+        model_tags: list[str],
+        tags_column_exists: bool,
+        columns: dict[str, bool],
+        vendor: str | None,
+        max_output_tokens: int,
+        supports_tool_call: bool,
+        supports_vision: bool,
+        description: str,
+        rate_limit_rpm: int,
+        rate_limit_tpd: int,
+        release_date: str,
+        deprecation_date: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。
+        v4:metadata(jsonb,token6688 富元数据)。
+        """
+        set_parts = [
+            "context_length = $3",
+            "input_price_per_1k = $4",
+            "output_price_per_1k = $5",
+            "updated_at = now()",
+        ]
+        params: list[Any] = [config_id, model_id, ctx_len, input_price, output_price]
+        idx = 6
+
+        if tags_column_exists:
+            set_parts.append(f"tags = ${idx}")
+            params.append(model_tags)
+            idx += 1
+
+        # F4.5 新字段
+        f4_5_fields = [
+            ("vendor", vendor),
+            ("max_output_tokens", max_output_tokens),
+            ("supports_tool_call", supports_tool_call),
+            ("supports_vision", supports_vision),
+            ("description", description),
+            ("rate_limit_rpm", rate_limit_rpm),
+            ("rate_limit_tpd", rate_limit_tpd),
+            ("release_date", release_date),
+            ("deprecation_date", deprecation_date),
+            # v4 富元数据(jsonb;json.dumps + ::jsonb 显式转换,同 _insert_model)
+            ("metadata", json.dumps(metadata or {}, ensure_ascii=False)),
+        ]
+        for col_name, param_value in f4_5_fields:
+            if columns.get(col_name, False):
+                set_parts.append(
+                    f"{col_name} = ${idx}::jsonb"
+                    if col_name == "metadata"
+                    else f"{col_name} = ${idx}"
+                )
+                params.append(param_value)
+                idx += 1
+        # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
+        if columns.get("last_synced_at", False):
+            set_parts.append("last_synced_at = now()")
+
+        set_str = ", ".join(set_parts)
+        sql = (
+            f"UPDATE ai_model_config_models SET {set_str} "
+            f"WHERE config_id = $1 AND model_id = $2"
+        )
+        await conn.execute(sql, *params)
+
+    async def _check_tags_column_exists(self, conn: Any) -> bool:
+        """F3.4 查询 ai_model_config_models 表是否有 tags 字段(带缓存)。
+
+        查询结果缓存到 self._tags_column_cache,避免每次 upsert 都查 information_schema。
+        """
+        if self._tags_column_cache is not None:
+            return self._tags_column_cache
+        try:
+            row = await conn.fetchrow(
+                """SELECT column_name FROM information_schema.columns
+                   WHERE table_name = 'ai_model_config_models' AND column_name = 'tags'
+                   LIMIT 1"""
+            )
+            exists = row is not None
+        except Exception as e:
+            logger.warning("[ModelSyncService] 查询 tags 字段失败,降级为不写 tags: %s", e)
+            exists = False
+        self._tags_column_cache = exists
+        return exists
+
+    async def _check_columns_exists(
+        self, conn: Any, column_names: list[str]
+    ) -> dict[str, bool]:
+        """F4.5 通用列存在性查询(带缓存)。
+
+        一次性查所有指定列是否存在,结果缓存到 self._columns_cache。
+        新字段缺失时降级为只写存在的字段(类似 tags 的降级模式)。
+
+        Args:
+            conn: DB 连接。
+            column_names: 要查询的列名列表。
+
+        Returns:
+            {column_name: True/False, ...} 字典。
+        """
+        result: dict[str, bool] = {}
+        # 只查未缓存的列
+        uncached = [c for c in column_names if c not in self._columns_cache]
+        if uncached:
+            try:
+                rows = await conn.fetch(
+                    """SELECT column_name FROM information_schema.columns
+                       WHERE table_name = 'ai_model_config_models'
+                         AND column_name = ANY($1)""",
+                    uncached,
+                )
+                existing_set = {r["column_name"] for r in rows}
+                for c in uncached:
+                    self._columns_cache[c] = c in existing_set
+            except Exception as e:
+                logger.warning(
+                    "[ModelSyncService] 查询列存在性失败,降级为不写新字段: %s", e
+                )
+                for c in uncached:
+                    self._columns_cache[c] = False
+        for c in column_names:
+            result[c] = self._columns_cache.get(c, False)
+        return result
+
+    # ------------------------------------------------------------------
+    # F1.3 同步历史持久化
+    # ------------------------------------------------------------------
+
+    async def _write_sync_log(
+        self, result: SyncResult, started_at: datetime, finished_at: datetime
+    ) -> None:
+        """F1.3 写入同步历史到 ai_model_sync_log 表(表不存在时静默跳过)。"""
+        # 2026-10-26:认证失败(401/403=key 失效/过期)属"用户侧待补 key"的预期状态,
+        # 落库记为 success=True(跳过态),不计入连续失败、不触发 LlmProviderUnhealthy 告警、
+        # 启动恢复也不据此永久禁用。补 key 后下一轮同步自动恢复。
+        db_success = bool(result.success) or (
+            bool(result.skipped)
+            and result.error_type
+            in (SyncErrorType.INVALID_KEY.value, SyncErrorType.FORBIDDEN.value)
+        )
+        try:
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """INSERT INTO ai_model_sync_log
+                         (provider_code, sync_started_at, sync_finished_at,
+                          success, total_models, new_models, removed_models,
+                          error, latency_ms)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
+                    result.provider_code,
+                    started_at,
+                    finished_at,
+                    db_success,
+                    result.total_models,
+                    result.new_models,
+                    result.removed_models,
+                    result.error,
+                    result.latency_ms,
+                )
+        except Exception as e:
+            # 表不存在或其他 DB 错误 → 静默降级(不影响主同步流程)
+            logger.debug("[ModelSyncService] 写 sync_log 失败(表可能不存在): %s", e)
+
+    async def get_history(self, limit: int = 20) -> list[dict[str, Any]]:
+        """F1.3 查询最近 N 次同步记录(表不存在时返回空列表)。"""
+        try:
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """SELECT provider_code, sync_started_at, sync_finished_at,
+                              success, total_models, new_models, removed_models,
+                              error, latency_ms
+                       FROM ai_model_sync_log
+                       ORDER BY sync_finished_at DESC
+                       LIMIT $1""",
+                    limit,
+                )
+                return [
+                    {
+                        "provider_code": r["provider_code"],
+                        "sync_started_at": r["sync_started_at"].isoformat() if r["sync_started_at"] else "",
+                        "sync_finished_at": r["sync_finished_at"].isoformat() if r["sync_finished_at"] else "",
+                        "success": bool(r["success"]),
+                        "total_models": r["total_models"] or 0,
+                        "new_models": r["new_models"] or 0,
+                        "removed_models": r["removed_models"] or 0,
+                        "error": r["error"] or "",
+                        "latency_ms": r["latency_ms"] or 0,
+                    }
+                    for r in rows
+                ]
+        except Exception as e:
+            logger.debug("[ModelSyncService] 读 sync_log 失败(表可能不存在): %s", e)
+            return []
+
+    # ------------------------------------------------------------------
+    # F3 模型元数据增强
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_display_name(model_id: str, raw_name: Any) -> str:
+        """F3.1 display_name 智能派生。
+
+        优先用上游返回的 raw_name;否则从 model_id 派生:
+        - gpt-4o-mini → GPT-4o Mini
+        - claude-3-5-sonnet → Claude 3.5 Sonnet
+        - llama-3.3-70b-instruct → Llama 3.3 70B Instruct
+        - qwen2.5-7b-instruct → Qwen2.5 7B Instruct
+        """
+        if raw_name and isinstance(raw_name, str) and raw_name.strip():
+            return raw_name.strip()
+
+        # split by - / _ /
+        parts: list[str] = []
+        cur = ""
+        for ch in model_id:
+            if ch in "-_/":
+                if cur:
+                    parts.append(cur)
+                cur = ""
+            else:
+                cur += ch
+        if cur:
+            parts.append(cur)
+
+        brand_map = {
+            "gpt": "GPT", "llama": "Llama", "claude": "Claude",
+            "mistral": "Mistral", "qwen": "Qwen", "gemini": "Gemini",
+        }
+        capitalize_words = {
+            "instruct", "chat", "vision", "reasoning", "turbo", "preview",
+            "mini", "flash", "small", "tiny", "nano",
+            "sonnet", "haiku", "opus",
+        }
+        upper_words = {"qwq", "r1", "o1", "o3", "o4"}
+
+        out: list[str] = []
+        for p in parts:
+            pl = p.lower()
+            # 数字+b (70b → 70B)
+            if re.match(r"^\d+b$", pl):
+                out.append(p.upper())
+                continue
+            if pl == "b":
+                out.append("B")
+                continue
+            if pl in capitalize_words:
+                out.append(p.capitalize())
+                continue
+            if pl in upper_words:
+                out.append(p.upper())
+                continue
+            if p.isdigit():
+                # 数字拼接成版本号(3 → 3, 5 → 3.5)
+                if out and out[-1].replace(".", "").isdigit():
+                    out[-1] = out[-1] + "." + p
+                else:
+                    out.append(p)
+                continue
+            if pl in brand_map:
+                out.append(brand_map[pl])
+                continue
+            # 默认:首字母大写,其余小写
+            out.append(p[:1].upper() + p[1:].lower())
+
+        return " ".join(out) if out else model_id
+
+    @staticmethod
+    def _extract_pricing(provider_code: str, model: dict[str, Any]) -> tuple[float, float]:
+        """F3.2 多 provider pricing schema 适配。
+
+        返回 (input_price, output_price),单位 cents/1k tokens。
+        - OpenRouter: model.pricing.prompt / model.pricing.completion($/token 字符串)
+        - Cloudflare: model.pricing.input / model.pricing.output($/token 浮点数)
+        - NVIDIA NIM: model.metadata.input_cost_per_token / model.metadata.output_cost_per_token
+        - xAI: prompt_text_token_price / completion_text_token_price(单位 1e-10 USD/token,
+          如 12500 = $1.25/1M tokens);列是 numeric(18,6),不能像其它厂商那样取整,
+          否则 $1.25/1M(0.125 cents/1k)会被截断成 0 = 免费档
+        - 其他: 无 pricing 字段 → (0, 0)
+        """
+        # OpenRouter
+        if provider_code == "openrouter":
+            pricing = model.get("pricing") or {}
+            if isinstance(pricing, dict):
+                input_price = ModelSyncService._parse_price(pricing.get("prompt"))
+                output_price = ModelSyncService._parse_price(pricing.get("completion"))
+                return (input_price, output_price)
+        # Cloudflare Workers AI
+        if provider_code == "cloudflare_workers_ai":
+            pricing = model.get("pricing") or {}
+            if isinstance(pricing, dict):
+                input_price = ModelSyncService._parse_price(pricing.get("input"))
+                output_price = ModelSyncService._parse_price(pricing.get("output"))
+                return (input_price, output_price)
+        # NVIDIA NIM
+        if provider_code == "nvidia_nim":
+            metadata = model.get("metadata") or {}
+            if isinstance(metadata, dict):
+                input_price = ModelSyncService._parse_price(metadata.get("input_cost_per_token"))
+                output_price = ModelSyncService._parse_price(metadata.get("output_cost_per_token"))
+                return (input_price, output_price)
+        # xAI(官方 /v1/models 带 prompt_text_token_price,单位 1e-10 USD/token)
+        if provider_code == "xai":
+            ip = model.get("prompt_text_token_price")
+            op = model.get("completion_text_token_price")
+            if not isinstance(ip, (int, float)) and not isinstance(op, (int, float)):
+                return (0.0, 0.0)
+            return (
+                round(float(ip) * _XAI_TOKEN_PRICE_TO_CENTS_PER_1K, 6)
+                if isinstance(ip, (int, float))
+                else 0.0,
+                round(float(op) * _XAI_TOKEN_PRICE_TO_CENTS_PER_1K, 6)
+                if isinstance(op, (int, float))
+                else 0.0,
+            )
+        return (0, 0)
+
+    @staticmethod
+    def _extract_context_length(model: dict[str, Any]) -> int:
+        """F3.3 context_length 多层级 fallback。
+
+        顺序:
+        1. model.context_length
+        2. model.context_window
+        3. model.top_provider.context_length(OpenRouter)
+        4. model.max_input_tokens
+        5. model.metadata.max_input_tokens(NVIDIA)
+        6. 默认 32000
+        """
+        # 1
+        v = model.get("context_length")
+        if isinstance(v, int) and v > 0:
+            return v
+        # 2
+        v = model.get("context_window")
+        if isinstance(v, int) and v > 0:
+            return v
+        # 3
+        top = model.get("top_provider")
+        if isinstance(top, dict):
+            v = top.get("context_length")
+            if isinstance(v, int) and v > 0:
+                return v
+        # 4
+        v = model.get("max_input_tokens")
+        if isinstance(v, int) and v > 0:
+            return v
+        # 5
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("max_input_tokens")
+            if isinstance(v, int) and v > 0:
+                return v
+        # 6
+        return 32000
+
+    @staticmethod
+    def _classify_model(model_id: str, raw_model: dict[str, Any]) -> list[str]:
+        """F3.4 模型分类标签。
+
+        返回 list[str] 标签(可能多个):
+        - vision: id 含 vision/vl/image/multimodal 或 raw_model 含 vision
+        - tool: id 含 tool/function/react 或 raw_model 含 tool_call
+        - reasoning: id 含 o1/o3/o4/reasoning/think/r1/qwq 或 raw_model 含 reasoning
+        - fast: id 含 mini/flash/small/tiny/nano/8b/7b/3b/1b
+        - embedding: id 含 embed/embedding/e5/bge
+        - chat: 默认标签(所有非 embedding 模型)
+        """
+        mid = model_id.lower()
+        raw_str = str(raw_model).lower()
+        tags: list[str] = []
+
+        # vision
+        if any(k in mid for k in ("vision", "vl", "image", "multimodal")) or "vision" in raw_str:
+            tags.append("vision")
+        # tool
+        if any(k in mid for k in ("tool", "function", "react")) or "tool_call" in raw_str:
+            tags.append("tool")
+        # reasoning
+        if any(k in mid for k in ("o1", "o3", "o4", "reasoning", "think", "r1", "qwq")) or "reasoning" in raw_str:
+            tags.append("reasoning")
+        # fast
+        if any(k in mid for k in ("mini", "flash", "small", "tiny", "nano", "8b", "7b", "3b", "1b")):
+            tags.append("fast")
+        # embedding(如果是 embedding 模型,不再加 chat 标签)
+        is_embedding = any(k in mid for k in ("embed", "embedding", "e5", "bge"))
+        if is_embedding:
+            tags.append("embedding")
+        else:
+            tags.append("chat")  # 默认标签
+
+        # 生成式媒体模型(2026-10-29 xai imagine 系列):带按张定价或 id 自述视频生成的,
+        # 属图像/视频档而非对话档 —— 默认 chat 标签会让它混进 /llm/models 对话选择器,
+        # 用户选中后必报错。证据取上游字段而不只靠名字:有的厂商给 price_per_image 但 id 无 image 字样
+        media_tag = ""
+        if "video" in mid and any(k in mid for k in ("imagine", "video-gen")):
+            media_tag = "video"
+        elif isinstance(raw_model.get("image_price"), (int, float)) or (
+            isinstance(raw_model.get("pricing"), list)
+            and any(
+                isinstance(p, dict) and isinstance(p.get("price_per_image"), (int, float))
+                for p in raw_model["pricing"]
+            )
+        ):
+            media_tag = "image"
+        if media_tag:
+            tags = [media_tag] + [t for t in tags if t != "chat"]
+
+        return tags
+
+    @staticmethod
+    def _apply_alias(model_id: str, provider_code: str) -> tuple[str, bool]:
+        """F3.6 模型别名映射。
+
+        OpenRouter 的 openai/gpt-4o → gpt-4o(剥离 openai/anthropic/google/meta 等前缀)。
+        其他 provider 不处理。
+
+        Returns:
+            (aliased_id, is_aliased)
+        """
+        # 官方名归一(2026-09-13 立):同一模型全库仅允许一条(官方书写形式或统一小写)。
+        # 与 packages/shared/src/constants/model-names.ts 同源,见 app/core/model_naming.py。
+        from app.core.model_naming import normalize_model_id
+
+        if provider_code == "openrouter":
+            # 已知前缀(小写匹配,剥离时保持原大小写)
+            known_prefixes = (
+                "openai/", "anthropic/", "google/", "meta/", "mistral/",
+                "microsoft/", "nvidia/", "amazon/", "ai21/", "cohere/",
+                "deepseek/", "qwen/", "x-ai/", "perplexity/",
+            )
+            mid_lower = model_id.lower()
+            for prefix in known_prefixes:
+                if mid_lower.startswith(prefix):
+                    return (normalize_model_id(model_id[len(prefix):]), True)
+        return (normalize_model_id(model_id), False)
+
+    @staticmethod
+    def _parse_price(raw: Any) -> int:
+        """将上游 pricing 字段($/token 字符串或浮点数)转为 cents/1k tokens 整数。
+
+        OpenRouter 返回 $/token 字符串(如 "0.00000025"),Cloudflare/NVIDIA 返回浮点数。
+        DB 存储 cents per 1k tokens(整数),
+        转换:$/token × 1000 tokens × 100 cents/$ = cents/1k tokens。
+        小于 1 cent 的价格截断为 0(整数存储限制)。
+        """
+        try:
+            return int(float(raw) * 1000 * 100)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _token6688_price_note(lm: dict[str, Any]) -> str:
+        """token6688 官方计费说明(logical-models 单条 → 展示文案,拼进 description)。
+
+        官方字段(2026-09-08 实测 /v1/logical-models):
+        - token_metered + input_price_per_million / output_price_per_million(USD/1M tokens)
+        - fixed_amount + unit_price_micro_usd(micro USD / billing_unit,如 per_second)
+        - special_tier_notice(19 条特价档稳定性提示,如实随价格展示)
+        不写入 input_price_per_1k/output_price_per_1k 列:整型 分/1k 承载不了
+        USD/1M 精度,且该列是 relay 计费兜底(base,relay-billing-service)。
+        """
+        try:
+            parts: list[str] = []
+            mode = str(lm.get("billing_mode") or "")
+            if mode == "token_metered":
+                ip = lm.get("input_price_per_million")
+                op = lm.get("output_price_per_million")
+                if isinstance(ip, (int, float)) or isinstance(op, (int, float)):
+                    in_s = f"${float(ip):g}" if isinstance(ip, (int, float)) else "?"
+                    out_s = f"${float(op):g}" if isinstance(op, (int, float)) else "?"
+                    parts.append(f"官方价 {in_s}/1M tokens 输入 · {out_s}/1M 输出(USD)")
+            if mode != "token_metered":
+                micro = lm.get("unit_price_micro_usd")
+                if isinstance(micro, (int, float)) and micro > 0:
+                    unit = str(lm.get("billing_unit") or "")
+                    unit_map = {
+                        "per_second": ("按秒", "秒"),
+                        "per_image": ("按张", "张"),
+                        "per_call": ("按次", "次"),
+                        "per_request": ("按次", "次"),
+                        "per_char": ("按字符", "字符"),
+                    }
+                    unit_zh, unit_short = unit_map.get(unit, (unit or "按次", unit or "次"))
+                    parts.append(f"官方计费:{unit_zh} ≈ ${micro / 1_000_000:g}/{unit_short}(USD)")
+            notice = str(lm.get("special_tier_notice") or "").strip()
+            if notice:
+                parts.append(f"⚠ {notice[:120]}")
+            return ";".join(parts)
+        except (TypeError, ValueError):
+            return ""
+        return ""
+
+    # ------------------------------------------------------------------
+    # F4.5 深度元数据提取
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_description(model: dict[str, Any]) -> str:
+        """F4.5 提取模型描述。
+
+        优先级:
+        1. model.description(OpenRouter / OpenAI 兼容)
+        2. model.metadata.description(NVIDIA / 自定义)
+        """
+        v = model.get("description")
+        if isinstance(v, str) and v.strip():
+            return v.strip()[:1000]  # 限制长度防止 DB 溢出
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("description")
+            if isinstance(v, str) and v.strip():
+                return v.strip()[:1000]
+        return ""
+
+    @staticmethod
+    def _extract_vendor(model_id: str, model: dict[str, Any]) -> str | None:
+        """F4.5 提取模型厂商。
+
+        优先级:
+        1. model.metadata.vendor(上游显式声明,lower())
+        2. model_id 含 "/" → 取前缀(openai/gpt-4o → openai,anthropic/claude-... → anthropic)
+        3. model_id 关键词前缀匹配(gpt → openai,claude → anthropic,llama → meta 等)
+        4. 无法推断 → None(让 DB 存 NULL)
+        """
+        # 1. 上游 metadata.vendor
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("vendor")
+            if isinstance(v, str) and v.strip():
+                return v.strip().lower()
+        # 2. model_id 含 "/" → 取前缀作为 vendor
+        if "/" in model_id:
+            prefix = model_id.split("/", 1)[0].strip().lower()
+            if prefix:
+                return prefix
+        # 3. model_id 关键词前缀匹配
+        mid = model_id.lower()
+        vendor_prefixes = {
+            "gpt": "openai", "openai": "openai", "o1": "openai", "o3": "openai", "o4": "openai",
+            "claude": "anthropic",
+            "gemini": "google", "google": "google",
+            "llama": "meta",
+            "mistral": "mistral", "mixtral": "mistral",
+            "qwen": "alibaba", "qwq": "alibaba",
+            "deepseek": "deepseek",
+            "nvidia": "nvidia", "nemotron": "nvidia",
+            "cf": "cloudflare", "@cf": "cloudflare",
+            "phi": "microsoft",
+            "command": "cohere",
+            "grok": "x-ai",
+        }
+        for prefix, vendor in vendor_prefixes.items():
+            if mid.startswith(prefix):
+                return vendor
+        return None  # 无法推断 → None(让 DB 存 NULL,COUNT 统计正确)
+
+    @staticmethod
+    def _extract_max_output_tokens(model: dict[str, Any]) -> int:
+        """F4.5 提取最大输出 token 数。
+
+        优先级:
+        1. model.max_output_tokens(OpenAI 兼容,int > 0)
+        2. model.top_provider.max_completion_tokens(OpenRouter,int > 0)
+        3. model.metadata.max_output_tokens(NVIDIA / 自定义,int > 0)
+        4. 默认 0(未知)
+
+        无效值(0 / 负数 / 非整数 / 缺失)→ 0(保守:不假设默认值)。
+        """
+        v = model.get("max_output_tokens")
+        if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+            return v
+        top = model.get("top_provider")
+        if isinstance(top, dict):
+            v = top.get("max_completion_tokens")
+            if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+                return v
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("max_output_tokens")
+            if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+                return v
+        return 0
+
+    @staticmethod
+    def _extract_supports_tool_call(
+        provider_code: str, model_id: str, model: dict[str, Any]
+    ) -> bool:
+        """F4.5 综合判断模型是否支持 tool calling。
+
+        优先级(v4 修正:上游模型级显式声明最权威,优先于 provider 级默认):
+        1. model.metadata.supports_tool_calling(OpenRouter/token6688 显式声明)
+        2. provider_caps.get_provider_cap(provider_code).supports_tools(provider 级别)
+        3. model_id 含 tool/function 关键字
+        """
+        # 1. 上游 metadata.supports_tool_calling(模型级显式声明)
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("supports_tool_calling")
+            if isinstance(v, bool):
+                return v
+        # 2. provider 级别 cap
+        try:
+            cap = get_provider_cap(provider_code)
+            if not cap.supports_tools:
+                return False
+        except Exception:
+            pass
+        # 3. model_id 关键字
+        mid = model_id.lower()
+        if any(k in mid for k in ("tool", "function", "react")):
+            return True
+        # 默认:provider 支持 tools 则模型也支持(除非显式声明不支持)
+        return True
+
+    @staticmethod
+    def _extract_supports_vision(
+        provider_code: str, model_id: str, model: dict[str, Any]
+    ) -> bool:
+        """F4.5 综合判断模型是否支持视觉输入。
+
+        优先级(v4 修正:上游模型级显式声明最权威,优先于 provider 级默认):
+        1. model.metadata.supports_vision(上游显式声明,token6688 由 capabilities
+           精确派生 True/False —— 修正 token6688 provider cap supports_vision=True
+           对纯文本 chat 的误标)
+        2. provider_caps.get_provider_cap(provider_code).supports_vision(provider 级别)
+        3. model_id 含 vision/vl/image 关键字
+        """
+        # 1. 上游 metadata.supports_vision(模型级显式声明)
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("supports_vision")
+            if isinstance(v, bool):
+                return v
+        # 2. provider 级别 cap
+        try:
+            cap = get_provider_cap(provider_code)
+            if cap.supports_vision:
+                return True
+        except Exception:
+            pass
+        # 3. model_id 关键字
+        mid = model_id.lower()
+        return bool(any(k in mid for k in ("vision", "vl", "image", "multimodal")))
+
+    @staticmethod
+    def _extract_rate_limit(model: dict[str, Any]) -> tuple[int, int]:
+        """F4.5 提取速率限制。
+
+        从 model.top_provider.rate_limit 提取 requests_per_minute / tokens_per_day。
+
+        Returns:
+            (rpm, tpd) 元组,无数据时返回 (0, 0)。
+        """
+        top = model.get("top_provider")
+        if isinstance(top, dict):
+            rl = top.get("rate_limit")
+            if isinstance(rl, dict):
+                rpm = rl.get("requests_per_minute", 0)
+                tpd = rl.get("tokens_per_day", 0)
+                return (
+                    int(rpm) if isinstance(rpm, (int, float)) else 0,
+                    int(tpd) if isinstance(tpd, (int, float)) else 0,
+                )
+        return (0, 0)
+
+    @staticmethod
+    def _extract_release_date(model: dict[str, Any]) -> str:
+        """F4.5 提取模型发布日期(ISO 8601)。
+
+        优先级:
+        1. model.created(Unix 时间戳或 ISO 字符串,OpenAI / OpenRouter)
+        2. model.metadata.release_date(自定义)
+        """
+        v = model.get("created")
+        if v is not None:
+            # Unix 时间戳(int)
+            if isinstance(v, (int, float)) and v > 0:
+                try:
+                    return datetime.fromtimestamp(int(v), tz=UTC).isoformat()
+                except (OSError, ValueError):
+                    pass
+            # ISO 字符串
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("release_date")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    @staticmethod
+    def _extract_deprecation_date(model: dict[str, Any]) -> str:
+        """F4.5 提取模型弃用日期(ISO 8601)。
+
+        优先级:
+        1. model.deprecation_date(OpenAI 兼容)
+        2. model.metadata.deprecation_date(自定义)
+        """
+        v = model.get("deprecation_date")
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("deprecation_date")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    # ------------------------------------------------------------------
+    # 状态查询
+    # ------------------------------------------------------------------
+
+    def get_status(self) -> dict[str, Any]:
+        """返回同步状态(供 GET /llm/models/sync/status 端点用)。"""
+        return {
+            "last_sync_at": self._status.last_sync_at,
+            "last_sync_duration_ms": self._status.last_sync_duration_ms,
+            "total_providers": self._status.total_providers,
+            "total_new_models": self._status.total_new_models,
+            "total_removed_models": self._status.total_removed_models,
+            "is_syncing": self._status.is_syncing,
+            "preview": self._status.preview,
+            "results": [
+                {
+                    "provider_code": r.provider_code,
+                    "success": r.success,
+                    "total_models": r.total_models,
+                    "new_models": r.new_models,
+                    "removed_models": r.removed_models,
+                    "error": r.error,
+                    "latency_ms": r.latency_ms,
+                    "tags": r.tags,
+                    "preview_new_model_ids": r.preview_new_model_ids,
+                    "preview_removed_model_ids": r.preview_removed_model_ids,
+                    "error_type": r.error_type,
+                    "skipped": r.skipped,
+                }
+                for r in self._status.results
+            ],
+        }
+
+
+# 模块级单例
+model_sync_service = ModelSyncService()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

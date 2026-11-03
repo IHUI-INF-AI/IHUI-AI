@@ -1,0 +1,148 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Heart } from 'lucide-react-native'
+import type { NoteDetailItem, NoteDetailScreenProps } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 笔记详情/Props 类型 re-export(单一来源 @ihui/types) */
+export type { NoteDetailItem, NoteDetailScreenProps }
+
+/**
+ * 笔记详情共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 loading 态 + 错误态(含返回按钮)+ 正常态
+ * (返回按钮 + 标题 + 作者/浏览量/时间 + 标签徽章 + 正文 + 点赞统计)。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function NoteDetailScreen({
+  t,
+  item,
+  loading,
+  error,
+  onBack,
+  onRetry,
+  colorScheme = 'light',
+}: NoteDetailScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+      </View>
+    )
+  }
+
+  if (error || !item) {
+    return (
+      <View style={styles.container}>
+        <ErrorState
+          message={error || t('noteDetail.loadFailed')}
+          onRetry={onRetry}
+          retryLabel={t('common.back')}
+          colorScheme={colorScheme}
+        />
+      </View>
+    )
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      <Text style={styles.title}>{item.title}</Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.author}>{item.author}</Text>
+        <Text style={styles.meta}>
+          {/* views 不在 /api/notes/:id 投影里 ⇒ 缺失时不渲染该段,只显示时间 */}
+          {item.views !== null && item.views !== undefined
+            ? `${t('noteDetail.views', { count: item.views })} · `
+            : ''}
+          {item.createdAt}
+        </Text>
+      </View>
+      {(item.tags ?? []).length > 0 ? (
+        <View style={styles.tagRow}>
+          {(item.tags ?? []).map((tag) => (
+            <Text key={tag} style={styles.tag}>
+              #{tag}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <Text style={styles.content}>{item.content}</Text>
+      {/* likes 同为可选字段:后端没给就不渲染点赞统计,不以 0 顶位 */}
+      {item.likes !== null && item.likes !== undefined ? (
+        <View style={styles.statRow}>
+          <View style={styles.stat}>
+            <Heart size={12} color={tk.text.medium} />
+            <Text style={styles.statText}>{item.likes}</Text>
+          </View>
+        </View>
+      ) : null}
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
+    },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing['xs-loose'],
+      marginBottom: rnSpacing['xs-loose'],
+    },
+    author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing['xs-loose'],
+      marginBottom: rnSpacing.md,
+    },
+    tag: {
+      fontSize: rnType.caption.size,
+      color: tk.success.DEFAULT,
+      backgroundColor: tk.success.light,
+      paddingHorizontal: rnSpacing['xs-loose'],
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
+    statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.lg },
+    stat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      backgroundColor: tk.surface.card,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.xl,
+    },
+    statText: {
+      fontSize: rnType.label.size,
+      color: tk.text.medium,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

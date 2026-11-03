@@ -1,0 +1,86 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { useMemo } from 'react'
+import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AnnouncementDetailItem, AnnouncementDetailScreenProps } from '../../types'
+
+import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+
+/** 公告详情/Props 类型 re-export(单一来源 @ihui/types) */
+export type { AnnouncementDetailItem, AnnouncementDetailScreenProps }
+
+/**
+ * 公告详情共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染返回按钮 + 公告标题 + 作者/发布时间 + 正文。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function AnnouncementDetailScreen({
+  t,
+  item,
+  loading,
+  error,
+  onBack,
+  onRetry,
+  colorScheme = 'light',
+}: AnnouncementDetailScreenProps & { onRetry?: () => void }) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) return <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
+
+  if (error || !item)
+    return (
+      <ErrorState
+        message={error || t('announcementDetail.empty')}
+        onRetry={onRetry}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
+    )
+
+  return (
+    <ScrollView style={styles.container}>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      <Text style={styles.title}>{item.title}</Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.author}>{item.author}</Text>
+        <Text style={styles.meta}>{item.publishTime}</Text>
+      </View>
+      <Text style={styles.content}>{item.content}</Text>
+    </ScrollView>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing['3xl'],
+    },
+    title: {
+      marginTop: rnSpacing.sm,
+      // web 产物锁 22(web 快照/读数不变);原生侧落 heading 20 档
+      fontSize: Platform.OS === 'web' ? 22 : rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing.sm,
+      marginBottom: rnSpacing.md,
+    },
+    author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    content: { fontSize: rnType.title.size, lineHeight: 24, color: tk.text.medium },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

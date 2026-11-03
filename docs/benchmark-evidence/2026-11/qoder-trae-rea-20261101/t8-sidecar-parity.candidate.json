@@ -1,0 +1,470 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "两枚 Qoder sidecar 能力面 vs 本仓对照位(逆向-复现-超越 T8)",
+    "subtitle": "取证=Ghidra headless 函数级 · 2026-11-01 现读 · 虚线=本批在飞未入库",
+    "output": "t8-sidecar-parity.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "v-parity",
+        "label": "两枚 sidecar 与本仓对照位的分层对撞",
+        "focus": [
+          "qcu-input",
+          "qcu-guard",
+          "xl-proto",
+          "xl-write",
+          "ih-op",
+          "ih-flow1",
+          "ih-flow2"
+        ],
+        "note": "对照件走的是「原生 sidecar + 自研协议」路线;本仓走「壳内 Rust + 已有 Node 引擎」路线。列间无箭头:两侧不存在运行时连接。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "qcu-host",
+      "type": "external",
+      "label": "宿主 spawn",
+      "sublabel": "stdio inherit · MCP 形 JSON-RPC · 无 TCP",
+      "pos": [
+        20,
+        90
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "qcu-tools",
+      "type": "backend",
+      "label": "14 枚动作工具",
+      "sublabel": "窗口枚举/状态 · 启动 · 激活",
+      "pos": [
+        20,
+        210
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "qcu-input",
+      "type": "backend",
+      "label": "输入类动作",
+      "sublabel": "click/drag/type/press_key/run_steps",
+      "pos": [
+        20,
+        330
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "qcu-guard",
+      "type": "security",
+      "label": "边界实装 11 项",
+      "sublabel": "revision 即拒 · 永不自动重试",
+      "pos": [
+        20,
+        450
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "qcu-absent",
+      "type": "cloud",
+      "label": "审批门/速率闸",
+      "sublabel": "实测 0 命中,登记为未找到",
+      "tag": "0 命中",
+      "pos": [
+        20,
+        570
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "qcu-size",
+      "type": "external",
+      "label": "2.53 MB 件 1",
+      "sublabel": "函数 6,995 · PE 导出表 0",
+      "pos": [
+        20,
+        690
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "xl-proto",
+      "type": "messagebus",
+      "label": "sidecar 协议 14 命令",
+      "sublabel": "open/save/recalc 等 14 命令",
+      "pos": [
+        350,
+        90
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "xl-engine",
+      "type": "backend",
+      "label": "表格引擎栈",
+      "sublabel": "calamine 分叉 + ironcalc 0.7.1",
+      "pos": [
+        350,
+        210
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "xl-write",
+      "type": "database",
+      "label": "写回 + 公式重算",
+      "sublabel": "条目级 zip 增量重写",
+      "pos": [
+        350,
+        330
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "xl-size",
+      "type": "external",
+      "label": "9.15 MB 件 2",
+      "sublabel": "函数 15,168 · 声明哈希为签名前",
+      "pos": [
+        350,
+        450
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-ext",
+      "type": "frontend",
+      "label": "extension agent-control",
+      "sublabel": "浏览器侧动作桥",
+      "pos": [
+        680,
+        90
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-op",
+      "type": "backend",
+      "label": "desktop operator.rs",
+      "sublabel": "capture-decide-act · 2 枚 command",
+      "pos": [
+        680,
+        210
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-flow1",
+      "type": "security",
+      "label": "在飞:输入类审批门",
+      "sublabel": "补对方没有的那道牙 · 失败不拦用户",
+      "tag": "本批在飞",
+      "pos": [
+        680,
+        330
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-doc",
+      "type": "cloud",
+      "label": "document_tools",
+      "sublabel": "xlsx 只读,零写回零重算",
+      "pos": [
+        680,
+        450
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-exp",
+      "type": "backend",
+      "label": "api excel-export-service",
+      "sublabel": "ExcelJS 写侧已在产(报表导出)",
+      "pos": [
+        680,
+        570
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-flow2",
+      "type": "backend",
+      "label": "在飞:agent 工作簿读写",
+      "sublabel": "复用 exceljs · 公式缓存值不当当前值",
+      "tag": "本批在飞",
+      "pos": [
+        680,
+        690
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-gate",
+      "type": "security",
+      "label": "门 277 逐文件完整性",
+      "sublabel": "安装时刻现算 sha256 · 三态不并桶",
+      "pos": [
+        680,
+        810
+      ],
+      "size": [
+        155,
+        58
+      ]
+    },
+    {
+      "id": "ih-absent",
+      "type": "cloud",
+      "label": "刻意不对齐:不外发",
+      "sublabel": "对方有云端审查层,本仓止步",
+      "tag": "刻意分歧",
+      "pos": [
+        680,
+        930
+      ],
+      "size": [
+        155,
+        58
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "c-qcu-1",
+      "from": "qcu-host",
+      "to": "qcu-tools",
+      "label": "工具面声明",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-qcu-2",
+      "from": "qcu-tools",
+      "to": "qcu-input",
+      "label": "输入族",
+      "variant": "default"
+    },
+    {
+      "id": "c-qcu-3",
+      "from": "qcu-input",
+      "to": "qcu-guard",
+      "label": "每条动作受边界约束",
+      "variant": "default"
+    },
+    {
+      "id": "c-qcu-4",
+      "from": "qcu-guard",
+      "to": "qcu-absent",
+      "label": "再往下没找到",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-qcu-5",
+      "from": "qcu-size",
+      "to": "qcu-host",
+      "label": "读数来源",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-xl-1",
+      "from": "xl-proto",
+      "to": "xl-engine",
+      "label": "命令落到引擎",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-xl-2",
+      "from": "xl-engine",
+      "to": "xl-write",
+      "label": "读改写闭环",
+      "variant": "default"
+    },
+    {
+      "id": "c-xl-3",
+      "from": "xl-size",
+      "to": "xl-proto",
+      "label": "读数来源",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-ih-1",
+      "from": "ih-ext",
+      "to": "ih-op",
+      "label": "两条通道并列",
+      "variant": "default"
+    },
+    {
+      "id": "c-ih-2",
+      "from": "ih-op",
+      "to": "ih-flow1",
+      "label": "本批补牙",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-ih-3",
+      "from": "ih-exp",
+      "to": "ih-flow2",
+      "label": "引擎已在本仓",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-ih-4",
+      "from": "ih-doc",
+      "to": "ih-flow2",
+      "label": "只读侧现状",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-ih-5",
+      "from": "ih-gate",
+      "to": "ih-flow1",
+      "label": "同一套三态口径",
+      "variant": "dashed"
+    },
+    {
+      "id": "c-ih-6",
+      "from": "ih-flow1",
+      "to": "ih-absent",
+      "label": "刻意止步",
+      "variant": "dashed"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "对照 A · QoderComputerUse.exe(件 1)",
+      "wraps": [
+        "qcu-host",
+        "qcu-tools",
+        "qcu-input",
+        "qcu-guard",
+        "qcu-absent",
+        "qcu-size"
+      ],
+      "pad": 8
+    },
+    {
+      "kind": "region",
+      "label": "对照 B · xlsx-sidecar.exe(件 2)",
+      "wraps": [
+        "xl-proto",
+        "xl-engine",
+        "xl-write",
+        "xl-size"
+      ],
+      "pad": 8
+    },
+    {
+      "kind": "region",
+      "label": "本仓 IHUI-AI 对照位(实线已入库,虚线在飞)",
+      "wraps": [
+        "ih-ext",
+        "ih-op",
+        "ih-flow1",
+        "ih-doc",
+        "ih-exp",
+        "ih-flow2",
+        "ih-gate",
+        "ih-absent"
+      ],
+      "pad": 8
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么读这张图",
+      "items": [
+        "三条竖列 = 两个对照件 + 本仓对照位;同一横排只表示同一能力层,不表示等价。",
+        "列内箭头 = 载体分层,不是调用顺序。",
+        "列间一律不画箭头:本仓与对照程序之间没有任何运行时连接。",
+        "带「本批在飞」角标的节点与虚线箭头尚未入库,不许读成已完成。",
+        "读数全部是 2026-11-01 现取值(Ghidra headless + HEAD 面),换版需重取。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "对齐了哪几格",
+      "items": [
+        "动作面:对方 14 枚工具是本仓 operator.rs 的扩档参照,不是照抄名单。",
+        "边界:revision 陈旧即拒、输入类永不自动重试、启动核验、日志脱敏,逐条有字面量实锤。",
+        "表格:对方 14 命令里本仓真正缺的是「改一个已存在的工作簿」,不是「导出报表」。",
+        "完整性:对方只到包级寻址,本仓门 277 做到逐文件且锚点取安装时刻盘上现算。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "超越轴(不是照抄的部分)",
+      "items": [
+        "门 277 三态诚实:老记录无哈希落 unjudged,既不冒「已核对」也不冒「被篡改」。",
+        "drift 三类分开点名不并桶;mismatch/missing/unlisted 各算各的。",
+        "输入类审批门:对方实测 0 命中,本仓在飞补上,拒绝时不降级也不静默跳过。",
+        "公式那格不加 9MB 原生引擎,改用「不得把缓存值当当前值返回」堵死陈旧错值。",
+        "守卫一律 warn 语义:守卫自身失败绝不拦用户正常动作,也不冒绿。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "还没做与不知道(如实边界)",
+      "items": [
+        "recalc_cells 与 convert_workbook:本批不做,真做要单独立票选引擎。",
+        "T8 册 7 格未判定:帧形态(NDJSON vs 长度前缀)、父进程签名核验位置、save_archive 写法。",
+        "本轮取的是结构+符号+字面量级,逐函数反编译没跑。",
+        "审批门与工作簿两面以主席落地枚为准,本图不代表已完成。"
+      ]
+    }
+  ]
+}

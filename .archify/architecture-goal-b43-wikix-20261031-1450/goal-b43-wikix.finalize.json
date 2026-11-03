@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "running",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-10-31T09:28:21.837Z",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+    "sha256": "89461f0ded9bfa067aa020505a5db40cf980c65397a4025de26879be98b969aa",
+    "bytes": 4472
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+    "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+    "bytes": 853682
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "89461f0ded9bfa067aa020505a5db40cf980c65397a4025de26879be98b969aa",
+          "bytes": 4472
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 800,
+      "command": [
+        "C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "architecture",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+        "--quality",
+        "showcase",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "26783422-d0cd-49b4-a5ac-bae077dc45c4",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\candidate.json",
+        "output": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+        "specification": {
+          "sha256": "89461f0ded9bfa067aa020505a5db40cf980c65397a4025de26879be98b969aa",
+          "bytes": 4472
+        },
+        "artifact": {
+          "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+          "bytes": 853682
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 330,
+      "command": [
+        "C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe",
+        "G:\\IHUI-AI\\.ihui\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.html",
+        "artifact": {
+          "sha256": "32e0b3d61779a683142ebf6b5c327a02d080de5096add652906d9b7ea48d12f5",
+          "bytes": 853682
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": ["found 1 <svg> block(s)"]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 24,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6.763636363636364,
+            "maxBends": 2,
+            "routesOverSuggestedBends": 0,
+            "maxStretch": 1,
+            "routesOverSuggestedStretch": 0,
+            "minSegmentPx": 24,
+            "minInteriorSegmentPx": 142,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": []
+          },
+          "leadingSpace": {
+            "measured": false,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": null,
+            "requestedTargetMet": null,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "edge",
+              "id": "k1",
+              "from": "qoder-plugin",
+              "to": "qoder-hooks"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 6.763636363636364,
+            "semanticTextCount": 27
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "26783422-d0cd-49b4-a5ac-bae077dc45c4"
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  },
+  "diagnostics": [],
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-goal-b43-wikix-20261031-1450\\goal-b43-wikix.finalize-summary.json"
+  },
+  "visualReview": "not-requested"
+}

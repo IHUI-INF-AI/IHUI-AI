@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reset-window-state"
+description = "Enables the reset_window_state command without any pre-configured scope."
+commands.allow = ["reset_window_state"]
+
+[[permission]]
+identifier = "deny-reset-window-state"
+description = "Denies the reset_window_state command without any pre-configured scope."
+commands.deny = ["reset_window_state"]

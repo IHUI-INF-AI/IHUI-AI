@@ -1,0 +1,3825 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 对象空间落地器(常驻工具,不在提交链;2026-09-27 立,工程工具收口票)。
+ *
+ * 为什么在仓里(成因写死在头注,票面要求):本会话交付 8 枚票,全部要落"对象空间"提交 —— 工作树副本常年
+ * 滞后 HEAD,按 pathspec 交工作树就把别人已入库的行整批写回旧态(AGENTS §12 一夜三次自伤)。当时在同一次
+ * 会话里手写了 6 份近乎同形的落地脚本且已漂开(细节见 scripts/lib/bypass-git.mjs 头注),其中本器收的是
+ * land-r24 + reconcile-index 两份:
+ *  - ① 落地后逐路径 `git cat-file -e <commit>:<path>` 回读存在性,证明"消息声称的每条路径真在提交里"
+ *    (本仓规矩:commit message 只能写能被回读证明的东西;声明路径无差异 ⇒ 事先拒绝,而不是落地后让
+ *    proof 步骤扑空)。**存在性判据问 git 的结论而不是解析它的输出**(G-801):`git show --name-only`
+ *    的输出文本默认按 core.quotePath 把非 ASCII 路径八进制转写并加引号,拿输出字节当路径身份,
+ *    中文/带空格路径必然比不中 ⇒ 已成功的交付被报成"缺路径";该清单只留作"是否混提"的辅助且必须 -c core.quotePath=false;
+ *  - ② 逐路径把共享主索引对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
+ *    `D ` 暂存删除、改动文件成 `M `,此后一次不带 pathspec 的普通提交就把本轮交付写回旧版。
+ *    对齐只在"索引 blob == 父提交 blob 或索引里没有"时动(判据住在 lib,只有一份实现);
+ *    别人真暂存过的一律**不动并点名"归属他人"**(退出码 0,但逐条喊出来,绝不静默)。
+ *  - ③ (G-816708,2026-10-05)声明的落地面含 `PROJECT_PLAN.md` 时,CAS 成功后**就地补跑一次守门 71
+ *    台账自愈**(`--heal --commit`,与 `.husky/post-commit` 第 6 节同一条命令、同一个器物:
+ *    `lib/post-merge-ledger-sync.mjs`)。为什么必须由本器自己跑:本器产的提交走 commit-tree ⇒
+ *    **结构上不跑任何钩子** ⇒ 那层自愈对旁路落地从来不会触发,台账被滞后副本写回时账面只剩
+ *    "自愈每轮都跑过、什么都没缺"。判据必须在真跑它的那一刻才成立,否则等于没有(§1 为
+ *    `git-sync-converge` 补同一条时的原话)。补跑失败只喊一行、不改本器退出码;
+ *    未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带补跑,
+ *    本票开工时它正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
+ *  - ④ (G-113,2026-10-23)落地、回读、主索引对齐全部完成后,**复跑受影响判据**
+ *    (`lib/land-gate-rerun.mjs`,与 ③ 同一条"判据必须在真跑它的那一刻才成立"的纪律,
+ *    但退出码语义不同):按落地面路径选门 —— 内置最低三件(python 面 mypy、ts 面 tsc、
+ *    同名函数族重复定义扫描)+ 注册表映射(guardian-runner 里 stagedTriggers 被触及的
+ *    门,复跑其全量档)。blocking 臂判红 ⇒ 大声报数后 exit 1;有臂无法判定 ⇒ exit 2。
+ *    **不回滚**(落地是既成事实,替身无权撤销),但拒绝静默 —— 2026-09-29 枚 f57e0c9983
+ *    那一型("干净合并"把两份同名函数族一起送进 HEAD,mypy 10 条红是部署环先看见的)
+ *    正是本档要当场咬住的。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(跳过必打留痕行)。
+ *    同档接线已闭环(2026-10-23 续席):`scripts/union-converge.mjs` 已在落地+对齐之后接同一
+ *    出口(声明面 = 活文档 ∪ 取对侧版本的路径,与它 recordBypassLanding 的 declaredFiles 同集);
+ *    形状锁见 scripts/tests/land-gate-rerun.test.mjs T12。
+ *  - ⑤ [G-04 新建路径注入格 · 2026-10-25] 父提交里不存在的声明路径,
+ *    正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再 `hash-object`,
+ *    工作树副本一个字节都不写。已存在路径不进这一档(横幅保持/祖先对账/行级复活照旧)。
+ *    blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *  - ⑥ [L33560 最后一格 · 2026-11-01] 落地(CAS)**之前**,对"将要进树的那份内容"跑一次冲突
+ *    标记判据(`lib/conflict-marker-landing-gate.mjs` 唯一实现,union-converge 落地闸同源):
+ *    `must-block` ⇒ 不落地 + 逐条点名(文件/行号/标记原文),exit 1;`strippable`(空区)只建议
+ *    摘除、不拦;取不到正文 ⇒ exit 2。默认开启,应急 `IHUI_LAND_SKIP_CONFLICT_MARKER_GATE=1`
+ *    (跳过必打留痕;设了它本判据完全失效)。
+ *
+ * CLI 契约(env 驱动,无参数):
+ *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
+ *              · 缺省(工作树模式)内容取各路径的工作树当前字节
+ *              · 配 LAND_BLOBS 时内容来自清单,**不读工作树** —— 用于"同一文件里别人有在飞改动"
+ *                的场景:那种情况下交工作树字节 = 替别人落地(§12 污染型),正确内容只能是 HEAD⊕本票行
+ *  LAND_REMOVE_PATHS 可选,以 `;` 分隔的仓库相对路径清单(G-926,2026-10-21 立):这些路径要从
+ *              **结果树里摘掉**(取消跟踪)。此前本器只有写入一档,"旁路落地要删文件"只能手搓临时索引
+ *              (AGENTS 记过:6 份同形脚本互相漂开);底层 `lib/bypass-git.mjs` 的 `commitTreeWithIndex`
+ *              删除档(G-1080881)本就自带两条护栏(deleted 项不得带 text/blob、路径必须在 baseRef 树里在位),
+ *              这里只把它暴露成声明式出口。三条硬纪律:
+ *              ① **反向自证**:删除项的回读问的是"不在树里",不是写入档那把"在树里"的尺子 ——
+ *                 拿后者的尺子量删除,一条都没删也能过(2026-10-18 空内容守卫同型事故);
+ *              ② **互斥**:同一路径不得同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS(自相矛盾);
+ *              ③ **clobber 同语义**:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝,不照旧删。
+ *              `paths` 与 `removePaths` 可同时非空(一次落地里既有写入又有摘除);两边都空才拒绝。
+ *              他席已暂存的删除路径由 `alignSharedIndex` 保护:不动并点名(§12)。
+ *  LAND_MSG    必填,提交信息
+ *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
+ *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
+ *              不是内联 JSON —— 本器按 `readFileSync(env.LAND_BLOBS)` 取它,把 JSON 字符串直接塞进
+ *              这个变量会被当成仓库根下的文件名,得到一条 `ENOENT: ... open ’D:/IHUI-AI/{“files”...’`,
+ *              读起来像"文件丢了"而实为调用形状错(2026-10-07 值守实测踩到)。
+ *  LAND_BLOB_PROOF 配 LAND_BLOBS 时必填:一句话写明"构造内容相对基线只动了本票行"是靠什么证的。
+ *              工作树取材的两道陈旧守卫在 blob 模式结构上不适用(它们比的是盘上那份),
+ *              替代尺 = 祖先 blob 对账 + 水印横幅保持 + 这句证明;三者都大声报数,少守卫不静默。
+ *  LAND_CLASH_SCOPE 可选,JSON 文件 `{files:[{path, removed:[…], added:[…]}]}`:**祖先命中出口**。
+ *              blobAncestorClash 默认把"构造内容 == 某祖先 blob"当成写回旧版直接拒落,但整 blob 等值
+ *              ≠ 回退他人行(2026-09-30 实测:5 个 *-panel.tsx 的角色档修复恰好恢复到 09-27 之前的
+ *              形态,而祖先↔基线只差我要改的那几行圆角)。给出本旗时改判**行级子集**:声明的 removed
+ *              (基线有而新内容没有)/ added(新内容有而基线没有)两个多重集必须与祖先↔基线的实际差集
+ *              **逐项等值**才放行,并逐条点名;不等 ⇒ 照旧拒落,并把没被声明覆盖的那几行打出来
+ *              (那些才是会被写回旧态的他人行)。**声明必须独立算出**:拿本判据自己算的差集回填声明
+ *              等于空调用,所以配对自证(含他人行必须仍拒)是这条出口的有牙证明。
+ *              文件读不到/坏 JSON ⇒ exit 2;声明了射程外路径 ⇒ exit 2(那条声明永远不会被核验,
+ *              留着就是"看着有守卫其实空转")。
+ *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
+ *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
+ *  LAND_DANGLING_GATE 测试通道:涉事判据门体的可执行路径(缺省 = 与本器同目录的
+ *              check-dangling-local-imports.mjs;生产恒走缺省,测试指桩脚本。G-929 同型票起
+ *              本器把被审仓根以 `--root` 透传给门体,桩只仿"退出码 0/1/2"的传输,不仿判据本身)
+ *  IHUI_LAND_SKIP_DANGLING_GATE=1 应急跳过涉事判据(默认必跑;跳过打一行留痕,仅应急)
+ *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
+ *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
+ *  LAND_RESTORE_MANIFEST 可选,指向一份 JSON 清单**文件的路径**(与 LAND_BLOBS/LAND_CLASH_SCOPE 同形,
+ *              传路径不传内联):
+ *              `{entries:[{path, line, restoredFrom, why}]}` 或
+ *              `{entries:[{path, element:{jsonPath, value}, restoredFrom, why}]}` —— **声明式还原通道**
+ *              (2026-10-30 立;element 型同日补,补的正是"键路径档下没有窄出口"那一格)。
+ *              要解的机制缺口:"有意把被误删的祖先内容还原回来"这一型,还原的内容按定义就是
+ *              "祖先里有、基线里没了的行/键路径" ⇒ 复活守卫**必然触红**,而此前唯一具名出口是
+ *              LAND_ALLOW_STALE=1 —— 那是整颗守卫关掉,同一枚落地里真夹带滞后回退也没人挡
+ *              (本仓 2026-10-29/30 一波实测六次撞此型)。本旗把出口收窄成**白名单式逐条放行**:
+ *              ⓪ **两型按路径选一种**,不得混用(同一路径的声明全 line 或全 element,混用 ⇒ exit 2):
+ *                 · line —— 非 JSON 体(活文档/源码)用,按**行文字**配平;
+ *                 · element —— .json/.jsonl 用(键路径档),按 `{jsonPath, value}` 声明的**数组元素**
+ *                   配平(值按深排序 JSON 归一,与键路径复活判据同一把 canonOf);
+ *              ① 只有清单点名的那些复活参与配平,其余任何复活/滞后形态照旧拒落;
+ *              ② 声明必须逐项核验后才免(§0.7"验过才免"):line 必须是**单行原文**;
+ *                 restoredFrom 必须是 40 位全量 sha、是 baseRef 的祖先、且 `<sha>:<path>` 的 blob
+ *                 里确实写着这一行(resurrectKey 归一)/ 确实含这枚元素(canonOf 归一)—— 假 sha/
+ *                 内容不在其中 ⇒ 拒;why ≥10 字定向说明,缺/短/形态坏 ⇒ exit 2(用法错);
+ *              ③ 配平是**多重集双向等值**(与 LAND_CLASH_SCOPE 同纪律):少声明一条复活 ⇒ 拒并点名
+ *                 未覆盖项;多声明一条没被复活 ⇒ 拒("未被核验的声明"就是腐烂的守卫);
+ *              ④ 射程:line 型只管**行级**复活那一支(整 blob 命中祖先走 LAND_CLASH_SCOPE);
+ *                 element 型只管**键路径档的数组元素**复活(标量键复活不受理 —— 值回滚不是"还原
+ *                 登记";基线丢键更不受理 —— 那是真回写);undetermined 永不免(§0.3);
+ *                 声明落在射程外 ⇒ 拒;
+ *              ⑤ 与 LAND_ALLOW_STALE **互斥**(两面旗同给当场 exit 2):一边是逐条放行、一边是整闸
+ *                 关掉,同时举旗说明调用方自己都不知道要什么;
+ *              ⑥ 每次放行必须大声:逐条 entry(path/line|element/restoredFrom/why)既打 stdout,又**逐字
+ *                 追加进提交信息**(Restore-Manifest-Entry trailer),事后从提交史即可追责。
+ *              不传本旗 ⇒ 行为与设立前逐字节一致(镜像 T-RM-3 钉这条)。
+ *  LAND_JSON_STRUCTURE=1 (G-816037)声明"本次落地面是机器格式化 JSON"⇒ 行级复活那一支可走
+ *              **结构等值**出口:基线键路径与数组元素零丢失即不参与拒绝(标量值变化允许,
+ *              因为 read/计数器的自增正是本次的合法编辑)。整 blob 命中祖先(真回写)照判红;
+ *              非 JSON(三份活文档)直接 applicable:false ⇒ 行为与改前逐字同形。默认关闭。
+ *  (G-814414,2026-09-29).json/.jsonl **后缀**的路径默认就走键路径集合对账(jsonKeyPathAudit),
+ *              不再需要这面旗:消失/重现按**键路径与数组元素集合**计,值变化与序列化形态
+ *              (尾逗号、缩进、键序、数组追加、记录重排)不算丢;复活要求**同一键路径**在祖先
+ *              blob 里也取过同值(只按行文本命中不算凭据);丢键无条件参与拒绝(不要求整 blob
+ *              命中祖先)。判不出(解析失败)退回原行级判据并大声报名;Markdown 类活文档永不进这一档。
+ *              这面旗对 .json/.jsonl 不再有豁免权(键路径档已默认生效),保留给"非 JSON 后缀但
+ *              内容确是机器 JSON"的落地面(镜像测试 T-JS-1 钉的那一格)。
+ * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
+ *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
+ *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
+ *            CAS 12 次未抢到 / 提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限);
+ *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问 /
+ *            提交面回读"问不到"⇒ 未判定:落地已推进 HEAD,但存在性未能判定 —— 既不报成功也不报"缺路径",
+ *            因为假失败会诱使重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真)。
+ *
+ * ⚠️ 头注刻意不写"已接 pre-commit / CI / 第 N 项"—— 它是手动常驻工具,那种话会被守门 89 判"声称已接线而零命中"。
+ *
+ * 2026-09-27 补的第二道拒绝(同日实测事故,登记为在账缺陷):本器**只**按声明路径取磁盘字节,
+ * 而磁盘副本常年滞后 HEAD(它正是被绕开的原因 —— 走 pathspec 更糟)。一次真实落地把别人当天
+ * 合法删掉的 25 行整批送回、又抹掉 HEAD 里 3 行活内容,而 `git status`、diff 行数、typecheck、
+ * 全部守门都不响。判据不再自写:复用守门 84 导出的那一份"要交的内容 != HEAD 且字节级等于该路径
+ * 某祖先版本"判定(heal-worktree-tracked 的 alignDrifts 用的是同一出口),本器只是**在落盘前问它一次**。
+ *
+ * 2026-09-27 补的第三道判据(同日第二次自伤,形态与上一道**不同**,整 blob 那一型看不见它):
+ * 上面那条判据的前提是"要交的内容 == 某个祖先版本",而真实事故里调用方**还在陈旧副本上又做了
+ * 自己的小改动**(5 个语言包各加 4 行新键)⇒ 落地的 blob = `祖先副本 ⊕ 新行`,逐字节不等于任何祖先
+ * ⇒ 谓词永不成立 ⇒ offenders 空、连"只报不拦"那一支也进不去(它在 hits 循环里),守卫与没装一样。
+ * 现补**行级复活**判据(`resurrectAnalysis`):一行同时满足 ① 不在基准 blob 里 ② 在要落地的内容里
+ * ③ 在该路径某个祖先版本里 ⇒ 它是"被搬回来的旧内容",不是"新写的内容"。真新编辑只造 ①②,
+ * 陈旧拼接才造 ①②③ —— 这个不对称就是判据的牙(镜像测试两臂各钉一边,两臂同色即判据无牙)。
+ * 祖先窗口**不在本器重复数字**:走守门 84 的 `ancestorCommits` 那一个出口(窗口长度住在它内部);
+ * 一个路径的全部祖先正文经 `face-reader.catBatch` **一次批量**读完(不逐行、不逐 blob 派生)。
+ */
+
+import {
+  hasAnyWatermarkTrace,
+  hasExactCanonicalBanner,
+  dropZeroWidth,
+} from './lib/watermark-lines.mjs'
+// G-04 第二格(2026-10-25):新建路径的注入必须复用 watermark.mjs 的**文本级唯一构造处**
+// (`injectText`)。在这里再拼一份横幅/零宽载荷 = §0.6 禁止的第二份真相 —— 编码只有
+// `encodePayload` 一份,拼第二次必然漂移;而漂移的形态是"落地器造的载荷 verify 解不出"。
+import { injectText } from './watermark.mjs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-04(2026-10-24):换面后的预检要把 blob 落到临时副本再跑 verify,而那一层按**仓库相对路径**
+// 判"已登记第三方 / 上游工具生成物"两档豁免 —— 临时路径会丢掉这个身份。两档判据各自只有
+// 一份实现(§0.6),这里直接复用它们的出口,不在本器里另写一份"哪些路径不用带横幅"。
+import { createExclusionPredicate } from './lib/third-party-roots.mjs'
+import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
+import { maskComments, scanLiterals } from './lib/code-mask.mjs'
+import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
+// L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
+// (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
+import {
+  gateLandingMarkers,
+  LANDING_MARKER_SKIP_ENV,
+} from './lib/conflict-marker-landing-gate.mjs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import {
+  alignSharedIndex,
+  casUpdateRef,
+  commitTreeWithIndex,
+  git,
+  headBlobOf,
+  isAncestor,
+  resolveHeadRef,
+  writeBlob,
+  writeBlobOfWorktree,
+  rerunLedgerHeal,
+  ABSENT,
+  UNKNOWN,
+} from './lib/bypass-git.mjs'
+import {
+  analyze as staleAncestorAnalysis,
+  ancestorCommits,
+  resolveBlobs,
+} from './check-stale-revert.mjs'
+import { catBatch, gitBinary, readWorktreeFile } from './lib/face-reader.mjs'
+// 存在性三态探针需要 git 二进制的解析出口(与 bypass-git 同一份,不在本器另立候选路径)。
+// 行级复活/计行判据的**单一实现**(2026-09-28 提取到 lib:守门 84 的 R1r 要用同一把尺子,
+// 两处各写一遍必然漂开 —— 本层只留 import 与再导出,不再持有第二份计数口径)。
+import {
+  lineDelta,
+  lineDeltaMaps,
+  multisetOfLines,
+  multisetsEqual,
+  resurrectAnalysis,
+  resurrectKey,
+  tallyLines,
+  RESURRECT_MAX_BLOB_BYTES,
+  RESURRECT_MIN_LINE_LEN,
+  SAMPLE_LINES,
+  SAMPLE_COL,
+} from './lib/stale-content-analysis.mjs'
+// D171(2026-09-30):混提辅助清单统一走 lib/git-paths 的 -z 出口(NUL 分帧不经
+// core.quotePath 转写),与 safe-commit Step 5 共用同一份实现 —— 两处算同一件事必漂移。
+import { gitCommitPaths } from './lib/git-paths.mjs'
+// G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
+import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// 孤儿提交备份腿的单一真相源(2026-10-29 门 30a 根因票):拼名/查重/annotated tag/pack-refs/
+// 留痕/永不抛 全部住 lib,本器只在**弃落出口**调它 —— 判据不在本文件复刻第二份(§0.6)。
+import { backupOrphanCommit } from './lib/orphan-backup.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+// 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
+const WATERMARK_CLI = join(HERE, 'watermark.mjs')
+const REPO_ROOT = resolve(HERE, '..')
+// 与 lib/bypass-git.mjs 同一个解析出口(候选路径只有一份,本器不另立)。
+// 绝对路径与 PATH 兜底都由取材层那一份实现负责,本层不再自己绑一份裸 git。
+const GIT_BIN = gitBinary()
+const MAX_CAS_ATTEMPTS = 12
+
+/**
+ * 「本轮 commit-tree 造出的 sha 没有成为 ref 的当前值」⇒ 它才是孤儿,按 §29 备份(门 30a 根因腿)。
+ * 判据只问 git 的结论、不自己推:HEAD 所指 ref 的当前值逐字节等于这枚 sha ⇒ 正常落地,一枚 tag 都不打
+ * (给成功落地的那枚打 tag = 把每次落地变成 tag 噪声;30a 认账只看 lost-commit/* 的 sha 直等,
+ * 可达对象本就不算悬空)。取不到 ref 或取不到其当前值(detached / git 问不到)⇒ 按「未成为 ref 值」
+ * 处理、宁多备一枚 —— 这一腿的失效方向必须是"多备份",绝不能是"假装修过"(§0.3)。
+ * 永不抛(承 lib backupOrphanCommit 契约)。`deps` 仅供镜像测试注入假面;生产调用一律只传 (sha, why, root)。
+ */
+function backupIfAbandoned(sha, why, root, deps = {}) {
+  if (!sha) {
+    console.error(
+      `⚠️ backupIfAbandoned:${why} ⇒ 本轮没有可备份的 sha(no-sha)—— 未备份不等于不需要备份(§0.3)`,
+    )
+    return { ok: false, ref: null, why: 'no-sha' }
+  }
+  const headOf = deps.headOf ?? defaultRefHeadValue
+  const headNow = headOf(root)
+  if (headNow && String(headNow).trim() === String(sha).trim())
+    return { ok: true, ref: null, why: 'landed' }
+  const { backup = backupOrphanCommit, logger, headOf: _injected, ...passthrough } = deps
+  return backup({
+    sha,
+    kind: 'land',
+    why,
+    root,
+    logger: logger ?? ((m) => (String(m).startsWith('⚠️') ? console.error(m) : console.log(m))),
+    ...passthrough,
+  })
+}
+
+/** casUpdateRef 写的就是 HEAD 指向的 ref(resolveHeadRef 现读);当前值按同一条 ref 问 git,不另立第二条判据。 */
+function defaultRefHeadValue(root) {
+  const ref = resolveHeadRef({ root })
+  if (!ref) return null
+  return git(['rev-parse', '--verify', '--quiet', ref], { root, allowFail: true })
+}
+
+/** 读 env 并判用法;不合法 ⇒ {error, code:2}。 */
+export function parseArgs(env = process.env) {
+  const root = env.LAND_ROOT ? resolve(env.LAND_ROOT) : REPO_ROOT
+  const paths = String(env.LAND_PATHS ?? '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const msg = env.LAND_MSG ?? ''
+  const baseRef = env.LAND_BASE_REF || 'HEAD'
+  /**
+   * `LAND_REMOVE_PATHS` = 从结果树里**摘掉**的路径清单(以 `;` 分隔)。G-926(2026-10-21 立):
+   * "旁路落地器表达不了删除"这一格把 58 枚"已跟踪却被 .gitignore 覆盖"的临时件卡死在台账里 ——
+   * 取消跟踪是**从树里摘路径**,而本器此前只有"写入"一档,调用方只能手搓临时索引(那正是
+   * AGENTS 记过"6 份同形脚本互相漂开"的形状)。底层能力其实早已具备:
+   * `lib/bypass-git.mjs` 的 `commitTreeWithIndex` 删除档(G-1080881)自带两条护栏
+   * (① deleted 项不得同时带 text/blob;② 路径必须在 baseRef 树里真在位),本器只把它暴露成声明式出口。
+   * 反向自证也必须是"不在树里":删除这一支的回读问的是 `git ls-tree <tree> <path>` **查不到**,
+   * 而不是"在树里"(写入档问的是在树里) —— 拿写入档的尺子量删除,一条都没删也能过。
+   * 他席已暂存的路径一律不动并点名(§12),这一条与写入档同一处理。
+   */
+  const removePaths = String(env.LAND_REMOVE_PATHS ?? '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  /**
+   * `LAND_BLOBS` = 内容清单(JSON:`{files:[{path,blob}]}`)。为什么要有这条通道:
+   * 共享工作树里**别人的在飞改动**与本票的改动常常落在同一个文件的不同行上,而"交工作树字节"
+   * 就是替别人落地(§12 污染型)。这时正确内容只能是 `HEAD ⊕ 本票行`,它只存在于对象空间。
+   * 磁盘那条路(`writeBlobOfWorktree`)对这种内容根本不成立,所以必须显式声明来源,而不是
+   * 让调用方再手写第六份 commit-tree 装置(AGENTS 记过:6 份同形脚本已互相漂开)。
+   */
+  const blobs = env.LAND_BLOBS ? JSON.parse(readFileSync(env.LAND_BLOBS, 'utf8')) : null
+  const blobOf = blobs ? new Map((blobs.files || []).map((f) => [f.path, f.blob])) : null
+  /**
+   * `LAND_JSON_STRUCTURE=1`(G-816037)= **显式声明**"本次声明路径是机器格式化 JSON,允许走结构等值出口"。
+   * 默认关闭:不开时行为与本票落地前**逐字同形**(判据见 `jsonStructuralSuperset`)。
+   * 它只影响"行级复活"那一支是否参与拒绝;整 blob 命中祖先(真回写)照判红,活文档非 JSON 直接不适用。
+   */
+  const jsonStructure = env.LAND_JSON_STRUCTURE === '1'
+  // 声明面必须至少有一边:LAND_PATHS(写入)或 LAND_REMOVE_PATHS(删除)非空。
+  // 单独把"删除"做成合法入口(G-926):58 枚临时件的收口是纯删除、零写入,若仍要求 LAND_PATHS 非空,
+  // 调用方就得塞一个假路径进去,而那正是本器要防的"声明面与内容面不一致"。
+  if (paths.length === 0 && removePaths.length === 0)
+    return {
+      error:
+        '缺 LAND_PATHS / LAND_REMOVE_PATHS(至少给一边,以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)',
+    }
+  if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
+  if (!resolveHeadRef({ root }))
+    return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
+  // 仓库身份对账(2026-10-30):root 必须是**它自己的仓顶**,不能是某个仓的内部目录 ——
+  // 否则 git 会向上逃逸到父仓,LAND_ROOT 指歪时本器会静默把别人的仓当成落地面。
+  // 立因是实测:LAND_ROOT 指向一个**没有 .git 的夹具目录**,而该目录此刻恰好落在仓树内
+  // (scratch 根已搬进仓内),`git rev-parse HEAD` 竟然成功 ⇒ 守卫以为"是可用仓库"继续往下走。
+  // 这条判据与 resolveHeadRef 同源(symbolic-ref 成功 ⇒ 才问 --show-toplevel),不新造仓库概念。
+  {
+    const top = String(
+      git(['rev-parse', '--show-toplevel'], { root, allowFail: true }) ?? '',
+    ).trim()
+    const norm = (p) => (process.platform === 'win32' ? resolve(p).toLowerCase() : resolve(p))
+    if (!top || norm(top) !== norm(root))
+      return {
+        error: `${root} 不是可用仓库(它是 ${top || '(问不到仓顶)'} 的内部目录,按 root 落地会逃逸到父仓)⇒ 无法判定,不落`,
+      }
+  }
+  // 删除档与写入档的声明面必须互斥:同一条路径"既写入又删除"是自相矛盾(底层 commitTreeWithIndex
+  // 对 deleted+blob 也会拒,但那一层报的是英文堆栈,在 CLI 面上要先说人话)。
+  const bothWays = paths.filter((p) => removePaths.includes(p))
+  if (bothWays.length > 0)
+    return {
+      error: `这些路径同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS ⇒ 自相矛盾,拒绝落地:\n  ${bothWays.join('\n  ')}`,
+    }
+  if (blobOf) {
+    const noBlob = paths.filter((p) => !blobOf.get(p))
+    if (noBlob.length > 0)
+      return {
+        error: `LAND_BLOBS 清单里缺这些声明路径 ⇒ 内容无从取得,拒绝落地:\n  ${noBlob.join('\n  ')}`,
+      }
+    const unknown = [...blobOf.keys()].filter((p) => !paths.includes(p))
+    if (unknown.length > 0)
+      return {
+        error: `LAND_BLOBS 里有未声明路径(${unknown.join(', ')})⇒ 声明面与内容面必须一致,拒绝落地`,
+      }
+    /**
+     * 空内容守卫(2026-10-18 立,本仓当天实测踩到并已推到远端一次)。
+     * 三档:取不到字节数 ⇒ 判不出,拒绝(§0.3);0 字节而基线同路径非空 ⇒ 拒绝;其余放行。
+     * 成因**不是**"想清空这个文件"(本器结构上表达不了删除,删除走整树那一面),而是调用方把
+     * `git hash-object -w --stdin` 配 `stdio: ['ignore','pipe','pipe']` 派了出去 —— AGENTS §12g 明令
+     * 带 input 的派生 stdin 必须是 'pipe',否则 git 读到空 stdin、**安静地产出空 blob** `e69de29b…`,
+     * 而返回值仍是一串"看着像 sha"的 40 位十六进制。那一枚把 1,673,110 字节的 pnpm-lock.yaml 落成了
+     * 0 字节,而本器当时的每一句自检都是绿的("祖先对账:不等于任何历史 blob"、"提交面回读 1/1 在树")
+     * —— 存在性判据看不见内容形状,所以这一格必须由本器自己补,不能指望调用方记得验体积。
+     */
+    const emptyGuards = []
+    for (const p of paths) {
+      const oid = blobOf.get(p)
+      const newSz = git(['cat-file', '-s', oid], { root, allowFail: true })
+      if (newSz === null) {
+        emptyGuards.push(`${p}:新 blob ${oid} 的字节数取不到 ⇒ 判不出,不落地`)
+        continue
+      }
+      if (Number(newSz) !== 0) continue
+      const baseOid = headBlobOf(baseRef, p, { root })
+      if (baseOid === ABSENT) continue
+      if (baseOid === UNKNOWN) {
+        emptyGuards.push(`${p}:基线 ${baseRef}:${p} 的 blob 问不到 ⇒ 判不出,不落地`)
+        continue
+      }
+      const baseSz = git(['cat-file', '-s', baseOid], { root, allowFail: true })
+      if (baseSz === null) {
+        emptyGuards.push(`${p}:基线 blob ${baseOid} 的字节数取不到 ⇒ 判不出,不落地`)
+        continue
+      }
+      if (Number(baseSz) > 0)
+        emptyGuards.push(
+          `${p}:新内容是 0 字节,而 ${baseRef}:${p} 是 ${baseSz} 字节(空 stdin 落地的形状)`,
+        )
+    }
+    if (emptyGuards.length > 0)
+      return {
+        error: `❌ 空内容守卫拒绝落地:\n  ${emptyGuards.join('\n  ')}\n   本器不接受"非空文件被落成 0 字节";若真要删除该文件,走能表达删除的那条整树通道,不是这里。`,
+      }
+    // blob 模式不要求盘上有该文件:内容来自对象空间,工作树那份属于别人
+  } else {
+    const missing = paths.filter((p) => !existsSync(join(root, p)))
+    if (missing.length > 0) return { error: `声明路径不在盘上:\n  ${missing.join('\n  ')}` }
+  }
+  return { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure }
+}
+
+/** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
+export function clobberedPaths(paths, baseMap, headNow, { root }) {
+  return paths.filter((p) => headBlobOf(headNow, p, { root }) !== baseMap.get(p))
+}
+
+/* 计行口径与行级复活判据(linesOf / tallyLines / resurrectKey / lineDelta / resurrectAnalysis)
+ * 已于 2026-09-28 提取到 scripts/lib/stale-content-analysis.mjs —— 守门 84 的 R1r 与本器必须用
+ * **同一把尺子**,所以本文件不再持有实现,只 import 上面那一份。 */
+/**
+ * 陈旧落地守卫。两条互相补盲的判据,任一条成立即**拒绝**:
+ *
+ *  A. **整 blob**:盘上要交的副本**等于该路径某个祖先版本**、且落地会**抹掉基线里活着的行**。
+ *     判据只有一份,住在守门 84(`check-stale-revert.mjs` 导出的 analyze):"要交的内容 != HEAD
+ *     且字节级等于该路径某祖先版本"。heal-worktree-tracked 的 alignDrifts 调的是同一个出口;
+ *     本器**不再抄第三份**(两处算同一件事必漂移是本仓记过最多次的失败型)。它给得出精确祖先 sha。
+ *  B. **行级复活**:内容不等于任何祖先(因为调用方在陈旧副本上又改了东西)⇒ A 结构上看不见,
+ *     但落地仍会把基线已删的行搬回来。判据是 `resurrectAnalysis`(①②③ 三条见其注释)。
+ *  B′. **键路径对账(G-814414)**:`.json`/`.jsonl` 后缀的路径改走 `jsonKeyPathAudit` ——
+ *     丢 = 键路径/数组元素集合变小(值变化与序列化形态不算丢),复活 = 同一键路径在祖先 blob
+ *     里也取过同值(只按行文本不算凭据);**丢键无条件参与拒绝**,不再要求整 blob 命中祖先。
+ *     判不出(两侧或正文不是可解析 JSON)⇒ 退回 B 并逐条报名;Markdown 类活文档永不进这一档。
+ *
+ * 三种结论,不并桶:
+ *  - offender(参与拒绝):A 成立 ∧ 有行会从基线消失(或量不到消失行数)/ B 量到复活行 ≥ 1 /
+ *    B **未能判定**(取不到祖先正文、无祖先版本、超过尺寸护栏)—— 判不了就不放行,
+ *    本器已有大声出口 `LAND_ALLOW_STALE=1`,宁可让人显式确认,绝不把"没判"写成"判过了"。
+ *  - 只报不拦:A 成立 ∧ 相对基线只增不删 ∧ B 已判定且复活 0 行(即新增的都是噪声行/真新内容)。
+ *    这一支现在很窄 —— B 未判定也走 offender,所以"把别人删掉的行搬回来"不再能从这一支溜走。
+ *  - 不在射程(报数不判红):基线里没有这条(新增文件无行可消失)/ 基线该路径 ≠ 当下 HEAD
+ *    (守门 84 的祖先链以 HEAD 为锚,那条链此刻不是本次落地的基准)/ 二进制正文(行级判据按定义
+ *    不适用,而 A 仍照判)。三种都**报名**,不静默。
+ *
+ * **blob 模式(`blobOf` 非空)**:判据面换成**构造提交的对象库 blob**,正文取 `git cat-file blob
+ * <oid>`,不再读工作树(盘上那份属于别人的在飞改动,拿它做证就是替别人的内容签字)。整 blob
+ * 命中祖先那一支**只报名、不重复拒**:它由上一步的祖先对账(`blobAncestorClash`,含逐行声明
+ * 出口)判决;这里若照搬"命中祖先 + 有消失 ⇒ 拒"会把那份显式放行重新判红,两条判据互锁。
+ * 本维在 blob 模式下专判它结构上看不见的另一半:构造内容**不等于任何祖先**、却把基线已删的
+ * 行搬回来。报告带 `face` 字段(`worktree` / `blob`),渲染层据此说清判的是哪一面。
+ *
+ * **声明式还原通道(2026-10-30 立,`restoreBy` 参数)**:Map<path, Array<{line,restoredFrom,why}>>,
+ * 由 main() 装载并**逐条核验过**(sha 在对象库/是 baseRef 祖先/blob 里写着这行)才传进来。
+ * 语义是**白名单式逐行放行**:某路径的全部复活行与声明多重集**逐项等值**(配平在 lib 同一份
+ * 实现里算,不在这里抄第二把尺)才免该路径的行级拒绝;以下四种情形**照样拒落**,绝不因举了旗就宽:
+ *  ① 复活集里混着任何未声明的行;② 声明了却没复活(未被核验的声明 = 腐烂守卫);
+ *  ③ 整 blob 命中祖先 / .json 键路径档 / 行级判据 undetermined·out-of-scope(射程外);
+ *  ④ offenders 那半边(A 支整 blob、消失行数未判定)一字不动。
+ * 不传本参数 ⇒ 返回值与行为与设立前逐字节同形(反向③由镜像 T-RM-3 钉)。
+ */
+export function detectStaleLanding({
+  root,
+  paths,
+  baseRef = 'HEAD',
+  head,
+  jsonStructure = false,
+  blobOf = null,
+  restoreBy = null,
+}) {
+  const headRef = head ?? git(['rev-parse', 'HEAD'], { root })
+  const notes = []
+  const judged = []
+  // 声明式还原通道的逐路径配平台账(仅 restoreBy 传入时有人写;判后回写,循环末统一结算)。
+  const restoreEval = new Map()
+  for (const p of paths) {
+    const b = headBlobOf(baseRef, p, { root })
+    if (b === ABSENT) continue
+    if (b !== headBlobOf(headRef, p, { root })) {
+      notes.push({
+        path: p,
+        kind: 'face-mismatch',
+        why: '基线与当下 HEAD 在该路径上不同 ⇒ 祖先链不是本次落地的基准,交防覆盖护栏判定',
+      })
+      continue
+    }
+    judged.push(p)
+  }
+  let hits
+  try {
+    hits = blobOf
+      ? blobFaceAncestorHits({ root, paths: judged, blobOf })
+      : staleAncestorAnalysis(root, judged, { source: 'worktree' })
+  } catch (e) {
+    return {
+      ok: false,
+      offenders: judged.map((p) =>
+        mkEntry(p, null, null, null, {
+          status: 'undetermined',
+          reason: '整 blob 判据未能运行 ⇒ 行级判据无从对齐',
+        }),
+      ),
+      notes,
+      face: blobOf ? 'blob' : 'worktree',
+      reason: `陈旧判据未能运行:${firstLine(e)}`,
+    }
+  }
+  const hitBy = new Map(hits.map((h) => [h.path, h.commit]))
+
+  // 祖先清单:每路径一次 git log(复用守门 84 的窗口出口,本器不重复窗口数字)。
+  // 尺寸护栏排在**取祖先正文之前**:不这样就会为一个 3.9MB 的滞后大文件派 40 × 3.9MB 的读,
+  // 而那份读的结果按定义不采用(超限即未判定)—— 白花一次派生等于给自己造一个"太慢所以被人跳过"的守卫。
+  const shasBy = new Map()
+  const logFailed = new Set()
+  const sizeExceeded = new Set()
+  const contentOf = new Map()
+  for (const p of judged) {
+    if (blobOf) {
+      // blob 模式:判的是**构造提交的那份字节**,从对象库取;盘上那份是谁的不重要,反正不采用。
+      const oid = blobOf.get(p)
+      const text = isOidLike(oid)
+        ? git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+        : null
+      contentOf.set(
+        p,
+        text === null ? new Error(`构造 blob ${oid || '(清单里没有)'} 的正文取不到`) : text,
+      )
+      continue
+    }
+    try {
+      contentOf.set(p, readWorktreeFile(root, p))
+    } catch (e) {
+      contentOf.set(p, e) // 留错误对象:报告要能区分"读不到"与"读出来是 null(二进制/不存在)"
+    }
+  }
+  let texts = new Map()
+  let batchError = null
+  try {
+    texts = catBatch(
+      root,
+      judged.map((p) => `${baseRef}:${p}`),
+    )
+  } catch (e) {
+    batchError = firstLine(e)
+  }
+  if (!batchError) {
+    for (const p of judged) {
+      const wt = contentOf.get(p)
+      const base = texts.get(`${baseRef}:${p}`)
+      if (
+        typeof wt === 'string' &&
+        typeof base === 'string' &&
+        Math.max(wt.length, base.length) > RESURRECT_MAX_BLOB_BYTES
+      ) {
+        sizeExceeded.add(p)
+        continue
+      }
+      try {
+        shasBy.set(p, ancestorCommits(root, p))
+      } catch {
+        shasBy.set(p, [])
+        logFailed.add(p) // "读不到祖先"与"没有祖先"是两件事,后者才可能真是新文件
+      }
+    }
+    // 正文:**每路径一次批量读满**(它的全部祖先版本走同一次 cat-file --batch,不逐 blob 派生)。
+    const ancSpecs = []
+    for (const p of judged) for (const c of shasBy.get(p) ?? []) ancSpecs.push(`${c}:${p}`)
+    if (ancSpecs.length > 0) {
+      try {
+        for (const [k, v] of catBatch(root, ancSpecs)) texts.set(k, v)
+      } catch (e) {
+        batchError = firstLine(e)
+      }
+    }
+  }
+
+  const offenders = []
+  for (const p of judged) {
+    const wt = contentOf.get(p)
+    const newText = wt instanceof Error ? null : wt
+    const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
+    let delta = lineDelta(baseText, newText)
+    const wholeHit = hitBy.get(p) ?? null
+    /**
+     * blob 模式:整 blob 命中祖先这一格已由祖先对账(`blobAncestorClash`,含逐行声明出口)判过,
+     * 本维只报名、不重复拒。这里若照搬"命中祖先 + 有消失 ⇒ 拒",会把那一闸**显式放行**的
+     * 声明件重新判红 —— 两条判据互锁,合法出口一次都走不通。
+     */
+    if (blobOf && wholeHit && !(wt instanceof Error)) {
+      notes.push({
+        path: p,
+        kind: 'blob-face-delegated',
+        why: `构造内容命中祖先 ${String(wholeHit).slice(0, 9)} ⇒ 整 blob 面已由祖先对账判决(含行级声明出口),本维不重复拒`,
+      })
+      if (restoreBy?.has(p)) {
+        restoreEval.set(p, {
+          consumed: false,
+          entries: restoreBy.get(p),
+          restore: null,
+          why: 'blob 模式整 blob 命中祖先 ⇒ 判决在祖先对账(LAND_CLASH_SCOPE 行级声明),行级还原白名单不覆盖这一格',
+        })
+      }
+      continue
+    }
+    let line
+    // G-814414:.json/.jsonl 后缀的路径在"判据真的读到了东西"的格子里改走键路径对账;
+    // 其余格子(批量读取失败/超尺寸/取不到祖先清单)与判不出(非可解析 JSON)一律退回
+    // 原行级判据 —— 退回必须逐条报名,不得静默。
+    let jsonMode = false
+    if (batchError)
+      line = {
+        status: 'undetermined',
+        reason: `祖先正文批量读取失败:${batchError}`,
+        sample: [],
+        commits: [],
+      }
+    else if (sizeExceeded.has(p))
+      line = {
+        status: 'out-of-scope',
+        reason: `正文超过行级扫描尺寸护栏 ${RESURRECT_MAX_BLOB_BYTES}B ⇒ 未读祖先(整 blob 判据仍照判)`,
+        sample: [],
+        commits: [],
+      }
+    else if (logFailed.has(p))
+      line = {
+        status: 'undetermined',
+        reason: '祖先提交清单取不到(git log 未能运行)',
+        sample: [],
+        commits: [],
+      }
+    else {
+      const ancestors = (shasBy.get(p) ?? []).map((c) => ({
+        commit: c.slice(0, 9),
+        text: texts.get(`${c}:${p}`) ?? null,
+      }))
+      const kind = jsonGuardKindFor(p)
+      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors }) : null
+      if (audit && audit.applicable) {
+        jsonMode = true
+        delta = audit.delta
+        line = audit.line
+        notes.push({
+          path: p,
+          kind: 'json-keypath-mode',
+          why:
+            `G-814414 键路径口径(${kind}):消失/重现按**键路径与数组元素集合**计 —— 值变化、尾逗号、` +
+            `缩进、键序、数组追加/记录重排都不算丢;复活要求**同一键路径**在祖先 blob 里也取过同值,` +
+            `只按行文本命中不算凭据。本轮读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / ` +
+            `复活 ${line.status === 'judged' ? line.count : '未判定'}` +
+            (delta.vanished > 0
+              ? `(丢键点名:${delta.vanishedSample.slice(0, 3).join(' ; ')})`
+              : '') +
+            '。',
+        })
+      } else {
+        if (audit)
+          notes.push({
+            path: p,
+            kind: 'json-keypath-fallback',
+            why: `键路径档不适用(${audit.reason})⇒ 退回原行级判据(该路径此轮按行文字对账,口径见 B 支)`,
+          })
+        // 声明式还原:把清单里的**原文行**交给同一份实现配平(lib 用与复活计数同一把 key 归一,
+        // 声明侧不存在第二把尺;不传 declaredLines ⇒ 返回对象逐字节与旧版同形)。
+        const declaredForPath = restoreBy?.get(p)
+        line = resurrectAnalysis({
+          baseText,
+          newText,
+          ancestors,
+          ...(declaredForPath ? { declaredLines: declaredForPath.map((d) => d.line) } : {}),
+        })
+      }
+    }
+    if (wt instanceof Error)
+      notes.push({
+        path: p,
+        kind: 'undetermined',
+        why: `${blobOf ? '构造 blob 正文取不到' : '工作树正文读不到'}:${firstLine(wt)}`,
+      })
+    const entry = mkEntry(p, wholeHit, delta, line)
+    // 未覆盖必须**逐条报名**,且与"是否参与拒绝"无关 —— 一台只在放行时才沉默的守卫,
+    // 读报告的人会把"没判"当成"判过了"(本仓最高频失效型)。
+    if (line.status === 'out-of-scope')
+      notes.push({
+        ...entry,
+        kind: 'line-out-of-scope',
+        why: `${jsonMode ? '复活判据' : '行级复活判据'}未覆盖此路径:${line.reason}`,
+      })
+    const refuseByBlob = !!wholeHit && (delta.vanished === null || delta.vanished > 0)
+    // G-814414:jsonMode 下拒绝的牙有两颗 —— ①丢(键路径/数组元素集合变小,无条件拦,不再要求
+    // 整 blob 命中祖先:陈旧副本 ⊕ 本票小改的混合体正是整 blob 判据结构上看不见的那一型);
+    // ②复活(同一键路径在祖先里取过同值)。undetermined 照旧不放行;out-of-scope(无祖先可对照)
+    // 只豁免"复活"那半边,丢是直接量出来的,照拦。
+    let refuseByLines =
+      line.status === 'undetermined'
+        ? true
+        : jsonMode
+          ? (line.count ?? 0) > 0 || (delta.vanished ?? 0) > 0
+          : line.status === 'judged' && line.count > 0
+    // ── 声明式还原通道:白名单逐行配平(2026-10-30)──────────────────────────────
+    // 放行条件**全部**成立才免:行级判据 judged(undetermined/out-of-scope 永不免,§0.3)∧
+    // 非键路径档 ∧ 整 blob 未命中祖先(A 支另有 LAND_CLASH_SCOPE 出口)∧ lib 里算出的
+    // restore.match(声明多重集 == 复活多重集,双向等值:少声明一行复活/多声明一行没复活都不行)。
+    // 放行只撤销这一支的拒绝;offenders 其余维度与其余路径一律照旧。
+    if (restoreBy?.has(p)) {
+      const entries = restoreBy.get(p)
+      const elementMode = jsonMode && entries.every((en) => en.element)
+      if (elementMode) {
+        // element 型(2026-10-30):键路径档下"有意还原被误删的数组元素"的窄出口。
+        // 放行条件与行级通道同纪律:判定面必须是 judged、整 blob 没命中祖先(那是真回写,
+        // 另有 LAND_CLASH_SCOPE)、基线零丢(丢是真回写,不在"还原"语义里),加上声明 ↔ 证据
+        // 双向多重集等值。任何一条不成立都照拒。
+        const cmp = compareElementRestore({
+          evidence: line.evidence,
+          overflow: line.evidenceOverflow,
+          declared: entries.map((en) => en.element),
+        })
+        const exempt =
+          line.status === 'judged' &&
+          !wholeHit &&
+          (delta.vanished ?? 0) === 0 &&
+          cmp.match === true
+        restoreEval.set(p, {
+          consumed: exempt,
+          entries,
+          restore: { match: cmp.match, undeclared: cmp.undeclared, overDeclared: cmp.overDeclared },
+          why: exempt
+            ? null
+            : line.status !== 'judged'
+              ? `键路径判据此轮为 ${line.status}(${line.reason ?? '无名'})⇒ 白名单不豁免"没判/不在射程",声明未被核验`
+              : wholeHit
+                ? '整 blob 命中祖先 ⇒ 判决在祖先对账(LAND_CLASH_SCOPE 行级声明),element 型还原清单不覆盖'
+                : (delta.vanished ?? 0) > 0
+                  ? `基线有 ${delta.vanished} 处键路径/数组元素在落地内容里消失 ⇒ 这是丢(真回写),不在"还原"语义里,声明不豁免它`
+                  : cmp.why,
+        })
+        if (exempt) {
+          refuseByLines = false
+          notes.push({
+            path: p,
+            kind: 'restore-manifest-exempt',
+            why:
+              `LAND_RESTORE_MANIFEST 白名单逐元素放行(键路径档):本轮 ${line.count} 条复活证据**全部是数组元素**,` +
+              `且被清单逐条声明、双向多重集等值;声明元素已在 restoredFrom 那个祖先 blob 的同一容器里核验到。` +
+              `基线零丢(消失 0)才免 —— 丢是真回写,这一支不覆盖它。清单逐字写入提交信息可事后追责。` +
+              `读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / 复活 ${line.count}(声明 ${entries.length} 条)。`,
+            resurrected: line.count,
+            resurrectedSample: line.sample,
+            restoreEntries: entries,
+          })
+        }
+      } else {
+        const exempt =
+          line.status === 'judged' &&
+          !jsonMode &&
+          !wholeHit &&
+          !!line.restore &&
+          line.restore.match === true
+        restoreEval.set(p, {
+          consumed: exempt,
+          entries,
+          restore: line.restore ?? null,
+          why: exempt
+            ? null
+            : line.status !== 'judged'
+              ? `行级判据此轮为 ${line.status}(${line.reason ?? '无名'})⇒ 白名单不豁免"没判/不在射程",声明未被核验`
+              : jsonMode
+                ? '该路径走键路径档(.json/.jsonl)⇒ **行级**清单不覆盖这一维(键路径档的复活口径是同一键路径取过同值,不是行文字);这一型请改用 element 型声明(见下 exit ③)'
+                : wholeHit
+                  ? '整 blob 命中祖先 ⇒ 判决在祖先对账(LAND_CLASH_SCOPE 行级声明),行级还原白名单不覆盖'
+                  : `声明与本轮复活集不逐项等值:未声明的复活行 ${line.restore?.undeclared?.length ?? '?'} 条 / 多余声明 ${line.restore?.overDeclared?.length ?? '?'} 条(逐条点名见下)`,
+        })
+        if (exempt) {
+          refuseByLines = false
+          notes.push({
+            path: p,
+            kind: 'restore-manifest-exempt',
+            why:
+              `LAND_RESTORE_MANIFEST 白名单逐行放行:本轮复活 ${line.count} 行**全部**被清单逐条声明且已通过核验` +
+              `(restoredFrom 为 baseRef 祖先、其 <sha>:<path> blob 逐字写着该行)。` +
+              `本通道只免点名的这些行;未声明的复活/滞后形态照旧拒落,清单逐字写入提交信息可事后追责。` +
+              `读数:消失 ${delta.vanished} / 重现 ${delta.appeared} / 复活 ${line.count}(声明 ${line.restore.declared} 条)。`,
+            resurrected: line.count,
+            resurrectedSample: line.sample,
+            restoreEntries: entries,
+          })
+        }
+      }
+    }
+    // G-816037 结构档:只对"调用方显式声明 + 整 blob 没命中祖先 + 行级判据确实读到了东西"的那一格生效。
+    // 三条都必要 —— 默认开启等于给所有落地开后门;wholeHit 命中祖先是真回写;
+    // 'undetermined' 是"没判",把它换成放行就是本仓最高频那一型(把没判写成判过了)。
+    // G-814414 起再加一条:!jsonMode —— .json/.jsonl 已默认走键路径档,那里"复活"是真阳性
+    // (同一键路径在祖先取过同值),结构等值判据(只查基线 ⊆ 落地)看不见它,不得拿它当豁免凭据;
+    // 这面旗保留给"非 JSON 后缀但内容确是机器 JSON"的落地面(镜像测试 T-JS-1 的 pack.txt)。
+    if (refuseByLines && !wholeHit && jsonStructure && !jsonMode) {
+      const st = jsonStructuralSuperset({ baseText, nextText: newText })
+      if (st.applicable && st.pass) {
+        refuseByLines = false
+        notes.push({
+          path: p,
+          kind: 'json-structure-exempt',
+          why:
+            `结构等值成立(基线键路径与数组元素零丢失,标量值变化允许)⇒ 复活 ${line.count} 行` +
+            `是 JSON 逗号换位的假阳,不参与拒绝。三个数照登:消失 ${delta.vanished} 行 / 重现 ${delta.appeared} 行 / ` +
+            `复活 ${line.count} 行(样本:${line.sample.slice(0, 2).join(' | ') || '—'};` +
+            `出自祖先 ${line.commits.slice(0, 3).join(', ') || '未点名'})。` +
+            `本档由 LAND_JSON_STRUCTURE=1 显式声明,且不适用于活文档(非 JSON 即 applicable:false)。`,
+          vanished: delta.vanished,
+          appeared: delta.appeared,
+          resurrected: line.count,
+          resurrectedSample: line.sample,
+          resurrectedBy: line.commits,
+          commit: null,
+          vanishedSample: delta.vanishedSample,
+          appearedSample: delta.appearedSample,
+          lineStatus: line.status,
+        })
+      } else if (!st.applicable && st.reason && !st.reason.includes('走原行级判据')) {
+        notes.push({ path: p, kind: 'undetermined', why: `结构档未能判定:${st.reason}` })
+      } else if (st.applicable && !st.pass) {
+        notes.push({
+          path: p,
+          kind: 'json-structure-rejected',
+          why:
+            `结构档不成立(丢键 ${st.droppedKeys.length} / 数组缩水 ${st.shrunkArrays.length})⇒ 行级复活照判红,` +
+            `这不是格式化假阳而是真回写。点名:${[...st.droppedKeys, ...st.shrunkArrays].slice(0, 3).join(' ; ')}`,
+        })
+      }
+    }
+    if (refuseByBlob || refuseByLines) {
+      offenders.push(entry)
+      continue
+    }
+    if (wholeHit)
+      notes.push({
+        ...entry,
+        kind: 'resurrect-only',
+        why:
+          `内容等于祖先 ${wholeHit},相对基线只增 ${delta.appeared} 行、不删任何行,` +
+          `且新增行都不在该祖先版本里(复活 0 行)⇒ 只报不拦`,
+      })
+  }
+  // ── 声明式还原结算(2026-10-30):每一条装载过的声明都必须被**消费**(用于一次真放行),
+  //    否则就是"看着有守卫其实空转"的腐烂声明(LAND_CLASH_SCOPE 的射程外声明 exit 2 同纪律),
+  //    整枚落地拒下。消费只发生在 restore-manifest-exempt 那一格。
+  const restoreExempt = []
+  const restoreRefusals = []
+  if (restoreBy) {
+    for (const [p, entries] of restoreBy) {
+      const ev = restoreEval.get(p)
+      if (ev && ev.consumed) restoreExempt.push({ path: p, entries, restore: ev.restore })
+      else
+        restoreRefusals.push({
+          path: p,
+          entries,
+          why:
+            ev?.why ??
+            '该路径未进入行级判定面(基线缺失 / face-mismatch 归防覆盖护栏)⇒ 声明未被核验',
+          undeclared: ev?.restore?.undeclared ?? [],
+          overDeclared: ev?.restore?.overDeclared ?? [],
+        })
+    }
+  }
+  return {
+    ok: offenders.length === 0 && restoreRefusals.length === 0,
+    offenders,
+    notes,
+    restoreExempt,
+    restoreRefusals,
+    face: blobOf ? 'blob' : 'worktree',
+  }
+}
+
+/**
+ * `detectStaleLanding` 的 blob 模式整 blob 判据:把"要落的内容"换成**清单里的构造 oid**,
+ * 再与该路径的祖先后选逐个比。与 `blobAncestorClash` 判的是同一件事,但这里只产出
+ * `[{path, commit}]`(本维只拿它决定"这一格是否交给上游那闸"),不在这里另立声明面。
+ * 取不到 oid / 祖先清单 / 祖先正文 ⇒ 抛错,由调用方折成"未判定"(不写成"不等于任何祖先")。
+ */
+function blobFaceAncestorHits({ root, paths, blobOf }) {
+  const out = []
+  for (const p of paths) {
+    const oid = blobOf.get(p)
+    if (!isOidLike(oid)) throw new Error(`${p}: 内容清单里没有可判定的 blob oid`)
+    const anc = ancestorCommits(root, p)
+    if (!anc.length) throw new Error(`${p}: 祖先清单为空/取不到 ⇒ 整 blob 对账无从做起`)
+    const ab = resolveBlobs(
+      root,
+      anc.map((c) => `${c}:${p}`),
+    )
+    if (ab.size !== anc.length)
+      throw new Error(`${p}: 祖先正文只取到 ${ab.size}/${anc.length} 个 ⇒ 对账不完整`)
+    const hit = anc.find((c) => ab.get(`${c}:${p}`) === oid)
+    if (hit) out.push({ path: p, commit: hit })
+  }
+  return out
+}
+
+/** 报告条目的一份子:两条判据的读数并排放,渲染层不再各自判一次。countUnit 标计数口径(G-814414 起有键路径档)。 */
+function mkEntry(path, commit, delta, line, fallback) {
+  const d = delta ?? { vanished: null, appeared: null, vanishedSample: [], appearedSample: [] }
+  return {
+    path,
+    commit,
+    ...d,
+    resurrected: line?.count ?? null,
+    resurrectedSample: line?.sample ?? [],
+    resurrectedBy: line?.commits ?? [],
+    lineStatus: line?.status ?? 'undetermined',
+    lineReason: line?.reason ?? fallback?.reason ?? '判据未运行',
+    countUnit: line?.unit ?? 'line',
+  }
+}
+
+function firstLine(e) {
+  return String(e?.message ?? e ?? '').split('\n')[0] || '(无输出)'
+}
+
+/**
+ * 声明式还原通道的**形态校验**(纯函数,不碰 git/磁盘;`--self-test` 与镜像可直接喂假面)。
+ * 入参 = JSON.parse 之后的清单对象;出参 = {entries, errors}。errors 非空 ⇒ 调用方按
+ * exit 2(用法错)处理:形态不对的清单永远核验不了,留着就是"举了旗其实没举"(§0.10,
+ * 失效方向恒为多要一次定向说明,绝不是多放一次跳门)。
+ * 逐条要求(全部必要):
+ *  - `path`:字符串,且在本次 LAND_PATHS 声明面内(射程外的声明永不生效 = 腐烂守卫);
+ *  - `line`:**单行**原文(含换行 ⇒ 形态错;空串 ⇒ 无从配平),不做任何模糊匹配;
+ *  - `restoredFrom`:40 位小写十六进制全量 sha(§1 证据指针禁短 sha——腐烂率 30.2%);
+ *  - `why`:trim 后 ≥10 码点的定向说明(按码点计,CJK 一字一码点,不许用字节数糊过去)。
+ */
+export function validateRestoreManifest(parsed, { paths, removePaths = [] } = {}) {
+  const errors = []
+  const entries = []
+  if (!parsed || !Array.isArray(parsed.entries)) {
+    return {
+      entries: [],
+      errors: [
+        `清单顶层必须是 {entries:[…]}(实得 ${parsed && Array.isArray(parsed) ? '裸数组' : typeof parsed})`,
+      ],
+    }
+  }
+  if (parsed.entries.length === 0)
+    return { entries: [], errors: ['entries 为空数组:举旗而无声明等于整闸放行,拒绝'] }
+  for (const [i, e] of parsed.entries.entries()) {
+    const at = `entries[${i}]`
+    let bad = 0
+    if (!e || typeof e !== 'object') {
+      errors.push(`${at}:不是对象`)
+      continue
+    }
+    const p = typeof e.path === 'string' ? e.path : ''
+    const l = typeof e.line === 'string' ? e.line : null
+    const el = e.element && typeof e.element === 'object' && !Array.isArray(e.element) ? e.element : null
+    const sha = typeof e.restoredFrom === 'string' ? e.restoredFrom : ''
+    const why = typeof e.why === 'string' ? e.why.trim() : ''
+    if (!p) {
+      errors.push(`${at}:缺 path`)
+      bad++
+    } else if (!paths.includes(p)) {
+      errors.push(
+        `${at}:path "${p}" 不在本次 LAND_PATHS 声明面里${removePaths.includes(p) ? '(且在删除档——删除路径没有落地面可配平)' : ''}⇒ 该声明永远不会被核验,判死`,
+      )
+      bad++
+    }
+    // 声明**两型按路径选一种**:line(行级原文,给非 JSON 路径)与 element(键路径数组元素,
+    // 给 .json/.jsonl)。两型同给 = 不知道该按哪把尺核验 ⇒ 形态错;两型都不给 = 空声明。
+    const hasLine = 'line' in e
+    const hasElement = 'element' in e
+    if (hasLine && hasElement) {
+      errors.push(`${at}:line 与 element 两型都给 ⇒ 口径不同不得混用(按路径选一种)`)
+      bad++
+    } else if (!hasLine && !hasElement) {
+      errors.push(`${at}:line 与 element 都没给 ⇒ 空声明无从配平`)
+      bad++
+    } else if (hasLine) {
+      if (l === null) {
+        errors.push(`${at}:line 必须是字符串`)
+        bad++
+      } else if (l === '') {
+        errors.push(`${at}:line 为空串 ⇒ 无从配平`)
+        bad++
+      } else if (/[\r\n]/.test(l)) {
+        errors.push(`${at}:line 必须是单行原文(含换行 ⇒ 形态错)`)
+        bad++
+      }
+    } else if (el === null) {
+      errors.push(`${at}:element 必须是对象 {jsonPath, value}`)
+      bad++
+    } else {
+      const jp = typeof el.jsonPath === 'string' ? el.jsonPath.trim() : ''
+      if (!jp) {
+        errors.push(`${at}:element.jsonPath 必须是非空字符串(如 "$.entries[].roots")`)
+        bad++
+      } else if (jp !== '$' && !jp.startsWith('$')) {
+        errors.push(`${at}:element.jsonPath 必须以 \$ 起(键路径口径,实得 "${jp.slice(0, 48)}")`)
+        bad++
+      } else if (/[\r\n\u0000]/.test(jp)) {
+        errors.push(`${at}:element.jsonPath 不得含换行或 NUL`)
+        bad++
+      }
+      if (!('value' in el)) {
+        errors.push(`${at}:element.value 缺失(要还原的那个数组元素值,按深排序 JSON 归一后比对)`)
+        bad++
+      }
+    }
+    if (!/^[0-9a-f]{40}$/.test(sha)) {
+      errors.push(
+        `${at}:restoredFrom 必须是 40 位全量小写 sha(短 sha 腐烂率 30.2%,§1 证据指针同纪律),实得 "${sha.slice(0, 48)}"`,
+      )
+      bad++
+    }
+    if ([...why].length < 10) {
+      errors.push(`${at}:why 缺失或过短(trim 后需 ≥10 码点的定向说明,实得 ${[...why].length})`)
+      bad++
+    }
+    // 只把**一条错都不沾**的 entry 交出去:带病条目进了下游就是"errors 有人读、entries 也有人读"
+    // 的两条真相;调用方在 errors 非空时本就该 exit 2,这里再把产出面收干净是第二道锁。
+    if (bad === 0)
+      entries.push({
+        path: p,
+        line: l,
+        element: el === null ? null : { jsonPath: String(el.jsonPath).trim(), value: el.value },
+        restoredFrom: sha,
+        why,
+      })
+  }
+  // 同一路径的声明必须**同型**:一型走行级配平、一型走键路径配平,混在一条路径上会让
+  // "哪条声明被消费了"变得不可判(§0.10:举了旗就必须能逐条对上判据)。
+  const typeByPath = new Map()
+  for (const en of entries) {
+    const t = en.element ? 'element' : 'line'
+    const prev = typeByPath.get(en.path)
+    if (prev && prev !== t)
+      errors.push(
+        `path "${en.path}":同一路径的声明混了 line 与 element 两型 ⇒ 判据口径不一致,拒绝(同一路径请统一用一型)`,
+      )
+    typeByPath.set(en.path, t)
+  }
+  return { entries, errors }
+}
+
+/**
+ * 声明式还原通道的**装载 + 逐条核验**(要读 git,与形态校验分开;main() 在陈旧守卫**之前**调它)。
+ * 三道核验缺一不可,这就是"验过才免"(§0.7):
+ *  ① restoredFrom 在对象库里且是 commit(`git cat-file -t`)——问不到即假声明 exit 1
+ *     (走到这里 catBatch 已批量读成正文,git 本身是活的;git 真坏了会在 ③ 前整批 throw ⇒ exit 2);
+ *  ② 是 baseRef 的祖先(`isAncestor` 三态出口,null"未判定"按更严方向拒,不折成"是");
+ *  ③ `<sha>:<path>` blob 逐字写着该行(`tallyLines(blob, resurrectKey).has(resurrectKey(line))`)
+ *     ——与复活判据**同一把归一尺**(lib 出口,不抄第二份);blob 问不到(该提交里没有这路径)⇒ 拒。
+ * 返回 {ok:true, byPath} 或 {ok:false, code:1|2, problems:[…]};装载失败一律**不落**。
+ */
+export function loadRestoreManifest({
+  root,
+  paths,
+  removePaths = [],
+  baseRef = 'HEAD',
+  manifestFile,
+  read = readFileSync,
+}) {
+  let parsed
+  try {
+    parsed = JSON.parse(read(manifestFile, 'utf8'))
+  } catch (e) {
+    return {
+      ok: false,
+      code: 2,
+      problems: [
+        `LAND_RESTORE_MANIFEST 指向的文件读不到或不是 JSON(${firstLine(e)})——把"没拿到声明"读成"没有复活"就是给合格证背书 ⇒ 判死,不落`,
+      ],
+    }
+  }
+  const shape = validateRestoreManifest(parsed, { paths, removePaths })
+  if (shape.errors.length > 0) return { ok: false, code: 2, problems: shape.errors }
+  const problems = []
+  const specs = [...new Set(shape.entries.map((e) => `${e.restoredFrom}:${e.path}`))]
+  let texts = new Map()
+  try {
+    texts = catBatch(root, specs)
+  } catch (e) {
+    return {
+      ok: false,
+      code: 2,
+      problems: [`核验 <sha>:<path> 正文批量读取失败:${firstLine(e)} ⇒ 未判定不等于核验通过,不落`],
+    }
+  }
+  const byPath = new Map()
+  for (const en of shape.entries) {
+    const t = git(['cat-file', '-t', en.restoredFrom], { root, allowFail: true })
+    if (t === null) {
+      problems.push(
+        `${en.path} ← ${en.restoredFrom.slice(0, 12)}:对象库里问不到这枚 sha ⇒ 假声明(或 git 问不到,两者都不许放行)`,
+      )
+      continue
+    }
+    if (t.trim() !== 'commit') {
+      problems.push(
+        `${en.path} ← ${en.restoredFrom.slice(0, 12)}:cat-file -t 答 "${t}" 而非 commit ⇒ 声明的不是提交`,
+      )
+      continue
+    }
+    const anc = isAncestor(en.restoredFrom, baseRef, { root })
+    if (anc !== true) {
+      problems.push(
+        `${en.path} ← ${en.restoredFrom.slice(0, 12)}:${anc === false ? `不是 ${baseRef} 的祖先` : '祖先判定未判定(取不到按更严方向拒,不折成"是")'} ⇒ 它删没删过这行都不是本次落地历史里的事实,拒`,
+      )
+      continue
+    }
+    const blobText = texts.get(`${en.restoredFrom}:${en.path}`)
+    if (typeof blobText !== 'string') {
+      problems.push(
+        `${en.path} ← ${en.restoredFrom.slice(0, 12)}:该提交的树里问不到 ${en.path} 的正文 ⇒ 无从证"这行写过",拒`,
+      )
+      continue
+    }
+    if (en.element) {
+      // element 型:核验「该祖先 blob 的指定数组容器里确实有这枚元素」(深排序 JSON 归一,
+      // 与键路径复活判据同一把 canonOf)。行级那一套(resurrectKey / tallyLines)对
+      // .json/.jsonl 不适用 —— 那两个档位的复活口径是键路径,不是行文字。
+      const kind = jsonGuardKindFor(en.path)
+      if (!kind) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:element 型声明只对 .json/.jsonl 生效(该路径不在键路径档)⇒ 这一型在此核验不了,拒`,
+        )
+        continue
+      }
+      const fp = jsonKeyPathFingerprint(blobText, kind)
+      if (!fp.ok) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:该提交的正文${fp.reason} ⇒ 键路径核验不了,拒`,
+        )
+        continue
+      }
+      const tal = fp.arrays.get(en.element.jsonPath)
+      const n = tal?.get(canonOf(en.element.value)) ?? 0
+      if (n <= 0) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:该提交的 ${en.element.jsonPath} 容器里没有声明的那枚元素(按深排序 JSON 归一后仍不在)⇒ 假声明,拒`,
+        )
+        continue
+      }
+    } else {
+      const dk = resurrectKey(en.line)
+      const tally = tallyLines(blobText, resurrectKey)
+      if (!tally.has(dk)) {
+        problems.push(
+          `${en.path} ← ${en.restoredFrom.slice(0, 12)}:blob 里逐字没有声明的那一行(按复活判据同一把 resurrectKey 归一后仍不在)⇒ 假声明,拒`,
+        )
+        continue
+      }
+    }
+    if (!byPath.has(en.path)) byPath.set(en.path, [])
+    byPath.get(en.path).push(en)
+  }
+  if (problems.length > 0) return { ok: false, code: 1, problems, entries: shape.entries }
+  return { ok: true, byPath, entries: shape.entries }
+}
+
+/**
+ * G-816037:机器格式化 JSON 的**结构等值出口**。
+ *
+ * 为什么需要(2026-09-29 第六十八批入账台账时实测):台账只做"往数组尾部追加条目 + 改 read/notes",
+ * 行级复活判据却报 `消失 11 行 / 重现 202 行 / 复活 1 行`并拒绝落地。成因是它按**行文字**比,而
+ * `JSON.stringify` 会给"原本的最后一个数组元素"补一个逗号 —— 那一行文字就变了,重排出的 `  {` 行
+ * 算"重现",被改写的 `"read": 268,` 恰好与某祖先同形就算"复活"。**这不是仓库缺陷,是判据把自己的
+ * 量纲用错了对象**(AGENTS 已写明零损失判据是结构等值,不是重复行计数)。
+ *
+ * 判据(只在调用方显式声明 `LAND_JSON_STRUCTURE=1` 且两侧都能 `JSON.parse` 时启用):
+ *  ① 基线里每个对象键路径都必须还在(丢键 = 真回写 ⇒ 不放行);
+ *  ② 基线里每个数组容器的元素**多重集**必须是落地内容该容器元素多重集的子集(少元素 = 真回写);
+ *  ③ **标量值变化允许** —— `read: 268 → 290` 正是本轮的合法编辑,禁它等于禁掉所有计数器。
+ * 反例为什么仍拦得住:把整份文件换回某个祖先版本时,基线(=HEAD,更新过)里那些后加的键/数组元素
+ * 在落地内容里不存在 ⇒ ①/② 当场成立 ⇒ 照判红。
+ *
+ * 活文档不在射程:`PROJECT_PLAN.md`/`AGENTS.md`/`README.md` 不是可解析 JSON,① 侧就 applicable:false,
+ * 行级判据一字不动(那是它存在的理由)。
+ */
+export function jsonStructuralSuperset({ baseText, nextText }) {
+  if (typeof baseText !== 'string' || typeof nextText !== 'string')
+    return { applicable: false, pass: false, reason: '有一侧正文取不到 ⇒ 不启用结构档' }
+  let base
+  let next
+  try {
+    base = JSON.parse(baseText)
+  } catch {
+    return { applicable: false, pass: false, reason: '基线内容不是可解析 JSON ⇒ 走原行级判据' }
+  }
+  try {
+    next = JSON.parse(nextText)
+  } catch {
+    return { applicable: false, pass: false, reason: '落地内容不是可解析 JSON ⇒ 走原行级判据' }
+  }
+  const droppedKeys = []
+  const shrunkArrays = []
+  const keyOf = (v) => JSON.stringify(sortDeep(v))
+  function sortDeep(v) {
+    if (Array.isArray(v)) return v.map(sortDeep)
+    if (v && typeof v === 'object') {
+      const o = {}
+      for (const k of Object.keys(v).sort()) o[k] = sortDeep(v[k])
+      return o
+    }
+    return v
+  }
+  function walk(b, n, path) {
+    if (Array.isArray(b)) {
+      if (!Array.isArray(n)) {
+        shrunkArrays.push(`${path}:数组在落地内容里变成了别的东西`)
+        return
+      }
+      const tally = new Map()
+      for (const el of n) tally.set(keyOf(el), (tally.get(keyOf(el)) || 0) + 1)
+      for (const el of b) {
+        const k = keyOf(el)
+        const c = tally.get(k) || 0
+        if (c === 0) {
+          shrunkArrays.push(`${path}:少了元素 ${k.slice(0, 72)}`)
+          continue
+        }
+        tally.set(k, c - 1)
+      }
+      return
+    }
+    if (b && typeof b === 'object') {
+      if (!n || typeof n !== 'object' || Array.isArray(n)) {
+        droppedKeys.push(`${path}:对象在落地内容里变成了别的东西`)
+        return
+      }
+      for (const [k, v] of Object.entries(b)) {
+        if (!(k in n)) {
+          droppedKeys.push(`${path}.${k}`)
+          continue
+        }
+        walk(v, n[k], `${path}.${k}`)
+      }
+      return
+    }
+    // 标量:允许变化(见上 ③),所以这里什么都不判
+  }
+  walk(base, next, '$')
+  return {
+    applicable: true,
+    pass: droppedKeys.length === 0 && shrunkArrays.length === 0,
+    droppedKeys,
+    shrunkArrays,
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * G-814414(2026-09-29):.json/.jsonl 的**键路径集合对账** —— 判据只住这一份,
+ * 镜像测试 scripts/tests/object-space-land-json-guard.test.mjs 两臂钉死。
+ *
+ * 为什么行级判据对结构化 JSON 是量纲错配(票面两条独立实证,都发生在落 config/zcode-absorption.json 时):
+ *  ① 「消失/重现」按行文字比,而 JSON 的序列化形态一碰就变 —— 数组追加给上一个末元素补的逗号、
+ *     缩进/键序调整,都让"同一内容"读出成片假消失;有意改的数值行(read 191→218)也被计成
+ *     "消失 1 行"。实测报「消失 9 行」,9 行全是假阳,每次正常回填都被逼挂 LAND_ALLOW_STALE=1,
+ *     守卫被训练成习惯性忽略 —— 它真正要防的那一型反而没人看了。
+ *  ② 「复活」按行文字命中祖先,而同一行文字可以属于不同键路径:`"read": 218` 在祖先 4f00276ab
+ *     里属于 packages/ui/src(它现值 224),与本切片毫无关系 —— "同数字不同切片"的行文本巧合
+ *     被当成了凭据。
+ *
+ * 判据(票面两格):
+ *  - 丢 = **键路径集合变小**:基线里存在的对象键路径 / 数组元素(容器内多重集)在落地内容里
+ *    不存在才算丢;值变化与序列化形态(尾逗号、缩进、键序、数组追加、记录重排)一律不算丢。
+ *    丢无条件参与拒绝 —— 不再要求整 blob 命中祖先,陈旧副本 ⊕ 本票小改的混合体正是整 blob
+ *    判据结构上看不见、而旧行级判据只能"报数不拦"的那一格。
+ *  - 复活 = **同一键路径**在落地内容里取某值 ②基线里没有该键路径 ③某祖先 blob 的**同一键路径**
+ *    也取过同值;只按行文本命中一律不算凭据。数组元素同理(同一容器、祖先写过同值元素)。
+ *  - `.jsonl` 逐行解析成记录后按记录内键路径的**并集**对账:记录条数与顺序不是本判据的量纲
+ *    (重排不算丢、整条新增记录的键在别的记录里都有也不算复活),记录内键路径消失才算丢。
+ *
+ * 档位只按**后缀**分(jsonGuardKindFor):内容不是可解析 JSON ⇒ applicable:false 由调用方
+ * 退回原行级判据并大声报名;Markdown 类活文档(无键路径可言)永远不进这一档,行级判据一字不动。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** 后缀 → 键路径档位:.jsonl 逐行成记录、.json 整体一值;其余(含三份活文档)一律 null ⇒ 原行级判据。 */
+export function jsonGuardKindFor(path) {
+  const p = String(path).toLowerCase()
+  if (p.endsWith('.jsonl')) return 'jsonl'
+  if (p.endsWith('.json')) return 'json'
+  return null
+}
+
+/** 值的规范形:对象键序不敏感(键序是序列化形态);数组保序,元素等值性在容器层面单独对账。 */
+function canonJsonValue(v) {
+  if (Array.isArray(v)) return v.map(canonJsonValue)
+  if (v && typeof v === 'object') {
+    const o = {}
+    for (const k of Object.keys(v).sort()) o[k] = canonJsonValue(v[k])
+    return o
+  }
+  return v
+}
+const canonOf = (v) => JSON.stringify(canonJsonValue(v))
+
+/**
+ * 把一份正文折成键路径清单(指纹):
+ *  - `paths`:对象键路径(如 `$.ticketIndex.G-382`)→ 该路径取过的值规范形集合;
+ *  - `arrays`:数组容器路径(如 `$.items`)→ 元素规范形的多重集(.json)/集合(.jsonl)。
+ *    数组**刻意不按 [i] 下标记账**:下标会随追加/重排整体移位,按它对账等于把形态变化读成丢键
+ *    (G-814414 假阳来源之一);.jsonl 按全部记录并集取集合,记录条数与顺序不是量纲。
+ * 任一行(记录)解析失败 ⇒ ok:false,由调用方退回行级判据 —— 判不出不得冒充判过。
+ */
+function jsonKeyPathFingerprint(text, kind) {
+  const multiset = kind === 'json'
+  const paths = new Map()
+  const arrays = new Map()
+  const records = []
+  if (kind === 'jsonl') {
+    const lines = String(text).split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i].trim()
+      if (l === '') continue
+      try {
+        records.push(JSON.parse(l))
+      } catch {
+        return { ok: false, reason: `第 ${i + 1} 行不是可解析 JSON(.jsonl 记录必须逐行成个)` }
+      }
+    }
+  } else {
+    try {
+      records.push(JSON.parse(text))
+    } catch {
+      return { ok: false, reason: '正文不是可解析 JSON' }
+    }
+  }
+  const walk = (v, path) => {
+    if (Array.isArray(v)) {
+      const m = arrays.get(path) ?? new Map()
+      for (const el of v) {
+        const k = canonOf(el)
+        m.set(k, multiset ? (m.get(k) ?? 0) + 1 : 1)
+        if (el && typeof el === 'object') walk(el, `${path}[]`)
+      }
+      arrays.set(path, m)
+      return
+    }
+    if (v && typeof v === 'object') {
+      for (const [k, val] of Object.entries(v)) {
+        const kp = `${path}.${k}`
+        const set = paths.get(kp) ?? new Set()
+        set.add(canonOf(val))
+        paths.set(kp, set)
+        walk(val, kp)
+      }
+    }
+  }
+  for (const rec of records) walk(rec, '$')
+  return { ok: true, paths, arrays }
+}
+
+/** 键路径集合差:丢 = 基线有而落地无(键路径 + 数组元素缺口),重现 = 反向。样本各截前 SAMPLE_LINES 条。 */
+function jsonKeyPathDelta(base, next) {
+  const clip = (s) => (s.length > SAMPLE_COL ? `${s.slice(0, SAMPLE_COL)}…` : s)
+  const dropped = []
+  const added = []
+  for (const p of base.paths.keys()) if (!next.paths.has(p)) dropped.push(p)
+  for (const p of next.paths.keys()) if (!base.paths.has(p)) added.push(p)
+  for (const [p, m] of base.arrays) {
+    const nm = next.arrays.get(p) ?? new Map()
+    for (const [el, c] of m) {
+      for (let i = 0; i < c - (nm.get(el) ?? 0); i++) dropped.push(`${p} ⇐ 元素 ${clip(el)}`)
+    }
+  }
+  for (const [p, m] of next.arrays) {
+    const bm = base.arrays.get(p) ?? new Map()
+    for (const [el, c] of m) {
+      for (let i = 0; i < c - (bm.get(el) ?? 0); i++) added.push(`${p} ⇐ 元素 ${clip(el)}`)
+    }
+  }
+  return {
+    vanished: dropped.length,
+    appeared: added.length,
+    vanishedSample: dropped.slice(0, SAMPLE_LINES),
+    appearedSample: added.slice(0, SAMPLE_LINES),
+  }
+}
+
+/**
+ * 键路径复活(①②③ 同构于行级判据,但证据单位是键路径+值):
+ *  ① 该键路径在落地内容里取值 v;② 基线里没有这条键路径(基线还有的,值变化是合法编辑,
+ *     read 191→218 正是本轮要落的东西);③ 某祖先的**同一键路径**也取过同值 v。
+ * ③ 是票面第二格的牙:只按行文本命中(同数字不同切片、别的切片同形行)一律不算凭据。
+ * 祖先解析失败的那几枚提供不了证据(跳过,不冒充"查过");一枚能用都没有 ⇒ undetermined 不放行。
+ */
+/**
+ * 键路径复活证据的条数上限(2026-10-30,随 element 型还原通道一起立)。
+ *
+ * 为什么需要上限:证据清单是给 element 型声明逐条配平用的,**超上限就必须放弃配平**
+ * (保守拒),不能截断后拿去比对 —— 截断会把"还有没声明的复活"读成"已全覆盖",
+ * 那正是本仓最高频的失效型(把没判写成判过了)。
+ */
+const RESURRECT_EVIDENCE_MAX = 256
+
+function jsonKeyPathResurrect({ base, next, ancestors }) {
+  if (ancestors.length === 0)
+    return {
+      status: 'out-of-scope',
+      reason: '祖先窗口里没有该路径的任何版本(浅历史 / 刚建的文件)⇒ 无可对照',
+      count: null,
+      sample: [],
+      commits: [],
+      evidence: [],
+      evidenceOverflow: false,
+    }
+  const usable = ancestors.filter((a) => a.fp && a.fp.ok)
+  if (usable.length === 0)
+    return {
+      status: 'undetermined',
+      reason: `祖先清单有 ${ancestors.length} 枚,但没有一枚能按 JSON 解析 ⇒ 键路径复活无从对证`,
+      count: null,
+      sample: [],
+      commits: [],
+      evidence: [],
+      evidenceOverflow: false,
+    }
+  const clip = (s) => (s.length > SAMPLE_COL ? `${s.slice(0, SAMPLE_COL)}…` : s)
+  let count = 0
+  const sample = []
+  const commits = []
+  const seenCommit = new Set()
+  // 逐条证据(element 型声明按它配平;sample 只截前几条供人读,证据不截但超上限即置溢出标)
+  const evidence = []
+  let evidenceOverflow = false
+  const record = (n, text, commit, ev) => {
+    count += n
+    if (commit && !seenCommit.has(commit)) {
+      seenCommit.add(commit)
+      commits.push(commit)
+    }
+    if (sample.length < SAMPLE_LINES) sample.push(clip(text))
+    if (ev) {
+      if (evidence.length >= RESURRECT_EVIDENCE_MAX) evidenceOverflow = true
+      else evidence.push(ev)
+    }
+  }
+  for (const [p, vals] of next.paths) {
+    if (base.paths.has(p)) continue // ② 基线里这条键路径还活着 ⇒ 值变化是本轮的合法编辑,不是复活
+    for (const v of vals) {
+      let bestCommit = null
+      for (const a of usable) {
+        if (a.fp.paths.get(p)?.has(v)) {
+          bestCommit = a.commit // ③ 同一键路径在祖先里取过同值 ⇒ 凭据成立
+          break
+        }
+      }
+      if (!bestCommit) continue
+      record(1, `${p} = ${v}`, bestCommit, { kind: 'key', path: p, value: v })
+    }
+  }
+  for (const [p, m] of next.arrays) {
+    const bm = base.arrays.get(p) ?? new Map()
+    for (const [el, c] of m) {
+      const extra = c - (bm.get(el) ?? 0)
+      if (extra <= 0) continue
+      let best = 0
+      let bestCommit = null
+      for (const a of usable) {
+        const ac = a.fp.arrays.get(p)?.get(el) ?? 0
+        if (ac > best) {
+          best = ac
+          bestCommit = a.commit
+        }
+      }
+      if (!best) continue
+      // ④ 复活的前提是"曾被删过":祖先比基线多出的那几份才叫被删,只"出现过"不算。
+      //    否则复用 lastNotNull 这类常见值必误报(2026-10-23:追加面板复用同形 options)。
+      const removed = best - (bm.get(el) ?? 0)
+      if (removed <= 0) continue
+      const n = Math.min(extra, removed)
+      record(n, `${p} ⇐ 元素 ${el}`, bestCommit, { kind: 'array', path: p, element: el, count: n })
+    }
+  }
+  return { status: 'judged', reason: null, count, sample, commits, evidence, evidenceOverflow }
+}
+
+/**
+ * element 型声明与键路径复活证据的**双向多重集配平**(2026-10-30,补 jsonMode 的窄出口)。
+ *
+ * 为什么需要这一支:`.json/.jsonl` 路径走键路径档(`jsonMode`),那里的"复活"是**同一键路径
+ * 在祖先 blob 里取过同值**,是真阳性;而 `LAND_JSON_STRUCTURE` 被 `!jsonMode` 排除、行级
+ * `LAND_RESTORE_MANIFEST` 也被 `!jsonMode` 排除 ⇒ 那一型过去只剩"整闸关掉"(LAND_ALLOW_STALE)。
+ * 本函数给"有意还原被误删的**数组元素**"这一类提供窄出口,判据三条:
+ *  ① 证据必须**全部是数组元素**(标量键复活不受理 —— 值回滚不是"还原登记",照拒);
+ *  ② 证据条数超上限 ⇒ 放弃配平(不截断后比对,见 RESURRECT_EVIDENCE_MAX);
+ *  ③ 声明多重集与证据多重集**双向等值**:少声明一条未覆盖的复活 / 多声明一条没复活的都不行
+ *     (与行级通道同一把尺:双向等值才算配平,单向"⊆"会给多声明留后门)。
+ */
+function compareElementRestore({ evidence, overflow, declared }) {
+  if (overflow)
+    return {
+      match: false,
+      why: `本轮键路径复活证据超过 ${RESURRECT_EVIDENCE_MAX} 条上限 ⇒ 不做逐条配平(截断后比对等于把"未覆盖"读成"已覆盖")`,
+      undeclared: [],
+      overDeclared: [],
+    }
+  const scalar = (evidence ?? []).filter((e) => e.kind !== 'array')
+  if (scalar.length)
+    return {
+      match: false,
+      why:
+        `本路径还有 ${scalar.length} 条**标量键**复活(${scalar
+          .slice(0, 3)
+          .map((e) => `${e.path} = ${String(e.value).slice(0, 48)}`)
+          .join(' ; ')})⇒ element 型声明只覆盖数组元素,标量键复活照拒` +
+        `(这一型要放行只能 LAND_ALLOW_STALE=1 整闸并留痕)`,
+      undeclared: [],
+      overDeclared: [],
+    }
+  const computed = new Map()
+  for (const e of evidence ?? []) {
+    const k = `${e.path}\u0000${e.element}`
+    computed.set(k, (computed.get(k) ?? 0) + e.count)
+  }
+  const want = new Map()
+  for (const d of declared) {
+    const k = `${d.jsonPath}\u0000${canonOf(d.value)}`
+    want.set(k, (want.get(k) ?? 0) + 1)
+  }
+  const undeclared = []
+  for (const [k, c] of computed) {
+    const d = want.get(k) ?? 0
+    if (c > d) undeclared.push({ k, needed: c, declared: d, raw: k.replace('\u0000', ' ⊇ ') })
+  }
+  const overDeclared = []
+  for (const [k, d] of want) {
+    const c = computed.get(k) ?? 0
+    if (d > c) overDeclared.push({ k, needed: c, declared: d, raw: k.replace('\u0000', ' ⊇ ') })
+  }
+  const fmt = (x) => x.k.replace('\u0000', ' ⊇ ')
+  if (undeclared.length === 0 && overDeclared.length === 0)
+    return { match: true, why: null, undeclared, overDeclared }
+  return {
+    match: false,
+    why:
+      `声明与键路径复活集不逐项等值:未声明的复活元素 ${undeclared.length} 条 / 多余声明 ${overDeclared.length} 条` +
+      (undeclared.length
+        ? `(未声明:${undeclared
+            .slice(0, 3)
+            .map((x) => `${fmt(x)} ×${x.needed}`)
+            .join(' ; ')})`
+        : '') +
+      (overDeclared.length
+        ? `(多余:${overDeclared
+            .slice(0, 3)
+            .map((x) => `${fmt(x)} ×${x.declared}`)
+            .join(' ; ')})`
+        : ''),
+    undeclared,
+    overDeclared,
+  }
+}
+
+/**
+ * 档位总入口:`.json`/`.jsonl` 后缀路径的键路径对账。两侧任一解析不了 ⇒ applicable:false
+ * (调用方退回原行级判据并逐条报名);适用 ⇒ 结构化 delta(丢/重现,票面第一格)+
+ * 键路径复活判定(票面第二格)。祖先取正文失败(text 为 null)与解析失败同待遇:提供不了证据。
+ */
+export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
+  if (kind !== 'json' && kind !== 'jsonl')
+    return { applicable: false, reason: '档位不是 .json/.jsonl ⇒ 走原行级判据' }
+  if (typeof baseText !== 'string' || typeof newText !== 'string')
+    return { applicable: false, reason: '有一侧正文取不到 ⇒ 不启用键路径档' }
+  const base = jsonKeyPathFingerprint(baseText, kind)
+  if (!base.ok) return { applicable: false, reason: `基线${base.reason} ⇒ 走原行级判据` }
+  const next = jsonKeyPathFingerprint(newText, kind)
+  if (!next.ok) return { applicable: false, reason: `落地内容${next.reason} ⇒ 走原行级判据` }
+  const delta = jsonKeyPathDelta(base, next)
+  const line = jsonKeyPathResurrect({
+    base,
+    next,
+    ancestors: ancestors.map((a) => ({
+      commit: a.commit,
+      fp: typeof a.text === 'string' ? jsonKeyPathFingerprint(a.text, kind) : { ok: false },
+    })),
+  })
+  // 计数口径跟着档位走:报告层据此前置"键路径口径"而不是"证据行门槛"(unit 缺省 = 行)。
+  return { applicable: true, delta, line: { ...line, unit: 'key-path' } }
+}
+
+/** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
+function staleReport(guard, { allowStale }) {
+  const lines = []
+  for (const n of guard.notes) {
+    lines.push(`ℹ️ ${n.path}:${n.why}`)
+    appendSamples(lines, n)
+  }
+  const uncovered = guard.notes.filter((n) => n.kind === 'line-out-of-scope').length
+  const restoreRefusals = guard.restoreRefusals ?? []
+  if (!guard.offenders.length && restoreRefusals.length === 0) {
+    if (uncovered)
+      lines.push(
+        `ℹ️ 行级复活判据未覆盖 ${uncovered} 条路径(尺寸护栏 / 二进制 / 无祖先版本)—— **未覆盖 ≠ 通过**;` +
+          '这些路径仍由整 blob 那一支护着,要行级也盖上就得把正文取回本器(另计一票)。',
+      )
+    return lines
+  }
+  const unjudged = guard.offenders.filter((o) => o.lineStatus === 'undetermined').length
+  const blobFace = guard.face === 'blob'
+  const head = allowStale
+    ? `⚠️ LAND_ALLOW_STALE=1 ⇒ 放行 ${guard.offenders.length} 处陈旧落地(其中 ${unjudged} 处判据未判定 —— 放行不等于判过;这一枚提交确实会把下面这些行写回旧态,该行输出即留痕)`
+    : !guard.offenders.length
+      ? `❌ 陈旧落地守卫(声明式还原通道):LAND_RESTORE_MANIFEST 的声明没有一条被核验消费 ⇒ 拒绝落地(未被消费的声明等于没举旗,见下逐条点名)`
+      : blobFace
+        ? `❌ 陈旧落地守卫(判定面=构造提交的对象库 blob,非工作树):这些构造内容**不等于任何祖先**,却把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+        : `❌ 陈旧落地守卫:这些声明路径的盘上副本**等于该文件某个祖先版本**,或会把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+  lines.push(head)
+  for (const o of guard.offenders) {
+    const v = o.vanished === null ? '消失行数未判定' : `消失 ${o.vanished} 行`
+    const a = o.appeared === null ? '重现行数未判定' : `重现 ${o.appeared} 行`
+    const blob = o.commit
+      ? `== 祖先 ${o.commit}`
+      : o.lineStatus === 'judged'
+        ? '(内容不等于任何祖先)'
+        : '(祖先版本取不到)'
+    const who = o.resurrectedBy.length ? `(见于祖先 ${o.resurrectedBy.slice(0, 3).join(', ')})` : ''
+    const r =
+      o.lineStatus === 'judged'
+        ? o.countUnit === 'key-path'
+          ? `复活 ${o.resurrected} 行(键路径口径:同一键路径在祖先 blob 里也取过同值才算凭据,值变化与序列化形态不算丢)${who}`
+          : `复活 ${o.resurrected} 行(证据行门槛:含字母且 ≥${RESURRECT_MIN_LINE_LEN} 字符)${who}`
+        : `复活行数未判定:${o.lineReason}`
+    lines.push(`   - ${o.path}  ${blob}  ${v} / ${a} / ${r}`)
+    appendSamples(lines, o)
+  }
+  /**
+   * 声明式还原通道的**未消费声明**点名(2026-10-30):装载进来的每一条 entries 都必须落在一次
+   * 真放行的配平上;落在射程外/配不平/没进判定面,一律连整枚落地拒下并逐条点名 ——
+   * "看着举了旗其实旗没接上判据"必须响,不能静默当成已豁免。
+   */
+  for (const rf of restoreRefusals) {
+    lines.push(`   ✗ LAND_RESTORE_MANIFEST 声明未被核验 @ ${rf.path}:${rf.why}`)
+    for (const en of rf.entries)
+      lines.push(
+        `       entry: 「${(en.element ? `${en.element.jsonPath} ⊇ ${canonOf(en.element.value)}` : String(en.line)).slice(0, SAMPLE_COL)}」 ← ${en.restoredFrom.slice(0, 12)}… 说明:${en.why}`,
+      )
+    for (const u of rf.undeclared.slice(0, SAMPLE_LINES))
+      lines.push(`       ↺ 未声明的复活行(needed ${u.needed} / declared ${u.declared}): ${u.raw}`)
+    for (const o of rf.overDeclared.slice(0, SAMPLE_LINES))
+      lines.push(
+        `       ⚠ 多余声明(本轮该行未复活;declared ${o.declared} / needed ${o.needed}): ${o.raw}`,
+      )
+  }
+  if (!allowStale) {
+    if (blobFace) {
+      lines.push(
+        '   成因:构造内容以某枚滞后祖先版本为底,又在本票改动之外把基线已删的行带了回来(整 blob 不等于任何祖先,只有行级复活看得见)。',
+      )
+      lines.push(
+        '   出口 ① 以父提交 blob 为底重新施加本票行,再取号落地(判据面是对象库那份,不是盘上):',
+      )
+      lines.push(
+        '            R=$(git rev-parse HEAD:<path>); <重算内容> | git hash-object -w --stdin  → 写回 LAND_BLOBS',
+      )
+    } else {
+      lines.push(
+        '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
+      )
+      lines.push(
+        '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
+      )
+      lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
+      lines.push(
+        '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
+      )
+    }
+    lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
+    lines.push(
+      '   出口 ③ 确属**有意还原被误删的祖先内容** ⇒ 用窄声明通道 LAND_RESTORE_MANIFEST=<JSON 清单路径>,按路径类型选**一型**:',
+    )
+    lines.push(
+      '            非 JSON 体(活文档/源码):{path, line(单行原文), restoredFrom(40 位全量 sha,须是基线祖先且其 blob 逐字写着该行), why(≥10 字)}',
+    )
+    lines.push(
+      '            .json/.jsonl(键路径档):{path, element:{jsonPath(如 "$.entries[].roots"), value(被还原的那枚数组元素值)}, restoredFrom(同上;核验其 blob 的同一容器里有这枚元素), why}',
+    )
+    lines.push(
+      '            两型**逐条放行**:行级按行文字、element 按深排序 JSON 多重集,都要求声明 ↔ 证据**双向等值**;',
+    )
+    lines.push(
+      '            其余复活/滞后形态照旧拒落(标量键复活、基线丢键一律不受理 —— 那是回写不是还原);清单逐字写入提交信息,事后可追责。',
+    )
+    lines.push(
+      '            (与出口 ② 互斥:一边是逐条放行,一边是整闸关掉;拿不准就用 ③,它的失效方向是"多拒一次"。)',
+    )
+    lines.push(
+      '   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";',
+    )
+    lines.push('   未判定不得被读成通过 —— 要放行只有出口 ② 这一条显式路径。')
+  }
+  return lines
+}
+
+function appendSamples(lines, entry) {
+  for (const l of entry.vanishedSample ?? []) lines.push(`       - 消失: ${l}`)
+  for (const l of entry.appearedSample ?? []) lines.push(`       + 重现: ${l}`)
+  for (const l of entry.resurrectedSample ?? []) lines.push(`       ↺ 复活: ${l}`)
+}
+
+/**
+ * 溯源水印预检(G-253,2026-09-27 立;G-04,2026-10-24 换面)。
+ *
+ * 为什么落地点归本器管、而不该由 pre-commit 那道 `check-watermark-coverage` 管:
+ * 旁路落地**不跑钩子** —— read 一次真仓历史就能看到,对象空间提交是"新文件带着无横幅
+ * 内容进 HEAD"的唯一通道,而那道门把未跟踪面判成 blocking 又会变成"与本次提交无关的
+ * 恒红门"(它扫到的是别人在飞的文件)。所以:闸门侧只报数,落地侧**拒发合格证**。
+ *
+ * 判据本体仍是那一份:`watermark.mjs verify`(含第三方台账排除 —— 不给 Apache/MIT 原文
+ * 打我方归属横幅,那是 provenance-ledger P8 的射程)。这里只回答"要不要现在落地"。
+ *
+ * **判定面(2026-10-24 换面)**:传 `blobs`(声明路径 → 构造 blob oid)时,判的是**对象库里
+ * 将要进树的那一版** —— 逐路径 `git cat-file blob <oid>` 落到 scratch 临时副本,再对副本跑
+ * verify,判完即删;不传 `blobs` 时沿用"显式点名 = 盘上那份"的既有语义(单纯把盘路径交给
+ * verify,供 `scripts/tests/watermark-scope.test.mjs` 与未跟踪新文件通道使用)。
+ *
+ * 为什么**不**判索引那版(票面原话是"索引 blob"):本器工作树模式的正文取自**工作树**
+ * (`writeBlobOfWorktree` = `git hash-object -w -- <path>`,见 lib/bypass-git.mjs:173-175,
+ * 调用点在本文件 `mine` 那一行),索引只在落地**之后**由 `alignSharedIndex` 对齐。判索引
+ * 等于判一份不会进树的字节,而"索引好 / 盘上坏"会被判成通过 —— 比现状更漏。
+ * 换面真正要堵的是判据与提交内容之间的时间窗:`mine` 先把 blob 写进对象库,旧写法 verify
+ * 再重新读一次盘,两次读之间别人改盘 ⇒ 验的就不是要交的那一份。`main` 因此传 `mine`。
+ *
+ * **新建路径载荷维(G-04 第三格,2026-10-25 补)**:`paths` 只传**父提交里不存在**的路径时,
+ * 本预检回答的是票面那句"新建路径 blob 必须带可解码载荷" —— blob 模式此前整段不跑本闸
+ * (只由 `blobBannerPreserved` 打一句"新增件按定义无从保持"的 note),于是新建文件的水印
+ * 覆盖率在旁路通道上**没有任何判据**。三态:`ok:true` = 载荷完好或落在豁免面;
+ * `ok:false`(+ `undetermined:true`)= **取不到**判定面(blob 问不到 / 台账算不出 / verify 自己
+ * 报未判定)⇒ 调用方必须 exit 2,既不记绿也不冒红;`ok:false`(无该标记)= 判出缺口 ⇒ exit 1。
+ *
+ * @param {{ root: string, paths: string[], blobs?: Map<string,string>|null, run?: Function, node?: string }} a
+ * @returns {{ ok: true } | { ok: false, why: string, undetermined?: boolean }}
+ */
+export function watermarkPreflight({
+  root,
+  paths,
+  blobs = null,
+  run = defaultRun,
+  node = process.execPath,
+}) {
+  /** 摘出 verify 的"未覆盖"清单 —— 拒绝理由必须点名是哪个文件,不得只说"没通过"。
+   *  换面后 verify 看到的是临时副本路径,`nameOf` 把它映射回声明路径。 */
+  const uncoveredOf = (text, nameOf) =>
+    String(text ?? '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('- '))
+      .slice(0, 10)
+      .map((l) => `- ${nameOf(l.slice(2).trim())}`)
+      .join('\n  ')
+  const hint =
+    '  修法:`node scripts/watermark.mjs inject <file>` 后重跑本落地器;' +
+    '台账登记的第三方内容不需要横幅(由 provenance-ledger P8 审计)。'
+  let res
+  let dir = null
+  let nameOf = (rel) => rel
+  try {
+    let args = []
+    if (blobs) {
+      dir = mkScratch('osl-wm-blob-')
+      // verify 的 scopeFromArgs 把显式路径折算成"相对**本仓根**(REPO_ROOT)",两档豁免
+      // (第三方台账 / 上游工具生成物)按那个相对路径判 —— 这里复算同一个 rel,否则临时副本
+      // 会把已登记第三方内容判成"缺横幅"(假红,还是本仓反复登记的那型"给出路跑不通")。
+      const relOf = (p) => relative(REPO_ROOT, resolve(root, p)).replaceAll('\\', '/')
+      let excl
+      try {
+        excl = createExclusionPredicate(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          undetermined: true,
+          why: `第三方排除面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 无法判断哪些声明路径本来就不该带横幅,拒绝落地(宁停不猜)`,
+        }
+      }
+      let entries
+      try {
+        entries = loadToolGeneratedEntries(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          undetermined: true,
+          why: `工具生成物豁免面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 拒绝落地(宁停不猜)`,
+        }
+      }
+      const tempRelOf = new Map()
+      const refusals = []
+      paths.forEach((p, i) => {
+        const rel = relOf(p)
+        if (excl.isExcluded(rel)) return
+        const oid = blobs.get(p)
+        if (!oid) {
+          refusals.push(`${p}: 内容清单里没有该路径的 blob ⇒ 没有可判定的那一版`)
+          return
+        }
+        const text = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+        if (text === null) {
+          refusals.push(`${p}: 取不到构造 blob ${oid}(对象库问不到)⇒ 未判定,不按"通过"放行`)
+          return
+        }
+        if (judgeToolGenerated({ rel, text, entries }).exempt) return
+        const abs = join(dir, String(i), basename(p))
+        mkdirSync(dirname(abs), { recursive: true })
+        writeFileSync(abs, text)
+        args.push(abs)
+        tempRelOf.set(relative(REPO_ROOT, abs).replaceAll('\\', '/'), p)
+      })
+      if (refusals.length > 0) {
+        return {
+          ok: false,
+          // 取不到判定面 ≠ 判出缺口:这一支必须由调用方折成 exit 2(§0.3 未判定不记绿也不冒红)。
+          undetermined: true,
+          why:
+            '判定面=构造提交的 blob(对象库),非工作树;这些声明路径没有可判定的版本:\n  ' +
+            refusals.join('\n  '),
+        }
+      }
+      nameOf = (rel) => tempRelOf.get(rel) ?? rel
+    } else {
+      // 显式点名档沿用 verify 的既有语义(判你点名的盘上那份):工作树模式的提交正文本就取盘面,
+      // 未跟踪新文件也只有这一条合法通道 —— 换面不得把它判成"没有 blob"而拒掉。
+      args = paths.map((x) => resolve(root, x))
+    }
+    // 声明面为空(纯删除落地)或全部落在豁免面内 ⇒ 没有内容进树。此时**不得**跑 verify:
+    // 零文件参数的 verify 是"整面扫",会把与本次提交无关的路径红算到本票头上。
+    if (args.length === 0) return { ok: true }
+    // 刻意用**本文件旁边的** watermark.mjs(绝对路径)+ **绝对**目标路径:
+    // 落地器的 `root` 可以是任何仓(镜像测试就在临时仓里跑),按 root 相对拼路径会
+    // 指向一个不存在的脚本,而"脚本不存在"被当成"校验不通过"就是假红、当成通过就是假绿。
+    // 绝对路径让 verify 的 scopeFromArgs 直接命中文件,与 root 是否为被验仓无关。
+    res = run(node, [WATERMARK_CLI, 'verify', ...args], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    if (e && e.code === 'ENOENT') {
+      return {
+        ok: false,
+        undetermined: true,
+        why: '取不到 node 执行体 ⇒ 无法判断水印是否完整,拒绝落地(宁停不猜)',
+      }
+    }
+    const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''), nameOf)
+    // 三档:verify 自己报「未判定」(rc 2)/ 派生失败到连退出码都拿不到 ⇒ undetermined;
+    // rc 1 = 判出缺口(业务红)。§5c 的退出码约定就是 0 通过 / 1 判出缺口 / 2 未判定。
+    const undetermined = e?.status === 2 || typeof e?.status !== 'number'
+    return {
+      ok: false,
+      undetermined,
+      why:
+        `水印校验派生失败(${String(e?.message ?? e).split('\n')[0]})。\n` +
+        (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
+        hint,
+    }
+  } finally {
+    // 临时副本用完即删。清理失败**不得改写判据结论**(§26:清理问题归清理,不由它替判定表态)。
+    if (dir) rmScratch(dir, { bestEffort: true })
+  }
+  const status = res?.status ?? 0
+  if (status !== 0) {
+    // 两条拒绝路径**共用**同一份清单提取:第一版只在抛异常那一支摘 stdout,而真跑 `verify`
+    // 非零退出走的是这一支 —— 于是拒绝理由只说"没通过",不点名是哪个文件。
+    const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''), nameOf)
+    return {
+      ok: false,
+      // 2 = 判据自己说"未判定"(取不到被审面),不代表内容有缺口 ⇒ 调用方 exit 2。
+      undetermined: status === 2,
+      why:
+        `verify 退出码 ${status},拒绝落地无有效横幅的内容。\n` +
+        (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
+        hint,
+    }
+  }
+  return { ok: true }
+}
+
+function defaultRun(cmd, args, opts) {
+  execFileSync(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
+  return { status: 0 }
+}
+
+/**
+ * G-04 第三格(2026-10-25 立):**新建路径**在对象空间内补齐溯源水印。
+ *
+ * 票面事实(现读 HEAD 可复现):本器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,
+ * 刻意**从不写工作树**(§1/§12 要求,这条本身是对的),于是 §5c 的
+ * 「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 —— 新建的归档台账曾以
+ * "无水印"形态直接进 HEAD(2026-10-15 实测 `.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`,
+ * 门 47 换面后才在本地看得见,换面之前只有 CI 会红)。
+ *
+ * 本函数只动**父提交里不存在**的路径(调用方用 `headBlobOf(baseRef, p) === ABSENT` 选出):
+ *  - 正文 → `injectText`(watermark.mjs 的文本级唯一构造处,横幅/L2 载荷/L3 尾行只在那一处算)
+ *  - 注入后的文本 → `hashText` 回写对象库拿新 oid
+ *  - **工作树副本一个字节都不写**(盘上那份可能是别人的在飞现场;blob 模式更是根本不读它)
+ * 已存在路径一律不进来 —— 它们的语义(横幅保持 `blobBannerPreserved` / 祖先对账 /
+ * 行级复活)一字未动。
+ *
+ * 政策档由调用方的 `skip(p, text)` 给(第三方台账 / 上游工具生成物 —— 各自只有一份判据,
+ * 本函数不另立第二份"哪些路径不用带横幅"的表)。`hashText` 返回空 ⇒ 拒绝(§0.3)。
+ *
+ * @param {{newPaths?: string[], blobs: Map<string,string>, readText: (p:string)=>{text?:string,why?:string}, hashText: (text:string,p:string)=>string|null, skip?: (p:string,text:string)=>string|null}} a
+ * @returns {{blobs: Map<string,string>, injected: string[], already: string[], skipped: {path:string,why:string}[], refused: {path:string,why:string}[]}}
+ *   返回新 Map(不改入参);`refused` 非空 ⇒ 调用方必须 exit 2:取不到正文与"无需注入"是两件事。
+ */
+export function injectNewPathBlobs({
+  newPaths = [],
+  blobs,
+  readText,
+  hashText,
+  skip = () => null,
+}) {
+  const out = new Map(blobs)
+  const injected = []
+  const already = []
+  const skipped = []
+  const refused = []
+  for (const p of newPaths) {
+    const got = readText(p)
+    if (!got || typeof got.text !== 'string') {
+      refused.push({ path: p, why: got?.why ?? '取不到正文 ⇒ 无从注入,也未判定' })
+      continue
+    }
+    const text = got.text
+    // NUL ⇒ 二进制正文。水印口径(watermark.mjs 的 isBinary)按定义不含它,不是"漏判"。
+    if (text.includes('\u0000')) {
+      skipped.push({ path: p, why: '二进制正文 ⇒ 水印口径不含(与 watermark.mjs isBinary 同义)' })
+      continue
+    }
+    const policySkip = skip(p, text)
+    if (policySkip) {
+      skipped.push({ path: p, why: policySkip })
+      continue
+    }
+    const r = injectText(text, { rel: p })
+    if (r.action === 'skip-type') {
+      skipped.push({ path: p, why: '类型不在水印口径(watermark.mjs styleFor 对该扩展名返回 null)' })
+      continue
+    }
+    if (r.action === 'skip-done') {
+      already.push(p)
+      continue
+    }
+    if (r.action === 'reseat-refused') {
+      refused.push({ path: p, why: '归位自证不过(多枚隐写行);不猜哪行该删' })
+      continue
+    }
+    const oid = hashText(r.text, p)
+    if (!oid || typeof oid !== 'string') {
+      refused.push({ path: p, why: '注入后的正文没能写成 blob(对象库问不到新 oid)⇒ 未判定' })
+      continue
+    }
+    out.set(p, oid)
+    injected.push(p)
+  }
+  return { blobs: out, injected, already, skipped, refused }
+}
+
+/**
+ * **blob 模式**的陈旧判据:`detectStaleLanding` 的两条判据都以"工作树那份字节 = 要落地的内容"
+ * 为前提,而 blob 模式要落的内容根本不在盘上(盘上那份属于别人的在飞改动)—— 套它等于用
+ * 别人的内容给自己做证。所以这里换一条同义但可判的尺子:**构造出来的 blob 不得等于该路径
+ * 历史上任何一枚 blob**(守门 84 R1 的判据形状,只是取材从索引换成显式 blob)。
+ * 等于祖先 ⇒ 这不是新内容,是一次写回。
+ * 行级复活那一维在本模式**结构上不适用**(它比较的是"盘上有没有把删掉的行搬回来"),
+ * 因此调用方必须用 `LAND_BLOB_PROOF` 出具"构造内容相对基线只动了本票行"的证据,本器把那句话
+ * 原样打进输出 —— 少一道守卫必须写明少了哪道、由什么替代,不得静默当"判过了"。
+ */
+/** LAND_BLOBS 契约的头注第 37 行:清单里的 blob 必须是 hash-object -w 之后的 oid。这一判据只许有一份。 */
+const isOidLike = (v) => /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(String(v))
+
+export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD', scope = null }) {
+  const clashes = []
+  const unjudged = []
+  const notes = []
+  const accepted = []
+  for (const p of paths) {
+    const oid = blobOf.get(p)
+    if (!oid) {
+      unjudged.push({ path: p, why: '清单里没有该路径的 blob' })
+      continue
+    }
+    if (!isOidLike(oid)) {
+      // 值不是 oid(调用方把正文塞进了清单)⇒ cat-file 取不到,这一维**根本没判**。
+      // 旧写法让它落到"取不到正文 ⇒ 不等于任何祖先",于是报告打的是 ✅ —— 把没判写成判过了,
+      // 而陈旧落地守卫正是为本票而存在的那一维。
+      unjudged.push({
+        path: p,
+        why: 'LAND_BLOBS 的值不是 oid(看着像正文)⇒ 祖先对账无从做起;先 git hash-object -w -- <文件> 取 oid 再写清单',
+      })
+      continue
+    }
+    if (headBlobOf(baseRef, p, { root }) === ABSENT) {
+      notes.push({ path: p, why: '基线里没有该路径(新增文件)⇒ 无祖先可对账,按定义不构成写回' })
+      continue
+    }
+    // 祖先清单与批量取 blob 都用守门 84 的那两份出口(窗口数字、失败语义都住在它内部)
+    const anc = ancestorCommits(root, p)
+    if (!anc.length) {
+      // 一个祖先都取不到 ⇒ 这一维**没判**,不得读成"不等于任何祖先"
+      unjudged.push({ path: p, why: '祖先清单为空/取不到 ⇒ 无法对账' })
+      continue
+    }
+    const ab = resolveBlobs(
+      root,
+      anc.map((c) => `${c}:${p}`),
+    )
+    if (ab.size !== anc.length) {
+      unjudged.push({ path: p, why: `祖先正文只取到 ${ab.size}/${anc.length} 个 ⇒ 对账不完整` })
+      continue
+    }
+    const hit = anc.filter((c) => ab.get(`${c}:${p}`) === oid)
+    if (!hit.length) continue
+    const commits = hit.slice(0, 3).map((c) => c.slice(0, 9))
+    const decl = scope && scope.get(p)
+    if (!decl) {
+      clashes.push({ path: p, oid, commits, why: '未声明本票改动行 ⇒ 按写回旧版处理' })
+      continue
+    }
+    const baseOid = headBlobOf(baseRef, p, { root })
+    const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
+    const nt = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+    const actual = lineDeltaMaps(
+      typeof bt === 'string' ? bt : null,
+      typeof nt === 'string' ? nt : null,
+    )
+    if (!actual) {
+      unjudged.push({
+        path: p,
+        why: `命中祖先 ${commits.join('/')} 但基线/构造正文取不到 ⇒ 行级子集无从对账`,
+      })
+      continue
+    }
+    if (
+      multisetsEqual(actual.removed, multisetOfLines(decl.removed)) &&
+      multisetsEqual(actual.added, multisetOfLines(decl.added))
+    ) {
+      accepted.push({
+        path: p,
+        commits,
+        removed: [...actual.removed.keys()],
+        added: [...actual.added.keys()],
+      })
+      continue
+    }
+    // 差集比声明的大 ⇒ 多出来的那些行就是"别人已入库、这次会被写回旧态"的行:事故形状,照旧拒落,
+    // 但必须把它们打出来 —— 旧写法只说"等于祖先",人只能靠猜要回退哪些行。
+    const extra = (m, d) => {
+      const dm = multisetOfLines(d)
+      // 局部名刻意不叫 out:陈旧落地守卫的"行级复活"按逐字行文本比,而 `const out = []` 是本文件
+      // 某个祖先里写过的常见惯用句 ⇒ 会被读成"把旧账搬回来"而拒落。改名而不是套 LAND_ALLOW_STALE,
+      // 因为那面旗会把**真的**滞后副本一起放过(本仓 §12e:放宽判据的代价是尺子失效)。
+      const picked = []
+      for (const [line, count] of m) if ((dm.get(line) ?? 0) < count) picked.push(line)
+      return picked
+    }
+    clashes.push({
+      path: p,
+      oid,
+      commits,
+      why: '声明的改动行与祖先↔基线的实际差集不等 ⇒ 仍有他人行会被写回',
+      unclaimedRemoved: extra(actual.removed, decl.removed).slice(0, 8),
+      unclaimedAdded: extra(actual.added, decl.added).slice(0, 8),
+    })
+  }
+  return { clashes, unjudged, notes, accepted }
+}
+
+/**
+ * blob 模式的水幕检查:`watermark.mjs_verify` 读的是盘上文件,对 blob 内容零覆盖。
+ *
+ * 判的是**单向**关系:基线有横幅而构造内容没有 ⇒ 有人把横幅抹掉了 ⇒ 拒落。
+ * 刻意不要求"两边前三行逐字等值" —— 那等于**强制**目标必须带横幅,于是新增文件/第三方台账
+ * 内容(按 §5c 与守门 107 P8 的口径本来就没有我们的横幅)会被本器自己的预检挡住,
+ * 而"给出路且跑不通"正是本仓反复登记过的那类缺陷。
+ * 载荷可解码性仍由提交链上的水印守门负责,本器只保证"不是我抹的"。
+ */
+/**
+ * blob 模式的水幕检查:`watermark.mjs verify` 读的是盘上文件,对 blob 内容零覆盖。
+ *
+ * 判的是**单向**关系:基线有横幅而构造内容没有 ⇒ 有人把横幅抹掉了 ⇒ 拒落。
+ * 刻意不要求"两边前三行逐字等值" —— 那等于**强制**目标必须带横幅,于是新增文件/第三方台账
+ * 内容(按 §5c 与守门 107 P8 的口径本来就没有我们的横幅)会被本器自己的预检挡住,
+ * 而"给出路且跑不通"正是本仓反复登记过的那类缺陷。
+ *
+ * 2026-09-29 补第三态:基线的横幅**不可认**(整块缺失、只剩载荷行、或版权行被编码往返改成乱码)
+ * 而构造内容带规范横幅 ⇒ 这是修复,放行并报名。判据最初把这一格也判红,于是"补回被抹掉的署名"
+ * 这件正是本器该鼓励的事,被本器自己拦住了 —— 而它拦住的那三份文件,HEAD 上现在仍然没有署名。
+ * "篡改规范文案"(两边都规范而文字不同)照旧判红,这一格不让步。
+ *
+ * 器物盲区G(2026-10-23):前三行比较前必须先剥掉**开头的** UTF-8 BOM(U+FEFF)。
+ * BOM 是编码标记,不是文本内容 —— AGENTS §27 明文要求 `.ps1` 用 UTF-8 with BOM 写,
+ * 于是"给一个 .ps1 补 BOM"是**规范强制要求**的合法动作;而 `dropZeroWidth` 只剥零宽族
+ * (U+2060/200B/200C/200D),剥不掉 U+FEFF ⇒ 首行前插 BOM 被读成"改写横幅文字"硬拒
+ * (实测 blob 模式 exit 1,且 `IHUI_LAND_SKIP_WATERMARK` 只管工作树模式的预检、管不到
+ * blobBannerPreserved 这一支 ⇒ 那一类动作**没有任何合法出口**,而 §0.10 不许用加跳门来解)。
+ * 落点选在 `head3`(比较前三行这一件事的入口)而不是给"第一行"开特例:特例会随行号漂移,
+ * 而"BOM 只在字节流首位才是编码标记"这条不变。只剥开头那一个、不逐处剥:正文里真出现的
+ * U+FEFF 是内容,抹掉它才是给偷改横幅开洞。
+ */
+export function decideBanner({ baseText, newText, newPayloadOk = false }) {
+  const hasAny = hasAnyWatermarkTrace
+  const baseCanonical = hasExactCanonicalBanner(baseText)
+  const newCanonical = hasExactCanonicalBanner(newText)
+  const head3 = (text) =>
+    String(text)
+      .replace(/^\uFEFF/, '')
+      .split('\n')
+      .slice(0, 3)
+      .join('\n')
+  // BOM 有无发生变化(两端都剥过之后仍要能说清"这次为什么算保持")—— 只用于如实报数,不参与放行。
+  const bomToggled = String(baseText).startsWith('\uFEFF') !== String(newText).startsWith('\uFEFF')
+  if (!hasAny(baseText) && !hasAny(newText)) {
+    return {
+      verdict: 'note',
+      why: '两边都没有横幅(新增/第三方台账内容)⇒ 本器不逼它长出横幅,交水印守门与 107 P8 判',
+    }
+  }
+  if (hasAny(baseText) && !hasAny(newText))
+    return { verdict: 'broken', why: '基线有横幅而构造内容没有 ⇒ 横幅被抹' }
+  if (!baseCanonical && newCanonical) {
+    return {
+      verdict: 'repaired',
+      why: '基线横幅不可认(缺失/只剩载荷行/版权行被编码往返改坏)而构造内容带规范横幅 ⇒ 这是补回署名,放行并报名',
+    }
+  }
+  if (head3(baseText) !== head3(newText)) {
+    if (!newCanonical)
+      return { verdict: 'broken', why: '构造内容的横幅不可认 ⇒ 拒绝把无署名内容放进 HEAD' }
+    // 2026-09-30 补的一档:可见文案逐字未动、只差在**隐写载荷位**。
+    // 旧写法拿前三行逐字比,于是"基线载荷被编码往返改坏(§5c 的 载荷损坏 那一态)、这次把它注回规范值"
+    // 这件正事被判成"改写横幅文字"而拒 —— 三个已入库的损坏文件因此**没有任何落地通道**
+    // (提交链上的水印门是自愈式,它只会改磁盘;而磁盘那份属他人现场,§12 不许我写)。
+    // 收紧而非放宽:这一档必须同时满足"剥掉零宽族后前三行逐字相等"**且**"构造内容经
+    // `watermark.mjs verify` 判为完好(载荷可解码 = WATERMARK_TEXT)"。verify 不过 ⇒ 照旧拒。
+    // 载荷可解码性由调用方在 I/O 层量好再传进来 —— 本函数保持纯,构造面就能证明判序。
+    if (dropZeroWidth(head3(baseText)) === dropZeroWidth(head3(newText))) {
+      if (newPayloadOk)
+        return {
+          verdict: 'repaired',
+          why: '只差在隐写载荷位(可见文案逐字未动)且构造内容经 watermark verify 判完好 ⇒ 这是 §5c 要求的"载荷损坏"修复',
+        }
+      return {
+        verdict: 'broken',
+        why: '差异只在零宽载荷位,但构造内容没能经 watermark verify ⇒ 不认这次"修复",拒绝把解不出载荷的内容放进 HEAD',
+        // 这一格是"待复核"而不是"已判定坏":调用方有权问一次唯一判据(`watermark.mjs verify`)
+        // 再带 `newPayloadOk:true` 重试。**默认坏 = fail-closed** —— 调用方不复核就落不了地,
+        // 而不是悄悄放行。
+        needsPayloadCheck: true,
+      }
+    }
+    return {
+      verdict: 'broken',
+      why: '两边都是规范横幅而前三行仍被换掉 ⇒ 这是在改写横幅文字,不是保持',
+    }
+  }
+  return {
+    verdict: 'kept',
+    why: bomToggled
+      ? '前三行剥掉编码标记 BOM 后与基线逐字等值 ⇒ 横幅未被触碰(BOM 有无变化不是文本改动)'
+      : '前三行与基线逐字等值 ⇒ 横幅未被触碰',
+  }
+}
+
+export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
+  const broken = []
+  const unjudged = []
+  const notes = []
+  for (const p of paths) {
+    const baseOid = headBlobOf(baseRef, p, { root })
+    if (!blobOf.get(p)) {
+      unjudged.push({ path: p, why: '清单里没有该路径的 blob' })
+      continue
+    }
+    /**
+     * "基线里没有"与"问不到基线"是两件事(与上面祖先对账第 509 行同一约定,那里一直是对的):
+     * 新增文件**按定义**没有可保持的横幅,把它计成未判定会让任何带新文件的落地整体 exit 2,
+     * 而这台工具是共享落地出口 —— 卡住的不是本次提交,是所有会话。新增件的横幅覆盖交
+     * 水印守门(它有"新增必须注入"的权威判据),本器只守"别把已入库的横幅改掉/放进无横幅内容"。
+     */
+    if (baseOid === ABSENT) {
+      notes.push({
+        path: p,
+        why: '基线里没有该路径(新增文件)⇒ 无横幅可保持,新增覆盖由本器的新建路径载荷维判(G-04)',
+      })
+      continue
+    }
+    if (baseOid === UNKNOWN) {
+      unjudged.push({ path: p, why: '基线 blob 问不到 ⇒ 无法判横幅是否保持' })
+      continue
+    }
+    const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
+    const want = blobOf.get(p)
+    /**
+     * `LAND_BLOBS` 清单里的 `blob` 按头注第 37 行的契约**必须是 oid**(hash-object -w 之后已在对象库)。
+     * 上一版这里不校验形态,直接把值交给 `cat-file`,于是调用方误把**正文**塞进清单时得到的是
+     * "blob 正文取不到" —— 那句读数与"仓库里有问题"同形,而真正的原因是用错了通道。
+     * 现在把这条判据写实:值不是 40/64 位十六进制 ⇒ 点名"这是正文不是 oid",并给出正确取号办法。
+     */
+    if (!isOidLike(want)) {
+      unjudged.push({
+        path: p,
+        why:
+          'LAND_BLOBS 的值不是 oid(看着像正文)⇒ 先 `git hash-object -w -- <文件>` 取 oid 再写清单;' +
+          '本器按契约不替调用方写 blob(那会把"内容来自对象空间"这件事悄悄换成"从盘上读")',
+      })
+      continue
+    }
+    const nt = git(['cat-file', 'blob', want], { root, raw: true, allowFail: true })
+    if (bt === null || nt === null) {
+      unjudged.push({ path: p, why: 'blob 正文取不到' })
+      continue
+    }
+    const d0 = decideBanner({ baseText: bt, newText: nt })
+    // 只有走到"载荷位复核"那一格才派生 verify —— 其余分支不为此多花一次进程(落地器是共享出口,
+    // 每次给每个路径都验一遍会把无关提交一起拖慢)。
+    let d = d0
+    if (d0.needsPayloadCheck) {
+      const v = payloadIntactViaVerify(String(nt))
+      if (!v.judged) {
+        unjudged.push({ path: p, why: `差异只在零宽载荷位,而 watermark verify 问不到:${v.why}` })
+        continue
+      }
+      d = decideBanner({ baseText: bt, newText: nt, newPayloadOk: v.ok })
+    }
+    if (d.verdict === 'broken') broken.push({ path: p, why: d.why })
+    else if (d.verdict === 'note' || d.verdict === 'repaired') notes.push({ path: p, why: d.why })
+  }
+  return { broken, unjudged, notes }
+}
+
+/**
+ * 问"这份构造内容的载荷到底完不完好"—— **只能问那一份判据**(`watermark.mjs verify`),
+ * 不在本器里重写解码:§5c 明写"哪一行算横幅 / 哪一行算隐写 / 规范文案长什么样只许有一份",
+ * 解码是同一族事实。临时件落点走 `scripts/lib/scratch-dir.mjs`(§26:不落 os.tmpdir、不落仓库树内)。
+ * 三态:`judged=false` 是"问不到"(派生失败/超时),**不得**折成"不完好"或"完好"。
+ */
+function payloadIntactViaVerify(text) {
+  const dir = mkScratch('osl-banner-')
+  try {
+    const f = join(dir, 'probe.txt')
+    writeFileSync(f, text, 'utf8')
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    const r = spawnSync(process.execPath, [WATERMARK_CLI, 'verify', f], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+    if (r.error) return { judged: false, why: String(r.error.message ?? r.error).split('\n')[0] }
+    if (r.signal) return { judged: false, why: `verify 被 ${r.signal} 终止` }
+    return { judged: true, ok: r.status === 0, rc: r.status }
+  } catch (e) {
+    return { judged: false, why: String(e?.message ?? e).split('\n')[0] }
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+}
+
+/**
+ * 提交面存在性三态探针(2026-09-29 票 G-801)。存在性一律**问 git 的结论**,不再拿
+ * `git show --name-only` 的输出字节当路径身份 —— git 默认按 core.quotePath 把非 ASCII 路径
+ * 八进制转写并加引号,旧式逐字比对使任何中文/带空格路径**必然**比不中,把已成功的交付报成
+ * "缺路径"(枚 `fea980104b` 实测:`docs/项目说明/8端一致性认证矩阵-2026-09-15.md` 真在树里、
+ * `cat-file -e` 成立,回读却打了红)。假失败的后果不是多看一眼日志:读到"没入库"的人会重跑
+ * 同一次落地(幂等判据 G-321① 拦的就是这个),或改走 `git add && git commit` 的 pathspec 路径 —— 那才是 §12 的真事故。
+ *
+ * 为什么不复用 lib 的 `git()`:它把任何非零一律折叠(throw 掉数字退出码 / allowFail 时 null),
+ * 而这一维的三态各自有结论 —— "git 明确说不在树里"(absent,业务红,exit 1)与
+ * "问不到"(未判定,exit 2,不得冒充前者)是两件事。同型先例:bypass-git 的 `isAncestor`
+ * 也为此自带一次 spawnSync(见其头注),不在调用方各写一份的是**判据**,不是派生姿势。
+ *
+ * 归因规则(实测 git 2.55,`cat-file -e` 对"路径不在树"与"commit 解不出"**都返回 128**,
+ * 所以状态数字本身不足以分两态,必须两路正交信号):
+ *  - 派生 rc=0 ⇒ present;
+ *  - rc 为数字 且 stderr 命中"树里应答"签名(does not exist in / exists on disk, but not in)
+ *    且 提交对象本身可解析(前置一次性 rev-parse,解不出则整批未判定)⇒ absent;
+ *  - 其余(ENOENT/超时/被信号终止/退出码不带应答签名)⇒ undetermined。
+ * 三条不变量:present+absent+undetermined 恒等于 paths.length(非 ASCII 路径**不得被静默跳过**);
+ * 未判定不得折成 absent;git 给不出应答时绝不冒称判过。
+ */
+export function commitFacePresence({ root, commit, paths, timeoutMs = 30_000 }) {
+  const present = []
+  const absent = []
+  const undetermined = []
+  const baseArgs = ['-c', 'safe.directory=*']
+  if (process.platform === 'win32') baseArgs.push('-c', 'core.protectNTFS=false')
+  const ask = (args) => {
+    try {
+      execFileSync(GIT_BIN, [...baseArgs, '-C', root, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: timeoutMs,
+        maxBuffer: 8 << 20,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { status: 0, errText: '' }
+    } catch (e) {
+      return { status: e.status, errText: `${e.stderr ?? ''}${e.message ?? ''}` }
+    }
+  }
+  // 前置一次"问得到吗":提交对象本身解析不出 ⇒ 整批未判定(不得把"问不到"折叠成"没有")。
+  const probe = ask(['rev-parse', '--verify', '--quiet', `${commit}^{commit}`])
+  if (probe.status !== 0) {
+    for (const p of paths)
+      undetermined.push({
+        path: p,
+        why: '落地的提交本身问不到(rev-parse 非 0)⇒ 存在性未判定,不是"缺路径"',
+      })
+    return { present, absent, undetermined }
+  }
+  for (const p of paths) {
+    const r = ask(['cat-file', '-e', `${commit}:${p}`])
+    if (r.status === 0) present.push(p)
+    else if (
+      typeof r.status === 'number' &&
+      /does not exist in|exists on disk, but not in/.test(r.errText)
+    )
+      absent.push(p)
+    else
+      undetermined.push({
+        path: p,
+        why: `cat-file -e 未给出"树里应答"(status=${r.status ?? '派生失败/超时/信号'})⇒ 未判定,不折成"缺路径"`,
+      })
+  }
+  return { present, absent, undetermined }
+}
+
+/**
+ * 悬空相对引用预检(G-815985,2026-09-29 立)。
+ *
+ * 存在理由是本会话自己闯的祸:把 `./lib/lock-atomic-init.mjs` 与 `./lib/atomic-write.mjs` 的 import
+ * 交进了 HEAD,而把被 import 的文件留在未跟踪面 —— 旁路提交**不跑 pre-commit**,所以没有任何一道门
+ * 在场;本机一切正常(文件就在盘上),而干净检出上 `git archive HEAD | tar -x` 后
+ * `node <副本>/scripts/git-lock.mjs check` 直接 `ERR_MODULE_NOT_FOUND`。
+ *
+ * 本函数只判**一条**且刻意判得窄:声明面某个源文件写了相对引用,而**落地后的树里**没有任何候选落点。
+ * 符号级("文件在而不导出该符号")仍归守门 98 判 —— 它判整棵 HEAD,本判据只判"这次落地是否自洽",
+ * 两处算同一件事必然漂移,所以宁可各判一维也不复制判据。
+ *
+ * 三态,不并桶:
+ *  - `missing`     ⇒ 候选全部不在新树 ⇒ 拒绝落地(此刻**尚未创建任何 commit**,所以不留悬空对象)
+ *  - `undetermined`⇒ 说明符带的是未建模扩展名(.css/.csv/…)或取不到内容 ⇒ 只报数,绝不拦、也绝不静默
+ *  - 其余          ⇒ 命中候选,放过
+ */
+const SOURCE_LIKE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/i
+const KNOWN_CODE_EXT_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|json)$/i
+const RESOLVE_EXTS = Object.freeze(['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json'])
+// 说明符必须是一个**字符串字面量 token**,而不是"某串文本里出现了 import 字样"。
+// 这条不是洁癖:第一版用正则在注释遮罩后的原文上扫,结果**本闸拒绝了自己的落地枚次** ——
+// 镜像测试夹具里有 `writeFileSync(p, "import { x } from './lib/missing.mjs'\n")`,
+// 那句外层字符串的内容被当成了调用点,报出 4 条根本不存在的缺失。误拦一次,后人就学会整闸跳掉,
+// 所以按 token 取:外层字面量的 body 不以 `./` 开头 ⇒ 不是说明符。
+// 注释面仍要先抹(maskComments):注释里提一句路径不算装车(与本仓守门 131/135 同一条口径)。
+function relativeSpecifiers(code) {
+  const found = []
+  for (const s of scanLiterals(code).strings) {
+    const body = s.body ?? ''
+    if (!/^\.{1,2}\//u.test(body)) continue
+    const before = code.slice(0, s.start).replace(/\s+$/u, '')
+    if (/(?:\bfrom$|\brequire\($|\bimport\($|\bimport$)/u.test(before))
+      found.push({ spec: body, start: s.start })
+  }
+  return found
+}
+
+/** 把 ESM/TS 的相对说明符展开成候选落点(`./x.js` 在 TS 仓里合法地指向 `x.ts`)。 */
+function candidateTargets(importerPath, spec) {
+  const dir = importerPath.includes('/') ? importerPath.slice(0, importerPath.lastIndexOf('/')) : ''
+  const joined = normalize(`${dir}/${spec}`).replace(/\\/g, '/').replace(/^\.\//, '')
+  const out = [joined]
+  if (KNOWN_CODE_EXT_RE.test(joined)) {
+    const stem = joined.replace(KNOWN_CODE_EXT_RE, '')
+    for (const e of RESOLVE_EXTS) if (e) out.push(stem + e)
+  } else {
+    for (const e of RESOLVE_EXTS) if (e) out.push(joined + e)
+    for (const e of RESOLVE_EXTS) if (e) out.push(`${joined}/index${e}`)
+  }
+  return Array.from(new Set(out))
+}
+
+/**
+ * @param files 本次声明的 {path, blob}
+ * 注入 listTree/readBlob 是为了让镜像测试能在临时仓里跑同一份实现(不另造第二套判据)。
+ */
+function relativeImportGaps({ root, files, listTree, readBlob }) {
+  const treePaths = new Set(
+    String(listTree ?? '')
+      .split('\0')
+      .filter(Boolean),
+  )
+  const missing = []
+  const undetermined = []
+  let scanned = 0
+  for (const f of files) {
+    if (!SOURCE_LIKE_RE.test(f.path)) continue
+    scanned += 1
+    let src = ''
+    try {
+      src = String(readBlob(f))
+    } catch {
+      undetermined.push({ path: f.path, spec: '(取不到本次内容)', why: '内容不可读' })
+      continue
+    }
+    const code = maskComments(src)
+    for (const { spec, start } of relativeSpecifiers(code)) {
+      const cands = candidateTargets(f.path, spec)
+      if (cands.some((c) => treePaths.has(c))) continue
+      const tail = (spec.match(/\.[A-Za-z0-9]+$/u) || [''])[0]
+      if (tail !== '' && !KNOWN_CODE_EXT_RE.test(spec)) {
+        undetermined.push({ path: f.path, spec, why: `未建模扩展名 ${tail}` })
+        continue
+      }
+      const onDisk = cands.filter((c) => existsSync(resolve(root ?? '.', c)))
+      missing.push({ path: f.path, spec, line: src.slice(0, start).split('\n').length, onDisk })
+    }
+  }
+  return { scanned, missing, undetermined }
+}
+
+// G-815985 涉事判据:声明路径含源码时,在 commit-tree 之前对 onTree 那棵树跑守门 98。
+// 为什么是子进程而不是 import 门体:门体 import 期崩溃会连带杀死本器(本仓 G-815410 实测:
+// 他人未提交的半成品被 import 解析到 ⇒ 整条收敛通道停摆);子进程崩了只是一次"取不到结论",
+// 按 fail-closed 拒绝落盘。为什么是 `--rev <tree>` 而不是先 commit-tree 再审:拒落时已创建的
+// commit 对象会变成 unreachable,给守门 30a 留地雷(正是 onTree 存在的原因),故门体必须会审树。
+// 触发面复用本文件既有的 SOURCE_LIKE_RE(不另立第二份扩展名表;与门体 SRC_RE 的同形由镜像形状锁钉死)。
+// G-929 同型票(2026-10-23):必须把 `root`(被审仓根)显式传给门体(`--root`)。门体缺省按自身
+// 位置推导,而换仓通道(LAND_ROOT 指到别的仓)下不传 root,门就在自家仓里问一枚只存在于目标仓
+// 的树与锚点 ⇒「无法判定」⇒ 本器 fail-closed 拒绝 ⇒ 换仓场景只能打桩或整族跳过,判据等于没装。
+// 生产路径 root === 门体自身所在仓,传与不传同解(三态由门镜像用例与 T-DG1 的 argv 记账各自钉死)。
+function runDanglingGate({ root, tree, anchor }) {
+  const gate =
+    String(process.env.LAND_DANGLING_GATE ?? '').trim() ||
+    join(dirname(fileURLToPath(import.meta.url)), 'check-dangling-local-imports.mjs')
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [gate, '--rev', tree, '--anchor', anchor, '--root', root],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: Number(process.env.IHUI_LAND_DANGLING_GATE_TIMEOUT_MS || 10 * 60 * 1000),
+        maxBuffer: 64 << 20,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    return { pass: true, out: String(out) }
+  } catch (e) {
+    const rc = e.status ?? 9
+    // 没有退出码 ≠ 判红:execFileSync 超时是 SIGTERM 掐死孩子,e.status 直接为空。写进结论是为了让
+    // "预检没跑完"与"预检判你不该落"不再长得一样(2026-10-28 实测:120s 上限对 11,799 文件的树面不够)。
+    const killed =
+      e.status === undefined && e.signal ? ` | 孩子被 ${e.signal} 掐死 ⇒ 预检没跑完,这不是判定` : ''
+    const out = String((e.stdout ?? '') + (e.stderr ?? ''))
+    if (/已跳过/.test(out))
+      return {
+        pass: false,
+        undetermined: true,
+        why: `涉事判据未判定(门自称跳过,跳过等于没审):${gate}`,
+        out,
+      }
+    if (rc === 1) return { pass: false, why: '涉事判据判红(悬空具名导入/影子 .js),拒绝落盘', out }
+    return {
+      pass: false,
+      undetermined: true,
+      why: `涉事判据未判定(rc=${rc})${killed},拒绝落盘`,
+      out,
+    }
+  }
+}
+
+/**
+ * 暖色描边涉事判据(门 231 审树档 `--rev <tree> --only <清单>`)。
+ *
+ * 为什么必须接在这里而不是"把门加进 pre-commit":旁路通道(commit-tree + CAS)**结构上不跑钩子**,
+ * 只活在提交链的内容门对这条通道等于没装 —— 而本仓大量落地走的正是它(AGENTS:
+ * 「防它必须在它自己的判据源头接」)。
+ *
+ * 触发面**刻意不另立第二份扩展名表**:整份声明清单原样交给门,由门自己的 isInScope 判
+ * "本枚不涉及射程"并 exit 0 —— 同一条射程在两个文件里各写一遍必然漂移(§0.6)。
+ *
+ * G-929:必须把 `root`(被审仓根)显式传给门体(`--root`)。门体缺省按自身位置推导,
+ * 而镜像测试把 LAND_ROOT 指到 mkScratch 临时仓 —— 不传 root,门就在主仓里问一枚只存在于
+ * 临时仓的树 ⇒ "not a tree object" ⇒ 未判定 ⇒ 本器 fail-closed 拒绝 ⇒ 镜像套件整批红。
+ * 生产路径 root === 门体自身所在仓,传与不传同解(该档由门的镜像用例 M16 钉三态)。
+ */
+function runWarmBorderGate({ root, tree, paths }) {
+  const gate =
+    String(process.env.LAND_WARM_BORDER_GATE ?? '').trim() ||
+    join(dirname(fileURLToPath(import.meta.url)), 'check-no-warm-border.mjs')
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [gate, '--rev', tree, '--only', paths.join(';'), '--root', root],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: Number(process.env.IHUI_LAND_WARM_GATE_TIMEOUT_MS || 10 * 60 * 1000),
+        maxBuffer: 64 << 20,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    return { pass: true, out: String(out) }
+  } catch (e) {
+    const rc = e.status ?? 9
+    // 没有退出码 ≠ 判红:execFileSync 超时是 SIGTERM 掐死孩子,e.status 直接为空。写进结论是为了让
+    // "预检没跑完"与"预检判你不该落"不再长得一样(2026-10-28 实测:120s 上限对 11,799 文件的树面不够)。
+    const killed =
+      e.status === undefined && e.signal ? ` | 孩子被 ${e.signal} 掐死 ⇒ 预检没跑完,这不是判定` : ''
+    const out = String((e.stdout ?? '') + (e.stderr ?? ''))
+    if (rc !== 1 && /跳过/.test(out))
+      return {
+        pass: false,
+        undetermined: true,
+        why: `暖色描边涉事判据未判定(门自称跳过,跳过等于没审):${gate}`,
+        out,
+      }
+    if (rc === 1)
+      return { pass: false, why: '暖色描边涉事判据判红(输入框上的暖色描边),拒绝落盘', out }
+    return {
+      pass: false,
+      undetermined: true,
+      why: `暖色描边涉事判据未判定(rc=${rc})${killed},拒绝落盘`,
+      out,
+    }
+  }
+}
+
+async function main() {
+  const parsed = parseArgs()
+  if (parsed.error) {
+    console.error(`❌ ${parsed.error}`)
+    process.exit(2)
+  }
+  const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
+  const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
+  // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
+  const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
+  const skipDanglingGate = process.env.IHUI_LAND_SKIP_DANGLING_GATE === '1'
+  const skipWarmBorderGate = process.env.IHUI_LAND_SKIP_WARM_BORDER === '1'
+  let importGaps = { scanned: 0, missing: [], undetermined: [] }
+  let danglingGate = null
+  let warmBorderGate = null
+
+  const head0 = git(['rev-parse', 'HEAD'], { root })
+  const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
+  let mine = new Map(
+    paths.map((p) => [p, blobOf ? blobOf.get(p) : writeBlobOfWorktree(p, { root })]),
+  )
+  /**
+   * ── G-04 第二格(2026-10-25):**新建路径**在建 blob 之前先注入水印 ────────────────
+   *
+   * 判据面 = 父提交(`baseRef`,缺省 HEAD)里**不存在**的路径。这类路径没有"横幅保持"
+   * 可判(`blobBannerPreserved` 对它们只能打一句 note),而旁路通道不跑钩子、又不写工作树
+   * ⇒ 它们是"无水印内容进 HEAD"的唯一缺口(2026-10-15 实测一枚归档台账即此型)。
+   *
+   * 三条不许动的边界:
+   *  ① **已存在路径的语义一字不改** —— 不进 `newPaths`,不重算 blob,横幅保持/祖先对账/
+   *     行级复活三道判据照旧读 `blobOf` 里那份构造内容;
+   *  ② 工作树副本**一个字节都不写**(注入只发生在对象空间:文本 → injectText → hash-object);
+   *  ③ 豁免面(第三方台账 / 上游工具生成物)复用各自的唯一判据,不在这里另立第二张表。
+   * `refused` 非空 ⇒ exit 2:取不到正文 ≠ 无需注入(§0.3)。
+   */
+  const newPaths = paths.filter((p) => base.get(p) === ABSENT)
+  let newPathWatermark = { injected: [], already: [], skipped: [], refused: [] }
+  if (!skipWatermark && newPaths.length > 0) {
+    let excl
+    let entries
+    try {
+      excl = createExclusionPredicate(REPO_ROOT)
+      entries = loadToolGeneratedEntries(REPO_ROOT)
+    } catch (e) {
+      console.error(
+        `❌ 新建路径水印注入的豁免面无法判定(${String(e?.message ?? e).split('\n')[0]}):` +
+          '第三方台账 / 工具生成物台账取不到 ⇒ 无法判断这些新文件该不该带横幅',
+      )
+      console.error('   方向:宁停不猜(§0.3);修好台账,或显式给 IHUI_LAND_SKIP_WATERMARK=1 并留痕。')
+      process.exit(2)
+    }
+    const readText = blobOf
+      ? (p) => {
+          const oid = blobOf.get(p)
+          if (!isOidLike(oid))
+            return { why: `LAND_BLOBS 的值不是 oid(看着像正文)⇒ 取不到正文,也就无从注入` }
+          const t = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+          return t === null
+            ? { why: `构造 blob ${oid} 的正文取不到(对象库问不到)⇒ 未判定` }
+            : { text: t }
+        }
+      : (p) => {
+          try {
+            return { text: readFileSync(join(root, p), 'utf8') }
+          } catch (e) {
+            return { why: `盘上正文读不到:${String(e?.message ?? e).split('\n')[0]}` }
+          }
+        }
+    // 工作树通道保留 writeBlobOfWorktree 的冲突标记闸(meta.path),blob 通道不加新闸
+    // —— 那条内容本来就是调用方自己 hash 进来的,本器只在注入时重算一次。
+    const hashText = blobOf
+      ? (t) => writeBlob(t, { root })
+      : (t, p) => writeBlob(t, { root }, { path: p })
+    newPathWatermark = injectNewPathBlobs({
+      newPaths,
+      blobs: mine,
+      readText,
+      hashText,
+      skip: (p, text) => {
+        const rel = relative(REPO_ROOT, resolve(root, p)).replaceAll('\\', '/')
+        if (excl.isExcluded(rel)) return '台账登记的第三方内容 ⇒ 不注入(§5c:横幅是归属主张)'
+        if (judgeToolGenerated({ rel, text, entries }).exempt)
+          return '上游工具生成物 ⇒ 不注入(§5c 豁免档)'
+        return null
+      },
+    })
+    mine = newPathWatermark.blobs
+    // 注入改写了"将要进树的字节" ⇒ 必须逐条点名,静默改写比不注入更糟(§0.3 可见性)。
+    if (newPathWatermark.injected.length > 0) {
+      console.log(
+        `ℹ️ 新建路径已按 §5c 注入溯源水印后再取 blob(${newPathWatermark.injected.length} 个;工作树副本一个字节都没写):`,
+      )
+      for (const p of newPathWatermark.injected) console.log(`   · ${p}`)
+      console.log(
+        '   盘上副本滞后是预期的(本器绝不写工作树);要把它补齐 ⇒ node scripts/watermark.mjs inject <上面每个路径>',
+      )
+    }
+    if (newPathWatermark.already.length > 0)
+      console.log(`✅ 新建路径 ${newPathWatermark.already.length} 个已自带可解码载荷 ⇒ 不重复注入`)
+    for (const s of newPathWatermark.skipped) console.log(`   ℹ️ 新建路径 ${s.path}:${s.why}`)
+    if (newPathWatermark.refused.length > 0) {
+      console.error(
+        `❌ 新建路径的水印注入未能判定(${newPathWatermark.refused.length} 个):取不到正文 ≠ 无需注入`,
+      )
+      for (const r of newPathWatermark.refused) console.error(`   ${r.path}:${r.why}`)
+      process.exit(2)
+    }
+  }
+  if (blobOf) {
+    const proof = String(process.env.LAND_BLOB_PROOF ?? '').trim()
+    if (proof === '') {
+      console.error(
+        '❌ blob 模式必须出具 LAND_BLOB_PROOF(一句话说明"构造内容相对基线只动了本票行"是靠什么证的)\n' +
+          '   理由:工作树取材的两道陈旧守卫在 blob 模式结构上不适用,少了守卫必须写明由什么替代,\n' +
+          '   不得让"没判"在账面上读成"判过了"。',
+      )
+      process.exit(2)
+    }
+    console.log(
+      `ℹ️ blob 模式(内容来自对象空间清单,不取工作树字节)⇒ 盘上那份属于他人改动,本器不读它`,
+    )
+    console.log(`   替代证据:${proof}`)
+    let clashScope = null
+    const scopeFile = String(process.env.LAND_CLASH_SCOPE ?? '').trim()
+    if (scopeFile !== '') {
+      let parsed
+      try {
+        parsed = JSON.parse(readFileSync(scopeFile, 'utf8'))
+      } catch (e) {
+        console.error(`❌ LAND_CLASH_SCOPE 指向的文件读不到或不是 JSON(${String(e).slice(0, 120)})`)
+        console.error('   把"没拿到声明"读成"没有祖先命中"就是给合格证背书 ⇒ 判死,不落。')
+        process.exit(2)
+      }
+      const list = Array.isArray(parsed?.files) ? parsed.files : []
+      clashScope = new Map(
+        list.map((f) => [f.path, { removed: f.removed || [], added: f.added || [] }]),
+      )
+      const unknown = [...clashScope.keys()].filter((p) => !paths.includes(p))
+      if (unknown.length) {
+        console.error(`❌ LAND_CLASH_SCOPE 里有未声明落地的路径:${unknown.join(', ')}`)
+        console.error('   那条声明永远不会被核验,留着就是"看着有守卫其实空转"⇒ 判死,不落。')
+        process.exit(2)
+      }
+      console.log(
+        `ℹ️ 祖先命中出口已装载:逐行声明 ${clashScope.size} 个路径的改动行(声明必须独立算出,不是抄本判据的差集)`,
+      )
+    }
+    const clash = blobAncestorClash({ root, paths, blobOf, scope: clashScope })
+    if (clash.clashes.length) {
+      console.error(`❌ 构造内容与该路径某历史 blob 逐字节相同 ⇒ 那是写回旧版,不是新内容:`)
+      for (const c of clash.clashes) {
+        console.error(`   ${c.path} == ${c.commits.join('/')}${c.why ? ` —— ${c.why}` : ''}`)
+        for (const l of c.unclaimedRemoved || [])
+          console.error(`     会被写回(基线里活着): ${l.slice(0, SAMPLE_COL)}`)
+        for (const l of c.unclaimedAdded || [])
+          console.error(`     会被搬回(基线已删): ${l.slice(0, SAMPLE_COL)}`)
+      }
+      process.exit(1)
+    }
+    if (clash.unjudged.length) {
+      console.error(
+        `❌ 祖先对账未能运行(${clash.unjudged.length} 个路径):把"问不到"写成"不等于任何祖先"就是给合格证背书`,
+      )
+      process.exit(2)
+    }
+    // 命中祖先但被行级声明放过的,必须逐条点名:放行而不列出改了哪些行,就等于没判。
+    for (const a of clash.accepted || []) {
+      console.log(
+        `   ✅ 命中祖先 ${a.commits.join('/')} 但差集与本票声明逐行等值 ⇒ 不涉他人行,放行:${a.path}`,
+      )
+      for (const l of a.removed) console.log(`      写回旧态的本票行: ${l.slice(0, SAMPLE_COL)}`)
+      for (const l of a.added) console.log(`      恢复的本票行:     ${l.slice(0, SAMPLE_COL)}`)
+    }
+    const accN = (clash.accepted || []).length
+    console.log(
+      accN
+        ? `✅ 祖先对账 ${paths.length}/${paths.length} 路径:${paths.length - accN} 个不等于任何历史 blob,${accN} 个命中祖先但已按行级声明点名放行`
+        : `✅ 祖先对账 ${paths.length}/${paths.length} 路径:构造内容不等于任何历史 blob`,
+    )
+    const banner = blobBannerPreserved({ root, paths, blobOf, baseRef })
+    for (const n of banner.notes || []) console.log(`   ℹ️ ${n.path}:${n.why}`)
+    if (banner.broken.length) {
+      console.error(`❌ 水印横幅未保持(把无横幅内容放进 HEAD,或改写了横幅本身):`)
+      for (const b of banner.broken) console.error(`   ${b.path}:${b.why}`)
+      process.exit(1)
+    }
+    if (banner.unjudged.length) {
+      console.error(`❌ 横幅检查未能运行(${banner.unjudged.length} 个路径):取不到不等于保持`)
+      process.exit(2)
+    }
+    console.log(
+      `✅ 水印横幅保持 ${paths.length - (banner.notes || []).length}/${paths.length} 路径${(banner.notes || []).length ? `(另有 ${(banner.notes || []).length} 个基线本就无横幅,只点名不逼它长出横幅)` : ''}`,
+    )
+  }
+
+  // 声明无差异 ⇒ 事先拒绝(提交面回读结构上证明不了"改了它";safe-commit Step③ 同型的中止语义,前置到写盘之前)
+  const noDiff = paths.filter((p) => mine.get(p) === base.get(p))
+  if (noDiff.length > 0) {
+    console.error(
+      `❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`,
+    )
+    process.exit(1)
+  }
+
+  /**
+   * 陈旧落地守卫:放在 CAS **与水印预检之前** —— 拒绝路径上对象库、ref、索引都没被碰过,
+   * 也不必先花一次 verify 派生去为一个注定不落地的内容做证。
+   * 判据本身不在此重述(见 detectStaleLanding),这里只接线。
+   * G-04 补格(2026-10-24):两档都走,但**判据面不同** —— 工作树模式仍比盘面(那条路的语义没变);
+   * blob 模式传 `blobOf`,由 `detectStaleLanding` 改读构造提交的对象库 blob,不再拿盘上那份
+   * (属于别人的在飞改动)替自己的内容做证。上一版整段跳过 blob 模式,于是"构造内容搬回基线
+   * 已删行"这一型在 blob 模式结构上没有判据 —— 正是本次补的那一半。
+   */
+  const allowStale = process.env.LAND_ALLOW_STALE === '1'
+  if (allowStale)
+    console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
+  // ── 声明式还原通道装载(2026-10-30,CLI 契约见头注 LAND_RESTORE_MANIFEST 条)──────────
+  // 与 LAND_ALLOW_STALE 互斥:一边是白名单逐行放行、一边是整颗守卫关掉,同时举旗 = 调用方
+  // 自己都不知道要哪种语义 ⇒ 用法错 exit 2(§0.10:失效方向恒为多要一次定向说明)。
+  const manifestFile = String(process.env.LAND_RESTORE_MANIFEST ?? '').trim()
+  if (manifestFile !== '' && allowStale) {
+    console.error('❌ LAND_ALLOW_STALE=1 与 LAND_RESTORE_MANIFEST 同给 ⇒ 用法错,不落:')
+    console.error(
+      '   一边是逐行放行、一边是整闸关掉;两种语义同时举旗不合并执行,按更严的那边 = 拒。',
+    )
+    process.exit(2)
+  }
+  let restoreBy = null
+  if (manifestFile !== '') {
+    const lm = loadRestoreManifest({ root, paths, removePaths, baseRef, manifestFile })
+    if (!lm.ok) {
+      for (const pr of lm.problems)
+        console.error(
+          `❌ LAND_RESTORE_MANIFEST ${lm.code === 2 ? '形态/读取错' : '核验未过'}:${pr}`,
+        )
+      console.error(
+        '   声明未全部核验 ⇒ 拒绝落地。修声明再来;不得退回 LAND_ALLOW_STALE 硬闯(那是整闸关掉,不是本通道)。',
+      )
+      process.exit(lm.code)
+    }
+    restoreBy = lm.byPath
+    console.log(
+      `ℹ️ LAND_RESTORE_MANIFEST 已装载:${lm.entries.length} 条声明 / ${lm.byPath.size} 个路径(每条已核验:sha 是 ${baseRef} 祖先且其 blob 逐字写着该行)⇒ 只参与"点名的复活行"配平,其余复活/滞后形态照旧拒落`,
+    )
+  }
+  const guard = detectStaleLanding({
+    root,
+    paths,
+    baseRef,
+    head: head0,
+    jsonStructure,
+    blobOf,
+    restoreBy,
+  })
+  const refusing = !guard.ok && !allowStale
+  for (const line of staleReport(guard, { allowStale })) {
+    if (refusing) console.error(line)
+    else console.log(line)
+  }
+  if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
+    console.log(
+      'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
+        '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
+        '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
+    )
+  if (refusing) process.exit(1)
+
+  // ── 声明式还原的**逐字留痕**(票面第 4 条):每一次白名单放行,清单原文必须进提交信息 ──
+  // 通道选提交信息而非旁路台账:buildBypassRecord 的键形状是台账的单一真相(它注释里写死
+  // "同一本台账只许一种形状"),而提交史本来就是落地器唯一的可追责真相源(§1 台账条同判)。
+  let restoreTrailer = ''
+  if ((guard.restoreExempt?.length ?? 0) > 0) {
+    const n = guard.restoreExempt.reduce((a, e) => a + e.entries.length, 0)
+    restoreTrailer =
+      `\n\nRestore-Manifest-Channel: LAND_RESTORE_MANIFEST 白名单逐条放行 ${guard.restoreExempt.length} 个路径共 ${n} 条声明(行级按行文字、element 按数组元素多重集;其余复活/滞后形态照旧参与拒绝;清单逐字如下)` +
+      guard.restoreExempt
+        .flatMap((e) =>
+          e.entries.map(
+            (en) =>
+              `\nRestore-Manifest-Entry: ${JSON.stringify({
+                path: e.path,
+                ...(en.element ? { element: en.element } : { line: en.line }),
+                restoredFrom: en.restoredFrom,
+                why: en.why,
+              })}`,
+          ),
+        )
+        .join('')
+    console.log(
+      `ℹ️ 声明式还原放行 ${guard.restoreExempt.length} 个路径 / ${n} 条 ⇒ 清单逐字已追加进提交信息(Restore-Manifest-Entry trailer),事后按提交史可追责`,
+    )
+  }
+
+  let landed = ''
+  let parentSha = ''
+  // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
+  // 放在 CAS **之前** —— 校验不通过时对象库与 ref 都未被动过。
+  // G-04(2026-10-24)换面:把 `mine`(1564 行 hash-object 已冻结进对象库的那一版,**正是
+  // commitTreeWithIndex 要写进树的 oid**)交给预检 —— 判据与提交内容自此是同一份字节,
+  // 不再在 verify 里重读一次盘(两次读之间别人改盘 = 给未验证的字节发通行证)。
+  // blob 模式仍由 blobBannerPreserved 判(上面已跑):那份内容的来源是调用方构造的 oid,
+  // 盘上那份属于别人,拿它做证就是替别人的内容签字。
+  // G-04 第三格(2026-10-25):blob 模式的**新建路径**此前整段不跑本闸(只有一句 note),
+  // 于是"新增文件必须带可解码载荷"在那里没有任何判据。现在补上,取材面仍是对象库 blob
+  // (cat-file → 临时副本 → verify),不读盘;取不到判定面 ⇒ exit 2,不冒绿。
+  const refusePreflight = (pf) => {
+    console.error(`❌ 水印预检不通过,拒绝落地:${pf.why}`)
+    if (pf.undetermined) {
+      console.error(
+        '   这一支是「未判定」(取不到判定面),不是判出缺口 —— §0.3:修好取材再跑,不得按"通过"重跑。',
+      )
+      process.exit(2)
+    }
+    console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
+    process.exit(1)
+  }
+  if (!skipWatermark) {
+    if (!blobOf) {
+      const preflight = watermarkPreflight({ root, paths, blobs: mine })
+      if (!preflight.ok) refusePreflight(preflight)
+      console.log(
+        `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
+      )
+    } else if (paths.length > 0) {
+      // 2026-11-03 收紧:上一版 blob 模式只预检 `newPaths`,既有路径仅靠下面的 blobBannerPreserved
+      // (只认可见横幅在不在,不解载荷)。事故 0335facba1 正是**既有文件** agent-chat-stream.ts 的
+      // 零宽载荷被写坏(461 vs 485 码元)而横幅完好 —— 横幅闸绿灯,坏 blob 直接进 HEAD。
+      // 现在把本次落地的**全部路径**(新建 + 既有)都过同一支 verify(判据本体仍只在 watermark.mjs):
+      // 新建路径已由 injectNewPathBlobs 按同一构造注入,既有路径缺/坏载荷 ⇒ 拒落并点名。
+      const preflight = watermarkPreflight({ root, paths, blobs: mine })
+      if (!preflight.ok) refusePreflight(preflight)
+      console.log(
+        `✅ 水印预检通过(新建 ${newPaths.length} + 既有 ${paths.length - newPaths.length} = ${paths.length} 路径;判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
+      )
+    }
+  } else if (skipWatermark) {
+    // 上一版把这条写成 `else`,于是 **blob 模式**(它有自己的横幅判据,已在上面跑过)也走进这一支,
+    // 打印出一句"本次跳过水印预检"—— 那是**凭空声称一个没发生的放行**:环境变量根本没设,
+    // 读报告的人会以为有人绕过了守卫(而这类"账面声称的出路"正是本仓记过多次的失效型)。
+    console.log('⚠️ IHUI_LAND_SKIP_WATERMARK=1 ⇒ 本次跳过水印预检(该行输出即留痕)')
+  }
+  /**
+   * ── L33560 最后一格(2026-11-01 S-OSL):**落地前**的冲突标记闸 ──────────────────────
+   *
+   * 判据本体不在本文件:`lib/conflict-marker-landing-gate.mjs` 是唯一实现(§22c),本器只提供
+   * 取材面 —— `mine` 里那份**已经 hash 进对象库、正是 commitTreeWithIndex 要写进树的 oid**
+   * (与上面水印预检同一份字节,不再从盘上重读一次:两次读之间别人改盘 = 给未验证的字节发通行证)。
+   *
+   * 位置:水印预检之后、CAS 循环之前。拒落时对象库只多几枚**未被引用**的 blob(它们在本器
+   * 落地前就被 hash-object 造出来了),ref / 索引 / commit 面一个都没动 —— 与悬空引用预检、
+   * 门 98/231 的"拒落不留 commit 对象"同一语义。
+   *
+   * 分档(判据口径全在 lib 头注,这里不重述):
+   *   · `must-block`(任一侧有真内容)⇒ 不落地 + 逐条点名(文件 + 行号区间 + 标记原文),exit 1
+   *     —— 与 union-converge 的 bad 同档,沿用本文件既有退出码表里的"业务拒绝";
+   *   · `strippable`(区域内两侧零正文)⇒ **不拦**,只打一行"建议摘除";
+   *   · 取不到正文 ⇒ exit 2(未判定 ≠ 通过,§0.3)。
+   *
+   * 逃生口:`IHUI_LAND_SKIP_CONFLICT_MARKER_GATE=1`(与 `IHUI_LAND_SKIP_AFFECTED_GATES`
+   * 同族命名),由 lib 自己读并**必打一行留痕**。⚠️ 设了它,本判据完全失效:旁路落地可以
+   * 再次把冲突标记三行带进 HEAD。别名 `IHUI_OSL_SKIP_CONFLICT_MARKER_GATE=1` 只做转发
+   * (本器历史命名习惯),不构成第二个开关。
+   */
+  const OSL_CONFLICT_SKIP_ALIAS = 'IHUI_OSL_SKIP_CONFLICT_MARKER_GATE'
+  {
+    const gateEnv = { ...process.env }
+    if (gateEnv[OSL_CONFLICT_SKIP_ALIAS] === '1' && gateEnv[LANDING_MARKER_SKIP_ENV] !== '1') {
+      console.log(
+        `ℹ️ ${OSL_CONFLICT_SKIP_ALIAS}=1 视同 ${LANDING_MARKER_SKIP_ENV}=1(别名只转发到唯一判据的逃生口,不另立开关)`,
+      )
+      gateEnv[LANDING_MARKER_SKIP_ENV] = '1'
+    }
+    const gateEntries = paths.map((p) => {
+      const oid = mine.get(p)
+      if (!isOidLike(oid)) return { path: p, text: null }
+      const text = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+      return { path: p, text: text === null ? null : text }
+    })
+    const cgate = gateLandingMarkers(gateEntries, {
+      env: gateEnv,
+      log: (s) => console.log(s),
+    })
+    for (const a of cgate.advices) console.log(`⚠️ ${a}`)
+    if (cgate.violations.length > 0) {
+      console.error(
+        `❌ 落地内容里存在冲突标记区(${cgate.violations.length} 处)⇒ 拒绝落地(未创建 commit、HEAD 与主索引均未动):`,
+      )
+      for (const v of cgate.violations) console.error(`   ${v}`)
+      console.error(
+        '   为什么拦:这一档是"任一侧有真内容"—— 落地等于把 git 写给机器看的分界行当正文带进 HEAD,' +
+          '或逼人二选一而静默丢一侧。请先在内容里把冲突真正解掉再来。',
+      )
+      console.error(
+        `   应急跳过 ${LANDING_MARKER_SKIP_ENV}=1(该变量会让本判据完全失效,仅限确证无害时用,跳过会打留痕)`,
+      )
+      process.exit(1)
+    }
+    if (cgate.undetermined.length > 0) {
+      console.error(
+        `❌ 落地前冲突标记自检未能判定(${cgate.undetermined.length} 路径):取不到正文 ≠ 干净`,
+      )
+      for (const u of cgate.undetermined) console.error(`   ${u}`)
+      console.error('   方向:修好取材(blob 是否真在对象库)再跑,不得按"通过"重跑(§0.3)。')
+      process.exit(2)
+    }
+    // skipped 的留痕行由 lib 自己打(log 回调直通 stdout),这里不再复写第二遍。
+    if (!cgate.skipped) {
+      console.log(
+        `✅ 落地前冲突标记自检:${cgate.judged}/${paths.length} 路径无 must-block 区` +
+          `${cgate.advices.length ? `(另有 ${cgate.advices.length} 处空冲突区:只建议摘除,不拦)` : ''}`,
+      )
+    }
+  }
+
+  // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
+  // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
+  let lastMadeCommit = ''
+  for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
+    const head = git(['rev-parse', 'HEAD'], { root })
+    const clobber = clobberedPaths(paths, base, head, { root })
+    if (clobber.length > 0) {
+      console.error(
+        `❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`,
+      )
+      process.exit(1)
+    }
+    // 删除档同款护栏(G-926):删除路径的"基线"是它在 baseRef 树里的**在位性**。
+    // CAS 期间若 HEAD 推进而该路径的在位性变了(别人已经删了它/或新加了同名路径),
+    // 照旧删就是在猜别人的意图 —— 与写入档的 clobber 同一语义,只是比对量从 blob 换成在位性。
+    const removeBase = new Map(removePaths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
+    const removeClobber = removePaths.filter(
+      (p) => headBlobOf(head, p, { root }) !== removeBase.get(p),
+    )
+    if (removeClobber.length > 0) {
+      console.error(
+        `❌ 放弃落地:HEAD 已推进且这些待摘除路径的在位性被别人改过 ⇒ 需重新归并而非照旧删(第 ${attempt} 次尝试):\n  ${removeClobber.join('\n  ')}`,
+      )
+      process.exit(1)
+    }
+    const entries = paths.map((p) => ({ path: p, blob: mine.get(p) }))
+    // 删除档(G-926):声明要从树里摘掉的路径走底层 commitTreeWithIndex 的删除出口
+    // (`{path, deleted:true}`,两条护栏住在那一层,不在这里复刻)。
+    for (const p of removePaths) entries.push({ path: p, deleted: true })
+    const made = commitTreeWithIndex({
+      root,
+      parent: head,
+      message: msg + restoreTrailer,
+      entries,
+      baseRef: head,
+      // 校验放在 write-tree 之后、commit-tree 之前:被拒时不产生任何 commit 对象,
+      // 因此不会给守门 30a 留"unreachable commit"地雷(它只数 commit 行)。
+      onTree: (tree) => {
+        if (!skipImportCheck) {
+          const g = relativeImportGaps({
+            root,
+            files: entries,
+            listTree: git(['ls-tree', '-r', '--name-only', '-z', tree], { root }),
+            readBlob: (f) => git(['cat-file', 'blob', f.blob], { root }),
+          })
+          importGaps = g
+          if (g.missing.length > 0) return `悬空相对引用 ${g.missing.length} 处`
+        }
+        // G-815985:源码落盘前跑涉事判据(门 98 `--rev <tree>`,锚点=本轮 CAS 基线 head)。
+        // 与相对引用预检同处 commit-tree 之前,拒落时同样不产生 commit 对象。
+        if (!skipDanglingGate && entries.some((e) => SOURCE_LIKE_RE.test(e.path))) {
+          const r = runDanglingGate({ root, tree, anchor: head })
+          danglingGate = r
+          if (!r.pass) return r.why
+        }
+        // 暖色描边涉事判据(门 231 审树档)。整份清单交过去,由门自己的 isInScope 判
+        // "本枚不涉及射程"并放行 —— 不在这里复刻一份扩展名表(§0.6)。
+        if (!skipWarmBorderGate) {
+          const r = runWarmBorderGate({ root, tree, paths: entries.map((e) => e.path) })
+          warmBorderGate = r
+          if (!r.pass) return r.why
+        }
+        return ''
+      },
+    })
+    if (made.rejected) {
+      if (danglingGate && !danglingGate.pass) {
+        console.error(`❌ ${danglingGate.why}(未创建任何 commit、HEAD 与主索引均未动):`)
+        for (const line of String(danglingGate.out ?? '')
+          .split('\n')
+          .slice(-12))
+          if (line.trim()) console.error(`   ${line.slice(0, 220)}`)
+        console.error(
+          danglingGate.undetermined
+            ? '   出路:这条预检**没判**(孩子进程没拿到退出码,常被掐死或进程槽耗尽),不是"你有悬空导入"。' +
+                '先直接复跑同一棵树上的门体(见上面 rc 与空输出即为证),确认无新增后重落本器即可;' +
+                '真判红(rc=1)才需要修导入。应急 IHUI_LAND_SKIP_DANGLING_GATE=1(会打留痕)。'
+            : '   出路:把悬空导入修掉后重落。应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
+        )
+        process.exit(danglingGate.undetermined ? 2 : 1)
+      }
+      if (warmBorderGate && !warmBorderGate.pass) {
+        console.error(`❌ ${warmBorderGate.why}(未创建任何 commit、HEAD 与主索引均未动):`)
+        for (const line of String(warmBorderGate.out ?? '')
+          .split('\n')
+          .slice(-12))
+          if (line.trim()) console.error(`   ${line.slice(0, 220)}`)
+        console.error(
+          '   出路:把该处描边改成中性档(border.light/medium)或强调档(brandAccent.light/deep)后重落;' +
+            '判据边界见门体头注。应急跳过 IHUI_LAND_SKIP_WARM_BORDER=1(会把跳过那行打进输出留痕)',
+        )
+        process.exit(warmBorderGate.undetermined ? 2 : 1)
+      }
+      console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
+      for (const m of importGaps.missing) {
+        console.error(
+          `   ${m.path}:${m.line} → ${m.spec}  ⇒ 落地后的树里没有任何候选落点${
+            m.onDisk.length > 0
+              ? `;但盘上有 ${m.onDisk.join(' / ')} ⇒ 典型的"忘了随本次声明一起入库"`
+              : ''
+          }`,
+        )
+      }
+      console.error(
+        '   出路只有两条:把被引用的文件一起加进 LAND_PATHS,或去掉这条引用。' +
+          '应急跳过 IHUI_LAND_SKIP_IMPORT_CHECK=1(会把跳过那行打进输出留痕)',
+      )
+      process.exit(1)
+    }
+    if (!skipImportCheck) {
+      const g = importGaps
+      console.log(
+        `✅ 悬空相对引用预检:声明面源文件 ${g.scanned} 个 / 缺失 ${g.missing.length} / 判不出 ${g.undetermined.length}` +
+          (g.undetermined.length > 0
+            ? `(只报不拦:${g.undetermined.map((u) => `${u.path} ${u.spec}(${u.why})`).join('; ')})`
+            : ''),
+      )
+    } else {
+      console.log('⚠️ IHUI_LAND_SKIP_IMPORT_CHECK=1 ⇒ 本次跳过悬空相对引用预检(该行输出即留痕)')
+    }
+    if (skipDanglingGate) {
+      console.log(
+        '⚠️ IHUI_LAND_SKIP_DANGLING_GATE=1 ⇒ 本次跳过涉事判据(门 98 --rev)(该行输出即留痕)',
+      )
+    } else if (danglingGate) {
+      console.log(`✅ 涉事判据(门 98 --rev <tree>):通过,落盘树无新增悬空`)
+    } else {
+      console.log('ℹ️ 涉事判据未触发:声明面无源码路径(门 98 只审源码)')
+    }
+    if (skipWarmBorderGate) {
+      console.log(
+        '⚠️ IHUI_LAND_SKIP_WARM_BORDER=1 ⇒ 本次跳过暖色描边涉事判据(门 231 --rev)(该行输出即留痕)',
+      )
+    } else if (warmBorderGate) {
+      console.log('✅ 暖色描边涉事判据(门 231 --rev <tree>):通过,落盘树无输入框暖色描边')
+    }
+    const commit = made.commit
+    lastMadeCommit = commit
+    // casUpdateRef 除了返回 false 还会**抛出**(detached HEAD / G-939 fail-closed / 索引锁异常)——
+    // 那一型同样是"本轮 sha 已造出却没能成为 ref 值",不接住就又是一个无备份孤儿。
+    // 次序是死规矩:先备份,再把原异常**原样**抛出(不吞、不改退出码语义,更绝不因为"要备份"就
+    // 把这轮说成落地成功;备份本身永不抛,见 lib/orphan-backup.mjs)。
+    let casWon = false
+    try {
+      casWon = casUpdateRef(commit, head, { root })
+    } catch (casErr) {
+      backupIfAbandoned(
+        commit,
+        `object-space-land 第 ${attempt} 回 CAS 抛出:${String(casErr?.message ?? casErr)
+          .replace(/\s+/g, ' ')
+          .slice(0, 80)}`,
+        root,
+      )
+      throw casErr
+    }
+    if (casWon) {
+      landed = commit
+      parentSha = head
+      console.log(
+        `✅ 第 ${attempt} 次 CAS 成功 HEAD=${commit}(基线 ${baseRef}=${head0.slice(0, 9)})`,
+      )
+      break
+    }
+    console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试`)
+    // ref 没动而本枚已造出 ⇒ 孤儿就在这一行出生:当场备份(争用越久备得越多,同 sha 幂等零加)。
+    backupIfAbandoned(commit, `object-space-land 第 ${attempt} 回 CAS 未抢到`, root)
+  }
+  if (landed === '') {
+    // 兜底:末枚多半已在上面逐轮备过(幂等 already:true 零加);取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
+    backupIfAbandoned(
+      lastMadeCommit,
+      `object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`,
+      root,
+    )
+    console.error(`❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS,主索引未动`)
+    process.exit(1)
+  }
+
+  // ① 提交面回读(G-801):存在性逐路径问 git 的结论 `cat-file -e <commit>:<path>`,三态不并桶。
+  //    (本段与其下 ①b 的四个 exit 1|2 **刻意不接 backupIfAbandoned**:走到这里说明 CAS 已成功、
+  //     ref 已推进且 landed 已进 HEAD 的 reflog ⇒ 结构上产不出守门 30a 数的"不可达孤儿";
+  //     接了只会在"回读前恰好被别席推进"的窗口里给一枚正常落地的提交造 tag 噪声。)
+  //    旧写法解析 `git show --name-only` 的输出文本并与声明路径逐字比对 —— git 默认按
+  //    core.quotePath 把非 ASCII 路径八进制转写并加引号,中文/带空格路径必然比不中,
+  //    把已成功的交付报成"缺路径";假失败会诱使重跑一次已经成功的落地(G-321① 幂等判据要拦的事)。
+  const face = commitFacePresence({ root, commit: landed, paths })
+  if (face.undetermined.length > 0) {
+    console.error(
+      `❌ 提交面回读未判定(${face.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"在树"也不报"缺路径":`,
+    )
+    for (const u of face.undetermined) console.error(`   ${u.path} (${u.why})`)
+    console.error(
+      `   落地已推进 HEAD=${landed};先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${landed.slice(0, 9)}:<path>\`;禁止按"缺路径"重跑本次落地`,
+    )
+    process.exit(2)
+  }
+  const notProven = face.absent
+  if (notProven.length > 0) {
+    console.error(
+      `❌ 提交面回读缺路径(消息声称的改动没真进树;git 逐路径答"不在 ${landed.slice(0, 9)} 的树里"):\n  ${notProven.join('\n  ')}`,
+    )
+    process.exit(1)
+  }
+  // ①b 删除档反向自证(G-926):删除项的自证必须是"**不在**树里"。
+  //     拿写入档那把尺子(`cat-file -e` 要求 status 0)量删除,一条都没删也能过 ——
+  //     那正是本器 2026-10-18 空内容守卫那次事故的同型:自检全绿而实际什么都没发生。
+  //     三态与写入档同构:未判定(问不到)exit 2、仍在树里 exit 1、确认不在 ⇒ 放行。
+  if (removePaths.length > 0) {
+    const delFace = commitFacePresence({ root, commit: landed, paths: removePaths })
+    if (delFace.undetermined.length > 0) {
+      console.error(
+        `❌ 删除档反向自证未判定(${delFace.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"已删"也不报"未删":`,
+      )
+      for (const u of delFace.undetermined) console.error(`   ${u.path} (${u.why})`)
+      console.error(
+        `   落地已推进 HEAD=${landed};先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${landed.slice(0, 9)}:<path>\`;禁止按"已删除"重跑本次落地`,
+      )
+      process.exit(2)
+    }
+    if (delFace.present.length > 0) {
+      console.error(
+        `❌ 删除档反向自证失败(声明摘除却仍在 ${landed.slice(0, 9)} 的树里):\n  ${delFace.present.join('\n  ')}`,
+      )
+      process.exit(1)
+    }
+    console.log(`✅ 删除档反向自证 ${removePaths.length}/${removePaths.length} 路径已不在树`)
+  }
+  // 混提核查(D171 起统一走 lib/git-paths 的 -z 出口:diff-tree NUL 分帧取真路径,
+  // 与当年 G-801 的"-c core.quotePath=false"同效但不依赖文本行分帧;与 safe-commit
+  // Step 5 共用一份实现)。它只留作"是否混提"的辅助提醒,**不参与存在性结论** ——
+  // 存在性仍由上面的 commitFacePresence(cat-file -e 逐路径问 git 的结论)判定。
+  let listed = null
+  try {
+    listed = new Set(gitCommitPaths({ root, sha: landed, allowFail: false }))
+  } catch (e) {
+    console.log(`⚠️ 混提核查问不到(辅助提醒维,不参与存在性结论):${e && e.message ? e.message : e}`)
+  }
+  const extras = listed
+    ? [...listed].filter((p) => !paths.includes(p) && !removePaths.includes(p))
+    : []
+  console.log(
+    `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${removePaths.length ? `;删除档 ${removePaths.length} 路径已摘除` : ''}${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
+  )
+
+  /**
+   * G-725 留痕:走到这里"这枚提交已在 HEAD 里、且声明路径都过了逐路径存在性判定"是既成事实 ——
+   * 主索引对齐(下一步)成功与否都不改变"它绕过了提交链"这一点,所以留痕必须写在对齐**之前**、
+   * 写在回读三态判定**之后**(回读未判定/缺路径的分支各有自己的退出码,那些情形不该记成"已落地")。
+   * 硬要求:写失败只喊一行 WARN,绝不把一次成功落地判红(它记的是账,不是门禁)。
+   * 这一族曾被一次"按滞后工作树副本提交的旁路落地"整体抹掉过(2026-09-29 现读 HEAD 计数 0),
+   * 所以它的存续由 `scripts/tests/plan-tasks-f9.test.mjs` 同族的形状锁看着,不靠人记得。
+   */
+  const attest = recordBypassLanding({
+    root,
+    source: 'object-space-land',
+    landedSha: landed,
+    headBefore: parentSha,
+    // 声明面 = 写入档 ∪ 删除档:两者都是"本次落地动过的路径",留痕只记一边会让纯删除的落地
+    // 从旁路台账里整批消失(实测:declaredFiles 传空数组时 buildBypassRecord 直接拒写,而
+    // 那一维的缺失会被总量统计读成"未判定")。
+    declaredFiles: paths.concat(removePaths),
+    watermarkSkipped: skipWatermark,
+  })
+  if (!attest.ok)
+    console.log(
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
+    )
+  else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
+
+  /**
+   * G-816708(2026-10-05):本次落地含台账 ⇒ **就地补跑一次守门 71 的自愈**。
+   * 接在这里的三个理由(位置不是随手挑的):
+   *  ① 必须在 CAS 成功且提交面回读通过**之后** —— 没落地的东西没有"落地那一刻"可补,
+   *     而回读未判定/缺路径的分支各有自己的退出码,那些情形不该以自愈的名义再写一次 HEAD;
+   *  ② 必须在主索引对齐**之前** —— 自愈若建了前向恢复提交,HEAD 已是那一枚,随后
+   *     `alignSharedIndex` 会把共享主索引对齐到**恢复后**的 blob;顺序反过来就留下一格
+   *     "HEAD 已补、索引仍带着旧版",而下一次不带 pathspec 的普通提交正好把它写回旧态;
+   *  ③ 与上面的水印预检成套:同一套派生纪律(process.execPath + 绝对路径 + windowsHide + timeout,
+   *     住在 lib/post-merge-ledger-sync.mjs 那一份),同一器物、同一次调用 —— 判据必须在真跑它的
+   *     那一刻才成立,挂在钩子上对旁路落地等于没有。
+   * 用提交档还是报告档、以及为什么不成环:理由写在 `lib/bypass-git.mjs` 的 `rerunLedgerHeal` 头上
+   * (一句话:这一跑是 post-commit 第 6 节的替身,替身必须与原件同形;恢复提交仍由 commit-tree 产生
+   * ⇒ 钩子不跑 ⇒ 结构上回不到本器,且它只在 HEAD 真缺行时才建提交,补完即"无缺失"⇒ 严格收敛)。
+   * 补跑失败只喊一行(stderr),不改本轮落地的退出码 —— 零丢失自证已通过的落地不该被替身判红。
+   */
+  rerunLedgerHeal({ root, paths })
+
+  /**
+   * G-816040 的旁路落地半格(2026-10-18 立):四端 `ui-routes` 派生态的写回出口挂在
+   * `.husky/pre-commit` 的 `TOKEN_SYNC_TARGETS` 登记表里,而本器走 commit-tree ⇒ 那一档**结构上从不触发**。
+   * 现读量级(同日):`.ihui-agent/state/safe-commit-attestation.jsonl` 里 `kind=bypass-landing` 共 **623 条**
+   * —— 即"改页面/路由源并入库"里相当一部分根本没经过登记表,产物钉必然反复落后 ⇒ 门 105 的 G5
+   * 在干净 HEAD 上红 ⇒ 每一次普通提交都被迫再人工重钉一遍(本会话今日已人工重钉两次)。
+   * 本步只做**复检与点名**,不做写回:写回档 `--heal-ui-routes` 的纪律是"面上取不到/工作树副本≠面副本/
+   * 量级异常 ⇒ 拒绝并点名",而 CAS 之后磁盘那份恰好与新品不一致(别人或本人的在飞现场),在这里跑它
+   * 只会得到一次"拒绝写回"的噪声,却可能把他人现场改脏 —— 要写回必须由人显式跑那条命令。
+   * 退出码刻意不改(与上面 rerunLedgerHeal 同一条理由):零丢失自证已通过的落地,不该被替身判红;
+   * 真正的判定权仍在提交链那一轮的 `--staged` 面。
+   */
+  uiRoutesFreshnessNotice({ root, paths })
+
+  // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
+  //    删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉(否则 `git status` 显一条
+  //    `D `,此后任何人一次不带 pathspec 的普通提交就把刚删的死文件加回 HEAD —— 本仓 2026-09-27/28
+  //    连复活四次的孤儿组件正是这一型),且他席真暂存过的一律不动并点名(§12)。
+  const align = alignSharedIndex({ root, paths: paths.concat(removePaths), parentRef: parentSha })
+  if (align.lockAbandoned) {
+    console.error('❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认持有者后单跑索引对齐')
+    process.exit(1)
+  }
+  if (align.failed) {
+    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):${align.error ?? ''}`)
+    process.exit(1)
+  }
+  console.log(
+    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
+  )
+  if (align.skipped.length > 0) {
+    console.log(
+      `⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`,
+    )
+  }
+  if (align.undetermined.length > 0) {
+    console.log(
+      `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
+    )
+  }
+
+  /**
+   * G-113(头注④,2026-10-23):落地后复跑受影响判据。位置与 ③ 同一条理由链 —— 必须在
+   * CAS 成功且提交面回读通过之后(没落地的东西没有"落地那一刻"可补),且在主索引对齐之后
+   * (tsc --files 档读盘上那份,对齐后索引=落地面,盘的漂已由 notes 点名,不静默)。
+   * 与 ③ 不同的一点:③ 失败只喊一行不改退出码(自愈替身无权判红一次零丢失自证已通过的落地),
+   * 本档是**判据本身** —— 票面纪律:复跑失败 ⇒ 大声报数 + exit 非 0;不回滚(既成事实),
+   * 但拒绝静默。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
+   */
+  const affected = rerunAffectedGates({ root, paths: paths.concat(removePaths) })
+  if (affected.verdict === 1) {
+    console.error(
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+    )
+    process.exit(1)
+  }
+  if (affected.verdict === 2) {
+    console.error(
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+    process.exit(2)
+  }
+  process.exit(0)
+}
+
+/**
+ * 四端 `ui-routes` 派生态的落地后复检(只点名,不判定、不写回、不改退出码)。
+ * 触发面与 `.husky/pre-commit` 登记表里那四行的 `pathTrigger` 逐字同集合 —— 少一端就是"扩了面却没接进这一档"。
+ * @returns {{skipped?:boolean, rc?:number, stale:number, why?:string}}
+ */
+export function uiRoutesFreshnessNotice({ root, paths }) {
+  const TRIGGER_FACES = [
+    'apps/web/app/',
+    'apps/mobile-rn/src/navigation/',
+    'apps/miniapp-taro/src/',
+    'apps/extension/entrypoints/sidepanel/',
+  ]
+  const ARTIFACTS = [
+    'apps/web/src/lib/ui-routes.generated.ts',
+    'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+    'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+    'apps/extension/lib/ext-ui-routes.generated.ts',
+  ]
+  const touched = paths.map((p) => String(p).replace(/\\/g, '/'))
+  const hit = touched.some(
+    (p) => ARTIFACTS.includes(p) || TRIGGER_FACES.some((f) => p.startsWith(f)),
+  )
+  if (!hit) return { skipped: true, stale: 0 }
+  const r = spawnSync(process.execPath, [join(root, 'scripts', 'check-miniapp-generated.mjs')], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 240000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+  const stale = (out.match(/\[G5\]/g) ?? []).length
+  if (r.status === 0) return { rc: 0, stale: 0 }
+  if (r.status === 2) {
+    console.log(
+      `⚠️ 落地后复检门 105 报「无法判定」(exit 2)⇒ 不记绿也不记红,请人工复跑:node scripts/check-miniapp-generated.mjs`,
+    )
+    return { rc: 2, stale, why: 'undetermined' }
+  }
+  console.log(
+    `⚠️ 本枚旁路落地之后,门 105 现读有 ${stale} 处派生产物自述钉陈旧(G5)。成因不是本枚写坏了产物,` +
+      `而是四端 ui-routes 的写回档挂在 .husky/pre-commit 的登记表上,而旁路落地(commit-tree)结构上不跑钩子。`,
+  )
+  console.log(
+    `   出路(不代做:写回档会按面比对磁盘,此刻磁盘可能挂着他人现场):` +
+      `node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged 之后逐路径复核再提交;` +
+      `若拒绝写回,它会点名是哪一端的面与磁盘不一致。判定权仍在提交链那一轮的 --staged 面。`,
+  )
+  return { rc: r.status ?? 1, stale }
+}
+
+/**
+ * `--self-test` 自含电池(G-926 票面原话:"带 `--self-test` 与镜像用例")。
+ *
+ * 与镜像测试 `scripts/tests/object-space-land-remove.test.mjs` 的分工:
+ *  - 那一份钉判据的**两臂成对**(正控/反证/互斥/纯删除/clobber/混同九例,node --test 跑);
+ *  - 本电池是**器物自证**:不依赖测试框架与断言库,任何人
+ *    `node scripts/object-space-land.mjs --self-test` 一条命令就能问"删除档还在不在"。
+ *    交付现场(值守/复盘/跨机复量)没有 node --test 也能跑,这是它与镜像测试并列存在的理由。
+ *
+ * 夹具一律走 mkScratch 临时仓(退出即回收),**不碰真仓**;子进程以真身重入本器,
+ * 结论问 git(ls-tree/cat-file)与盘上字节,不解析本器自己的输出文本下结论 ——
+ * 唯一读输出的一处是"反向自证那行到底打没打"(留痕可见性),且只查在不在,不查数值。
+ *
+ * 临时仓里判不出的两道预检(水印横幅基线 / 悬空相对引用)各有应急出口,
+ * 与删除档判据正交(它们的真仓覆盖在各自守门与镜像测试里),子进程侧跳过时自己出声留痕;
+ * 判据本体(反向自证/互斥/clobber 同语义/工作树不被动/纯删除合法入口)一条不跳。
+ * 门 98 与暖色描边门(G-929 及其同型票)**都不跳**:两枚门体都已支持 `--root`,
+ * 本器把被审仓根透传过去,临时仓的真树真判(自检仓声明面只有 .txt,门 98 触发面本就打不到)。
+ */
+const SELF_TEST_PLAN = [
+  {
+    id: 'ST1',
+    name: '正控:摘一枚基线在位的跟踪件 ⇒ 树里没有、盘上字节未变、反向自证留痕',
+    expect: 'accept',
+  },
+  {
+    id: 'ST2',
+    name: '反证:摘一枚基线不在位的路径 ⇒ 拒(不得静默变成"什么都没删")',
+    expect: 'reject',
+  },
+  { id: 'ST3', name: '互斥:同一路径同时声明写入与删除 ⇒ 拒(自相矛盾)', expect: 'reject' },
+  {
+    id: 'ST4',
+    name: '纯删除是合法入口:只有 LAND_REMOVE_PATHS ⇒ 放行(ST1 已跑,这里钉"不误拒")',
+    expect: 'accept',
+  },
+  { id: 'ST5', name: '写删混同:一次落地既有写入又有摘除 ⇒ 两条自证各问各的方向', expect: 'accept' },
+  { id: 'ST6', name: '嵌套路径:sub/stay.txt 摘除后父目录与其他文件原样', expect: 'accept' },
+  { id: 'ST7', name: '双边空清单 ⇒ 拒(空清单会把 undefined 当路径,本仓踩过)', expect: 'reject' },
+  // ── 声明式还原通道 LAND_RESTORE_MANIFEST(2026-10-30 立;票面"三型自证,缺一不可")──
+  {
+    id: 'ST8',
+    name: '声明式还原·正控:复活行被清单逐条声明且核验过 ⇒ 放行落地,清单逐字进提交信息',
+    expect: 'accept',
+  },
+  {
+    id: 'ST9',
+    name: '声明式还原·反向①:同枚落地夹带一行未声明的滞后复活 ⇒ 当场拒落并点名(守卫没整颗关掉)',
+    expect: 'reject',
+  },
+  {
+    id: 'ST10',
+    name: '声明式还原·反向②:假 restoredFrom(那枚 blob 里没这行)⇒ 拒;why 过短 ⇒ exit 2',
+    expect: 'reject',
+  },
+  {
+    id: 'ST11',
+    name: '声明式还原·反向③:不传旗 ⇒ 与设立前同形(同一现场照旧被陈旧守卫拒)',
+    expect: 'reject',
+  },
+  {
+    id: 'ST12',
+    name: '声明式还原·未被消费的声明(该行没复活)⇒ 拒;与 ALLOW_STALE 同举 ⇒ exit 2',
+    expect: 'reject',
+  },
+]
+
+/** 自含电池共用的 git 直跑姿势(与镜像测试同构:显式身份 + safe.directory + autocrlf 关)。 */
+let SELF_TEST_GIT = 'git'
+try {
+  SELF_TEST_GIT = gitBinary()
+} catch {
+  /* 解析不到就回落 'git',由具体用例把失败喊出来,不在这里静默改结论 */
+}
+const stGit = (dir, args) =>
+  execFileSync(
+    SELF_TEST_GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'user.email=t@e2e.local',
+      '-c',
+      'user.name=e2e',
+      '-c',
+      'core.autocrlf=false',
+      '-C',
+      dir,
+      ...args,
+    ],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      maxBuffer: 32 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+const stTreeHas = (dir, p) => {
+  try {
+    stGit(dir, ['ls-tree', '-r', '--name-only', 'HEAD', '--', p])
+    // ls-tree 对不存在的路径输出空(rc=0),对坏树才非零 ⇒ 用输出判,不用 rc 判
+    return stGit(dir, ['cat-file', '-e', `HEAD:${p}`]) === ''
+  } catch {
+    return false
+  }
+}
+
+/** 造三文件临时仓:gone.txt(待摘) / keep.txt(不动) / sub/stay.txt(嵌套路径)。 */
+function stMakeRepo() {
+  const dir = mkScratch('osl-self-')
+  stGit(dir, ['init', '-q'])
+  writeFileSync(join(dir, 'gone.txt'), 'to be untracked\n', 'utf8')
+  writeFileSync(join(dir, 'keep.txt'), 'keep me v1\n', 'utf8')
+  mkdirSync(join(dir, 'sub'), { recursive: true })
+  writeFileSync(join(dir, 'sub', 'stay.txt'), 'stay\n', 'utf8')
+  stGit(dir, ['add', '-A'])
+  stGit(dir, ['commit', '-q', '-m', 'selftest-base'])
+  return dir
+}
+
+/** 以子进程真身重入本器(env 契约与外部调用完全同形,不走任何内存内快捷路径)。 */
+function stRun(dir, { paths = '', remove = '', msg = 'selftest', extra = {} }) {
+  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: paths,
+      LAND_REMOVE_PATHS: remove,
+      LAND_MSG: msg,
+      // 两道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳。
+      // 涉事判据(门 98 / 门 231)都已支持 --root ⇒ 都不跳,被审仓根透传给门体,临时仓的真树真判。
+      IHUI_LAND_SKIP_WATERMARK: '1',
+      IHUI_LAND_SKIP_IMPORT_CHECK: '1',
+      ...extra,
+    },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return { rc: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}`, err: r.error }
+}
+
+/** 跑全部自含用例。永不抛:每条用例自己收尾,汇总 `self-test: X/Y 通过`。 */
+async function runSelfTest() {
+  const results = []
+  const one = async (id, name, fn) => {
+    const dir = stMakeRepo()
+    try {
+      const why = await fn(dir)
+      results.push({ id, name, ok: why === null, why: why ?? '' })
+    } catch (e) {
+      results.push({
+        id,
+        name,
+        ok: false,
+        why: `用例自身抛出:${String(e?.message ?? e).split('\n')[0]}`,
+      })
+    } finally {
+      rmScratch(dir, { bestEffort: true })
+    }
+  }
+
+  await one('ST1', SELF_TEST_PLAN[0].name, (dir) => {
+    const before = readFileSync(join(dir, 'gone.txt'), 'utf8')
+    const r = stRun(dir, { remove: 'gone.txt' })
+    if (r.rc !== 0) return `正控必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return '落地后 gone.txt 仍在 HEAD 树里 ⇒ 删除没生效'
+    const after = readFileSync(join(dir, 'gone.txt'), 'utf8')
+    if (after !== before)
+      return `工作树字节被改动(取消跟踪≠删盘上文件):${JSON.stringify(before)} ⇒ ${JSON.stringify(after)}`
+    if (!r.out.includes('反向自证')) return '输出里没有"反向自证"留痕行 ⇒ 自证可见性丢失'
+    return null
+  })
+
+  await one('ST2', SELF_TEST_PLAN[1].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { remove: 'ghost-not-in-base.txt' })
+    if (r.rc === 0) return `反证必须拒,实得 rc=0(静默变成"什么都没删"):${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST3', SELF_TEST_PLAN[2].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { paths: 'keep.txt', remove: 'keep.txt' })
+    if (r.rc === 0) return `互斥必须拒,实得 rc=0:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST4', SELF_TEST_PLAN[3].name, (dir) => {
+    const r = stRun(dir, { remove: 'gone.txt', msg: 'selftest-pure-remove' })
+    if (r.rc !== 0) return `纯删除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return '纯删除后 gone.txt 仍在树里'
+    return null
+  })
+
+  await one('ST5', SELF_TEST_PLAN[4].name, (dir) => {
+    writeFileSync(join(dir, 'keep.txt'), 'keep me v2(本次写入)\n', 'utf8')
+    const r = stRun(dir, { paths: 'keep.txt', remove: 'gone.txt' })
+    if (r.rc !== 0) return `写删混同必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return 'gone.txt 没被摘掉'
+    if (!stTreeHas(dir, 'keep.txt')) return 'keep.txt 不在树里'
+    const treeKeep = stGit(dir, ['show', 'HEAD:keep.txt'])
+    if (!treeKeep.includes('v2'))
+      return `树里 keep.txt 不是新内容:${JSON.stringify(treeKeep.slice(0, 80))}`
+    if (readFileSync(join(dir, 'gone.txt'), 'utf8') !== 'to be untracked\n')
+      return 'gone.txt 盘上字节被改动'
+    return null
+  })
+
+  await one('ST6', SELF_TEST_PLAN[5].name, (dir) => {
+    const r = stRun(dir, { remove: 'sub/stay.txt' })
+    if (r.rc !== 0) return `嵌套路径摘除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'sub/stay.txt')) return 'sub/stay.txt 仍在树里'
+    if (!stTreeHas(dir, 'keep.txt')) return '无关文件 keep.txt 被连带摘掉'
+    if (readFileSync(join(dir, 'sub', 'stay.txt'), 'utf8') !== 'stay\n')
+      return 'sub/stay.txt 盘上字节被改动'
+    return null
+  })
+
+  await one('ST7', SELF_TEST_PLAN[6].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { paths: '', remove: '' })
+    if (r.rc === 0) return `双边空清单必须拒,实得 rc=0:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  // ── ST8–ST12:声明式还原通道 LAND_RESTORE_MANIFEST 的三型自证(票面原话"缺一不可")────
+  // 夹具形状(与 2026-10-29/30 六次实测撞型同构):提交 A 写着两枚"日后被还原"的声明行,
+  // 提交 B 把它们删掉;盘上是 **A 的滞后副本 ⊕ 一行真新内容** ⇒ 整 blob 不等于任何祖先,
+  // 只有行级复活看得见 —— 这正是 LAND_ALLOW_STALE 过去被迫整颗关闸的那一型。
+  const RS_LINE_A = 'export const intentionalRestoreG35 = true'
+  const RS_LINE_B = 'export const secondUndeclaredG35 = true'
+  const RS_TICKET = '// ticket g35-s7 的本票新内容行'
+  function stMakeRestoreRepo(dir) {
+    writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\n${RS_LINE_B}\nbeta\n`, 'utf8')
+    stGit(dir, ['add', '-A'])
+    stGit(dir, ['commit', '-q', '-m', 'A: 两枚日后成为还原对象的声明行'])
+    const A = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    writeFileSync(join(dir, 'r.txt'), 'alpha\nbeta\ngamma\n', 'utf8')
+    stGit(dir, ['add', '-A'])
+    stGit(dir, ['commit', '-q', '-m', 'B: 合法删掉那两行'])
+    const B = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    return { A, B }
+  }
+  const stManifest = (dir, entries) => {
+    const f = join(dir, '.restore-manifest.json')
+    writeFileSync(f, JSON.stringify({ entries }), 'utf8')
+    return f
+  }
+
+  await one('ST8', SELF_TEST_PLAN[7].name, (dir) => {
+    const { A } = stMakeRestoreRepo(dir)
+    writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\nbeta\n${RS_TICKET}\n`, 'utf8')
+    const mf = stManifest(dir, [
+      {
+        path: 'r.txt',
+        line: RS_LINE_A,
+        restoredFrom: A,
+        why: 'selftest 正控:有意还原被 B 误删的声明行',
+      },
+    ])
+    const r = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore',
+      extra: { LAND_RESTORE_MANIFEST: mf },
+    })
+    if (r.rc !== 0) return `正控必须放行,实得 rc=${r.rc}:${r.out.slice(0, 500)}`
+    const landed = stGit(dir, ['show', '--format=%B', '-s', 'HEAD']).toString()
+    if (!landed.includes('Restore-Manifest-Entry'))
+      return '清单未逐字进提交信息(留痕缺失,不可事后追责)'
+    if (!landed.includes(RS_LINE_A)) return '提交信息里的 entry 不含被还原行的原文'
+    const face = stGit(dir, ['show', 'HEAD:r.txt']).toString()
+    if (!face.includes(RS_LINE_A) || !face.includes(RS_TICKET))
+      return `落地内容缺行:还原行/本票行必须都在,实得 ${JSON.stringify(face.slice(0, 160))}`
+    return null
+  })
+
+  await one('ST9', SELF_TEST_PLAN[8].name, (dir) => {
+    const { A } = stMakeRestoreRepo(dir)
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    // 同一枚落地:声明了 A 行,却**另外夹带**一枚未声明的滞后复活行(B 行)—— 这一例是整件事的牙
+    writeFileSync(
+      join(dir, 'r.txt'),
+      `alpha\n${RS_LINE_A}\n${RS_LINE_B}\nbeta\n${RS_TICKET}\n`,
+      'utf8',
+    )
+    const mf = stManifest(dir, [
+      { path: 'r.txt', line: RS_LINE_A, restoredFrom: A, why: 'selftest 反向①:只声明了第一行' },
+    ])
+    const r = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore ①',
+      extra: { LAND_RESTORE_MANIFEST: mf },
+    })
+    if (r.rc === 0) return `夹带未声明的复活行仍必须拒落,实得 rc=0(白名单被走成了整闸放行,假修复)`
+    if (!r.out.includes(RS_LINE_B))
+      return `拒绝报告必须点名那枚未声明的复活行,实得输出不含 "${RS_LINE_B}"`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST10', SELF_TEST_PLAN[9].name, (dir) => {
+    const { A } = stMakeRestoreRepo(dir)
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\nbeta\n${RS_TICKET}\n`, 'utf8')
+    // 假 restoredFrom:拿 B(那枚里逐字没有该行)冒充 ⇒ 验不过 ⇒ 拒(且不是 exit 2 的用法错,是核验失败)
+    const mf1 = stManifest(dir, [
+      {
+        path: 'r.txt',
+        line: RS_LINE_A,
+        restoredFrom: head,
+        why: 'selftest 反向②:sha 指着一枚没写过该行的提交',
+      },
+    ])
+    const r1 = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore ②a',
+      extra: { LAND_RESTORE_MANIFEST: mf1 },
+    })
+    if (r1.rc !== 1)
+      return `假 restoredFrom 必须 rc=1 核验未过,实得 rc=${r1.rc}:${r1.out.slice(0, 300)}`
+    if (!/核验未过/.test(r1.out)) return `必须点名"核验未过",实得:${r1.out.slice(0, 300)}`
+    // 形态错:why 过短 ⇒ exit 2(用法错,和多要一次定向说明同向);顺带钉 40 位全量 sha
+    const mf2 = stManifest(dir, [{ path: 'r.txt', line: RS_LINE_A, restoredFrom: A, why: '太短' }])
+    const r2 = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore ②b',
+      extra: { LAND_RESTORE_MANIFEST: mf2 },
+    })
+    if (r2.rc !== 2) return `why 过短必须 exit 2(用法错),实得 rc=${r2.rc}`
+    const mf3 = stManifest(dir, [
+      {
+        path: 'r.txt',
+        line: RS_LINE_A,
+        restoredFrom: A.slice(0, 12),
+        why: '短 sha 冒充全量 sha 的形态',
+      },
+    ])
+    const r3 = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore ②c',
+      extra: { LAND_RESTORE_MANIFEST: mf3 },
+    })
+    if (r3.rc !== 2) return `短 sha 必须 exit 2(§1 证据指针:40 位全量),实得 rc=${r3.rc}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST11', SELF_TEST_PLAN[10].name, (dir) => {
+    stMakeRestoreRepo(dir)
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\nbeta\n${RS_TICKET}\n`, 'utf8')
+    // 与 ST8 正控**同一现场**,只是不传旗 ⇒ 必须与设立前逐字节同形:陈旧守卫照旧拒
+    const r = stRun(dir, { paths: 'r.txt', msg: 'selftest restore ③' })
+    if (r.rc !== 1) return `不传旗的滞后复活必须照旧 rc=1,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (!/陈旧落地守卫/.test(r.out))
+      return `拒绝行必须是既有的"陈旧落地守卫"文案,实得:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST12', SELF_TEST_PLAN[11].name, (dir) => {
+    const { A } = stMakeRestoreRepo(dir)
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    // 未被消费的声明:盘上**没有**任何复活(只有真新行),清单却声明了一枚历史行 ⇒ "举了旗而旗
+    // 没接上判据"必须响(与 LAND_CLASH_SCOPE 的射程外声明同纪律),整枚拒落。
+    writeFileSync(join(dir, 'r.txt'), 'alpha\nbeta\ngamma\n' + RS_TICKET + '\n', 'utf8')
+    const mf = stManifest(dir, [
+      {
+        path: 'r.txt',
+        line: RS_LINE_A,
+        restoredFrom: A,
+        why: 'selftest ST12:这行本轮根本没有复活',
+      },
+    ])
+    const r = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore ④',
+      extra: { LAND_RESTORE_MANIFEST: mf },
+    })
+    if (r.rc !== 1) return `未被消费的声明必须 rc=1 拒落,实得 rc=${r.rc}:${r.out.slice(0, 400)}`
+    if (!/声明未被核验|声明没有一条被核验/.test(r.out))
+      return `必须点名"声明未被核验",实得:${r.out.slice(0, 400)}`
+    // 与 LAND_ALLOW_STALE 同举 ⇒ 用法错 exit 2(逐行放行与整闸关旗不得合并语义)
+    const r2 = stRun(dir, {
+      paths: 'r.txt',
+      msg: 'selftest restore ⑤',
+      extra: { LAND_RESTORE_MANIFEST: mf, LAND_ALLOW_STALE: '1' },
+    })
+    if (r2.rc !== 2) return `两面旗同给必须 exit 2,实得 rc=${r2.rc}:${r2.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  for (const r of results)
+    console.log(`${r.ok ? '✅' : '❌'} ${r.id} ${r.name}${r.ok ? '' : `\n    ${r.why}`}`)
+  const bad = results.filter((r) => !r.ok).length
+  console.log(`\nself-test: ${results.length - bad}/${results.length} 通过`)
+  return bad === 0 ? 0 : 1
+}
+
+/**
+ * 用法面(S-HELPRC 2026-11-01 立;口径 = L33582 / RP-79 残余的裁决,见
+ * `.ihui-agent/seats/S-HELPRC.md`)。
+ *
+ * 病:本器此前**根本没有 `--help` 处理**(头注只写了"CLI 契约(env 驱动,无参数)")。
+ * 于是 `node scripts/object-space-land.mjs --help` 这个 token 谁都不认,一路落进
+ * `parseArgs` 的"缺 LAND_PATHS"出口 —— 用户**主动要帮助**,拿到的是"你少给了必填项" exit 2。
+ * 同族另两器(git-sync-converge / union-converge)已是"打印用法 + rc=0",三器口径相反,
+ * 且"哪些 token 被认识"在本器上不可说 = 与 `git-sync-converge` 2026-10-30 踩过的
+ * "未知旗静默落进默认档"同一族(那次的后果是真跑了索引层收敛)。
+ *
+ * 裁决口径(与 POSIX/GNU 惯例及同族一致):
+ *   · `--help` / `-h` = 用户主动请求帮助 = **成功** ⇒ 打印用法 + rc=0;
+ *   · 未知旗标 / 缺必填 env / 互斥声明 = **用法错** ⇒ rc=2。
+ * 本器 env 契约下 token 不进场,未知 token 仍由 parseArgs 的缺清单出口 exit 2 —— **不动**
+ * (它不点名该 token,这一格登记为残留,见 seat 文件,不在本处顺手扩权)。
+ *
+ * 位置:排在 `isDirectRun` 的最前面,先于 `--self-test` 与 `main()` —— help 必须在
+ * **任何会动索引/refs 的动作之前**退出(零副作用是这条口径能被测的前提)。
+ */
+const USAGE = [
+  '用法: LAND_PATHS="<a.ts;b.ts>" LAND_MSG="<提交信息>" node scripts/object-space-land.mjs',
+  '      # CLI 契约是 env 驱动、无位置参数;每个 env 的含义:',
+  '  LAND_PATHS          必填(与 LAND_REMOVE_PATHS 至少给一边),";" 分隔的仓库相对路径',
+  '  LAND_REMOVE_PATHS   可选,要从结果树里摘掉(取消跟踪)的同一形清单;与 LAND_PATHS 不得有交集',
+  '  LAND_MSG            提交信息(只写能被回读证明的东西)',
+  '  LAND_BASE_REF       基线 ref(缺省 HEAD)',
+  '  LAND_BLOBS          内容清单 JSON 路径(给了就不读工作树,用于"同文件里有他人在飞改动")',
+  '  LAND_ROOT           仓库根(缺省本仓)',
+  '      node scripts/object-space-land.mjs --self-test   # 器物自证(先于 env 契约)',
+  '      node scripts/object-space-land.mjs --help|-h     # 本用法(rc=0,不执行任何动作)',
+  '退出码: 0 正常/用法打印 · 1 判据红(自证不过) · 2 用法或环境错(空清单/空消息/路径不在盘上/根不可当仓库问)',
+]
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  // help 排在**第一位**:它不该被 env 契约(缺 LAND_PATHS 即拒 exit 2)挡成"用法错",
+  // 也不该排到 --self-test 之后 —— 用户要的是用法,不是自证。
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log(USAGE.join('\n'))
+    process.exit(0)
+  }
+  // --self-test 先于 main:它是器物自证入口,不该被 env 契约(缺 LAND_PATHS 即拒)挡住
+  if (process.argv.includes('--self-test')) {
+    runSelfTest()
+      .then((rc) => process.exit(rc))
+      .catch((e) => {
+        console.error(`❌ self-test 派生失败:${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exit(2)
+      })
+  } else {
+    main().catch((e) => {
+      console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+      process.exit(2)
+    })
+  }
+}
+
+export const __test__ = {
+  parseArgs,
+  backupIfAbandoned,
+  clobberedPaths,
+  lineDelta,
+  resurrectAnalysis,
+  detectStaleLanding,
+  validateRestoreManifest,
+  loadRestoreManifest,
+  compareElementRestore,
+  jsonStructuralSuperset,
+  jsonGuardKindFor,
+  jsonKeyPathAudit,
+  staleReport,
+  commitFacePresence,
+  // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
+  injectNewPathBlobs,
+  watermarkPreflight,
+  SELF_TEST_PLAN,
+  runSelfTest,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

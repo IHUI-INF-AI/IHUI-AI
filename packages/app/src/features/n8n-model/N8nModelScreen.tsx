@@ -1,0 +1,314 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, RefreshControl } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { TextField } from '../../components/TextField'
+
+/** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { N8nModelItem, N8nModelScreenProps }
+
+/** 状态 tab 列表(label 通过 i18n 注入) */
+const TABS: { id: N8nModelTab; labelKey: string }[] = [
+  { id: 'all', labelKey: 'n8nModel.tabAll' },
+  { id: 'running', labelKey: 'n8nModel.tabRunning' },
+  { id: 'stopped', labelKey: 'n8nModel.tabStopped' },
+]
+
+export function N8nModelScreen({
+  t,
+  items,
+  tab,
+  keyword,
+  loading,
+  refreshing,
+  error,
+  onSelectTab,
+  onKeywordChange,
+  onRefresh,
+  onRetry,
+  onToggle,
+  onEdit,
+  onCreate,
+  onBack,
+  colorScheme = 'light',
+}: N8nModelScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const list = items.filter((m) => {
+    const matchTab = tab === 'all' ? true : m.status === tab
+    const matchKw = keyword ? m.name.includes(keyword) || m.desc.includes(keyword) : true
+    return matchTab && matchKw
+  })
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.headerTitle}>{t('n8nModel.title')}</Text>
+        <TouchableOpacity style={styles.createBtn} onPress={onCreate} activeOpacity={0.8}>
+          <Text style={styles.createText}>{t('n8nModel.create')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchRow}>
+        <TextField
+          colorScheme={colorScheme}
+          style={styles.searchInput}
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder={t('n8nModel.searchPlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+        />
+      </View>
+
+      <View style={styles.tabRow}>
+        {TABS.map((tabItem) => {
+          const active = tab === tabItem.id
+          return (
+            <TouchableOpacity
+              key={tabItem.id}
+              style={[styles.tabItem, active && styles.tabItemActive]}
+              onPress={() => onSelectTab(tabItem.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                {t(tabItem.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+
+      {error ? (
+        <View style={styles.errorBar}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={onRetry} activeOpacity={0.8}>
+            <Text style={styles.retryText}>{t('common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {loading && items.length === 0 ? (
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
+      ) : (
+        <FlatList<N8nModelItem>
+          data={list}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={styles.listBody}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[tk.brand.DEFAULT]}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListEmptyComponent={<EmptyState title={t('n8nModel.empty')} colorScheme={colorScheme} />}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={styles.cardTitleRow}>
+                  <View
+                    style={[styles.dot, item.status === 'running' ? styles.dotRun : styles.dotStop]}
+                  />
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.badge,
+                    item.status === 'running' ? styles.badgeRun : styles.badgeStop,
+                  ]}
+                >
+                  {item.status === 'running' ? t('n8nModel.running') : t('n8nModel.stopped')}
+                </Text>
+              </View>
+              {item.desc ? (
+                <Text style={styles.cardDesc} numberOfLines={2}>
+                  {item.desc}
+                </Text>
+              ) : null}
+              {item.url ? (
+                <Text style={styles.cardUrl} numberOfLines={1}>
+                  {item.url}
+                </Text>
+              ) : null}
+              <View style={styles.cardMeta}>
+                <Text style={styles.metaText}>{t('n8nModel.calls', { count: item.calls })}</Text>
+                <Text style={styles.metaText}>
+                  {t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}
+                </Text>
+                <Text style={styles.metaText}>{item.updatedAt}</Text>
+              </View>
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    item.status === 'running' ? styles.actionStop : styles.actionStart,
+                  ]}
+                  onPress={() => onToggle(item)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[styles.actionText, item.status === 'running' && styles.actionStopText]}
+                  >
+                    {item.status === 'running'
+                      ? t('n8nModel.actionStop')
+                      : t('n8nModel.actionStart')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionEdit}
+                  onPress={() => onEdit(item)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.actionEditText}>{t('n8nModel.actionEdit')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        />
+      )}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+    },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    createBtn: {
+      paddingHorizontal: rnSpacing['md-loose'],
+      paddingVertical: rnSpacing['xs-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    createText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    searchRow: { paddingHorizontal: rnSpacing['sm-loose'] },
+    searchInput: {
+      height: 50,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.sm,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    tabRow: {
+      flexDirection: 'row',
+      marginHorizontal: rnSpacing['sm-loose'],
+      marginTop: rnSpacing.md,
+      padding: rnSpacing.xs,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.card,
+    },
+    tabItem: {
+      flex: 1,
+      height: 32,
+      borderRadius: rnRadius.xl,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabItemActive: { backgroundColor: tk.surface.bg },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    tabTextActive: { color: tk.text.primary, fontWeight: '600' },
+    errorBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: rnSpacing['sm-loose'],
+      marginTop: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.danger.light,
+    },
+    errorText: { flex: 1, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    retryText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.DEFAULT,
+      marginLeft: rnSpacing.sm,
+    },
+    listBody: { padding: rnSpacing['sm-loose'] },
+    separator: { height: 12 },
+    card: {
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    dot: {
+      width: 8,
+      height: 8,
+
+      borderRadius: rnRadius.sm,
+      marginRight: rnSpacing.sm,
+    },
+    dotRun: { backgroundColor: tk.success.DEFAULT },
+    dotStop: { backgroundColor: tk.text.tertiary },
+    cardName: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    badge: {
+      fontSize: rnType.caption.size,
+      fontWeight: '600',
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: 3,
+      borderRadius: rnRadius.md,
+    },
+    badgeRun: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
+    badgeStop: { color: tk.text.secondary, backgroundColor: tk.surface.card },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
+    cardUrl: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
+    cardMeta: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.md,
+      marginTop: rnSpacing['sm-loose'],
+    },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardActions: { flexDirection: 'row', gap: rnSpacing['sm-loose'], marginTop: rnSpacing.md },
+    actionBtn: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      height: 34,
+      borderRadius: rnRadius.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionStart: { backgroundColor: tk.success.DEFAULT },
+    actionStop: { backgroundColor: tk.brandAccent.DEFAULT },
+    actionText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    // 浅灰蓝底上白字不可读,停止按钮文字改用 brandAccent.foreground(2026-09-14 灰蓝定稿)
+    actionStopText: { color: tk.brandAccent.foreground },
+    actionEdit: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      height: 34,
+      borderRadius: rnRadius.xl,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    actionEditText: { fontSize: rnType.body.size, color: tk.text.medium },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

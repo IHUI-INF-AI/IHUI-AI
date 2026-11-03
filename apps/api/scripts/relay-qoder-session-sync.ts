@@ -1,0 +1,406 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Qoder 会话回灌落库(2026-10-28 立)—— 客户端为主、池只读回灌策略的写入端。
+ *
+ * 立因:Qoder 的 deviceToken/refresh 会轮换 refreshToken,而号池与本机 Qoder 客户端
+ * 共用同一枚 rt —— 谁先刷谁把对方顶掉(客户端侧表现为登录态被清,池侧表现为刷新
+ * 连续失败 3 次被摘)。Trae 自 2026-10-24 起就是「客户端负责续期 + 池每 10 分钟回灌」
+ * 的同构形态,Qoder 缺这一环,票一旦被客户端轮换,池里的旧票就永久失效。
+ *
+ * 与 `relay-import-qoder.ts`(整条覆盖 + 重置健康状态)不同:本脚本只动凭证四列
+ * (token/refreshToken/到期时刻)与 Cosy 设备头,并 `credVersion + 1`(签到侧按版本
+ * 防降级,不涨版本新票推不过去),**绝不碰** healthStatus / tempUnschedulable /
+ * refreshFailureCount / lastErrorMessage。
+ *
+ * 是否覆盖由 `relay-trae-session-sync.ts` 的 `decideSync` 判定(单一判据源,不复制规则):
+ * - 同票 ⇒ 不写;池内到期时刻更新 ⇒ 不写;客户端更新/轮换 ⇒ 写。
+ * - 池内无此 uid(运营池)⇒ **自动入池**(2026-10-30 根治),复用 `relay-import-qoder.ts`
+ *   的构造与 `importAccounts` 落库出口;此前该支只报缺失无人接,新登录账号静默脱离保活/签到。
+ * - 目标行选择(2026-11-01 根治):候选按 `(provider, uid)` 一次拉齐(不带 owner 过滤),交给
+ *   `chooseSyncTargetRow` 判定 —— 运营池行优先;运营池无行而个人池恰好一行则写该行(本机号
+ *   已归属某用户时不再另建运营池行);多行 = 归属未判定,拒写并点名;零行才走自动入池。
+ *   写库一律按主键 id 收窄(按 uid 通配会写穿同 uid 的他人副本)。
+ *
+ * 编排上游 = `scripts/sync-qoder-client-session.mjs`(提取本机 auth.v1.dat → stdin)。
+ * 退出码:0 全部处理完(含 skip/自动入池)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
+ * 任何输出面不得含凭据明文。
+ */
+import { dirname, resolve as resolvePath } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
+const API_DIR = resolvePath(SCRIPT_DIR, '..')
+
+// .env 必须早于服务模块导入(它们在建连/加密时读环境)
+import { config } from 'dotenv'
+config({ path: resolvePath(API_DIR, '.env') })
+
+const { and, eq, sql } = await import('drizzle-orm')
+const { aiRelayAccountPool } = await import('@ihui/database')
+const { encryptField, decryptField } = await import('../src/utils/crypto.js')
+const { db } = await import('../src/db/index.js')
+// 目标行选择判据单源(与 trae/workbuddy 腿共用):运营池优先,运营池无行时认个人池唯一行
+const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
+// 判据单源:回灌决策沿用 Trae 那条(与平台无关),经 __test__ 出口取用
+const traeSync = await import('./relay-trae-session-sync.js')
+const decideSync = traeSync.__test__.decideSync
+const parseIso = traeSync.__test__.parseIso
+// rt 终点键名单源与 Trae 腿共用(§0.6):两种拼写都认,消费端不得各写一份字面量
+const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
+
+export interface QoderSyncCandidate {
+  uid: string
+  token: string
+  refreshToken?: string | null
+  expiresAt?: string | null
+  refreshTokenExpiresAt?: string | null
+  deviceId?: string | null
+  machineId?: string | null
+  /** Cosy-* 设备头族(客户端 runtime-info.exe 产出;缺则沿用池内档) */
+  machineToken?: string | null
+  machineCode?: string | null
+  machineType?: string | null
+  version?: string | null
+  /** 账号身份键(missing 自动入池时供 importAccounts 的统一名判据;任何输出面不回显) */
+  phone?: string | null
+  nickname?: string | null
+}
+
+export interface QoderSyncPayload {
+  providerCode: string
+  accounts: QoderSyncCandidate[]
+  meta?: Record<string, unknown>
+}
+
+/** Cosy 档合并补丁(纯函数):只在有值且与旧档不同时产出整档,否则 null(不写)。 */
+export function buildCosyPatch(
+  existing: Record<string, unknown> | null | undefined,
+  incoming: {
+    machineToken?: string | null
+    machineCode?: string | null
+    machineType?: string | null
+    version?: string | null
+  },
+): Record<string, unknown> | null {
+  const next: Record<string, string> = {}
+  for (const [field, key] of [
+    ['machineToken', 'machine_token'],
+    ['machineCode', 'machine_code'],
+    ['machineType', 'machine_type'],
+    ['version', 'version'],
+  ] as const) {
+    const v = incoming[field]
+    if (typeof v === 'string' && v.trim() !== '') next[key] = v.trim()
+  }
+  if (Object.keys(next).length === 0) return null
+  const cur = existing?.['cosy']
+  const cosy =
+    cur !== null && typeof cur === 'object' && !Array.isArray(cur)
+      ? (cur as Record<string, unknown>)
+      : {}
+  return JSON.stringify({ ...cosy, ...next }) === JSON.stringify(cosy) ? null : { ...cosy, ...next }
+}
+
+interface RowOutcome {
+  uid: string
+  decision: string
+  applied: boolean
+  error?: string
+}
+
+export interface QoderSyncSummary {
+  ok: boolean
+  dryRun: boolean
+  providerCode: 'qoder'
+  total: number
+  applied: number
+  skipped: number
+  missing: number
+  failed: number
+  /** 本机新登录账号自动入池数(池内无行 → 走 importAccounts 建行;dry-run 只报不写) */
+  imported: number
+  rows: RowOutcome[]
+}
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks).toString('utf8')
+}
+
+export async function runSync(payloadText: string, dryRun: boolean): Promise<QoderSyncSummary> {
+  let payload: QoderSyncPayload
+  try {
+    payload = JSON.parse(payloadText) as QoderSyncPayload
+  } catch {
+    throw new Error('stdin 不是合法 JSON(未判定)')
+  }
+  if (!payload || typeof payload !== 'object' || payload.providerCode !== 'qoder') {
+    throw new Error("providerCode 必须是 'qoder'(未判定)")
+  }
+  if (!Array.isArray(payload.accounts)) {
+    throw new Error('accounts 必须是数组(未判定)')
+  }
+
+  const summary: QoderSyncSummary = {
+    ok: true,
+    dryRun,
+    providerCode: 'qoder',
+    total: payload.accounts.length,
+    applied: 0,
+    skipped: 0,
+    missing: 0,
+    failed: 0,
+    imported: 0,
+    rows: [],
+  }
+
+  for (const acc of payload.accounts) {
+    const uid = typeof acc?.uid === 'string' ? acc.uid : ''
+    try {
+      if (!uid || typeof acc.token !== 'string' || acc.token === '') {
+        summary.failed++
+        summary.rows.push({ uid, decision: 'apply', applied: false, error: '缺 uid/token' })
+        continue
+      }
+      // 候选一次拉齐(不带 owner 过滤):目标行由 chooseSyncTargetRow 判,见文件头注
+      const candidates = await db
+        .select()
+        .from(aiRelayAccountPool)
+        .where(and(eq(aiRelayAccountPool.providerCode, 'qoder'), eq(aiRelayAccountPool.uid, uid)))
+      const target = chooseSyncTargetRow(candidates)
+      if (target.kind === 'ambiguous') {
+        // 同 uid 多行且无运营池行:挑一行写就是写穿他人副本,拒写并点名(不猜)
+        summary.failed++
+        summary.rows.push({
+          uid,
+          decision: 'apply',
+          applied: false,
+          error: `同 uid ${target.count} 行且无运营池行 —— 归属未判定,拒写`,
+        })
+        continue
+      }
+      if (target.kind === 'none') {
+        // 缺行 ⇒ 自动入池(2026-10-30 根治):此前新登录的 Qoder 号只报「池内无此 uid」
+        // 且无人接 —— 保活/自动签到永远不覆盖它,静默漏到人工发现。现把本机会话交给
+        // 手动导入同一套构造(buildQoderImportAccount 判据单源,§0.6)与同一落库出口
+        // (importAccounts:运营池行 ownerUserId=null,部分唯一索引只圈运营池,
+        // 结构上碰不到个人池同 uid 行;凭证写入自带 credVersion 原子 +1,O64 推签到池)。
+        // 并发撞唯一索引(他席先建了行)按 failed 点名,绝不冒绿;下一轮回灌即命中现有行。
+        const { buildQoderImportAccount } = await import('./relay-import-qoder.js')
+        const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
+        // QoderSyncCandidate 的可选键允许 null,QoderSession 用 undefined —— 归一后交构造
+        // (str() 对两种空值同样省略,零行为差;accessToken 别名兼容构造内已处理)
+        const autoInput = buildQoderImportAccount({
+          ...acc,
+          accessToken: acc.token,
+          refreshToken: acc.refreshToken ?? undefined,
+          expiresAt: acc.expiresAt ?? undefined,
+          refreshTokenExpiresAt: clientRefreshExpiryRaw(acc) ?? undefined,
+          deviceId: acc.deviceId ?? undefined,
+          machineId: acc.machineId ?? undefined,
+          machineToken: acc.machineToken ?? undefined,
+          machineCode: acc.machineCode ?? undefined,
+          machineType: acc.machineType ?? undefined,
+          version: acc.version ?? undefined,
+          phone: acc.phone ?? undefined,
+          nickname: acc.nickname ?? undefined,
+        })
+        if (!autoInput) {
+          summary.missing++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: '本机会话构不成导入条目(不猜)',
+          })
+          continue
+        }
+        if (dryRun) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: false, error: 'dry-run 未写' })
+          continue
+        }
+        const res = await importAccounts('qoder', [autoInput], null)
+        const item = res.items[0]
+        if (item && (item.status === 'imported' || item.status === 'updated')) {
+          summary.imported++
+          summary.rows.push({ uid, decision: 'auto-import', applied: true })
+        } else {
+          summary.failed++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: (item?.reason ?? '导入未回报条目').slice(0, 200),
+          })
+        }
+        continue
+      }
+      // 命中唯一目标行:后续所有写都必须按主键 id 收窄(按 uid 通配会写穿同 uid 的他人副本)
+      const row = target.row
+      // 池内明文解不出(密钥轮换/坏密文)时当作"票不同"走 apply,让客户端票覆盖坏密文
+      let poolPlain: string | null = null
+      try {
+        poolPlain = row.tokenEnc ? decryptField(row.tokenEnc) : null
+      } catch {
+        poolPlain = null
+      }
+      const final = decideSync({
+        poolToken: poolPlain,
+        poolTokenExpiresAt: row.tokenExpiresAt,
+        poolRefreshExpiresAt: row.refreshExpiresAt,
+        clientToken: acc.token,
+        clientRefreshToken: typeof acc.refreshToken === 'string' ? acc.refreshToken : null,
+        clientExpiresAt: parseIso(acc.expiresAt),
+        clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
+      })
+      const cosyPatch = buildCosyPatch(row.extraMetadata as Record<string, unknown> | null, acc)
+      const extraUpdate = cosyPatch
+        ? {
+            extraMetadata: {
+              ...((row.extraMetadata as Record<string, unknown> | null) ?? {}),
+              cosy: cosyPatch,
+            },
+          }
+        : {}
+      const deviceUpdate =
+        typeof acc.machineId === 'string' && acc.machineId ? { machineId: acc.machineId } : {}
+      const deviceIdUpdate =
+        typeof acc.deviceId === 'string' && acc.deviceId ? { deviceId: acc.deviceId } : {}
+
+      if (!final.apply) {
+        // 票没轮换但设备头/档案变了也要种(换机后 Cosy 头缺族会让 refresh 被拒)
+        if (
+          (cosyPatch ||
+            Object.keys(deviceUpdate).length > 0 ||
+            Object.keys(deviceIdUpdate).length > 0) &&
+          !dryRun
+        ) {
+          await db
+            .update(aiRelayAccountPool)
+            .set({
+              ...extraUpdate,
+              ...deviceUpdate,
+              ...deviceIdUpdate,
+              updatedAt: new Date(),
+            })
+            .where(eq(aiRelayAccountPool.id, row.id))
+        }
+        summary.skipped++
+        summary.rows.push({ uid, decision: final.reason, applied: false })
+        continue
+      }
+      if (dryRun) {
+        summary.applied++
+        summary.rows.push({ uid, decision: final.reason, applied: false, error: 'dry-run 未写' })
+        continue
+      }
+      await db
+        .update(aiRelayAccountPool)
+        .set({
+          tokenEnc: encryptField(final.next.token),
+          ...(final.next.refreshToken !== null
+            ? { refreshTokenEnc: encryptField(final.next.refreshToken) }
+            : {}),
+          tokenExpiresAt: final.next.tokenExpiresAt,
+          refreshExpiresAt: final.next.refreshExpiresAt,
+          ...extraUpdate,
+          ...deviceUpdate,
+          ...deviceIdUpdate,
+          // 签到侧按 cred_version 防降级:不涨版本,新票永远推不过去
+          credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiRelayAccountPool.id, row.id))
+      summary.applied++
+      summary.rows.push({ uid, decision: final.reason, applied: true })
+    } catch (e) {
+      summary.failed++
+      summary.rows.push({
+        uid,
+        decision: 'apply',
+        applied: false,
+        error: (e instanceof Error ? e.message : String(e)).slice(0, 200),
+      })
+    }
+  }
+  if (summary.failed > 0) summary.ok = false
+  return summary
+}
+
+function parseArgs(argv: string[]): {
+  stdin: boolean
+  dryRun: boolean
+  json: boolean
+  error: string | null
+} {
+  const options = { stdin: false, dryRun: false, json: false, error: null as string | null }
+  for (const a of argv) {
+    if (a === '--stdin') options.stdin = true
+    else if (a === '--dry-run') options.dryRun = true
+    else if (a === '--json') options.json = true
+    else if (a === '--')
+      continue // pnpm 透传的裸分隔符,不是参数
+    else options.error = `未知参数: ${a}`
+  }
+  if (!options.stdin && !options.error) options.error = '必须 --stdin(凭据经标准输入,不落盘)'
+  return options
+}
+
+export async function main(argv: string[]): Promise<number> {
+  const options = parseArgs(argv)
+  if (options.error) {
+    process.stderr.write(`❌ ${options.error}\n`)
+    return 2
+  }
+  let payloadText: string
+  try {
+    payloadText = await readStdin()
+  } catch (e) {
+    process.stderr.write(
+      `❌ 读 stdin 失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`,
+    )
+    return 2
+  }
+  if (payloadText.trim() === '') {
+    process.stderr.write('❌ stdin 为空(未判定)\n')
+    return 2
+  }
+  let summary: QoderSyncSummary
+  try {
+    summary = await runSync(payloadText, options.dryRun)
+  } catch (e) {
+    process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+    return 2
+  }
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(summary)}\n`)
+  } else {
+    process.stderr.write(
+      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} imported=${summary.imported} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
+    )
+    for (const r of summary.rows) {
+      process.stderr.write(
+        `  ${r.uid} ${r.decision}${r.applied ? ' ✓已写' : ''}${r.error ? ` (${r.error})` : ''}\n`,
+      )
+    }
+  }
+  return summary.ok ? 0 : 1
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main(process.argv.slice(2))
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      process.stderr.write(`❌ ${e instanceof Error ? e.message : String(e)}\n`)
+      process.exit(2)
+    })
+}
+
+export const __test__ = { buildCosyPatch, parseArgs, parseIso }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,2719 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  FlatList,
+  Image,
+  Modal,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+  useWindowDimensions,
+  type ImageSourcePropType,
+} from 'react-native'
+import { appAlert } from '../components/BottomPops'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+
+import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
+// 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
+import Clipboard from '@react-native-clipboard/clipboard'
+import { captureRef } from 'react-native-view-shot'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
+import { BlurTargetView } from 'expo-blur'
+import * as FileSystem from 'expo-file-system'
+import * as ImagePicker from 'expo-image-picker'
+import * as MediaLibrary from 'expo-media-library'
+import { tokens } from '../theme/active-tokens'
+import {
+  CategoryInlineBar,
+  ProfileScreen as SharedProfileScreen,
+  ScrollJumpButton,
+  TextField,
+} from '@ihui/rn-app'
+import { scrollJumpInsetPx } from '@ihui/shared/ui/scroll-jump-spec'
+import type { CategoryItem, SharedMenuSection } from '@ihui/rn-app'
+import type { UserInfo } from '@ihui/types'
+import {
+  cancelRecurringContract,
+  deleteConversation,
+  fetchApi,
+  getOrders,
+  getProfile,
+  getSubscriptionStatus,
+  getUserStatistics,
+  listConversations,
+  resolveFileUrl,
+  updateProfile,
+  uploadFileMultipart,
+  type AuthUser,
+  type ConversationDetail,
+  type UserStatistics,
+} from '@ihui/api-client'
+import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
+import { formatDate } from '@ihui/shared/utils/date-utils'
+import { useAuth } from '../context/AuthContext'
+import { rnAuthStore } from '../stores/auth-store'
+import { useTheme } from '../context/ThemeContext'
+import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
+import { FREE_RESOURCE_URL } from '../constants/links'
+import { useUiTextField } from '../lib/use-ui-text-field'
+import { LoginPopUp } from '../components/LoginPopUp'
+import { VideoPlayer } from '../components/VideoPlayer'
+import Empty from '../components/common/Empty'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+// 横向尺寸按应用框架实际宽(430 壳)取,不用视口宽(2026-10-15 修溢出,与 SearchOverlay 同轨):
+// web 预览 #root 被壳约束 430,useWindowDimensions 返回整窗 ~586 —— 页内海报/视频/预览图按
+// 视口宽算会超出壳被 #root overflow:hidden 裁掉右侧;Modal 内的同理(portal 已封顶 430,页宽按
+// 562 算会被裁 132)。原生无 #root,回退窗口宽行为不变。
+import { useAppFrameWidth } from '../components/Carousel'
+// 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
+// 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
+import { tabBarScrollReserve } from '../components/TabBar.styles'
+import { UserCard, type UserCardKey } from '../components/UserCard'
+import UserInfoCard from '../components/UserInfoCard'
+import {
+  UserMembershipBenefits,
+  type BenefitItem,
+  type MembershipLevel,
+} from '../components/UserMembershipBenefits'
+import {
+  Bot,
+  BookOpen,
+  ChevronDown,
+  Database,
+  Download,
+  FileText,
+  Film,
+  Image as ImageIcon,
+  type LucideIcon,
+  MoreHorizontal,
+  Music,
+  Pause,
+  Play,
+  SquarePen,
+  TriangleAlert,
+} from 'lucide-react-native'
+import Drawer, {
+  type DrawerConversationItem,
+  type DrawerExtraMenu,
+  type DrawerTab,
+} from '../components/Drawer'
+import { NavBar } from '../components/NavBar'
+import { PanelLeftRounded } from '../components/PanelLeftRounded'
+import { ColorfulLoader } from '../components/ColorfulLoader'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { MainStackParamList } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
+import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
+import {
+  EMPTY_AUDIO_LIST,
+  EMPTY_IMAGE_LIST,
+  EMPTY_TEXT_LIST,
+  EMPTY_VIDEO_LIST,
+  PROFILE_TAB_LIST,
+  extractConversationMetadata,
+  type AudioContent,
+  type ImageContent,
+  type ProfileTabId,
+  type TextContent,
+  type VideoContent,
+} from './profileContentTypes'
+import { rpx } from '../utils/rpx'
+import { NavChrome } from '../components/NavChrome'
+import { Tappable } from '@ihui/ui-native'
+
+type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
+type RootNav = NativeStackNavigationProp<RootStackParamList>
+
+/** 首屏统计加载无响应多久后转为"超时+重试"(api-client 层无超时,不兜住就是无限转圈) */
+const PROFILE_LOAD_TIMEOUT_MS = 12000
+
+/** GET /auth/realname/my 的响应(字段名取证:同 RealNameAuthScreen 的 RealNameAuthMyResponse) */
+interface RealnameMyResponse {
+  authStatus?: 'unverified' | 'pending' | 'approved' | 'rejected'
+}
+
+/** 共享屏实名徽标状态(ProfileScreenProps.realnameStatus 的子集) */
+type RealnameBadgeStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
+
+/** authStatus → 徽标状态(approved 即已认证);未登记的值不传,不猜「已认证」 */
+const REALNAME_BADGE_STATUS: Record<string, RealnameBadgeStatus | undefined> = {
+  unverified: 'unverified',
+  pending: 'pending',
+  approved: 'verified',
+  rejected: 'rejected',
+}
+
+/**
+ * 胶囊几何占高之外还必须让出的「淡出遮罩带」(px)。为什么 tabBarScrollReserve 不够(2026-10-30
+ * 真机:滚到底时末几项仍被胶囊压住,实测差额不在呼吸量):
+ *  · 胶囊几何占高 = TAB_BAR_HEIGHT 62 + TAB_BAR_GAP_TOP 6 + max(8, inset/2+4);
+ *    tabBarScrollReserve 本身就等于「占高 + 16 呼吸」,与 TAB_BAR_FLOAT_RESERVE 同值 ⇒ 呼吸量没缺。
+ *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:高 160、底边贴胶囊顶沿、顶部 22% 完全透明、
+ *    55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..124.8 依次压上 1.0..0 的页面底色。末项底边若只高出
+ *    胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里 —— 观感正是「被压住」。
+ *    该遮罩 2026-10-29 落地(同日加强),而预留定档于 10-16/18,从未把它计入。
+ *  · 取值:末项底边须越过遮罩全透明起点 160×(1−22%) = 124.8,现有预留只给到 22 ⇒ 补 104
+ *    (≥103,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测也停在胶囊顶沿上方约 120 处,同一档。
+ *  · 若 BottomFadeMask 的高度/透明带比例再变,本值须同步(它只有这一个消费点)。
+ */
+const TAB_BAR_FADE_CLEARANCE_PX = 104
+
+/** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
+const MEMBERSHIP_BENEFITS: readonly {
+  id: string
+  icon: LucideIcon
+  titleKey: string
+  descKey: string
+}[] = [
+  {
+    id: 'ai-free',
+    icon: Bot,
+    titleKey: 'profile.benefitAiFree',
+    descKey: 'profile.benefitAiFreeDesc',
+  },
+  {
+    id: 'course-free',
+    icon: BookOpen,
+    titleKey: 'profile.benefitCourse',
+    descKey: 'profile.benefitCourseDesc',
+  },
+  {
+    id: 'knowledge-base',
+    icon: Database,
+    titleKey: 'profile.benefitKb',
+    descKey: 'profile.benefitKbDesc',
+  },
+]
+
+/**
+ * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 178+ 路由的 RootStackParamList
+ * 联合类型推断失败(distributive conditional type 限制),需在 helper 内部隔离类型断言。
+ * react-navigation v6 类型系统限制;移除计划:升级到 v7 后改用原生 navigate
+ */
+function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList): void {
+  if (nav) {
+    nav.navigate(route as never)
+  }
+}
+
+/**
+ * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
+ * 渲染共享 ProfileScreen。menuSections 从本地 profileMenuData 映射为共享契约格式。
+ *
+ * 4 Tab 内容区(文本/图片/视频/音频)1:1 复刻历史 Uniapp user/index.vue(行 59-191),
+ * 渲染在 SharedProfileScreen 之后(外层 ScrollView 包裹,保证 4 Tab Section 可滚动)。
+ */
+export function ProfileScreen() {
+  const { t } = useI18n()
+  const navigation = useNavigation<ProfileStackNav>()
+
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;广场/动态为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('AiMain')
+        break
+      case 'home':
+        navigation.navigate('HomeMain')
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+      case 'mine':
+        break // 当前 Tab
+    }
+  }
+  const rootNav = navigation.getParent<RootNav>()
+  const { user, logout, ready } = useAuth()
+  const { resolvedTheme } = useTheme()
+  // M4 api-B:补 onToast 端口(失败路径不得再静默吞掉;宿主实现由 useHostPorts 提供)
+  const { onToast } = useHostPorts()
+  // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
+  const insets = useSafeAreaInsets()
+  // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const profileScrollRef = useRef<ScrollView>(null)
+  /** Android 真模糊:页面内容包进 BlurTargetView 供 TabBar 胶囊取样(缺 ref 则退 0.88 磨砂实底) */
+  const tabBarBlurTargetRef = useRef<View>(null)
+  const handleProfileScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      setShowBackToTop(e.nativeEvent.contentOffset.y > 300)
+    },
+    [],
+  )
+  const handleBackToTop = useCallback(() => {
+    profileScrollRef.current?.scrollTo({ y: 0, animated: true })
+  }, [])
+  const [stats, setStats] = useState<UserStatistics | null>(null)
+  const [orderCount, setOrderCount] = useState(0)
+  // 实名徽标状态(取不到/未登录 ⇒ undefined ⇒ 共享屏不渲染徽标)
+  const [realnameBadge, setRealnameBadge] = useState<RealnameBadgeStatus | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [loadTimedOut, setLoadTimedOut] = useState(false)
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [loginPromptVisible, setLoginPromptVisible] = useState(false)
+  const [agreeChecked, setAgreeChecked] = useState(false)
+  // FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />)
+  const [floatVisible, setFloatVisible] = useState(false)
+  const [floatMessage, setFloatMessage] = useState('')
+  const [floatType, setFloatType] = useState<FloatBoxType>('info')
+  // Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall)
+  const [drawerVisible, setDrawerVisible] = useState(false)
+  // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
+  const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
+  // 弹窗态(对齐 Uniapp user/index.vue 弹层模式,替代跳转页面 + 系统 Alert):
+  // - editProfileVisible:编辑资料弹窗(替代 navigation.navigate('ProfileEdit'))
+  // - levelIntroVisible:等级介绍弹窗(对齐 Uniapp level-intro 3 级体系)
+  // - unsubscribeVisible:退订确认弹窗(替代 Alert.alert 系统弹窗)
+  const [editProfileVisible, setEditProfileVisible] = useState(false)
+  const [levelIntroVisible, setLevelIntroVisible] = useState(false)
+  const [unsubscribeVisible, setUnsubscribeVisible] = useState(false)
+  // 会员权益折叠(对齐 Uniapp toggleMembershipBenefits,默认折叠)
+  const [showMembershipBenefits, setShowMembershipBenefits] = useState(false)
+
+  // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
+  useEffect(() => {
+    if (ready && !user) {
+      setLoginPromptVisible(true)
+    }
+  }, [ready, user])
+
+  const navigateToLogin = () => {
+    setLoginPromptVisible(false)
+    rootNav?.navigate('Login')
+  }
+
+  /**
+   * 加载统计 + 订单数。调接口层没有超时,慢响应就是无限转圈,
+   * 故超过 PROFILE_LOAD_TIMEOUT_MS 先转「超时 + 点击重试」;慢响应回来仍会覆盖提示。
+   */
+  const loadProfileStats = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    setError('')
+    setLoadTimedOut(false)
+    if (loadTimerRef.current) clearTimeout(loadTimerRef.current)
+    loadTimerRef.current = setTimeout(() => setLoadTimedOut(true), PROFILE_LOAD_TIMEOUT_MS)
+    const [statsRes, orderRes, realnameRes] = await Promise.all([
+      getUserStatistics(),
+      getOrders({ page: 1, pageSize: 1 }),
+      // 实名状态仅作昵称旁徽标:失败不并入下面的红条(它不是首屏主数据)
+      fetchApi<RealnameMyResponse>('/auth/realname/my'),
+    ])
+    if (loadTimerRef.current) {
+      clearTimeout(loadTimerRef.current)
+      loadTimerRef.current = null
+    }
+    if (statsRes.success) setStats(statsRes.data)
+    if (orderRes.success) setOrderCount(orderRes.data.total)
+    // 取不到就不传:旧值一并清掉,避免登出后还挂着上一账号的徽标
+    setRealnameBadge(
+      realnameRes.success ? REALNAME_BADGE_STATUS[realnameRes.data?.authStatus ?? ''] : undefined,
+    )
+    if (!statsRes.success && !orderRes.success) {
+      // 原始 error 可能是英文/fetch failed 等,经 toUserFriendlyMessage 本地化后再弹红条,
+      // 避免真机「我的」页暴露英文错误(G-925 走查发现)。
+      setError(toUserFriendlyMessage(statsRes.error || orderRes.error || t('error.network')))
+    }
+    setLoading(false)
+  }, [t])
+
+  useEffect(() => {
+    if (!ready) return
+    void loadProfileStats()
+    return () => {
+      if (loadTimerRef.current) {
+        clearTimeout(loadTimerRef.current)
+        loadTimerRef.current = null
+      }
+    }
+  }, [ready, loadProfileStats])
+
+  /**
+   * 加载 Drawer 历史对话(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)。
+   * 懒加载:首次打开 Drawer 时拉取,后续复用缓存(下拉刷新可手动触发)。
+   * Drawer 的 groupByModelAndDate 已在组件内实现,这里只需把 API 结果映射为 DrawerConversationItem[]。
+   */
+  const loadDrawerConversations = useCallback(async () => {
+    try {
+      const res = await listConversations({ page: 1, pageSize: 50 })
+      if (res.success) {
+        const items: DrawerConversationItem[] = res.data.conversations.map((c) =>
+          mapConversationToDrawer(c, t('plaza.index.untitledConv')),
+        )
+        setDrawerConversations(items)
+      } else {
+        // 列表失败不再静默:清空 + 轻提示真实原因(保留可重入,不挡 Drawer 其他内容)。
+        setDrawerConversations([])
+        onToast(toUserFriendlyMessage(res.error || t('profile.netRetry')), { kind: 'error' })
+      }
+    } catch (e) {
+      setDrawerConversations([])
+      onToast(toUserFriendlyMessage(e), { kind: 'error' })
+    } finally {
+      setDrawerConversationsLoaded(true)
+    }
+  }, [t, onToast])
+
+  // Drawer 首次打开时懒加载历史对话(对齐 Uniapp onShow + loadHistoryChat)
+  useEffect(() => {
+    if (drawerVisible && !drawerConversationsLoaded && user) {
+      void loadDrawerConversations()
+    }
+  }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
+
+  // 菜单项点击跳转:所有菜单路由均注册在 RootStack(menuSections 映射时已统一为 RootRoute),
+  // 统一经父级 rootNav navigate(ProfileMain 为 Main 子 Tab,不能直接用子栈 navigation)
+  const onNavigate = (item: MenuItem) => {
+    // M4(2026-08-26):WebView 承载页需带 URL 参数,单独处理
+    if (item.key === 'WebViewPortal') {
+      rootNav?.navigate('WebView', {
+        url: 'https://aizhs.top',
+        title: t('menu.webPortal'),
+      })
+      return
+    }
+    // M4.1(2026-08-26):Web 功能门户(细分 URL 列表页)
+    if (item.key === 'WebPortal') {
+      rootNav?.navigate('WebPortal')
+      return
+    }
+    navigateRoot(rootNav, item.key)
+  }
+
+  /** UserCard 4 宫格点击跳转(对齐 Uniapp user_cards.vue handleClick) */
+  const handleUserCardPress = (key: UserCardKey) => {
+    switch (key) {
+      case 'order':
+        rootNav?.navigate('Order')
+        break
+      case 'wallet':
+        rootNav?.navigate('Wallet')
+        break
+      case 'company':
+        navigateRoot(rootNav, 'Distribution')
+        break
+      case 'token':
+        navigateRoot(rootNav, 'TokenValue')
+        break
+      default:
+        // 未识别的宫格 key,静默忽略(防御性:防止 UserCardKey 类型漂移)
+        break
+    }
+  }
+
+  /** FloatBox 悬浮提示触发器(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */
+  const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
+    setFloatMessage(message)
+    setFloatType(type)
+    setFloatVisible(true)
+  }, [])
+
+  // 加载失败时弹出 FloatBox 提示(对齐 Uniapp 加载失败 toast)
+  useEffect(() => {
+    if (error) {
+      showFloat(error, 'warning')
+    }
+  }, [error, showFloat])
+
+  const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
+    title: t(section.titleKey),
+    items: section.items.map((m) => ({
+      key: m.key as string,
+      label: t(m.labelKey),
+      icon: m.icon,
+    })),
+  }))
+
+  // ── Drawer 回调(对齐 Uniapp user/index.vue DrawerComponentall) ──
+  const handleDrawerNavigate = (tab: DrawerTab) => {
+    setDrawerVisible(false)
+    // square/share 无对应 RN Tab,跳转独立 RootStack 页(对齐 Uniapp 广场页/资讯页)
+    if (tab === 'square') {
+      rootNav?.navigate('Plaza')
+      return
+    }
+    if (tab === 'share') {
+      rootNav?.navigate('News')
+      return
+    }
+    navigateDrawerTab(rootNav, tab)
+  }
+  const handleDrawerNavigateCompany = () => {
+    setDrawerVisible(false)
+    rootNav?.navigate('Distribution')
+  }
+  const handleDrawerClaimFree = () => {
+    setDrawerVisible(false)
+    try {
+      Clipboard.setString(FREE_RESOURCE_URL)
+      showFloat(t('plaza.index.linkCopied'), 'success')
+    } catch {
+      showFloat(t('profile.copyFailRetry'), 'warning')
+    }
+  }
+  const handleDrawerCreateNewChat = () => {
+    setDrawerVisible(false)
+    rootNav?.navigate('Main', { screen: 'AiMain' })
+  }
+  // Uniapp 原项目跳 chat 传 12 参数(conversationId/title/modelName/agentId/type/source/系统消息/上下文/prompt/欢迎语/是否新会话/时间戳);
+  // mobile-rn Chat 路由类型已扩展为 { conversationId, title, modelName, modelId, remark },
+  // 这里补全 conversationId/title/modelName/modelId 对齐 Uniapp 关键字段;
+  // remark 暂无 ConversationDetail 来源(后端未返回),留 undefined,后续接口扩展后补全。
+  const handleDrawerSelectConversation = (id: string) => {
+    setDrawerVisible(false)
+    const conv = drawerConversations.find((c) => c.id === id)
+    rootNav?.navigate('Chat', {
+      conversationId: id,
+      title: conv?.title,
+      modelName: conv?.modelConfig?.name,
+      modelId: conv?.modelConfig?.id,
+    })
+  }
+  const handleDrawerDeleteConversation = (id: string) => {
+    appAlert(t('profile.dlgDelConvTitle'), t('profile.dlgDelConvBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.deleteBtn'),
+        style: 'destructive',
+        onPress: () => {
+          // 乐观删除:先从本地列表移除,API 失败时回滚(对齐 Uniapp 删除对话体验)
+          const snapshot = drawerConversations
+          setDrawerConversations((prev) => prev.filter((c) => c.id !== id))
+          void (async () => {
+            const res = await deleteConversation(id)
+            if (!res.success) {
+              // 回滚
+              setDrawerConversations(snapshot)
+              showFloat(t('profile.delFailedRetry'), 'warning')
+            } else {
+              showFloat(t('home.matDeletedOk'), 'success')
+            }
+          })()
+        },
+      },
+    ])
+  }
+  const handleNavigateExtra = (menu: DrawerExtraMenu) => {
+    setDrawerVisible(false)
+    switch (menu) {
+      case 'aigc':
+        navigateRoot(rootNav, 'AigcList')
+        break
+      case 'learn':
+        navigateRoot(rootNav, 'Learn')
+        break
+      case 'modelPlaza':
+        navigateRoot(rootNav, 'ModelPlaza')
+        break
+      case 'company':
+        rootNav?.navigate('Distribution')
+
+        break
+
+      case 'assistant':
+        rootNav?.navigate('Assistant')
+
+        break
+
+      case 'tools':
+        rootNav?.navigate('Settings')
+        break
+    }
+  }
+  const handleDrawerOpenSettings = () => {
+    setDrawerVisible(false)
+    rootNav?.navigate('Settings')
+  }
+  const handleDrawerOpenMessages = () => {
+    setDrawerVisible(false)
+    rootNav?.navigate('MessageCenter')
+  }
+  const handleDrawerGoHome = () => {
+    setDrawerVisible(false)
+    rootNav?.navigate('Main', { screen: 'HomeMain' })
+  }
+
+  /** Drawer user 映射(AuthUser → Drawer user) */
+  const drawerUser = {
+    avatar: user?.avatar,
+    nickname: user?.nickname ?? user?.username ?? t('home.notLoggedIn'),
+    level: (user?.isVip ? 'vip' : 'normal') as 'vip' | 'normal',
+  }
+
+  /**
+   * AuthUser → UserInfo 映射(UserInfoCard 所需)。
+   * AuthUser 无 tokenQuantity/growthValue/growthMax/vipExpireAt 字段,这些项省略
+   * (UserInfo 全字段可选,UserInfoCard 内部 formatTokenValue(undefined)='0' 兜底)。
+   * identityType API 未返回,默认 0(普通用户)。vipLevel 由 isVip 派生。
+   */
+  const userInfoForCard: UserInfo | null = user
+    ? {
+        uuid: user.id,
+        username: user.nickname || user.username,
+        avatarUrl: user.avatar,
+        isVip: user.isVip ?? 0,
+        identityType: 0,
+        inviteCode: user.inviteCode,
+        vipLevel: user.isVip === 1 ? 'VIP' : undefined,
+      }
+    : null
+
+  /**
+   * 退订确认 — 查询当前 VIP 订阅状态(含微信周期扣款签约),有自动续费则真实解约;
+   * 无自动续费订阅(单次购买 VIP)时给出明确反馈,不再提示"开发中"。
+   */
+  const handleConfirmUnsubscribe = async () => {
+    setUnsubscribeVisible(false)
+    try {
+      const statusRes = await getSubscriptionStatus()
+      if (!statusRes.success) {
+        showFloat(statusRes.error || t('profile.subQueryFail'), 'warning')
+        return
+      }
+      const contract = statusRes.data.contract
+      if (contract && contract.status === 'active') {
+        const cancelRes = await cancelRecurringContract(contract.id)
+        if (cancelRes.success) {
+          showFloat(t('profile.subCancelOk'), 'success')
+        } else {
+          showFloat(cancelRes.error || t('profile.subCancelRetry'), 'warning')
+        }
+      } else {
+        showFloat(t('profile.subNoneNow'), 'info')
+      }
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showFloat(detail.trim() ? toUserFriendlyMessage(e) : t('profile.netRetry'), 'warning')
+    }
+  }
+
+  return (
+    <>
+      <BlurTargetView ref={tabBarBlurTargetRef} style={{ flex: 1 }}>
+        <NavChrome>
+          <NavBar
+            title={t('profile.title')}
+            /* 抽屉菜单键在左:Home/Plaza/News 三个 tab 的菜单键都在左上,只有本页原在右上 —— 同一
+               手势语义的入口不能一份在左一份在右(真机确认的位置不一致)。右操作区只留页面自己的动作。 */
+            leftActions={[
+              {
+                icon: PanelLeftRounded,
+                a11yLabel: t('common.menu'),
+                onPress: () => setDrawerVisible(true),
+              },
+            ]}
+            rightActions={[
+              {
+                icon: SquarePen,
+                label: t('menu.feedback'),
+                onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
+              },
+            ]}
+          />
+        </NavChrome>
+        <ScrollView
+          ref={profileScrollRef}
+          style={styles.screenScroll}
+          contentContainerStyle={[
+            styles.screenScrollContent,
+            {
+              paddingBottom: tabBarScrollReserve(insets.bottom) + TAB_BAR_FADE_CLEARANCE_PX,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleProfileScroll}
+          scrollEventThrottle={16}
+        >
+          {loading ? (
+            loadTimedOut ? (
+              <View style={styles.tabErrorWrap}>
+                <Text style={styles.tabErrorText}>{t('profile.loadTimeoutRetry')}</Text>
+                <TouchableOpacity
+                  onPress={() => void loadProfileStats()}
+                  style={styles.tabRetryBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.tabRetryText}>{t('profile.clickRetry')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.loaderWrap}>
+                <ColorfulLoader size={48} />
+              </View>
+            )
+          ) : (
+            <>
+              {userInfoForCard ? (
+                <View style={styles.userInfoCardWrap}>
+                  <UserInfoCard
+                    userInfo={userInfoForCard}
+                    showRechargeBtn
+                    onEdit={() => setEditProfileVisible(true)}
+                    onRecharge={() => rootNav?.navigate('Wallet')}
+                    onLogin={() => rootNav?.navigate('Login')}
+                    onUnsubscribe={() => setUnsubscribeVisible(true)}
+                    onLevelIntro={() => setLevelIntroVisible(true)}
+                  />
+                  {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
+                      此处为完整 3 级体系介绍入口) */}
+                  <TouchableOpacity
+                    style={styles.levelIntroBtn}
+                    activeOpacity={0.7}
+                    onPress={() => setLevelIntroVisible(true)}
+                    accessibilityLabel={t('profile.levelIntro')}
+                  >
+                    <Text style={styles.levelIntroBtnText}>{t('profile.levelIntro')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              <View style={styles.userCardWrap}>
+                <UserCard t={t} isLoggedIn={!!user} onPress={handleUserCardPress} />
+              </View>
+              {/* 会员权益(对齐 Uniapp memberBenefitsData 3 项:AI助手免费次数/部分课程免费/专属知识库) */}
+              {/* 折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits + 行 35-39 back.svg 箭头) */}
+              <TouchableOpacity
+                style={styles.membershipHeader}
+                onPress={() => setShowMembershipBenefits((v) => !v)}
+                activeOpacity={0.7}
+                accessibilityLabel={t('profile.switchBenefit')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
+                <View
+                  style={[
+                    styles.membershipArrow,
+                    showMembershipBenefits ? styles.membershipArrowExpanded : null,
+                  ]}
+                >
+                  <ChevronDown size={24} color={tokens.text.secondary} />
+                </View>
+              </TouchableOpacity>
+              {showMembershipBenefits ? (
+                <View style={styles.membershipBenefitsWrap}>
+                  <UserMembershipBenefits
+                    level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
+                    benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
+                      id: b.id,
+                      icon: b.icon,
+                      title: t(b.titleKey),
+                      desc: t(b.descKey),
+                    }))}
+                    onPressUpgrade={() => setLevelIntroVisible(true)}
+                  />
+                </View>
+              ) : null}
+              {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频)。
+                  位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 分类 Tab 条) */}
+              <ProfileContentSection />
+              <SharedProfileScreen
+                t={t}
+                user={
+                  user
+                    ? {
+                        id: user.id,
+                        nickname: user.nickname,
+                        avatar: user.avatar ?? null,
+                        email: user.email,
+                        phone: user.phone,
+                      }
+                    : null
+                }
+                stats={stats}
+                orderCount={orderCount}
+                loading={false}
+                error={error}
+                colorScheme={resolvedTheme}
+                realnameStatus={realnameBadge}
+                onToast={onToast}
+                menuSections={menuSections}
+                onNavigate={(key) => {
+                  const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
+                  if (item) onNavigate(item)
+                }}
+                onLogout={() => void logout()}
+                onBack={() => navigation.goBack()}
+              />
+            </>
+          )}
+        </ScrollView>
+      </BlurTargetView>
+      <LoginPopUp
+        visible={loginPromptVisible}
+        title={t('profile.titleExpired')}
+        description={t('profile.expiredDesc')}
+        primaryLabel={t('profile.loginNowBtn')}
+        onPrimary={navigateToLogin}
+        secondaryLabel={t('profile.laterBtn')}
+        onSecondary={() => setLoginPromptVisible(false)}
+        onClose={() => setLoginPromptVisible(false)}
+        agreeChecked={agreeChecked}
+        onAgreeChange={setAgreeChecked}
+      />
+      {/* FloatBox 悬浮提示(对齐 Uniapp uni.showToast 语义) */}
+      <FloatBox
+        visible={floatVisible}
+        type={floatType}
+        message={floatMessage}
+        onHide={() => setFloatVisible(false)}
+      />
+      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;此处曾另挂一份,
+          两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
+      {/* Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall) */}
+      <Drawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        user={drawerUser}
+        conversations={drawerConversations}
+        onNavigate={handleDrawerNavigate}
+        onNavigateCompany={handleDrawerNavigateCompany}
+        onClaimFree={handleDrawerClaimFree}
+        onCreateNewChat={handleDrawerCreateNewChat}
+        onSelectConversation={handleDrawerSelectConversation}
+        onDeleteConversation={handleDrawerDeleteConversation}
+        onOpenSettings={handleDrawerOpenSettings}
+        onOpenMessages={handleDrawerOpenMessages}
+        onGoHome={handleDrawerGoHome}
+        onNavigateExtra={handleNavigateExtra}
+      />
+      {/* 返回顶部按钮:外观与几何不在此设定;bottom 给悬浮 TabBar 让位(载体高度,非外观档) */}
+      {showBackToTop ? (
+        <ScrollJumpButton
+          direction="top"
+          onPress={handleBackToTop}
+          label={t('common.backToTop')}
+          colorScheme={resolvedTheme}
+          style={{
+            position: 'absolute',
+            right: scrollJumpInsetPx(),
+            bottom: tabBarScrollReserve(insets.bottom) + scrollJumpInsetPx(),
+          }}
+        />
+      ) : null}
+      {/* 编辑资料弹窗(对齐 Uniapp user/index.vue 编辑资料弹层,替代 ProfileEdit 跳转) */}
+      {user ? (
+        <EditProfileModal
+          visible={editProfileVisible}
+          user={user}
+          onClose={() => setEditProfileVisible(false)}
+          onSaved={() => {
+            setEditProfileVisible(false)
+            showFloat(t('profile.profileSaved'), 'success')
+          }}
+        />
+      ) : null}
+      {/* 等级介绍弹窗(对齐 Uniapp level-intro popup,3 级体系) */}
+      <LevelIntroModal visible={levelIntroVisible} onClose={() => setLevelIntroVisible(false)} />
+      {/* 退订确认弹窗(对齐 Uniapp 退订确认弹层,替代 Alert.alert 系统弹窗) */}
+      <UnsubscribeModal
+        visible={unsubscribeVisible}
+        onClose={() => setUnsubscribeVisible(false)}
+        onConfirm={handleConfirmUnsubscribe}
+      />
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="mine" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
+    </>
+  )
+}
+
+// ============ 编辑资料 Modal(对齐 Uniapp user/index.vue 编辑资料弹层) ============
+
+interface EditProfileModalProps {
+  visible: boolean
+  user: AuthUser
+  onClose: () => void
+  onSaved: () => void
+}
+
+/**
+ * 编辑资料弹窗 — 头像(可点击更换,占位提示)+ 昵称输入框(可编辑)+
+ * 邮箱输入框(只读)+ 手机号输入框(只读)+ 保存/取消按钮。
+ * 替代 navigation.navigate('ProfileEdit') 跳转页面对齐 Uniapp 弹层交互。
+ * 保存时调用 updateProfile API 持久化(对齐 Uniapp LoginPopUp bindUserNew)。
+ */
+function EditProfileModal({
+  visible,
+  user,
+  onClose,
+  onSaved,
+}: EditProfileModalProps): React.JSX.Element {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
+  const [avatarHint, setAvatarHint] = useState('')
+  const [avatarUpdating, setAvatarUpdating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  useUiTextField({
+    label: t('profile.nickPlaceholder'),
+    value: nickname,
+    setValue: setNickname,
+    maxLength: 8,
+  })
+
+  // 每次打开弹窗时重置昵称为当前用户值,防止上次编辑残留
+  useEffect(() => {
+    if (visible) {
+      setNickname(user.nickname ?? user.username ?? '')
+      setAvatarHint('')
+      setAvatarUpdating(false)
+      setSaveError('')
+    }
+  }, [visible, user.nickname, user.username])
+
+  /**
+   * 更换头像 — 相册选图 → 上传文件 → 更新用户 avatar → 刷新全局用户态。
+   * 替代原"头像更换功能开发中"占位,走真实上传链路(uploadFileMultipart + updateProfile)。
+   */
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') {
+        setAvatarHint(t('profile.avatarNeedPerm'))
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+
+      setAvatarUpdating(true)
+      setAvatarHint(t('profile.avatarUploading'))
+      const uploadRes = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? `avatar_${Date.now()}.jpg`,
+      })
+      if (!uploadRes.success) {
+        setAvatarHint(uploadRes.error || t('profile.avatarUploadFail'))
+        return
+      }
+      const avatarUrl = resolveFileUrl(uploadRes.data.path)
+      const updateRes = await updateProfile({ avatar: avatarUrl })
+      if (!updateRes.success) {
+        setAvatarHint(updateRes.error || t('profile.avatarUpdateFail'))
+        return
+      }
+      // 刷新认证用户态,同步到全局展示(头像/昵称等)
+      const meRes = await getProfile()
+      if (meRes.success) {
+        rnAuthStore.getState().setUser(meRes.data)
+      }
+      setAvatarHint(t('profile.avatarUpdated'))
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setAvatarHint(detail.trim() ? toUserFriendlyMessage(e) : t('profile.netRetry'))
+    } finally {
+      setAvatarUpdating(false)
+    }
+  }
+
+  const handleSave = async () => {
+    const trimmed = nickname.trim()
+    if (!trimmed) {
+      setSaveError(t('profile.nickEmpty'))
+      return
+    }
+    setSaving(true)
+    setSaveError('')
+    try {
+      const res = await updateProfile({ nickname: trimmed })
+      if (!res.success) {
+        setSaveError(apiFailureToText(res, t('profile.saveRetryLater')))
+        return
+      }
+      onSaved()
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setSaveError(detail.trim() ? toUserFriendlyMessage(e) : t('profile.netRetry'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.editProfileOverlay}>
+        <View style={styles.editProfileCard}>
+          <Text style={styles.editProfileTitle}>{t('profile.editProfile')}</Text>
+
+          {/* 头像(点击更换 — 相册选图 → 上传 → 更新用户信息) */}
+          <View style={styles.editProfileAvatarSection}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => void handlePickAvatar()}
+              disabled={avatarUpdating}
+              style={styles.editProfileAvatarBtn}
+              accessibilityLabel={t('profileEdit.avatarModalTitle')}
+            >
+              {user.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.editProfileAvatar} />
+              ) : (
+                // 无头像时 initials 兜底(与 UserInfoCard/PersonalInformationCard 同型;
+                // 原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
+                <View style={styles.editProfileAvatarFallback}>
+                  <Text style={styles.editProfileAvatarFallbackText}>
+                    {(user.nickname ?? user.username ?? '').trim().charAt(0).toUpperCase() || 'U'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.editProfileAvatarBadge}>
+                <Text style={styles.editProfileAvatarBadgeText}>+</Text>
+              </View>
+            </TouchableOpacity>
+            {avatarHint ? <Text style={styles.editProfileAvatarHint}>{avatarHint}</Text> : null}
+          </View>
+
+          {/* 昵称(可编辑) */}
+          <View style={styles.editProfileField}>
+            <Text style={styles.editProfileLabel}>{t('profile.nickLabel')}</Text>
+            <TextField
+              colorScheme={resolvedTheme}
+              style={styles.editProfileInput}
+              value={nickname}
+              onChangeText={setNickname}
+              placeholder={t('profile.nickPlaceholder')}
+              placeholderTextColor={tokens.text.tertiary}
+              maxLength={8}
+            />
+          </View>
+
+          {/* 邮箱(只读) */}
+          <View style={styles.editProfileField}>
+            <Text style={styles.editProfileLabel}>{t('auth.email')}</Text>
+            <TextField
+              colorScheme={resolvedTheme}
+              style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
+              value={user.email ?? t('profile.unbound')}
+              editable={false}
+              placeholderTextColor={tokens.text.tertiary}
+            />
+          </View>
+
+          {/* 手机号(只读) */}
+          <View style={styles.editProfileField}>
+            <Text style={styles.editProfileLabel}>{t('auth.phone')}</Text>
+            <TextField
+              colorScheme={resolvedTheme}
+              style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
+              value={user.phone ?? t('profile.unbound')}
+              editable={false}
+              placeholderTextColor={tokens.text.tertiary}
+            />
+          </View>
+
+          {/* 按钮 */}
+          {saveError ? <Text style={styles.editProfileError}>{saveError}</Text> : null}
+          <View style={styles.editProfileBtnRow}>
+            <TouchableOpacity
+              style={styles.editProfileCancelBtn}
+              activeOpacity={0.7}
+              onPress={onClose}
+              disabled={saving}
+            >
+              <Text style={styles.editProfileCancelBtnText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.editProfileSaveBtn, saving ? styles.editProfileSaveBtnDisabled : null]}
+              activeOpacity={0.7}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={styles.editProfileSaveBtnText}>
+                {saving ? t('profile.savingDots') : t('profile.saveBtn')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ============ 等级介绍 Modal(对齐 Uniapp level-intro popup,3 级体系) ============
+
+interface LevelIntroModalProps {
+  visible: boolean
+  onClose: () => void
+}
+
+/** 等级体系 3 级(普通用户 / VIP / 操盘手),对齐 Uniapp level-intro 数据结构;文案存 i18n 键 */
+const LEVEL_INTRO_DATA: readonly {
+  readonly levelKey: string
+  readonly descKey: string
+  readonly benefitKeys: readonly string[]
+}[] = [
+  {
+    levelKey: 'profile.levelRegular',
+    descKey: 'profile.levelRegularDesc',
+    benefitKeys: [
+      'profile.benefitListAiDaily',
+      'profile.benefitListCourse',
+      'profile.benefitListCommunity',
+    ],
+  },
+  {
+    levelKey: 'profile.levelVip',
+    descKey: 'profile.levelProDesc',
+    benefitKeys: [
+      'profile.benefitListAiMore',
+      'profile.benefitCourse',
+      'profile.benefitListKb',
+      'profile.benefitSupport',
+    ],
+  },
+  {
+    levelKey: 'profile.levelTrader',
+    descKey: 'profile.levelTraderDesc',
+    benefitKeys: [
+      'profile.benefitAiUnlimited',
+      'profile.benefitAllCourses',
+      'profile.benefitTraderTools',
+      'profile.benefitOneToOne',
+      'profile.benefitDataReport',
+    ],
+  },
+]
+
+/**
+ * 等级介绍弹窗 — 3 级体系说明(普通用户 / VIP / 操盘手)+ 各等级权益列表 + 关闭按钮。
+ * 对齐 Uniapp user/index.vue 等级介绍弹层,在 UserInfoCard 下方独立按钮触发。
+ */
+function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.Element {
+  const { t } = useI18n()
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.levelIntroOverlay}>
+        <View style={styles.levelIntroCard}>
+          <Text style={styles.levelIntroTitle}>{t('profile.levelIntro')}</Text>
+          <ScrollView style={styles.levelIntroScroll} showsVerticalScrollIndicator={false}>
+            {LEVEL_INTRO_DATA.map((item) => (
+              <View key={item.levelKey} style={styles.levelIntroItem}>
+                <View style={styles.levelIntroItemHeader}>
+                  <Text style={styles.levelIntroItemLevel}>{t(item.levelKey)}</Text>
+                  <Text style={styles.levelIntroItemDesc}>{t(item.descKey)}</Text>
+                </View>
+                <View style={styles.levelIntroBenefitList}>
+                  {item.benefitKeys.map((k) => (
+                    <Text key={k} style={styles.levelIntroBenefitItem}>
+                      · {t(k)}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={styles.levelIntroCloseBtn} activeOpacity={0.7} onPress={onClose}>
+            <Text style={styles.levelIntroCloseBtnText}>{t('home.closeBtn')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ============ 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ============
+
+interface UnsubscribeModalProps {
+  visible: boolean
+  onClose: () => void
+  onConfirm: () => void
+}
+
+/**
+ * 退订确认弹窗 — 警告图标 + 标题 + 退订说明 + 确认退订按钮(红色)+ 取消按钮。
+ * 替代 Alert.alert 系统弹窗,对齐 Uniapp 退订确认弹层视觉。
+ */
+function UnsubscribeModal({
+  visible,
+  onClose,
+  onConfirm,
+}: UnsubscribeModalProps): React.JSX.Element {
+  const { t } = useI18n()
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.unsubscribeOverlay}>
+        <View style={styles.unsubscribeCard}>
+          <View style={styles.unsubscribeIconWrap}>
+            <TriangleAlert size={28} color={tokens.danger.DEFAULT} />
+          </View>
+          <Text style={styles.unsubscribeTitle}>{t('profile.unsubTitle')}</Text>
+          <Text style={styles.unsubscribeDesc}>{t('profile.unsubDesc')}</Text>
+          <View style={styles.unsubscribeBtnRow}>
+            <TouchableOpacity
+              style={styles.unsubscribeCancelBtn}
+              activeOpacity={0.7}
+              onPress={onClose}
+            >
+              <Text style={styles.unsubscribeCancelBtnText}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.unsubscribeConfirmBtn}
+              activeOpacity={0.7}
+              onPress={onConfirm}
+            >
+              <Text style={styles.unsubscribeConfirmBtnText}>{t('profile.unsubTitle')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ============ 4 Tab 内容区(对齐 Uniapp 行 59-191) ============
+
+// 模块顶层无法取 t(键存表内,消费组件内解析)
+const TAB_BAR_ITEMS: CategoryItem[] = PROFILE_TAB_LIST.map((tab) => ({
+  id: String(tab.id),
+  label: tab.name,
+}))
+
+interface PreviewState {
+  readonly images: readonly string[]
+  readonly index: number
+  readonly visible: boolean
+}
+
+interface VideoModalState {
+  readonly url: string
+  readonly visible: boolean
+}
+
+/**
+ * 4 Tab 内容区 — 统一分类条(CategoryInlineBar)切换 + 4 个 Tab 内容(文本/图片/视频/音频)+ 媒体预览。
+ * 调 listConversations API 按 metadata.contentType 过滤渲染(后端未返回 contentType 时,
+ * 所有对话 fallback 到 text tab,其他 tab 显示空)。
+ */
+function ProfileContentSection(): React.JSX.Element {
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const [activeTab, setActiveTab] = useState<ProfileTabId>(1)
+  const [textContentList, setTextContentList] = useState<readonly TextContent[]>(EMPTY_TEXT_LIST)
+  const [imageContentList, setImageContentList] =
+    useState<readonly ImageContent[]>(EMPTY_IMAGE_LIST)
+  const [videoContentList, setVideoContentList] =
+    useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
+  const [audioContentList, setAudioContentList] =
+    useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [preview, setPreview] = useState<PreviewState>({ images: [], index: 0, visible: false })
+  const [videoModal, setVideoModal] = useState<VideoModalState>({ url: '', visible: false })
+
+  /**
+   * 按 Tab 加载内容(对齐 Uniapp loadContentByTab,接 listConversations API)。
+   * 后端 ConversationDetail 没有 contentType 字段,通过 metadata.contentType 安全守卫提取;
+   * 后端未返回时所有对话归入 text tab,image/video/audio tab 显示空。
+   * 每次只更新当前 tab 对应的列表,避免覆盖其他 tab 的缓存。
+   */
+  const loadTabContent = useCallback(
+    async (tab: ProfileTabId): Promise<void> => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await listConversations({ page: 1, pageSize: 20 })
+        if (!res.success) {
+          setError(apiFailureToText(res, t('profile.loadFailedShort')))
+          if (tab === 1) setTextContentList([])
+          else if (tab === 2) setImageContentList([])
+          else if (tab === 3) setVideoContentList([])
+          else setAudioContentList([])
+          return
+        }
+        const all = res.data.conversations
+        const textContents: TextContent[] = []
+        const imageContents: ImageContent[] = []
+        const videoContents: VideoContent[] = []
+        const audioContents: AudioContent[] = []
+        for (const conv of all) {
+          const meta = extractConversationMetadata(conv)
+          const tabType = meta.contentType ?? 'text'
+          // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
+          const time = formatDate(conv.updatedAt ?? conv.createdAt)
+          const title = conv.title?.trim() || t('plaza.index.untitledConv')
+          if (tabType === 'image') {
+            const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
+            imageContents.push({
+              id: conv.id,
+              title,
+              time,
+              imageList: list,
+            })
+          } else if (tabType === 'video') {
+            videoContents.push({
+              id: conv.id,
+              title,
+              time,
+              videoUrl: meta.videoUrl ?? '',
+              posterUrl: meta.posterUrl,
+              width: meta.width,
+              height: meta.height,
+            })
+          } else if (tabType === 'audio') {
+            audioContents.push({
+              id: conv.id,
+              title,
+              time,
+              audioUrl: meta.audioUrl ?? '',
+            })
+          } else {
+            // text tab(含 contentType 缺失 fallback)
+            textContents.push({
+              id: conv.id,
+              title,
+              time,
+              content: meta.lastMessage ?? '',
+            })
+          }
+        }
+        // 只更新当前 tab 的内容,保留其他 tab 缓存(切回时无需重新请求)
+        if (tab === 1) setTextContentList(textContents)
+        else if (tab === 2) setImageContentList(imageContents)
+        else if (tab === 3) setVideoContentList(videoContents)
+        else setAudioContentList(audioContents)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('profile.loadFailedShort'))
+        if (tab === 1) setTextContentList([])
+        else if (tab === 2) setImageContentList([])
+        else if (tab === 3) setVideoContentList([])
+        else setAudioContentList([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [t],
+  )
+
+  // 切 Tab 触发加载(对齐 Uniapp onTabChange → loadContentByTab)
+  useEffect(() => {
+    void loadTabContent(activeTab)
+  }, [activeTab, loadTabContent])
+
+  const onTabChange = useCallback((key: string) => {
+    const tabId = Number(key) as ProfileTabId
+    if (tabId >= 1 && tabId <= 4) {
+      setActiveTab(tabId)
+    }
+  }, [])
+
+  const onRetry = useCallback(() => {
+    void loadTabContent(activeTab)
+  }, [activeTab, loadTabContent])
+
+  const onImagePreview = useCallback((images: readonly string[], index: number) => {
+    setPreview({ images, index, visible: true })
+  }, [])
+
+  const onVideoPlay = useCallback((url: string) => {
+    // 无效地址不再弹系统 Alert,统一进 video-popup Modal 空态(对齐 Uniapp 弹层优先交互)
+    setVideoModal({ url, visible: true })
+  }, [])
+
+  const closePreview = useCallback(() => {
+    setPreview((prev) => ({ ...prev, visible: false }))
+  }, [])
+
+  const closeVideoModal = useCallback(() => {
+    setVideoModal({ url: '', visible: false })
+  }, [])
+
+  /** 复制官网链接(对齐 Uniapp copyWebsiteLink 行 1315-1334 + yejiao.png 行 192-197 页面级页脚)。
+   *  真实写剪贴板 + FloatBox 非阻塞提示(替代假 Alert,文案对齐 Uniapp showToast) */
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('success')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+  const onCopyLink = useCallback(() => {
+    try {
+      Clipboard.setString(WEBSITE_URL)
+      showToast('success', t('profile.copySiteOk'))
+    } catch {
+      showToast('warning', t('profile.copyFailRetry'))
+    }
+  }, [showToast, t])
+
+  return (
+    <View style={styles.contentSection}>
+      <View style={styles.tabBarWrap}>
+        <CategoryInlineBar
+          items={TAB_BAR_ITEMS.map((it) => ({ ...it, label: t(it.label) }))}
+          selectedId={String(activeTab)}
+          onSelect={onTabChange}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
+        />
+      </View>
+      <View style={styles.contentDisplayArea}>
+        {loading ? (
+          <View style={styles.tabLoaderWrap}>
+            <ColorfulLoader size={36} />
+          </View>
+        ) : error ? (
+          <View style={styles.tabErrorWrap}>
+            <Text style={styles.tabErrorText}>{error}</Text>
+            <TouchableOpacity onPress={onRetry} style={styles.tabRetryBtn} activeOpacity={0.7}>
+              <Text style={styles.tabRetryText}>{t('profile.retryShort')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {activeTab === 1 ? <TextTabContent list={textContentList} /> : null}
+            {activeTab === 2 ? (
+              <ImageTabContent list={imageContentList} onPreview={onImagePreview} />
+            ) : null}
+            {activeTab === 3 ? (
+              <VideoTabContent list={videoContentList} onPlay={onVideoPlay} />
+            ) : null}
+            {activeTab === 4 ? <AudioTabContent list={audioContentList} /> : null}
+          </>
+        )}
+      </View>
+      {/* 官网链接(页面级页脚,对齐 Uniapp yejiao.png 行 192-197,在所有 Tab 内容之外跨 Tab 可见) */}
+      <TouchableOpacity
+        onPress={onCopyLink}
+        style={styles.copyLinkBtn}
+        activeOpacity={0.7}
+        accessibilityLabel={t('profile.copySite')}
+      >
+        <Text style={styles.copyLinkText}>{t('profile.copySite')}</Text>
+      </TouchableOpacity>
+      <ImagePreviewModal
+        images={preview.images}
+        index={preview.index}
+        visible={preview.visible}
+        onClose={closePreview}
+      />
+      <VideoPlayerModal
+        url={videoModal.url}
+        visible={videoModal.visible}
+        onClose={closeVideoModal}
+      />
+      {/* 复制官网链接结果提示(对齐 Uniapp copyWebsiteLink showToast) */}
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
+    </View>
+  )
+}
+
+// ============ 文本 Tab(对齐 Uniapp 行 67-84) ============
+
+interface TextTabProps {
+  list: readonly TextContent[]
+}
+
+function TextTabContent({ list }: TextTabProps): React.JSX.Element {
+  const { t } = useI18n()
+  if (list.length === 0) {
+    return <Empty text={t('profile.emptyTextCat')} icon={FileText} />
+  }
+  return (
+    <View>
+      <FlatList
+        data={list}
+        scrollEnabled={false}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={styles.itemGap} />}
+        renderItem={({ item }) => (
+          <View style={styles.contentItem}>
+            <View style={styles.contentHeader}>
+              <Text style={styles.contentTitle} numberOfLines={1}>
+                {item.title || t('home.contentText')}
+              </Text>
+              <Text style={styles.contentTime}>{item.time}</Text>
+            </View>
+            {/* 空正文不占位:无预览时只留标题+时间行,避免 25px 空行(真机 bug) */}
+            {item.content.trim() ? (
+              <View style={styles.contentBody}>
+                <Text style={styles.textContent}>{item.content}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+      />
+    </View>
+  )
+}
+
+// ============ 图片 Tab(对齐 Uniapp 行 87-111) ============
+
+interface ImageTabProps {
+  list: readonly ImageContent[]
+  onPreview: (images: readonly string[], index: number) => void
+}
+
+function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element {
+  const { t } = useI18n()
+  if (list.length === 0) {
+    return <Empty text={t('profile.emptyImageCat')} icon={ImageIcon} />
+  }
+  return (
+    <FlatList
+      data={list}
+      scrollEnabled={false}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      ItemSeparatorComponent={() => <View style={styles.itemGap} />}
+      renderItem={({ item }) => (
+        <View style={styles.contentItem}>
+          <View style={styles.contentHeader}>
+            <Text style={styles.contentTitle} numberOfLines={1}>
+              {item.title || t('home.contentImage')}
+            </Text>
+            <Text style={styles.contentTime}>{item.time}</Text>
+          </View>
+          {/* 空图列表不占位:无图时只留标题+时间行 */}
+          {item.imageList.length > 0 ? (
+            <View style={[styles.contentBody, styles.imageColumn]}>
+              {item.imageList.map((url, idx) => (
+                <TouchableOpacity
+                  key={`${url}-${idx}`}
+                  activeOpacity={0.85}
+                  onPress={() => onPreview(item.imageList, idx)}
+                  style={styles.imageColumnItem}
+                >
+                  <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      )}
+    />
+  )
+}
+
+// ============ 视频 Tab(对齐 Uniapp 行 114-144) ============
+
+interface VideoTabProps {
+  list: readonly VideoContent[]
+  onPlay: (url: string) => void
+}
+
+function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
+  const { t } = useI18n()
+  const screenWidth = useAppFrameWidth()
+  // 视频封面宽度 = screenWidth - 32(容器 padding),高度默认 200(对齐 Uniapp 400rpx ≈ 200)
+  const posterWidth = screenWidth - 32
+  const posterHeight = 200
+
+  if (list.length === 0) {
+    return <Empty text={t('profile.emptyVideoCat')} icon={Film} />
+  }
+  return (
+    <FlatList
+      data={list}
+      scrollEnabled={false}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      ItemSeparatorComponent={() => <View style={styles.itemGap} />}
+      renderItem={({ item }) => {
+        const posterUrl = getVideoPoster(item)
+        const w = item.width ?? posterWidth
+        const h = item.height ?? posterHeight
+        return (
+          <View style={styles.contentItem}>
+            <View style={styles.contentHeader}>
+              <Text style={styles.contentTitle} numberOfLines={1}>
+                {item.title || t('home.contentVideo')}
+              </Text>
+              <Text style={styles.contentTime}>{item.time}</Text>
+            </View>
+            <View style={styles.contentBody}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => onPlay(item.videoUrl)}
+                style={styles.videoPosterContainer}
+              >
+                {posterUrl ? (
+                  <Image
+                    source={{ uri: posterUrl }}
+                    style={{ width: w, height: h, borderRadius: rnRadius.lg }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.videoPosterPlaceholder, { width: w, height: h }]} />
+                )}
+                <View style={styles.videoPlayIcon}>
+                  <Play size={24} color={tokens.surface.light} style={{ marginLeft: rpx(8) }} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
+      }}
+    />
+  )
+}
+
+// ============ 音频 Tab(对齐 Uniapp 行 147-189) ============
+
+interface AudioTabProps {
+  list: readonly AudioContent[]
+}
+
+function AudioTabContent({ list }: AudioTabProps): React.JSX.Element {
+  const { t } = useI18n()
+  if (list.length === 0) {
+    return <Empty text={t('profile.emptyAudioCat')} icon={Music} />
+  }
+  return (
+    <FlatList
+      data={list}
+      scrollEnabled={false}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      ItemSeparatorComponent={() => <View style={styles.itemGap} />}
+      renderItem={({ item }) => <AudioItem item={item} />}
+    />
+  )
+}
+
+/** 单条音频项 — 用 expo-audio useAudioPlayer 播放(对齐 Uniapp toggleAudioPlay 行 1180-1220) */
+function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
+  const { t } = useI18n()
+  const player = useAudioPlayer(item.audioUrl)
+  const status = useAudioPlayerStatus(player)
+  const [barWidth, setBarWidth] = useState(0)
+  // FloatBox 浮层提示(替代 Alert.alert 非阻塞反馈)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+  const [downloading, setDownloading] = useState(false)
+
+  const togglePlay = useCallback(() => {
+    if (status.playing) {
+      player.pause()
+    } else {
+      player.play()
+    }
+  }, [player, status.playing])
+
+  const onProgressBarTap = useCallback(
+    (e: { nativeEvent: { locationX: number } }) => {
+      if (!barWidth || status.duration <= 0) return
+      const ratio = Math.max(0, Math.min(1, e.nativeEvent.locationX / barWidth))
+      const target = ratio * status.duration
+      void player.seekTo(target)
+    },
+    [barWidth, player, status.duration],
+  )
+
+  const onDownload = useCallback(async () => {
+    if (!item.audioUrl) {
+      showToast('warning', t('profile.audioInvalid'))
+      return
+    }
+    if (downloading) return
+    setDownloading(true)
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', t('profile.audioNeedPerm'))
+        return
+      }
+      const filename = `audio_${Date.now()}.mp3`
+      const destFile = new FileSystem.File(FileSystem.Paths.cache, filename)
+      const downloaded = await FileSystem.File.downloadFileAsync(item.audioUrl, destFile, {
+        idempotent: true,
+      })
+      await MediaLibrary.saveToLibraryAsync(downloaded.uri)
+      showToast('success', t('profile.audioSaved'))
+    } catch {
+      showToast('error', t('profile.downloadFailRetry'))
+    } finally {
+      setDownloading(false)
+    }
+  }, [item.audioUrl, downloading, showToast, t])
+
+  const progressRatio = status.duration > 0 ? Math.min(1, status.currentTime / status.duration) : 0
+
+  return (
+    <View style={styles.contentItem}>
+      <View style={styles.contentHeader}>
+        <Text style={styles.contentTitle} numberOfLines={1}>
+          {item.title || t('profile.audioContentShort')}
+        </Text>
+        <Text style={styles.contentTime}>{item.time}</Text>
+      </View>
+      <View style={styles.contentBody}>
+        {!item.audioUrl ? (
+          <Text style={styles.tabErrorText}>{t('profile.audioInvalidPlay')}</Text>
+        ) : (
+          <View style={styles.audioPlayer}>
+            <TouchableOpacity
+              onPress={togglePlay}
+              style={styles.audioPlayBtn}
+              activeOpacity={0.7}
+              accessibilityLabel={status.playing ? t('player.pause') : t('player.play')}
+            >
+              {status.playing ? (
+                <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+              ) : (
+                <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+              )}
+            </TouchableOpacity>
+            {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
+              当前用 Pressable 仅支持点击跳转;待安装 @react-native-community/slider
+              后改为可拖动 Slider 组件 + onSlidingComplete 回调(不引入新依赖,保持现状) */}
+            <Tappable
+              onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+              onPress={onProgressBarTap}
+              style={styles.audioProgressTrack}
+              accessibilityLabel={t('profile.audioProgress')}
+            >
+              <View
+                style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
+              />
+            </Tappable>
+            <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
+            <TouchableOpacity
+              hitSlop={2}
+              onPress={onDownload}
+              style={styles.audioDownloadBtn}
+              activeOpacity={0.7}
+              accessibilityLabel={t('profile.downloadAudio')}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <MoreHorizontal size={16} color={tokens.text.secondary} />
+              ) : (
+                <Download size={16} color={tokens.text.secondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
+    </View>
+  )
+}
+
+// ============ 图片预览 Modal(对齐 Uniapp previewImage → uni.previewImage) ============
+
+interface ImagePreviewModalProps {
+  images: readonly string[]
+  index: number
+  visible: boolean
+  onClose: () => void
+}
+
+function ImagePreviewModal({
+  images,
+  index,
+  visible,
+  onClose,
+}: ImagePreviewModalProps): React.JSX.Element {
+  const { t } = useI18n()
+  // 高度仍取视口高(== 框架高,#root 100dvh);宽取框架宽,理由见文件头 useAppFrameWidth 注释
+  const { height: screenHeight } = useWindowDimensions()
+  const screenWidth = useAppFrameWidth()
+  // 图片分享弹窗(对齐 Uniapp showImageSharePopup 行 201-216,点"分享"先弹分享弹层)
+  const [shareVisible, setShareVisible] = useState(false)
+  const currentUrl = images[index] ?? images[0] ?? ''
+
+  /** 分享按钮 → 打开图片分享弹窗(弹窗内提供系统分享 + 保存到相册) */
+  const onShare = useCallback(() => {
+    setShareVisible(true)
+  }, [])
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.previewOverlay}>
+        <TouchableOpacity
+          onPress={onShare}
+          style={styles.previewShareBtn}
+          activeOpacity={0.7}
+          accessibilityLabel={t('profile.shareImage')}
+        >
+          <Text style={styles.previewShareText}>{t('profile.shareBtn')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClose} style={styles.previewCloseBtn} activeOpacity={0.7}>
+          <Text style={styles.previewCloseText}>×</Text>
+        </TouchableOpacity>
+        {images.length > 0 ? (
+          <FlatList
+            data={images}
+            horizontal
+            pagingEnabled
+            initialScrollIndex={Math.min(index, images.length - 1)}
+            getItemLayout={(_, i) => ({ length: screenWidth, offset: screenWidth * i, index: i })}
+            keyExtractor={(url, i) => `${url}-${i}`}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.previewListContent}
+            renderItem={({ item }) => (
+              <View style={[styles.previewItem, { width: screenWidth, height: screenHeight }]}>
+                <Image source={{ uri: item }} style={styles.previewImage} resizeMode="contain" />
+              </View>
+            )}
+          />
+        ) : null}
+      </View>
+      {/* 图片分享弹窗(对齐 Uniapp image-share-popup) */}
+      <ImageSharePopup
+        visible={shareVisible}
+        imageUrl={currentUrl}
+        onClose={() => setShareVisible(false)}
+      />
+    </Modal>
+  )
+}
+
+// ============ 图片分享弹窗(对齐 Uniapp image-share-popup 行 201-216) ============
+
+interface ImageSharePopupProps {
+  visible: boolean
+  imageUrl: string
+  onClose: () => void
+}
+
+/**
+ * 图片分享弹窗 — 居中卡片(对齐 Uniapp image-share-popup:遮罩 + 关闭× + 标题"分享赚现金" + 分享图 + 操作按钮)。
+ * - 分享图:优先当前预览图,无真实资源时回退 app 静态分享图 vip_message.jpg
+ * - 保存到相册:expo-media-library + react-native-view-shot captureRef(对齐 ChatScreen 二维码保存先例)
+ * - 分享:RN Share API(对齐 Uniapp handleAppShareClick)
+ */
+function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): React.JSX.Element {
+  const { t } = useI18n()
+  const shareViewRef = useRef<View>(null)
+  const [saving, setSaving] = useState(false)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+
+  const source: ImageSourcePropType = imageUrl ? { uri: imageUrl } : SHARE_FALLBACK_IMAGE
+
+  const onShare = useCallback(async () => {
+    if (!imageUrl) {
+      showToast('warning', t('profile.noShareImage'))
+      return
+    }
+    try {
+      await Share.share({ message: imageUrl, url: imageUrl, title: t('profile.shareImage') })
+    } catch {
+      showToast('warning', t('profile.shareFailRetry'))
+    }
+  }, [imageUrl, showToast, t])
+
+  const onSaveToAlbum = useCallback(async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', t('home.albumPermRequired'))
+        return
+      }
+      if (!shareViewRef.current) {
+        showToast('error', t('profile.imgNotRendered'))
+        return
+      }
+      const uri = await captureRef(shareViewRef, { format: 'png', quality: 1 })
+      await MediaLibrary.saveToLibraryAsync(uri)
+      showToast('success', t('home.imgSavedAlbum'))
+    } catch {
+      showToast('error', t('home.imgSaveRetry'))
+    } finally {
+      setSaving(false)
+    }
+  }, [saving, showToast, t])
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.sharePopupOverlay}>
+        <View style={styles.sharePopupCard}>
+          <TouchableOpacity
+            hitSlop={3}
+            onPress={onClose}
+            style={styles.sharePopupClose}
+            activeOpacity={0.7}
+            accessibilityLabel={t('profile.closeShare')}
+          >
+            <Text style={styles.sharePopupCloseText}>×</Text>
+          </TouchableOpacity>
+          <Text style={styles.sharePopupTitle}>{t('profile.shareEarnTitle')}</Text>
+          {/* 分享图(截图目标容器,collapsible=false 保证 Android 可捕获) */}
+          <View ref={shareViewRef} collapsable={false} style={styles.sharePopupImageWrap}>
+            <Image source={source} style={styles.sharePopupImage} resizeMode="contain" />
+          </View>
+          <View style={styles.sharePopupBtnRow}>
+            <TouchableOpacity
+              style={styles.sharePopupSaveBtn}
+              activeOpacity={0.7}
+              onPress={onSaveToAlbum}
+              disabled={saving}
+              accessibilityLabel={t('imageGen.saveToAlbum')}
+            >
+              <Text style={styles.sharePopupSaveBtnText}>
+                {saving ? t('profile.savingDots') : t('imageGen.saveToAlbum')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sharePopupShareBtn}
+              activeOpacity={0.7}
+              onPress={onShare}
+              accessibilityLabel={t('profile.shareBtn')}
+            >
+              <Text style={styles.sharePopupShareBtnText}>{t('profile.shareBtn')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={() => setToastVisible(false)}
+      />
+    </Modal>
+  )
+}
+
+// ============ 视频播放 Modal(对齐 Uniapp openVideoPlayer 行 1336-1353) ============
+
+interface VideoPlayerModalProps {
+  url: string
+  visible: boolean
+  onClose: () => void
+}
+
+function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): React.JSX.Element {
+  const { t } = useI18n()
+  const screenWidth = useAppFrameWidth()
+  // 视频容器宽度 = screenWidth - 32,高度按 16:9
+  const videoWidth = screenWidth - 32
+  const videoHeight = Math.round((videoWidth * 9) / 16)
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.videoModalOverlay}>
+          {/* 内容区阻止冒泡:onPress 空实现有意吞掉内容区点击,让遮罩 onClose 仅在点击遮罩区域时触发
+           * (对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
+          <TouchableWithoutFeedback onPress={() => undefined}>
+            <View style={styles.videoModalContent}>
+              <View
+                style={{
+                  width: videoWidth,
+                  height: videoHeight,
+                  borderRadius: rnRadius.lg,
+                  overflow: 'hidden',
+                }}
+              >
+                {url ? (
+                  <VideoPlayer url={url} />
+                ) : (
+                  // 空态:视频源无效时弹窗内提示(替代系统 Alert,对齐 Uniapp video-popup 弹层)
+                  <View style={styles.videoEmptyState}>
+                    <Text style={styles.videoEmptyText}>{t('profile.videoInvalidPlay')}</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.videoModalClose}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.videoModalCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  )
+}
+
+// ============ 辅助函数(对齐 Uniapp formatAudioTime / getVideoPoster) ============
+
+/** 官网链接(对齐 Uniapp copyWebsiteLink 行 1316 'https://www.aizhs.top') */
+const WEBSITE_URL = 'https://www.aizhs.top'
+
+/**
+ * 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem。
+ * 对齐 Uniapp getModelChat 返回的 { id, title, time, modelName } 结构。
+ * - title: 空标题回退 "未命名对话"(对齐 miniapp-compat-routes.ts 行 1547)
+ * - modelConfig: 用 conversation.model 作为模型名(空则由 Drawer 内部回退 "默认模型")
+ * - createdAt: 优先 lastMessageAt(最近活跃),回退 updatedAt → createdAt
+ */
+function mapConversationToDrawer(c: ConversationDetail, untitled: string): DrawerConversationItem {
+  const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
+  const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
+  const model = c.model ?? ''
+  return {
+    id: c.id,
+    title: c.title?.trim() || untitled,
+    modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
+    createdAt,
+    favorited: c.favorite === true,
+  }
+}
+
+/** 格式化音频时间(对齐 Uniapp formatAudioTime 行 1243-1247) */
+function formatAudioTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+  return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
+}
+
+/** 获取视频封面(对齐 Uniapp getVideoPoster 行 1355+) */
+function getVideoPoster(item: VideoContent): string {
+  if (item.posterUrl) return item.posterUrl
+  // 后续可加 OSS 首帧图生成逻辑(对齐 Uniapp aliyuncs.com 检测)
+  return item.videoUrl || ''
+}
+
+// ============ StyleSheet(浅色优雅风,圆角仅 12/8/6,无分割线,无蓝色发光) ============
+
+const styles = StyleSheet.create({
+  screenScroll: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+  },
+  screenScrollContent: {
+    flexGrow: 1,
+  },
+  // 返回顶部按钮样式已收进 @ihui/shared/ui/scroll-jump-spec(2026-10-20 用户定「不许单独设定」),
+  // 端内不得再留第二份盒档 —— 见 @ihui/rn-app ScrollJumpButton 头注。
+  loaderWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: rpx(96),
+  },
+  userInfoCardWrap: {
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(24),
+  },
+  contentSection: {
+    // 对齐 Uniapp 20rpx(≈10px)水平 padding
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(24),
+  },
+  // 会员权益折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits)
+  // marginHorizontal 对齐小程序端 .membership-benefits-container 的 mx-[20rpx];
+  // 缺它时这块 bg-card 会通栏贴住屏幕左右,看起来像一条无间距的独立色带。
+  membershipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: rpx(20),
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadius.lg,
+    marginTop: rpx(16),
+  },
+  membershipHeaderText: {
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  membershipArrow: {
+    transform: [{ rotate: '0deg' }],
+  },
+  membershipArrowExpanded: {
+    transform: [{ rotate: '180deg' }],
+  },
+  // 会员权益内容容器(对齐 Uniapp 10rpx(≈5px)与折叠头间距)
+  membershipBenefitsWrap: {
+    marginTop: rpx(10),
+    marginHorizontal: rpx(20),
+  },
+  // UserCard 4 宫格外层(对齐小程序端 <View className="mx-[20rpx]"><UserCard/></View>)
+  userCardWrap: {
+    marginHorizontal: rpx(20),
+  },
+  tabBarWrap: {
+    // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
+    marginBottom: rpx(20),
+  },
+  contentDisplayArea: {
+    // 对齐 Uniapp(删除大容器圆角,改 minHeight + marginBottom + 紧凑 padding)
+    minHeight: 100,
+    marginBottom: rpx(20),
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(0),
+  },
+  listContent: {
+    gap: rpx(0),
+  },
+  itemGap: {
+    height: 12,
+  },
+  contentItem: {
+    // 原 Uniapp border-radius:20rpx(≈10px)→ 档位 lg(8px);padding:28rpx(≈14px) border:1px #EEEEEE
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.card,
+    padding: rpx(28),
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+  },
+  copyLinkBtn: {
+    alignSelf: 'center',
+    marginTop: rpx(24),
+    paddingVertical: rpx(16),
+    paddingHorizontal: rpx(32),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.muted,
+  },
+  copyLinkText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+  },
+  contentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: rpx(16),
+    gap: rpx(16),
+  },
+  contentTitle: {
+    flex: 1,
+    // 对齐 Uniapp font-size:32rpx(≈16px)
+    fontSize: rnType.title.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  contentTime: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+  },
+  contentBody: {
+    gap: rpx(16),
+  },
+  textContent: {
+    // 对齐 Uniapp font-size:28rpx(≈14px) line-height:1.8(≈25)
+    fontSize: rnType.body.size,
+    lineHeight: 25,
+    color: tokens.text.secondary,
+  },
+  imageColumn: {
+    gap: rpx(16),
+  },
+  imageColumnItem: {
+    borderRadius: rnRadius.lg,
+    overflow: 'hidden',
+  },
+  imageColumnImg: {
+    width: '100%',
+    height: 200,
+    borderRadius: rnRadius.lg,
+  },
+  videoPosterContainer: {
+    position: 'relative',
+    borderRadius: rnRadius.lg,
+    overflow: 'hidden',
+  },
+  videoPosterPlaceholder: {
+    backgroundColor: tokens.surface.muted,
+    borderRadius: rnRadius.lg,
+  },
+  videoPlayIcon: {
+    // 对齐 Uniapp 圆形 border-radius:50%(60/2=30 圆形,头像类豁免)
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: rpx(-60),
+    marginLeft: rpx(-60),
+    width: 60,
+    height: 60,
+    borderRadius: rnRadius['2xl'],
+    backgroundColor: rnCssLight.black50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayIconText: {
+    fontSize: rnType.display.size,
+    color: tokens.surface.light,
+    marginLeft: rpx(8),
+  },
+  audioPlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(20),
+  },
+  audioPlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  audioPlayIcon: {
+    fontSize: rnType.title.size,
+    color: tokens.brand.foreground,
+    marginLeft: rpx(4),
+  },
+  audioProgressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.border.light,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  audioProgressFill: {
+    height: 6,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  audioTime: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+    minWidth: 38,
+    textAlign: 'right',
+  },
+  audioDownloadBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  audioDownloadIcon: {
+    fontSize: rnType.title.size,
+    color: tokens.text.secondary,
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewShareBtn: {
+    position: 'absolute',
+    top: 48,
+    right: 72,
+    zIndex: 2,
+    height: 40,
+    paddingHorizontal: rpx(28),
+    borderRadius: rnRadius.sm,
+    backgroundColor: rnCssLight.white18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewShareText: {
+    fontSize: rnType.body.size,
+    color: tokens.surface.light,
+  },
+  previewCloseBtn: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    zIndex: 2,
+    width: 40,
+    height: 40,
+    borderRadius: rnRadius.sm,
+    backgroundColor: rnCssLight.white18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewCloseText: {
+    fontSize: rnType.displayLg.size,
+    color: tokens.surface.light,
+    lineHeight: 30,
+  },
+  previewListContent: {
+    alignItems: 'center',
+  },
+  previewItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '80%',
+  },
+  videoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoModalContent: {
+    alignItems: 'center',
+    gap: rpx(32),
+  },
+  videoModalClose: {
+    width: 40,
+    height: 40,
+    borderRadius: rnRadius.xl,
+    backgroundColor: rnCssLight.white18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoModalCloseText: {
+    fontSize: rnType.displayLg.size,
+    color: tokens.surface.light,
+    lineHeight: 30,
+  },
+  // ── 视频空态(对齐 Uniapp video-popup,无有效视频源时弹窗内提示) ──
+  videoEmptyState: {
+    flex: 1,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: rpx(32),
+  },
+  videoEmptyText: {
+    fontSize: rnType.body.size,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  },
+  // ── 图片分享弹窗(对齐 Uniapp image-share-popup 行 1842-1926:居中卡片 + 关闭× + 标题 + 图 + 按钮) ──
+  sharePopupOverlay: {
+    flex: 1,
+    backgroundColor: rnCssLight.black50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: rpx(48),
+  },
+  sharePopupCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadiusFor.panel,
+    padding: rpx(40),
+    alignItems: 'center',
+  },
+  sharePopupClose: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sharePopupCloseText: {
+    fontSize: 22,
+    color: tokens.text.secondary,
+    lineHeight: 22,
+  },
+  sharePopupTitle: {
+    fontSize: rnType.title.size,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    marginBottom: rpx(28),
+  },
+  sharePopupImageWrap: {
+    width: '100%',
+    marginBottom: rpx(28),
+  },
+  sharePopupImage: {
+    width: '100%',
+    height: 240,
+    borderRadius: rnRadius.lg,
+  },
+  sharePopupBtnRow: {
+    flexDirection: 'row',
+    gap: rpx(24),
+    alignSelf: 'stretch',
+  },
+  sharePopupSaveBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.bg,
+  },
+  sharePopupSaveBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  sharePopupShareBtn: {
+    flex: 1,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 对齐 Uniapp popup-share-btn 黑底白字
+    backgroundColor: tokens.gray.black,
+  },
+  sharePopupShareBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  },
+  // ── 4 Tab 加载/错误状态(对齐 Uniapp loadContentByTab 加载体验) ──
+  tabLoaderWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: rpx(96),
+  },
+  tabErrorWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: rpx(96),
+    paddingHorizontal: rpx(48),
+    gap: rpx(24),
+  },
+  tabErrorText: {
+    fontSize: rnType.body.size,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  },
+  tabRetryBtn: {
+    paddingHorizontal: rpx(40),
+    paddingVertical: rpx(16),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  tabRetryText: {
+    fontSize: rnType.body.size,
+    fontWeight: '500',
+    color: tokens.brand.foreground,
+  },
+  // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
+  levelIntroBtn: {
+    alignSelf: 'flex-end',
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.surface.muted,
+  },
+  levelIntroBtnText: {
+    fontSize: rnType.label.size,
+    color: tokens.text.medium,
+  },
+  // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
+  editProfileOverlay: {
+    flex: 1,
+    backgroundColor: rnCssLight.black50,
+    justifyContent: 'flex-end',
+  },
+  editProfileCard: {
+    backgroundColor: tokens.surface.card,
+    borderTopLeftRadius: rnRadiusFor.panel,
+    borderTopRightRadius: rnRadiusFor.panel,
+    padding: rpx(40),
+    paddingBottom: rpx(64),
+  },
+  editProfileTitle: {
+    // 对齐 Uniapp 32rpx(≈16px)标题字号
+    fontSize: rnType.title.size,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    textAlign: 'center',
+    marginBottom: rpx(32),
+  },
+  editProfileAvatarSection: {
+    alignItems: 'center',
+    marginBottom: rpx(32),
+    gap: rpx(12),
+  },
+  editProfileAvatarBtn: {
+    position: 'relative',
+    width: 72,
+    height: 72,
+    borderRadius: rnRadius.sm,
+    overflow: 'hidden',
+  },
+  editProfileAvatar: {
+    width: 72,
+    height: 72,
+    resizeMode: 'cover',
+  },
+  editProfileAvatarFallback: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.brandAccent.DEFAULT,
+  },
+  editProfileAvatarFallbackText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: tokens.brandAccent.foreground,
+  },
+  editProfileAvatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 22,
+    height: 22,
+    borderBottomRightRadius: rnRadius.md,
+    borderTopLeftRadius: rnRadius.md,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileAvatarBadgeText: {
+    fontSize: rnType.body.size,
+    color: tokens.brand.foreground,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
+  editProfileAvatarHint: {
+    fontSize: rnType.caption.size,
+    color: tokens.text.tertiary,
+  },
+  editProfileField: {
+    // 对齐 Uniapp 30rpx(≈15px)字段间距
+    marginBottom: rpx(30),
+    gap: rpx(12),
+  },
+  editProfileLabel: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  editProfileInput: {
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: rnRadius.sm,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
+    fontSize: rnType.body.size,
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.card,
+  },
+  editProfileInputReadOnly: {
+    backgroundColor: tokens.surface.muted,
+    color: tokens.text.secondary,
+  },
+  editProfileBtnRow: {
+    flexDirection: 'row',
+    gap: rpx(24),
+    marginTop: rpx(16),
+  },
+  editProfileCancelBtn: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileCancelBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  editProfileSaveBtn: {
+    flex: 1,
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editProfileSaveBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.brand.foreground,
+  },
+  editProfileSaveBtnDisabled: {
+    opacity: 0.6,
+  },
+  editProfileError: {
+    fontSize: rnType.label.size,
+    color: tokens.danger.DEFAULT,
+    marginBottom: rpx(16),
+  },
+  // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
+  levelIntroOverlay: {
+    flex: 1,
+    backgroundColor: rnCssLight.black50,
+    justifyContent: 'flex-end',
+  },
+  levelIntroCard: {
+    backgroundColor: tokens.surface.card,
+    borderTopLeftRadius: rnRadiusFor.panel,
+    borderTopRightRadius: rnRadiusFor.panel,
+    padding: rpx(40),
+    paddingBottom: rpx(64),
+    maxHeight: '80%',
+  },
+  levelIntroTitle: {
+    fontSize: rnType.subtitle.size,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    textAlign: 'center',
+    marginBottom: rpx(32),
+    // 固定 chrome 不被压缩:唯一弹性块 = levelIntroScroll(sheet-flex 契约,
+    // 详见 scripts/check-sheet-flex-contract.mjs)
+    flexShrink: 0,
+  },
+  levelIntroScroll: {
+    // 唯一弹性块:bounded 弹窗(maxHeight 80%)内 ScrollView flex:1 内部滚动
+    flex: 1,
+    marginBottom: rpx(32),
+  },
+  levelIntroItem: {
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadius.lg,
+    // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
+    padding: rpx(8),
+    marginBottom: rpx(20),
+  },
+  levelIntroItemHeader: {
+    marginBottom: rpx(16),
+    gap: rpx(8),
+  },
+  levelIntroItemLevel: {
+    fontSize: rnType.strong.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  levelIntroItemDesc: {
+    fontSize: rnType.label.size,
+    color: tokens.text.tertiary,
+  },
+  levelIntroBenefitList: {
+    gap: rpx(8),
+  },
+  levelIntroBenefitItem: {
+    // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
+    fontSize: rnType.body.size,
+    color: tokens.text.secondary,
+    lineHeight: 20,
+  },
+  levelIntroCloseBtn: {
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+    // 固定 chrome 不被压缩:唯一弹性块 = levelIntroScroll(sheet-flex 契约)
+    flexShrink: 0,
+  },
+  levelIntroCloseBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.brand.foreground,
+  },
+  // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
+  unsubscribeOverlay: {
+    flex: 1,
+    backgroundColor: rnCssLight.black50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: rpx(48),
+  },
+  unsubscribeCard: {
+    width: '100%',
+    backgroundColor: tokens.surface.card,
+    borderRadius: rnRadiusFor.panel,
+    padding: rpx(40),
+    alignItems: 'center',
+  },
+  unsubscribeIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: rnRadius.xl,
+    backgroundColor: tokens.danger.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: rpx(24),
+  },
+  unsubscribeIcon: {
+    fontSize: 28,
+    color: tokens.danger.DEFAULT,
+    lineHeight: 28,
+  },
+  unsubscribeTitle: {
+    fontSize: rnType.title.size,
+    fontWeight: '700',
+    color: tokens.text.primary,
+    marginBottom: rpx(16),
+  },
+  unsubscribeDesc: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: rpx(32),
+  },
+  unsubscribeBtnRow: {
+    flexDirection: 'row',
+    gap: rpx(24),
+    alignSelf: 'stretch',
+  },
+  unsubscribeCancelBtn: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unsubscribeCancelBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  unsubscribeConfirmBtn: {
+    flex: 1,
+    backgroundColor: tokens.danger.DEFAULT,
+    borderRadius: rnRadius.sm,
+    paddingVertical: rpx(24),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unsubscribeConfirmBtnText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

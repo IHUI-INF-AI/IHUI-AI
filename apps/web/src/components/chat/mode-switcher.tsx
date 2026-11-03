@@ -1,0 +1,139 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTranslations } from 'next-intl'
+import {
+  Check,
+  ChevronDown,
+  Eye,
+  FileText,
+  Hammer,
+  ClipboardList,
+  Wrench,
+  MessageCircleQuestion,
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { usePaneModeStore } from '@/stores/mode'
+import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
+import type { ChatMode } from '@ihui/types'
+import { cn } from '@/lib/utils'
+
+/**
+ * 对话模式切换器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
+ * 与 / 命令、Ctrl+1-5、AI 自动判断三通道共用同一份 mode store 状态源
+ * (票60 普查批起按窗格寻址 usePaneModeStore,根窗格仍是原 useModeStore 单例)。
+ *
+ * 五态语义见 stores/mode.ts(ask/build/plan/review/spec)。
+ * 文案复用 chat.modeBuild/modePlan/modeReview/modeSpec/modeAsk 现有 i18n 键,不新增键。
+ * V3 #53(2026-09-26)补 ask 态:此前 Ctrl+5 能切但 UI 不可见(切换器只列 4 态)。
+ *
+ * 2026-09-14 合并收口:额外保留「工具面板」入口(menu-tools-panel),见下方注释。
+ */
+
+const MODE_ITEMS: Array<{
+  mode: ChatMode
+  labelKey: string
+  descKey: string
+  icon: typeof Hammer
+}> = [
+  { mode: 'ask', labelKey: 'modeAsk', descKey: 'modeAskDesc', icon: MessageCircleQuestion },
+  { mode: 'build', labelKey: 'modeBuild', descKey: 'modeBuildDesc', icon: Hammer },
+  { mode: 'plan', labelKey: 'modePlan', descKey: 'modePlanDesc', icon: ClipboardList },
+  { mode: 'review', labelKey: 'modeReview', descKey: 'modeReviewDesc', icon: Eye },
+  { mode: 'spec', labelKey: 'modeSpec', descKey: 'modeSpecDesc', icon: FileText },
+]
+
+export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
+  const t = useTranslations('chat')
+  const tTools = useTranslations('aiToolsPanel')
+  // 票60 普查批:按窗格寻址(Provider 外回落根单例 ⇒ 单窗格形态逐字不变)
+  const modeStore = usePaneModeStore()
+  const currentMode = modeStore((s) => s.currentMode)
+  const setMode = modeStore((s) => s.setMode)
+  // 缺口A 结清(2026-10-21 票60 片3 收尾):工具面板开关与面板体同源 ——
+  // ai-side-panel-tools.tsx 读 usePaneAiToolsPanelStore(Provider 内=窗格实例),
+  // 开关此前硬写根单例 ⇒ 窗格内开关只点亮根格面板,开关环断裂。
+  const toolsPanelStore = usePaneAiToolsPanelStore()
+  const toolsPanelOpen = toolsPanelStore((s) => s.open)
+  const toggleToolsPanel = toolsPanelStore((s) => s.toggle)
+  const current = MODE_ITEMS.find((m) => m.mode === currentMode) ?? MODE_ITEMS[0]
+  if (!current) return null
+  const CurrentIcon = current.icon
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={t(current.labelKey)}
+          // mode-switch.spec.ts 契约(2026-09-13 矩阵 A #24):testid 定位 + data-mode
+          // 反映当前模式(Ctrl+5 等快捷键切换后断言 data-mode 即时更新)。
+          // 该 testid 自 spec 落地起缺失,2026-09-30 e2e 回归首次真正执行到断言才暴露。
+          data-testid="mode-switcher"
+          data-mode={currentMode}
+          className={cn(
+            'mode-switcher-trigger flex h-8 shrink-0 items-center gap-1 rounded-sm px-2 text-label font-medium transition-colors',
+            'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <CurrentIcon className="h-4 w-4" />
+          {/* mode-switcher-text:窄容器由 globals.css @container 隐藏(sm: 是视口断点,
+              管不住 300px AI 面板;视口宽面板窄时文字会把底部 toolbar 挤到右组溢出重叠) */}
+          <span className="mode-switcher-text hidden sm:inline">{t(current.labelKey)}</span>
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        {/* 工具面板入口(2026-09-14 合并收口):AiSidePanelTools 的唯一开关。
+            ai-side-panel.tsx 挂载的 <AiSidePanelTools />(承载 Plan/Memory/Checkpoints/
+            Best-of/Hooks/RepoWiki 等 W21–W29 面板)依赖本入口,缺失则永远无法打开。 */}
+        <DropdownMenuItem
+          data-testid="menu-tools-panel"
+          data-panel-open={toolsPanelOpen}
+          onSelect={() => toggleToolsPanel()}
+          className={cn('gap-2', toolsPanelOpen && 'bg-accent')}
+        >
+          <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 flex-col">
+            <span className="text-body font-medium leading-tight">{tTools('title')}</span>
+            <span className="truncate text-label text-muted-foreground leading-tight">
+              {toolsPanelOpen ? t('toolsPanelClose') : t('toolsPanelOpen')}
+            </span>
+          </span>
+          {toolsPanelOpen && <Check className="ml-auto h-4 w-4 shrink-0" />}
+        </DropdownMenuItem>
+        {MODE_ITEMS.map((item) => {
+          const Icon = item.icon
+          const active = item.mode === currentMode
+          return (
+            <DropdownMenuItem
+              key={item.mode}
+              // mode-switch.spec.ts 契约:mode-option-{mode} 定位 5 个模式选项
+              data-testid={`mode-option-${item.mode}`}
+              onSelect={() => setMode(item.mode)}
+              className={cn('gap-2', active && 'bg-accent')}
+            >
+              <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="flex min-w-0 flex-col">
+                <span className="text-body font-medium leading-tight">{t(item.labelKey)}</span>
+                <span className="truncate text-label text-muted-foreground leading-tight">
+                  {t(item.descKey)}
+                </span>
+              </span>
+              {active && <Check className="ml-auto h-4 w-4 shrink-0" />}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

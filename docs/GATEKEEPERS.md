@@ -1,0 +1,576 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# 守门规则详解(Gatekeepers)
+
+> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:各守门脚本的工作原理、失败排查与跳过策略。**门数与编号一律现读** —— `node scripts/guardian-runner.mjs --help` 的末行即权威现值(本文档刻意不钉数字 —— 连"今天有多少项"都不写:2026-09-21 那版写 29 项,当天晚些时候现读已是别的数,任何读数落地即开始腐烂,与本仓 §4 圆角门、§26 门编号漂移同型)。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
+
+---
+
+## 1. 总览
+
+IHUI-AI 通过 Husky git hooks 在 4 个阶段部署自动守门,从 commit 到 push 全链路防止问题进仓库或上远端。
+
+| 阶段 | 钩子文件 | 职责 | 守门数 |
+|------|----------|------|--------|
+| pre-commit | `.husky/pre-commit` | 由 `scripts/guardian-runner.mjs` 调度 + lint-staged + 条件 typecheck/build | 现读 `--help` |
+| commit-msg | `.husky/commit-msg` | commit message 规范 + `Verified-DOM:` trailer 校验 | 现读钩子文件 |
+| post-commit | `.husky/post-commit` | 自动 push + 验证 local == remote(AGENTS §20) | 现读钩子文件 |
+| pre-push | `.husky/pre-push` | 全量 typecheck 闸门(清 `.tsbuildinfo` 缓存)+ `guardian-runner --push-gate` | 现读 `--push-gate` |
+
+**设计哲学**:把 [AGENTS.md](../AGENTS.md) 的强制规则从人工自觉变成机制守门,agent 单端改动时强制显式声明,否则 warn 提醒或阻塞 commit。
+
+---
+
+## 2. 钩子架构
+
+### 2.1 pre-commit 流程
+
+`.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按 runner 清单执行全部登记项(项数以 `node scripts/guardian-runner.mjs --help` 现读为准;本节旧版写死 "29 项",那是 2026-09-21 的读数,早已失真)。执行语义(2026-09-22 起):**跑完再汇总**,任一 blocking 失败不再中断本轮,末尾列失败门清单 + 单独复现命令后 exit 1(逃生舱 `GUARDIAN_STOP_ON_FIRST=1` 恢复旧的 fail-fast);**warn-only / info-only** 项只打印不阻塞。
+
+```
+git commit
+  └─ .husky/pre-commit
+       ├─ 1  check-api-key-leak        (阻塞)
+       ├─ 2  check-i18n-keys           (阻塞)
+       ├─ 2b scan-i18n-zh-residue zh-TW (阻塞)
+       ├─ 2c scan-i18n-zh-residue ko   (阻塞)
+       ├─ 2d scan-i18n-zh-residue ja   (warn-only)
+       ├─ 2e check-i18n-broken-en      (阻塞)
+       ├─ 3  check-db-schema-drift     (阻塞)
+       ├─ 4  check-stale-dist          (阻塞)
+       ├─ 4b check-dist-encoding       (阻塞)
+       ├─ 4c check-api-client-utf8     (阻塞)
+       ├─ 5  lint-staged               (阻塞,eslint+prettier)
+       ├─ 6  check-sanitizer-bypass    (阻塞)
+       ├─ 7  check-dedupe              (阻塞)
+       ├─ 8  check-api-routes          (阻塞)
+       ├─ 9  check-safe-parse          (warn-only)
+       ├─ 10 openapi-check             (informational)
+       ├─ 11 check-rounded-full        (阻塞)
+       ├─ 11d check-no-divider         (阻塞,§4 分割线 divide-y/divide-x)
+       ├─ 12 check-delivery-report     (阻塞)
+       ├─ 13b check-project-plan-size  (warn-only,<50KB;runner mode:'warn' 现读)
+       ├─ 13c (已退役 2026-10-16,2026-10-29 摘净:门体与镜像测试均已移除,本行不提供可跑命令)
+       ├─ 15 check-api-migration       (阻塞)
+       ├─ 17 check-input-border-var    (阻塞)
+       ├─ 18 check-native-title-tooltip (阻塞)
+       ├─ 19 check-staged-pollution    (warn-only)
+       ├─ 20 check-tailwind-class-conflict (阻塞)
+       ├─ 21 check-multi-end-sync      (warn-only)
+       ├─ 22 check-readme-sync         (warn-only)
+       ├─ 24 check-sidebar-width       (阻塞)
+       ├─ 23 check-staged-files        (info-only)
+       ├─ 24 check-port-registry       (warn-only)
+       ├─ 16 条件 typecheck (apps/web staged)
+       └─ 16b 条件 database build (packages/database/src staged)
+```
+
+### 2.2 commit-msg 流程
+
+`.husky/commit-msg` 校验:
+- commit message 规范(`feat`/`fix`/`docs`/`chore`/`test`/`refactor` 前缀,见 [AGENTS.md §1](../AGENTS.md))
+- `Verified-DOM:` trailer:若 staged 含 `apps/web/**/*.css` 改动,必须附 `Verified-DOM: http://localhost:8801/<path> (<DOM 属性=数值> ...)` trailer(由 commit-msg hook 自动守门,见 [AGENTS.md §17](../AGENTS.md))
+
+### 2.3 post-commit 流程
+
+`.husky/post-commit` 在 Git LFS post-commit 之后调用 `node scripts/git-push-guard.mjs`:
+- 检测本地 ahead → 自动 push → 验证 local == remote
+- 跳过:`HUSKY_SKIP_PUSH=1 git commit`(紧急本地暂存,不推荐)
+
+### 2.4 pre-push 流程
+
+`.husky/pre-push` 在 Git LFS pre-push 之后跑全量 typecheck:
+- 清 `.tsbuildinfo` 缓存后跑 `pnpm typecheck:full`(防止缓存假象)
+- 工作区有未提交改动时打印明确指引(3 个选项)
+- 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(紧急 push,不推荐)
+
+---
+
+## 3. 守门脚本分类详解
+
+> 编号对应 `.husky/pre-commit` 中的执行顺序。每项说明:用途 / 检测什么 / 失败原因 / 修复方法 / 跳过方式 / 阻塞 vs warn。
+
+### 第 1 项 check-api-key-leak.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 API key / secret 泄露进仓库 |
+| 检测 | staged 文件中匹配常见 key 模式(`sk-`、`AKIA`、`ghp_`、`xoxb-`、`Bearer ` 等) |
+| 失败原因 | 检测到疑似密钥字符串 |
+| 修复 | 从代码移除密钥,改用环境变量;若为误报,在文件顶部加 `// allow-key-mention` 注释 |
+| 跳过 | `--no-verify`(不推荐) |
+| 模式 | `--staged`(pre-commit)/ 全量扫描 |
+
+### 第 2 项 check-i18n-keys.mjs(阻塞)
+
+详见 [I18N.md §5.3](./I18N.md)。以 zh-CN 为基准检测 5 语言 key parity,`--staged` 模式 exit 1 阻塞。
+
+### 第 2b 项 scan-i18n-zh-residue.mjs zh-TW(阻塞)
+
+详见 [I18N.md §5.1](./I18N.md)。opencc-js 简→繁字形转换检测 zh-TW.json 简体字残留,`converted !== value` 即 exit 1。
+
+### 第 2c 项 scan-i18n-zh-residue.mjs ko(阻塞)
+
+详见 [I18N.md §5.1](./I18N.md)。字符范围检测 ko.json 中文残留(value 含汉字且不含 Hangul → exit 1)。
+
+### 第 2d 项 scan-i18n-zh-residue.mjs ja(warn-only)
+
+详见 [I18N.md §5.1](./I18N.md)。日文汉字词假阳性海量,所有汉字只 warn 不阻塞,始终 exit 0。
+
+### 第 2e 项 check-i18n-broken-en.mjs(阻塞)
+
+详见 [I18N.md §5.2](./I18N.md)。检测 en.json 破碎机翻英文(`no-space-concat`/`case-chaos`/`possible-pinyin`/`zh-residue`)。
+
+### 第 3 项 check-db-schema-drift.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 Drizzle TS schema 表名与 migration SQL 表名漂移 |
+| 检测 | 对比 `packages/database/src/schema/*.ts` 的表名与 `packages/database/drizzle/*.sql` 的 `CREATE TABLE` 表名 |
+| 失败原因 | schema 新增表但未生成 migration,或 migration 改表名但 schema 未同步 |
+| 修复 | `pnpm --filter @ihui/database drizzle-kit generate` 生成新 migration |
+| 跳过 | `--no-verify`(不推荐) |
+
+### 第 4 项 check-stale-dist.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 `packages/*/dist` 陈旧导致 `module not found` |
+| 检测 | 对比 `packages/*/src` 的 export 与 `packages/*/dist` 的实际 export |
+| 失败原因 | src 新增 export 但 dist 未重建 |
+| 修复 | `pnpm --filter <package> build` 重建 dist |
+| 跳过 | `--no-verify`(不推荐) |
+
+### 第 4b 项 check-dist-encoding.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 `packages/*/dist` 文件含 UTF-16 LE BOM 导致 Turbopack 解析失败 |
+| 检测 | 扫描 `packages/*/dist/**` 下 `.js/.mjs/.cjs/.ts/.map` 文件前 3 字节 |
+| 失败原因 | PowerShell `WriteAllText` 默认 UTF-16 LE BOM 编码(2026-07-19 admin-auth.js 踩坑) |
+| 修复 | 用 `fs.writeFileSync(path, content, 'utf8')` 重写,或 `pnpm --filter <package> build` 重建 |
+| 立规依据 | 2026-07-19 admin-auth.js 踩坑落地 |
+
+### 第 4c 项 check-api-client-utf8.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 `packages/api-client/src/endpoints/*.ts` 字节级 UTF-8 损坏 |
+| 检测 | 扫描 `src/endpoints/*.ts` 字节序列,检测非法 UTF-8 continuation bytes |
+| 失败原因 | 中文注释字符级丢失(如"内容 *"丢失换行符导致 source map vlq 异常,Turbopack rope 合并时 `invalid utf-8 sequence` build 失败) |
+| 修复 | 重新从 git 历史恢复文件,或手动修复损坏字节 |
+| 立规依据 | 2026-07-19 share.ts 损坏踩坑落地 |
+
+### 第 5 项 lint-staged(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 对暂存文件运行 eslint --fix 和 prettier --write |
+| 检测 | ESLint 规则违规 + Prettier 格式不一致 |
+| 失败原因 | 代码风格 / lint 错误 |
+| 修复 | 按 eslint 输出修复,或 `npx eslint --fix <file>` |
+| 配置 | `lint-staged` 字段在根 `package.json` |
+
+### 第 6 项 check-sanitizer-bypass.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 `skipResponseSanitization` 被滥用导致 token 被脱敏为 `***` |
+| 检测 | staged 文件中 `skipResponseSanitization: true` 的使用 |
+| 失败原因 | 新增 `skipResponseSanitization` 未在白名单 |
+| 修复 | 移除不必要的 sanitizer bypass,或加白名单(需 review) |
+
+### 第 7 项 check-dedupe.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止依赖版本碎片化(同一依赖多个版本) |
+| 检测 | `pnpm-lock.yaml` 变更时检查重复依赖 |
+| 失败原因 | 新增依赖引入与现有版本不兼容的重复 |
+| 修复 | `pnpm dedupe` 或统一版本 |
+| 模式 | `--staged`(仅 `pnpm-lock.yaml` 变更时触发) |
+
+### 第 8 项 check-api-routes.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 前端 ↔ 后端路由一致性(strict,0 缺失) |
+| 检测 | 前端 `src/lib/*-api.ts` 调用的端点必须在后端 `apps/api/src/routes/*.ts` 注册 |
+| 失败原因 | 前端调用了后端不存在的端点 |
+| 修复 | 在后端补注册路由,或修正前端调用路径 |
+
+### 第 9 项 check-safe-parse.mjs(warn-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 巡检 `safeParse` 静默忽略错误(Zod `.safeParse()` 后 `if (!success) return null`) |
+| 检测 | 全量扫描 `safeParse` 调用,标记静默忽略的风险点 |
+| 失败原因 | 无(始终 exit 0,只打印风险点) |
+| 修复 | 建议:静默忽略改为 `throw new AppError()` 或日志记录 |
+
+### 第 10 项 openapi-check.mjs(informational)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | OpenAPI spec 存在性检查 |
+| 检测 | `apps/api` 的 OpenAPI spec 文件是否存在 |
+| 失败原因 | 无(始终 exit 0,info-only) |
+
+### 第 11 项 check-rounded-full.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 容器圆角守门,禁止 `rounded-full`/`rounded-pill`/`9999px`/`50%` 用于容器 |
+| 检测 | staged 的 `.ts/.tsx/.js/.jsx/.css/.scss` 文件匹配违规模式 |
+| 失败原因 | 容器(卡片/面板/按钮/输入框等)用了纯圆 / 胶囊圆角 |
+| 修复 | 改用规范圆角档位:`rounded-sm`(2px)/`rounded`(4px)/`rounded-md`(6px)/`rounded-lg`(8px)/`rounded-xl`(12px)/`rounded-2xl`(16px) |
+| 豁免 | `<img>` 头像 / Switch Thumb / Radio / `<=14px` 装饰点 / 红点底 / `animate-spin` |
+| 详见 | [UI_GUIDELINES.md §3](./UI_GUIDELINES.md) |
+
+### 第 12 项 check-delivery-report-consistency.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 交付报告一致性,防止"无后续建议"与"P1-P5/TODO"在同一份 `.md` 报告同时出现 |
+| 检测 | staged 的 `.md` 文件含新增行(+)的章节,检查矛盾措辞 |
+| 失败原因 | 报告同时声明"完整收尾"和"后续任务" |
+| 修复 | 统一结论:要么"完整收尾无后续",要么列出 P1-P5 |
+| 豁免 | 讨论 AGENTS.md §11 本身的章节 / 本守门脚本章节 |
+| 立规依据 | [AGENTS.md §10](../AGENTS.md) |
+
+### 第 13b 项 check-project-plan-size.mjs(warn-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止 `PROJECT_PLAN.md` 膨胀超过 50KB 导致 AI 上下文窗口撑爆 |
+| 检测 | `PROJECT_PLAN.md` 文件体积 |
+| 失败原因 | 体积 > 50KB(约 1250 行) |
+| 修复 | 按 [AGENTS.md §1「完成即删」](../AGENTS.md) 把已结清的登记行整行删除(不留档、不写归档件、不留 `<!-- 已归档 -->` 占位注释);出口器 `scripts/live-doc-edit.mjs` 的写盘闸默认把翻勾转成删行(回退档 `LIVE_KEEP_CLOSED_ROW=1`),同题重复行归并走 `node scripts/plan-tasks-merge.mjs --heal --commit` |
+| 阈值 | 50KB |
+
+### 第 13c 项 check-project-plan-archive.mjs(已退役 2026-10-16,2026-10-29 摘净)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 曾判"归档精简操作误删已完成任务条目";归档机制已于 2026-10-16 退役、2026-10-29 从 HEAD 摘净(门体、其镜像测试与自动归档器一并移除),不得恢复 |
+| 检测 | 无检测面:`scripts/guardian-runner.mjs` 只有 13b 注册条目,13c 条目已随机制删除;本节因此不再列出任何可执行命令 |
+| 失败原因 | 不适用 —— 未接线的门不可能判红;若提交链上再出现 13c,说明退役件被当"本机纯新增"回流,按 [AGENTS.md §1「归档机制(2026-10-16 退役,此行为留痕)」](../AGENTS.md) 处置(删除回流件,不恢复旧命令) |
+| 修复 | 无修复动作可执行。现行口径 = 结清即整行删除,不留档、不归档、不写占位注释;防误删那一维由守门 71 `scripts/check-plan-line-loss.mjs` 承接(未勾登记行照旧拦,已勾行出保护集、删之合法) |
+| 立规依据 | [AGENTS.md §1「完成即删」](../AGENTS.md);历史残余见 tag `backup/archive-removal-2026-10-16`,旧口径逐字底稿见 `.ihui-agent/archive/AGENTS_trim-2026-10-28.md` |
+
+### 第 15 项 check-api-migration-completeness.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 迁移完整性守门(M-63 落地,7 大类 29 子项) |
+| 检测 | `--staged` 模式:仅当 `PROJECT_PLAN.md` 被 staged 时强制审计报告存在性 |
+| 失败原因 | oauth_private_keys/agent_billings 表回退 / agents.ts 8 端点回退 / 25 处 100% 声明无证据 |
+| 修复 | 补齐迁移证据,或确认无需迁移 |
+
+### 第 17 项 check-input-border-var.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | CSS 颜色 token 嵌套守门,防止 `hsl(var(--xxx))` / `rgb(var(--xxx))` 嵌套 |
+| 检测 | staged 的 CSS/TSX 文件匹配嵌套模式 |
+| 失败原因 | Tailwind v4 `@theme` 把 `--color-*` 序列化为 `hsl()`,外层包裹变成 `hsl(hsl(...))` 非法,被浏览器静默丢弃 |
+| 修复 | 直接 `var(--color-*)` 引用;需要透明度用 `color-mix(in srgb, var(--xxx) 60%, transparent)` |
+| 立规依据 | 2026-07-19 登录框描边样式回归落地 |
+
+### 第 18 项 check-native-title-tooltip.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 原生 title tooltip 守门,防止 HTML `title` 属性用于 hover 提示 |
+| 检测 | `<Button title="...">` / `<button title="...">` / `<td|div|span|p|a|img title="...">` |
+| 失败原因 | 用了原生 `title` 属性(浏览器原生样式与项目 `<Tooltip>` 不一致) |
+| 修复 | 用 `packages/ui` 的 `<Tooltip>` 包裹 |
+| 豁免 | `<Modal/Alert/StatCard>` 自带 title prop / `<Button asChild title>`(透传) / `<iframe title>`(a11y) |
+| 立规依据 | 2026-07-20 hover 提示统一项目样式落地 |
+
+### 第 19 项 check-staged-pollution.mjs(warn-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | Staged 污染预警,防止多 agent 并行时误把其他 agent 改动一起 commit |
+| 检测 | 启发式:staged > 10 文件 + 跨 ≥ 3 个一级子目录 → warn |
+| 失败原因 | 无(始终 exit 0,只 warn) |
+| 修复 | `git reset HEAD <file>` 取消暂存其他 agent 文件 |
+| 配套 | `scripts/guard-push-other-agent-changes.mjs`(白名单模式,阻塞) |
+| 立规依据 | [AGENTS.md §16](../AGENTS.md) 污染事故 |
+
+### 第 20 项 check-tailwind-class-conflict.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | Tailwind class 冲突守门,防止 className 模板字面量 BASE/BRANCH 出现多套 size 类 |
+| 检测 | `className={`base ${cond ? '' : 'other'}`}` 形式 + BASE/BRANCH `h-X`/`w-Y` 不一致 |
+| 失败原因 | 后值覆盖前值,UI 实际渲染与设计意图脱节 |
+| 修复 | 用 `cn()` 合并,或确保 BASE/BRANCH 不冲突 |
+| 豁免 | 行内/上方一行 `// tailwind-class-conflict-allow` / 纯三元 / 纯字符串 / `cn()` 调用 |
+| 立规依据 | 2026-07-21 M-64 修复同步立,PageIndicator `h-4/h-2` + `w-1.5/w-2` 冲突教训 |
+
+### 第 21 项 check-multi-end-sync.mjs(warn-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 多端同步开发守门,检测 staged 文件跨端分布 |
+| 检测 | 4 场景:纯豁免目录 pass / `packages/*` 未标注 warn / ≥2 端 pass / 1 端未标注 warn |
+| 失败原因 | 无(始终 exit 0,只 warn) |
+| 修复 | 在 `PROJECT_PLAN.md` 任务条目标注"平台独占"或"跨端:仅 X 端" |
+| 立规依据 | [AGENTS.md §9](../AGENTS.md) 多端同步开发强制规则 |
+| 详见 | [MULTI_END.md](./MULTI_END.md) |
+
+### 第 22 项 check-readme-sync.mjs(warn-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | README 对外能力同步守门:窗口内新增的对外能力,逐条问 `README.md` 有没有描述 |
+| 检测 | 窗口起点 = 「`README.md` 最后一次被提交」与「滚动回看点(默认 -7d)」里**更旧**的一枚 ⇒ 取该窗口内新增的对外能力(后端端点走守门 8 的唯一提取式 `lib/route-registration-extract.mjs`;web 页面走 App Router `page.tsx`),逐条在 README 面找**路径身份**;三态:已覆盖 / 未判定(别称·写法不同)/ 未描述。2026-10-23 重做——旧判据只看 `git diff --cached` 且"README 在改动集里就 return 0",历史欠账结构上审不到 |
+| 失败原因 | 现测「未描述」**超出棘轮额度**(`scripts/readme-sync-baseline.json`,现 125 枚)⇒ exit 1;基线件读不懂 / 取不到被审面 / 锚点解不出 ⇒ exit 2 未判定。warn 档,**不阻塞提交**(§12e:存量未清不许上 blocking) |
+| 修复 | 按 `--json` 的 `gaps[]` 在 README 对应能力段补路径身份(如 `/api/goods/select`);清一批后跑 `--update-baseline` 把额度压下去(**只许降,抬不动**),额度归零才谈升 blocking |
+| 豁免 | 纯内部重构 / 修复 / 测试 / 配置 / 文档 / 守门脚本本身。本门只验"路径身份出现过",§21 要求的功能说明 / 使用方式 / 所属端仍需人写,不得据本门全绿断言 README 已达标 |
+| 立规依据 | [AGENTS.md §21](../AGENTS.md) 功能开发同步更新 README 规则 |
+
+### 第 23 项 check-staged-files.mjs(info-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 打印 staged 文件清单,commit 前最后看一眼 |
+| 检测 | 无检测,始终 exit 0 |
+| 立规依据 | 与第 19 项互补:19 是跨端超阈值 warn,23 是无条件打印清单 |
+
+### 第 24a 项 check-sidebar-width-consistency.mjs(阻塞)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 侧边栏宽度一致性守门,三源 × 双宽度:① `tokens.css` 的 `--sidebar-width` ↔ `sidebar.tsx` 的 `SIDEBAR_WIDTH`;② `tokens.css` 的 `--sidebar-collapsed-width` ↔ `sidebar.tsx` 的 `SIDEBAR_COLLAPSED_WIDTH`;③ `token-registry.ts` 注册表 defaultValue ↔ `tokens.css`(须从仓库根运行) |
+| 检测 | 正则提取三源数值并交叉对比,任一不一致即 exit 1 |
+| 失败原因 | 多源漂移:展开宽度不一致导致首屏 CSS 预设值 → JS useEffect 覆盖值的宽度跳变闪烁;折叠宽度/注册表漂移虽可能暂无 `var()` 引用点,但一旦被引用即引入错误尺寸 |
+| 修复 | 统一三源值;改 `token-registry.ts` 后需 `npm run build`(packages/design-tokens)同步 dist |
+| 立规依据 | 2026-07-22 立(design-tokens.css 200px vs sidebar.tsx 130px 跳变教训);2026-09-09 扩展(--sidebar-collapsed-width 漂移 54px vs 60 长期未被发现,旧守门只查展开宽度单源单值) |
+
+### 第 24b 项 check-port-registry.mjs(warn-only)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 端口注册表守门,检测 staged 文件中 `localhost:PORT` 引用 |
+| 检测 | PORT 非 `88xx` → warn |
+| 失败原因 | 无(始终 exit 0,只 warn) |
+| 修复 | 按 [docs/port-management.md §3](./port-management.md) 端口分配规则使用 `88xx` |
+| 豁免 | CI workflows / 测试默认值 / Docker 容器内部端口 / healthcheck / 第三方端口 |
+
+### 第 16 项 条件 typecheck(阻塞,条件触发)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止"commit 通过但 push 失败"的循环 |
+| 检测 | staged 文件涉及 `apps/web/` 时跑 `pnpm --filter @ihui/web run typecheck` |
+| 失败原因 | apps/web typecheck 错误 |
+| 修复 | 修复 TS 错误后再 commit |
+| 立规依据 | f21dc473 commit 漏掉 import 的教训 |
+
+### 第 16b 项 条件 database build(阻塞,条件触发)
+
+| 维度 | 说明 |
+|------|------|
+| 用途 | 防止"schema 加字段但 dist 未重建导致运行时字段缺失" |
+| 检测 | staged 文件涉及 `packages/database/src/` 时跑 `pnpm --filter @ihui/database build` |
+| 失败原因 | database 包 build 失败(注意:typecheck 用 src 不报错,但 api 运行时用 dist 会字段缺失) |
+| 修复 | 修复 schema 编译错误后 `pnpm --filter @ihui/database build` |
+| 立规依据 | 0108 icon_svg 字段踩坑 |
+
+---
+
+## 4. post-commit git-push-guard.mjs
+
+`scripts/git-push-guard.mjs` 是 [AGENTS.md §21](../AGENTS.md) 任务完成硬定义的核心防线,解决"commit 后忘记 push"协作事故。
+
+### 工作原理
+
+```
+git commit 成功
+  └─ .husky/post-commit
+       ├─ git lfs post-commit
+       └─ node scripts/git-push-guard.mjs
+            ├─ 检测本地 ahead(git rev-list --count origin/<branch>..HEAD)
+            ├─ 有 ahead → git push origin <branch>
+            ├─ 验证 local HEAD == remote HEAD
+            └─ 完全对齐 → exit 0 / 失败 → exit 1 阻断
+```
+
+### 跳过
+
+```bash
+HUSKY_SKIP_PUSH=1 git commit -m "..."   # 紧急本地暂存,不推荐,需手动 git push
+```
+
+### 手动验证(兜底)
+
+```bash
+node scripts/git-push-guard.mjs          # 任何时候手跑,打印 local vs remote HEAD
+```
+
+---
+
+## 5. pre-push typecheck 闸门
+
+`.husky/pre-push` 在 push 前跑全量 typecheck,防止 subagent 靠 `.tsbuildinfo` 缓存假象报"全绿"。
+
+### 工作原理
+
+```bash
+# 清 .tsbuildinfo 缓存
+# 串行全量 typecheck
+pnpm typecheck:full
+```
+
+### 工作区检测优化
+
+检测工作区是否干净,不干净时打印 3 个选项指引:
+1. 先 commit/stash 工作区改动,再 push
+2. `HUSKY_SKIP_TYPECHECK=1 git push` 跳过 typecheck(不推荐)
+3. 修复 typecheck 错误后正常 push
+
+> 不用 `git stash` 隔离方案:stash pop 在工作区被 lint-staged/IDE 修改后会冲突,风险高于收益。
+
+### 跳过
+
+```bash
+HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
+```
+
+---
+
+## 6. 跳过场景
+
+### 6.1 `--no-verify` 合法 vs 非法
+
+**合法场景**(见 [AGENTS.md §12/§16](../AGENTS.md)):
+- pre-push / pre-commit hook 失败原因是**其他 agent 代码**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration),不在本任务范围
+- 本任务改动文件已通过 typecheck + lint + build 验证
+
+**非法场景**:
+- hook 失败原因是**本任务自己代码** → 必须修复后正常 commit,**禁止** `--no-verify` 跳过
+
+### 6.2 各钩子跳过方式
+
+| 钩子 | 跳过方式 | 说明 |
+|------|----------|------|
+| pre-commit | `git commit --no-verify` | 跳过提交链上**全部**登记门(项数现读;这就是本仓反复写"一道恒红门 = 全部守门作废"的原因) |
+| commit-msg | `git commit --no-verify` | 跳过 message 校验 + Verified-DOM |
+| post-commit | `HUSKY_SKIP_PUSH=1 git commit` | 跳过自动 push,commit 仅落地本地 |
+| pre-push | `HUSKY_SKIP_TYPECHECK=1 git push` | 跳过全量 typecheck |
+
+> `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。
+
+---
+
+## 7. 添加新守门脚本流程
+
+新增守门脚本(如 `check-xxx.mjs`)需 3 步:
+
+1. **写脚本**:`scripts/check-xxx.mjs`,遵循现有脚本风格(`#!/usr/bin/env node` + JSDoc 注释 + `--staged` 模式 + exit 0/1)
+
+2. **注册到 `.husky/pre-commit`**:在对应编号位置插入:
+```javascript
+// NN. xxx 守门(YYYY-MM-DD 立)
+// 用途说明
+if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
+  process.exit(1)
+}
+```
+
+3. **更新 [AGENTS.md 守门脚本速查表](../AGENTS.md)**:在表格中加一行,说明脚本用途
+
+**约定**:
+- 阻塞项用 `if (!run(...)) { process.exit(1) }`
+- warn-only / info-only 项用 `run(...)`(不检查返回值)
+- 编号沿用现有顺序,新增项追加末尾或填补空缺编号(如 14 已移除)
+
+---
+
+## 8. 常见失败排查
+
+### 8.1 i18n 守门失败
+
+| 症状 | 守门项 | 修复命令 |
+|------|--------|----------|
+| zh-TW 简体字残留 | 2b | `node scripts/fix-zh-tw-simp.mjs` |
+| ko 中文残留 | 2c | `node scripts/translate-i18n-batch.mjs` + `apply-i18n-translations.mjs` |
+| en 破碎机翻 | 2e | `node scripts/check-i18n-broken-en.mjs --fix`(看建议手动改) |
+| key parity 缺失 | 2 | `node scripts/sync-i18n-fixes.mjs` 或手动补 key |
+
+详见 [I18N.md §10 常见问题](./I18N.md)。
+
+### 8.2 schema / dist 守门失败
+
+| 症状 | 守门项 | 修复命令 |
+|------|--------|----------|
+| schema drift | 3 | `pnpm --filter @ihui/database drizzle-kit generate` |
+| dist 陈旧 | 4 | `pnpm --filter <package> build` |
+| dist UTF-16 BOM | 4b | `pnpm --filter <package> build`(重建) |
+| api-client UTF-8 损坏 | 4c | `git checkout -- packages/api-client/src/endpoints/<file>` 恢复 |
+
+### 8.3 UI 守门失败
+
+| 症状 | 守门项 | 修复命令 |
+|------|--------|----------|
+| rounded-full 违规 | 11 | 改用规范圆角档位,详见 [UI_GUIDELINES.md §3](./UI_GUIDELINES.md) |
+| 原生 title tooltip | 18 | 用 `<Tooltip>` 包裹替代 |
+| CSS token 嵌套 | 17 | `hsl(var(--xxx))` → `var(--color-xxx)` |
+| Tailwind class 冲突 | 20 | 用 `cn()` 合并或加 `// tailwind-class-conflict-allow` |
+
+### 8.4 PROJECT_PLAN.md 守门失败
+
+| 症状 | 守门项 | 修复命令 |
+|------|--------|----------|
+| 体积 > 50KB | 13b(warn-only) | 按 [AGENTS.md §1「完成即删」](../AGENTS.md) 把已结清登记行整行删除(默认出口器 `scripts/live-doc-edit.mjs`;归并走 `node scripts/plan-tasks-merge.mjs --heal --commit`)。归档机制已于 2026-10-16 退役 ⇒ 不再写 `.ihui-agent/archive/`、不留占位注释 |
+| 已完成任务被误删 | 13c(已退役 2026-10-16,2026-10-29 摘净) | 该档已无守门(门体与镜像测试均已移除,不得恢复)。防误删现由 §1「完成即删」+ 门 71 `check-plan-line-loss.mjs`(未勾行保护)+ 门 229 `check-plan-closed-stock.mjs`(跨枚滞留)承担 |
+
+### 8.5 push 失败
+
+| 症状 | 阶段 | 修复 |
+|------|------|------|
+| post-commit push 失败 | post-commit | `git push origin <branch>` 手动重推 |
+| pre-push typecheck 失败 | pre-push | 修复 TS 错误后重 push,或 `HUSKY_SKIP_TYPECHECK=1 git push`(其他 agent 代码) |
+| local != remote | git-push-guard | 先 `node scripts/git-push-converge.mjs`(只读六态);真分叉再 `node scripts/git-sync-converge.mjs`(索引层合并,零触碰他人未提交文件;禁止 rebase) |
+
+---
+
+## 9. 巡检腿与常驻器物(不进提交链,§12e)
+
+这些器物判的是**机器状态**或**派生产物新旧**,提交者结构上满足不了 ⇒ 一律不进 pre-commit / CI,挂在 `scripts/git-guardian.mjs` 的巡检轮或根 `package.json`。节流与超时以 guardian 里的常量现值为准。
+
+| 器物 | 干什么 | 怎么手动跑 |
+| --- | --- | --- |
+| `scripts/heal-derived-in-checkout.mjs` | 派生产物(小程序离线语言包 / 四端 ui-routes)陈旧时**按被审面重生成并复量后才落 HEAD**(唯一落地接缝:blob 走对象空间 CAS,不写工作树) | `--family i18n|ui-routes [--json] [--dry-run|--check]` |
+| `scripts/lib/derived-copy-state.mjs` | 判"盘上那份派生件能不能覆盖"的四态尺(equal / 滞后副本 / 未入库生成物 / 在飞),取不到凭据一律算在飞 | 被上面那枚 import |
+| `scripts/lib/land-derived-blobs.mjs` | 派生件落地契约:`LAND_PATHS` 用 `;` 分隔、`LAND_BLOBS` 是 40 位 oid 清单、成功判据是"CAS 成功/回读"而非退出码 | 被上面那枚 import |
+| `scripts/lib/push-divergence-watch.mjs` | 本地↔origin/main 真分叉的到人报警(三态 ok/breach/unjudged,身份 = 分档+持续档,不塞会抖的计数) | `--status` |
+| `scripts/lib/i18n-bundle-inputs.mjs` | 离线包钉输入清单的**唯一构造规则**(生成器与守门 105 共用;加/减一层只改这一处) | 被两侧 import |
+| `scripts/check-mirror-purge-intact.mjs --fix` | 守门 238 的修复出口(在飞副本闸 + 量级闸;拒绝时不猜) | `--fix [--staged] [--dry-run]` |
+
+四个巡检腿(全在 `git-guardian.mjs`,全部判机器状态 ⇒ 不进提交链):
+
+- `healI18nBundleLeg` / `healUiRoutesLeg` —— 上面那枚自愈器的调度器。离线包一族在主仓按面生成(实测整轮 2m51s,其中生成 12s),ui-routes 一族才建检出。
+- `auditPushDivergenceLeg` —— 分叉到人。
+- `healMirrorPurgeLeg` —— 守门 238 回潮通道的兜底。
+
+**为什么生成器能跑进秒级**(2026-10-27 实测):闭包解析对每条说明符按 TS 惯例探 9 个候选路径,绝大多数**本来就不存在**;此前每个不存在的候选都起一个 git 进程(一轮约 8 万次 ⇒ 59 分 23 秒),现在一次 `ls-tree` 读满被审面整棵树 + 存在性全集短路,同一轮 **11.756s**。判据:`node scripts/gen-i18n-compressed.mjs --head` 的输出末行与守门 105 的「离线包自述钉:matched」要同时成立。
+
+---
+
+## 相关文档
+
+- [AGENTS.md 守门脚本速查](../AGENTS.md) — 守门脚本速查表(本文档的索引;项数与编号同样以 runner 现值为准)
+- [AGENTS.md §21](../AGENTS.md) — 任务完成硬定义 / git-push-guard 5 条标准
+- [AGENTS.md §12/§16](../AGENTS.md) — `--no-verify` 合法性边界
+- [I18N.md](./I18N.md) — i18n 守门脚本(第 2/2b/2c/2d/2e 项)详解
+- [UI_GUIDELINES.md](./UI_GUIDELINES.md) — UI 守门(第 11/17/18/20 项)详解
+- [MULTI_END.md](./MULTI_END.md) — 多端同步守门(第 21 项)详解
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

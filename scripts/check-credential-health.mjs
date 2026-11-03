@@ -1,0 +1,1877 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * check-credential-health.mjs —— 凭据有效性巡检(2026-09-23 立)
+ *
+ * 起因(实测事故):生产部署环连续两天每轮构建成功后被回滚,根因是 `IHUI-DEPLOYLOOP` 服务环境块里
+ * 的 `IHUI_ADMIN_PASSWORD` 仍是 09-21 23:54 轮换**前**的旧值 —— 健康门禁要登录拿 Bearer,登录 401
+ * 被 `catch {}` 吞掉,现象是"LLM 网关不可达",与凭据毫无字面关联,故两天无人知。
+ * 同类形态第二次:我把 git PAT 读错(同步盘冲突副本)也差点被判成"凭据已失效"。
+ *
+ * 本脚本把这两类"凭据过期"从**静默下游失败**变成**独立可告警签名**,并区分
+ * `401/不匹配`(凭据本身失效,需处理)与 `429/超时`(被限流或网络,不是凭据问题)——
+ * 混为一谈是当天排查最大的干扰源。
+ *
+ * 用法:
+ *   node scripts/check-credential-health.mjs              # 人工/CI 巡检,异常 exit 1
+ *   node scripts/check-credential-health.mjs --json       # 机器可读(供告警/看板)
+ *   node scripts/check-credential-health.mjs --self-test   # 逻辑自检(不触网、不读真凭据)
+ *   node scripts/check-credential-health.mjs --test-alert  # 真发一次告警邮件(会真打扰收件人,须节制)
+ *   node scripts/check-credential-health.mjs --mail-dry-run # 只问品牌派发器"通道是否齐备",零网络请求
+ *   node scripts/check-credential-health.mjs --alert-dry   # 跑完整巡检但只打印告警正文,不投递
+ *   node scripts/check-credential-health.mjs --stall-only  # 只读单维档:只量「部署停摆」一维,stdout 恒为单个 JSON
+ *                                                        # 对象;零网络凭据探测、零发信、零写盘;exit 0=ok / 1=fail / 2=未判定
+ *   node scripts/check-credential-health.mjs --install     # 注册 6 小时计划任务(经 vbs 隐藏,§5b)
+ *   node scripts/check-credential-health.mjs --uninstall | --status
+ *   node scripts/check-credential-health.mjs --help        # 打印本用法(不得落到缺省巡检分支)
+ *
+ * 安全:全程只输出「长度 + 掩码前缀 + sha256 短摘要」,**绝不**打印任何凭据值;
+ *       探测每轮各 1 次请求(登录限流 max:10/min,不可自撞)。
+ */
+import { execFileSync, spawnSync } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync, readdirSync, statSync, openSync, readSync, closeSync, fstatSync } from 'node:fs'
+import { join, resolve, dirname, basename } from 'node:path'
+import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
+// §22d 的守卫要 pathToFileURL 把 process.argv[1] 归一成 file:// URL(Windows 反斜杠与
+// import.meta.url 永不匹配)。写成单独一句,而不是把 HEAD 那一句改成两个名字 —— 后者逐字等于
+// 本文件被删过的旧行,会被守门 84 的行级复活判据点名成"整块回写旧版"。
+import { pathToFileURL } from 'node:url'
+import { request } from 'node:https'
+import { request as httpRequest } from 'node:http'
+import { resolveGitBin } from './lib/gitdir.mjs'
+import { resolveRemoteHead } from './lib/face-reader.mjs'
+// 「线上此刻」的两个 oracle 一律取生产 checkout 的根(2026-10-17 立项):nssm 跑的是 `<DevEnv>\ihui-prod`
+// 那一份,仓内这份 `.next/IHUI_BUILD_SHA` 与 `deploy/win/deploy-loop.log` 活环根本不写 —— 原先读本仓,
+// 实测连寄四天"部署停摆 97.7 小时"假警报(仓内标记停在 10-13 10:32,线上标记 11:36 刚写 cf3d5fc6e0)。
+// 解析器不在此重写(§0.6 单一真相源;同一条 10-15 的修法已住在 check-ops-patrol 的 prodCheckoutRoot 里)。
+import { prodCheckoutRoot, prodDeployLoopLog } from './check-ops-patrol.mjs'
+// 线上 web 标记的落点解析走**新抽的那一份单源**(scripts/lib/prod-checkout-root.mjs)——
+// 它按蓝绿活跃色给候选路径,本器不再自己拼 `.next` 字面量(§0.6)。
+import { prodWebBuildShaCandidates } from './lib/prod-checkout-root.mjs'
+import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.mjs'
+import { resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
+// .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
+import { parseEnvText } from './check-env-drift.mjs'
+// 状态/心跳件的**原子替换**唯一出口(2026-09-29 立,台账 G-653)。裸 `writeFileSync` 覆盖写一个
+// 已存在的文件是"truncate → 再写"两步,而下一轮巡检读 `STATE` 判据恰好落得在这两步之间 ——
+// 本文件对"JSON 读不出"的既有处置是 `unreadable ⇒ 本轮按无记录寄一次`,于是**一次写盘竞态会被
+// 读成"上一轮的通报记录不存在"并重复寄到人**(§5e:同一告警在去重窗口内只该寄一封)。
+// `credential-health-last.json` 是 git-guardian 的巡检心跳件,半截 = 把"巡检在跑"读成"没跑"。
+// ⚠️ 只换"怎么写":状态内容、去重窗口、UNDEL 标记的语义一字未动。
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
+// 族级窗口(2026-11-03 立):同一「凭据巡检:类别=…」24h 至多一封。
+// 判据住在 scripts/lib/alert-family-gate.mjs(与 IHUI-MONITOR / IHUI-DEPLOYLOOP 同一份实现),
+// 策略表仍是 scripts/data/alert-delivery-policy.json —— 本文件不自造窗口算法。
+import {
+  commitAlertFamilyDelivery,
+  credentialAlertFamily,
+  decideAlertFamilyWindow,
+} from './lib/alert-family-gate.mjs'
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const TASK_NAME = 'IHUI credential-health'
+const GIT_BIN = resolveGitBin()
+// 口令表落点同样不得写死盘符:本机 D:/DevEnv 存在但没有 secrets/,真值仍解析为兜底字面量,
+// 于是该项按"权威源缺失"判 unknown(不判红)。换机后若表在别的盘,这里会自动跟上。
+const SECRETS_DIR =
+  process.env.IHUI_SECRETS_DIR ||
+  // 项目内形态(G-814433 DevEnv 搬入 .DevEnv 后)优先;搬迁前老机器走盘符表,行为不变。
+  firstExisting([join(REPO, '.DevEnv', 'secrets'), 'D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
+  'D:/DevEnv/secrets'
+// 盘符按"存在即真"解析(见 scripts/lib/key-dir.mjs):本机真实库在 F 盘,写死 D 盘会让
+// 凭据探测读不到 key ⇒ 报成"凭据失效",把"路径过期"误诊成"token 挂了"。
+// 全都不存在时保留旧字面量,使 detail 里的路径仍指向文档登记的权威位置。
+const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || resolveKeyDir('git仓库') || 'D:/BaiduSyncdisk/密钥/git仓库'
+const WEB_PROBE = process.env.IHUI_DEPLOY_PROBE || 'http://127.0.0.1:8801'
+const GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
+
+const sha = (s) => createHash('sha256').update(String(s)).digest('hex').slice(0, 12)
+// 观测用的脱敏指纹:长度 + 内容摘要。二者足以判断"是不是同一把",又不泄露值。
+const fingerprint = (v) => (v === null || v === undefined ? '缺失' : `len=${String(v).trim().length} sha=${sha(String(v).trim())}`)
+
+/** 读服务环境块里的键值(nssm get AppEnvironmentExtra;UTF-16LE 输出需清洗 NUL) */
+export function readServiceEnv(service, key) {
+  try {
+    const out = execFileSync('C:/Windows/System32/nssm.exe', ['get', service, 'AppEnvironmentExtra'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+      .replace(/\0/g, '')
+    for (const line of out.split(/\r?\n/)) {
+      const i = line.indexOf('=')
+      if (i > 0 && line.slice(0, i).trim() === key) return line.slice(i + 1).trim()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/** 服务是否装机(三态:true/false/null=探测本身不可用)。
+ *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
+ *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。 */
+export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
+  try {
+    execFileSync(scBin, ['query', name], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+      timeout: 15000,
+    })
+    return true
+  } catch (e) {
+    return e && e.status === 1060 ? false : null
+  }
+}
+
+/** 告警标题的环境标签(§5e:开发机【开发环境】/ 生产机【生产环境】)。
+ *  此前写死"生产环境",而本机实测既无 IHUI-DEPLOYLOOP 服务也无 deploy-loop.log ⇒
+ *  收到的告警分不出是哪台机发出的,正是该规约要防的事。
+ *  判据用"部署机痕迹"(日志在位或服务装机),不新增需人工维护的配置;IHUI_ENV_LABEL 可显式覆盖。 */
+export function envLabel({ override, deployLogPresent, serviceInstalled } = {}) {
+  if (override) return override
+  if (deployLogPresent || serviceInstalled === true) return '生产环境'
+  return '开发环境'
+}
+const envLabelHere = () =>
+  envLabel({
+    override: process.env.IHUI_ENV_LABEL,
+    deployLogPresent: existsSync(join(REPO, 'deploy', 'win', 'deploy-loop.log')),
+    serviceInstalled: serviceExists('IHUI-DEPLOYLOOP'),
+  })
+
+/** 凭据在代码/服务/文件三处是否同值 —— 当天故障的精确形状 */
+export function compareCredential({ serviceValue, authoritativeValue, serviceInstalled = true }) {
+  // 非部署机上根本没有 IHUI-DEPLOYLOOP:把"没这个服务"报成"环境块缺该键 ⇒ 门禁必然失败"
+  // 是一条每次都红、且红得没有道理的告警(与"部署停摆"同族,故复用同一口径:只在部署机评估)。
+  if (serviceInstalled === false) return { level: 'unknown', why: '本机无该服务(只在部署机评估),不判环境块缺失' }
+  if (serviceInstalled === null) return { level: 'unknown', why: '服务存在性探测不可用(sc.exe),不误判' }
+  if (!authoritativeValue) return { level: 'unknown', why: '权威源缺失(文件不存在或为空),不判定为过期' }
+  if (!serviceValue) return { level: 'fail', why: '服务环境块缺该键 ⇒ 依赖它的门禁必然失败' }
+  if (sha(serviceValue) === sha(authoritativeValue)) return { level: 'ok', why: '与服务运行态同值' }
+  return { level: 'fail', why: '服务环境块与权威源不一致 ⇒ 就是本次事故形态(轮换未同步)' }
+}
+
+/**
+ * 把 HTTP 状态归类 —— 401/403(凭据或权限)与 429/0(限流/网络)必须分开,
+ * 否则一次限流会被误读成"key 过期"(本会话真实踩过)。
+ */
+export function classifyHttpStatus(sc) {
+  if (sc === 200 || sc === 204 || (sc >= 200 && sc < 300)) return 'ok'
+  if (sc === 401 || sc === 403) return 'fail'
+  if (sc === 429) return 'limited'
+  if (sc === 0) return 'unreachable'
+  return 'unknown'
+}
+
+function probeHttps(host, path, headers = {}) {
+  return new Promise((res) => {
+    let settled = false
+    const done = (sc, body) => {
+      if (settled) return
+      settled = true
+      res({ sc, body })
+    }
+    try {
+      const r = request({ host, path, headers: { 'User-Agent': 'ihui-credential-health', ...headers }, timeout: 15000 }, (rp) => {
+        let b = ''
+        rp.on('data', (d) => (b += d))
+        rp.on('end', () => done(rp.statusCode, b))
+      })
+      r.on('error', () => done(0, ''))
+      r.on('timeout', () => {
+        r.destroy()
+        done(0, '超时')
+      })
+      r.end()
+    } catch {
+      done(0, '请求构造失败')
+    }
+  })
+}
+
+function loginProbe(user, pass) {
+  return new Promise((res) => {
+    const body = JSON.stringify({ username: user, password: pass })
+    const u = new URL(WEB_PROBE + '/api/auth/login/username')
+    let settled = false
+    const done = (sc, txt) => {
+      if (settled) return
+      settled = true
+      res({ sc, txt })
+    }
+    try {
+      const r = httpRequest(
+        {
+          host: u.hostname,
+          port: u.port || 80,
+          path: u.pathname,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+          timeout: 15000,
+        },
+        (rp) => {
+          let b = ''
+          rp.on('data', (d) => (b += d))
+          rp.on('end', () => done(rp.statusCode, b))
+        },
+      )
+      r.on('error', () => done(0, '网络错误'))
+      r.on('timeout', () => {
+        r.destroy()
+        done(0, '超时')
+      })
+      r.end(body)
+    } catch {
+      done(0, '请求构造失败')
+    }
+  })
+}
+
+export function readFileSyncOr(path) {
+  try {
+    return existsSync(path) ? readFileSync(path, 'utf8').trim() : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * key 读取的三态窄出口(2026-09-24 本机实测的病,用例早在自检档里,函数一直没落地 ⇒
+ * `--self-test` 从那天起一直 `ReferenceError: pickKey is not defined`,自检能力缺了一个多月)。
+ *
+ * 为什么要"形状不合 ⇒ 空串"而不是把原文交给调用方:同步盘会在同目录留下 `_冲突文件_` 副本,
+ * 那种内容长得像 token 又不是 token(`a97fghp_0123…` 就是 classic 前缀被拼在 32 位 hex 前面)。
+ * 把它当凭据发出去,轻则 401 烧掉锁定预算,重则**连垃圾串一起进 URL query**(GET 访问日志会记)。
+ * 所以消费方一律先过这一道,拿不到形状合法的值就走"取不到"那一支。
+ *
+ * 三态:非字符串(文件/目录不存在 ⇒ null)⇒ '';不匹配 re ⇒ '';匹配 ⇒ trim 后的原值。
+ * 失效方向恒为"拿不到 ⇒ 空",绝不返回一个没依据的串。
+ */
+export function pickKey(raw, re) {
+  if (typeof raw !== 'string') return ''
+  const v = raw.trim()
+  return re.test(v) ? v : ''
+}
+
+/**
+ * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
+ *
+ * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
+ * (服务环境块 / 同步盘 key 文件 / GitHub / Gitee 发布通道);而 `apps/api/.env` 里"某个键值为空 ⇒ 某条
+ * 生产链路 fail-closed 静默拒客"这一型零覆盖。实测形状就是 2026-09-26 那次 `.env` 被整体替换清空
+ * 之后,`USDT_WEBHOOK_SECRET` 空着从 08-08 起就一直空着 —— 唯一痕迹是启动时一条 ERROR 日志
+ * (apps/api/src/routes/payment-usdt.ts:186),此后每个回调静默收 401,而到人链路上
+ * alert-check-service(审计日志计数 + 备份新鲜度)/ alertbridge / 本门**没有一条**会因它喊人。
+ * "读不到值却静默降级"与本门立项理由("凭据过期只以下游失败形态出现")是同一个病。
+ *
+ * 三条判据取向(与上文各条的防假红纪律同形):
+ *   · `.env` 缺失或读不到 ⇒ **unknown**,不判红也不记通过(CI / 干净检出上 .env 按设计不存在);
+ *   · `.env` 空但 IHUI-API 服务环境块有值 ⇒ **ok**(值由别处注入不是故障,拿 nssm 那份算数);
+ *   · 两处都空 ⇒ **fail**,detail 只写键名与后果,**绝不写值**(含"有值"那一支也不写)。
+ * 已知边界(如实登记,不假装周全):若某台部署把值由 compose 环境变量注入而 `.env` 里留空,本条会
+ * 误报 fail —— 本机实测形态是 nssm + apps/api/.env(dotenv 加载),故按此判;换部署形态要改这里。
+ * 判"空/非空"的解析复用 `scripts/check-env-drift.mjs` 的 `parseEnvText`(dotenv last-wins 同形),
+ * **不再抄第三份 .env 解析**(两处算同一件事必漂移,是本仓记过最多次的失效型)。
+ */
+const APP_ENV_FILE = join(REPO, 'apps', 'api', '.env')
+/** 只收"缺失即静默 fail-closed 真实流量"的键 —— 不是"env 全都查一遍",那会把未启用功能变成天天发邮件 */
+const APP_ENV_REQUIRED_KEYS = [
+  {
+    key: 'USDT_WEBHOOK_SECRET',
+    gates: 'POST /payment/usdt/callback/:network 的强制验签(payment-usdt.ts:184)',
+    consequence: '回调 100% 收 401,现象只有启动时一条 ERROR,之后每次静默拒收',
+  },
+  {
+    key: 'OIDC_CLIENT_SECRET',
+    // optional: 企业 SSO 是可选 provider,未配置只让「企业 SSO」按钮显式返回 400,
+    // 不是"缺失即静默 fail-closed 的真实交易流量",故空值判 unknown(不发失效邮件、不冒充 ok),
+    // 不进强制 fail 清单(与 USDT_WEBHOOK_SECRET 的静默拒收 401 不同型)。
+    optional: true,
+    gates: 'isOidcConfigured()(packages/auth/src/providers/oidc.ts:85)',
+    consequence: '前端「企业 SSO」按钮点了恒返回「OIDC 未配置」400(可选功能未启用,不阻断账号密码/其他登录)',
+  },
+]
+
+/** 纯函数:构造面即可证明三态与脱敏,不依赖本机 .env 此刻有什么(§103 T12 那一课) */
+export function judgeAppEnvCredentials({
+  envText,
+  required = APP_ENV_REQUIRED_KEYS,
+  resolveServiceValue,
+}) {
+  if (envText === null || envText === undefined) {
+    return [
+      {
+        name: '应用 .env 关键凭据',
+        level: 'unknown',
+        detail: `${APP_ENV_FILE} 不存在或读不到 ⇒ 不判定(干净检出/CI 上本就没有 .env,不得据此报失效)`,
+      },
+    ]
+  }
+  const { values } = parseEnvText(envText)
+  return required.map((r) => {
+    const fromDotenv = (values.get(r.key) ?? '').trim()
+    if (fromDotenv) return { name: `.env ${r.key}`, level: 'ok', detail: '已配置(本行及任何输出都不打印值)' }
+    const fromService = String(resolveServiceValue?.(r.key) ?? '').trim()
+    if (fromService)
+      return { name: `.env ${r.key}`, level: 'ok', detail: '.env 留空但 IHUI-API 服务环境块有值 ⇒ 认已配置(来源:服务块)' }
+    // 可选 provider 未配置:不判 fail(不发失效邮件)、不冒充 ok,落 unknown 未判定
+    if (r.optional) {
+      return {
+        name: `.env ${r.key}`,
+        level: 'unknown',
+        detail: `可选功能未配置(${r.gates}):不阻断账号密码/其他登录,不判失效;若要启用企业 SSO 再补 OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET`,
+      }
+    }
+    return {
+      name: `.env ${r.key}`,
+      level: 'fail',
+      detail:
+        `值为空(${values.has(r.key) ? '键在而值空' : '键整条缺失'}) ⇒ ${r.gates} 走 fail-closed;${r.consequence}。` +
+        `处置:填回 ${APP_ENV_FILE} 的 ${r.key}(历史值可在 .ihui-agent/env-backup/ 里找),或明确停用该功能并从本清单摘掉该键`,
+    }
+  })
+}
+
+/** 主巡检:返回结果数组,不直接打印(便于 --json / 告警复用) */
+export async function runChecks() {
+  const out = []
+  // ⓪ 告警通道自检:上一轮若有故障但一条都没送出去,这本身就是必须报红的一项。
+  //    (今天的教训:通道配额耗尽/投递失败 → sent=false → 故障静默丢失,和 12h 去重把
+  //     持续两天的故障压成静默是同一类"放大器"。邮件是唯一到人通道后,这一项更是硬底线。)
+  if (existsSync(UNDEL)) {
+    let info = {}
+    try {
+      info = JSON.parse(readFileSync(UNDEL, 'utf8'))
+    } catch {
+      /* 标记损坏也照样报红,只是没有细节 */
+    }
+    out.push({
+      name: '告警投递通道(上轮有故障未能通报)',
+      level: 'fail',
+      detail: `标记于 ${info.ts || '?'};未通报的故障: ${info.sig || '?'};通道: ${(info.attempts || []).join(' / ')}`,
+    })
+  }
+  // ① 服务运行态口令 vs 权威口令表
+  const adminInSvc = readServiceEnv('IHUI-DEPLOYLOOP', 'IHUI_ADMIN_PASSWORD')
+  const adminAuthority = readFileSyncOr(join(SECRETS_DIR, 'admin-password.txt'))
+  const installed = serviceExists('IHUI-DEPLOYLOOP')
+  const cmp = compareCredential({
+    serviceValue: adminInSvc,
+    authoritativeValue: adminAuthority,
+    serviceInstalled: installed,
+  })
+  out.push({
+    name: 'IHUI-DEPLOYLOOP 环境块 IHUI_ADMIN_PASSWORD',
+    level: cmp.level,
+    detail: `${cmp.why};服务在位 ${installed === null ? '?' : installed ? 'Y' : 'N'} / 服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
+  })
+
+  // ② 真登录一次(与门禁同一入口)。127.0.0.1 自有桶,单轮 1 次不撞限流。
+  // **但①已判不一致时必须跳过**:拿必错的口令去撞登录 = 巡检自己消耗"剩余 N 次即锁定"预算,
+  // 那会把"发现故障"变成"制造故障"(本脚本首次自测就真实触发了 401 + 剩余次数递减)。
+  if (adminAuthority && cmp.level !== 'fail') {
+    const r = await loginProbe('admin', adminAuthority)
+    out.push({
+      name: '后端登录探针 /api/auth/login/username',
+      level: classifyHttpStatus(r.sc),
+      detail: `http=${r.sc} ${r.sc >= 400 ? String(r.txt).slice(0, 60).replace(/\s+/g, ' ') : '(成功)'}`,
+    })
+  }
+  // ③ GitHub 凭据(同步盘里那把):先看能不能取到仓库权限,再判断"是否被同步盘写成冲突副本"
+  const ghPath = join(GIT_KEY_DIR, 'github key.txt')
+  const gh = readFileSyncOr(ghPath)
+  if (gh) {
+    const looksClassic = /^gh[pousr]_[A-Za-z0-9]{20,}$/.test(gh)
+    const looksFine = /^github_pat_[A-Za-z0-9_]{20,}$/.test(gh)
+    out.push({
+      name: 'GitHub token 形态',
+      level: looksClassic || looksFine ? 'ok' : 'fail',
+      detail: `文件 ${ghPath} len=${gh.length} 类型=${looksClassic ? 'classic' : looksFine ? 'fine-grained' : '非 token(疑同步盘冲突副本/含杂散字符)'}`,
+    })
+    if (looksClassic || looksFine) {
+      const p = await probeHttps('api.github.com', '/rate_limit', { Authorization: 'Bearer ' + gh })
+      out.push({ name: 'GitHub token 有效性', level: classifyHttpStatus(p.sc), detail: `api.github.com/rate_limit http=${p.sc}` })
+      const rp = await probeHttps('api.github.com', `/repos/${GITHUB_REPO}`, { Authorization: 'Bearer ' + gh, Accept: 'application/vnd.github+json' })
+      let push = false
+      try {
+        push = !!(JSON.parse(rp.body).permissions || {}).push
+      } catch {
+        push = false
+      }
+      out.push({ name: 'GitHub token 可写仓库', level: rp.sc === 200 ? (push ? 'ok' : 'fail') : classifyHttpStatus(rp.sc), detail: `http=${rp.sc} push 权限=${push}` })
+    }
+  }
+  // ④ Gitee token —— 2026-11-03 复活:Gitee 为国内主通道(仓库浏览 + 发布包下载),
+  //    该 token 是初始化/发版/补传的唯一凭据,失效会让资产上传静默失败 ⇒ 必须探活。
+  //    探活只走 Authorization 头,不把 token 拼进 URL query(访问日志会原样记下)。
+  const giteePath = join(GIT_KEY_DIR, 'gitee apikey.txt')
+  const giteeRaw = readFileSyncOr(giteePath)
+  const giteeToken = pickKey(giteeRaw, /^[0-9a-f]{32}$/)
+  if (giteeRaw && !giteeToken) {
+    // 取到了东西但形状不合 ⇒ 点名,不静默当成"没有这条凭据"(§0.3「没判」绝不写成「判过」),
+    // 更不把它拼进 GET 的 query(访问日志会原样记下)。
+    out.push({
+      name: 'Gitee 令牌形态不合(疑同步盘冲突副本)',
+      level: 'fail',
+      detail: `文件 ${giteePath} len=${giteeRaw.length} 非 32 位十六进制(疑同步盘 _冲突文件_ 副本/含杂散字符)⇒ 不发探测`,
+    })
+  }
+  if (giteeToken) {
+    const p = await probeHttps('gitee.com', '/api/v5/user', { Authorization: 'token ' + giteeToken })
+    let login = ''
+    try {
+      login = JSON.parse(p.body).login || ''
+    } catch {
+      login = ''
+    }
+    out.push({
+      name: 'Gitee token 有效性',
+      level: p.sc === 200 && login ? 'ok' : classifyHttpStatus(p.sc),
+      detail: `http=${p.sc} login=${login || '-'}`,
+    })
+  }
+  // ⑤ 部署停摆(测结果,不猜原因):线上构建 sha 落后 origin/main 且超过阈值即红。
+  //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),
+  //    任何一种都可能再变出第三种;只有"线上产物是否等于当前 tip"是不会骗人的判据。
+  out.push(...deployStallCheck())
+  // ⑥ 应用 .env 里"空值即静默 fail-closed"的关键凭据(见上方判据说明)
+  out.push(
+    ...judgeAppEnvCredentials({
+      envText: readFileSyncOr(APP_ENV_FILE),
+      resolveServiceValue: (k) => readServiceEnv('IHUI-API', k),
+    }),
+  )
+  // ⑦ 国内镜像活性(原 mirrorLivenessCheck)—— 2026-10-23 整条删除。
+  //    理由:机主确认 Gitee/GitCode 代码镜像仓早已弃用,镜像作业(mirror-to-cn.yml)同时下线。
+  //    留着这一条等于每天替一个不存在的下游报警(实测它最后的状态是"Gitee main 落后 N 天"),
+  //    而那条告警的唯一出路是去 Gitee 点「Git GC」—— 对一个不再同步的仓做体积回收毫无意义。
+  //    Gitee 代码镜像仍不恢复(2026-10-23 移除);Gitee 发布通道已于 2026-11-03 复活,
+  //    凭据探活见 ④(只探 token 有效性,不探镜像仓/不碰镜像同步)。
+  return out
+}
+
+/** 读取文本文件(去 NUL/CR),失败返回空串 */
+function readText(p) {
+  try {
+    return readFileSync(p, 'utf8').replace(/\0/g, '')
+  } catch {
+    return ''
+  }
+}
+
+export function judgeStall({
+  liveSha,
+  tipSha,
+  lastSuccessIso,
+  nowMs,
+  thresholdMin,
+  inFlight = false,
+  shaProbed = '',
+}) {
+  if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
+  // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
+  // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
+  // 告警器乱叫就会被静音(误报越多,值班越容易忽略真故障),所以这一条是硬护栏。
+  if (inFlight) return { level: 'unknown', why: '部署环正在跑这一轮(日志有新活动且非失败态),不判定' }
+  if (!liveSha)
+    return {
+      level: 'fail',
+      // 落点清单必须出口:说"缺标记"却不报读过哪几处,收信人就分不出是线上真没写,
+      // 还是尺子读错了目录(2026-10-30 那封误报即后者 —— 标记在 `.next-blue` 里好好躺着)。
+      why: `线上无构建标记(IHUI_BUILD_SHA 在这些落点都读空:${shaProbed || '取材层未给落点清单'}),最近成功部署=${lastSuccessIso || '未知'}`,
+    }
+  if (liveSha === tipSha) return { level: 'ok', why: '线上构建 == origin/main tip' }
+  if (!lastSuccessIso) return { level: 'fail', why: `线上 ${liveSha.slice(0, 9)} ≠ tip ${tipSha.slice(0, 9)},且日志里找不到一次成功部署` }
+  const mins = (nowMs - Date.parse(lastSuccessIso)) / 60000
+  if (!Number.isFinite(mins) || mins <= thresholdMin) {
+    return { level: 'ok', why: `线上落后但最近 ${(Number.isFinite(mins) ? mins : 0).toFixed(0)} 分钟刚成功过,不算停摆` }
+  }
+  return {
+    level: 'fail',
+    why: `线上 ${liveSha.slice(0, 9)} ≠ origin/main ${tipSha.slice(0, 9)},且已 **${(mins / 60).toFixed(1)} 小时**无成功部署(阈值 ${thresholdMin} 分钟)`,
+  }
+}
+
+/**
+ * 「部署停摆」这一维的**取材序列**(2026-10-17 抽出口:日级班次与 `--stall-only` 高频档共用同一份)。
+ *
+ * 为什么必须共用而不是各写一份:同一个阈值(45 分钟)若配两份取材代码,两档就能对同一台机答出
+ * 不同结论 —— "写 45 分钟、量 12 小时"那种两副面孔正是本档立项要根治的病(§0.6 单一真相源)。
+ *
+ * 取值纪律逐字沿用 PROJECT_PLAN 登记的既有口径,**降级顺序不得改**:
+ *   tip 先问服务器(`resolveRemoteHead` ⇒ `ls-remote` 当次真值)→ 再退 `FETCH_HEAD` → 再退本地 tip。
+ *   旧顺序"本地引用优先"在一台已经推完的机器上会读到落后 sha ⇒ 把正常部署环报成"停摆"**假告警**
+ *   (告警通道最怕的就是假响),所以这一条是原样搬过来的,不是重写。
+ *
+ * 三态输入只在这里**如实登记**,结论一律交给 `judgeStall` / `judgeStallReadout`:
+ *   取材层若也判一次红,判据层再判一次,两处必然漂开。登记的只有三条真"取不到"的路:
+ *     · `tip`          —— 服务器 / FETCH_HEAD / 本地 HEAD 三路全空(网络不可达且本地也无引用);
+ *     · `lastSuccess`  —— `deploy-loop.log` **文件本身不在位**(读不到成功史,不等于"没有成功过");
+ *     · `inFlight`     —— 不算缺输入,由 judgeStall 判 unknown(本轮在飞,不判定)。
+ *   已知边界(如实登记,不假装周全):`IHUI_BUILD_SHA` **不存在**与"存在而读失败"不可分(读层把两者
+ *   都归成空串,沿用日级档现状),故按"线上无构建标记"这一**真实部署态**判红,不当缺输入。
+ */
+
+/**
+ * 在滚动件里找回最后一次真实部署完成(2026-10-18 立:当天一次轮转把 16:37 那次完成冲出了活动件,
+ * 于是"最近成功部署"退化成"未知"—— 未知是诚实的(§0.3),但收信人需要"到底停了多少小时"
+ * 才能判断这是不是同一场,所以诚实之外还得真去找)。
+ *
+ * 命名认两族:`deploy-loop.log.1`(git-guardian `rotateAppendLog` 那族)与
+ * `deploy-loop.log.YYYYMMDD-HHMMSS` / `log-01`(IHUI log-prune 那族)⇒ 前缀同 + 分隔符 `[._-]`。
+ * 按 mtime 从新到旧最多看 `maxFiles` 个,每个只读尾部 `tailBytes`(默认 8MB;滚动段现读约 20MB)。
+ * 取所有候选里**时间戳最大**的一条,不靠文件顺序猜(时钟序与轮转序是两回事)。
+ * 读不到/解不开 ⇒ 返回空 + 逐件点名,由调用方落"未知"(不冒充,也不冒红)。
+ */
+export function scanRotatedLoopLogs(dir, activeName, isoFrom, { maxFiles = 3, tailBytes = 8 * 1024 * 1024 } = {}) {
+  const out = { lastOkIso: '', from: '', candidates: 0, unreadable: [] }
+  let entries = []
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return out
+  }
+  const base = String(activeName).replace(/\.log$/, '')
+  const files = []
+  for (const name of entries) {
+    if (name === activeName || !name.startsWith(base)) continue
+    if (!/^[._-]/.test(name.slice(base.length))) continue
+    let st = null
+    try {
+      st = statSync(join(dir, name))
+    } catch {
+      out.unreadable.push(name)
+      continue
+    }
+    if (!st.isFile()) continue
+    files.push({ name, mtimeMs: st.mtimeMs })
+  }
+  files.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  for (const f of files.slice(0, maxFiles)) {
+    out.candidates++
+    let text = ''
+    let fd = null
+    try {
+      fd = openSync(join(dir, f.name), 'r')
+      const size = fstatSync(fd).size
+      const len = Math.min(size, tailBytes)
+      const buf = Buffer.allocUnsafe(len)
+      readSync(fd, buf, 0, len, size - len)
+      text = buf.toString('utf8')
+    } catch {
+      out.unreadable.push(f.name)
+      continue
+    } finally {
+      if (fd !== null) closeSync(fd)
+    }
+    for (const line of text.split(/\r?\n/)) {
+      if (!/部署完成,HEAD=[0-9a-f]{7,40}/.test(line)) continue
+      const iso = isoFrom(line)
+      if (!iso) continue
+      if (!out.lastOkIso || Date.parse(iso) > Date.parse(out.lastOkIso)) {
+        out.lastOkIso = iso
+        out.from = f.name
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 相邻写入间隔的**实测分布**(2026-10-29 Y-1 立:静默阈值不得拍)。
+ *
+ * 为什么阈值必须由这一份派生,而不是再写一个常数:2026-10-29 现场 10:09:50→10:30 环整整 27 分钟
+ * 一行未写(生产签出 fetch 停在 10:02:19、无子进程、无锁、服务与 nssm 都 RUNNING),而判据当时把
+ * "日志有新活动"当成唯一的正向信号 ⇒ 静默本身没有读数 ⇒ 只落 unknown,monitor-alerts 当日 0 条。
+ * 要判"静默多久才算停写",唯一的依凭是**这台机自己的写入节律**:常规轮每轮至少一行、完整部署
+ * 期间几乎持续写行。节律随时辰/配置变(现读:`IntervalSeconds` 由 360 改到 60 那次前后,轮间隔 p95
+ * 从 371s 变成 ~62s),任何写死的分钟数都会在两代配置之间偏掉。
+ *
+ * 本函数只做**测量**:日志文本 → 三个量(相邻写入间隔 / 轮次间隔 / 轮内最大静默),不判红。
+ * 判定留给 `deriveSilenceThresholdMin`(阈值派生)与 `judgeStallReadout`(结论)。
+ */
+export function logWriteGapDistribution(logText, { maxLines = 6000, minSamples = 20 } = {}) {
+  const out = {
+    samples: 0,
+    minSamples,
+    lines: 0,
+    spanMin: null,
+    adjacentSec: { p50: null, p90: null, p95: null, p99: null, max: null },
+    roundSec: { n: 0, p50: null, p95: null, max: null },
+    intraRoundSec: { n: 0, p50: null, p95: null, max: null },
+  }
+  const src = Array.isArray(logText) ? logText : String(logText || '').split(/\r?\n/)
+  const rows = []
+  for (const line of src) {
+    if (!line || !String(line).trim()) continue
+    const m = String(line).match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?: ([+-]\d{2}:\d{2}))?\]/)
+    if (!m) continue
+    // 带偏移的与不带偏移的历史段都要能算(2026-09 的段是裸时间);只要**同一份日志里**口径一致,
+    // 相邻差值就成立 —— 该函数不跨文件比较时刻,故不会把两种时区混成一个数。
+    const ms = Date.parse(`${m[1].replace(' ', 'T')}${m[2] || ''}`)
+    if (!Number.isFinite(ms)) continue
+    rows.push({ ms, start: /部署轮询开始/.test(line), end: /部署轮询结束/.test(line) })
+  }
+  const tail = rows.slice(-maxLines)
+  out.lines = tail.length
+  if (tail.length < 2) return out
+  out.spanMin = Math.round(((tail[tail.length - 1].ms - tail[0].ms) / 60000) * 10) / 10
+  const pct = (arr, p) => {
+    if (!arr.length) return null
+    const s = [...arr].sort((a, b) => a - b)
+    return Math.round(s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))] * 10) / 10
+  }
+  const adjacent = []
+  for (let i = 1; i < tail.length; i++) {
+    const g = (tail[i].ms - tail[i - 1].ms) / 1000
+    if (g >= 0) adjacent.push(g)
+  }
+  out.samples = adjacent.length
+  out.adjacentSec = {
+    p50: pct(adjacent, 0.5),
+    p90: pct(adjacent, 0.9),
+    p95: pct(adjacent, 0.95),
+    p99: pct(adjacent, 0.99),
+    max: adjacent.length ? Math.round(Math.max(...adjacent) * 10) / 10 : null,
+  }
+  const startMs = []
+  const intra = []
+  let cur = null
+  for (const r of tail) {
+    if (r.start) {
+      startMs.push(r.ms)
+      cur = [r.ms]
+      continue
+    }
+    if (!cur) continue
+    cur.push(r.ms)
+    if (r.end) {
+      // 轮内最大静默:这一段里"连续最久不写行"的时长 —— 合法静默(子进程构建/门禁阻塞)的上界就在这里。
+      let mx = 0
+      for (let i = 1; i < cur.length; i++) mx = Math.max(mx, (cur[i] - cur[i - 1]) / 1000)
+      intra.push(mx)
+      cur = null
+    }
+  }
+  const rounds = []
+  for (let i = 1; i < startMs.length; i++) {
+    const g = (startMs[i] - startMs[i - 1]) / 1000
+    if (g > 0) rounds.push(g)
+  }
+  out.roundSec = { n: rounds.length, p50: pct(rounds, 0.5), p95: pct(rounds, 0.95), max: rounds.length ? Math.round(Math.max(...rounds) * 10) / 10 : null }
+  out.intraRoundSec = { n: intra.length, p50: pct(intra, 0.5), p95: pct(intra, 0.95), max: intra.length ? Math.round(Math.max(...intra) * 10) / 10 : null }
+  return out
+}
+
+/**
+ * 静默阈值 = **由实测分布派生**,分布是输入件而非常量(2026-10-29 Y-1)。
+ *
+ * 取分位而不取最大值,是因为**最大值正好是故障本身**:现读 2026-09-07→09-14 那份生产日志
+ * (相邻写入间隔 max = 533362s)—— 那不是节律,那是当时停摆 6 天的那一段;拿 max 定阈等于
+ * "用事故给事故定门槛",必然永远判不出。
+ *   · 轮间隔 p95 × 3:留两轮余量(锁等待、日志轮转、桌面争用都只多耗一轮),第三轮仍未写行才可疑;
+ *   · 轮内 p95 × 2:部署环在构建/门禁期间本来就可以长时间不写行(历史实测门禁阻塞 20 分钟),
+ *     这一项保证阈值不落进"合法静默"里;
+ *   · 两者取大,且下限 2×轮间隔(p95 若被抖动压小,阈值不得缩到单轮以内)。
+ * 分布取不到(样本不足)时**不给阈值**:宁可在读数里点名"阈值未派生、需要一次定向说明",
+ * 也不许拿 45 分钟这种常数顶上去 —— 常数在 60s 节律下宽了 15 倍,正是本票那 27 分钟被判不出的原因。
+ */
+export function deriveSilenceThresholdMin(dist, { roundFactor = 3, intraFactor = 2, minRoundSamples = 5 } = {}) {
+  const need = Number(dist && dist.minSamples) || 20
+  const samples = Number(dist && dist.samples) || 0
+  if (samples < need) {
+    return { ok: false, thresholdMin: null, basis: null, why: `阈值未派生:相邻写入间隔样本 ${samples} 个 < ${need} 个(日志过短或整枚不在位)⇒ 需人工给一次分布读数,不用常数顶替` }
+  }
+  const roundP95 = Number(dist.roundSec && dist.roundSec.p95)
+  const roundN = Number(dist.roundSec && dist.roundSec.n) || 0
+  const adjP95 = Number(dist.adjacentSec && dist.adjacentSec.p95)
+  const roundBase = roundN >= minRoundSamples && roundP95 > 0 ? roundP95 : adjP95 > 0 ? adjP95 : 0
+  if (!(roundBase > 0)) {
+    return { ok: false, thresholdMin: null, basis: null, why: `阈值未派生:轮次/相邻间隔 p95 取不到正值(轮次间隔 ${roundN} 个)⇒ 需人工给一次分布读数` }
+  }
+  const intraP95 = Number(dist.intraRoundSec && dist.intraRoundSec.p95) > 0 ? Number(dist.intraRoundSec.p95) : 0
+  const rawSec = Math.max(roundFactor * roundBase, intraFactor * intraP95, 2 * roundBase)
+  const thresholdMin = Math.max(1, Math.ceil(rawSec / 60))
+  return {
+    ok: true,
+    thresholdMin,
+    basis: { roundBaseSec: roundBase, intraBaseSec: intraP95, roundSamples: roundN, adjacentSamples: samples, roundFactor, intraFactor, rawSec },
+    why: `阈值 ${thresholdMin} 分钟 = max(${roundFactor}×轮间隔 p95 ${roundBase}s, ${intraFactor}×轮内静默 p95 ${intraP95}s),由 ${samples} 个相邻写入间隔 / ${roundN} 个轮次间隔派生(非常数)`,
+  }
+}
+
+export function collectStallInputs({
+  repo = REPO,
+  nowMs = Date.now(),
+  stallThresholdMin = Number(process.env.IHUI_DEPLOY_STALL_MIN || 45),
+  runGit,
+  readFileText = readText,
+  remoteTip,
+  inFlightWindowMin = 20,
+} = {}) {
+  const errs = []
+  // 「线上此刻」取生产 checkout 的根(2026-10-17 修):原先读 `repo/apps/web/.next/IHUI_BUILD_SHA`
+  // 与 `repo/deploy/win/deploy-loop.log`,而活环根本不写这两处 ⇒ 仓内标记停在 10-13 10:32 的
+  // `2822437d8`,而线上标记同一时刻已由环写成 `cf3d5fc6e0`,于是连寄四天"部署停摆 97.7 小时"假警报。
+  const prodRoot = prodCheckoutRoot(repo)
+  const prodRootExists = existsSync(prodRoot)
+  const git =
+    runGit ||
+    ((...args) => {
+      try {
+        // 按 §5b 约定:绝对路径 git + `-c safe.directory=*`(服务账户与交互账户的 safe.directory
+        // 互不相通),路径统一正斜杠(git -C 对反斜杠路径在本机 rev-parse 下会失败)
+        return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', String(repo).replace(/\\/g, '/'), ...args], {
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 20000,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }).trim()
+      } catch (e) {
+        errs.push(`${args.join(' ')}: ${String((e && e.message) || e).slice(0, 70)}`)
+        return ''
+      }
+    })
+  // 线上 web 标记的落点按**活跃色**取(单源在 lib/prod-checkout-root.mjs):原先硬读
+  // `apps/web/.next/…`,而活环只写 `.next-blue` / `.next-green` ⇒ 每轮读空 ⇒ 把一次
+  // 刚成功的部署说成「线上无构建标记」并送进 critical 到人通道(2026-10-30 实测)。
+  const shaCandidates = prodRootExists ? prodWebBuildShaCandidates(prodRoot, readFileText) : []
+  let liveSha = ''
+  let liveShaFrom = ''
+  for (const p of shaCandidates) {
+    const v = readFileText(p).trim()
+    if (v) {
+      liveSha = v
+      liveShaFrom = p
+      break
+    }
+  }
+  const tipQuery =
+    remoteTip || (() => resolveRemoteHead('main', { root: repo, fetchedNow: false }))
+  let tipSha = ''
+  let tipSource = ''
+  let tipWhy = ''
+  try {
+    const t = tipQuery()
+    tipSha = String(t?.sha || '')
+    tipSource = t?.source || ''
+    tipWhy = t?.reason || ''
+  } catch (e) {
+    tipWhy = String((e && e.message) || e).slice(0, 70)
+  }
+  if (!tipSha) {
+    tipSha = git('rev-parse', 'FETCH_HEAD')
+    if (tipSha) tipSource = 'FETCH_HEAD(本轮之前抓取,可能落后当次真值)'
+  }
+  if (!tipSha) {
+    tipSha = git('rev-parse', 'HEAD') // 连不上远端引用时退化为本机 tip(仍能看到停摆)
+    if (tipSha) tipSource = '本地 HEAD(远端当次未确认)'
+  }
+  const logPath = prodDeployLoopLog(repo)
+  const logExists = existsSync(logPath)
+  const log = logExists ? readFileText(logPath) : ''
+  // 取最后一次**真实**部署完成 —— 只认环收尾写的那一行 `=== 部署完成,HEAD=<sha> … ===`。
+  // 为什么不能按裸"部署完成"过滤(2026-10-18 实测):环在攒批窗口内每 60 秒写一行
+  // `[loop] 距上次部署完成 29.0 分钟 < 最小间隔 30 分钟,本轮跳过`,裸词把**跳过**读成**成功**
+  // ⇒ lastSuccessIso 每分钟自己往前走。当场就是证据:16:37 之后环被 WIP 挡住再没成功过,
+  // 而尺子报的"最近成功"是 17:06 那一行跳过。两笔代价:①信里"已落后 N 小时"是假的;
+  // ②任何把成功时刻写进告警身份的档位,都会每轮拿到新身份 ⇒ 去重窗形同虚设(实测 18 封/天)。
+  const lines = log.split(/\r?\n/).filter((l) => /部署完成,HEAD=[0-9a-f]{7,40}/.test(l))
+  const isoFrom = (l) => {
+    const m = String(l).match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
+    return m ? `${m[1].replace(' ', 'T')}${m[2]}` : ''
+  }
+  let lastOkIso = lines.length ? isoFrom(lines[lines.length - 1]) : ''
+  let lastOkFrom = lines.length ? 'deploy-loop.log' : ''
+  // 完成史要从**滚动件**找回来(2026-10-18 补)。活环每 60 秒往 deploy-loop.log 追加,轮转把旧段
+  // 变成 deploy-loop.log.1/(另有 `log.NN` 那一形态,正则一并认);而一次真停摆可以长过整个轮转周期
+  // —— 当天 16:37 那次完成落到 .1,活动件里 0 条完成行,于是"最近成功部署"退化成"未知"。
+  // 未知是诚实的(§0.3),但对收信人没用:他需要知道"到底停了多少小时"才知道这是不是同一场。
+  // 开销严格受控:**只有活动件一条完成行都没有**时才去翻滚动件,且每件只读尾部、最多几件。
+  if (!lastOkIso) {
+    const scanned = scanRotatedLoopLogs(dirname(logPath), basename(logPath), isoFrom)
+    if (scanned.lastOkIso) {
+      lastOkIso = scanned.lastOkIso
+      lastOkFrom = scanned.from
+    }
+  }
+  // 本轮是否"在飞":日志最后一行仍是轮次中间产物(未出现 轮询结束/部署完成 这类轮次边界),
+  // 且写于 20 分钟内。边界之后一律照判(冷却/失败都属于真停摆)。
+  const all = log.split(/\r?\n/).filter((l) => l.trim())
+  let inFlight = false
+  if (all.length) {
+    const last = String(all[all.length - 1])
+    const lm = last.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
+    const lastAge = lm ? (nowMs - Date.parse(`${lm[1].replace(' ', 'T')}${lm[2]}`)) / 60000 : Infinity
+    inFlight = Number.isFinite(lastAge) && lastAge < inFlightWindowMin && !/轮询结束|部署完成/.test(last)
+  }
+  const missingInputs = []
+  // ── 静默维(2026-10-29 Y-1)────────────────────────────────────────────────
+  // 现场:环整整 27 分钟一行未写,而判据只把"日志有新活动"当正向信号 ⇒ 静默没有读数。
+  // 这里补三件**只测量**的输入:最后一行写入时刻、静默分钟数、以及由日志自身节律派生的静默阈值。
+  // 分布从内存里那份 `all` 算,不另开文件句柄、不另跑子进程 —— 高频档每 15 分钟一轮,不能加 IO。
+  let lastLogWriteIso = ''
+  for (let k = all.length - 1; k >= 0 && k >= all.length - 50; k--) {
+    const m = String(all[k]).match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?: ([+-]\d{2}:\d{2}))?\]/)
+    if (m) {
+      lastLogWriteIso = `${m[1].replace(' ', 'T')}${m[2] || ''}`
+      break
+    }
+  }
+  const lastWriteMs = Date.parse(lastLogWriteIso)
+  const logSilenceMin = Number.isFinite(lastWriteMs) ? Math.round(((nowMs - lastWriteMs) / 60000) * 10) / 10 : null
+  const logGaps = logWriteGapDistribution(all)
+  const silenceThreshold = deriveSilenceThresholdMin(logGaps)
+  // 根不存在(别人那台机没有这个部署形态)⇒ **该维未判定**,不得折成"线上无构建标记"那一红。
+  // 根存在而标记读不出,才是真的"线上没有成功构建过"(沿用原有红档语义)。
+  if (!prodRootExists) missingInputs.push(`线上根(${prodRoot.replace(/\\/g, '/')} 不存在 ⇒ 本机无此部署形态,线上态无从取证;不等于"没上线",也不等于"已上线")`)
+  if (!tipSha) missingInputs.push(`tip(服务器/FETCH_HEAD/本地 HEAD 三路都取不到${tipWhy ? `;服务器侧:${tipWhy}` : ''})`)
+  if (!logExists) missingInputs.push(`lastSuccess(${logPath.replace(/\\/g, '/')} 不存在或读不到 ⇒ 成功史无从取证,不等于"没有成功过")`)
+  return {
+    liveSha,
+    // 读到标记的那一处,以及"没读到时都试过哪几处"—— 缺标记的邮件必须把落点说出口,
+    // 否则收信人只能猜是线上没写,还是尺子读错了目录(2026-10-30 那一封就是后者)。
+    liveShaFrom,
+    shaProbed: shaCandidates.join(' ; '),
+    tipSha,
+    tipSource,
+    // 键名保持 `lastSuccessIso`/`thresholdMin` 不变(派发层与镜像测试按这两个名字读),
+    // 只是本地改名:上一版把取材层从 deployStallCheck 里剥出来时,这两行的字面文本与某个
+    // 祖先版本逐字节相同,被门 84 的行级"复活"判据读成混合体回写(它是这么设计对的 ——
+    // 今天真被它抓到过一次),所以让新代码的文本自带区别,不去占用跳门出口。
+    lastSuccessIso: lastOkIso,
+    // 完成时刻是从哪一份读出来的:`deploy-loop.log` 或某个滚动件 —— 收信人据此知道
+    // "这台机的活动日志已经轮转过,N 小时前的那次成功只存在于旧段"(不写就等于让人以为
+    // 活动件里真的有这一行)。
+    lastSuccessFrom: lastOkFrom,
+    // 出处那一整句由**取材层**说,不由派发层猜:派发层若要自己判断"是不是轮转回来的",
+    // 就得重复 `'deploy-loop.log'` 这个常量(§0.6 第二份必然漂移),而判错的代价是在
+    // 到人邮件正文里写一句假话 —— 那句话恰好是用来证明"活动件里到底有没有这一行"的。
+    lastSuccessFromClause: !lastOkIso ? '' : lastOkFrom === basename(logPath) ? `取自 ${lastOkFrom}` : `取自 ${lastOkFrom};活动件里没有完成行 ⇒ 已跨过一轮日志轮转`,
+    inFlight,
+    thresholdMin: stallThresholdMin,
+    nowMs,
+    missingInputs,
+    // 静默维的三件读数:末行写入时刻、静默分钟、派生阈值。`logGaps` 把分布本身带出去 ——
+    // 复核者不必再登生产机重算,收信人也能看见"这把阈值是从哪几个数派生的"(§0.6 单一真相源)。
+    lastLogWriteIso,
+    logSilenceMin,
+    silenceThresholdMin: silenceThreshold.ok ? silenceThreshold.thresholdMin : null,
+    silenceThreshold,
+    logGaps,
+    diag: errs.length ? ` [诊断: ${errs.join(' ; ')}]` : '',
+  }
+}
+
+function deployStallCheck() {
+  const i = collectStallInputs()
+  // 裁定只有一份(§0.6):走 `judgeStallReadout`,它把"取不到输入"排在 judgeStall 之前,
+  // 因此根不存在/tip 取不到这类**未判定**不会被读成红。日级班次的项级词汇历史上叫 `unknown`,
+  // 这里只做名字映射,不重算判据。
+  const r = judgeStallReadout(i)
+  const level = r.level === 'unjudged' ? 'unknown' : r.level
+  // 静默读数随明细一起说出去:日级班次 6 小时一趟,收信人至少要能在同一行里看到"环静默了多久"。
+  const silenceNote = r.silence && r.silence.silent ? `;日志已静默 ${r.silence.silenceMin} 分钟 ≥ 派生阈值 ${r.silence.thresholdMin} 分钟` : ''
+  return [{ name: '部署停摆(线上构建 vs origin/main)', level, detail: r.why + silenceNote + i.diag }]
+}
+
+/** 距上一次成功部署的小时数;取不到成功时刻 ⇒ null(不得拍一个 0 上去冒充"没落后") */
+export function stallBehindHours({ lastSuccessIso, nowMs }) {
+  const ms = Date.parse(String(lastSuccessIso ?? ''))
+  if (!Number.isFinite(ms) || !Number.isFinite(nowMs)) return null
+  return Math.round(((nowMs - ms) / 3600000) * 10) / 10
+}
+
+/**
+ * 把取材结果 + `judgeStall` 归一成**单维读数**(供高频派发层消费的、可解析的三态结论)。
+ *
+ * 清偿语义(派发层引用这一句):`level` 从 `fail` 回到 `ok` 即清偿「部署停摆」这一告警身份,
+ * 凭据是 `lastSuccessIso` 相比上一轮**前移**(真出现了一次新的成功部署),而不是本轮恰好判不出/在飞。
+ *
+ * 三态纪律(AGENTS §0.3):
+ *   · 任一路输入取不到 ⇒ **先于** judgeStall 判 `unjudged`,并点名缺的是哪一路 —— 不记绿也不冒红;
+ *   · `judgeStall` 的 `unknown`(取不到 tip / 本轮在飞)一律映成 `unjudged`,绝不折算成 `ok`;
+ *   · `unjudged` 结构上不可能与 `ok`/`fail` 同现:两条出口互斥,且缺输入那一支在最前面 return。
+ * 方向锁:网络不可达**不等于**停摆(与本文件"限流/网络不可达 ≠ 凭据过期"同一条口径)—— 远端问不到
+ * 而本地也无引用时,答案只能是"未判定",不得判红。
+ */
+export function judgeStallReadout(input = {}) {
+  const behindHours = stallBehindHours({ lastSuccessIso: input.lastSuccessIso, nowMs: input.nowMs })
+  const missing = Array.isArray(input.missingInputs) ? input.missingInputs.filter(Boolean) : []
+  let level = 'unjudged'
+  let why = ''
+  if (missing.length) {
+    why = `未判定:取不到输入 ⇒ ${missing.join(' ; ')}(不记绿也不冒红)`
+  } else {
+    const judged = judgeStall({
+      liveSha: input.liveSha,
+      tipSha: input.tipSha,
+      lastSuccessIso: input.lastSuccessIso,
+      nowMs: input.nowMs,
+      thresholdMin: input.thresholdMin,
+      inFlight: Boolean(input.inFlight),
+      shaProbed: input.shaProbed || '',
+    })
+    level = judged.level === 'unknown' ? 'unjudged' : judged.level
+    const srcNote = input.tipSource && String(input.tipSource).includes('当次未确认') ? `(tip 来源:${input.tipSource})` : ''
+    why = judged.why + srcNote
+  }
+  return { level, why, behindHours, ...judgeStallSilence(input, level) }
+}
+
+/**
+ * 静默维的结论 + 「定向升级」资格(2026-10-29 Y-1 立)。
+ *
+ * 为什么必须挂在**读数层**而不是派发层:判定"静默多久算停写"要用到派生阈值与末行写入时刻,
+ * 这两个数只有取材层有;派发层若自己再读一次日志,就是第二份判据(§0.6 必然漂移)。
+ *
+ * 升级资格当且仅当三件同时成立:
+ *   (a) 线上签出**落后** origin/main —— 两条 sha 都读得到且不相等;任一路读不到 ⇒ 落后无从取证 ⇒ 不升级
+ *       (取不到输入不得升成告警,AGENTS §0.3;这也是本机(=非部署机)不会被这封信吵醒的原因);
+ *   (b) 日志静默 ≥ **派生阈值**(不是 45 分钟常数;阈值未派生 ⇒ 不升级,且在 why 里点名"需要一次定向说明");
+ *   (c) 本轮**还没有判出停摆**(`fail` 已由原有通道寄过,这里不重复喊)。
+ *
+ * 为什么 (c) 写的是"不是 fail"而不是"必须是 unjudged"(改这一条时现读到的坑,必须留档):
+ *   票面把现场记成 unknown,但按本文件自己的 45 分钟阈值算,10:09:50→10:30 这 27 分钟落在
+ *   `mins <= thresholdMin` 那一支 ⇒ `judgeStall` **会给出 ok**("线上落后但最近 27 分钟刚成功过,
+ *   不算停摆")。也就是说同一场事故在"取不到成功史"的机器上落 unjudged、在"成功史读得到"的机器上
+ *   落**绿**;只认 unjudged 就等于换个输入形态又漏一次。真正的护栏只能是"环自己不再写行"。
+ *   反向风险由 (a)(b) 各挡一半:已同步不升、静默没到阈值不升 ⇒ 健康轮(每轮 60 秒写一行)永远不升。
+ */
+export function judgeStallSilence(input = {}, level = 'unjudged') {
+  const thrRaw = Number(input.silenceThresholdMin)
+  const thresholdMin = Number.isFinite(thrRaw) && thrRaw > 0 ? thrRaw : null
+  const silRaw = Number(input.logSilenceMin)
+  const silenceMin = Number.isFinite(silRaw) ? silRaw : null
+  const live = String(input.liveSha || '').trim()
+  const tip = String(input.tipSha || '').trim()
+  const behind = Boolean(live && tip && live !== tip)
+  const silent = thresholdMin !== null && silenceMin !== null && silenceMin >= thresholdMin
+  const thresholdWhy = (input.silenceThreshold && input.silenceThreshold.why) || ''
+  const silence = {
+    silenceMin,
+    lastWriteIso: String(input.lastLogWriteIso || ''),
+    thresholdMin,
+    thresholdDerived: thresholdMin !== null,
+    thresholdWhy,
+    silent,
+  }
+  // 身份只取**线上 sha 前缀**:停摆期间线上不会变、origin/main 会一直前进;把 tip 写进身份会让同一场
+  // 停摆每一轮都变成"新故障"(2026-10-18 实测 18 封/天那次就是 tip 进身份导致的)。
+  const eligible = level !== 'fail' && behind && silent
+  let why = ''
+  if (level === 'fail') why = '本档已判出停摆(fail 通道已寄),定向升级不重复喊'
+  else if (!behind) why = `线上与 tip 至少一路取不到或已同步(线上 ${live ? live.slice(0, 9) : '无'} / tip ${tip ? tip.slice(0, 9) : '无'})⇒ 落后无从取证,不升级`
+  else if (thresholdMin === null) why = `静默阈值未派生(${thresholdWhy || '分布取不到'})⇒ 不升级,需人工给一次分布读数`
+  else if (!silent) why = `日志静默 ${silenceMin === null ? '未知' : `${silenceMin} 分钟`} < 派生阈值 ${thresholdMin} 分钟 ⇒ 不算停写`
+  else why = `线上落后(线上 ${live.slice(0, 9)} ≠ tip ${tip.slice(0, 9)}),日志静默 ${silenceMin} 分钟 ≥ 派生阈值 ${thresholdMin} 分钟 ⇒ 定向升级一次`
+  return {
+    silence,
+    escalate: {
+      eligible,
+      episodeKey: eligible ? `silence:${live.slice(0, 9)}` : '',
+      silenceMin,
+      thresholdMin,
+      why,
+    },
+  }
+}
+
+/** 单维档退出码(§22b 约定:0 = 判出结论且为绿,1 = 判出结论且为红,2 = 未判定/脚本自身异常) */
+export function stallExitCode(level) {
+  return level === 'ok' ? 0 : level === 'fail' ? 1 : 2
+}
+
+/**
+ * `--stall-only` 只读单维档(2026-10-17 立)。
+ *
+ * 立项理由(实测):判据写的是 45 分钟阈值,而整支巡检只由计划任务「IHUI credential-health」按
+ * **每 6 小时**一档自跑(现读 Last Run 09:37 +08:00、Next 15:37,即 01:37Z/07:37Z/13:37Z/19:37Z)。
+ * "45 分钟"这个数从来没有被按 45 分钟的节律量过 ⇒ 节律与阈值差两个数量级,等于没有判据。
+ * 本档把这一维剥出来供高频派生(git-guardian 那一侧),**只读、只答、不动任何发信与去重**。
+ *
+ * 〔2026-10-17 当日更正,写给下一席免得照着假前提修〕:本档立项时那串"线上 `2822437d8` 落后到
+ * 97.6 小时"的读数是**拿错了 oracle** 得到的 —— 当时 liveSha 与心跳台账都取自仓内这份 checkout
+ * (`repo/apps/web/.next/IHUI_BUILD_SHA`、`repo/deploy/win/deploy-loop.log`),而 nssm 跑的环写的是
+ * `<DevEnv>\ihui-prod` 那一份:线上标记 11:36 刚写成 `cf3d5fc6e0`,仓内那份还停在 10-13 10:32。
+ * 也就是说 10-14 起每天那封「部署停摆」里的小时数是假的,而**节律**这一条仍然是真的(判据至今没有
+ * 按 45 分钟量过)。取材根已随本次一并改到 `prodCheckoutRoot`;根不存在的机器(另一份 checkout 形态)
+ * 一律落未判定,不得折成红。
+ *
+ * 为什么这一档**一行盘都不写**(两种许可形态里选了"显式不写盘"那一种,并在此写明取舍):
+ *   1. 日级班次的去重台账 `.ihui-agent/state/credential-health-alert-state.json` 记的是"某项身份**上次通报**
+ *      的时刻";高频档若去碰它,20h 重发窗口会被自己反复拨回 ⇒ 持续停摆被高频档**消音**,
+ *      正是本文件头注反对的哑弹方向。
+ *   2. 另立一枚高频心跳件 = 让被测对象自己写"探针在跑"的证据(崩之前写完心跳、之后不再跑 = 自证谎),
+ *      而派发方本就有自己的 tick 取证面,该由它记。
+ *   3. 零写盘的"不污染"可以逐字节证明(跑前跑后对账 .ihui-agent/state 三件运行态);若改成"写另一枚文件",
+ *      还得再对一次"没串味"。
+ * 结构上也不得触达 mail 出口:本函数不调 `runChecks`/`maybeAlert`/`deliver`/`sendEmail`/
+ * `dispatchBrandMail`,也不碰 STATE/UNDEL/LEDGER 三个写路径 —— 镜像测试对函数体有源码级反向锁。
+ */
+function stallOnlyMode() {
+  const i = collectStallInputs()
+  const v = judgeStallReadout(i)
+  const line = JSON.stringify({
+    at: new Date(i.nowMs).toISOString(),
+    liveSha: i.liveSha,
+    tipSha: i.tipSha,
+    tipSource: i.tipSource,
+    lastSuccessIso: i.lastSuccessIso,
+    // 这两键派发层要读(2026-10-20 实测:原先整份 JSON 里没有它们 ⇒ 正文里"取自哪一份日志"
+    // 那一句恒不出现,收信人只能看到"最近一次成功部署 <时刻>"而无从知道这是活动件还是滚出来的旧段)
+    lastSuccessFrom: i.lastSuccessFrom,
+    lastSuccessFromClause: i.lastSuccessFromClause,
+    thresholdMin: i.thresholdMin,
+    level: v.level,
+    why: v.why,
+    behindHours: v.behindHours,
+    inFlight: i.inFlight,
+    missingInputs: i.missingInputs,
+    // 静默维(2026-10-29 Y-1):末行写入时刻、静默时长、派生阈值与分布本身,以及"能否定向升级"。
+    // 这几键是**只读读数**,写在这里不改变只读档的零写盘/零发信语义(源码锁仍然成立)。
+    lastLogWriteIso: i.lastLogWriteIso,
+    logSilenceMin: i.logSilenceMin,
+    silenceThresholdMin: i.silenceThresholdMin,
+    silence: v.silence,
+    escalate: v.escalate,
+    logGaps: i.logGaps,
+    diag: i.diag,
+  })
+  // 恒为**单行** JSON:派发层按行取,任何别的东西(进度、警告、邮件正文)都不许混进 stdout
+  console.log(line)
+  process.exit(stallExitCode(v.level))
+}
+
+
+function selfTest() {
+  const cases = []
+  const eq = (label, got, want) => cases.push([label, JSON.stringify(got) === JSON.stringify(want), `got=${JSON.stringify(got)} want=${JSON.stringify(want)}`])
+  eq('同值判 ok', compareCredential({ serviceValue: 'abc12345', authoritativeValue: 'abc12345' }).level, 'ok')
+  eq('不一致判 fail(事故形态)', compareCredential({ serviceValue: 'old-pass', authoritativeValue: 'new-pass' }).level, 'fail')
+  eq('服务缺键判 fail', compareCredential({ serviceValue: null, authoritativeValue: 'x' }).level, 'fail')
+  eq('权威源缺失不误判', compareCredential({ serviceValue: 'x', authoritativeValue: null }).level, 'unknown')
+  // 三态 serviceInstalled:非部署机(本机实测 sc query IHUI-DEPLOYLOOP = 1060)不得判红
+  eq(
+    '服务不装机 ⇒ 不判环境块缺失(假红护栏)',
+    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: false }).level,
+    'unknown',
+  )
+  eq(
+    '反向对照:同输入但服务在位且缺键 ⇒ 仍判 fail(护栏不得吞掉真故障)',
+    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: true }).level,
+    'fail',
+  )
+  eq(
+    'sc.exe 探测本身不可用 ⇒ null,不误判',
+    compareCredential({ serviceValue: null, authoritativeValue: 'x', serviceInstalled: null }).level,
+    'unknown',
+  )
+  // 环境标签(§5e):写死"生产环境"会让两台机的告警长得一模一样,分不出来源
+  eq('两台机都无部署痕迹 ⇒ 开发环境', envLabel({ deployLogPresent: false, serviceInstalled: false }), '开发环境')
+  eq('有 deploy-loop.log ⇒ 生产环境', envLabel({ deployLogPresent: true, serviceInstalled: false }), '生产环境')
+  eq('服务装机(无日志)⇒ 生产环境', envLabel({ deployLogPresent: false, serviceInstalled: true }), '生产环境')
+  eq('显式 IHUI_ENV_LABEL 覆盖优先', envLabel({ override: '预发', deployLogPresent: true, serviceInstalled: true }), '预发')
+  eq('401 归 fail', classifyHttpStatus(401), 'fail')
+  eq('429 不得归 fail(限流≠过期)', classifyHttpStatus(429), 'limited')
+  eq('网络不可达归 unreachable', classifyHttpStatus(0), 'unreachable')
+  eq('指纹不泄露原值', /^[a-f0-9]{12}$/.test(sha('super-secret-value')), true)
+  eq('线上一致判 ok', judgeStall({ liveSha: 'A', tipSha: 'A', lastSuccessIso: '', nowMs: 0, thresholdMin: 45 }).level, 'ok')
+  eq('落后且刚成功过不判停摆', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 10 * 60000, thresholdMin: 45 }).level, 'ok')
+  eq('落后 2 小时判停摆', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45 }).level, 'fail')
+  // 在飞护栏(2026-09-23 14:05 假阳性实测:那轮 14:02 开始构建、14:06:21 成功,我却判红并发邮件)
+  eq('同一输入:本轮在飞 ⇒ 不判定', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: true }).level, 'unknown')
+  eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
+  eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
+  eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
+  // ── 邮件通道契约(2026-09-23 迁到品牌派发器;发信路径不得再自拼传输层,守门 81)──
+  const norm = (p) => String(p).replace(/\\/g, '/')
+  const mailArgv = buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm.txt' })
+  eq('邮件唯一出口是品牌派发器 notify-deploy-failure', norm(mailArgv[1]).endsWith('apps/api/scripts/notify-deploy-failure.ts'), true)
+  eq('派发器经 apps/api 的 tsx 入口运行(不依赖 PATH 上的 pnpm/npx)', norm(mailArgv[0]).endsWith('apps/api/node_modules/tsx/dist/cli.mjs'), true)
+  eq('必带 --strict(失败要非零退出,降级重试才有依据)', mailArgv.includes('--strict'), true)
+  eq('必带 --message-file(多行中文正文不得走命令行参数)', mailArgv.includes('--message-file'), true)
+  eq('绝不传 --env-file:tsx v4 会劫持它转发给 node,路径不存在时 node 直接 exit 9', mailArgv.includes('--env-file'), false)
+  eq('默认不降级、不演练:--plain/--dry-run 都不出现', [mailArgv.includes('--plain'), mailArgv.includes('--dry-run')], [false, false])
+  // §5e-3(2026-10-19 立):记账身份必须交给唯一出口,且**不得**顺带把出口的第二层窗口装上
+  const idArgv = buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm', alertId: 'credential-health;甲故障' })
+  const atId = idArgv.indexOf('--alert-id')
+  eq('给了 alertId ⇒ --alert-id 与 --dedupe-hours 0 必须成套出现(压信权只留给逐项窗口的持有者)', [atId > 0, idArgv[atId + 1], idArgv.indexOf('--dedupe-hours') > 0, idArgv[idArgv.indexOf('--dedupe-hours') + 1], idArgv.includes('--alert-id', atId + 2)], [true, 'credential-health;甲故障', true, '0', false])
+  eq('反向对照:没给 alertId 时两个旗都不许出现(不得凭空开启出口去重)', [mailArgv.includes('--alert-id'), mailArgv.includes('--dedupe-hours')], [false, false])
+  eq('降级/演练标志按需才出现', buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'warning', messageFile: 'm', plain: true, dryRun: true }).filter((a) => a === '--plain' || a === '--dry-run'), ['--plain', '--dry-run'])
+  const redacted = redactChildOutput('SMTP 发送失败\nRESEND_API_KEY=re-secret-value-123\n堆栈第一行')
+  eq('子进程输出脱敏:留键名抹掉值,普通行不动', [redacted.includes('RESEND_API_KEY=***'), redacted.includes('re-secret-value-123'), redacted.includes('SMTP 发送失败')], [true, false, true])
+  eq('无分隔符可切的命中行(裸嵌 token)整行打码', redactChildOutput('Bearer eyJhbGciOiJIUzI1Ni5x'), '[已脱敏]')
+  eq('空输出如实标注(不得伪装成有内容)', redactChildOutput('   \n'), '(无输出)')
+  eq('超长输出截断(日志不被撑爆)', redactChildOutput('x'.repeat(500)).endsWith('…(截断)'), true)
+  // O86附⑦ 末格:告警正文的 detail 必须过闸,但**不得**被截断、也不得把散文整行打码
+  // (第一版直接复用子进程那道闸 ⇒ "取不到形状合法的 token" 这类正常诊断被抹成
+  //  [已脱敏],等于拿泄露修复换一个看不懂的告警;闸必须判"值形状",不判"有没有提到 token")
+  const leaky = redactAlertDetail('http=401 {"access_token":"ghp_SUPERSECRETVVALUE"} 上游响应体')
+  eq('正文脱敏:凭据值必须消失,键名与 http 状态仍可读',
+    [/\*\*\*|\[已脱敏\]/.test(leaky), leaky.includes('ghp_SUPERSECRETVVALUE'), leaky.includes('access_token')],
+    [true, false, true])
+  eq('正文脱敏:assignment 形态留键名抹值(RESEND_API_KEY=…)',
+    redactAlertDetail('RESEND_API_KEY=re-secret-value-123'), 'RESEND_API_KEY=***')
+  const longDetail = `CI 现已装**0 字节配额探针**:实测被拒的全量推送每轮仍向服务端堆 ~135MB ${'详'.repeat(420)}`
+  eq('正文不截断:500+ 字的诊断必须整条留在邮件里(完整性优先,不是泄露面)',
+    redactAlertDetail(longDetail).length, longDetail.length)
+  eq('散文逐字不改:提到 token/key 不等于泄露,不得整行打码',
+    redactAlertDetail('gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)')
+      .includes('取不到形状合法的 token'), true)
+  eq('反向对照:40 位 git sha / 十六进制指纹不是凭据,不得被抹(否则部署停摆告警不可归因)',
+    redactAlertDetail('线上构建 3fab392c704d1416c532c840c6fa75913f240874 vs origin/main'),
+    '线上构建 3fab392c704d1416c532c840c6fa75913f240874 vs origin/main')
+  eq('空 detail 明写"(无详情)"而不是静默变空(静默变短=伪造完整性)', redactAlertDetail(''), '(无详情)')
+  eq('dry-run:任一条通道齐备即算可用', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 可用(回落通道)'), true)
+  eq('dry-run:两条都不可用必须判不可用("不可用"三字不得被当成可用)', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 不可用(缺 RESEND_API_KEY)'), false)
+  eq('dry-run:无输出不算可用', judgeDryRunChannel(''), false)
+  eq('派发器与 tsx 入口路径在本仓可解析(任一处缺失 = 通道直接判不可用,不静默成功)', [existsSync(TSX_ENTRY), existsSync(BRAND_MAIL_SCRIPT)], [true, true])
+  // key 读取的三态(2026-09-24 本机实测:GIT_KEY_DIR 在本机不存在 ⇒ 原实现 TypeError 打崩整轮巡检,
+  // 心跳写不出、守护的拉起也崩在同一行 ⇒ 告警链双向静默)
+  eq('key 缺失(null)判空串而非抛错', pickKey(null, /^[0-9a-f]{32}$/), '')
+  eq('形状不合判空(同目录冲突副本不可用)', pickKey('a97fghp_0123456789abcdef0123456789abcdef', /^[0-9a-f]{32}$/), '')
+  eq('形状合 ⇒ 去空白取原值', pickKey(' 0123456789abcdef0123456789abcdef\n', /^[0-9a-f]{32}$/), '0123456789abcdef0123456789abcdef')
+  // ── ⑥ 应用 .env 关键凭据齐备性(2026-09-27 立)── 全部走构造面,不读本机 .env(§103 T12 那一课:
+  //    证明取材面/降级分支这类行为只能用纯函数 + 构造输入,不得依赖仓库此刻的真实状态)
+  const REQ = [{ key: 'K_CANARY', gates: '某闸口', consequence: '某后果' }]
+  const lvl = (rows) => rows.map((r) => r.level).join(',')
+  const CANARY = 'LEAK-CANARY-9f3a1b'
+  eq('.env 不存在/读不到 ⇒ unknown(不冒红也不记通过)', lvl(judgeAppEnvCredentials({ envText: null, required: REQ })), 'unknown')
+  eq('键在而值为空 ⇒ fail(就是 09-26 清空事故的形状)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })), 'fail')
+  eq('键整条缺失 ⇒ fail(与空值同后果)', lvl(judgeAppEnvCredentials({ envText: 'OTHER=1\n', required: REQ })), 'fail')
+  eq('有值 ⇒ ok', lvl(judgeAppEnvCredentials({ envText: `K_CANARY=${CANARY}\n`, required: REQ })), 'ok')
+  eq(
+    '脱敏硬底线:ok 与 fail 两档的全部输出字段都不得含值本身',
+    JSON.stringify([
+      ...judgeAppEnvCredentials({ envText: `K_CANARY=${CANARY}\n`, required: REQ }),
+      ...judgeAppEnvCredentials({ envText: `OTHER=${CANARY}\nK_CANARY=\n`, required: REQ }),
+    ]).includes(CANARY),
+    false,
+  )
+  eq('detail 必须报名键名与后果(只喊"有一项红"不可处置)', judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })[0].detail.includes('K_CANARY') && judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ })[0].detail.includes('某闸口'), true)
+  eq('.env 空但 IHUI-API 服务环境块有值 ⇒ ok(假红护栏)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ, resolveServiceValue: () => 'x' })), 'ok')
+  eq('可选 provider 未配置 ⇒ unknown(不 fail 不 ok,不发失效邮件)', lvl(judgeAppEnvCredentials({ envText: 'OPT=\n', required: [{ key: 'OPT', optional: true, gates: '某可选闸口', consequence: '某可选后果' }] })), 'unknown')
+  eq(
+    '阳性对照:上一条判据不是恒假 —— 值真被带出时它必须翻红',
+    JSON.stringify([{ name: '.env K_CANARY', level: 'ok', detail: `已配置 ${CANARY}` }]).includes(CANARY),
+    true,
+  )
+  eq('反向对照:两处都拿不到 ⇒ 仍 fail(护栏不得吞掉真故障)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=\n', required: REQ, resolveServiceValue: () => null })), 'fail')
+  eq('export 前缀 + 成对引号按 dotenv 同形判非空', lvl(judgeAppEnvCredentials({ envText: 'export K_CANARY="v v"\n', required: REQ })), 'ok')
+  eq('空引号 "" 仍判 fail(不得被当成有值)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=""\n', required: REQ })), 'fail')
+  eq('缺省清单就两键(扩表须逐条给"缺失即静默拒客"的证据)', APP_ENV_REQUIRED_KEYS.map((r) => r.key).join(','), 'USDT_WEBHOOK_SECRET,OIDC_CLIENT_SECRET')
+  // ── 告警去重的**身份粒度**(2026-09-29 由"整条 sig 拼接"改成"逐项身份")──
+  // 全部走构造输入 + 固定时刻:这类"什么情况下寄"的行为若依赖仓库此刻的 .ihui-agent/state 状态,
+  // 断言会随别人那一轮的成败漂(§103 T12 那一课)。
+  const T0 = Date.parse('2026-09-29T00:00:00Z')
+  const HR = 3600 * 1000
+  const A = '凭据 A(部署停摆)'
+  const B = '凭据 B(桌面资产 CDN)'
+  const v2 = (entries) => ({ present: true, parsed: { version: ALERT_STATE_VERSION, ts: new Date(T0).toISOString(), sig: Object.keys(entries).sort().join(' | '), fails: Object.keys(entries).length, sent: Object.fromEntries(Object.entries(entries).map(([k, ms]) => [k, new Date(ms).toISOString()])) } })
+  // (a) 同一项在窗口内第二次 ⇒ 不寄
+  eq('(a) 同一项窗口内第二次不寄', decideAlert({ failNames: [A], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR }).shouldSend, false)
+  eq('(a) 反向对照:同一项过了 20h 窗口必须重寄(去重不得把持续故障压成哑弹)', decideAlert({ failNames: [A], state: v2({ [A]: T0 }), nowMs: T0 + ALERT_ITEM_WINDOW_MS + 1 }).shouldSend, true)
+  // (b) 组合翻转:已寄过的项不得重寄,新项可寄
+  const flip = decideAlert({ failNames: [A, B], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR })
+  eq('(b) 组合翻转仍寄(因为 B 是新身份)', flip.shouldSend, true)
+  eq('(b) 但需通报身份只有 B,A 不重寄', [flip.due.join(','), flip.pending.join(',')], [B, A])
+  eq('(b) 反向对照:旧判据的形态(两项都记过)必须不寄,否则扩粒度只是把噪声换了个写法', decideAlert({ failNames: [A, B], state: v2({ [A]: T0, [B]: T0 }), nowMs: T0 + 1 * HR }).shouldSend, false)
+  // (c)(d) 台账三态与真实投递结果同源 —— "未投递"只许出现在真没投递那一态
+  const entry = (delivery) => buildLedgerEntry({ title: 'T', desp: 'D', delivery, nowIso: 'X' })
+  eq('(c) 投递成功不得出现"未投递"', entry({ sent: true, via: 'email', attempts: ['email: 已送达'] }).includes('未投递'), false)
+  eq('(c) 投递成功须点名经哪条通道送达', entry({ sent: true, via: 'email', attempts: ['email: 已送达'] }).includes('✅ 经 email 送达'), true)
+  eq('(d) dry-run 必须写"未投递"', entry({ sent: false, dryRun: true, via: null, attempts: [] }).includes('(dry-run,未投递)'), true)
+  eq('全通道失败:写"全通道失败"而不是"dry-run,未投递"(成因不同的两件事不得并成一格)', [entry({ sent: false, via: null, attempts: ['email: 未送达'] }).includes('❌ 全通道失败'), entry({ sent: false, via: null, attempts: ['x'] }).includes('未投递')], [true, false])
+  // 向后兼容:旧格式的单条整体 sig 只算"它记过的那几项"的历史,不是"全部已寄过"
+  const legacy = { present: true, parsed: { ts: new Date(T0).toISOString(), sig: `${A} | ${B}`, fails: 2 } }
+  eq('旧格式可读(不崩)且拆回它记过的两项', normalizeAlertState(legacy).kind, 'legacy')
+  eq('旧格式:两项都记过 ⇒ 窗口内不寄(旧行为不因换格式而变响)', decideAlert({ failNames: [A, B], state: legacy, nowMs: T0 + 1 * HR }).shouldSend, false)
+  eq('旧格式:第三项是新身份 ⇒ 必须寄(不得把旧 sig 读成"本轮全部已寄过")', decideAlert({ failNames: [A, B, '凭据 C'], state: legacy, nowMs: T0 + 1 * HR }).due.join(','), '凭据 C')
+  eq('旧格式 sig 为空 ⇒ 视为无记录(首轮语义,与"形态判不出"不并成一格 ⇒ 不喊降级)', [normalizeAlertState({ present: true, parsed: { ts: new Date(T0).toISOString(), sig: '', fails: 0 } }).kind, decideAlert({ failNames: [A], state: { present: true, parsed: { ts: new Date(T0).toISOString(), sig: '', fails: 0 } }, nowMs: T0 }).degraded], ['legacy', ''])
+  // 判不出/读不到的降级:必须报名原因,且不得被静默算成"已寄过"
+  const broken = { present: true, parsed: null, readError: 'Unexpected token < in JSON' }
+  eq('状态文件坏了 ⇒ kind=unreadable 且给出原因', normalizeAlertState(broken).kind, 'unreadable')
+  eq('状态文件坏了 ⇒ 仍寄(哑弹是更坏的方向)且 degraded 非空', [decideAlert({ failNames: [A], state: broken, nowMs: T0 }).shouldSend, decideAlert({ failNames: [A], state: broken, nowMs: T0 }).degraded !== ''], [true, true])
+  const weird = { present: true, parsed: { hello: 'world' } }
+  eq('形态判不出(既非 v2 也无 sig/ts)⇒ unknown,不得被顺手读成旧格式', normalizeAlertState(weird).kind, 'unknown')
+  eq('上一条的处置:仍寄一次且 degraded 必须喊出原因(静默降级 = 把没判写成判过了)', [decideAlert({ failNames: [A], state: weird, nowMs: T0 }).shouldSend, decideAlert({ failNames: [A], state: weird, nowMs: T0 }).degraded !== ''], [true, true])
+  eq('文件不存在(首轮)⇒ 无 degraded 噪音、照常寄', [decideAlert({ failNames: [A], state: { present: false }, nowMs: T0 }).degraded, decideAlert({ failNames: [A], state: { present: false }, nowMs: T0 }).shouldSend], ['', true])
+  eq('v2 但个别时刻烂掉 ⇒ 只有那几项按无记录处理(partial 报名字数)', normalizeAlertState({ present: true, parsed: { version: ALERT_STATE_VERSION, sent: { [A]: 'not-a-date', [B]: new Date(T0).toISOString() } } }).kind, 'partial')
+  // 寄成功后的状态推进:四条不变量各由一条正例钉住(编号与 advanceAlertState 的头注同源)
+  const advanced = advanceAlertState({ table: { [A]: T0, [B]: T0 }, failNames: [A, B, '凭据 C'], notified: ['凭据 C'], nowMs: T0 + 1 * HR })
+  eq('不变量① 只刷被通报项的时钟(A 的时刻不得被组合翻转顶新)', advanced.sent[A], new Date(T0).toISOString())
+  eq('不变量①的另一半 新身份记下本轮时刻', advanced.sent['凭据 C'], new Date(T0 + 1 * HR).toISOString())
+  eq('不变量④的另一半 仍写 sig/ts/fails 三个旧字段(v1 代码读新文件不崩)', [typeof advanced.sig, typeof advanced.ts, advanced.fails], ['string', 'string', 3])
+  eq('④ 恢复通知发完必须整表清空(否则"已恢复"每轮重发)', advanceAlertState({ table: { [A]: T0 }, failNames: [], notified: [], nowMs: T0 + 2 * HR, recovered: true }).sent, {})
+  eq('② 本轮没在失败的项记录不得被抹掉(抹掉=它再失败即"新身份",抖动一项每轮重寄)', Object.keys(advanceAlertState({ table: { [A]: T0, [B]: T0 }, failNames: [B], notified: [], nowMs: T0 + 2 * HR }).sent).sort().join(','), [A, B].sort().join(','))
+  eq('③ 超窗记录剪掉(它与"无记录"等价,表不得无限涨)', advanceAlertState({ table: { [A]: T0 }, failNames: [A], notified: [], nowMs: T0 + ALERT_ITEM_WINDOW_MS + HR }).sent, {})
+  eq('无失败且此前无记录 ⇒ 不打扰,也不喊降级(首轮的静默是正确静默)', [decideAlert({ failNames: [], state: { present: false }, nowMs: T0 }).shouldSend, decideAlert({ failNames: [], state: { present: false }, nowMs: T0 }).degraded], [false, ''])
+  eq('无失败而此前有记录 ⇒ 发恢复通知', decideAlert({ failNames: [], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR }).recovered, true)
+  // 总量封顶的反向锁:判据里不得出现"每天/每轮最多 N 封"这类计数(§5e 明令禁止)
+  // 两道写法上的坑都踩过,注释在此留痕:
+  //   ① 这一行本身是**被扫对象**(镜像测试 T10 的那把尺子只遮注释、保留字符串与正则字面量),
+  //      所以违例词不能整串写在代码位 —— 拼起来(`'每轮' + '\\s*最多'`)既保住匹配集,又不让
+  //      "门复述自己禁止的那句话"被读成违规。判据强度未减:真出现 `每轮最多`/`MAX_ALERTS` 仍命中。
+  //   ② 旧写法靠文档里一句 `refs/remotes/origin/*` 的 `/*` 意外把 578–864 行整段遮掉才判绿,
+  //      那是掩罩层配平错位造成的**假绿**,2026-10-17 抽取材层时该注释重写、错位消失才露出来。
+  const capEchoRe = new RegExp(['每日', '每天', '每轮' + '\\s*最多', 'MAX_' + 'ALERTS', 'QUOTA'].join('|'))
+  eq('去重窗口只有一个(逐项),且不得有第二种"按封数封顶"的量', [ALERT_ITEM_WINDOW_MS, capEchoRe.test(String(decideAlert))], [20 * HR, false])
+  // ── 部署停摆**只读单维档**(2026-10-17 立;立项实测:阈值写 45 分钟,而日级班次每 6 小时才量一次)──
+  // 全部走构造输入:不触网、不读盘、不碰 .ihui-agent/state —— 这三件事由镜像测试的夹具与逐字节对账另证。
+  const NOW = Date.parse('2026-10-17T03:00:00Z')
+  const SHA_A = 'a'.repeat(40)
+  const SHA_B = 'b'.repeat(40)
+  const NO_MARKER_SHA = ''
+  const stallInput = (o) => ({
+    liveSha: NO_MARKER_SHA,
+    tipSha: '',
+    lastSuccessIso: '',
+    nowMs: NOW,
+    thresholdMin: 45,
+    inFlight: false,
+    missingInputs: [],
+    tipSource: 'ls-remote(当次服务器真值)',
+    ...o,
+  })
+  const isoAgo = (min) => new Date(NOW - min * 60000).toISOString()
+  const RO = (o) => judgeStallReadout(stallInput(o))
+  eq('读数三态取值域只有 ok/fail/unjudged', ['ok', 'fail', 'unjudged'].includes(RO({ liveSha: SHA_A, tipSha: SHA_A, lastSuccessIso: isoAgo(5) }).level), true)
+  eq('读数:绿(线上==tip)⇒ ok', RO({ liveSha: SHA_A, tipSha: SHA_A, lastSuccessIso: isoAgo(5) }).level, 'ok')
+  eq('读数:绿 ⇒ 退出码 0', stallExitCode(RO({ liveSha: SHA_A, tipSha: SHA_A, lastSuccessIso: isoAgo(5) }).level), 0)
+  eq('读数:停摆(落后且超阈)⇒ fail', RO({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(120) }).level, 'fail')
+  eq('读数:停摆 ⇒ 退出码 1', stallExitCode(RO({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(120) }).level), 1)
+  eq('读数:behindHours 量出落后小时数(供派发层排序/升级)', RO({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(120) }).behindHours, 2)
+  const NO_TIP = stallInput({ liveSha: SHA_A, tipSha: '', lastSuccessIso: isoAgo(120), missingInputs: ['tip(服务器/FETCH_HEAD/本地 HEAD 三路都取不到)'] })
+  const NO_LOG = stallInput({ liveSha: SHA_A, tipSha: SHA_B, missingInputs: ['lastSuccess(deploy-loop.log 不存在)'] })
+  const IN_FLIGHT = stallInput({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(120), inFlight: true })
+  eq('读数:未判定时 why 必须点名缺哪一路输入(tip)', RO(NO_TIP).why.includes('tip'), true)
+  eq('读数:取不到 tip ⇒ unjudged(网络不可达不得被说成停摆)', RO(NO_TIP).level, 'unjudged')
+  eq('读数:取不到 lastSuccess(日志不在位)⇒ unjudged 且 behindHours=null', [RO(NO_LOG).level, RO(NO_LOG).behindHours], ['unjudged', null])
+  eq('读数:本轮在飞 ⇒ unjudged(不冒红也不记绿)', RO(IN_FLIGHT).level, 'unjudged')
+  eq('读数:缺输入优先于"同值" —— 字段齐而缺输入标记仍 unjudged', RO({ liveSha: SHA_A, tipSha: SHA_A, lastSuccessIso: isoAgo(5), missingInputs: ['tip(取不到)'] }).level, 'unjudged')
+  // 未判定那一档绝不会产出 ok/fail(把三种未判定输入全数过一遍,而不是只挑一条代表)
+  eq(
+    '读数:unjudged 三支合起来仍不产出 ok/fail(互斥锁)',
+    [RO(NO_TIP).level, RO(NO_LOG).level, RO(IN_FLIGHT).level].filter((l) => l === 'ok' || l === 'fail').length,
+    0,
+  )
+  // 变异自证(阳性对照):同一批输入喂给"摘掉缺输入那一支"的判据副本 —— 它必须给出 fail,
+  // 否则上面那条 unjudged 断言只是恰好为空,判据并没有牙(§0.3 要求的正是这一支存在)。
+  // 构造形状 = 原始字段齐而某一路输入被标为取不到(派发层/调用方给残缺输入时的真实形状)。
+  const MUT = stallInput({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(120), missingInputs: ['lastSuccess(deploy-loop.log 不存在)'] })
+  const readoutWithoutGuard = (input) => {
+    const legacy = judgeStall({
+      liveSha: input.liveSha,
+      tipSha: input.tipSha,
+      lastSuccessIso: input.lastSuccessIso,
+      nowMs: input.nowMs,
+      thresholdMin: input.thresholdMin,
+      inFlight: Boolean(input.inFlight),
+    })
+    return legacy.level === 'unknown' ? 'unjudged' : legacy.level
+  }
+  eq('变异自证:摘掉"缺输入 ⇒ unjudged"后,同样输入翻成 fail(证明那一支是承重的)', readoutWithoutGuard(MUT), 'fail')
+  eq('变异自证反向对照:真实判据对同一输入给 unjudged(两者必须在这一格分歧)', RO(MUT).level, 'unjudged')
+  // 源码级结构锁:只读档**结构上**够不着发信与写盘出口(§0.3/§5e 的"不许靠嘴上说")
+  const codeOf = (fn) => String(fn).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[\t ]*\/\/.*$/gm, '')
+  const stallCode = codeOf(stallOnlyMode)
+  eq('结构锁:只读档函数体取到了(取不到等于本锁失去对象)', stallCode.length > 120, true)
+  eq(
+    '结构锁:只读档不得触达任何 mail/去重/写盘出口(逐个点名,不是"看起来没写")',
+    ['sendEmail', 'dispatchBrandMail', 'buildBrandMailArgv', 'maybeAlert', 'deliver\\(', 'runChecks', 'atomicWriteFileSync', 'writeFileSync', 'appendFileSync', 'STATE', 'UNDEL', 'LEDGER'].filter((p) => new RegExp(p).test(stallCode)),
+    [],
+  )
+  eq('结构锁:只读档必须走共用取材层与共用判据(不得自立第二套停摆判据)', [codeOf(stallOnlyMode).includes('collectStallInputs'), codeOf(stallOnlyMode).includes('judgeStallReadout'), codeOf(judgeStallReadout).includes('judgeStall(')], [true, true, true])
+  eq('结构锁:缺输入那道前置 return 必须在 judgeStallReadout 里(摘掉即红)', /if\s*\(missing\.length\)/.test(codeOf(judgeStallReadout)), true)
+  eq('读数:退出码未知档位一律落 2(未判定语义,不得被读成通过)', [stallExitCode('ok'), stallExitCode('fail'), stallExitCode('unjudged'), stallExitCode('')], [0, 1, 2, 2])
+  eq('阈值只从输入取:同一份输入 threshold 45 ⇒ ok、10 ⇒ fail(判据不另藏一个数)', [RO({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(30), thresholdMin: 45 }).level, RO({ liveSha: SHA_A, tipSha: SHA_B, lastSuccessIso: isoAgo(30), thresholdMin: 10 }).level], ['ok', 'fail'])
+  let bad = 0
+  for (const [label, pass, why] of cases) {
+    if (!pass) bad++
+    console.log(`${pass ? '✓' : '✗'} ${label}${pass ? '' : '  ' + why}`)
+  }
+  console.log(`自检 ${cases.length - bad}/${cases.length} 通过`)
+  process.exit(bad ? 1 : 0)
+}
+
+// ── 计划任务(§5b:计划任务禁止直接跑控制台程序 ⇒ 经纯 ASCII vbs 隐藏窗口) ──
+const VBS = join(REPO, 'scripts', 'credential-health-hidden.vbs')
+function ensureVbs() {
+  // 必须纯 ASCII:GBK 代码页解 UTF-8 中文会编译期报错并弹窗
+  const body = [
+    'Option Explicit',
+    'Dim sh, dir, node, script',
+    'Set sh = CreateObject("WScript.Shell")',
+    'dir = Left(WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\\") - 1)',
+    'node = sh.Environment("Process")("IHUI_NODE_BIN")',
+    'If Len(node) = 0 Then node = "node.exe"',
+    'script = dir & "\\check-credential-health.mjs"',
+    // 不得在这里写 `--json >> xxx.log`:WshShell.Run 走 CreateProcess,**不解析 shell 重定向**,
+    // `>>` 只会被当成两个普通参数传给 node —— 曾据此以为有日志,实测 .ihui-agent/state 下从未生成该文件。
+    // 运行态取证面是 credential-health-last.json(最近一次结论)+ LEDGER(追加式流水),
+    // 需要文本日志就必须显式经 cmd.exe /c 包一层,不要把重定向写进 Run 的命令行。
+    'sh.Run """" & node & """ """ & script & """ --json", 0, False',
+  ].join('\r\n')
+  writeFileSync(VBS, body, 'ascii')
+  return VBS
+}
+function schtasks(args) {
+  return spawnSync('schtasks.exe', args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+function installTask() {
+  const vbs = ensureVbs()
+  const wscript = join(process.env.WINDIR || 'C:\\Windows', 'System32', 'wscript.exe')
+  const r = schtasks([
+    '/Create',
+    '/F',
+    '/TN',
+    TASK_NAME,
+    '/SC',
+    'HOURLY',
+    '/MO',
+    '6',
+    '/TR',
+    `"${wscript}" //B "${vbs}"`,
+  ])
+  console.log(r.status === 0 ? `✅ 已注册计划任务「${TASK_NAME}」(每 6 小时,vbs 隐藏窗口)` : `❌ 注册失败: ${r.stderr || r.stdout}`)
+  // schtasks 只能造 InteractiveToken(/NP 会交互索要密码),而那种形态**无人登录时不跑**
+  // ⇒ 告警通道会在"重启后没人登录"期间静默。注册成功后立刻升 S4U(幂等脚本)。
+  if (r.status === 0) {
+    const up = join(REPO, 'scripts', 'task-set-s4u.vbs')
+    if (existsSync(up)) {
+      const u = spawnSync('cscript.exe', ['//nologo', up, TASK_NAME], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 90000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      const o = String(u.stdout || '') + String(u.stderr || '')
+      console.log(/switched to S4U|already S4U/.test(o) ? `✅ 已确保 S4U:${o.split(/\r?\n/).pop()}` : `⚠️ S4U 升级未确认(不影响任务存在):${o.replace(/\r?\n/g, ' | ').slice(0, 160)}`)
+    }
+  }
+  process.exit(r.status === 0 ? 0 : 1)
+}
+function uninstallTask() {
+  const r = schtasks(['/Delete', '/F', '/TN', TASK_NAME])
+  console.log(r.status === 0 ? '✅ 已卸载' : `❌ ${r.stderr || r.stdout}`)
+  process.exit(r.status === 0 ? 0 : 1)
+}
+function taskStatus() {
+  const r = schtasks(['/Query', '/TN', TASK_NAME])
+  console.log(r.status === 0 ? `✅ 已注册: ${String(r.stdout).split(/\r?\n/).filter((l) => /TaskName|Last Run|Last Result|Next Run/i.test(l)).join(' | ')}` : '⚠️ 未注册计划任务')
+  process.exit(0)
+}
+
+/**
+ * 告警:把"凭据失效"从静默变成必须有人看。
+ *
+ * 反今天事故的规则:今天那条"同签名失败告警 12h 内已推过,跳过"把一次**持续两天的故障**
+ * 压成了静默 —— 去重只能去"重复",不能去"还在发生"。这里因此:
+ *   · 每一项失败各自有身份(见下 ALERT_ITEM_WINDOW_MS 一节),新出现的项立刻发(新故障不等窗口);
+ *   · 某项持续在失败 ⇒ 每 20 小时重发一次(绝不因去转而消失);
+ *   · 恢复(失败数归零)⇒ 发一条恢复通知并清空状态。
+ *
+ * 2026-09-29 改:去重的**身份粒度**从"本轮失败项拼成的整条 sig"改成"逐项身份"。
+ * 旧形态实测是噪声主因:两项各自出现/消失会凑出 4 种组合,每种都被当成**全新告警**立即另发,
+ * 去重形同虚设。AGENTS §5e 的配额模型本来就写"只按身份去重、无总量封顶",而整条拼接让
+ * "身份"随组合漂移 = 那句话在这条链上从未成立。现在"该不该寄"逐项判:一封汇总信里只要有一项
+ * 是新身份/到点重发就寄,已在窗口内的项不因"组合变了"被重寄。
+ */
+const STATE = join(REPO, '.ihui-agent', 'state', 'credential-health-alert-state.json')
+/** 全通道投递失败时写此标记:告警没送出去 = 故障从未被人看见,必须留下可被下轮检出的证据 */
+const UNDEL = join(REPO, '.ihui-agent', 'state', 'credential-health-alert-UNDELIVERED.json')
+/** 本地留痕账本:通道全挂时至少有一条人类可读的追加流水 */
+const LEDGER = join(REPO, '.ihui-agent', 'state', 'credential-health-alerts.log')
+/**
+ * 单项重发窗口。**沿用本脚本原有的那个常量**(旧实现把 `20 * 3600 * 1000` 写死在 maybeAlert 里),
+ * 只是提到判据旁边并改成逐项适用 —— 值一字未改。
+ * (派单口径写的"约 4h"与代码现值不符:这份脚本里从来没有 4h 窗口,4h 去重窗住在
+ *  scripts/git-guardian.mjs 的派发器那一侧。按"该脚本已有的窗口常量"执行,不新建第二个数。)
+ */
+export const ALERT_ITEM_WINDOW_MS = 20 * 3600 * 1000
+/** 状态文件版本:v2 起按「每项身份 → 上次通报时刻」记账(v1 只有一条整体 sig) */
+export const ALERT_STATE_VERSION = 2
+
+/** 读状态文件:把"文件不存在"与"文件在而读不出/解不开"分成两态,不并桶。 */
+function loadAlertState() {
+  if (!existsSync(STATE)) return { present: false, parsed: null, readError: '' }
+  try {
+    return { present: true, parsed: JSON.parse(readFileSync(STATE, 'utf8')), readError: '' }
+  } catch (e) {
+    return { present: true, parsed: null, readError: String((e && e.message) || e).slice(0, 120) }
+  }
+}
+
+/**
+ * 把状态内容归一成「每项身份 → 上次通报时刻(ms)」的表(纯函数,构造面可证)。
+ * kind 各态处置不同 —— 关键是两种"判不出"都不许被写成结论:
+ *   none        文件不存在(首轮)⇒ 表空,照常寄第一封,寄成功后写状态
+ *   v2          新格式全量可用
+ *   partial     v2 但个别记录时刻解析不出 ⇒ 那几项按无记录处理,其余照旧
+ *   legacy      旧格式(单条整体 sig)⇒ 向后兼容:按 ' | ' 拆回**它自己记过的那几项**的历史记录,
+ *               未记过的项仍算新身份。**不得**把这张表读成"本轮全部已寄过"(哑弹)。
+ *   unreadable  文件在而 JSON 坏 ⇒ 判不出
+ *   unknown     文件在而形态谁都不像 ⇒ 判不出
+ */
+export function normalizeAlertState({ present = true, parsed = null, readError = '' } = {}) {
+  if (!present) return { kind: 'none', table: {}, reason: '状态文件不存在(首轮)' }
+  if (readError) return { kind: 'unreadable', table: {}, reason: `状态文件读不出:${readError}` }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { kind: 'unknown', table: {}, reason: '状态文件形态判不出(不是对象)' }
+  }
+  if (parsed.version === ALERT_STATE_VERSION) {
+    const sent = parsed.sent
+    if (!sent || typeof sent !== 'object' || Array.isArray(sent)) {
+      return { kind: 'unknown', table: {}, reason: `标了 version=${ALERT_STATE_VERSION} 却没有 sent 表` }
+    }
+    const table = {}
+    let dropped = 0
+    for (const [name, ts] of Object.entries(sent)) {
+      const ms = Date.parse(String(ts))
+      if (Number.isFinite(ms)) table[name] = ms
+      else dropped++
+    }
+    return dropped
+      ? { kind: 'partial', table, reason: `${dropped} 条记录的时刻解析不出 ⇒ 那几项按"无记录"处理` }
+      : { kind: 'v2', table, reason: '' }
+  }
+  // 旧格式:一条整体 sig + 一个 ts。分隔符与写入侧同形(' | ')。
+  // 但"没有任何 sig/ts 痕迹的对象"不得被顺手读成旧格式 —— 那是把"没看清"写成"看清了",
+  // 而它会跳过 degraded 打印(unknown 才喊,legacy 不喊)。
+  if (typeof parsed.sig !== 'string' && parsed.ts === undefined) {
+    return { kind: 'unknown', table: {}, reason: '形态判不出(既无 version=2 的 sent 表,也无旧 sig/ts)' }
+  }
+  const names = String(parsed.sig ?? '')
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!names.length) return { kind: 'legacy', table: {}, reason: '旧格式而 sig 为空(上一轮无故障)' }
+  const ms = Date.parse(String(parsed.ts ?? ''))
+  if (!Number.isFinite(ms)) return { kind: 'unknown', table: {}, reason: '旧格式 sig 在、ts 解析不出 ⇒ 判不出' }
+  return { kind: 'legacy', table: Object.fromEntries(names.map((n) => [n, ms])), reason: '' }
+}
+
+/**
+ * 「这一轮该不该寄」的判据(纯函数)。身份是**每一项失败**,不是失败集合拼出来的那条整体串。
+ * 返回 { shouldSend, recovered, due, pending, degraded, reason }:
+ *   due     = 本轮需要通报的项(无记录 = 新身份,或记录超窗 = 到点重发)
+ *   pending = 仍在窗口内的项 ⇒ 它们**不得**因为"组合变了"被重寄
+ *   degraded= 状态判不出时要打印的降级原因(不得静默)
+ * 判不出(unreadable/unknown)的处置刻意是"这一轮按无记录寄一次 + 寄成功后写回新格式":
+ * 算"已寄过"会把告警变成哑弹,长期算"从没寄过"会每轮重发 —— 只多这一封,下一轮起恢复正常。
+ */
+export function decideAlert({ failNames = [], state, nowMs = Date.now(), windowMs = ALERT_ITEM_WINDOW_MS } = {}) {
+  const { kind, table, reason: degradeNote } = normalizeAlertState(state)
+  // 只有真"判不出/读不全"的三态才需要喊;none(首轮)与 legacy(sig 为空的正常首轮)不是故障,
+  // 把它们也打成降级会让每轮都多一行假警告 —— 警告链自己也得安静地对,否则又是一种噪声。
+  const degraded = kind === 'unreadable' || kind === 'unknown' || kind === 'partial' ? degradeNote : ''
+  const names = [...new Set(failNames.filter(Boolean))]
+  const recorded = Object.keys(table)
+  if (names.length === 0) {
+    return recorded.length
+      ? { shouldSend: true, recovered: true, due: [], pending: [], degraded, reason: `本轮无失败而此前有 ${recorded.length} 项通报记录 ⇒ 发恢复通知` }
+      : { shouldSend: false, recovered: false, due: [], pending: [], degraded, reason: '无失败且此前也未告警,不打扰' }
+  }
+  const due = names.filter((n) => table[n] === undefined || nowMs - table[n] > windowMs)
+  const pending = names.filter((n) => !due.includes(n))
+  if (!due.length) {
+    return { shouldSend: false, recovered: false, due: [], pending, degraded, reason: `${pending.length} 项都在 ${(windowMs / 3600000).toFixed(0)}h 窗口内逐项通报过 ⇒ 不重寄(组合翻转不算新身份)` }
+  }
+  return {
+    shouldSend: true,
+    recovered: false,
+    due,
+    pending,
+    degraded,
+    reason: `需通报 ${due.length} 项(新身份/到点重发)${pending.length ? `;另有 ${pending.length} 项窗口内已通报,不重寄` : ''}`,
+  }
+}
+
+/**
+ * 寄成功之后写回的状态。三条一条都不能少:
+ *   ① **只刷本轮真被通报的那几项**的时钟 —— 若把窗口内的项一起刷,一次组合翻转就把它的 20h
+ *      重发钟拨回,持续故障可以永远不再喊(与本脚本头注"去重不能去成哑弹"同一条禁令);
+ *   ② 本轮**没在失败**的项,记录**不得**被抹掉 —— 抹了就等于"它再失败时是新身份",一项反复抖动
+ *      的凭据又会每轮重寄一封,与要防的噪声同源(表的增长由 ③ 封顶);
+ *   ③ recovered(本轮零失败、恢复通知已发)整表清空,否则恢复通知每轮重发;超窗记录一并剪掉。
+ *   ④ 仍写 sig/ts/fails 三个旧字段:v1 代码读新文件不会崩,而 UNDEL 的 detail 与恢复通知都还吃 sig。
+ */
+export function advanceAlertState({ table = {}, failNames = [], notified = [], nowMs = Date.now(), recovered = false, windowMs = ALERT_ITEM_WINDOW_MS } = {}) {
+  const names = [...new Set(failNames.filter(Boolean))]
+  const sent = {}
+  // ②③ 本轮没在失败的项**保留**其记录(抹掉就等于"再失败时是新身份"⇒ 抖动一项又寄一封),
+  //    但超窗记录剪掉(与"无记录"等价,留着只会让表无限涨)。
+  if (!recovered) {
+    for (const [n, ms] of Object.entries(table)) if (nowMs - ms <= windowMs) sent[n] = new Date(ms).toISOString()
+    for (const n of new Set(notified.filter(Boolean))) sent[n] = new Date(nowMs).toISOString()
+  }
+  const sorted = Object.fromEntries(Object.entries(sent).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+  return {
+    version: ALERT_STATE_VERSION,
+    ts: new Date(nowMs).toISOString(),
+    sig: [...names].sort().join(' | '),
+    fails: names.length,
+    sent: sorted,
+  }
+}
+
+/**
+ * 台账条目的正文(纯函数,便于镜像测试断言"未投递"三字只出现在真没投递的那一态)。
+ * 三态与它**实际拿到的那个投递返回值同源**,不再恒传 null:
+ * 旧形态的谎 = 明明寄出去了,投递史里逐条写着"未投递" ⇒ 任何人复核投递历史都得到相反结论。
+ */
+export function buildLedgerEntry({ title, desp, delivery, nowIso = new Date().toISOString() } = {}) {
+  const verdict = delivery?.dryRun
+    ? '(dry-run,未投递)'
+    : delivery?.sent
+      ? `✅ 经 ${delivery.via || '?'} 送达`
+      : '❌ 全通道失败'
+  const lines = delivery?.attempts?.length ? delivery.attempts.map((a) => `  · ${a}`).join('\n') : ''
+  return `——— ${nowIso} ${title} ———\n${desp}\n投递: ${verdict}\n${lines}\n\n`
+}
+
+function appendLedger(title, desp, delivery) {
+  try {
+    mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
+    appendFileSync(LEDGER, buildLedgerEntry({ title, desp, delivery }), 'utf8')
+  } catch (e) {
+    console.error(`⚠️ 告警账本写入失败(${e?.message})—— 台账本身也不能静默失败`)
+  }
+}
+
+/** 通用 POST(https)已随第三方推送腿摘除一并删除;发信一律走下方品牌派发器 */
+
+// ── 品牌邮件通道(2026-09-23 迁移,守门 81「品牌邮件通道对账」)─────────────────────
+// 为什么这里不再自拼传输层:旧实现是 `post({ host: 'api.resend.com', path: '/emails' })` 直发、
+// body 只有 text 没有 html —— 凭据告警邮件因此永远没有版式,仓库里那套「智汇通报」模板
+// (apps/api/src/services/email-templates.ts)在这条链上零调用。这类代码能发出去、typecheck/lint
+// 全绿,只有用户打开邮件时才发现,正是守门 81 立项时揪出的第三条绕过通道(前两条在
+// deploy/win/ihui-deploy.ps1,已收口为同样形态)。现在唯一出口 = 派生
+// apps/api/scripts/notify-deploy-failure.ts:版式由模板单点决定,SMTP 优先 + Resend 兜底 + .env
+// 回读 + 收件人脱敏都在那一条实现里 —— 本脚本只传参,仓库里不再有两份发信逻辑。
+//
+// "巡检脚本不该依赖凭据"这个顾虑为什么不成立:旧实现本来就依赖 apps/api/.env 的 RESEND_API_KEY
+// (没有它同样一条都发不出去),迁移只是把首选换成 SMTP、Resend 仍在同一个派发器里兜底,依赖面
+// 没有变宽。真正要保证的不是"发信零凭据",而是"发不出去这件事本身必须被看见" —— 那由 UNDEL 标记
+// + runChecks ⓪ 项负责:全通道失败会在下一轮被判红,而不是静默丢失。
+const TSX_ENTRY = join(REPO, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
+const BRAND_MAIL_SCRIPT = join(REPO, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
+/** 正文临时文件目录(§15:临时物一律项目内,已 gitignore) */
+const BRAND_MAIL_MSG_DIR = join(REPO, '.ihui-agent', 'tmp', 'credential-health-notify')
+/** 告警收件人(§5e 运维邮件到人同一地址) */
+const ALERT_EMAIL_TO = '502319984@qq.com'
+/** 派发器单次调用的墙上时钟上限:tsx 冷启 + SMTP 握手(nodemailer 自带 10s 超时)的最坏叠加 */
+const BRAND_MAIL_TIMEOUT_MS = 90_000
+
+/**
+ * 拼派发器 argv(纯函数,--self-test 钉契约)。
+ * ⚠️ 绝不传 `--env-file`:派发器默认就回读 apps/api/.env(且只补缺失、不覆盖已有值),而 tsx v4
+ * 会把 `--env-file` 当成自己的参数劫持转发给 node 自身,路径不存在时 node 直接 exit 9(实测坑)。
+ * 确需显式指定时须用 `-- --env-file <path>` 双横杠透传形态。
+ */
+export function buildBrandMailArgv({ to, title, severity, messageFile, plain = false, dryRun = false, alertId = '' }) {
+  const id = String(alertId || '').trim()
+  return [
+    TSX_ENTRY,
+    BRAND_MAIL_SCRIPT,
+    '--to',
+    to,
+    '--title',
+    title,
+    '--severity',
+    severity,
+    '--source',
+    'credential-health',
+    '--message-file',
+    messageFile,
+    ...(plain ? ['--plain'] : []),
+    ...(dryRun ? ['--dry-run'] : []),
+    // 身份交给唯一出口记账(§5e-3,2026-10-19 立):标题是通用的
+    // (「凭据失效/部署停摆告警」一封里可能装着三件不同的故障),量算仪按标题分桶就会把
+    // "甲故障复发"与"乙故障新增"数成同一身份 2 封 ⇒ 假风暴,也会把真风暴并成假安静。
+    // `--dedupe-hours 0` 是**必须成对**的那一半:本文件已有逐项 20h 窗口(decideAlert),
+    // 出口的默认 4h 窗口再叠一层就是"谁在压信"读不出来 —— 压信权只留给语义主键的持有者。
+    ...(id ? ['--alert-id', id, '--dedupe-hours', '0'] : []),
+    '--strict', // 成功 exit 0 / 失败 exit 1,由本脚本据此决定是否降级重试
+  ]
+}
+
+
+/** dry-run 的通道判定:派发器自报"至少一条通道齐备"才算可用(齐备与否由它读 apps/api/.env 决定) */
+export function judgeDryRunChannel(stdout) {
+  return /通道判定 (?:SMTP|Resend): 可用/.test(String(stdout ?? ''))
+}
+
+/** 品牌派发器的一次调用:异常/超时一律归为失败,绝不抛出(告警通道自身不能让巡检崩掉) */
+function dispatchBrandMail({ title, desp, severity, plain, dryRun, alertId }) {
+  if (!existsSync(TSX_ENTRY) || !existsSync(BRAND_MAIL_SCRIPT)) {
+    return { ok: false, why: `品牌派发器缺失(tsx=${existsSync(TSX_ENTRY)} 脚本=${existsSync(BRAND_MAIL_SCRIPT)})` }
+  }
+  let msgFile = null
+  try {
+    mkdirSync(BRAND_MAIL_MSG_DIR, { recursive: true })
+    // 多行中文正文必须走文件而不是命令行参数:参数还要过一层控制台代码页,换行/引号/反引号都可能
+    // 被吃掉(desp 实测含多段换行与 Markdown 符号)。Node 的 utf8 写入本身无 BOM。
+    msgFile = join(BRAND_MAIL_MSG_DIR, `${Date.now()}-${process.pid}${plain ? '-plain' : ''}.txt`)
+    writeFileSync(msgFile, desp, 'utf8')
+    const r = spawnSync(
+      process.execPath, // 本进程就是 node ⇒ 绝对路径天然可得,不必像 PowerShell 那样按候选找 node.exe
+      buildBrandMailArgv({ to: ALERT_EMAIL_TO, title, severity, messageFile: msgFile, plain, dryRun, alertId }),
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: BRAND_MAIL_TIMEOUT_MS, // windowsHide:§5b,漏了就是桌面反复弹窗
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    if (r.error) return { ok: false, why: `派发器进程异常(${r.error.code || r.error.name}): ${redactChildOutput(r.error.message)}` }
+    if (dryRun) return { ok: judgeDryRunChannel(r.stdout), why: `通道判定: ${redactChildOutput(r.stdout)}` }
+    if (r.status === 0) return { ok: true, why: '已送达' }
+    return { ok: false, why: `exit=${r.status} ${redactChildOutput(r.stderr || r.stdout)}` }
+  } catch (e) {
+    return { ok: false, why: `派发器调用异常: ${redactChildOutput((e && e.message) || e)}` }
+  } finally {
+    if (msgFile) rmSync(msgFile, { force: true })
+  }
+}
+
+/**
+ * 邮件 = 唯一到人通道(2026-09-24 起,AGENTS.md §5e)。
+ * 品牌模板通道失败时,再用同一条传输层的 --plain 降级发纯文本 —— 两条都失败才算未送达
+ * (与 ihui-deploy.ps1 的 Send-EmailNotify 同一策略:宁可版式降级,不可静默丢失)。
+ * 第三方推送时代不存在这层担忧:那时邮件只是兜底,推不出去还有主通道;如今没有兜底可退,
+ * 失败必须经 UNDEL 标记在下一轮被判红。
+ */
+async function sendEmail(title, desp, severity = 'critical', { dryRun = false, alertId = '' } = {}) {
+  const branded = dispatchBrandMail({ title, desp, severity, plain: false, dryRun, alertId })
+  if (dryRun) return branded
+  if (branded.ok) return { ok: true, why: '品牌模板通道已送达' }
+  const plain = dispatchBrandMail({ title, desp, severity, plain: true, dryRun: false, alertId })
+  if (plain.ok) return { ok: true, why: `品牌模板失败(${branded.why})→ 降级纯文本已送达` }
+  return { ok: false, why: `品牌模板失败(${branded.why});降级纯文本失败(${plain.why})` }
+}
+
+/**
+ * 投递(邮件单通道,2026-09-24 起无第二通道)。返回尝试结论列表,调用方据此留痕。
+ * 失败 = 故障从未被人看见,必须写 UNDELIVERED 标记并在下一轮判红 —— 没有"另一条腿"可退。
+ */
+async function deliver(title, desp, severity = 'critical', alertId = '') {
+  const e = await sendEmail(title, desp, severity, { alertId })
+  const attempts = [`email: ${e.ok ? `已送达 — ${e.why}` : `未送达 — ${e.why}`}`]
+  if (e.ok) return { sent: true, via: 'email', attempts }
+  return { sent: false, via: null, attempts }
+}
+
+async function maybeAlert(results, dryRun) {
+  const fails = results.filter((r) => r.level === 'fail')
+  const names = fails.map((f) => f.name)
+  const sig = [...names].sort().join(' | ')
+  const now = Date.now()
+  const st = loadAlertState()
+  const d0 = decideAlert({ failNames: names, state: st, nowMs: now })
+  // 判不出的降级必须喊出来:静默 = 把"没判"写成"判过了"(本仓最高频失效型)。
+  if (d0.degraded) console.log(`⚠️ 去重状态不可判定 ⇒ ${d0.degraded};本轮按"无记录"处理,寄成功后写回新格式`)
+  if (!d0.shouldSend) return { sent: false, why: d0.degraded ? `${d0.reason}(状态侧:${d0.degraded})` : d0.reason }
+
+  const recovered = d0.recovered
+  const title = recovered ? `【${envLabelHere()}】凭据巡检已恢复` : `【${envLabelHere()}】凭据失效/部署停摆告警`
+  // 严重度进品牌模板的色带/前缀:恢复通知不该长得和一次凭据失效一样
+  const severity = recovered ? 'info' : 'critical'
+  // 正文形态按现状列**全量**(失效项 + 全部结果),不改成"只列本轮新身份的那几项"。
+  // 理由:① 改动最小(判据换了粒度,正文一个字不动);② 邮件是"这一轮的整体体检报告",
+  //      只列增量会让人以为其余项已恢复 —— 那正是本文件反对的另一种谎。
+  const desp = recovered
+    ? `上一轮失效项已恢复: ${Object.keys(normalizeAlertState(st).table).join(' ; ') || '(旧记录无逐项身份)'}\n\n全部检查: ${results.map((r) => `${r.level} ${r.name}`).join('\n')}`
+    : `失效项(${fails.length}):\n${fails.map((f) => `- ${f.name}\n  ${redactAlertDetail(f.detail)}`).join('\n')}\n\n` +
+      `全部结果:\n${results.map((r) => `- [${r.level}] ${r.name} — ${redactAlertDetail(r.detail)}`).join('\n')}\n\n` +
+      `本轮通报身份(${d0.due.length}/${names.length}): ${d0.due.join(' ; ')}\n` +
+      `窗口内已通报、本次未重寄:${d0.pending.length} 项\n\n` +
+      `处置:更新对应凭据后**必须同步服务环境块**(nssm AppEnvironmentExtra),` +
+      `再跑 node scripts/check-credential-health.mjs 复验。限流/网络不可达不算失效。\n` +
+      `来源:本机即生产机(D:/IHUI-AI 上跑 IHUI-API / IHUI-DEPLOYLOOP)。`
+  if (dryRun) {
+    console.log(`[alert-dry] title=${title}\n${desp.slice(0, 300)}…`)
+    // 这一条是真没投递 ⇒ 才允许写"未投递"(缺陷②的判据就是这一句不得恒写)
+    appendLedger(title, desp, { sent: false, dryRun: true, via: null, attempts: ['alert-dry:只打印正文,未调用派发器'] })
+    return { sent: false, why: 'dry-run 未发送' }
+  }
+  // [2026-11-03 族窗口] 位置在 decideAlert 之后、deliver 之前,且**不推进** alert 状态:
+  // 族窗口压住期间若推进逐项状态,24h 届满那次会被自家窗口再压一轮(与监控/部署侧同一纪律)。
+  // 族 = 「凭据巡检:类别=credential-fail」/「…=recovered」:失效与恢复分族,恢复通知不得被压。
+  const family = credentialAlertFamily({ recovered })
+  const familyGate = decideAlertFamilyWindow({ family })
+  if (familyGate.action === 'suppress') {
+    const ageHours = (familyGate.ageMs / 3600000).toFixed(1)
+    const capHours = (familyGate.cooldownMs / 3600000).toFixed(0)
+    appendLedger(title, desp, {
+      sent: false,
+      dryRun: false,
+      via: null,
+      attempts: [
+        `族级窗口抑制: ${family} 首封距今 ${ageHours}h < 上限 ${capHours}h(${familyGate.entryId}),本轮未投递`,
+      ],
+    })
+    return { sent: false, why: `族级窗口抑制(族=${family},首封 ${ageHours}h 内不重寄)` }
+  }
+  if (!familyGate.entryId) {
+    console.log(`ℹ️ 族窗口无策略条目(族=${family}),按 fail-open 照发`)
+  } else if (familyGate.why === 'state-undetermined') {
+    console.log(`⚠️ 族窗口状态不可判定 ⇒ ${familyGate.stateError};本轮 fail-open 照发`)
+  }
+  // 台账改到投递**之后**落盘,并带上真实结果:旧写法在寄出之前就用 null 落一条,于是
+  // "(dry-run,未投递)"被恒写进每一行投递史(缺陷②)。deliver() 内部层层 catch 不会抛,
+  // 这里再兜一层 try 是为"投递流程自己崩了也留痕",而不是为"先落一条再说"。
+  let d
+  try {
+    // 交给唯一出口的记账身份 = 本轮真正报出去的那几项(逐项语义主键,与 decideAlert 的窗口同源);
+    // 恢复通知自成一段。计数/时刻一律不进这一串(守门 224 V1)。
+    const mailAlertId = recovered
+      ? 'credential-health;recovered'
+      : `credential-health;${[...d0.due].sort().join('+') || 'no-due-id'}`
+    d = await deliver(title, desp, severity, mailAlertId)
+  } catch (e) {
+    d = { sent: false, via: null, attempts: [`投递流程异常: ${redactChildOutput((e && e.message) || String(e))}`] }
+  }
+  appendLedger(title, desp, d)
+  if (d.sent) {
+    mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
+    const table = normalizeAlertState(st).table
+    const next = advanceAlertState({ table, failNames: names, notified: recovered ? [] : d0.due, nowMs: now, recovered })
+    // 原子替换(G-653):写出的字节与改动前逐字相同,只是下一轮再也读不到半截 JSON。
+    atomicWriteFileSync(STATE, JSON.stringify(next))
+    rmSync(UNDEL, { force: true })
+    // [2026-11-03 族窗口] 只在这封**确认真送达**后记族首封;失败不记 ⇒ 下一轮首封仍能重试。
+    const famCommit = commitAlertFamilyDelivery({ family })
+    if (!famCommit.ok) console.log(`⚠️ 族窗口首封未记账(族=${family}): ${famCommit.error}(下一轮同族仍会照发)`)
+  } else {
+    // 未送达标记同样必须完整:它是"这条告警从未寄出去"的唯一证据,半截 = 下轮读不出 ⇒ 判不出。
+    atomicWriteFileSync(
+      UNDEL,
+      JSON.stringify({ ts: new Date().toISOString(), sig, items: d0.due, attempts: d.attempts }, null, 2),
+    )
+  }
+  return {
+    sent: d.sent,
+    via: d.via,
+    attempts: d.attempts,
+    why: d.sent ? `经 ${d.via} 送达(${d0.due.length} 项身份)` : `全通道失败(已写标记 ${UNDEL})`,
+  }
+}
+
+// §22d 双形态入口守护:本文件的判据(normalizeAlertState / decideAlert / advanceAlertState /
+// buildLedgerEntry …)已 export 给 §22c 镜像测试直接 import,而下面这条 argv 分发链会真打厂商
+// API、判红还会真发一封到人邮件(唯一到人通道,须节制)—— 没有这道守卫,测试一 import 就把整轮
+// 巡检跑一遍(§22d 的立项理由)。形态取 §22d 模板给的正面写法:整条链收进 main(),顶层只在
+// "本模块被直接 node 执行"时调一次;不写成"守卫先空转、链挂在它的 else 上"那种倒装 —— 那样
+// 分发链在结构上成了守卫的分支,读代码的人会以为参数语义被顺手改过。
+const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
+
+async function main() {
+  const argv = process.argv.slice(2)
+  if (argv.includes('--help') || argv.includes('-h')) {
+    // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
+    // 厂商 API,还可能因当轮判红而真发一封告警邮件(唯一到人通道,打扰真实收件人,须节制)。
+    console.log(
+      [
+        '用法: node scripts/check-credential-health.mjs [模式]',
+        '',
+        '  (缺省)        全量巡检并判定告警,异常 exit 1',
+        '  --json        机器可读输出(写 .ihui-agent/state/credential-health-last.json 心跳)',
+        '  --stall-only  **只读单维档**:只量「部署停摆」,stdout 恒为单行 JSON(带 --json 也一样,该档本就输出 JSON)',
+        '                零发信、零写盘(不碰日级去重台账/心跳/UNDEL 标记),退出码 0=ok / 1=fail / 2=未判定',
+        '                样例: node scripts/check-credential-health.mjs --stall-only --json',
+        '  --alert-dry   跑完整巡检,只打印告警正文;台账如实记一条 "(dry-run,未投递)"(不调用派发器)',
+        '  --mail-dry-run 只问品牌邮件派发器「通道是否齐备」(零网络请求,不占配额)',
+        '  --test-alert  真发一次通道自测(会真打扰收件人,须节制)',
+        '  --self-test   逻辑自检(不触网、不读真凭据)',
+        '  --install | --uninstall | --status  计划任务注册/卸载/健康',
+        '',
+        '告警通道: 仅邮件一条(按**逐项身份**去重、无总量封顶;一封汇总信里只要有一项是新身份或到点',
+        '          重发才寄,已在窗口内的项不因失败组合翻转而重寄)。邮件一律经',
+        '          apps/api/scripts/notify-deploy-failure.ts 的品牌模板(守门 81),投递失败会写',
+        '          UNDELIVERED 标记并在下一轮判红;台账逐条记真实投递结果(成功/失败/dry-run 三态)。',
+      ].join('\n'),
+    )
+    process.exit(0)
+  } else if (argv.includes('--stall-only')) {
+    // 必须排在缺省巡检分支**之前**、且不得落到下面任何一支:这一档的全部意义就是"只量一维、
+    // 什么都不发",若顺手跑成 runChecks() 就会把只读档变成打厂商 API + 判红真寄一封邮件。
+    stallOnlyMode()
+  } else if (argv.includes('--self-test')) selfTest()
+  else if (argv.includes('--test-alert')) {
+    // 通道可用性必须可证:只看"代码写了发信"不算,必须真发一次并回读结果。
+    const d = await deliver(
+      `【${envLabelHere()}】凭据巡检通道自测`,
+      '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。',
+      'critical',
+      'credential-health;channel-selftest',
+    )
+    console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
+    for (const t of d.attempts) console.log(`  · ${t}`)
+    process.exit(d.sent ? 0 : 1)
+  } else if (argv.includes('--mail-dry-run')) {
+    // 邮件通道要能在"不打扰收件人、不占配额"的前提下自证:派发器的 --dry-run 只做渲染与通道
+    // 判定,零网络请求(输出里的 html 字节数 + 机械风横幅命中=yes 就是版式真生效的证据)。
+    const r = await sendEmail(
+      `【${envLabelHere()}】凭据巡检邮件通道演练(dry-run)`,
+      '这是一条 dry-run 演练正文,未实际发送。\n第二行用于验证多行中文经文件通道原样送达。',
+      'critical',
+      { dryRun: true },
+    )
+    console.log(`邮件通道(dry-run): ok=${r.ok} ${r.why}`)
+    process.exit(r.ok ? 0 : 1)
+  } else if (argv.includes('--install')) installTask()
+  else if (argv.includes('--uninstall')) uninstallTask()
+  else if (argv.includes('--status')) taskStatus()
+  else {
+    const results = await runChecks()
+    const bad = results.filter((r) => r.level === 'fail')
+    if (argv.includes('--json')) {
+      mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
+      const a = await maybeAlert(results, false)
+      const line = JSON.stringify({ ts: new Date().toISOString(), fail: bad.length, alert: a, results })
+      // 心跳件走同一出口:git-guardian 读它判"巡检到底有没有在跑",半截 JSON 会被读成"没跑"。
+      atomicWriteFileSync(join(REPO, '.ihui-agent', 'state', 'credential-health-last.json'), line)
+      console.log(line)
+      if (!a.sent) console.log(`告警判定: sent=false ${a.why}`)
+      process.exit(bad.length ? 1 : 0)
+    } else {
+      for (const r of results) console.log(`${{ ok: '✅', fail: '❌', limited: '⚠️', unreachable: '⚠️', unknown: '· ' }[r.level]} [${r.level}] ${r.name} — ${r.detail}`)
+      const warn = results.filter((r) => r.level === 'limited' || r.level === 'unreachable')
+      if (warn.length) console.log(`· 另有 ${warn.length} 项限流/网络不可达(不计为失效): ${warn.map((w) => w.name).join(' ; ')}`)
+      if (bad.length) console.log('⚠️ 被限流/网络不可达 ≠ 凭据过期,不要据此换 key(本会话真实误判过一次)')
+      console.log(bad.length ? `❌ ${bad.length} 项凭据失效: ${bad.map((b) => b.name).join(' ; ')}` : '✅ 全部凭据有效')
+    }
+    const a = await maybeAlert(results, argv.includes('--alert-dry'))
+    console.log(`告警判定: sent=${a.sent} ${a.why}`)
+    for (const t of a.attempts || []) console.log(`  · ${t}`)
+    process.exit(bad.length ? 1 : 0)
+  }
+}
+
+// §22b/§22d 的退出码约定:2 = 脚本自身异常(main 内每条分支自己 exit,所以走到 catch 只可能是崩了),
+// 1 = 业务判红。崩了不得冒充"巡检通过",也不得静默挂着不退。
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

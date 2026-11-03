@@ -1,0 +1,65 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { apiOrThrow } from '@/lib/api'
+import type { CirclePost, CirclePostStatus, CirclePostComment, PostFilter } from './types'
+
+export const PAGE_SIZE = 20
+
+export interface DynamicsListData {
+  list: CirclePost[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface CommentsListData {
+  list: CirclePostComment[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export async function fetchDynamics(filter: PostFilter): Promise<DynamicsListData> {
+  const qs = new URLSearchParams({
+    page: String(filter.page),
+    pageSize: String(filter.pageSize),
+  })
+  if (filter.keyword) qs.set('keyword', filter.keyword)
+  if (filter.status !== 'all') qs.set('status', filter.status)
+  return apiOrThrow<DynamicsListData>(`/api/admin/circles/posts?${qs.toString()}`)
+}
+
+export async function deleteDynamic(id: string): Promise<void> {
+  await apiOrThrow<null>(`/api/admin/circles/posts/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export async function auditDynamic(
+  id: string,
+  status: Exclude<CirclePostStatus, 'deleted'>,
+): Promise<void> {
+  await apiOrThrow<{ post: { id: string; status: CirclePostStatus } }>(
+    `/api/admin/circles/posts/${encodeURIComponent(id)}/audit`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    },
+  )
+}
+
+export async function fetchDynamicComments(
+  id: string,
+  page: number,
+  pageSize: number,
+): Promise<CommentsListData> {
+  const qs = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  })
+  return apiOrThrow<CommentsListData>(
+    `/api/admin/circles/posts/${encodeURIComponent(id)}/comments?${qs.toString()}`,
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

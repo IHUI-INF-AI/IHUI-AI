@@ -1,0 +1,106 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+.phone-page {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+.phone-step {
+  padding: var(--spacing-md);
+}
+.phone-intro {
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md-loose);
+  margin-bottom: var(--spacing-md);
+}
+.phone-intro-title {
+  display: block;
+  font-size: var(--text-strong);
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-sm);
+}
+.phone-intro-desc {
+  display: block;
+  font-size: var(--text-body-sm);
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+.phone-card {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 0 32rpx;
+  margin-bottom: var(--spacing-md);
+}
+.phone-row {
+  padding: var(--spacing-lg) 0;
+}
+.phone-row-divider {
+  margin-bottom: var(--spacing-sm);
+}
+.phone-label {
+  display: block;
+  font-size: var(--text-body);
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-sm);
+}
+.phone-input-wrap {
+  position: relative;
+}
+.phone-input {
+  width: 100%;
+  height: 72rpx;
+  background: var(--color-background);
+  border-radius: var(--radius-sm);
+  padding: 0 200rpx 0 20rpx;
+  font-size: var(--text-body);
+  box-sizing: border-box;
+}
+.phone-code-btn {
+  position: absolute;
+  right: var(--spacing-sm-loose);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--text-label);
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+.phone-code-btn.disabled {
+  color: var(--color-muted-foreground);
+}
+.phone-submit {
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
+  font-size: var(--text-strong);
+  border-radius: var(--radius-sm);
+}
+.phone-submit.disabled {
+  opacity: 0.5;
+}
+.phone-notice {
+  margin-top: var(--spacing-lg);
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md-loose);
+}
+.phone-notice-title {
+  display: block;
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-xs-loose);
+}
+.phone-notice-desc {
+  display: block;
+  font-size: var(--text-label);
+  color: var(--color-foreground);
+  line-height: 1.6;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

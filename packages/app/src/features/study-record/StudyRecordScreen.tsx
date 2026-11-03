@@ -1,0 +1,244 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type {
+  StudyRecordItem,
+  StudyRecordScreenProps,
+  StudyRecordStats,
+  StudyRecordStatus,
+} from '@ihui/types'
+
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
+
+/** 学习记录/Props 类型 re-export(单一来源 @ihui/types) */
+export type { StudyRecordItem, StudyRecordScreenProps, StudyRecordStats, StudyRecordStatus }
+
+/**
+ * 学习记录共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header(返回 + 标题 + 副标题 + userNickname)
+ * + statsCard(6 个指标 2 行)+ 学习记录卡片列表(courseTitle/lessonTitle + statusBadge
+ * + duration/progress + lastStudyAt)+ 下拉刷新 + loading/empty 态。
+ * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ */
+export function StudyRecordScreen({
+  t,
+  records,
+  stats,
+  userNickname,
+  loading,
+  refreshing,
+  error,
+  onRefresh,
+  onBack,
+  colorScheme = 'light',
+  onNavigate,
+  onToast,
+}: StudyRecordScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  const statusLabel = (status: StudyRecordStatus) => {
+    switch (status) {
+      case 'completed':
+        return t('studyRecord.statusCompleted')
+      case 'paused':
+        return t('studyRecord.statusPaused')
+      case 'in_progress':
+        return t('studyRecord.statusInProgress')
+      default:
+        return t('studyRecord.statusInProgress')
+    }
+  }
+
+  const statusStyle = (status: StudyRecordStatus) => {
+    switch (status) {
+      case 'completed':
+        return styles.statusCompleted
+      case 'paused':
+        return styles.statusPaused
+      case 'in_progress':
+        return styles.statusInProgress
+      default:
+        return styles.statusInProgress
+    }
+  }
+
+  const renderStats = (s: StudyRecordStats) => (
+    <View style={styles.statsCard}>
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{s.totalDuration}</Text>
+          <Text style={styles.statLabel}>{t('studyRecord.totalDuration')}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{s.totalCourses}</Text>
+          <Text style={styles.statLabel}>{t('studyRecord.totalCourses')}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{s.completedCourses}</Text>
+          <Text style={styles.statLabel}>{t('studyRecord.completedCourses')}</Text>
+        </View>
+      </View>
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{s.totalLessons}</Text>
+          <Text style={styles.statLabel}>{t('studyRecord.totalLessons')}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{s.completedLessons}</Text>
+          <Text style={styles.statLabel}>{t('studyRecord.completedLessons')}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{s.continuousDays}</Text>
+          <Text style={styles.statLabel}>{t('studyRecord.continuousDays')}</Text>
+        </View>
+      </View>
+    </View>
+  )
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <View style={styles.titleBox}>
+          <Text style={styles.title}>{t('studyRecord.title')}</Text>
+          <Text style={styles.subtitle}>{t('studyRecord.subtitle', { name: userNickname })}</Text>
+        </View>
+      </View>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {loading ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+      ) : (
+        <FlatList<StudyRecordItem>
+          data={records}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listBody}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListHeaderComponent={stats ? renderStats(stats) : null}
+          ListEmptyComponent={
+            <EmptyState title={t('studyRecord.empty')} colorScheme={colorScheme} />
+          }
+          renderItem={({ item }) => {
+            const title = item.courseTitle || item.lessonTitle || t('studyRecord.untitled')
+            return (
+              <View style={styles.card}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  <View style={[styles.statusBadge, statusStyle(item.status)]}>
+                    <Text style={styles.statusText}>{statusLabel(item.status)}</Text>
+                  </View>
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={styles.cardMeta}>
+                    {item.duration !== null
+                      ? `${t('studyRecord.duration')}: ${item.duration}`
+                      : item.progress !== null
+                        ? `${t('studyRecord.progress')}: ${item.progress}%`
+                        : ''}
+                  </Text>
+                  <Text style={styles.cardTime}>{item.lastStudyAt}</Text>
+                </View>
+              </View>
+            )
+          }}
+        />
+      )}
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
+    },
+    titleBox: { flex: 1 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
+    separator: { height: 8 },
+    statsCard: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      marginBottom: rnSpacing.md,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      marginBottom: rnSpacing.sm,
+    },
+    statItem: { flex: 1, alignItems: 'center' },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    statLabel: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
+    card: {
+      padding: rnSpacing['md-loose'],
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      marginRight: rnSpacing.sm,
+    },
+    statusBadge: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+    },
+    statusCompleted: { backgroundColor: tk.success.light },
+    statusPaused: { backgroundColor: tk.surface.card },
+    statusInProgress: { backgroundColor: tk.warning.light },
+    statusText: { fontSize: rnType.badge.size, fontWeight: '600' },
+    metaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: rnSpacing.sm,
+    },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

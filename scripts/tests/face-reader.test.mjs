@@ -1,0 +1,1698 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * `scripts/lib/face-reader.mjs` 的镜像测试。
+ *
+ * 这道层要解决的是"同一个易错口径被各门各抄一份"。而**收口本身没有哨兵就会重新腐烂**
+ * (本仓对豁免清单的教训:`RN_ONLY_BRAND_KEYS` 那种清单过期了没人发现)。所以本文件守两件事:
+ *   ① 层自身的几条硬规矩还在(绝对路径 git / batch 的 stdio[0] 是 pipe / 有 timeout 与够用的
+ *      maxBuffer / 仓库根比较穿 junction / 子进程 stderr 不外漏);
+ *   ② 挂在这层上的门真的挂着,且没有偷偷自己拼 git 派生 —— 门有几道由下面的三条棘轮现场量,
+ *      **不在注释里写死数字**(写死的那一行,下一次收口就变成一句骗人的旧话)。
+ * 每条否定式判据都配**阳性对照**:先拿一段"违规写法"喂同一个判据函数,证明它能抓得住,
+ * 否则"0 命中"可能只是尺子坏了。
+ */
+
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+// §26/G-284 最后一格:临时夹具唯一落点是 scratch-dir,不走活进程 TEMP(它可能仍钉 C 盘)。
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { spawnSync } from 'node:child_process'
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+
+import {
+  FACES,
+  FACE_LABEL,
+  Undetermined,
+  catBatch,
+  parseBatch,
+  catBatchCheck,
+  catBatchOids,
+  gitBinary,
+  gitRaw,
+  gitErrText,
+  selectFace,
+  listFaceFiles,
+  packByBytes,
+  spawnCauseText,
+  parseBatchCheckSizes,
+  catBatchBinary,
+  parseBatchBuffers,
+  spawnViaTempStdinFile,
+  batchExecFileSync,
+  bareGitCountOf,
+  hideComments,
+  probeFaceSpec,
+  describeProbe,
+} from '../lib/face-reader.mjs'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const scriptsDir = join(here, '..')
+const GIT = gitBinary()
+const read = (f) => readFileSync(join(scriptsDir, f), 'utf8')
+
+/** 已收敛到共用层的门(91 主题接线 / 94 错误码覆盖 / 101 锁与清单对账 / 93 跨端色值对账)。
+ *  条数不写进任何断言文案 —— 它是会过期的数字,用例只按 `GATES.length` 说话。 */
+const GATES = [
+  'check-theme-prop-wiring.mjs',
+  'check-error-code-coverage.mjs',
+  'check-lock-manifest-consistency.mjs',
+  // 守门 93 是全链**最后一处自带 `cat-file --batch` 解析**的门,2026-09-25 收口进来后本清单才含它。
+  // 清单长度不写进断言文案(会过期),用例一律按 `GATES.length` 说话。
+  'check-cross-end-tokens.mjs',
+]
+
+test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的取数静默失败)', (t) => {
+  // 源码形状判据与本机 git 解析形态无关,先跑完(与 deploy/tests/prod-bundle-diagnose.test.mjs
+  // T3 同一取向:别让"宿主取不到"把不依赖宿主的判据也连带跳过)。
+  const src = read('lib/face-reader.mjs')
+  assert.match(src, /from '\.\/gitdir\.mjs'/, '未走 resolveGitBin —— 又变成各自猜路径')
+  assert.match(src, /resolveGitBin\(\) \|\| 'git'/, '兜底必须显式写在层里,不得散在各门')
+  // 环境感知闸:"gitBinary() 必须绝对路径"本质是**机器态**判据 —— resolveGitBin() 按候选序
+  // (IHUI_PORTABLE_GIT / PortableGit versions 扫描 / GIT_BIN / PATH 裸名 / Program Files 安装位)
+  // 逐个试跑,本机没有 portable/安装态 Git 时(如 GitHub windows runner)第一命中就是 PATH 裸 "git",
+  // 层的 `resolveGitBin() || 'git'` 随之必然交出裸名。那是本机 git 的解析形态,不是"层绕开退化出口"
+  // 的证据 —— 本环境无从判这条 ⇒ 未判定 skip(可见理由);绝对路径 git 在位时原断言逐字照常执行。
+  const bin = gitBinary()
+  if (!(/[\\/]/.test(bin) && bin.length > 5)) {
+    t.skip(
+      `本机 resolveGitBin() 自身解析不到绝对路径 git(gitBinary() 返回裸 "${bin}" —— portable/安装态候选不在位,` +
+        'PATH 裸名第一命中;CI runner 即此形态)⇒ 机器态未判定,非代码缺陷;绝对路径 git 在位时本条自动恢复执行',
+    )
+    return
+  }
+  assert.ok(/[\\/]/.test(bin) && bin.length > 5, `gitBinary() 退化成裸命令: ${bin}`)
+})
+
+test('层自身:每一处 cat-file --batch* 的 stdio[0] 都必须是 pipe(设成 ignore 会让每个 rev 都"取不到")', () => {
+  const src = read('lib/face-reader.mjs')
+  // ⚠️ 逐个调用点各判一遍,不是"找到的第一处"。`'cat-file', '--batch'` 是 `'--batch-check'`
+  // 的**前缀**,按 indexOf 取窗口会永远落在第一个函数上 —— 那意味着后加入层的 batch 出口
+  // (catBatchOids)根本不在这条判据的视野里,而这正是本层要防的那一型"尺子看不见自己产出的形态"。
+  const sites = [...src.matchAll(/'cat-file',\s*'--batch(?:-check)?'/g)]
+  assert.ok(
+    sites.length >= 3,
+    `层的 batch 出口现测应有 3 处(batch / batch-check / batch-check 用 oid),实得 ${sites.length}`,
+  )
+  for (const s of sites) {
+    const block = src.slice(s.index, s.index + 700)
+    assert.match(
+      block,
+      /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/,
+      'stdio[0] 非 pipe ⇒ 喂不进对象清单',
+    )
+    assert.match(block, /input:\s*Buffer\.from\(/, '对象清单必须由 input 喂进去,不得拼进 argv')
+    assert.match(
+      block,
+      /timeout:\s*(?:opts\.timeout\s*\?\?\s*)?[A-Z_]+|timeout:\s*\d+/,
+      '无数字 timeout ⇒ 守门 80 那类无界挂起',
+    )
+    // 2026-09-25 契约变化:批次现在**按字节装箱**,`catBatch` 的读点用的是
+    // `maxBuffer: budget`,而 budget = `Math.max(maxBuffer, 本块字节数 + 1MB)`、
+    // `maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER` —— 常量仍是**下限**,所以这条判据
+    // 的性质没变(不许退回 execFileSync 默认的 1MB),只是形态从"写常量"变成"常量作 floor"。
+    const okMaxBuffer =
+      /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/.test(block) ||
+      (/maxBuffer:\s*budget\b/.test(block) &&
+        // budget 定义在调用点**之前**,所以往回扩 900 字符再查(只查模块会让"随便某处有个
+        // Math.max"就能过 —— 那这条判据就没有牙了)
+        /const maxBuffer = opts\.maxBuffer \?\? GIT_MAX_BUFFER/.test(src) &&
+        /const budget = Math\.max\(maxBuffer,/.test(src.slice(Math.max(0, s.index - 900), s.index)))
+    assert.ok(okMaxBuffer, 'batch 调用必须以 GIT_MAX_BUFFER 为 floor(直写常量,或经 Math.max 抬升)')
+  }
+  // maxBuffer 是模块级常量,不在调用点写数字 —— 判据要跟它的真身对齐
+  assert.match(src, /const GIT_MAX_BUFFER = 64 << 20/, 'maxBuffer 常量必须给足(真仓有 >1MB 单文件)')
+})
+
+test('层自身:gitRaw 必须显式接管 stdio(否则子进程 stderr 会漏进守门自己的判定输出)', () => {
+  const src = read('lib/face-reader.mjs')
+  const at = src.indexOf('export function gitRaw')
+  assert.ok(at > 0, '找不到 gitRaw —— 派生入口改名了')
+  const block = src.slice(at, src.indexOf('\nexport ', at + 10))
+  assert.match(
+    block,
+    /\['ignore',\s*'pipe',\s*'pipe'\]/,
+    'gitRaw 未接管 stdio ⇒ `fatal: …` 会直接写在门的 stderr 上;各门只会被迫加 --quiet 绕行',
+  )
+  // 有 input 的那一支必须把 stdio[0] 切成 pipe —— 两态都要在,少一态就是"喂不进去还不报错"
+  assert.match(
+    block,
+    /\['pipe',\s*'pipe',\s*'pipe'\]/,
+    '带 input 的派生若仍用 ignore 作 stdin ⇒ git 收到空清单,对象一律"取不到"',
+  )
+})
+
+/**
+ * 上面那条是**源码形状**判据;这一条是它的装车证明:真拿 input 走一次 gitRaw。
+ * 只判形状会漏掉"两个分支都写了、但条件写反"这一型 —— 形状对了而行为是空的,
+ * git 也不会报错(`cat-file --batch` 收到空 stdin 就是零输出),所以必须量输出。
+ */
+test('gitRaw 的 input 通道真的通(空 stdin 与喂清单的输出必须不同)', () => {
+  const root = join(here, '..', '..')
+  const fed = gitRaw(['cat-file', '--batch'], root, {
+    input: Buffer.from('HEAD:package.json\n', 'utf8'),
+  })
+  assert.ok(
+    String(fed).includes(' blob '),
+    `喂了一个对象却什么都没取回:${String(fed).slice(0, 60)}`,
+  )
+  // 反例:空清单 ⇒ 零输出。两条不同即证明 input 确实到达了 git,而不是被 stdio[0] 丢掉。
+  const empty = gitRaw(['cat-file', '--batch'], root, { input: Buffer.from('', 'utf8') })
+  assert.equal(String(empty).trim(), '', '空清单应得零输出')
+  assert.notStrictEqual(String(fed), String(empty), 'input 分支必须与"没喂东西"可区分')
+})
+
+test('层自身:仓库根比较必须穿 junction(本机 DevEnv 系是改道路径)', () => {
+  const src = read('lib/face-reader.mjs')
+  assert.match(
+    src,
+    /realpathSync/,
+    'assertRepoRoot 未走 realpath ⇒ junction 会把正常仓判成"基准错位"',
+  )
+  assert.match(src, /--show-toplevel/)
+})
+
+test('层自身:面集合固定为三个,两面旗同给必须返回 error 而不是任选一边', () => {
+  assert.deepEqual(FACES, ['staged', 'head', 'worktree'])
+  assert.equal(Object.keys(FACE_LABEL).length, 3)
+  assert.equal(selectFace({ staged: true, worktree: true }).face, null)
+  assert.match(selectFace({ staged: true, worktree: true }).error, /不得同用/)
+  assert.equal(selectFace({ staged: true }).face, 'staged')
+  assert.equal(selectFace({ worktree: true }).face, 'worktree')
+  assert.equal(selectFace({}).face, 'head', '默认必须是 HEAD,不得默认工作树')
+})
+
+test('取材失败必须走 Undetermined 而不是"当作不存在"(静默少扫 = 偏绿)', () => {
+  assert.equal(typeof Undetermined.prototype, 'object')
+  // **行为证明**而非文本锚点:真派生一次必然失败的 git 调用,断言抛出的是 Undetermined。
+  // 原先这条锁的是 `throw new Undetermined(\`git …\`)` 那一行源码字面量 —— 它既证明不了"会抛",
+  // 又会在任何等价改写(如把消息换成变量)时无端变红。文本锚点留给"必须有某段注释"这类
+  // 真正无法用行为表达的约束,判据本身一律问行为。
+  const bogus = join(here, 'no-such-repo-for-sure-' + process.pid)
+  assert.throws(
+    () => gitRaw(['rev-parse', '--verify', 'HEAD'], bogus),
+    (e) => e instanceof Undetermined,
+    'git 取不到必须抛 Undetermined,不得返回空让调用方当成"没有违规"',
+  )
+})
+
+test('gitRaw 必须把 git 的退出码带到异常上(区分"git 说没有"与"git 没跑成")', () => {
+  // `git grep` 无命中是**正常结论** rc=1,调用方(守门 93 的 R3)要据此放过。若层只留一句
+  // 文本消息,调用方就只能去 parse 自己的异常字符串 —— 那是把结论建立在文本上。
+  const root = join(here, '..', '..')
+  // needle **必须在运行时拼出来**:第一版把字面量写死,而本文件自己就被这次 commit 写进 HEAD ⇒
+  // `git grep` 命中自己、rc=0,这条用例当场变成"永远不抛"的假绿尺子(同门 93 的 checkCrashShape
+  // 那条"被禁字面量不得写进被量的文件"是一课)。
+  const needle = 'zznope-' + process.pid + '-' + Math.random().toString(36).slice(2)
+  let e1 = null
+  try {
+    gitRaw(['grep', '-l', needle, 'HEAD', '--', 'scripts'], root)
+  } catch (e) {
+    e1 = e
+  }
+  assert.ok(e1 instanceof Undetermined, '无命中也必须走 Undetermined(层不猜语义)')
+  assert.equal(e1.status, 1, `rc=1 必须原样带到异常上,实得 ${e1.status}`)
+  // 反向对照:真失败(git 自己的 128 类错误)不得也报 1,否则本判据无法区分两态。
+  // (刻意不用"不存在的子命令"当反例 —— git 对它也回 1,和"没命中"同码,区分不出来。)
+  let e2 = null
+  try {
+    gitRaw(['--git-dir=' + join(root, 'no-such-gitdir-zz'), 'rev-parse', 'HEAD'], root)
+  } catch (e) {
+    e2 = e
+  }
+  assert.ok(e2 instanceof Undetermined)
+  assert.equal(e2.status, 128, `git 自身错误必须是 128 而非 1,实得 ${e2.status}`)
+})
+
+/** 阳性对照用的"违规写法"样本:证明下面那条判据真的能抓住裸 git,而不是恒过 */
+const BAD_SAMPLE = `const x = execFileSync('git', ['status'], { cwd: root })\nconsole.log(execFileSync("git", ["ls-files"]))\n`
+const bareGitCount = (text) =>
+  (text.match(/execFileSync\(\s*['"]git['"]/g) || []).length +
+  (text.match(/execSync\(\s*['"]git\b/g) || []).length
+
+test('判据本身不恒真:同一把尺子必须能抓住违规样本、而对已收口的门均为 0', () => {
+  assert.equal(bareGitCount(BAD_SAMPLE), 2, `尺子连样本都抓不住(实得 ${bareGitCount(BAD_SAMPLE)})`)
+  assert.equal(bareGitCount("execFileSync(GIT_BIN, ['status'])"), 0, '走常量的正确写法不得误报')
+  for (const f of GATES) assert.equal(bareGitCount(read(f)), 0, `${f} 里仍有自拼的裸 git 派生`)
+})
+
+test(`装车证明:${GATES.length} 道门都必须真的 import 这一层`, (t) => {
+  for (const f of GATES) {
+    if (!existsSync(join(scriptsDir, f))) {
+      t.skip(`${f} 不在盘上 ⇒ 未判定,不计为通过`)
+      continue
+    }
+    const src = read(f)
+    assert.match(
+      src,
+      /from '\.\/lib\/face-reader\.mjs'/,
+      `${f} 未 import 共用层 —— 收口被绕开,重复实现会重新长回来`,
+    )
+  }
+})
+
+test('真实取材抽查:HEAD 面能读到大 blob(>1MB 的那个语言包),证明 maxBuffer 真的够', () => {
+  const root = join(here, '..', '..')
+  const map = catBatch(root, ['HEAD:package.json', 'HEAD:nope/missing.ts'])
+  const pkg = map.get('HEAD:package.json')
+  assert.ok(pkg && pkg.length > 3000, `package.json 取到的内容异常短: ${pkg && pkg.length}`)
+  assert.equal(map.get('HEAD:nope/missing.ts'), null, 'missing 必须是 null,不得抛成"仓库坏了"')
+})
+
+/**
+ * 层的两个新出口 —— 都是并行代理在迁移时**独立**报出来的缺口,不是预防性设计:
+ * ① `catBatch(…, {maxBuffer})`:门 98/103 一次读 8000+ 源文件 ≈ 85-89MB,默认 64MB 会 ENOBUFS;
+ * ② `catBatchOids`:守门 84 的判据是"比较 blob sha",要的是 oid 而不是内容,
+ *    而既有 `catBatchCheck` 的 hex-only 过滤会把 `<oid>^{tree}` 这类合法规格整型丢掉。
+ */
+test('catBatch 的 maxBuffer 口子:超限必须抛,不得静默降级成"每个 rev 都取不到"', () => {
+  const root = join(here, '..', '..')
+  const revs = ['HEAD:package.json', 'HEAD:pnpm-lock.yaml']
+  // 正例:给足预算 ⇒ 两个都读到
+  const okMap = catBatch(root, revs, { maxBuffer: 1 << 26 })
+  assert.ok(okMap.get('HEAD:package.json')?.length > 3000, '给足预算时 package.json 必须读到')
+  // 反例(本条的真正牙齿):预算 1 字节 ⇒ 必抛。
+  // 若层把 ENOBUFS 折成"取不到",这里会拿到一个全 null 的 Map 而测试判绿 —— 那正是
+  // 下游读成"没有违规"的假绿形态,所以必须断言它**抛**,而且抛的是 Undetermined。
+  assert.throws(
+    () => catBatch(root, revs, { maxBuffer: 1 }),
+    (e) => e instanceof Undetermined,
+    '超预算必须显式"无法判定",绝不能静默返回空内容',
+  )
+})
+
+test('catBatchOids:按行对齐回 oid,且不得像 catBatchCheck 那样把非 hex 规格整型丢掉', () => {
+  const root = join(here, '..', '..')
+  const head = spawnSync(GIT, ['-C', root, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).stdout.trim()
+  assert.ok(/^[0-9a-f]{40}$/.test(head), `rev-parse HEAD 取到的不是 sha:${head}`)
+  const specs = ['HEAD:package.json', `${head}^{tree}`, 'HEAD:nope/missing.ts']
+  const m = catBatchOids(root, specs)
+  assert.match(m.get('HEAD:package.json') ?? '', /^[0-9a-f]{40}$/, 'blob 规格必须解出 oid')
+  assert.match(m.get(`${head}^{tree}`) ?? '', /^[0-9a-f]{40}$/, 'peel 规格必须解出 oid')
+  assert.equal(m.get('HEAD:nope/missing.ts'), null, 'missing 归 null,交调用方判取不到')
+  // 反向对照:同一批规格喂旧的 catBatchCheck,三条**全部**被 hex-only 过滤掉 —— 一条都不参与判定。
+  // 这条对照是"为什么要有第二个出口"的唯一机器证据;没有它,下一个人又会说"用 Check 就行"。
+  const viaCheck = catBatchCheck(root, specs)
+  assert.equal(
+    viaCheck.total,
+    0,
+    'catBatchCheck 只认纯 hex 对象名,rev/peel 规格对它整型隐身 —— 所以它不能拿来做 sha 比较',
+  )
+})
+
+/**
+ * `parseBatch` 的三条分支用**构造出来的 buffer** 测(不从真仓凑):截断需要"git 少写字节且不报错",
+ * 这在真仓里造不出来 —— 不可构造的分支等于没被验证过的分支,而它恰好就是"静默少扫"那一条。
+ */
+const hdr = (oid, size) => `${oid} blob ${size}\n`
+const O1 = '1'.repeat(40)
+const O2 = '2'.repeat(40)
+test('parseBatch:截断必须抛"无法判定",不得静默把剩余对象当成取不到', () => {
+  const revs = ['HEAD:a.ts', 'HEAD:b.ts', 'HEAD:c.ts']
+  // 正例:三条都有头(中间那条是合法 missing)⇒ 不抛,missing 归 null
+  const full = Buffer.from(
+    hdr(O1, 1) + 'x' + '\n' + `${revs[1]} missing\n` + hdr(O2, 1) + 'y' + '\n',
+    'utf8',
+  )
+  assert.deepEqual([...parseBatch(full, revs).values()], ['x', null, 'y'])
+  // 反例:第 2 条的头根本没出现 = 管道被截。必须抛,而不是返回"一条 + 两条 null"。
+  const cut = Buffer.from(hdr(O1, 1) + 'x' + '\n', 'utf8')
+  assert.throws(
+    () => parseBatch(cut, revs),
+    (e) => e instanceof Undetermined && /截断/.test(e.message),
+    '截断未大声失败 ⇒ 调用方会把它读成"没有违规"',
+  )
+})
+
+test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下一条头读', () => {
+  // git 对 tree 也写 `<oid> tree <size>` 后跟**内容**;本层的判据面只喂 blob,
+  // 但一旦有人把整棵目录喂进来,必须表现为"取不到"而不是"取到一段乱码"。
+  const out = Buffer.from(`${O1} tree 3\nabc\n`, 'utf8')
+  assert.equal(parseBatch(out, ['HEAD:somedir']).get('HEAD:somedir'), null)
+})
+
+// ───────────────────────── 棘轮:存量认账,增量不认 ─────────────────────────
+//
+// 本票收口的是一类重复:各门各自派生 git。实测分成三型,分别钉住(数字一律以命令现测为准,
+// 下面只记变化轨迹 —— 把存量数写进散文,下一次收口就会留下一句骗人的旧话):
+//   · 型 A 裸字面量派生:`execFileSync('git', …)` / `execSync('git status …')` —— 依赖 PATH
+//   · 型 B 常量绑到裸 'git':`const GIT = process.env.IHUI_GIT_BIN || 'git'` 再 `execFileSync(GIT, …)`
+//     —— **A 看不见它**,而这正是"服务账户/GUI 宿主下 PATH 不通"那一型(§5b 已记过一次)
+//   · 型 C 自拼 `cat-file --batch` 却不走本层 —— 每条都要重写 stdio[0]=pipe / maxBuffer / 头解析
+// 一次性全改会与各并行会话在提交链上对撞,所以这里不"顺手扫",而是**钉住不许再长**:
+// 只减不增,降了不更新基线也算提示。与守门 70/77 的棘轮同一取向 —— 存量债记账,新增债拦停。
+
+/**
+ * 基线 = 当次实测真值(扫 scripts/ 生产文件)。调高它必须先在此说明理由。
+ * ⚠️ 这些数会随收口下降;下降时测试只提示不拦停,请在同一票里把基线一并下调。
+ * 历史:
+ *  · 型 A:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 **82**。
+ *    中途涨到 83 又回到 82:涨的那处是 09:25 并行提交 `95447008f73` 给
+ *    `scripts/check-rn-global-css-sync.mjs` 新增的 `execFileSync('git', …)`(该文件此前没有),
+ *    而它涨在 09:11 定基线**之后**。本票没有把数字压回去装没看见,而是当场把它收进了层
+ *    (`gitShow` → 层 `gitRaw`,try/catch 折 null 的语义一字不动)⇒ 现值 82。
+ *    这一涨一收正是这条棘轮存在的理由:收口成一层之后,新增一处裸派生从"没人看得见"变成"红一道门"。
+ *    另:本批迁的 6 道门用的都是型 B(常量),所以 A 不因那一批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
+ *    **最后一跳(同日 `b3816c62e7`)**:守门 93 收进取材层,4 处裸 `execFileSync('git')` 归零 ⇒
+ *    A 82 → **81**。这一跳与"新增违规"方向相反,所以按当次实测把基线写下来,不留旧数字。
+ *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9 → 8 → **10**。
+ *    涨的两处是并行会话为守门 107(第三方来源台账)新入库的两个模块
+ *    `scripts/lib/third-party-roots.mjs` 与 `scripts/provenance-ledger.mjs`
+ *    (commit `b68bde4a868`,11:17),形态都是 `const GIT = process.env.IHUI_GIT_BIN || 'git'`
+ *    再 `execFileSync(GIT, …)` —— 型 B 的标准形态。**本票不代他人收口**(那是另一条线的门与
+ *    另一条线的镜像测试),也不把数字压回去装没看见;一行修法与归属记在台账 O63·续。
+ *    第二道锚(必须被当过派生首参)保留 —— `lib/gitdir.mjs` 那处 'git' 是目录名、不是二进制,
+ *    第一版尺子被它骗过。不含本层自己那处**刻意**的最后一档兜底。
+ *  · 型 C:首量 9 → 6 道门收口后 3 → 1 → **0**(最后一处是 `check-cross-end-tokens.mjs`,守门 93,
+ *    于 `b3816c62e7` 收进取材层)。**基线自此为 0 = 零容忍**:再出现一处自拼 batch 就是新增,
+ *    不再有"存量"可解释 —— 这条尺子的价值正在这里,它有牙由"棘尺本身不恒真"那条用例钉住。
+ *    ⚠️ 中途两次"涨到 2/3"量的都是**我自己尺子的假阳**,不是新债:旧正则
+ *    `/cat-file.{0,4}--batch/` 把 JSDoc 里的字样(`import-graph.mjs:164` "一次 cat-file --batch")
+ *    与 usage 字符串里的散文(`git-push-guard.mjs:289` "一次 git cat-file --batch-check 找 missing")
+ *    当成派生调用 —— 被误伤的那两个文件**都已经走本层**。现收紧成 argv 形态
+ *    (`['cat-file', '--batch…']`,注释与字符串里的散文不算),并配两条成对反例。
+ *    教训:**误报比漏报更贵** —— 它的下一步一定是有人为了过门去削判据。
+ *  · 取材面:三把尺子一律判 **HEAD blob**(2026-09-25 从工作树面换过来)。工作树面会把并行会话
+ *    **还没提交**的文件记成我的存量债(当场实测过:`third-party-roots.mjs` 当时是 `??` 未跟踪态),
+ *    而一台恒红的尺子只会逼人跳门。口径与本仓所有内容型守门(70/77/83/98/101/103)一致。
+ */
+// 基线 2026-10-02 重定(G-998190):上一枚基线定于 457d85ed8a(81/10/0),其后多会话共落地
+// +17 个裸 git 生产文件、−10 个已收口(净 +6/+1,HEAD 面现读 87/11/0 —— 现读命令
+// `git grep -lE "(execFileSync|execSync|spawnSync|spawn)\((['\"])git" 457d85ed8a -- scripts/`
+// 与 HEAD 各跑一次求差,逐文件名单见台账 G-998190)。重定 ≠ 赦免:逐文件迁移 gitRaw 的
+// 收口票挂在 G-998190,迁移一枚就下调一枚;selfBatch 恒 0(agent-event-coverage 的自拼
+// 临时 fd 批 2026-10-02 已收编进层,判据同源)。
+// 2026-10-05 再下调(G-998191 逐文件迁移,本轮只做一枚):基线 87 → 86。
+// 下调到 **86 而不是本门落地后的 85**,是本棘轮"只读 HEAD blob"这条口径的硬约束:
+// 本门 `check-disk-root-hygiene.mjs` 的迁移此刻还在工作树、未入库 ⇒ 判据分母里它仍算一枚,
+// 现读就是 86。基线若一步下调到 85,提交前立刻 86 > 85 判红 —— 一台恒红的尺子只有一个结局:
+// 各会话跳门,连带全部守门作废(§12e 同型)。故此处的下限是"提交前也判得过"的那一档。
+// **提交者在把本门落地入库后,应复核并把 86 再下调到 85**(届时
+// `node --test scripts/tests/face-reader.test.mjs` 会打出 `◽ 裸 git 存量已降到 85` 的提示)。
+// 2026-10-05 入库后复核完成:该提示已打出(`◽ 裸 git 存量已降到 85(基线 86)`)⇒ 86 → 85。
+// 同一轮把第 2 枚 `check-orphan-deletion-refs.mjs`(3 处)也迁完并入库,故本轮共降 2(87→86→85)。
+// 2026-10-06 末轮复核(G-998191 全部 5 枚入库后一次降到位:85 → 81)。
+// 之所以这次能一步降 4 而不受上面那条"一次只降 1"的约束:那条约束写在本轮**提交之前**——
+// 迁移未入库时判据分母仍算它一枚,基线若一步降到位,提交前立刻 现读 > 基线 判红。
+// 此刻 5 枚**全部已入库**(`da04dfe166` 为末枚),HEAD 面现读存量本身就是 **81**
+// ⇒ 81 <= 81 判得过,提交前也判得过,那条约束的护栏已不适用。
+// 降到 81(紧贴真实现存、不留余量)是本棘轮「只减不减」的正解:留余量等于**容忍新增**,
+// 那才是放宽判据。复跑 `node --test scripts/tests/face-reader.test.mjs` 应打出
+// `◽ 裸 git 存量已降到 81(基线 81)`;若打出别的数字,以现读为准再校。
+// 同轮另有 `◽ 型 B 存量已降到 10(基线 11)` 提示 —— 那是`PATH_BOUND_GIT_BASELINE`
+// 另一条判据的收口提示,归属 G-998191 之外的迁移面(型 B),**本轮不动它**。
+// 2026-10-07 再迁 3 枚(G-998191 续批:evidence/f5-denominator-probe、benchmark-frame-end-matrix、
+// benchmark-ours-quantitative,各 1 处裸派生,改前改后输出逐字对账过)。基线 81 → 79,账目两条:
+//   ① 并行会话在 2026-10-06 复核**之后**入库了 `scripts/lib/commit-with-private-index.mjs`
+//     (自带 `execFileSync('git', …)` 一处)⇒ 本批开工时 HEAD 面现读已是 **82**,本门当时就红
+//     (82 > 81)—— 这枚不在本批名单,归因与收口票见台账;本批不背它的账,也不替它放宽。
+//   ② 本批 3 枚此刻在工作树、未入库 ⇒ 判据分母里它们仍各算一枚,现读仍 82,提交前本门红
+//     (82 > 79);**3 枚随本批落地入库后**现读 = 82 − 3 = 79 ⇒ 79 ≤ 79 判得过,本棘轮
+//     「只减不增」的下限恰是这一档。提交者落地后复核:`node --test scripts/tests/face-reader.test.mjs`
+//     应打出 `◽ 裸 git 存量已降到 79(基线 79)`;若打出别的数字,以现读为准再校。
+// 2026-10-07 再迁 3 枚(G-998191 第四批:plan-copy-fold、plan-merge-note-attribution、
+// evidence/name-f5-merge-note-deficit,裸派生各 2 处,改前改后只读档 stdout/rc 逐字对账过)。
+// 基线 79 → 76,账目与上一批同条:3 枚此刻在工作树、未入库 ⇒ 判据分母(HEAD 面)里它们仍各算
+// 一枚,现读仍 79,提交前本门红(79 > 76);**3 枚随本批落地入库后**现读 = 79 − 3 = 76 ⇒
+// 76 ≤ 76 判得过,棘轮「只减不增」的下限恰是这一档。提交者落地后复核
+// `node --test scripts/tests/face-reader.test.mjs` 应打出 `◽ 裸 git 存量已降到 76(基线 76)`;
+// 若打出别的数字,以现读为准再校。本棘轮刻意不持有逐文件名单表(见判据提示的措辞注),
+// 基线即唯一账面 ⇒ 本批无逐文件名单需要同步。
+// 2026-10-08 gitRaw 型 B 批第 1 枚(scripts/lib/bypass-git.mjs):isAncestor() 的 spawnSync 迁
+// gitRaw(三态语义一字未动,行为面对照记在该文件头);git() 因 env 维度不可迁 —— 默认剥
+// GIT_INDEX_FILE + 显式 env 注入临时索引(commitTreeWithIndex 的落地通道),gitRaw 的 opts
+// {input,timeout,maxBuffer,binary} 无 env 形态,另 win32 protectNTFS=false 为路径面所需 ——
+// 保留自派生,仅二进制取数改走层 gitBinary()(恒等 `resolveGitBin() || 'git'`),声明不再绑裸
+// 'git' ⇒ 该文件脱离型 B 口径,基线 11 → 10。型 A 分母不动:该文件两处派生首参均为 GIT_BIN
+// 变量、从无字面 'git' 派生,BARE_GIT_BASELINE 76 不变。现读账:本批开工(改动前)HEAD 面型 B
+// 现读已是 10(测试打 `◽ 型 B 存量已降到 10(基线 11)` 提示);棘轮判 HEAD blob,本批工作树改动
+// 不进分母 ⇒ 提交前现读仍 10,10 ≤ 10 判得过;入库后现读 9,9 ≤ 10 仍判得过(打降档提示)。
+// 提交者入库后复核:若打出 `◽ 型 B 存量已降到 9(基线 10)`,可将基线一并降到 9。
+// 2026-10-08 gitRaw 第五批(archive-completed-tasks 4 处迁 gitRaw)—— 账目与既往批不同:**型 A 基线不动,仍 76**。
+// 该文件自 2026-09-28 对象空间收口起,git 派生全部经 `GIT_BIN` 变量间接:IIFE 形态不落
+// `const X = …'git'` 的声明行(型 B 尺不认),`execFileSync(GIT_BIN,…)` 也不匹配型 A 的直呼
+// 'git' 尺 —— 判据自证用例明文"走常量的正确写法不得误报"。已现读核实(迁移前后各跑一次
+// headDerivationScan):bareGit 名单 76 枚不含 scripts/archive-completed-tasks.mjs,故它的
+// 迁移前/后现读同为 76,型 A 分母一枚不降;若按既往批格式把基线降到 75,落地入库后现读仍
+// 76 ⇒ 76 > 75 恒红 —— 棘轮"留余量等于容忍新增"的反面是"挖坑等于恒红",恒红的尺子只会
+// 被跳门(§12e 同型),所以本批不降。本批价值在取材形态统一(safe.directory/quotepath/EBUSY
+// 兜底/stdio 两态进层),不在棘轮数字;该文件余下两处刻意不迁(GIT_BIN --version 探针与
+// writeChannelProbe:IHUI_GIT_BIN 逃生舱契约 + 镜像例注入点,env 覆写维度与上行 bypass-git
+// git() 的"不可迁"账同型),若未来层支持 env 二进制覆写、两处也迁层,该文件才产生"降 1"
+// 的账。落地入库后复跑本判据应仍是 76 ≤ 76 判得过(不打印"已降到"提示);若打出别的数字,
+// 以现读为准再校。
+// 2026-10-08 gitRaw 型 B 批第 2 枚(scripts/check-plan-line-loss.mjs):该文件三处 git 派生
+// 全部经 `GIT` 变量间接 ⇒ 型 A 尺对它整型盲视(同 archive-completed-tasks 那一批,型 A 基线
+// 不动,仍 76)。型 B 侧的收口按 §bypass-git 先例分两步,改前改后**四个面**逐字对账
+// (空参/--staged/--worktree/--self-test 的 rc + stdout + stderr 全等):
+//   ① `const GIT = process.env.IHUI_GIT_BIN || 'git'` ⇒ 兜底改走层 `gitBinary()`
+//      (恒等 `resolveGitBin() || 'git'`,IHUI_GIT_BIN 逃生舱优先级与语义一字未动)—— 本文件
+//      由此脱离型 B 口径(该 'git' 字面量消失);
+//   ② 统一派生 `git()` 迁层 `gitRaw`(cwd↔-C 同面;旧 stdio 'ignore' 态 = 层无 input 态;
+//      maxBuffer 256MB 显式保留;timeout 取文件既有 GIT_TIMEOUT;层另带 quotepath=false,对本
+//      文件全命令——rev-parse/rev-list/show/hash-object,无路径输出——无涉)。
+//   刻意不迁的余下两处(heal 的 g2 与 commit-tree):必须把 GIT_INDEX_FILE 经 opts.env **显式
+//   注入**(临时索引落地通道),而 gitRaw 的 opts 无 env 形态 —— 与 lib/bypass-git.mjs 的 git()
+//   同一条"不可迁"账,文件内已逐字声明。
+// 现读账:本批开工(改动前)HEAD 面型 B 现读已是 **9**(测试打 `◽ 型 B 存量已降到 9(基线 10)`
+// 提示);棘轮判 HEAD blob,本枚工作树改动不进分母 ⇒ 提交前现读仍 9,9 ≤ 9 判得过;入库后现读 8,
+// 8 ≤ 9 仍判得过(打降档提示)。故本轮 10 → 9(紧贴现读,不留余量=不容忍新增;也不挖坑恒红)。
+// 提交者入库后复核:若打出 `◽ 型 B 存量已降到 8(基线 9)`,可将基线一并降到 8。
+// 2026-10-22 G-927 复核降钉:基线 76 → 72,紧贴现读。账目:本票开单时(35be733128 入库后)
+// HEAD 面现读 85,相对基线提交 14a04f013f 的新增者逐枚挂在各自票内;至本票开工时**全部已
+// 由他席迁移入库**——判据求差(git diff 14a04f013f..HEAD 两面各跑一次 headDerivationScan)
+// 新增=0,票面 9 枚(实测名单 12 枚,含 auto-update-readme-recent、branch-delete-with-backup、
+// check-alertmanager-live-config、check-board-name-legacy、check-disk-root-write、
+// check-format-changed、check-git-stdio-discipline、check-plan-claims-vs-head、
+// lib/guardian-pushgate-cache、lib/post-commit-hook、restore-deploy-generated、
+// sync-readme-numbers)已逐枚 import face-reader 且判据脱名。故本票无生产脚本可迁,
+// 只剩钉数复核:现读 72(测试打 `◽ 裸 git 存量已降到 72(基线 76)`),迁移已全部入库
+// ⇒ 72 ≤ 72 提交前后同判得过,不触发"一次只降 1"护栏(2026-10-06 同型账)。
+// 同轮另有 `◽ 型 B 存量已降到 3(基线 9)` 提示 —— 型 B 的下降归属他席迁移面(型 B),
+// 按 2026-10-06 先例**本票不动 PATH_BOUND_GIT_BASELINE**。
+// 2026-10-23 G-927 二次复核降钉:基线 65 → 64,紧贴现读(不留余量=不容忍新增)。账目:同一把
+// 尺子(headDerivationScan,遮注释后)对票面基线提交 14a04f013fa8aec2aa1b2a2df93345d30b985c78
+// 与 HEAD 各跑一次求差 = **新增 0 枚** ⇒ 本票无生产脚本可迁;这一枚的下降去向是
+// scripts/check-no-divider.mjs(gitRaw 化于 1315ef7568f05d1f653ba9a962818b30d08598a9 入库,
+// 那批未同步钉数)。票面 git grep 法(不遮注释)另报 3 枚 check-disk-root-write /
+// check-grafana-datasource-wiring / check-panel-datasource-wiring,系注释里提这条判据本身的
+// 散文,遮注释后零命中 ⇒ 不是债。型 B / 型 C 两维本票照旧不动(他席迁移面)。
+// 2026-10-23 G-927 三次复核降钉:基线 64 → 61,紧贴现读。账目:`node --test scripts/tests/face-reader.test.mjs`
+// HEAD 面现读打出「裸 git 存量已降到 61(基线 64)」⇒ 票面 9 枚新增者已全部在各票内迁完(85→61);
+// 型 B / 型 C 两维照旧不动(现读与钉数齐,测试无提示)。
+// 2026-10-26 G-54 批次(枚举面续迁):3 枚裸派生迁 gitRaw(check-brand-foreground / check-rounded-full /
+// check-capability-catalog,入库 `9b7439eee1`);入库后 HEAD 面现读打出
+// 「◽ 裸 git 存量已降到 57(基线 60)」⇒ 60 → 57,紧贴现读不留余量(留余量=容忍新增)。
+// 型 B / 型 C 两维照旧不动(他席迁移面)。
+// 2026-10-26 G-54 批次第 2 轮(枚举面续迁):4 枚迁 gitRaw(check-i18n-keys / check-i18n-messages-exist /
+// check-z-index-guard / check-rounded-overflow,入库 `3e8b864094`);入库后 HEAD 面现读打出
+// 「◽ 裸 git 存量已降到 53(基线 57)」⇒ 57 → 53,紧贴现读不留余量(留余量=容忍新增)。
+// 2026-10-26 G-54 批次第 3 轮(枚举面续迁):4 枚迁 gitRaw(check-i18n-namespace-passing / check-input-border-var /
+// check-permission-mode-vocabulary / check-portal-fixed,入库 `7634c0cbb7b`);入库后 HEAD 面现读打出
+// 「◽ 裸 git 存量已降到 49(基线 53)」⇒ 53 → 49,紧贴现读不留余量(留余量=容忍新增)。
+// 2026-10-26 G-54 批次第 4 轮(枚举面续迁):4 枚迁 gitRaw(check-button-height 自检夹具 1 处 /
+// check-event-closure-leak 2 处 / check-direct-backend-calls 1 处 / check-single-branch 6 处,
+// 入库 `cca944cc6a`);入库后 HEAD 面现读打出「◽ 裸 git 存量已降到 45(基线 49)」⇒ 49 → 45,
+// 紧贴现读不留余量。行为对账:前 3 枚各在固定索引快照下 HEAD 版与迁移版逐字同输出同 rc,
+// 单分支在真仓直跑两面 0/0 且输出零差;三枚自带 --self-test 全过(18/18、8/8、37 例)。
+// 2026-10-26 G-54 批次第 6 轮(枚举面续迁):2 枚迁 gitRaw(check-capability-field-not-client-supplied
+// 的 ls-files / check-next-env-dist 的 diff --cached,经收编提交 `073bd769f8` 入库);入库后 HEAD 面
+// 现读打出「◽ 裸 git 存量已降到 40(基线 41)」⇒ 41 → 40,紧贴现读不留余量。账目:他席同轮新增
+// 1 枚 scripts/feedback-loop-status.mjs(自带裸派生)计入现读,不在本票射程、不替它放宽。
+// 行为对账:两枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(capability 全量 0/0、
+// next-env 全量与 --staged 两态 0/0);capability 自带 --self-test PASS。
+// 2026-10-26 G-54 批次第 7 轮(staged 清单门 + diff 解析门):4 枚 6 处迁 gitRaw(check-multi-end-sync
+// 的 diff --cached ACDMR / check-sidebar-width-consistency 的 ACMR(原动态 import execSync)/
+// check-miniapp-replace-antipattern 的 name-only + -U0 文本解析 2 处 / check-native-title-tooltip 的
+// -U0 文本解析 + name-only 2 处),经落地提交 `744ed0e4bc` 入库;入库后 HEAD 面现读打出
+// 「◽ 裸 git 存量已降到 36(基线 40)」⇒ 40 → 36,紧贴现读不留余量。
+// 行为对账:四枚各在固定索引快照下迁移前版与迁移版逐字同输出同 rc(multi-end 两态 rc=1 warn 出口、
+// sidebar 两态 rc=0、miniapp 两态 rc=0、native 两态 rc=0,含 -U0 diff 文本解析路径)。
+// 2026-10-26 G-54 批次第 8 轮(三子席并发,17 枚 25 处迁 gitRaw):甲批 i18n/openapi 6 枚
+// (i18n-diff/i18n-apply/scan-i18n-zh-residue/validate-i18n-integrity/gen-i18n-compressed/
+// openapi-check)入库 `6f768e7e99`;乙批 staged 清单 7 枚 12 处(style-verification/port-registry/
+// ts-ignore/staged-typecheck/solito-residue/sanitizer-bypass/root-dir-clean)与丙批 diff 解析
+// 4 枚 7 处(commit-scope-consistency/tailwind-class-conflict/typecheck/clean-garbage)经收编提交
+// `d1c1915234` 入库;两枚夹具改 copyScriptWithClosure 闭包拷贝入库 `038e25d854`(42/0)。
+// 行为对账:各枚固定索引快照下逐字零差(clean-garbage 的 gc 系写操作,按票只做静态核对)。
+// quotepath 收口既定副作用:check-port-registry --all 首扫 18 个中文名文件,暴露 1 处既有违规
+// (已发布内容记忆.json:124 引用 127.0.0.1:50749),门 24b warn 档计警不判红。
+// 2026-10-26 G-54 批次第 9 轮(三子席并发):restore-runner-gates.mjs 回补器 g() 1 处迁 gitRaw
+// 入库 `f3d76aa3fb`(探针四例固定索引逐字零差:show HEAD 257,856B、rev-parse、两例异常对照
+// status=128 同值;异常类名 Error→Undetermined 系收口设计内差异,调用点无 catch 不改控制流)。
+// git-push-guard.mjs 判**不可迁**留账 2 处:L937 pushOnce(push=写操作+网络透传、stdio[0] 走
+// inherit 供凭证交互、显式 env:process.env 而 gitRaw opts 无 env 形态、失败三通道 status/stdout/
+// stderr 是 triagePushAttempt 的正常输入而 gitRaw 非零抛 Undetermined 丢 stdout)与 L252
+// checkDanglingRefs(松散坏 ref 只活在 stderr 的 `ignoring broken ref`,gitRaw 成功路径不回 stderr)
+// ——同 lib/bypass-git.mjs git() "env 维度不可迁"先例族。git-sync-converge.mjs 评估票成文:
+// 棘轮尺实测该文件 13 处,不可迁 2(mktree:1113 stdin 必须数字 fd,本机 Node 建管道 20×2 全败
+// EBUSY 留档;ggit:1492 用例价值在剥 GIT_CONFIG_*/GIT_*_NAME 复刻 LocalSystem 现场,无 env 形态)、
+// 需改造后可迁 2(git():467 系 cwd 基须显式传 root;:1848 merge-tree catch 依赖 e.stdout 取冲突
+// 清单)、可迁 9(readGit/isAncestor/collectTreeEntries/tgit/lsTreeLines/:1152/:1186/:1288/bg,
+// 其中 isAncestor 与 bypass-git 先例逐字同型优先迁)。后续批按该票清单推进,quotepath 面逐字对账。
+// 2026-10-26 G-54 第 10 轮(git-sync-converge 迁移票,单席):8 处迁 gitRaw 入库 `50e3e2590fd`
+// (readGit/git() 主助手/isAncestor/collectTreeEntries(binary 档)/tgit/lsTreeLines/selfTest root/
+// merge-tree 自检两处/bg;镜像测试 73/73+self-test 20 例 rc=0;P1-P16 固定索引快照逐字零差,
+// HEAD 树非 ASCII 路径 0 枚⇒quotepath 无差面)。该文件棘轮命中 10→3,保留 3 处不可迁:
+// mktree(fd-stdin,层无 fd 形态)、ggit(env 剥离,层无 env 形态)、merge-tree 生产(:1821,catch
+// 依赖 e.stdout 取完整冲突清单,Undetermined 不带 stdout,退化到 message 丢真信号;论证已写入
+// 该处注释)。**基线口径是文件数**(bareGit=命中>0 的文件清单),该文件 3 处仍在⇒文件数不减,
+// 本轮基线不动。现读暂 19(+1 系他席 `e8f27d3ac9` 新增 check-analytics-page-coverage.mjs 一处裸,
+// 该文件已被他席 staged 删除中——analytics-coverage 重构在飞,与门 184 红同源;删除收敛⇒回 18)。
+// 本席不抬基线纳他席债、不碰他席在飞文件。
+// 2026-10-30 起:裸 git 棘轮由"一个数字"改成"具名债务清单 + 到期日"(定义见下方
+// BARE_GIT_DEBT;基线 = 清单长度,单一真相源)。历史沿革续记在此行:2026-10-26 第 9 轮 19→18;
+// 第 8 轮 36→19;第 7 轮 40→36;第 6 轮 41→40;第 5 轮 45→41;第 4 轮 49→45;第 3 轮 53→49;
+// 第 2 轮 57→53;第 1 轮 60→57。注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行"。
+// 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
+// benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
+// check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
+// 2026-10-08 10 → 9:紧贴现读,不留余量=不容忍新增(账见上方 440-456 行)。
+// 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。
+const PATH_BOUND_GIT_BASELINE = 3 // 紧贴现读(2026-10-22 实测 9→3:三枚剩余见测试提示)
+const SELF_BATCH_BASELINE = 0
+
+/**
+ * 裸 git 型 A 的**具名债务清单**(2026-10-30 立,治"数字棘轮看不见是谁加的")。
+ *
+ * 为什么从"一个数字"换成"逐文件清单"(上一版注释写的是"刻意不持有名单表",此处显式推翻):
+ * 2026-10-26 定基线 18(c96927ac8b)之后,四种新器物族在 4 天内把 HEAD 面推到 **42**,
+ * 而数字棘轮只会打一句"18 涨到 42" —— 它既点不出是谁带的,也让每个路过的人以为自己背锅;
+ * 更糟的是**清单内文件偷偷加码**这一型它根本看不见(实测 `feedback-loop-status.mjs` 1→2、
+ * `safe-commit.mjs` 8→9 都发生过,文件数不变 ⇒ 不动声色)。所以清单里带 `count`,
+ * 判据对**每一枚出现**判"只减不增";新增文件、新增次数都能当场拦停。
+ *
+ * 三档判定(judgeBareGitDebt,本例与构造反例共用同一实现):
+ *  · `unlisted`  —— 文件不在清单里 ⇒ **红**(新增;请改用 lib/face-reader.mjs 的 gitRaw);
+ *  · `countGrew` —— 文件在清单里但次数变多 ⇒ **红**(同一型,藏在已登记文件内部);
+ *  · `expired`   —— `due` 已过仍在 ⇒ **红**(债务不是豁免,到期必须结清;`due: null` 只给
+ *    已逐字论证"层无对应形态、不可迁"的那几处,理由写在 `why`)。
+ * 结清(`settled`,清单里有、现读已无)只打印提示并给出摘条指引,不判红 —— 与既有的
+ * "存量降到 X,请一并下调"同一语义,否则刚迁完一枚的人会被自己的清账动作判红。
+ *
+ * 账目:**18 枚基线内**(≤ c96927ac8b,上一枚基线提交)+ **24 枚 2026-10-26 之后新增**
+ * (逐枚 `addedBy` 指向引入它的提交,空串 = 基线内)。取证脚本与逐条归因见
+ * `.ihui-agent/tmp/g39/s10/report.md`;现读合计 42 枚 / 见 `BARE_GIT_DEBT_TOTAL_OCCURRENCES`。
+ */
+const BARE_GIT_DEBT = [
+  // ── 基线内(早于 c96927ac8b 定 18 的那批)────────────────────────────────────────────
+  // 已逐字论证"不可迁"(层无 env / fd / stderr 形态)的三处留 `due: null`,理由在 why。
+  {
+    file: 'scripts/check-gate-face-discipline.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/check-git-read-timeout.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/check-no-visible-spawn.mjs',
+    count: 20,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(自检夹具大量样本)',
+  },
+  {
+    file: 'scripts/check-spawn-stdio.mjs',
+    count: 20,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(自检夹具大量样本)',
+  },
+  {
+    file: 'scripts/check-staged-files-count.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/check-watermark-coverage.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/feedback-loop-status.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(定基线时 1 处,后又加 1 处 —— 数字棘轮的盲区实例)',
+  },
+  {
+    file: 'scripts/git-push-guard.mjs',
+    count: 2,
+    addedBy: '',
+    due: null,
+    why: '不可迁:push 是写操作+网络透传,stdio[0] inherit 供凭证交互、显式 env 透传;checkDanglingRefs 的坏 ref 只活在 stderr',
+  },
+  {
+    file: 'scripts/git-sync-converge.mjs',
+    count: 3,
+    addedBy: '',
+    due: null,
+    why: '不可迁:mktree 要数字 fd 作 stdin、ggit 要剥 GIT_CONFIG_* 复刻现场、merge-tree catch 依赖 e.stdout 取完整冲突清单(层无 env/fd/stdout-on-fail 形态)',
+  },
+  {
+    file: 'scripts/guard-push-other-agent-changes.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/guardian-runner.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/guardian-utils.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/lib/pre-commit-hook.js',
+    count: 4,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(CJS 钩子层)',
+  },
+  {
+    file: 'scripts/lib/staging-snapshot.js',
+    count: 4,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(CJS 钩子层)',
+  },
+  {
+    file: 'scripts/merge-live-doc.mjs',
+    count: 1,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/plan-tasks-merge.mjs',
+    count: 2,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量',
+  },
+  {
+    file: 'scripts/plan-union-merge.mjs',
+    count: 9,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(9 处)',
+  },
+  {
+    file: 'scripts/safe-commit.mjs',
+    count: 9,
+    addedBy: '',
+    due: '2026-12-31',
+    why: '基线内存量(定基线时 8 处,后又加 1 处 —— 数字棘轮的盲区实例)',
+  },
+  // ── 2026-10-26 之后新增的 24 枚(18 → 42),addedBy = 引入该处裸派生的提交 ──────────────
+  {
+    file: 'scripts/add-web-portal-entries.mjs',
+    count: 1,
+    addedBy: '92f364dc925dc51b9de04d7c5d1d773840901faf',
+    due: '2026-12-31',
+    why: '门户批次器物化(2026-10-28)',
+  },
+  {
+    file: 'scripts/check-cross-end-parity-drift.mjs',
+    count: 1,
+    addedBy: '9fdbc207ba2ea5536812f8b965d7a9218bb28785',
+    due: '2026-12-31',
+    why: '跨端漂移哨兵:git show HEAD:<doc>(2026-10-25)',
+  },
+  {
+    file: 'scripts/check-i18n-cross-end-wording.mjs',
+    count: 1,
+    addedBy: '1454b5a5ac38e7efb19668bac165c070f4484d81',
+    due: '2026-12-31',
+    why: '跨端文案裁定尺:git show <face>:<rel>(2026-10-30)',
+  },
+  {
+    file: 'scripts/check-mjs-export-resolution.mjs',
+    count: 3,
+    addedBy: 'a4256e1a82f4efdd02556d29030dc957872d113b',
+    due: '2026-12-31',
+    why: '门 253 三维取证(2026-10-26)',
+  },
+  {
+    file: 'scripts/check-rn-compat-coverage.mjs',
+    count: 1,
+    addedBy: '8cc5c831128db329a8d71307aa78b1e1dd6d1ceb',
+    due: '2026-12-31',
+    why: 'C1/C2/C3 覆盖面(2026-10-26)',
+  },
+  {
+    file: 'scripts/check-style-key-consumption.mjs',
+    count: 1,
+    addedBy: 'e80bc950b32aa203c0898f50dd6a529516176a92',
+    due: '2026-12-31',
+    why: '门 266 取用对账(2026-10-30)',
+  },
+  {
+    file: 'scripts/check-verbatim-resurrection.mjs',
+    count: 1,
+    addedBy: '47d6d441aff8b5f1696b67ef236841082ba776dd',
+    due: '2026-12-31',
+    why: '逐字回潮尺(2026-10-29)',
+  },
+  {
+    file: 'scripts/check-web-rn-parity.mjs',
+    count: 1,
+    addedBy: '777923eb0c57a57999f4a25b95aafcf7eeff1362',
+    due: '2026-12-31',
+    why: 'web↔RN 对账(git grep HEAD)(2026-10-28)',
+  },
+  {
+    file: 'scripts/convert-declared-to-reuse.mjs',
+    count: 1,
+    addedBy: '5bafc199de75aa381fe9f1c36a1ae8c5d8ccee18',
+    due: '2026-12-31',
+    why: '声明不复用转换器(2026-10-26)',
+  },
+  {
+    file: 'scripts/fix-rn-color-literals.mjs',
+    count: 1,
+    addedBy: 'b853339941982e20c4a4539f0ace4ee8ae23f740',
+    due: '2026-12-31',
+    why: '色值字面量替换器(2026-10-26)',
+  },
+  {
+    file: 'scripts/gen-i18n-compressed.mjs',
+    count: 1,
+    addedBy: '01d08e988912dcb3aee0f9145f2a131e7fb6d841',
+    due: '2026-12-31',
+    why: 'i18n 生成器 rev-parse HEAD(2026-10-07,旧账晚于基线才被纳入枚举面)',
+  },
+  {
+    file: 'scripts/gen-rn-compat.mjs',
+    count: 3,
+    addedBy: 'd1dc35c331ae0550591c555e6d79cc0a7a7523df',
+    due: '2026-12-31',
+    why: '复用腿生成器 grep/show HEAD(2026-10-26)',
+  },
+  {
+    file: 'scripts/gen-rn-host-shell.mjs',
+    count: 1,
+    addedBy: 'f83bf2cf12da48e7ca093d83bca49090c65b6d51',
+    due: '2026-12-31',
+    why: '宿主壳生成器(2026-10-28)',
+  },
+  {
+    file: 'scripts/gen-rn-shell-page.mjs',
+    count: 1,
+    addedBy: '5e32a106d5a03c9bd62ee4925aefe4770b862e43',
+    due: '2026-12-31',
+    why: '壳页生成器(2026-10-26)',
+  },
+  {
+    file: 'scripts/gen-rn-shell-types.mjs',
+    count: 2,
+    addedBy: 'bdf93938b7e6670d439a2285c0fba8103c9f05a5',
+    due: '2026-12-31',
+    why: '壳类型生成器 show/ls-files(2026-10-26)',
+  },
+  {
+    file: 'scripts/heal-derived-in-checkout.mjs',
+    count: 1,
+    addedBy: '977cc1847014aa8927435c690171498769a3b0dd',
+    due: '2026-12-31',
+    why: '派生自愈腿(2026-10-27)',
+  },
+  {
+    file: 'scripts/land-cross-end-shell-pages.mjs',
+    count: 1,
+    addedBy: 'e91d8c38ed969128406db997974bd2afc50b08b6',
+    due: '2026-12-31',
+    why: '壳页落地器(2026-10-26)',
+  },
+  {
+    file: 'scripts/lib/cross-end-verdicts.mjs',
+    count: 1,
+    addedBy: '2cbb8b843512ad17e46eaf299037c4b698d7fb88',
+    due: '2026-12-31',
+    why: '判决台账读面(2026-10-25)',
+  },
+  {
+    file: 'scripts/lib/derived-copy-state.mjs',
+    count: 1,
+    addedBy: '977cc1847014aa8927435c690171498769a3b0dd',
+    due: '2026-12-31',
+    why: '派生态判定(2026-10-27)',
+  },
+  {
+    file: 'scripts/lib/land-derived-blobs.mjs',
+    count: 2,
+    addedBy: '977cc1847014aa8927435c690171498769a3b0dd',
+    due: '2026-12-31',
+    why: 'blob 落地接缝(2026-10-27)',
+  },
+  {
+    file: 'scripts/lib/orphan-backup.mjs',
+    count: 1,
+    addedBy: '4468747144b2e21f1c3a27a3f9a62d453fc6780d',
+    due: '2026-12-31',
+    why: '悬空提交备份腿(2026-10-29)',
+  },
+  {
+    file: 'scripts/plan-rn-token-pairing.mjs',
+    count: 1,
+    addedBy: '7f204dbe34127e4df7dedb46ffa27e950e149acd',
+    due: '2026-12-31',
+    why: 'RN 色档配对发现器(2026-10-27)',
+  },
+  {
+    file: 'scripts/report-rn-shell-readiness.mjs',
+    count: 3,
+    addedBy: '728747bef0741e7e0809e797faf45a16793de51d',
+    due: '2026-12-31',
+    why: '就绪尺 ls-tree/show(2026-10-26)',
+  },
+  {
+    file: 'scripts/upgrade-miniapp-shell-pages.mjs',
+    count: 1,
+    addedBy: 'ae81c346494e9c0fc2fa85b66df5ff02add12ea7',
+    due: '2026-12-31',
+    why: '壳承载降级器物(2026-10-27)',
+  },
+]
+/** 基线 = 清单长度(单一真相源:不许在别处再写一个数字,两处必然漂移) */
+const BARE_GIT_BASELINE = BARE_GIT_DEBT.length
+
+/**
+ * 三档判定的**唯一实现**:本例与构造反例都调它(§0.6 单一真相源;测试里另抄一份判据必然漂移)。
+ * 返回 `{ unlisted, countGrew, expired, settled }` 四组,每组都是 `scripts/…` 路径或条目。
+ * `todayIso` 由调用方注入(不读系统时钟,构造反例才能钉死到期语义)。
+ */
+export function judgeBareGitDebt(hits, counts, debt, todayIso) {
+  const byFile = new Map(debt.map((d) => [d.file, d]))
+  const unlisted = hits.filter((p) => !byFile.has(p))
+  const countGrew = hits
+    .filter((p) => byFile.has(p) && (counts[p] ?? 0) > byFile.get(p).count)
+    .map((p) => `${p}(${byFile.get(p).count}→${counts[p]})`)
+  const expired = hits.filter((p) => {
+    const d = byFile.get(p)
+    return Boolean(d) && typeof d.due === 'string' && d.due < todayIso
+  })
+  const settled = debt.map((d) => d.file).filter((f) => !hits.includes(f))
+  return { unlisted, countGrew, expired, settled }
+}
+
+/**
+ * 枚举与取材一律走 **HEAD**,不读工作树。
+ *
+ * 为什么必须换面(2026-09-25 实测):这三条棘轮原本 `readdirSync` 扫工作树,于是并行会话
+ * **还没提交**的文件会直接进我的分母 —— 当场表现为"基线 8 涨到 10",而涨的那两处里
+ * `scripts/lib/third-party-roots.mjs` 实测是 `??` 未跟踪态,根本不属任何已入库状态。
+ * 一台恒红的尺子只有一个结局:各会话跳门,连带全部守门作废(§12e 同型)。
+ * 本仓所有内容型守门(70/77/83/98/101/103)早就统一成"全量判 HEAD blob",棘轮没理由例外。
+ * 代价如实说明:未入库的违规本棘轮看不见 —— 但它一旦提交就会撞上门 80 / 编译期 / 本棘轮,
+ * 由提交者负责,而不是由别人替他平账。
+ */
+
+/**
+ * 型 B:变量被**初始化成**裸 'git'(直接赋值,或 `|| 'git'` / `?? 'git'` / 三元兜底),
+ * 之后所有派生都写成 `execFileSync(GIT, …)` —— 对型 A 完全隐形,但同样依赖 PATH。
+ * 只认"声明即绑裸名",不认 `= resolveGitBin()` / `= gitBinary()` 这类正确写法。
+ *
+ * ⚠️ 单看声明行会误报:`const root = join(…, 'DevEnv', 'backups', 'git')` 里的 'git' 是**目录名**,
+ * 而 `lib/gitdir.mjs` 真有这么一行(第一版尺子就被它骗过,把基线从 9 报成 10)。所以加第二道锚:
+ * 该标识符必须在文件里被当过**派生首参**(`X(git, [`)。宁可用两条同时成立换零误报。
+ */
+const PATH_BOUND_GIT_DECL_RE =
+  /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;\n]*['"]git(?:\.exe)?['"]\s*[;,)]?\s*$/gm
+function pathBoundGitCountOf(text) {
+  let n = 0
+  for (const m of text.matchAll(PATH_BOUND_GIT_DECL_RE)) {
+    const usedAsProgram = new RegExp(`\\(\\s*${m[1]}\\s*,\\s*\\[`).test(text)
+    if (usedAsProgram) n++
+  }
+  return n
+}
+
+/**
+ * 型 C 的靶形:**argv 形态**的 batch 派生(`['cat-file', '--batch…']`),不是"文本里出现过这几个字"。
+ * 旧写法 `/cat-file.{0,4}--batch/` 会被**字符串里的散文**命中 —— 实测 `git-push-guard.mjs:289`
+ * 的 usage 文案"一次 git cat-file --batch-check 找 missing"被记成一枚未收口的门,而该文件的
+ * 第 9 处自拼 batch 早在 `dfadcc5ba70` 就收进层了。把说明文字当代码,红会指到一个已收口的门,
+ * 而这类误报的最终出路一定是有人去削判据。`--batch-check` 同族照样命中(前缀相同)。
+ * 只此一份定义:下面的 `headDerivationScan` 与本文件的反例夹具都调它,免得两处各自漂移。
+ */
+const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
+
+/**
+ * ⚠️ 上面那把尺子量的是**工作树**,而并行会话未提交的改动会直接进分母 ——
+ * 2026-09-25 实测:三条棘轮同时报红(型 B 8→10、型 C 1→2),新增者之一是
+ * `scripts/lib/third-party-roots.mjs`,而它当时是 `??` **未跟踪态**,
+ * 也就是"别人正在写的文件被记成了我的存量债"。本仓每一道内容型守门(70/77/83/98/101/103)
+ * 都统一判 HEAD blob,棘轮没理由例外 ⇒ 下面换成 HEAD 面,并且用临时仓把这条口径钉死。
+ *
+ * 枚举与内容**同面同轮**(一次 `ls-tree` + 一次 `cat-file --batch`),不得"清单读盘 + 内容读 git"。
+ */
+export function headDerivationScan(root) {
+  // ls-tree 走层(gitRaw:绝对 git + stdio 接管 + EBUSY 兜底)—— 2026-10-02 实测病窗里
+  // 默认 stdio(三管道)的 spawnSync 100% EBUSY(status=null),三条棘轮集体"取材失败",
+  // 而这把扫描器自己就是层的消费者,没有理由例外。
+  const listed = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts/'], root, {
+    timeout: 120000,
+  })
+  const rel = String(listed || '')
+    .split('\n')
+    .filter(Boolean)
+    .map((p) => p.replace(/^scripts\//, ''))
+    .filter((p) => /\.(mjs|js|cjs)$/.test(p))
+    // 与换面前的目录排除口径逐字一致:夹具里大量"故意写坏"的样本,计进来就是把判据当分母
+    .filter((p) => !/(^|\/)(tests|__mocks__|node_modules)\//.test(p))
+  if (rel.length === 0)
+    throw new Error('棘轮取材失败:HEAD 的 scripts/ 下列出 0 个生产文件(空扫不记绿)')
+  const blobs = catBatch(
+    root,
+    rel.map((p) => `HEAD:scripts/${p}`),
+    { maxBuffer: 1 << 28 },
+  )
+  const files = rel.map((p) => ({ rel: p, text: blobs.get(`HEAD:scripts/${p}`) }))
+  // 判据一律读**抹掉注释之后**的源码(见 hideComments 的头注:注释里提一句 "cat-file --batch"
+  // 就把已收口的门记成未收口,这种误报的最后出路一定是削判据)
+  const hitsOf = (pred) =>
+    files
+      .filter((f) => typeof f.text === 'string' && pred(hideComments(f.text)))
+      .map((f) => `scripts/${f.rel}`)
+  return {
+    total: files.length,
+    unreadable: files.filter((f) => typeof f.text !== 'string').length,
+    bareGit: hitsOf((t) => bareGitCountOf(t) > 0),
+    // 逐文件**出现次数**:文件数棘轮看不见"清单内文件偷偷加码"这一型(实测发生过两例),
+    // 具名债务清单按次数判"只减不增"才堵得住。与 bareGit 同面同轮、同一把 hideComments。
+    bareGitCounts: Object.fromEntries(
+      files
+        .filter((f) => typeof f.text === 'string')
+        .map((f) => [`scripts/${f.rel}`, bareGitCountOf(hideComments(f.text))])
+        .filter(([, n]) => n > 0),
+    ),
+    pathBoundGit: hitsOf((t) => pathBoundGitCountOf(t) > 0).filter(
+      (p) => p !== 'scripts/lib/face-reader.mjs',
+    ),
+    selfBatch: hitsOf(hasBatchCall).filter(
+      // 按**路径**排除,不是按内容 —— 层的源文本里并不含 "lib/face-reader" 这个串,
+      // 用内容排除等于把层自己算成"未收口的门"(第一版就是这么错的,当场多算 1 枚)。
+      (p) => p !== 'scripts/lib/face-reader.mjs',
+    ),
+  }
+}
+
+test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把别人的在飞改动算成我的债)', () => {
+  const dir = mkScratch('ratchet-face-')
+  try {
+    const g = (...a) =>
+      spawnSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
+    // 一枚"已入库的债":型 B 声明 + 真被当首参用
+    writeFileSync(
+      join(dir, 'scripts', 'committed-debt.mjs'),
+      "const GIT = process.env.IHUI_GIT_BIN || 'git'\nexecFileSync(GIT, ['status'])\n",
+      'utf8',
+    )
+    writeFileSync(join(dir, 'scripts', 'clean.mjs'), 'export const x = 1\n', 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    // 一枚"未跟踪的改动中文件":同样的债,但还没进提交树
+    writeFileSync(
+      join(dir, 'scripts', 'lib', 'in-flight.mjs'),
+      "const GIT = 'git'\nexecFileSync(GIT, ['ls-files'])\n",
+      'utf8',
+    )
+    const scan = headDerivationScan(dir)
+    assert.deepEqual(
+      scan.pathBoundGit,
+      ['scripts/committed-debt.mjs'],
+      `未跟踪文件被算进了分母 ⇒ 面没收对,实得 ${scan.pathBoundGit.join(', ')}`,
+    )
+    // 反向对照:同一枚文件在**磁盘面**上确实会被数到 —— 证明上一条绿是"面选对了",不是判据没牙
+    const diskHits = readdirSync(join(dir, 'scripts'), { recursive: true })
+      .filter((p) => String(p).endsWith('.mjs'))
+      .map((p) => join(dir, 'scripts', String(p)))
+      .filter((p) => pathBoundGitCountOf(readFileSync(p, 'utf8')) > 0)
+    assert.equal(
+      diskHits.length,
+      2,
+      '磁盘面应数到 2 枚(含未跟踪那枚);数不到说明本例的两枚写法不同形,对照失效',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含型 B 四条成对反例)', () => {
+  assert.equal(bareGitCountOf("execFileSync('git', ['status'])"), 1)
+  // shell 串式:`git` 后面跟的是空格,只匹配 `['"]git['"]` 会整类漏掉(本仓大量存在)
+  assert.equal(
+    bareGitCountOf("execSync('git status --porcelain', { cwd })"),
+    1,
+    'shell 串式裸 git 必须被量到',
+  )
+  // 漏了这一型,`git-push-guard` 就会从分母里隐身 —— 四种派生入口都要认
+  assert.equal(
+    bareGitCountOf("spawnSync('git', ['cat-file'], { cwd })"),
+    1,
+    'spawnSync 裸 git 必须被量到',
+  )
+  assert.equal(bareGitCountOf('spawn(process.execPath, [s])'), 0, 'node 自身派生不得误报')
+  assert.equal(bareGitCountOf("execSync('gitk --everything')"), 0, '同前缀的别的程序不得误报')
+  assert.equal(
+    bareGitCountOf("execFileSync(GIT_BIN, ['status'])"),
+    0,
+    '走常量/走层的正确写法不得误报',
+  )
+  assert.equal(
+    bareGitCountOf("execFileSync('git', ['a'])\nspawnSync('git', ['b'])"),
+    2,
+    '同文件多处分别计',
+  )
+  /**
+   * 型 C 的靶形:**argv 形态**的 batch 派生(`['cat-file', '--batch…']`),不是"文本里出现过这几个字"。
+   * 旧写法 `/cat-file.{0,4}--batch/` 会被**字符串里的散文**命中 —— 实测 `git-push-guard.mjs:289`
+   * 的用法提示语 "一次 git cat-file --batch-check 找 missing" 被记成一枚未收口的门,
+   * 而该文件第 9 处自拼 batch 早在 `dfadcc5ba70` 就收进层了。一条把说明文字当代码的尺子,
+   * 报出来的红会把"已收口"的人逼去削判据。
+   * 只用一份正则(下面 headDerivationScan 与本文件的反例夹具共用它),避免两处各自漂移。
+   */
+  const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
+  assert.equal(hasBatchCall("x = execFileSync(G, ['cat-file', '--batch'])"), true)
+  // `--batch-check` 同族(同样一次问一批对象的存在性/sha,同样有 stdio/maxBuffer 陷阱),必须计入
+  assert.equal(hasBatchCall("spawnSync('git', ['cat-file', '--batch-check'])"), true)
+  assert.equal(hasBatchCall('const a = 1'), false)
+  // ⚠️ 反向对照:散文式提及(说明文字 / 用法提示里的 `git cat-file --batch-check`)不得算债。
+  // 这条不是假想 —— `git-push-guard.mjs:289` 的 usage 文案真实命中过旧正则,而该文件
+  // 的自拼 batch 早在 `dfadcc5ba70` 就收进层了:把说明文字当代码,红会指到一个已收口的门。
+  assert.equal(
+    hasBatchCall("  '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing'"),
+    false,
+    '字符串里的说明文字被当成了派生调用',
+  )
+  assert.equal(
+    hasBatchCall('// 一次 cat-file --batch 取多个 blob'),
+    false,
+    '注释里的字样被当成代码',
+  )
+
+  // 型 B:本票迁的 6 道门**全是**这一型 —— 型 A 的尺子对它们整型盲视。
+  // 少了这几条,棘轮会把"收口毫无进展"读成"存量本来就没动"。
+  // 每条都带第二参 `[` 的派生调用 —— 声明+被当首参用 两条同时成立才算债(见上注释)。
+  const USE = "\nexecFileSync(GIT, ['status'], { cwd })\n"
+  assert.equal(
+    pathBoundGitCountOf("const GIT = process.env.IHUI_GIT_BIN || 'git'\n" + USE),
+    1,
+    'env 兜底裸 git 必须被量到(§5b:服务账户与交互账户的 PATH 互不相通)',
+  )
+  assert.equal(pathBoundGitCountOf("const GIT = 'git';\n" + USE), 1, '直接赋裸 git 必须被量到')
+  assert.equal(
+    pathBoundGitCountOf("const bin = gitBin() || 'git'\nexecFileSync(bin, ['ls-files'])\n"),
+    1,
+    '函数兜底再落裸名的也量(它同样会拿到 undefined 再退回 PATH)',
+  )
+  assert.equal(
+    pathBoundGitCountOf('const GIT = resolveGitBin()\n' + USE),
+    0,
+    '收口后的正确写法不得误报',
+  )
+  assert.equal(
+    pathBoundGitCountOf('const msg = "checking \'git\' now"\nexecFileSync(msg, [])\n'),
+    0,
+    '字符串中间的同名片段不得误报(锚行尾正是为此)',
+  )
+  // 真仓第一版就被这一型骗过:'git' 在这里是**目录名**,不是二进制
+  assert.equal(
+    pathBoundGitCountOf(
+      "  const root = join(resolve(wt, '..', '..'), 'DevEnv', 'backups', 'git')\n",
+    ),
+    0,
+    '同名目录名不得误报(root 从未被当派生首参)',
+  )
+
+  // 注释不得算债 —— 成对两条:同一段代码放进注释里必须归 0,留在代码里必须归 1。
+  // (真仓的 import-graph.mjs 就是被 JSDoc 里那句"一次 cat-file --batch"记成未收口的门)
+  assert.equal(bareGitCountOf("execFileSync('git', ['status'])"), 1, '代码形态必须计')
+  assert.equal(
+    bareGitCountOf(hideComments("// execFileSync('git', ['status'])\n")),
+    0,
+    '行注释必须不计',
+  )
+  assert.equal(
+    bareGitCountOf(hideComments("/* execFileSync('git', ['x']) */\n")),
+    0,
+    '块注释必须不计',
+  )
+  assert.equal(
+    bareGitCountOf(hideComments("const a = 1 // execFileSync('git', ['x'])\nconst b = 2\n")),
+    0,
+    '行尾注释必须不计',
+  )
+  assert.equal(
+    bareGitCountOf(hideComments('/** 一次 cat-file --batch 取多个 blob */\nf()\n')),
+    0,
+    'JSDoc 里的 batch 字样必须不计',
+  )
+  assert.equal(
+    hideComments("const url = 'https://aizhs.top/x'\nexecFileSync('git', ['v'])\n").includes(
+      "execFileSync('git'",
+    ),
+    true,
+    '抹注释不得连代码一起抹掉(抹字符串就会把靶子涂掉,这里只抹注释)',
+  )
+  assert.equal(
+    hideComments("const s = '/* 这不是注释 */'\nexecFileSync('git', ['v'])\n").includes(
+      "execFileSync('git'",
+    ),
+    true,
+    '字符串里的 /* 不得把后续代码吞成注释',
+  )
+})
+
+test('型 B:常量绑到裸 git 的生产文件数只减不增(型 A 的尺子看不见这一型)', () => {
+  const root = join(here, '..', '..')
+  // 本层自己那处 `resolveGitBin() || 'git'` 是**刻意保留的最后一档兜底**(绝对路径解析失败时
+  // 退回 PATH,好过直接抛"找不到 git"),不排除它就把唯一正解也计成债。
+  const hits = headDerivationScan(root).pathBoundGit
+  assert.ok(
+    hits.length <= PATH_BOUND_GIT_BASELINE,
+    `常量绑裸 git 的生产文件从基线 ${PATH_BOUND_GIT_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
+      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(内部 gitBinary() 走绝对路径)。',
+  )
+  if (hits.length < PATH_BOUND_GIT_BASELINE) {
+    console.log(
+      `◽ 型 B 存量已降到 ${hits.length}(基线 ${PATH_BOUND_GIT_BASELINE}):${hits.join(', ')} —— 请把基线一并下调`,
+    )
+  }
+})
+
+test('裸 git 派生的生产文件数只减不增(存量逐枚记在具名债务清单,新增拦停)', () => {
+  const root = join(here, '..', '..')
+  const scan = headDerivationScan(root)
+  const hits = scan.bareGit
+  const today = new Date().toISOString().slice(0, 10)
+  const { unlisted, countGrew, expired, settled } = judgeBareGitDebt(
+    hits,
+    scan.bareGitCounts,
+    BARE_GIT_DEBT,
+    today,
+  )
+  // ① 新增文件:一句话点名,不再让人对着"存量前 8 个"猜是谁带的(旧提示的误读教训)
+  assert.deepEqual(
+    unlisted,
+    [],
+    `新增 ${unlisted.length} 处裸 git 派生(不在具名债务清单里):${unlisted.join(', ')}\n` +
+      '  新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(绝对路径 git + quotepath + timeout + stdio 两态)。\n' +
+      '  存量逐枚归因见 BARE_GIT_DEBT 与 .ihui-agent/tmp/g39/s10/sites.json。',
+  )
+  // ② 已登记文件内部加码:文件数棘轮的历史盲区(feedback-loop-status 1→2、safe-commit 8→9 都发生过)
+  assert.deepEqual(
+    countGrew,
+    [],
+    `已登记文件内的裸 git 派生变多(只减不增):${countGrew.join(', ')} —— 同样改用 gitRaw。`,
+  )
+  // ③ 到期未结清:债务不是豁免,`due` 一过仍在即红(§0.7 豁免必须"验过才免"且会到期)
+  assert.deepEqual(
+    expired,
+    [],
+    `以下裸 git 债务已过期仍未结清(due < ${today}):${expired.join(', ')}\n` +
+      '  出路只有两条:迁 gitRaw,或用新证据重写该条的 due/why(不许只把日期往后推)。',
+  )
+  assert.ok(
+    hits.length <= BARE_GIT_BASELINE,
+    `裸 git 派生的生产文件从基线 ${BARE_GIT_BASELINE} 涨到 ${hits.length}(与清单求差见上一条断言)`,
+  )
+  if (settled.length) {
+    console.log(
+      `◽ ${settled.length} 条债务已结清:${settled.join(', ')}\n` +
+        '  —— 请从 BARE_GIT_DEBT 摘除(基线 = 清单长度,摘即降;留条会被下一位读成"还在欠")。',
+    )
+  }
+})
+
+test('构造面反例:同一判据对"新文件裸派生"与"已登记文件加码"都当场判红(证明尺子有牙)', () => {
+  // 不往真仓 HEAD 塞文件(那是提交,不是本例该做的事):在临时仓里构造同样的三种形态,
+  // 跑的是**同一个** headDerivationScan + judgeBareGitDebt,不是另抄一份判据。
+  const dir = mkScratch('ratchet-debt-')
+  try {
+    const g = (...a) =>
+      spawnSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(join(dir, 'scripts', 'known.mjs'), "execFileSync('git', ['status'])\n", 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    const debt = [{ file: 'scripts/known.mjs', count: 1, addedBy: '', due: '2099-01-01', why: 't' }]
+    // ① 基线态:清单覆盖现读 ⇒ 三档全空(否则下面两条"红"可能是尺子恒红)
+    let scan = headDerivationScan(dir)
+    let r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
+    assert.deepEqual(
+      [r.unlisted, r.countGrew, r.expired, r.settled],
+      [[], [], [], []],
+      '基线态本该干净 —— 这一条不成立,下面两条"判红"就没有意义',
+    )
+    // ② 别人再加一处裸派生(新文件)⇒ 必须点名到那一枚
+    writeFileSync(join(dir, 'scripts', 'fresh.mjs'), "spawnSync('git', ['ls-files'])\n", 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'add one bare derivation')
+    scan = headDerivationScan(dir)
+    r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
+    assert.deepEqual(r.unlisted, ['scripts/fresh.mjs'], '新文件裸派生怕是没有被判红')
+    // ③ 已登记文件内部再加一处 ⇒ 文件数不变,也必须判红(旧尺的盲区)
+    writeFileSync(
+      join(dir, 'scripts', 'known.mjs'),
+      "execFileSync('git', ['status'])\nexecFileSync('git', ['diff'])\n",
+      'utf8',
+    )
+    g('add', '-A')
+    g('commit', '-qm', 'grow inside a listed file')
+    scan = headDerivationScan(dir)
+    r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2026-10-30')
+    assert.deepEqual(r.countGrew, ['scripts/known.mjs(1→2)'], '文件数没变就不判红 = 盲区还在')
+    // ④ 到期:同一条债换个"今天"就必须红(证明 due 不是装饰)
+    r = judgeBareGitDebt(scan.bareGit, scan.bareGitCounts, debt, '2099-01-02')
+    assert.ok(r.expired.includes('scripts/known.mjs'), 'due 过了还不判红 ⇒ 债务永不到期')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/* ── 2026-09-25 按字节装箱:三个新出口都用构造面证明,不依赖真仓恰好有多大 ───────────── */
+
+test('packByBytes 不丢不重,且单条超预算也自成一块(绝不静默丢弃)', () => {
+  const specs = Array.from({ length: 25 }, (_, i) => `:${i}`)
+  const size = (s) => (s === ':7' ? 40 << 20 : 1 << 10) // 第 8 条是 40MB 的巨无霸
+  const blocks = packByBytes(specs, size, { maxBytes: 8 << 20, maxCount: 4 })
+  const flat = blocks.flat()
+  assert.equal(flat.length, specs.length, `装箱丢了 ${specs.length - flat.length} 个规格`)
+  assert.equal(new Set(flat).size, specs.length, '装箱出现重复规格')
+  assert.ok(
+    blocks.some((b) => b.length === 1 && b[0] === ':7'),
+    '超过 maxBytes 的单条必须自己成一块 —— 丢弃它等于让下游"少扫一条却报绿"',
+  )
+  for (const b of blocks) assert.ok(b.length <= 4, `块内条数越界:${b.length}`)
+})
+
+test('packByBytes 的非法参数一律拒,不许退化成"空结果"', () => {
+  // 空结果在下游永远是绿 —— 所以尺寸参数坏掉必须抛,而不是返回 []
+  assert.throws(() => packByBytes(['a'], () => 1, { maxBytes: 0 }), /maxBytes/)
+  assert.throws(() => packByBytes(['a'], () => 1, { maxCount: 0 }), /maxCount/)
+  assert.throws(() => packByBytes(['a'], () => 1, { maxBytes: NaN }), /maxBytes/)
+  assert.deepEqual(
+    packByBytes([], () => 1, { maxBytes: 10, maxCount: 10 }),
+    [],
+    '空输入才是唯一的空输出',
+  )
+})
+
+test('spawnCauseText:缓冲区溢出不得被折成"git 无输出",超时与溢出两支要分得开', () => {
+  const enobufs = spawnCauseText({ code: 'ENOBUFS', stderr: '' }, 64 << 20, '块 4/23')
+  assert.match(enobufs, /maxBuffer/, 'ENOBUFS 必须报成缓冲区不足')
+  assert.ok(
+    !enobufs.includes('无输出'),
+    '把缓冲区溢出说成"git 无输出"正是 09-25 误诊十几分钟的成因',
+  )
+  assert.match(enobufs, /块 4\/23/, '要带是哪一块,否则无法定位输入形态')
+  const tmo = spawnCauseText(
+    { code: 'ETIMEDOUT', signal: 'SIGTERM', stderr: '' },
+    64 << 20,
+    '块 1/1',
+  )
+  assert.match(tmo, /超时/, 'ETIMEDOUT 才是超时')
+  assert.ok(!tmo.includes('maxBuffer'), '超时不得报成缓冲区(两者处置动作不同)')
+  // 反向:真正的零命中仍必须是层那个常量串(守门 99 与本文件都按它逐字对账)
+  assert.equal(spawnCauseText({ stderr: '' }, 64 << 20, 'x'), gitErrText({ stderr: '' }))
+  assert.equal(spawnCauseText({ stderr: '' }, 64 << 20, 'x'), '(git 无输出)')
+})
+
+test('gitErrText:异常退出(超时/资源耗尽)必须点名 signal/code,不得折成「无输出」', () => {
+  const tmo = gitErrText({ stderr: '', signal: 'SIGTERM', message: 'spawnSync git ETIMEDOUT' })
+  assert.match(tmo, /signal=SIGTERM/, '超时必须点名被哪个信号杀掉:145 条「无输出」就是这么堆出来的')
+  assert.ok(tmo.startsWith('(git 无输出;'), '保留原前缀,既有按前缀识别的哨兵不会被破坏')
+  const mem = gitErrText({ stderr: '', code: 'ENOMEM', message: 'spawnSync git ENOMEM' })
+  assert.match(mem, /code=ENOMEM/, '资源耗尽必须点名 code')
+  // 反向:正常退出(status 有值)且零命中 ⇒ 仍是那句常量(门 99 / 102 按它逐字对账)
+  assert.equal(gitErrText({ stderr: '', status: 1 }), '(git 无输出)')
+  assert.equal(gitErrText({ stderr: '' }), '(git 无输出)')
+})
+
+test('parseBatchCheckSizes:oid blob size 对齐回填,missing / tree 归 null', () => {
+  const oid = 'f'.repeat(40)
+  const out = `${oid} blob 123\n:no-such blob missing\n${oid} tree 4096\n`
+  const m = parseBatchCheckSizes(out, [':a', ':b', ':c'])
+  assert.equal(m.get(':a'), 123)
+  assert.equal(m.get(':b'), null, 'missing 必须 null,不得把规格原文当数字返回')
+  assert.equal(m.get(':c'), null, 'tree 不是 blob,读它没有意义')
+})
+
+test('行为等值:同一批规格,逐条一块与整块一块的结论必须完全相同(证明装箱不改语义)', () => {
+  const root = join(here, '..', '..')
+  const specs = ['HEAD:package.json', 'HEAD:README.md', 'HEAD:nope/missing.ts'].map((s) => s)
+  const one = catBatch(root, specs, { chunkSize: 1, maxBytes: 1 })
+  const all = catBatch(root, specs, { chunkSize: specs.length })
+  assert.deepEqual([...one.entries()], [...all.entries()], '分块与不分块必须逐 key 同序同值')
+  assert.equal(one.get('HEAD:nope/missing.ts'), null)
+})
+
+test('自拼 cat-file --batch 却不走本层的门,数量只减不增', () => {
+  const root = join(here, '..', '..')
+  const s = headDerivationScan(root)
+  const hits = s.selfBatch
+  assert.ok(
+    hits.length <= SELF_BATCH_BASELINE,
+    `自拼 batch 取材的门从基线 ${SELF_BATCH_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
+      '每条 batch 都要重写一遍 stdio[0]=pipe / maxBuffer / 头解析,而这三处本仓都真踩过',
+  )
+  // 换面这件事本身也要有牙:HEAD 面读不出内容的文件必须为 0,否则"少了几枚分母"会伪装成"收口有效"
+  assert.equal(
+    s.unreadable,
+    0,
+    `HEAD 面有 ${s.unreadable} 个生产文件取不到内容 —— 分母在缩水,不能当作存量下降`,
+  )
+  if (hits.length < SELF_BATCH_BASELINE) {
+    console.log(
+      `◽ 未收口的自拼 batch 取材:${hits.length} 个(${hits.join(', ') || '无'})—— 请把基线一并下调`,
+    )
+  } else if (hits.length === 0) {
+    console.log('✅ 自拼 batch 取材已清零')
+  }
+})
+
+// ── 第四型尺子:判"远端在哪"只许走层(§5b 的引用清理病理) ──────────────────
+test('判"远端在哪"只许走层:生产文件不得拿会被清理层删掉的跟踪 ref 落槌', () => {
+  // 先拿构造面证明这把尺子**有牙**(阳性必抓、两种正确写法不得误报),再扫真仓 ——
+  // 顺序反了就是一支恒红或恒绿的尺子。
+  const usesLayer = (s) => /from '\.\.?\/?lib\/face-reader\.mjs'/.test(s)
+  const asksServer = (s) => /ls-remote/.test(s)
+  const decidesOnTrackingRef = (s) =>
+    /rev-parse[^\n]{0,40}(refs\/remotes\/origin|['"`]origin\/)/.test(s)
+  const violates = (s) => decidesOnTrackingRef(s) && !usesLayer(s) && !asksServer(s)
+  assert.equal(
+    violates("const s = git(['rev-parse', 'refs/remotes/origin/main'])"),
+    true,
+    '阳性对照:纯跟踪 ref 当决策输入必须被抓到',
+  )
+  assert.equal(
+    violates(
+      "import { resolveRemoteHead } from './lib/face-reader.mjs'\nconst s = resolveRemoteHead('main', { root })",
+    ),
+    false,
+    '反向对照:走层的不得误报',
+  )
+  assert.equal(
+    violates(
+      "const a = git(['ls-remote', 'origin', 'refs/heads/main'])\nconst b = git(['rev-parse', 'origin/main'])",
+    ),
+    false,
+    '反向对照:ls-remote 之后的离线兜底是允许的(git-push-guard / check-push-sync 就是这个形状)',
+  )
+  const root = join(here, '..', '..')
+  const files = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts/'], root)
+    .split('\n')
+    .filter((p) => p.endsWith('.mjs') && !p.startsWith('scripts/tests/'))
+  const blobs = catBatch(
+    root,
+    files.map((f) => `HEAD:${f}`),
+  )
+  const bad = files.filter((f) => {
+    const src = blobs.get(`HEAD:${f}`)
+    return typeof src === 'string' && violates(src)
+  })
+  assert.deepEqual(bad, [], `这些文件仍在拿跟踪 ref 判远端位置:${bad.join(', ')}`)
+})
+
+/* ── 2026-10-01 EBUSY 病窗兜底:临时文件 fd 喂 stdin ─────────────────────────────
+ * 成因:交互会话进程树里 Node 建 stdin 管道 100% EBUSY(2026-10-01 风暴,矩阵 6/6),
+ * 所有 batch 出口随之整门「无法判定」。修复:主路径照旧(pipe),仅 e.code==='EBUSY' 时
+ * 改走 spawnViaTempStdinFile 的 fd 通道(fd 不是管道,病窗不发病;先例
+ * scripts/lib/agent-event-coverage.mjs 的 catBatchViaTempStdinFile,矩阵 6/6 绕开实证)。
+ * 本组三条:fd 通道功能等价 / 非零退出与错误形状不因包装器漂移 / EBUSY 分流真实存在。 */
+
+test('spawnViaTempStdinFile:fd 喂 stdin 与管道同结果(fd 不是管道,EBUSY 病窗不发病)', () => {
+  const root = join(here, '..', '..')
+  const spec = 'HEAD:scripts/lib/face-reader.mjs'
+  const r = spawnViaTempStdinFile(
+    GIT,
+    ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'],
+    { cwd: root, input: Buffer.from(spec + '\n', 'utf8'), maxBuffer: 64 << 20, encoding: 'buffer' },
+  )
+  assert.equal(r.error, undefined, `fd 通道派生失败: ${r.error}`)
+  assert.equal(r.status, 0, `fd 通道退出码 ${r.status}: ${String(r.stderr)}`)
+  const text = r.stdout.toString('utf8')
+  const header = text.split('\n', 1)[0]
+  assert.match(header, /^[0-9a-f]{40} blob \d+$/, `fd 通道回的不是 batch 头: ${header}`)
+  // 阳性对照:内容必须是真 blob 正文,不是空输入产的零输出(空 stdin 假成功那一型的反面)
+  assert.ok(
+    text.includes('判定面取材的共用底层'),
+    'fd 通道拿到的不是 face-reader.mjs 正文 —— 临时文件没被 git 读到',
+  )
+})
+
+test('batchExecFileSync:非零退出照 execFileSync 形状抛(带 status),非 EBUSY 错误原样穿透', () => {
+  const root = join(here, '..', '..')
+  // 非零退出:rev-parse 一个不存在的 ref,git 回 128 —— 包装器必须把 status 带上来,
+  // 调用方的 catch(区分"git 说没有"与"git 没跑成")才不会退化成 parse 字符串。
+  assert.throws(
+    () =>
+      batchExecFileSync(GIT, ['-C', root, 'rev-parse', '--verify', 'definitely-not-a-ref-815981'], {
+        cwd: root,
+      }),
+    (e) => {
+      assert.equal(e.status, 128, `非零退出的 status 没带上: ${e.status}`)
+      return true
+    },
+  )
+  // 非 EBUSY 的派生故障必须原样抛(绝不吞成一次"重试过了"):ENOENT 是最可控的一支。
+  assert.throws(
+    () => batchExecFileSync('definitely-no-such-binary-815981', ['x'], { cwd: root, input: 'y' }),
+    (e) => {
+      assert.equal(e.code, 'ENOENT', `非 EBUSY 错误被改型: ${e.code}`)
+      return true
+    },
+  )
+})
+
+test('batchExecFileSync:EBUSY 分流真实存在(短路判据 + fd 通道调用点在场)', () => {
+  const src = read('lib/face-reader.mjs')
+  // 判据只认 EBUSY:这条短路必须逐字在场 —— 少了它,ENOBUFS/ENOENT 等真故障也会被吞成重试。
+  assert.match(src, /e\?\.code !== 'EBUSY'/, 'EBUSY 短路判据缺失 —— 兜底会吞掉真故障')
+  assert.match(src, /export function batchExecFileSync/, '包装器出口缺失')
+  assert.match(src, /export function spawnViaTempStdinFile/, 'fd 通道出口缺失')
+  assert.match(src, /stdio:\s*\[\s*fd,\s*'pipe',\s*'pipe'\s*\]/, 'fd 通道的 stdio 形态漂了')
+})
+
+/* ── 2026-10-01 G-467:二进制安全读取出口 ─────────────────────────────────────────
+ * 成因:层的读取出口全做 toString('utf8'),`E4 B8 3F 41` 经 catBatch 取回成 `\uFFFD?A`
+ * —— 偏移、字节值全部销毁,"判字节/判哈希"的门只能走它等于被做瞎;不走层又被守门 118
+ * 判 half-wired。本组两条:真仓字节保真 + 纯函数面同构;阳性对照证明 utf8 出口确实有损。 */
+
+test('catBatchBinary:字节保真(真 git 对象)—— 非法 UTF-8 序列原样返回,utf8 出口同对象产 U+FFFD(对照)', () => {
+  const root = mkScratch('face-reader-bin-')
+  try {
+    const init = gitRaw(['init', '--quiet'], root)
+    assert.ok(typeof init === 'string', 'git init 失败(gitRaw 抛即红)')
+    const bytes = Buffer.from([0x31, 0xe4, 0xb8, 0x3f, 0x41, 0xff, 0x41, 0x0a])
+    writeFileSync(join(root, 'bytes.bin'), bytes)
+    const ho = gitRaw(['hash-object', '-w', 'bytes.bin'], root)
+    assert.ok(ho, 'hash-object 失败(gitRaw 抛即红)')
+    const oid = ho.trim()
+    const missing = 'f'.repeat(40)
+    const m = catBatchBinary(root, [oid, missing])
+    const v = m.get(oid)
+    assert.ok(Buffer.isBuffer(v), `二进制出口返回了 ${typeof v} —— 不是 Buffer`)
+    assert.ok(v.equals(bytes), `字节被改写: got ${v.toString('hex')} want ${bytes.toString('hex')}`)
+    assert.equal(m.get(missing), null, 'missing 未归 null(与 catBatch 同档)')
+    // 阳性对照:同一对象走 utf8 出口,非法序列被折成 U+FFFD —— G-467 登记的事故形态,必须可复现
+    const utf = catBatch(root, [oid]).get(oid)
+    assert.ok(utf.includes('\uFFFD'), 'utf8 出口居然无损 —— 对照失效,字节保真证明不成立')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('parseBatchBuffers:与 parseBatch 同构(值=Buffer/missing=null/截断抛),catBatch 仍逐字回原 utf8', () => {
+  const oid = '0123456789abcdef0123456789abcdef01234567'
+  const body = Buffer.from('abc')
+  const head = Buffer.from(`${oid} blob 3\n`)
+  const ok = Buffer.concat([head, body, Buffer.from('\n')])
+  const m = parseBatchBuffers(ok, [oid])
+  assert.ok(Buffer.isBuffer(m.get(oid)) && m.get(oid).equals(body), 'Buffer 值面漂了')
+  assert.equal(
+    parseBatchBuffers(Buffer.from(`${oid} missing\n`), [oid]).get(oid),
+    null,
+    'missing 未归 null',
+  )
+  // 截断构造:两条规格只回一条头 —— 读第二条 needing header 时越界,必须抛(绝不静默少扫)
+  const oid2 = 'fedcba9876543210fedcba9876543210fedcba98'
+  assert.throws(() => parseBatchBuffers(head, [oid, oid2]), /截断/, '截断必须抛(绝不静默少扫)')
+  // 同输入走 utf8 纯函数:值必须是等值字符串 —— 两出口的唯一差异就是解码这一步
+  assert.equal(parseBatch(ok, [oid]).get(oid), 'abc')
+})
+
+/* ── 2026-10-23 G-880:listFaceFiles(按判定面枚举全部跟踪文件)──────────────────────
+ * 这格守的是 AGENTS §0.4「清单与内容同面同轮」:清单取自哪个面,决定这一轮判的是哪个面。
+ * 三档行为都被真 git 证明(HEAD 树 / 索引 / 跟踪工作区),另加三条构造:
+ * 未知面必须抛(不回落)、pathspec 限定、NUL 分帧(含空格路径不被引号转义);
+ * 还有一条正向对照的反面 —— **未跟踪文件在任何一档都不进清单**(旧 walk 把构建产物卷进来的病灶)。 */
+
+function seedFaceRepo() {
+  const root = mkScratch('face-list-')
+  gitRaw(['init', '--quiet'], root)
+  mkdirSync(join(root, 'a'), { recursive: true })
+  writeFileSync(join(root, 'a', 'base.ts'), 'export const a = 1\n')
+  // 含空格的路径:用来证明清单是 NUL 分帧取的,不经 core.quotepath 转义
+  writeFileSync(join(root, 'a', 'with space.ts'), 'export const b = 2\n')
+  gitRaw(['add', '-A'], root)
+  gitRaw(
+    ['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'seed'],
+    root,
+  )
+  // 只在索引面:HEAD 档必须看不见,索引档必须看得见
+  writeFileSync(join(root, 'a', 'staged.ts'), 'export const c = 3\n')
+  gitRaw(['add', 'a/staged.ts'], root)
+  // 完全未跟踪:三档都不得出现
+  writeFileSync(join(root, 'a', 'untracked.ts'), 'export const d = 4\n')
+  return root
+}
+
+test('listFaceFiles:三面各判各的(HEAD 树 / 索引 / 跟踪工作区),未跟踪文件一律不进清单', () => {
+  const root = seedFaceRepo()
+  try {
+    const head = listFaceFiles(root, 'head')
+    const staged = listFaceFiles(root, 'staged')
+    const worktree = listFaceFiles(root, 'worktree')
+    assert.ok(head.includes('a/base.ts'), `HEAD 清单缺已提交文件: ${head.join(',')}`)
+    assert.ok(
+      !head.includes('a/staged.ts'),
+      'HEAD 清单混进了只在索引里的文件 ⇒ 清单与内容混面(悬留替红顶绿那一型)',
+    )
+    assert.ok(staged.includes('a/staged.ts'), '索引清单缺了已 add 的文件 ⇒ 提交档对本次改动失明')
+    assert.ok(worktree.includes('a/staged.ts'), '工作区(跟踪)清单缺了新文件')
+    for (const f of ['a/untracked.ts']) {
+      assert.ok(
+        !head.includes(f) && !staged.includes(f) && !worktree.includes(f),
+        `${f} 进了清单(未跟踪文件不该被任何一档收)`,
+      )
+    }
+    // NUL 分帧:含空格路径原样返回
+    assert.ok(head.includes('a/with space.ts'), 'NUL 分帧失效(路径被引号/转义改写)')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('listFaceFiles:pathspec 限定子树(只回被请求的路径)', () => {
+  const root = seedFaceRepo()
+  try {
+    mkdirSync(join(root, 'b'), { recursive: true })
+    writeFileSync(join(root, 'b', 'other.ts'), 'export const z = 1\n')
+    gitRaw(['add', '-A'], root)
+    const only = listFaceFiles(root, 'staged', { paths: ['b'] })
+    assert.deepEqual(only, ['b/other.ts'], `pathspec 未生效: ${only.join(',')}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('listFaceFiles:未知面必须抛 Undetermined(不回落任何一面,也不返回空数组冒充"没有文件")', () => {
+  const root = mkScratch('face-list-bad-')
+  try {
+    assert.throws(() => listFaceFiles(root, 'index'), Undetermined)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('listFaceFiles:取不到被审面 ⇒ 抛 Undetermined(空仓无 HEAD,绝不返回空数组)', () => {
+  const root = mkScratch('face-list-nohd-')
+  try {
+    gitRaw(['init', '--quiet'], root)
+    assert.throws(() => listFaceFiles(root, 'head'), Undetermined)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+/**
+ * 规格快路径(规格数 ≥ FASTPATH_MIN_SPECS 时 `catBatch` 先把规格折成 oid)的**索引面回归锁**。
+ *
+ * 立因(2026-10-30):`ls-files -s` 的列序是 `<mode> <oid> <stage>`,而 `ls-tree` 是
+ * `<mode> <type> <oid>`。两条腿共用"取 meta[2]"的解析器时,索引面拿到的是 stage `"0"`,
+ * 过不了 hex 校验 ⇒ 整张 oid 表恒空 ⇒ `--staged` 面**每一枚** blob 都被判"取不到",
+ * 门 47/194/221/254 全落未判定,把每枚提交逼向 `--no-verify`(RP-80)。全量档走 ls-tree,
+ * 所以病灶只藏在 staged 面 —— 这也是它此前一直没人发现的原因。
+ *
+ * 判据用**两条生产通路互相差分**:`catBatch` 经 `resolveSpecOids`(快路径),而
+ * `catBatchOids` 直喂 `cat-file --batch-check`、不经那条路 —— 同一个 `:path` 两条路必须
+ * 给同一批 oid。配负面对照(不存在的路径两侧都归 null),证明这条不是"永远非空"的假绿。
+ */
+test('规格快路径:索引面 :path 在 catBatch 与 catBatchOids 上给同一批 oid(取错列会让前者整表为空)', () => {
+  const root = join(here, '..', '..')
+  const listed = String(gitRaw(['ls-files', '-z', '--', 'scripts/'], root, { timeout: 120000 }))
+    .split('\u0000')
+    .filter(Boolean)
+    .filter((p) => p.endsWith('.mjs'))
+  const sample = listed.slice(0, 220)
+  assert.ok(
+    sample.length >= 200,
+    `索引面只取到 ${sample.length} 条 .mjs 样本(< 200 条压不到快路径触发线)⇒ 未判定,不记绿`,
+  )
+  const specs = sample.map((p) => `:${p}`)
+  const viaBatch = catBatch(root, specs, { maxBuffer: 1 << 28 })
+  const viaOids = catBatchOids(root, specs, { maxBuffer: 1 << 28 })
+  const broken = specs.filter(
+    (s) => viaBatch.get(s) === null || viaBatch.get(s) === undefined || !viaOids.get(s),
+  )
+  assert.deepEqual(
+    broken.slice(0, 3),
+    [],
+    `${broken.length}/${specs.length} 条索引面 :path 在快路径上取不到(对照 catBatchOids 有 oid)⇒ 索引面解析取错列`,
+  )
+  const ghost = ':__face_reader_no_such_path_6b1d__.mjs'
+  assert.equal(catBatch(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
+  assert.equal(catBatchOids(root, [ghost], { maxBuffer: 1 << 20 }).get(ghost), null)
+})
+
+test('probeFaceSpec:取不到时把 命令/rc/stderr 一起带回(RP-47 可观测腿)', () => {
+  const root = join(here, '..', '..')
+  const ok = probeFaceSpec(root, 'HEAD:package.json')
+  assert.equal(ok.ok, true, '存在的 spec 应判可取')
+  assert.equal(ok.type, 'blob')
+  assert.equal(ok.rc, 0)
+  const bad = probeFaceSpec(root, ':__no_such_spec_rp47__.mjs')
+  assert.equal(bad.ok, false, '不存在的索引路径必须判取不到')
+  assert.notEqual(bad.rc, undefined, 'rc 必须带回(哪怕是 null 也要显式给出)')
+  assert.ok(bad.stderr.length > 0, 'stderr 必须带回,否则未判定文案还是没法归因')
+  const line = describeProbe(bad)
+  assert.match(line, /^git cat-file -t /, '取证串必须点名实际命令')
+  assert.match(line, /rc=(\d+|null)/, '取证串必须带退出码')
+  assert.match(line, /stderr="/, '取证串必须带 stderr')
+  // 造好必须装车:两门都得把这条腿接在未判定分支里(否则就是本仓反复记过的"造好没装车")
+  for (const f of ['check-mjs-syntax.mjs', 'check-mjs-export-resolution.mjs']) {
+    assert.match(read(f), /describeProbe\(probeFaceSpec\(/, `${f} 未把可观测腿接进未判定文案`)
+  }
+})
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

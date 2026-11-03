@@ -1,0 +1,529 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: CI (Monorepo)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - 'tsconfig.base.json'
+      - '.prettierignore'
+      - '.github/workflows/ci-monorepo.yml'
+  pull_request:
+    branches: [main, develop]
+
+# Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
+permissions:
+  contents: read
+
+# 2026-10-20 实测改判(与镜像通道 0921d74f3b 同病灶、同药;勿轻率改回 true):
+#   最近 40 轮 CI (Monorepo) 现读 = 22 cancelled / 17 failure / **0 success**;相邻两轮创建间隔
+#   中位数 9.8min,而被砍掉的轮次平均只活了 6.4min —— 最近一次**没被取消**的运行全程 7.3min
+#   (最长 job typecheck 5.0min)。即在 true 下 main 结构性拿不到终态结论:红点修没修都只显示
+#   "被取消",既证不了修复、也警不了回归(§0.9 判据必须在真跑它的那一刻才成立)。
+#   false 的 GitHub 语义(镜像头注已实测记载):在跑的 run 不被挤掉 ⇒ 跑完出结论;
+#   排队中未开跑的旧 run 仍只保留最新一个 ⇒ 不烧历史 sha、不堆并发。
+# 2026-11-03 实测修正:false 并不能保住 main 的终态 —— GitHub 会取消同组里更早的 **pending**
+# run(与 cancel-in-progress 无关),实测 run 41576145991 / 41579145214 两枚 main 提交被判
+# cancelled。故 main 档 group 换成 run 级唯一值(= 不分组、不排队),非 main 档仍按 ref 收敛。
+concurrency:
+  group: "ci-monorepo-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}"
+  # main 上不加组:多会话每 3-5min 推一次,任何排队形态都会让旧 SHA 判 cancelled。
+  # 非 main(PR / 特性分支)才允许砍:它们的 run 不承载 main 的分支保护结论。
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  NODE_VERSION: '22'
+  # 与根 package.json 的 packageManager(pnpm@11.18.0)严格对齐,避免 pnpm 版本漂移。
+  PNPM_VERSION: '11.18.0'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.pnpm-cache.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+  lint:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      # Format check 只判本次改动(scripts/check-format-changed.mjs 差值棘轮):
+      # 需要上一枚提交作为 diff 基线,故取 2 层历史;取不到 FORMAT_BASE_REF 时脚本内回落 HEAD^。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+        with:
+          fetch-depth: 2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+      - name: Lint (strict)
+        id: lint-strict
+        run: pnpm run lint:strict
+      - name: Format check
+        id: format-check
+        env:
+          # push 事件 = 上一枚提交;PR / 新分支等取不到时脚本内回落 HEAD^(见 check-format-changed.mjs)。
+          FORMAT_BASE_REF: ${{ github.event.before || 'HEAD^' }}
+        run: pnpm run format:check
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout install lint-strict format-check
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_LINT_STRICT: ${{ steps.lint-strict.outcome }}
+          O_FORMAT_CHECK: ${{ steps.format-check.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  typecheck:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+      # 类型包前置构建(2026-10-09 立,补本 job 与 ci.yml 的那道差):
+      # @ihui/types 的 main/types/exports 全指向 ./dist/* 且产物不入库,而 `pnpm install`
+      # 从不构建 workspace 包 ⇒ 本 job 的 `pnpm run typecheck` 结构上拿不到它的类型声明。
+      # 实测形态:typecheck job 138× TS2307 "Cannot find module '@ihui/types'"(含 2× 子路径
+      # /permission-mode)+ 连带 10× TS7006 / 1× TS7053 —— 后两类不是独立缺陷,是类型推不出来。
+      # 本机 A/B 同形复现(取证 .ihui-agent/tmp/census-ab/ac-without.log 与 ac-with.log):
+      #   把 packages/types/dist 挪开 ⇒ RC=2、87× TS2307 + 8× TS7006 + 1× TS7053;原样放回 ⇒ RC=0、0 错。
+      # 选择器 `@ihui/api-client...` = 该包**连同其 workspace 依赖**拓扑构建,与 ci.yml 的
+      # build-api-client 步骤逐字同源(openapi-check.yml:77 是同一条先例)。手工点名"要先建哪几个包"
+      # 必然落后于新增依赖(ci.yml:78 那段 2026-09-27 的教训),所以这里用闭包形式而不是只建 types。
+      - name: Build type-consumable workspace deps (topological closure, prerequisite of typecheck)
+        id: build-types-deps
+        run: pnpm --filter "@ihui/api-client..." run build
+      # 下面那条 `wxt prepare` 解析的是 extension 的**全部** workspace 入口,而上一步
+      # `@ihui/api-client...` 闭包不含 @ihui/i18n / @ihui/ui-react / @ihui/browser-platform 等
+      # extension 直连依赖 ⇒ 干净检出上仍会报 `Failed to resolve entry for package "@ihui/i18n"`
+      # (2026-10-31 实测 run 41150575693 / 41150575738)。`@ihui/extension^...` = 它的 workspace
+      # 依赖闭包(不含自身),与 Dockerfile.web:73 的 `@ihui/web^...` 同一写法。
+      - name: Build extension workspace deps (wxt prepare 的解析面)
+        id: build-ext-deps
+        run: pnpm --filter "@ihui/extension^..." run build
+      # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
+      # 缺此步 -> .wxt/ 被 gitignore 未入库 -> tsc 读不到 → TS5083 + 200+ 级联错误(2026-09-10 实测)。
+      # **必须在上面那条建包步之后**:`wxt prepare` 会经 vite 解析 `@ihui/i18n` 入口,而该包
+      # main/exports 恒指 ./dist/* 且 dist 不入库 ⇒ 在干净检出上"install 后立刻 prepare"必然报
+      # `Failed to resolve entry for package "@ihui/i18n"`(2026-10-30 实测 run 41059553779;
+      # 本机因 dist 常在而永不复现,属"本机恒绿、CI 独享红"型)。ci.yml 的步序本来就是对的。
+      - name: Prepare WXT types (extension)
+        id: prepare-wxt
+        run: pnpm --filter @ihui/extension exec wxt prepare
+      - name: Typecheck
+        id: typecheck
+        run: pnpm run typecheck
+      - name: e2e typecheck (@ihui/web)
+        id: typecheck-e2e
+        run: pnpm --filter @ihui/web typecheck:e2e
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout install build-types-deps build-ext-deps prepare-wxt typecheck typecheck-e2e
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_PREPARE_WXT: ${{ steps.prepare-wxt.outcome }}
+          O_BUILD_TYPES_DEPS: ${{ steps.build-types-deps.outcome }}
+          O_BUILD_EXT_DEPS: ${{ steps.build-ext-deps.outcome }}
+          O_TYPECHECK: ${{ steps.typecheck.outcome }}
+          O_TYPECHECK_E2E: ${{ steps.typecheck-e2e.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  source-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - name: Check for .js/.jsx/.vue files in apps/*/src/
+        id: source-check
+        run: |
+          set -e
+          FILES=$(find apps -path 'apps/*/src/*' -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.vue' \) || true)
+          if [ -n "$FILES" ]; then
+            echo "::error::Found .js/.jsx/.vue files in apps/*/src/. Use .ts/.tsx instead."
+            echo "$FILES"
+            exit 1
+          fi
+          echo "OK: No .js/.jsx/.vue files found in apps/*/src/"
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 本 job 不装 node/setup-node —— 该脚本只用 POSIX awk/grep,不依赖被测工具链。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout source-check
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SOURCE_CHECK: ${{ steps.source-check.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  port-registry-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - name: Check port registry
+        id: port-registry
+        run: node scripts/check-port-registry.mjs --all
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout port-registry
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # 纵深防御(2026-10-16):门 213(pre-commit blocking)只在 apps/mobile-rn/src/ 入暂存时拦截,
+  # 但该链可被 --no-verify 整体旁路(仓史实锤:115 道门曾集体旁路)。本 job 用同一判据在
+  # PR/push 上补一道不可旁路层;脚本零依赖(fs/path),故免装依赖,与 port-registry-check 同形。
+  sheet-flex-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - name: sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块)
+        id: sheet-flex
+        run: node scripts/check-sheet-flex-contract.mjs
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout sheet-flex
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SHEET_FLEX: ${{ steps.sheet-flex.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 256 的 CI 不可旁路副本):只拦退化,不拦存量。
+  # 与 sheet-flex-contract 同形:脚本零依赖,免装依赖;HEAD 面即被审提交本身,基线退化才红。
+  spec-coverage-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - name: 跨端视觉原子 spec 覆盖率棘轮(退化才拦)
+        id: spec-coverage-ratchet
+        run: node scripts/check-cross-end-spec-coverage.mjs --ratchet
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout spec-coverage-ratchet
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SPEC_COVERAGE_RATCHET: ${{ steps.spec-coverage-ratchet.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    # 2026-11-03 实测改判(勿重开):本 workflow 曾按 4 分片跑同一套 scripts/ci-test-shards.mjs,
+    # 真实 run 41567631844 的分片 job 墙钟 8m23/8m47/10m25/10m47,而分片前 Unit tests 步 =
+    # 671s → 收益 3.5%(<10%),同时多占 3 个 runner 槽(该 run 里 setup/typecheck/lint 的排队
+    # 从 2min 涨到 15min+)。按"只保留实测 >10% 的项"的口径**已回退**为单 job 全量。
+    # ci.yml 那侧保留 4 分片:那里旧 Test 步 925s → 最慢分片 549s(≈41%),收益成立。
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+      - name: Unit tests
+        id: test
+        run: pnpm run test
+      # 观测档(2026-10-31 接线):mobile-rn vitest 里落在 tests/__mocks__ 的别名替身面 ——
+      # 此前全仓四路调度点皆无,"替身面在扩张"没人看得见。按门体契约恒 RC=0(只报名不判红)。
+      - name: mobile-rn vitest 替身面观测(只报名,不判红)
+        id: mrn-vitest-mocks
+        run: node scripts/check-mrn-vitest-mock-alias-surface.mjs
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout install test mrn-vitest-mocks
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_TEST: ${{ steps.test.outcome }}
+          O_MRN_VITEST_MOCKS: ${{ steps.mrn-vitest-mocks.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  build:
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [web, api, miniapp-taro]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+        with:
+          # 还原度棘轮要一枚基线提交:push 用 HEAD^1。默认 depth=1 时 HEAD^1 不存在,
+          # 门体会因基线不可解析 exit 2(未判定)——比"安静地算成没倒退"正确,但 CI 会红。
+          fetch-depth: 2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+      - name: Turbo build (${{ matrix.app }})
+        id: turbo-build
+        run: pnpm turbo run build --filter=@ihui/${{ matrix.app }}
+      # 产物预算门只在 CI 问责:此处产物必然新鲜存在,超上限就是真红;
+      # 本机跑它只会得到"未判定(产物不在)" —— 提交链里它是 warn,没有这一步就等于没有问责面。
+      - name: 产物预算对账(仅 miniapp 档,主包口径上限 2,097,152 B)
+        id: artifact-budget
+        if: matrix.app == 'miniapp-taro'
+        run: node scripts/check-artifact-budget.mjs --target miniapp
+      # 产物结构对账(2026-10-31 接线):app.json 登记了页面而产物里没有 .js/.wxml、tabBar 图标落空、
+      # 入口三件套缺件 —— 微信开发者工具"加载项目"第一步炸的就是这些。此前全仓四路调度点皆无,
+      # 只能等人打开工具才发现;构建产物只在构建后存在,故 CI 构后是它唯一正确的落点。
+      - name: 小程序产物结构对账(仅 miniapp 档;入口/页面/分包/tabBar 引用全在位)
+        id: miniapp-artifacts
+        if: matrix.app == 'miniapp-taro'
+        run: node scripts/check-miniapp-build-artifacts.mjs
+      # 镜像页还原度对账:门 237 只管「页在不在/标记有没有」,这一门管「声明了镜像、正文还原了多少」。
+      # CI 里 HEAD 面即被审提交本身,存量缺口只报数、只拦相对 HEAD 的倒退(§12e),故不会成为恒红门。
+      # 为什么不只挂提交链:本机 guardian-runner.mjs 曾出现条目被拆成两半的结构损坏(2026-10-25 实测
+      # 13 处),调度器一旦加载不了,挂在它上面的门全部静默失效 —— CI 直跑门体是这条判据的独立兜底面。
+      # 2026-10-31 现读修正:此前这一步**没带 --base**,干净检出上 face=head、base 缺省=self ⇒
+      # regressions 恒空、exit 恒 0 —— 是一步"看着有、其实永远绿"的假接线。基线必须显式给:
+      # PR 取 base.sha(取不到就拉基分支),push 取 HEAD^1(检出深度已放到 2)。
+      # 基线不可解析时门体 exit 2(未判定)并要求修接线,绝不回落成"没倒退"。
+      - name: 解析还原度棘轮基线
+        id: fidelity-base
+        if: matrix.app == 'miniapp-taro'
+        run: BASE="${{ github.event.pull_request.base.sha || 'HEAD^1' }}"; if git cat-file -e "${BASE}^{commit}" 2>/dev/null; then echo "FIDELITY_BASE=$BASE" >> "$GITHUB_ENV"; else git fetch --no-tags --depth=1 origin "${{ github.base_ref || 'main' }}"; echo "FIDELITY_BASE=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"; fi
+      - name: 小程序镜像页还原度对账(仅 miniapp 档;存量只报数,只拦倒退)
+        id: mirror-fidelity
+        if: matrix.app == 'miniapp-taro'
+        run: node scripts/check-miniapp-mirror-fidelity.mjs --base="$FIDELITY_BASE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        id: upload
+        with:
+          name: build-${{ matrix.app }}
+          path: |
+            apps/${{ matrix.app }}/.next
+            apps/${{ matrix.app }}/dist
+          retention-days: 7
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # build 是矩阵 job(web/api/miniapp-taro)⇒ 注解里必须带是哪个 app 红的,否则三条红长得一样。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout install turbo-build artifact-budget miniapp-artifacts fidelity-base mirror-fidelity upload
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_TURBO_BUILD: ${{ steps.turbo-build.outcome }}
+          O_ARTIFACT_BUDGET: ${{ steps.artifact-budget.outcome }}
+          O_MINIAPP_ARTIFACTS: ${{ steps.miniapp-artifacts.outcome }}
+          O_FIDELITY_BASE: ${{ steps.fidelity-base.outcome }}
+          O_MIRROR_FIDELITY: ${{ steps.mirror-fidelity.outcome }}
+          O_UPLOAD: ${{ steps.upload.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  cli-smoke:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+      - name: reset-admin-password --help 冒烟测试
+        id: smoke-help
+        working-directory: apps/api
+        run: pnpm reset:admin-password --help
+      - name: reset-admin-password 缺 --yes 拒绝测试
+        id: smoke-no-yes
+        working-directory: apps/api
+        run: |
+          output=$(pnpm reset:admin-password --account admin --generate 2>&1 || true)
+          if echo "$output" | grep -q "用户未确认"; then
+            echo "✅ 缺 --yes 正确拒绝"
+          else
+            echo "❌ 缺 --yes 未被拒绝"
+            echo "$output"
+            exit 1
+          fi
+      - name: reset-admin-password 生产环境拒绝测试
+        id: smoke-prod-refuse
+        working-directory: apps/api
+        run: |
+          output=$(NODE_ENV=production pnpm reset:admin-password --account admin --generate --yes 2>&1 || true)
+          if echo "$output" | grep -q "生产环境"; then
+            echo "✅ 生产环境无 --force 正确拒绝"
+          else
+            echo "❌ 生产环境未拒绝"
+            echo "$output"
+            exit 1
+          fi
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 这两条冒烟步骤是**多行块标量** ⇒ 脚本按契约打"重跑映射缺失"并点名步骤名(刻意不猜命令);
+      # 点名本身仍是价值:红在哪一步从此不必点开日志看。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout install smoke-help smoke-no-yes smoke-prod-refuse
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_SMOKE_HELP: ${{ steps.smoke-help.outcome }}
+          O_SMOKE_NO_YES: ${{ steps.smoke-no-yes.outcome }}
+          O_SMOKE_PROD_REFUSE: ${{ steps.smoke-prod-refuse.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        id: setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        id: install-uv
+        # uv 档钉死:不钉就是"当时最新",同一枚提交在两个时间点能解析出不同依赖图。
+        # 取本机实测档(与 apps/ai-service/Dockerfile 同版),完整理由见 ci.yml 的 install-uv 那格。
+        run: pip install uv==0.12.1
+      - name: Install dependencies
+        id: install-deps
+        working-directory: apps/ai-service
+        run: uv pip install --system -e ".[dev]"
+      - name: Ruff check
+        id: ruff
+        working-directory: apps/ai-service
+        run: ruff check .
+      - name: Mypy
+        id: mypy
+        working-directory: apps/ai-service
+        run: mypy app/
+      - name: Install ripgrep（rg↔python 双通道对账测试的前置工具）
+        id: install-rg
+        # 缺 rg 时 `tests/test_file_search_ripgrep_v75.py` 刻意判"本结果不可用于对账"而不是
+        # 静默通过(`shutil.which("rg")` 解析不到即降级并拒绝出合格证)。所以 CI 要么装它,
+        # 要么永远看着一批"环境红"把真信号埋掉 —— 与 §"判据失效的表现永远是安静"同一条。
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ripgrep
+          rg --version | head -1
+      - name: Pytest（离线单测子集，排除真网/端到端集成测试，避免依赖外部服务）
+        id: pytest
+        working-directory: apps/ai-service
+        run: |
+          pytest -m "not network" \
+            --ignore=tests/test_configure_automation_task_real.py \
+            --ignore=tests/test_knowledge_lookup_g6_e2e.py \
+            --ignore=tests/test_mcp_oauth_authorization_code_e2e.py \
+            --ignore=tests/test_mcp_streamable_http_e2e.py \
+            --ignore=tests/test_native_fc_e2e_real.py \
+            --ignore=tests/test_tool_loop_e2e.py \
+            --basetemp "$RUNNER_TEMP/ihui-pytest_tmp"
+      # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步骤只注入参数。
+      # 立因与行为契约见该脚本头注;边界:只在 failure() 分支跑,不碰上面任何步骤的判据
+      # 严格程度(无 continue-on-error、不删步骤、不扩 permissions、不新增 secret)。
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
+          TRIAGE_IDS: checkout setup-python install-uv install-deps ruff mypy install-rg pytest
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
+          O_INSTALL_UV: ${{ steps.install-uv.outcome }}
+          O_INSTALL_DEPS: ${{ steps.install-deps.outcome }}
+          O_RUFF: ${{ steps.ruff.outcome }}
+          O_MYPY: ${{ steps.mypy.outcome }}
+          O_INSTALL_RG: ${{ steps.install-rg.outcome }}
+          O_PYTEST: ${{ steps.pytest.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  build-docker:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        include:
+          - target: api
+            context: .
+            file: ./deploy/docker/Dockerfile.api
+          - target: web
+            context: .
+            file: ./deploy/docker/Dockerfile.web
+          - target: ai-service
+            context: apps/ai-service
+            file: apps/ai-service/Dockerfile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          tags: ihui-${{ matrix.target }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

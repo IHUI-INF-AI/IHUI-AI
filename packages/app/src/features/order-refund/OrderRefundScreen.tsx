@@ -1,0 +1,337 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { TFunction } from '../../types'
+import type { OnToast } from '@ihui/types'
+
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
+import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
+
+/** 退款订单项(平台注入,字段对齐 mobile-rn OrderRefundScreen Order 子集) */
+export interface OrderRefundItem {
+  id: string
+  orderNo: string
+  /** 商品/目标标题(原 targetTitle) */
+  targetTitle: string
+  /** 支付金额(原 payAmount) */
+  payAmount: number
+  /** 已格式化的创建时间文本(平台注入,避免共享层依赖日期工具) */
+  createdAtText: string
+}
+
+/** OrderRefundScreen props(注入式:wrapper 保留 API 调用 + 选中态管理) */
+export interface OrderRefundScreenProps {
+  t: TFunction
+  orders: OrderRefundItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  /** 当前展开的订单 id(平台注入) */
+  selectedId: string | null
+  /** 退款原因输入(平台注入) */
+  reason: string
+  submitting: boolean
+  submitError: string
+  submitSuccess: string
+  /** 选中订单回调(展开退款表单) */
+  onSelectOrder: (id: string) => void
+  onReasonChange: (text: string) => void
+  /** 提交退款回调(平台注入内部 API 调用) */
+  onSubmit: (order: OrderRefundItem) => void
+  /** 取消退款表单回调 */
+  onCancel: () => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+/**
+ * 退款申请共享屏 — props 注入式跨端组件
+ *
+ * 平台无关:负责渲染 header + 订单列表(标题 + 金额 + 订单号 + 时间)
+ * + 选中展开退款原因输入框 + 提交/取消按钮。平台特定(API/导航)由 wrapper 注入。
+ */
+export function OrderRefundScreen({
+  t,
+  orders,
+  loading,
+  refreshing,
+  error,
+  selectedId,
+  reason,
+  submitting,
+  submitError,
+  submitSuccess,
+  onSelectOrder,
+  onReasonChange,
+  onSubmit,
+  onCancel,
+  onRefresh,
+  onBack,
+  colorScheme = 'light',
+  onToast,
+}: OrderRefundScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+  // 预设退款原因(对齐小程序退款页的五项单选):点选即把该原因文案写进 reason,
+  // 提交链路不变(壳仍只发 reason 文本),用户也可在下方输入框改成「其他原因」。
+  const reasonOptions = [
+    { id: 'd1', label: t('orderRefund.d1') },
+    { id: 'd2', label: t('orderRefund.d2') },
+    { id: 'd3', label: t('orderRefund.d3') },
+    { id: 'd4', label: t('orderRefund.d4') },
+    { id: 'd5', label: t('orderRefund.d5') },
+  ]
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t('orderRefund.title')}</Text>
+        <Text style={styles.subtitle}>{t('orderRefund.subtitle')}</Text>
+      </View>
+
+      {error ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.outlineBtn} onPress={onRefresh}>
+            <Text style={styles.outlineBtnText}>{t('orderRefund.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {submitSuccess ? (
+        <View style={styles.successWrap}>
+          <Text style={styles.successText}>{submitSuccess}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        keyboardShouldPersistTaps="handled"
+        data={orders}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: rnSpacing['3xl'] }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('orderRefund.empty')} colorScheme={colorScheme} />
+          )
+        }
+        renderItem={({ item }) => {
+          const isSelected = selectedId === item.id
+          return (
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {item.targetTitle}
+                </Text>
+                <Text style={styles.cardAmount}>¥ {item.payAmount.toFixed(2)}</Text>
+              </View>
+              <View style={styles.cardMetaRow}>
+                <Text style={styles.metaText}>
+                  {t('orderRefund.orderNo')}:{item.orderNo}
+                </Text>
+                <Text style={styles.metaText}>{item.createdAtText}</Text>
+              </View>
+
+              {isSelected ? (
+                <View style={styles.refundForm}>
+                  <Text style={styles.formLabel}>{t('orderRefund.reasonLabel')}</Text>
+                  <View style={styles.reasonRow}>
+                    {reasonOptions.map((option) => {
+                      const active = reason === option.label
+                      return (
+                        <TouchableOpacity
+                          key={option.id}
+                          style={[styles.reasonChip, active && styles.reasonChipActive]}
+                          onPress={() => onReasonChange(option.label)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: active }}
+                        >
+                          <Text style={[styles.reasonText, active && styles.reasonTextActive]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    })}
+                  </View>
+                  <TextField
+                    colorScheme={colorScheme}
+                    style={styles.formInput}
+                    value={reason}
+                    onChangeText={onReasonChange}
+                    placeholder={t('orderRefund.reasonPlaceholder')}
+                    placeholderTextColor={tk.text.tertiary}
+                    multiline
+                  />
+                  {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
+                  <View style={styles.formActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.formBtn,
+                        styles.formPrimaryBtn,
+                        submitting && styles.formBtnDisabled,
+                      ]}
+                      onPress={() => onSubmit(item)}
+                      disabled={submitting}
+                    >
+                      <Text style={styles.formPrimaryBtnText}>
+                        {submitting ? t('common.loading') : t('orderRefund.submit')}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.formBtn, styles.formOutlineBtn]}
+                      onPress={onCancel}
+                      disabled={submitting}
+                    >
+                      <Text style={styles.outlineBtnText}>{t('common.cancel')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.applyRow}>
+                  <TouchableOpacity
+                    style={[styles.formBtn, styles.formOutlineBtn, styles.applyBtn]}
+                    onPress={() => onSelectOrder(item.id)}
+                  >
+                    <Text style={styles.outlineBtnText}>{t('orderRefund.applyRefund')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )
+        }}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    errorWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    successWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    successText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    outlineBtn: {
+      marginTop: rnSpacing.sm,
+      paddingVertical: rnSpacing['xs-loose'],
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.success.DEFAULT,
+      alignSelf: 'flex-start',
+    },
+    outlineBtnText: { fontSize: rnType.body.size, color: tk.success.DEFAULT },
+    card: {
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    cardHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    cardAmount: {
+      marginLeft: rnSpacing.sm,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.success.DEFAULT,
+    },
+    cardMetaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing.sm,
+    },
+    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    refundForm: {
+      marginTop: rnSpacing.md,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+    },
+    formLabel: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
+    reasonRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.sm,
+    },
+    reasonChip: {
+      paddingVertical: rnSpacing.xs,
+      paddingHorizontal: rnSpacing.md,
+      borderRadius: rnRadiusFor.chip,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    reasonChipActive: { borderColor: tk.brandAccent.deep },
+    reasonText: { fontSize: rnType.body.size, color: tk.text.medium },
+    reasonTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
+    formInput: {
+      marginTop: rnSpacing.sm,
+      paddingVertical: rnSpacing.sm,
+      paddingHorizontal: rnSpacing['md-loose'],
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      minHeight: 80,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    formActions: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.md },
+    formBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: rnRadius.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    formPrimaryBtn: { backgroundColor: tk.brand.cta, height: 50 },
+    formPrimaryBtnText: {
+      color: tk.brand.ctaForeground,
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+    },
+    formOutlineBtn: {
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.bg,
+    },
+    formBtnDisabled: { opacity: 0.5 },
+    applyRow: { marginTop: rnSpacing.md },
+    applyBtn: { alignSelf: 'flex-start' },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

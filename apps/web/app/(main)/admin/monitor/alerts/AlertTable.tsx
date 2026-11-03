@@ -1,0 +1,147 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import { Loader2, CheckCircle2, Check, X } from 'lucide-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
+import { cn } from '@/lib/utils'
+import { monitorAlertSeverityMeta, monitorAlertStatusMeta } from './helpers'
+import type { Alert } from './types'
+import { formatDate } from '@/lib/date-utils'
+
+interface Props {
+  list: Alert[]
+  isLoading: boolean
+  ackPending: boolean
+  resolvePending: boolean
+  onAck: (id: string) => void
+  onResolve: (id: string) => void
+}
+
+export function AlertTable({
+  list,
+  isLoading,
+  ackPending,
+  resolvePending,
+  onAck,
+  onResolve,
+}: Props) {
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/50">
+            <TableHead className="text-label uppercase">级别</TableHead>
+            <TableHead className="text-label uppercase">标题</TableHead>
+            <TableHead className="text-label uppercase">来源</TableHead>
+            <TableHead className="text-label uppercase">状态</TableHead>
+            <TableHead className="text-label uppercase">时间</TableHead>
+            <TableHead className="text-right text-label uppercase">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+              </TableCell>
+            </TableRow>
+          ) : list.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-success-deep-text" />
+                暂无告警
+              </TableCell>
+            </TableRow>
+          ) : (
+            list.map((a) => {
+              // 真列是 severity / status(库列真名),不是 level —— 旧写法 LEVEL_STYLE[a.level]
+              // 取到 undefined 就在渲染期抛 TypeError(第一条告警落地即崩表)。
+              // 词表外的值(裸 varchar)显式落「未判定」,不崩也不兜成某个已知档。
+              const sev = monitorAlertSeverityMeta(a.severity)
+              const st = monitorAlertStatusMeta(a.status)
+              const Icon = sev.icon
+              return (
+                <TableRow key={a.id}>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label',
+                        sev.bg,
+                        sev.text,
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {sev.label}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{a.name}</div>
+                    <div className="max-w-[300px] break-words text-label text-muted-foreground">
+                      {a.message ?? ''}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-label text-muted-foreground">{a.source}</TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
+                        st.bg,
+                        st.text,
+                      )}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      {st.label}
+                    </span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-label text-muted-foreground">
+                    {formatDate(a.firedAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-nowrap justify-end gap-1">
+                      {a.status === 'firing' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={ackPending}
+                          onClick={() => onAck(a.id)}
+                          className="shrink-0 whitespace-nowrap"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          确认
+                        </Button>
+                      )}
+                      {a.status !== 'resolved' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={resolvePending}
+                          onClick={() => onResolve(a.id)}
+                          className="shrink-0 whitespace-nowrap"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          解决
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

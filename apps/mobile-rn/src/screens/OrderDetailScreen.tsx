@@ -1,0 +1,284 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan)
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { StyleSheet, View } from 'react-native'
+import { appAlert } from '../components/BottomPops'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { checkPaymentStatus, createWechatAppPayment, fetchApi } from '@ihui/api-client'
+import { apiFailureToText } from '@ihui/shared/utils'
+import { OrderDetailScreen as SharedOrderDetailScreen, type OrderDetailItem } from '@ihui/rn-app'
+import { BottomActionBar, type BottomActionBarAction } from '../components/BottomActionBar'
+import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
+import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+
+type Route = RouteProp<RootStackParamList, 'OrderDetail'>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/**
+ * mobile-rn 订单详情(2026-07-30 接入本地 BottomActionBar)
+ *
+ * shell 层职责:
+ * - 主体调用 @ihui/rn-app.SharedOrderDetailScreen(订单信息 / loading / 错误)
+ * - 底部叠加 mobile-rn 本地 BottomActionBar:
+ *   - 待支付:取消订单(secondary) + 立即支付(primary)
+ *   - 已支付:申请退款(secondary) + 联系卖家(primary)
+ *   - 已完成:再次购买(primary,单按钮)
+ *   - 已取消:无操作
+ */
+export function OrderDetailScreen() {
+  const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const route = useRoute<Route>()
+  const navigation = useNavigation<NavigationProp>()
+  const { id } = route.params
+  const [order, setOrder] = useState<OrderDetailItem | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  // 购买须知弹窗(已支付订单首次进入时自动展示)
+  const [noticeVisible, setNoticeVisible] = useState(false)
+  // ref 标记提示已展示,避免 setState 触发 effect 重跑导致重复请求
+  const noticeHandledRef = useRef(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    const res = await fetchApi<OrderDetailItem>(`/api/orders/${encodeURIComponent(id)}`)
+    if (res.success) {
+      setOrder(res.data)
+      // 已支付订单首次加载自动展示购买须知
+      if (res.data?.status === 'paid' && !noticeHandledRef.current) {
+        noticeHandledRef.current = true
+        setNoticeVisible(true)
+      }
+    } else {
+      setError(apiFailureToText(res, t('orderDetail.loadFailed')))
+    }
+    setLoading(false)
+  }, [id, t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  // cancel/refund:调用后端 POST /api/orders/:id/{cancel|refund}
+  const callOrderAction = useCallback(
+    async (action: string): Promise<void> => {
+      setActionLoading(action)
+      try {
+        let body: string | undefined
+        // refund 接口要求 refundAmount(对齐后端 applyRefundSchema)
+        if (action === 'refund' && order) {
+          body = JSON.stringify({ refundAmount: order.amount })
+        }
+        const res = await fetchApi(`/api/orders/${encodeURIComponent(id)}/${action}`, {
+          method: 'POST',
+          body,
+        })
+        if (res.success) {
+          // 重新拉取详情以反映真实状态
+          await load()
+        } else {
+          // 失败必须出声:原实现只有 success 分支 ⇒ 取消/退款被后端拒了用户毫无感知,
+          // 以为已经取消成功。
+          appAlert(res.error || t('orderDetail.actionFailed'))
+        }
+      } finally {
+        setActionLoading(null)
+      }
+    },
+    [id, order, load, t],
+  )
+
+  // 立即支付:直接走 createWechatAppPayment → openWeChatPayment → checkPaymentStatus 链路
+  // (后端无 /api/orders/:id/pay 路由,复用 VipScreen/PaymentScreen 同款支付流程)
+  const handlePay = useCallback(async () => {
+    if (!order) return
+    setActionLoading('pay')
+    try {
+      // 1. 检查微信客户端
+      const installed = await isWeChatInstalled()
+      if (!installed) {
+        appAlert(t('payment.wechatNotInstalled'))
+        return
+      }
+
+      // 2. 创建微信 APP 支付订单(后端返回签名参数)
+      const payRes = await createWechatAppPayment({
+        amount: Math.round(order.amount * 100),
+        orderType: 1,
+        description: order.productName,
+      })
+      if (!payRes.success || !payRes.data) {
+        appAlert(payRes.error || t('vipScreen.pay.failed'))
+        return
+      }
+
+      // 3. mock 模式(DEV 环境无微信支付配置):提示 native unavailable
+      if (payRes.data.mock) {
+        appAlert(t('payment.nativeUnavailable'))
+        return
+      }
+
+      // 4. 调起微信 APP 支付
+      if (!payRes.data.prepayData) {
+        appAlert(t('payment.nativeUnavailable'))
+        return
+      }
+      const paySuccess = await openWeChatPayment(payRes.data.prepayData)
+      if (!paySuccess) {
+        // 用户取消支付
+        return
+      }
+
+      // 5. 只有后端确认已支付才刷新订单状态
+      const outTradeNo = payRes.data.outTradeNo
+      if (!outTradeNo) {
+        appAlert(t('payment.payFailed'))
+        return
+      }
+      const statusRes = await checkPaymentStatus(outTradeNo)
+      if (!statusRes.success || !statusRes.data?.paid) {
+        appAlert(t('payment.payFailed'))
+        return
+      }
+      // 6. 重新加载订单详情
+      await load()
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      if (errMsg === 'WECHAT_NOT_INSTALLED') {
+        appAlert(t('payment.wechatNotInstalled'))
+      } else if (errMsg === 'WECHAT_NATIVE_UNAVAILABLE') {
+        appAlert(t('payment.nativeUnavailable'))
+      } else {
+        appAlert(t('payment.payFailed'))
+      }
+    } finally {
+      setActionLoading(null)
+    }
+  }, [order, t, load])
+
+  // 联系卖家:客户端行为(无后端接口)
+  const handleContact = useCallback(() => {
+    appAlert(t('orderDetail.contactSeller'), t('orderDetail.contactBody'))
+  }, [t])
+
+  // 再次购买:跳转 VIP 页(无后端接口)
+  const handleRebuy = useCallback(() => {
+    // 对齐历史「开通会员」入口(loginPopUp openIntroduce)→ vip_info?type=IntroducePopup
+    navigation.navigate('Vip', { type: 'IntroducePopup' })
+  }, [navigation])
+
+  const actions = useMemo<ReadonlyArray<BottomActionBarAction>>(() => {
+    if (!order) return []
+    const status = order.status
+    const wrap = (key: string, action: () => void): BottomActionBarAction => ({
+      key,
+      onPress: action,
+      loading: actionLoading === key,
+    })
+    // 破坏性动作(取消订单/申请退款)先确认再提交:原实现单击即发出,误触不可撤销。
+    const confirmThen = (titleKey: string, action: string) => () =>
+      appAlert(t(titleKey), undefined, [
+        { text: t('common.cancel'), style: 'cancel' as const },
+        {
+          text: t('common.confirm'),
+          style: 'destructive' as const,
+          onPress: () => void callOrderAction(action),
+        },
+      ])
+    if (status === 'pending' || status === 'unpaid') {
+      return [
+        wrap('cancel', confirmThen('orderDetail.cancelConfirmTitle', 'cancel')),
+        {
+          ...wrap('pay', () => {
+            void handlePay()
+          }),
+          label: t('orderDetail.payNow'),
+          primary: true,
+        },
+      ]
+    }
+    if (status === 'paid' || status === 'shipped') {
+      return [
+        wrap('refund', confirmThen('orderDetail.refundConfirmTitle', 'refund')),
+        {
+          ...wrap('contact', () => {
+            handleContact()
+          }),
+          label: t('orderDetail.contactSeller'),
+          primary: true,
+        },
+      ]
+    }
+    if (status === 'completed') {
+      return [
+        {
+          ...wrap('rebuy', () => {
+            handleRebuy()
+          }),
+          label: t('orderDetail.buyAgain'),
+          primary: true,
+        },
+      ]
+    }
+    if (status === 'cancelled') {
+      return [
+        {
+          ...wrap('rebuy', () => {
+            handleRebuy()
+          }),
+          label: t('orderDetail.buyAgain'),
+          primary: true,
+        },
+      ]
+    }
+    return []
+  }, [order, actionLoading, callOrderAction, handlePay, handleContact, handleRebuy, t])
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.body}>
+        <SharedOrderDetailScreen
+          t={t}
+          item={order}
+          loading={loading}
+          error={error}
+          onBack={() => navigation.goBack()}
+          onRetry={() => { void load(); }}
+          colorScheme={resolvedTheme}
+        />
+      </View>
+      {actions.length > 0 ? <BottomActionBar actions={actions} /> : null}
+      <PurchaseNoticePopUp
+        visible={noticeVisible}
+        title={t('orderDetail.paidTitle')}
+        subtitle={t('orderDetail.paidSub')}
+        bullets={[
+          t('orderDetail.paidLine1'),
+          t('orderDetail.paidLine2'),
+          t('orderDetail.paidLine3'),
+        ]}
+        primaryLabel={t('common.gotIt')}
+        onClose={() => setNoticeVisible(false)}
+        onPrimary={() => setNoticeVisible(false)}
+      />
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  body: {
+    flex: 1,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

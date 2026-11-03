@@ -1,0 +1,146 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * UserCard 4 宫格卡片入口(对齐 Uniapp user_cards.vue)
+ * 2×2 网格:我的订单 / 我的公司 / 我的智汇值 / 我的钱包
+ * 点击跳转对应路由,未登录时 Alert 提示。
+ */
+import { StyleSheet, Text, View } from 'react-native'
+import { appAlert } from './BottomPops'
+import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
+import { tokens } from '../theme/active-tokens'
+
+import { rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
+import { Tappable } from '@ihui/ui-native'
+
+export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
+
+interface UserCardConfig {
+  key: UserCardKey
+  labelKey: string
+  subtitleKey: string
+  Icon: typeof Receipt
+}
+
+const CARDS: readonly UserCardConfig[] = [
+  {
+    key: 'order',
+    labelKey: 'profile.userCard.order',
+    subtitleKey: 'profile.userCard.orderSubtitle',
+    Icon: Receipt,
+  },
+  {
+    key: 'company',
+    labelKey: 'profile.userCard.company',
+    subtitleKey: 'profile.userCard.companySubtitle',
+    Icon: Building2,
+  },
+  {
+    key: 'token',
+    labelKey: 'profile.userCard.token',
+    subtitleKey: 'profile.userCard.tokenSubtitle',
+    Icon: Gem,
+  },
+  {
+    key: 'wallet',
+    labelKey: 'profile.userCard.wallet',
+    subtitleKey: 'profile.userCard.walletSubtitle',
+    Icon: Wallet,
+  },
+]
+
+export interface UserCardProps {
+  /** i18n 翻译函数 */
+  t: (key: string) => string
+  /** 是否已登录(未登录时点击弹提示) */
+  isLoggedIn: boolean
+  /** 卡片点击回调,返回 key */
+  onPress: (key: UserCardKey) => void
+}
+
+export function UserCard({ t, isLoggedIn, onPress }: UserCardProps) {
+  const handlePress = (key: UserCardKey) => {
+    if (!isLoggedIn) {
+      appAlert(t('profile.userCard.loginRequired'))
+      return
+    }
+    onPress(key)
+  }
+
+  return (
+    <View style={styles.grid}>
+      {CARDS.map(({ key, labelKey, subtitleKey, Icon }) => (
+        <Tappable
+          key={key}
+          style={styles.card}
+          onPress={() => handlePress(key)}
+          android_ripple={{ color: tokens.border.light }}
+        >
+          <View style={styles.iconWrap}>
+            <Icon size={24} color={tokens.brandAccent.deep} />
+          </View>
+          <View style={styles.textWrap}>
+            <Text style={styles.label} numberOfLines={1}>
+              {t(labelKey)}
+            </Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {t(subtitleKey)}
+            </Text>
+          </View>
+        </Tappable>
+      ))}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    // 对齐 Uniapp 14rpx(≈7px)卡片间距
+    gap: 7,
+    marginBottom: rnSpacing['sm-loose'],
+  },
+  card: {
+    width: '48%',
+    // 对齐 Uniapp 120rpx(≈60px)卡片高度
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    // 对齐 Uniapp padding: 0 10rpx 0 12rpx
+    paddingVertical: rnSpacing['xs-loose'],
+    paddingHorizontal: rnSpacing['sm-loose'],
+    // 卡片按角色表 card→lg(8)(RADIUS_ROLES,2026-09-27 定档)
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.surface.card,
+    shadowColor: tokens.gray.black,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iconWrap: {
+    width: 45,
+    height: 45,
+    // 对齐 Uniapp 15rpx(≈7.5px→7px)图标右间距
+    marginRight: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textWrap: {
+    flex: 1,
+  },
+  label: {
+    fontSize: rnType.title.size,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  },
+  subtitle: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+    marginTop: rnSpacing['2xs'],
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

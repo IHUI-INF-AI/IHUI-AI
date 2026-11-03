@@ -1,0 +1,1062 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * packages/types/src/app.ts 的业务域拆分产物之一 —— 本文件承载「ai」域。
+ *
+ * 拆分原因:原 app.ts 单文件行数已超架构契约表对受管模块的单文件上限(config/architecture-policy.yaml
+ * 的 contract-file-lines / C1),按业务域拆多入口是既定出路(EX-C2-1 的理由原文即此)。
+ * 公开导出面由 ./app.ts 这个 barrel 用 export * 原样递出,与拆分前逐名等值 —— 消费端不得因此改动。
+ * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
+ */
+
+import type { TFunction } from './app-shared.js'
+import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
+
+/** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
+
+/** Agent 详情(平台注入,字段对齐 mobile-rn AgentDetailScreen) */
+export interface AgentDetailItem {
+  id: string
+  name: string
+  description: string
+  avatar?: string
+  uses: number
+  rating: number
+  category: string
+  creator: string
+  isFree: boolean
+  price: number
+}
+
+/** AgentDetailScreen props */
+export interface AgentDetailScreenProps {
+  t: TFunction
+  item: AgentDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  /** 开始对话回调(平台注入导航跳转 AgentChat) */
+  onStartChat?: (agentId: string, name: string) => void
+  /**
+   * 编辑入口回调 — 对齐 web apps/web/app/(main)/agents/[id]/PageClient.tsx:193-198
+   * 「agent 加载出来即显示编辑键」(可见性由后端 PUT 归属校验兜，前端不另判)。
+   * 不传即不渲染入口(宿主未接线时保持既有形态，不出现死按钮)。
+   */
+  onEdit?: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+/**
+ * AgentEditScreen 表单形 — 字段集 = 后端 PUT /api/agents/:agentId 实际接收集
+ * (apps/api/src/routes/agents.ts:569-582 的 zod，逐名对齐 web AgentForm 的可提交子集)。
+ * price/sort 用 string 承载:输入框是文本态，空串与 0 的区分留给宿主在提交前归一(同 web 做法)。
+ * 不承载 workspaceId 与 skillIds — web 编辑页 updateMut 的 body 同样不含(status:79-90)。
+ */
+export interface AgentEditForm {
+  name: string
+  description: string
+  avatar: string
+  cover: string
+  categoryId: string
+  status: string
+  price: string
+  isFree: boolean
+  sort: string
+  remark: string
+}
+
+/** 分类选项(宿主经 GET /api/categories/list 注入;字段名对齐 web Category) */
+export interface AgentEditCategory {
+  id: string
+  name: string
+}
+
+/** AgentEditScreen props(与 AgentCreateScreenProps 同形制:受控 + 平台注入 t/colorScheme) */
+export interface AgentEditScreenProps {
+  t: TFunction
+  form: AgentEditForm
+  loading: boolean
+  saving: boolean
+  error: string
+  categories: AgentEditCategory[]
+  statusOptions: string[]
+  statusKeyOf: (status: string) => string
+  categoryTextOf: (categoryId: string) => string
+  onChange: <K extends keyof AgentEditForm>(key: K, value: AgentEditForm[K]) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 14(2026-07-29 P3-3.3 实际迁移批次 10):Agent 市场/Agent 评价/活动/收藏/签到 */
+
+/** Agent 市场项(平台注入,字段对齐 mobile-rn AgentMarketScreen Agent) */
+export interface AgentMarketItem {
+  id: string
+  name: string
+  description: string
+  /** 公开面只有 categoryId(uuid,无名称),无分类名来源 ⇒ 可选 */
+  category?: string
+  uses: number
+  /** 公开面 PUBLIC_AGENT_KEYS 不含评分 ⇒ 可选,渲染处判空 */
+  rating?: number
+  isFree: boolean
+}
+
+/** AgentMarketScreen props */
+export interface AgentMarketScreenProps {
+  t: TFunction
+  items: AgentMarketItem[]
+  keyword: string
+  loading: boolean
+  error: string
+  onKeywordChange: (text: string) => void
+  onSearch: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 评价项(平台注入,字段对齐 mobile-rn AgentReviewListScreen Item) */
+export interface AgentReviewListItem {
+  id: string
+  agentName: string
+  author: string
+  rating: number
+  content: string
+  createdAt: string
+}
+
+/** AgentReviewListScreen props */
+export interface AgentReviewListScreenProps {
+  t: TFunction
+  items: AgentReviewListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
+
+/** 模型类型(对齐 mobile-rn ModelPlazaScreen ModelType) */
+export type ModelPlazaModelType = 'text' | 'image' | 'av'
+export type ModelPlazaTypeFilter = 'all' | ModelPlazaModelType
+
+/**
+ * 聊天页底部的 8 种模型类型按钮(skills 技能 / talk 对话 / image 图片 / video 视频 /
+ * audio 音频 / videoa 数字人 / other 其他 / sck 知识库)。
+ *
+ * 立此单源的原因：同一副值域在仓里有三份逐字相同的副本(小程序 ModelTypeButton 导出那份、
+ * RN ChatScreen 与 HomeScreen 各一份)。刻意不叫 `ModelType` —— 那名字已被
+ * legacy-migration.ts 占用且语义是"LLM 厂商枚举"(同名不同物，本仓 ui-native-components.ts
+ * 立 ModelConfigType 时为同一件事留过注记)。
+ */
+export type ChatModelType =
+  'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+
+/** 模型广场供应商(对齐 mobile-rn ModelPlazaScreen Provider) */
+export interface ModelPlazaProvider {
+  id: string
+  name: string
+  total: number
+  desc: string
+}
+
+/** 模型广场列表项(对齐 mobile-rn ModelPlazaScreen Model) */
+export interface ModelPlazaItem {
+  id: string
+  providerId: string
+  name: string
+  type: ModelPlazaModelType
+  inputPrice: number | null
+  outputPrice: number | null
+  desc: string
+  tags: string[]
+  payMode: string
+}
+
+/** ModelPlazaScreen props — 注入式(状态由 wrapper 管理,纯 UI 渲染) */
+export interface ModelPlazaScreenProps {
+  t: TFunction
+  items: ModelPlazaItem[]
+  providers: ModelPlazaProvider[]
+  providerId: string
+  typeFilter: ModelPlazaTypeFilter
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onSelectProvider: (id: string) => void
+  onSelectType: (filter: ModelPlazaTypeFilter) => void
+  onRefresh: () => void
+  onPressCompare: () => void
+  onPressItem: (item: ModelPlazaItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** n8n 工作流状态(对齐 mobile-rn N8nModelScreen Status) */
+export type N8nModelStatus = 'running' | 'stopped'
+export type N8nModelTab = 'all' | 'running' | 'stopped'
+
+/** n8n 模型列表项(对齐 mobile-rn N8nModelScreen N8nModel) */
+export interface N8nModelItem {
+  id: string
+  name: string
+  desc: string
+  url: string
+  status: N8nModelStatus
+  calls: number
+  updatedAt: string
+  paramsIn: number
+  paramsOut: number
+}
+
+/** N8nModelScreen props — 注入式 */
+export interface N8nModelScreenProps {
+  t: TFunction
+  items: N8nModelItem[]
+  tab: N8nModelTab
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onSelectTab: (tab: N8nModelTab) => void
+  onKeywordChange: (kw: string) => void
+  onRefresh: () => void
+  onRetry: () => void
+  onToggle: (item: N8nModelItem) => void
+  onEdit: (item: N8nModelItem) => void
+  onCreate: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 模型编辑售卖方式(对齐 mobile-rn ModelEditScreen SaleType) */
+export type ModelEditSaleType = 'free' | 'limited' | 'paid'
+/** 模型编辑收费周期(对齐 mobile-rn ModelEditScreen PayCycle) */
+export type ModelEditPayCycle = 'month' | 'year' | 'permanent'
+/** 模型编辑面向群体(对齐 mobile-rn ModelEditScreen Audience) */
+export type ModelEditAudience = 'all' | 'member'
+
+/** 模型编辑选项(类别/部门/折扣等通用 chip 选项) */
+export interface ModelEditOption {
+  id: string
+  label: string
+}
+
+/** 模型编辑基础信息(头像+名称+开场白) */
+export interface ModelEditBaseInfo {
+  name: string
+  prologue: string
+}
+
+/** 模型编辑表单字段值(由 wrapper 持有,onChange 回写) */
+export interface ModelEditFieldValues {
+  categories: string[]
+  dept: string
+  saleType: ModelEditSaleType
+  cycle: ModelEditPayCycle
+  price: string
+  freeDur: string
+  audience: ModelEditAudience
+  discount: string
+}
+
+/** ModelEditScreen props — 表单型注入式 */
+export interface ModelEditScreenProps {
+  t: TFunction
+  baseInfo: ModelEditBaseInfo
+  fields: ModelEditFieldValues
+  categoryOptions: ModelEditOption[]
+  deptOptions: ModelEditOption[]
+  freeDurations: string[]
+  discountOptions: ModelEditOption[]
+  submitting: boolean
+  onChange: <K extends keyof ModelEditFieldValues>(key: K, value: ModelEditFieldValues[K]) => void
+  onToggleCategory: (id: string) => void
+  onSave: () => void
+  onCancel: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+/** AIGC 作品文件类型(对齐 mobile-rn AigcListScreen FileType:0=图片/1=视频/3=音频/4=文案) */
+export type AigcFileType = 0 | 1 | 3 | 4
+export type AigcCategory = 'all' | 'image' | 'video' | 'audio' | 'text'
+
+/** AIGC 作品列表项(对齐 mobile-rn AigcListScreen AigcWork) */
+export interface AigcListItem {
+  id: string
+  title: string
+  subtitle?: string
+  prompt?: string
+  content?: string
+  fileUrl?: string
+  coverUrl?: string
+  audioUrl?: string
+  duration?: string
+  fileType: AigcFileType
+  createdAt: string
+}
+
+/** AIGC 分类选项(对齐 mobile-rn AigcListScreen CATEGORIES) */
+export interface AigcCategoryOption {
+  key: AigcCategory
+  label: string
+  fileType?: AigcFileType
+}
+
+/** AigcListScreen props — 注入式 */
+export interface AigcListScreenProps {
+  t: TFunction
+  items: AigcListItem[]
+  categories: AigcCategoryOption[]
+  category: AigcCategory
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onSelectCategory: (c: AigcCategory) => void
+  onRefresh: () => void
+  onPressItem: (item: AigcListItem) => void
+  onPublish: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
+  onLoadMore?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+  /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
+  audio?: AudioPort
+  /**
+   * 顶部作品轮播端口;缺省 = 不渲染。
+   * 共享屏缺少轮播能力时由宿主以数据+回调注入,渲染仍住共享屏,端内不再复制一份。
+   */
+  carousel?: {
+    items: readonly AigcListItem[]
+    onPress: (item: AigcListItem) => void
+  }
+}
+
+/** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
+
+/** 助手状态 */
+export type AssistantStatus = 'draft' | 'reviewing' | 'published' | 'rejected' | 'offline'
+
+/** 助手主标签页 */
+export type AssistantTab = 'draft' | 'reviewing' | 'published'
+
+/** 助子子标签页(draft 下细分) */
+export type AssistantSubTab = 'all' | 'rejected' | 'offline'
+
+/** 助手项 */
+export interface AssistantItem {
+  id: string
+  name: string
+  prologue: string
+  status: AssistantStatus
+  /** 已格式化的类别文本(平台注入) */
+  category?: string
+  /** 售卖价格(分) */
+  price?: number
+  /** 售卖周期文本(平台注入,如 "月"/"年",为空表示永久) */
+  cycle?: string
+  /** 已格式化的受众文本(平台注入,如 "会员"/"全部用户") */
+  audience?: string
+  /** 已格式化的上架时间文本(平台注入) */
+  publishTime?: string
+}
+
+/** AssistantScreen props */
+export interface AssistantScreenProps {
+  t: TFunction
+  items: AssistantItem[]
+  tab: AssistantTab
+  subTab: AssistantSubTab
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onTabChange: (tab: AssistantTab) => void
+  onSubTabChange: (subTab: AssistantSubTab) => void
+  onKeywordChange: (keyword: string) => void
+  onRefresh: () => void
+  onEdit: (item: AssistantItem) => void
+  onOffline: (item: AssistantItem) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 群组标签页 */
+export type AiGroupTab = 'mine' | 'discover'
+
+/** AI 群组成员 */
+export interface AiGroupMember {
+  id: string
+  name: string
+  role: string
+}
+
+/** AI 群组项 */
+export interface AiGroupItem {
+  id: string
+  name: string
+  desc: string
+  tag: string
+  members: AiGroupMember[]
+  messages: number
+  /** 已格式化的最近活跃时间文本(平台注入) */
+  lastActive: string
+}
+
+/** AiGroupScreen props */
+export interface AiGroupScreenProps {
+  t: TFunction
+  items: AiGroupItem[]
+  tab: AiGroupTab
+  /** 当前选中的群组(平台注入,控制详情视图显隐) */
+  selectedItem: AiGroupItem | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onTabChange: (tab: AiGroupTab) => void
+  onPressItem: (item: AiGroupItem) => void
+  onBackToList: () => void
+  onEnterChat: (item: AiGroupItem) => void
+  onRefresh: () => void
+  onRetry: () => void
+  /** 搜索关键词(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」;不传则隐藏搜索框) */
+  keyword?: string
+  /** 搜索关键词变更回调(由 wrapper 注入 state) */
+  onKeywordChange?: (keyword: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AIGC 封面过滤器 */
+export type AigcCoverFilter = 'all' | 'work' | 'ai'
+
+/** AIGC 封面选项 */
+export interface AigcCoverOption {
+  id: string
+  url: string
+  label: string
+  source: 'work' | 'ai'
+}
+
+/** AigcCoverScreen props */
+export interface AigcCoverScreenProps {
+  t: TFunction
+  workTitle: string
+  covers: AigcCoverOption[]
+  selectedId: string | null
+  filter: AigcCoverFilter
+  loading: boolean
+  error: string
+  onSelectCover: (id: string) => void
+  onFilterChange: (filter: AigcCoverFilter) => void
+  onConfirm: (cover: AigcCoverOption) => void
+  onGenerateAi: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AIGC 发布作品类型 */
+export type AigcPublishWorkType = 'image' | 'video' | 'audio' | 'text'
+
+/** AIGC 发布素材文件 */
+export interface AigcPublishFile {
+  id: string
+  url: string
+}
+
+/** AigcPublishScreen props */
+export interface AigcPublishScreenProps {
+  t: TFunction
+  workType: AigcPublishWorkType
+  files: AigcPublishFile[]
+  textContent: string
+  title: string
+  description: string
+  prompt: string
+  urlInput: string
+  saving: boolean
+  uploading: boolean
+  /**
+   * 上传进度端口:0-100,由宿主上传实现的 onUploadProgress 真实字节回调写入。
+   * 缺省 = 未知进度(只渲染 spinner,不渲染百分比/进度条),禁止用定时器伪造。
+   */
+  uploadProgress?: number
+  error: string
+  onWorkTypeChange: (type: AigcPublishWorkType) => void
+  onTextContentChange: (text: string) => void
+  onTitleChange: (title: string) => void
+  onDescriptionChange: (desc: string) => void
+  onPromptChange: (prompt: string) => void
+  onUrlInputChange: (url: string) => void
+  onAddFileByUrl: () => void
+  onPickImage: () => void
+  onRemoveFile: (id: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+}
+
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
+
+/** Agent 列表项 */
+export interface AgentScreenItem {
+  id: string
+  name: string
+  avatar?: string
+  description: string
+  isVipExclusive?: boolean
+  useCount?: number
+  rating?: number
+}
+
+/** AgentScreen props */
+export interface AgentScreenProps {
+  t: TFunction
+  items: AgentScreenItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /**
+   * 嵌套模式(2026-09-22 立):宿主把本屏渲染进外层 ScrollView 时传 true,
+   * 内部改用普通 View + map 渲染,避免 FlatList(VirtualizedList)嵌套在
+   * ScrollView 内触发 "VirtualizedLists should never be nested" + 缺 key 两条
+   * console.error;此模式下拉刷新由外层 ScrollView 的 RefreshControl 负责。
+   */
+  nestedInScrollView?: boolean
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+}
+
+/** AI 助手分类 */
+export interface AiAssistantCategory {
+  id: string
+  label: string
+}
+
+/** AI 助手项 */
+export interface AiAssistantItem {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  useCount: number
+  favoriteCount: number
+}
+
+/** AiAssistantScreen props */
+export interface AiAssistantScreenProps {
+  t: TFunction
+  items: AiAssistantItem[]
+  categories: AiAssistantCategory[]
+  category: string
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onCategoryChange: (id: string) => void
+  onKeywordChange: (kw: string) => void
+  onRefresh: () => void
+  onPressItem: (item: AiAssistantItem) => void
+  /** 点击"更多分类"按钮跳转分类详情页(可选,不传则不显示"更多"按钮) */
+  onPressCategory?: (categoryId: string, title: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 生涯指导 — 孩子学业问卷表单字段(对齐原 Uniapp 页 pagesA/ai_career 的 formData) */
+export interface AiCareerFormData {
+  school: string
+  classLevel: string
+  scoreRange: string
+  languageDifficulty: string
+  scienceCharacteristics: string
+  learningObstacle: string
+  hobbies: string
+  personality: string
+  extraTime: string
+  pressureTolerance: string
+  learningGoal: string
+  personalityTest1: string
+  personalityTest2: string
+  personalityTest3: string
+  personalityTest4: string
+  personalityTest5: string
+}
+
+/** 问卷字段名(约束选项/输入回调的 key) */
+export type AiCareerFieldKey = keyof AiCareerFormData
+
+/** 问卷区块:基础信息 / 性格测试 */
+export type AiCareerSection = 'basic' | 'personality'
+
+/** 题目控件类型:单选 / 单行输入 / 多行输入 / 1-5 评分行 */
+export type AiCareerQuestionType = 'choice' | 'input' | 'textarea' | 'score'
+
+/** 单选题选项(label 与 value 同文案,对齐原项目 selectOption(field, value)) */
+export interface AiCareerChoiceOption {
+  label: string
+  value: string
+}
+
+/** 问卷题目定义 */
+export interface AiCareerQuestion {
+  key: AiCareerFieldKey
+  title: string
+  required: boolean
+  type: AiCareerQuestionType
+  options?: AiCareerChoiceOption[]
+  placeholder?: string
+  maxLength?: number
+  section: AiCareerSection
+}
+
+/** AI 生涯报告导出格式(对齐 exportCareerReport 的 CareerReportFormat) */
+export type AiCareerReportFormat = 'pdf' | 'word' | 'ppt'
+
+/** AiCareerScreen(孩子学业问卷)props */
+export interface AiCareerScreenProps {
+  t: TFunction
+  questions: AiCareerQuestion[]
+  formData: AiCareerFormData
+  error: string | null
+  submitting: boolean
+  onSelectOption: (key: AiCareerFieldKey, value: string) => void
+  onInputChange: (key: AiCareerFieldKey, value: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /** 生成的 AI 学业建议正文;不传(undefined)则不渲染报告区,保持旧行为 */
+  result?: string
+  /** 导出格式,默认 'pdf' */
+  format?: AiCareerReportFormat
+  onFormatChange?: (format: AiCareerReportFormat) => void
+  /** 导出回调;不传则不渲染导出控件 */
+  onExport?: () => void
+  exporting?: boolean
+}
+
+/** AI 多模态模式 */
+export type AiMultimodalMode = 'text' | 'image' | 'audio'
+
+/** AI 多模态消息 */
+export interface AiMultimodalMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** AIMultimodalScreen props */
+export interface AIMultimodalScreenProps {
+  t: TFunction
+  userName: string
+  mode: AiMultimodalMode
+  /** 不可用的模式(后端契约未覆盖时由壳传入,共享屏置灰展示) */
+  disabledModes?: AiMultimodalMode[]
+  models: string[]
+  model: string
+  messages: AiMultimodalMessage[]
+  input: string
+  loading: boolean
+  error: string | null
+  onModeChange: (mode: AiMultimodalMode) => void
+  onModelChange: (model: string) => void
+  onInputChange: (text: string) => void
+  onSend: () => void
+  onClear: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 评价详情数据 */
+export interface AgentReviewDetailItem {
+  id: string
+  agentName: string
+  author: string
+  rating: number
+  content: string
+  createdAt: string
+}
+
+/** AgentReviewDetailScreen props */
+export interface AgentReviewDetailScreenProps {
+  t: TFunction
+  item: AgentReviewDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
+
+/** Agent 统计数据
+ * 字段契约(2026-11-01 对齐 GET /agents/stats 实际返回):后端只给
+ * totalAgents/totalUsers/totalCalls/publishedCount/pendingCount/avgRating
+ * (apps/api/src/routes/agents.ts handleAgentStats);conversations/messages/tokens
+ * 是历史视图模型,当前后端无对应来源,故全部可选,渲染处判空。
+ */
+export interface AgentStatData {
+  totalAgents?: number
+  totalUsers?: number
+  totalCalls?: number
+  publishedCount?: number
+  pendingCount?: number
+  avgRating?: number
+  conversations?: number
+  messages?: number
+  tokens?: number
+}
+
+/** AgentStatScreen props */
+export interface AgentStatScreenProps {
+  t: TFunction
+  stat: AgentStatData | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 设置数据 */
+export interface AgentSettingData {
+  name: string
+  model: string
+  temperature: number
+  enabled: boolean
+}
+
+/** AgentSettingScreen props */
+export interface AgentSettingScreenProps {
+  t: TFunction
+  setting: AgentSettingData | null
+  loading: boolean
+  saving: boolean
+  error: string
+  toast: string
+  onChange: (patch: Partial<AgentSettingData>) => void
+  onSave: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AgentCreateScreen props */
+export interface AgentCreateScreenProps {
+  t: TFunction
+  name: string
+  description: string
+  systemPrompt: string
+  category: string
+  isPublic: boolean
+  saving: boolean
+  error: string
+  onNameChange: (v: string) => void
+  onDescriptionChange: (v: string) => void
+  onSystemPromptChange: (v: string) => void
+  onCategoryChange: (v: string) => void
+  onTogglePublic: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 聊天消息 */
+export interface AgentChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** AgentChatScreen props */
+export interface AgentChatScreenProps {
+  t: TFunction
+  title: string
+  messages: AgentChatMessage[]
+  loading: boolean
+  error: string
+  input: string
+  sending: boolean
+  onInputChange: (v: string) => void
+  onSend: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+  /**
+   * 可选:流式回复的增量文本(B4)。`undefined` = 本宿主未接入流式 ⇒ 不渲染流式气泡
+   * (显式关闭,不是 noop 兜底);空串 = 已发流、首个 delta 尚未到达 ⇒ 气泡显示加载态。
+   */
+  pendingAssistantText?: string
+  /** 可选:流式回复是否在飞;缺省视为未接入(仅 `true` 才启用停止按钮语义) */
+  streaming?: boolean
+  /** 可选:停止流式回调;仅提供时才渲染停止按钮(未提供 = 该能力对宿主显式关闭) */
+  onStopStreaming?: () => void
+  /** 可选:已有历史消息时仍需显式展示的发送/流式失败文案(与 error 分居,error 只负责空态整屏) */
+  sendError?: string
+}
+
+/** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心,10 屏迁移自 mobile-rn) */
+
+/** Coze API 配置(ApiSettingsScreen) */
+export interface ApiSettingsConfig {
+  token: string
+  baseUrl: string
+  botId: string
+  timeout: number
+}
+
+/** 连通性测试状态 */
+export type ApiSettingsTestState = 'idle' | 'testing' | 'success' | 'failed'
+
+/** ApiSettingsScreen props */
+export interface ApiSettingsScreenProps {
+  t: TFunction
+  config: ApiSettingsConfig
+  showToken: boolean
+  saving: boolean
+  testing: ApiSettingsTestState
+  testMsg: string
+  toast: string
+  loading: boolean
+  defaultBaseUrl: string
+  defaultTimeout: number
+  onConfigChange: (patch: Partial<ApiSettingsConfig>) => void
+  onToggleShowToken: () => void
+  onSave: () => void
+  onReset: () => void
+  onTest: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 创客资料(CarteScreen) */
+export interface CarteCreator {
+  name: string
+  title: string
+  bio: string
+  projects: number
+  skills: number
+  rating: number
+}
+
+/** 创客作品 */
+export interface CarteWork {
+  id: string
+  title: string
+  category: string
+  desc: string
+  tags: string[]
+  likes: number
+}
+
+/**
+ * CarteScreen props —— 社群宣传卡(与 pagesA/carte/index.vue 同物)。
+ *
+ * 2026-10-24 收口:这一屏在 RN/共享层/小程序三处各有一份实现,共享层那份被写成
+ * 「创客名片 + 作品列表」(creator/works/skills),而**没有任何一端供得起这份数据**
+ * (RN 的 Carte 路由是静态宣传卡,小程序的 carte 页当时抄的是 pkg-ai/business-card)。
+ * 现按"语义基准取 RN/web 都在用的社群宣传卡"改写:图片资源本体按端注入
+ * (RN 用 require() 的数字句柄、web/小程序用 URL 或分包静态路径),
+ * 段落构成与取词键的真相源在 `@ihui/shared/constants` 的 CARTE_SEGMENTS。
+ */
+export interface CarteScreenProps {
+  t: TFunction
+  /** 推荐人头像(槽位名见 CARTE_IMAGE_SLOTS 的 'avatar') */
+  avatarSource: number | { uri: string }
+  /** 社群二维码(槽位名见 CARTE_IMAGE_SLOTS 的 'qrcode') */
+  qrcodeSource: number | { uri: string }
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/**
+ * 模型备案查询条件(受控:三格都由宿主持有,共享屏只回传变更)。
+ * kind 取值与后端 GET /algorithm-record/search 的枚举一致,空串 = 全部:
+ * '' / 'deep_synthesis'(深度合成)/ 'algorithm_recommend'(算法推荐)。
+ */
+export interface ModelRecordQuery {
+  keyword: string
+  kind: string
+  batch: string
+}
+
+/**
+ * 单条备案记录(字段逐名对齐 GET /algorithm-record/search 的 items,
+ * 与 web `settings/model-record` 页的 AlgorithmRecordItem、@ihui/api-client 的
+ * AlgorithmRecordItem 同形)。
+ */
+export interface ModelRecordItem {
+  id: string
+  kind: string
+  algName: string
+  category: string | null
+  provider: string
+  product: string | null
+  purpose: string | null
+  recordNo: string
+  batch: string | null
+  sourceUrl: string | null
+  /**
+   * 备案日期(可选桥接位)。当前后端 select 不返回该列 ⇒ 端上不造值,
+   * 取不到即整行不渲染(不写 '-' 冒充"有值但为空");后端补列后共享屏无需改动即可显示。
+   */
+  applyDate?: string | null
+}
+
+/** 统计卡数据(updatedAt 为 ISO 时刻,null = 未取到) */
+export interface ModelRecordStats {
+  totalAll: number
+  updatedAt: string | null
+}
+
+/** 类型计数(kind = 'deep_synthesis' | 'algorithm_recommend') */
+export interface ModelRecordKindCount {
+  kind: string
+  count: number
+}
+
+/** 一次查询结果(stats 可为 null:未取到时统计卡展示 '-',与 web 同口径) */
+export interface ModelRecordQueryResult {
+  items: ModelRecordItem[]
+  total: number
+  stats: ModelRecordStats | null
+  kindCounts: ModelRecordKindCount[]
+  batches: string[]
+}
+
+/**
+ * ModelRecordScreen props —— 数据全部由宿主注入(共享屏不 fetch)。
+ *
+ * 2026-11 扩展:原形态只有 4 张备案图片(静态合规公示),现补齐到与 web
+ * `apps/web/app/(main)/settings/model-record/page.tsx` 同等能力(统计/筛选/列表/分页/复制)。
+ * images / previewIndex / onPreviewIndexChange 三个原字段**保留且降为可选**,
+ * 原调用点(RN 壳)照旧可用,不构成破坏性变更。
+ */
+export interface ModelRecordScreenProps {
+  t: TFunction
+  onBack: () => void
+  title?: string
+  /** 查询条件(受控) */
+  query: ModelRecordQuery
+  onKeywordChange: (keyword: string) => void
+  onKindChange: (kind: string) => void
+  onBatchChange: (batch: string) => void
+  onSearch: () => void
+  /** 当前查询结果(空态判 items.length,不用 undefined 表达) */
+  result: ModelRecordQueryResult
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  loading: boolean
+  error: string
+  /** 复制备案编号(平台注入;共享屏自管「已复制」短提示) */
+  onCopy: (text: string) => void
+  /** 备案公示图片(合规公示,列表与分页之后渲染) */
+  images?: (number | { uri: string })[]
+  previewIndex?: number
+  onPreviewIndexChange?: (index: number) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+// ============ 批次 39(2026-08-15):AI 助手 N8n(1 屏迁移自 mobile-rn) ============
+
+/** N8n 消息项 */
+export interface N8nMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
+  images?: string[]
+}
+
+/** AiAssistantN8nScreen props(wrapper 注入数据+回调) */
+export interface AiAssistantN8nScreenProps {
+  t: TFunction
+  colorScheme?: 'light' | 'dark'
+  messages: N8nMessage[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  search: string
+  searchInput: string
+  showSearch: boolean
+  selectedModelLabel: string
+  showModelPicker: boolean
+  modelConfigVisible: boolean
+  modelConfig: {
+    temperature: number
+    maxTokens: number
+    topP: number
+    systemPrompt: string
+  }
+  previewImage: string | null
+  toastVisible: boolean
+  toastType: 'info' | 'error' | 'success' | 'warning'
+  toastMessage: string
+  drawerVisible: boolean
+  drawerConversations: Array<{
+    id: string
+    title: string
+    modelConfig?: {
+      id: string
+      name: string
+      icon?: string
+    }
+    createdAt: number
+  }>
+  drawerConversationsLoaded: boolean
+  drawerUser: {
+    avatar?: string
+    nickname: string
+    level: 'vip' | 'normal'
+  }
+  quickSuggestions: readonly string[]
+  sending: boolean
+  onRefresh: () => void
+  onEndReached: () => void
+  onSubmitSearch: () => void
+  onSearchInputChange: (v: string) => void
+  onSend: (text: string) => void
+  onStop: () => void
+  onModelPress: () => void
+  onModelConfigPress: () => void
+  onPreviewImage: (url: string) => void
+  onClosePreview: () => void
+  onCloseModelPicker: () => void
+  onCloseModelConfig: () => void
+  onCloseDrawer: () => void
+  onDrawerNavigate: (tab: string) => void
+  onDrawerNavigateCompany: () => void
+  onDrawerClaimFree: () => void
+  onDrawerCreateNewChat: () => void
+  onDrawerSelectConversation: (id: string) => void
+  onDrawerDeleteConversation: (id: string) => void
+  onDrawerOpenSettings: () => void
+  onDrawerOpenMessages: () => void
+  onDrawerGoHome: () => void
+  onDrawerNavigateExtra: (menu: string) => void
+  onHideToast: () => void
+  retryText: string
+  emptyText: string
+  noMoreText: string
+  loadingText: string
+  loadingMoreText: string
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

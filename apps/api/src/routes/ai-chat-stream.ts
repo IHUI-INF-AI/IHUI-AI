@@ -1,0 +1,2152 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
+import {
+  PERMISSION_MODE_WIRE_VALUES,
+  REASONING_EFFORT_VALUES,
+  // 79 号票(2026-10-18 立):权限双轴两轴的封闭值域。清单从注册表派生
+  // (G-164:路由不得再抄第二份字面量,`packages/types/permission-axis.ts` 是唯一定义处)。
+  SANDBOX_MODES,
+  APPROVAL_POLICIES,
+  type SandboxModeId,
+  type ApprovalPolicyId,
+  type ReasoningEffort,
+  type ChatSyncTerminalReason,
+  repairMessages,
+} from '@ihui/types'
+import {
+  compressContextIfNeeded,
+  estimateMessagesTokens,
+  CONTEXT_BUDGET_THRESHOLD,
+  type ChatMessage,
+} from '@ihui/context-compaction'
+import { checkAuth } from '../plugins/auth.js'
+import { mapUpstreamOutbound, UPSTREAM_AUTH_FAILED_MESSAGE } from '../errors/upstream-status.js'
+import { ErrorCode } from '../errors/codes.js'
+import { requireAdmin } from '../plugins/require-permission.js'
+import { error, success } from '../utils/response.js'
+import { config } from '../config/index.js'
+import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
+import {
+  bindConversationWorkspace,
+  createMessage,
+  findConversationById,
+  patchConversationMetadata,
+  replaceMessages,
+  setConversationAdditionalDirectories,
+} from '../db/chat-queries.js'
+import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+// G-998168 票5:首帧耗时分段归因 —— 所有计时一律走 elapsed-ms 唯一出口(格②),
+// 裸 performance.now() 差值在端内是判红项。
+import { startStopwatch, type ElapsedSample } from '../utils/elapsed-ms.js'
+import {
+  generateSemanticSummary,
+  getCachedSemanticSummary,
+  primeSemanticSummary,
+} from '../utils/semantic-summary.js'
+import { persistMessageArchive } from '../utils/conversation-archive.js'
+import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
+import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
+// G6 企业治理面(2026-10-30 立):模型准入检查点(ORG_POLICIES_ENABLED 关=直通,行为逐字节不变)
+import { guardModelAdmission } from '../services/org-policy-service.js'
+import {
+  abortConversationStreams,
+  createSession,
+  detachOnClose,
+  emitEvent,
+  emitNamedEvent,
+  emitUpstreamLine,
+  findSession,
+  finishSession,
+  getReplayEvents,
+  takeoverStream,
+  waitForReplayHeadroom,
+} from '../utils/sse-stream-registry.js'
+import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
+import { appendElementPackFrame } from '../db/element-pack-queries.js'
+// 票71 剩余缺口①:广播入参类型取 ws-broadcast 的发射契约(单源,不另抄形状)。
+// import type 编译后擦除 ⇒ 路由不因类型依赖把插件运行时(ioredis/rooms)拉进本模块。
+import type {
+  ChatMessageCreatedBroadcastInput,
+  ChatMessagePatchedBroadcastInput,
+} from '../plugins/ws-broadcast.js'
+// D64⑤:subagent 帧族收窄的唯一实现(与 sse-parse 的消费收窄同源)
+import { collectElementPackFrame } from '@ihui/shared/chat'
+
+// P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
+const sseMetrics = {
+  timeouts: 0, // SSE 服务端超时次数(5min 兜底超时触发)
+  rateLimitHits: 0, // rateLimit 拦截次数(fastify-rate-limit 内部处理,本计数器暂不递增)
+  budgetRejects: 0, // 预算校验拦截次数
+  retryAfterSent: 0, // Retry-After header 下发次数
+  upstreamErrors: 0, // 上游 ai-service 错误次数
+}
+
+/**
+ * 票 B02 生产端终态切片(2026-10-26):上游 done 帧的 `finishReason` → 契约终态 reason。
+ *
+ * 只做**闭集内的映射**:length 家族折成 `length`、content_filter 折成 `content_filter`;
+ * 其余(含 tool_calls —— 工具循环后仍有最终答复)折叠为 `stop`。闭集外的值不臆造异常:
+ * 缺证据时按正常收尾处理,与"没判绝不写成判过"同向(不把未知谎报成 error)。
+ */
+function terminalReasonFromFinishReason(finishReason: string | undefined): ChatSyncTerminalReason {
+  if (
+    finishReason === 'length' ||
+    finishReason === 'max_tokens' ||
+    finishReason === 'max_output_tokens' ||
+    finishReason === 'model_context_window_exceeded'
+  ) {
+    return 'length'
+  }
+  if (finishReason === 'content_filter') return 'content_filter'
+  return 'stop'
+}
+
+/**
+ * 票71 剩余缺口①(2026-10-31 立):SSE 生成腿的 chat-sync 帧发射器。
+ *
+ * 背景(docs/chat-sync-contract.md §7 第 4 项"残留"):终态帧已在 `finally` 发出,但
+ * created/patched 从未在这条腿上产生 —— 助手消息要等 ai-callback-worker 落库才进历史,
+ * 账本通常无行 ⇒ 终态 rev 常为 0,多端在生成期间看不到任何进展,错过终态只能靠 resync 自愈。
+ *
+ * 三条设计判据(不许漂):
+ *  1. **帧形状只来自 @ihui/types 的构造器**:本文件不手拼帧、不写第二份帧名/字段常量;
+ *     广播入口复用 ws-broadcast 的三枚装饰器(rev 分配仍由载体唯一负责)。
+ *  2. **只报全量 snapshot,不报 delta**:snapshot 自包含(契约 §2 第 3 条),丢一帧由下一帧
+ *     直接覆盖,不需要端侧缓存重投;delta 链一断就是 gap(而流未落库时 resync 拉不到快照)。
+ *  3. **按字符阈值聚合,不用定时器**:每累计 `minChars` 个字符发一帧,流收尾 flush 尾巴。
+ *     帧数 ≈ 内容长度/阈值,确定性可测;定时器会让"最后一帧"与终态帧的先后依赖调度。
+ *
+ * 生成端自己也会收到这些帧(广播按 userId 投递)。端侧的回声判定与"只推进内核面、
+ * 不投影渲染面"在 `apps/web/src/stores/chat.ts` 的 applyChatSync 里(SSE 面是生成端的权威本)。
+ */
+export const CHAT_SYNC_STREAM_FRAME_MIN_CHARS = 64
+
+export interface ChatSyncStreamFrameEmitter {
+  appendContent(delta: string): void
+  appendReasoning(delta: string): void
+  /**
+   * 冲掉未达阈值的尾巴并排空帧链。返回"已发帧全部落地"的 promise(永不 reject)——
+   * 终态帧必须排在它之后(终态 rev = 链头)。
+   */
+  flush(): Promise<void>
+}
+
+function createChatSyncStreamFrameEmitter(input: {
+  conversationId: string
+  messageId: string
+  memberUserIds: readonly string[]
+  broadcastCreated: (input: ChatMessageCreatedBroadcastInput) => unknown
+  broadcastPatched: (input: ChatMessagePatchedBroadcastInput) => Promise<unknown>
+  minChars?: number
+  /** 诊断出口(帧发射失败);不得反噬主链 —— 下一帧 snapshot 天然自愈 */
+  onError?: (phase: 'created' | 'patched', err: unknown) => void
+}): ChatSyncStreamFrameEmitter {
+  const minChars = input.minChars ?? CHAT_SYNC_STREAM_FRAME_MIN_CHARS
+  let content = ''
+  let reasoning = ''
+  let sentContent = ''
+  let sentReasoning = ''
+  let createdSent = false
+  /** 帧链:rev 分配是服务端账户,乱序发帧会把端侧 rev 链打乱 ⇒ 逐帧串行 */
+  let chain: Promise<void> = Promise.resolve()
+
+  const report = (phase: 'created' | 'patched', err: unknown): void => {
+    try {
+      input.onError?.(phase, err)
+    } catch {
+      /* 诊断出口自身抛错不得反噬主链 */
+    }
+  }
+
+  const enqueueCreated = (): void => {
+    if (createdSent) return
+    createdSent = true
+    chain = chain.then(async () => {
+      try {
+        await input.broadcastCreated({
+          conversationId: input.conversationId,
+          memberUserIds: input.memberUserIds,
+          messageId: input.messageId,
+          role: 'assistant',
+          // 初面只声明"这条消息存在";内容由后续 snapshot 帧推进。空串不是缺省:
+          // created 的载荷是完整初面,此刻服务端确实还没有内容。
+          content: '',
+        })
+      } catch (err) {
+        // 广播失败 ⇒ 允许下一个 delta 重试(否则端侧永远等不到可应用的行)
+        createdSent = false
+        report('created', err)
+      }
+    })
+  }
+
+  const pendingChars = (): number =>
+    content.length - sentContent.length + (reasoning.length - sentReasoning.length)
+
+  const enqueuePatched = (): void => {
+    const nextContent = content
+    const nextReasoning = reasoning
+    if (nextContent === sentContent && nextReasoning === sentReasoning) return
+    chain = chain.then(async () => {
+      // 排队期间已被上一帧覆盖(两次入队捕获同一快照)⇒ 消耗 rev 但不改内容是无意义帧
+      if (nextContent === sentContent && nextReasoning === sentReasoning) return
+      try {
+        await input.broadcastPatched({
+          conversationId: input.conversationId,
+          memberUserIds: input.memberUserIds,
+          messageId: input.messageId,
+          kind: 'snapshot',
+          content: nextContent,
+          ...(nextReasoning.length > 0 ? { reasoning: nextReasoning } : {}),
+        })
+        sentContent = nextContent
+        sentReasoning = nextReasoning
+      } catch (err) {
+        // 不推进 sent* —— 下一帧仍带全量,自愈;若流已结束由 flush 的返回 promise 让调用方知情
+        report('patched', err)
+      }
+    })
+  }
+
+  const maybeSend = (): void => {
+    if (!createdSent) enqueueCreated()
+    if (pendingChars() >= minChars) enqueuePatched()
+  }
+
+  return {
+    appendContent(delta) {
+      if (delta.length === 0) return
+      content += delta
+      maybeSend()
+    },
+    appendReasoning(delta) {
+      if (delta.length === 0) return
+      reasoning += delta
+      maybeSend()
+    },
+    flush() {
+      if (!createdSent && (content.length > 0 || reasoning.length > 0)) enqueueCreated()
+      enqueuePatched()
+      return chain
+    },
+  }
+}
+
+/**
+ * G-998168 票5 + 机主拍板⑥:首帧耗时的**分段归因**线格式(随首帧回传给客户端)。
+ *
+ * **回传不落库(拍板⑥)**:本对象只出现在首帧的 `openTiming` 可选字段里,不建表、
+ * 不做迁移、不加指标家族/直方图 —— 总时长 TTFT 仍由 business-metrics.ts 既有口径承载,
+ * 本对象不进任何持久层;"重启即无历史、画不了长期趋势"是拍板的预期代价,禁止顺手补指标表。
+ *
+ * 字段集固定且 versioned;各 ms 为整数;**不可信样本(时钟回退/双钟分歧)⇒ null 而不是
+ * Math.max(0,…) 夹成 0** —— 夹成 0 会把"这段测量不可信"谎报成"这段零耗时"(肯定结论),
+ * null 才是缺席语义(消费端按"未知"渲染)。不可信样本由 elapsed-ms 出口计入
+ * elapsedClockStats(观测面可回答"标了几条")。
+ */
+interface StreamOpenTiming {
+  /** 分段字段集版本(字段集变更时 +1) */
+  version: 1
+  /** host 前置:网关入口 → 发起上游连接前(字面含下方 storage 读;storageReadMs 是
+   *  它的归因子段而非互斥切分,故四段不承诺相加恰为 TTFT,消费端不得做该假设) */
+  prepareMs: number | null
+  /** 上游连接:发起上游请求 → 拿到响应头 */
+  upstreamConnectMs: number | null
+  /** 首个上游字节:响应头 → 首次 read 返回 */
+  firstByteMs: number | null
+  /** 存储/索引读(repo wiki 百科 + 知识库检索)耗时;该路径无此类读 ⇒ null */
+  storageReadMs: number | null
+  /** 上游连接是否冷启(无复用即冷;进程级首连标记的近似,见 aiServiceStreamConnectedOnce) */
+  coldStart: boolean
+}
+
+/**
+ * ElapsedSample → 线格式整数毫秒。**为负 ⇒ null,而不是 Math.max(0,…) 夹成 0**(差异见
+ * StreamOpenTiming 头注);null 表示"该段测量不可信/缺席",不是零耗时。
+ */
+function elapsedSampleToMs(sample: ElapsedSample | null): number | null {
+  if (sample === null || sample.elapsedMs === null) return null
+  return Math.round(sample.elapsedMs)
+}
+
+/** 分段对象的唯一构造点:字段集只在这里拼装一次,与 StreamOpenTiming 类型同处对账。 */
+function buildStreamOpenTiming(parts: {
+  prepareSample: ElapsedSample | null
+  connectSample: ElapsedSample | null
+  firstByteSample: ElapsedSample | null
+  storageSample: ElapsedSample | null
+  coldStart: boolean
+}): StreamOpenTiming {
+  return {
+    version: 1,
+    prepareMs: elapsedSampleToMs(parts.prepareSample),
+    upstreamConnectMs: elapsedSampleToMs(parts.connectSample),
+    firstByteMs: elapsedSampleToMs(parts.firstByteSample),
+    storageReadMs: elapsedSampleToMs(parts.storageSample),
+    coldStart: parts.coldStart,
+  }
+}
+
+/**
+ * 进程级"上游已成功建连"标记(coldStart 判据:无复用即冷)。
+ * 首次成功拿到上游响应头之前,进程连接池里没有任何可复用连接 ⇒ 该次为冷启;
+ * 之后视为热。**近似声明**:undici 不暴露逐请求的连接复用事实,对端断连后重建的
+ * 那一次会被标为热 —— 这是拍板⑥"回传不落库、不做深插桩"边界内的可接受代价。
+ */
+let aiServiceStreamConnectedOnce = false
+
+/** 测试复位钩子(先例:semantic-summary.js 的 __clearSemanticSummaryCacheForTests)。 */
+export function __resetAiServiceStreamColdStartForTests(): void {
+  aiServiceStreamConnectedOnce = false
+}
+
+const chatStreamSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string(),
+      }),
+    )
+    .min(1),
+  sessionId: z.string().optional(),
+  /** 差距①(2026-10-30 立,发送准入上 wire 网关侧):客户端预生成的输入 ID,
+   *  上游 admission 帧按它原样回显配对。不在此声明会被 zod strip 静默丢弃
+   *  (与 workspaceContext/mode/permissionMode 同型断链)。可选 ⇒ 旧客户端零破坏。 */
+  inputId: z.string().min(1).max(128).optional(),
+  model: z.string().optional(),
+  modelId: z.string().optional(), // 向后兼容,优先使用 model
+  agentId: z.string().optional(),
+  materialContent: z.string().optional(),
+  /** 当前绑定的本地工作区路径,透传到 ai-service 用于注入项目记忆(CLAUDE.md/AGENTS.md) */
+  workspacePath: z.string().optional(),
+  /** 浏览器端预加载的工作区文件内容(2026-09-04 修复透传断链):
+   *  web 非 Tauri 环境用 FileSystemDirectoryHandle 读取工作区文件后经此字段上传,
+   *  ai-service 优先于 workspace_path 注入 system prompt(优先级见 llm.py _inject_workspace_memory)。
+   *  此前该字段未在 schema 中声明 → zod 解析时被剥离 → ai-service 永远收不到,
+   *  导致"添加工作区后 AI 读不到任何项目文件"。上限与前端 MAX_TOTAL_SIZE(2MB)对齐。 */
+  workspaceContext: z.string().max(2_500_000).optional(),
+  /** P1-8(2026-09-13 立,Repo Wiki 对话自动引用):当前对话绑定的仓库名,
+   *  后端据此读取 repo_wiki_docs 中最新一版「项目百科」总览并注入 system prompt。
+   *  与 workspaceContext 同型坑:不在此声明会被 zod strip 静默丢弃,ai-service 永远收不到。上限与 /repo-wiki 生成接口对齐(200)。 */
+  repoName: z.string().max(200).optional(),
+  /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
+  contextLimit: z.number().int().min(0).max(2_000_000).optional(),
+  /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
+   *  传入工具名列表后,ai-service 走 tool loop(complete→tool_calls→execute→astream)。
+   *  如 ["browser_screenshot", "computer_mouse_click"] */
+  agentTools: z.array(z.string()).max(100).optional(),
+  /** Plan/Act 双模切换(2026-07-24 立)
+   * plan=只制定计划不执行工具(后端注入 Plan Mode system prompt),act=正常执行(默认)
+   * 前端 extraBody 传 plan_mode(snake_case),透传到 ai-service /api/llm/complete/stream */
+  plan_mode: z.string().optional(),
+  /** ChatMode 5 态(2026-09-13 矩阵 A #24):ask/build/plan/review/spec。
+   *  前端 send-message.ts:475 / send-answer.ts:183 发 mode(当前 ChatMode 选择),
+   *  此前未在 schema 声明 → zod strip 静默丢弃,ai-service 永远收不到(链路掐断)。
+   *  legacy plan_mode 继续兼容,ai-service 端 _resolve_chat_mode 以 mode 优先。 */
+  mode: z.enum(['ask', 'build', 'plan', 'review', 'spec']).optional(),
+  /** V3 #58(2026-09-26 立):工作区权限模式档位,透传到 ai-service 审批门
+   *  (llm.py permission_mode 字段)。不声明会被 zod strip 静默丢弃 ——
+   *  与 workspaceContext/mode 同型断链,审批门将永远按 default 档拦截高危工具。
+   *  清单从注册表派生(G-164:路由不得再抄第二份字面量,`packages/types/permission-mode.ts`
+   *  是唯一定义处);本端点只收 wire(kebab)拼写,与 workspace.ts 的 ACP 入参面刻意不同形。 */
+  permissionMode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),
+  /** 79 号票(2026-10-18 立):权限双轴两轴档位。清单从注册表派生(G-164 同课),
+   *  本路由不得写字面量清单 —— 未在此声明会被 zod strip 静默丢弃
+   *  (与 workspaceContext/mode/permissionMode 同型断链:前端选了档而上游收不到)。
+   *  camel 入 / snake 出:转发行见 streamToClient 的 sandbox_mode / approval_policy。
+   *  两轴都 optional 且互不依赖:只给一轴时由 ai-service 侧补该轴默认。 */
+  sandboxMode: z.enum(SANDBOX_MODES).optional(),
+  approvalPolicy: z.enum(APPROVAL_POLICIES).optional(),
+  /** D130(2026-09-30 立):推理强度档位(输入区第三轴)。值域取 @ihui/types 的封闭联合,
+   *  本路由不得写字面量清单(G-164 同课:各路由自抄一份 ⇒ 总有一份少一档并静默归 null)。
+   *  未在此声明会被 zod strip 静默丢弃 —— 与 workspaceContext/mode/permissionMode 同型断链。
+   *  camel 入 / snake 出:转发行见 streamToClient 的 `reasoning_effort`。 */
+  reasoningEffort: z.enum(REASONING_EFFORT_VALUES).optional(),
+  /** 原生 function calling(2026-08-31 立,OpenAI tools 格式弱类型透传):
+   *  CLI 直连 ai-service 已支持(tools + tool_choice → tool-call-start SSE 事件),
+   *  经网关中转的客户端(Web 等)同样需要透传。元素为 OpenAI tool 定义
+   *  {type:'function', function:{name, description, parameters}},结构由 ai-service
+   *  LLMCompleteRequest(tools: list[dict]) 负责校验,这里不做强 schema(strip 会丢字段)。 */
+  tools: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
+  /** 工具选择策略: 'auto'/'none'/'required' 或 {type:'function',function:{name:'xxx'}} */
+  tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  /** P1-7(2026-09-13 立,四竞品对标 CodeX/Qoder 高级参数面板):
+   *  会话级采样参数与自定义 system prompt。此前 model-selector 旁无参数入口,
+   *  api-client streamChat 已支持这些字段(body 构造见 client.ts),
+   *  但网关 schema 未声明 → zod strip 静默丢弃(与 workspaceContext/mode 同型断链)。
+   *  此处补声明并透传到 ai-service /api/llm/complete/stream。 */
+  temperature: z.number().min(0).max(2).optional(),
+  topP: z.number().min(0).max(1).optional(),
+  topK: z.number().int().min(1).max(1000).optional(),
+  maxTokens: z.number().int().min(1).max(200_000).optional(),
+  /** 自定义 system prompt,ai-service 注入到 system 消息最顶部(与工作区记忆叠加)。
+   *  上限 8000 字符,与前端 UI 限制对齐,防超长提示词拖垮上下文。 */
+  systemPrompt: z.string().max(8000).optional(),
+  /** P1 #26(2026-09-16 立,知识库默认注入主聊天):是否注入知识库检索结果。
+   *  默认 true(轻量、可关)。关闭后不检索也不注入,降级为纯对话。
+   *  检索结果折叠进 system_prompt 末尾(见 streamToClient),与 workspaceContext/wiki 同型:
+   *  不在此声明会被 zod strip 静默丢弃。false 时显式关闭知识增强。 */
+  knowledgeContext: z.boolean().optional(),
+  metadata: z
+    .object({
+      conversationId: z.string().optional(),
+      userId: z.string().optional(),
+      messageId: z.string().optional(),
+      // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
+      // 不在此声明会被 zod strip 静默丢弃(同 knowledgeContext 注记那一型):
+      // 前端发了、网关"收了"、回调里没有 —— 回复落库不带族,版本切换整链空转。
+      parentMessageId: z.string().uuid().optional(),
+      siblingIndex: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+})
+
+// AI 主动提问用户回答接口:接收 questionId + answer + 历史消息,把 answer 追加为 user 消息后继续生成
+const chatAnswerSchema = chatStreamSchema.extend({
+  questionId: z.string().min(1),
+  answer: z.string().min(1),
+})
+
+export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await checkAuth(request, reply))) return
+  })
+
+  // Token 预算三态分档决策结果(2026-09-19 立, 替代原一刀切 429):
+  // - allow    放行, 不发任何事件
+  // - warning  放行, 流首命名帧 budget {level:'warning', ...} 软提醒
+  // - critical 放行, 流首命名帧 budget {level:'critical', ...} 硬预警
+  // - block    HTTP 429 硬中断(本函数内已发响应, 调用方直接 return)
+  interface BudgetGateResult {
+    decision: 'allow' | 'warning' | 'critical' | 'block'
+    percent?: number
+    usedTokens?: number
+    limitTokens?: number
+    tier?: string
+    resetAt?: string
+  }
+
+  // 计算东八区次日 0 点的 ISO 时间串(budget 事件 resetAt 字段)。
+  // 东八区无夏令时, 固定 UTC+8: 当前时刻 +8h 得"东八区墙上时钟", 归零到当日 0 点
+  // 再 +24h 即东八区次日 0 点, 回退 8h 转回真实 UTC 时刻后 toISOString。
+  function nextShanghaiMidnightISO(): string {
+    const OFFSET_MS = 8 * 3600 * 1000
+    const shanghaiWall = new Date(Date.now() + OFFSET_MS)
+    shanghaiWall.setUTCHours(0, 0, 0, 0)
+    return new Date(shanghaiWall.getTime() + 24 * 3600 * 1000 - OFFSET_MS).toISOString()
+  }
+
+  // Token 预算前置校验: 三态分档显式策略(替代原「超限即 429」一刀切)。
+  // 分档语义(判定用 used/limit 比值而非 percent*100, 规避 0.95*100=94.999… 浮点陷阱;
+  // percent 仅作展示, 向下取整到 0.1, 保证展示值与档位判定一致):
+  //   percent < 80        → allow    放行, 不发事件
+  //   80 ≤ percent < 95   → warning  放行, 流首命名帧 budget {level:'warning', ...}
+  //   95 ≤ percent < 100  → critical 放行, 流首命名帧 budget {level:'critical', ...}
+  //   percent ≥ 100       → block    HTTP 429 硬中断, 响应体顶层 errorCode='BUDGET_EXHAUSTED'
+  // 六点边界推演: 79.9→allow 无事件 / 80→warning / 94.9→warning / 95→critical /
+  //              99.9→critical / 100→block(判定式 ratio≥1 ⟺ used≥limit)
+  // block 判定沿用 checkBudget 同口径 used >= limit(含 limit=0 时恒 block 的既有语义)。
+  // 用量查询走 aiCost.getUserBudgetUsage, 异常时降级 allow(与原实现兜底一致)。
+  async function checkTokenBudget(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    userId: string | undefined,
+    model: string | undefined,
+  ): Promise<BudgetGateResult> {
+    if (!userId) return { decision: 'allow' } // 无 userId 无法校验, 放行
+    try {
+      const usage = await server.aiCost.getUserBudgetUsage(userId, model)
+      if (!usage) return { decision: 'allow' } // 无预算记录, 放行不参与分档
+
+      const { usedTokens, limitTokens, tier } = usage
+      const resetAt = nextShanghaiMidnightISO()
+
+      // block: 与 checkBudget 同口径 used >= limit(limit=0 时恒成立, 保持既有语义)
+      if (usedTokens >= limitTokens) {
+        // P2-2 日预算超限:下发 Retry-After(60s)让客户端按协商重试,而非无脑指数退避
+        sseMetrics.budgetRejects++
+        sseMetrics.retryAfterSent++
+        reply.header('Retry-After', '60')
+        reply.code(429).send({
+          code: 429,
+          message: '预算超限',
+          errorCode: 'BUDGET_EXHAUSTED',
+          percent: limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100,
+          usedTokens,
+          limitTokens,
+          resetAt,
+          data: { reason: 'budget_exceeded', detail: '日 token 预算已用尽' },
+        })
+        return {
+          decision: 'block',
+          percent: limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100,
+          usedTokens,
+          limitTokens,
+          tier,
+          resetAt,
+        }
+      }
+
+      // 未 block 时必有 limit > 0(used >= limit 不成立且 used ≥ 0), 比值安全
+      const ratio = usedTokens / limitTokens
+      const percent = Math.floor(ratio * 1000) / 10
+      if (ratio >= 0.95) {
+        return { decision: 'critical', percent, usedTokens, limitTokens, tier, resetAt }
+      }
+      if (ratio >= 0.8) {
+        return { decision: 'warning', percent, usedTokens, limitTokens, tier, resetAt }
+      }
+      return { decision: 'allow' }
+    } catch (e) {
+      // getUserBudgetUsage 不可用或异常:降级为只 log warning 不阻塞主链路
+      request.log.warn({ err: e, userId, model }, 'budget gate failed, degrade to allow')
+      return { decision: 'allow' }
+    }
+  }
+
+  // 共享的 SSE 流式转发逻辑:/chat/stream 和 /chat/answer 共用
+  // messages 已是最终列表(已 repair + 已压缩 + 已追加 answer),直接透传到 ai-service
+  async function streamToClient(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    finalMessages: ChatMessage[],
+    opts: {
+      sessionId?: string
+      /** 差距①(2026-10-30 立):客户端预生成的输入 ID,原样透传给上游
+       *  (admission 帧按它回显配对);undefined 时 JSON.stringify 省略不注入。 */
+      inputId?: string
+      resolvedModel?: string
+      agentId?: string
+      materialContent?: string
+      workspacePath?: string
+      /** 浏览器端预加载工作区内容,透传为 ai-service 的 workspace_context */
+      workspaceContext?: string
+      /** P1-8(2026-09-13 立):对话绑定的仓库名,用于读取并注入「项目百科」 */
+      repoName?: string
+      contextLimit?: number
+      agentTools?: string[]
+      planMode?: string
+      /** ChatMode 5 态(2026-09-13 矩阵 A #24),透传到 ai-service req.mode */
+      mode?: 'ask' | 'build' | 'plan' | 'review' | 'spec'
+      /** V3 #58(2026-09-26 立):权限模式档位,透传为 ai-service 的 permission_mode(工具审批门) */
+      permissionMode?: 'default' | 'accept-edits' | 'bypass-permissions' | 'plan'
+      /** 79 号票(权限双轴):沙箱档与审批档,透传为 ai-service 的 sandbox_mode / approval_policy。
+       *  值域唯一源 = @ihui/types/permission-axis.ts,本文件不写第二份清单(G-164)。
+       *  两档都 optional:未携带 ⇒ ai-service 侧裁决门整段跳过 ⇒ 现网零行为变化。 */
+      sandboxMode?: SandboxModeId
+      approvalPolicy?: ApprovalPolicyId
+      /** D130(2026-09-30 立):推理强度档位,透传为 ai-service 的 reasoning_effort(上游采样档)。
+       *  值域唯一源 = @ihui/types/reasoning-effort.ts,本文件不写第二份清单。 */
+      reasoningEffort?: ReasoningEffort
+      /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
+      tools?: Array<Record<string, unknown>>
+      toolChoice?: string | Record<string, unknown>
+      /** P1-7(2026-09-13 立):高级参数面板采样参数与自定义 system prompt */
+      temperature?: number
+      topP?: number
+      topK?: number
+      maxTokens?: number
+      systemPrompt?: string
+      /** P1 #26(2026-09-16 立):知识库默认注入开关。undefined/true = 注入(默认);false = 关闭 */
+      knowledgeContext?: boolean
+      metadata?: {
+        conversationId?: string
+        userId?: string
+        messageId?: string
+        /** 票59(3/3):regenerate 新回复的版本族坐标(透传上游回调后落 chat_messages 两列) */
+        parentMessageId?: string
+        siblingIndex?: number
+      }
+    },
+    extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
+  ): Promise<void> {
+    // G-998168 票5:prepare 段起表(入口)。只测不存:各段经首帧 openTiming 字段回传,
+    // **不落库(拍板⑥)** —— 不建表、不迁移、不进 business-metrics。
+    const prepareSw = startStopwatch()
+    reply.hijack()
+    const raw = reply.raw
+    // 2026-07-27 修复跨域 SSE:reply.hijack() 绕过 @fastify/cors 插件,
+    // 实际 POST 响应头缺少 Access-Control-Allow-Origin,浏览器跨域 fetch 阻止响应(Failed to fetch)。
+    // 手动回显 Origin + Allow-Credentials(preflight OPTIONS 已由 cors 插件处理)。
+    // 2026-10-31 R10 安全强化:回显前必须过 evaluateOriginAllowance 同一判据,否则任意站点可带用户
+    // 凭据跨域读取其 SSE 流(CORS 凭证绕过,CWE-346)。逻辑收敛到 buildSseCorsHeaders(单一真源)。
+    const origin = request.headers.origin as string | undefined
+    const sseHeaders: Record<string, string> = {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    }
+    Object.assign(sseHeaders, buildSseCorsHeaders(origin, config.CORS_ORIGIN, config.EXTENSION_IDS))
+    raw.writeHead(200, sseHeaders)
+
+    // #22(2026-09-16 立)SSE 事件 id + Last-Event-ID 标准重放:
+    // replayKey = `${conversationId}:${messageId}`(前端 streamChat metadata 均携带)。
+    // 断线重连带 Last-Event-ID 头时优先走接管/重放,避免重新调上游:
+    // 1) 原流仍在生成(15s 宽限窗口内)→ 重放缺失段 + 无缝接续原上游流;
+    // 2) 原流已中止但缓冲在 60s 保留窗口 → 仅重放缺失段后结束(前端 dedupe 降级);
+    // 3) 缓冲也过期/未知 key → 落到下方正常路径重新生成(前端 dedupe 前缀续写降级保留)。
+    const replayKey =
+      opts.metadata?.conversationId && opts.metadata?.messageId
+        ? `${opts.metadata.conversationId}:${opts.metadata.messageId}`
+        : null
+    const lastEventIdHeader = request.headers['last-event-id']
+    if (replayKey && typeof lastEventIdHeader === 'string' && lastEventIdHeader !== '') {
+      const lastSeq = Number.parseInt(lastEventIdHeader, 10)
+      if (Number.isFinite(lastSeq) && lastSeq >= 0) {
+        // 第九轮(2026-09-26 立):发尾巴之前先问"窗口够不够"。
+        // 缓冲每流上限 2000 行,超出即 FIFO 裁头;客户端的 lastSeq 落在被裁掉的区间时,
+        // 缓冲只剩后半截 —— 照发出去就是"消息少了若干条、界面却看着连续",而 SSE 侧
+        // 没有任何字段能表达这个洞(协议不动,见票面约束)。所以这一态并进既有的
+        // "缓冲过期:正常路径重新生成"降级出口:宁可重跑一次,不发不可辨的半截。
+        const window = getReplayWindowStatus(replayKey, lastSeq)
+        if (window.complete) {
+          const liveSession = findSession(replayKey)
+          if (liveSession && !liveSession.finished) {
+            // 接管:重放缺失段(id > Last-Event-ID)后原转发循环继续向本连接实时写
+            const missed = takeoverStream(liveSession, lastSeq, raw)
+            for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
+            // 新连接断开同样走宽限 detach(重复断线/重连安全)
+            // G-998166:迟到清理带对象身份复核 —— 只有注册表里仍是本 session 才 detach;
+            // 旧 session 的迟到 close 不得对同 key 已换代的新 session 触发宽限/释放
+            // O64(2026-10-22):信号源改本连接 reply.raw —— request.raw 的 'close' 在 Node≥16
+            // 请求体收全即触发且真断连不再二次触发,挂 req 侧接管后断连全漏,宽限定时器从不武装。
+            raw.on('close', () => {
+              if (findSession(replayKey) === liveSession) detachOnClose(liveSession)
+            })
+            request.log.warn(
+              { replayKey, lastSeq, replayed: missed.length },
+              '[SSEReplay] stream takeover',
+            )
+            return
+          }
+          if (isStreamActive(replayKey)) {
+            // 原流已中止/完成但缓冲仍在 60s 保留窗口:重放缺失段后结束
+            const missed = getReplayEvents(replayKey, lastSeq)
+            for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
+            request.log.warn(
+              { replayKey, lastSeq, replayed: missed.length },
+              '[SSEReplay] replay-only (upstream gone)',
+            )
+            raw.end()
+            return
+          }
+        } else {
+          // 有洞 / 窗口已过期 / 窗口已被显式放弃:降级为全量重新生成(丢弃必须点名,不许静默)
+          // G-714③:放弃态的恢复语义就是这条既有分支 —— complete 在放弃态恒为 false,
+          // 于是"从头订阅、全量重取"不需要新代码,只需窗口不许冒充完整。
+          request.log.warn(
+            {
+              replayKey,
+              lastSeq,
+              lowestBufferedId: window.lowestId,
+              droppedCount: window.droppedCount,
+              abandonReason: window.abandonReason,
+              reason: window.abandoned
+                ? 'replay-window-abandoned'
+                : window.known
+                  ? 'replay-window-hole'
+                  : 'replay-window-expired',
+            },
+            '[SSEReplay] 重放窗口不足以覆盖 Last-Event-ID,放弃部分重放 → 重新生成',
+          )
+        }
+        // 缓冲过期 / 窗口有洞:落到下方正常路径重新生成(降级,与改造前行为一致)
+      }
+    }
+
+    // 正常路径:创建会话(启用事件编号 + replay buffer),断线进宽限而非立即 abort
+    // Steer(2026-09-19 立):replayKey 存在(主聊天链路带 metadata)时预生成流会话 ID,
+    // 同时下发到 ai-service(请求体 streamSessionId 字段)与本地 session(upstreamSessionId
+    // 字段)。POST /chat/steer 凭 replayKey = `conversationId:messageId` 找回 session,
+    // 取此 ID 拼 ai-service `/llm/complete/stream/{session_id}/steer` 转发地址。
+    // 降级流(缺 metadata)不启用:steer 端点无法寻址,注册队列无意义。
+    // D690 触发面对位(2026-10-22 立,承网关侧票):断线重连落回再生路径(无 Last-Event-ID /
+    // 窗口有洞 / 已过期)时,复用原流的 upstreamSessionId 重 POST —— ai-service 侧
+    // `_approval_replay_frames` 只在调用方复用同一 streamSessionId 时才查待决审批表
+    // (三闸:取数双闸∧新鲜度∧可兑现,全部 fail-closed 由上游判定;本侧只造出
+    // 「复用同一 streamSessionId 重连」的请求形态,不代判闸)。
+    // 复用前提 = 原会话在档 ∧ 未结束 ∧ 上游未 abort —— 闸③可兑现的「活等待者」只可能
+    // 在此态成立;原流已结束/已 abort ⇒ 取消 finally 已摘除待决条目、表必空,新 uuid
+    // 才是正确形态(复用死 id 徒扰 _steer_sessions 注册,且重放恒零帧)。
+    // 复用即退役原会话:finished 置位(防 createSession 的同 key 旧会话分支提前 abort 原上游)
+    // + replayKey 摘除(原转发循环后续帧不再编号/进缓冲,避免双计数器污染新会话窗口)
+    // + 撤销宽限定时器(其迟到 releaseStream 会杀掉新会话同 key 缓冲)。但**不**立即 abort
+    // 原上游:等新生流首字节到达(重放臂此刻已读完表)再取消 —— 先 abort 会让取消 finally
+    // 抢在重放读表前摘掉条目,触发面从确定性退化成竞态。
+    const previousSession = replayKey ? findSession(replayKey) : undefined
+    const livePrevious =
+      previousSession && !previousSession.finished && !previousSession.controller.signal.aborted
+        ? previousSession
+        : null
+    const upstreamSessionId = replayKey ? (livePrevious?.upstreamSessionId ?? randomUUID()) : null
+    if (livePrevious) {
+      if (livePrevious.graceTimer) {
+        clearTimeout(livePrevious.graceTimer)
+        livePrevious.graceTimer = null
+      }
+      livePrevious.replayKey = null
+      livePrevious.finished = true
+    }
+    const session = createSession(raw, new AbortController(), replayKey, upstreamSessionId)
+
+    // 首事件:压缩通知等
+    // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
+    // 前端可据此把通知分流到对应 subagent 卡片;缺失时降级为单 agent 模式
+    for (const evt of extraFirstEvents) {
+      const chunk: Record<string, unknown> = { [evt.key]: evt.payload }
+      if (opts.agentId) chunk.agentId = opts.agentId
+      // 2026-09-18 立:compaction 升级为标准命名帧 —— `event: compaction` + data 带 type 字段,
+      // 与 chunk/done/tool-result 等既有事件同构(此前是 data-only 帧,前端需特判)。
+      // 原 `compaction` 键整体保留,既有前端消费路径零变化(纯增量字段 + 增量事件行)。
+      if (evt.key === 'compaction') {
+        chunk.type = 'compaction'
+        emitNamedEvent(session, 'compaction', JSON.stringify(chunk))
+        continue
+      }
+      // 2026-09-19 立:budget 用量提醒命名帧 —— payload 即完整 data(顶层平铺,
+      // 与契约 SSEEventPayload budget 成员对齐: {type,level,percent,usedTokens,limitTokens,tier?,resetAt?})。
+      // 不注入 agentId(用户级提醒,与 subagent 分流无关);emitNamedEvent 编号进 replay buffer,
+      // 断线重连走接管/重放路径时随缓冲一并下发。
+      if (evt.key === 'budget') {
+        emitNamedEvent(session, 'budget', JSON.stringify(evt.payload))
+        continue
+      }
+      emitEvent(session, JSON.stringify(chunk))
+    }
+
+    const controller = session.controller
+    // 票71 剩余缺口①(2026-10-31):SSE 生成腿的 chat-sync 帧发射器。
+    // 参与门槛与终态帧同一把尺(replayKey = 坐标齐备):降级流没有 (conversationId, messageId),
+    // 帧无处认领;插件未注册(裁剪部署/单测)时同样跳过 —— 发射器缺失不得让转发主链抛错。
+    // 票71 越权纪律(2026-11-01):广播投递对象只取承载层认证身份。metadata.userId 是
+    // 客户端可整写字段 —— 自报优先等于允许任何人把携带本会话消息全文的
+    // message:created/patched 帧投递到任意在线用户的连接上(跨用户内容投递)。
+    // 正常调用方两值恒同(web/taro 都传本登录态),行为面零变化;被改判的只有伪造值。
+    const chatSyncMemberUserId = request.userId
+    const chatSyncFrame =
+      replayKey &&
+      opts.metadata?.conversationId &&
+      opts.metadata?.messageId &&
+      chatSyncMemberUserId &&
+      typeof server.broadcastChatMessageCreated === 'function' &&
+      typeof server.broadcastChatMessagePatched === 'function'
+        ? createChatSyncStreamFrameEmitter({
+            conversationId: opts.metadata.conversationId,
+            messageId: opts.metadata.messageId,
+            memberUserIds: [chatSyncMemberUserId],
+            broadcastCreated: (frame) => server.broadcastChatMessageCreated(frame),
+            broadcastPatched: (frame) => server.broadcastChatMessagePatched(frame),
+            onError: (phase, err) => {
+              request.log.warn(
+                {
+                  err,
+                  phase,
+                  conversationId: opts.metadata?.conversationId,
+                  messageId: opts.metadata?.messageId,
+                },
+                'chat-sync SSE 帧发射失败(不阻塞 SSE 主链;下一帧全量 snapshot 自愈)',
+              )
+            },
+          })
+        : null
+    // 服务端超时兜底:防 ai-service 卡死时连接无限挂起(5 分钟,正常对话远小于此)
+    // timedOut 标记用于区分"服务端超时 abort" vs "客户端主动断开 abort"
+    let timedOut = false
+    // 票 B02 生产端终态切片:三条终态出口在 try/catch/finally 里汇合到这一格 ——
+    // 正常收尾由末尾赋值、上游错误/异常由各自分支赋值;null = 本次不宣告终态。
+    let terminalReason: ChatSyncTerminalReason | null = null
+    const serverTimeout = setTimeout(() => {
+      timedOut = true
+      sseMetrics.timeouts++
+      controller.abort()
+    }, 5 * 60_000)
+    // 断线不再立即 abort 上游(#22):进 15s 宽限期等重连接管,超时才 abort
+    // O64(2026-10-22):信号源 = reply.raw。request.raw(IncomingMessage,Readable autoDestroy)
+    // 的 'close' 在 Node≥16 请求体收全即触发(进 handler 前 Fastify 已收完体),真断连不再二次
+    // 触发 —— 挂 req 侧则宽限定时器生产形态从不武装。reply.raw 的 'close' 只在断连/完成时触发,
+    // 完成路径由下方 finally 先行摘除,且 detachOnClose 自带 finished 守卫(双保险)。
+    const onClose = () => detachOnClose(session)
+    raw.on('close', onClose)
+
+    try {
+      const mergedMetadata = {
+        conversationId: opts.metadata?.conversationId,
+        userId: opts.metadata?.userId ?? request.userId,
+        messageId: opts.metadata?.messageId,
+        // 票59(3/3):版本族坐标原样透传上游(ai-service metadata 是 dict[str, Any],
+        // _fire_callback 整包回显)→ 回调端点提出进 job 顶层 → worker 落 createMessage 两列。
+        // undefined 的键经 JSON.stringify 自动省略 ⇒ 非 regenerate 流形态零变化。
+        parentMessageId: opts.metadata?.parentMessageId,
+        siblingIndex: opts.metadata?.siblingIndex,
+      }
+      // G-998168 票5:storage 段(存储/索引读 = repo wiki 百科 + 知识库检索)起表。
+      // 两个读都未启用(repoName 缺省且 knowledgeContext 显式关)时该段缺席 ⇒ null;
+      // 该段是 prepare 的归因子段(见 StreamOpenTiming.prepareMs 注),非互斥切分。
+      const storageSw = opts.repoName || opts.knowledgeContext !== false ? startStopwatch() : null
+      let storageSample: ElapsedSample | null = null
+      // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞主链路)
+      const wiki = await loadRepoWikiContext(mergedMetadata.userId ?? null, opts.repoName)
+      // P1 #26(2026-09-16 立):知识库检索注入(失败/未命中一律 null,不阻塞主链路)。
+      // 取末尾 user 消息文本(截 500 字符)作 query,检索 top-3 条,折叠进 system prompt 末尾。
+      let knowledgeBlock: string | null = null
+      if (opts.knowledgeContext !== false) {
+        const lastUser = [...finalMessages].reverse().find((m) => m.role === 'user')
+        const queryText = lastUser?.content?.slice(0, 500) ?? ''
+        const knowledge = await loadKnowledgeContext(mergedMetadata.userId ?? null, queryText)
+        knowledgeBlock = knowledge?.block ?? null
+        if (knowledge) {
+          // P1 #26:命中即合成 citations SSE 事件下发(流首阶段,早于首 token;进 replay buffer,
+          // 断线重连自动重放)。复用 #11 前端链路(onCitations → setMessageCitations →
+          // CitationBar 渲染 rag 来源标签),前端零新增解析逻辑。
+          const citationChunk: Record<string, unknown> = {
+            type: 'citations',
+            citations: knowledge.citations,
+          }
+          if (mergedMetadata.messageId) citationChunk.messageId = mergedMetadata.messageId
+          emitEvent(session, JSON.stringify(citationChunk))
+          console.warn('[KnowledgeContext] hit:', {
+            conversationTail: mergedMetadata.conversationId?.slice(-4),
+            hitCount: knowledge.hitCount,
+            citationCount: knowledge.citations.length,
+            blockLength: knowledge.block.length,
+          })
+        }
+      }
+      // storage 段止于两个读完成(其后的字符串折叠/合成是纯内存操作,归 prepare 尾巴)
+      if (storageSw) storageSample = storageSw.stop()
+      // 与 wiki_context 合计限制在 20000 字符内:知识块超长时截断,防撑爆上下文窗口
+      if (knowledgeBlock) {
+        const wikiLen = wiki?.content?.length ?? 0
+        const budget = 20000 - wikiLen
+        if (knowledgeBlock.length > budget) {
+          knowledgeBlock = budget > 0 ? knowledgeBlock.slice(0, budget) : ''
+        }
+      }
+      // 折叠知识块进 system_prompt 末尾(用户自定义 systemPrompt 在前,knowledge 在后)
+      let finalSystemPrompt: string | undefined = opts.systemPrompt
+      if (knowledgeBlock) {
+        finalSystemPrompt = opts.systemPrompt
+          ? `${opts.systemPrompt}\n\n${knowledgeBlock}`
+          : knowledgeBlock
+      }
+      // G-998168 票5:prepare 段到"发起上游连接前"为止(票面字面语义:入口 → 发起上游
+      // 连接前);connect 段:发起上游请求 → 拿到响应头。
+      const prepareSample = prepareSw.stop()
+      const connectSw = startStopwatch()
+      const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: request.headers.authorization ?? '',
+        },
+        body: JSON.stringify({
+          messages: finalMessages,
+          sessionId: opts.sessionId,
+          // 差距①(2026-10-30 立):inputId 原样透传,上游 admission 帧按它回显配对
+          // (undefined 时 JSON.stringify 自动省略,旧客户端零变化)。
+          inputId: opts.inputId,
+          // Steer(2026-09-19 立):流会话 ID 透传,ai-service 以此为键注册 steer 队列
+          // (_steer_sessions[session_id],优先于 workspace_context 自生成 id);
+          // 工具循环每轮 LLM 调用前 drain 注入。null 时省略不注入(降级流)。
+          streamSessionId: upstreamSessionId ?? undefined,
+          model: opts.resolvedModel,
+          agentId: opts.agentId,
+          materialContent: opts.materialContent,
+          workspacePath: opts.workspacePath,
+          // 2026-09-04 修复:浏览器端工作区上下文透传(此前在网关层被丢弃,见 schema 注释)。
+          // undefined 时 JSON.stringify 自动省略,不注入上游请求。
+          workspace_context: opts.workspaceContext,
+          // P1-8(2026-09-13 立):项目百科透传(undefined 时 JSON.stringify 自动省略,不注入上游请求)。
+          wiki_context: wiki?.content,
+          wiki_repo: wiki?.repoName,
+          contextLimit: opts.contextLimit ?? 0,
+          // 2026-07-27 修复 tool loop 不触发:API 层接收前端驼峰 agentTools,
+          // 透传到 ai-service 必须用下划线 agent_tools(Pydantic schema 字段名)。
+          // 原代码透传 agentTools(驼峰)→ ai-service 端 Field(None) 默认值 None,
+          // tool loop 入口 `if req.agent_tools:` 永远 false,从未触发工具调用。
+          agent_tools: opts.agentTools,
+          plan_mode: opts.planMode,
+          mode: opts.mode,
+          // V3 #58(2026-09-26 立):权限模式档位透传(snake_case 对齐 ai-service
+          // Pydantic 字段名 permission_mode)。undefined 时 JSON.stringify 自动省略,
+          // ai-service 端按 default 档处理(高危工具需审批)。
+          permission_mode: opts.permissionMode,
+          // 79 号票(2026-10-18 立):权限双轴两轴档位透传(camel 入 / snake 出,
+          // 与 permission_mode、reasoning_effort 同区同规)。undefined 时 JSON.stringify
+          // 省略该 key ⇒ ai-service 侧 resolve 得到 None ⇒ 裁决门整段跳过,旧客户端零变化。
+          sandbox_mode: opts.sandboxMode,
+          approval_policy: opts.approvalPolicy,
+          // D130(2026-09-30 立):推理强度档位 camel 入 / snake 出(与 permission_mode、top_p 同区同规)。
+          // undefined 时 JSON.stringify 省略该 key ⇒ 不发字段,ai-service 按默认档处理。
+          // 票第 8 栏点名的静默失效就在这一行:删掉它,前端选了档而上游收不到,界面仍一切正常。
+          reasoning_effort: opts.reasoningEffort,
+          // 原生 function calling 透传:字段名与 ai-service LLMCompleteRequest
+          // (tools: list[dict] | None, tool_choice: str | dict | None) 对齐;
+          // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
+          tools: opts.tools,
+          tool_choice: opts.toolChoice,
+          // P1-7(2026-09-13 立):高级参数面板透传(snake_case 对齐 ai-service Pydantic 字段名)。
+          // undefined 时 JSON.stringify 自动省略,不注入上游请求。
+          temperature: opts.temperature,
+          top_p: opts.topP,
+          top_k: opts.topK,
+          max_tokens: opts.maxTokens,
+          // P1 #26(2026-09-16 立):system_prompt 已折叠知识库检索块(末尾追加,knowledgeContext 默认开)
+          system_prompt: finalSystemPrompt,
+          metadata: mergedMetadata,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!resp.ok || !resp.body) {
+        sseMetrics.upstreamErrors++
+        const errText = await resp.text().catch(() => '')
+        // 上游错误响应完整透传:尝试 JSON.parse,若成功则原样透传 {errorCode, message, ...}
+        // 前端可基于 errorCode 做精准提示(如 MODEL_NOT_CONFIGURED → 提示用户切换模型)
+        let errChunk: Record<string, unknown>
+        try {
+          const parsed = JSON.parse(errText) as Record<string, unknown>
+          errChunk =
+            typeof parsed === 'object' && parsed !== null
+              ? parsed
+              : { error: `upstream ${resp.status}: ${errText.slice(0, 200)}` }
+        } catch {
+          errChunk = { error: `upstream ${resp.status}: ${errText.slice(0, 200)}` }
+        }
+        if (opts.agentId) errChunk.agentId = opts.agentId
+        emitEvent(session, JSON.stringify(errChunk))
+        // 上游未建连/HTTP 错误 ⇒ 生成期错误(不是客户端中止),终态按 error 宣告。
+        terminalReason = 'error'
+        return
+      }
+
+      // G-998168 票5:connect 段止于响应头到达;**只有建连成功才翻转 cold-start 标记**
+      // (失败连接不产生"可复用连接",下一次仍按冷启计)。
+      const connectSample = connectSw.stop()
+      const coldStart = !aiServiceStreamConnectedOnce
+      aiServiceStreamConnectedOnce = true
+      // firstByte 段:响应头 → 首个上游字节(首个 read 返回即停,见转发循环)。
+      const firstByteSw = startStopwatch()
+      let firstByteSample: ElapsedSample | null = null
+      // openTiming 只在首个上游字节后才能算齐(firstByteMs 依赖首读),故注入点在转发循环
+      // 的首个 JSON data 行(见下);extraFirstEvents 发送于 fetch 之前,物理上装不下它。
+      let openTimingPending: StreamOpenTiming | null = null
+      // 逐行注入 agentId:ai-service 返回的 token chunk 默认不带 agentId,
+      // 这里对 JSON 格式的 data: 行注入顶层 agentId,让前端能按 agentId 分流到 subagent 卡片。
+      // Vercel AI SDK `0:"token"` 格式同样经 emitUpstreamLine 编号+缓冲(#22),透传原样。
+      const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let streamBuffer = ''
+      // D1(2026-09-19 立):命名事件配对缓冲 —— `event: usage` 行的事件名暂存,
+      // 下一行 `data:` 配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲)。
+      let pendingNamedEvent: string | null = null
+      // 票 B02 生产端终态切片:上游 done 帧携带的 finishReason(G-425,llm_gateway 收尾帧)。
+      // 预筛按带引号的键匹配,OpenAI 风格的 `"finish_reason":null` 是另一种拼写、不命中,
+      // 故热路径只在真正的收尾帧上付一次 JSON.parse。
+      let upstreamFinishReason: string | undefined
+      // 重放窗口放弃 ⇒ 服务端主动中止透传;此时 loop 是正常 break 退出,
+      // 但收尾原因不是 stop,须单独记,不能把"半截流"宣告成正常结束。
+      let streamAbandoned = false
+      for (;;) {
+        const { done, value } = await reader.read()
+        // G-998168 票5:首次 read 返回即停 firstByte 段(空流时 done 分支同样停表 ——
+        // 该段测的是"等到首个读返回",此后构造完整分段对象,等待注入首帧)。
+        if (firstByteSample === null) {
+          firstByteSample = firstByteSw.stop()
+          openTimingPending = buildStreamOpenTiming({
+            prepareSample,
+            connectSample,
+            firstByteSample,
+            storageSample,
+            coldStart,
+          })
+          // D690 触发面对位:新生流首字节已到(重放臂此刻已读完待决表、重放帧已在途),
+          // 原上游此刻取消不再抢跑重放读表(单消费者不变量在此收口,交接窗口有界)。
+          if (livePrevious && !livePrevious.controller.signal.aborted)
+            livePrevious.controller.abort()
+        }
+        if (done) break
+        streamBuffer += decoder.decode(value, { stream: true })
+        let nl: number
+        while ((nl = streamBuffer.indexOf('\n')) !== -1) {
+          const line = streamBuffer.slice(0, nl).replace(/\r$/, '')
+          streamBuffer = streamBuffer.slice(nl + 1)
+          // 终态 reason 的唯一证据源:done 帧的 finishReason(见上方 upstreamFinishReason 注释)。
+          // 只取 `type==='done'` 的帧;chunk 里同名字段(若有)不参与收尾判定。
+          if (line.startsWith('data:') && line.includes('"finishReason"')) {
+            try {
+              const doneFrame = JSON.parse(line.slice(5).replace(/^\s/, '')) as {
+                type?: unknown
+                finishReason?: unknown
+              }
+              if (doneFrame.type === 'done' && typeof doneFrame.finishReason === 'string') {
+                upstreamFinishReason = doneFrame.finishReason
+              }
+            } catch {
+              /* 非 JSON data 行,透传,不取收尾原因 */
+            }
+          }
+          // 票71 剩余缺口①(2026-10-31):从**原样**转发线里采集主对话正文,聚合成 chat-sync
+          // message:patched(snapshot 全量)广播。只读不改帧 —— 下方所有透传分支逐字节照旧。
+          // 只认 `{"type":"chunk"|"reasoning","content":...}` 两型(ai-service 主格式,
+          // sse_contract.py 同源);子代理帧(agentId ≠ 本次绑定)不并入主消息 ——
+          // 与 api-client onAgentDelta / onDelta 的分流判据同源。persona 回贴的 agentId
+          // 由网关在 emit 前注入,这里看到的是上游原样行,故 persona 正文照常采集。
+          if (chatSyncFrame && line.startsWith('data:') && line.includes('"type"')) {
+            const rawData = line.slice(5).replace(/^\s/, '')
+            if (rawData.startsWith('{')) {
+              try {
+                const frame = JSON.parse(rawData) as Record<string, unknown>
+                const frameAgentId = typeof frame.agentId === 'string' ? frame.agentId : null
+                const belongsToMain = frameAgentId === null || frameAgentId === opts.agentId
+                if (belongsToMain) {
+                  if (frame.type === 'chunk' && typeof frame.content === 'string') {
+                    chatSyncFrame.appendContent(frame.content)
+                  } else if (frame.type === 'reasoning' && typeof frame.content === 'string') {
+                    chatSyncFrame.appendReasoning(frame.content)
+                  }
+                }
+                // done 帧到达即内容已完整:提前冲掉尾巴,终态帧(rev=链头)不必等 finally。
+                if (frame.type === 'done') void chatSyncFrame.flush()
+              } catch {
+                /* 非 JSON data 行,透传,不采集 */
+              }
+            }
+          }
+          // D1(2026-09-19 立):usage 命名帧透传 —— `event: usage` 已暂存事件名时,
+          // 将紧随的 `data:` 行配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲,
+          // 重放后仍是合法命名帧,与 compaction 首事件同源机制)。usage 来自主聊天链路,
+          // 不经过 agentId 注入分支(上方 continue 已跳过),避免污染计量帧。
+          if (pendingNamedEvent) {
+            const data = line.startsWith('data:') ? line.slice(5).replace(/^\s/, '') : null
+            if (data && data !== '[DONE]') {
+              emitNamedEvent(session, pendingNamedEvent, data)
+              pendingNamedEvent = null
+              continue
+            }
+            // data 行缺失(异常帧):回退为通用行透传,避免丢帧
+            pendingNamedEvent = null
+          }
+          // D1(2026-09-19 立):命名帧配对缓冲 —— `event:` 行暂存事件名,下一行 `data:`
+          // 配对为编号命名帧(emitNamedEvent:两行整体进回放缓冲,重放保留事件名)。
+          // 2026-09-19 扩展:usage + steer/fallback(本任务新增契约事件,与 usage 同为
+          // _sse() 构造形态),断线重连重放需同等保真 —— 否则 steer 引导记录与
+          // fallback 降级通知在重放后丢事件名,前端 onSteer/onFallback 不触发。
+          // 其余命名帧(plan_updated/tool-summary/citations)维持原样透传:其 data
+          // 行需走下方 agentId 注入分支(绑 agent 对话的 subagent 分流),通用化捕获会跳过。
+          // V3 #58(2026-09-26 立):tool-approval(主对话流工具审批门)同样走原样
+          // 行透传 —— event: 行 + data: 行经 emitUpstreamLine 编号进回放缓冲,
+          // 断线重连重放后仍是合法命名帧;前端 streamChat 按 data.type 分流解析,
+          // 决策回传走 ai-service 流级端点(与 postToolResult 同族,不经网关)。
+          const evMatch = /^event:\s*(usage|steer|fallback)\s*$/.exec(line)
+          if (evMatch) {
+            pendingNamedEvent = evMatch[1] ?? null
+            continue
+          }
+          // G-998168 票5:openTiming 注入(仅一次)—— 挂在客户端看到的**首帧**数据载荷上
+          // (additive optional 字段,非新增命名事件:契约文件/事件名集合零变化,
+          // 老客户端按未知字段忽略)。刻意不注入 usage/steer/fallback 命名帧(上方
+          // pendingNamedEvent 分支已 continue),计量帧保持纯净;非 JSON data 行
+          // (Vercel `0:"..."` 协议)不解析,注入机会顺延到下一个 JSON data 行。
+          if (openTimingPending && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
+            const data = line.slice(5).replace(/^\s/, '')
+            if (data && data !== '[DONE]' && data.startsWith('{')) {
+              try {
+                const json = JSON.parse(data) as Record<string, unknown>
+                if (typeof json === 'object' && json !== null) {
+                  json.openTiming = openTimingPending
+                  openTimingPending = null
+                  if (opts.agentId && !json.agentId) json.agentId = opts.agentId
+                  emitUpstreamLine(session, `data: ${JSON.stringify(json)}`)
+                  continue
+                }
+              } catch {
+                /* 非 JSON,透传,等下一个 JSON data 行 */
+              }
+            }
+          }
+          // D64⑤(2026-10-14 立)元素包捕获:subagent 帧族(spawn/progress/end)此前只有
+          // SSE 透传、零落库通道 —— 重载会话后子代理卡无法回放。网关是唯一既看得到这些
+          // 帧、又握有 (conversationId, messageId) 关联键的后端点(ai-service 回调不含该族),
+          // 故在透传路径上边转发边收窄落库:先追加进暂存表 chat_element_packs(键 =
+          // conversationId + 前端占位 messageId,与 ai-callback metadata 回显同源),
+          // worker 落 assistant 消息时原子取走并归并进 metadata.elementPack。
+          // 便宜预筛(subagent_ 子串)挡住 chunk 热路径,不为捕获付逐帧 JSON.parse;
+          // 捕获失败只 warn,绝不打断透传主链路(与 bindConversationWorkspace 同纪律)。
+          // 降级流(无 metadata,无 replayKey)没有关联键,整帧跳过 —— 与 replay buffer 同策略。
+          if (
+            replayKey &&
+            line.startsWith('data:') &&
+            line.includes('subagent_') &&
+            opts.metadata?.conversationId &&
+            opts.metadata?.messageId
+          ) {
+            const captureData = line.slice(5).replace(/^\s/, '')
+            try {
+              const frame = collectElementPackFrame(JSON.parse(captureData))
+              if (frame) {
+                void appendElementPackFrame(
+                  opts.metadata.conversationId,
+                  opts.metadata.messageId,
+                  frame as unknown as Record<string, unknown>,
+                ).catch((e: unknown) => {
+                  request.log.warn(
+                    { err: e instanceof Error ? e.message : String(e), replayKey },
+                    '[ElementPack] 暂存追加失败(不阻塞透传)',
+                  )
+                })
+              }
+            } catch {
+              /* 非 JSON data 行,透传,不捕获 */
+            }
+          }
+          if (opts.agentId && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
+            const data = line.slice(5).replace(/^\s/, '')
+            // 仅对 JSON 对象注入;Vercel AI SDK `0:"..."` / 纯文本透传
+            if (data && data !== '[DONE]' && data.startsWith('{')) {
+              try {
+                const json = JSON.parse(data) as Record<string, unknown>
+                if (typeof json === 'object' && json !== null && !json.agentId) {
+                  json.agentId = opts.agentId
+                  emitUpstreamLine(session, `data: ${JSON.stringify(json)}`)
+                  continue
+                }
+              } catch {
+                /* 非 JSON,透传 */
+              }
+            }
+          }
+          emitUpstreamLine(session, line)
+        }
+        // G-714 ④:饱和即暂停 drain —— 上游读循环在这里停一停,等 socket 把在途字节吐干净,
+        // 而不是继续把生成结果堆进缓冲区、把「未确认」养成「放弃」。
+        // 返回 'abandoned'(窗口已被显式放弃、告知帧已写出)⇒ 停止透传并中止上游,
+        // 由客户端按「不带 Last-Event-ID 重新订阅」的全量语义恢复(见上方降级分支)。
+        if ((await waitForReplayHeadroom(session)) === 'abandoned') {
+          request.log.warn(
+            { replayKey, seqAtAbandon: session.seq },
+            '[SSEReplay] 重放窗口已放弃 ⇒ 停止透传,等待客户端全量重取',
+          )
+          controller.abort()
+          streamAbandoned = true
+          break
+        }
+      }
+      if (streamBuffer && session.raw) session.raw.write(streamBuffer)
+      // 正常收尾:done 帧的 finishReason 是唯一证据;缺失(老上游/降级)按 stop,
+      // 而重放窗口放弃是服务端侧中止,不能伪装成正常结束(aborted 是闭集里唯一的"停止"档)。
+      terminalReason = streamAbandoned
+        ? 'aborted'
+        : terminalReasonFromFinishReason(upstreamFinishReason)
+    } catch (e) {
+      const msg =
+        (e as Error).name === 'AbortError'
+          ? timedOut
+            ? '服务端超时'
+            : '客户端断开'
+          : (e as Error).message
+      const errChunk: Record<string, unknown> = { error: msg }
+      if (opts.agentId) errChunk.agentId = opts.agentId
+      emitEvent(session, JSON.stringify(errChunk))
+      // AbortError:客户端主动停止 ⇒ aborted;服务端超时不是用户意图,按 error 宣告。
+      // 其余异常 = 生成期错误(上游/网关),同样 error。
+      terminalReason = (e as Error).name === 'AbortError' && !timedOut ? 'aborted' : 'error'
+    } finally {
+      raw.off('close', onClose)
+      clearTimeout(serverTimeout)
+      // D690 触发面对位:新生流没走到首字节(建连失败/错误/提前中止)时,被复用退役的
+      // 原上游不得悬空 —— 其宽限定时器已在退役时撤销,此处是唯一收口点。
+      if (livePrevious && !livePrevious.controller.signal.aborted) livePrevious.controller.abort()
+      finishSession(session)
+      ;(session.raw ?? raw).end()
+      // 票 B02 生产端终态切片:终态帧走 WS 房间广播(at-least-once),与 SSE 字节流正交,
+      // 故在响应收尾之后 fire-and-forget。坐标缺一(降级流 / 无 metadata)⇒ 本就不参与
+      // chat-sync(与 replayKey 同一条门槛),不发帧;发射失败只出声,绝不回写已完成的响应。
+      //
+      // 票71 剩余缺口①(2026-10-31):先冲掉 created/patched 的尾巴,再发终态 ——
+      // 终态的 rev = 终结时的链头(只读账本),排在未落地的 patched 之前会让端侧把终态判 stale。
+      const flushedFrames: Promise<void> = chatSyncFrame ? chatSyncFrame.flush() : Promise.resolve()
+      if (terminalReason !== null && replayKey) {
+        // 收尾时刻快照:let 在 then 闭包里会丢窄化(闭包可能在后续赋值后才执行)
+        const reason = terminalReason
+        const conversationId = opts.metadata?.conversationId
+        const messageId = opts.metadata?.messageId
+        // 票71 越权纪律(2026-11-01):与 created/patched 腿同一把尺 —— 投递对象只取
+        // 承载层认证身份,不信客户端自报的 metadata.userId(伪造值会把终态帧送给他人)。
+        const memberUserId = request.userId
+        // 运行期护栏:本路由的既有单测/裁剪部署可能未注册 ws-broadcast 插件,
+        // 此时终态帧无处可发 —— 跳过,不得让收尾路径抛错。
+        if (
+          conversationId &&
+          messageId &&
+          memberUserId &&
+          typeof server.broadcastChatMessageTerminal === 'function'
+        ) {
+          void flushedFrames
+            .then(() =>
+              server.broadcastChatMessageTerminal({
+                conversationId,
+                memberUserIds: [memberUserId],
+                messageId,
+                reason,
+              }),
+            )
+            .catch((err: unknown) => {
+              request.log.warn(
+                { err, conversationId, messageId, reason },
+                'chat 消息终态房间广播发射失败(流已收尾,另一端退回打开会话时拉取)',
+              )
+            })
+        }
+      }
+    }
+  }
+
+  server.post(
+    '/chat/stream',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: (req) => req.userId || req.ip,
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = chatStreamSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const {
+        messages: rawMessages,
+        sessionId,
+        // 差距①(2026-10-30 立):inputId —— 不在这里解构就会被静默留在 parsed.data 里
+        // ⇒ 上游收不到而界面看着正常(同 D130/sandboxMode 那一型)。
+        inputId,
+        model,
+        modelId,
+        agentId,
+        materialContent,
+        workspacePath,
+        workspaceContext,
+        repoName,
+        contextLimit,
+        agentTools,
+        plan_mode: planMode,
+        mode,
+        // V3 #58(2026-09-26 立):权限模式档位(工具审批门),透传到 ai-service
+        permissionMode,
+        // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+        // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+        sandboxMode,
+        approvalPolicy,
+        // D130(2026-09-30 立):推理强度档位(chatAnswerSchema extends chatStreamSchema,
+        // 续答同样支持 —— 不在这里解构就会被静默留在 parsed.data 里,链路掐断)。
+        reasoningEffort,
+        tools,
+        tool_choice: toolChoice,
+        temperature,
+        topP,
+        topK,
+        maxTokens,
+        systemPrompt,
+        knowledgeContext,
+        metadata,
+      } = parsed.data
+      const resolvedModel = model ?? modelId
+
+      // G-165:把"这次对话绑哪个工作区"记进会话 metadata,供异步回调侧查**服务端自己的**
+      // 权限记录给助手消息盖章(web 档位徽章因此可跨刷新/跨端存在)。
+      // 幂等(值没变不写),且绝不阻塞流式主链路 —— 失败只 warn。
+      if (workspacePath && metadata?.conversationId && request.userId) {
+        void bindConversationWorkspace(
+          metadata.conversationId,
+          request.userId,
+          workspacePath,
+        ).catch((e: unknown) => {
+          request.log.warn(
+            { err: e instanceof Error ? e.message : String(e) },
+            '[permission-stamp] 会话工作区绑定失败(不阻塞对话)',
+          )
+        })
+      }
+
+      // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
+      // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
+      // keepTrailingUser: 末尾 user 是本次发送的输入,必须保留(否则模型只能看到旧上下文)
+      const { repaired: messages } = repairMessages(rawMessages, {
+        keepTrailingUser: true,
+      })
+
+      // P39 跨端统一:88% 阈值自动压缩上下文(共享包 @ihui/context-compaction)
+      // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端
+      let finalMessages: ChatMessage[] = messages
+      const extraFirstEvents: Array<{ key: string; payload: unknown }> = []
+
+      if (contextLimit && contextLimit > 0) {
+        const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
+        const triggerThreshold = Math.floor(contextLimit * 0.88)
+        const usageRatio = tokensBeforeCompress / contextLimit
+        console.warn('[Compaction] before compress:', {
+          contextLimit,
+          messageCount: messages.length,
+          tokens: tokensBeforeCompress,
+          triggerThreshold,
+        })
+        // 后台预压缩(2026-09-01 立,代差能力 A):70% 占用时 fire-and-forget 预生成语义摘要
+        // 缓存(进度条阈值 CONTEXT_BUDGET_THRESHOLD 与共享包一致),到 88% 真压缩时命中缓存,
+        // 首 token 零额外延迟——对标程序(Claude Code)的压缩是阻塞式的,这是关键差异点。
+        // 预生成失败静默吞掉,绝不影响主链路。
+        if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBeforeCompress < triggerThreshold) {
+          void primeSemanticSummary(request, messages, resolvedModel, metadata?.conversationId)
+        }
+        // LLM 语义摘要(2026-09-01 立):只在确实会触发压缩时才取(88% 阈值与共享包
+        // DEFAULT_TRIGGER_RATIO 对齐)。优先命中 70% 阶段预生成的缓存(零延迟),
+        // 未命中再实时生成(3 秒超时/失败/stub 一律 null → 静默降级规则摘要)。
+        // 三态观测统一前缀 [SemanticSummary] 便于 grep:cache hit(缓存命中) /
+        // generated(实时生成成功) / degraded(实时生成失败,走共享包规则摘要)。
+        let customSummary: string | null = null
+        if (tokensBeforeCompress >= triggerThreshold) {
+          const conversationTail = metadata?.conversationId?.slice(-4)
+          customSummary = getCachedSemanticSummary(metadata?.conversationId, messages)
+          if (customSummary !== null) {
+            console.warn('[SemanticSummary] cache hit:', {
+              conversationTail,
+              summaryLength: customSummary.length,
+            })
+          } else {
+            customSummary = await generateSemanticSummary(
+              request,
+              messages,
+              resolvedModel,
+              metadata?.conversationId,
+            )
+            if (customSummary !== null) {
+              console.warn('[SemanticSummary] generated:', {
+                conversationTail,
+                summaryLength: customSummary.length,
+                model: resolvedModel,
+              })
+            } else {
+              console.warn('[SemanticSummary] degraded:', {
+                conversationTail,
+                model: resolvedModel,
+              })
+            }
+          }
+        }
+        const result = compressContextIfNeeded(messages, {
+          contextLimit,
+          customSummary: customSummary ?? undefined,
+        })
+        console.warn('[Compaction] result:', {
+          compressed: result.compressed,
+          trigger: result.trigger,
+          originalTokens: result.originalTokens,
+          compressedTokens: result.compressedTokens,
+          removedCount: result.removedCount,
+          truncatedCount: result.truncatedCount,
+          usageRatio: result.usageRatio,
+        })
+        if (result.compressed) {
+          finalMessages = result.messages
+          extraFirstEvents.push({
+            key: 'compaction',
+            payload: {
+              triggered: true,
+              trigger: result.trigger,
+              tokensBefore: result.originalTokens,
+              tokensAfter: result.compressedTokens,
+              removedCount: result.removedCount,
+              // A10B-8:截断量随帧下发(可选字段;旧消费方读不到即"未知",不会崩)
+              truncatedCount: result.truncatedCount,
+              usageRatio: result.usageRatio ?? 0,
+              compressedMessages: result.messages.map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
+            },
+          })
+
+          // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
+          if (metadata?.conversationId) {
+            void replaceMessages(metadata.conversationId, result.messages)
+            // 归档记忆(2026-09-01 立,代差能力 C):被压缩的原始消息落库归档,
+            // 前端状态条"查看原始消息"弹层可查——压缩透明可逆而非黑箱有损。
+            // 归档失败静默降级(console.warn),绝不影响压缩主流程。
+            void persistMessageArchive(metadata.conversationId, messages)
+          }
+        }
+      }
+
+      // G6 企业治理面(2026-10-30 立):模型准入检查点(/chat/stream)。
+      // 组织 model_allowlist 命中禁用 ⇒ 403 errorCode='ORG_MODEL_BLOCKED',请求不进执行;
+      // 开关关/无组织/无策略/治理面异常 ⇒ 直通(guardModelAdmission 返回 null),旧行为不变。
+      const admission = await guardModelAdmission(metadata?.userId ?? request.userId, resolvedModel)
+      if (admission) {
+        return reply.code(admission.statusCode).send({
+          code: admission.statusCode,
+          message: admission.message,
+          errorCode: admission.errorCode,
+          data: { model: admission.model },
+        })
+      }
+
+      // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
+      // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
+      const budgetGate = await checkTokenBudget(
+        request,
+        reply,
+        metadata?.userId ?? request.userId,
+        resolvedModel,
+      )
+      if (budgetGate.decision === 'block') {
+        return
+      }
+      if (budgetGate.decision === 'warning' || budgetGate.decision === 'critical') {
+        // undefined 字段(tier/resetAt 缺失时)JSON.stringify 自动省略,与契约可选字段对齐
+        extraFirstEvents.push({
+          key: 'budget',
+          payload: {
+            type: 'budget',
+            level: budgetGate.decision,
+            percent: budgetGate.percent,
+            usedTokens: budgetGate.usedTokens,
+            limitTokens: budgetGate.limitTokens,
+            tier: budgetGate.tier,
+            resetAt: budgetGate.resetAt,
+          },
+        })
+      }
+
+      return streamToClient(
+        request,
+        reply,
+        finalMessages,
+        {
+          sessionId,
+          // 差距①(2026-10-30 立):inputId 经上游请求体同名键透传
+          inputId,
+          resolvedModel,
+          agentId,
+          materialContent,
+          workspacePath,
+          workspaceContext,
+          repoName,
+          contextLimit,
+          agentTools,
+          planMode,
+          mode,
+          // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
+          permissionMode,
+          // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+          // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+          sandboxMode,
+          approvalPolicy,
+          // D130(2026-09-30 立):推理强度档位,经上游请求体 reasoning_effort 字段透传
+          reasoningEffort,
+          tools,
+          toolChoice,
+          // P1-7(2026-09-13):会话级采样参数 + 自定义 system prompt 透传
+          temperature,
+          topP,
+          topK,
+          maxTokens,
+          systemPrompt,
+          // P1 #26(2026-09-16):知识库注入开关(默认开,false 关闭)
+          knowledgeContext,
+          metadata,
+        },
+        extraFirstEvents,
+      )
+    },
+  )
+
+  // POST /chat/answer — 用户回答 AI 主动提问,继续生成(不中断对话)
+  // 前端收到 SSE question 事件 → 弹窗让用户选择/输入 → 提交答案到本接口
+  // 后端把 answer 作为新 user 消息追加到 messages 末尾,然后调用 ai-service 继续流式生成
+  //
+  // P2 多端同步增强(2026-07-21):
+  // 1. 持久化 answer 到 chat_messages(role: user, metadata: { questionId, isAnswer: true })
+  // 2. 清除原 assistant 消息 metadata.pendingQuestion(标记已回答)
+  // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
+  server.post(
+    '/chat/answer',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: (req) => req.userId || req.ip,
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = chatAnswerSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const {
+        messages: rawMessages,
+        sessionId,
+        model,
+        modelId,
+        agentId,
+        materialContent,
+        workspacePath,
+        workspaceContext,
+        repoName,
+        contextLimit,
+        agentTools,
+        plan_mode: planMode,
+        mode,
+        // V3 #58(2026-09-26 立):权限模式档位(工具审批门),透传到 ai-service
+        permissionMode,
+        // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+        // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+        sandboxMode,
+        approvalPolicy,
+        // D130(2026-09-30 立):推理强度档位(chatAnswerSchema extends chatStreamSchema,
+        // 续答同样支持 —— 不在这里解构就会被静默留在 parsed.data 里,链路掐断)。
+        reasoningEffort,
+        tools,
+        tool_choice: toolChoice,
+        // P1-7(2026-09-13 立):chatAnswerSchema extends chatStreamSchema,
+        // 续答同样支持会话级采样参数与自定义 system prompt(否则 zod strip 丢弃)。
+        temperature,
+        topP,
+        topK,
+        maxTokens,
+        systemPrompt,
+        knowledgeContext,
+        metadata,
+        questionId,
+        answer,
+      } = parsed.data
+      const resolvedModel = model ?? modelId
+      const userId = metadata?.userId ?? request.userId
+      const conversationId = metadata?.conversationId
+
+      // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
+      // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
+      if (conversationId && userId) {
+        void (async () => {
+          try {
+            // 1. 持久化 answer 为 user 消息(metadata 标记 questionId + isAnswer,便于后续查询关联)
+            const savedAnswer = await createMessage({
+              conversationId,
+              role: 'user',
+              content: answer,
+              metadata: { questionId, isAnswer: true },
+            })
+
+            // 2. 清除 conversation.metadata.pendingQuestion(对话级挂起状态,标记已回答)
+            //    用 merge 模式,不覆盖 conversation.metadata 的其他 key
+            await patchConversationMetadata(conversationId, userId, {
+              pendingQuestion: null,
+              answeredQuestionId: questionId,
+            })
+
+            // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
+            //    pushNotification 已支持 Redis Pub/Sub 多实例,所有端都会收到
+            try {
+              const push = (
+                server as unknown as {
+                  pushNotification?: (userId: string, payload: unknown) => void
+                }
+              ).pushNotification
+              // 3a. 推送 chat_message 让其他端看到用户回答(与 POST /conversations/:id/messages 同模式)
+              push?.(userId, {
+                type: 'chat_message',
+                conversationId,
+                message: savedAnswer,
+              })
+              // 3b. 推送 chat_question_answered 让其他端关闭弹窗
+              push?.(userId, {
+                type: 'chat_question_answered',
+                conversationId,
+                questionId,
+              })
+            } catch {
+              /* 推送失败不阻塞 */
+            }
+          } catch (e) {
+            request.log.error(
+              { err: e, questionId, conversationId },
+              'chat/answer persistence failed',
+            )
+          }
+        })()
+      }
+
+      // 把用户答案作为新 user 消息追加到 messages 末尾(在 repair 之前,让 repair 统一处理)
+      const messagesWithAnswer = [...rawMessages, { role: 'user' as const, content: answer }]
+
+      // keepTrailingUser: 末尾 user 是用户对 question 的回答,必须保留(否则模型答非所问)
+      const { repaired: messages } = repairMessages(messagesWithAnswer, {
+        keepTrailingUser: true,
+      })
+
+      let finalMessages: ChatMessage[] = messages
+      const extraFirstEvents: Array<{ key: string; payload: unknown }> = []
+
+      if (contextLimit && contextLimit > 0) {
+        const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
+        const triggerThreshold = Math.floor(contextLimit * 0.88)
+        const usageRatio = tokensBeforeCompress / contextLimit
+        // 诊断日志与 /chat/stream 主入口一致:incompressible(压不动)时 compressed=false 走原路径,防循环
+        console.warn('[Compaction][answer] before compress:', {
+          contextLimit,
+          messageCount: messages.length,
+          tokens: tokensBeforeCompress,
+          triggerThreshold,
+        })
+        // 后台预压缩:与 /chat/stream 同一策略(70% 占用 fire-and-forget 预生成摘要缓存)
+        if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBeforeCompress < triggerThreshold) {
+          void primeSemanticSummary(request, messages, resolvedModel, conversationId)
+        }
+        // LLM 语义摘要:与 /chat/stream 同一套逻辑(缓存优先→实时生成→失败静默降级),
+        // 三态观测统一前缀 [SemanticSummary]:cache hit / generated / degraded。
+        let customSummary: string | null = null
+        if (tokensBeforeCompress >= triggerThreshold) {
+          const conversationTail = conversationId?.slice(-4)
+          customSummary = getCachedSemanticSummary(conversationId, messages)
+          if (customSummary !== null) {
+            console.warn('[SemanticSummary] cache hit:', {
+              conversationTail,
+              summaryLength: customSummary.length,
+            })
+          } else {
+            customSummary = await generateSemanticSummary(
+              request,
+              messages,
+              resolvedModel,
+              conversationId,
+            )
+            if (customSummary !== null) {
+              console.warn('[SemanticSummary] generated:', {
+                conversationTail,
+                summaryLength: customSummary.length,
+                model: resolvedModel,
+              })
+            } else {
+              console.warn('[SemanticSummary] degraded:', {
+                conversationTail,
+                model: resolvedModel,
+              })
+            }
+          }
+        }
+        const result = compressContextIfNeeded(messages, {
+          contextLimit,
+          customSummary: customSummary ?? undefined,
+        })
+        console.warn('[Compaction][answer] result:', {
+          compressed: result.compressed,
+          trigger: result.trigger,
+          originalTokens: result.originalTokens,
+          compressedTokens: result.compressedTokens,
+          removedCount: result.removedCount,
+          truncatedCount: result.truncatedCount,
+          usageRatio: result.usageRatio,
+        })
+        if (result.compressed) {
+          finalMessages = result.messages
+          extraFirstEvents.push({
+            key: 'compaction',
+            payload: {
+              triggered: true,
+              trigger: result.trigger,
+              tokensBefore: result.originalTokens,
+              tokensAfter: result.compressedTokens,
+              removedCount: result.removedCount,
+              // A10B-8:截断量随帧下发(可选字段;旧消费方读不到即"未知",不会崩)
+              truncatedCount: result.truncatedCount,
+              usageRatio: result.usageRatio ?? 0,
+              compressedMessages: result.messages.map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
+            },
+          })
+
+          // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
+          if (conversationId) {
+            void replaceMessages(conversationId, result.messages)
+            // 归档记忆:被压缩的原始消息落库,前端状态条可查(与 /chat/stream 一致)
+            void persistMessageArchive(conversationId, messages)
+          }
+        }
+      }
+
+      // G6 企业治理面(2026-10-30 立):模型准入检查点(/chat/answer,与 /chat/stream 同型)。
+      const admission = await guardModelAdmission(userId, resolvedModel)
+      if (admission) {
+        return reply.code(admission.statusCode).send({
+          code: admission.statusCode,
+          message: admission.message,
+          errorCode: admission.errorCode,
+          data: { model: admission.model },
+        })
+      }
+
+      // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
+      // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
+      const budgetGate = await checkTokenBudget(request, reply, userId, resolvedModel)
+      if (budgetGate.decision === 'block') {
+        return
+      }
+      if (budgetGate.decision === 'warning' || budgetGate.decision === 'critical') {
+        // undefined 字段(tier/resetAt 缺失时)JSON.stringify 自动省略,与契约可选字段对齐
+        extraFirstEvents.push({
+          key: 'budget',
+          payload: {
+            type: 'budget',
+            level: budgetGate.decision,
+            percent: budgetGate.percent,
+            usedTokens: budgetGate.usedTokens,
+            limitTokens: budgetGate.limitTokens,
+            tier: budgetGate.tier,
+            resetAt: budgetGate.resetAt,
+          },
+        })
+      }
+
+      return streamToClient(
+        request,
+        reply,
+        finalMessages,
+        {
+          sessionId,
+          resolvedModel,
+          agentId,
+          materialContent,
+          workspacePath,
+          workspaceContext,
+          repoName,
+          contextLimit,
+          agentTools,
+          planMode,
+          mode,
+          // V3 #58(2026-09-26 立):权限模式档位,经上游请求体 permission_mode 字段透传
+          permissionMode,
+          // 79 号票:权限双轴两轴档位 —— 与 permissionMode 同区同规。schema 已声明这两键,
+          // 不在这里解构就会被静默留在 parsed.data 里 ⇒ 上游收不到而界面看着正常(同 D130 那型)。
+          sandboxMode,
+          approvalPolicy,
+          // D130(2026-09-30 立):推理强度档位,经上游请求体 reasoning_effort 字段透传
+          reasoningEffort,
+          tools,
+          toolChoice,
+          // P1-7(2026-09-13):续答透传会话级采样参数
+          temperature,
+          topP,
+          topK,
+          maxTokens,
+          systemPrompt,
+          // P1 #26(2026-09-16):续答同样支持知识库注入开关(默认开)
+          knowledgeContext,
+          metadata,
+        },
+        extraFirstEvents,
+      )
+    },
+  )
+
+  // POST /chat/questions — 持久化 AI 主动提问挂起状态 + WS 广播到多端
+  // 前端收到 SSE question 事件时主动调用本端点,把挂起状态写入 chat_conversations.metadata.pendingQuestion
+  // 其他端通过 WS ai_question 事件收到后 setPendingQuestion 弹窗,实现多端同步
+  //
+  // 设计权衡(2026-07-21):
+  // - 不改 ai-service _fire_callback 链路(避免侵入式修改 Python 端 + ai-callback worker)
+  // - 前端是 SSE question 事件的唯一消费者,由前端主动持久化是单一来源
+  // - 用 conversation.metadata 而非 message.metadata,因为前端 onQuestion 时 assistantMessageId
+  //   是前端 UUID(占位),DB id 要等 ai-callback 完成后才落地,无法立即持久化到 message.metadata
+  // - 缺点:用户 A 关闭浏览器前未调本端点 → 挂起状态不持久化(罕见场景,可接受)
+  // - 优点:架构简单,不改 ai-service + ai-callback 链路,工作量最小
+  const questionSchema = z.object({
+    conversationId: z.string().min(1),
+    questionId: z.string().min(1),
+    prompt: z.string().min(1),
+    options: z
+      .array(z.object({ id: z.string(), label: z.string() }))
+      .max(100)
+      .default([]),
+    allowCustom: z.boolean().default(false),
+    allowMultiple: z.boolean().default(false),
+  })
+
+  server.post('/chat/questions', async (request, reply) => {
+    const parsed = questionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, questionId, prompt, options, allowCustom, allowMultiple } = parsed.data
+    const userId = request.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '未登录'))
+    }
+
+    // 1. 把 pendingQuestion 写入 conversation.metadata(merge 模式,不覆盖其他 key)
+    //    若对话不存在或不属于该用户 → 返回 404(前端降级为仅本地弹窗,不影响主流程)
+    const updated = await patchConversationMetadata(conversationId, userId, {
+      pendingQuestion: { questionId, prompt, options, allowCustom, allowMultiple },
+    })
+    if (!updated) {
+      return reply.status(404).send(error(404, '对话不存在或无权限'))
+    }
+
+    // 2. WS 广播 ai_question 通知其他端弹窗(pushNotification 支持 Redis Pub/Sub 多实例)
+    try {
+      ;(
+        server as unknown as {
+          pushNotification?: (userId: string, payload: unknown) => void
+        }
+      ).pushNotification?.(userId, {
+        type: 'ai_question',
+        conversationId,
+        question: { questionId, prompt, options, allowCustom, allowMultiple },
+      })
+    } catch {
+      /* 推送失败不阻塞 */
+    }
+
+    return reply.send(success({ ok: true, persisted: true }))
+  })
+
+  // POST /chat/abort — 主动中止进行中的对话流(2026-09-18 立)
+  // 前端「停止」按钮的服务端闭环:此前只断开 SSE 连接,网关侧上游 fetch 靠 15s
+  // 宽限期超时才 abort,期间 ai-service 的工具子进程仍在跑(浪费额度 + 脏状态)。
+  // 本端点按 conversationId(可选 messageId 精确匹配)中止对应上游流,并向流内
+  // 注入 {type:'cancelled'} 终止帧(多端同步场景下其它客户端可见)。
+  const abortSchema = z.object({
+    conversationId: z.string().min(1).optional(),
+    /** 兼容别名:部分调用方只有 ai-service sessionId;当前会话键即 conversationId */
+    sessionId: z.string().min(1).optional(),
+    messageId: z.string().min(1).optional(),
+  })
+
+  server.post('/chat/abort', async (request, reply) => {
+    const parsed = abortSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const conversationId = parsed.data.conversationId ?? parsed.data.sessionId
+    if (!conversationId) {
+      return reply.status(400).send(error(400, 'conversationId 必填'))
+    }
+    const count = abortConversationStreams(conversationId, parsed.data.messageId)
+    request.log.info(
+      { conversationId, messageId: parsed.data.messageId, aborted: count },
+      '[ChatAbort] abort requested',
+    )
+    // 中止即作废挂在该流上的提问(2026-10-29 立,僵尸弹窗的**服务端**那一半):
+    // 前端点停止时清了本地 pendingQuestion,但挂起态同时被写进了
+    // conversation.metadata.pendingQuestion(POST /chat/questions,merge 模式)。
+    // 只清本地 ⇒ 用户一刷新/换端,history 装载那一步(ai-side-panel.tsx)就把弹窗
+    // 从 metadata 里原样恢复出来,而它挂的那条流早已终止 —— 弹窗回来了,答案仍然投不出去。
+    // 故此处按同一份 merge 语义把挂起态置 null(answeredQuestionId 不动:这里不是"已回答")。
+    // userId 取令牌主体(插件级 preHandler 已鉴权),ownership 由 patchConversationMetadata 自校;
+    // 失败不阻塞中止本身的响应(fire-and-forget,与 /chat/questions 的容错同级)。
+    if (request.userId) {
+      void patchConversationMetadata(conversationId, request.userId, {
+        pendingQuestion: null,
+      }).catch(() => {})
+    }
+    // 未命中不是错误(流可能刚好自然结束),仍返回 200 便于前端统一处理
+    return reply.send(success({ ok: true, aborted: count > 0, count }))
+  })
+
+  // POST /chat/steer — 中途引导进行中的对话流(Steer,2026-09-19 立)
+  // 流式对话期间用户点闪电按钮提交引导文本:不打断当前工具执行,经网关转发到
+  // ai-service `/llm/complete/stream/{session_id}/steer` 入队;tool loop 每轮
+  // LLM 调用前 drain 注入 messages 并回发 event: steer(phase=injected)。
+  // 寻址:replayKey = `${conversationId}:${messageId}`(与 abort 同键),取
+  // streamToClient 预生成并存入 StreamSession.upstreamSessionId 的流会话 ID。
+  // 状态码透传:200 入队成功 / 422 text 缺失 / 404 流不存在或已结束 / 429 队列满。
+  const steerSchema = z.object({
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    /** 引导文本;上限与 ai-service 端截断(4000 字符)对齐 */
+    text: z.string().min(1).max(4000),
+  })
+
+  server.post('/chat/steer', async (request, reply) => {
+    const parsed = steerSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, messageId, text } = parsed.data
+    const session = findSession(`${conversationId}:${messageId}`)
+    if (!session || session.finished || !session.upstreamSessionId) {
+      // 流不存在/已结束/未启用 steer(缺 metadata 的降级流):透传 ai-service 同义 404,
+      // 前端 toast「引导失败(队列已满或流已结束)」统一处理
+      request.log.info({ conversationId, messageId }, '[ChatSteer] stream not found or finished')
+      return reply.status(404).send(error(404, '流不存在或已结束'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/complete/stream/${session.upstreamSessionId}/steer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ text }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      // L7648 单源映射:本路由已过 authenticate,下游再回 401/403 只可能是
+      // **服务侧凭据**被上游拒收,不是用户会话失效。旧实现把 resp.status 原样出栈,
+      // 于是 api-client 的 401 出口(refresh→notifyUnauthorized 链)把一次"别人家的 key 错了"
+      // 读成"你登录过期了"——用户被踢下线,而真原因在我方。真 401 只允许由 plugins/auth.ts 发。
+      const outbound = mapUpstreamOutbound(resp.status)
+      if (!resp.ok) {
+        if (outbound.remapped) {
+          return reply
+            .status(outbound.status)
+            .send(
+              error(
+                outbound.status,
+                UPSTREAM_AUTH_FAILED_MESSAGE,
+                ErrorCode.UPSTREAM_AUTH_FAILED.code,
+              ),
+            )
+        }
+        // 其余(422/404/429)继续透传,前端据 429 提示队列已满
+        return reply.status(outbound.status).send(data)
+      }
+      request.log.info(
+        { conversationId, messageId, status: resp.status },
+        '[ChatSteer] steer enqueued',
+      )
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId, messageId }, 'steer proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /chat/steer/withdraw — 撤回一条尚未注入的 steer 引导(差距③ Phase1 网关侧,2026-10-30 立)
+  // 与 /chat/steer 同闸门语义:凭 replayKey = `${conversationId}:${messageId}` 反查
+  // upstreamSessionId,转发 ai-service `/llm/complete/stream/{session_id}/steer/withdraw`
+  // (body 只带 queuedAt 定位队列条目)。反查不到活动流 ⇒ 404(流不存在/已结束,与 steer 同判);
+  // 上游三态结论 {ok, status:'withdrawn'|'already_injected'|'not_found'} 原样回传,网关不判读。
+  const steerWithdrawSchema = z.object({
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    /** 队列条目定位键:steer 入队时上游回显的 queuedAt(number=epoch ms / string=ISO,原样转发) */
+    queuedAt: z.union([z.number(), z.string().min(1)]),
+  })
+
+  server.post('/chat/steer/withdraw', async (request, reply) => {
+    const parsed = steerWithdrawSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, messageId, queuedAt } = parsed.data
+    const session = findSession(`${conversationId}:${messageId}`)
+    if (!session || session.finished || !session.upstreamSessionId) {
+      // 与 /chat/steer 同闸门:活动流反查不到 ⇒ 404,不打到上游(条目随流消亡,无处可撤)
+      request.log.info(
+        { conversationId, messageId },
+        '[ChatSteerWithdraw] stream not found or finished',
+      )
+      return reply.status(404).send(error(404, '流不存在或已结束'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/complete/stream/${session.upstreamSessionId}/steer/withdraw`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ queuedAt }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      // 三态(withdrawn/already_injected/not_found)与非 2xx 一律原样回传,网关不折叠语义
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId, messageId }, 'steer withdraw proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /chat/steer/reorder — steer 队列重排(差距③ mutateQueue 网关侧,2026-10-30 立)
+  // 姿势抄 /chat/steer/withdraw:凭 replayKey = `${conversationId}:${messageId}` 反查
+  // upstreamSessionId,转发 ai-service `/llm/complete/stream/{session_id}/steer/reorder`
+  // (body 只带 order = queuedAt 目标序列)。反查不到活动流 ⇒ 404(与 withdraw 同判);
+  // 上游 {ok, queued, orderApplied} 与 422(覆盖不符)一律原样回传,网关不判读 ——
+  // 竞态豁免(已 drain 条目出 order 校验)由上游单点判定。
+  const steerReorderSchema = z.object({
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    /** 目标顺序:queuedAt 序列(须精确覆盖未消费条目,已 drain 条目由上游豁免) */
+    order: z.array(z.string().min(1)),
+  })
+
+  server.post('/chat/steer/reorder', async (request, reply) => {
+    const parsed = steerReorderSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, messageId, order } = parsed.data
+    const session = findSession(`${conversationId}:${messageId}`)
+    if (!session || session.finished || !session.upstreamSessionId) {
+      // 与 withdraw 同闸门:活动流反查不到 ⇒ 404,不打到上游(队列随流消亡,无处可排)
+      request.log.info(
+        { conversationId, messageId },
+        '[ChatSteerReorder] stream not found or finished',
+      )
+      return reply.status(404).send(error(404, '流不存在或已结束'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/complete/stream/${session.upstreamSessionId}/steer/reorder`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ order }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      // 生效结果(orderApplied)与非 2xx 一律原样回传,网关不折叠语义
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId, messageId }, 'steer reorder proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /chat/conversations/:id/directories — D201 多根工作区(2026-10-02):
+  // 会话中途追加/移除目录(**整表替换**,空数组 = 清空,对标 Qoder add_directories
+  // 控制帧)。顺序:auth → 属主 → 转发 ai-service(准入校验在那一侧:绝对路径/
+  // 存在/是目录,任一非法整表拒绝 422,metadata 不写)→ 成功后才落会话 metadata
+  // (additionalDirectories 键,空集删键)。运行时生效面 = ai-service 进程内
+  // 注册表(mcp_server.set_session_extra_roots,键 = conversationId),工具路径
+  // 校验层立即生效;重启后须重新下发(与 thread.settings 热更项同生命周期)。
+  const directoriesSchema = z.object({
+    paths: z.array(z.string().min(1)).max(16),
+  })
+
+  server.post('/chat/conversations/:id/directories', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    if (!request.userId) return
+    const { id } = request.params as { id: string }
+    const parsed = directoriesSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const conversation = await findConversationById(id)
+    if (!conversation || conversation.userId !== request.userId) {
+      return reply.status(404).send(error(404, '会话不存在或无权操作'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/conversations/${encodeURIComponent(id)}/directories`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ paths: parsed.data.paths }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        // 透传 ai-service 422(准入拒绝),metadata 保持原样(不部分生效)
+        return reply.status(resp.status).send(data)
+      }
+      await setConversationAdditionalDirectories(request.userId, id, parsed.data.paths)
+      request.log.info(
+        { conversationId: id, count: parsed.data.paths.length },
+        '[ChatDirectories] additional directories applied',
+      )
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId: id }, 'directories proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /agent/approval-response — 工具审批响应代理(2026-08-30 立)
+  // 前端审批弹窗(组件订阅 /api/agents/tasks/stream 的 tool-approval 事件)点"批准/拒绝"后
+  // 调用 /api/ai/agent/approval-response → 本端点 → 转发到 ai-service /api/agents/approval-response。
+  // 审批注册表在 ai-service 进程内,响应写回后唤醒 agent_loop_v2 中等待的高危工具协程。
+  const approvalResponseSchema = z.object({
+    approval_id: z.string().min(1).optional(),
+    approvalId: z.string().min(1).optional(),
+    decision: z.enum(['approve', 'reject']),
+    // D84(2026-09-23):审批作用域(once/session/always)与用户原因,透传到 ai-service;
+    // 未携带时 ai-service 侧默认 session(兼容旧客户端行为)。
+    scope: z.enum(['once', 'session', 'always']).optional(),
+    reason: z.string().max(500).optional(),
+  })
+
+  server.post('/agent/approval-response', async (request, reply) => {
+    const parsed = approvalResponseSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const approvalId = parsed.data.approval_id ?? parsed.data.approvalId
+    if (!approvalId) {
+      return reply.status(400).send(error(400, 'approval_id 必填'))
+    }
+    try {
+      const resp = await aiServiceFetch(request, '/api/agents/approval-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: request.headers.authorization ?? '',
+        },
+        body: JSON.stringify({
+          approval_id: approvalId,
+          decision: parsed.data.decision,
+          scope: parsed.data.scope ?? 'session',
+          ...(parsed.data.reason !== undefined ? { reason: parsed.data.reason } : {}),
+        }),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        return reply.status(resp.status).send(data)
+      }
+      return reply.send(data)
+    } catch (e) {
+      request.log.error({ err: e, approvalId }, 'approval-response proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // GET /api/ai/admin/ai/chat/metrics — SSE 流式对话实时指标(admin 调试用)
+  // P3-1 简化方案:不引入 prom-client,不改 business-metrics.ts(不在受影响文件清单),
+  // 改为 admin JSON 端点暴露细分计数器,供 admin 看板查询。
+  // Prometheus 抓取仍由 business-metrics.ts 的 /business-metrics 负责,本端点不直接进 Prometheus。
+  // 注意:本插件注册时 prefix=/api/ai(见 routes/index.ts),故路由用相对路径 /admin/ai/chat/metrics,
+  // 实际完整路径为 /api/ai/admin/ai/chat/metrics(避免双 /api 拼接 bug)。
+  // P1 修复(2026-08-06):内部指标为 admin 调试端点,原只做登录校验(authenticate),
+  // 任何登录用户可查看全站实时指标,改为 requireAdmin。
+  server.get('/admin/ai/chat/metrics', { preHandler: requireAdmin }, async () => {
+    return success(sseMetrics)
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

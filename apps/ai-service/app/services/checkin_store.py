@@ -1,0 +1,2158 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""签到助手数据层(Phase1b,2026-10-03 立)。
+
+为 checkin_engine(签到引擎)提供服务端持久化:
+- checkin_accounts   账号表(jwt 经 Fernet 加密落库,任何接口都不回吐明文)
+- checkin_records    签到记录(引擎结构化 dict 的落库投影)
+- checkin_error_counts 冷却计数(Server / Client 两类独立累积,与桌面端语义一致)
+
+设计:
+- 复用共享 asyncpg 连接池(app.core.db_pool.get_shared_pool),不自建池
+- 建表幂等(CREATE TABLE IF NOT EXISTS),仓库 ai-service 侧无 migrations 目录,
+  故建表内聚在 ensure_tables(),由 lifespan / scheduler.start() 调用(fail-open)
+- Fernet 密钥:环境变量 CHECKIN_FERNET_KEY(base64,32 字节)优先;
+  未设置则落盘 data/checkin_fernet_key(首次生成,重启后可解密历史密文),
+  与 publish/credentials_crypto.py 的密钥管理策略对齐
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import secrets
+from collections.abc import Callable, Mapping
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Final
+from zoneinfo import ZoneInfo
+
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+from app.core.db_pool import get_shared_pool
+from app.core.logging import get_logger
+from app.services.checkin_engine import (
+    extract_display_name,
+    extract_user_id,
+    get_jwt_exp,
+    uuid_shaped_name,
+)
+from app.services.checkin_minimax import minimax_device_map_uid
+from app.services.checkin_qoder import qoder_device_map_uid, qoder_extract_uid, qoder_session_expiry
+from app.services.checkin_workbuddy import (
+    workbuddy_device_map_uid,
+    workbuddy_extract_uid,
+)
+
+if TYPE_CHECKING:
+    # 只为标注 ensure_tables_conn 的连接参数而引;本文件有 `from __future__ import
+    # annotations`,该注解在运行时不求值 ⇒ 不新增任何导入期代价。asyncpg 未发布
+    # py.typed(AGENTS §3 例外①:第三方库无类型声明),所以这里标**真名**而不是 Any。
+    import asyncpg
+
+logger = get_logger(__name__)
+
+# 引擎的 get_jwt_exp 是上游平移的**无类型**函数(mypy strict 下直接调用报
+# no-untyped-call,routers/checkin.py:54 的存量同因)。untyped callable 可赋给
+# 精确签名,给调用点钉上真类型:jwt_exp 要进列表响应,返回值不能渗 Any。
+_get_jwt_exp: Callable[[str], tuple[datetime | None, float | None]] = get_jwt_exp
+
+_KEY_ENV = "CHECKIN_FERNET_KEY"
+# 轮换期旧密钥(逗号分隔的 Fernet key),**仅用于解密**历史密文,绝不用于加密。
+_LEGACY_ENV = "CHECKIN_FERNET_KEY_LEGACY"
+
+# 密钥文件路径**锚定到服务根**,不跟 cwd 走 —— 与 publish/credentials_crypto.py
+# 同一处修正(静默失效第 8 例):原实现 os.path.join("data", ...) 是相对路径,
+# 换个启动目录就读到另一个文件,文件不存在时还会**静默新建一把**,等于把历史密文
+# 全作废且零报错。本机实测:data/checkin_fernet_key(mtime 10-18 19:18)与
+# apps/ai-service/data/checkin_fernet_key(mtime 10-18 10:27)是两把不同的密钥。
+_SERVICE_ROOT = Path(__file__).resolve().parents[2]
+_KEY_FILE = str(_SERVICE_ROOT / "data" / "checkin_fernet_key")
+
+# 旧 cwd 相对位置:只读、永不写入;存在的历史密钥进解密环。
+_LEGACY_KEY_FILES = ("data/checkin_fernet_key",)
+
+# 同名冲突时的平台后缀(同一手机号在 TRAE/WorkBuddy/Qoder 各有一个账号 ⇒
+# 展示名撞唯一约束 (owner_user_id, name);自愈退化带平台名保可区分)。
+_PLATFORM_LABELS: Final[dict[str, str]] = {
+    "trae": "TRAE",
+    "workbuddy": "WorkBuddy",
+    "qoder": "Qoder",
+    "minimax": "MiniMax",
+}
+
+# O64 号池↔签到同步:同步账号的固定系统 owner。调度器 list_enabled_accounts
+# 全表遍历 enabled ⇒ 这些账号自动进入每日签到窗口;用户态 API 全部按
+# require_request_user_id 过滤(真实用户 id 不可能等于该值)⇒ 用户 UI 零感知。
+POOL_SYNC_OWNER: Final = "system:relay-pool"
+
+# ---------------------------------------------------------------------------
+# 建表 SQL(幂等)
+# ---------------------------------------------------------------------------
+
+_CREATE_ACCOUNTS_SQL = """
+CREATE TABLE IF NOT EXISTS checkin_accounts (
+    id            bigserial PRIMARY KEY,
+    owner_user_id text NOT NULL,
+    name          text NOT NULL,
+    jwt_enc       bytea NOT NULL,
+    device_map    jsonb NOT NULL DEFAULT '{}'::jsonb,
+    enabled       boolean NOT NULL DEFAULT true,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (owner_user_id, name)
+)
+"""
+
+_CREATE_RECORDS_SQL = """
+CREATE TABLE IF NOT EXISTS checkin_records (
+    id               bigserial PRIMARY KEY,
+    account_id       bigint NOT NULL REFERENCES checkin_accounts(id) ON DELETE CASCADE,
+    ok               boolean,
+    action           text,
+    http_status      int,
+    code             text,
+    message          text,
+    classified_error text,
+    cooldown_until   timestamptz,
+    credits          int,
+    credits_delta    int,
+    created_at       timestamptz NOT NULL DEFAULT now()
+)
+"""
+
+_CREATE_ERROR_COUNTS_SQL = """
+CREATE TABLE IF NOT EXISTS checkin_error_counts (
+    account_id    bigint PRIMARY KEY REFERENCES checkin_accounts(id) ON DELETE CASCADE,
+    server_errors int NOT NULL DEFAULT 0,
+    client_errors int NOT NULL DEFAULT 0
+)
+"""
+
+# WP-B 后端半(2026-10-09)积分每日快照:每账号每天一行,remaining 为当日查得的
+# 余额(gained 从 checkin_records 按日聚合,不在此冗余存亦行,落列便于单表出序列)。
+_CREATE_CREDITS_DAILY_SQL = """
+CREATE TABLE IF NOT EXISTS checkin_credits_daily (
+    account_id    bigint NOT NULL REFERENCES checkin_accounts(id) ON DELETE CASCADE,
+    owner_user_id text NOT NULL,
+    day           date NOT NULL,
+    remaining     int,
+    gained        int NOT NULL DEFAULT 0,
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (account_id, day)
+)
+"""
+
+_CREATE_INDEXES_SQL = """
+CREATE INDEX IF NOT EXISTS idx_checkin_records_account_created
+    ON checkin_records (account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_checkin_records_cooldown
+    ON checkin_records (cooldown_until)
+    WHERE cooldown_until IS NOT NULL;
+"""
+
+# Phase1d(2026-10-08)加列:账号分组。PG 里 group 是保留字,列名用 account_group;
+# ADD COLUMN IF NOT EXISTS 幂等,存量表在 ensure_tables_conn 里补齐(ensure_tables
+# 与 CI 裸连接两条建表路径共用该函数,一处加列两边生效)。
+_ALTER_ACCOUNTS_GROUP_SQL = """
+ALTER TABLE checkin_accounts
+    ADD COLUMN IF NOT EXISTS account_group text NOT NULL DEFAULT ''
+"""
+
+# 平台化(2026-10-10):'trae'(存量默认)| 'qoder'。ADD COLUMN IF NOT EXISTS 幂等,
+# 与 account_group 加列同一配方(ensure_tables 与 CI 裸连接两条路径共用)。
+# qoder 账号:jwt_enc 存 accessToken,refresh_token / expires_at / Cosy-* 设备头
+# 存 device_map(复用 jsonb,不另加列)—— 引擎见 checkin_qoder.py。
+_ALTER_ACCOUNTS_PLATFORM_SQL = """
+ALTER TABLE checkin_accounts
+    ADD COLUMN IF NOT EXISTS platform text NOT NULL DEFAULT 'trae'
+"""
+
+# 账号去重(2026-10-17 李总报障「名不一样但实际是一个号」):identity_key 存
+# 平台侧真实身份 uid(见 derive_account_identity),与展示名解耦 —— 唯一约束
+# 只有 (owner_user_id, name) 时换个名就能把同一账号重复录入(旧 UUID 名账号
+# 自愈改名后再重新捕获是最常见形态)。身份派生不出的行保持 ''(部分唯一索引
+# 不覆盖,行为退回旧的名字约束,不影响录入)。
+_ALTER_ACCOUNTS_IDENTITY_SQL = """
+ALTER TABLE checkin_accounts
+    ADD COLUMN IF NOT EXISTS identity_key text NOT NULL DEFAULT ''
+"""
+
+_CREATE_IDENTITY_INDEX_SQL = """
+CREATE UNIQUE INDEX IF NOT EXISTS uq_checkin_accounts_identity
+    ON checkin_accounts (owner_user_id, platform, identity_key)
+    WHERE identity_key <> ''
+"""
+
+_ensure_failed = False
+
+
+async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
+    """在给定连接上幂等建表(四张表 + account_group 幂等加列 + 查询索引)。
+
+    四张表 = 签到三表(accounts / records / error_counts)+ 积分每日快照表
+    (checkin_credits_daily,WP-B 后端半)。
+
+    与 ensure_tables 的区别:不经过共享连接池。CI 的 ensure 步骤在同一进程里
+    连续多次 asyncio.run(前者各自持有已关闭 loop 的残留池),共享池的跨 loop
+    回收路径在 CI 环境下出现过"步骤退出 0 但表未落库"的静默失配(2026-10-03
+    实测,run 37090730137);裸连接路径无此耦合,并允许调用方自验。
+    """
+    global _ensure_failed
+    await conn.execute(_CREATE_ACCOUNTS_SQL)
+    await conn.execute(_CREATE_RECORDS_SQL)
+    await conn.execute(_CREATE_ERROR_COUNTS_SQL)
+    await conn.execute(_CREATE_CREDITS_DAILY_SQL)
+    await conn.execute(_ALTER_ACCOUNTS_GROUP_SQL)
+    await conn.execute(_ALTER_ACCOUNTS_PLATFORM_SQL)
+    await conn.execute(_ALTER_ACCOUNTS_IDENTITY_SQL)
+    await conn.execute(_CREATE_IDENTITY_INDEX_SQL)
+    await conn.execute(_CREATE_INDEXES_SQL)
+    _ensure_failed = False
+
+
+async def ensure_tables() -> None:
+    """幂等建表(三张表 + account_group/platform/identity_key 幂等加列 + 查询索引)。
+
+    建表后跑一次存量身份补键与重复账号归并(见 backfill_identity_and_dedup,
+    幂等且失败不抛 —— 迁移是增强,不得阻断建表与启动)。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await ensure_tables_conn(conn)
+    await backfill_identity_and_dedup()
+
+
+async def backfill_identity_and_dedup() -> None:
+    """存量身份补键 + 重复账号归并(ensure_tables 每次启动调用,幂等)。
+
+    顺序敏感:先在 Python 侧算好身份、就地归并重复组,**之后**才落
+    identity_key —— 反过来先落键,重复组第二行 UPDATE 就撞部分唯一索引
+    (uq_checkin_accounts_identity)。分组时必须带上「已带键行」(前次启动
+    补过键的存量):唯一索引只保证它们组内唯一,与本次补键行之间仍可能成组。
+
+    归并规则(同一 owner + platform + 身份 uid 的多行):
+    - 保留最小 id(签到记录 / 冷却历史的挂靠点);凭证与设备态取 updated_at
+      最新一行(最新捕获),展示名保保留行(列表自愈兜底);
+    - 重复行的 records 就地并到保留行再删行(error_counts / credits_daily
+      随行级联,快照诊断序列少一段可接受);
+    - 密文解不开或派生不出身份的行保持 identity_key='',不参与去重
+      (坏密文留给用户重录,不阻塞其余账号)。
+
+    迁移是增强:任何失败只记 warning 下次启动重试,绝不抛出阻断启动。
+    """
+    try:
+        pool = await get_shared_pool()
+        backfilled = 0
+        merged = 0
+        async with pool.acquire() as conn:
+            legacy = await conn.fetch(
+                """
+                SELECT id, owner_user_id, platform, jwt_enc, device_map
+                FROM checkin_accounts
+                WHERE identity_key = ''
+                ORDER BY id
+                """
+            )
+            # id → (owner, platform, key);派生失败/密文不可解的行不进表(保持 '')
+            derived_map: dict[int, tuple[str, str, str]] = {}
+            for r in legacy:
+                try:
+                    jwt = _decrypt_jwt(r["jwt_enc"])
+                except Exception as e:  # noqa: BLE001 — 单账号坏密文不得阻断迁移
+                    logger.warning(
+                        "[checkin_store] 账号 %s 密文不可解,跳过身份补键(需重录凭证): %s",
+                        r["id"],
+                        e,
+                    )
+                    continue
+                dm = r["device_map"]
+                if isinstance(dm, str):
+                    try:
+                        dm = json.loads(dm or "{}")
+                    except ValueError:
+                        dm = {}
+                key = derive_account_identity(r["platform"], jwt, dm or {}) or ""
+                if key:
+                    derived_map[r["id"]] = (r["owner_user_id"], r["platform"], key)
+
+            keyed = await conn.fetch(
+                """
+                SELECT id, owner_user_id, platform, identity_key
+                FROM checkin_accounts
+                WHERE identity_key <> ''
+                """
+            )
+            groups: dict[tuple[str, str, str], list[int]] = {
+                (r["owner_user_id"], r["platform"], r["identity_key"]): [r["id"]] for r in keyed
+            }
+            for aid, gk in derived_map.items():
+                groups.setdefault(gk, []).append(aid)
+
+            for gk, ids in groups.items():
+                if len(ids) <= 1:
+                    continue
+                keep = min(ids)
+                dup_ids = [i for i in ids if i != keep]
+                fresh = await conn.fetchrow(
+                    """
+                    SELECT id, jwt_enc, device_map
+                    FROM checkin_accounts
+                    WHERE id = ANY($1::bigint[])
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    ids,
+                )
+                if fresh is not None and fresh["id"] != keep:
+                    dm = fresh["device_map"]
+                    if not isinstance(dm, str):
+                        dm = json.dumps(dm or {}, ensure_ascii=False)
+                    await conn.execute(
+                        """
+                        UPDATE checkin_accounts
+                        SET jwt_enc = $2, device_map = $3::jsonb, updated_at = now()
+                        WHERE id = $1
+                        """,
+                        keep,
+                        fresh["jwt_enc"],
+                        dm,
+                    )
+                for dup_id in dup_ids:
+                    await conn.execute(
+                        "UPDATE checkin_records SET account_id = $2 WHERE account_id = $1",
+                        dup_id,
+                        keep,
+                    )
+                    await conn.execute("DELETE FROM checkin_accounts WHERE id = $1", dup_id)
+                    derived_map.pop(dup_id, None)
+                merged += len(dup_ids)
+                logger.info(
+                    "[checkin_store] 重复账号归并 platform=%s identity=%s 保留 id=%s 删除 %s",
+                    gk[1],
+                    gk[2],
+                    keep,
+                    dup_ids,
+                )
+
+            # 重复已清,落键不会撞唯一索引;WHERE identity_key='' 防并发窗口重复写
+            for aid, (_owner, _platform, key) in derived_map.items():
+                await conn.execute(
+                    "UPDATE checkin_accounts SET identity_key = $2 WHERE id = $1 AND identity_key = ''",
+                    aid,
+                    key,
+                )
+                backfilled += 1
+        if backfilled or merged:
+            logger.info("[checkin_store] 身份补键 %s 行,重复账号归并 %s 行", backfilled, merged)
+    except Exception as e:  # noqa: BLE001 — 迁移失败不阻断启动
+        logger.warning("[checkin_store] 存量身份补键/去重失败(下次启动重试): %s", e)
+
+
+# ---------------------------------------------------------------------------
+# Fernet 加解密
+# ---------------------------------------------------------------------------
+
+_fernet: Fernet | None = None
+_legacy_fernets: list[Fernet] = []
+_fernet_source: str = ""
+
+
+def _candidate_key_files() -> list[str]:
+    """主位置在前,旧(cwd 相对)位置在后;绝对化后去重。"""
+    out = [_KEY_FILE]
+    for rel in _LEGACY_KEY_FILES:
+        path = os.path.abspath(rel)
+        if path not in out:
+            out.append(path)
+    return out
+
+
+def _fernet_from(raw: bytes | str) -> Fernet | None:
+    """构造 Fernet;非法 key 返回 None(warn 不抛,不让服务起不来)。"""
+    try:
+        return Fernet(raw.strip() if isinstance(raw, bytes) else raw.strip().encode("ascii"))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[checkin_store] 非法 Fernet key(已忽略): %s", e)
+        return None
+
+
+def _read_fernet_file(path: str) -> Fernet | None:
+    try:
+        with open(path, "rb") as f:
+            raw = f.read().strip()
+    except FileNotFoundError:
+        return None
+    except OSError as e:
+        logger.warning("[checkin_store] 密钥文件不可读(%s): %s", path, e)
+        return None
+    return _fernet_from(raw)
+
+
+def _load_fernets() -> tuple[Fernet, list[Fernet], str]:
+    """加载 (主 Fernet, 解密环, 主密钥来源)。
+
+    主密钥顺序:``CHECKIN_FERNET_KEY`` → 锚定位置密钥文件 → 生成新密钥。
+    其余能读到的历史密钥只进解密环 —— 轮换/换启动目录不再一次性打哑全部账号。
+    """
+    legacy: list[Fernet] = []
+
+    for part in (os.environ.get(_LEGACY_ENV) or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        f = _fernet_from(part)
+        if f is not None:
+            legacy.append(f)
+
+    file_primary: Fernet | None = None
+    for path in _candidate_key_files():
+        f = _read_fernet_file(path)
+        if f is None:
+            continue
+        if file_primary is None:
+            file_primary = f
+        elif f._signing_key != file_primary._signing_key:  # noqa: SLF001 —— Fernet 无公开比较口
+            legacy.append(f)
+            logger.warning(
+                "[checkin_store] 发现第二把历史 Fernet 密钥 %s,已加入解密环(不用于加密)。"
+                "两处并存说明本机曾换过启动目录 —— 建议只保留 %s。",
+                path, _KEY_FILE,
+            )
+
+    env_val = os.environ.get(_KEY_ENV, "").strip()
+    env_fernet = _fernet_from(env_val) if env_val else None
+    if env_fernet is not None:
+        primary, source = env_fernet, f"env {_KEY_ENV}"
+        if file_primary is not None and file_primary._signing_key != env_fernet._signing_key:  # noqa: SLF001
+            legacy.append(file_primary)
+    elif file_primary is not None:
+        primary, source = file_primary, _KEY_FILE
+    else:
+        key = Fernet.generate_key()
+        primary, source = Fernet(key), "generated"
+        try:
+            os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
+            with open(_KEY_FILE, "wb") as fh:
+                fh.write(key)
+            logger.warning(
+                "[checkin_store] %s 未设置且无历史密钥文件,已生成新的持久化密钥 %s。"
+                "注意:此前用别的密钥加密的密文将无法解密(需重新录入 JWT)。",
+                _KEY_ENV, _KEY_FILE,
+            )
+        except OSError as e:
+            logger.warning(
+                "[checkin_store] 密钥文件不可写(%s),使用进程内临时密钥(重启 = 历史密文解不开)",
+                e,
+            )
+
+    ring: list[Fernet] = []
+    for f in legacy:
+        if f._signing_key != primary._signing_key and all(  # noqa: SLF001
+            f._signing_key != g._signing_key for g in ring  # noqa: SLF001
+        ):
+            ring.append(f)
+    return primary, ring, source
+
+
+def _load_fernet() -> Fernet:
+    """加载主 Fernet 密钥(env 优先,否则锚定位置的密钥文件,首次生成并持久化)。"""
+    global _fernet, _legacy_fernets, _fernet_source
+    if _fernet is not None:
+        return _fernet
+    _fernet, _legacy_fernets, _fernet_source = _load_fernets()
+    logger.info(
+        "[checkin_store] 主密钥来源=%s 解密环=%d 把", _fernet_source, len(_legacy_fernets)
+    )
+    return _fernet
+
+
+def fernet_key_source() -> str:
+    """主密钥来源描述(排障用)。"""
+    _load_fernet()
+    return _fernet_source
+
+
+def fernet_key_ring_size() -> int:
+    """解密环里旧密钥的把数。"""
+    _load_fernet()
+    return len(_legacy_fernets)
+
+
+def _encrypt_jwt(jwt: str) -> bytes:
+    return _load_fernet().encrypt(jwt.encode("utf-8"))
+
+
+def _decrypt_jwt(blob: bytes) -> str:
+    """解密 JWT 密文;主密钥不行时依次试解密环,全失败才抛。"""
+    primary = _load_fernet()
+    for idx, f in enumerate([primary, *_legacy_fernets]):
+        try:
+            text = f.decrypt(bytes(blob)).decode("utf-8")
+        except InvalidToken:
+            continue
+        except Exception as e:  # noqa: BLE001 —— 格式坏(非 Fernet token)也算解不开
+            logger.warning("[checkin_store] JWT 密文格式异常: %s", e)
+            continue
+        if idx > 0:
+            logger.warning(
+                "[checkin_store] 该 JWT 由解密环第 %d 把旧密钥解开(主密钥不匹配),"
+                "建议尽快用主密钥重写该行。",
+                idx,
+            )
+        return text
+    raise ValueError("JWT 密文解密失败(密钥不匹配或密文损坏)")
+
+
+# ---------------------------------------------------------------------------
+# Qoder 凭证唯一真源(2026-10-23 统一):直接读写 ai_relay_account_pool
+#
+# 背景:同一 Qoder 账号此前在 checkin_accounts(Fernet)与 ai_relay_account_pool
+# (AES-256-GCM,API 侧 crypto.ts)各存一份凭证,两边各自刷新 refresh_token 会因
+# 轮转而分叉,致签到拿到过期票恒 401。现统一为:**relay 池是唯一真源 + 唯一
+# refresh 写点**;签到侧每次签到前从 relay 拉最新票、刷新后回写 relay。
+# 密钥 CREDENTIALS_ENCRYPTION_KEY 两侧同源(实测同 sha256),故 Python 可直接用
+# AES-256-GCM 解开 API 侧密文;密文格式对齐 crypto.ts encryptField:
+# JSON.stringify({iv,ciphertext,tag}) 三字段均 base64,明文 = JSON.stringify(token)。
+# ---------------------------------------------------------------------------
+
+
+def _relay_aes_key() -> bytes:
+    k = os.environ.get("CREDENTIALS_ENCRYPTION_KEY", "").strip()
+    if len(k) < 32:
+        raise RuntimeError("CREDENTIALS_ENCRYPTION_KEY 缺失或不足 32 字符,无法读写 relay 凭证")
+    return k[:32].encode("utf-8")
+
+
+def _relay_encrypt(plain: str) -> str:
+    iv = os.urandom(12)
+    out = AESGCM(_relay_aes_key()).encrypt(iv, json.dumps(plain).encode("utf-8"), None)
+    ct, tag = out[:-16], out[-16:]
+    return json.dumps(
+        {
+            "iv": base64.b64encode(iv).decode("ascii"),
+            "ciphertext": base64.b64encode(ct).decode("ascii"),
+            "tag": base64.b64encode(tag).decode("ascii"),
+        }
+    )
+
+
+def _relay_decrypt(stored: str) -> str:
+    p = json.loads(stored)
+    iv = base64.b64decode(p["iv"])
+    ct = base64.b64decode(p["ciphertext"])
+    tag = base64.b64decode(p["tag"])
+    raw = AESGCM(_relay_aes_key()).decrypt(iv, ct + tag, None).decode("utf-8")
+    try:
+        val = json.loads(raw)  # 裸字符串 token:json.loads('"dt-..."') -> 'dt-...'
+        return val if isinstance(val, str) else str(val)
+    except Exception:
+        return raw
+
+
+async def load_qoder_cred(uid: str) -> dict[str, Any] | None:
+    """按 uid 从 relay 池取 Qoder 活凭证(解密)。无行/解密失败 → None(调用方回退旧路径)。
+
+    返回 {token, refresh_token, expires_at(epoch 秒|None), cosy(dict), machine_id}。
+    """
+    if not uid:
+        return None
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT token_enc, refresh_token_enc, token_expires_at, machine_id, extra_metadata
+            FROM ai_relay_account_pool
+            WHERE provider_code = 'qoder' AND uid = $1
+            ORDER BY updated_at DESC
+            LIMIT 1
+            """,
+            uid,
+        )
+    if row is None:
+        return None
+    try:
+        token = _relay_decrypt(row["token_enc"])
+        refresh = _relay_decrypt(row["refresh_token_enc"]) if row["refresh_token_enc"] else None
+    except Exception as e:  # noqa: BLE001 — 解不开让调用方回退,不炸签到
+        logger.warning("[checkin_store] relay qoder 凭证解密失败 uid=%s: %s", uid, e)
+        return None
+    exp = row["token_expires_at"]
+    extra = row["extra_metadata"]
+    if isinstance(extra, str):
+        try:
+            extra = json.loads(extra)
+        except ValueError:
+            extra = {}
+    cosy = (extra or {}).get("cosy") if isinstance(extra, dict) else None
+    return {
+        "token": token,
+        "refresh_token": refresh,
+        "expires_at": int(exp.timestamp()) if isinstance(exp, datetime) else None,
+        "cosy": cosy if isinstance(cosy, dict) else {},
+        "machine_id": row["machine_id"],
+    }
+
+
+async def save_qoder_cred(
+    uid: str, token: str, refresh_token: str | None, expires_at_epoch: int | None = None
+) -> None:
+    """把最新 Qoder 票回写 relay 池(唯一写点)。AES-256-GCM 加密,与 API 侧互通。"""
+    if not uid or not token:
+        return
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE ai_relay_account_pool
+            SET token_enc = $2,
+                refresh_token_enc = COALESCE($3, refresh_token_enc),
+                token_expires_at = COALESCE($4, token_expires_at),
+                last_refresh_at = now(),
+                updated_at = now()
+            WHERE provider_code = 'qoder' AND uid = $1
+            """,
+            uid,
+            _relay_encrypt(token),
+            _relay_encrypt(refresh_token) if refresh_token else None,
+            datetime.fromtimestamp(expires_at_epoch, UTC) if expires_at_epoch else None,
+        )
+
+
+def reset_fernet_cache() -> None:
+    """清空密钥缓存(测试注入用;生产勿调)。"""
+    global _fernet, _legacy_fernets, _fernet_source
+    _fernet = None
+    _legacy_fernets = []
+    _fernet_source = ""
+
+
+def set_fernet_for_testing(key: bytes) -> None:
+    """测试注入固定 Fernet key(同时清空解密环,避免真实旧密钥干扰断言)。"""
+    global _fernet, _legacy_fernets, _fernet_source
+    _fernet = Fernet(key)
+    _legacy_fernets = []
+    _fernet_source = "injected"
+
+
+def generate_fernet_key_b64() -> str:
+    """生成一个新 Fernet key(base64 字符串),供运维初始化 CHECKIN_FERNET_KEY 用。"""
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
+
+
+# ---------------------------------------------------------------------------
+# 账号真实身份(去重键,2026-10-17 立)
+# ---------------------------------------------------------------------------
+
+
+def _pool_cred_version_of(device_map: Any) -> int | None:
+    """取 device_map.pool_cred_version(O64 号池同步账号的凭证版本)。
+
+    asyncpg 的 jsonb 回传可能是 dict 或 str;坏值/缺失/布尔一律 None ——
+    None 语义 = "非版本化账号",调用方据此跳过版本比较(存量行为零变化)。
+    """
+    dm = device_map
+    if isinstance(dm, str):
+        try:
+            dm = json.loads(dm or "{}")
+        except (json.JSONDecodeError, ValueError):
+            return None
+    if not isinstance(dm, dict):
+        return None
+    raw = dm.get("pool_cred_version")
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw
+
+
+def derive_account_identity(
+    platform: str, jwt: str, device_map: dict[str, Any] | None
+) -> str | None:
+    """按平台解析账号真实身份 uid(去重键);解析不出返回 None(退回名字约束)。
+
+    - pool_uid(O64 号池↔签到同步):device_map.pool_uid 第一优先 —— 号池侧 uid 是
+      平台身份唯一权威(各平台 JWT 解析规则在号池/签到两侧不可能永远一致,对不上
+      就是"同号两行各签各的");仅同步来的账号带此键,存量用户账号行为零变化;
+    - trae:JWT payload data.id / auth_id / sub(extract_user_id);
+    - qoder:token 是 JWT 时取 sub 等,opaque 时退 device_map.uid(桌面捕获落库);
+    - workbuddy:JWT sub 等,网页 Cookie 模式退 device_map.uid;
+    - minimax:token 是 opaque(mmoat_),uid 只在 device_map。
+
+    纯函数无 IO,可直接单测。跨平台同名是正常形态(同一手机号在 TRAE/Qoder
+    各有一个账号),身份键必含 platform,绝不跨平台合并。
+    """
+    dm = device_map if isinstance(device_map, dict) else {}
+    pool_uid = dm.get("pool_uid")
+    if isinstance(pool_uid, str) and pool_uid.strip():
+        return pool_uid.strip()
+    if platform == "qoder":
+        return qoder_extract_uid(jwt) or qoder_device_map_uid(dm)
+    if platform == "workbuddy":
+        return workbuddy_extract_uid(jwt) or workbuddy_device_map_uid(dm)
+    if platform == "minimax":
+        return minimax_device_map_uid(dm)
+    return extract_user_id(jwt)
+
+
+# ---------------------------------------------------------------------------
+# 账号 CRUD
+# ---------------------------------------------------------------------------
+
+
+async def clear_open_cooldowns_conn(conn: asyncpg.Connection, account_id: int) -> str:
+    """把该账号**未到期**的冷却记录置回 NULL,返回 asyncpg 状态串(如 'UPDATE 2')。
+
+    冷却不单独建表(见 get_active_cooldowns:取 max(cooldown_until) > now()),所以
+    "解冷却"的正解就是清这一列 —— 历史行、ok、credits 一个都不动。
+    立因:SessionDead 落的是 `_PERMANENT_COOLDOWN_DAYS=3650`,而冷却按**账号**算、
+    不看凭证 ⇒ 号池把好票换进来以后,这枚号仍被十年前那次死会话拦在签到窗口外,
+    全仓零解冷却出口,等于永久判死(2026-10-23 dev 实测 cooldown_until=2036-10-20)。
+    """
+    status: str = await conn.execute(
+        """
+        UPDATE checkin_records
+        SET cooldown_until = NULL
+        WHERE account_id = $1 AND cooldown_until > now()
+        """,
+        account_id,
+    )
+    return status
+
+
+def pool_conflict_alias(name: str, identity_key: str) -> str | None:
+    """号池同步账号撞 (owner,name) 唯一约束时的确定性别名。
+
+    取 identity_key 尾 8 位:同一真实账号每次重推得到同一个名字 ⇒ 幂等;
+    取不到身份键时返回 None(调用方按旧语义抛「账号名已存在」)。
+    """
+    tail = identity_key.strip()[-8:]
+    if not tail:
+        return None
+    return f"{name} · {tail}"
+
+
+async def create_account(
+    owner_user_id: str,
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    account_group: str = "",
+    platform: str = "trae",
+) -> dict[str, Any]:
+    """录入账号(jwt 加密落库)。
+
+    去重(2026-10-17 李总报障「名不一样但实际是一个号」):同一真实账号
+    (owner + platform + 身份 uid,见 derive_account_identity)重复录入时
+    **合并刷新既有行** —— 凭证与设备态以本次为准,不建新行;展示名仅在
+    既有名为 UUID 编码形态且本次派生出更好名时才换(尊重用户手动改名)。
+
+    身份派生不出的账号退回旧语义:同名已存在时抛 ValueError(23505 → 409)。
+    """
+    pool = await get_shared_pool()
+    jwt_enc = _encrypt_jwt(jwt)
+    derived = extract_display_name(jwt, device_map)
+    if derived:
+        name = derived
+    elif uuid_shaped_name(name):
+        # 派不出且传入的是 UUID 编码名 ⇒ 留待列表自愈(用户仍可行内改名)
+        logger.info("[checkin_store] 录入名 %s 为 UUID 形态且派不出展示名,保持原名", name)
+    identity_key = derive_account_identity(platform, jwt, device_map) or ""
+    async with pool.acquire() as conn:
+        if identity_key:
+            existing = await conn.fetchrow(
+                """
+                SELECT id, name, device_map, enabled, account_group, platform,
+                       created_at, updated_at
+                FROM checkin_accounts
+                WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
+                """,
+                owner_user_id,
+                platform,
+                identity_key,
+            )
+            if existing is not None:
+                # O64 号池同步账号:pool_cred_version 防降级 —— 本地版本 ≥ 推送版本时
+                # 原地返回不更新(幂等重推;旧凭证永不覆盖新凭证,设计 §3 D1)。
+                # 任一侧无版本号(存量用户账号/手工录入)不走此档,行为零变化。
+                incoming_ver = _pool_cred_version_of(device_map)
+                existing_ver = _pool_cred_version_of(existing["device_map"])
+                if (
+                    incoming_ver is not None
+                    and existing_ver is not None
+                    and incoming_ver <= existing_ver
+                ):
+                    logger.info(
+                        "[checkin_store] pool 同步版本不前进,跳过凭证更新 id=%s platform=%s ver=%s(<=%s)",
+                        existing["id"],
+                        platform,
+                        incoming_ver,
+                        existing_ver,
+                    )
+                    return _account_row(existing)
+                # 同一真实账号 ⇒ 刷新凭证合并,绝不重复建行
+                new_name = existing["name"]
+                if derived and uuid_shaped_name(new_name):
+                    new_name = derived
+                try:
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE checkin_accounts
+                        SET jwt_enc = $3, device_map = $4::jsonb, name = $5, updated_at = now()
+                        WHERE id = $1 AND owner_user_id = $2
+                        RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                                  created_at, updated_at
+                        """,
+                        existing["id"],
+                        owner_user_id,
+                        jwt_enc,
+                        json.dumps(device_map, ensure_ascii=False),
+                        new_name,
+                    )
+                except Exception as e:
+                    # 名字换新撞 (owner_user_id, name) 唯一约束 ⇒ 保旧名重试
+                    if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
+                        raise
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE checkin_accounts
+                        SET jwt_enc = $3, device_map = $4::jsonb, updated_at = now()
+                        WHERE id = $1 AND owner_user_id = $2
+                        RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                                  created_at, updated_at
+                        """,
+                        existing["id"],
+                        owner_user_id,
+                        jwt_enc,
+                        json.dumps(device_map, ensure_ascii=False),
+                    )
+                logger.info(
+                    "[checkin_store] 同账号重复录入,已合并刷新既有行 id=%s platform=%s identity=%s",
+                    existing["id"],
+                    platform,
+                    identity_key,
+                )
+                # 号池换票即解冷却(2026-10-23 立):SessionDead 落的是 3650 天冷却,而冷却按
+                # 账号算、不看凭证 ⇒ 票换好了也永远进不了签到窗口,等于永久判死(dev 实测
+                # cooldown_until=2036-10-20 那枚)。只在这一支清:incoming/existing 两枚版本号
+                # 齐备 = 号池同步账号且版本确实前进;用户手工录入与首次建行都不经此路。
+                # 与号池侧 refreshOne 成功即解除摘除是同一条语义。
+                if incoming_ver is not None and existing_ver is not None:
+                    cleared = await clear_open_cooldowns_conn(conn, existing["id"])
+                    logger.info(
+                        "[checkin_store] 号池换票解除未到期冷却 id=%s ver=%s→%s %s",
+                        existing["id"],
+                        existing_ver,
+                        incoming_ver,
+                        cleared,
+                    )
+                return _account_row(row)
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO checkin_accounts
+                    (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform, identity_key)
+                VALUES ($1, $2, $3, $4::jsonb, true, $5, $6, $7)
+                RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                          created_at, updated_at
+                """,
+                owner_user_id,
+                name,
+                jwt_enc,
+                json.dumps(device_map, ensure_ascii=False),
+                account_group,
+                platform,
+                identity_key,
+            )
+        except Exception as e:
+            # asyncpg 唯一约束冲突 → 23505(名字约束;身份键冲突在上面已合并,走不到这)
+            if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
+                raise
+            # 号池同步账号与既有行(手工录入/旧同步遗留)同名时,用确定性后缀另起一行:
+            # 否则每轮 pool-sync 都被 (owner,name) 唯一约束拒收,该号永远进不了签到表,
+            # 而 api 侧只看到"同步失败"(2026-11-03 实测 attempts=494 的静默连败)。
+            # 后缀取 identity_key 尾 8 位 ⇒ 同一真实账号重推命中同一名字,保持幂等。
+            alias = pool_conflict_alias(name, identity_key) if account_group == "pool" else None
+            if alias is None:
+                raise ValueError(f"账号名已存在: {name}") from e
+            try:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO checkin_accounts
+                        (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform, identity_key)
+                    VALUES ($1, $2, $3, $4::jsonb, true, $5, $6, $7)
+                    RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                              created_at, updated_at
+                    """,
+                    owner_user_id,
+                    alias,
+                    jwt_enc,
+                    json.dumps(device_map, ensure_ascii=False),
+                    account_group,
+                    platform,
+                    identity_key,
+                )
+            except Exception as e2:
+                if getattr(e2, "sqlstate", None) == "23505" or "duplicate key" in str(e2).lower():
+                    raise ValueError(f"账号名已存在: {name}(含别名 {alias})") from e2
+                raise
+            logger.warning(
+                "[checkin_store] 号池同名冲突,改用确定性别名建行 id=%s name=%s alias=%s identity=%s",
+                row["id"],
+                name,
+                alias,
+                identity_key,
+            )
+    return _account_row(row)
+
+
+async def list_accounts(owner_user_id: str) -> list[dict[str, Any]]:
+    """列出 owner 的账号(jwt 明文不出库),附最近一次签到记录摘要。
+
+    SELECT 带 jwt_enc 仅供 _account_row 派生 jwt_exp(Phase1c 列表增强),
+    响应不回吐任何 jwt / jwt_enc 字段。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT a.id, a.owner_user_id, a.name, a.account_group, a.platform, a.jwt_enc, a.device_map, a.enabled,
+                   a.created_at, a.updated_at,
+                   r.ok        AS last_ok,
+                   r.action    AS last_action,
+                   r.message   AS last_message,
+                   r.credits   AS last_credits,
+                   r.created_at AS last_created_at
+            FROM checkin_accounts a
+            LEFT JOIN LATERAL (
+                SELECT ok, action, message, credits, created_at
+                FROM checkin_records
+                WHERE account_id = a.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) r ON true
+            WHERE a.owner_user_id = $1
+            ORDER BY a.id
+            """,
+            owner_user_id,
+        )
+    accounts = [_account_row(r) for r in rows]
+    await _heal_uuid_names(owner_user_id, rows, accounts)
+    return accounts
+
+
+async def _heal_uuid_names(
+    owner_user_id: str, rows: list[Mapping[str, Any]], accounts: list[dict[str, Any]]
+) -> None:
+    """存量自愈(2026-10-16 李总报障「名称还是一对编码」)。
+
+    旧捕获把 UUID 编码存进了 name(手机优先定档 645789cdbed 之前的存量),
+    这些账号不会重新捕获 ⇒ 名字永远不会自己变好。列表加载时对 UUID 形态的
+    name 按 手机>邮箱>账户名>用户名 重取名并落库:
+    - 数据源:账号 jwt 明文(各平台 token 均为标准 JWT,TRAE/Qoder/WorkBuddy 桌面/
+      MiniMax 的 payload claims 可解析)+ device_map.nickname 兜底(网页 Cookie 模式);
+    - 幂等:修好不再命中(UUID 形态才触发,零常驻成本);
+    - 取不到更好名时静默保持原状(不报错、不改写),用户仍可行内重命名。
+
+    2026-10-16 加固:单账号解密失败(跨机密钥不一致遗留的坏密文)必须就地跳过 ——
+    放到列表链路上抛异常会把整个 GET /accounts 打成 500、整页签到功能不可用
+    (实测生产存在此形态密文)。失败只记 warning,不影响其余账号与整表返回。
+    """
+    for row, acc in zip(rows, accounts, strict=True):
+        if not uuid_shaped_name(acc.get("name")):
+            continue
+        try:
+            jwt = _decrypt_jwt(row["jwt_enc"]) if row.get("jwt_enc") else ""
+        except Exception as e:  # noqa: BLE001 — 单账号坏密文不得打挂整表
+            logger.warning(
+                "[checkin_store] 账号 %s 密文不可解,跳过取名自愈(需重录凭证): %s",
+                acc.get("id"),
+                e,
+            )
+            continue
+        better = extract_display_name(jwt, acc.get("device_map") or {})
+        if not better or better == acc["name"]:
+            continue
+        try:
+            if await update_account_name(acc["id"], owner_user_id, better):
+                acc["name"] = better
+                logger.info(
+                    "[checkin_store] 账号名自愈 UUID 编码 -> 展示名 id=%s name=%s",
+                    acc["id"],
+                    better,
+                )
+                continue
+        except Exception as e:  # noqa: BLE001 — 自愈是增强,不得反噬列表读取
+            # 同名冲突(同一手机号在多平台各有一个账号)⇒ 退化带平台后缀,保可区分
+            if getattr(e, "sqlstate", None) == "23505" or "duplicate key" in str(e).lower():
+                alt = f"{better}·{_PLATFORM_LABELS.get(acc.get('platform') or 'trae', 'TRAE')}"
+                try:
+                    if await update_account_name(acc["id"], owner_user_id, alt):
+                        acc["name"] = alt
+                        logger.info(
+                            "[checkin_store] 账号名自愈(同名冲突,带平台后缀) id=%s name=%s",
+                            acc["id"],
+                            alt,
+                        )
+                except Exception as e2:  # noqa: BLE001
+                    logger.warning("[checkin_store] 账号 %s 取名自愈(后缀)失败: %s", acc.get("id"), e2)
+            else:
+                logger.warning("[checkin_store] 账号 %s 取名自愈落库失败: %s", acc.get("id"), e)
+
+
+async def delete_account(account_id: int, owner_user_id: str) -> bool:
+    """删除账号(records / error_counts 级联)。返回是否确实删除了行。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # asyncpg 的 execute() 回的是**状态文本**(如 "DELETE 1"),不是行数对象;
+        # 这里显式钉成 str(守门 35 :269 判 "Returning Any from function declared to
+        # return bool" 的根因:asyncpg 无 py.typed ⇒ conn 是 Any ⇒ tag 是 Any ⇒
+        # `Any == "…"` 整式是 Any,Bool 侧的判定就没人看守了)。声明在赋值位而不是
+        # `bool(...)` 包一层:后者只是把洞盖住,前者交代了这行的真类型。
+        tag: str = await conn.execute(
+            "DELETE FROM checkin_accounts WHERE id = $1 AND owner_user_id = $2",
+            account_id,
+            owner_user_id,
+        )
+    return tag == "DELETE 1"
+
+
+async def set_enabled(account_id: int, owner_user_id: str, enabled: bool) -> bool:
+    """启用/停用账号。返回是否命中行。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守(守门 35 :286)。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET enabled = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            enabled,
+        )
+    return tag == "UPDATE 1"
+
+
+async def get_account_platform(account_id: int, owner_user_id: str) -> str | None:
+    """账号平台(轻量查询:不解密 jwt)。
+
+    2026-10-12 立:PATCH /jwt 的校验按平台分流(Qoder token 是 opaque 非 JWT,
+    不能走 TRAE 的 extract_user_id),而路由只收到 jwt 不带 platform,
+    故先查一次平台再校验。未命中(不存在/非属主)返回 None,路由层 404。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT platform FROM checkin_accounts WHERE id = $1 AND owner_user_id = $2",
+            account_id,
+            owner_user_id,
+        )
+    return row["platform"] if row else None
+
+
+async def list_accounts_by_platform(platform: str) -> list[dict[str, Any]]:
+    """跨 owner 列出某平台的签到账号(本机凭据同步器用;只回 id/owner/device_map)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, owner_user_id, name, device_map
+            FROM checkin_accounts
+            WHERE platform = $1
+            ORDER BY id
+            """,
+            platform,
+        )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        dm = r["device_map"]
+        if isinstance(dm, str):
+            try:
+                dm = json.loads(dm or "{}")
+            except (json.JSONDecodeError, ValueError):
+                dm = {}
+        elif not isinstance(dm, dict):
+            dm = {}
+        out.append(
+            {
+                "id": r["id"],
+                "owner_user_id": r["owner_user_id"],
+                "name": r["name"],
+                "device_map": dict(dm),
+            }
+        )
+    return out
+
+
+async def clear_open_cooldowns(account_id: int) -> int:
+    """清该账号未到期冷却(换票后调用)。返回清除行数;解析不了按 0。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        tag = await conn.execute(
+            """
+            UPDATE checkin_records
+            SET cooldown_until = NULL
+            WHERE account_id = $1 AND cooldown_until > now()
+            """,
+            account_id,
+        )
+    try:
+        return int(str(tag).rsplit(" ", 1)[-1])
+    except (TypeError, ValueError):
+        return 0
+
+
+async def update_jwt(account_id: int, owner_user_id: str, jwt: str) -> bool:
+    """更换账号 jwt(重加密落库)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    jwt_enc = _encrypt_jwt(jwt)
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET jwt_enc = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            jwt_enc,
+        )
+    return tag == "UPDATE 1"
+
+
+async def update_group(account_id: int, owner_user_id: str, group: str) -> bool:
+    """更新账号分组(空串 = 移出分组)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET account_group = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            group,
+        )
+    return tag == "UPDATE 1"
+
+
+async def update_account_name(account_id: int, owner_user_id: str, name: str) -> bool:
+    """更新账号展示名(重命名)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET name = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            name,
+        )
+    return tag == "UPDATE 1"
+
+
+async def get_decrypted_jwt(account_id: int, owner_user_id: str) -> dict[str, Any] | None:
+    """按属主取账号并解密 jwt(内部使用:手动签到 / 调度)。不命中返回 None。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, name, jwt_enc, device_map, enabled, platform
+            FROM checkin_accounts
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+        )
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "jwt": _decrypt_jwt(row["jwt_enc"]),
+        "platform": row["platform"],
+        "device_map": json.loads(row["device_map"] or "{}") if isinstance(row["device_map"], str) else dict(row["device_map"] or {}),
+        "enabled": row["enabled"],
+    }
+
+
+def _accounts_from_rows(rows: Any, *, with_owner: bool = False) -> list[dict[str, Any]]:
+    """行 → 账号字典;解不开的只摘它自己那一格并点名。
+
+    立因(2026-10-29 实测):签到侧 Fernet 主密钥文件被误删后,17 行里 16 行解不开,
+    而两处取数都是"逐行解密、任一行抛 ⇒ 整轮 0 执行",主窗口/Qoder 窗口/积分快照
+    全部静默不跑。坏密文该让那一枚账号缺席并喊人,不该把别人的签一起打死。
+    """
+    out: list[dict[str, Any]] = []
+    bad: list[str] = []
+    for r in rows:
+        try:
+            jwt = _decrypt_jwt(r["jwt_enc"])
+        except ValueError:
+            bad.append(f"{r['platform']}#{r['id']}({r['name']})")
+            continue
+        item: dict[str, Any] = {
+            "id": r["id"],
+            "name": r["name"],
+            "jwt": jwt,
+            "platform": r["platform"],
+            "device_map": json.loads(r["device_map"] or "{}")
+            if isinstance(r["device_map"], str)
+            else dict(r["device_map"] or {}),
+        }
+        if with_owner:
+            item["owner_user_id"] = r["owner_user_id"]
+        out.append(item)
+    if bad:
+        logger.warning(
+            "[checkin_store] %s 行凭据解不开(密钥不匹配或损坏 ⇒ 需重录或由号池重推),"
+            "本轮跳过这些账号,其余照常执行: %s",
+            len(bad),
+            ", ".join(bad[:30]),
+        )
+    return out
+
+
+async def list_enabled_accounts() -> list[dict[str, Any]]:
+    """调度器用:凭据可解的 enabled 账号(已解密 jwt)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, name, jwt_enc, device_map, platform
+            FROM checkin_accounts
+            WHERE enabled = true
+            ORDER BY id
+            """
+        )
+    return _accounts_from_rows(rows)
+
+
+# 号池↔签到同步的**身份/版本锚点**键(2026-11-01 立)。
+# 这六个键由号池推送写入(D2/D4),是「这一行属于号池哪一行、凭证到第几版、启用态如何」
+# 的唯一凭据;丢了它,对账收敛器认不回该账号(判号池行缺失→另建一行,历史记录留在旧行),
+# CAS 防降级同时失效。故 save_device_map 的整体替换语义必须给它们开一条保护通道。
+_POOL_ANCHOR_KEYS: Final = (
+    "pool_account_id",
+    "pool_uid",
+    "pool_cred_version",
+    "pool_enabled",
+    "pool_name",
+    "pool_synced_at",
+)
+
+
+def anchor_preserving_patch(
+    existing: Any, incoming: dict[str, Any]
+) -> dict[str, Any]:
+    """整体替换前要并回的号池锚点键(纯函数,单测锁行为)。
+
+    仅在「库里这行已有 pool_account_id,而传入的 dm 没有」时生效 —— 其余情况一律
+    返回空 dict,让原有整行替换语义(含删键,如 PATCH /device_map 顶掉旧 web_cookie、
+    writeback 清 pool_pending_cred)一字不变。
+
+    立因(2026-11-01 实测事故):一条 pytest 用例漏打桩,拿假行 `id=7` 走真实
+    save_device_map,把 qoder 号池账号的 device_map 整体换成 WorkBuddy 测试数据,
+    pool_account_id / pool_uid / pool_cred_version 全丢且全程无日志。锚点是同步的
+    根,不允许被"某个不完整的 dm"顺手抹掉。
+    """
+    if isinstance(existing, str):
+        try:
+            existing = json.loads(existing or "{}")
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    if not isinstance(existing, dict):
+        return {}
+    if "pool_account_id" not in existing:
+        return {}
+    if "pool_account_id" in incoming:
+        return {}
+    return {k: existing[k] for k in _POOL_ANCHOR_KEYS if k in existing}
+
+
+async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
+    """引擎对 device_map 原位补齐缺失设备标识后,由调用方写回。
+
+    **号池锚点保护(2026-11-01 立)**:本函数是整行替换语义(见 PATCH 契约),但
+    pool_* 是号池↔签到同步的唯一锚点。目标行已有锚点而传入 dm 没有时,把旧锚点键
+    并回(其余键仍按整行替换,删键语义不变),并打一条 warning 留痕 —— 事故当时
+    最大的问题是"抹了也没人知道"。
+
+    真要解绑请走既有语义:`apply_pool_state(..., 'pool_deleted')` 保留锚点只置
+    enabled=false;彻底解绑 = 删账号行。没有任何合法路径需要"留下行、抹掉锚点"。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchval(
+            "SELECT device_map FROM checkin_accounts WHERE id = $1", account_id
+        )
+        patch = anchor_preserving_patch(existing, device_map)
+        payload = {**device_map, **patch} if patch else device_map
+        await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET device_map = $2::jsonb, updated_at = now()
+            WHERE id = $1
+            """,
+            account_id,
+            json.dumps(payload, ensure_ascii=False),
+        )
+    if patch:
+        logger.warning(
+            "[checkin_store] device_map 写入试图抹掉号池锚点,已回填 id=%s 键=%s"
+            "(传入 dm 不含 pool_account_id;对账锚点不允许被顺手删掉)",
+            account_id,
+            ",".join(sorted(patch)),
+        )
+
+
+# ---------------------------------------------------------------------------
+# O64 号池↔签到同步(系统 owner 面;internal 端点与对账收敛器消费)
+# ---------------------------------------------------------------------------
+
+
+def _classified_error_type(raw: Any) -> str | None:
+    """从 checkin_records.classified_error(text/jsonb 双形态)取 type。
+
+    只回类型名(Unknown / SessionDead / BusinessError ...),不回原文 —— 分类器
+    据此区分「网络可重试」与「凭证被拒必须人工」。取不到一律 None,不冒判。
+    """
+    data = raw
+    if isinstance(data, str):
+        try:
+            data = json.loads(data or "null")
+        except (json.JSONDecodeError, ValueError):
+            return None
+    if isinstance(data, dict):
+        value = data.get("type")
+        return value if isinstance(value, str) and value else None
+    return None
+
+
+def _last_record_from_row(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """最近一条签到记录的脱敏投影(无记录回 None)。
+
+    message 截 200 字;classifiedErrorType 只给类型名;code/httpStatus 供分类器
+    区分 9095(幂等已签)与 1001(认证拒绝)。凭据/header 一律不进这里。
+    """
+    created = row["last_created_at"]
+    if created is None:
+        return None
+    message = row["last_message"]
+    return {
+        "ok": row["last_ok"],
+        "action": row["last_action"],
+        "credits": row["last_credits"],
+        "creditsDelta": row["last_credits_delta"],
+        "message": message[:200] if isinstance(message, str) else None,
+        "code": row["last_code"],
+        "httpStatus": row["last_http_status"],
+        "classifiedErrorType": _classified_error_type(row["last_classified_error"]),
+        "createdAt": created.isoformat() if hasattr(created, "isoformat") else None,
+    }
+
+
+async def list_pool_accounts() -> list[dict[str, Any]]:
+    """号池同步账号全量(跨 owner;对账收敛器用)。
+
+    只回对账判据需要的字段:poolAccountId / poolCredVersion / platform /
+    identityKey / enabled / ownerUserId / name / poolPendingCred / lastRecord;
+    jwt 明文不出库。
+    范围 = 所有 device_map 带 pool_account_id 的账号:运营池账号(system:relay-pool)
+    与用户个人池账号(owner_user_id = 平台用户 id)一并对账 —— 匹配一律走
+    poolAccountId,不同 owner 持有同一上游 uid 也不会串号。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT a.id, a.name, a.platform, a.identity_key, a.enabled,
+                   a.owner_user_id, a.device_map,
+                   r.ok AS last_ok, r.action AS last_action, r.credits AS last_credits,
+                   r.credits_delta AS last_credits_delta, r.message AS last_message,
+                   r.code AS last_code, r.http_status AS last_http_status,
+                   r.classified_error AS last_classified_error,
+                   r.created_at AS last_created_at
+            FROM checkin_accounts a
+            LEFT JOIN LATERAL (
+                SELECT ok, action, credits, credits_delta, message, code,
+                       http_status, classified_error, created_at
+                FROM checkin_records
+                WHERE account_id = a.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) r ON true
+            WHERE a.device_map ? 'pool_account_id'
+            ORDER BY a.id
+            """,
+        )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        dm = r["device_map"]
+        if isinstance(dm, str):
+            try:
+                dm = json.loads(dm or "{}")
+            except (json.JSONDecodeError, ValueError):
+                dm = {}
+        elif not isinstance(dm, dict):
+            dm = {}
+        pending = dm.get("pool_pending_cred")
+        out.append(
+            {
+                "accountId": r["id"],
+                "name": r["name"],
+                "platform": r["platform"],
+                "identityKey": r["identity_key"],
+                "enabled": r["enabled"],
+                "ownerUserId": r["owner_user_id"],
+                "poolAccountId": dm.get("pool_account_id"),
+                "poolCredVersion": _pool_cred_version_of(dm),
+                "poolPendingCred": (
+                    {
+                        "attempts": pending.get("attempts")
+                        if isinstance(pending.get("attempts"), int)
+                        else 0,
+                        "at": pending.get("at") if isinstance(pending.get("at"), str) else None,
+                    }
+                    if isinstance(pending, dict)
+                    else None
+                ),
+                # 最近一次签到结论(含失败 message/分类),供 API 判 claim_failed;
+                # 无记录为 None,不拿空对象冒充「签到过」。
+                "lastRecord": _last_record_from_row(r),
+            }
+        )
+    return out
+
+
+async def load_device_map(account_id: int) -> dict[str, Any] | None:
+    """按 id 读号池同步账号的 device_map 全文(flush 端点回写号池用)。
+
+    范围 = device_map 带 pool_account_id 的账号(运营池 + 用户个人池);
+    普通用户手工账号(未同步进号池)寻址不到;不存在回 None。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT device_map FROM checkin_accounts
+            WHERE id = $1 AND device_map ? 'pool_account_id'
+            """,
+            account_id,
+        )
+    if row is None:
+        return None
+    dm = row["device_map"]
+    if isinstance(dm, str):
+        try:
+            dm = json.loads(dm or "{}")
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    if not isinstance(dm, dict):
+        return {}
+    return dict(dm)
+
+
+async def _find_pool_account(
+    conn: Any,
+    *,
+    platform: str,
+    uid: str,
+    pool_account_id: str | None,
+    owner_user_id: str | None,
+) -> Any | None:
+    """号池↔签到寻址单源:poolAccountId 优先(跨 owner 稳定),否则 (owner, platform, uid)。
+
+    用户个人池里不同 owner 可能持有同一上游 uid,只按 uid 会串号 —— 号池侧
+    push/state/status/run 全部携带 poolAccountId,uid 路径只作老调用兜底。
+    """
+    if pool_account_id:
+        return await conn.fetchrow(
+            """
+            SELECT id, name, enabled, platform, identity_key, owner_user_id, device_map
+            FROM checkin_accounts
+            WHERE device_map->>'pool_account_id' = $1
+            LIMIT 1
+            """,
+            pool_account_id,
+        )
+    return await conn.fetchrow(
+        """
+        SELECT id, name, enabled, platform, identity_key, owner_user_id, device_map
+        FROM checkin_accounts
+        WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
+        LIMIT 1
+        """,
+        owner_user_id or POOL_SYNC_OWNER,
+        platform,
+        uid,
+    )
+
+
+async def owner_of_account(account_id: int) -> str:
+    """读签到账号的 owner(内部端点执行签到/回写时用)。不存在抛 LookupError。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        owner = await conn.fetchval(
+            "SELECT owner_user_id FROM checkin_accounts WHERE id = $1",
+            account_id,
+        )
+    if not isinstance(owner, str) or not owner:
+        raise LookupError(f"签到账号不存在: {account_id}")
+    return owner
+
+
+async def pool_account_id_of(
+    platform: str,
+    uid: str,
+    *,
+    pool_account_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> int | None:
+    """定位号池同步账号的签到侧 id(pool-run 点名用);不存在回 None(调用方映射 404)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await _find_pool_account(
+            conn,
+            platform=platform,
+            uid=uid,
+            pool_account_id=pool_account_id,
+            owner_user_id=owner_user_id,
+        )
+    return row["id"] if row is not None and isinstance(row["id"], int) else None
+
+
+async def apply_pool_state(
+    platform: str,
+    uid: str,
+    state: str,
+    *,
+    pool_account_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> dict[str, Any]:
+    """号池状态联动(enabled / disabled / pool_deleted),返回 {found, accountId}。
+
+    - enabled/disabled: 置 checkin_accounts.enabled(调度器即恢复/跳过);
+    - pool_deleted: enabled=false + device_map.pool_deleted_at(**保留签到历史,
+      不物理删** —— 记录是运营追溯凭据,删了就对不上账);
+    账号不存在(号池删了而签到侧从未同步过)= found:False,调用方如实记账。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await _find_pool_account(
+            conn,
+            platform=platform,
+            uid=uid,
+            pool_account_id=pool_account_id,
+            owner_user_id=owner_user_id,
+        )
+        if row is None:
+            return {"found": False, "accountId": None}
+        if state == "pool_deleted":
+            dm = row["device_map"]
+            if isinstance(dm, str):
+                try:
+                    dm = json.loads(dm or "{}")
+                except (json.JSONDecodeError, ValueError):
+                    dm = {}
+            elif not isinstance(dm, dict):
+                dm = {}
+            dm["pool_deleted_at"] = datetime.now(UTC).isoformat()
+            await conn.execute(
+                """
+                UPDATE checkin_accounts
+                SET enabled = false, device_map = $2::jsonb, updated_at = now()
+                WHERE id = $1
+                """,
+                row["id"],
+                json.dumps(dm, ensure_ascii=False),
+            )
+        else:
+            await conn.execute(
+                """
+                UPDATE checkin_accounts
+                SET enabled = $2, updated_at = now()
+                WHERE id = $1
+                """,
+                row["id"],
+                state == "enabled",
+            )
+    return {"found": True, "accountId": row["id"]}
+
+
+async def pool_status(
+    platform: str,
+    uid: str,
+    *,
+    pool_account_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> dict[str, Any]:
+    """单账号签到状态(admin/个人池点查):账号 + 最近记录 + 活跃冷却 + 同步态。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        target = await _find_pool_account(
+            conn,
+            platform=platform,
+            uid=uid,
+            pool_account_id=pool_account_id,
+            owner_user_id=owner_user_id,
+        )
+        if target is None:
+            return {"found": False}
+        row = await conn.fetchrow(
+            """
+            SELECT a.id, a.name, a.enabled, a.device_map,
+                   r.ok AS last_ok, r.action AS last_action, r.credits AS last_credits,
+                   r.credits_delta AS last_credits_delta, r.message AS last_message,
+                   r.code AS last_code, r.http_status AS last_http_status,
+                   r.classified_error AS last_classified_error,
+                   r.created_at AS last_created_at
+            FROM checkin_accounts a
+            LEFT JOIN LATERAL (
+                SELECT ok, action, credits, credits_delta, message, code,
+                       http_status, classified_error, created_at
+                FROM checkin_records
+                WHERE account_id = a.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) r ON true
+            WHERE a.id = $1
+            """,
+            target["id"],
+        )
+        if row is None:
+            return {"found": False}
+        cooldown = await conn.fetchval(
+            """
+            SELECT cooldown_until FROM checkin_records
+            WHERE account_id = $1 AND cooldown_until IS NOT NULL AND cooldown_until > now()
+            ORDER BY cooldown_until DESC
+            LIMIT 1
+            """,
+            row["id"],
+        )
+    dm = row["device_map"]
+    if isinstance(dm, str):
+        try:
+            dm = json.loads(dm or "{}")
+        except (json.JSONDecodeError, ValueError):
+            dm = {}
+    elif not isinstance(dm, dict):
+        dm = {}
+    return {
+        "found": True,
+        "accountId": row["id"],
+        "name": row["name"],
+        "enabled": row["enabled"],
+        "poolAccountId": dm.get("pool_account_id"),
+        "poolCredVersion": _pool_cred_version_of(dm),
+        "poolSyncedAt": dm.get("pool_synced_at"),
+        "poolDeletedAt": dm.get("pool_deleted_at"),
+        "pendingCred": "pool_pending_cred" in dm,
+        "cooldownUntil": cooldown.isoformat() if cooldown is not None else None,
+        "lastRecord": _last_record_from_row(row),
+    }
+
+
+def _account_jwt_exp(
+    jwt_enc: bytes,
+    platform: str = "trae",
+    device_map: Any = None,
+) -> str | None:
+    """解密账号 jwt 并解析 exp → ISO8601;解密/解析失败一律 None(单账号异常不炸整表)。
+
+    qoder 平台(2026-10-12 分流):token 是 opaque 非 JWT(真机实证),
+    get_jwt_exp 对其恒 (None, None) ⇒ 改从 device_map 的会话 expiresAt 派生
+    (桌面端 capture 落库的 ISO/epoch 双形态,qoder_session_expiry 已兼容)。
+    """
+    if platform == "qoder":
+        dm = device_map if isinstance(device_map, dict) else {}
+        exp_dt, _remaining = qoder_session_expiry(dm)
+        return exp_dt.isoformat() if exp_dt is not None else None
+    if platform == "minimax":
+        # MiniMax:token opaque,exp 自 device_map.expires_at(auth.json 的 epoch 秒)
+        dm = device_map if isinstance(device_map, dict) else {}
+        try:
+            exp = float(dm.get("expires_at") or 0)
+        except (TypeError, ValueError):
+            exp = 0.0
+        if exp > 1e12:
+            exp = exp / 1000.0
+        if exp <= 0:
+            return None
+        # 与 qoder_session_expiry 同口径:本地时区 naive(列表展示用)
+        return datetime.fromtimestamp(exp).isoformat()
+    try:
+        jwt = _decrypt_jwt(jwt_enc)
+    except ValueError:
+        return None
+    exp_dt, _remaining = _get_jwt_exp(jwt)
+    return exp_dt.isoformat() if exp_dt is not None else None
+
+
+def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    """账号行 → 脱敏 dict(绝不含 jwt / jwt_enc 字段;行上带 jwt_enc 时派生 jwt_exp)。"""
+    device_map = row["device_map"]
+    if isinstance(device_map, str):
+        device_map = json.loads(device_map or "{}")
+    else:
+        device_map = dict(device_map or {})
+    out: dict[str, Any] = {
+        "id": row["id"],
+        "name": row["name"],
+        "group": row.get("account_group", ""),
+        "platform": row.get("platform", "trae"),
+        "device_map": device_map,
+        "enabled": row["enabled"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+    }
+    if "jwt_enc" in row:
+        out["jwt_exp"] = _account_jwt_exp(row["jwt_enc"], out["platform"], out["device_map"])
+    if "last_created_at" in row:
+        out["last_record"] = (
+            {
+                "ok": row["last_ok"],
+                "action": row["last_action"],
+                "message": row["last_message"],
+                "credits": row["last_credits"],
+                "created_at": row["last_created_at"].isoformat()
+                if row["last_created_at"]
+                else None,
+            }
+            if row["last_created_at"] is not None
+            else None
+        )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 签到记录
+# ---------------------------------------------------------------------------
+
+
+async def insert_record(
+    account_id: int,
+    *,
+    ok: bool | None,
+    action: str | None,
+    http_status: int | None,
+    code: str | None,
+    message: str | None,
+    classified_error: str | None,
+    cooldown_until: datetime | None,
+    credits: int | None,
+    credits_delta: int | None,
+) -> dict[str, Any]:
+    """写一条签到记录(引擎结构化 dict 的落库投影),返回含 id/created_at 的记录。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO checkin_records
+                (account_id, ok, action, http_status, code, message,
+                 classified_error, cooldown_until, credits, credits_delta)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING id, account_id, ok, action, http_status, code, message,
+                      classified_error, cooldown_until, credits, credits_delta, created_at
+            """,
+            account_id,
+            ok,
+            action,
+            http_status,
+            code,
+            message,
+            classified_error,
+            cooldown_until,
+            credits,
+            credits_delta,
+        )
+    return _record_row(row)
+
+
+async def list_records(
+    owner_user_id: str, account_id: int | None = None, limit: int = 50
+) -> list[dict[str, Any]]:
+    """签到记录倒序分页(经 accounts join 限定属主)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        if account_id is not None:
+            rows = await conn.fetch(
+                """
+                SELECT r.* FROM checkin_records r
+                JOIN checkin_accounts a ON a.id = r.account_id
+                WHERE a.owner_user_id = $1 AND r.account_id = $2
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT $3
+                """,
+                owner_user_id,
+                account_id,
+                limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT r.* FROM checkin_records r
+                JOIN checkin_accounts a ON a.id = r.account_id
+                WHERE a.owner_user_id = $1
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT $2
+                """,
+                owner_user_id,
+                limit,
+            )
+    return [_record_row(r) for r in rows]
+
+
+async def list_records_since(since: datetime) -> list[dict[str, Any]]:
+    """按时间下界取**跨属主**全量签到记录(只读;Qoder 补跑轮判「今日是否已有结果」用)。
+
+    与 list_records 的三点差异(刻意,不是重复实现):
+    - 跨 owner + 不分页:调度轮要一次判完全部 enabled 账号,不需要属主面;
+    - 只要判定所需四列(id / account_id / ok / created_at),不把 message 等
+      业务字段拖出来;
+    - created_at 回 **datetime 原值**(不是 isoformat 串)—— 日界换算
+      (Asia/Shanghai 自然日)留在调用方的纯函数里,可脱离 DB 单测;此处只做
+      时间下界过滤,不猜时区、不改写时刻。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, account_id, ok, created_at
+            FROM checkin_records
+            WHERE created_at >= $1
+            ORDER BY created_at DESC, id DESC
+            """,
+            since,
+        )
+    return [
+        {
+            "id": r["id"],
+            "account_id": r["account_id"],
+            "ok": r["ok"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+
+
+async def credits_history(
+    owner_user_id: str, account_id: int | None = None, limit: int = 200
+) -> list[dict[str, Any]]:
+    """积分流水(从 records 聚合 credits_delta 非空的行,倒序)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        if account_id is not None:
+            rows = await conn.fetch(
+                """
+                SELECT r.id, r.account_id, r.ok, r.action, r.credits,
+                       r.credits_delta, r.created_at
+                FROM checkin_records r
+                JOIN checkin_accounts a ON a.id = r.account_id
+                WHERE a.owner_user_id = $1 AND r.account_id = $2
+                  AND r.credits_delta IS NOT NULL
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT $3
+                """,
+                owner_user_id,
+                account_id,
+                limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT r.id, r.account_id, r.ok, r.action, r.credits,
+                       r.credits_delta, r.created_at
+                FROM checkin_records r
+                JOIN checkin_accounts a ON a.id = r.account_id
+                WHERE a.owner_user_id = $1 AND r.credits_delta IS NOT NULL
+                ORDER BY r.created_at DESC, r.id DESC
+                LIMIT $2
+                """,
+                owner_user_id,
+                limit,
+            )
+    return [
+        {
+            "id": r["id"],
+            "account_id": r["account_id"],
+            "ok": r["ok"],
+            "action": r["action"],
+            "credits": r["credits"],
+            "credits_delta": r["credits_delta"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in rows
+    ]
+
+
+def _record_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    cd = row["cooldown_until"]
+    return {
+        "id": row["id"],
+        "account_id": row["account_id"],
+        "ok": row["ok"],
+        "action": row["action"],
+        "http_status": row["http_status"],
+        "code": row["code"],
+        "message": row["message"],
+        "classified_error": row["classified_error"],
+        "cooldown_until": cd.isoformat() if cd else None,
+        "credits": row["credits"],
+        "credits_delta": row["credits_delta"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 冷却计数(与桌面端一致:Server / Client 两类独立累积)
+# ---------------------------------------------------------------------------
+
+
+async def get_error_counts(account_id: int) -> tuple[int, int]:
+    """返回 (server_errors, client_errors),无行视为 (0, 0)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT server_errors, client_errors FROM checkin_error_counts WHERE account_id = $1",
+            account_id,
+        )
+    if row is None:
+        return 0, 0
+    return row["server_errors"], row["client_errors"]
+
+
+async def bump_error_count(account_id: int, column: str) -> int:
+    """冷却计数 +1(upsert),返回累加后的新计数。column 只允许 server_errors / client_errors。"""
+    if column not in ("server_errors", "client_errors"):
+        raise ValueError(f"非法计数列: {column}")
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"""
+            INSERT INTO checkin_error_counts (account_id, {column})
+            VALUES ($1, 1)
+            ON CONFLICT (account_id)
+            DO UPDATE SET {column} = checkin_error_counts.{column} + 1
+            RETURNING {column}
+            """,
+            account_id,
+        )
+    # 钉成 int 再回(守门 35 :567 "Returning Any from function declared to return int"):
+    # server_errors / client_errors 两列在 _CREATE_ERROR_COUNTS_SQL 里都是 `int NOT NULL`,
+    # RETURNING 取的就是它自己 ⇒ 真类型是 int;而 asyncpg 无 py.typed ⇒ row 是 Any,
+    # 原样 return 等于把 Any 递给声明了 -> int 的调用方(计数进冷却判定,不是装饰)。
+    count: int = row[column]
+    return count
+
+
+async def reset_error_count(account_id: int, column: str) -> None:
+    """指定列计数清零(触发冷却时调用,与桌面端语义一致)。"""
+    if column not in ("server_errors", "client_errors"):
+        raise ValueError(f"非法计数列: {column}")
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            f"UPDATE checkin_error_counts SET {column} = 0 WHERE account_id = $1",
+            account_id,
+        )
+
+
+async def reset_all_error_counts(account_id: int) -> None:
+    """签到成功 → 两类计数全部清零。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO checkin_error_counts (account_id, server_errors, client_errors)
+            VALUES ($1, 0, 0)
+            ON CONFLICT (account_id)
+            DO UPDATE SET server_errors = 0, client_errors = 0
+            """,
+            account_id,
+        )
+
+
+async def get_active_cooldowns() -> dict[int, datetime]:
+    """当前处于冷却期的账号 → 冷却结束时间(取该账号最近一次记录里的 cooldown_until)。
+
+    冷却状态不单独建表:cooldown_until 已落在 checkin_records 上,
+    取 max(cooldown_until) > now() 的账号即为冷却中。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT account_id, max(cooldown_until) AS cooldown_until
+            FROM checkin_records
+            WHERE cooldown_until IS NOT NULL AND cooldown_until > $1
+            GROUP BY account_id
+            """,
+            datetime.now(UTC),
+        )
+    return {r["account_id"]: r["cooldown_until"] for r in rows}
+
+
+async def latest_outbound_pause_signal() -> tuple[str, datetime] | None:
+    """最近一条 SoftRate/Challenge 记录 → (type, created_at);无则 None。
+
+    出站全局暂停是**进程级易失状态**:服务重启即丢,而平台的限流/挑战
+    窗口(60s/300s)可能仍在有效期——重启后若不补暂停,定时批或手动入口
+    会立刻顶风打(第五件套配套,2026-10-16)。调度器 start() 调本函数
+    决定是否按原时长补一次暂停。只读最近一条,查询失败由调用方 fail-open。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT classified_error, created_at
+            FROM checkin_records
+            WHERE classified_error LIKE '%"SoftRate"%'
+               OR classified_error LIKE '%"Challenge"%'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        )
+    if row is None or row["created_at"] is None:
+        return None
+    raw = row["classified_error"] or ""
+    etype = "Challenge" if '"Challenge"' in raw else "SoftRate"
+    return etype, row["created_at"]
+
+
+# ---------------------------------------------------------------------------
+# 积分每日快照(WP-B 后端半,2026-10-09)
+# ---------------------------------------------------------------------------
+
+
+async def upsert_credits_daily(
+    account_id: int, owner_user_id: str, day: str | date, remaining: int | None, gained: int
+) -> None:
+    """写入/更新某账号某日的积分快照;remaining 为 None 时不覆盖旧值。"""
+    day = _coerce_day(day)
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO checkin_credits_daily (account_id, owner_user_id, day, remaining, gained)
+            VALUES ($1, $2, $3::date, $4, $5)
+            ON CONFLICT (account_id, day) DO UPDATE SET
+                remaining = COALESCE(EXCLUDED.remaining, checkin_credits_daily.remaining),
+                gained = EXCLUDED.gained,
+                updated_at = now()
+            """,
+            account_id,
+            owner_user_id,
+            day,
+            remaining,
+            gained,
+        )
+
+
+async def get_credits_daily_range(owner_user_id: str, days: int) -> list[dict[str, Any]]:
+    """最近 days 天(Asia/Shanghai 日界)按日聚合:Σremaining(快照表)+ Σgained(credits_delta)。
+
+    返回按日升序的稀疏行(仅含有数据的日子):[{day, total, gained}]。
+    total / gained 可各自为 None(该日只有另一侧数据),窗口补齐与断线由路由层处理。
+    """
+    start_day = datetime.now(ZoneInfo("Asia/Shanghai")).date() - timedelta(days=days - 1)
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            WITH rem AS (
+                SELECT day, SUM(remaining) AS total
+                FROM checkin_credits_daily
+                WHERE owner_user_id = $1 AND day >= $2
+                GROUP BY day
+            ),
+            gn AS (
+                SELECT (r.created_at AT TIME ZONE 'Asia/Shanghai')::date AS day,
+                       SUM(r.credits_delta) AS gained
+                FROM checkin_records r
+                JOIN checkin_accounts a ON a.id = r.account_id
+                WHERE a.owner_user_id = $1
+                  AND r.credits_delta IS NOT NULL
+                  AND (r.created_at AT TIME ZONE 'Asia/Shanghai')::date >= $2
+                GROUP BY 1
+            )
+            SELECT to_char(d.day, 'YYYY-MM-DD') AS day, rem.total, gn.gained
+            FROM (SELECT day FROM rem UNION SELECT day FROM gn) AS d
+            LEFT JOIN rem ON rem.day = d.day
+            LEFT JOIN gn ON gn.day = d.day
+            ORDER BY d.day
+            """,
+            owner_user_id,
+            start_day,
+        )
+    return [{"day": r["day"], "total": r["total"], "gained": r["gained"]} for r in rows]
+
+
+def _coerce_day(day: str | date) -> date:
+    """把日参数收口成 datetime.date(2026-10-17 线上 500 的根因修)。
+
+    asyncpg 的 date 参数走**客户端编码**(date_codec 内部调 `.toordinal()`),
+    只吃 `datetime.date` 对象;调用方把 `date().isoformat()` 产出的 str 传进来,
+    服务端 `$3::date` 这个 cast 救不了客户端 ⇒ 必抛 `DataError: str object has
+    no attribute 'toordinal'`。2026-10-17 实测:`POST /api/checkin/accounts/{id}/
+    query_credits` 连炸 4 次 500、08:10 积分快照 job 整轮 0 成功。
+    入口统一收口,调用方传 str 或 date 都不炸;纯函数无 IO,可直接单测。
+    """
+    return date.fromisoformat(day) if isinstance(day, str) else day
+
+
+async def sum_credits_delta_for_day(account_id: int, owner_user_id: str, day: str | date) -> int:
+    """某账号某日(Asia/Shanghai 日界)的 credits_delta 合计(query_credits 落快照时用)。"""
+    day = _coerce_day(day)
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT COALESCE(SUM(r.credits_delta), 0) AS gained
+            FROM checkin_records r
+            JOIN checkin_accounts a ON a.id = r.account_id
+            WHERE r.account_id = $1
+              AND a.owner_user_id = $2
+              AND r.credits_delta IS NOT NULL
+              AND (r.created_at AT TIME ZONE 'Asia/Shanghai')::date = $3::date
+            """,
+            account_id,
+            owner_user_id,
+            day,
+        )
+    # 钉真类型再回(同 bump_error_count 的守门理由):SUM/COALESCE 产出确为 int。
+    gained: int = row["gained"]
+    return gained
+
+
+async def list_enabled_accounts_full() -> list[dict[str, Any]]:
+    """积分快照调度用:凭据可解的 enabled 账号(含 owner_user_id,已解密 jwt)。
+
+    与 list_enabled_accounts 的差异仅是多回 owner_user_id —— 快照落表需要
+    属主列;不改动既有方法,避免影响每日签到 job 的既有调用面。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, owner_user_id, name, jwt_enc, device_map, platform
+            FROM checkin_accounts
+            WHERE enabled = true
+            ORDER BY id
+            """
+        )
+    return _accounts_from_rows(rows, with_owner=True)
+# ⁠[IHUI-AI-PROVENANCE-TAIL]
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

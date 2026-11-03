@@ -1,0 +1,472 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+
+import { formatFileSize } from '@ihui/shared/utils/format'
+import { fetchApi } from '@/lib/api'
+
+/** 引用类型(2026-07-29 从 message-input.tsx 迁移至此) */
+export type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
+
+/** 单条引用项(2026-07-29 从 message-input.tsx 迁移至此) */
+export interface ReferenceItem {
+  id: string
+  type: ReferenceType
+  label: string
+  preview?: string
+  /** 图片/视频缩略图 URL(objectURL),用于在引用面板中显示视觉缩略图 */
+  thumbnail?: string
+  /** 原始文件大小(字节),用于在 label 中显示尺寸信息 */
+  size?: number
+  /** 自定义图标(覆盖 type 默认图标) */
+  icon?: React.ComponentType<{ className?: string }>
+  /** 自定义图标颜色 class */
+  iconColor?: string
+  /** 服务端文件 id(矩阵 A #19:/api/files/upload/form 上传成功后回写) */
+  fileId?: string
+  /** 服务端公开 URL(矩阵 A #19:响应 data.file.path,发送时替代仅本会话有效的 blob: objectURL) */
+  serverUrl?: string
+  /** 上传状态(矩阵 A #19):uploading 进行中 / ready 成功 / error 失败 / terminal 超配额终态 */
+  uploadState?: 'uploading' | 'ready' | 'error' | 'terminal'
+  /** b75-5#1:单附件重试次数(配额 5,超过置 terminal) */
+  retryCount?: number
+}
+
+const MAX_LABEL_LENGTH = 30
+
+/**
+ * 可上传扩展名集合(矩阵 A #19)。
+ * 与 apps/api/src/utils/file-type-validator.ts 的 EXT_MIME_MAP 白名单对齐:
+ * 图片/视频之外放开文档与纯文本类型,其余扩展名仍静默忽略。
+ * 服务端以 EXT_MIME_MAP + magic number 为准,此处仅做前端预筛。
+ */
+const UPLOADABLE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'txt',
+  'csv',
+  'md',
+  'json',
+  'zip',
+  'odt',
+  'rtf',
+  'epub',
+  'mp4',
+  'webm',
+  'mov',
+])
+
+/** 上传端点(与 AttachmentsUpload 默认端点一致) */
+const UPLOAD_ENDPOINT = '/api/files/upload/form'
+
+/* ── G-833 聊天附件三档上限唯一声明处(选/拖/贴三入口一律由此取值,禁止他处再写数字) ──
+ * 落点说明:任务书要求优先复用 packages/shared/src/constants/,但该面现无聊天附件档,
+ * 且本票文件清单不含 packages/ —— 故单点声明在本 hook 顶部(聊天附件链的入口),
+ * 由 use-message-send.ts / message-input.tsx import 取用,不产生第二份。 */
+/** 单文件大小上限:50MB —— 与 workspace/upload-zone.tsx DEFAULT_MAX_SIZE、
+ *  apps/api/src/plugins/ws-ai.ts 音频 50MB 同口径 */
+export const CHAT_ATTACHMENT_MAX_SIZE_BYTES = 50 * 1024 * 1024
+/** 单条消息附件数量上限:30 —— G-833 票验收口径("31 个附件 ⇒ 收到前 30 个并回报被拒 1 个") */
+export const CHAT_ATTACHMENT_MAX_FILES = 30
+/** 媒体类扩展名(accept 侧由 image 与 video 的 MIME 通配前缀覆盖,不再逐列) */
+const MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov'])
+/** DOM input accept 派生值 —— 与 UPLOADABLE_EXTENSIONS 单一白名单同源
+ *  (message-input.tsx 原写死串已改为引用本派生值,两处漂移即由它消除) */
+export const CHAT_ATTACHMENT_ACCEPT = [
+  'image/*',
+  'video/*',
+  ...Array.from(UPLOADABLE_EXTENSIONS)
+    .filter((ext) => !MEDIA_EXTENSIONS.has(ext))
+    .map((ext) => `.${ext}`),
+].join(',')
+
+/**
+ * G-833:附件三档拒绝码 —— 对齐上游 prompt-input.tsx `onError` 的三档字面联合
+ * (accept / max_file_size / max_files)。超额(数量)时 slice(0, capacity) **仍收部分**,
+ * 并把被拒项以结构化 code+名单回报给调用方聚合提示,禁止静默丢弃。
+ */
+export type AttachmentRejectCode = 'accept' | 'max_file_size' | 'max_files'
+export interface AttachmentRejection {
+  code: AttachmentRejectCode
+  /** 被拒文件名(同 code 聚合为一个条目,禁止逐文件各报一条) */
+  fileNames: string[]
+}
+
+function isAttachmentTypeAllowed(file: File): boolean {
+  if (file.type.startsWith('image/') || file.type.startsWith('video/')) return true
+  const dotIndex = file.name.lastIndexOf('.')
+  const ext = dotIndex >= 0 ? file.name.slice(dotIndex + 1).toLowerCase() : ''
+  return UPLOADABLE_EXTENSIONS.has(ext)
+}
+
+function pushRejection(
+  rejections: AttachmentRejection[],
+  code: AttachmentRejectCode,
+  name: string,
+) {
+  const hit = rejections.find((r) => r.code === code)
+  if (hit) hit.fileNames.push(name)
+  else rejections.push({ code, fileNames: [name] })
+}
+
+/**
+ * G-833 纯判据(可脱离 React 单测):按 类型 → 单文件大小 → 数量容量 三档依次筛一批文件。
+ * 与上游 addLocal 同序:先 accept、再 size、最后 capacity slice(0, capacity)。
+ * @param currentCount 当前已有引用数(容量 = CHAT_ATTACHMENT_MAX_FILES - currentCount)
+ */
+export function screenAttachmentFiles(
+  files: readonly File[],
+  currentCount: number,
+): { accepted: File[]; rejections: AttachmentRejection[] } {
+  const rejections: AttachmentRejection[] = []
+  const typed = files.filter((f) => {
+    if (isAttachmentTypeAllowed(f)) return true
+    pushRejection(rejections, 'accept', f.name)
+    return false
+  })
+  const sized = typed.filter((f) => {
+    if (f.size <= CHAT_ATTACHMENT_MAX_SIZE_BYTES) return true
+    pushRejection(rejections, 'max_file_size', f.name)
+    return false
+  })
+  const capacity = Math.max(0, CHAT_ATTACHMENT_MAX_FILES - currentCount)
+  const accepted = sized.slice(0, capacity)
+  if (sized.length > capacity) {
+    for (const f of sized.slice(capacity)) pushRejection(rejections, 'max_files', f.name)
+  }
+  return { accepted, rejections }
+}
+
+/** /api/files/upload/form 响应 data 形状。
+ * 标准 code=0 包装经 fetchApi 解包后为 { file };
+ * 裸 success 包装(无 code 字段)时 fetchApi 把整个响应体作为 data 返回(即 data.data.file)。 */
+interface UploadFormPayload {
+  file?: { id?: string; path?: string; name?: string; size?: number; mimeType?: string }
+  data?: { file?: { id?: string; path?: string; name?: string; size?: number; mimeType?: string } }
+}
+
+/** b75-5#1:单附件重传配额(上游 useComposerAttachments.ts:54),超配额置 terminal 终态 */
+export const ATTACHMENT_RETRY_QUOTA = 5
+
+/** b75-5#1:发送门禁判据(纯函数,脱离 React 可单测)。
+ *  附件未到 ready 状态(uploading/error/terminal/未定义)一律阻发,防附件断链。
+ *  返回 { canSend, blockingReason } 供 UI 解释禁用原因。 */
+export function canSendReferences(refs: readonly ReferenceItem[]): {
+  canSend: boolean
+  blockingReason: 'uploading' | 'error' | null
+} {
+  for (const r of refs) {
+    if (r.uploadState === 'uploading') return { canSend: false, blockingReason: 'uploading' }
+    if (r.uploadState === 'error' || r.uploadState === 'terminal') {
+      return { canSend: false, blockingReason: 'error' }
+    }
+  }
+  return { canSend: true, blockingReason: null }
+}
+
+const generateId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+/**
+ * 消息输入区 references 状态管理 hook(2026-07-29 提取自 message-input.tsx)
+ *
+ * 职责:
+ * - 维护当前消息引用的列表(reference 列表)
+ * - 提供 file / text / code 三种类型的添加、移除、重置方法
+ * - 自动管理 objectURL 的释放(避免内存泄漏)
+ *
+ * 关键边界:
+ * - 附件准入(2026-09-29 G-833 收口):三档校验(类型/单文件大小/数量)集中在
+ *   screenAttachmentFiles 纯判据,数量超额时 slice(0, capacity) **仍收部分并结构化回报**,
+ *   原"类型不符静默 return"已废除;调用方(use-message-send 选/拖/贴三入口)据
+ *   AttachmentRejection[] 聚合出**一条**提示,禁止逐文件 toast 风暴。
+ * - commitFileReference 假定调用方已完成三档校验(如"先压缩图片再提交"的入口路径),
+ *   直接创建 ref(uploadState:'uploading')+ 异步上传 /api/files/upload/form,
+ *   按 ref.id 回写 fileId/serverUrl/uploadState(矩阵 A #19 断链修复语义不变);
+ *   G-863 起在建 ref **之前**做容量 CAS(预筛预留槽优先消耗),满额返回 max_files 拒绝
+ * - 容量累计只在本 hook 内(committed/reserved 两个 ref),不读渲染快照、不在渲染后归零
+ * - addTextReference 自动 trim,空文本直接返回不创建 ref
+ * - addCodeReference 接受代码 + 语言标签,沿用 'text' 类型存储(code 类型在
+ *   ReferenceType 联合中未声明,后续若需要独立展示可扩展)
+ * - removeReference 自动 revoke 被移除项的 objectURL
+ * - resetReferences 不主动 revoke objectURL(doSend 中发送后已显式遍历 revoke)
+ */
+export function useMessageReferences(): {
+  references: ReferenceItem[]
+  /** 单文件入口(G-833:静默丢弃已废除,返回结构化 reject 名单,空数组 = 已接收)。
+   *  多文件场景请用 addFileReferences 一次性校验以便聚合提示。 */
+  addFileReference: (file: File) => AttachmentRejection[]
+  /** G-833:批量入口 —— 三档校验一次过,数量超额仍收前 capacity 个,返回被拒结构化名单 */
+  addFileReferences: (files: readonly File[]) => AttachmentRejection[]
+  /** G-833:入口预筛(供"先做图片压缩再提交"的路径)。
+   *  G-863:通过项按"预留槽"登记,提交前占位即已生效,避免异步压缩窗口被他批绕过。 */
+  screenAttachments: (files: readonly File[]) => {
+    accepted: File[]
+    rejections: AttachmentRejection[]
+  }
+  /** G-833:提交已过三档校验的文件(仅创建 ref + 异步上传)。
+   *  G-863:写前 CAS 兜容量 —— 占位已满时**不建 ref**,返回 max_files 结构化拒绝(空数组=已提交)。 */
+  commitFileReference: (file: File) => AttachmentRejection[]
+  /** b75-5#1:重传指定失败附件(配额 5 次,超配额置 terminal 终态) */
+  retryReference: (id: string) => void
+  addTextReference: (text: string) => void
+  addCodeReference: (code: string, language: string) => void
+  removeReference: (id: string) => void
+  resetReferences: () => void
+  /** 入队专用:清空输入区引用但不 revoke blob URL(条目出队发送后再由 doSend 释放) */
+  detachReferences: () => void
+} {
+  const [references, setReferences] = React.useState<ReferenceItem[]>([])
+  // 2026-08-02 修复 P1 内存泄露:用 ref 引用最新 references,
+  // 供组件卸载时 cleanup 释放所有 objectURL。
+  const refsRef = React.useRef(references)
+  refsRef.current = references
+  // b75-5#1:保留原始 File 供重试(retryReference 走同一端点)
+  const pendingFiles = React.useRef<Map<string, File>>(new Map())
+
+  /** 实际上传动作(commit 与 retry 共用)。按 ref.id 回写状态。 */
+  const uploadRef = React.useCallback((refId: string, file: File) => {
+    void (async () => {
+      try {
+        const formData = new FormData()
+        formData.append('file', file, file.name)
+        const res = await fetchApi<UploadFormPayload>(UPLOAD_ENDPOINT, {
+          method: 'POST',
+          body: formData,
+          // 对齐 AttachmentsUpload:默认 30s 超时对大文件偏紧,放宽到 120s
+          timeoutMs: 120_000,
+        })
+        if (!res.success) throw new Error(res.error ?? '附件上传失败')
+        const f = res.data.file ?? res.data.data?.file
+        if (!f?.id || !f.path) throw new Error('上传响应缺少 file.id/file.path')
+        setReferences((prev) =>
+          prev.map((r) =>
+            r.id === refId
+              ? { ...r, fileId: f.id, serverUrl: f.path, uploadState: 'ready' as const }
+              : r,
+          ),
+        )
+      } catch {
+        setReferences((prev) =>
+          prev.map((r) => (r.id === refId ? { ...r, uploadState: 'error' as const } : r)),
+        )
+      }
+    })()
+  }, [])
+
+  /** G-863(2026-10-25):容量判据改为**提交式**,不再读 refsRef 渲染快照。
+   *  唯一累计源 = 已提交占位数 + 已预留未提交占位数,语义:
+   *  - committedCountRef:每建一个附件 ref **写前自增**(满则拒),删除/重置同步回收;
+   *  - reservedCountRef:预筛(screenAttachments)通过项先占位,提交时消耗 —— 图片压缩
+   *    的 await 期间他批按"已提交+已预留"判,跨批"先判后写"窗口在此收掉;
+   *  - 渲染后**不归零**(归零会把同帧下一批的累计判据打回 0,即原轻超容根源);
+   *  - 文本/代码引用不占附件槽:数量档只约束附件。
+   *  上限仍只由 CHAT_ATTACHMENT_MAX_FILES 单一处声明,此处不出现第二份数字。 */
+  const committedCountRef = React.useRef(0)
+  const reservedCountRef = React.useRef(0)
+
+  /** G-833:提交已过三档校验的文件 —— 原 addFileReference 主体,类型/大小/数量判据
+   *  已上移到 screenAttachmentFiles;G-863 起写前 CAS 再兜一次容量,满则拒且不建 ref */
+  const commitFileReference = React.useCallback(
+    (file: File): AttachmentRejection[] => {
+      if (reservedCountRef.current > 0) {
+        // 预筛已占位:预留槽转"已提交"(两个计数一减一增),占位总数不变
+        reservedCountRef.current -= 1
+        committedCountRef.current += 1
+      } else if (committedCountRef.current >= CHAT_ATTACHMENT_MAX_FILES) {
+        // 未经预筛的直提路径(语音/标注回填):写前 CAS 满额即拒,交回调用方走汇总出口
+        return [{ code: 'max_files', fileNames: [file.name] }]
+      } else {
+        committedCountRef.current += 1
+      }
+      const isImage = file.type.startsWith('image/')
+      const isVideo = file.type.startsWith('video/')
+      const objectUrl = URL.createObjectURL(file)
+      const ref: ReferenceItem = {
+        id: generateId(),
+        type: isImage ? 'image' : isVideo ? 'video' : 'file',
+        label: file.name,
+        preview: `${file.name} · ${formatFileSize(file.size)}`,
+        thumbnail: isImage || isVideo ? objectUrl : undefined,
+        size: file.size,
+        uploadState: 'uploading',
+        retryCount: 0,
+      }
+      pendingFiles.current.set(ref.id, file)
+      setReferences((prev) => [...prev, ref])
+      uploadRef(ref.id, file)
+      return []
+    },
+    [uploadRef],
+  )
+
+  /** b75-5#1:重传指定失败附件。配额 ATTACHMENT_RETRY_QUOTA,超配额置 terminal 终态。 */
+  const retryReference = React.useCallback(
+    (id: string) => {
+      const ref = refsRef.current.find((r) => r.id === id)
+      if (!ref || ref.uploadState !== 'error') return
+      const file = pendingFiles.current.get(id)
+      if (!file) return
+      const count = ref.retryCount ?? 0
+      if (count >= ATTACHMENT_RETRY_QUOTA) {
+        setReferences((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, uploadState: 'terminal' as const } : r)),
+        )
+        return
+      }
+      setReferences((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, uploadState: 'uploading' as const, retryCount: count + 1 } : r,
+        ),
+      )
+      uploadRef(id, file)
+    },
+    [uploadRef],
+  )
+
+  /** G-863:占位式预筛 —— 判据读"已提交 + 已预留"唯一累计源,通过项当场登记预留槽。
+   *  预筛与提交成对使用(选/拖入口 → routeScreenedFiles 全量提交;压缩路径 commit 时消耗)。 */
+  const screenAndReserve = React.useCallback((files: readonly File[]) => {
+    const result = screenAttachmentFiles(
+      files,
+      committedCountRef.current + reservedCountRef.current,
+    )
+    reservedCountRef.current += result.accepted.length
+    return result
+  }, [])
+
+  /** G-833/G-863:入口预筛 —— 占位在预筛时即生效(写前登记,不再读渲染快照) */
+  const screenAttachments = React.useCallback(
+    (files: readonly File[]) => screenAndReserve(files),
+    [screenAndReserve],
+  )
+
+  /** G-833:批量添加 —— 三档校验一次过;数量超额时仍收前 capacity 个并回报被拒名单。
+   *  G-863(2026-10-25):同帧多次调用的累计由 committed/reserved 两个 ref 唯一承载 ——
+   *  预筛先占位、提交消耗预留槽,不依赖 setState 时序,故不再需要渲染后清零的 effect。 */
+  const addFileReferences = React.useCallback(
+    (files: readonly File[]): AttachmentRejection[] => {
+      const { accepted, rejections } = screenAndReserve(files)
+      accepted.forEach((f) => {
+        // 提交即消耗预留槽;写前 CAS 若仍拒(极端错配),把拒因并回同 code 条目,不静默
+        for (const r of commitFileReference(f)) {
+          for (const name of r.fileNames) pushRejection(rejections, r.code, name)
+        }
+      })
+      return rejections
+    },
+    [commitFileReference, screenAndReserve],
+  )
+
+  /** G-833:单文件入口 = 批量为 1 的特例;返回值给忽略它的旧调用方(void 兼容)无影响 */
+  const addFileReference = React.useCallback(
+    (file: File): AttachmentRejection[] => addFileReferences([file]),
+    [addFileReferences],
+  )
+
+  const addTextReference = React.useCallback((text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const ref: ReferenceItem = {
+      id: generateId(),
+      type: 'text',
+      label:
+        trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...` : trimmed,
+      preview: trimmed,
+    }
+    setReferences((prev) => [...prev, ref])
+  }, [])
+
+  const addCodeReference = React.useCallback((code: string, language: string) => {
+    const trimmed = code.trim()
+    if (!trimmed) return
+    const summary =
+      trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...` : trimmed
+    const ref: ReferenceItem = {
+      id: generateId(),
+      type: 'text',
+      label: language ? `${language} · ${summary}` : summary,
+      preview: trimmed,
+    }
+    setReferences((prev) => [...prev, ref])
+  }, [])
+
+  const removeReference = React.useCallback((id: string) => {
+    // G-863:附件槽在删除调用那一刻回收(不等渲染),否则"删一个再加一个"同帧会被误判满额
+    if (pendingFiles.current.has(id)) {
+      committedCountRef.current = Math.max(0, committedCountRef.current - 1)
+    }
+    setReferences((prev) => {
+      const removed = prev.find((r) => r.id === id)
+      if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail)
+      return prev.filter((r) => r.id !== id)
+    })
+    pendingFiles.current.delete(id)
+  }, [])
+
+  // 2026-08-02 修复 P1 内存泄露:resetReferences 中释放所有 objectURL,
+  // 原实现只清空数组不释放,用户添加图片后关闭对话框不发送会泄露 objectURL。
+  // 仅对 thumbnail 以 'blob:' 开头的释放,避免误 revoke 非 blob URL。
+  const resetReferences = React.useCallback(() => {
+    setReferences((prev) => {
+      prev.forEach((r) => {
+        if (r.thumbnail && r.thumbnail.startsWith('blob:')) {
+          URL.revokeObjectURL(r.thumbnail)
+        }
+      })
+      return []
+    })
+    pendingFiles.current.clear()
+    // G-863:重置/发送后清空两类占位(含未消费的预筛预留),下次从 0 起算
+    committedCountRef.current = 0
+    reservedCountRef.current = 0
+  }, [])
+
+  // W27 流式入队专用:清空输入区引用但**不释放** blob URL —— 队列条目带着这些引用
+  // 等流结束才发送,提前 revoke 会让出队消息里的图片变成裂图。释放交给 doSend 成功路径。
+  const detachReferences = React.useCallback(() => {
+    setReferences([])
+    pendingFiles.current.clear()
+    committedCountRef.current = 0
+    reservedCountRef.current = 0
+  }, [])
+
+  // 2026-08-02 修复 P1 内存泄露:组件卸载时释放 references 中所有 objectURL。
+  React.useEffect(() => {
+    return () => {
+      refsRef.current.forEach((r) => {
+        if (r.thumbnail && r.thumbnail.startsWith('blob:')) {
+          URL.revokeObjectURL(r.thumbnail)
+        }
+      })
+    }
+  }, [])
+
+  return {
+    references,
+    addFileReference,
+    addFileReferences,
+    screenAttachments,
+    commitFileReference,
+    retryReference,
+    addTextReference,
+    addCodeReference,
+    removeReference,
+    resetReferences,
+    detachReferences,
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

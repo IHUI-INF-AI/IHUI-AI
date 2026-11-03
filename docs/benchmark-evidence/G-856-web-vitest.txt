@@ -1,0 +1,30 @@
+G-856 验收证据(web vitest,2026-10-07)
+========================================
+
+票面验收:新增用例断言"切换到第 2 项后第 1 项的 video 元素 paused=true";命令同 G-851(pnpm --filter @ihui/web exec vitest run)。
+
+一、新增用例(本票)
+apps/web/src/components/media/__tests__/media-release.test.tsx,4 例全绿:
+① 画廊切到第 2 项后,第 1 项的 video 元素 paused=true(票面判据直证;jsdom 未实现
+   play/pause,以最小旗标仿真使 paused=true 成为真断言——必须组件真的调 pause() 才成立);
+② VideoPlayer 失活(active=false)⇒ 只暂停、src 保留可续播(回归锁);
+③ VideoPlayer 卸载 ⇒ 暂停+摘源+复位(releaseMediaElement);
+④ LivePlayer 失活 ⇒ 收口:暂停+摘流(src 摘除)。
+既有 FilePreview.test.tsx(TextPreview AbortController 两例)同轮 2/2 绿,零回归。
+
+二、全量验收命令
+pnpm --filter @ihui/web exec vitest run
+→ Test Files 1 failed | 510 passed (511);Tests 1 failed | 5865 passed (5866)。
+唯一红:tests/browse-history-field-contract.test.ts(共享契约 BookmarkItem targetId/targetType)。
+归属:该测试文件在共享工作树为未跟踪(??)在飞新文件、其依赖面 packages/types 现态由他会话
+持有,与本票五文件(media 3 改+2 新)零交集——红未点名本票文件,按归因纪律不背、不修他人在飞面。
+
+三、验收中发现并修复的真缺陷
+media-release.ts useMediaRelease:active true→false 翻转时 effect 清理函数先行执行,
+旧实现一律走"释放"路径摘掉 src ⇒「隐藏只暂停、回来可续播」被打破(②例红直证)。
+修复:组件级卸载旗(useLayoutEffect 清理先于 passive 清理置位)区分两种来意——
+卸载/key 重挂 ⇒ releaseMediaElement;active 翻转 ⇒ 不摘源交新 setup 只暂停;
+非 key 宿主换源 ⇒ 不插手(HTML 换源算法自停)。修复后 4/4 绿。
+
+四、i18n
+videoLoadFailed / previewRetryAction 两键已随他会话先期入库(HEAD 五语言包齐),本枚不重复携带。
