@@ -471,7 +471,7 @@ async function modeStack(env, opts) {
     return 2
   }
   const dsn = swapDbName(baseDsn, db)
-  const guard = guardDbDsn(dsn)
+  const guard = guardDbDsn(dsn, env)
   if (!guard.ok) {
     console.error(`✗ 隔离库 DSN 被拒:${guard.why}(判据 import db-probe-client)`)
     return 2
@@ -756,7 +756,7 @@ async function modeProvision(env) {
     )
     return 2
   }
-  const guard = guardDbDsn(dsn)
+  const guard = guardDbDsn(dsn, env)
   if (!guard.ok) {
     console.error(`✗ DSN 被拒:${guard.why}(判据 import scripts/lib/db-probe-client.mjs,不另写一份)`)
     return 2
