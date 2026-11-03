@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (5c8563bed1)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ab0f41ac16)
 
 **2026-11-03**
@@ -210,9 +213,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-02**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (a3bf177b50)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (7f9c0f84ca)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
