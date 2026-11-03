@@ -437,7 +437,9 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
       leave: 'muted',
     }
     api.fetchApi.mockImplementation(async () =>
-      ok({ list: order.map((s, i) => teacherRow({ id: `rec-${i}`, studentId: `stu-${i}`, status: s })) }),
+      ok({
+        list: order.map((s, i) => teacherRow({ id: `rec-${i}`, studentId: `stu-${i}`, status: s })),
+      }),
     )
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-2')).toBeTruthy())

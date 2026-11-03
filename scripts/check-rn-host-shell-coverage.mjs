@@ -28,6 +28,10 @@
  *                      ⇒ 在期即「挂账」不判红;缺 owner/expires/evidence 或已到期 ⇒ exit 1
  *   seedableMissing    未覆盖、未登记、`classify` 判 seedable ⇒ 列入自动造壳队列,**exit 1**
  *   未覆盖且 classify 判 needs-manual/undetermined 而未登记 ⇒ 记 needsManual(owner=null)并 exit 1
+ *   scaffoldMissing    「新屏无壳且无判决」:未覆盖、台账无判决、且拟生成壳路径上没有壳文件 ⇒
+ *                      **判红**,并逐枚打印可复制的 `gen-rn-shell-scaffold --screen <spec>` 命令。
+ *                      本档只给既有两类红(seedable/未登记)配修复入口,不新增判红条目,
+ *                      `HOST-SHELL-COVERAGE ...` 单行读数与既有语义逐字不变。
  *
  * 账本只认 `shared`(屏名或相对路径)+ `owner` + `expires`(YYYY-MM-DD,当天仍算在期)+ `evidence`(可复核文件/行号/读数)。
  * 不为消红伪造登记:本脚本不写账本,`needsManual` 的 owner 必须由人认领。
@@ -42,11 +46,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { __test__ as gen } from './gen-rn-host-shell.mjs'
+import { targetPathOf } from './lib/rn-shell-target.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
 const MANUAL_REL = 'scripts/data/rn-host-shell-manual.json'
 const MANUAL_PATH = join(ROOT, MANUAL_REL)
+const REGISTRY_REL = 'scripts/data/cross-end-screen-registry.json'
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
@@ -97,6 +103,7 @@ function directlyImports(imports, sharedName) {
  * @param {Array<object>} p.manualEntries
  * @param {(spec:string)=>object} p.classify
  * @param {string} p.today
+ * @param {Array<object>} p.registryRows 登记表(shared→rn),只用于「拟生成壳路径」展示
  */
 export function judgeCoverage({
   shared = [],
@@ -104,6 +111,7 @@ export function judgeCoverage({
   manualEntries = [],
   classify = () => ({ kind: 'undetermined', reason: '未注入 classify' }),
   today = isoToday(),
+  registryRows = [],
 } = {}) {
   const failures = []
   const manual = new Map()
@@ -127,8 +135,10 @@ export function judgeCoverage({
   const coveredRows = []
   const needsManual = []
   const seedableMissing = []
+  const scaffoldMissing = []
   const manualExpired = []
   const usedManualKeys = new Set()
+  const shellFiles = new Set(rnShells.map((sh) => sh.file))
 
   for (const s of shared) {
     const importers = rnShells
@@ -184,9 +194,27 @@ export function judgeCoverage({
       cls = { kind: 'undetermined', reason: `classify 抛错:${e?.message ?? e}` }
     }
     const kind = cls?.kind ?? 'undetermined'
+    // 「新屏无壳且无判决 ⇒ 红」的可执行重建:台账无判决,且拟生成壳路径上没有壳文件 ⇒
+    // 给出可直接复制的造壳命令。本档只给既有两类红配修复入口,不新增判红条目,既有读数不变。
+    const target = targetPathOf(s.spec, registryRows)
+    const scaffoldRow = shellFiles.has(target)
+      ? null
+      : {
+          shared: s.name,
+          spec: s.spec,
+          target,
+          cmd: `node scripts/gen-rn-shell-scaffold.mjs --screen ${s.spec}`,
+        }
     if (kind === 'seedable') {
       seedableMissing.push({ shared: s.name, spec: s.spec, legs: cls.legs ?? [] })
-      failures.push({ type: 'missing-uncovered', shared: s.name, spec: s.spec, route: 'seedable' })
+      if (scaffoldRow) scaffoldMissing.push({ ...scaffoldRow, route: 'seedable' })
+      failures.push({
+        type: 'missing-uncovered',
+        shared: s.name,
+        spec: s.spec,
+        route: 'seedable',
+        ...(scaffoldRow ? { scaffoldCmd: scaffoldRow.cmd, scaffoldTarget: scaffoldRow.target } : {}),
+      })
     } else {
       needsManual.push({
         shared: s.name,
@@ -196,6 +224,7 @@ export function judgeCoverage({
         reason: `未登记(${kind}${cls.hard?.length ? ':' + cls.hard.join(',') : ''})`,
         issues: ['未登记到 manual 账本'],
       })
+      if (scaffoldRow) scaffoldMissing.push({ ...scaffoldRow, route: kind })
       failures.push({
         type: 'manual-unregistered',
         shared: s.name,
@@ -203,6 +232,7 @@ export function judgeCoverage({
         classify: kind,
         hard: cls.hard ?? [],
         reason: cls.reason ?? null,
+        ...(scaffoldRow ? { scaffoldCmd: scaffoldRow.cmd, scaffoldTarget: scaffoldRow.target } : {}),
       })
     }
   }
@@ -223,6 +253,7 @@ export function judgeCoverage({
     needsManual,
     manualExpired: manualExpired.length,
     seedableMissing,
+    scaffoldMissing,
     staleManual,
     failures,
     coveredRows,
@@ -258,7 +289,18 @@ function collect() {
     )
   const manual = loadManual()
   if (manual.problem) throw new Error(manual.problem)
-  return { shared, rnShells, manualEntries: manual.entries }
+  return { shared, rnShells, manualEntries: manual.entries, registryRows: loadRegistryRows() }
+}
+
+/** 登记表只用于造壳队列的目标路径展示;读不到就退回 basename 约定(造壳命令仍按 spec,不受影响)。 */
+function loadRegistryRows() {
+  try {
+    const doc = JSON.parse(readFileSync(join(ROOT, REGISTRY_REL), 'utf8'))
+    const rows = Array.isArray(doc) ? doc : doc?.entries || doc?.rows || []
+    return rows.filter((r) => r && typeof r.shared === 'string')
+  } catch {
+    return []
+  }
 }
 
 function report(face, r) {
@@ -282,6 +324,11 @@ function report(face, r) {
       console.log(`  · ${x.shared}  ${x.spec}${x.legs?.length ? `  legs=${x.legs.join(',')}` : ''}`)
     if (r.seedableMissing.length > 40) console.log(`  … 另有 ${r.seedableMissing.length - 40} 枚`)
   }
+  if (r.scaffoldMissing.length > 0) {
+    console.log('\n【新屏无壳且无判决(可直接复制造壳)】')
+    for (const x of r.scaffoldMissing)
+      console.log(`  ✗ ${x.shared}  → ${x.target}\n      ${x.cmd}`)
+  }
   if (r.staleManual.length > 0) {
     console.log('\n【账本腐烂】')
     for (const x of r.staleManual) console.log(`  ✗ ${x.shared}: ${x.why}`)
@@ -297,8 +344,8 @@ function report(face, r) {
 
 function main() {
   const face = cov.FACE
-  const { shared, rnShells, manualEntries } = collect()
-  const r = judgeCoverage({ shared, rnShells, manualEntries, classify: gen.classify })
+  const { shared, rnShells, manualEntries, registryRows } = collect()
+  const r = judgeCoverage({ shared, rnShells, manualEntries, classify: gen.classify, registryRows })
   const out = {
     face,
     total: r.total,
@@ -306,6 +353,7 @@ function main() {
     needsManual: r.needsManual,
     manualExpired: r.manualExpired,
     seedableMissing: r.seedableMissing,
+    scaffoldMissing: r.scaffoldMissing,
     staleManual: r.staleManual,
     failures: r.failures,
   }

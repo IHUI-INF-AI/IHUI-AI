@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "note": "scripts/check-miniapp-interaction-hygiene.mjs(守门 290)的具名豁免账本。每条必须有 file / rule / count / owner / expires(YYYY-MM-DD,当天仍在期) / evidence(可复核的文件:行号或读数)。到期即红;count 少于现读 = 新增未挂账红;count 多于现读 = 清单腐烂 advisory。本账本只给人认领用,脚本只读不写。",
+  "entries": []
+}

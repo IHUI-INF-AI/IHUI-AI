@@ -31,7 +31,15 @@ import type { ReasoningEffortNotice, StreamChatOptions } from '@ihui/api-client'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const MESSAGE_INPUT_SRC = path.resolve(HERE, '..', 'message-input.tsx')
-const SEND_MESSAGE_SRC = path.resolve(HERE, '..', '..', '..', 'hooks', 'use-chat', 'send-message.ts')
+const SEND_MESSAGE_SRC = path.resolve(
+  HERE,
+  '..',
+  '..',
+  '..',
+  'hooks',
+  'use-chat',
+  'send-message.ts',
+)
 const WEB_SRC_ROOT = path.resolve(HERE, '..', '..', '..')
 // D130 F1 补刀(2026-09-29 现读的两处确证缺口):② 续答链没带档位 ⇒ 同一条回复里
 // "停止/重新生成/续答"把用户选的推理强度静默丢掉;① 传输层的回落通知类型没从包入口递出
@@ -39,7 +47,10 @@ const WEB_SRC_ROOT = path.resolve(HERE, '..', '..', '..')
 // (守门 149 那一型:入口是**显式命名清单**,漏一条编译期不一定红)。
 const SEND_ANSWER_SRC = path.resolve(HERE, '..', '..', '..', 'hooks', 'use-chat', 'send-answer.ts')
 // HERE = apps/web/src/components/chat/__tests__ ⇒ 上六层是仓库根(与本文件词包取径同一层数)
-const API_CLIENT_INDEX_SRC = path.resolve(HERE, '../../../../../../packages/api-client/src/index.ts')
+const API_CLIENT_INDEX_SRC = path.resolve(
+  HERE,
+  '../../../../../../packages/api-client/src/index.ts',
+)
 const API_CLIENT_SRC = path.resolve(HERE, '../../../../../../packages/api-client/src/client.ts')
 
 /** 测试用词表:next-intl 换成**真词包**(packages/i18n/messages/web/zh-CN.json)。
@@ -49,7 +60,10 @@ vi.mock('next-intl', async () => {
   const { readFileSync: readFile } = await import('node:fs')
   const { dirname: dir, join: cat } = await import('node:path')
   const { fileURLToPath: toPath } = await import('node:url')
-  const pack = cat(dir(toPath(import.meta.url)), '../../../../../../packages/i18n/messages/web/zh-CN.json')
+  const pack = cat(
+    dir(toPath(import.meta.url)),
+    '../../../../../../packages/i18n/messages/web/zh-CN.json',
+  )
   const root = JSON.parse(readFile(pack, 'utf8')) as Record<string, unknown>
   const resolve = (ns: string): Record<string, unknown> | undefined =>
     ns
@@ -125,24 +139,36 @@ function codeFace(src: string): string {
   return out.join('\n')
 }
 
-/** 从 `streamChat({` 起做括号配平,取出**那一次调用的实参对象文本**。
- *  判"传没传 reasoningEffort"必须在这一个对象里判 —— 全文搜到键名会把它处的同名键算进来。 */
-function callArgObject(src: string, callName: string): string | null {
-  const at = src.indexOf(`${callName}({`)
-  if (at === -1) return null
+/** 从 `{` 起做括号配平,返回含花括号的对象字面量原文。 */
+function braceObjectAt(src: string, braceStart: number): string | null {
   let depth = 0
   let started = false
-  for (let i = at + callName.length; i < src.length; i += 1) {
+  for (let i = braceStart; i < src.length; i += 1) {
     const ch = src[i]
     if (ch === '{') {
       depth += 1
       started = true
     } else if (ch === '}') {
       depth -= 1
-      if (started && depth === 0) return src.slice(at + callName.length + 1, i + 1)
+      if (started && depth === 0) return src.slice(braceStart, i + 1)
     }
   }
   return null
+}
+
+/** 从 `streamChat({` 起取出**那一次调用的实参对象文本**。
+ *  判"传没传 reasoningEffort"必须在这一个对象里判 —— 全文搜到键名会把它处的同名键算进来。
+ *  2026-11 重构后实参抽成了 `const streamOpts: StreamChatOptions = {…}` 再传:此时除了取
+ *  对象字面量,还必须钉住"这个变量真的被喂进 callName()" —— 只改一半(定义没了/调用没接)
+ *  在这里都会返回 null,不会把"对象存在"误读成"参数传到了"。 */
+function callArgObject(src: string, callName: string): string | null {
+  const inline = src.indexOf(`${callName}({`)
+  if (inline !== -1) return braceObjectAt(src, inline + callName.length + 1)
+  const decl = new RegExp(`const\\s+streamOpts\\s*(?::\\s*[^=]+)?=\\s*\\{`).exec(src)
+  if (!decl) return null
+  const braceStart = src.indexOf('{', decl.index)
+  if (src.indexOf(`${callName}(streamOpts)`) === -1) return null
+  return braceObjectAt(src, braceStart)
 }
 
 /** 挂载判据(①③共用):message-input 必须**既 import 又真的在 JSX 里挂上**这句。
@@ -203,7 +229,10 @@ describe('D130① 选档 ⇒ 请求真的带该值(链路两端 + 挂载)', () =
     const args = callArgObject(face, 'streamChat')
     expect(args).not.toBeNull()
     const passed = /reasoningEffort:\s*([A-Za-z_][\w.]*)/.exec(args ?? '')
-    expect(passed, 'streamChat 实参里没有 reasoningEffort 这一档 ⇒ 选了档也进不了请求').not.toBeNull()
+    expect(
+      passed,
+      'streamChat 实参里没有 reasoningEffort 这一档 ⇒ 选了档也进不了请求',
+    ).not.toBeNull()
     expect(passed![1]).toMatch(/^samplingParams\.reasoningEffort$|^params\.reasoningEffort$/)
     // 同一份快照的另一半:那个标识符必须由 getSamplingParams(conversationId) 得到
     expect(/const\s+samplingParams\s*=\s*getSamplingParams\(conversationId\)/.test(face)).toBe(true)
@@ -294,7 +323,8 @@ describe('D130④ 端内不得有第二份档位字面量', () => {
     for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
       const full = path.join(dirPath, entry.name)
       if (entry.isDirectory()) {
-        if (entry.name === '__tests__' || entry.name === 'tests' || entry.name === 'node_modules') continue
+        if (entry.name === '__tests__' || entry.name === 'tests' || entry.name === 'node_modules')
+          continue
         out.push(...walk(full))
       } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.(test|spec)\.(ts|tsx)$/.test(entry.name)) {
         out.push(full)
@@ -353,9 +383,9 @@ describe('D130④ 端内不得有第二份档位字面量', () => {
     const files = walk(WEB_SRC_ROOT)
     expect(files.length).toBeGreaterThan(50) // 扫不到面 = 判据空转,不接受"0 命中即通过"
     const offenders = files.filter((f) => secondTableHits(f).length > 0)
-    expect(offenders.map((f) => `${path.relative(WEB_SRC_ROOT, f)}: ${secondTableHits(f).join(' | ')}`)).toEqual(
-      [],
-    )
+    expect(
+      offenders.map((f) => `${path.relative(WEB_SRC_ROOT, f)}: ${secondTableHits(f).join(' | ')}`),
+    ).toEqual([])
   })
 })
 
@@ -402,7 +432,8 @@ describe('D130⑤ 续答链必须带与首答**同一来源**的推理强度档�
   it('判据自身:摘掉那行接线 ⇒ 必红(有牙证明,不接受恒绿)', () => {
     // 构造面(不碰真文件):同一份 callArgObject 判据喂"带档"与"没带档"两份文本,
     // 前者必须取出表达式、后者必须是 null —— 否则上面那条红的断言只是运气好。
-    const withTier = 'streamChat({\n model: m,\n reasoningEffort: samplingParams.reasoningEffort,\n})'
+    const withTier =
+      'streamChat({\n model: m,\n reasoningEffort: samplingParams.reasoningEffort,\n})'
     const withoutTier = 'streamChat({\n model: m,\n temperature: samplingParams.temperature,\n})'
     const probe = (src: string): string | null => {
       const args = callArgObject(src, 'streamChat')
@@ -435,7 +466,10 @@ describe('D130⑥ ReasoningEffortNotice 必须从 @ihui/api-client 入口递出(
   it('packages/api-client/src/index.ts 的类型清单里含 ReasoningEffortNotice 与 StreamChatOptions', () => {
     const blocks = clientListBlocks(API_CLIENT_INDEX_SRC, true)
     // 枚举到 0 个清单 = 判据空转(守门 149/98 同一条禁令:扫不到面不接受"0 命中即通过")
-    expect(blocks.length, '入口找不到 `export type {…} from ./client.js` 清单 ⇒ 尺子没扫到面').toBeGreaterThan(0)
+    expect(
+      blocks.length,
+      '入口找不到 `export type {…} from ./client.js` 清单 ⇒ 尺子没扫到面',
+    ).toBeGreaterThan(0)
     const joined = blocks.join(',')
     expect(
       /\bReasoningEffortNotice\b/.test(joined),
@@ -443,7 +477,10 @@ describe('D130⑥ ReasoningEffortNotice 必须从 @ihui/api-client 入口递出(
     ).toBe(true)
     // onReasoningEffortNotice 是 StreamChatOptions 的**字段**(不是独立符号),所以递出
     // StreamChatOptions 就是递出这个回调的入参类型 —— 点名它是为了锁住"别再按名字找符号"。
-    expect(/\bStreamChatOptions\b/.test(joined), 'StreamChatOptions 未递出 ⇒ onReasoningEffortNotice 无处可取类型').toBe(true)
+    expect(
+      /\bStreamChatOptions\b/.test(joined),
+      'StreamChatOptions 未递出 ⇒ onReasoningEffortNotice 无处可取类型',
+    ).toBe(true)
   })
 })
 
@@ -578,7 +615,9 @@ describe('D130⑦ 续答收到钉档通知帧 ⇒ 必须上屏(行为,非源码�
     ).toBe(false)
     // 不得在端内抄档位文案(§19 词表唯一):接线里出现档位字面量 = 第二个真相
     expect(
-      /['"](minimal|low|medium|high)['"]/.test(callbackBodyOf(streamArgsOf(SEND_ANSWER_SRC), 'onReasoningEffortNotice') ?? ''),
+      /['"](minimal|low|medium|high)['"]/.test(
+        callbackBodyOf(streamArgsOf(SEND_ANSWER_SRC), 'onReasoningEffortNotice') ?? '',
+      ),
       '回调体里出现档位字面量 ⇒ 文案被抄进接线,轴上的词不再走词包',
     ).toBe(false)
   })
@@ -587,11 +626,22 @@ describe('D130⑦ 续答收到钉档通知帧 ⇒ 必须上屏(行为,非源码�
     const withCb =
       'streamChat({\n onFallback: () => {},\n onReasoningEffortNotice: (info) => { store.setReasoningEffortNotice(info) },\n})'
     const withoutCb = 'streamChat({\n onFallback: (e) => set(e),\n onSteer: () => {},\n})'
-    expect(callbackBodyOf(callArgObject(withCb, 'streamChat'), 'onReasoningEffortNotice'), '带回调却没提取出来 = 尺子没看见').not.toBeNull()
-    expect(callbackBodyOf(callArgObject(withoutCb, 'streamChat'), 'onReasoningEffortNotice'), '没接却提取出东西 = 尺子在给空气背书').toBeNull()
+    expect(
+      callbackBodyOf(callArgObject(withCb, 'streamChat'), 'onReasoningEffortNotice'),
+      '带回调却没提取出来 = 尺子没看见',
+    ).not.toBeNull()
+    expect(
+      callbackBodyOf(callArgObject(withoutCb, 'streamChat'), 'onReasoningEffortNotice'),
+      '没接却提取出东西 = 尺子在给空气背书',
+    ).toBeNull()
     // 同一把尺子必须能区分"注册了"与"只是注释里提到" —— 剥注释那一层由 codeFace 承担
     const commentOnly = 'streamChat({\n // onReasoningEffortNotice: 以前这里接过\n})'
-    expect(callbackBodyOf(callArgObject(codeFace(commentOnly), 'onReasoningEffortNotice'), 'onReasoningEffortNotice')).toBeNull()
+    expect(
+      callbackBodyOf(
+        callArgObject(codeFace(commentOnly), 'onReasoningEffortNotice'),
+        'onReasoningEffortNotice',
+      ),
+    ).toBeNull()
   })
 })
 
