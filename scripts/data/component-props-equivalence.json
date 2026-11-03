@@ -48,6 +48,30 @@
         "mini": "apps/miniapp-taro/src/components/IntelligentAssistant.tsx:69"
       },
       "rationale": "同一数据槽位:两端都只吃「剩余智汇值」这一个数字并喂给同一行余额文案,命名随端历史词汇(tokenQuantity/tokenBalance),不承载任何额外语义。"
+    },
+    {
+      "pair": "Carousel",
+      "ours": "autoplayInterval",
+      "theirs": "interval",
+      "kind": "content",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/Carousel.tsx:52",
+        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:38"
+      },
+      "rationale": "同一轮播节拍槽位(毫秒),两端都只把它喂给各自自动轮播定时器,不参与可见取值,命名随端历史词汇(autoplayInterval/interval)。"
+    },
+    {
+      "pair": "Carousel",
+      "ours": "onItemPress",
+      "theirs": "onItemClick",
+      "kind": "event",
+      "owner": "cross-end-props-parity",
+      "evidence": {
+        "rn": "apps/mobile-rn/src/components/Carousel.tsx:55",
+        "mini": "apps/miniapp-taro/src/components/Carousel.tsx:40"
+      },
+      "rationale": "同一项点击槽位(参数均为 item + index):RN 按 Pressable 惯例命名 onItemPress,小程序按 Taro/Web 惯例命名 onItemClick,触发时机与载荷同形。"
     }
   ]
 }
