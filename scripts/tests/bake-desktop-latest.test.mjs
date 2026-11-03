@@ -80,6 +80,89 @@ test('extractGeneratedObject 能从带水印尾行的 TS 里取回纯 JSON;坏�
   assert.equal(B.extractGeneratedObject('export const DESKTOP_LATEST = { bad'), null)
 })
 
+test('buildGiteeUrl / assetNameOf / detectGiteeRepo:显式构造与派生', () => {
+  assert.equal(
+    B.buildGiteeUrl({ owner: 'JLSLSSZWHYXGS_0', repo: 'IHUI-AI', tag: 'desktop-v0.1.77', assetName: 'AI_0.1.77_x64-setup.exe' }),
+    GITEE,
+  )
+  assert.equal(B.buildGiteeUrl({ owner: '', repo: 'IHUI-AI', tag: 't', assetName: 'a' }), null)
+  assert.equal(B.assetNameOf('https://gitee.com/o/r/releases/download/t/AI_x64-setup.exe'), 'AI_x64-setup.exe')
+  assert.equal(B.assetNameOf('not-a-url'), '')
+  assert.deepEqual(B.detectGiteeRepo({ platforms: { 'windows-x86_64': { url: GITEE } } }), {
+    owner: 'JLSLSSZWHYXGS_0',
+    repo: 'IHUI-AI',
+  })
+  assert.equal(B.detectGiteeRepo({ platforms: { 'windows-x86_64': { url: latest.platforms['windows-x86_64'].url } } }), null)
+})
+
+const GH_SIZES = {
+  'AI_0.1.77_x64-setup.exe': 9690695,
+  'AI_0.1.77_amd64.AppImage': 86968824,
+  'AI_universal.app.tar.gz': 13646808,
+}
+
+test('bakeDesktopPlatforms:四平台字节全等 ⇒ 全部改写 Gitee,签名逐字不动', () => {
+  const r = B.bakeDesktopPlatforms({
+    latest,
+    tag: 'desktop-v0.1.77',
+    githubSizes: GH_SIZES,
+    giteeSizes: { ...GH_SIZES },
+    owner: 'JLSLSSZWHYXGS_0',
+    repo: 'IHUI-AI',
+  })
+  assert.equal(r.changed, 4)
+  assert.equal(r.blocked, false)
+  for (const [k, v] of Object.entries(r.data.platforms)) {
+    assert.ok(v.url.startsWith('https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.77/'), k)
+    assert.equal(v.signature, latest.platforms[k].signature, k)
+  }
+  assert.ok(r.decisions['linux-x86_64'].reason.includes('字节一致'))
+})
+
+test('bakeDesktopPlatforms:某平台 Gitee 资产缺失/字节不等 ⇒ 该平台保留 GitHub,其余照改', () => {
+  const giteeSizes = { 'AI_0.1.77_x64-setup.exe': 9690695, 'AI_universal.app.tar.gz': 13646808 }
+  const r = B.bakeDesktopPlatforms({
+    latest,
+    tag: 'desktop-v0.1.77',
+    githubSizes: GH_SIZES,
+    giteeSizes,
+    owner: 'JLSLSSZWHYXGS_0',
+    repo: 'IHUI-AI',
+  })
+  assert.equal(r.changed, 3)
+  assert.equal(r.data.platforms['linux-x86_64'].url, latest.platforms['linux-x86_64'].url)
+  assert.equal(r.decisions['linux-x86_64'].verdict, 'undetermined')
+  assert.ok(r.decisions['linux-x86_64'].reason.includes('未判定'))
+
+  const diff = B.bakeDesktopPlatforms({
+    latest,
+    tag: 'desktop-v0.1.77',
+    githubSizes: GH_SIZES,
+    giteeSizes: { ...GH_SIZES, 'AI_0.1.77_x64-setup.exe': 9690696 },
+    owner: 'JLSLSSZWHYXGS_0',
+    repo: 'IHUI-AI',
+  })
+  assert.equal(diff.data.platforms['windows-x86_64'].url, latest.platforms['windows-x86_64'].url)
+  assert.equal(diff.decisions['windows-x86_64'].verdict, 'different')
+  assert.ok(diff.decisions['windows-x86_64'].reason.includes('不一致'))
+})
+
+test('bakeDesktopPlatforms:缺 Gitee owner ⇒ 全部保留 GitHub(changed=0)', () => {
+  const r = B.bakeDesktopPlatforms({
+    latest,
+    tag: 'desktop-v0.1.77',
+    githubSizes: GH_SIZES,
+    giteeSizes: { ...GH_SIZES },
+    owner: '',
+    repo: 'IHUI-AI',
+  })
+  assert.equal(r.changed, 0)
+  for (const [k, v] of Object.entries(r.data.platforms)) {
+    assert.equal(v.url, latest.platforms[k].url, k)
+  }
+  assert.ok(r.decisions['windows-x86_64'].reason.includes('缺 Gitee owner/repo'))
+})
+
 test('checkAgainstExisting:同对象通过;版本/URL 漂移逐项点名', () => {
   const baked = B.bakeDesktopLatest({ latest, githubSize: 100, giteeSize: 100, giteeUrl: GITEE }).data
   assert.equal(B.checkAgainstExisting({ existing: baked, expected: baked }).ok, true)
@@ -87,6 +170,12 @@ test('checkAgainstExisting:同对象通过;版本/URL 漂移逐项点名', () =>
   const r = B.checkAgainstExisting({ existing: drift, expected: baked })
   assert.equal(r.ok, false)
   assert.ok(r.reason.includes('version'))
+
+  const urlDrift = JSON.parse(JSON.stringify(baked))
+  urlDrift.platforms['linux-x86_64'].url = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/x/y'
+  const ru = B.checkAgainstExisting({ existing: urlDrift, expected: baked })
+  assert.equal(ru.ok, false)
+  assert.ok(ru.reason.includes('linux-x86_64'))
 })
 
 test('CLI --check:一致 exit 0,字节不一致 exit 1(只读,不写盘)', () => {

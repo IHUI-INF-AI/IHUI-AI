@@ -10,15 +10,19 @@
  * 版本、签名、Windows 直链三处任意漂移都会让 /desktop-feed.json 吐旧版或"Gitee 新包 + GitHub
  * 旧签名",自动更新静默失效。本器把发布清单第 5 步收成一条命令。
  *
- * 唯一允许的改写:platforms.windows-x86_64.url → Gitee 镜像直链,且**仅当** Gitee 直链
+ * 唯一允许的改写:platforms.<任一平台>.url → Gitee 国内主通道直链,且**仅当** Gitee 直链
  * HEAD Content-Length 与 GitHub 同名资产 size 字节相等。字节不等/量不到 ⇒ 保留 GitHub 并
  * 大声报原因(同名不同物:0.1.75 实测差 4,173 字节 ⇒ 下载成功但验签必失败)。
  * 判据本体复用 scripts/resolve-desktop-download.mjs 的 giteeBytesVerdict(唯一实现,不另抄)。
  *
  * 用法:
  *   node scripts/bake-desktop-latest.mjs --latest-json <path> [--tag desktop-vX.Y.Z]
+ *     --all-platforms [--gitee-owner O] [--gitee-repo R] [--out path] [--check]
+ *   node scripts/bake-desktop-latest.mjs --latest-json <path> [--tag desktop-vX.Y.Z]
  *     [--github-size N] [--gitee-size N] [--gitee-url URL] [--out path] [--check]
  *
+ *   --all-platforms  国内主通道模式:一次 Releases API 取全部 GitHub 资产 size,逐平台构造
+ *                    Gitee 直链并 HEAD 对账;只有字节相等的平台改写,其余保留 GitHub + 告警。
  *   --check  只读:把 latest.json 的期望对象与现有烘焙文件逐字段比对;一致 exit 0,漂移 exit 1,
  *            取不到判定输入 exit 2(§0.3:不记绿也不冒红)。
  *
@@ -88,6 +92,40 @@ export function deriveGiteeUrl({ existingUrl, tag, assetName }) {
   return `${u.origin}/${parts[0]}/${parts[1]}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(assetName)}`
 }
 
+/** 构造 Gitee 直链:owner/repo 由调用方显式给出,不依赖“旧文件里先有一条 Gitee 直链”。 */
+export function buildGiteeUrl({ owner, repo, tag, assetName }) {
+  if (!owner || !repo || !tag || !assetName) return null
+  return `https://gitee.com/${owner}/${repo}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(assetName)}`
+}
+
+/** 从任意下载直链里取资产名(URL 编码还原);解析不出返回空串。 */
+export function assetNameOf(url) {
+  try {
+    return decodeURIComponent(new URL(String(url)).pathname.split('/').pop() || '')
+  } catch {
+    return ''
+  }
+}
+
+/** 从已烘焙文件的首条 Gitee 直链里取 owner/repo;没有则 null(用于迁移期兼容)。 */
+export function detectGiteeRepo(existing) {
+  for (const p of Object.values(existing?.platforms ?? {})) {
+    const u = p?.url
+    if (typeof u !== 'string') continue
+    try {
+      const x = new URL(u)
+      if (x.hostname !== 'gitee.com') continue
+      const parts = x.pathname.split('/').filter(Boolean)
+      if (parts.length >= 5 && parts[2] === 'releases' && parts[3] === 'download') {
+        return { owner: parts[0], repo: parts[1] }
+      }
+    } catch {
+      // 非 URL ⇒ 跳过
+    }
+  }
+  return null
+}
+
 /** 纯函数:决定 Windows URL 归属,绝不静默改写。 */
 export function bakeDesktopLatest({ latest, githubSize, giteeSize, giteeUrl }) {
   const data = JSON.parse(JSON.stringify(latest))
@@ -116,6 +154,52 @@ export function bakeDesktopLatest({ latest, githubSize, giteeSize, giteeUrl }) {
   }
 }
 
+/**
+ * 全平台判据(国内主通道):platforms 里每个 URL 都先按资产名对账,
+ * 「Gitee 存在且字节与 GitHub 原件一致」才改写;否则保留 GitHub 并逐条记原因。
+ * 一个平台都不改也返回 changed=0(不是失败);只有 latest.json 完全没有 platforms 才 blocked。
+ */
+export function bakeDesktopPlatforms({ latest, tag, githubSizes, giteeSizes, owner, repo }) {
+  const data = JSON.parse(JSON.stringify(latest))
+  const decisions = {}
+  let changed = 0
+  const readSize = (map, name) => Number((map instanceof Map ? map.get(name) : map?.[name]) || 0)
+  for (const [key, entry] of Object.entries(data?.platforms ?? {})) {
+    const ghUrl = typeof entry?.url === 'string' ? entry.url : ''
+    const assetName = assetNameOf(ghUrl)
+    if (!assetName) {
+      decisions[key] = { assetName: '', verdict: 'undetermined', url: ghUrl, reason: '平台缺 url ⇒ 保留原值' }
+      continue
+    }
+    const gh = readSize(githubSizes, assetName)
+    const ge = readSize(giteeSizes, assetName)
+    const verdict = giteeBytesVerdict(gh, ge)
+    const giteeUrl = buildGiteeUrl({ owner, repo, tag, assetName })
+    if (verdict === 'same' && giteeUrl) {
+      entry.url = giteeUrl
+      changed += 1
+      decisions[key] = { assetName, verdict, url: giteeUrl, reason: `字节一致(GitHub ${gh} B / Gitee ${ge} B)⇒ 改写 Gitee` }
+      continue
+    }
+    if (verdict === 'same') {
+      decisions[key] = { assetName, verdict, url: ghUrl, reason: '字节一致但缺 Gitee owner/repo ⇒ 保留 GitHub(未判定)' }
+      continue
+    }
+    if (verdict === 'different') {
+      decisions[key] = { assetName, verdict, url: ghUrl, reason: `字节不一致(GitHub ${gh} B / Gitee ${ge} B)⇒ 保留 GitHub,禁止改写` }
+      continue
+    }
+    decisions[key] = {
+      assetName,
+      verdict,
+      url: ghUrl,
+      reason: `字节未判定(GitHub ${gh || '量不到'} / Gitee ${ge || '量不到'})⇒ 保留 GitHub`,
+    }
+  }
+  const platformCount = Object.keys(data?.platforms ?? {}).length
+  return { data, decisions, changed, blocked: platformCount === 0 }
+}
+
 const canon = (x) => {
   if (Array.isArray(x)) return x.map(canon)
   if (x && typeof x === 'object') return Object.fromEntries(Object.keys(x).sort().map((k) => [k, canon(x[k])]))
@@ -128,10 +212,10 @@ export function checkAgainstExisting({ existing, expected }) {
   if (JSON.stringify(canon(existing)) === JSON.stringify(canon(expected))) return { ok: true, reason: '一致' }
   const diffs = []
   if (existing.version !== expected.version) diffs.push(`version ${existing.version ?? '<缺>'} → ${expected.version ?? '<缺>'}`)
-  const ew = existing.platforms?.[PLATFORM]?.url
-  const xw = expected.platforms?.[PLATFORM]?.url
-  if (ew !== xw) diffs.push(`windows url ${ew ?? '<缺>'} → ${xw ?? '<缺>'}`)
   for (const p of Object.keys(expected.platforms ?? {})) {
+    const eu = existing.platforms?.[p]?.url
+    const xu = expected.platforms[p]?.url
+    if (eu !== xu) diffs.push(`${p} url ${eu ?? '<缺>'} → ${xu ?? '<缺>'}`)
     if (existing.platforms?.[p]?.signature !== expected.platforms[p]?.signature) diffs.push(`${p} signature 不同`)
   }
   return { ok: false, reason: diffs.join('; ') || '对象有差异' }
@@ -160,6 +244,41 @@ async function fetchGithubAssetSize({ tag, assetName }) {
   } catch (e) {
     return { size: null, reason: `GitHub API 不可达:${String(e?.message ?? e).slice(0, 120)}` }
   }
+}
+
+/** 一次 Releases API 取回整张资产表(name → size),供 --all-platforms 逐平台对账。 */
+async function fetchGithubAssetSizes({ tag }) {
+  const repo = process.env.GITHUB_REPOSITORY || 'IHUI-INF-AI/IHUI-AI'
+  const token = process.env.GITHUB_TOKEN
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`, {
+      headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+    if (!res.ok) return { sizes: new Map(), reason: `GitHub API HTTP ${res.status}` }
+    const rel = await res.json()
+    const sizes = new Map()
+    for (const a of rel.assets || []) {
+      const name = String(a?.name || '')
+      const size = Number(a?.size || 0)
+      if (name && size > 0) sizes.set(name, size)
+    }
+    return { sizes, reason: '' }
+  } catch (e) {
+    return { sizes: new Map(), reason: `GitHub API 不可达:${String(e?.message ?? e).slice(0, 120)}` }
+  }
+}
+
+/** 逐个 HEAD Gitee 直链取字节数(去重);取不到的资产不入表 ⇒ 对账自然落到 undetermined。 */
+async function fetchGiteeSizes(urls) {
+  const sizes = new Map()
+  const notes = []
+  for (const url of [...new Set(urls)]) {
+    const assetName = assetNameOf(url)
+    const r = await fetchGiteeSize(url)
+    if (r.size) sizes.set(assetName, r.size)
+    else if (r.reason) notes.push(`${assetName}:${r.reason}`)
+  }
+  return { sizes, notes }
 }
 
 async function fetchGiteeSize(url) {
@@ -193,6 +312,64 @@ const takeFlag = (args, name, noun) => {
   return f.value
 }
 
+/** 写盘 + 水印注入(两条主流程共用,避免各写一遍后漂移)。 */
+function writeBaked(out, data) {
+  const content = serializeGenerated(data)
+  writeFileSync(out, content, 'utf8')
+  const wm = spawnSync(process.execPath, [resolve(ROOT, 'scripts/watermark.mjs'), 'inject', out], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+  })
+  if (wm.status !== 0) {
+    console.error(`❌ 水印注入失败(status=${wm.status}):${String(wm.stderr || '').slice(0, 300)}`)
+    process.exit(1)
+  }
+  console.log(`✅ 已烘焙 ${out}`)
+}
+
+/** --all-platforms 主流程:逐平台对账后决定 Gitee 直链归属(国内主通道)。 */
+async function bakeAllPlatforms({ args, latest, version, tag, out, existing }) {
+  const owner =
+    takeFlag(args, '--gitee-owner', 'owner') || process.env.GITEE_OWNER || detectGiteeRepo(existing)?.owner || ''
+  const repo = takeFlag(args, '--gitee-repo', 'repo') || process.env.GITEE_REPO || 'IHUI-AI'
+  const notes = []
+  if (!owner) notes.push('Gitee owner:未给出(--gitee-owner / GITEE_OWNER)且旧文件派不出 ⇒ 全部平台保留 GitHub')
+  const gh = await fetchGithubAssetSizes({ tag })
+  if (gh.reason) notes.push(`GitHub size 表:${gh.reason}`)
+  const platformUrls = Object.values(latest?.platforms ?? {})
+    .map((p) => p?.url)
+    .filter((u) => typeof u === 'string' && u)
+  const giteeUrls = owner
+    ? platformUrls.map((u) => buildGiteeUrl({ owner, repo, tag, assetName: assetNameOf(u) })).filter(Boolean)
+    : []
+  const ge = giteeUrls.length ? await fetchGiteeSizes(giteeUrls) : { sizes: new Map(), notes: [] }
+  for (const n of ge.notes) notes.push(`Gitee size:${n}`)
+  const baked = bakeDesktopPlatforms({ latest, tag, githubSizes: gh.sizes, giteeSizes: ge.sizes, owner, repo })
+  for (const n of notes) console.log(`⚠️ ${n}`)
+  const total = Object.keys(baked.decisions).length
+  console.log(`[bake] version=${version} tag=${tag} mode=all-platforms changed=${baked.changed}/${total}`)
+  for (const [k, d] of Object.entries(baked.decisions)) {
+    console.log(`[bake] ${k} asset=${d.assetName || '<缺>'} verdict=${d.verdict} ⇒ ${d.url || '<缺>'}`)
+    console.log(`[bake]   ${d.reason}`)
+  }
+  if (args.includes('--check')) {
+    const verdict = checkAgainstExisting({ existing, expected: baked.data })
+    if (verdict.ok) {
+      console.log(`✅ --check:现有烘焙文件与 latest.json 一致(${out})`)
+      process.exit(0)
+    }
+    console.error(`❌ --check:漂移 —— ${verdict.reason}`)
+    process.exit(1)
+  }
+  if (baked.blocked) {
+    console.error('❌ latest.json 缺 platforms ⇒ 拒绝(不输出半份 feed)')
+    process.exit(2)
+  }
+  writeBaked(out, baked.data)
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const latestPath = takeFlag(args, '--latest-json', '文件路径')
@@ -220,6 +397,10 @@ async function main() {
   const out = resolve(takeFlag(args, '--out', '文件路径') || DEFAULT_OUT)
   const existingText = existsSync(out) ? readFileSync(out, 'utf8') : ''
   const existing = extractGeneratedObject(existingText)
+  if (args.includes('--all-platforms')) {
+    await bakeAllPlatforms({ args, latest, version, tag, out, existing })
+    return
+  }
   const winUrl = latest?.platforms?.[PLATFORM]?.url
   if (!winUrl) {
     console.error(`❌ latest.json 缺 platforms.${PLATFORM}.url ⇒ 拒绝`)
@@ -259,19 +440,7 @@ async function main() {
     process.exit(1)
   }
   if (baked.blocked) process.exit(2)
-  const content = serializeGenerated(baked.data)
-  writeFileSync(out, content, 'utf8')
-  const wm = spawnSync(process.execPath, [resolve(ROOT, 'scripts/watermark.mjs'), 'inject', out], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 120000,
-  })
-  if (wm.status !== 0) {
-    console.error(`❌ 水印注入失败(status=${wm.status}):${String(wm.stderr || '').slice(0, 300)}`)
-    process.exit(1)
-  }
-  console.log(`✅ 已烘焙 ${out}`)
+  writeBaked(out, baked.data)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -282,5 +451,15 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { extractGeneratedObject, deriveGiteeUrl, bakeDesktopLatest, checkAgainstExisting, serializeGenerated }
+export const __test__ = {
+  extractGeneratedObject,
+  deriveGiteeUrl,
+  buildGiteeUrl,
+  assetNameOf,
+  detectGiteeRepo,
+  bakeDesktopLatest,
+  bakeDesktopPlatforms,
+  checkAgainstExisting,
+  serializeGenerated,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

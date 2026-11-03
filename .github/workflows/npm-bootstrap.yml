@@ -29,8 +29,8 @@ concurrency:
 
 # 2026-11-01 安全强化:显式最小权限(此前不声明 ⇒ 拿仓库/组织默认档位,可能含写权)。
 # 逐枚按需给,多一枚都不给:
-#   contents: read  —— 两个 job(browser / publish)各自的 actions/checkout@v4。
-#   actions: write  —— browser job 的 actions/upload-artifact@v4。声明块一旦写上,
+#   contents: read  —— 两个 job(browser / publish)各自的 actions/checkout@v7。
+#   actions: write  —— browser job 的 actions/upload-artifact@v7。声明块一旦写上,
 #                      未列出的 scope 一律变 none,漏了这条那一步会**当场失败**
 #                      (同 release-desktop.yml 为读产物显式补 actions: read 那条教训的反向)。
 # 不给 packages/deployments/id-token:本作业发包用的是 npm 用户名+口令(NPM_BOOT_* 系列
@@ -62,8 +62,8 @@ jobs:
       # signpath:申请联系邮箱
       SIGNPATH_EMAIL: ${{ secrets.SIGNPATH_EMAIL }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
       - name: Install playwright + real Google Chrome
@@ -100,7 +100,7 @@ jobs:
         if: always()
         continue-on-error: true
         timeout-minutes: 4
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: npm-bootstrap-${{ github.event.inputs.action }}-${{ github.run_number }}
           path: .github/scripts/shots/
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22

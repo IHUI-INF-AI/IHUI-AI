@@ -50,6 +50,20 @@ const FACE_TXT = {
   worktree: '工作树(人工逃生舱,提交链不走这档)',
 }
 
+/** 按被审面取任意仓库内文件(与 readGatesFace 同一口径,不另写第二份取面逻辑)。 */
+export function readFaceText(rel, face = FACE_SEL.face, root = ROOT) {
+  if (face === 'worktree') {
+    const t = readWorktreeFile(root, rel)
+    if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+    return t
+  }
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + rel
+  const got = catBatch(root, [spec], { maxBuffer: 1 << 26 })
+  const t = got.get(spec)
+  if (t === null || t === undefined) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
+  return t
+}
+
 /** 按被审面取闸门配置;取不到抛 Undetermined,由调用方折成 exit 2 —— 不回落另一个面。 */
 export function readGatesFace(face = FACE_SEL, root = ROOT) {
   if (face === 'worktree') {
@@ -64,14 +78,15 @@ export function readGatesFace(face = FACE_SEL, root = ROOT) {
   return t
 }
 
-/** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。 */
-export function readLedgerEvents(limit = 400) {
+/** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。
+ *  默认全量读:`limit` 截断会把超窗历史行挤出被审面,判据就会随台账增长悄悄变绿/变红(§12e)。 */
+export function readLedgerEvents(limit = Infinity) {
   if (!existsSync(LEDGER)) return { ok: false, events: [], why: `台账不在位:${LEDGER}` }
   const raw = readFileSync(LEDGER, 'utf8').trim()
   if (!raw) return { ok: true, events: [], why: '台账空' }
   const events = raw
     .split('\n')
-    .slice(-limit)
+    .slice(Number.isFinite(limit) ? -limit : 0)
     .map((l) => {
       try {
         return JSON.parse(l)
@@ -293,7 +308,10 @@ export function judgeValveGate(events, { mode, headSource } = {}) {
  * "会话结束了"当成"这轮干成了"。AGENTS §10 要的是交付与产出一致,所以必须有第二问:
  * 票行到底动了没有。四档不并桶,且"没结算的成功"要单独点名(结算腿漏覆盖 = 尺子盲区)。
  */
-export function judgeDispatchClosure(events, { schedulerSource, windowHours = 48, now = Date.now() } = {}) {
+export function judgeDispatchClosure(
+  events,
+  { schedulerSource, windowHours = 48, now = Date.now(), activeTicketKeys = null } = {},
+) {
   if (schedulerSource === null || schedulerSource === undefined) {
     return { dim: 'A7-dispatch-closure', state: 'unjudged', readout: '派发器源码在被审面取不到 ⇒ 闭环与否判不出', next: '核 scripts/auto-evolve.mjs 是否在被审面上' }
   }
@@ -302,7 +320,14 @@ export function judgeDispatchClosure(events, { schedulerSource, windowHours = 48
   }
   const okRows = events.filter((e) => e.action === 'session-ok' && e.ticketKey)
   const settledRows = events.filter((e) => e.action === 'dispatch-settled')
-  const noProgress = settledRows.filter((e) => e.settled === 'no-progress')
+  // 按票收敛(2026-11-03 收,治"A7 次生缺陷:历史行永久顶红"):
+  // no-progress 只在**该票仍在册**时才算"现在还在零推进"。票已从派单面摘除(作废/删除/结清),
+  // 它的历史 no-progress 就不再代表当前闭环失效 —— 否则一张出册票的 7 条历史行会永远把尺子钉红,
+  // 逼人学会忽略报警(§12e)。缺省 null = 旧行为(全量算),既有自测不受影响。
+  // 注意:这不是按时间窗抹历史 —— 仍在册的票,哪怕 no-progress 是几个月前,照旧顶红。
+  const noProgress = settledRows.filter(
+    (e) => e.settled === 'no-progress' && (!activeTicketKeys || activeTicketKeys.has(e.ticketKey)),
+  )
   const unjudgedS = settledRows.filter((e) => e.settled === 'unjudged')
   const advanced = settledRows.filter((e) => e.settled === 'line-gone' || e.settled === 'line-changed')
   const cutoff = now - windowHours * 3600_000
@@ -516,6 +541,37 @@ async function selfTest() {
     const r = judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') })
     return r.state === 'drift' && r.readout.includes('结算腿生效后仍无结算行')
   })())
+  ok('H38 票仍在册 + no-progress ⇒ 仍 drift(按票收敛不得假绿放走真事故)', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    const r = judgeDispatchClosure(ev, {
+      schedulerSource: closureSrc,
+      now: Date.parse('2026-11-01T05:00:00.000Z'),
+      activeTicketKeys: new Set(['k1']),
+    })
+    return r.state === 'drift' && r.readout.includes('1 枚') && r.next.includes('B9')
+  })())
+  ok('H39 票已从在册面摘除 ⇒ 该票历史 no-progress 不再顶红(按票收敛,不按时间窗抹历史)', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    const r = judgeDispatchClosure(ev, {
+      schedulerSource: closureSrc,
+      now: Date.parse('2026-11-01T05:00:00.000Z'),
+      activeTicketKeys: new Set(['k-other']),
+    })
+    return r.state === 'ok' && r.readout.includes('已结算 1 条')
+  })())
+  ok('H40 activeTicketKeys 缺省 ⇒ 旧行为不变(历史 no-progress 照旧顶红)', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k1', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B9 **某票** 原文' },
+      { action: 'dispatch-settled', ticketKey: 'k1', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'no-progress', ticketLine: 'B9 **某票** 原文' },
+    ]
+    return judgeDispatchClosure(ev, { schedulerSource: closureSrc, now: Date.parse('2026-11-01T05:00:00.000Z') }).state === 'drift'
+  })())
   console.log(fail === 0 ? `autonomy-leg-health self-test: ${pass} 例全绿` : `autonomy-leg-health self-test: ${pass} 绿 / ${fail} 红`)
   return fail === 0 ? 0 : 1
 }
@@ -568,7 +624,11 @@ async function main() {
     valveSource = null
   }
   const valve = gatesObj ? judgeValveGate(events.ok ? events.events : [], { mode: gatesObj.humanValveMode, headSource: valveSource }) : null
-  const closure = judgeDispatchClosure(events.ok ? events.events : [], { schedulerSource: valveSource })
+  const closure = judgeDispatchClosure(events.ok ? events.events : [], {
+    schedulerSource: valveSource,
+    // 在册面 = 本次派单面(与 A3 同一份 parseTicketRows 取票口径);取不到(空)⇒ null 保持旧行为
+    activeTicketKeys: ticketRows && ticketRows.length ? new Set(ticketRows.map((r) => ticketKeyOf(r.text))) : null,
+  })
   const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure })
   if (asJson) {
     console.log(JSON.stringify({ verdict: result.state, face: FACE_SEL.face, ...result, identity: alertIdentity(result) }, null, 1))
