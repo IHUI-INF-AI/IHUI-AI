@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8248d8dcc7)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c5c0586a4a)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3969eafae0)
 - 🚀 Feature/Improvement:小程序考勤页接上代签/签退与整班点名(票 B72 小程序腿) (19a08e0fa0)
@@ -152,9 +155,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f018abb84b)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (884719fa8e)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
