@@ -29,9 +29,13 @@ from app.services import repo_wiki_engine as wiki
 def _clean():
     wiki._WIKI_CACHE.clear()
     mcp_server._TEAM_TASK_BOARD.clear()
+    # 逐出计数是模块级累计量(不是本用例的输入):不清零时同 worker 上先跑过的
+    # "过期扫描/封顶"用例会把它抬到 1+,本用例的 0 断言就会随 xdist 分片顺序假红。
+    wiki.wiki_cache_evictions = 0
     yield
     wiki._WIKI_CACHE.clear()
     mcp_server._TEAM_TASK_BOARD.clear()
+    wiki.wiki_cache_evictions = 0
 
 
 def test_wiki_cache_under_cap_keeps_everything() -> None:
