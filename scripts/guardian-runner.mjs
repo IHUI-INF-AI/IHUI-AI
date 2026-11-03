@@ -6847,10 +6847,10 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
-  // 编号 286:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 已由同批入库的 props 对账门
-  // 占用 ⇒ 本门顺延 286,取号规则仍为「现读最大 + 1」。
+  // 编号 289:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 被正号 docs 门占、286 被正号指标门占、
+  // 288 给同批 props 对账门 ⇒ 本门顺延 289,取号规则仍为「现读最大 + 1」。
   {
-    id: '286',
+    id: '289',
     label:
       '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
     script: 'check-web-rn-gap-ratchet.mjs',
@@ -6889,7 +6889,8 @@ const checks = [
       '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
   },
   {
-    id: '285',
+    id: '288',
+    // 285 与正号 docs 公开面门撞号、286 与正号指标门撞号 ⇒ 本门(及下方 gap-ratchet)按现读最大 +1 顺延。
     label:
       '🦾 两端同名组件 props 行为对账(blocking,差值棘轮:同名配对组件的 props 键集/必选性只减不增 —— 缺腿是静默失效型,调用端传过去本端无声忽略)',
     script: 'check-cross-end-component-props-parity.mjs',

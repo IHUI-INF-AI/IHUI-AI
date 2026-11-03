@@ -4,11 +4,11 @@
 
  
 /**
- * 守门 285 镜像测试(§22c:判据只 import,不在此复刻一份;运行入口 node --test,与 scripts/tests 族一致)。
+ * 守门 288 镜像测试(§22c:判据只 import,不在此复刻一份;运行入口 node --test,与 scripts/tests 族一致)。
  * 覆盖:
  *  ① pairDelta 纯差集(含 INJECTABLE 豁免与必选性漂移形态)—— 生产判据 import lib;
  *  ② verifyAgainstBaseline 棘轮正反例(新键红/消键绿/新对带差红/undetermined warn/台账腐烂 warn);
- *  ③ 形状锁:guardian-runner 285 注册条目存在、blocking+skipEnv 成套、三件文件在场、stagedTriggers 覆盖族目录面。
+ *  ③ 形状锁:guardian-runner 288 注册条目存在、blocking+skipEnv 成套、三件文件在场、stagedTriggers 覆盖族目录面。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,7 +26,7 @@ const { verifyAgainstBaseline, buildBaselineEntry } = gate
 const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
 const mk = (name, optional = false) => ({ name, optional })
 
-describe('285 pairDelta(生产判据直用)', () => {
+describe('288 pairDelta(生产判据直用)', () => {
   it('共用键=无差;单侧独有键入 onlyRn/onlyMini;必选性不同入 reqDrift', () => {
     const rn = { state: 'ok', props: [mk('title'), mk('modal', true), mk('visible')] }
     const mini = { state: 'ok', props: [mk('title'), mk('modal'), mk('extra')] }
@@ -54,7 +54,7 @@ describe('285 pairDelta(生产判据直用)', () => {
   })
 })
 
-describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
+describe('288 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
   const base = {
     pairs: {
       Foo: { state: 'ok', onlyRn: ['onBar'], onlyMini: [], reqDrift: [] },
@@ -95,10 +95,10 @@ describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
   })
 })
 
-describe('285 形状锁(注册条目与文件在场)', () => {
+describe('288 形状锁(注册条目与文件在场)', () => {
   // 本仓多会话并发注册/让号时会短时重写 runner——直接读会撞上"半写窗口"假失败。
   // 完整判据(四枚 needle 全在)满足即收卷;4 轮后仍不齐 = 真缺,照样红(不是放行走后门)。
-  const NUM = '285'
+  const NUM = '288'
   const NEEDLES = [
     'apps/miniapp-taro/src/components/',
     'packages/app/src/components/',
@@ -128,11 +128,11 @@ describe('285 形状锁(注册条目与文件在场)', () => {
     return best ? best.text : readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
   }
   const runner = loadRunnerWindow()
-  it('285 已注册且 blocking + skipEnv 成套;同 id 不重复(R5/R13:重复注册=判红对象)', () => {
-    const entries = [...runner.matchAll(/^\s{4}id: '285',$/gm)]
-    assert.equal(entries.length, 1, 'runner 面出现多枚 id 285 ⇒ 撞号真缺,先解号再跑测试')
+  it('288 已注册且 blocking + skipEnv 成套;同 id 不重复(R5/R13:重复注册=判红对象)', () => {
+    const entries = [...runner.matchAll(/^\s{4}id: '288',$/gm)]
+    assert.equal(entries.length, 1, 'runner 面出现多枚 id 288 ⇒ 撞号真缺,先解号再跑测试')
     // 窗口=从本条目 id 行到本对象收括号:固定字符窗会被并发插入挪动邻行而误切
-    const start = runner.search(/^\s{4}id: '285',$/m)
+    const start = runner.search(/^\s{4}id: '288',$/m)
     const endRel = runner.slice(start).search(/^\s{2},\n/m)
     const blk = runner.slice(start, start + (endRel > 0 ? endRel : 2600))
     assert.ok(blk.includes("mode: 'blocking'"))
@@ -148,7 +148,7 @@ describe('285 形状锁(注册条目与文件在场)', () => {
       assert.ok(existsSync(join(ROOT, f)), `缺:${f}`)
   })
   it('stagedTriggers 覆盖两端组件目录 + 台账与判据面自身', () => {
-    const start = runner.search(/^\s{4}id: '285',$/m)
+    const start = runner.search(/^\s{4}id: '288',$/m)
     const endRel = runner.slice(start).search(/^\s{2},\n/m)
     const blk = runner.slice(start, start + (endRel > 0 ? endRel : 2600))
     for (const needle of [
