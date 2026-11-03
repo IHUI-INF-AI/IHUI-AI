@@ -5,7 +5,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ManualNav, chapters } from '../_manual-nav'
-import { Coins, MessageCircle, Lock, Wrench, Users, BarChart3, User, Bot, type LucideIcon } from 'lucide-react'
+import {
+  Coins,
+  MessageCircle,
+  Lock,
+  Wrench,
+  Users,
+  BarChart3,
+  User,
+  Bot,
+  Mail,
+  Lightbulb,
+  PartyPopper,
+  type LucideIcon,
+} from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -16,11 +29,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/faq',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/faq',
-      'zh-TW': '/zh-tw/docs/manual/faq',
-      en: '/en/docs/manual/faq',
-      ko: '/ko/docs/manual/faq',
-      ja: '/ja/docs/manual/faq',
       'x-default': '/docs/manual/faq',
     },
   },
@@ -200,9 +208,9 @@ export default function ManualFaqPage() {
     <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
-        <div className="text-label font-mono text-muted-foreground">第 07 章 · 使用说明手册</div>
+        <div className="text-xs font-mono text-muted-foreground">第 07 章 · 使用说明手册</div>
         <h1 className="text-display min-[768px]:text-3xl font-bold tracking-tight">常见问题</h1>
-        <p className="text-body text-muted-foreground min-[768px]:text-base">
+        <p className="text-sm text-muted-foreground min-[768px]:text-base">
           按类别整理的高频问题解答,覆盖账号、积分、对话、Agent、知识库、安全、故障排查。
           找不到答案可在底部联系客服。
         </p>
@@ -243,9 +251,12 @@ export default function ManualFaqPage() {
             href="mailto:support@aizhs.top"
             className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
           >
-            <p className="text-body font-semibold">📧 邮件支持</p>
-            <p className="mt-1 text-label text-muted-foreground">support@aizhs.top</p>
-            <p className="mt-1 text-label text-muted-foreground">工作时间:9:00-22:00,通常 2 小时内回复</p>
+            <p className="flex items-center text-body font-semibold">
+              <Mail className="mr-1.5 inline h-4 w-4" />
+              邮件支持
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">support@aizhs.top</p>
+            <p className="mt-1 text-xs text-muted-foreground">工作时间:9:00-22:00,通常 2 小时内回复</p>
           </a>
           <a
             href="https://aizhs.top/community"
@@ -255,8 +266,8 @@ export default function ManualFaqPage() {
               <MessageCircle className="mr-1.5 inline h-4 w-4" />
               社区论坛
             </p>
-            <p className="mt-1 text-label text-muted-foreground">community.aizhs.top</p>
-            <p className="mt-1 text-label text-muted-foreground">用户互助 + 官方答疑 + 功能建议</p>
+            <p className="mt-1 text-xs text-muted-foreground">community.aizhs.top</p>
+            <p className="mt-1 text-xs text-muted-foreground">用户互助 + 官方答疑 + 功能建议</p>
           </a>
           <Link
             href="/"
@@ -266,8 +277,8 @@ export default function ManualFaqPage() {
               <Users className="mr-1.5 inline h-4 w-4" />
               飞书用户群
             </p>
-            <p className="mt-1 text-label text-muted-foreground">扫码加入(首页底部二维码)</p>
-            <p className="mt-1 text-label text-muted-foreground">实时交流,最快响应</p>
+            <p className="mt-1 text-xs text-muted-foreground">扫码加入(首页底部二维码)</p>
+            <p className="mt-1 text-xs text-muted-foreground">实时交流,最快响应</p>
           </Link>
           <a
             href="https://status.aizhs.top"
@@ -277,20 +288,24 @@ export default function ManualFaqPage() {
               <BarChart3 className="mr-1.5 inline h-4 w-4" />
               服务状态
             </p>
-            <p className="mt-1 text-label text-muted-foreground">status.aizhs.top</p>
-            <p className="mt-1 text-label text-muted-foreground">实时监控 + 故障公告 + 历史事件</p>
+            <p className="mt-1 text-xs text-muted-foreground">status.aizhs.top</p>
+            <p className="mt-1 text-xs text-muted-foreground">实时监控 + 故障公告 + 历史事件</p>
           </a>
         </div>
-        <div className="rounded-xl border bg-muted/30 p-3 text-label text-muted-foreground">
-          💡 <strong>提效技巧</strong>:联系客服时附上 ① 账号邮箱 ② 问题截图 ③ 复现步骤 ④ 浏览器 / 系统,
+        <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+          <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+          <strong>提效技巧</strong>:联系客服时附上 ① 账号邮箱 ② 问题截图 ③ 复现步骤 ④ 浏览器 / 系统,
           可大幅缩短解决时间。Pro / Team 用户有专属优先通道。
         </div>
       </section>
 
       {/* 完结 */}
-      <section className="mt-12 rounded-xl border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
-        <p className="text-lg font-semibold">🎉 手册完结</p>
-        <p className="mt-2 text-body text-muted-foreground">
+      <section className="mt-12 rounded-lg border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
+        <p className="text-lg font-semibold">
+          <PartyPopper className="mr-1.5 inline h-5 w-5 align-text-bottom" aria-hidden />
+          手册完结
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
           恭喜!你已读完智汇 AI 使用说明手册全部 7 章。
           现在你已掌握从注册到进阶的全部操作。
         </p>

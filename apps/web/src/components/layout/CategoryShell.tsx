@@ -144,7 +144,7 @@ export function CategoryShell({
       {navGroups.map((group, idx) => (
         <div key={group.label ?? idx} className="space-y-1">
           {group.label && (
-            <p className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            <p className="px-2.5 pb-1 pt-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
               {group.label}
             </p>
           )}

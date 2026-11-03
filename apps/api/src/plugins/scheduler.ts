@@ -65,6 +65,11 @@ export type ScheduledJobName =
   | 'traffic-stats-hourly'
   // 中转号池健康 Gauge 刷新(2026-10-23 立;聚合面见 services/relay-pool-stats-service.ts)
   | 'relay-pool-gauge'
+  // 考勤缺勤补录(2026-11-02 立,B67):当日过了班级 absent_after 仍未签到的学生补 absent 行。
+  // 立票现读的事实:`eduAttendanceRecord` 全仓只有考勤路由在读写,没有任何补录面 ⇒ 没来的人
+  // 不进统计行,出勤率的分母只算"已签到的人",缺勤恒 0。判据与补录面见 services/edu-attendance-rule.ts
+  // 与 services/edu-attendance-absent-job.ts(补录器不自判阈值,阈值一律走规则表现读)。
+  | 'edu-attendance-absent-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -255,6 +260,15 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'relay-pool-gauge',
     pattern: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *',
     description: '中转号池健康 Gauge 刷新（每5分,查 ai_relay_key_pool/ai_relay_account_pool）',
+  },
+  // 考勤缺勤补录(B67):BullMQ pattern 按 UTC 解析,北京时间 18:30 = UTC 10:30(与
+  // edu-arrear-remind-daily 同一时区口径,不是本地钟)。挂既有 repeatable 轮询,不新增计时器;
+  // 应急可关档位 EDU_ATTENDANCE_ABSENT_DISABLED=1(在 services/scheduled-tasks-service.ts 消费)。
+  {
+    name: 'edu-attendance-absent-daily',
+    pattern: '30 10 * * *',
+    description:
+      '考勤缺勤补录（每日 UTC10:30=北京18:30,按班级 absent_after 为未签到学生落 absent 行）',
   },
 ]
 

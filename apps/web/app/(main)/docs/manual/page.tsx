@@ -3,7 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
-import { BookOpen, Rocket, MessageCircle, Coins, Bot, Settings, HelpCircle, ChevronRight, ChevronLeft } from 'lucide-react'
+import {
+  BookOpen,
+  Rocket,
+  MessageCircle,
+  Coins,
+  Bot,
+  Settings,
+  HelpCircle,
+  ChevronRight,
+  ChevronLeft,
+} from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -17,13 +27,48 @@ const manualJsonLd = {
       description:
         '面向终端用户的智汇 AI 使用说明手册,从注册登录到 AI 对话、Agent 使用、知识库、积分订阅、账户设置、常见问题全流程图文教程。',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '开始使用', url: 'https://aizhs.top/docs/manual/getting-started' },
-        { '@type': 'ListItem', position: 2, name: 'AI 对话', url: 'https://aizhs.top/docs/manual/ai-chat' },
-        { '@type': 'ListItem', position: 3, name: '使用 Agent', url: 'https://aizhs.top/docs/manual/agent' },
-        { '@type': 'ListItem', position: 4, name: '知识库', url: 'https://aizhs.top/docs/manual/knowledge-base' },
-        { '@type': 'ListItem', position: 5, name: '积分与订阅', url: 'https://aizhs.top/docs/manual/billing' },
-        { '@type': 'ListItem', position: 6, name: '账户设置', url: 'https://aizhs.top/docs/manual/account' },
-        { '@type': 'ListItem', position: 7, name: '常见问题', url: 'https://aizhs.top/docs/manual/faq' },
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: '开始使用',
+          url: 'https://aizhs.top/docs/manual/getting-started',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'AI 对话',
+          url: 'https://aizhs.top/docs/manual/ai-chat',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: '使用 Agent',
+          url: 'https://aizhs.top/docs/manual/agent',
+        },
+        {
+          '@type': 'ListItem',
+          position: 4,
+          name: '知识库',
+          url: 'https://aizhs.top/docs/manual/knowledge-base',
+        },
+        {
+          '@type': 'ListItem',
+          position: 5,
+          name: '积分与订阅',
+          url: 'https://aizhs.top/docs/manual/billing',
+        },
+        {
+          '@type': 'ListItem',
+          position: 6,
+          name: '账户设置',
+          url: 'https://aizhs.top/docs/manual/account',
+        },
+        {
+          '@type': 'ListItem',
+          position: 7,
+          name: '常见问题',
+          url: 'https://aizhs.top/docs/manual/faq',
+        },
       ],
     },
     {
@@ -32,7 +77,12 @@ const manualJsonLd = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
         { '@type': 'ListItem', position: 2, name: '文档', item: 'https://aizhs.top/docs' },
-        { '@type': 'ListItem', position: 3, name: '使用说明手册', item: 'https://aizhs.top/docs/manual' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: '使用说明手册',
+          item: 'https://aizhs.top/docs/manual',
+        },
       ],
     },
   ],
@@ -45,11 +95,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual',
-      'zh-TW': '/zh-tw/docs/manual',
-      en: '/en/docs/manual',
-      ko: '/ko/docs/manual',
-      ja: '/ja/docs/manual',
       'x-default': '/docs/manual',
     },
   },
@@ -58,7 +103,9 @@ export const metadata: Metadata = {
     description: '面向终端用户的图文教程,7 章覆盖全部常用功能。',
     url: `${SITE_URL}/docs/manual`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 使用说明手册' }],
+    images: [
+      { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 使用说明手册' },
+    ],
   },
 }
 
@@ -150,10 +197,10 @@ export default function ManualIndexPage() {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-label font-mono text-muted-foreground">第 {ch.num} 章</span>
+                  <span className="text-xs font-mono text-muted-foreground">第 {ch.num} 章</span>
                 </div>
                 <h2 className="text-base font-semibold min-[768px]:text-lg">{ch.title}</h2>
-                <p className="mt-1 text-label text-muted-foreground min-[768px]:text-body">{ch.desc}</p>
+                <p className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{ch.desc}</p>
               </div>
               <ChevronRight
                 className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1"
@@ -168,7 +215,7 @@ export default function ManualIndexPage() {
       <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
         <a
           href="/docs"
-          className="inline-flex items-center gap-1 rounded-lg border bg-card px-4 py-2 text-body hover:bg-accent"
+          className="inline-flex items-center gap-1 rounded-lg border bg-card px-4 py-2 text-sm hover:bg-accent"
         >
           <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
           <span>返回文档中心</span>

@@ -85,7 +85,7 @@ export function startRelayHealthCheckWorker(server: FastifyInstance): Worker {
       )
       return result
     },
-    { connection, concurrency: 1 },
+    { connection, concurrency: 1, lockDuration: 300_000 },
   )
 
   worker.on('failed', (job, err) => {
