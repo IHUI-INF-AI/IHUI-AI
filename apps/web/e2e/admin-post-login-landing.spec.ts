@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect, ADMIN_USER } from './fixtures'
+import type { Page } from '@playwright/test'
 
 /**
  * admin 登录落点 —— 真实浏览器端到端守门(AGENTS §17)
@@ -42,7 +43,7 @@ const OAUTH_STATUS = '/api/auth/oauth-status'
  * 所以先等地区判定请求落地(成功/失败都算落地),再按真实用户路径处理:弹窗在场就点「同意」,
  * 不在场直接切 tab。等待全部锚定页面自身状态,不 sleep、不抬 click 超时。
  */
-async function openPasswordTab(page: import('@playwright/test').Page, query = '') {
+async function openPasswordTab(page: Page, query = '') {
   const regionSettled = page
     .waitForResponse((r) => r.url().includes(OAUTH_STATUS), { timeout: 20_000 })
     .catch(() => null)
@@ -79,7 +80,7 @@ async function openPasswordTab(page: import('@playwright/test').Page, query = ''
 }
 
 /** 切到账号密码 tab → 填 admin 凭据 → 勾协议(勾不上走 notice-dialog 兜底)。 */
-async function preparePasswordLogin(page: import('@playwright/test').Page, query = '') {
+async function preparePasswordLogin(page: Page, query = '') {
   await openPasswordTab(page, query)
   const account = page.locator('#login-form-account')
   await expect(account).toBeVisible({ timeout: 15_000 })
@@ -95,7 +96,7 @@ async function preparePasswordLogin(page: import('@playwright/test').Page, query
 }
 
 /** 提交登录;弹出协议提示框时点「同意」后再提交一次。 */
-async function submitLogin(page: import('@playwright/test').Page) {
+async function submitLogin(page: Page) {
   await page.getByTestId('login-submit').click({ timeout: 15_000 })
   const noticeAgree = page.getByTestId('agreement-notice-agree')
   if (await noticeAgree.isVisible({ timeout: 2_000 }).catch(() => false)) {

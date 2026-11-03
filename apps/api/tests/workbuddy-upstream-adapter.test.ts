@@ -397,6 +397,8 @@ describe('workbuddyAdapter.refreshToken', () => {
     expect(res).not.toBeNull()
     expect(res?.token).toBe('AT-new')
     expect(res?.refreshToken).toBeNull()
+    expect(res?.expiresIn).toBe(3600)
+    expect(res?.refreshExpiresIn).toBeUndefined()
     const expiresAtMs = res!.expiresAt?.getTime() ?? -1
     expect(expiresAtMs).toBeGreaterThan(0)
     const skew = Math.abs(expiresAtMs - (Date.now() + 3600_000))
@@ -437,6 +439,26 @@ describe('workbuddyAdapter.refreshToken', () => {
     )
     const r2 = await workbuddyAdapter.refreshToken!(makeCtx({ tokenExpiresAt: null }))
     expect(r2?.expiresAt).toBeNull()
+  })
+
+  it('refreshExpiresIn 原样回传(60 天绝对寿命);缺失则不带该键,不编造', async () => {
+    vi.stubGlobal('fetch', async () =>
+      jsonResponse({
+        code: 0,
+        msg: 'ok',
+        data: { accessToken: 'AT', expiresIn: 3600, refreshExpiresIn: 5_183_999 },
+      }),
+    )
+    const r1 = await workbuddyAdapter.refreshToken!(makeCtx())
+    // 60 天 = 5_183_999 秒,原样上交(不在适配器里换算成 Date,落库口径只在 scheduler 一处)
+    expect(r1?.refreshExpiresIn).toBe(5_183_999)
+    expect(r1?.expiresIn).toBe(3600)
+
+    vi.stubGlobal('fetch', async () =>
+      jsonResponse({ code: 0, msg: 'ok', data: { accessToken: 'AT', expiresIn: 3600 } }),
+    )
+    const r2 = await workbuddyAdapter.refreshToken!(makeCtx())
+    expect(r2?.refreshExpiresIn).toBeUndefined()
   })
 
   it('accessToken 为空 → 抛错且 message 不含凭证', async () => {

@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { Container, BarChart3, Save } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
@@ -41,23 +42,25 @@ const selfHostJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '自托管部署 — 智汇 AI 全栈 AI 操作系统',
-  description:
-    'Docker Compose 单机版 5 分钟部署 + Kubernetes Helm Chart 多节点高可用部署。含环境要求、配置、监控、备份、升级、故障排查完整指南。Apache 2.0 开源,支持私有化。',
-  alternates: {
-    canonical: '/docs/self-host',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/self-host',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.self-host.title'),
+    description: t('meta.self-host.description'),
+    alternates: {
+      canonical: '/docs/self-host',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/self-host',
+      },
     },
-  },
-  openGraph: {
-    title: '自托管部署 — 智汇 AI',
-    description: 'Docker Compose + K8s Helm Chart,5 分钟到企业级高可用。',
-    url: `${SITE_URL}/docs/self-host`,
-    type: 'article',
-  },
+    openGraph: {
+      title: t('meta.self-host.title'),
+      description: t('meta.self-host.description'),
+      url: `${SITE_URL}/docs/self-host`,
+      type: 'article',
+    },
+  }
 }
 
 export default function SelfHostPage() {

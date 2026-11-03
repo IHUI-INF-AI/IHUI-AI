@@ -3,8 +3,19 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
-import { BookOpen, Ruler, Target, RefreshCw, Coins } from 'lucide-react'
+import {
+  Bot,
+  BookOpen,
+  Brain,
+  Coins,
+  Lightbulb,
+  RefreshCw,
+  Ruler,
+  Target,
+  Wrench,
+} from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
@@ -42,24 +53,28 @@ const ragJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '知识库 RAG — 智汇 AI 文档',
-  description:
-    '智汇 AI 知识库 RAG 完整指南:文档解析(PDF/Word/Markdown)、向量化、BM25 混合检索、知识图谱、rerank、引用溯源、多语言分词。',
-  alternates: {
-    canonical: '/docs/rag',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/rag',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.rag.title'),
+    description: t('meta.rag.description'),
+    alternates: {
+      canonical: '/docs/rag',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/rag',
+      },
     },
-  },
-  openGraph: {
-    title: '知识库 RAG — 智汇 AI',
-    description: '从文档上传到引用溯源,完整覆盖 RAG 全链路。',
-    url: `${SITE_URL}/docs/rag`,
-    type: 'article',
-    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI RAG' }],
-  },
+    openGraph: {
+      title: t('meta.rag.title'),
+      description: t('meta.rag.description'),
+      url: `${SITE_URL}/docs/rag`,
+      type: 'article',
+      images: [
+        { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI RAG' },
+      ],
+    },
+  }
 }
 
 export default function RagDocsPage() {
@@ -128,8 +143,9 @@ export default function RagDocsPage() {
           />
           <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
             <li>
-              <strong>文档上传</strong>:支持 PDF / Word / Markdown / TXT / HTML / PPT / Excel /
-              EPUB,单文件最大 100MB
+              <strong>文档上传</strong>:解析面支持 PDF / Word / Markdown / TXT / HTML / PPT / Excel
+              / EPUB(网页端上传入口实际可选的扩展名见下文「支持的文档类型」口径说明),单文件最大
+              100MB
             </li>
             <li>
               <strong>文档解析</strong>:Unstructured 引擎,自动 OCR
@@ -251,62 +267,108 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       {/* 支持的文档类型 */}
       <section id="file-types" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">支持的文档类型</h2>
-        <div className="space-y-2">
-          {[
-            ['PDF', '.pdf', '文本 + 扫描件 OCR + 表格 + 书签', '100MB'],
-            ['Word', '.docx .doc', '段落 + 标题 + 表格 + 图片', '100MB'],
-            ['Markdown', '.md .markdown', '原生解析,保留标题层级', '50MB'],
-            ['文本', '.txt .log', 'UTF-8 / GBK 自动识别', '50MB'],
-            ['HTML', '.html .htm', '清洗标签,保留正文结构', '50MB'],
-            ['PPT', '.pptx .ppt', '按幻灯片切片,保留标题', '100MB'],
-            ['Excel', '.xlsx .xls .csv', '按行切块,保留表头', '100MB'],
-            ['EPUB', '.epub', '按章节切片', '50MB'],
-            ['图片', '.png .jpg .jpeg', 'OCR 文字识别(需开启)', '20MB'],
-          ].map(([fmt, ext, desc, size], i) => (
-            <div
-              key={fmt}
-              className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-4 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
-            >
-              <div className="font-medium">{fmt}</div>
-              <div className="text-muted-foreground">{ext}</div>
-              <div className="text-xs text-muted-foreground min-[768px]:col-span-2">{desc}</div>
-              <div className="col-span-2 text-xs text-muted-foreground min-[768px]:col-span-1">
-                {size}
-              </div>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/60 text-left text-label font-semibold">
+                <th scope="col" className="p-3">
+                  类型
+                </th>
+                <th scope="col" className="p-3">
+                  扩展名
+                </th>
+                <th scope="col" className="p-3">
+                  解析方式
+                </th>
+                <th scope="col" className="p-3">
+                  单文件上限
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['PDF', '.pdf', '文本 + 扫描件 OCR + 表格 + 书签', '100MB'],
+                ['Word', '.docx .doc', '段落 + 标题 + 表格 + 图片', '100MB'],
+                ['Markdown', '.md .markdown', '原生解析,保留标题层级', '50MB'],
+                ['文本', '.txt .log', 'UTF-8 / GBK 自动识别', '50MB'],
+                ['HTML', '.html .htm', '清洗标签,保留正文结构', '50MB'],
+                ['PPT', '.pptx .ppt', '按幻灯片切片,保留标题', '100MB'],
+                ['Excel', '.xlsx .xls .csv', '按行切块,保留表头', '100MB'],
+                ['EPUB', '.epub', '按章节切片', '50MB'],
+                ['图片', '.png .jpg .jpeg', 'OCR 文字识别(需开启)', '20MB'],
+              ].map(([fmt, ext, desc, size], i) => (
+                <tr key={fmt} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
+                  <td className="p-3 font-medium whitespace-nowrap">{fmt}</td>
+                  <td className="p-3 font-mono text-xs whitespace-nowrap">{ext}</td>
+                  <td className="p-3 text-muted-foreground">{desc}</td>
+                  <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{size}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
+          <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+          <strong>口径说明(上表是解析能力,不等于每个入口都能选到)</strong>:
+          网页端知识库上传入口的可选文件当前只列出{' '}
+          <span className="font-mono">.pdf .docx .md .txt .html .htm</span> 六种扩展名;其余类型(如
+          .xlsx / .xls / .csv / .ppt / .pptx / .doc / .epub)需经 API
+          或其他上传面进入。预览侧能力另算一档:.docx / .xlsx / .pptx 由本地渲染器直接预览;.doc /
+          .xls / .ppt 这三种旧二进制格式本仓没有本地渲染器,一律只给下载出口 —— 2026-11-03
+          整改起不再把文件地址交给
+          第三方在线查看器渲染(那条路要求地址公网匿名可达,等于把内容外发);.odt / .rtf / .epub / .zip
+          仅在类型白名单中登记、暂无渲染器。
         </div>
       </section>
 
       {/* Embedding 模型 */}
       <section id="embedding-models" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">支持的 Embedding 模型</h2>
-        <div className="space-y-2">
-          {[
-            ['bge-m3', '智源(BAAI)', '1024', '中英多语言', '默认,中文友好'],
-            ['bge-large-zh-v1.5', '智源', '1024', '中文', '纯中文场景更优'],
-            ['text-embedding-3-large', 'OpenAI', '3072', '多语言', '效果最佳,按量计费'],
-            ['text-embedding-3-small', 'OpenAI', '1536', '多语言', '性价比高'],
-            ['embed-multilingual-v3', 'Cohere', '1024', '100+ 语言', '小语种友好'],
-            ['voyage-2', 'Voyage AI', '1024', '多语言', '检索优化'],
-            ['m3e-base', '开源', '768', '中文', '本地部署可选'],
-          ].map(([model, vendor, dim, lang, note], i) => (
-            <div
-              key={model}
-              className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-[minmax(83px,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
-            >
-              <div className="font-medium">{model}</div>
-              <div className="text-muted-foreground">{vendor}</div>
-              <div className="text-muted-foreground">{dim}</div>
-              <div className="text-muted-foreground">{lang}</div>
-              <div className="col-span-2 text-xs text-muted-foreground min-[768px]:col-span-1">
-                {note}
-              </div>
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/60 text-left text-label font-semibold">
+                <th scope="col" className="p-3">
+                  模型
+                </th>
+                <th scope="col" className="p-3">
+                  厂商
+                </th>
+                <th scope="col" className="p-3">
+                  维度
+                </th>
+                <th scope="col" className="p-3">
+                  语言
+                </th>
+                <th scope="col" className="p-3">
+                  备注
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['bge-m3', '智源(BAAI)', '1024', '中英多语言', '默认,中文友好'],
+                ['bge-large-zh-v1.5', '智源', '1024', '中文', '纯中文场景更优'],
+                ['text-embedding-3-large', 'OpenAI', '3072', '多语言', '效果最佳,按量计费'],
+                ['text-embedding-3-small', 'OpenAI', '1536', '多语言', '性价比高'],
+                ['embed-multilingual-v3', 'Cohere', '1024', '100+ 语言', '小语种友好'],
+                ['voyage-2', 'Voyage AI', '1024', '多语言', '检索优化'],
+                ['m3e-base', '开源', '768', '中文', '本地部署可选'],
+              ].map(([model, vendor, dim, lang, note], i) => (
+                <tr key={model} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
+                  <td className="p-3 font-mono text-xs whitespace-nowrap">{model}</td>
+                  <td className="p-3 text-muted-foreground">{vendor}</td>
+                  <td className="p-3 font-mono text-xs">{dim}</td>
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">{lang}</td>
+                  <td className="p-3 text-xs text-muted-foreground">{note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
-          💡 <strong>选型建议</strong>:中文为主选 bge-m3(默认);中英混合选
+          <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+          <strong>选型建议</strong>:中文为主选 bge-m3(默认);中英混合选
           text-embedding-3-large;成本敏感选 bge-large-zh-v1.5; 本地部署选 m3e-base + Ollama。
         </div>
       </section>
@@ -399,18 +461,24 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
             href="/docs/agent"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🤖 Agent 开发 →<br />
+            <Bot className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>Agent 开发 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">把知识库挂载到 Agent</span>
           </Link>
           <Link
             href="/docs/models"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🧠 多模型调度 →<br />
+            <Brain className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>多模型调度 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">选合适的 LLM 配 RAG</span>
           </Link>
           <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            🛠️ API 参考 →<br />
+            <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>API 参考 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">通过 API 操作知识库</span>
           </Link>
         </div>
