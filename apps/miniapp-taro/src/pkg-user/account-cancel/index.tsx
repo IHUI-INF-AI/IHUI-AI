@@ -14,7 +14,8 @@ import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
 import { onToast } from '@/host/on-toast'
 
 const CONSEQUENCE_KEYS = [
@@ -52,7 +53,7 @@ const SECTION_TITLE_STYLE: CSSProperties = {
   fontSize: '32rpx', // RN label 16 → 32rpx
   fontWeight: 600,
   color: 'var(--color-foreground)', // tk.text.primary
-  margin: '24rpx 0 16rpx', // fieldGroup gap 8 → 16rpx
+  margin: `${rpx(taroSpacing.md)} 0 ${rpx(taroSpacing.sm)}`, // fieldGroup gap 8 → 16rpx
 }
 
 const CONSEQUENCE_ITEM_STYLE: CSSProperties = {
@@ -66,8 +67,8 @@ const CONSEQUENCE_ITEM_STYLE: CSSProperties = {
 const DESC_CARD_STYLE: CSSProperties = {
   background: 'var(--color-surface-light)',
   borderRadius: rnRadius.xl,
-  padding: '24rpx',
-  marginBottom: '16rpx',
+  padding: rpx(taroSpacing.md),
+  marginBottom: rpx(taroSpacing.sm),
 }
 
 // 手机号只读展示盒:复用 RN input 视觉(muted 底 + 描边 + radius 24rpx)
@@ -95,7 +96,7 @@ const SEND_CODE_BASE_STYLE: CSSProperties = {
   height: '88rpx',
   lineHeight: '88rpx',
   padding: '0 24rpx',
-  marginLeft: '16rpx',
+  marginLeft: rpx(taroSpacing.sm),
   borderRadius: rnRadius.xl,
   background: 'var(--color-primary)',
   fontSize: '28rpx', // RN 14 → 28rpx

@@ -315,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       alignItems: 'center',
     } as ViewStyle,
     submitBtnPressed: { opacity: 0.85 } as ViewStyle,

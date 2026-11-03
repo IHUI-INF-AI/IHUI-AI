@@ -5,12 +5,15 @@
 /**
  * 考勤三屏(mobile-rn 端)行为用例。立因:该三屏此前零用例,RN 侧「只能看不能操作」从未被钉住。
  *
- * 钉的四格:
+ * 钉的五格:
  *  ① 挂载只发一次取列表,且路径 + 查询参数逐字正确(含「业务日按 UTC+8 切」那一格);
  *  ② 签到/签退/自签/扫码各打各的端点,失败把后端 message 原样上屏(appAlert),不静默;
  *  ③ 学生本人页只取自己的考勤:即使调用方塞进 studentId 也不得当查询依据、客户端不送身份
  *     (AGENTS §5「认证不等于授权」);
- *  ④ 写操作成功后重新取列表,不做本地乐观更新(以服务端回读为准)。
+ *  ④ 写操作成功后重新取列表,不做本地乐观更新(以服务端回读为准);
+ *  ⑤ 2026-11 契约收口:写接口 payload **不含 status**(状态由服务端按该班规则现算)、
+ *     代签只发当日业务日(跨日行当场拒发,不发注定 400 的请求)、
+ *     早退(early)自此真会由服务端产出 ⇒ 色档/文案五档齐备且四屏同源。
  *
  * 机制照抄本仓既有 RN 用例(tests/security-ip-panel.test.tsx 与 tests/session-expiry-navigation.test.ts):
  * 局部 vi.mock 替掉宿主(RN/图标/相机/共享控制台屏/底部弹层),取词走**真词包** ⇒ 断言的是文案本身。
@@ -34,8 +37,20 @@ type LocalRowView = { id: string; cells: Record<string, string>; badgeTone?: str
 
 const ok = (data: unknown): ApiResult => ({ success: true, data })
 const fail = (error: string, status?: number): ApiResult => ({ success: false, error, status })
-/** 与屏内同口径的业务日(UTC+8 截日):钉的是「取今天那一条」,不是任意日期 */
-const todayShanghai = (): string => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
+/**
+ * 「当日业务日」用**独立算法**量:直接问 Intl 要 Asia/Shanghai 的年月日,
+ * 不抄屏内那句 `Date.now()+8*3600_000`(抄同一把尺子就量不出它弯了,AGENTS §22c)。
+ */
+const shanghaiDay = (at: Date): string =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(at)
+const todayShanghai = (): string => shanghaiDay(new Date())
+/** 上一个业务日:跨日行用例的输入(必须与当日不同,且逐字是 YYYY-MM-DD) */
+const yesterdayShanghai = (): string => shanghaiDay(new Date(Date.now() - 24 * 3600_000))
 
 function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
   let resolve!: (v: T) => void
@@ -131,12 +146,17 @@ vi.mock('@react-navigation/native', () => ({
     },
     addListener: () => () => undefined,
   }),
+  // 孩子考勤屏按 route.params.childId 取数 ⇒ 替身给出稳定的那一个
+  useRoute: () => ({ params: { childId: 'child-1' } }),
 }))
 
 vi.mock('@ihui/ui-native', () => ({
   Tappable: (props: { children?: ReactNode; onPress?: () => void; [k: string]: unknown }) => {
-    const { children, onPress, ...rest } = props
-    return createElement('button', { ...rest, onClick: onPress }, children)
+    const { children, onPress, style, ...rest } = props
+    // style 可能是 RN 的数组形态;react-dom 只认扁平对象,直接下发会抛「set on proxy」
+    const flat = (v: unknown): unknown =>
+      Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
+    return createElement('button', { ...rest, onClick: onPress, style: flat(style) }, children)
   },
 }))
 
@@ -222,6 +242,7 @@ vi.mock('../src/i18n', async (importOriginal) => {
 
 import EduAttendanceScreen from '../src/screens/EduAttendanceScreen'
 import EduMyAttendanceScreen from '../src/screens/EduMyAttendanceScreen'
+import EduChildAttendanceScreen from '../src/screens/EduChildAttendanceScreen'
 import {
   EduAttendanceQrScreen,
   EduAttendanceScanScreen,
@@ -237,6 +258,7 @@ const SELF_URL = `${LIST_URL}/self-check-in`
 const QR_URL = `${LIST_URL}/qrcode`
 const QR_SCAN_URL = `${LIST_URL}/qrcode-check-in`
 const CLASS_URL = '/api/edu-ai-management/class'
+const CHILD_URL = '/api/edu-ai-management/parent/child/child-1/attendance'
 
 const zhKey = (path: string, params?: Record<string, string | number>): string => {
   const v = translate(messages['zh-CN'], path, { params, locale: 'zh-CN' })
@@ -281,11 +303,15 @@ const resetCapture = (): void => {
   api.fetchApi.mockImplementation(async () => ok({ list: [] }))
 }
 
+/**
+ * 教师列表行的默认形态:date = **当前上海业务日**(新契约下代签只认当日),
+ * 需要「跨日行」的用例自己覆盖 date ⇒ 每枚行按调用时刻现算,不共用模块加载时的旧读数。
+ */
 const teacherRow = (over: Record<string, unknown> = {}) => ({
   id: 'rec-1',
   studentId: 'stu-1',
   classId: 'cls-1',
-  date: '2020-01-02',
+  date: todayShanghai(),
   checkInTime: null,
   checkOutTime: null,
   status: 'absent',
@@ -293,6 +319,12 @@ const teacherRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 const latestRows = (): LocalRowView[] => (h.tables.at(-1)?.rows as LocalRowView[] | undefined) ?? []
+/** 某写端点首次请求的 payload(取不到即尺子失效,不用空对象冒充"没带 status") */
+const firstBody = (url: string): Record<string, unknown> => {
+  const body = callsWith(url)[0]?.[1]?.body
+  if (!body) throw new Error(`${url} 没有请求体 ⇒ 尺子失效`)
+  return JSON.parse(body) as Record<string, unknown>
+}
 
 describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
   beforeEach(() => {
@@ -313,7 +345,7 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     expect(latestRows()[0]?.cells['student']).toBe('stu-1')
   })
 
-  it('②④ 行操作「签到」= POST check-in,入参取自服务端行;成功后重取列表', async () => {
+  it('②④⑤ 行操作「签到」= POST check-in,payload 取自服务端行且不含 status;成功后重取列表', async () => {
     api.fetchApi.mockImplementation(async (url) =>
       url.startsWith(LIST_QUERY) ? ok({ list: [teacherRow()] }) : ok({ id: 'rec-1' }),
     )
@@ -328,17 +360,21 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     const [url, init] = callsWith(CHECK_IN_URL)[0]!
     expect(url).toBe(CHECK_IN_URL)
     expect(init?.method).toBe('POST')
-    expect(JSON.parse(init?.body ?? '{}')).toEqual({
+    expect(firstBody(CHECK_IN_URL)).toEqual({
       studentId: 'stu-1',
       classId: 'cls-1',
-      date: '2020-01-02',
+      date: todayShanghai(),
     })
+    expect(
+      Object.keys(firstBody(CHECK_IN_URL)),
+      '状态由服务端按该班规则现算 ⇒ 代签 payload 不得再自报 status',
+    ).not.toContain('status')
     expect(lastAlert().message).toBe(zhKey('eduAttendance.actionDone'))
     await waitFor(() => expect(listCalls(), '签到成功后没回读列表').toBe(2))
     expect(callsWith(CHECK_OUT_URL), '签到不该顺带发签退').toHaveLength(0)
   })
 
-  it('② 签退 = PUT check-out;被服务端拒时后端 message 上屏且不重取列表', async () => {
+  it('②⑤ 签退 = PUT check-out(date 是记录定位键、payload 不含 status);被服务端拒时后端 message 上屏且不重取列表', async () => {
     const reason = '该学生今天还没有签到记录'
     api.fetchApi.mockImplementation(async (url) =>
       url.startsWith(LIST_QUERY) ? ok({ list: [teacherRow()] }) : fail(reason, 400),
@@ -349,11 +385,73 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     pressButton(zhKey('eduAttendance.checkOut'))
     await waitFor(() => expect(callsWith(CHECK_OUT_URL).length).toBe(1))
     expect(callsWith(CHECK_OUT_URL)[0]?.[1]?.method).toBe('PUT')
+    expect(firstBody(CHECK_OUT_URL)).toEqual({
+      studentId: 'stu-1',
+      classId: 'cls-1',
+      date: todayShanghai(),
+    })
+    expect(
+      Object.keys(firstBody(CHECK_OUT_URL)),
+      '签退后状态由服务端重判 ⇒ 端上不得自报 status',
+    ).not.toContain('status')
     expect(lastAlert().message, '失败必须把后端 message 原样上屏').toContain(reason)
     expect(lastAlert().message).toContain(zhKey('eduAttendance.actionFailed'))
     expect(listCalls(), '失败不得顺手重取列表冒充刷新').toBe(1)
     // 界面仍是服务端上一次回读的值(没被本地改成「已签退」)
     expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.absent'))
+  })
+
+  it('⑤ 跨日行:代签当场点名并拒发 check-in,同一行的签退照发且带行自己的 date', async () => {
+    const stale = yesterdayShanghai()
+    api.fetchApi.mockImplementation(async (url) =>
+      url.startsWith(LIST_QUERY)
+        ? ok({ list: [teacherRow({ date: stale })] })
+        : ok({ id: 'rec-1' }),
+    )
+    render(createElement(EduAttendanceScreen))
+    await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
+    fireEvent.click(screen.getByText('stu-1'))
+    pressButton(zhKey('eduAttendance.checkIn'))
+    expect(lastAlert().message).toBe(zhKey('eduAttendance.onlyTodayCheckIn'))
+    expect(callsWith(CHECK_IN_URL), '非当日行却发出了代签请求(新契约下必 400)').toHaveLength(0)
+    expect(listCalls()).toBe(1)
+    // 阳性对照:同一实例上「签退」这一腿没被同一条护栏误伤 ⇒ 上一条的 0 不是恒真
+    fireEvent.click(screen.getByText('stu-1'))
+    pressButton(zhKey('eduAttendance.checkOut'))
+    await waitFor(() => expect(callsWith(CHECK_OUT_URL).length).toBe(1))
+    expect(firstBody(CHECK_OUT_URL)).toEqual({
+      studentId: 'stu-1',
+      classId: 'cls-1',
+      date: stale,
+    })
+  })
+
+  it('⑤ 早退(early)有独立文案与色档:服务端签退重判自此真会产出它', async () => {
+    const order = ['present', 'late', 'early', 'absent', 'leave'] as const
+    // 期望档位在测试里逐条写死(不 import 屏内映射,否则改成什么它都跟着绿)
+    const tones: Record<(typeof order)[number], string> = {
+      present: 'ok',
+      late: 'warn',
+      early: 'warn',
+      absent: 'danger',
+      leave: 'muted',
+    }
+    api.fetchApi.mockImplementation(async () =>
+      ok({ list: order.map((s, i) => teacherRow({ id: `rec-${i}`, studentId: `stu-${i}`, status: s })) }),
+    )
+    render(createElement(EduAttendanceScreen))
+    await waitFor(() => expect(screen.getByText('stu-2')).toBeTruthy())
+    const byId = new Map(latestRows().map((r) => [r.id, r]))
+    for (const [i, s] of order.entries()) {
+      const row = byId.get(`rec-${i}`)
+      if (!row) throw new Error(`第 ${i} 行没被渲染 ⇒ 尺子失效`)
+      expect(row.cells['status'], `${s} 未取到词表文案(落回原始协议码)`).toBe(
+        zhKey(`eduAttendance.status.${s}`),
+      )
+      expect(row.badgeTone, `${s} 的色档不是登记的那一档`).toBe(tones[s])
+    }
+    // 阳性对照:早退与"未知状态"必须不同名(缺词表时它会退化成 'early' 原文)
+    expect(zhKey('eduAttendance.status.early')).not.toBe('early')
   })
 
   it('② 缺 classId 的行:当场点名缺班级并拒发请求(副作用没发生)', async () => {
@@ -367,7 +465,7 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     expect(listCalls()).toBe(1)
   })
 
-  it('④ 整班点名成功后重新取列表,回读到达前界面仍是旧值(无乐观更新)', async () => {
+  it('②④⑤ 整班点名成功后重新取列表,回读到达前界面仍是旧值(无乐观更新)', async () => {
     const second = deferred<unknown>()
     let hits = 0
     api.fetchApi.mockImplementation(async (url) => {
@@ -387,6 +485,10 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
       classId: 'cls-1',
       date: todayShanghai(),
     })
+    expect(
+      Object.keys(firstBody(BATCH_URL)),
+      '点名状态由服务端现算 ⇒ payload 不得带 status',
+    ).not.toContain('status')
     await waitFor(() => expect(listCalls(), '点名后没重新取列表').toBe(2))
     // 第二次取列表尚未回读 ⇒ 界面必须仍是旧状态(本地乐观改状态会在这里翻红)
     expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.absent'))
@@ -444,7 +546,7 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.present'))
   })
 
-  it('②④ 自签 = POST self-check-in,body 只有 date;成功后回读列表', async () => {
+  it('②④⑤ 自签 = POST self-check-in,body 只有当日 date(无 status);成功后回读列表', async () => {
     api.fetchApi.mockImplementation(async (url) =>
       url.startsWith(ME_URL) ? ok({ list: [] }) : ok({ classId: 'cls-1', status: 'late' }),
     )
@@ -453,10 +555,24 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     fireEvent.click(screen.getByText(zhKey('eduMyAttendance.selfCheckIn')))
     await waitFor(() => expect(callsWith(SELF_URL).length).toBe(1))
     expect(callsWith(SELF_URL)[0]?.[1]?.method).toBe('POST')
-    expect(JSON.parse(callsWith(SELF_URL)[0]![1]?.body ?? '{}')).toEqual({ date: todayShanghai() })
+    expect(firstBody(SELF_URL)).toEqual({ date: todayShanghai() })
+    expect(
+      Object.keys(firstBody(SELF_URL)),
+      '自签状态由服务端现算 ⇒ payload 不得带 status',
+    ).not.toContain('status')
     expect(lastAlert().message).toContain(zhKey('eduAttendance.actionDone'))
     expect(lastAlert().message).toContain(zhKey('eduAttendance.status.late'))
     await waitFor(() => expect(callsWith(ME_URL).length, '自签成功后必须回读列表').toBe(2))
+  })
+
+  it('⑤ 本人页渲染早退档:与教师屏同一色档、同一词表(不各写一份映射)', async () => {
+    api.fetchApi.mockImplementation(async () =>
+      ok({ list: [{ ...teacherRow(), studentId: 'stu-own', status: 'early' }] }),
+    )
+    render(createElement(EduMyAttendanceScreen))
+    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.early'))
+    expect(latestRows()[0]?.badgeTone, '早退落到默认档 = 与未知状态同色').toBe('warn')
   })
 
   it('③ 未登录:一次请求都不发,点自签也不发(而不是拿空身份去试)', async () => {
@@ -482,6 +598,38 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     expect(callsWith(ME_URL).length, '失败不得伪装成刷新').toBe(1)
     // 行内容仍是服务端回读的空列表(没被本地塞进一条「已签到」)
     expect(latestRows()).toHaveLength(0)
+  })
+})
+
+describe('考勤屏 · 家长侧 EduChildAttendanceScreen', () => {
+  beforeEach(() => {
+    cleanup()
+    resetCapture()
+  })
+
+  it('①⑤ 取数只按 route 上的 childId;早退档与教师屏同一色档同一词表(四屏同源)', async () => {
+    api.fetchApi.mockImplementation(async () =>
+      ok({
+        list: [
+          {
+            id: 'rec-1',
+            date: '2020-01-02T00:00:00.000Z',
+            status: 'early',
+            checkInTime: '2020-01-02T01:30:00.000Z',
+            checkOutTime: '2020-01-02T06:00:00.000Z',
+          },
+        ],
+      }),
+    )
+    render(createElement(EduChildAttendanceScreen))
+    await waitFor(() => expect(callsWith(CHILD_URL).length).toBe(1))
+    expect(urls()[0]).toBe(CHILD_URL)
+    await settle()
+    expect(api.fetchApi.mock.calls, '挂载期多发了一次请求').toHaveLength(1)
+    expect(latestRows()[0]?.cells['date']).toBe('2020-01-02')
+    expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.early'))
+    expect(latestRows()[0]?.badgeTone, '早退落到默认档 = 与未知状态同色').toBe('warn')
+    expect(latestRows()[0]?.cells['checkOut']).toBe('06:00')
   })
 })
 
