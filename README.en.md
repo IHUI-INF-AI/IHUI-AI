@@ -93,8 +93,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
-> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
-
 <!-- END GENERATED NUMBERS -->
 <!-- END GENERATED NUMBERS -->
 
@@ -102,6 +100,14 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🐞 Fix:重生成离线语言包载荷，去除合并回灌引入的尾部换行 (f5968144d6)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d7d35fb2cc)
+- ♻️ Refactor:Drawer 复合间距保持字面量（跨端门 128 静态解值回退） (137d4dcec4)
+- 🔧 Chore/Other:活性散文数字对齐生成器实际读数(c9b69e6758 面) (dccd868650)
+- 🐞 Fix:从 COLORS_MAPPING 删除已废弃 tertiary 常量并重算 ui-routes 钉 (c9b69e6758)
+- 🔧 Chore/Other:数字块重算到 830eb717 + FAQ/头条断言对齐实际 (319213f532)
+
 **2026-11-03**
 - 🚀 Feature/Improvement:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
 - 🚀 Feature/Improvement:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
@@ -164,9 +170,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (45954293cd)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ce45e49f3f)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

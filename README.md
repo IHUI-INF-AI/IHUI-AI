@@ -108,8 +108,6 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
-> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5450,6 +5448,14 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🐞 修复:重生成离线语言包载荷，去除合并回灌引入的尾部换行 (f5968144d6)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d7d35fb2cc)
+- ♻️ 重构:Drawer 复合间距保持字面量（跨端门 128 静态解值回退） (137d4dcec4)
+- 🔧 工程/其他:活性散文数字对齐生成器实际读数(c9b69e6758 面) (dccd868650)
+- 🐞 修复:从 COLORS_MAPPING 删除已废弃 tertiary 常量并重算 ui-routes 钉 (c9b69e6758)
+- 🔧 工程/其他:数字块重算到 830eb717 + FAQ/头条断言对齐实际 (319213f532)
+
 **2026-11-03**
 - 🚀 新功能/改进:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
 - 🚀 新功能/改进:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
