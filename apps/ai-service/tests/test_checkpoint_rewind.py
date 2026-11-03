@@ -75,9 +75,22 @@ def _messages_v2() -> list[dict]:
 
 
 def _make_checkpoint_app() -> FastAPI:
-    """独立 ASGI app(仅挂载 checkpoint_rewind 路由),避免改动 main.py。"""
+    """独立 ASGI app(仅挂载 checkpoint_rewind 路由),避免改动 main.py。
+
+    2026-11-04:restore / impact 路由改用 `get_current_user_id_sync(request)`(非依赖项,
+    直接读 request.state.user_id,取不到即 401),而本测试 app 不挂 jwt 中间件 ⇒ 必须
+    由这个中间件补注入已验证主体,才能走到"回滚/影响预览"业务断言。这不是放宽鉴权:
+    路由侧仍会拒绝没有主体的请求(由 jwt_auth 单测与下方 401 语义覆盖)。
+    """
     app = FastAPI()
     app.include_router(checkpoint_rewind.router, prefix="/api")
+
+    @app.middleware("http")
+    async def _inject_principal(request, call_next):
+        request.state.user_id = "test-user-001"
+        request.state.role_id = 0
+        return await call_next(request)
+
     return app
 
 
