@@ -119,8 +119,9 @@ const NEW_FAMILIES = [
   {
     id: 'client-sync-leg-workbuddy',
     name: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)',
-    cooldownMs: 43200000,
-    cap24: 2,
+    // 2026-11-03 临时止血:回灌腿计划任务已 DISABLE,guardian 审计尚在 ⇒ 条目保留不删,窗口拉长到 7 天。
+    cooldownMs: 604800000,
+    cap24: 1,
   },
 ]
 const REAL_POLICY = () =>

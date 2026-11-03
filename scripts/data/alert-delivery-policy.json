@@ -65,8 +65,8 @@
   {
     "id": "client-sync-leg-workbuddy",
     "prefix": "WorkBuddy 号池保活腿失效(本机会话不再回灌)",
-    "cooldownMs": 43200000,
-    "reason": "该腿是结构性失效(DPAPI/交互式令牌身份,服务侧读不到;重建计划任务前不会自愈),台账 7d 7 封 / 1 个身份、节奏 293 分钟(24h 5 封)。修好前按 720 分钟(12h)重复已足够提醒,不必每 5 小时催一次;首报仍立即出,正文带累计抑制计数。Qoder 腿是另一条腿、另一个告警名,不受影响。",
+    "cooldownMs": 604800000,
+    "reason": "2026-11-03 临时止血:本机回灌腿计划任务 IHUI-WorkBuddy-Session-Sync 已 /DISABLE(只停腿、未删任务),腿不再跑也不再产生新的 breach 读数;保活不依赖此腿(续期走 server 端 5 分钟 sweep、空闲 7 天续票、API 签到)。窗口由 720 分钟临时拉长到 7 天(168h),仅为存量 breach 共振降噪。guardian 审计 auditWorkbuddySessionSyncTask 仍保留(scripts/git-guardian.mjs 正由他人修改,本轮不碰),故本条目必须保留不删——先删条目会退回默认 4h 窗口、反而更吵;等 guardian 审计摘除后再删条目。恢复腿时须把 cooldownMs 改回 43200000。Qoder 腿是另一条腿、另一个告警名,不受影响。",
     "owner": "git-guardian",
     "reviewBy": "2026-11-16",
     "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 7 封 / 1 个 alertId(3f77e5cb15ec);24h 5 封(间隔 601/256/263/293 分钟)"
