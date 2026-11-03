@@ -270,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
     cardLabel: { fontSize: rnType.body.size, color: tk.text.tertiary },
     cardValue: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
     },

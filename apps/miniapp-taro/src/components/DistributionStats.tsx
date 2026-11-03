@@ -49,11 +49,11 @@ export default function DistributionStats({
   if (variant === 'column') {
     const title = columnTitle ?? tt('distribution.columnTitle', '分销订单')
     return (
-      <View className="bg-card mx-3 my-3 rounded-lg p-4">
-        <View className="flex items-center justify-between mb-3">
-          <Text className="text-sm font-medium text-foreground">{title}</Text>
+      <View className="bg-card mx-md my-md rounded-lg p-lg">
+        <View className="flex items-center justify-between mb-md">
+          <Text className="text-body font-medium text-foreground">{title}</Text>
         </View>
-        <View className="flex flex-col gap-3">
+        <View className="flex flex-col gap-md">
           {columnItems.map((item, index) => {
             const colorClass = COLUMN_VALUE_COLOR_CLASS[item.color ?? 'default']
             return (
@@ -61,8 +61,8 @@ export default function DistributionStats({
                 key={`col-${index}-${item.label}`}
                 className="flex items-center justify-between"
               >
-                <Text className="text-sm text-muted-foreground">{item.label}</Text>
-                <Text className={`text-sm font-medium ${colorClass}`}>{item.value}</Text>
+                <Text className="text-body text-muted-foreground">{item.label}</Text>
+                <Text className={`text-body font-medium ${colorClass}`}>{item.value}</Text>
               </View>
             )
           })}
@@ -74,56 +74,56 @@ export default function DistributionStats({
   const monthlyPercent = monthlyTarget > 0 ? (monthlyEarnings / monthlyTarget) * 100 : 0
 
   return (
-    <View className="bg-card mx-3 my-3 rounded-lg p-4">
-      <View className="flex items-center justify-between mb-3">
-        <Text className="text-sm font-medium text-foreground">
+    <View className="bg-card mx-md my-md rounded-lg p-lg">
+      <View className="flex items-center justify-between mb-md">
+        <Text className="text-body font-medium text-foreground">
           {tt('distribution.statsTitle', '收益概览')}
         </Text>
-        <Text className="text-xs text-muted-foreground">
+        <Text className="text-label text-muted-foreground">
           {tt('distribution.thisMonth', '本月')}
         </Text>
       </View>
 
-      <View className="flex items-baseline mb-3">
-        <Text className="text-xs text-muted-foreground mr-1">¥</Text>
-        <Text className="text-2xl font-bold text-foreground">{totalEarnings.toFixed(2)}</Text>
-        <Text className="text-xs text-muted-foreground ml-2">
+      <View className="flex items-baseline mb-md">
+        <Text className="text-label text-muted-foreground mr-xs">¥</Text>
+        <Text className="text-display font-bold text-foreground">{totalEarnings.toFixed(2)}</Text>
+        <Text className="text-label text-muted-foreground ml-sm">
           {tt('distribution.totalRevenue', '累计收益')}
         </Text>
       </View>
 
-      <View className="mb-3">
-        <View className="flex justify-between mb-1">
-          <Text className="text-xs text-muted-foreground">
+      <View className="mb-md">
+        <View className="flex justify-between mb-xs">
+          <Text className="text-label text-muted-foreground">
             {tt('distribution.monthRevenue', '本月收益')}
           </Text>
-          <Text className="text-xs text-muted-foreground">
+          <Text className="text-label text-muted-foreground">
             {tt('distribution.monthlyTarget', '目标')} ¥{monthlyTarget}
           </Text>
         </View>
         <ProgressBar percent={monthlyPercent} color="var(--color-primary)" size="sm" />
       </View>
 
-      <View className="grid grid-cols-3 gap-2 pt-3">
+      <View className="grid grid-cols-3 gap-sm pt-md">
         <View>
-          <Text className="block text-xs text-muted-foreground">
+          <Text className="block text-label text-muted-foreground">
             {tt('distribution.withdrawable', '可提现')}
           </Text>
-          <Text className="text-sm font-medium text-primary">
+          <Text className="text-body font-medium text-primary">
             ¥{availableWithdrawal.toFixed(2)}
           </Text>
         </View>
         <View>
-          <Text className="block text-xs text-muted-foreground">
+          <Text className="block text-label text-muted-foreground">
             {tt('distribution.pendingSettle', '待结算')}
           </Text>
-          <Text className="text-sm font-medium text-warning">¥{pendingSettlement.toFixed(2)}</Text>
+          <Text className="text-body font-medium text-warning">¥{pendingSettlement.toFixed(2)}</Text>
         </View>
         <View>
-          <Text className="block text-xs text-muted-foreground">
+          <Text className="block text-label text-muted-foreground">
             {tt('distribution.withdrawn', '已提现')}
           </Text>
-          <Text className="text-sm font-medium text-muted-foreground">
+          <Text className="text-body font-medium text-muted-foreground">
             ¥{withdrawnAmount.toFixed(2)}
           </Text>
         </View>

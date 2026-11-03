@@ -102,7 +102,7 @@ function createStyles(tk: AppThemeTokens) {
     error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     textarea: { minHeight: 100, maxHeight: 200 },
     submitBtn: {
       marginTop: rnSpacing.xl,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
