@@ -33,7 +33,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
         <Image className="w-full" style={{ height: '180px' }} src={data.cover} mode="aspectFill" />
       )}
       <View className="px-4 py-3">
-        <Text className="block text-base font-medium text-foreground">{data.title}</Text>
+        <Text className="block text-title font-medium text-foreground">{data.title}</Text>
 
         {data.tags && data.tags.length > 0 && (
           <View className="flex flex-wrap mt-2">
@@ -57,23 +57,23 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
                 mode="aspectFill"
               />
             )}
-            {data.teacher && <Text className="text-xs text-foreground mr-3">{data.teacher}</Text>}
+            {data.teacher && <Text className="text-label text-foreground mr-3">{data.teacher}</Text>}
           </View>
           <View className="flex items-center">
             {data.lessonCount !== undefined && (
-              <Text className="text-xs text-muted-foreground mr-2">
+              <Text className="text-label text-muted-foreground mr-2">
                 {data.lessonCount} {tt('course.lessonUnit', '节')}
               </Text>
             )}
             {data.studentCount !== undefined && (
-              <Text className="text-xs text-muted-foreground mr-2">
+              <Text className="text-label text-muted-foreground mr-2">
                 {data.studentCount} {tt('course.studentUnit', '人学')}
               </Text>
             )}
             {data.rating !== undefined && (
               <>
                 <LineIcon name="star" size="14px" color="var(--color-warning)" className="mr-1" />
-                <Text className="text-xs text-warning">{data.rating.toFixed(1)}</Text>
+                <Text className="text-label text-warning">{data.rating.toFixed(1)}</Text>
               </>
             )}
           </View>
@@ -95,10 +95,10 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
               </View>
             )}
             <View className="flex items-baseline">
-              <Text className="text-xs text-destructive mr-1">¥</Text>
-              <Text className="text-xl font-bold text-destructive">{data.price}</Text>
+              <Text className="text-label text-destructive mr-1">¥</Text>
+              <Text className="text-heading font-bold text-destructive">{data.price}</Text>
               {data.originalPrice && (
-                <Text className="text-xs text-muted-foreground line-through ml-2">
+                <Text className="text-label text-muted-foreground line-through ml-2">
                   ¥{data.originalPrice}
                 </Text>
               )}

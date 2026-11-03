@@ -281,7 +281,7 @@ export default function LessonListItem({
       hoverClass="opacity-60"
     >
       <View
-        className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-xs ${
+        className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-label ${
           active ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
         }`}
       >
@@ -292,12 +292,12 @@ export default function LessonListItem({
         <View className="flex items-center">
           {typeIcon &&
             (data.type === 'article' ? (
-              <Text className="text-xs text-muted-foreground mr-2">{typeIcon}</Text>
+              <Text className="text-label text-muted-foreground mr-2">{typeIcon}</Text>
             ) : (
               <Image className="w-3 h-3 mr-2" src={typeIcon} mode="aspectFit" />
             ))}
           <Text
-            className={`text-sm truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
+            className={`text-body truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
           >
             {data.title}
           </Text>
@@ -315,12 +315,12 @@ export default function LessonListItem({
           )}
         </View>
         {data.subtitle && !compact && (
-          <Text className="block text-xs text-muted-foreground mt-[4rpx] truncate">
+          <Text className="block text-label text-muted-foreground mt-[4rpx] truncate">
             {data.subtitle}
           </Text>
         )}
         {data.duration && (
-          <Text className="block text-xs text-muted-foreground mt-[4rpx]">{data.duration}</Text>
+          <Text className="block text-label text-muted-foreground mt-[4rpx]">{data.duration}</Text>
         )}
         {/* 学习人数 + 课时数 */}
         {!compact && (data.likes !== undefined || lessonCountVisible) && (
@@ -343,7 +343,7 @@ export default function LessonListItem({
 
       {/* 价格标签 */}
       {priceVisible && data.price !== undefined && (
-        <Text className="text-xs text-warning font-medium mr-2">¥{data.price}</Text>
+        <Text className="text-label text-warning font-medium mr-2">¥{data.price}</Text>
       )}
       {data.isFree && (
         <Text className="text-badge px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary mr-2">

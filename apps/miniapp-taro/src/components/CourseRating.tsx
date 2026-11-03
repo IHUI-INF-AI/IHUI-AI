@@ -54,7 +54,7 @@ export default function CourseRating({
         hoverClass="opacity-60"
         onClick={(e) => e.stopPropagation()}
       >
-        <Text className="block text-base font-medium text-foreground mb-3 text-center">
+        <Text className="block text-title font-medium text-foreground mb-3 text-center">
           {tt('course.ratingTitle', '评价课程')}
         </Text>
 
@@ -81,16 +81,16 @@ export default function CourseRating({
             </View>
           ))}
         </View>
-        <Text className="block text-xs text-muted-foreground text-center mb-4">
+        <Text className="block text-label text-muted-foreground text-center mb-4">
           {labels[hoverRating || rating] || tt('course.ratingPlaceholder', '请评分')}
         </Text>
 
         <View className="bg-muted rounded-lg px-3 py-2 mb-4">
-          <Text className="block text-xs text-muted-foreground mb-1">
+          <Text className="block text-label text-muted-foreground mb-1">
             {tt('course.ratingDescLabel', '写下你的评价')}
           </Text>
           <FocusInput
-            className="w-full text-sm"
+            className="w-full text-body"
             placeholder={tt('course.ratingInputPlaceholder', '课程怎么样?分享你的感受...')}
             value={comment}
             onInput={(e) => setComment(e.detail.value)}
@@ -103,7 +103,7 @@ export default function CourseRating({
           hoverClass="opacity-60"
           onClick={() => onSubmit?.(rating, comment)}
         >
-          <Text className="text-sm text-primary-foreground">
+          <Text className="text-body text-primary-foreground">
             {tt('course.ratingSubmit', '提交评价')}
           </Text>
         </View>

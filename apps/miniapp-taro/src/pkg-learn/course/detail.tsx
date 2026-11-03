@@ -300,7 +300,7 @@ export default function CourseDetail() {
         <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-lg p-[28rpx] border border-border">
           <View className="flex flex-col items-center">
             <ProgressCircle percent={learningProgress} size={60} />
-            <Text className="text-xs text-muted-foreground mt-2">
+            <Text className="text-label text-muted-foreground mt-2">
               {t('course.learningProgress')}
             </Text>
           </View>
@@ -312,7 +312,7 @@ export default function CourseDetail() {
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
             </View>
-            <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
+            <Text className="text-label text-muted-foreground mt-2">{t('course.note')}</Text>
           </View>
           <View
             className="flex flex-col items-center"
@@ -322,7 +322,7 @@ export default function CourseDetail() {
             <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
               <LineIcon name="star-fill" size={40} color="var(--color-warning)" />
             </View>
-            <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
+            <Text className="text-label text-muted-foreground mt-2">{t('course.rating')}</Text>
           </View>
           <View
             className="flex flex-col items-center"
@@ -332,7 +332,7 @@ export default function CourseDetail() {
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="share-2" size={40} color="var(--color-muted-foreground)" />
             </View>
-            <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
+            <Text className="text-label text-muted-foreground mt-2">{t('course.share')}</Text>
           </View>
         </View>
 
