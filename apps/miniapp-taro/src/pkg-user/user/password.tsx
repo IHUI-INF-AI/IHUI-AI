@@ -12,6 +12,7 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { changePassword } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 export default function Password() {
   const { t } = useI18n()
@@ -37,25 +38,16 @@ export default function Password() {
   async function onSubmit() {
     if (submitting) return
     if (!oldPwd) {
-      return Taro.showToast({ title: tt('user.password.enterOld', '请输入原密码'), icon: 'none' })
+      return onToast(tt('user.password.enterOld', '请输入原密码'), { kind: 'info' })
     }
     if (newPwd.length < 6 || newPwd.length > 20) {
-      return Taro.showToast({
-        title: tt('user.password.tooShort', '密码长度 6-20 位'),
-        icon: 'none',
-      })
+      return onToast(tt('user.password.tooShort', '密码长度 6-20 位'), { kind: 'error' })
     }
     if (newPwd !== confirmPwd) {
-      return Taro.showToast({
-        title: tt('user.password.mismatch', '两次输入的密码不一致'),
-        icon: 'none',
-      })
+      return onToast(tt('user.password.mismatch', '两次输入的密码不一致'), { kind: 'info' })
     }
     if (oldPwd === newPwd) {
-      return Taro.showToast({
-        title: tt('user.password.sameAsOld', '新密码不能与原密码相同'),
-        icon: 'none',
-      })
+      return onToast(tt('user.password.sameAsOld', '新密码不能与原密码相同'), { kind: 'error' })
     }
     setSubmitting(true)
     try {
@@ -65,13 +57,13 @@ export default function Password() {
          handler 的 zod 字段名不符(miniapp-compat-routes.ts:2490-2497)⇒ 必 400,
          `user.password.success` 那一支从来渲染不出来。 */
       await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
-      Taro.showToast({ title: tt('user.password.success', '密码修改成功'), icon: 'success' })
+      onToast(tt('user.password.success', '密码修改成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/password', '修改密码', e)
       /* `common.failed` 五语言词条是「加载失败」,用在提交失败处是说谎文案;
          取已在册且语义精确的 `settings.pwdChangeFailed`(与设置页密码弹层同一句)。 */
-      Taro.showToast({ title: t('settings.pwdChangeFailed'), icon: 'none' })
+      onToast(t('settings.pwdChangeFailed'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

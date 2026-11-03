@@ -6,7 +6,7 @@ import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
 import { FocusInput } from '@/components/FocusField'
-import Taro from '@tarojs/taro'
+
 import { useState, useEffect, useCallback } from 'react'
 import { sendSmsCode, loginBySms, register, bindPhone, type UserInfo } from '@/api'
 import { useCountdown } from '@ihui/shared/hooks'
@@ -26,6 +26,7 @@ import {
   VERIFY_CODE_LENGTH,
   VERIFY_CODE_TITLE_FONT_PX,
 } from '@ihui/shared/ui/verify-code-modal-spec'
+import { onToast } from '@/host/on-toast'
 
 export type VerifyCodeType = 'register' | 'login' | 'changePhone'
 
@@ -75,16 +76,16 @@ export default function VerifyCodeModal({
   const onSendCode = useCallback(async () => {
     if (countdown > 0) return
     if (!phone) {
-      Taro.showToast({ title: tt('verify.phoneEmpty', '手机号为空'), icon: 'none' })
+      onToast(tt('verify.phoneEmpty', '手机号为空'), { kind: 'error' })
       return
     }
     if (phone.length !== 11) {
-      Taro.showToast({ title: tt('verify.phoneInvalid', '请输入正确手机号'), icon: 'none' })
+      onToast(tt('verify.phoneInvalid', '请输入正确手机号'), { kind: 'error' })
       return
     }
     try {
       await sendSmsCode(phone)
-      Taro.showToast({ title: tt('verify.codeSent', '验证码已发送'), icon: 'success' })
+      onToast(tt('verify.codeSent', '验证码已发送'), { kind: 'success' })
       startCountdown()
     } catch {
       // ignore
@@ -108,7 +109,7 @@ export default function VerifyCodeModal({
 
   const verifyCode = useCallback(async () => {
     if (fullCode.length !== VERIFY_CODE_LENGTH) {
-      Taro.showToast({ title: tt('verify.codeIncomplete', '请输入完整验证码'), icon: 'none' })
+      onToast(tt('verify.codeIncomplete', '请输入完整验证码'), { kind: 'info' })
       return
     }
     setSubmitting(true)
@@ -121,7 +122,7 @@ export default function VerifyCodeModal({
       } else {
         result = await loginBySms(phone, fullCode)
       }
-      Taro.showToast({ title: tt('verify.verifySuccess', '验证成功'), icon: 'success' })
+      onToast(tt('verify.verifySuccess', '验证成功'), { kind: 'success' })
       onSuccess?.(result)
       onClose?.()
     } catch {
@@ -224,7 +225,10 @@ export default function VerifyCodeModal({
             onClick={submitting ? undefined : verifyCode}
             hoverClass="opacity-60"
           >
-            <Text className="text-primary-foreground" style={{ fontSize: rpx(VERIFY_CODE_BUTTON_FONT_PX) }}>
+            <Text
+              className="text-primary-foreground"
+              style={{ fontSize: rpx(VERIFY_CODE_BUTTON_FONT_PX) }}
+            >
               {submitting
                 ? tt('VerifyCodeModal.p3', '验证中...')
                 : tt('TitleSwitchTypeBar.confirm', '确定')}

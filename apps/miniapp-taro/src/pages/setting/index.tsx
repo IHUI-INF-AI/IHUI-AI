@@ -15,6 +15,7 @@ import { clearAuth } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { RowsSection, NotificationSection, PasswordModal, type SettingRow } from './parts'
+import { onToast } from '@/host/on-toast'
 
 export default function SettingIndexPage() {
   const { t } = useI18n()
@@ -44,7 +45,7 @@ export default function SettingIndexPage() {
       setProfileLoaded(true)
     } catch (e) {
       logger.error('setting/index', '获取用户信息', e)
-      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     }
   }, [tt])
 
@@ -62,7 +63,7 @@ export default function SettingIndexPage() {
             await logout()
           } catch (e) {
             logger.error('setting/index', '退出登录', e)
-            Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+            onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
           }
           // 本页 `logout` 是 `@/api` 的后端登出接口(只吊销服务端会话),不清本地凭据。
           // 清凭据 + 落登出标记是 `clearAuth()` 一件成对动作:只落标记不清凭据 ⇒ 内存/存储里

@@ -8,6 +8,7 @@ import Taro from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
 import type { ChatMessage } from '@/api'
+import { onToast } from '@/host/on-toast'
 
 interface MaterialItem {
   id: string
@@ -189,7 +190,7 @@ export function HistoryDrawer({
       success: (res) => {
         if (res.confirm) {
           onClear()
-          Taro.showToast({ title: t('ai.history.cleared'), icon: 'none' })
+          onToast(t('ai.history.cleared'), { kind: 'info' })
         }
       },
     })

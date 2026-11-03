@@ -11,6 +11,7 @@ import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 
 interface DevInfo {
   id: string
@@ -137,15 +138,15 @@ export default function DeveloperSubscribePage() {
       if (dev.subscribed) {
         await post(`/developer/${devId}/unsubscribe`, {})
         setDev((d) => ({ ...d, subscribed: false }))
-        Taro.showToast({ title: tt('developer.subscribe.unfollowed', '已取消关注'), icon: 'none' })
+        onToast(tt('developer.subscribe.unfollowed', '已取消关注'), { kind: 'info' })
       } else {
         await post(`/developer/${devId}/subscribe`, {})
         setDev((d) => ({ ...d, subscribed: true }))
-        Taro.showToast({ title: tt('developer.subscribe.subscribed', '已关注'), icon: 'none' })
+        onToast(tt('developer.subscribe.subscribed', '已关注'), { kind: 'info' })
       }
     } catch (e) {
       logger.error('developer/subscribe', t('developerSubscribe.q2'), e)
-      Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+      onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
       setSubscribing(false)
     }
@@ -157,12 +158,13 @@ export default function DeveloperSubscribePage() {
 
   const contactDev = () => {
     if (!dev.contact) {
-      Taro.showToast({ title: tt('developer.subscribe.noContact', '暂无联系方式'), icon: 'none' })
+      onToast(tt('developer.subscribe.noContact', '暂无联系方式'), { kind: 'error' })
       return
     }
     Taro.setClipboardData({
       data: dev.contact,
-      success: () => Taro.showToast({ title: tt('developer.subscribe.copied', '已复制联系方式') }),
+      success: () =>
+        onToast(tt('developer.subscribe.copied', '已复制联系方式'), { kind: 'success' }),
     })
   }
 
@@ -206,25 +208,19 @@ export default function DeveloperSubscribePage() {
         {/* 统计行 — 对齐 RN statRow(bg card/radius rpx(16)/py rpx(24)/value 16 600/label 12 tertiary) */}
         <View className="flex bg-card rounded-lg py-[24rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-title font-semibold text-foreground">
-              {stats.subscribers}
-            </Text>
+            <Text className="text-title font-semibold text-foreground">{stats.subscribers}</Text>
             <Text className="text-label text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statSubscribers', '订阅人数')}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-title font-semibold text-foreground">
-              {stats.modelCount}
-            </Text>
+            <Text className="text-title font-semibold text-foreground">{stats.modelCount}</Text>
             <Text className="text-label text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statModels', '模型数')}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-title font-semibold text-foreground">
-              {stats.totalUses}
-            </Text>
+            <Text className="text-title font-semibold text-foreground">{stats.totalUses}</Text>
             <Text className="text-label text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statUses', '总使用次数')}
             </Text>
@@ -257,9 +253,7 @@ export default function DeveloperSubscribePage() {
                   </View>
                   <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                     <View className="flex items-baseline justify-between gap-[12rpx]">
-                      <Text className="text-body font-semibold text-foreground">
-                        {m.name}
-                      </Text>
+                      <Text className="text-body font-semibold text-foreground">{m.name}</Text>
                       <Text className="text-label text-[var(--color-text-tertiary)] flex-shrink-0">
                         {tt('developer.subscribe.uses', '使用')} {m.uses}
                       </Text>
@@ -318,9 +312,7 @@ export default function DeveloperSubscribePage() {
             <View className="flex flex-col gap-[16rpx]">
               {posts.map((p) => (
                 <View key={p.id} className="p-[20rpx] bg-card rounded-lg">
-                  <Text className="block text-body font-semibold text-foreground">
-                    {p.title}
-                  </Text>
+                  <Text className="block text-body font-semibold text-foreground">{p.title}</Text>
                   <Text className="block mt-[12rpx] text-[length:26rpx] text-muted-foreground leading-[1.5]">
                     {p.content}
                   </Text>
