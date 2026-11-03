@@ -108,6 +108,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
+> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5448,6 +5450,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (48540f650b)
+
 **2026-11-03**
 - 🐞 修复:重生成离线语言包载荷，去除合并回灌引入的尾部换行 (f5968144d6)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d7d35fb2cc)
@@ -15279,6 +15284,7 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
 - UI/样式 / 容器 hover 浮起单一数值源(2026-11-03 立,blocking,runner id '285'): `check-hover-lift-single-source.mjs`(全站浮起唯一数值源 = `apps/web/app/globals.css` 的 `--lift-*`(2026-10-22 定档,2026-11-03 机主二次定档「稍微有点感觉」:位移 2px/缩放 1.008/双层轻阴影);该块头注早已写「端内不得再各写 hover:scale / hover:shadow / hover:-translate-y-*」,但**此前只是注释**(§0.9)。当日实测 24 个文件 30 处散写,其中 `group-hover:-translate-y-*`(Tailwind translate 独立属性)与源 transform **叠加成双倍位移** ⇒ 铁律收成本门:D1 绝对零容忍,只判 hover 变体段后的 translate-y 与 shadow 两族(判字面量⇒遮注释不遮字符串;scale 族因图片推开/图标微缩放合法身份难分,刻意不入射程、如实点名边界)。豁免=具名台账 `scripts/data/hover-lift-single-source-allowlist.json`(file/liftCalls/reason≥10字/until,计数逐文件配平,多了判红少了判腐烂,到期顶红);立门当次容器级散写已整体清零、清扫后 HEAD 现读非豁免命中=0 ⇒ §12e 可直接 blocking。自检 18 例(含变异自证)/镜像 `check-hover-lift-single-source.test.mjs`(8 例,含 runner 装车形状锁);应急放行 `HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE=1`)
 - 跨端 / web↔RN 覆盖缺口棘轮(2026-11-03 装车,blocking,runner id '282'): `check-web-rn-gap-ratchet.mjs`(把只读对账尺 `check-web-rn-screen-parity.mjs` 的读数包成提交链判据,**不重算第二份口径**——判据 import 其 `__test__` 出口,§0.6;四维 unmapped=0 ∧ judgedGap=0 ∧ prefixHits≤基线容量 ∧ prefixExpired=0,外加每条 aligned 必须带完整 `data.kind`(direct/indirect/static/missing);基线件 `scripts/data/web-rn-gap-baseline.json` 由本器 `--baseline` 现读生成,容量取 min(常量,基线) ⇒ **只收紧不抬闸**;现读 HEAD 面 total 423 · 容量 423 · 全维在闸内 ⇒ 判绿;单次耗时约 4.2s;应急放行 `HUSKY_SKIP_WEB_RN_GAP_RATCHET=1`;镜像 `check-web-rn-gap-ratchet.test.mjs`)
+- 跨端 / 两端同名组件 props 行为对账(2026-11-03 立,blocking,runner id '285'): `check-cross-end-component-props-parity.mjs`(跨端对账族最后一格零尺补位:同名配对组件的 **props 键集/必选性对称性**——此前门 128 头注明写"props 命名只随读数打印"、不判,失效型是静默的:调用端把一个只有对端消费的 prop 传过去,本端无声忽略,与 badge-spec"缺档静默掉色"同族从档降到腿。配对单源=门 128 collect(选腿/可达性/别名表口径零复算);props 解析=TS TypeChecker 最小编译面(两端各用自己的 tsconfig,全量面双 program 实测 OOM——坏尺比没尺更危险,改最小集同语义);INJECTABLE 豁免沿用 `lib/cross-end-screen-props` 同一集合(平台注入腿允许承载不同形;无障碍/键盘通道类机制差异按 §128 同款先入账后收死)。档位=**台账制差值棘轮**(`scripts/data/cross-end-props-parity-baseline.json` 钉 2026-11-03 现读存量 18 对/16 含差/279 键/1 未判定):只拦新增退化(新键/新对静默入账),键集缩小=收敛放行并提示收紧;升绝对零前置=存量归零(§12e)。取不到⇒undetermined warn 点名不记绿;拒写保护:未判定>50% 视为编译面故障不落账——"没读到"绝不誊成"判过"。应急放行 `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1`;立因=用户令「rn/小程序与 web 功能样式全自动化对齐、最大化减少开发」验证轮暴露的唯一零器物缺口)
 - 跨端 / 声明承载 vs 真承载(2026-11-03 立,blocking,runner id '284'): `check-declared-carriage.mjs`(registry 声明"某小程序页承载某共享屏"时,必须能在该页 HEAD blob 里读到 **`@rn-shells/<屏名>` 的值 import**——注释与 `import type` 都不算(这两型过报本仓都踩过);三桶 carried/假声明/页面查无之和必须等于声明数,漏桶即判死。档位是**差值棘轮**:锚点 = HEAD 面同一判据读数,只拦"本次新增的假声明",现读存量 69 枚(declared 256 / carried 187)逐条报数不拦(§12e:存量未归零前升绝对零 = 恒红门)。整面只起 3 次 git(ls-tree + git grep + show),实测 0.85s——第一版逐页 `git show` 要 21.5s,慢门本身就是逼人跳门的成因。取不到 registry / 坏 JSON / 枚举 0 条 / 阳性对照读到 0 ⇒ 一律未判定或判死,绝不把"尺子读不到"写成"没有缺陷"。镜像 `check-declared-carriage.test.mjs`(7 例,含真仓存活证明);应急放行 `HUSKY_SKIP_DECLARED_CARRIAGE=1`)
 - 跨端 / RN 薄壳覆盖(2026-11-03 装车,blocking,runner id '283'): `check-rn-host-shell-coverage.mjs`(判每枚共享屏是否被**至少一枚 RN 壳直接 import**——值 import 才算,`import type` 型边不计;三桶 covered / needsManual / seedableMissing;挂账出口 `scripts/data/rn-host-shell-manual.json`,三要素 owner + expires + reason 齐备才生效,到期即判红,在册面不再命中按 §0.7 判清单腐烂;现读 272 枚 · covered 260 · 12 枚在册在期 ⇒ 判绿;修法出口 `gen-rn-host-shell.mjs`(已由守护腿 `sweepRnHostShells` 30 分钟派发);镜像 `check-rn-host-shell-coverage.test.mjs`;应急放行 `HUSKY_SKIP_RN_HOST_SHELL_COVERAGE=1`)
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
