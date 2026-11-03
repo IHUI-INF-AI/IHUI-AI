@@ -12833,6 +12833,23 @@ function startDaemon(bootGuard = null) {
         auditOrphanDeletionRefs()
         auditMigrationGaps()
         auditRegistrySyncHealth()
+        // 第二批 11 面(同日续,2026-11-03 深夜):与上面同一判据(只挂 main() 的周期腿在 daemon
+        // 独占轮级锁后就是永久不跑),这一批按"贵在最省"的次序挑 —— 全部 6h/30min/5min 自带节流、
+        // 健康档只读一份 json 或一次 git 问话、子进程上限 ≤120s,且都不写工作树。
+        // `sweepLessonDraft`/`healMirrorPurgeLeg`/`sweepHandMirrorUpgrades` 三枚会走具名落地通道,
+        // 但各自带节流戳与"无活可派即零写零推"的收口(现读日志行「自进化派发:…零落地零推送」同型),
+        // 因此并存不翻倍。B 档(≥5 分钟长腿 / 真换口令 / 重启服务)仍刻意留在此处之外,理由见上一批注释。
+        auditAasaPublicHealth()
+        auditAppVersionLatest()
+        auditAssetPathHealth()
+        auditOriginGuardLiveness()
+        auditProdDepAdvisories()
+        sweepDesktopDiscoveryBudget()
+        auditQoderSessionSyncTask()
+        auditWorkbuddySessionSyncTask()
+        sweepLessonDraft()
+        healMirrorPurgeLeg()
+        sweepHandMirrorUpgrades()
         sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
