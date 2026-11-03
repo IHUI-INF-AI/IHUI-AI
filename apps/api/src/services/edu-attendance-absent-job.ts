@@ -62,13 +62,51 @@
  * 才补判 —— 规则还没建、学生还没进班的日子里不存在"缺勤"这一说,写了就是假记录。
  * 量不到界(列缺失/非法形)⇒ 不设该侧下界并在日志计数,不静默、也不误判成"不可判"。
  *
+ * ── 排课门控(2026-11-07 立,ATT-SCHEDGATE 票)──────────────────────────────
+ * 立因:回溯窗把一桩旧病放大了。判定原本**只看"那天有没有打卡",不看"那天有没有课"**:
+ * 旧实现只判跑批当天,落在周末/节假日同样会把整班判成缺勤;窗口一开 = 每轮多写若干天的
+ * 假缺勤。对要进免责链条的考勤记录,**误判比漏判更脏** —— 漏判没人响,误判会直接变成
+ * 给家长看的记录。
+ *
+ * 出路不需要等校历数据:排课表 `edu_course_schedule`(schema 同份文件)就在库里,
+ * 列 `class_id / weekday(1=周一…7=周日) / deleted_at`(实测索引
+ * `ix_edu_schedule_class` / `ix_edu_schedule_weekday`)。
+ *
+ * "有效排课"口径(§0.6 单源,不在本文件另立一份"什么算有课"):
+ *   grep 现有读 `eduCourseSchedule` 的出口(`apps/api/src/routes/edu-ai-management.ts`)得
+ *     · `GET /schedule` 的 `const conds = [isNull(eduCourseSchedule.deletedAt)]`
+ *     · `POST /schedule/copy-last-week`、`GET /schedule/export`、家长端课表三处同形:
+ *       `and(eq(eduCourseSchedule.classId, …), isNull(eduCourseSchedule.deletedAt))`
+ *     · `POST /schedule/check-teacher-conflict` 亦为 `deletedAt + weekday` 两条件,无状态位
+ *   ⇒ 本 job 的"有效" = `isNull(eduCourseSchedule.deletedAt)`;该表**没有** status/enabled 列,
+ *     也没有 term 有效期判定(既有读法一条都没判 term),故本 job 不发明新的停用档。
+ *   粒度按票面收敛 = 「该班当日有课/无课」,一日多节不细分到节次。
+ *
+ * 失效方向(与"回溯下界"同一族纪律,绝不能是"多放一次跳过"):
+ *   · gated     该班查到 ≥1 条有效排课 ⇒ 只判 weekday 命中的日子,无课的日子**不写记录**;
+ *   · no-schedule 该班一条有效排课都没有(从没排过课)⇒ **判不出"无课"**,照原逻辑判缺勤,
+ *     班级枚数点名进日志(静默跳过 = 从此这班永不判缺勤,是新的漏判);
+ *   · unjudged  表不可读/查询异常,或读到的行 weekday 全非法 ⇒ 同样照旧判并点名(不记绿也不冒红);
+ *   · 日键畸形折不出星期几 ⇒ 该日照旧判 + 计数(不据此排除)。
+ *
+ * 读放大:整窗、整轮**一条 SQL**(classIds 一次 inArray),不按班轮询、不按日轮询。
+ * 星期几推导走 `weekdayOfBizDayKey`:输入已是 `bizDayKey` 折好的日历键,此处只取该日历日的
+ * 星期属性,**不做任何日界算术**(守门 246 射程不受影响,也不与 `agent-automation-scheduler.ts`
+ * 的 cron 档 0=周日、`utils/calendar-boundary.ts` 的 0=周一档混用 —— 那两处档位与
+ * `edu_course_schedule.weekday` 的 1=周一…7=周日 不同族,直接复用会错一天,详见函数头注)。
+ *
  * 窗口长度配置:走**函数入参** `options.backfillDays`(默认常量单源,封顶
  * MAX_BACKFILL_DAYS);本票不开新环境变量族 —— 这个 job 已有的开关档位是
  * `EDU_ATTENDANCE_ABSENT_DISABLED`(在 `scheduled-tasks-service.ts` 消费,本票文件外)。
  */
 
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
-import { eduAttendanceRecord, eduAttendanceRule, eduEnrollment } from '@ihui/database'
+import {
+  eduAttendanceRecord,
+  eduAttendanceRule,
+  eduCourseSchedule,
+  eduEnrollment,
+} from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
@@ -101,7 +139,11 @@ export interface AbsentRunOptions {
 
 /** 单次运行汇总;写入侧的数(created / missedIds)只认 .returning() 回库结果 */
 export interface AbsentRunResult {
-  /** 本轮扫到的启用规则数(仅计"至少有一个到期可判日期"的;口径随回溯窗扩,见头注) */
+  /**
+   * 本轮扫到的启用规则数(仅计"至少有一个到期可判日期"的;口径随回溯窗扩,见头注)。
+   * 排课门控(2026-11-07)**不改这一档口径**:被门控判成"整窗无课"的班仍算"到期可判的规则",
+   * 只是零写入 —— 那几枚由日志的 `scheduleFullyGatedClasses` 单独点名,不与本数并桶。
+   */
   rules: number
   /** 本轮纳入判定的在册学生总数(按班去重后的候选人数之和;跨窗口日期不重复计数) */
   students: number
@@ -127,6 +169,9 @@ export const __test__ = {
   buildBizDayWindow,
   dayFloorOf,
   absentCandidatePairsForRule,
+  weekdayOfBizDayKey,
+  buildClassScheduleGates,
+  gateDueDates,
 }
 
 /**
@@ -264,8 +309,155 @@ export function absentCandidatePairsForRule(args: {
   return { candidates, existingHits, unplacedExisting }
 }
 
+/** 排课门控三态(语义与失效方向见头注「排课门控」一节)。 */
+export type ScheduleGateState = 'gated' | 'no-schedule' | 'unjudged'
+
+/** 单个班级的门控判定结果;`state !== 'gated'` 时 `weekdays` 为空集(照旧判,不据此排除)。 */
+export interface ClassScheduleGate {
+  readonly state: ScheduleGateState
+  /** `gated` 时 = 该班有效排课覆盖的星期几(1=周一…7=周日,与 `edu_course_schedule.weekday` 同键) */
+  readonly weekdays: ReadonlySet<number>
+  /** 该班被读进来却折不出合法星期几的行数(不静默:调用方要把它带进日志) */
+  readonly malformedWeekdays: number
+}
+
+const NO_WEEKDAYS: ReadonlySet<number> = new Set<number>()
+
+/** `state` 之外的两档都是"照旧判",只是点名口径不同 ⇒ 统一的放行判定由 gateDueDates 实现。 */
+function gateOf(
+  state: ScheduleGateState,
+  weekdays: ReadonlySet<number>,
+  malformed: number,
+): ClassScheduleGate {
+  return { state, weekdays, malformedWeekdays: malformed }
+}
+
 /**
- * 主入口:缺勤补录一轮(含回溯窗)。
+ * 把业务日键(YYYY-MM-DD,由 `bizDayKey`/`shiftBizDayKey` 折出)折成星期几,
+ * **1=周一 … 7=周日** —— 与 `edu_course_schedule.weekday` 列注释同键,也与
+ * `createScheduleSchema`/`scheduleListQuerySchema` 的 `z.number().int().min(1).max(7)` 同档。
+ *
+ * 为什么不在本文件之外找现成实现(现读 grep `getDay()`/`getUTCDay()`):
+ *   · `utils/calendar-boundary.ts` 的 `dayBoundary().weekday` 是 **0=周一** 档;
+ *   · `services/agent-automation-scheduler.ts` 的 `weekdayOfZoneDate`(未导出)与
+ *     `services/peak-pricing-service.ts` 的 `getUtc8WeekdayAndMinute` 是 **0=周日** 的 cron 档;
+ *   · `routes/edu-frontend-routes.ts` 用 `(d.getDay()+6)%7`,也是 0=周一 档;
+ *   · web 端排课页有 `getDay()===0?7:getDay()` 的 1..7 形态,但是页面内联、非可 import 出口。
+ * 直接复用任一档都会**错一天**(1..7 与 0..6 相差 1)。本函数不做任何日界算术:
+ * 输入已是折好的日历键,这里只取该日历日的星期属性(既无 +8h 也无 toISOString().slice),
+ * 与守门 246 的射程不相交。量不到 ⇒ null(不猜星期几)。
+ */
+export function weekdayOfBizDayKey(key: string): number | null {
+  if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key.trim())) return null
+  const day = new Date(`${key.trim()}T00:00:00Z`)
+  if (Number.isNaN(day.getTime())) return null
+  const dow = day.getUTCDay() // 0=周日 … 6=周六
+  return dow === 0 ? 7 : dow
+}
+
+/** `edu_course_schedule.weekday` 的合法档:整数 1..7;其余 ⇒ null(不猜)。 */
+function weekdayColumnOf(raw: unknown): number | null {
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 1 && n <= 7 ? n : null
+}
+
+export interface ScheduleGateSummary {
+  gates: Map<string, ClassScheduleGate>
+  /** 答复里出现了不属于本轮候选班级的行(表可读、但口径对不上 ⇒ 只报数不猜) */
+  foreignRows: number
+}
+
+/**
+ * 有效排课行 ⇒ 逐班门控档位。**纯函数、零 IO**(§22c:判据只此一份)。
+ *
+ * 分档:
+ *   · 该班 ≥1 行合法 weekday ⇒ `gated`(只判这些星期几);
+ *   · 该班 0 行 ⇒ `no-schedule`(从没排过课 ⇒ **判不出"无课" ⇒ 照旧判**);
+ *   · 该班有行但全部 weekday 非法 ⇒ `unjudged`(读到了课却折不出星期几 ⇒ 照旧判 + 点名)。
+ */
+export function buildClassScheduleGates(args: {
+  classIds: readonly string[]
+  rows: ReadonlyArray<{ classId: unknown; weekday: unknown }>
+}): ScheduleGateSummary {
+  const wanted = new Set(args.classIds.map(String))
+  const weekdays = new Map<string, Set<number>>()
+  const malformed = new Map<string, number>()
+  let foreignRows = 0
+
+  for (const row of args.rows) {
+    const classId = String(row.classId)
+    if (!wanted.has(classId)) {
+      foreignRows += 1
+      continue
+    }
+    const wd = weekdayColumnOf(row.weekday)
+    if (wd === null) {
+      malformed.set(classId, (malformed.get(classId) ?? 0) + 1)
+      continue
+    }
+    const set = weekdays.get(classId) ?? new Set<number>()
+    set.add(wd)
+    weekdays.set(classId, set)
+  }
+
+  const gates = new Map<string, ClassScheduleGate>()
+  for (const classId of args.classIds) {
+    const key = String(classId)
+    const set = weekdays.get(key)
+    const bad = malformed.get(key) ?? 0
+    if (set && set.size > 0) gates.set(key, gateOf('gated', set, bad))
+    else if (bad > 0) gates.set(key, gateOf('unjudged', NO_WEEKDAYS, bad))
+    else gates.set(key, gateOf('no-schedule', NO_WEEKDAYS, 0))
+  }
+  return { gates, foreignRows }
+}
+
+/** 门控后的到期日;`gatedOut` = 因"当日无课"被剔除的日子(不写记录),`undetermined` = 折不出星期几的日子。 */
+export interface GatedDueDates {
+  dates: string[]
+  gatedOut: string[]
+  undetermined: string[]
+}
+
+/**
+ * 用一个班的门控档位筛"到期可判"的日期。
+ * **失效方向恒为"照旧判"**:`no-schedule` / `unjudged` 两档一律原样放行,
+ * 只有 `gated` 才可能把日子剔掉;折不出星期几的日子同样放行(判不出 ≠ 无课)。
+ */
+export function gateDueDates(
+  dueDates: readonly string[],
+  gate: ClassScheduleGate | undefined,
+): GatedDueDates {
+  if (!gate || gate.state !== 'gated') {
+    return { dates: [...dueDates], gatedOut: [], undetermined: [] }
+  }
+  const dates: string[] = []
+  const gatedOut: string[] = []
+  const undetermined: string[] = []
+  for (const date of dueDates) {
+    const weekday = weekdayOfBizDayKey(date)
+    if (weekday === null) {
+      undetermined.push(date) // 量不到星期几 ⇒ 照旧判,不据此排除(§0.3)
+      dates.push(date)
+      continue
+    }
+    if (gate.weekdays.has(weekday)) dates.push(date)
+    else gatedOut.push(date)
+  }
+  return { dates, gatedOut, undetermined }
+}
+
+/** 班级身份点名的上限(日志不靠"报一个数"交差,但也不许把上千枚 uuid 灌进一行)。 */
+const ID_LIST_CAP = 20
+
+/** 把 id 集合折成"样本人群 + 被裁条数"(§0.3:被裁的条数必须报,不得静默截断)。 */
+function listedIds(ids: Iterable<string>): { sampleIds: string[]; omittedIds: number } {
+  const all = Array.from(new Set(ids))
+  return { sampleIds: all.slice(0, ID_LIST_CAP), omittedIds: Math.max(0, all.length - ID_LIST_CAP) }
+}
+
+/**
+ * 主入口:缺勤补录一轮(含回溯窗 + 排课门控)。
  * 由 `scheduled-tasks-service.recordAbsentDaily()` 包装,再由 scheduler-worker 的
  * switch case 调用;本文件不做 setInterval(§"造好没装车"= 没有)。
  *
@@ -311,14 +503,67 @@ export async function runAbsentAttendance(
     return { rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] }
   }
 
+  // ②b 排课门控:整轮**一条 SQL** 取候选班级的有效排课(口径 = isNull(deletedAt),见头注)。
+  //     读不到 ⇒ unjudged:所有班照旧判缺勤,并在日志点名(失效方向不是"整轮跳过")。
+  const classIds = Array.from(new Set(actionable.map((entry) => String(entry.rule.classId))))
+  let scheduleReadFailed = false
+  let scheduleRows: Array<{ classId: unknown; weekday: unknown }> = []
+  try {
+    scheduleRows = await db
+      .select({ classId: eduCourseSchedule.classId, weekday: eduCourseSchedule.weekday })
+      .from(eduCourseSchedule)
+      .where(and(inArray(eduCourseSchedule.classId, classIds), isNull(eduCourseSchedule.deletedAt)))
+  } catch (cause) {
+    scheduleReadFailed = true
+    logger.warn('edu attendance absent job: 排课表读不到 ⇒ 本轮不设排课门控,照旧判缺勤', {
+      classes: classIds.length,
+      ...listedIds(classIds),
+      reason: cause instanceof Error ? cause.message : String(cause),
+    })
+  }
+  // 读失败 ⇒ 连"该班到底排没排课"都量不到,不拿空答复冒充"没排课":整体不建档位,
+  // 每个班都落 `gateDueDates` 的"无 gate 照旧判"分支(与 no-schedule 分开计数,免得同一枚班记两次)。
+  const gateSummary = scheduleReadFailed
+    ? null
+    : buildClassScheduleGates({ classIds, rows: scheduleRows })
+
   let studentTotal = 0
   let createdTotal = 0
   let skippedTotal = 0
   let unplacedExistingTotal = 0
+  // 排课门控的三态计数(**按班级去重** —— 同班多条规则也只能算一枚班;全部只进日志,不改
+  // AbsentRunResult 形状:recordAbsentDaily 的"档关"分支返回同一枚零计数对象,
+  // 加必填字段会让本文件之外的调用方直接编译不过)
+  const noScheduleClassIds = new Set<string>()
+  const unjudgedClassIds = new Set<string>()
+  const fullyGatedClassIds = new Set<string>()
+  let malformedWeekdayRows = 0
+  let gatedOutDates = 0
+  let undeterminedDates = 0
   const missedAll: string[] = []
 
-  // ③ 逐规则:取该班在册学生 → 剔掉窗口内已有未软删记录的(学生,日期)对 → 一批 insert
-  for (const { rule, dueDates } of actionable) {
+  // ③ 逐规则:排课门控筛掉"当日无课"的日子 → 取该班在册学生 → 剔掉窗口内已有未软删记录的
+  //    (学生,日期)对 → 一批 insert
+  for (const { rule, dueDates: rawDueDates } of actionable) {
+    const classKey = String(rule.classId)
+    const gate = gateSummary?.gates.get(classKey)
+    const { dates: dueDates, gatedOut, undetermined } = gateDueDates(rawDueDates, gate)
+    if (gatedOut.length > 0) gatedOutDates += gatedOut.length
+    if (undetermined.length > 0) undeterminedDates += undetermined.length
+    if (gate?.malformedWeekdays) malformedWeekdayRows += gate.malformedWeekdays
+    if (scheduleReadFailed) unjudgedClassIds.add(classKey)
+    else if (gate && gate.state === 'no-schedule') noScheduleClassIds.add(classKey)
+    else if (gate && gate.state === 'unjudged') unjudgedClassIds.add(classKey)
+    if (dueDates.length === 0) {
+      // 该班整窗无课(排课表判得出的"没课")⇒ 一条不写;**这是门控的正解,不是漏判**
+      fullyGatedClassIds.add(classKey)
+      logger.info('edu attendance absent job: 该班窗口内全无排课 ⇒ 整轮不判缺勤', {
+        classId: rule.classId,
+        weekdays: Array.from(gate?.weekdays ?? NO_WEEKDAYS).sort((a, b) => a - b),
+        gatedOut,
+      })
+      continue
+    }
     const enrolledStudents = await db
       .select({
         studentId: eduEnrollment.studentId,
@@ -419,6 +664,27 @@ export async function runAbsentAttendance(
     }
   }
 
+  // 判不出"无课"的两档逐枚点名到**班级身份**(不是只报一个数):
+  //   · no-schedule 的班照旧判缺勤 —— 这班可能压根没排过课(空班/漏排课),要人去看的一幕;
+  //   · unjudged 的行读得到但 weekday 折不出合法档 —— 排课数据本身坏掉,同上。
+  if (noScheduleClassIds.size > 0) {
+    logger.warn(
+      'edu attendance absent job: 这些班排课表里一条有效记录都没有 ⇒ 判不出"无课",照旧判缺勤',
+      {
+        ...listedIds(noScheduleClassIds),
+      },
+    )
+  }
+  if (unjudgedClassIds.size > 0 && !scheduleReadFailed) {
+    logger.warn(
+      'edu attendance absent job: 这些班的 weekday 列读不出合法星期几(1..7) ⇒ 照旧判缺勤',
+      {
+        ...listedIds(unjudgedClassIds),
+        malformedWeekdayRows,
+      },
+    )
+  }
+
   logger.info('edu attendance absent job done', {
     dateKey: todayKey,
     window: windowKeys,
@@ -429,6 +695,15 @@ export async function runAbsentAttendance(
     skipped: skippedTotal,
     missedIds: missedAll.length,
     unplacedExisting: unplacedExistingTotal,
+    // ── 排课门控三态(全部点名,不静默;rules 仍含被门控整窗剔除的班,见 AbsentRunResult.rules 注)
+    scheduleReadFailed,
+    scheduleGatedOutDates: gatedOutDates,
+    scheduleUndeterminedDates: undeterminedDates,
+    scheduleNoSchoolClasses: noScheduleClassIds.size,
+    scheduleUnjudgedClasses: unjudgedClassIds.size,
+    scheduleFullyGatedClasses: fullyGatedClassIds.size,
+    scheduleMalformedWeekdays: malformedWeekdayRows,
+    scheduleForeignRows: gateSummary?.foreignRows ?? 0,
   })
 
   return {
