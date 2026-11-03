@@ -58,9 +58,7 @@ export default function LearningStreak({
                   : 'bg-muted'
             }`}
           >
-            <Text
-              className={`text-badge ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
-            >
+            <Text className={`text-badge ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}>
               {day.date}
             </Text>
             {/* 已签到勾改为矢量图标(原载体是 U+2713 勾字符,当图标用);中点 U+00B7 是
