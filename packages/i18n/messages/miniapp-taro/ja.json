@@ -4793,7 +4793,8 @@
       "active": "有効",
       "rejected": "拒否済み",
       "cancelled": "解除済み"
-    }
+    },
+    "myAttendanceHint": "確認・自分で登校"
   },
   "eduChildAttendance": {
     "title": "子どもの出席",
@@ -4816,10 +4817,22 @@
     "status": {
       "present": "出席",
       "late": "遅刻",
+      "early": "早退",
       "absent": "欠席",
       "leave": "休み"
     },
-    "student": "生徒"
+    "student": "生徒",
+    "batchCheckIn": "クラス一括出席",
+    "checkInFor": "代行登録",
+    "checkedInToast": "登校しました",
+    "checkedOutToast": "下校しました",
+    "batchDoneToast": "一括登録が完了しました",
+    "batchResult": "点呼が完了しました：新規 {created} 件、スキップ {skipped} 件、未登録 {missed} 件",
+    "noClassReason": "クラス情報を取得できないため、クラス一括点呼はできません",
+    "multiClass": "一覧に複数のクラスがあります。今回は {classId} のみ点呼します",
+    "checkInAt": "登校時刻",
+    "momentNow": "現在",
+    "backfillNeedsTime": "過去の日を登録するには、その日内の登校時刻が必要です"
   },
   "eduMgmt": {
     "attendanceTitle": "出席管理",
@@ -7088,5 +7101,15 @@
   },
   "studyIndex": {
     "receiveFreeBody": "リンクをコピーしました。ブラウザに貼り付けて開けます"
+  },
+  "eduMyAttendance": {
+    "title": "自分の出席",
+    "selfCheckIn": "自分で登校",
+    "selfDoneToast": "登校しました",
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "remarkPlaceholder": "備考(任意)",
+    "scanCheckIn": "スキャンしてチェックイン",
+    "scanDoneToast": "スキャンチェックインに成功しました",
+    "scanInvalidToast": "本システムのチェックインQRコードではありません"
   }
 }

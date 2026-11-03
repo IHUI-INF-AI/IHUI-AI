@@ -60,6 +60,7 @@ export function AgentPicker() {
           type="button"
           disabled={isLoading}
           aria-label={t('agentPicker.triggerAria')}
+          title={selectedLabel}
           data-testid="agent-picker-trigger"
           data-selected-agent={selectedAgentId ?? ''}
           className={cn(
@@ -71,9 +72,11 @@ export function AgentPicker() {
         >
           <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           {isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <Loader2 className="agent-picker-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            <span className="min-w-0 max-w-[6rem] truncate">{selectedLabel}</span>
+            <span className="agent-picker-label min-w-0 max-w-[6rem] truncate">
+              {selectedLabel}
+            </span>
           )}
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>

@@ -1,6 +1,14 @@
 #!/bin/sh
-# ─── GIT_DIR 去污(2026-10-01,同 .husky/pre-commit 同款病理根治)───
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
+# ─── GIT_* 去污(2026-10-01 立;2026-11-03 起 GIT_INDEX_FILE 改为有条件保留)───
+# `git commit --only/--amend -- <路径>` 期间,git 把「只含本次路径的临时索引」经
+# GIT_INDEX_FILE 交给钩子。旧写法无条件 unset ⇒ 本钩子的 staged 面检查落到共享真实索引,
+# 把并发会话的暂存文件读成本次提交(2026-11-03 实测:scope 检查打印「7 文件」= 我们 4 + 别人 3)。
+# 判据与 .husky/pre-commit / scripts/lib/hook-git-env.js 同源:指针非空**且文件存在** ⇒ 保留;
+#   空/陈旧(文件不存在)⇒ 清掉 —— 否则所有 git 命令把它读成空索引,全仓文件都像已暂存。
+if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
+  unset GIT_INDEX_FILE
+fi
+unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
 # ─── 弹窗根治(2026-09-22,统一经 wscript 隐藏包装,详见 scripts/hook-run-hidden.vbs) ───
 # 原 2 处裸 node 在无 console 上下文触发 commit 时各弹一个可见控制台窗口。
 # 输出转入 .ihui-agent/state/hook-logs/,每次调用后回显日志末尾,保证警告仍对用户可见。

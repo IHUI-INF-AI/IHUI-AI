@@ -8,7 +8,6 @@
 {"key":"G-32#G-32归属","owner":"守门 98 D4","waiting":"none","updatedAt":"2026-10-24T06:58:48.552Z","updatedBy":"plan-fields-extract"}
 {"key":"G-36#守门77的一百一十五处dead-class圆角修","owner":"机主的人工窗口动作","waiting":"none","updatedAt":"2026-10-24T06:58:48.553Z","updatedBy":"plan-fields-extract"}
 {"key":"G-40#钩子没有终态事件与outcome分类","waiting":"none","blocking":"生产侧","updatedAt":"2026-10-25T06:20:54.825Z","updatedBy":"plan-fields-reclassify"}
-{"key":"G-42#USDTTRC20ADDRESS仍空","owner":"机主收款地址面","waiting":"none","blocking":"","updatedAt":"2026-10-30T07:07:26.145Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-44#token增量基线还缺一个真判别维度","owner":"ai-service 成本账本)","waiting":"none","updatedAt":"2026-10-24T06:58:48.555Z","updatedBy":"plan-fields-extract"}
 {"key":"G-45#G-45归属","owner":"守门 130","waiting":"none","updatedAt":"2026-10-24T17:49:01.834Z","updatedBy":"plan-fields-extract"}
 {"key":"G-46#G-46归属","owner":"守门 130","waiting":"none","updatedAt":"2026-10-24T06:58:48.555Z","updatedBy":"plan-fields-extract"}
@@ -172,4 +171,7 @@
 {"key":"T:d20cc14e7062d85a","owner":"unassigned","waiting":"none","evidence":["无复合主键:P86 被 PRIORITY_LABEL_RE 跳过,只有 T 兜底键","门 84 R1 判「暂存 blob 逐字节等于某祖先版本」","枚 6534b09698 吞掉他人已入库 55 枚行,已由枚 4710182cc9 回补"],"updatedAt":"2026-11-02T12:55:00.000Z","updatedBy":"goal-侧车补登记(2026-11-02)"}
 {"key":"T:c3bfc633cb11a1b8","owner":"unassigned","waiting":"none","evidence":["无复合主键:标题在首个句点(api.aizhs.top)前截成「api」<4 字","GitHub App 最近 100 条投递:p50=0.69s、p95=8.34s、max=8.72s","<0.5s 20 条 / >=2s 21 条;时间跨度 03:03:46Z→03:06:03Z"],"updatedAt":"2026-11-02T12:55:00.000Z","updatedBy":"goal-侧车补登记(2026-11-02)"}
 {"key":"T:4c66ed300b2a500d","owner":"unassigned","waiting":"none","evidence":["无复合主键:标题 B68 退化,正文只给归属面 apps/api 路由/中间件(api_logs),无具名席位","api-logs 哨兵:24h 同签名 3 次","最近样本 GET /api/oauth-keys/list → 503;FastifyError: Service Unavailable"],"updatedAt":"2026-11-02T12:55:00.000Z","updatedBy":"goal-侧车补登记(2026-11-02)"}
-{"key":"B72#学生本人看不到自己考勤且手机端只能看不能操作","waiting":"none","updatedAt":"2026-11-03T00:00:00.000Z","updatedBy":"plan-fields-extract","owner":"考勤/edu 域 ATT-WEB 席"}
+{"key":"B72#学生本人看不到自己考勤且手机端只能看不能操作","owner":"考勤/edu 域 ATT-WEB 席","waiting":"none","updatedAt":"2026-11-03T00:00:00.000Z","updatedBy":"plan-fields-extract"}
+{"key":"B31#邮件投递通道故障排查","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-03T11:34:42.340Z","updatedBy":"plan-fields-extract"}
+{"key":"D53#文档中心不存在的slug要拿真HTTP404","owner":"机主","waiting":"none","blocking":"机主选 A/B/C","updatedAt":"2026-11-03T11:36:37.244Z","updatedBy":"plan-fields-reclassify"}
+{"key":"D54#手册5章补真实界面截图","owner":"机主","waiting":"none","blocking":"8801 可达 + 登录成功的窗口","updatedAt":"2026-11-03T11:34:42.340Z","updatedBy":"plan-fields-extract"}

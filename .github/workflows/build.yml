@@ -8,10 +8,21 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  # 2026-11-03(CI 提速验证):补手动触发 —— 本工作流原本只有 main/tags 的 push 入口,
+  # 无法在特性分支上拿到"改了 Dockerfile / build.yml 之后"的真实构建数字。
+  # 只增加触发方式,不放松任何既有触发条件,也不改任何 job 的判据。
+  workflow_dispatch:
 
 # Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
 permissions:
   contents: read
+
+# 陈旧 run 收敛(2026-11-03):本工作流**不承载** required check(分支保护现读只有
+# `CI / lint-typecheck-test (push)`),因此可以放心 cancel-in-progress —— 同一 ref 上
+# 被后一枚提交挤掉的运行只是排队损耗(实测 run 41559672693 排队 5min),不是门禁结论。
+concurrency:
+  group: build-docker-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-api:
@@ -24,6 +35,10 @@ jobs:
       # 新增的钩子";这里在真正构建镜像前做一次全量对账,作为最后一道防线。
       - name: Check Dockerfile build context
         run: node scripts/check-dockerfile-copy-paths.mjs
+      # buildx + gha 层缓存(2026-11-03):docker/build-push-action 自带 buildx,但默认 builder
+      # 不支持 `cache-to` 导出;显式 setup-buildx 才有可复用的 builder 实例。scope 按镜像分开,
+      # 三个镜像的层不能互相命中(同一个 gha 缓存命名空间会串味)。
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build API image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -31,6 +46,8 @@ jobs:
           file: deploy/docker/Dockerfile.api
           push: false
           tags: ihui-api:latest
+          cache-from: type=gha,scope=ihui-api
+          cache-to: type=gha,mode=max,scope=ihui-api
 
   build-web:
     runs-on: ubuntu-latest
@@ -38,6 +55,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Check Dockerfile build context
         run: node scripts/check-dockerfile-copy-paths.mjs
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build Web image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -45,15 +63,20 @@ jobs:
           file: deploy/docker/Dockerfile.web
           push: false
           tags: ihui-web:latest
+          cache-from: type=gha,scope=ihui-web
+          cache-to: type=gha,mode=max,scope=ihui-web
 
   build-ai-service:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Build AI Service image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: apps/ai-service
           push: false
           tags: ihui-ai-service:latest
+          cache-from: type=gha,scope=ihui-ai-service
+          cache-to: type=gha,mode=max,scope=ihui-ai-service
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

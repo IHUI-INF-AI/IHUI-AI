@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import {
   BookOpen,
   Rocket,
@@ -12,6 +13,7 @@ import {
   Smartphone,
   Puzzle,
   Keyboard,
+  Lightbulb,
 } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
@@ -212,37 +214,39 @@ const quickstartJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '5 分钟快速开始 — 智汇 AI 全栈 AI 操作系统',
-  description:
-    '5 分钟上手智汇 AI(IHUI AI):注册 → 浏览 Agent 市场 → 配置模型 → 上传知识库 → 一键发布到 Web/桌面/小程序/插件/移动/CLI 六端。Apache 2.0 开源,支持私有化部署,100+ 模型,200+ Agent 模板。',
-  alternates: {
-    canonical: '/docs/quickstart',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/quickstart',
-    },
-  },
-  openGraph: {
-    title: '5 分钟快速开始 — 智汇 AI',
-    description: '5 分钟从注册到发布第一个 AI Agent。Apache 2.0 开源,100+ 模型,六端同源。',
-    url: `${SITE_URL}/docs/quickstart`,
-    type: 'article',
-    images: [
-      {
-        url: '/images/logo.png?v=20261021',
-        width: 1200,
-        height: 630,
-        alt: 'IHUI AI 快速开始',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.quickstart.title'),
+    description: t('meta.quickstart.description'),
+    alternates: {
+      canonical: '/docs/quickstart',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/quickstart',
       },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: '5 分钟快速开始 — 智汇 AI',
-    description: '5 分钟从注册到发布第一个 AI Agent。',
-    images: ['/images/logo.png?v=20261021'],
-  },
+    },
+    openGraph: {
+      title: t('meta.quickstart.title'),
+      description: t('meta.quickstart.description'),
+      url: `${SITE_URL}/docs/quickstart`,
+      type: 'article',
+      images: [
+        {
+          url: '/images/logo.png?v=20261021',
+          width: 1200,
+          height: 630,
+          alt: 'IHUI AI 快速开始',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t('meta.quickstart.title'),
+      description: t('meta.quickstart.description'),
+      images: ['/images/logo.png?v=20261021'],
+    },
+  }
 }
 
 export default function QuickstartPage() {
@@ -304,7 +308,8 @@ export default function QuickstartPage() {
                   ,使用邮箱或 GitHub/Google/微信 登录,无需信用卡,注册即得 1000 积分。
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  💡 企业用户支持 SSO(SAML 2.0 / OIDC)和私有化部署,联系{' '}
+                  <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  企业用户支持 SSO(SAML 2.0 / OIDC)和私有化部署,联系{' '}
                   <a href="mailto:contact@aizhs.top" className="text-primary underline">
                     contact@aizhs.top
                   </a>
@@ -335,7 +340,8 @@ export default function QuickstartPage() {
                   <li>企业知识库 Agent — 内部文档问答</li>
                 </ul>
                 <p className="text-xs text-muted-foreground">
-                  💡 点击「Use」即可一键 fork 到你的工作区,无需从零搭建。
+                  <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  点击「Use」即可一键 fork 到你的工作区,无需从零搭建。
                 </p>
               </div>
             </div>
@@ -373,7 +379,8 @@ export default function QuickstartPage() {
                   </li>
                 </ul>
                 <p className="text-xs text-muted-foreground">
-                  💡 支持 OpenAI 兼容 API,任何第三方模型都可接入。系统支持自动 fallback 和成本路由。
+                  <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  支持 OpenAI 兼容 API,任何第三方模型都可接入。系统支持自动 fallback 和成本路由。
                 </p>
               </div>
             </div>
@@ -394,7 +401,15 @@ export default function QuickstartPage() {
                   页面上传文档,系统自动处理:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-                  <li>支持格式:PDF、Word、Excel、Markdown、HTML、TXT、CSV</li>
+                  <li>
+                    上传入口可选格式:PDF、Word(.docx)、Markdown、TXT、HTML(.html/.htm)
+                    —即文件选择框列出的 6 种扩展名;Excel / CSV / PPT 等当前不经此入口,需走 API
+                    上传。解析与预览能力分级见
+                    <a href="/docs/rag" className="text-primary underline">
+                      知识库 RAG
+                    </a>
+                    的「支持的文档类型」。
+                  </li>
                   <li>混合检索:向量 + BM25 + 知识图谱</li>
                   <li>中文友好分词(jieba、BPE)</li>
                   <li>自动实体识别和关系抽取</li>
@@ -440,7 +455,8 @@ export default function QuickstartPage() {
                   </li>
                 </ul>
                 <p className="text-xs text-muted-foreground">
-                  💡 一套代码,六端同发。所有客户端共享 React 组件库 + API 契约 + 业务逻辑。
+                  <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+                  一套代码,六端同发。所有客户端共享 React 组件库 + API 契约 + 业务逻辑。
                 </p>
               </div>
             </div>
@@ -480,7 +496,8 @@ open http://localhost:8801`}
               <li>GPU:不需要(LLM 推理默认走云端 API)</li>
             </ul>
             <p className="mt-3 text-xs text-muted-foreground">
-              💡 推荐配置 4 核 / 8GB / 50GB SSD。Kubernetes 高可用部署见{' '}
+              <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              推荐配置 4 核 / 8GB / 50GB SSD。Kubernetes 高可用部署见{' '}
               <a href="https://aizhs.top/docs/self-host" className="text-primary underline">
                 自托管部署指南
               </a>

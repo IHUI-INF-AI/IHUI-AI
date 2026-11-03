@@ -345,6 +345,11 @@ $FailAlertRepeatHours = 4
 $AlertQuietStart = '23:00'; if ($env:IHUI_ALERT_QUIET_START) { $AlertQuietStart = $env:IHUI_ALERT_QUIET_START }
 $AlertQuietEnd   = '07:30'; if ($env:IHUI_ALERT_QUIET_END)   { $AlertQuietEnd   = $env:IHUI_ALERT_QUIET_END }
 $AlertQuietLedgerFile = "$Root\deploy\win\.alert-quiet-ledger.jsonl"
+# ── 族级窗口(2026-11-03 立):同一「部署告警:类别=…」24h 至多一封。
+#    判据住在 scripts/lib/alert-family-gate.mjs(与 IHUI-MONITOR 同一份实现/同一张策略表),
+#    本文件只产族名(Get-DeployAlertFamily,在 alert-dedup.ps1)并调 PS 桥。
+#    状态与监控侧共用 $Root\.ihui-agent\state\alert-family-window.json:族名带前缀,天然分槽。
+$AlertFamilyStateFile = "$Root\.ihui-agent\state\alert-family-window.json"
 # 切流受阻类告警的宽限窗(分钟,2026-10-10 加)。阈值是量出来的,不是拍的:
 #   · 轮询节奏实测 ~70 秒/轮(10-10 10:56:37→11:03:06 六轮,间隔 70±6s)⇒ 15 分钟 = 13 轮
 #   · 被挡段时长分布(10-04→10-10 全日志,37 段)min 8 / p50 32 / p90 288 分钟 ⇒ 37 段里 13 段(35%)
@@ -512,6 +517,18 @@ function Invoke-FailNotify {
             return
         }
     }
+    # [2026-11-03 族窗口] 位置刻意在 Test-AlertDueByIdentity **之前**:族窗口压住期间不得登记
+    # 本身份的 4h 去重槽,否则 24h 届满那一次会被自家 4h 窗再压一轮(与监控侧同一顺序纪律)。
+    # 族名 = 「部署告警:类别=…」,同一失败类别 24h 只留首封;不同类别/不同 generic 骨架分槽不误伤。
+    $family = Get-DeployAlertFamily -Sig $dedupSig
+    $familyGate = Test-AlertFamilyWindow -Family $family -RepoRoot $Root -StateFile $AlertFamilyStateFile
+    if ($familyGate.Suppressed) {
+        Log "ALERT 族级窗口抑制(族=$family, 首封距今 $($familyGate.AgeHours)h < 上限 $($familyGate.CooldownHours)h):本轮不寄,不登记 4h 去重槽"
+        return
+    }
+    if (-not $familyGate.Ok) {
+        Log "ALERT 族窗口判据未判定,按 fail-open 放行:$($familyGate.Error)"
+    }
     $due = Test-AlertDueByIdentity -Sig $dedupSig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
     if (-not $due.Due) {
         Log "ALERT 同身份失败告警本轮跳过:$($due.Note)"
@@ -541,6 +558,11 @@ function Invoke-FailNotify {
     } catch { $mailOk = $false }
     if ($mailOk) {
         try { Remove-Item -LiteralPath $AlertUndelFile -Force -ErrorAction SilentlyContinue } catch {}
+        # [2026-11-03 族窗口] 只在这封**确认真送达**后记族首封;失败不记 ⇒ 下一轮首封仍能重试。
+        $familyCommit = Confirm-AlertFamilyDelivery -Family $family -RepoRoot $Root -StateFile $AlertFamilyStateFile
+        if (-not $familyCommit.Ok) {
+            Log "WARN  族窗口首封未记账(族=$family):$($familyCommit.Error)(下一轮同族仍会照发,不影响送达)"
+        }
     } else {
         try {
             @{ ts = (Get-Date).ToString('o'); sig = $dedupSig; why = '品牌模板与 --plain 降级两条邮件通道均未送达(细节见部署日志 MAIL 行)' } | ConvertTo-Json |

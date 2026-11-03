@@ -40,6 +40,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { computeParity, EQUIVALENCE_REL } from './lib/component-props-parity.mjs'
+import { catBatch, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/data/cross-end-props-parity-baseline.json'
@@ -189,9 +190,24 @@ export function buildBaselineEntry(d) {
   }
 }
 
+/**
+ * 台账按判定面读:head/staged 走 git 对象出口(与门 128 的取材同面),worktree 才读盘。
+ * 台账与内容必须同面同轮 —— 拿旧账判新树,正是 §0.4 要防的假绿。
+ */
+function readBaselineText(face, rel) {
+  if (face === 'worktree') return readWorktreeFile(ROOT, rel)
+  const spec = `${face === 'staged' ? ':' : 'HEAD:'}${rel}`
+  try {
+    return catBatch(ROOT, [spec], { maxBuffer: 1 << 24 }).get(spec) ?? null
+  } catch (e) {
+    throw new Undetermined(`${face} 面取不到 ${rel}: ${e?.message ?? e}`)
+  }
+}
+
 async function main() {
-  if (stagedMode && worktreeMode) die('未判定:--staged 与 --worktree 同给,取材面不明(§0.4 不回落另一个面)', 2)
-  const face = worktreeMode ? 'worktree' : stagedMode ? 'staged' : 'head'
+  const picked = selectFace({ staged: stagedMode, worktree: worktreeMode, def: 'head' })
+  if (picked.error) die(`未判定:${picked.error}(§0.4 不回落另一个面)`, 2)
+  const face = picked.face
   if (worktreeMode) die('提示:--worktree 仅人工逃生舱;提交链/守护一律 head|staged(§0.4)', 2)
 
   if (argv.includes('--self-test')) return selfTest()
@@ -209,7 +225,7 @@ async function main() {
   if (equivBad.length) die(`映射表体检失败 ${equivBad.length} 处:${equivBad.join(' · ')}`, 1)
   const equivalenceEntryCount = par.equivalence?.entryCount ?? equivTable.entries.length
 
-  const baselineExists = existsSync(join(ROOT, BASELINE_REL))
+  const baselineText = readBaselineText(face, BASELINE_REL)
   if (updateMode) {
     const undet = par.deltas.filter((d) => d.state === 'undetermined').length
     if (par.deltas.length > 0 && undet / par.deltas.length > 0.5)
@@ -235,11 +251,11 @@ async function main() {
     log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 漂移键总数=${out.counts.driftKeysTotal})`)
     process.exit(0)
   }
-  if (!baselineExists)
+  if (baselineText === null)
     die(`台账 ${BASELINE_REL} 不存在 —— 首跑请用 --update-baseline 落账(拒绝用隐式空账冒充"全对齐")`, 2)
   let baseline
   try {
-    baseline = JSON.parse(readFileSync(join(ROOT, BASELINE_REL), 'utf8'))
+    baseline = JSON.parse(baselineText)
   } catch (e) {
     die(`台账 ${BASELINE_REL} 坏:${String(e?.message).slice(0, 120)} —— 判不出不记绿(§0.3)`, 2)
   }

@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { Database, FolderOpen, MessageCircle, Monitor } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
@@ -41,23 +42,25 @@ const mcpJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: 'MCP 工具集成 — 智汇 AI 全栈 AI 操作系统',
-  description:
-    'Model Context Protocol 原生支持。100+ 预置 MCP Server(GitHub/Slack/Notion/数据库/文件系统),自定义 Server 开发 SDK(TypeScript/Python),企业内部系统集成最佳实践。',
-  alternates: {
-    canonical: '/docs/mcp',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/mcp',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.mcp.title'),
+    description: t('meta.mcp.description'),
+    alternates: {
+      canonical: '/docs/mcp',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/mcp',
+      },
     },
-  },
-  openGraph: {
-    title: 'MCP 工具集成 — 智汇 AI',
-    description: 'Anthropic MCP 协议原生支持,100+ 预置 Server + 自定义开发。',
-    url: `${SITE_URL}/docs/mcp`,
-    type: 'article',
-  },
+    openGraph: {
+      title: t('meta.mcp.title'),
+      description: t('meta.mcp.description'),
+      url: `${SITE_URL}/docs/mcp`,
+      type: 'article',
+    },
+  }
 }
 
 export default function McpDocsPage() {
@@ -101,7 +104,10 @@ export default function McpDocsPage() {
         <h2 className="text-display font-bold tracking-tight">100+ 预置 MCP Server</h2>
         <div className="grid grid-cols-1 gap-4">
           <div className="rounded-lg border bg-card p-3">
-            <h3 className="text-lg font-semibold">📁 文件与存储</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <FolderOpen className="mr-1.5 inline h-5 w-5" />
+              文件与存储
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>本地文件系统(读/写/搜索)</li>
               <li>S3 / OSS / MinIO 对象存储</li>
@@ -110,7 +116,10 @@ export default function McpDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <h3 className="text-lg font-semibold">💻 开发工具</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Monitor className="mr-1.5 inline h-5 w-5" />
+              开发工具
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>GitHub(GitLab/Bitbucket)— PR/Issue/代码搜索</li>
               <li>GitLab CI / GitHub Actions</li>
@@ -131,7 +140,10 @@ export default function McpDocsPage() {
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-3">
-            <h3 className="text-lg font-semibold">🗄️ 数据库</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Database className="mr-1.5 inline h-5 w-5" />
+              数据库
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>PostgreSQL / MySQL / SQLite</li>
               <li>MongoDB / Redis / Elasticsearch</li>

@@ -6775,8 +6775,12 @@ const checks = [
   //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
   //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
   // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  // 编号 285(2026-11-03 让号):本条原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5 判红(同 id 两道门会串 skipEnv 与失败归属);
+  // 在册口径是「后来者必须改号」,后到的是本条(119c860fc8,11-03 08:32),故本条让号、那一支不动。
+  // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
   {
-    id: '282',
+    id: '285',
     label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
     script: 'check-docs-public-health.mjs',
     args: ['--staged'],
@@ -6798,6 +6802,35 @@ const checks = [
       '  💡 应急放行:HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1 git commit ...(不推荐;跳过会留痕)',
     ],
   },
+  // 编号 286(2026-11-03 让号):本条在本地面原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5(同 id 登记两门)判红。在册口径是「后来者必须
+  // 改号」,后到的是本条,故本条让号;取号按「注册前现读」:数值 id 现读最大 285,286..300 全空
+  // ⇒ 落 286。判据/档位/skipEnv/射程一字未动,只改编号与这段取号留痕。
+  // 立因(2026-11-03):把 alerts-ai.yml 的指标名改成 `..._totl`,promtool/reload/status/config
+  // 全绿、lastError 空,规则从此静默永不触发。本门把规则里的指标名与 Prometheus
+  // `/api/v1/label/__name__/values` + `/api/v1/series`(默认 24h)对账,打错/从未产生/样本过期
+  // 三态任一命中即 exit 1。直接跑:node scripts/check-metric-existence.mjs
+  // 为什么是 warn 而不是 blocking:判据依赖本机 Prometheus(8815→9090),机器没起时只能退到
+  // 静态清单;把机器态升成 blocking 会变成"Prometheus 没起就谁也提交不了"的恒红门(§12e)。
+  {
+    id: '286',
+    label: '📊 告警/记录规则指标存在性(打错/从未产生/样本过期 ⇒ 非零退出;warn)',
+    script: 'check-metric-existence.mjs',
+    // pre-commit 门审的是**暂存内容**:默认 HEAD 面会漏掉本次暂存进来的规则改动
+    args: ['--staged'],
+    mode: 'warn',
+    stagedTriggers: ['monitoring/', 'scripts/data/metric-existence-exemptions.json'],
+    skipEnv: 'HUSKY_SKIP_METRIC_EXISTENCE',
+    onFailHint: [
+      '  💡 先看输出里的三态:打错(最近已知名 + 编辑距离)/ 从未产生 / 样本过期。',
+      '     直接跑:node scripts/check-metric-existence.mjs(有 Prometheus 时按真实名字与 24h 序列判)',
+      '     没有 Prometheus 时退到静态清单(代码声明 + exporter 前缀台账 + recording 输出)。',
+      '     合法零样本(事件型计数器无 0 基线)只能登记在 scripts/data/metric-existence-exemptions.json:',
+      '     硬验发射点仍在 + up{job}==1,到期/空挂/发射点改名都会判红 —— 它不是"忽略"。',
+      '     自检:node --test scripts/tests/check-metric-existence.test.mjs(现读例数)',
+      '  💡 应急放行:HUSKY_SKIP_METRIC_EXISTENCE=1 git commit ...(须在提交信息写明理由)',
+    ].join('\n'),
+  },
   {
     id: '281',
     label: '🌳 全工作树未提交状态(blocking;主树残量阻断,其他工作树脏只告警)',
@@ -6814,10 +6847,10 @@ const checks = [
       '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
     ].join('\n'),
   },
-  // 编号 286:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 已由同批入库的 props 对账门
-  // 占用 ⇒ 本门顺延 286,取号规则仍为「现读最大 + 1」。
+  // 编号 289:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 被正号 docs 门占、286 被正号指标门占、
+  // 288 给同批 props 对账门 ⇒ 本门顺延 289,取号规则仍为「现读最大 + 1」。
   {
-    id: '286',
+    id: '289',
     label:
       '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
     script: 'check-web-rn-gap-ratchet.mjs',
@@ -6856,7 +6889,8 @@ const checks = [
       '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
   },
   {
-    id: '285',
+    id: '288',
+    // 285 与正号 docs 公开面门撞号、286 与正号指标门撞号 ⇒ 本门(及下方 gap-ratchet)按现读最大 +1 顺延。
     label:
       '🦾 两端同名组件 props 行为对账(blocking,差值棘轮:同名配对组件的 props 键集/必选性只减不增 —— 缺腿是静默失效型,调用端传过去本端无声忽略)',
     script: 'check-cross-end-component-props-parity.mjs',
@@ -6986,12 +7020,13 @@ const checks = [
       '     应急放行:HUSKY_SKIP_WEB_RN_COPY_PARITY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // 编号 289:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。deferred 日当天放行,
+  // 编号 292:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。并入 origin/main 时原号 289
+  // 与既有 gap-ratchet 撞号,按现读最大 +1 顺延为 292。deferred 日当天放行,
   // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
   // 射程写 ['**/*'](= 任何提交都跑):到期与本次暂存了哪些文件无关;只在碰台账/文档时才跑
   // 就退回"靠人记",而留空在两通道上语义相反(门 262 明令必须显式声明)。
   {
-    id: '289',
+    id: '292',
     label: '📆 台账 deferred@ 到期判据(blocking:到期未复评即红,逐条点名 行号|编号|日期|owner)',
     script: 'check-plan-deferred-expiry.mjs',
     args: [],

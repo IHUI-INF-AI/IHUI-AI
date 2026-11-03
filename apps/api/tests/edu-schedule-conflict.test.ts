@@ -35,6 +35,33 @@ describe('时间规范化', () => {
     expect(normalizeHm('上午9点')).toBeNull()
     expect(normalizeHm(null)).toBeNull()
   })
+
+  /**
+   * PG `time` 列(late_after / early_before / absent_after / 未来的排课时刻列)回读
+   * 恒为 `HH:MM:SS`;旧尺子只认 `HH:MM`,把库里真值全判成非法 ⇒ 下游"功能在跑、
+   * 日志没错、就是没有记录"的静默失效。秒截断到分钟(口径见 normalizeHm 头注)。
+   */
+  it('HH:MM:SS(PG time 列回读形态)接受并截断到分钟;秒段自身仍要合规', () => {
+    expect(normalizeHm('18:30:00')).toBe('18:30')
+    expect(normalizeHm('18:30:45')).toBe('18:30')
+    expect(normalizeHm('8:30:05')).toBe('08:30')
+    expect(normalizeHm(' 14:05:59 ')).toBe('14:05')
+    // 秒段一位 / 越界 / 时越界 ⇒ 照旧拒收(放宽的只有"可以带秒")
+    expect(normalizeHm('18:30:5')).toBeNull()
+    expect(normalizeHm('18:30:60')).toBeNull()
+    expect(normalizeHm('24:00:00')).toBeNull()
+    expect(normalizeHm('09:60:00')).toBeNull()
+    expect(normalizeHm('18:30:00:00')).toBeNull()
+  })
+
+  it('带秒的排课行不再被算成非法时间(malformedTimes 归 0 且重叠照判)', () => {
+    const r = findScheduleConflicts([
+      row({ startTime: '09:00:00', endTime: '10:00:00' }),
+      row({ startTime: '09:30:00', endTime: '11:00:00', courseName: 'B' }),
+    ])
+    expect(r.malformedTimes).toBe(0)
+    expect(r.conflicts.length).toBeGreaterThan(0)
+  })
 })
 
 describe('冲突判定', () => {

@@ -18,6 +18,7 @@ import {
   Loader2,
   Calendar,
   CalendarDays,
+  Users,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -48,6 +49,11 @@ import {
   TabsContent,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BatchCheckInDialog } from './BatchCheckInDialog'
+import { ExportButton } from './ExportButton'
+import { ClassSelect } from './ClassSelect'
+import { AttendanceRulePanel } from './AttendanceRulePanel'
+import { CheckInQrPanel } from './CheckInQrPanel'
 
 /* ─── Types ─── */
 
@@ -572,7 +578,9 @@ export default function AttendancePage() {
   const [leaveStatusFilter, setLeaveStatusFilter] = React.useState('')
   const [leaveStartDate, setLeaveStartDate] = React.useState('')
   const [leaveEndDate, setLeaveEndDate] = React.useState('')
+  const [selectedClassId, setSelectedClassId] = React.useState('')
   const [checkInOpen, setCheckInOpen] = React.useState(false)
+  const [batchCheckInOpen, setBatchCheckInOpen] = React.useState(false)
   const [leaveOpen, setLeaveOpen] = React.useState(false)
   const [approveOpen, setApproveOpen] = React.useState(false)
   const [approvingLeave, setApprovingLeave] = React.useState<LeaveRequest | null>(null)
@@ -771,6 +779,10 @@ export default function AttendancePage() {
                   className="w-40"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+                <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
+              </div>
               <Select value={attendanceStatusFilter} onValueChange={setAttendanceStatusFilter}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder={t('allStatus')} />
@@ -788,6 +800,10 @@ export default function AttendancePage() {
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 {t('checkIn')}
               </Button>
+              <Button size="sm" variant="outline" onClick={() => setBatchCheckInOpen(true)}>
+                <Users className="mr-1 h-3.5 w-3.5" />
+                {t('batchCheckIn')}
+              </Button>
               {attendanceQuery.isLoading && (
                 <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -796,6 +812,10 @@ export default function AttendancePage() {
               )}
             </CardContent>
           </Card>
+
+          {/* 考勤规则配置 + 扫码签到(与上方工具栏共用班级口径,面板本体在新文件里) */}
+          <AttendanceRulePanel classId={selectedClassId} onClassChange={setSelectedClassId} />
+          <CheckInQrPanel classId={selectedClassId} onClassChange={setSelectedClassId} />
 
           {attendanceQuery.error ? (
             <Alert variant="danger" description={t('loadRecordsFailed')} />
@@ -893,6 +913,16 @@ export default function AttendancePage() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              {r.checkInMethod === 'self' && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] text-muted-foreground"
+                                >
+                                  {t('methodSelf')}
+                                </Badge>
+                              )}
+                              {/* 签退不看 checkInMethod:学生自签过的行仍须由教师签退,
+                                  若按签到方式挡掉,这些行就永远没人能签退(自签徽章只是信息标记) */}
                               {!r.checkOutTime && r.checkInTime && (
                                 <Button
                                   variant="outline"
@@ -905,7 +935,7 @@ export default function AttendancePage() {
                                   {t('checkOut')}
                                 </Button>
                               )}
-                              {!r.checkInTime && (
+                              {!r.checkInTime && r.checkInMethod !== 'self' && (
                                 <Button
                                   variant="outline"
                                   size="xs"
@@ -974,6 +1004,16 @@ export default function AttendancePage() {
               {statsQuery.isLoading && (
                 <Loader2 className="ml-auto h-4 w-4 animate-spin text-muted-foreground" />
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="min-[640px]:p-3 p-3">
+              <ExportButton
+                defaultStartDate={statsStartDate}
+                defaultEndDate={statsEndDate}
+                defaultClassId={selectedClassId}
+              />
             </CardContent>
           </Card>
 
@@ -1286,7 +1326,7 @@ export default function AttendancePage() {
       <CheckInDialog
         open={checkInOpen}
         onOpenChange={setCheckInOpen}
-        classId=""
+        classId={selectedClassId}
         defaultDate={attendanceDate}
         onSave={handleCheckIn}
       />
@@ -1294,7 +1334,7 @@ export default function AttendancePage() {
       <LeaveDialog
         open={leaveOpen}
         onOpenChange={setLeaveOpen}
-        classId=""
+        classId={selectedClassId}
         onSave={handleCreateLeave}
       />
 
@@ -1303,6 +1343,14 @@ export default function AttendancePage() {
         onOpenChange={setApproveOpen}
         leave={approvingLeave}
         onApprove={handleApprove}
+      />
+
+      <BatchCheckInDialog
+        open={batchCheckInOpen}
+        onOpenChange={setBatchCheckInOpen}
+        defaultDate={attendanceDate}
+        statusOptions={ATTENDANCE_STATUS}
+        onDone={invalidateAttendance}
       />
     </div>
   )

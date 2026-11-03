@@ -71,6 +71,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   readSync,
   statSync,
@@ -83,6 +84,7 @@ import {
   decideWithCommitMsgStage,
   decideWithSelfRunBatch,
   needsBatchSelfRun,
+  parseGateSummary,
   verdictLine,
 } from './lib/commit-gate-attribution.mjs'
 // D171(2026-09-30):取路径一律走 lib/git-paths 的 -z 出口 —— git 默认按 core.quotePath
@@ -591,6 +593,68 @@ const isGitLockFailure = (status, out) => status === 128 && GIT_LOCK_MISS.test(o
 const GIT_DETERMINISTIC_FATAL =
   /Author identity unknown|unable to auto-detect email address|not a git repository|unable to access|Failed to connect|Permission denied|Repository not found/i
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+/**
+ * not-ours 的"退避重试去拿钩子"次数与等待梯(2026-11-02 立,事故 5c8aec3653)。
+ * 旧流程在归因 not-ours 之后**自动**追加 `--no-verify` 落地,台账记 gatesRan:false/hookSkipped:true
+ * ⇒ 历史里留下一枚"看不出钩子没跑"的假绿。并发会话占用 git index / COMMIT_EDITMSG 属**瞬时**争用,
+ * 退几秒通常就轮到 —— 所以该做的是让路再发令,而不是把整条钩子链跳掉。
+ * `IHUI_SAFE_COMMIT_HOOK_RETRIES` 只调重试次数,`IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS` 只调退避起点;
+ * 两者都**不能**让本工具跳过钩子(跳过只有显式逃生口一条路,见下方 allowSkipHooks)。
+ */
+const HOOK_RETRIES = (() => {
+  const n = Number(process.env.IHUI_SAFE_COMMIT_HOOK_RETRIES ?? '3')
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 3
+})()
+const HOOK_RETRY_BASE_MS = (() => {
+  const n = Number(process.env.IHUI_SAFE_COMMIT_HOOK_RETRY_BASE_MS ?? '3000')
+  return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : 3000
+})()
+/** 第 n 次重试前的退避:base, 2×base, 4×base…上限 12000ms(默认 3s/6s/12s)。 */
+const hookRetryDelayMs = (retry) => Math.min(HOOK_RETRY_BASE_MS * 2 ** (retry - 1), 12_000)
+
+/**
+ * 点名"此刻到底是哪把锁 / 哪个占用"(2026-11-02 立)。只报现读到的值:
+ * 取不到 git 目录就照实说取不到,不编一个文件名(§0.3)。
+ * 判据不复制 git-lock 的持有者逻辑 —— 持锁方现读走 `node scripts/git-lock.mjs check`。
+ */
+function describeLockHolders() {
+  const lines = []
+  try {
+    const r = spawnSync('git', ['-C', repoRoot, 'rev-parse', '--absolute-git-dir'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const gitDir = r.status === 0 ? String(r.stdout ?? '').trim() : ''
+    if (!gitDir) {
+      lines.push('git 目录取不到(rev-parse --absolute-git-dir 失败)—— 无法点名具体锁文件')
+    } else {
+      // ihui-git-write.lock 是**本工具自己**持有的协作锁(不是争用源),不列进来冒充嫌疑人。
+      const watched = ['index.lock', 'COMMIT_EDITMSG.lock', 'HEAD.lock']
+      const found = watched.filter((n) => existsSync(join(gitDir, n)))
+      // next-index-<pid>.lock 是 pathspec/--only 形态的旁路索引文件,同样是"别人正占着写面"的证据。
+      let extras = []
+      try {
+        extras = readdirSync(gitDir)
+          .filter((n) => /^(next-index-|index-)\d+\.lock$/.test(n))
+          .slice(0, 6)
+      } catch {
+        /* 枚举失败不编造(下面的措辞已说明 watched 清单是现读) */
+      }
+      const all = [...found, ...extras]
+      lines.push(
+        all.length
+          ? `此刻仍存在的锁文件:${all.join(', ')}(目录 ${gitDir})`
+          : `此刻未检出常见锁文件(${watched.join(' / ')} 均不在;争用可能已释放,或锁在别的 git 目录)`,
+      )
+    }
+  } catch (e) {
+    lines.push(`锁文件现读失败:${String(e?.message ?? e).slice(0, 120)}`)
+  }
+  lines.push('持锁方现读:node scripts/git-lock.mjs check')
+  return lines
+}
 /** 读非负整数 env:空值/非法值 ⇒ 默认值(不得把 "" 读成 0 而静默关掉重试)。 */
 const envInt = (name, dflt) => {
   const raw = String(process.env[name] ?? '').trim()
@@ -1384,12 +1448,13 @@ process.on('exit', () => {
 let commitResult = null
 let hookFailed = false
 let hookOutput = ''
-const commitStartedAt = Date.now()
-for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
-  // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
-  rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
-  // O67:每次发令前复量一次「索引 ⊖ 声明集」,只点名不拦(拦在 Step 3)。
-  reportUndeclaredStaged()
+
+/**
+ * 发一枚**带钩子**的普通提交(2026-11-02 从主环原样抽出)。
+ * 主环(首次 + 锁争用重试)与 not-ours 的退避重试**共用这一份发令体**:
+ * 钩子路径必须是同一个 —— 两处各拼一次 argv / 各建一次护栏,迟早漂成"一边转发钩子、一边裸跑"。
+ */
+async function launchCommitWithHooks() {
   // O43建议②:发令前取**全量**索引快照作基线(含他人的已暂存水位 —— 只拦"窗口期新进",
   // 差值棘轮语义与 4-pre 完全一致),生成临时 hooksPath 逐文件转发 .husky 全部钩子;
   // pre-commit 成功后写树前再复量一次,钩子运行期(本机实测 ≈15 分钟)新进的外来件在这里
@@ -1414,7 +1479,7 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     '钩子链(守门批量检查)本机实测约 9~15 分钟,期间无输出属正常;' +
       '逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log',
   )
-  const r = await spawnStreaming(
+  return spawnStreaming(
     'git',
     commitArgv(false, hookWindowGuard.hooksDir ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`] : []),
     {
@@ -1424,6 +1489,15 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
       windowsHide: true,
     },
   )
+}
+
+const commitStartedAt = Date.now()
+for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
+  // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
+  rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
+  // O67:每次发令前复量一次「索引 ⊖ 声明集」,只点名不拦(拦在 Step 3)。
+  reportUndeclaredStaged()
+  const r = await launchCommitWithHooks()
   // 输出已在 spawnStreaming 里实时转发,这里只取合成文本(不能再 pump,否则每行打两遍)
   const out = r.combined
   hookOutput += out
@@ -1482,6 +1556,9 @@ if (hookOutput.includes(GUARD_MARK)) {
 }
 
 let hookSkipped = false
+// 跳门落地的原因(2026-11-02):与 hookSkipped 一起进台账,让"钩子没跑"这件事**看得出原因**,
+// 而不是只留一个 gatesRan:false 的布尔。默认带钩子路径恒为空,不写进记录。
+let hookSkipReason = ''
 if (hookFailed && commitResult.status !== 0) {
   // ── 归因(2026-09-25 立,替代旧的一句"按用户规则…因其他 agent 代码")────────────────
   // 旧流程把三种不相干成因压成同一条措辞并一律 --no-verify:①我的内容真红 ②他人内容红
@@ -2179,7 +2256,8 @@ if (hookFailed && commitResult.status !== 0) {
   //   · 钩子里的门与自跑的门不是同一集合(脚本头注列了差异),自跑全绿不能证明钩子会全绿;
   //   · 正文只留 attestation,审计上分不清"真过钩"与"跳钩"。
   // 唯一合法跳钩 = 显式 `--allow-skip-hooks="<原因>"`(默认关闭),且正文写入醒目一行。
-  if (!allowSkipHooks) {
+  // not-ours 例外:先走下方「让路再发令」(退避后重发带钩子的普通提交,它不是跳钩),不能在这里被拒。
+  if (!allowSkipHooks && verdict.kind !== 'not-ours') {
     log(
       'err',
       `拒绝自动跳钩:钩子判红(exit ${commitResult.status}),归因=${verdict.kind};` +
@@ -2205,87 +2283,222 @@ if (hookFailed && commitResult.status !== 0) {
   // 都会在这里死掉(本次实测:10 个文件里 4 个新文件全被判 unknown,exit 1,零提交)。
   // 所以:重跑 Step 2 的 add,并**再跑一次 Step 3 的精确性校验** —— 不校验就重试等于放弃
   // "只提交自己声明的文件"这条根约束(窗口期里别人可能刚 staged 了东西)。
-  log('info', '人工授权跳钩重试前重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)')
-  const reAdd = stageDeclared(expectedFiles, 'git add (retry)')
-  if (reAdd.status !== 0) {
-    // **删除型提交的 pathspec 语义与 add 不同**(2026-09-25 临时仓三态实测,不是推测):
-    //   A 索引有 + 盘上无 ⇒ `add -A` 成功;
-    //   B 索引无 + HEAD 有 + 盘上无 ⇒ `add -A` 报 pathspec 不匹配,**而 `git diff --cached`
-    //     在这一态已经把该路径报成 D** ⇒ 旧写法在此 exit 1 纯属误伤;
-    //   C 索引无 + HEAD 无 ⇒ 同样报错,且 diff 为空 ⇒ 只有这一态真的没东西可交。
-    // lint-staged 在提交失败时回滚索引,留下的正是 B,于是"带删除的提交"永远走不到跳门兜底
-    // (实测:一条已入库并推送的删除被并发合流带回后,复删三轮全死在这一行)。
-    // 出口:盘上不在的声明路径改走 `git rm --cached --ignore-unmatch`(幂等;B 态本就成立,
-    // C 态空操作),随后**照旧交给下面的精确性校验** —— 判"该不该中止"的是 diff,不是 add 的退出码。
-    const onDisk = []
-    const deleted = []
-    for (const f of expectedFiles)
-      (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
-    let recovered = true
-    if (onDisk.length) recovered = stageDeclared(onDisk, 'git add (retry: 在场文件)').status === 0
-    if (deleted.length && recovered)
-      recovered =
-        gitStep(['rm', '--cached', '--ignore-unmatch', ...pathspecArgs(deleted)], 'git add (retry: 删除态)')
-          .status === 0
-    if (!recovered) {
-      log('err', `重新暂存失败: ${reAdd.stderr}`)
-      process.exit(1)
-    }
-    log(
-      'info',
-      `兜底重暂存改走 rm --cached 分支(${deleted.length} 个磁盘上不存在的路径 / ${onDisk.length} 个在场路径)—— ` +
-        'add 只看索引与磁盘,抓不住"已被并发 reset 抹掉且盘上没有"的删除态',
-    )
-  }
-  {
-    // D171:重暂存后的精确性校验同样走 -z 出口(与本步骤第一次校验同一把尺)。
-    const reStaged = new Set(gitStagedPaths({ root: repoRoot }).map(normalize))
-    const reUnexpected = [...reStaged].filter((f) => !expectedNorm.has(f))
-    const reMissing = [...expectedNorm].filter((f) => !reStaged.has(f))
-    // **只拒"缺失",不拒"多余"** —— 第一版这里对多余也 exit 1,实测判得过严且把自己卡死:
-    // `git commit -- <pathspec>` 按定义只提交声明过的那几个路径,别人在窗口期 staged 的文件
-    // **结构上进不了本枚提交**;而缺失才是真危险(缺了就等于那一类"提交没发生")。
-    if (reMissing.length) {
-      log(
-        'err',
-        `重新暂存后本票文件仍缺 ${reMissing.length} 个(${reMissing.join(',')}) —— 说明 add 被并发窗口或锁挡住了,` +
-          '此时提交会少交内容,拒绝继续;请人工核对索引后重跑',
-      )
-      process.exit(1)
-    }
-    if (reUnexpected.length) {
+  // 2026-11-02:原"跳门重试前"这一段原样抽成函数 —— not-ours 的**带钩子退避重试**同样要
+  // "重暂存 + 复量",两处共用这一份,不在这里写第二遍(§0.6 单一真相)。
+  const restageDeclaredForRetry = (phase) => {
+    log('info', `${phase}:重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)`)
+    const reAdd = stageDeclared(expectedFiles, 'git add (retry)')
+    if (reAdd.status !== 0) {
+      // **删除型提交的 pathspec 语义与 add 不同**(2026-09-25 临时仓三态实测,不是推测):
+      //   A 索引有 + 盘上无 ⇒ `add -A` 成功;
+      //   B 索引无 + HEAD 有 + 盘上无 ⇒ `add -A` 报 pathspec 不匹配,**而 `git diff --cached`
+      //     在这一态已经把该路径报成 D** ⇒ 旧写法在此 exit 1 纯属误伤;
+      //   C 索引无 + HEAD 无 ⇒ 同样报错,且 diff 为空 ⇒ 只有这一态真的没东西可交。
+      // lint-staged 在提交失败时回滚索引,留下的正是 B,于是"带删除的提交"永远走不到跳门兜底
+      // (实测:一条已入库并推送的删除被并发合流带回后,复删三轮全死在这一行)。
+      // 出口:盘上不在的声明路径改走 `git rm --cached --ignore-unmatch`(幂等;B 态本就成立,
+      // C 态空操作),随后**照旧交给下面的精确性校验** —— 判"该不该中止"的是 diff,不是 add 的退出码。
+      const onDisk = []
+      const deleted = []
+      for (const f of expectedFiles)
+        (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
+      let recovered = true
+      if (onDisk.length) recovered = stageDeclared(onDisk, 'git add (retry: 在场文件)').status === 0
+      if (deleted.length && recovered)
+        recovered =
+          gitStep(['rm', '--cached', '--ignore-unmatch', ...pathspecArgs(deleted)], 'git add (retry: 删除态)')
+            .status === 0
+      if (!recovered) {
+        // 返回给调用方分诊(2026-11-02):not-ours 的退避重试里,`git add` 撞索引锁同样属于
+        // "还没拿到钩子"的瞬时争用 —— 该等下一个退避窗口,而不是在这里以"重新暂存失败"截断。
+        // 旧调用方(env-blocked/undetermined-red 路径)拿到 ok:false 后仍按原样 exit 1,行为不变。
+        return { ok: false, status: reAdd.status, stderr: String(reAdd.stderr || '') }
+      }
       log(
         'info',
-        `索引里另有 ${reUnexpected.length} 个非本票文件(${reUnexpected.slice(0, 5).join(',')}…) —— ` +
-          '不随本枚提交走:普通提交只交索引内容,而 Step 2/3 已保证索引恰是上面声明的清单,故不中止(第一版在此中止反而自锁:' +
-          '并发会话随时可能 staged 东西,而它本来也进不来)',
+        `兜底重暂存改走 rm --cached 分支(${deleted.length} 个磁盘上不存在的路径 / ${onDisk.length} 个在场路径)—— ` +
+          'add 只看索引与磁盘,抓不住"已被并发 reset 抹掉且盘上没有"的删除态',
       )
     }
+    {
+      // D171:重暂存后的精确性校验同样走 -z 出口(与本步骤第一次校验同一把尺)。
+      const reStaged = new Set(gitStagedPaths({ root: repoRoot }).map(normalize))
+      const reUnexpected = [...reStaged].filter((f) => !expectedNorm.has(f))
+      const reMissing = [...expectedNorm].filter((f) => !reStaged.has(f))
+      // **只拒"缺失",不拒"多余"** —— 第一版这里对多余也 exit 1,实测判得过严且把自己卡死:
+      // `git commit -- <pathspec>` 按定义只提交声明过的那几个路径,别人在窗口期 staged 的文件
+      // **结构上进不了本枚提交**;而缺失才是真危险(缺了就等于那一类"提交没发生")。
+      if (reMissing.length) {
+        log(
+          'err',
+          `重新暂存后本票文件仍缺 ${reMissing.length} 个(${reMissing.join(',')}) —— 说明 add 被并发窗口或锁挡住了,` +
+            '此时提交会少交内容,拒绝继续;请人工核对索引后重跑',
+        )
+        process.exit(1)
+      }
+      if (reUnexpected.length) {
+        log(
+          'info',
+          `索引里另有 ${reUnexpected.length} 个非本票文件(${reUnexpected.slice(0, 5).join(',')}…) —— ` +
+            '不随本枚提交走:普通提交只交索引内容,而 Step 2/3 已保证索引恰是上面声明的清单,故不中止(第一版在此中止反而自锁:' +
+            '并发会话随时可能 staged 东西,而它本来也进不来)',
+        )
+      }
+    }
+    return { ok: true, status: 0, stderr: '' }
   }
-  // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
-  rejectIfForeignEnteredIndex('--no-verify 重试')
-  // 正文必须自带一行醒目说明(机主明令):不写进正文 = 审计上分不清"真过钩"与"人工授权跳钩"。
-  // 追加在**发令前**,与下面那次 `git commit` 读到的 finalMessage 是同一次绑定。
-  finalMessage =
-    `${finalMessage}\n\n人工授权跳钩:--allow-skip-hooks=${JSON.stringify(allowSkipHooks)}` +
-    `(归因=${verdict.kind};守门未在本次提交链上重跑;默认永不跳钩,本枚为人工显式授权)`
-  const r = spawnSync('git', commitArgv(true), {
-    encoding: 'utf8',
-    cwd: repoRoot,
-    env: process.env,
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  pump(r)
-  commitResult = r
-  if (r.status === 0) {
-    hookSkipped = true
+
+  // ── not-ours 兜底(2026-11-02 立;事故 5c8aec3653)────────────────────────────────
+  // 旧流程在钩子阶段归因 not-ours 之后,**自动**发 `git commit --no-verify`:32 道守门靠自跑
+  // 全绿、台账记 gatesRan:false/hookSkipped:true,历史里却看不出钩子没跑 —— 一枚假绿。
+  // 新策略:not-ours 只许"让路再发令"—— 退避后重发**带钩子**的普通提交(锁争用通常几秒内
+  // 就轮到);重试耗尽仍拿不到钩子 ⇒ 非零退出并点名是哪把锁/谁持锁。默认绝不追加 --no-verify。
+  // 唯一人工逃生口是外层显式 `--allow-skip-hooks="<原因>"`(默认 null 完全不生效),
+  // 以及 not-ours 下既有 env 逃生口(默认不生效,保留形状锁);落地记录必须带 gatesRan:false/hookSkipped:true+原因。
+  const envSkipHatch =
+    verdict.kind === 'not-ours' && process.env.IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS === '1'
+  if (verdict.kind === 'not-ours' && !allowSkipHooks && !envSkipHatch) {
     log(
       'warn',
-      `⚠️  已按**人工显式授权**用 --no-verify 落地(归因=${verdict.kind};--allow-skip-hooks=${allowSkipHooks};` +
-        `守门未在本次提交链上重跑,逐道复跑记录见上,留痕于 .ihui-agent/state/safe-commit-attestation.jsonl)`,
+      `归因=${verdict.kind}(${verdict.reason}) ⇒ 不跳门:退避后重发**带钩子**的普通提交,` +
+        `最多 ${HOOK_RETRIES} 次(退避 ${hookRetryDelayMs(1) / 1000}s 起,指数退让);拿不到钩子就非零退出`,
     )
+    let landedWithHooks = false
+    for (let retry = 1; retry <= HOOK_RETRIES; retry++) {
+      const waitMs = hookRetryDelayMs(retry)
+      log(
+        'warn',
+        `…not-ours 退避 ${waitMs / 1000}s(第 ${retry}/${HOOK_RETRIES} 次重试):把 git 写面让给并发会话,` +
+          '再发带钩子的普通提交(不追加 --no-verify)',
+      )
+      sleep(waitMs)
+      const rs = restageDeclaredForRetry(`钩子退避重试 ${retry}/${HOOK_RETRIES}`)
+      if (!rs.ok) {
+        if (isGitLockFailure(rs.status, rs.stderr)) {
+          log('warn', `…钩子退避重试 ${retry}/${HOOK_RETRIES} 的重新暂存也撞锁 —— 本轮不发令,等下一个退避窗口`)
+          continue
+        }
+        log('err', `重新暂存失败: ${rs.stderr}`)
+        process.exit(1)
+      }
+      rejectIfForeignEnteredIndex(`钩子退避重试 ${retry}`)
+      reportUndeclaredStaged()
+      const rr = await launchCommitWithHooks()
+      const retryOut = rr.combined || ''
+      hookOutput += retryOut
+      commitResult = rr
+      if (rr.status === 0) {
+        landedWithHooks = true
+        log('info', `✅ 钩子退避重试 ${retry}/${HOOK_RETRIES} 拿到了钩子并落地(本次钩子**真的跑了**)`)
+        break
+      }
+      if (retryOut.includes(GUARD_MARK)) {
+        log(
+          'err',
+          `⛔ 钩子退避重试 ${retry} 期间外来件进了索引(${GUARD_MARK} 护栏命中)—— 拒绝继续,` +
+            '请先让并发会话把它的提交落地,再重跑本命令',
+        )
+        process.exit(1)
+      }
+      if (GIT_DETERMINISTIC_FATAL.test(retryOut)) {
+        log('err', `⛔ 钩子退避重试 ${retry} 命中确定性致命因(exit ${rr.status})—— 重试修不好,当场退出`)
+        process.exit(1)
+      }
+      if (rr.status === 129) {
+        log('err', `⛔ 钩子退避重试 ${retry} 被钩子以 129 拒绝(疑似钩子内部调用 git 失败)—— 拒绝跳门`)
+        process.exit(1)
+      }
+      if (isGitLockFailure(rr.status, retryOut)) {
+        log(
+          'warn',
+          `…钩子退避重试 ${retry}/${HOOK_RETRIES} 仍撞锁(exit ${rr.status});等下一个退避窗口再让路`,
+        )
+        continue
+      }
+      // 钩子**内层**撞锁(git 报 128 的是钩子里的 git,而 commit 本身退出 1):状态码不是 128,
+      // 但"锁特征 + 这一轮根本没跑到批量检查"两件事同时成立 ⇒ 仍是"钩子还没拿到"。
+      // 判据不重写:锁文本用 GIT_LOCK_MISS,"批有没有跑"用 lib 的 parseGateSummary.batchReported。
+      if (GIT_LOCK_MISS.test(retryOut) && parseGateSummary(retryOut).batchReported === false) {
+        log(
+          'warn',
+          `…钩子退避重试 ${retry}/${HOOK_RETRIES} 被锁挡在批量检查之前(commit exit ${rr.status});` +
+            '等下一个退避窗口再让路',
+        )
+        continue
+      }
+      // 非锁形态:这一轮 git 已经走到钩子链里(或钩子真红了)。再退避只会重复同一枚红,
+      // 而且这里若继续循环,等于用时间把"钩子到底跑没跑"搅浑 —— 当场非零退出。
+      log(
+        'err',
+        `⛔ 钩子退避重试 ${retry} 失败(exit ${rr.status}),且**不是**锁争用形态 ⇒ 钩子这一轮已经跑起来,` +
+          '再退避只会重复同一枚红。修完上方点名的红(或等占用释放)后重跑本命令;本工具不会替你追加 --no-verify。',
+      )
+      process.exit(1)
+    }
+    if (!landedWithHooks) {
+      const lockLine = (() => {
+        const rows = hookOutput.split(/\r?\n/)
+        for (let i = rows.length - 1; i >= 0; i--) if (GIT_LOCK_MISS.test(rows[i])) return rows[i].trim()
+        return ''
+      })()
+      log(
+        'err',
+        `⛔ not-ours 退避重试 ${HOOK_RETRIES} 次仍未拿到钩子 —— 拒绝追加 --no-verify(那会把整条守门链跳过,` +
+          '历史里只留一枚看不出异常的提交)',
+      )
+      if (lockLine) log('err', `   最后一次的锁形态原文:${lockLine}`)
+      for (const line of describeLockHolders()) log('err', `   ${line}`)
+      const hint = [
+        '等并发会话的 git 写操作结束(通常几秒到几分钟)后重跑同一条命令',
+        '先看持锁方:node scripts/git-lock.mjs check',
+        `本命令只负责让路,不负责跳门;要更长的等待窗口可调 IHUI_SAFE_COMMIT_HOOK_RETRIES(当前 ${HOOK_RETRIES})`,
+        '若钩子基础设施确已坏掉、且 32 道守门已自跑全绿:只能显式加 --allow-skip-hooks="<原因>" ' +
+          '(台账会记 gatesRan:false / hookSkipped:true / 原因),或走对象空间落地的结构出路',
+      ]
+      for (const line of hint) log('err', `   → ${line}`)
+      process.exit(1)
+    }
+  } else {
+    // 显式授权跳钩(2026-11-03 main 侧):唯一入口 = --allow-skip-hooks="<原因>"(默认 null);
+    // not-ours 已在上面的「让路再发令」分支先跑过,走到这里说明人工显式授权(含 not-ours 的 env 逃生口)。
+    const skipAuthorization = allowSkipHooks ?? 'env:IHUI_SAFE_COMMIT_ALLOW_SKIP_HOOKS=1'
+    hookSkipReason =
+      `显式授权跳钩 ${JSON.stringify(skipAuthorization)}(归因=${verdict.kind}:${verdict.reason})` +
+      `;gatesRan:false,hookSkipped:true,本次提交链未跑钩子`
+    log(
+      'warn',
+      `⚠️  显式授权跳钩(${JSON.stringify(skipAuthorization)}) —— 仅本枚生效;正文将写入醒目说明`,
+    )
+    const restageResult = restageDeclaredForRetry('跳门重试前')
+    if (!restageResult.ok) {
+      log('err', `重新暂存失败: ${restageResult.stderr}`)
+      process.exit(1)
+    }
+    // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
+    rejectIfForeignEnteredIndex('--no-verify 重试')
+    // 正文必须自带一行醒目说明(机主明令):不写进正文 = 审计上分不清"真过钩"与"人工授权跳钩"。
+    // 追加在**发令前**,与下面那次 `git commit` 读到的 finalMessage 是同一次绑定。
+    finalMessage =
+      `${finalMessage}\n\n人工授权跳钩:${JSON.stringify(skipAuthorization)}` +
+      `(归因=${verdict.kind};守门未在本次提交链上重跑;默认永不跳钩,本枚为人工显式授权)`
+    const r = spawnSync('git', commitArgv(true), {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    pump(r)
+    commitResult = r
+    if (r.status === 0) {
+      hookSkipped = true
+      log(
+        'warn',
+        `⚠️  已按**人工显式授权**用 --no-verify 落地(归因=${verdict.kind};授权=${JSON.stringify(skipAuthorization)};` +
+          `守门未在本次提交链上重跑,逐道复跑记录见上,留痕于 .ihui-agent/state/safe-commit-attestation.jsonl)`,
+      )
+    }
   }
 }
 
@@ -2444,6 +2657,7 @@ try {
     declaredFiles: expectedFiles.map(normalize),
     gatesRan: hookSkipped !== true,
     hookSkipped: hookSkipped === true,
+    hookSkipReason,
     // 票→提交环(2026-10-26 接线):派单会话用 env 显式绑定票键,审计器才能把"这枚提交在还哪张票"接上;
     // 未设 ⇒ 按无票提交记(不写空串)。
     ticketKey: String(process.env.IHUI_TICKET_KEY ?? ''),
