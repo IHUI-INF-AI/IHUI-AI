@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (682d2b65d3)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b19d4901bb)
 
 **2026-11-03**
@@ -149,11 +152,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b58037ca86)
-
-**2026-11-03**
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fb238de69e)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1e4502da88)
-- 🐞 Fix:撤回 Button|geometry 与 Button|radius 两条永不命中的允许差异登记(存量债改由 web 腿锚点承担) (50b982eeb0)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
