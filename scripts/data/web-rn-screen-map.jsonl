@@ -472,6 +472,7 @@
 {"web":"docs/manual/faq","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 docs/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
 {"web":"docs/manual/getting-started","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 docs/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
 {"web":"docs/quickstart","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 docs/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
+{"web":"docs/[slug]","status":"excluded","reason":"docs 动态文档阅读页(83391fa024 新增 markdown reader):文档阅读走 web/H5,App 不原生承载(与 docs/** 段级理由同源);按「更具体的判定赢」逐条承接,不让 docs/** 段级豁免随文档页增长而扩张(本次 +1 命中的就是这条)","at":"2026-11-03","reviewBy":"2027-04-30"}
 {"web":"developer/api-docs","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 developer/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
 {"web":"developer/billing","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 developer/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
 {"web":"developer/logs","status":"portal","reason":"门户承载(web-portal.ts 推导@2026-10-30):此前落在 developer/** 段级豁免射程内,而门户表说这条确实由 WebView 承载 ⇒ 逐条承认承载,段级只覆盖其余","at":"2026-10-30"}
