@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 // §22c:档位表(A 判据)与 A3 的认形都取自门体这一份 —— 本文件不得再抄一份档名列表/形状
-import { __test__ as gate } from '../check-radius-single-source.mjs'
+import { __test__ as gate, scanText } from '../check-radius-single-source.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-radius-single-source.mjs')
@@ -710,4 +710,38 @@ test('B10 容器造形:静态 polygon 拦、动画遮罩放、注释文字放,�
     '判据函数必须被 judge 调用 —— 只 export 不接线等于没装车',
   )
   assert.match(src, /rule: 'B10-shape-notch'/, 'B10 必须真有报名,否则 self-test 的红没有归属')
+})
+
+test('B9 正圆豁免:正方盒 + 半径=边长一半 放行,非正方/量不出仍判红', () => {
+  const table = {
+    RADIUS_STEPS: { sm: 4, md: 8, lg: 12, xl: 14, '2xl': 16, DEFAULT: 8 },
+    stepOf: () => null,
+    nearest: () => 16,
+  }
+  const b9 = (body) => scanText('fixtures/screen.tsx', body, table).filter((b) => b.rule === 'B9')
+  assert.deepEqual(
+    b9(`const s = StyleSheet.create({\n  fab: {\n    width: 56,\n    height: 56,\n    borderRadius: 56 / 2,\n  },\n})`),
+    [],
+    '正方盒 + 边长/2 = 几何正圆,应豁免',
+  )
+  assert.deepEqual(
+    b9(`const s = StyleSheet.create({\n  fab: {\n    width: 56,\n    height: 56,\n    borderRadius: '50%',\n  },\n})`),
+    [],
+    '正方盒 + 50% 同样按几何正圆放行(B9 不判百分比,也不得落 B1-capsule)',
+  )
+  assert.equal(
+    b9(`const s = StyleSheet.create({\n  card: {\n    width: 320,\n    height: 120,\n    borderRadius: 28,\n  },\n})`).length,
+    1,
+    '非正方盒的 28 仍是 B9',
+  )
+  assert.equal(
+    b9(`const s = StyleSheet.create({\n  card: {\n    width: 320,\n    height: 120,\n    borderRadius: 9999,\n  },\n})`).length,
+    1,
+    '非正方盒的 9999 仍是 B9',
+  )
+  assert.equal(
+    b9(`const s = StyleSheet.create({\n  fab: {\n    width: WIDTH,\n    height: WIDTH,\n    borderRadius: 28,\n  },\n})`).length,
+    1,
+    '边长来自变量且无单源 ⇒ 解析不出等值关系,不豁免',
+  )
 })
