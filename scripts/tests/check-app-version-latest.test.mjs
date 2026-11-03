@@ -446,6 +446,55 @@ test('腿上的包比行里旧一格 ⇒ ipa-matches-row 判红(账绿实红那�
   assert.match(r.red.find((i) => i.id === 'ipa-matches-row').detail, /x-release-version=0\.0\.4/)
 })
 
+test('传输层失败重试一次:第二次通 ⇒ 该腿必须出结论(不得把网络抖成"天天未判定")', async () => {
+  let n = 0
+  const fetchImpl = async () => {
+    n += 1
+    // 只有第一条腿(/latest?platform=…)抖动,其余照常 —— 证明"重试"是按次计的
+    if (n === 1) throw new Error('ECONNRESET(keep-alive 复用)')
+    return fakeResponse({ json: { code: 0, data: { latest: GOOD_ROW } } })
+  }
+  const r = await runCheck({ fetchImpl })
+  assert.equal(n >= 2, true, '第一次传输层失败必须再试一次')
+  assert.equal(
+    r.items.some((i) => i.id === 'endpoint' && i.state === 'undetermined'),
+    false,
+    '重试通了就不该留 undetermined 的 endpoint 项',
+  )
+  assert.equal(r.items.find((i) => i.id === 'latest-row').state, 'pass')
+})
+
+test('两次都不通 ⇒ 照旧未判定,并把两次成因逐条写进 detail(重试不许洗成绿)', async () => {
+  let n = 0
+  const fetchImpl = async () => {
+    n += 1
+    throw new Error(`ECONNRESET#${n}`)
+  }
+  const r = await runCheck({ fetchImpl })
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.exitCode, 2)
+  assert.equal(r.red.length, 0, '取不到输入不是红')
+  assert.equal(n >= 2, true, '预算内应已重试')
+  const ep = r.items.find((i) => i.id === 'endpoint')
+  assert.match(ep.detail, /共 2 次尝试/, ep.detail)
+  assert.match(ep.detail, /ECONNRESET#1.*⊕.*ECONNRESET#2/, '两次成因都要看得见')
+})
+
+test('预算用尽 ⇒ 点名"预算用尽"而不是含糊的 fetch failed(派发侧超时会被这把闸挡住)', async () => {
+  const slowFetch = async () => {
+    await new Promise((res) => setTimeout(res, 40))
+    throw new Error('ENOBUFS')
+  }
+  const r = await runCheck({ fetchImpl: slowFetch, timeoutMs: 5, budgetMs: 10 })
+  assert.equal(r.state, 'undetermined')
+  assert.match(
+    r.items.map((i) => i.detail).join(' ⊕ '),
+    /预算用尽|共 \d+ 次尝试/,
+    JSON.stringify(r.items.map((i) => i.detail)),
+  )
+  assert.equal(r.elapsedMs < 5000, true, ` elapsed=${r.elapsedMs} ⇒ 预算闸没起作用`)
+})
+
 test('档案表外的端 ⇒ 一个字节都不探针,只报未判定并点名缺档案', async () => {
   const asked = []
   const fetchImpl = async (url) => {
