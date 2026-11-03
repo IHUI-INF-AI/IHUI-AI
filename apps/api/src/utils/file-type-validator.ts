@@ -39,6 +39,10 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   txt: ['text/plain'],
   csv: ['text/csv', 'text/plain'],
   zip: ['application/zip', 'application/x-zip-compressed'],
+  // 2026-11-03(票 D53):RAG 解析面、ai-service 工具、小程序直开、前端 accept 四处都实现了
+  // Markdown,唯独这张白名单不收 ⇒ 用户在知识库上传框选中 .md 必吃 400。text/markdown 是
+  // Chromium 的声明值,text/plain 是其余客户端常见值(未声明时本函数跳过一致性、只验魔数)。
+  md: ['text/markdown', 'text/plain'],
   // 2026-10-16:语音消息上线(mobile-rn 长按录音 → 上传 → 聊天语音气泡回听)。
   // expo-audio HIGH_QUALITY 预设产出 m4a(AAC in MP4 容器);其余三档覆盖导入/转发音频。
   // audio/m4a 是非标准但客户端常见的声明值(RN FormData type),收进白名单省一次 400。
@@ -169,6 +173,7 @@ export function checkMagicNumber(ext: string, buf: Buffer): boolean {
       ])
     case 'txt':
     case 'csv':
+    case 'md':
       // 纯文本无固定 magic number,跳过文件头校验
       return true
     // ── 音频(2026-10-16 语音消息上线)──

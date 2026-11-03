@@ -150,7 +150,10 @@ export const PROMOTIONS: readonly Icon[] = [
     mono: true,
     href: 'https://github.com/AIZHS2025',
   },
-  { nameKey: 'promos.reddit', src: '/footer/tuiguangpingtai/reddit.png', mono: true },
+  // 2026-11-03 reddit 换 36px 变体(源图 2000×2000/43,909B 只为省流量与解码:
+  // 本 src 的两个消费点都是 ≤36px 槽位——SiteFooter PlatformIcon 14px、
+  // BrandMarquee 方形槽 h-9 w-9=36px;36px 变体两处都不降质)。reddit.png 原图保留。
+  { nameKey: 'promos.reddit', src: '/footer/tuiguangpingtai/reddit-36.png', mono: true },
 ]
 
 // 底部二维码:

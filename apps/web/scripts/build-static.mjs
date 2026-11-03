@@ -53,6 +53,27 @@ const RUNTIME_ONLY_ROUTE_DIRS = ['cdn', 'uploads']
  */
 const STATIC_EXCLUDED_TOP_FILES = ['proxy.ts']
 /**
+ * 静态导出必须整体移出的**动态路由页面**(相对 apps/web/,2026-11-03 立)。
+ *
+ * 为什么:`app/(main)/docs/[slug]/page.tsx` 的数据源是后端 docs 表
+ * (`GET /api/docs` → `findDocs()` 只取 `status='published'`),当前库里 0 条 published;
+ * 而 Next 对 `output: 'export'` + `generateStaticParams()` 返回空数组是**硬报错**:
+ *   'Page "/docs/[slug]" returned an empty array from "generateStaticParams()".
+ *    With "output: export", at least one route must be generated.'
+ * (next/dist/build/static-paths/app.js:457-458;非 export 的服务端构建不触发该断言)
+ *
+ * 静态产物没有请求期,`dynamicParams = true` 的按需渲染在 `output: 'export'` 下本就
+ * 没有语义(Next 官方 static-exports 指南把"dynamicParams: true"列为 unsupported),
+ * 所以 docs 详情页只能待在服务端模式(生产 aizhs.top 走 next build + next start)。
+ * 静态面沿用既有"构建期移出、finally 恢复"机制,只移出该段的 page.tsx(路由入口);
+ * PageClient.tsx 留在原位继续参与 typecheck,不削弱编译面覆盖。
+ *
+ * ⚠️ 若将来 docs 详情要出现在 GH Pages/Tauri 静态产物里,正确做法是先在构建期拿到
+ * **真实** slug 清单(例如发布侧生成 manifest),再把本行从移出面移除;不要用假 slug
+ * 骗过 generateStaticParams 的空数组断言。
+ */
+const STATIC_EXCLUDED_ROUTE_FILES = ['app/(main)/docs/[slug]/page.tsx']
+/**
  * proxy.ts 的**反向依赖闭包**(直接/间接 import 它的源码,相对 apps/web/),静态导出期与 proxy 同批移出。
  *
  * `next build` 的 typecheck 覆盖 tsconfig.include 的**全部**文件(含 src/tests 与
@@ -134,7 +155,11 @@ function proxyDependentFiles() {
   return [...dependents].map((abs) => path.relative(webRoot, abs).replaceAll('\\', '/')).sort()
 }
 
-const STATIC_EXCLUDED_FILES = [...STATIC_EXCLUDED_TOP_FILES, ...proxyDependentFiles()]
+const STATIC_EXCLUDED_FILES = [
+  ...STATIC_EXCLUDED_TOP_FILES,
+  ...STATIC_EXCLUDED_ROUTE_FILES,
+  ...proxyDependentFiles(),
+]
 const appDir = path.join(webRoot, 'app')
 const stashDir = path.join(webRoot, '.static-excluded')
 
