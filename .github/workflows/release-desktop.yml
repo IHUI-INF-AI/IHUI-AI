@@ -2,6 +2,18 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+# ── 代码签名链路(2026-11-03 收口)────────────────────────────────────────────
+# 完整方案对比、证书申请入口、每个 secret 的用途与验证位置,见
+#   docs/DESKTOP_CODE_SIGNING.md
+# 链路顺序(顺序本身就是判据,不得调整):
+#   ① 打包出未签名安装包 → ② Windows 送 SignPath Authenticode 签名 /
+#   macOS 用 Developer ID Application 签名并由 notarytool 公证 + staple →
+#   ③ 对**签名后的字节**重算 SHA256/字节数 → ④ 用签名后的字节重算 Tauri updater `.sig`
+#   → ⑤ signature-gate 在独立 runner 上重新下载产物并验签(不通过即红)
+#   → ⑥ 只有 ⑤ 通过才生成 latest.json(见 publish-updater-json 的 needs)。
+# 凭据缺失时:build 里的签名步跳过,但 signature-gate **必定红**并打印「未签名/未公证」。
+#   这是刻意设计 —— 未签名产物不得被读成成功发布;不要用任何 CI 开关把它改绿。
+#   本地未签名打包豁免是另一条路径(DESKTOP_ALLOW_UNSIGNED=1,仅本机自测,见 apps/desktop/README.md)。
 name: Release Desktop
 
 on:
@@ -52,6 +64,10 @@ jobs:
       # 与 release-cli 同一把开关:四项凭据齐备才置 true(step-level if 不支持 secrets
       # 上下文,故先在 job env 折算)。未配置时下面那组签名步整体跳过,发布链与今日逐字同形。
       SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
+      # macOS 另有一套凭据(Developer ID + 公证)。签名与公证必须一起齐备:只装证书不公证
+      # 的产物在 Gatekeeper 下仍会被拦,等于"看起来签了、装上仍报损坏"——比不签更难排查。
+      # 公证两条官方通道二选一:Apple ID(app-specific password)或 App Store Connect API Key。
+      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_PATH != '')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +84,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # 签名链自检:在**打包之前**就确认本 workflow 自己没把顺序改坏
+      # (上传未签名 → 提交签名 → 替换并验签 → 重算 .sig → 门禁 → latest.json)。
+      # 纯静态 + 无依赖,任何一台 runner 都跑;失败即红,不允许"带着坏链路开跑 40 分钟"。
+      - name: Audit desktop signing chain
+        shell: bash
+        run: node scripts/desktop-signing-chain.mjs
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
@@ -146,6 +169,44 @@ jobs:
             *"$V"*) ;;
             *) echo "ERROR: 安装出的 tauri-cli ($GOT) 与期望版本 $V 不符,拒绝继续(否则又是一次静默漂移)"; exit 1;;
           esac
+
+      # macOS 签名凭据必须先落到 GITHUB_ENV,再由下一步的 tauri build 消费。
+      # 为什么不直接把 secrets 写进 Build & Release 的 env: GitHub Actions 的 env 无法按
+      # 单个键做条件赋值,未配置的 secret 会被注入成**空字符串**,而 Tauri 看到
+      # APPLE_CERTIFICATE="" 会当成"要导入一张空证书"直接失败 —— 凭据没配反而弄红构建。
+      # 这一步只在 APPLE_SIGNING_CONFIGURED=true 时执行,未配置时 tauri build 完全看不到
+      # 这些键,行为与历史版本逐字同形(产出未签名 .app,由 signature-gate 判红)。
+      - name: Export Apple signing credentials (macOS)
+        id: mac-export-signing-env
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          IN_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          IN_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IN_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IN_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          IN_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          IN_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+        run: |
+          set -euo pipefail
+          {
+            printf 'APPLE_CERTIFICATE=%s\n' "$IN_CERTIFICATE"
+            printf 'APPLE_CERTIFICATE_PASSWORD=%s\n' "$IN_CERTIFICATE_PASSWORD"
+            printf 'APPLE_SIGNING_IDENTITY=%s\n' "$IN_SIGNING_IDENTITY"
+            if [ -n "${IN_APPLE_ID}" ]; then
+              printf 'APPLE_ID=%s\n' "$IN_APPLE_ID"
+              printf 'APPLE_PASSWORD=%s\n' "$IN_APPLE_PASSWORD"
+              printf 'APPLE_TEAM_ID=%s\n' "$IN_APPLE_TEAM_ID"
+            else
+              printf 'APPLE_API_KEY=%s\n' "$IN_API_KEY"
+              printf 'APPLE_API_ISSUER=%s\n' "$IN_API_ISSUER"
+              printf 'APPLE_API_KEY_PATH=%s\n' "$IN_API_KEY_PATH"
+            fi
+          } >> "$GITHUB_ENV"
+          echo "Apple 签名凭据已导出(证书 + $( [ -n "${IN_APPLE_ID}" ] && echo 'Apple ID 公证' || echo 'App Store Connect API Key 公证' ))"
 
       - name: Build & Release
         id: tauri
@@ -234,13 +295,21 @@ jobs:
           wait-for-completion-timeout-in-seconds: 3600
           output-artifact-directory: signed-desktop
 
-      - name: Install signed installer and refresh updater signature (Windows)
+      # Windows 签名后的**唯一**落地动作:替换安装包 → 断言 Authenticode 与证书链 →
+      # 对签名后的字节重算 SHA256/字节数 → 重算 updater `.sig` → 用配置里的公钥验签。
+      # 每一步失败都 throw(硬失败);不存在"签了但没验"的中间态。
+      - name: Install signed installer, verify Authenticode, refresh updater signature (Windows)
+        id: win-authenticode
         if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
         shell: pwsh
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+          # 期望的签名者主体子串。SignPath Foundation 的证书主体是 "SignPath Foundation";
+          # 若将来换成自有 EV 证书,改这个 secret 即可,无需改 workflow。
+          EXPECTED_SIGNER_SUBJECT: ${{ secrets.DESKTOP_WIN_SIGNER_SUBJECT }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $bundle = 'apps/desktop/src-tauri/target/release/bundle/nsis'
           # 回传物形态取决于 SignPath 的 artifact configuration:根为 PE 时是裸 exe,
           # 根为 zip 时是压缩包 ⇒ 两种都收,先找 exe,找不到就解压再找。
@@ -256,9 +325,53 @@ jobs:
           if (-not $signed) { throw '签名回传物里没找到安装包(检查 SignPath artifact configuration)' }
           $target = Get-ChildItem -Path $bundle -Filter *.exe -File | Select-Object -First 1
           if (-not $target) { throw "bundle 目录里没有可替换的安装包:$bundle" }
+
+          # 替换前记账:签名必须改字节,前后哈希相同就说明回传物根本没换上去。
+          $hashBefore = (Get-FileHash -Path $target.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytesBefore = (Get-Item -Path $target.FullName).Length
           Copy-Item $signed.FullName $target.FullName -Force
-          Write-Host "已替换为签名安装包: $($target.Name) ($($target.Length) 字节)"
-          # 字节的凭据跟着重算:tauri-action 生成的那份 .sig 已随覆盖失效
+          $hashAfter = (Get-FileHash -Path $target.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytesAfter = (Get-Item -Path $target.FullName).Length
+          Write-Host "签名前: SHA256=$hashBefore / $bytesBefore 字节"
+          Write-Host "签名后: SHA256=$hashAfter / $bytesAfter 字节"
+          if ($hashBefore -eq $hashAfter) {
+            throw '签名前后字节完全相同 —— SignPath 回传物没有真正替换安装包(签的不是这份产物)'
+          }
+          if ($bytesAfter -le 0) { throw "签名后安装包字节数异常:$bytesAfter" }
+
+          # ① signtool verify /pa(PE 的 Authenticode 策略)+ /v 详细输出
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)
+          if (-not $signtool) {
+            $sdks = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending
+            if ($sdks) { $signtool = @{ Source = $sdks[0].FullName } }
+          }
+          if (-not $signtool) { throw '找不到 signtool.exe(windows-latest 应预装 Windows SDK);拒绝用"没工具"当通过' }
+          & $signtool.Source verify /pa /v $target.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool verify /pa 失败(exit $LASTEXITCODE)" }
+
+          # ② 证书链 + 签名者名称 + RFC3161 时间戳
+          $sig = Get-AuthenticodeSignature -FilePath $target.FullName
+          if ($sig.Status -ne 'Valid') {
+            throw "Authenticode 校验失败: $($sig.Status) / $($sig.StatusMessage)"
+          }
+          $subject = $sig.SignerCertificate.Subject
+          $expected = if ([string]::IsNullOrWhiteSpace($env:EXPECTED_SIGNER_SUBJECT)) { 'SignPath Foundation' } else { $env:EXPECTED_SIGNER_SUBJECT }
+          Write-Host "签名者: $subject"
+          if ($subject -notmatch [regex]::Escape($expected)) {
+            throw "签名者主体与期望不符:实际 '$subject',期望包含 '$expected'(如需调整请改 secret DESKTOP_WIN_SIGNER_SUBJECT)"
+          }
+          $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()
+          $chain.ChainPolicy.RevocationMode = 'Online'
+          if (-not $chain.Build($sig.SignerCertificate)) {
+            $why = ($chain.ChainStatus | ForEach-Object { "$($_.Status):$($_.StatusInformation.Trim())" }) -join '; '
+            throw "证书链校验失败: $why"
+          }
+          if (-not $sig.TimeStamperCertificate) {
+            throw '缺少 RFC3161 时间戳证书 —— 证书过期后已发放的安装包会失去可信时间,拒绝发布'
+          }
+
+          # ③ 对**签名后的字节**重算 updater `.sig`(tauri-action 生成的那份已随覆盖失效)
           tauri signer sign $target.FullName -k $env:TAURI_SIGNING_PRIVATE_KEY -p $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
           if ($LASTEXITCODE -ne 0) {
             throw 'tauri signer sign 失败 —— 旧 .sig 与新字节不一致会让全部已装客户端自动更新失败,拒绝发布'
@@ -266,29 +379,235 @@ jobs:
           if (-not (Test-Path "$($target.FullName).sig")) {
             throw "重算后没找到 $($target.Name).sig —— 宁可不发,也不发一个更新链断裂的 Release"
           }
-          $sig = Get-AuthenticodeSignature $target.FullName
-          Write-Host "Authenticode: $($sig.Status) / $($sig.SignerCertificate.Subject)"
-          if ($sig.Status -ne 'Valid') {
-            throw "Authenticode 校验失败: $($sig.Status) / $($sig.StatusMessage)"
+          # ④ 用 tauri.conf.json 里钉住的公钥验证新 `.sig` 确实覆盖新字节
+          node scripts/desktop-updater-sig-verify.mjs --artifact $target.FullName --signature "$($target.FullName).sig" --config apps/desktop/src-tauri/tauri.conf.json
+          if ($LASTEXITCODE -ne 0) {
+            throw '.sig 与签名后安装包字节不匹配 —— 更新器会拒绝该包,拒绝发布'
           }
-          "### 桌面端签名`n- 安装包: $($target.Name) ($($target.Length) 字节)`n- Authenticode: $($sig.Status)`n- 更新签名 `.sig` 已按新字节重算" >> $env:GITHUB_STEP_SUMMARY
+
+          # ⑤ 落签名清单,供 signature-gate 在独立 runner 上复核
+          $manifest = [ordered]@{
+            platform              = 'windows-x64'
+            artifact              = $target.Name
+            bytes                 = $bytesAfter
+            sha256                = $hashAfter
+            unsignedSha256        = $hashBefore
+            authenticodeStatus    = $sig.Status.ToString()
+            signerSubject         = $subject
+            signerThumbprint      = $sig.SignerCertificate.Thumbprint
+            timestamped           = [bool]$sig.TimeStamperCertificate
+            sigFile               = "$($target.Name).sig"
+            sigVerified           = $true
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $bundle 'signature-manifest.json') -Encoding utf8
+          "### Windows 代码签名`n- 安装包: $($target.Name)`n- 字节数: $bytesAfter(签名前 $bytesBefore)`n- SHA256: \`$hashAfter\`n- Authenticode: $($sig.Status) / 已 chain 校验 / 已带时间戳`n- 更新器 .sig: 已按签名后字节重算并用配置公钥验签通过" >> $env:GITHUB_STEP_SUMMARY
+
+      # 供 signature-gate 独立复核:签名后的 exe + 同名 .sig + 签名清单。
+      # 不传未签名 exe —— gate 必须验的是"用户最终下载到的那份字节"。
+      - name: Upload signed installer + signature manifest (Windows)
+        if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-desktop-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe.sig
+            apps/desktop/src-tauri/target/release/bundle/nsis/signature-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+
+      # ---------- macOS:Developer ID 签名 + notarytool 公证 + staple ----------
+      # tauri build 在 APPLE_* 齐备时会用 Developer ID Application 证书对 .app 签名,
+      # 并调用 notarytool 公证 + staple。本步是**独立复核 + 兜底补做**:
+      #   ① 断言 codesign 身份/hardened runtime/时间戳;
+      #   ② 若 .app 上没有已 staple 的公证票据 → 现场 zip → notarytool submit → staple
+      #      → **用 staple 后的 app 重建 .app.tar.gz 并重算 .sig**(否则更新器拿到的字节对不上);
+      #   ③ 对 .dmg 显式 notarytool submit 并记录 Accepted 状态 → staple → validate;
+      #   ④ spctl 用 Gatekeeper 自己的判据再判一次。
+      # 任何一步失败即红;凭据缺失时本步跳过,由 signature-gate 打「未公证」并判红。
+      - name: Notarize, staple and verify macOS bundles
+        id: mac-notarize
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IN_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          IN_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          IN_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+          EXPECTED_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          APP=$(find "$BUNDLE/macos" -maxdepth 1 -name '*.app' -type d | head -1)
+          DMG=$(find "$BUNDLE/dmg" -maxdepth 1 -name '*.dmg' -type f | head -1)
+          if [ -z "$APP" ]; then echo '::error::未找到 macOS .app 产物'; exit 1; fi
+          if [ -z "$DMG" ]; then echo '::error::未找到 macOS .dmg 产物'; exit 1; fi
+          echo "签名对象: $APP"
+          echo "公证对象: $DMG"
+
+          # 公证通道 A/B 二选一;数组直拼(不用 process substitution,避免末项因缺分隔符被吞)
+          if [ -n "${IN_APPLE_ID}" ]; then
+            NOTARY_ARGS=(--apple-id "$IN_APPLE_ID" --password "$IN_APPLE_PASSWORD" --team-id "$IN_APPLE_TEAM_ID")
+          else
+            NOTARY_ARGS=(--key "$IN_API_KEY_PATH" --key-id "$IN_API_KEY" --issuer "$IN_API_ISSUER")
+          fi
+          notary_status() { node -e 'const fs=require("fs");const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write((j.status||"Unknown")+" "+(j.id||""))' "$1"; }
+
+          # ① codesign:身份必须是 Developer ID Application,且带 hardened runtime 与时间戳
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee "$RUNNER_TEMP/codesign.txt"
+          grep -q 'Authority=Developer ID Application' "$RUNNER_TEMP/codesign.txt" || { echo '::error::未使用 Developer ID Application 证书签名'; exit 1; }
+          if [ -n "${EXPECTED_SIGNING_IDENTITY}" ]; then
+            grep -Fq "Authority=$EXPECTED_SIGNING_IDENTITY" "$RUNNER_TEMP/codesign.txt" || { echo "::error::证书身份与 APPLE_SIGNING_IDENTITY 不符(期望 $EXPECTED_SIGNING_IDENTITY)"; exit 1; }
+          fi
+          grep -q 'flags=0x10000(runtime)' "$RUNNER_TEMP/codesign.txt" || { echo '::error::缺少 hardened runtime(notarization 前置条件)'; exit 1; }
+          grep -q 'Timestamp=' "$RUNNER_TEMP/codesign.txt" || { echo '::error::签名没有安全时间戳'; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # ② .app 公证票据缺失时才补做(正常 Tauri 已在打包阶段做完)
+          if ! xcrun stapler validate "$APP" >/dev/null 2>&1; then
+            echo 'app 上没有被 staple 的公证票据,补做:zip → submit → staple → 重建 updater 产物'
+            ZIP="$RUNNER_TEMP/app-notarize.zip"
+            /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
+            xcrun notarytool submit "$ZIP" "${NOTARY_ARGS[@]}" --wait --output-format json > "$RUNNER_TEMP/app-notary.json"
+            read -r APP_STATUS APP_ID <<< "$(notary_status "$RUNNER_TEMP/app-notary.json")"
+            if [ "$APP_STATUS" != 'Accepted' ]; then
+              echo "::error::app 公证未通过: $APP_STATUS(id=$APP_ID)"
+              cat "$RUNNER_TEMP/app-notary.json"
+              exit 1
+            fi
+            xcrun stapler staple "$APP"
+            xcrun stapler validate "$APP"
+            # staple 改了 .app 字节 ⇒ 更新器用的 .app.tar.gz 必须由**staple 后**的 app 重建并重签
+            TARGZ=$(find "$BUNDLE/macos" -maxdepth 1 -name '*.app.tar.gz' -type f | head -1)
+            if [ -z "$TARGZ" ]; then echo '::error::未找到 .app.tar.gz,无法重建更新器产物'; exit 1; fi
+            rm -f "$TARGZ" "${TARGZ}.sig"
+            tar -czf "$TARGZ" -C "$(dirname "$APP")" "$(basename "$APP")"
+            tauri signer sign "$TARGZ" -k "$TAURI_SIGNING_PRIVATE_KEY" -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+            node scripts/desktop-updater-sig-verify.mjs --artifact "$TARGZ" --signature "${TARGZ}.sig" --config apps/desktop/src-tauri/tauri.conf.json
+            APP_NOTARY_STATUS="$APP_STATUS"
+            APP_NOTARY_ID="$APP_ID"
+          else
+            echo 'app 已有可验证的公证票据(Tauri 打包阶段已完成公证 + staple)'
+            APP_NOTARY_STATUS='stapled'
+            APP_NOTARY_ID='pre-stapled-by-tauri'
+          fi
+
+          # ③ DMG 显式公证:notarytool 的 Accepted 状态写进清单,gate 会再读一次
+          xcrun notarytool submit "$DMG" "${NOTARY_ARGS[@]}" --wait --output-format json > "$RUNNER_TEMP/dmg-notary.json"
+          read -r DMG_STATUS DMG_ID <<< "$(notary_status "$RUNNER_TEMP/dmg-notary.json")"
+          if [ "$DMG_STATUS" != 'Accepted' ]; then
+            echo "::error::DMG 公证未通过: $DMG_STATUS(id=$DMG_ID)"
+            cat "$RUNNER_TEMP/dmg-notary.json"
+            exit 1
+          fi
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+
+          # ④ Gatekeeper 的两个判据:直接跑 app / 打开 DMG 的主签名
+          spctl --assess --type execute --verbose=4 "$APP"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+
+          # ⑤ 清单:签名身份、team、公证 id/状态、字节与 SHA256
+          TARGZ=$(find "$BUNDLE/macos" -maxdepth 1 -name '*.app.tar.gz' -type f | head -1)
+          TEAM_ID=$(printf '%s\n' "$(codesign -dv --verbose=4 "$APP" 2>&1)" | sed -n 's/^TeamIdentifier=//p' | head -1)
+          AUTHORITY=$(printf '%s\n' "$(codesign -dv --verbose=4 "$APP" 2>&1)" | sed -n 's/^Authority=//p' | head -1)
+          DMG_SHA=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          DMG_BYTES=$(stat -f%z "$DMG")
+          TARGZ_SHA=$(shasum -a 256 "$TARGZ" | awk '{print $1}')
+          export MANIFEST_PATH="$BUNDLE/macos/signature-manifest.json" \
+                 M_DMG="$(basename "$DMG")" M_DMG_SHA="$DMG_SHA" M_DMG_BYTES="$DMG_BYTES" \
+                 M_TARGZ="$(basename "$TARGZ")" M_TARGZ_SHA="$TARGZ_SHA" \
+                 M_AUTHORITY="$AUTHORITY" M_TEAM="$TEAM_ID" \
+                 M_APP_NOTARY_STATUS="$APP_NOTARY_STATUS" M_APP_NOTARY_ID="$APP_NOTARY_ID" \
+                 M_DMG_NOTARY_STATUS="$DMG_STATUS" M_DMG_NOTARY_ID="$DMG_ID"
+          node -e '
+            const fs = require("fs")
+            const e = process.env
+            fs.writeFileSync(e.MANIFEST_PATH, JSON.stringify({
+              platform: "macos-universal",
+              artifact: e.M_DMG,
+              bytes: Number(e.M_DMG_BYTES),
+              sha256: e.M_DMG_SHA,
+              signingAuthority: e.M_AUTHORITY,
+              teamIdentifier: e.M_TEAM,
+              hardenedRuntime: true,
+              appNotarization: { status: e.M_APP_NOTARY_STATUS, id: e.M_APP_NOTARY_ID },
+              dmgNotarization: { status: e.M_DMG_NOTARY_STATUS, id: e.M_DMG_NOTARY_ID },
+              stapled: true,
+              updaterArtifact: e.M_TARGZ,
+              updaterSha256: e.M_TARGZ_SHA,
+              updaterSigVerified: true
+            }, null, 2) + "\n")
+          '
+          echo "### macOS 代码签名与公证" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 签名身份: $AUTHORITY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- TeamIdentifier: $TEAM_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- app 公证: $APP_NOTARY_STATUS (id=$APP_NOTARY_ID)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dmg 公证: $DMG_STATUS (id=$DMG_ID) / 已 staple + spctl 通过" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DMG SHA256: $DMG_SHA($DMG_BYTES 字节)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 更新器 .app.tar.gz 已用配置公钥验签通过" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed macOS bundles + signature manifest
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-desktop-${{ matrix.label }}
+          path: |
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/signature-manifest.json
+          if-no-files-found: error
+          retention-days: 7
 
       # 同上一条纪律:凭据不齐时三步跳过 ⇒ Release 里躺的是未签名安装包,而 job 是绿的。
       # 不签不是错,但必须让"绿"不被读成"已签名"。
+      # 2026-11-03 起,真正的红色结论由下方 signature-gate 给出 —— 本步只负责**显式喊出来**,
+      # 不允许出现"没有任何地方说未签名"的静默态。
       - name: Report unsigned fallback (Windows)
         if: runner.os == 'Windows' && env.SIGNPATH_CONFIGURED != 'true'
         shell: pwsh
         run: |
           '::warning::SignPath 未启用(SIGNPATH_CONFIGURED=false):桌面安装包本次未签名,Windows 用户下载仍会撞 SmartScreen。'
-          "### 签名状态`n- ⚠️ 未签名:四项 SignPath secret 未齐,签名步已整体跳过" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          "### 签名状态`n- ⚠️ 未签名:四项 SignPath secret 未齐,签名步已整体跳过`n- signature-gate 会因此判红,latest.json 不会更新(已装客户端不会收到未签名包)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Report unsigned / un-notarized fallback (macOS)
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED != 'true'
+        shell: bash
+        run: |
+          echo '::warning::Apple 签名凭据未齐(APPLE_SIGNING_CONFIGURED=false):本次 macOS 产物未签名、未公证,用户首次打开会被 Gatekeeper 拦。'
+          {
+            echo '### macOS 签名状态'
+            echo '- ⚠️ 未签名 / 未公证:APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY 与公证凭据未齐,签名与公证步已整体跳过'
+            echo '- signature-gate 会因此判红,latest.json 不会更新(已装客户端不会收到未签名/未公证包)'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fallback upload bundle files to Release
         if: always()
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIGNPATH_CONFIGURED: ${{ env.SIGNPATH_CONFIGURED }}
+          APPLE_SIGNING_CONFIGURED: ${{ env.APPLE_SIGNING_CONFIGURED }}
+          WIN_SIGN_OUTCOME: ${{ steps.win-authenticode.outcome }}
+          MAC_SIGN_OUTCOME: ${{ steps.mac-notarize.outcome }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
+          # 签名失败时**拒绝上传**:此时磁盘上的 exe 已被签名回传物覆盖,但 .sig 可能没来得及重算
+          # ⇒ 传上去就是"新包配旧签名",所有已装客户端都会更新失败。宁可不传,也不留一对不一致的资产。
+          # (签名步自己已经 throw ⇒ 本 job 本来就是红的;这里只是不让错误产物外溢到 Release。)
+          if [ "$RUNNER_OS" = 'Windows' ] && [ "$SIGNPATH_CONFIGURED" = 'true' ] && [ "$WIN_SIGN_OUTCOME" != 'success' ]; then
+            echo "::error::Windows 签名/验签步骤失败(已配置 SignPath):拒绝上传可能不成对的 exe 与 .sig"
+            exit 1
+          fi
+          if [ "$RUNNER_OS" = 'macOS' ] && [ "$APPLE_SIGNING_CONFIGURED" = 'true' ] && [ "$MAC_SIGN_OUTCOME" != 'success' ]; then
+            echo "::error::macOS 签名/公证步骤失败(已配置 Apple 凭据):拒绝上传可能不成对的产物"
+            exit 1
+          fi
           # 2026-09-17:macOS Universal 产物在 target/universal-apple-darwin/release/bundle
           BUNDLE=apps/desktop/src-tauri/target/release/bundle
           if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
@@ -346,25 +665,206 @@ jobs:
 
       # 失败分诊(公开 annotations):唯一实现 = scripts/ci-failure-triage.sh,本步只注入参数。
       # 守门 215 的 W2:作业里**每个**带 id 的步骤都要进 TRIAGE_IDS 并有对应 O_ 键 ——
-      # 本作业原有 `tauri` 一枚,签名步又带进两枚,三条同批装,否则"红了却报不出是哪一条"
-      # 这一型正是被自己造出来的。
+      # 本作业原有 `tauri` 一枚,macOS 凭据导出 + Windows 验签 + macOS 公证共三枚同批装,
+      # 否则"红了却报不出是哪一条"这一型正是被自己造出来的。
       - name: Failure triage (public annotations)
         id: failure-triage
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
-          TRIAGE_IDS: tauri upload-unsigned-desktop signpath-desktop failure-triage
+          TRIAGE_IDS: tauri upload-unsigned-desktop signpath-desktop mac-export-signing-env win-authenticode mac-notarize failure-triage
           O_TAURI: ${{ steps.tauri.outcome }}
           O_UPLOAD_UNSIGNED_DESKTOP: ${{ steps.upload-unsigned-desktop.outcome }}
           O_SIGNPATH_DESKTOP: ${{ steps.signpath-desktop.outcome }}
+          O_MAC_EXPORT_SIGNING_ENV: ${{ steps.mac-export-signing-env.outcome }}
+          O_WIN_AUTHENTICODE: ${{ steps.win-authenticode.outcome }}
+          O_MAC_NOTARIZE: ${{ steps.mac-notarize.outcome }}
           O_FAILURE_TRIAGE: ${{ steps.failure-triage.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # 独立复核门禁:在**另一台 runner** 上重新下载产物,用各操作系统自己的判据再审一次。
+  # build 内的自检证明"我签了这份";这里证明"用户下载到的那份字节确实签了"。
+  # 凭据未配置时 build 不会上传 signed-desktop-* ⇒ 本 job 找不到清单 ⇒ 打印「未签名/未公证」
+  # 并以退出码 1 判红。这是刻意设计,不得用任何开关把它改绿:
+  # 未签名产物必须在流水线层面表现为失败,而不是"构建成功但没签"。
+  signature-gate:
+    name: Signature Gate (${{ matrix.label }})
+    needs: build
+    if: always() && (startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            runner: windows-latest
+          - label: macos-universal
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download signed artifact
+        id: fetch-signed
+        # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: signed-desktop-${{ matrix.label }}
+          path: signed-desktop
+
+      - name: Assert signed artifact present
+        id: assert-signed
+        shell: bash
+        run: |
+          if [ ! -f signed-desktop/signature-manifest.json ]; then
+            if [ "$RUNNER_OS" = 'macOS' ]; then
+              echo "::error::未公证(macos-universal):找不到签名清单 —— APPLE_CERTIFICATE / APPLE_SIGNING_IDENTITY 或公证凭据未配置,或 build 的签名/公证步骤失败。本门禁拒绝把未签名、未公证产物当成成功发布。"
+            else
+              echo "::error::未签名(windows-x64):找不到签名清单 —— SIGNPATH_* 凭据未配置,或 build 的签名/验签步骤失败。本门禁拒绝把未签名产物当成成功发布。"
+            fi
+            ls -la signed-desktop 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Verify Windows Authenticode + updater signature (independent runner)
+        id: gate-windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manifest = Get-Content -Path signed-desktop/signature-manifest.json -Raw | ConvertFrom-Json
+          $exe = Get-ChildItem -Path signed-desktop -Filter *.exe -File | Select-Object -First 1
+          $sigFile = Get-ChildItem -Path signed-desktop -Filter *.sig -File | Select-Object -First 1
+          if (-not $exe) { throw '签名产物里没有 .exe' }
+          if (-not $sigFile) { throw '签名产物里没有 .sig' }
+
+          # ① 下载到的字节必须与清单逐字节一致(防止"清单是新的、包是旧的")
+          $hash = (Get-FileHash -Path $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytes = (Get-Item -Path $exe.FullName).Length
+          Write-Host "下载物: SHA256=$hash / $bytes 字节"
+          if ($hash -ne $manifest.sha256) {
+            throw "SHA256 与签名清单不一致:实际 $hash,清单 $($manifest.sha256)"
+          }
+          if ($bytes -ne [int64]$manifest.bytes) {
+            throw "字节数与签名清单不一致:实际 $bytes,清单 $($manifest.bytes)"
+          }
+
+          # ② signtool verify /pa /v:PE 的 Authenticode 判据,失败即非零退出
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue)
+          if (-not $signtool) {
+            $sdks = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending
+            if ($sdks) { $signtool = @{ Source = $sdks[0].FullName } }
+          }
+          if (-not $signtool) { throw '找不到 signtool.exe;拒绝用"没工具"当通过' }
+          & $signtool.Source verify /pa /v $exe.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool verify /pa 失败(exit $LASTEXITCODE)" }
+
+          # ③ 状态 + 签名者 + 证书链 + 时间戳
+          $sig = Get-AuthenticodeSignature -FilePath $exe.FullName
+          if ($sig.Status -ne 'Valid') {
+            echo "::error::未签名或签名无效(${{ matrix.label }}):Authenticode=$($sig.Status) / $($sig.StatusMessage)"
+            exit 1
+          }
+          $subject = $sig.SignerCertificate.Subject
+          if ($subject -notmatch [regex]::Escape($manifest.signerSubject)) {
+            throw "签名者与清单不符:实际 '$subject',清单 '$($manifest.signerSubject)'"
+          }
+          $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()
+          $chain.ChainPolicy.RevocationMode = 'Online'
+          if (-not $chain.Build($sig.SignerCertificate)) {
+            $why = ($chain.ChainStatus | ForEach-Object { "$($_.Status):$($_.StatusInformation.Trim())" }) -join '; '
+            throw "证书链校验失败: $why"
+          }
+          if (-not $sig.TimeStamperCertificate) { throw '缺少 RFC3161 时间戳' }
+
+          # ④ 更新器签名必须覆盖这份字节(否则已装客户端更新必挂)
+          node scripts/desktop-updater-sig-verify.mjs --artifact $exe.FullName --signature $sigFile.FullName --config apps/desktop/src-tauri/tauri.conf.json
+          if ($LASTEXITCODE -ne 0) { throw '更新器 .sig 与安装包字节不匹配' }
+          "### Windows 签名门禁通过`n- SHA256: \`$hash\`n- 签名者: $subject`n- Authenticode: Valid / 证书链通过 / 时间戳存在`n- 更新器 .sig: 与安装包字节匹配" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Verify macOS codesign + notarization + Gatekeeper (independent runner)
+        id: gate-macos
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG=$(find signed-desktop -maxdepth 1 -name '*.dmg' -type f | head -1)
+          TARGZ=$(find signed-desktop -maxdepth 1 -name '*.app.tar.gz' -type f | head -1)
+          TARGZ_SIG=$(find signed-desktop -maxdepth 1 -name '*.app.tar.gz.sig' -type f | head -1)
+          if [ -z "$DMG" ] || [ -z "$TARGZ" ]; then
+            echo "::error::未公证(${{ matrix.label }}):签名清单存在但缺少 dmg 或 app.tar.gz,无法证明公证/可更新"
+            exit 1
+          fi
+
+          # ① 下载物与清单逐字节一致
+          ACTUAL=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          WANT=$(node -p 'JSON.parse(require("fs").readFileSync("signed-desktop/signature-manifest.json","utf8")).sha256')
+          if [ "$ACTUAL" != "$WANT" ]; then
+            echo "::error::DMG 字节与签名清单不一致:实际 $ACTUAL,清单 $WANT"
+            exit 1
+          fi
+
+          # ② 挂载 DMG,验里面的 .app(用户实际拖进 Applications 的那份)
+          MNT="$RUNNER_TEMP/ihui-dmg"
+          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MNT" >/dev/null
+          trap 'hdiutil detach "$MNT" >/dev/null 2>&1 || true' EXIT
+          APP=$(find "$MNT" -maxdepth 1 -name '*.app' -type d | head -1)
+          if [ -z "$APP" ]; then echo '::error::DMG 内没有 .app'; exit 1; fi
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee "$RUNNER_TEMP/gate-codesign.txt"
+          if ! grep -q 'Authority=Developer ID Application' "$RUNNER_TEMP/gate-codesign.txt"; then
+            echo '::error::未签名:app 不是 Developer ID Application 签名'
+            exit 1
+          fi
+          if ! grep -q 'flags=0x10000(runtime)' "$RUNNER_TEMP/gate-codesign.txt"; then
+            echo '::error::未签名有效:缺少 hardened runtime'
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # ③ 公证状态 + staple 票据 + Gatekeeper 判据
+          node -e '
+            const m = JSON.parse(require("fs").readFileSync("signed-desktop/signature-manifest.json", "utf8"))
+            const s = m.dmgNotarization && m.dmgNotarization.status
+            if (s !== "Accepted") { console.error("::error::未公证:notarytool 状态=" + (s || "missing")); process.exit(1) }
+            if (m.stapled !== true) { console.error("::error::未公证:清单标记未 staple"); process.exit(1) }
+          '
+          xcrun stapler validate "$DMG"
+          spctl --assess --type execute --verbose=4 "$APP"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
+
+          # ④ 更新器签名必须覆盖这份 .app.tar.gz
+          if [ -z "$TARGZ_SIG" ]; then echo '::error::缺少 .app.tar.gz.sig,更新链断裂'; exit 1; fi
+          node scripts/desktop-updater-sig-verify.mjs --artifact "$TARGZ" --signature "$TARGZ_SIG" --config apps/desktop/src-tauri/tauri.conf.json
+          echo "### macOS 签名门禁通过" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "- DMG SHA256: $ACTUAL"
+            grep -E 'Authority=|TeamIdentifier=|Timestamp=' "$RUNNER_TEMP/gate-codesign.txt" | sed 's/^/- /' || true
+            echo "- 公证: Accepted / 已 staple / spctl 通过"
+            echo "- 更新器 .app.tar.gz.sig: 与归档字节匹配"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Failure triage (public annotations)
+        id: gate-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
+          TRIAGE_IDS: fetch-signed assert-signed gate-windows gate-macos gate-triage
+          O_FETCH_SIGNED: ${{ steps.fetch-signed.outcome }}
+          O_ASSERT_SIGNED: ${{ steps.assert-signed.outcome }}
+          O_GATE_WINDOWS: ${{ steps.gate-windows.outcome }}
+          O_GATE_MACOS: ${{ steps.gate-macos.outcome }}
+          O_GATE_TRIAGE: ${{ steps.gate-triage.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
   # 聚合多平台 .sig 文件,生成包含全部平台的统一 latest.json
   # 解决:tauri-action 矩阵构建时每个 job 只生成当前平台的 latest.json,后上传覆盖先上传
   publish-updater-json:
     name: Publish Updater JSON
-    needs: build
+    # signature-gate 通过才允许更新更新器清单:这条依赖就是"先验签、再发 latest.json"的顺序判据。
+    # 少了它,未签名/未公证的包会照样被写进 latest.json,已装客户端自动升级后验签失败/被拦。
+    needs: [build, signature-gate]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
