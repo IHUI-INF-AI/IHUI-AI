@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   empty: {
-    paddingVertical: 30,
+    paddingVertical: rnSpacing['3xl'],
     alignItems: 'center',
     justifyContent: 'center',
     gap: rnSpacing.sm,
