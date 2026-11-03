@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 63e2946f58d55110abcce9112da47fac07fd91fd
-// inputsSha256: 2f7eaf5861113145fecb5171d19f67379539b7cbefa698fd7c8abc4f7dd7a6e3
+// sourceCommit: 17e305d180359ef53e1992d1fdd7394d39025458
+// inputsSha256: e5ee52077d201763cdd73237d57e5c58eae0bf0822abb8350b53afd3347dfad7
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -162,7 +162,7 @@
 // input: apps/web/app/(main)/admin/edu/teacher/review/page.tsx 66625c389ee0daca329f1206526b0d1011dabe8ae59c9b086a9be31b66e58d2e
 // input: apps/web/app/(main)/admin/edu/user-platform/page.tsx 351580a7610a0a680ca958253b75eb7bd7f527e1276b51699e980e289d73d7bc
 // input: apps/web/app/(main)/admin/edu/zhs-identity/page.tsx 877ee224ba21183604f420dde13aa4a2cc7ad6fbce799f310c2d7bd819a42fe7
-// input: apps/web/app/(main)/admin/error-dashboard/page.tsx 2d0cc5423273cf70655042f099c292b8cff2a39161e91a93ed97c87a6b9414cd
+// input: apps/web/app/(main)/admin/error-dashboard/page.tsx d7a3350787fc0924527ca31daa3035b6d23d21a0332c4989aba14878e67aeb89
 // input: apps/web/app/(main)/admin/event-bus-monitor/page.tsx 9aedc75dbb23ca74ee2f46fde4f586569d0c80ec4c80c34c9030425a0cf18c61
 // input: apps/web/app/(main)/admin/events/page.tsx cad549f85e30758f75e4bc357c0a5eaf2728a63f25d763786f2dd993bc062271
 // input: apps/web/app/(main)/admin/exam-marking/page.tsx a73b044234cf9bfceaf2d123a841b1bec0bb604d4c0300e2f81879f78ebe9490
@@ -523,7 +523,7 @@
 // input: apps/web/app/(main)/distribution/token/page.tsx 009cca72b3c185d184e685f59939992a36672cf004f2180bf0818d985c213d87
 // input: apps/web/app/(main)/distribution/withdraw/page.tsx 7f9111c7dd56e3e536f08da514f6303ce8ba8569b89376a288347aa4881fbec9
 // input: apps/web/app/(main)/distribution/withdraw/records/page.tsx 3266de32a62f6afbe02f1a952d63f3aee665756995beca9d484ed21d0d6732ec
-// input: apps/web/app/(main)/docs/[slug]/page.tsx 8c6356e6ad15af416305d77dc0c9bb0bb6911ef816fef2e459f439100e7c154a
+// input: apps/web/app/(main)/docs/[slug]/page.tsx d9e39fe33ef0fb967b1a6d248330be44f86ef1f4383ea8eeff3e6596d4f58284
 // input: apps/web/app/(main)/docs/agent/page.tsx 761ea4b0970fd8af67b7d23919a5a02526b0c5c8567eb7c784896e3dae76d8ff
 // input: apps/web/app/(main)/docs/api/page.tsx 11c310ecd7f8b90e17396f3d23c3204d715d3acf1249d8c2fbad32ba013672a2
 // input: apps/web/app/(main)/docs/manual/account/page.tsx 54618a5604bac2556dee2b466be46cf1a97f8af93b130090a27b6da16b61e933
@@ -936,7 +936,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx 7caf130705141568c833b1c99562fc85fb5939f05f7897976fb833e6b39f4521
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-03T08:56:19.239Z
+// generatedAt: 2026-11-03T17:01:40.170Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
