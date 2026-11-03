@@ -30,6 +30,8 @@ import { useAppTheme } from '@/lib/theme'
 export interface ColorfulLoaderProps {
   /** 直径,rpx 数值(默认档来自共享源 colorful-loader-spec;端内那份同名死副本 components/ColorfulLoader.tsx 已于 2026-09-30 摘除 —— 本行原写"已于 2026-09-26 摘除"是句假陈述:那次并没有删,文件当时仍在 HEAD 且零 import,由 O92 票实测后摘除) */
   size?: number
+  /** 单圈旋转时长(ms),默认取共享档(与 RN 端同名 prop 同义) */
+  duration?: number
   visible?: boolean
   className?: string
   /** 已解析主题(主题仅影响 outer 容器背景,可选);默认 'light' */
@@ -48,7 +50,11 @@ const CONTAINER_BG: Record<RnThemeMode, string> = {
 const toRpx = (px: number): string => `${px * TARO_RPX_PER_PX}rpx`
 
 /** 容器样式(独立函数避免 style 联合);size 入参为 rpx 数值 */
-const containerStyle = (sizeRpx: number, colorScheme: RnThemeMode): CSSProperties => ({
+const containerStyle = (
+  sizeRpx: number,
+  colorScheme: RnThemeMode,
+  durationMs: number,
+): CSSProperties => ({
   position: 'relative',
   width: `${sizeRpx}rpx`,
   height: `${sizeRpx}rpx`,
@@ -56,7 +62,7 @@ const containerStyle = (sizeRpx: number, colorScheme: RnThemeMode): CSSPropertie
   // 微信小程序 view 不支持 CSS animation 属性(行内 style 不解析 @keyframes);
   // 用 Tailwind className 注入 animate-spin 替代,样式来源:tailwind.config.js keyframes.spin
   // 这里保留 animation 字段作为 SSR/Web 端兼容(支付宝/抖音小程序支持);周期与 RN Animated 同档(共享源)
-  animation: `spin ${COLORFUL_LOADER_SPIN_MS / 1000}s linear infinite`,
+  animation: `spin ${durationMs / 1000}s linear infinite`,
 })
 
 /** 单点样式:旋转定位 + HSL 着色 */
@@ -81,6 +87,7 @@ const dotStyle = (
 
 export function ColorfulLoader({
   size = DEFAULT_SIZE_RPX,
+  duration = COLORFUL_LOADER_SPIN_MS,
   visible = true,
   className,
   colorScheme,
@@ -101,7 +108,7 @@ export function ColorfulLoader({
   return (
     <View
       className={`animate-spin ${className ?? ''}`}
-      style={containerStyle(size, effectiveScheme)}
+      style={containerStyle(size, effectiveScheme, duration)}
     >
       {Array.from({ length: COLORFUL_LOADER_DOT_COUNT }).map((_, i) => {
         const angle = (360 / COLORFUL_LOADER_DOT_COUNT) * i
