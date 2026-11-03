@@ -409,14 +409,10 @@ export async function runChecks() {
     }
   }
   // ④ Gitee token —— 2026-11-03 下线:Gitee 发布目标为空仓、零推送历史,桌面直链已切 GitHub,
-  //    线上 /desktop-feed.json 0.1.77 走 GitHub 直链 ⇒ 该 token 不再被任何生产路径消费,
-  //    本判据只做「已停用」标记,不探活(探活也没有消费方)。恢复后须在 scripts/tests/
-  //    check-credential-health.test.mjs 恢复源码级接线锁断言再启用。
-  out.push({
-    name: 'Gitee token(已下线 2026-11-03)',
-    level: 'warn',
-    detail: `Gitee 发布目标下线(空仓/零推送/直链已切 GitHub),${GIT_KEY_DIR}/gitee apikey.txt 不再被消费;secret 可由 owner 删除`,
-  })
+  //    线上 /desktop-feed.json 0.1.77 走 GitHub 直链 ⇒ 该 token 不再被任何生产路径消费。
+  //    因此这里既不探活、也不输出条目(否则每天一条常驻 warn 只是新噪音);下线事实落在
+  //    release-desktop.yml / backfill-gitee-assets.yml / .github/SECRETS.md 的注释与文档里。
+  //    恢复时须同步恢复 scripts/tests/check-credential-health.test.mjs 的源码级接线锁断言。
   // ⑤ 部署停摆(测结果,不猜原因):线上构建 sha 落后 origin/main 且超过阈值即红。
   //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),
   //    任何一种都可能再变出第三种;只有"线上产物是否等于当前 tip"是不会骗人的判据。
