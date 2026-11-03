@@ -12,13 +12,19 @@ name: Visual Regression
 # 脚本: pnpm --filter @ihui/web test:visual
 # =============================================================================
 
+# 2026-11-03(排队治理):最近 12 次运行 = 10 failure + 2 cancelled、0 success;
+#   实测 run 41576869180 排队 931s 后只跑了 109s 就红 —— 即"每次都跑、每次都红、无人修"
+#   的纯损耗项(每次 web PR 都占 1 个 pending 位 15min,再占 runner 2min)。
+# 按本轮口径从 PR 触发面撤下,改为**每周一次定时 + 手动触发**;job / 判据 / 配置一行未删。
+# 恢复方式:把下面 `on:` 整块换回原触发面(pull_request, branches [main, develop],
+#   paths = apps/web/**、packages/**、.github/workflows/visual-regression.yml),
+#   即与 `.github/workflows/e2e.yml` 同级的 PR 门。
+# 它不承载 required check(分支保护现读只有 `CI / lint-typecheck-test (push)`)。
 on:
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'apps/web/**'
-      - 'packages/**'
-      - '.github/workflows/visual-regression.yml'
+  schedule:
+    # 每周一 19:00 UTC = 北京时间周二 03:00(避开 push 高峰)
+    - cron: '0 19 * * 1'
+  workflow_dispatch:
 
 concurrency:
   group: visual-regression-${{ github.ref }}
