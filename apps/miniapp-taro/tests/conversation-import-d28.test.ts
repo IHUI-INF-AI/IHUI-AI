@@ -4,7 +4,10 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
+// @ts-expect-error TS7016:门体是 .mjs 且无声明件,而本端 tsconfig 把 tests/ 纳进类型面;判据必须 import 门体本身(§22c),日后补出 .d.mts 本行会因"指令未被使用"翻红,不会静默腐烂
+import { __test__ as formatParity } from '../../../scripts/check-format-support-parity.mjs' // arch-exempt: §22c 跨端对账用例必须 import 被审门体自己的解析器(在测试里抄第二份白名单判据必然漂移),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2027-02-01
 
 /**
  * 会话导入(D28)小程序端的判序测试。
@@ -745,6 +748,29 @@ describe('⑥ 源码反向锁', () => {
     expect(history).toContain("Taro.navigateTo({ url: '/pkg-ai/ai/conversation-import' })")
     const appConfig = src('src/app.config.ts')
     expect(appConfig).toContain("'ai/conversation-import'")
+  })
+
+  it('MIME_BY_EXT(M 面/小程序直开)不得宣称上传白名单不收的档(票 S4 跨端对账)', () => {
+    // 白名单一律取 HEAD 面:apps/api 那份盘上副本正由另一席改动,工作树键集不可作准(§0.4 同面同轮)
+    const registryBlob = execFileSync(
+      'git',
+      ['show', 'HEAD:apps/api/src/utils/file-type-validator.ts'],
+      {
+        cwd: resolve(__dirname, '../../..'),
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git 必须显式接管 stdio,否则本机稳定 EBUSY
+      },
+    )
+    const accepted = new Set<string>(formatParity.parseRegistryMap(registryBlob).exts)
+    const claimed: string[] = formatParity.parseMimeByExt(src('src/rn-compat/native-document.ts')).exts
+    expect(claimed.length).toBeGreaterThan(0) // 枚举到 0 判死,不拿 0 冒充"本端没有承诺"
+    expect(accepted.size).toBeGreaterThan(0)
+    // json 是唯一在册例外:ai-service document_tools.SUPPORTED_EXTENSIONS 有 .json 解码路径
+    // ⇒ 属登记面滞后(与 md 同型),归白名单席接住,本端不得私自摘掉真有的能力。
+    // 写成子集判据而非等值:白名单补上 json 后本用例仍应绿(只拦新增的假承诺)。
+    expect(claimed.filter((e) => e !== 'json' && !accepted.has(e))).toEqual([])
+    // rar 型(白名单不收 ∧ 全仓零解码路径 ⇒ 选了必吃 400)一律不得进本端承诺表
+    expect(claimed).not.toContain('rar')
   })
 })
 // PLACEHOLDER-TAIL
