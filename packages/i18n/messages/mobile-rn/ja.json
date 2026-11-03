@@ -1389,6 +1389,7 @@
     "labelPrice": "価格",
     "labelSaleType": "販売タイプ",
     "pricePlaceholder": "価格を入力",
+    "readOnlyHint": "この項目はまだ変更できません",
     "submit": "保存",
     "submitting": "送信中..."
   },
@@ -1600,6 +1601,7 @@
     "empty": "まだメッセージはありません。最初の投稿をしましょう",
     "placeholder": "メッセージを入力...",
     "send": "送信",
+    "stop": "停止",
     "loadFailed": "チャットの読み込みに失敗",
     "sendFailed": "送信に失敗しました"
   },

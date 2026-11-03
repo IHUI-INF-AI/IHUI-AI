@@ -288,7 +288,9 @@ export default function SsoRegisterPage() {
             }}
             error={showAgreeErr && !agreed}
           />
-          {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('mustAgree')}</p>}
+          {showAgreeErr && !agreed && (
+            <p className="text-label text-destructive">{t('mustAgree')}</p>
+          )}
           <Button size="lg" type="submit" className="w-full px-4" disabled={loading || exchanging}>
             {loading || exchanging ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

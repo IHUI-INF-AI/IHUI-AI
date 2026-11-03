@@ -112,6 +112,7 @@ export function RankingScreen() {
           error={error}
           onRefresh={() => load(true)}
           onBack={() => navigation.goBack()}
+          onRetry={() => { void load(); }}
           colorScheme={resolvedTheme}
         />
         {/* BottomFigure 底部装饰图(对齐 Uniapp BottomFigure/index.vue) */}

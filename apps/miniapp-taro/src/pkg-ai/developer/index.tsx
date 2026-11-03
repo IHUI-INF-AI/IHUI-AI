@@ -19,6 +19,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import LineIcon from '@/components/LineIcon'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { onToast } from '@/host/on-toast'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -173,17 +174,11 @@ export default function DeveloperIndex() {
         if (!res.confirm) return
         try {
           await api.deleteZntCharge(id)
-          Taro.showToast({
-            title: tt('developer.index.deleteOk', '删除成功'),
-            icon: 'success',
-          })
+          onToast(tt('developer.index.deleteOk', '删除成功'), { kind: 'success' })
           setList([])
           fetchList({ page: 1, status, search })
         } catch {
-          Taro.showToast({
-            title: tt('developer.index.deleteFail', '删除失败'),
-            icon: 'none',
-          })
+          onToast(tt('developer.index.deleteFail', '删除失败'), { kind: 'error' })
         }
       },
     })

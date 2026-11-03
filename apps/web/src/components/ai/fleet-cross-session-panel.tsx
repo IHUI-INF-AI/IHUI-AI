@@ -156,7 +156,7 @@ export function FleetCrossSessionPanel({ onCancel }: FleetCrossSessionPanelProps
         </div>
         <div className="flex items-center gap-2">
           {stats?.totalTokens !== undefined && (
-            <span className="text-xs text-muted-foreground tabular-nums">
+            <span className="text-label text-muted-foreground tabular-nums">
               {t('tokens')}: {stats.totalTokens}
             </span>
           )}
@@ -172,16 +172,16 @@ export function FleetCrossSessionPanel({ onCancel }: FleetCrossSessionPanelProps
         </div>
       </div>
 
-      {error && <p className="px-3 py-2 text-sm text-destructive">{error}</p>}
+      {error && <p className="px-3 py-2 text-body text-destructive">{error}</p>}
 
       {dispatches.length === 0 && !loading && !error ? (
-        <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="px-3 py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
       ) : (
         <div className="space-y-2 px-2 py-2">
           {buckets.map((b) => (
             <section key={b.key} data-testid={`fleet-group-${b.key}`}>
               <div className="flex items-center gap-2 px-1 py-1">
-                <span className="text-xs text-muted-foreground">{t(b.labelKey)}</span>
+                <span className="text-label text-muted-foreground">{t(b.labelKey)}</span>
                 <CountBadge
                   count={b.agents.length}
                   tone={b.key === 'running' ? 'active' : 'muted'}
@@ -200,6 +200,4 @@ export function FleetCrossSessionPanel({ onCancel }: FleetCrossSessionPanelProps
     </div>
   )
 }
-
-export default FleetCrossSessionPanel
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

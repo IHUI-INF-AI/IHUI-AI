@@ -103,8 +103,10 @@ export function RecordedTable({
                     onCheckedChange={() => onToggleOne(r.id)}
                   />
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">{r.id}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.courseId ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
+                  {r.id}
+                </TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.courseId ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.binding ? (
                     <Image
@@ -119,15 +121,15 @@ export function RecordedTable({
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 font-medium">{r.title}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.lecturer ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.duration ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.lecturer ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.duration ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className={badgeCls(r.isPay === 1)}>
                     {r.isPay === 1 ? t('payPaid') : t('payFree')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.amount ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.amount ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.label ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className={badgeCls(r.status === 2)}>
                     {t(LEVEL_KEY[r.status ?? 0] ?? 'level.unknown')}
@@ -138,7 +140,7 @@ export function RecordedTable({
                     {t(AUDIT_KEY[r.auditStatus ?? 0] ?? 'audit.unknown')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">
+                <TableCell className="px-4 py-2.5 text-label">
                   {r.nickname ?? r.creator ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

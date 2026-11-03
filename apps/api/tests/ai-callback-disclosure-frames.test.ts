@@ -23,6 +23,8 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import aiCallbackRoutes from '../src/routes/ai-callback'
+import type { Queue } from 'bullmq'
+import type { AICallbackJobData } from '../src/plugins/queue.js'
 
 /** ai-service _collect_citations 的真实产出形状(url 只在真有链接时携带) */
 const CITATIONS = [
@@ -42,11 +44,12 @@ const INJECTIONS = [
 
 describe('AI callback 交代帧持久化(citations / injections)', () => {
   const server = Fastify({ logger: false })
-  let mockAdd: ReturnType<typeof vi.fn>
+  const mockAdd = vi.fn()
 
   beforeAll(async () => {
-    mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
-    server.decorate('aiCallbackQueue', { add: mockAdd })
+    mockAdd.mockResolvedValue({ id: 'job-1' })
+    // 装饰器声明面要求 Queue<AICallbackJobData>;本文件只用 add,故以最小桩顶替真队列
+    server.decorate('aiCallbackQueue', { add: mockAdd } as unknown as Queue<AICallbackJobData>)
     await server.register(aiCallbackRoutes)
     await server.ready()
   })
@@ -74,7 +77,7 @@ describe('AI callback 交代帧持久化(citations / injections)', () => {
     mockAdd.mockClear()
     const res = await post({ citations: CITATIONS, injections: INJECTIONS, planSteps: [] })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(job.metadata.citations).toEqual(CITATIONS)
     expect(job.metadata.injections).toEqual(INJECTIONS)
     expect(job.metadata.model).toBe('stepfun/step-3.7-flash')
@@ -86,7 +89,7 @@ describe('AI callback 交代帧持久化(citations / injections)', () => {
     mockAdd.mockClear()
     const res = await post({})
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect('citations' in job.metadata).toBe(false)
     expect('injections' in job.metadata).toBe(false)
   })
@@ -95,7 +98,7 @@ describe('AI callback 交代帧持久化(citations / injections)', () => {
     mockAdd.mockClear()
     const res = await post({ citations: [], injections: [] })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect('citations' in job.metadata).toBe(false)
     expect('injections' in job.metadata).toBe(false)
   })
@@ -113,7 +116,7 @@ describe('AI callback 交代帧持久化(citations / injections)', () => {
     mockAdd.mockClear()
     const res = await post({ citations: [{ source: 's', label: 'l', noteKind: 'future' }] })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as {
+    const job = mockAdd.mock.calls[0]![1] as {
       metadata: { citations: Array<Record<string, unknown>> }
     }
     expect(job.metadata.citations[0]).toEqual({ source: 's', label: 'l', noteKind: 'future' })
@@ -132,11 +135,12 @@ const COMPACTION = {
 
 describe('AI callback compaction 持久化(G-166 第②步)', () => {
   const server = Fastify({ logger: false })
-  let mockAdd: ReturnType<typeof vi.fn>
+  const mockAdd = vi.fn()
 
   beforeAll(async () => {
-    mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
-    server.decorate('aiCallbackQueue', { add: mockAdd })
+    mockAdd.mockResolvedValue({ id: 'job-1' })
+    // 装饰器声明面要求 Queue<AICallbackJobData>;本文件只用 add,故以最小桩顶替真队列
+    server.decorate('aiCallbackQueue', { add: mockAdd } as unknown as Queue<AICallbackJobData>)
     await server.register(aiCallbackRoutes)
     await server.ready()
   })
@@ -161,7 +165,7 @@ describe('AI callback compaction 持久化(G-166 第②步)', () => {
     mockAdd.mockClear()
     const res = await post({ compaction: COMPACTION })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(job.metadata.compaction).toEqual(COMPACTION)
   })
 
@@ -169,7 +173,7 @@ describe('AI callback compaction 持久化(G-166 第②步)', () => {
     mockAdd.mockClear()
     const res = await post({})
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect('compaction' in job.metadata).toBe(false)
   })
 
@@ -183,11 +187,12 @@ describe('AI callback compaction 持久化(G-166 第②步)', () => {
 
 describe('AI callback retryNotice 持久化(G-166 第⑥步)', () => {
   const server = Fastify({ logger: false })
-  let mockAdd: ReturnType<typeof vi.fn>
+  const mockAdd = vi.fn()
 
   beforeAll(async () => {
-    mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
-    server.decorate('aiCallbackQueue', { add: mockAdd })
+    mockAdd.mockResolvedValue({ id: 'job-1' })
+    // 装饰器声明面要求 Queue<AICallbackJobData>;本文件只用 add,故以最小桩顶替真队列
+    server.decorate('aiCallbackQueue', { add: mockAdd } as unknown as Queue<AICallbackJobData>)
     await server.register(aiCallbackRoutes)
     await server.ready()
   })
@@ -213,7 +218,7 @@ describe('AI callback retryNotice 持久化(G-166 第⑥步)', () => {
     const notice = { attempt: 3, maxRetries: 3, retryInMs: 1500, httpStatus: 429 }
     const res = await post({ retryNotice: notice })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(job.metadata.retryNotice).toEqual(notice)
   })
 
@@ -221,7 +226,7 @@ describe('AI callback retryNotice 持久化(G-166 第⑥步)', () => {
     mockAdd.mockClear()
     const res = await post({})
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect('retryNotice' in job.metadata).toBe(false)
   })
 
@@ -236,7 +241,7 @@ describe('AI callback retryNotice 持久化(G-166 第⑥步)', () => {
     mockAdd.mockClear()
     const res = await post({ retryNotice: { attempt: 1, maxRetries: 3, retryInMs: 0 } })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as {
+    const job = mockAdd.mock.calls[0]![1] as {
       metadata: { retryNotice: Record<string, unknown> }
     }
     expect(job.metadata.retryNotice).toEqual({ attempt: 1, maxRetries: 3, retryInMs: 0 })

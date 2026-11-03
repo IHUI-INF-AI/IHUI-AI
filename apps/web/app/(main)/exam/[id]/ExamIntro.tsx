@@ -27,20 +27,20 @@ export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) 
     <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/exam"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
       </Link>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
+          <CardTitle className="flex items-center gap-2 text-heading">
             <FileCheck className="h-5 w-5 text-primary" />
             {paper.title}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3 text-center text-sm">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3 text-center text-body">
             <div className="rounded-md border p-3">
               <div className="text-muted-foreground">{t('questionCountLabel')}</div>
               <div className="font-semibold">{paper.questions.length}</div>
@@ -62,7 +62,7 @@ export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) 
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t('startExam')}
           </Button>
-          {isError && <p className="text-xs text-destructive">{(error as Error)?.message}</p>}
+          {isError && <p className="text-label text-destructive">{(error as Error)?.message}</p>}
         </CardContent>
       </Card>
     </div>

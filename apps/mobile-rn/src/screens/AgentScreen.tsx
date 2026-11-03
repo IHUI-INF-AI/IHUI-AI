@@ -392,8 +392,8 @@ export function AgentScreen() {
   /** 开始对话(对齐 handleItemClick 跳 AiAssistantN8n,仅带模型名进入对话页) */
   const handleStartModelChat = useCallback((): void => {
     if (selectedModelIds.length === 0) return
-    navigation.navigate('AiAssistantN8n', { title: selectedModelName })
-  }, [navigation, selectedModelIds.length, selectedModelName])
+    onNavigate('AiAssistantN8n', { title: selectedModelName })
+  }, [onNavigate, selectedModelIds.length, selectedModelName])
 
   const handleToastHide = useCallback((): void => {
     setToast((prev) => ({ ...prev, visible: false }))
@@ -422,13 +422,12 @@ export function AgentScreen() {
       const agent = items.find((a) => a.id === id)
       // 完整智能体详情(取绑定模型,补全跳转参数;对齐 Uniapp handleAgentPitch 带 modelNamea/type)
       const full = agents.find((a) => a.agentId === id)
-      // as never:RootStackParamList 未声明 modelId/modelName(路由运行时可接收,见 AiAssistantN8n LocalParamList)
-      navigation.navigate('AiAssistantN8n', {
+      onNavigate('AiAssistantN8n', {
         agentId: id,
         title: agent?.name ?? full?.name,
-      } as never)
+      })
     },
-    [token, t, navigation, items, agents],
+    [token, t, onNavigate, items, agents, navigation],
   )
 
   // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
@@ -443,22 +442,22 @@ export function AgentScreen() {
       }
       const id = item.agentId ?? item.id
       if (!id) return
-      navigation.navigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
+      onNavigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
     },
-    [token, t, navigation],
+    [token, t, onNavigate, navigation],
   )
   /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
   const handleTeamPress = useCallback((): void => {
-    navigation.navigate('AiGroup')
-  }, [navigation])
+    onNavigate('AiGroup')
+  }, [onNavigate])
   /** 智汇值卡充值(对齐 Uniapp Intelligent-assistant.vue topupClick → /pagesA/top-up/index) */
   const handleRechargePress = useCallback((): void => {
     if (!token) {
       navigation.navigate('Login')
       return
     }
-    navigation.navigate('AppTopup')
-  }, [token, navigation])
+    onNavigate('AppTopup')
+  }, [token, navigation, onNavigate])
 
   // ── 两行分类按钮回调 ──
   const handleCategorySelect = useCallback((id: string): void => {
@@ -699,7 +698,7 @@ export function AgentScreen() {
                   ])
                   return
                 }
-                navigation.navigate('AiAssistantN8n', {
+                onNavigate('AiAssistantN8n', {
                   agentId: item.link,
                   title: item.title,
                 })
@@ -748,6 +747,7 @@ export function AgentScreen() {
           {viewMode === 'shared' ? (
             <SharedAgentScreen
               t={t}
+              onRetry={() => { void load(); }}
               colorScheme={resolvedTheme}
               items={items.slice(0, visibleCount)}
               loading={loading}

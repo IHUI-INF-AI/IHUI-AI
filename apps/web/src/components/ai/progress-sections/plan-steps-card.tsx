@@ -388,7 +388,7 @@ function PlanStepItem({
             aria-label={t('plan.copyReasoning')}
             data-testid={`${rootTestId}-copy-reasoning-${s.id}`}
             className={cn(
-              'inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-xs',
+              'inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-label',
               'text-muted-foreground/70 transition-colors',
               'hover:bg-accent/60 hover:text-foreground',
               'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
@@ -438,7 +438,7 @@ function PlanStepItem({
       />
       {/* 短说明常驻显示;长说明收进 StreamDetail,点行展开(替代原 line-clamp-2 截断) */}
       {explanation && !hasLongExplanation && (
-        <div className="ml-5 mt-0.5 break-words text-xs leading-relaxed text-muted-foreground/70">
+        <div className="ml-5 mt-0.5 break-words text-label leading-relaxed text-muted-foreground/70">
           {explanationNode}
           {copyReasoningButton}
         </div>

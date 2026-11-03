@@ -1389,6 +1389,7 @@
     "labelPrice": "Price",
     "labelSaleType": "Sale type",
     "pricePlaceholder": "Enter price",
+    "readOnlyHint": "This field can't be changed yet",
     "submit": "Save",
     "submitting": "Submitting..."
   },
@@ -1600,6 +1601,7 @@
     "empty": "No messages yet. Send the first one to start",
     "placeholder": "Type a message...",
     "send": "Send",
+    "stop": "Stop",
     "loadFailed": "Failed to load chat",
     "sendFailed": "Failed to send"
   },

@@ -152,7 +152,7 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
         </div>
       </div>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-label text-destructive">{error}</p>}
 
       <div className="flex justify-end">
         <Button type="submit" disabled={submitting}>

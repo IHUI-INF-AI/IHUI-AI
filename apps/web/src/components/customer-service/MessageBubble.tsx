@@ -42,7 +42,9 @@ export function MessageBubble({ message, isSelf }: Props) {
   }, [zoomed])
 
   if (message.type === 'system') {
-    return <div className="my-1 text-center text-xs text-muted-foreground">{message.content}</div>
+    return (
+      <div className="my-1 text-center text-label text-muted-foreground">{message.content}</div>
+    )
   }
 
   return (
@@ -74,7 +76,7 @@ export function MessageBubble({ message, isSelf }: Props) {
         ) : (
           <div
             className={cn(
-              'rounded-2xl px-3 py-2 text-sm',
+              'rounded-2xl px-3 py-2 text-body',
               isSelf
                 ? 'rounded-br-sm bg-cta text-cta-foreground'
                 : 'rounded-bl-sm bg-muted text-muted-foreground',
@@ -83,7 +85,7 @@ export function MessageBubble({ message, isSelf }: Props) {
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
           </div>
         )}
-        <span className="mt-0.5 px-1 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="mt-0.5 px-1 text-label text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
           {formatTimeOnly(message.createdAt)}
         </span>
       </div>

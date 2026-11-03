@@ -3,6 +3,23 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import {
+  Lightbulb,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  Music,
+  Archive,
+  Code,
+  AlertTriangle,
+  CheckCircle,
+  Circle,
+  XCircle,
+  Gift,
+  Coins,
+  Star,
+  Brain,
+} from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -14,11 +31,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/docs/manual/ai-chat',
     languages: {
-      'zh-CN': '/zh-cn/docs/manual/ai-chat',
-      'zh-TW': '/zh-tw/docs/manual/ai-chat',
-      en: '/en/docs/manual/ai-chat',
-      ko: '/ko/docs/manual/ai-chat',
-      ja: '/ja/docs/manual/ai-chat',
       'x-default': '/docs/manual/ai-chat',
     },
   },
@@ -53,7 +65,8 @@ export default function ManualAiChatPage() {
             <li>方式三:历史对话列表底部"+ 新对话"</li>
           </ul>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 每个对话独立保存,可同时开多个对话,互不影响。建议每个话题一个对话,AI 回答更准。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            每个对话独立保存,可同时开多个对话,互不影响。建议每个话题一个对话,AI 回答更准。
           </p>
         </div>
       </section>
@@ -79,7 +92,10 @@ export default function ManualAiChatPage() {
         <h2 className="text-heading font-bold">2.3 上传文件给 AI</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
-            <li>点击输入框左侧📎(附件)按钮</li>
+            <li>
+              点击输入框左侧 <Paperclip className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              (附件)按钮
+            </li>
             <li>选择文件(可多选):PDF / Word / Excel / PPT / 图片 / TXT / Markdown / 代码文件</li>
             <li>等待上传完成(进度条显示)</li>
             <li>在消息框补充问题,例如:<code className="rounded bg-muted px-1 text-xs">总结这份 PDF 的要点</code></li>
@@ -89,24 +105,28 @@ export default function ManualAiChatPage() {
             <p className="text-xs"><strong>支持的文件类型</strong>:</p>
             <div className="space-y-1">
               {[
-                ['📄 PDF / Word / PPT / Excel / TXT / Markdown', 'AI 直接读取文本内容'],
-                ['🖼️ PNG / JPG / WebP / GIF', 'AI 视觉理解(需 GPT-4o / Claude / Qwen-VL 等多模态模型)'],
-                ['🎵 MP3 / WAV / M4A', '语音转文字后理解(自动调用 STT)'],
-                ['📦 ZIP', '自动解压,逐个文件处理'],
-                ['💻 .js / .ts / .py / .java / .go / .rs', '代码文件,支持语法高亮 + 代码理解'],
-              ].map(([type, desc], i) => (
+                { Icon: FileText, type: 'PDF / Word / PPT / Excel / TXT / Markdown', desc: 'AI 直接读取文本内容' },
+                { Icon: ImageIcon, type: 'PNG / JPG / WebP / GIF', desc: 'AI 视觉理解(需 GPT-4o / Claude / Qwen-VL 等多模态模型)' },
+                { Icon: Music, type: 'MP3 / WAV / M4A', desc: '语音转文字后理解(自动调用 STT)' },
+                { Icon: Archive, type: 'ZIP', desc: '自动解压,逐个文件处理' },
+                { Icon: Code, type: '.js / .ts / .py / .java / .go / .rs', desc: '代码文件,支持语法高亮 + 代码理解' },
+              ].map(({ Icon, type, desc }, i) => (
                 <div
                   key={i}
                   className={`rounded p-2 text-xs ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
                 >
-                  <div className="font-medium">{type}</div>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {type}
+                  </div>
                   <div className="text-muted-foreground">{desc}</div>
                 </div>
               ))}
             </div>
           </div>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            ⚠️ <strong>大小限制</strong>:单文件 100MB,单次最多 10 个文件。超大文件建议拆分或用知识库(见第 4 章)。
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>大小限制</strong>:单文件 100MB,单次最多 10 个文件。超大文件建议拆分或用知识库(见第 4 章)。
           </p>
         </div>
       </section>
@@ -118,18 +138,39 @@ export default function ManualAiChatPage() {
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话区顶部点击模型名称(如"GPT-4o")</li>
             <li>下拉菜单显示所有可用模型,按厂商分组</li>
-            <li>每个模型右侧有徽章:<span className="text-green-600">✅</span> 可用 / <span className="text-yellow-600">🟡</span> 慢 / <span className="text-red-600">🔴</span> 不可用</li>
+            <li>
+              每个模型右侧有徽章:
+              <CheckCircle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-green-600" aria-hidden />
+              可用 / <Circle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-yellow-600" aria-hidden />
+              慢 / <XCircle className="mr-1 inline h-3.5 w-3.5 align-text-bottom text-red-600" aria-hidden />
+              不可用
+            </li>
             <li>点击目标模型,立即切换(下一轮对话生效)</li>
           </ol>
           <p className="text-xs">
             <strong>选模型建议</strong>:
           </p>
           <ul className="ml-4 list-disc space-y-1 text-xs">
-            <li>🆓 <strong>免费</strong>:DeepSeek V3.2(中文 / 推理)、Qwen-Turbo(中文 / 快)</li>
-            <li>💰 <strong>便宜</strong>:GPT-4o-mini、Claude Haiku 3.5、Gemini Flash</li>
-            <li>⭐ <strong>旗舰</strong>:GPT-4o、Claude Sonnet 4.5、Qwen3-Max(质量最高)</li>
-            <li>🧠 <strong>推理</strong>:o3-mini、DeepSeek R1(数学 / 代码 / 复杂逻辑)</li>
-            <li>🖼️ <strong>视觉</strong>:GPT-4o、Claude Sonnet、Qwen-VL(看图说话)</li>
+            <li>
+              <Gift className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>免费</strong>:DeepSeek V3.2(中文 / 推理)、Qwen-Turbo(中文 / 快)
+            </li>
+            <li>
+              <Coins className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>便宜</strong>:GPT-4o-mini、Claude Haiku 3.5、Gemini Flash
+            </li>
+            <li>
+              <Star className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>旗舰</strong>:GPT-4o、Claude Sonnet 4.5、Qwen3-Max(质量最高)
+            </li>
+            <li>
+              <Brain className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>推理</strong>:o3-mini、DeepSeek R1(数学 / 代码 / 复杂逻辑)
+            </li>
+            <li>
+              <ImageIcon className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+              <strong>视觉</strong>:GPT-4o、Claude Sonnet、Qwen-VL(看图说话)
+            </li>
           </ul>
         </div>
       </section>
@@ -160,7 +201,8 @@ export default function ManualAiChatPage() {
             <li>对方无需登录即可查看(公开模式),或需登录后查看(团队模式)</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
-            💡 <strong>团队版</strong>:分享到团队空间,所有成员可见,支持评论协同。
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>团队版</strong>:分享到团队空间,所有成员可见,支持评论协同。
           </p>
         </div>
       </section>

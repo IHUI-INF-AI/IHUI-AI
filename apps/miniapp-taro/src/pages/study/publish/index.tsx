@@ -13,6 +13,7 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()
@@ -50,11 +51,11 @@ export default function StudyPublish() {
 
   const submit = useCallback(async () => {
     if (!title.trim()) {
-      Taro.showToast({ title: t('study.publish.enterTitle'), icon: 'none' })
+      onToast(t('study.publish.enterTitle'), { kind: 'info' })
       return
     }
     if (!content.trim()) {
-      Taro.showToast({ title: t('study.publish.enterContent'), icon: 'none' })
+      onToast(t('study.publish.enterContent'), { kind: 'info' })
       return
     }
     setSaving(true)
@@ -66,7 +67,7 @@ export default function StudyPublish() {
         visibility: visibilityOptions[visibility],
         tags: tags.trim(),
       })
-      Taro.showToast({ title: t('study.publish.published'), icon: 'success' })
+      onToast(t('study.publish.published'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('study/publish', 'submit', e)

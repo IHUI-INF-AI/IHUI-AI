@@ -143,7 +143,7 @@ export default function AICareerPage() {
           key={opt}
           type="button"
           onClick={() => onChange(opt)}
-          className={`rounded-sm border px-3 py-1.5 text-sm transition-colors ${
+          className={`rounded-sm border px-3 py-1.5 text-body transition-colors ${
             value === opt
               ? 'border-brand-accent-deep bg-cta text-cta-foreground'
               : 'border-border hover:bg-muted'
@@ -163,7 +163,7 @@ export default function AICareerPage() {
           <GraduationCap className="h-7 w-7" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -280,7 +280,7 @@ export default function AICareerPage() {
       {error && (
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-body text-destructive">{error}</p>
           </CardContent>
         </Card>
       )}
@@ -324,7 +324,7 @@ export default function AICareerPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            <pre className="whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
               {result}
             </pre>
           </CardContent>

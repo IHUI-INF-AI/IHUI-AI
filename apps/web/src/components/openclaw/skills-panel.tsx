@@ -86,7 +86,7 @@ export function SkillsPanel() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             </div>
           ) : installedList.length === 0 ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noInstalledSkills')}
             </p>
           ) : (
@@ -100,7 +100,9 @@ export function SkillsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-body font-medium">{s.name}</p>
                     {s.description && (
-                      <p className="break-words text-xs text-muted-foreground">{s.description}</p>
+                      <p className="break-words text-label text-muted-foreground">
+                        {s.description}
+                      </p>
                     )}
                   </div>
                   <Button
@@ -141,11 +143,11 @@ export function SkillsPanel() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             </div>
           ) : noMatch ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noMatchSkills')}
             </p>
           ) : filtered.length === 0 ? (
-            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-md bg-muted/40 px-3 py-6 text-center text-body text-muted-foreground">
               {t('noSkills')}
             </p>
           ) : (
@@ -161,7 +163,9 @@ export function SkillsPanel() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-body font-medium">{s.name}</p>
                       {s.description && (
-                        <p className="break-words text-xs text-muted-foreground">{s.description}</p>
+                        <p className="break-words text-label text-muted-foreground">
+                          {s.description}
+                        </p>
                       )}
                     </div>
                     <Button

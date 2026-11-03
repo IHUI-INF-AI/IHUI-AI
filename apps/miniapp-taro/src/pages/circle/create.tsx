@@ -19,6 +19,7 @@ import LineIcon, { type IconName } from '@/components/LineIcon'
    勿混淆 --color-wechat-green(#4cd964,语义绿/消息气泡档)。 */
 import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
 import './create.css'
+import { onToast } from '@/host/on-toast'
 
 const MAX_CONTENT = 500
 const MAX_IMAGES = 9
@@ -193,7 +194,7 @@ export default function CircleCreatePage() {
 
   const onSubmit = useCallback(async () => {
     if (!form.content.trim()) {
-      Taro.showToast({ title: tt('circle.create.contentRequired', '请输入动态内容'), icon: 'none' })
+      onToast(tt('circle.create.contentRequired', '请输入动态内容'), { kind: 'info' })
       return
     }
     setSubmitting(true)
@@ -208,13 +209,13 @@ export default function CircleCreatePage() {
         allowComments: form.allowComments,
       })
       Taro.removeStorageSync(DRAFT_KEY)
-      Taro.showToast({ title: tt('circle.createForm.published', '发布成功'), icon: 'success' })
+      onToast(tt('circle.createForm.published', '发布成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1200)
     } catch (e) {
       logger.error('circle/create', '发布动态', e)
       // 失败必须出声:原实现只写日志 ⇒ 用户点"发布"后按钮复位、页面原地不动,
       // 无从判断是失败还是没点上(web/RN 同功能都有失败提示)。草稿不清,可直接重试。
-      Taro.showToast({ title: tt('circle.create.publishFailed', '发布失败,请重试'), icon: 'none' })
+      onToast(tt('circle.create.publishFailed', '发布失败,请重试'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

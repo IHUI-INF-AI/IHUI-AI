@@ -12,7 +12,7 @@
  */
 
 import type { TFunction } from './app-shared.js'
-import type { OnNavigate, OnToast } from './app-host-ports.js'
+import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
 
@@ -335,6 +335,8 @@ export interface AigcListScreenProps {
   onLoadMore?: () => void
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
+  audio?: AudioPort
 }
 
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
@@ -783,6 +785,17 @@ export interface AgentChatScreenProps {
   onSend: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 可选:流式回复的增量文本(B4)。`undefined` = 本宿主未接入流式 ⇒ 不渲染流式气泡
+   * (显式关闭,不是 noop 兜底);空串 = 已发流、首个 delta 尚未到达 ⇒ 气泡显示加载态。
+   */
+  pendingAssistantText?: string
+  /** 可选:流式回复是否在飞;缺省视为未接入(仅 `true` 才启用停止按钮语义) */
+  streaming?: boolean
+  /** 可选:停止流式回调;仅提供时才渲染停止按钮(未提供 = 该能力对宿主显式关闭) */
+  onStopStreaming?: () => void
+  /** 可选:已有历史消息时仍需显式展示的发送/流式失败文案(与 error 分居,error 只负责空态整屏) */
+  sendError?: string
 }
 
 /** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心,10 屏迁移自 mobile-rn) */

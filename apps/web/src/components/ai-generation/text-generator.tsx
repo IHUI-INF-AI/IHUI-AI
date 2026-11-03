@@ -50,7 +50,7 @@ export function TextGenerator({ onGenerate }: TextGeneratorProps) {
       }
       result={
         result.status === 'success' && result.data ? (
-          <p className="whitespace-pre-wrap text-sm">{result.data}</p>
+          <p className="whitespace-pre-wrap text-body">{result.data}</p>
         ) : null
       }
     >

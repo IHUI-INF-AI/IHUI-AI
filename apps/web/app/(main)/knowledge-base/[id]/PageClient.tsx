@@ -70,12 +70,12 @@ export default function KBDetailPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Link
           href="/knowledge-base"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>{tKb('backToList')}</span>
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -88,19 +88,23 @@ export default function KBDetailPage() {
     <div className="py-4 mx-auto w-full max-w-6xl space-y-4 px-4">
       <Link
         href="/knowledge-base"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>{tKb('backToList')}</span>
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{article.title}</h1>
-        {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {article.title}
+        </h1>
+        {article.summary && <p className="text-label text-muted-foreground">{article.summary}</p>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
           {article.categoryName && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{article.categoryName}</span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-label">
+              {article.categoryName}
+            </span>
           )}
           <span className="inline-flex items-center gap-1">
             <Calendar className="h-4 w-4" />
@@ -114,7 +118,10 @@ export default function KBDetailPage() {
         {article.tags && article.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {article.tags.map((tag: string) => (
-              <span key={tag} className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+              <span
+                key={tag}
+                className="rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary"
+              >
                 {tag}
               </span>
             ))}
@@ -145,7 +152,7 @@ export default function KBDetailPage() {
                         key={item.id}
                         href={`#${item.id}`}
                         className={cn(
-                          'block rounded px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                          'block rounded px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
                           item.level === 3 && 'pl-4',
                         )}
                       >
@@ -164,11 +171,11 @@ export default function KBDetailPage() {
         {data.prev ? (
           <Link
             href={`/knowledge-base/${data.prev.id}`}
-            className="group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+            className="group flex items-center gap-2 rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
             <span>
-              <span className="block text-xs text-muted-foreground">{t('prev')}</span>
+              <span className="block text-label text-muted-foreground">{t('prev')}</span>
               <span className="font-medium">{data.prev.title}</span>
             </span>
           </Link>
@@ -178,10 +185,10 @@ export default function KBDetailPage() {
         {data.next ? (
           <Link
             href={`/knowledge-base/${data.next.id}`}
-            className="group flex items-center gap-2 rounded-md px-3 py-2 text-right text-sm transition-colors hover:bg-accent"
+            className="group flex items-center gap-2 rounded-md px-3 py-2 text-right text-body transition-colors hover:bg-accent"
           >
             <span>
-              <span className="block text-xs text-muted-foreground">{t('next')}</span>
+              <span className="block text-label text-muted-foreground">{t('next')}</span>
               <span className="font-medium">{data.next.title}</span>
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />

@@ -143,7 +143,7 @@ export default function EnglishHomePage() {
               AI Operating System
             </span>
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-heading md:font-normal">
             Build, deploy, and scale AI agents across 8 platforms. Open-source. Apache 2.0.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -201,8 +201,10 @@ export default function EnglishHomePage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Cpu className="h-5 w-5" />
                   </div>
-                  <span className="mt-2 text-body font-medium text-foreground">{provider.name}</span>
-                  <span className="text-xs text-muted-foreground">{provider.count}</span>
+                  <span className="mt-2 text-body font-medium text-foreground">
+                    {provider.name}
+                  </span>
+                  <span className="text-label text-muted-foreground">{provider.count}</span>
                 </CardContent>
               </Card>
             ))}
@@ -227,7 +229,7 @@ export default function EnglishHomePage() {
                     <platform.icon className="h-5 w-5" />
                   </div>
                   <span className="text-body font-medium text-foreground">{platform.name}</span>
-                  <span className="text-xs text-muted-foreground">{platform.desc}</span>
+                  <span className="text-label text-muted-foreground">{platform.desc}</span>
                 </CardContent>
               </Card>
             ))}
@@ -250,7 +252,7 @@ export default function EnglishHomePage() {
                   vendor lock-in, community-driven.
                 </p>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-body text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-primary" />
                   Apache 2.0 License
@@ -295,7 +297,7 @@ export default function EnglishHomePage() {
               <Link href="/en/docs">Read Docs</Link>
             </Button>
           </div>
-          <p className="mt-8 text-xs text-muted-foreground">
+          <p className="mt-8 text-label text-muted-foreground">
             <Link href="/" className="underline-offset-4 hover:underline">
               Chinese version: 智汇 AI
             </Link>

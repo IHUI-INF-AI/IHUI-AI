@@ -201,7 +201,7 @@ export function PromptPolishEntry({
         onClick={onPolish}
         aria-label={t('ariaLabel')}
         className={cn(
-          'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+          'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
           'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
@@ -225,7 +225,7 @@ export function PromptPolishEntry({
       onClick={onPolish}
       aria-label={t('ariaLabel')}
       title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
       <span>{t('entryLabel')}</span>
@@ -1471,7 +1471,7 @@ export function MessageInput({
                         setUnifiedOpen(true)
                       }}
                       className={cn(
-                        'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                        'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
                         'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                       )}

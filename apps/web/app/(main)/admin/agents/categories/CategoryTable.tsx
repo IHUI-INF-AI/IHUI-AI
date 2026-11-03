@@ -128,7 +128,7 @@ export function CategoryTable({
                       aria-label={t('colPaid')}
                     />
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {dateFmt.format(new Date(c.createdAt))}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

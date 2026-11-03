@@ -62,7 +62,7 @@ const QWEN_VL_FIELDS: ReadonlyArray<ParamFieldSpec> = [
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
   ssr: false,
-  loading: () => <div className="animate-pulse text-xs text-muted-foreground">…</div>,
+  loading: () => <div className="animate-pulse text-label text-muted-foreground">…</div>,
 })
 
 const TEXTAREA_CLS =
@@ -132,7 +132,7 @@ export function VisionAnalysis() {
     <Card>
       <CardHeader>
         <CardTitle>{t('visionAnalysisTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('visionAnalysisSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('visionAnalysisSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -198,7 +198,7 @@ export function VisionAnalysis() {
                     const inline = !match && !String(children).includes('\n')
                     if (inline) {
                       return (
-                        <code className="rounded bg-muted px-1.5 py-0.5 text-sm" {...props}>
+                        <code className="rounded bg-muted px-1.5 py-0.5 text-body" {...props}>
                           {children}
                         </code>
                       )

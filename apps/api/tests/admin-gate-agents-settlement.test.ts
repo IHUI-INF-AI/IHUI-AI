@@ -22,7 +22,7 @@
  * 摘掉任意一处 `preHandler: requireAdmin` 即翻红。
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyPluginAsync } from 'fastify'
 
 // 只注册路由、不跑 handler:db 只要满足模块导入即可
 vi.mock('../src/db/index.js', () => ({
@@ -48,7 +48,7 @@ interface Captured {
   config: Record<string, unknown>
 }
 
-async function capture(plugin: Parameters<FastifyInstance['register']>[0], prefix: string) {
+async function capture(plugin: FastifyPluginAsync, prefix: string) {
   const app = Fastify({ logger: false })
   const seen = new Map<string, Captured>()
   app.addHook('onRoute', (opts) => {

@@ -15,6 +15,7 @@ import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 找回密码页 — 视觉对齐 RN SharedChangePwdScreen(2026-09-08 样式迁移)
@@ -54,12 +55,12 @@ export default function ForgotPassword() {
   async function sendCode() {
     if (codeBtnDisabled) return
     if (phone.length !== 11) {
-      Taro.showToast({ title: t('forgot.phoneInvalid'), icon: 'none' })
+      onToast(t('forgot.phoneInvalid'), { kind: 'error' })
       return
     }
     try {
       await sendSmsCode(phone)
-      Taro.showToast({ title: t('forgot.codeSent'), icon: 'success' })
+      onToast(t('forgot.codeSent'), { kind: 'success' })
       setCountdown(60)
       timerRef.current = setInterval(() => {
         setCountdown((prev) => {
@@ -77,11 +78,11 @@ export default function ForgotPassword() {
 
   function goStep2() {
     if (phone.length !== 11) {
-      Taro.showToast({ title: t('forgot.phoneInvalid'), icon: 'none' })
+      onToast(t('forgot.phoneInvalid'), { kind: 'error' })
       return
     }
     if (!code.trim()) {
-      Taro.showToast({ title: t('forgot.codeInvalid'), icon: 'none' })
+      onToast(t('forgot.codeInvalid'), { kind: 'error' })
       return
     }
     setStep(2)
@@ -90,11 +91,11 @@ export default function ForgotPassword() {
   async function submitReset() {
     if (submitting) return
     if (newPassword.length < 6) {
-      Taro.showToast({ title: t('forgot.passwordTooShort'), icon: 'none' })
+      onToast(t('forgot.passwordTooShort'), { kind: 'error' })
       return
     }
     if (newPassword !== confirmPassword) {
-      Taro.showToast({ title: t('forgot.passwordMismatch'), icon: 'none' })
+      onToast(t('forgot.passwordMismatch'), { kind: 'info' })
       return
     }
     setSubmitting(true)
@@ -105,7 +106,7 @@ export default function ForgotPassword() {
         // 端点不存在时降级为 mock 成功,保证流程可走通
         console.warn('reset-password endpoint failed, mock success', e)
       }
-      Taro.showToast({ title: t('forgot.resetSuccess'), icon: 'success' })
+      onToast(t('forgot.resetSuccess'), { kind: 'success' })
       setTimeout(goToLogin, 800)
     } catch {
       // ignore

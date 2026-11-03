@@ -21,7 +21,7 @@ export function OssConfigFilter({ onCreate }: Props) {
           <HardDrive className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <Button size="sm" onClick={onCreate}>
         <Plus className="h-4 w-4" />

@@ -53,7 +53,7 @@ function ColorField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-label">{label}</Label>
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -61,7 +61,11 @@ function ColorField({
           onChange={(e) => onChange(e.target.value)}
           className="h-8 w-10 cursor-pointer rounded-sm border border-input bg-transparent"
         />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-8 text-xs" />
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 text-label"
+        />
       </div>
     </div>
   )
@@ -154,11 +158,11 @@ export default function EditThemePage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">主题名称 *</Label>
+              <Label className="text-label">主题名称 *</Label>
               <Input value={form.name} onChange={(e) => set('name', e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">描述</Label>
+              <Label className="text-label">描述</Label>
               <Input
                 value={form.description}
                 onChange={(e) => set('description', e.target.value)}
@@ -187,7 +191,7 @@ export default function EditThemePage() {
                 onChange={(v) => set('borderColor', v)}
               />
               <div className="space-y-1.5">
-                <Label className="text-xs">圆角 (px)</Label>
+                <Label className="text-label">圆角 (px)</Label>
                 <Input
                   type="number"
                   value={form.radius}
@@ -197,11 +201,11 @@ export default function EditThemePage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">字体</Label>
+              <Label className="text-label">字体</Label>
               <select
                 value={form.font}
                 onChange={(e) => set('font', e.target.value)}
-                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
               >
                 {FONTS.map((f) => (
                   <option key={f} value={f}>
@@ -230,7 +234,7 @@ export default function EditThemePage() {
               }}
             >
               <p className="text-lg font-semibold">示例标题</p>
-              <p className="text-sm opacity-80">这是一段示例正文,展示当前主题的视觉效果。</p>
+              <p className="text-body opacity-80">这是一段示例正文,展示当前主题的视觉效果。</p>
               <span
                 className="inline-block rounded-md px-3 py-1 text-label font-medium"
                 style={{ backgroundColor: form.accentColor, color: '#fff' }}

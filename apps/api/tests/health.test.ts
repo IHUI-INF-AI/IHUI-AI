@@ -4,6 +4,7 @@
 
 import { describe, it, expect, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
+import type { Redis } from 'ioredis'
 
 // =============================================================================
 // Mock db:避免真实 DB 连接(health/ready 调用 db.execute)
@@ -83,7 +84,7 @@ describe('health route', () => {
     const serverWithRedis = Fastify({ logger: false })
     serverWithRedis.decorate('redis', {
       ping: vi.fn().mockResolvedValue('PONG'),
-    })
+    } as unknown as Redis)
     await serverWithRedis.register(healthRoutes, { prefix: '/api' })
     await serverWithRedis.ready()
 
@@ -102,7 +103,7 @@ describe('health route', () => {
     const serverWithRedisErr = Fastify({ logger: false })
     serverWithRedisErr.decorate('redis', {
       ping: vi.fn().mockRejectedValue(new Error('connection refused')),
-    })
+    } as unknown as Redis)
     await serverWithRedisErr.register(healthRoutes, { prefix: '/api' })
     await serverWithRedisErr.ready()
 

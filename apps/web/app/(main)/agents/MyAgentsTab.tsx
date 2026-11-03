@@ -46,7 +46,7 @@ export function MyAgentsTab() {
   }
 
   if (items.length === 0) {
-    return <div className="py-12 text-center text-sm text-muted-foreground">{t('empty')}</div>
+    return <div className="py-12 text-center text-body text-muted-foreground">{t('empty')}</div>
   }
 
   return (

@@ -114,7 +114,7 @@ export default function VipTraderPage() {
 
   if (error) {
     return (
-      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -136,14 +136,14 @@ export default function VipTraderPage() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <h1 className="text-display font-bold tracking-tight">微信扫码支付</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
         </p>
         <div className="flex justify-center rounded-lg border border-border bg-white p-3">
           <QRCodeCanvas value={order.payInfo.codeUrl} size={240} level="M" />
         </div>
-        <p className="text-xs text-muted-foreground">请用微信扫描二维码完成支付</p>
-        <p className="text-xs text-muted-foreground">订单号：{order.orderNo}</p>
+        <p className="text-label text-muted-foreground">请用微信扫描二维码完成支付</p>
+        <p className="text-label text-muted-foreground">订单号：{order.orderNo}</p>
         <Button variant="outline" onClick={() => setOrder(null)}>
           {tc('back')}
         </Button>
@@ -156,7 +156,7 @@ export default function VipTraderPage() {
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
         <h1 className="text-display font-bold tracking-tight">{t('purchaseSuccess')}</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           微信支付未配置，开发模式直接激活（订单号：{order.orderNo}）
         </p>
         <Button asChild>
@@ -170,7 +170,7 @@ export default function VipTraderPage() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <Crown className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
         <Button asChild variant="outline">
           <Link href="/vip">{tc('back')}</Link>
         </Button>
@@ -184,7 +184,7 @@ export default function VipTraderPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/vip"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -195,19 +195,19 @@ export default function VipTraderPage() {
           <Crown className="h-7 w-7 text-amber-500" />
           {t('traderPlan')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card className="border-amber-500/40">
         <CardHeader>
-          <CardTitle className="text-xl">{level.levelName}</CardTitle>
+          <CardTitle className="text-heading">{level.levelName}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-baseline gap-2">
             <span className="text-display min-[768px]:text-3xl font-bold">
               {formatCNY(level.price)}
             </span>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {t('durationDays', { days: level.durationDays })}
             </span>
           </div>
@@ -215,7 +215,7 @@ export default function VipTraderPage() {
           <div>
             <p className="mb-2 text-body font-medium text-muted-foreground">{t('benefits')}</p>
             {benefits.length > 0 ? (
-              <ul className="space-y-2 text-sm">
+              <ul className="space-y-2 text-body">
                 {benefits.map((b, i) => (
                   <li key={`benefit-${i}`} className="flex items-start gap-2">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
@@ -224,12 +224,12 @@ export default function VipTraderPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="text-body text-muted-foreground">{t('empty')}</p>
             )}
           </div>
 
           {orderMut.isError ? (
-            <p className="text-sm text-destructive">
+            <p className="text-body text-destructive">
               {t('purchaseFail')}: {(orderMut.error as Error).message}
             </p>
           ) : null}

@@ -77,7 +77,7 @@ function AssemblyInjectionRow({ injection }: { injection: ContextAssemblyInjecti
         disabled={!canExpand}
         data-testid={`assembly-injection-row-${injection.kind}`}
         className={cn(
-          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-xs',
+          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-label',
           canExpand ? 'cursor-pointer transition-colors hover:bg-accent/40' : 'cursor-default',
         )}
       >
@@ -132,7 +132,7 @@ export function ContextAssemblyBar({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="context-assembly-toggle"
-        className="flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40"
+        className="flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-label text-muted-foreground transition-colors hover:bg-accent/40"
       >
         <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-left">
@@ -163,17 +163,17 @@ export function ContextAssemblyBar({
                 {t('injectionAssemblySourcesTitle')}
               </div>
               {citations && citations.length > 0 ? (
-                <div className="px-1 py-0.5 text-xs text-muted-foreground">
+                <div className="px-1 py-0.5 text-label text-muted-foreground">
                   {t('injectionAssemblySourceCitations', { count: citations.length })}
                 </div>
               ) : null}
               {steerNotices && steerNotices.length > 0 ? (
-                <div className="px-1 py-0.5 text-xs text-muted-foreground">
+                <div className="px-1 py-0.5 text-label text-muted-foreground">
                   {t('injectionAssemblySourceSteer', { count: steerNotices.length })}
                 </div>
               ) : null}
               {retryNotice ? (
-                <div className="px-1 py-0.5 text-xs text-muted-foreground">
+                <div className="px-1 py-0.5 text-label text-muted-foreground">
                   {t('injectionAssemblyRetry', {
                     attempt: retryNotice.attempt,
                     max: retryNotice.maxRetries,
@@ -187,5 +187,4 @@ export function ContextAssemblyBar({
     </div>
   )
 }
-
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

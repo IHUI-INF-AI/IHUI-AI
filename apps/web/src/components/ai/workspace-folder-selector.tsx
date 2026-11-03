@@ -58,7 +58,7 @@ function FolderTreeItem({
           }
         }}
         className={cn(
-          'flex cursor-pointer items-center gap-1 rounded-md py-1 pr-2 text-sm transition-colors',
+          'flex cursor-pointer items-center gap-1 rounded-md py-1 pr-2 text-body transition-colors',
           isSel ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50',
         )}
         style={{ paddingLeft: `${depth * 16 + 4}px` }}
@@ -113,7 +113,7 @@ export function WorkspaceFolderSelector({
   return (
     <div className="rounded-lg border bg-card p-2" data-testid="workspace-folder-tree">
       {folders.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">{t('noFolders')}</p>
+        <p className="py-6 text-center text-body text-muted-foreground">{t('noFolders')}</p>
       ) : (
         <ul>
           {folders.map((folder) => (

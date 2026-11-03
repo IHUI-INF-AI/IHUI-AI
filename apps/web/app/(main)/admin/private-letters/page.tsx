@@ -50,8 +50,8 @@ export default function PrivateLettersPage() {
       <BackButton />
       <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className={th}>{t('colSender')}</th>
               <th className={th}>{t('colReceiver')}</th>
@@ -106,7 +106,7 @@ export default function PrivateLettersPage() {
             <DialogDescription>查看私信完整内容</DialogDescription>
           </DialogHeader>
           {detail && (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-body">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <span className="text-muted-foreground">{t('colSender')}：</span>

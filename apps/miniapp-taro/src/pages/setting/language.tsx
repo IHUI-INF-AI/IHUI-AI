@@ -5,11 +5,12 @@
 import { useI18n, type TtFn, type Locale } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 type LangItem = {
   value: Locale
@@ -68,10 +69,10 @@ export default function LanguagePage() {
       setLocale(v)
       try {
         await setLanguage(v)
-        Taro.showToast({ title: tt('setting.setSuccess', '设置成功'), icon: 'success' })
+        onToast(tt('setting.setSuccess', '设置成功'), { kind: 'success' })
       } catch (e) {
         logger.error('setting/language', 'set language', e)
-        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
       }
     },
     [current, setLocale, tt],

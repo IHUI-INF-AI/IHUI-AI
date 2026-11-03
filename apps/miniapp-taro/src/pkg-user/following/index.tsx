@@ -16,6 +16,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import { onToast } from '@/host/on-toast'
 
 const PAGE_SIZE = 20
 const defaultAvatar = '/static/default-avatar.png'
@@ -101,9 +102,9 @@ export default function FollowingPage() {
           try {
             await unfollowUser(item.userId ?? item.id)
             removeItem(item.id)
-            Taro.showToast({ title: tt('common.success', '成功'), icon: 'success' })
+            onToast(tt('common.success', '成功'), { kind: 'success' })
           } catch {
-            Taro.showToast({ title: tt('following.loadFailed', '操作失败'), icon: 'none' })
+            onToast(tt('following.loadFailed', '操作失败'), { kind: 'error' })
           }
         },
       })
@@ -129,9 +130,7 @@ export default function FollowingPage() {
             {tab === 'following' ? tt('follow.following', '关注') : tt('follow.fans', '粉丝')}
           </Text>
           <Text className="mx-[8rpx] text-heading font-bold text-primary">{totalCount}</Text>
-          <Text className="text-label text-muted-foreground">
-            {tt('following.people', '人')}
-          </Text>
+          <Text className="text-label text-muted-foreground">{tt('following.people', '人')}</Text>
         </View>
         {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
         <SearchBar

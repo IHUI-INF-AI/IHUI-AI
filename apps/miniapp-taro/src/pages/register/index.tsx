@@ -24,6 +24,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
 import AgreementRow from './agreement-row'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
 function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: string } | null {
@@ -101,13 +102,13 @@ export default function RegisterIndex() {
     // 验证码发送失败 / 未勾协议:共享屏用行内红字,这里同样走行内,不弹 toast(同一错误不提示两次)
     if (form.error === 'register.sendCodeFailed' || form.error === 'auth.agreeRequired') return
     const mapped = mapRegisterErrorKey(form.error, form.values.phone)
-    Taro.showToast({ title: mapped ? tt(mapped.key, mapped.fb) : t(form.error), icon: 'none' })
+    onToast(mapped ? tt(mapped.key, mapped.fb) : t(form.error), { kind: 'error' })
   }, [form.error, form.values.phone, t, tt])
 
   useEffect(() => {
     if (form.info) {
       const mapped = mapRegisterInfoKey(form.info)
-      Taro.showToast({ title: mapped ? tt(mapped.key, mapped.fb) : t(form.info), icon: 'success' })
+      onToast(mapped ? tt(mapped.key, mapped.fb) : t(form.info), { kind: 'success' })
     }
   }, [form.info, t, tt])
 
@@ -115,7 +116,7 @@ export default function RegisterIndex() {
     const url = type === 'user' ? '/pkg-about/about/protocol' : '/pkg-about/about/privacy'
     Taro.navigateTo({
       url,
-      fail: () => Taro.showToast({ title: tt('register.pageMissing', '页面未注册'), icon: 'none' }),
+      fail: () => onToast(tt('register.pageMissing', '页面未注册'), { kind: 'error' }),
     })
   }
 

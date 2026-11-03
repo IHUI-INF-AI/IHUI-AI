@@ -73,7 +73,7 @@ export function FeedbackFilter({
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('title_col')}</Label>
+          <Label className="text-label">{t('title_col')}</Label>
           <Input
             className={inputSm}
             value={search.title}
@@ -82,7 +82,7 @@ export function FeedbackFilter({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('creator')}</Label>
+          <Label className="text-label">{t('creator')}</Label>
           <Input
             className={inputSm}
             value={search.creator}
@@ -91,7 +91,7 @@ export function FeedbackFilter({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">{t('createdAt')}</Label>
+          <Label className="text-label">{t('createdAt')}</Label>
           <Input
             type="date"
             className={inputSm}

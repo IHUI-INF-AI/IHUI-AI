@@ -501,7 +501,7 @@ describe('cline parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.category).toBe('Cline')
+    expect(res.providers[0]!.meta!.category).toBe('Cline')
   })
 
   it('meta.websiteUrl = https://cline.bot', async () => {
@@ -513,7 +513,7 @@ describe('cline parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.websiteUrl).toBe('https://cline.bot')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://cline.bot')
   })
 
   it('有 model 时 meta.models = [model]', async () => {
@@ -526,7 +526,7 @@ describe('cline parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toEqual(['gpt-4o'])
+    expect(res.providers[0]!.meta!.models).toEqual(['gpt-4o'])
   })
 
   it('无 model 时 meta.models undefined', async () => {
@@ -538,7 +538,7 @@ describe('cline parser — meta + name + isCurrent 验证', () => {
         }),
       ),
     )
-    expect(res.providers[0]!.meta.models).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
   })
 
   it('sourceId = cline-default', async () => {

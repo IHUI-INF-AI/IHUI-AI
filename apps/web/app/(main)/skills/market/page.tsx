@@ -109,7 +109,7 @@ export default function SkillsMarketPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-heading font-semibold">{t('title')}</h1>
-            <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+            <p className="text-body text-muted-foreground">{t('subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -173,7 +173,7 @@ export default function SkillsMarketPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Star className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -192,7 +192,7 @@ export default function SkillsMarketPage() {
 
       {!isLoading && items.length > 0 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+          <span className="text-body text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -203,7 +203,7 @@ export default function SkillsMarketPage() {
               <ChevronLeft className="h-4 w-4" />
               <span>{t('prev')}</span>
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {t('page', { page, total: totalPages })}
             </span>
             <Button
@@ -306,30 +306,30 @@ function SkillCard({
       <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2.5 p-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight">{skill.name}</h3>
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
             v{skill.version}
           </span>
         </div>
-        <p className="flex-1 text-sm text-muted-foreground">{skill.description || '—'}</p>
+        <p className="flex-1 text-body text-muted-foreground">{skill.description || '—'}</p>
         {skill.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {skill.tags.map((tg) => (
               <span
                 key={tg}
-                className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
               >
                 {tg}
               </span>
             ))}
           </div>
         )}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-label text-muted-foreground">
           <span>{skill.author}</span>
           <span>{t('subscribers', { count: subscriberCount })}</span>
         </div>
         <div className="flex items-center gap-1">
           <Stars value={skill.rating} />
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {skill.rating.toFixed(1)} ({skill.ratingCount})
           </span>
         </div>
@@ -433,13 +433,13 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder={t('commentPlaceholder')}
-            className="w-full rounded-sm border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full rounded-sm border border-input bg-background px-3 py-2 text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             rows={3}
           />
           {ratings && ratings.length > 0 && (
             <div className="space-y-2">
               {ratings.slice(0, 3).map((r) => (
-                <div key={r.id} className="rounded-md bg-muted/60 p-2 text-sm">
+                <div key={r.id} className="rounded-md bg-muted/60 p-2 text-body">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{r.userName}</span>
                     <Stars value={r.score} size="h-3 w-3" />
@@ -572,7 +572,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={t('publishContentPlaceholder')}
-              className="w-full rounded-sm border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="w-full rounded-sm border border-input bg-background px-3 py-2 text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               rows={5}
             />
           </div>
@@ -618,18 +618,18 @@ function NotificationsDialog({ open, onClose }: { open: boolean; onClose: () => 
         </DialogHeader>
         <div className="max-h-80 space-y-2 overflow-y-auto">
           {isLoading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">{t('loading')}</div>
+            <div className="py-8 text-center text-body text-muted-foreground">{t('loading')}</div>
           ) : !items || items.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
+            <div className="py-8 text-center text-body text-muted-foreground">
               {t('noNotifications')}
             </div>
           ) : (
             items.map((n: SkillNotification) => (
-              <div key={n.id} className="rounded-md bg-muted/60 p-2.5 text-sm">
+              <div key={n.id} className="rounded-md bg-muted/60 p-2.5 text-body">
                 <div className="flex items-center gap-2">
                   <BellRing className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="font-medium">{n.skillName}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="ml-auto text-label text-muted-foreground">
                     {new Intl.DateTimeFormat('zh-CN', {
                       month: '2-digit',
                       day: '2-digit',

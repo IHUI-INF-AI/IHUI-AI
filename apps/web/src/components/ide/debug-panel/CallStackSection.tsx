@@ -23,14 +23,14 @@ export function CallStackSection() {
         {t('debug.callStack')}
       </div>
       {stackFrames.length === 0 ? (
-        <div className="px-3 py-0.5 text-xs text-muted-foreground">{loading ? '…' : '—'}</div>
+        <div className="px-3 py-0.5 text-label text-muted-foreground">{loading ? '…' : '—'}</div>
       ) : (
         stackFrames.map((f) => (
           <button
             key={f.id}
             onClick={() => setCurrentFrameId(f.id)}
             className={cn(
-              'flex w-full items-center gap-1 px-3 py-0.5 text-left text-xs hover:bg-muted/30',
+              'flex w-full items-center gap-1 px-3 py-0.5 text-left text-label hover:bg-muted/30',
               currentFrameId === f.id && 'bg-muted/40',
             )}
           >

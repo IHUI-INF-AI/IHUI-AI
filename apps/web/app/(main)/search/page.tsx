@@ -97,7 +97,7 @@ function SearchContent() {
       />
 
       {data && total > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('resultsCount', {
             total,
             users: users.length,

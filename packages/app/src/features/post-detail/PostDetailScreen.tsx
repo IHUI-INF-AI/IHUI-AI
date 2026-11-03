@@ -35,10 +35,11 @@ export function PostDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onNavigate,
   onToast,
-}: PostDetailScreenProps) {
+}: PostDetailScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
   assertRequiredPort('onToast', onToast)
 
@@ -64,7 +65,7 @@ export function PostDetailScreen({
     return (
       <ErrorState
         message={error || t('postDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

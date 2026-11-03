@@ -27,14 +27,31 @@
  * (缺的插在最后一条 import 之后)。**不生成结构**:组件结构属平台承载(规则6),仍由端内手写,
  * 本器绝不改写 JSX 体。
  *
- * 取材面:本器是写盘器物,**恒读工作树**;入库面判定归 check-ui-spec-mirror.mjs(它默认 HEAD blob)。
+ * 取材面:本器是写盘器物,**恒读工作树**(2026-11-03 核实:读出口 readDisk = readFileSync(join(ROOT,…))、
+ * 写出口 writeFileSync 同面 —— 与 §0.4「全量档判 HEAD blob」是**两回事**:本器不属守门档,它要把 RN 壳
+ * 的当前字节派生进小程序壳,只读面结构上写不了盘;入库面判定归 check-ui-spec-mirror.mjs(它默认 HEAD blob)。
+ * 落点账本登记同样按工作树 blob 实测(与 collectiblePaths 的 worktree 面同尺)。
  *
  * 退出码(§0.3):0 = 全部一致(或不在射程);1 = 有漂移;2 = 未判定(取不到 spec / 两端壳缺一)。
+ *
+ * 写盘申报(2026-11-03 立,与其它七条跨端写盘腿同形):`--apply` 成功写出的小程序壳,批末逐枚
+ * 实测工作树 blob 后追写 `scripts/lib/cross-end-landing-ledger.mjs` 账本(leg 名见 CROSS_END_LEG),
+ * 落库交给收编侧按「账本在册 ∧ 工作树 blob 逐字节等于登记 oid ∧ 超静默期 ∧ 非 ignored」处理;
+ * 只读档(不带 --apply)与预演一个字节都不登记。轮首先读账本:本 leg 已登记 ∧ 工作树 blob 仍未动
+ * ⇒ 该枚本轮不重写(否则会把「待收编副本」改写成第二形态,收编侧只能判 contested),报 skipLanded。
+ * 写了盘没登记上 ⇒ landingError 点名并把结论按失败计(§0.3 不得冒成功);账本读不到 ⇒ 照旧全量
+ * 尝试 + `ledger=unjudged`,不退场不判死。
+ *
+ * 归属闸(2026-11-03 立,挂守护周期腿的**前置条件**):落点小程序壳出现在 `git status --porcelain`
+ * 里(他席未提交改动 / 已暂存 / 未跟踪)⇒ 归属未知 ⇒ **本轮不写**,进 held 集并逐条点名;脏集本身
+ * 取不到 ⇒ 一条都不写并标 `ownership=unjudged`(失效方向恒为"少写一次",绝不覆盖别人的在飞工作,
+ * AGENTS.md §12/§16)。判据单源 = `scripts/lib/git-paths.mjs`(与三枚 lander、fix-rn-color-literals
+ * 同一份,§0.6/门 191)。闸只挡写盘动作,红/绿/未判定三档计数与退出码判序一字未动。
  *
  * Usage:
  *   node scripts/gen-ui-mirror.mjs                 # 只读对账(全部配对)
  *   node scripts/gen-ui-mirror.mjs --only=switch   # 只判一对
- *   node scripts/gen-ui-mirror.mjs --apply         # 落盘(幂等)
+ *   node scripts/gen-ui-mirror.mjs --apply         # 落盘(幂等,且过归属闸)
  *   node scripts/gen-ui-mirror.mjs --self-test     # 纯内存夹具自检
  */
 
@@ -45,17 +62,114 @@ import {
   parseWaivers,
   todayIso,
   waiverVerdict,
+  normalizeFractionalSpacing,
+  fractionalToRpx,
   WAIVER_LEDGER_REL,
 } from './lib/ui-mirror-waivers.mjs'
+// 写盘申报账本(2026-11-03 立):落点判据/幂等/形状校验全在库内,本文件只调它(§0.6 单一真相源)。
+import { appendLanding, isRowComplete, readLanding, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',rel], root),
+// 这里必须问同一把尺(自拼裸 git 或换 hash-object 参数 = 两侧算法不一致 ⇒ 永远 contested)。
+import { gitRaw } from './lib/face-reader.mjs'
+// 归属闸(2026-11-03 立,挂守护周期腿的**前置条件**):判据单源 = scripts/lib/git-paths.mjs
+// (三枚 lander 与 fix-rn-color-literals 共用同一份,§0.6 / 门 191 —— 本文件不得再写第二份)。
+// 多会话共享工作区里,自动腿写他席正在编辑的文件 = 覆盖别人的未提交工作(§12/§16 事故型)。
+// 判据与点名文案都在库里(`ownershipGate` = `ownershipDirtyPathsDetailed` + `isCleanOwned` 的带文案适配)。
+import { isCleanOwned, ownershipGate } from './lib/git-paths.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RN_DIR = 'packages/ui-native/src'
 const MP_DIR = 'apps/miniapp-taro/src/components'
 const SPEC_DIR = 'packages/shared/src/ui'
 
+/**
+ * 本腿的在册短名。**逐字取既有自称名,不自立新名**(取证 `git grep -n "gen-ui-mirror"`):
+ *   · `scripts/git-guardian.mjs` 对它**零命中**(守护只在 sweepParityCockpit 里派生 parity-auto,
+ *     且只传 --json ⇒ 本腿从未被守护带过写档);
+ *   · 全仓唯一给它登记过名字的地方 = `scripts/parity-auto.mjs` 的 `id: 'ui-mirror'`(:124),
+ *     同文件 `SELF_HEALABLE`(:68)也以这个名字把本腿列为「红灯可机器自修」;
+ *   · 同族素材同名:豁免台账 `scripts/data/ui-mirror-waivers.json`(lib/ui-mirror-waivers.mjs 的
+ *     WAIVER_LEDGER_REL)。
+ * 对照证据由 scripts/tests/gen-ui-mirror-landing.test.mjs 钉(名字必须逐字出现在 parity-auto 源里)。
+ */
+export const CROSS_END_LEG = 'ui-mirror'
+
+// ─── 写盘申报账本层(2026-11-03 立,七枚跨端写盘腿同形)────────────────────────
+/** 与 collectiblePaths(worktree 面)同一把尺取当前 blob oid;取不到 ⇒ null(点名不猜)。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 本 leg 在册且行完整的 path→oid 映射;账本取不到 ⇒ {ok:false, reason}(不冒充空集)。 */
+export function landedOidMap({ root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = readLanding({ root })
+  if (!rd.ok) return { ok: false, reason: rd.reason, map: new Map() }
+  const map = new Map()
+  for (const row of rd.lines) {
+    if (String(row?.leg ?? '') !== leg || !isRowComplete(row)) continue
+    map.set(String(row.path), String(row.blobOid).trim().toLowerCase())
+  }
+  return { ok: true, reason: null, map }
+}
+
+/** 「本 leg 已登记 ∧ 工作树 blob 仍等于登记 oid」的路径 ⇒ 本轮视为已完成。 */
+export function landedSkips(paths, { root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = landedOidMap({ root, leg })
+  if (!rd.ok) return { skip: [], ledger: 'unjudged', reason: rd.reason }
+  const skip = []
+  for (const p of paths || []) {
+    const oid = rd.map.get(p)
+    if (oid && worktreeBlobOid(p, root) === oid) skip.push(p)
+  }
+  return { skip, ledger: null, reason: null }
+}
+
+/** 批末申报:写了盘的文件逐枚实测 oid 进账本。写了盘没登记上 ⇒ landingError 点名,不冒成功。 */
+export function registerLandings(paths, { root = ROOT, leg = CROSS_END_LEG, at = new Date().toISOString() } = {}) {
+  const list = [...new Set(paths || [])]
+  if (list.length === 0) return { landing: 0, appended: 0, deduped: 0, rejected: [] }
+  const entries = []
+  const unhashable = []
+  for (const p of list) {
+    const oid = worktreeBlobOid(p, root)
+    if (!oid) {
+      unhashable.push(p)
+      continue
+    }
+    entries.push({ at, leg, path: p, blobOid: oid })
+  }
+  try {
+    const ap = appendLanding(entries, { root })
+    const out = {
+      landing: ap.appended + ap.deduped,
+      appended: ap.appended,
+      deduped: ap.deduped,
+      rejected: ap.rejected,
+    }
+    const errs = []
+    if (ap.rejected.length)
+      errs.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (unhashable.length) errs.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    if (errs.length) out.landingError = errs.join(' | ')
+    return out
+  } catch (e) {
+    return {
+      landing: 0,
+      appended: 0,
+      deduped: 0,
+      rejected: [],
+      landingError: `账本写盘失败:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+}
+
 /** 豁免台账:本器恒读工作树(与它判的两端壳同面),判序 import lib 单源,不写第二份。 */
-function loadWaivers() {
-  const abs = join(ROOT, WAIVER_LEDGER_REL)
+function loadWaivers(root = ROOT) {
+  const abs = join(root, WAIVER_LEDGER_REL)
   if (!existsSync(abs)) return { ok: true, waivers: [], absent: true }
   return parseWaivers(readFileSync(abs, 'utf8'))
 }
@@ -262,15 +376,21 @@ export function comparePair(rnSrc, mpSrc, opts = {}) {
   const drifted = []
   const renamed = []
   for (const decl of rnDecls) {
-    const rnSig = mapSignatureOf(decl.text)
+    // 两端同一把等值尺:fractional 档与等值裸 rpx 是**同一像素**,不得判成漂移
+    // (判序单源 = lib/ui-mirror-waivers.mjs;本端写 fractional 会产不出可挂载规则,见该函数立因)。
+    const rnSig = mapSignatureOf(normalizeFractionalSpacing(decl.text))
     const peer = mpByName.get(decl.name)
     if (peer) {
-      const mpSig = mapSignatureOf(peer.text)
-      const same = rnSig && mpSig ? rnSig === mpSig : norm(peer.text) === norm(decl.text)
+      const mpSig = mapSignatureOf(normalizeFractionalSpacing(peer.text))
+      const same =
+        rnSig && mpSig
+          ? rnSig === mpSig
+          : normalizeFractionalSpacing(norm(peer.text)) ===
+            normalizeFractionalSpacing(norm(decl.text))
       if (!same) drifted.push(decl.name)
       continue
     }
-    if (rnSig && mpDecls.some((item) => mapSignatureOf(item.text) === rnSig)) {
+    if (rnSig && mpDecls.some((item) => mapSignatureOf(normalizeFractionalSpacing(item.text)) === rnSig)) {
       renamed.push(decl.name)
       continue
     }
@@ -344,19 +464,19 @@ export function applyPair(rnSrc, mpSrc, opts = {}) {
 
 // ---------- 主流程 ----------
 
-function readDisk(rel) {
-  const abs = join(ROOT, rel)
+function readDisk(rel, root = ROOT) {
+  const abs = join(root, rel)
   return existsSync(abs) ? readFileSync(abs, 'utf8') : null
 }
 
-function pairsOf(only) {
-  const specs = existsSync(join(ROOT, SPEC_DIR))
-    ? readdirSync(join(ROOT, SPEC_DIR))
+function pairsOf(only, root = ROOT) {
+  const specs = existsSync(join(root, SPEC_DIR))
+    ? readdirSync(join(root, SPEC_DIR))
         .filter((file) => file.endsWith('-spec.ts'))
         .map((file) => file.replace(/-spec\.ts$/, ''))
     : []
-  const rnFiles = existsSync(join(ROOT, RN_DIR)) ? readdirSync(join(ROOT, RN_DIR)) : []
-  const mpFiles = existsSync(join(ROOT, MP_DIR)) ? readdirSync(join(ROOT, MP_DIR)) : []
+  const rnFiles = existsSync(join(root, RN_DIR)) ? readdirSync(join(root, RN_DIR)) : []
+  const mpFiles = existsSync(join(root, MP_DIR)) ? readdirSync(join(root, MP_DIR)) : []
   return specs
     .filter((slug) => !only.length || only.includes(slug))
     .map((slug) => {
@@ -373,7 +493,8 @@ function pairsOf(only) {
     })
 }
 
-async function main(argv) {
+async function main(argv, opts = {}) {
+  const root = opts.root ?? ROOT
   const args = new Set(argv)
   const only = (argv.find((a) => a.startsWith('--only=')) || '')
     .slice('--only='.length)
@@ -382,13 +503,23 @@ async function main(argv) {
   if (args.has('--self-test')) return selfTest()
   const apply = args.has('--apply')
   const today = process.env.UI_MIRROR_TODAY || todayIso()
-  const ledger = loadWaivers()
+  const ledger = loadWaivers(root)
   if (!ledger.ok) {
-    console.log(`? 豁免台账 ${WAIVER_LEDGER} 解析不了: ${ledger.error}(未判定,不记绿也不冒红)`)
+    console.log(
+      `? 豁免台账 ${WAIVER_LEDGER_REL} 解析不了: ${ledger.error}(未判定,不记绿也不冒红)`,
+    )
     return 2
   }
 
-  const rows = pairsOf(only)
+  // 轮首读一次落点账本(只读,零写);读不到 ⇒ ledger=unjudged,照旧全量尝试,不退场(§0.3)。
+  const landed = landedOidMap({ root })
+  const skipLanded = []
+  const writtenPaths = []
+  // 归属闸(2026-11-03):整轮取一次脏集(只读 git 动作);只挡写盘,不动任何计数与退出码判序。
+  const ownership = ownershipGate({ root })
+  const held = []
+
+  const rows = pairsOf(only, root)
   let red = 0
   let undetermined = 0
   let green = 0
@@ -397,8 +528,8 @@ async function main(argv) {
       console.log(`· ${row.slug.padEnd(18)} 两端壳缺一(不在射程)`)
       continue
     }
-    const rn = readDisk(row.rnRel)
-    const mp = readDisk(row.mpRel)
+    const rn = readDisk(row.rnRel, root)
+    const mp = readDisk(row.mpRel, root)
     if (rn === null || mp === null) {
       undetermined += 1
       console.log(`? ${row.slug.padEnd(18)} 取不到壳源码(未判定)`)
@@ -425,18 +556,52 @@ async function main(argv) {
     }
     red += 1
     console.log(`🔴 ${row.slug.padEnd(18)} ${cmp.issues.join(';')}`)
+    // 「本 leg 已登记 ∧ 工作树 blob 仍未动」⇒ 这一枚是待收编副本,本轮不再改写它
+    // (改写了就把收编侧唯一的凭据换成第二形态,只能判 contested ⇒ 谁也都落不了库)。
+    const pendingOid = landed.ok ? landed.map.get(row.mpRel) : null
+    if (pendingOid && worktreeBlobOid(row.mpRel, root) === pendingOid) {
+      skipLanded.push(row.mpRel)
+      console.log(`   ↳ 已登记待收编(工作树 blob 未动)⇒ 本轮不重写 ${row.mpRel}`)
+      continue
+    }
+    // 归属闸:落点在他席手里(或脏集取不到)⇒ 本轮不写,**逐条点名**(只报总数不可,§0.3/§12)。
+    const blocked = ownership.blocked(row.mpRel)
+    if (blocked) {
+      held.push(blocked)
+      console.log(`   ↳ 🔒 归属未明(他席在飞/取不到)⇒ 本轮不写 ${blocked}`)
+      continue
+    }
     if (apply) {
       const out = applyPair(rn, mp, { waivedNames: verdict.used })
       if (out.changed) {
-        writeFileSync(join(ROOT, row.mpRel), out.text, 'utf8')
+        writeFileSync(join(root, row.mpRel), out.text, 'utf8')
+        writtenPaths.push(row.mpRel)
         console.log(`   ↳ 已写回 ${row.mpRel}(仅 import + 绑定声明)`)
       }
     }
   }
+  // 批末一次申报:只对**本批真写了盘**的路径(只读档 writtenPaths 恒空 ⇒ 结构上零登记)。
+  const landingInfo = registerLandings(writtenPaths, { root })
   console.log('─'.repeat(64))
   console.log(`配对 ${green + red} · ✅一致 ${green} · 🔴漂移 ${red} · ?未判定 ${undetermined}`)
-  if (undetermined) return 2
-  return red ? 1 : 0
+  if (held.length)
+    console.log(
+      `  🔒 held(归属未明,不猜 ⇒ 本轮不写)${held.length} 枚:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`,
+    )
+  console.log(
+    `结论 landing=${landingInfo.landing}(新登记 ${landingInfo.appended}/在册去重 ${landingInfo.deduped})` +
+      ` skipLanded=${skipLanded.length}` +
+      ` held=${held.length}` +
+      (ownership.ok ? '' : ' ownership=unjudged') +
+      ` 写出=${writtenPaths.length}` +
+      (landingInfo.landingError ? ` landingError=${landingInfo.landingError}` : '') +
+      (landed.ok ? '' : ' ledger=unjudged') +
+      ` landingPath=${ledgerPathFor(root)}`,
+  )
+  let code = undetermined ? 2 : red ? 1 : 0
+  // 写了盘却没登记上 ⇒ 不得按成功交出去(§0.3「没判过」不能写成「判过」的同族禁令)。
+  if (landingInfo.landingError && code === 0) code = 1
+  return code
 }
 
 // ---------- 自检(纯内存夹具,不碰真仓) ----------
@@ -494,6 +659,27 @@ function selfTest() {
   const mutated = mpOk.replace('24: "h-6"', '24: "h-7"')
   const cmpMut = comparePair(rn, mutated)
   ok('T4 取值漂移被判红', cmpMut.drifted.includes('TRACK_H_CLASS'))
+
+  // T4b 像素等值归一:小程序端 fractional 档在产物里产不出可挂载规则(门 C8 死规则族),
+  //   本端只能写等值裸 rpx ⇒ 这一型不是漂移。真仓 Badge/VipBadge 的 PADDING_Y_CLASS 即此型。
+  const rnFrac = rn.replace("sm: 'p-1'", "sm: 'p-1.5'")
+  const mpEquiv = mpOk.replace("sm: 'p-1'", "sm: 'p-[12rpx]'")
+  ok('T4b 等值裸 rpx 不判漂移', comparePair(rnFrac, mpEquiv).drifted.length === 0)
+  // T4c/T4c2 反向对照:等值尺不是豁免白名单 —— 像素不同必须仍判得出(否则这把尺自身是坏的)
+  ok('T4c 像素不同仍判漂移', comparePair(rnFrac, mpOk).drifted.includes('SIZING'))
+  ok(
+    'T4c2 rpx 写错值仍判漂移',
+    comparePair(rnFrac, mpOk.replace("sm: 'p-1'", "sm: 'p-[20rpx]'")).drifted.includes('SIZING'),
+  )
+  // T4d 算式钉死:(n+0.5) 档 × 4px × TARO_RPX_PER_PX(2) = (8n+4)rpx;非间距尺一律不碰
+  ok(
+    'T4d fractional→rpx 算式与非尺不碰',
+    ['0.5', '1.5', '2.5', '3.5']
+      .map((v) => fractionalToRpx(`py-${v}`))
+      .join(',') === 'py-[4rpx],py-[12rpx],py-[20rpx],py-[28rpx]' &&
+      fractionalToRpx('rounded-0.5') === 'rounded-0.5' &&
+      fractionalToRpx('text-0.5') === 'text-0.5',
+  )
 
   // T5 缺声明被判红,且 --apply 可补齐
   const shrunk = mpOk.replace(/const SIZING[\s\S]*?\n}\n/, '')
@@ -575,6 +761,49 @@ function selfTest() {
     !badVerdict.used.length && badVerdict.rot.length === 1,
   )
 
+  // T14–T16 写盘申报层(2026-11-03 立):纯内存档,不碰账本、不碰真仓
+  ok('T14 leg 名是 kebab 短名(与 parity-auto 的 stage id 同源)', /^[a-z0-9-]+$/.test(CROSS_END_LEG))
+  ok(
+    'T15 空批(只读档的登记入口)⇒ landing/appended 皆 0,不进账本 IO',
+    registerLandings([]).landing === 0 && registerLandings([]).appended === 0,
+  )
+  ok(
+    'T16 账本读不到 ⇒ landedSkips 报 unjudged 且不抛(失效方向=多要一次)',
+    (() => {
+      const sk = landedSkips(['packages/ui-native/__no_such__.tsx'], {
+        root: join(ROOT, '.ihui-agent', 'tmp', 'gen-ui-mirror-selftest-nonexistent'),
+      })
+      return sk.ledger === 'unjudged' && sk.skip.length === 0 && typeof sk.reason === 'string'
+    })(),
+  )
+
+  // T17–T18 归属闸(2026-11-03 立,挂守护周期腿的前置条件):判据 import lib 单源,本器零复算
+  ok(
+    'T17 脏集取不到(根不存在 ⇒ git 问不动)⇒ ok:false 且每条落点都判"未通过"(点名不返回 null)',
+    (() => {
+      const g = ownershipGate({ root: join(ROOT, '.ihui-agent', 'tmp', '__no_such_root_for_selftest__') })
+      return (
+        g.ok === false &&
+        g.dirty === null &&
+        typeof g.reason === 'string' &&
+        g.blocked('apps/miniapp-taro/src/components/Switch.tsx') !== null &&
+        String(g.blocked('a.tsx')).includes('归属集取不到')
+      )
+    })(),
+  )
+  ok(
+    'T18 同一把尺:脏集里的路径被挡、不在集里的放行、脏集为 null 时一律未通过',
+    // 断言的是 import 进来的生产出口(§22c:测试/import 都用那一份,本器零复算)
+    (() => {
+      const dirty = new Set(['apps/miniapp-taro/src/components/Dirty.tsx'])
+      return (
+        isCleanOwned('apps/miniapp-taro/src/components/Dirty.tsx', dirty) === false &&
+        isCleanOwned('apps/miniapp-taro/src/components/Clean.tsx', dirty) === true &&
+        isCleanOwned('apps/miniapp-taro/src/components/Clean.tsx', null) === false
+      )
+    })(),
+  )
+
   for (const check of checks) console.log(`${check.cond ? '✅' : '🔴'} ${check.name}`)
   const failed = checks.filter((check) => !check.cond).length
   console.log(`自检 ${checks.length - failed}/${checks.length}`)
@@ -590,5 +819,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.error(`❌ 派生器自身异常(未判定): ${error?.message ?? error}`)
       process.exit(2)
     })
+}
+
+/**
+ * §22c:暴露给镜像测试的核心判据与**整链入口**(main 可注入 root ⇒ 测试用 mkScratch 真夹具
+ * 跑「读工作树 → 派生写盘 → 批末申报 → collectiblePaths 判可收编」全链,不碰真实工作树)。
+ * 测试不得复制第二份判据(门 191)。
+ */
+export const __test__ = {
+  main,
+  worktreeBlobOid,
+  landedOidMap,
+  landedSkips,
+  registerLandings,
+  // 归属闸(§22c:测试 import 生产出口,不复制判据)
+  ownershipGate,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

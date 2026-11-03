@@ -102,7 +102,7 @@ export default function AdminPointRecordsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('recordsTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('recordsSubtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('recordsSubtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -203,7 +203,7 @@ export default function AdminPointRecordsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -214,7 +214,7 @@ export default function AdminPointRecordsPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

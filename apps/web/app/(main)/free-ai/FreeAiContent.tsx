@@ -68,7 +68,7 @@ export function FreeAiContent() {
           {t('heroBadge')}
         </div>
         <h1 className="text-display font-bold tracking-tight sm:text-3xl">{t('heroTitle')}</h1>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        <p className="mx-auto mt-3 max-w-2xl text-body leading-relaxed text-muted-foreground">
           {t('heroSub')}
         </p>
       </div>
@@ -85,10 +85,12 @@ export function FreeAiContent() {
               )}
               <h2 className="text-body font-semibold">{t(card.titleKey)}</h2>
             </div>
-            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t(card.descKey)}</p>
+            <p className="mb-3 text-label leading-relaxed text-muted-foreground">
+              {t(card.descKey)}
+            </p>
             <ol className="mb-4 flex-1 space-y-2">
               {card.steps.map((step) => (
-                <li key={step} className="flex items-start gap-2 text-xs leading-relaxed">
+                <li key={step} className="flex items-start gap-2 text-label leading-relaxed">
                   <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[10px] font-semibold">
                     {card.steps.indexOf(step) + 1}
                   </span>
@@ -106,7 +108,7 @@ export function FreeAiContent() {
                 {t(card.linkLabelKey)}
                 <ExternalLink className="h-3 w-3" />
               </a>
-              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <p className="flex items-start gap-1.5 text-label text-muted-foreground">
                 <KeyRound className="mt-0.5 h-3 w-3 shrink-0" />
                 {t(card.afterKey)}
                 <Link href="/settings" className="shrink-0 text-primary hover:underline">
@@ -119,7 +121,7 @@ export function FreeAiContent() {
       </div>
 
       {/* 免责/安全说明 */}
-      <div className="mt-8 flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+      <div className="mt-8 flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-label leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
         <p>{t('securityNote')}</p>
       </div>

@@ -46,7 +46,7 @@ export function SwitchRow(props: {
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
           <p className="whitespace-nowrap text-body font-medium">{title}</p>
-          <p className="line-clamp-2 text-xs text-muted-foreground">{desc}</p>
+          <p className="line-clamp-2 text-label text-muted-foreground">{desc}</p>
         </div>
       </div>
       <Switch
@@ -75,7 +75,16 @@ export function ChoiceRow<T extends string>(props: {
   disabled: boolean
   onSelect: (next: T) => void
 }) {
-  const { icon: Icon, title, value, options, disabledValue, disabledHint, disabled, onSelect } = props
+  const {
+    icon: Icon,
+    title,
+    value,
+    options,
+    disabledValue,
+    disabledHint,
+    disabled,
+    onSelect,
+  } = props
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-body font-medium">
@@ -207,7 +216,11 @@ export function DesktopPrefsSection({ prefs, disabled, onPatch }: DesktopPrefsSe
         }}
       />
 
-      <DesktopTrayMenuSection items={prefs.trayMenuItems} disabled={disabled} onToggle={toggleTrayMenuItem} />
+      <DesktopTrayMenuSection
+        items={prefs.trayMenuItems}
+        disabled={disabled}
+        onToggle={toggleTrayMenuItem}
+      />
     </>
   )
 }

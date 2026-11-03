@@ -34,7 +34,7 @@ import { SearchInput } from '../../components/SearchInput'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { SectionHeader } from '../../components/SectionHeader'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
-import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
+import { Lightbulb, Play, Flame, Bot, Clapperboard, Plus } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -82,6 +82,8 @@ export interface StudyIndexScreenProps {
   noMoreText: string
   loadingText: string
   loadingMoreText: string
+  /** 提供时在右下渲染发布 FAB（缺省不渲染，避免假按钮） */
+  onPublish?: () => void
 }
 
 /** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
@@ -121,6 +123,7 @@ export function StudyIndexScreen({
   noMoreText,
   loadingText,
   loadingMoreText,
+  onPublish,
 }: StudyIndexScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -386,6 +389,17 @@ export function StudyIndexScreen({
           }
         />
       )}
+
+      {onPublish ? (
+        <Pressable
+          onPress={onPublish}
+          style={styles.fab}
+          accessibilityRole="button"
+          accessibilityLabel="发布视频"
+        >
+          <Plus size={24} color={tk.surface.light} />
+        </Pressable>
+      ) : null}
     </View>
   )
 }
@@ -393,6 +407,18 @@ export function StudyIndexScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
+    fab: {
+      position: 'absolute',
+      right: 24,
+      bottom: 32,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.brand.cta,
+      elevation: 4,
+    } as ViewStyle,
     searchBar: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,

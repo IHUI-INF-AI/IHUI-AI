@@ -35,6 +35,7 @@ import { chatStream, getChatHistory, type ChatMessage } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 /** Taro.chooseImage 返回类型(避免 any) */
 interface ChooseImageRes {
@@ -196,7 +197,7 @@ export default function AiChatDetail() {
       const err = e instanceof Error ? e : new Error(String(e))
       const msg = String((err as { errMsg?: string }).errMsg || '').toLowerCase()
       if (msg.includes('cancel')) return
-      Taro.showToast({ title: tt('aiChatDetail.filePickFailed', '文件选择失败'), icon: 'none' })
+      onToast(tt('aiChatDetail.filePickFailed', '文件选择失败'), { kind: 'error' })
     }
   }, [tt])
 
@@ -224,7 +225,7 @@ export default function AiChatDetail() {
       const msg = String((err as { errMsg?: string }).errMsg || '').toLowerCase()
       // 用户主动取消 → 静默;其他错误 → toast + fallback 文件选择
       if (msg.includes('cancel')) return
-      Taro.showToast({ title: tt('aiChatDetail.imagePickFailed', '图片选择失败'), icon: 'none' })
+      onToast(tt('aiChatDetail.imagePickFailed', '图片选择失败'), { kind: 'error' })
       await handleAddFile()
     }
   }, [tt, handleAddFile])
@@ -290,7 +291,7 @@ export default function AiChatDetail() {
             : m,
         ),
       )
-      Taro.showToast({ title: tt('aiChatDetail.sendFailed', '发送失败,请重试'), icon: 'none' })
+      onToast(tt('aiChatDetail.sendFailed', '发送失败,请重试'), { kind: 'error' })
     } finally {
       setSending(false)
     }
@@ -325,9 +326,7 @@ export default function AiChatDetail() {
               onClick={loadData}
               hoverClass="opacity-60"
             >
-              <Text className="text-body text-primary-foreground">
-                {t('common.retry')}
-              </Text>
+              <Text className="text-body text-primary-foreground">{t('common.retry')}</Text>
             </View>
           </View>
         ) : messages.length ? (

@@ -1389,6 +1389,7 @@
     "labelPrice": "가격",
     "labelSaleType": "판매 유형",
     "pricePlaceholder": "가격 입력",
+    "readOnlyHint": "이 항목은 아직 수정할 수 없습니다",
     "submit": "저장",
     "submitting": "제출 중..."
   },
@@ -1600,6 +1601,7 @@
     "empty": "메시지가 없습니다. 첫 메시지를 보내 대화를 시작하세요",
     "placeholder": "메시지 입력...",
     "send": "보내기",
+    "stop": "중지",
     "loadFailed": "채팅 불러오기 실패",
     "sendFailed": "전송 실패"
   },

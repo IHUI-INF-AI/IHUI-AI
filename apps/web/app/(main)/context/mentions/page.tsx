@@ -59,13 +59,13 @@ export default function ContextMentionsPage() {
       <div>
         <Link
           href="/context"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-label text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3 w-3" />
           返回上下文总览
         </Link>
         <h1 className="mt-1 text-heading font-bold tracking-tight">@ 提及检索</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-body text-muted-foreground">
           按类型搜索文件 / 目录 / 符号 / 数据库表 / 网页,并查看详情
         </p>
       </div>
@@ -73,7 +73,7 @@ export default function ContextMentionsPage() {
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_360px]">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">检索</CardTitle>
+            <CardTitle className="text-body">检索</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <MentionSearch
@@ -93,7 +93,7 @@ export default function ContextMentionsPage() {
             {activeType === 'symbol' && (
               <div className="mt-3 max-h-[420px] space-y-1.5 overflow-y-auto">
                 {symbols.length === 0 ? (
-                  <div className="py-10 text-center text-sm text-muted-foreground">
+                  <div className="py-10 text-center text-body text-muted-foreground">
                     {isLoading
                       ? '检索中…'
                       : debouncedQ.length === 0
@@ -125,11 +125,11 @@ export default function ContextMentionsPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">详情</CardTitle>
+            <CardTitle className="text-body">详情</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             {!selected ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
+              <div className="py-8 text-center text-body text-muted-foreground">
                 选择左侧结果查看详情
               </div>
             ) : (
@@ -171,19 +171,19 @@ function DetailPanel({
         </span>
         <p className="mt-1.5 text-body font-medium">{mention.label}</p>
         {mention.detail && (
-          <p className="mt-0.5 text-xs text-muted-foreground break-all">{mention.detail}</p>
+          <p className="mt-0.5 text-label text-muted-foreground break-all">{mention.detail}</p>
         )}
       </div>
 
       <div>
         <p className="text-label font-medium text-muted-foreground">insertText</p>
-        <code className="mt-1 block w-full rounded-sm bg-muted px-2 py-1.5 text-xs break-all">
+        <code className="mt-1 block w-full rounded-sm bg-muted px-2 py-1.5 text-label break-all">
           {mention.insertText}
         </code>
       </div>
 
       {symbol && (
-        <div className="rounded-md border p-2.5 text-xs">
+        <div className="rounded-md border p-2.5 text-label">
           <p className="font-medium">{symbol.name}</p>
           <p className="mt-0.5 text-muted-foreground">
             {symbol.filePath}:{symbol.line}
@@ -194,7 +194,7 @@ function DetailPanel({
 
       {mention.type === 'database' &&
         (isLoadingSchema ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-label text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             加载 schema…
           </div>
@@ -205,7 +205,7 @@ function DetailPanel({
             </p>
             <div className="mt-1 max-h-[280px] overflow-y-auto rounded-md border">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full text-label">
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-2 py-1 text-left font-medium">列</th>
@@ -229,7 +229,7 @@ function DetailPanel({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">无法加载 schema</p>
+          <p className="text-label text-muted-foreground">无法加载 schema</p>
         ))}
     </div>
   )

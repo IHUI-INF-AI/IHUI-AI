@@ -62,9 +62,11 @@ export default function ArticlesPageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Newspaper className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <SearchInput

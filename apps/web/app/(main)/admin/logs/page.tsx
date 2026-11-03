@@ -141,7 +141,7 @@ export default function AdminLogsPage() {
             <ScrollText className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" variant="outline" onClick={openCleanup}>
           <Trash2 className="h-4 w-4" />
@@ -174,7 +174,7 @@ export default function AdminLogsPage() {
         </div>
 
         {statsLoading ? (
-          <div className="flex items-center py-6 text-sm text-muted-foreground">
+          <div className="flex items-center py-6 text-body text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             {t('loading')}
           </div>
@@ -201,13 +201,13 @@ export default function AdminLogsPage() {
 
             {byStatus.length > 0 && (
               <div className="space-y-2">
-                <div className="text-xs uppercase text-muted-foreground">{t('byStatus')}</div>
+                <div className="text-label uppercase text-muted-foreground">{t('byStatus')}</div>
                 <div className="space-y-1.5">
                   {byStatus
                     .slice()
                     .sort((a, b) => a.statusCode - b.statusCode)
                     .map((s) => (
-                      <div key={s.statusCode} className="flex items-center gap-2 text-xs">
+                      <div key={s.statusCode} className="flex items-center gap-2 text-label">
                         <Badge cls={statusClass(s.statusCode)}>{s.statusCode}</Badge>
                         <div className="relative h-5 flex-1 overflow-hidden rounded bg-muted/50">
                           <div
@@ -257,7 +257,7 @@ export default function AdminLogsPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -268,7 +268,7 @@ export default function AdminLogsPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button
@@ -295,12 +295,12 @@ export default function AdminLogsPage() {
             <DialogDescription>{t('cleanupDesc')}</DialogDescription>
           </DialogHeader>
           {cleanupErr && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {cleanupErr}
             </div>
           )}
           {cleanupResult ? (
-            <div className="rounded-md bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-600 dark:text-emerald-500">
+            <div className="rounded-md bg-emerald-500/10 px-3 py-2.5 text-body text-emerald-600 dark:text-emerald-500">
               {t('cleanupSuccess', { count: cleanupResult.deleted, days: cleanupResult.days })}
             </div>
           ) : (
@@ -325,7 +325,7 @@ export default function AdminLogsPage() {
                   ))}
                 </div>
               </div>
-              <div className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-500">
+              <div className="rounded-md bg-amber-500/10 px-3 py-2 text-label text-amber-600 dark:text-amber-500">
                 {t('cleanupWarn')}
               </div>
             </div>

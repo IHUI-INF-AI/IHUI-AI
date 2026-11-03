@@ -268,9 +268,9 @@ export function ChangePhoneModal({ open, onClose, oldPhone, onSuccess }: Props) 
           </div>
         </div>
 
-        {error && <p className={cn('text-xs text-destructive')}>{error}</p>}
+        {error && <p className={cn('text-label text-destructive')}>{error}</p>}
 
-        <p className="text-xs text-muted-foreground">{t('mergeHint')}</p>
+        <p className="text-label text-muted-foreground">{t('mergeHint')}</p>
       </div>
     </Modal>
   )

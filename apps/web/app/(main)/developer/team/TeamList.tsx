@@ -33,7 +33,7 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
             加载中...
           </div>
         ) : list.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无团队成员</p>
+          <p className="py-8 text-center text-body text-muted-foreground">暂无团队成员</p>
         ) : (
           <div className="space-y-2">
             {list.map((m) => {
@@ -48,7 +48,7 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                         {cfg.label}
                       </span>
                     </div>
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1 text-label text-muted-foreground">
                       <TruncatedText value={m.email} className="min-w-0 flex-1" />
                       <span className="shrink-0 whitespace-nowrap tabular-nums">
                         · 加入于 {dateFmt.format(new Date(m.joinedAt))}

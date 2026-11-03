@@ -59,7 +59,7 @@ export function CompressionStatsTable({ stats, className }: CompressionStatsTabl
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={6} className="py-8 text-center text-body text-muted-foreground">
                 暂无压缩记录
               </TableCell>
             </TableRow>
@@ -69,10 +69,10 @@ export function CompressionStatsTable({ stats, className }: CompressionStatsTabl
               const short = cid.length > 12 ? `${cid.slice(0, 6)}…${cid.slice(-4)}` : cid
               return (
                 <TableRow key={`${r.conversationId}-${i}`}>
-                  <TableCell className="font-mono text-xs" title={cid}>
+                  <TableCell className="font-mono text-label" title={cid}>
                     {short}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-label text-muted-foreground">
                     {fmtTime(r.timestamp)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">

@@ -89,7 +89,7 @@ export function TokenUsageChart({ agentId, timeRange, refreshKey }: TokenUsageCh
             加载中...
           </div>
         ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-body text-muted-foreground">
             {error ? '接口暂不可用,暂无数据' : '暂无 Token 消耗记录'}
           </p>
         ) : (

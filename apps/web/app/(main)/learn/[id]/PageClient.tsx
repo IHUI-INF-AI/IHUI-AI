@@ -95,12 +95,12 @@ export default function CourseDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/learn')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>{t('detail.back')}</span>
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function CourseDetailPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/learn"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         <span>{t('detail.back')}</span>
@@ -162,13 +162,13 @@ export default function CourseDetailPage() {
               </div>
             )}
             {activeSection?.videoUrl && playError && (
-              <p className="text-xs text-destructive">{tc('loadFailed')}</p>
+              <p className="text-label text-destructive">{tc('loadFailed')}</p>
             )}
             <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
               {lesson.title}
             </h1>
-            <p className="text-sm text-muted-foreground">{lesson.description}</p>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">{lesson.description}</p>
+            <div className="flex flex-wrap items-center gap-4 text-body text-muted-foreground">
               {lesson.instructor && (
                 <span className="font-medium text-foreground">{lesson.instructor}</span>
               )}
@@ -188,17 +188,17 @@ export default function CourseDetailPage() {
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">{t('chapters')}</h2>
-              <span className="text-sm text-muted-foreground">({totalSections})</span>
+              <span className="text-body text-muted-foreground">({totalSections})</span>
             </div>
             {chapters.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="text-body text-muted-foreground">{t('empty')}</p>
             ) : (
               <div className="space-y-2">
                 {chapters.map((chapter) => (
                   <details key={chapter.id} className="group rounded-lg border">
                     <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-body font-medium transition-colors hover:bg-accent">
                       <span>{chapter.title}</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {chapter.sections.length}
                       </span>
                     </summary>
@@ -212,7 +212,7 @@ export default function CourseDetailPage() {
                             setPlayError(false)
                           }}
                           className={cn(
-                            'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors',
+                            'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-body transition-colors',
                             activeSection?.id === sec.id
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-accent/50',
@@ -227,7 +227,7 @@ export default function CourseDetailPage() {
                             <span className="truncate">{sec.title}</span>
                           </span>
                           {sec.duration && (
-                            <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                            <span className="flex shrink-0 items-center gap-1 text-label text-muted-foreground">
                               <Clock className="h-3 w-3" />
                               <span>{sec.duration}</span>
                             </span>
@@ -245,10 +245,12 @@ export default function CourseDetailPage() {
         <aside className="w-full shrink-0 min-[1024px]:w-72">
           <Card className={cn('sticky top-4 z-10')}>
             <CardHeader>
-              <CardTitle className="text-2xl">{price > 0 ? formatCNY(price) : t('free')}</CardTitle>
+              <CardTitle className="text-display">
+                {price > 0 ? formatCNY(price) : t('free')}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="space-y-2 text-body text-muted-foreground">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Users className="h-4 w-4" />
@@ -273,7 +275,7 @@ export default function CourseDetailPage() {
                   <Button className="w-full" size="lg" asChild>
                     <Link href={`/edu/courses/${lesson.id}/learn`}>{t('startLearning')}</Link>
                   </Button>
-                  <p className="text-center text-xs text-muted-foreground">{t('signedUp')}</p>
+                  <p className="text-center text-label text-muted-foreground">{t('signedUp')}</p>
                 </>
               ) : (
                 <Button
@@ -287,7 +289,7 @@ export default function CourseDetailPage() {
                 </Button>
               )}
               {signUpMut.isError && (
-                <p className="text-xs text-destructive">{(signUpMut.error as Error)?.message}</p>
+                <p className="text-label text-destructive">{(signUpMut.error as Error)?.message}</p>
               )}
             </CardContent>
           </Card>

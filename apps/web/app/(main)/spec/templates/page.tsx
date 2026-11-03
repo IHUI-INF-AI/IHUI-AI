@@ -24,7 +24,7 @@ export default function SpecTemplatesPage() {
         </Link>
         <div>
           <h1 className="text-display font-bold tracking-tight">Spec 模板</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">选择模板快速生成对应规格文档</p>
+          <p className="mt-0.5 text-body text-muted-foreground">选择模板快速生成对应规格文档</p>
         </div>
       </div>
 

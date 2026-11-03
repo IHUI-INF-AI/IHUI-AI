@@ -46,9 +46,9 @@ export function McpQualityDashboard() {
         <h2 className="text-body font-semibold">{t('dashboardTitle')}</h2>
         <Badge variant="default">{data.count}</Badge>
       </div>
-      <p className="text-xs text-muted-foreground">{t('dashboardSubtitle')}</p>
+      <p className="text-label text-muted-foreground">{t('dashboardSubtitle')}</p>
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-xs">
+        <table className="w-full text-label">
           <thead>
             <tr className="bg-muted/50 text-left text-muted-foreground">
               <th className="px-3 py-2 font-medium">{t('dashboardServer')}</th>

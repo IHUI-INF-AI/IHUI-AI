@@ -99,17 +99,17 @@ export function HomeComparison() {
           05
         </div>
         <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <h3 className="font-edix text-label uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mx-auto max-w-3xl text-sm text-muted-foreground min-[640px]:text-base">
+        <p className="mx-auto max-w-3xl text-body text-muted-foreground min-[640px]:text-base">
           {t('subtitle')}
         </p>
       </RevealOnView>
 
       <RevealOnView as="div" delay={0.1} className="overflow-hidden rounded-lg border">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-[640px]:text-sm">
+          <table className="w-full text-left text-label min-[640px]:text-body">
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-3 py-3 font-semibold min-[640px]:px-4 min-[640px]:py-3.5">

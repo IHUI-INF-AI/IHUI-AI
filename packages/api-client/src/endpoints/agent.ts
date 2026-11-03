@@ -73,6 +73,29 @@ export async function deleteAgent(agentId: string): Promise<ApiResult<{ deleted:
   return fetchApi<{ deleted: boolean }>(`/agents/${agentId}`, { method: 'DELETE' })
 }
 
+/**
+ * PUT /agents/:agentId 的收费两列(2026-11-03 M4 api-B 补)。
+ *
+ * 真源取 `apps/web/app/(main)/agents/edit/[id]/PageClient.tsx` 的 updateMut:
+ * URL `/api/agents/:id`(本包 base 已含 `/api`,故此处写 `/agents/:agentId`),
+ * method PUT,body 键为 `price`(number) / `isFree`(boolean)。
+ * 后端 `apps/api/src/routes/agents.ts` 的 PUT 对这两列均为 optional,可单独提交。
+ */
+export interface AgentBillingUpdateInput {
+  price: number
+  isFree: boolean
+}
+
+export async function updateAgentBilling(
+  agentId: string,
+  input: AgentBillingUpdateInput,
+): Promise<ApiResult<Agent>> {
+  return fetchApi<Agent>(`/agents/${agentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ price: input.price, isFree: input.isFree }),
+  })
+}
+
 // =============================================================================
 // 智能体分类字典(对应后端 /cozeZhsApi/cache/agent-category-dict/categories)
 // 对齐 Uniapp src/service/pay.js categories() 接口,跨端共享

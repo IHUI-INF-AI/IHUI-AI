@@ -73,7 +73,7 @@ export default function EduExamResultPage() {
         <button
           type="button"
           onClick={() => router.push('/edu/exam')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -96,7 +96,7 @@ export default function EduExamResultPage() {
         <button
           type="button"
           onClick={() => router.push('/edu/exam')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
@@ -113,7 +113,7 @@ export default function EduExamResultPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/edu/exam"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -131,7 +131,7 @@ export default function EduExamResultPage() {
           >
             {result.passed ? <Check className="h-7 w-7" /> : <X className="h-7 w-7" />}
           </div>
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-display">
             {t('totalScore', { score: result.score, total: result.totalScore })}
           </CardTitle>
           <p
@@ -144,7 +144,7 @@ export default function EduExamResultPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-4 text-center text-sm">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-4 text-center text-body">
             <div>
               <p className="text-muted-foreground">{t('correct')}</p>
               <p className="text-lg font-bold text-emerald-600">{correctCount}</p>
@@ -160,7 +160,7 @@ export default function EduExamResultPage() {
               <p className="text-lg font-bold">{t('minutes', { n: result.duration })}</p>
             </div>
           </div>
-          <p className="text-center text-xs text-muted-foreground">
+          <p className="text-center text-label text-muted-foreground">
             {t('submittedAt', { time: fmt(result.submittedAt) })}
           </p>
         </CardContent>
@@ -173,7 +173,7 @@ export default function EduExamResultPage() {
         </h2>
         <div className="space-y-2">
           {result.results.map((r: QuestionResult, i: number) => (
-            <div key={r.questionId} className="rounded-md border p-3 text-sm">
+            <div key={r.questionId} className="rounded-md border p-3 text-body">
               <div className="flex items-start justify-between gap-2">
                 <span className="flex items-center gap-2">
                   {r.correct ? (
@@ -185,12 +185,12 @@ export default function EduExamResultPage() {
                     {i + 1}. {r.title}
                   </span>
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="shrink-0 text-label text-muted-foreground">
                   {t('score', { n: r.score })}
                 </span>
               </div>
               {!r.correct && (
-                <div className="mt-2 space-y-1 pl-6 text-xs">
+                <div className="mt-2 space-y-1 pl-6 text-label">
                   {r.myAnswer && (
                     <p className="text-destructive">{t('yourAnswer', { answer: r.myAnswer })}</p>
                   )}

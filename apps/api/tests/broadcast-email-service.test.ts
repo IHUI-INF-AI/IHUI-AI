@@ -50,7 +50,7 @@ describe('broadcast-email-service', () => {
     expect(stats).toEqual({ total: 25, sent: 25, failed: 0, stubbed: 0 })
     expect(sendEmailMock).toHaveBeenCalledTimes(25)
     // 每次调用都带场景与 userId
-    const firstCall = sendEmailMock.mock.calls[0][0] as {
+    const firstCall = sendEmailMock.mock.calls[0]![0] as {
       to: string
       userId: string
       scene: string

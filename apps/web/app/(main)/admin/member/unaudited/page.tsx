@@ -86,7 +86,7 @@ export default function AdminMemberUnauditedPage() {
           <Users className="h-6 w-6 text-primary" />
           未审核会员
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">审核待通过的会员注册申请</p>
+        <p className="mt-1 text-body text-muted-foreground">审核待通过的会员注册申请</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -106,8 +106,8 @@ export default function AdminMemberUnauditedPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">用户</th>
               <th className="px-4 py-2.5 font-medium">联系方式</th>
@@ -145,14 +145,14 @@ export default function AdminMemberUnauditedPage() {
                     <td className="px-4 py-2.5 font-medium">
                       {u.nickname || u.phone || u.email || u.id}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <td className="px-4 py-2.5 text-label text-muted-foreground">
                       <div>{u.phone || '-'}</div>
                       <div className="text-muted-foreground/80">{u.email || '-'}</div>
                     </td>
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex rounded px-1.5 py-0.5 text-xs',
+                          'inline-flex rounded px-1.5 py-0.5 text-label',
                           u.level >= 2
                             ? 'bg-amber-500/10 text-amber-600'
                             : 'bg-muted text-muted-foreground',
@@ -161,7 +161,7 @@ export default function AdminMemberUnauditedPage() {
                         {levelLabel}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <td className="px-4 py-2.5 text-label text-muted-foreground">
                       {u.createdAt ? formatDateOnly(u.createdAt) : '-'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
@@ -197,7 +197,7 @@ export default function AdminMemberUnauditedPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -208,7 +208,7 @@ export default function AdminMemberUnauditedPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

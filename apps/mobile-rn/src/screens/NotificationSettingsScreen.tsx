@@ -24,6 +24,8 @@ export function NotificationSettingsScreen() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [success, setSuccess] = useState('')
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function NotificationSettingsScreen() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, reloadKey])
 
   const handleToggle = useCallback((key: keyof NotificationSettingsItem, value: boolean) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
@@ -89,6 +91,7 @@ export function NotificationSettingsScreen() {
       onToggle={handleToggle}
       onSave={handleSave}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
     />
   )

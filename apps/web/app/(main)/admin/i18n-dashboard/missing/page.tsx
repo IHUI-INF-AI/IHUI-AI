@@ -93,7 +93,7 @@ export default function I18nMissingPage() {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/admin/i18n-dashboard"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回概览
@@ -102,9 +102,11 @@ export default function I18nMissingPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <AlertCircle className="h-6 w-6 text-amber-500" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">缺失 Key 列表</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            缺失 Key 列表
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">共 {d.total} 个 Key 待翻译</p>
+        <p className="text-label text-muted-foreground">共 {d.total} 个 Key 待翻译</p>
       </header>
 
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
@@ -131,13 +133,13 @@ export default function I18nMissingPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <AlertCircle className="h-8 w-8 text-emerald-500" />
-          <p className="text-sm text-muted-foreground">该语言无缺失 Key</p>
+          <p className="text-body text-muted-foreground">该语言无缺失 Key</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -157,7 +159,7 @@ export default function I18nMissingPage() {
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     )}
                     <span className="font-mono text-body font-medium">{ns}</span>
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                       {keys.length}
                     </span>
                   </button>
@@ -177,7 +179,9 @@ export default function I18nMissingPage() {
                           >
                             {k.locale}
                           </span>
-                          <span className="min-w-0 flex-1 truncate font-mono text-sm">{k.key}</span>
+                          <span className="min-w-0 flex-1 truncate font-mono text-body">
+                            {k.key}
+                          </span>
                         </div>
                       ))}
                     </div>

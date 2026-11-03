@@ -113,7 +113,7 @@ export function FeedbackForm({
               placeholder={t('contentPlaceholder')}
               maxLength={5000}
               rows={6}
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
@@ -138,11 +138,11 @@ export function FeedbackForm({
               accept={ACCEPTED_IMAGE_TYPES}
               placeholder={t('imagesPlaceholder')}
             />
-            <p className="text-xs text-muted-foreground">{t('unsupportedImage')}</p>
+            <p className="text-label text-muted-foreground">{t('unsupportedImage')}</p>
           </div>
 
           {formError && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {formError}
             </div>
           )}
