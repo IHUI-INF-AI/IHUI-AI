@@ -31460,3 +31460,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] D54 手册 5 章补真实界面截图(getting-started/ai-chat/agent/knowledge-base/account 判定「该有图」;billing/faq 判定「不该有图」并已写明理由,不为消数字塞图):器物与落点已就位(shoot.mjs 1440×900、public/images/docs/<章>-<界面>.png、版式套既有 <Image rounded-lg border>),缺一次 8801 可达 + 登录成功的窗口;本机现读 8801 对 /docs 连续两次 90s 超时、8842/8843/8802 未监听、8855 活着但库口令不匹配;归属:机主;在等:8801 可达 + 登录成功的窗口
 
 - [ ] B46 [auto-triage] API 5xx 错误签名聚类(GET /api/app-version/latest 500)(登记@2026-11-03/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 55 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/app-version/latest → 500 GET /api/app-version/latest -> 500 / Error: Failed query: select "id", "version", "platform", "store", "build_number", "download_url", "force_upda)
+
+- [ ] B47 [auto-triage] API 5xx 错误签名聚类(GET /api/app-version/check-update 500)(登记@2026-11-03/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 15 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/app-version/check-update → 500 GET /api/app-version/check-update -> 500 / Error: Failed query: select "id", "version", "platform", "store", "build_number", "download_url",)
