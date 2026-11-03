@@ -525,6 +525,39 @@ test('① quic 样本(TCP 0 / UDP 4 / gauge 4)⇒ leg-count 不判 breach,读 4 
   assert.equal(d['single-source-point'].verdict, 'unjudged')
 })
 
+// 2026-11-03 方案 A(只修文案):quic 下这两格失明的真根因是 UDP 面逐腿源地址不可枚举,
+// 而旧文案把它误归成"腿已全断/腿数不足"——同一时刻 gauge 正读着 4 条活腿(现场 2026-11-03
+// 直跑:leg-count ok/gauge=4,reason 却写"<1 条腿")。归因必须指对,判定强度与退出码不许动。
+test('quic 盲区归因:两维 unjudged 的 reason 点名"quic 结构盲区",旧误导句式必须摘掉', () => {
+  const d = kit.judge(sampleInput(QUIC_HEALTHY))
+  assert.equal(d['deprecated-source'].verdict, 'unjudged', '只改文案:verdict 仍是 unjudged')
+  assert.equal(d['single-source-point'].verdict, 'unjudged')
+  assert.match(
+    d['deprecated-source'].reason,
+    /^quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判/,
+    'deprecated-source 必须点名真实根因(不记绿也不判红)',
+  )
+  assert.match(
+    d['single-source-point'].reason,
+    /^quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判/,
+    'single-source-point 同上',
+  )
+  assert.doesNotMatch(d['deprecated-source'].reason, /腿已全断|没有可判的在用腿/, 'gauge 正读 4 条活腿时不许写"腿已全断"')
+  assert.doesNotMatch(d['single-source-point'].reason, /腿数不足/, '同上,不许再误归成腿数问题')
+  assert.equal(kit.decideExit(d, true), 3, 'exit 仍 3:文案修正不得把未判定洗成已判定')
+})
+
+test('归因改动不外溢:协议判不出/http2 断流形态仍走原句式(一字不改)', () => {
+  // 进程在、TCP 0、无任何协议来源 ⇒ 旧 breach 形态,deprecated 保留"腿已全断"(那确实是断流)
+  const d = kit.judge(mkInput({ legs: [] }))
+  assert.equal(d['leg-count'].verdict, 'breach')
+  assert.match(d['deprecated-source'].reason, /^无腿可查在用源地址\(腿已全断\)$/)
+  assert.match(d['single-source-point'].reason, /^腿数不足以评估单点\(枚举 <1 条腿 ⇒ 该维不判定\)$/)
+  // quic 样本但把协议来源全摘掉 ⇒ 协议 unknown ⇒ 不得凭空套上"quic 结构盲区"文案
+  const blind = kit.judge(sampleInput(QUIC_HEALTHY, { metricsProtocol: null, protocolHint: null, haConnections: null }))
+  assert.match(blind['deprecated-source'].reason, /没有可判的在用腿|腿已全断/, '判不出 quic 就沿用旧归因,不猜')
+})
+
 test('② http2 样本(TCP 4 / gauge 4)⇒ 仍按旧逻辑绿,两源一致留证据字段', () => {
   const d = kit.judge(sampleInput(HTTP2_HEALTHY))
   const leg = d['leg-count']
