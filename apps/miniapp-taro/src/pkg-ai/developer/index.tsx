@@ -219,7 +219,7 @@ export default function DeveloperIndex() {
     status === tabId || (status === 4 && tabId === 0) || (status === 5 && tabId === 0)
 
   const agentStatusClass = (s: number) => {
-    const base = 'text-[length:24rpx] px-[16rpx] py-[4rpx] rounded-xs'
+    const base = 'text-label leading-[normal] px-[16rpx] py-[4rpx] rounded-xs'
     const styles: Record<number, string> = {
       0: 'text-muted-foreground bg-muted/[0.12]',
       1: 'text-warning bg-warning/[0.12]',
@@ -270,8 +270,8 @@ export default function DeveloperIndex() {
               <Text
                 className={
                   mainTabActive(tab.id)
-                    ? 'text-[length:28rpx] text-primary-foreground font-semibold'
-                    : 'text-[length:28rpx] text-muted-foreground'
+                    ? 'text-body leading-[normal] text-primary-foreground font-semibold'
+                    : 'text-body leading-[normal] text-muted-foreground'
                 }
               >
                 {tt(tab.key, tab.name)}
@@ -313,8 +313,8 @@ export default function DeveloperIndex() {
                 <Text
                   className={
                     status === tab.id
-                      ? 'text-[length:26rpx] text-primary font-semibold'
-                      : 'text-[length:26rpx] text-muted-foreground'
+                      ? 'text-body-sm leading-[normal] text-primary font-semibold'
+                      : 'text-body-sm leading-[normal] text-muted-foreground'
                   }
                 >
                   {tt(tab.key, tab.name)}

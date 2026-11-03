@@ -48,11 +48,12 @@ const TRADER_PLAN_IMAGES: Record<TraderPlanImageSlot, string> = {
 }
 
 const textClassOf = (id: TraderPlanSegment['id'], row: number): string => {
-  if (id === 'founder' && row === 0) return 'block text-[length:32rpx] font-bold text-foreground'
-  if (id === 'founder') return 'mt-[4rpx] block text-[length:26rpx] text-muted-foreground'
+  if (id === 'founder' && row === 0)
+    return 'block text-title leading-[normal] font-bold text-foreground'
+  if (id === 'founder') return 'mt-[4rpx] block text-body-sm leading-[normal] text-muted-foreground'
   if (id === 'intro')
-    return 'mt-[24rpx] block text-center text-[length:28rpx] font-semibold leading-[40rpx] text-[color:var(--color-danger)]'
-  return 'mt-[12rpx] block text-center text-[length:22rpx] text-muted-foreground'
+    return 'mt-[24rpx] block text-center text-body font-semibold leading-[40rpx] text-[color:var(--color-danger)]'
+  return 'mt-[12rpx] block text-center text-caption leading-[normal] text-muted-foreground'
 }
 
 export default function RecruitmentIndexPage() {
