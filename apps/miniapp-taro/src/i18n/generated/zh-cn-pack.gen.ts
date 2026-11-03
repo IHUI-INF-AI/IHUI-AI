@@ -9,14 +9,14 @@
 // 任一环失败时 fail-closed 回落到它 —— 兜底刻意不复用那条失败的解码链路。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: b8060c18c7ed147eba334eca1b9307495c613617
+// sourceCommit: 50c62a2dd0d37b6d8018b74aad1ce7d340c30a75
 // inputsSha256: 069a0633f9b34e0158761d0accdeb0d43b8e26fc7317ffa105b4a0af206ea891
 // input: packages/i18n/messages/miniapp-taro/zh-CN.json ccc2d442f3b72faa35c6c5dcff8767d6bd3f20f6c2752a8f077700bffa4d5f0e
 // input: packages/i18n/messages/mobile-rn/zh-CN.json 494d23dbb4634d5d31a8790525649b759fe6bde943a149f5bac767d5ab4816c9
 // input: packages/i18n/messages/shared/zh-CN.json d61de03cbc8cacaa9524f383fe2b0aba4681d6b2ff412448416be9c576ff5072
 // carried: present
 // carriedKeys: zh-CN=592
-// generatedAt: 2026-11-02T21:02:19.783Z
+// generatedAt: 2026-11-03T00:52:48.649Z
 // IHUI-GEN-PIN-END
 export const ZH_CN_PACK_VERSION = '2670a5ca66a25eff83bf6651736a029f53ec7de4929baec1ed8ace9f1a75161f'
 export const ZH_CN_PACK_BYTES = 148928
