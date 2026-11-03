@@ -15,7 +15,12 @@ import { apiOrThrow } from '@/lib/api'
 import { type DocDetail } from '@/lib/content'
 import { MarkdownBody } from '@/components/docs/markdown-body'
 
-export default function DocsDetailPageClient() {
+interface PageClientProps {
+  /** 服务端探针已取到的正文(命中时直接进首屏 HTML,省一次往返也让 H1 在 SSR 里就位) */
+  initialDetail?: DocDetail | null
+}
+
+export default function DocsDetailPageClient({ initialDetail }: PageClientProps) {
   const { slug } = useParams<{ slug: string }>()
   const tc = useTranslations('common')
   const td = useTranslations('docs')
@@ -30,8 +35,13 @@ export default function DocsDetailPageClient() {
     queryKey: ['doc-detail', slug],
     queryFn: () => apiOrThrow<DocDetail>(`/api/docs/${encodeURIComponent(slug)}`),
     retry: false,
+    initialData: initialDetail ?? undefined,
   })
   const doc = detail?.doc
+  // 标题位绝不回落到 slug 字符串(把 slug 当标题显示 = 软 404 的那张脸):
+  // 取到了用真标题,取不到用既有文案占位。「有没有这篇」由服务端探针判(见 page.tsx),
+  // 明确没有时走 notFound() 渲染 not-found UI;这里只是后端不可达(unknown)那格的兜底。
+  const headingText = doc?.title ?? (isLoading ? tc('loading') : td('shellTitle'))
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
@@ -44,7 +54,7 @@ export default function DocsDetailPageClient() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-display font-bold tracking-tight">{doc?.title ?? slug}</h1>
+        <h1 className="text-display font-bold tracking-tight">{headingText}</h1>
         {doc && (
           <div className="flex items-center gap-2 text-label text-muted-foreground">
             <span className="inline-flex rounded-md bg-muted px-2 py-0.5 font-medium">

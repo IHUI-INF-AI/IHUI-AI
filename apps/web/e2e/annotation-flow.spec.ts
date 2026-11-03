@@ -15,9 +15,14 @@
 // - CI(e2e.yml)没有 ai-service:8803,真 CDP 会话背后的 Playwright 引擎在 CI 不可得。
 //   数据面(GET/POST /api/browser/*、/api/embed-proxy/raw)一律 page.route 拦截;
 //   画面/事件面用 addInitScript 替换 window.WebSocket 为假会话:execute 脚本 eval 到
-//   一个**同源 srcdoc iframe**(假远端页)。PICK_INSTALL / PICK_READ / buildRecheckScript
+//   一个**同源独立文档 iframe**(假远端页)。PICK_INSTALL / PICK_READ / buildRecheckScript
 //   三条注入脚本在真 Chromium 的真远端文档上原样执行 —— 断言对象是注入脚本的真实效果
 //   (__ihuiPickInstalled、computedStyle 采集、selector+text 签名重查),不是手搓假返回。
+// 2026-11-03:假远端页**不能再用 srcdoc**。srcdoc 文档按 CSP 规范继承父文档策略,而生产
+//   CSP(2026-10-30 收紧)的 script-src 无 'unsafe-eval' ⇒ contentWindow.eval(注入脚本)
+//   被拦,execute 恒回 null,T2 的 __ihuiPickInstalled 永为 false、T3-T5 连带红(CI 只在
+//   production build 红,dev 因 CSP 追加 'unsafe-eval' 反而绿,误导了定位)。改由 page.route
+//   就地供应同源 URL 的独立文档:它不继承主页 CSP,注入脚本照常真 eval,断言强度不变。
 // - 进入 cdp 的降级链走产品真实路径:probe canEmbed=false → proxy 模式 → 代理页
 //   postMessage ihui-embed-proxy-error → onFailed → createBrowserSession → mode=cdp。
 //
@@ -29,6 +34,8 @@ import type { Route } from '@playwright/test'
 const TARGET_URL = 'https://e2e-annotation.test/order'
 const SESSION_ID = 'e2e-cdp-annotation-1'
 const REMOTE_IFRAME_ID = 'ihui-e2e-fake-remote-page'
+/** 假远端页的独立文档路径(由 page.route 就地供货,见 mockBrowserDataPlane 的注释) */
+const REMOTE_PATH = '/__e2e__/fake-remote.html'
 
 /** 假"远端页":CDP 画面真实对象在 CI 不可得,以该同源 iframe 代替,注入脚本在其 window 里 eval */
 const REMOTE_PAGE_HTML = [
@@ -50,7 +57,7 @@ const PROXY_ERROR_HTML = [
 const FAKE_WS_INIT_SCRIPT = [
   '(() => {',
   '  const REMOTE_ID = ' + JSON.stringify(REMOTE_IFRAME_ID) + ';',
-  '  const REMOTE_HTML = ' + JSON.stringify(REMOTE_PAGE_HTML) + ';',
+  '  const REMOTE_PATH = ' + JSON.stringify(REMOTE_PATH) + ';',
   '  const WS_MARK = "/api/browser/ws/";',
   '  const NativeWebSocket = window.WebSocket;',
   '  let remoteReady = false;',
@@ -62,7 +69,7 @@ const FAKE_WS_INIT_SCRIPT = [
   '    const frame = document.createElement("iframe");',
   '    frame.id = REMOTE_ID;',
   '    frame.setAttribute("aria-hidden", "true");',
-  '    frame.srcdoc = REMOTE_HTML;',
+  '    frame.src = REMOTE_PATH;',
   '    frame.style.cssText = "position:fixed;left:8px;top:64px;width:380px;height:220px;' +
     'background:#ffffff;border:1px solid #444444;z-index:2147483000";',
   '    frame.addEventListener("load", () => {',
@@ -146,6 +153,16 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
 
 async function mockBrowserDataPlane(page: Page, hits: DataPlaneHits): Promise<void> {
   await page.addInitScript({ content: FAKE_WS_INIT_SCRIPT })
+
+  // 假远端页文档:独立同源 URL + 无 CSP 响应头 ⇒ 不继承主页(生产)策略,contentWindow.eval
+  // 才不会被 'unsafe-eval' 缺失拦掉(见文件头 2026-11-03 注释)。
+  await page.route(`**${REMOTE_PATH}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: REMOTE_PAGE_HTML,
+    })
+  })
 
   await page.route('**/api/chat/conversations**', async (route) => {
     if (route.request().method() === 'GET') {

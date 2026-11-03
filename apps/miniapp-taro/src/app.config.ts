@@ -133,6 +133,7 @@ export default defineAppConfig({
         'edu-child/bills/index',
         'edu-child/study-plans/index',
         'edu-mgmt-attendance/index',
+        'edu-my-attendance/index',
         'edu-mgmt-grades/index',
         'edu-mgmt-finance/index',
         'following/index',

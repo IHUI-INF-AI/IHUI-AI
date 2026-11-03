@@ -37,7 +37,7 @@ import { ADMIN_USER } from './fixtures'
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
 
 const test = base.extend<{ freshPage: Page }>({
-  freshPage: async ({ browser }, use) => {
+  freshPage: async ({ browser }, providePage) => {
     // 不带 storageState 的全新 context,确保未登录态
     const context = await browser.newContext()
     // 隐藏 Next.js dev overlay,避免拦截点击
@@ -46,7 +46,7 @@ const test = base.extend<{ freshPage: Page }>({
       window.__NEXT_DEV_INDICATOR_DISMISSED = true
     })
     const page = await context.newPage()
-    await use(page)
+    await providePage(page)
     await context.close()
   },
 })
