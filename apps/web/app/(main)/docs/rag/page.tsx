@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { BookOpen, Ruler, Target, RefreshCw, Coins } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
@@ -42,24 +43,28 @@ const ragJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '知识库 RAG — 智汇 AI 文档',
-  description:
-    '智汇 AI 知识库 RAG 完整指南:文档解析(PDF/Word/Markdown)、向量化、BM25 混合检索、知识图谱、rerank、引用溯源、多语言分词。',
-  alternates: {
-    canonical: '/docs/rag',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/rag',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.rag.title'),
+    description: t('meta.rag.description'),
+    alternates: {
+      canonical: '/docs/rag',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/rag',
+      },
     },
-  },
-  openGraph: {
-    title: '知识库 RAG — 智汇 AI',
-    description: '从文档上传到引用溯源,完整覆盖 RAG 全链路。',
-    url: `${SITE_URL}/docs/rag`,
-    type: 'article',
-    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI RAG' }],
-  },
+    openGraph: {
+      title: t('meta.rag.title'),
+      description: t('meta.rag.description'),
+      url: `${SITE_URL}/docs/rag`,
+      type: 'article',
+      images: [
+        { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI RAG' },
+      ],
+    },
+  }
 }
 
 export default function RagDocsPage() {
