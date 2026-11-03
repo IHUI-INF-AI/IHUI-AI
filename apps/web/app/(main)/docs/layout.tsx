@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { CategoryShell, type CategoryNavGroup } from '@/components/layout'
 import {
@@ -21,6 +22,13 @@ import {
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('docs')
+  const pathname = usePathname()
+  // 正文**没有**主题 hero H1 的 docs 路由:这些页继续把容器标题当作唯一 H1(保持原状,
+  // 不制造「整页无 H1」的新缺陷)。其余页各自带 hero <h1>(= 该页主题),容器标题降级为
+  // 非标题元素 ⇒ 每页只有一个 H1(a11y + SEO,2026-11-03 立;视觉零变化)。
+  const shellTitledPaths = ['/docs', '/docs/mcp', '/docs/api', '/docs/agent']
+  const cleanPath = pathname.replace(/\/+$/, '')
+  const shellOwnsHeading = shellTitledPaths.some((p) => cleanPath === p || cleanPath.endsWith(p))
   const navGroups: CategoryNavGroup[] = [
     {
       label: t('navDocs'),
@@ -50,7 +58,12 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
     },
   ]
   return (
-    <CategoryShell title={t('shellTitle')} description={t('shellSubtitle')} navGroups={navGroups}>
+    <CategoryShell
+      title={t('shellTitle')}
+      description={t('shellSubtitle')}
+      navGroups={navGroups}
+      contentOwnsH1={!shellOwnsHeading}
+    >
       {children}
     </CategoryShell>
   )
