@@ -73,6 +73,8 @@ export interface BottomActionBarProps {
   onInput?: (value: string) => void
   onSend?: () => void
   onAttach?: () => void
+  /** 发送中(RN 端同名 isLoading 的落点):默认变体禁用发送键,ai-home 变体透传 InputArea 的发送禁用通道 */
+  isLoading?: boolean
 
   /** 样式变体:'default'(旧)/ 'ai-home'(首页专用) */
   variant?: 'default' | 'ai-home'
@@ -196,6 +198,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     onInput,
     onSend,
     onAttach,
+    isLoading = false,
   } = props
 
   if (variant === 'ai-home') {
@@ -237,8 +240,13 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           </BottomActionBarInlineRow>
         ) : null}
 
-        {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx)*/}
-        <InputArea variant="ai-home" {...inputAreaProps} value={inputAreaProps?.value ?? ''} />
+        {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx) */}
+        <InputArea
+          variant="ai-home"
+          {...inputAreaProps}
+          value={inputAreaProps?.value ?? ''}
+          disabled={isLoading || inputAreaProps?.disabled}
+        />
 
         {/* icon-button-group:4 个图标按钮 + 语音输入按钮(对齐原项目 .icon-button-group)。
             卡盒 / 墨迹 / 标文字号 / 图文距与行衬一律由 core 的 icon-card 一支供出;
@@ -355,7 +363,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         style={{ fontSize: toUnit(BOTTOM_ACTION_BAR_TEXT_FONT_PX) }}
         placeholder={placeholder}
         value={value}
-        disabled={disabled}
+        disabled={disabled || isLoading}
         onInput={(e) => onInput?.(e.detail.value)}
         onConfirm={() => onSend?.()}
       />
@@ -369,13 +377,14 @@ export default function BottomActionBar(props: BottomActionBarProps) {
           boxPx={BOTTOM_ACTION_BAR_CONTROL_BOX_PX}
           glyphPx={BOTTOM_ACTION_BAR_SEND_GLYPH_PX}
           glyph="arrow-up"
-          glyphColor={value ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
+          glyphColor={value && !isLoading ? 'var(--color-cta-foreground)' : 'var(--color-muted-foreground)'}
           className={cn(
             'flex items-center justify-center ml-2 rounded-sm',
-            value ? 'bg-cta text-cta-foreground' : 'bg-muted',
+            value && !isLoading ? 'bg-cta text-cta-foreground' : 'bg-muted',
           )}
+          disabled={isLoading}
           onActivate={() => {
-            if (value) onSend?.()
+            if (value && !isLoading) onSend?.()
           }}
         />
       )}

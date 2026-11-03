@@ -209,6 +209,10 @@ export interface BottomActionBarProps {
   isLoading?: boolean
   /** 显示图标按钮组(相机/相册/文件)*/
   isShowIcon?: boolean
+  /** 输入框占位文案(小程序端同名 prop 的 RN 落点;未传时沿用 chat.inputPlaceholder) */
+  placeholder?: string
+  /** 纯禁用态(禁输入 + 禁发送,不切发送中字形;与 isLoading 相互独立) */
+  disabled?: boolean
 }
 
 // ── 常量 ──
@@ -498,15 +502,17 @@ function ChatInputBar(props: BottomActionBarProps) {
     modelName,
     isLoading = false,
     isShowIcon = false,
+    placeholder,
+    disabled = false,
     recording = false,
     recordingDuration = 0,
   } = props
   useUiTextField({
-    label: t('chat.inputPlaceholder'),
+    label: placeholder ?? t('chat.inputPlaceholder'),
     value: prompt,
     setValue: onPromptChange,
     multiline: true,
-    disabled: isLoading,
+    disabled: isLoading || disabled,
   })
 
   const insets = useSafeAreaInsets()
@@ -695,10 +701,10 @@ function ChatInputBar(props: BottomActionBarProps) {
           onContentSizeChange={(e) => {
             onTextareaHeightChange?.(e.nativeEvent.contentSize.height)
           }}
-          placeholder={t('chat.inputPlaceholder')}
+          placeholder={placeholder ?? t('chat.inputPlaceholder')}
           placeholderTextColor={tokens.text.tertiary}
           multiline
-          editable={!isLoading && !recording}
+          editable={!isLoading && !recording && !disabled}
         />
 
         {/* 2026-10-16 录音态覆盖层(微信式按住说话):黑白波形 + 时长 + 松开结束。
@@ -729,7 +735,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             glyph={isLoading ? 'square' : 'arrow-up'}
             glyphColor={tokens.brand.ctaForeground}
             onActivate={onSend}
-            disabled={isLoading}
+            disabled={isLoading || disabled}
             label={t('chat.send')}
             style={styles.sendBtn}
             disabledStyle={styles.sendBtnDisabled}
