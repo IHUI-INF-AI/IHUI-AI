@@ -13,7 +13,10 @@
  * 禁连生产:verifyAccessToken / getUserStatus / API Key 鉴权全部 mock,不触 DB、Redis。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+
+/** preHandler 在 Fastify 链路里以实例为 this;这些 handler 不读 this,单测给空壳即可。 */
+const hookThis = {} as FastifyInstance
 
 const { getUserStatus, verifyAccessToken, decodeJwt } = vi.hoisted(() => ({
   getUserStatus: vi.fn<(id: string) => Promise<number | undefined>>(),
@@ -326,7 +329,7 @@ describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭',
       apiKeyUserId: '00000000-0000-4000-8000-000000000e0a',
     })
     const { reply, sent } = captureReply()
-    await requireAnyPermission(['edu:manage'])(request, reply)
+    await requireAnyPermission(['edu:manage']).call(hookThis, request, reply)
     expect(mockCheckAnyPermission).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000e0a', [
       'edu:manage',
     ])
@@ -342,7 +345,7 @@ describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭',
       permissions: ['*'],
     } as unknown as FastifyRequest['apiKey']
     const { reply, sent } = captureReply()
-    await gate(request, reply)
+    await gate.call(hookThis, request, reply)
     expect(sent.status).toBe(403)
     expect(sent.body?.errorCode).toBe('M2M_FORBIDDEN')
   })

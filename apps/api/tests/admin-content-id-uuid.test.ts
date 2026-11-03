@@ -35,7 +35,7 @@ function loadIdParamSchema(): z.ZodType<{ type: string; id: string }> {
   // 抄一份就等于让"改了 TYPE_KEYS 忘了改测试"这类漂移永远测不出来)。
   const keysM = crudSrc.match(/^const TYPE_KEYS = \[([\s\S]*?)\] as const$/m)
   if (!keysM) throw new Error('crud.ts 里找不到 TYPE_KEYS 定义行,形状漂了')
-  const TYPE_KEYS = keysM[1]
+  const TYPE_KEYS = keysM[1]!
     .split(',')
     .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
     .filter(Boolean)

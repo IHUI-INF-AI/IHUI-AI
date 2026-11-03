@@ -24,6 +24,7 @@ import {
 
 async function createTestUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('comments.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -58,11 +59,11 @@ describe('comment-queries — 真实 DB 集成测试', () => {
         pageSize: 10,
       })
       expect(result.total).toBe(1)
-      expect(result.list[0].content).toBe('测试评论')
+      expect(result.list[0]!.content).toBe('测试评论')
       // postgres.js 驱动返回字符串,Number() 转换后断言
-      expect(Number(result.list[0].repliesCount)).toBe(0)
-      expect(Number(result.list[0].likeCount)).toBe(0)
-      expect(result.list[0].likedByMe).toBe(false)
+      expect(Number(result.list[0]!.repliesCount)).toBe(0)
+      expect(Number(result.list[0]!.likeCount)).toBe(0)
+      expect(result.list[0]!.likedByMe).toBe(false)
     })
 
     it('findComments 按 resourceType + resourceId 过滤 — 不同资源互不影响', async () => {
@@ -94,8 +95,8 @@ describe('comment-queries — 真实 DB 集成测试', () => {
       })
       expect(postResult.total).toBe(1)
       expect(fileResult.total).toBe(1)
-      expect(postResult.list[0].content).toBe('c1')
-      expect(fileResult.list[0].content).toBe('c2')
+      expect(postResult.list[0]!.content).toBe('c1')
+      expect(fileResult.list[0]!.content).toBe('c2')
     })
 
     it('创建带 mentions 的评论', async () => {
@@ -278,8 +279,8 @@ describe('comment-queries — 真实 DB 集成测试', () => {
 
       const result = await findReplies(parent.id, { page: 1, pageSize: 10 })
       expect(result.total).toBe(2)
-      expect(result.list[0].content).toBe('回复1')
-      expect(result.list[1].content).toBe('回复2')
+      expect(result.list[0]!.content).toBe('回复1')
+      expect(result.list[1]!.content).toBe('回复2')
 
       // 父评论的 repliesCount 应为 2(元数据子查询已修复)
       const parentFound = await findCommentById(parent.id)
@@ -304,7 +305,7 @@ describe('comment-queries — 真实 DB 集成测试', () => {
 
       const result = await findFeedbacksByUser(user.id, 1, 10)
       expect(result.total).toBe(1)
-      expect(result.list[0].title).toBe('登录失败')
+      expect(result.list[0]!.title).toBe('登录失败')
     })
 
     it('findFeedbackById + updateFeedback + deleteFeedback', async () => {

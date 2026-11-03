@@ -32,6 +32,7 @@ async function createPricing(data: {
       expiresAt: data.expiresAt,
     })
     .returning()
+  if (!row) throw new Error('pricing-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

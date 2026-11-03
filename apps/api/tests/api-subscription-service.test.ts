@@ -255,7 +255,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(result.keyId).toBe('new-key-1')
       expect(result.tokenQuota).toBe(2000000)
       // 验证 insert 入参 tokenBalance = 2000000
-      const valuesArg = insertResult.values.mock.calls[0][0]
+      const valuesArg = insertResult.values.mock.calls[0]![0]
       expect(valuesArg.tokenBalance).toBe(2000000)
       expect(valuesArg.userId).toBe('user-2')
     })

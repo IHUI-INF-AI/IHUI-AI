@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 289 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 18870 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5450,48 +5448,34 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (1fb2f45d04)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (30d2f7ca16)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3c9a00be72)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f6d68d470b)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (415b1414a3)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d365afb360)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (34ba63607b)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9b60105652)
 - 🔧 工程/其他:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
 - 🚀 新功能/改进:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ae46cd2635)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (45954293cd)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ce45e49f3f)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (be8220b87d)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3f04652720)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (bd75e36dab)
 <!-- END RECENT UPDATES -->
@@ -41022,3 +41006,20 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 🐞 修复:get_session_extra_roots 空会话早退后显式收窄 session_id——消 mcp_server.py:715 存量 mypy 错(str | None 传给 str),根 pnpm typecheck 由红转绿;行为不变 (620f408c83)
 **2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (a3bf177b50)
+100 入库模型 · 38 平台自动发布 · 4000 测试文件 · 315 道工程守门 · 51 CI workflows ·
+| 测试文件 | 4000 | `testFiles` |
+| 跟踪文件 | 18873 | `trackedFiles` |
+  <strong>618 张表 · 4673 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4000 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 51 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **4000 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4673 API 路由 / 4000 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 51 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4000 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4000 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **4000 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:618 张表 · 4673 API 路由 · 4000 测试文件 · ~14839 测试用例
+- **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 取 `ios-nightly` 固定 tag 资产、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
+- **发现射程哨兵**:`scripts/check-desktop-release-discovery-budget.mjs`(只读、**不进提交链** —— 判的是公网端点与运行期数据,挂成提交门即 §12e 恒红门;唯一调度器 = `git-guardian.mjs` 的 `sweepDesktopDiscoveryBudget`,6h 节流)。桌面版靠分页翻 GitHub releases 找最新版,而 Android nightly 会把桌面版挤出射程(2026-11-03 实测:第一页 100 条全是 nightly,桌面版在第 3 页);顶穿那一刻不报错、只安静退回入库快照 ⇒ 这一格把「以后还会翻不到」变成会喊的东西
+- **iOS 站点腿**:`https://www.aizhs.top/remote-images/download/ihui-ai-latest.ipa` 是恒定地址,由 `deploy/cdn-server.js` 读旁边的 `ihui-ai-latest.ipa.redirect.json` 转成 no-cache 302;真正被边缘长缓存(7 天)的是带版本号那份。上腿动作 = `scripts/publish-mobile-ipa.mjs --from-release`(唯一调度器 = `git-guardian.mjs` 的 `sweepIosIpaRelay`,60 分钟一台中继)。版本号只认 release 自带的 `ios-version.json`(由构建从真进包的 Info.plist 取);两者都缺 ⇒ 发布器 exit 2 **不猜号**,下载页回落 GitHub 固定 tag
+### 通病 ② 边界条件处理不足 → 实际:4000 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4000 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **4000 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4000 test files / 67 e2e spec / 4673 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。

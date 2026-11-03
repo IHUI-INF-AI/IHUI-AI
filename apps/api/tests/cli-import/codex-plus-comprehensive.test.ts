@@ -84,10 +84,10 @@ describe('codex++ parser — profiles 多 profile 提取', () => {
       ),
     )
     expect(res.providers).toHaveLength(1)
-    expect(res.providers[0].name).toBe('OpenAI')
-    expect(res.providers[0].baseUrl).toBe('https://api.openai.com/v1')
-    expect(res.providers[0].apiKey).toBe('sk-xxx')
-    expect(res.providers[0].modelIdForTest).toBe('gpt-5')
+    expect(res.providers[0]!.name).toBe('OpenAI')
+    expect(res.providers[0]!.baseUrl).toBe('https://api.openai.com/v1')
+    expect(res.providers[0]!.apiKey).toBe('sk-xxx')
+    expect(res.providers[0]!.modelIdForTest).toBe('gpt-5')
   })
 
   it('多个 profile 同时解析', () => {
@@ -118,7 +118,7 @@ describe('codex++ parser — relayMode 4 种值', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.relayMode).toBe('official')
+    expect(res.providers[0]!.meta!.relayMode).toBe('official')
   })
 
   it('relayMode=mixedApi', () => {
@@ -130,7 +130,7 @@ describe('codex++ parser — relayMode 4 种值', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.relayMode).toBe('mixedApi')
+    expect(res.providers[0]!.meta!.relayMode).toBe('mixedApi')
   })
 
   it('relayMode=pureApi', () => {
@@ -142,7 +142,7 @@ describe('codex++ parser — relayMode 4 种值', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.relayMode).toBe('pureApi')
+    expect(res.providers[0]!.meta!.relayMode).toBe('pureApi')
   })
 
   it('relayMode=aggregate', () => {
@@ -154,7 +154,7 @@ describe('codex++ parser — relayMode 4 种值', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.relayMode).toBe('aggregate')
+    expect(res.providers[0]!.meta!.relayMode).toBe('aggregate')
   })
 
   it('relayMode 缺失 → meta.relayMode undefined', () => {
@@ -165,7 +165,7 @@ describe('codex++ parser — relayMode 4 种值', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.relayMode).toBeUndefined()
+    expect(res.providers[0]!.meta!.relayMode).toBeUndefined()
   })
 })
 
@@ -179,7 +179,7 @@ describe('codex++ parser — protocol → apiFormat 映射', () => {
         }),
       ),
     )
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 
   it('protocol=chatCompletions → openai_chat', () => {
@@ -191,7 +191,7 @@ describe('codex++ parser — protocol → apiFormat 映射', () => {
         }),
       ),
     )
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('protocol 缺失 → 默认 openai_chat', () => {
@@ -202,7 +202,7 @@ describe('codex++ parser — protocol → apiFormat 映射', () => {
         }),
       ),
     )
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('protocol 未知值 → 默认 openai_chat', () => {
@@ -214,7 +214,7 @@ describe('codex++ parser — protocol → apiFormat 映射', () => {
         }),
       ),
     )
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('meta.protocol 字段同步保存', () => {
@@ -226,7 +226,7 @@ describe('codex++ parser — protocol → apiFormat 映射', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.protocol).toBe('responses')
+    expect(res.providers[0]!.meta!.protocol).toBe('responses')
   })
 })
 
@@ -239,8 +239,8 @@ describe('codex++ parser — 非激活 profile apiKey 缺失 warning', () => {
         }),
       ),
     )
-    expect(res.providers[0].apiKey).toBeUndefined()
-    expect(res.providers[0].warnings.some((w) => w.includes('apiKey'))).toBe(true)
+    expect(res.providers[0]!.apiKey).toBeUndefined()
+    expect(res.providers[0]!.warnings.some((w) => w.includes('apiKey'))).toBe(true)
   })
 
   it('apiKey 缺失字段 → warning', () => {
@@ -251,8 +251,8 @@ describe('codex++ parser — 非激活 profile apiKey 缺失 warning', () => {
         }),
       ),
     )
-    expect(res.providers[0].apiKey).toBeUndefined()
-    expect(res.providers[0].warnings.some((w) => w.includes('apiKey'))).toBe(true)
+    expect(res.providers[0]!.apiKey).toBeUndefined()
+    expect(res.providers[0]!.warnings.some((w) => w.includes('apiKey'))).toBe(true)
   })
 
   it('apiKey 正常 → 无 warning', () => {
@@ -263,7 +263,7 @@ describe('codex++ parser — 非激活 profile apiKey 缺失 warning', () => {
         }),
       ),
     )
-    expect(res.providers[0].warnings.some((w) => w.includes('apiKey'))).toBe(false)
+    expect(res.providers[0]!.warnings.some((w) => w.includes('apiKey'))).toBe(false)
   })
 })
 
@@ -276,7 +276,7 @@ describe('codex++ parser — isCurrent 由 isActive 或 activeProfileId 决定',
         }),
       ),
     )
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('isActive=false → isCurrent=false', () => {
@@ -287,7 +287,7 @@ describe('codex++ parser — isCurrent 由 isActive 或 activeProfileId 决定',
         }),
       ),
     )
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 
   it('isActive 缺失 + activeProfileId 匹配 → isCurrent=true', () => {
@@ -334,7 +334,7 @@ describe('codex++ parser — isCurrent 由 isActive 或 activeProfileId 决定',
         }),
       ),
     )
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 
   it('activeProfileId 和 isActive 都缺失 → 全 false', () => {
@@ -345,7 +345,7 @@ describe('codex++ parser — isCurrent 由 isActive 或 activeProfileId 决定',
         }),
       ),
     )
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 })
 
@@ -383,7 +383,7 @@ describe('codex++ parser — name fallback', () => {
         }),
       ),
     )
-    expect(res.providers[0].name).toBe('my-id')
+    expect(res.providers[0]!.name).toBe('my-id')
   })
 
   it('name 和 id 都缺失 → fallback 到 unnamed', () => {
@@ -394,7 +394,7 @@ describe('codex++ parser — name fallback', () => {
         }),
       ),
     )
-    expect(res.providers[0].name).toBe('unnamed')
+    expect(res.providers[0]!.name).toBe('unnamed')
   })
 
   it('name 含 HTML → 被清洗', () => {
@@ -405,8 +405,8 @@ describe('codex++ parser — name fallback', () => {
         }),
       ),
     )
-    expect(res.providers[0].name).not.toContain('<script>')
-    expect(res.providers[0].name).toContain('&lt;script&gt;')
+    expect(res.providers[0]!.name).not.toContain('<script>')
+    expect(res.providers[0]!.name).toContain('&lt;script&gt;')
   })
 })
 
@@ -419,7 +419,7 @@ describe('codex++ parser — providerCode 推断', () => {
         }),
       ),
     )
-    expect(res.providers[0].providerCode).toBe('openai')
+    expect(res.providers[0]!.providerCode).toBe('openai')
   })
 
   it('apiBaseUrl=anthropic.com → anthropic', () => {
@@ -430,7 +430,7 @@ describe('codex++ parser — providerCode 推断', () => {
         }),
       ),
     )
-    expect(res.providers[0].providerCode).toBe('anthropic')
+    expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('apiBaseUrl=deepseek.com → deepseek', () => {
@@ -441,7 +441,7 @@ describe('codex++ parser — providerCode 推断', () => {
         }),
       ),
     )
-    expect(res.providers[0].providerCode).toBe('deepseek')
+    expect(res.providers[0]!.providerCode).toBe('deepseek')
   })
 
   it('model=gemini-xxx 优先 → google', () => {
@@ -459,7 +459,7 @@ describe('codex++ parser — providerCode 推断', () => {
         }),
       ),
     )
-    expect(res.providers[0].providerCode).toBe('google')
+    expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('model=gpt-xxx 优先 → openai', () => {
@@ -472,7 +472,7 @@ describe('codex++ parser — providerCode 推断', () => {
         }),
       ),
     )
-    expect(res.providers[0].providerCode).toBe('openai')
+    expect(res.providers[0]!.providerCode).toBe('openai')
   })
 
   it('未知 baseUrl + 未知 model → custom', () => {
@@ -483,7 +483,7 @@ describe('codex++ parser — providerCode 推断', () => {
         }),
       ),
     )
-    expect(res.providers[0].providerCode).toBe('custom')
+    expect(res.providers[0]!.providerCode).toBe('custom')
   })
 })
 
@@ -496,7 +496,7 @@ describe('codex++ parser — meta 字段验证', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.category).toBe('Official')
+    expect(res.providers[0]!.meta!.category).toBe('Official')
   })
 
   it('meta.websiteUrl 透传', () => {
@@ -507,7 +507,7 @@ describe('codex++ parser — meta 字段验证', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.websiteUrl).toBe('https://openai.com')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://openai.com')
   })
 
   it('meta.contextWindow 透传', () => {
@@ -518,7 +518,7 @@ describe('codex++ parser — meta 字段验证', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.contextWindow).toBe('128k')
+    expect(res.providers[0]!.meta!.contextWindow).toBe('128k')
   })
 
   it('meta.models 与 model 同步', () => {
@@ -529,7 +529,7 @@ describe('codex++ parser — meta 字段验证', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.models).toEqual(['gpt-5'])
+    expect(res.providers[0]!.meta!.models).toEqual(['gpt-5'])
   })
 
   it('model 缺失 → meta.models undefined', () => {
@@ -540,8 +540,8 @@ describe('codex++ parser — meta 字段验证', () => {
         }),
       ),
     )
-    expect(res.providers[0].meta.models).toBeUndefined()
-    expect(res.providers[0].modelIdForTest).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
+    expect(res.providers[0]!.modelIdForTest).toBeUndefined()
   })
 })
 
@@ -554,7 +554,7 @@ describe('codex++ parser — sourceId / sourceAppType', () => {
         }),
       ),
     )
-    expect(res.providers[0].sourceId).toBe('profile-xxx')
+    expect(res.providers[0]!.sourceId).toBe('profile-xxx')
   })
 
   it('sourceAppType 固定为 codex', () => {
@@ -565,7 +565,7 @@ describe('codex++ parser — sourceId / sourceAppType', () => {
         }),
       ),
     )
-    expect(res.providers[0].sourceAppType).toBe('codex')
+    expect(res.providers[0]!.sourceAppType).toBe('codex')
   })
 })
 
@@ -599,8 +599,8 @@ describe('codex++ parser — normalizeProvider 联动', () => {
         }),
       ),
     )
-    expect(res.providers[0].baseUrl).toBe('')
-    expect(res.providers[0].warnings.some((w) => w.includes('baseUrl'))).toBe(true)
+    expect(res.providers[0]!.baseUrl).toBe('')
+    expect(res.providers[0]!.warnings.some((w) => w.includes('baseUrl'))).toBe(true)
   })
 
   it('apiKey 缺失 → normalizeProvider 加 apiKey 警告', () => {
@@ -611,7 +611,7 @@ describe('codex++ parser — normalizeProvider 联动', () => {
         }),
       ),
     )
-    expect(res.providers[0].warnings.some((w) => w.includes('apiKey'))).toBe(true)
+    expect(res.providers[0]!.warnings.some((w) => w.includes('apiKey'))).toBe(true)
   })
 })
 
@@ -659,12 +659,12 @@ describe('codex++ parser — 综合场景', () => {
 
     expect(p1.apiFormat).toBe('openai_responses') // protocol=responses
     expect(p2.apiFormat).toBe('openai_responses')
-    expect(p1.meta.relayMode).toBe('mixedApi')
-    expect(p2.meta.relayMode).toBe('mixedApi')
-    expect(p1.meta.protocol).toBe('responses')
-    expect(p2.meta.protocol).toBe('responses')
-    expect(p1.meta.models).toEqual(['gpt-5'])
-    expect(p2.meta.models).toEqual(['deepseek-coder'])
+    expect(p1.meta!.relayMode).toBe('mixedApi')
+    expect(p2.meta!.relayMode).toBe('mixedApi')
+    expect(p1.meta!.protocol).toBe('responses')
+    expect(p2.meta!.protocol).toBe('responses')
+    expect(p1.meta!.models).toEqual(['gpt-5'])
+    expect(p2.meta!.models).toEqual(['deepseek-coder'])
     expect(p1.providerCode).toBe('openai')
     expect(p2.providerCode).toBe('deepseek')
   })

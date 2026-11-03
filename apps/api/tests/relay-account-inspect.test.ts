@@ -128,7 +128,7 @@ describe('inspectAccountExport / inspectDesktopAuthFile:整份形状', () => {
       'u-2',
     ])
     const wrapped = inspectAccountExport(JSON.stringify({ accounts: rows }), 'workbuddy', NOW)
-    expect(wrapped[1].verdict).toBe('expired-dead')
+    expect(wrapped[1]!.verdict).toBe('expired-dead')
   })
 
   it('本机认证文件:当前号出结论,allAccounts 里其他号如实标「不带凭据」', () => {
@@ -146,10 +146,10 @@ describe('inspectAccountExport / inspectDesktopAuthFile:整份形状', () => {
       ],
     }
     const rows = inspectDesktopAuthFile(JSON.stringify(doc), 'workbuddy', NOW)
-    expect(rows[0].uid).toBe('u-cur')
-    expect(rows[0].verdict).toBe('usable')
+    expect(rows[0]!.uid).toBe('u-cur')
+    expect(rows[0]!.verdict).toBe('usable')
     expect(rows[1]).toMatchObject({ uid: 'u-other', verdict: 'indeterminate' })
-    expect(rows[1].nextAction).toContain('切到它')
+    expect(rows[1]!.nextAction).toContain('切到它')
   })
 
   it('本机信封态(认证文件里 accessToken 是密文信封)⇒ envelope-only,不冒判过期', () => {
@@ -161,7 +161,7 @@ describe('inspectAccountExport / inspectDesktopAuthFile:整份形状', () => {
       account: { uid: 'u-env', nickname: { $wbEncrypted: 1, envelope: 'g' } },
     }
     const rows = inspectDesktopAuthFile(JSON.stringify(doc), 'workbuddy', NOW)
-    expect(rows[0].verdict).toBe('envelope-only')
+    expect(rows[0]!.verdict).toBe('envelope-only')
   })
 })
 

@@ -414,7 +414,10 @@ describe('codearts getQuota(限时福利 balance;APIG 信封实证 2026-10-27)',
   it('请求面:GET balance 端点 + 签名头含 host/x-sdk-date/x-security-token(无 agent-type)', async () => {
     mockFetch.mockResolvedValue({ status: 200, ok: true, text: async () => '{}' })
     await codeartsAdapter.getQuota!(makeCtx())
-    const [url, init] = mockFetch.mock.calls[0] as [string, { headers: Record<string, string> }]
+    const [url, init] = mockFetch.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string> },
+    ]
     expect(url).toContain('opengw.developer.huaweicloud.com/api/v1/user/tokens/balance')
     expect(init.method).toBe('GET')
     const h = Object.fromEntries(

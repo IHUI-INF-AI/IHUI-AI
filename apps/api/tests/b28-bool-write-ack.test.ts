@@ -76,7 +76,8 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 // 代理目标必须是**函数**而不是普通对象 —— 链上任何一环都会被当函数调用(update(table)),
 // 且 get 必须返回代理本体(返回裸 target 会让 .set() 变成"chain is not a function")。
 function makeChain(getRows: () => unknown[]): Record<string, unknown> {
-  const proxy: Record<string, unknown> = new Proxy(function () {}, {
+  const target = function () {} as unknown as Record<string, unknown>
+  const proxy: Record<string, unknown> = new Proxy(target, {
     get(_t, prop: string) {
       if (prop === 'then') {
         return (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>

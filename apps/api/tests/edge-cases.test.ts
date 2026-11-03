@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, afterAll, beforeAll, vi, beforeEach } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 
 // =============================================================================
 // Mock config 避免 env 校验触发 process.exit(1)
@@ -126,8 +126,12 @@ const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
 const NONEXIST_UUID = '00000000-0000-4000-8000-000000000000'
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
 
+/** 行类型直接取自被测查询函数的签名,避免测试里手写第二份形状 */
+type ApiLogRow = Awaited<ReturnType<typeof findApiLogs>>['list'][number]
+type AnnouncementRow = Awaited<ReturnType<typeof findAnnouncements>>[number]
+
 /** 生成 n 条模拟日志 */
-function makeLogs(n: number) {
+function makeLogs(n: number): ApiLogRow[] {
   return Array.from({ length: n }, (_, i) => ({
     id: SAMPLE_UUID,
     method: 'GET',
@@ -136,11 +140,15 @@ function makeLogs(n: number) {
     duration: 10 + i,
     userId: null,
     ip: '127.0.0.1',
+    userAgent: null,
+    error: null,
+    requestBody: null,
+    responseBody: null,
     createdAt: new Date(),
   }))
 }
 
-const mockAnnouncement = {
+const mockAnnouncement: AnnouncementRow = {
   id: SAMPLE_UUID,
   title: '系统公告',
   content: '欢迎使用 IHUI AI',
@@ -150,6 +158,7 @@ const mockAnnouncement = {
   publishedAt: new Date(),
   expiresAt: null,
   createdBy: null,
+  platforms: [],
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -189,7 +198,7 @@ describe('edge cases', () => {
 
   beforeAll(async () => {
     // 与 server.ts 保持一致的错误处理器：将验证错误格式化为 { code, message }
-    server.setErrorHandler((error, _request, reply) => {
+    server.setErrorHandler((error: FastifyError, _request, reply) => {
       const statusCode =
         error.statusCode && error.statusCode >= 400 && error.statusCode < 600
           ? error.statusCode

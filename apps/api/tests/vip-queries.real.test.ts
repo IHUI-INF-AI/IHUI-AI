@@ -19,6 +19,7 @@ import {
 
 async function createTestUser(phone: string) {
   const [row] = await db.insert(users).values({ phone }).returning()
+  if (!row) throw new Error('vip-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -39,15 +40,15 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 30,
         benefits: ['专属客服', '折扣'],
       })
-      expect(level.id).toBeDefined()
-      expect(level.levelName).toBe('月度VIP')
-      expect(level.levelValue).toBe(1)
-      expect(level.price).toBe(3000)
-      expect(level.durationDays).toBe(30)
-      expect(level.status).toBe(1)
-      expect(level.benefits).toEqual(['专属客服', '折扣'])
+      expect(level!.id).toBeDefined()
+      expect(level!.levelName).toBe('月度VIP')
+      expect(level!.levelValue).toBe(1)
+      expect(level!.price).toBe(3000)
+      expect(level!.durationDays).toBe(30)
+      expect(level!.status).toBe(1)
+      expect(level!.benefits).toEqual(['专属客服', '折扣'])
 
-      const found = await findVipLevel(level.id)
+      const found = await findVipLevel(level!.id)
       expect(found).toBeDefined()
       expect(found!.levelName).toBe('月度VIP')
     })
@@ -67,14 +68,14 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 60,
         benefits: [],
       })
-      await updateVipLevel(level2.id, { status: 0 })
+      await updateVipLevel(level2!.id, { status: 0 })
 
       const all = await listVipLevels(false)
       expect(all).toHaveLength(2)
 
       const activeOnly = await listVipLevels(true)
       expect(activeOnly).toHaveLength(1)
-      expect(activeOnly[0].levelName).toBe('上架')
+      expect(activeOnly[0]!.levelName).toBe('上架')
     })
 
     it('updateVipLevel — 更新 name/price/durationDays/status', async () => {
@@ -85,14 +86,14 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 30,
         benefits: [],
       })
-      await updateVipLevel(level.id, {
+      await updateVipLevel(level!.id, {
         levelName: '新名称',
         price: 200,
         durationDays: 60,
         status: 0,
       })
 
-      const found = await findVipLevel(level.id)
+      const found = await findVipLevel(level!.id)
       expect(found!.levelName).toBe('新名称')
       expect(found!.price).toBe(200)
       expect(found!.durationDays).toBe(60)
@@ -107,8 +108,8 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 30,
         benefits: [],
       })
-      await deleteVipLevel(level.id)
-      const found = await findVipLevel(level.id)
+      await deleteVipLevel(level!.id)
+      const found = await findVipLevel(level!.id)
       expect(found).toBeUndefined()
     })
   })
@@ -124,18 +125,18 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         benefits: [],
       })
 
-      await purchaseVip({ userId: user.id, vipLevelId: level.id })
+      await purchaseVip({ userId: user.id, vipLevelId: level!.id })
 
       // users.isVip 应被更新为 level.levelValue
       const [updatedUser] = await db.select().from(users).where(eq(users.id, user.id))
-      expect(updatedUser.isVip).toBe(1)
+      expect(updatedUser!.isVip).toBe(1)
 
       // user_vips 表应有一条记录
       const vips = await db.select().from(userVips).where(eq(userVips.userId, user.id))
       expect(vips).toHaveLength(1)
-      expect(vips[0].status).toBe(1)
-      expect(vips[0].levelValue).toBe(1)
-      expect(vips[0].endTime.getTime() - vips[0].startTime.getTime()).toBe(30 * 86400_000)
+      expect(vips[0]!.status).toBe(1)
+      expect(vips[0]!.levelValue).toBe(1)
+      expect(vips[0]!.endTime.getTime() - vips[0]!.startTime.getTime()).toBe(30 * 86400_000)
     })
 
     it('getMyVip — 返回当前生效的 VIP 订阅(含 levelName)', async () => {
@@ -147,7 +148,7 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 365,
         benefits: ['专属客服'],
       })
-      await purchaseVip({ userId: user.id, vipLevelId: level.id })
+      await purchaseVip({ userId: user.id, vipLevelId: level!.id })
 
       const myVip = await getMyVip(user.id)
       expect(myVip).toBeDefined()
@@ -165,7 +166,7 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 30,
         benefits: [],
       })
-      await purchaseVip({ userId: user.id, vipLevelId: level.id })
+      await purchaseVip({ userId: user.id, vipLevelId: level!.id })
 
       // 手动将 status 改为 0(过期)
       await db.update(userVips).set({ status: 0 }).where(eq(userVips.userId, user.id))
@@ -183,7 +184,7 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 1,
         benefits: [],
       })
-      await purchaseVip({ userId: user.id, vipLevelId: level.id })
+      await purchaseVip({ userId: user.id, vipLevelId: level!.id })
 
       // 手动将 endTime 改为过去时间
       const pastTime = new Date(Date.now() - 86400_000)
@@ -211,13 +212,13 @@ describe('vip-queries — 真实 DB 集成测试', () => {
         durationDays: 30,
         benefits: [],
       })
-      await purchaseVip({ userId: user1.id, vipLevelId: level.id })
-      await purchaseVip({ userId: user2.id, vipLevelId: level.id })
+      await purchaseVip({ userId: user1.id, vipLevelId: level!.id })
+      await purchaseVip({ userId: user2.id, vipLevelId: level!.id })
 
       const r1 = await listUserVips(1, 10, user1.id)
       expect(r1.items).toHaveLength(1)
       expect(r1.total).toBe(1)
-      expect(r1.items[0].userId).toBe(user1.id)
+      expect(r1.items[0]!.userId).toBe(user1.id)
 
       const all = await listUserVips(1, 10)
       expect(all.items).toHaveLength(2)

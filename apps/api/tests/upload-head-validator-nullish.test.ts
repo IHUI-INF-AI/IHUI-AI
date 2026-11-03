@@ -31,7 +31,7 @@ describe('extractExt / validateUploadHead 对 nullish 文件名必须是全函�
   })
 
   it('validateUploadHead:fileName 为 undefined ⇒ 拒绝并点名原因,不抛', () => {
-    let verdict
+    let verdict: ReturnType<typeof validateUploadHead> | undefined
     expect(() => {
       verdict = validateUploadHead(PNG_HEAD, undefined, '')
     }).not.toThrow()
