@@ -379,9 +379,11 @@ export default function VipIndexPage() {
         {/* 加载失败条(对齐 RN ErrorState:文案 + 重试;重试复用一次 load) */}
         {loadFailed ? (
           <View className="mx-[32rpx] mt-[32rpx] px-[24rpx] py-[20rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
-            <Text className="text-[length:26rpx] text-muted-foreground">{t('common.failed')}</Text>
+            <Text className="text-body-sm leading-[normal] text-muted-foreground">
+              {t('common.failed')}
+            </Text>
             <Text
-              className="text-[length:26rpx] font-semibold text-[var(--color-brand-accent-deep)]"
+              className="text-body-sm leading-[normal] font-semibold text-[var(--color-brand-accent-deep)]"
               onClick={() => void load()}
             >
               {t('vip.retry')}
