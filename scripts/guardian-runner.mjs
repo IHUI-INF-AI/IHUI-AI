@@ -6986,6 +6986,34 @@ const checks = [
       '     应急放行:HUSKY_SKIP_WEB_RN_COPY_PARITY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 编号 292:旧 blob 回写守门(2026-11-03 立;判据见 check-staged-downgrade.mjs 头注)。
+  // 立因(实测):guardian 的 sweepUiMirrorLeg → gen-ui-mirror --apply 把 RN 壳未 token 化的
+  // 绑定声明当权威,30 分钟一轮把小程序已 token 化声明覆盖回祖先版本;4 组件
+  // (Badge/Input/Tooltip/VipBadge)整 blob 逐字等于 766687c346^ / ec9802df54^,随后被收编/并行
+  // 会话 git add 进共享索引。30c 只认 merge-base 之前的基线祖先,84 的 R1 只看行级 ⇒ 两者都漏
+  // "回退到父提交/近几枚提交旧档"这一格。本门整 blob 逐字判,红了点路径+祖先提交+HEAD oid。
+  // 合法回滚的唯一出口:提交正文写 `intentional-revert: <依据>`(≥8 字符)⇒ 放行并留痕
+  // .ihui-agent/state/intentional-revert.jsonl;无声明一律红。
+  {
+    id: '292',
+    label:
+      '🧊 旧 blob 回写守门(blocking:暂存内容逐字等于该路径祖先 blob 而 HEAD 已有更新档 ⇒ 拦提交;有意回滚须写 intentional-revert: 依据)',
+    script: 'check-staged-downgrade.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_STALE_DOWNGRADE',
+    onFailHint: [
+      '  💡 红 = 有人把旧检出档搬回暂存区(内容与某枚祖先提交的 blob 逐字相同,HEAD 已有新版本)。',
+      '     先看点名里的「祖先 sha」:git show <祖先sha> -- <路径> 对比 HEAD;改法是从 HEAD 形态重做本次编辑',
+      '     (git restore --source=HEAD -- <文件> 后重改),不要保留旧档。',
+      '  💡 确属有意回滚:提交正文写一行 `intentional-revert: <依据>`(≥8 字符),本门放行并留痕',
+      '     .ihui-agent/state/intentional-revert.jsonl。',
+      '     取证:node scripts/check-staged-downgrade.mjs --self-test(6 例:远/近祖先回写、合法回滚、新内容、无暂存、空口声明)',
+      '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
+      '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
   // 编号 289:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。deferred 日当天放行,
   // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
   // 射程写 ['**/*'](= 任何提交都跑):到期与本次暂存了哪些文件无关;只在碰台账/文档时才跑
