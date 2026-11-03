@@ -121,9 +121,9 @@ function server(): FastifyInstance {
 }
 
 async function injectJson(opts: {
-  method: string
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   url: string
-  body?: unknown
+  body?: object
   headers?: Record<string, string>
 }): Promise<{ statusCode: number; envelope: Envelope }> {
   const res = await server().inject(opts)
@@ -245,9 +245,9 @@ describe('GET /admin/relay/accounts/:id/tasks(O68 转发面)', () => {
     expect(d.unjudged).toBe(false)
     const tasks = d.tasks as Record<string, unknown>[]
     expect(tasks).toHaveLength(1)
-    expect(tasks[0].taskCode).toBe('daily_growth')
-    expect(tasks[0].rewardCredit).toBeNull() // null ≠ 0:引擎没给奖励数值
-    expect(tasks[0].acceptStatus).toBe('accepted')
+    expect(tasks[0]!.taskCode).toBe('daily_growth')
+    expect(tasks[0]!.rewardCredit).toBeNull() // null ≠ 0:引擎没给奖励数值
+    expect(tasks[0]!.acceptStatus).toBe('accepted')
     // 转发的正是 pool-status 解析出的 ai-service 账号 id
     expect(
       fetchCalls.some((c) => c.url.includes(`/api/checkin/accounts/${CHECKIN_ACCOUNT_ID}/tasks`)),

@@ -70,7 +70,7 @@ def test_build_review_messages_zero_chain_context():
 
 
 def test_summarize_impact_reports_machine_scan():
-    text = gr.summarize_impact("fetch_url", {"url": "http://127.0.0.1:8810/x"})
+    text = gr.summarize_impact("fetch_url", {"url": "http://127.0.0.1:5399/x"})
     assert "dangerous=True" in text
     assert "ssrf_loopback" in text
 

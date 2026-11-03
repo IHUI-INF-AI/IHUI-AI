@@ -1167,27 +1167,57 @@ test('T-WM-NEW-2 blob 模式新建件:判据面=对象库 blob,盘上根本没�
   assert.notEqual(landedOid, bareOid, '入树内容必须是注入后的新 blob,不是调用方那份无水印的')
   const landed = git(['cat-file', 'blob', landedOid], { root: dir, raw: true })
   assert.ok(WM.payloadIntact(String(landed)), 'blob 模式的新建件同样必须带可解码载荷')
-  assert.match(r.stdout, /水印预检通过\(新建路径 1\/1/, '新建路径载荷维必须在报告里可见')
+  assert.match(
+    r.stdout,
+    /水印预检通过\(新建 1 \+ 既有 0 = 1 路径/,
+    '预检报告必须把新建/既有两段都摊开(既有段是新收紧的面,不能只报新建)',
+  )
   assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, 'blob 模式绝不写工作树')
 })
 
-test('T-WM-NEW-3 已存在路径不受注入:入树内容必须与清单 oid 逐字节一致', (t) => {
+test('T-WM-NEW-3 已存在路径不受注入:载荷完好时入树内容必须与清单 oid 逐字节一致', (t) => {
   const dir = makeRepo(t)
-  const plain = 'export const keep = 1\n' // 基线无横幅:本器只判"横幅保持",不逼既有文件长出横幅
-  writeFileSync(join(dir, 'keep.ts'), plain)
+  // 2026-11-03:既有路径不再享有"只判横幅"的宽松档(事故 0335facba1 正是既有的 agent-chat-stream.ts
+  // 载荷被写坏而横幅完好)。夹具改成**基线已带完好水印**——这仍是零注入语义的对照:
+  // 预检只认载荷,不重写;入树字节必须等于调用方清单 oid。
+  const baseText = WM.injectText('export const keep = 1\n', { rel: 'keep.ts' }).text
+  writeFileSync(join(dir, 'keep.ts'), baseText)
   runGit(dir, ['add', '--', 'keep.ts'])
-  runGit(dir, ['commit', '-q', '-m', '基线:无横幅的既有文件'])
-  const want = hashText(dir, 'export const keep = 2\n')
+  runGit(dir, ['commit', '-q', '-m', '基线:既有文件带完好水印'])
+  const wantText = WM.injectText('export const keep = 2\n', { rel: 'keep.ts' }).text
+  const want = hashText(dir, wantText)
   const mf = join(dir, 'mf-existing.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: want }] }))
   const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
   assert.equal(r.status, 0, `既有路径的落地语义不得变,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.equal(/新建路径已按 §5c 注入/.test(r.stdout), false, '既有路径不得进注入射程')
+  assert.match(r.stdout, /新建 0 \+ 既有 1 = 1 路径/, '既有路径必须进预检面(这是本次收紧的格)')
   assert.equal(
     git(['rev-parse', 'HEAD:keep.ts'], { root: dir }),
     want,
-    '入树内容必须与清单 oid 逐字节一致',
+    '入树内容必须与清单 oid 逐字节一致(零注入不是"重注一份差不多")',
   )
+})
+
+test('T-WM-NEW-3b 反向例:既有路径 banner 完好但零宽载荷被剥 ⇒ 必须拒落并点名(事故 0335facba1 同形)', (t) => {
+  const dir = makeRepo(t)
+  const baseText = WM.injectText('export const keep = 1\n', { rel: 'keep.ts' }).text
+  writeFileSync(join(dir, 'keep.ts'), baseText)
+  runGit(dir, ['add', '--', 'keep.ts'])
+  runGit(dir, ['commit', '-q', '-m', '基线:既有文件带完好水印'])
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  // 残迹形态:可见横幅两行俱在,只把零宽载荷整段剥掉(与 agent-chat-stream.ts 丢 24 个码元同型)。
+  const residue = baseText.replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, '')
+  assert.equal(WM.payloadIntact(residue), false, '夹具前提:残迹载荷必须解不出')
+  assert.ok(residue.includes('© 2026 IHUI AI'), '夹具前提:可见横幅必须仍然在(否则测的是"缺横幅"不是"坏载荷")')
+  const bad = hashText(dir, residue)
+  const mf = join(dir, 'mf-existing-bad.json')
+  writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: bad }] }))
+  const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
+  assert.notEqual(r.status, 0, `坏载荷必须拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stderr + r.stdout, /水印预检不通过|水印校验派生失败/, '必须报"预检不通过",不得静默落地')
+  assert.match(r.stderr + r.stdout, /keep\.ts/, '必须点名那个既有文件(只报数不点名 = 责任不可归)')
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
 })
 
 /**
@@ -1974,13 +2004,18 @@ test('T-BANNER-R 形状锁:零宽族的剥离只许有一份实现,且载荷完�
 // (防"先补个 BOM 就能把改写洗白");④ 钉住被放宽的那一臂本身仍有牙。
 // ─────────────────────────────────────────────────────────────────────────────
 const BOM = String.fromCodePoint(0xfeff) // U+FEFF:UTF-8 BOM / 零宽不断空格,写码点而非字面量(字面量在源码里不可见)
-const PS1_BANNER = [
-  '# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
-  '# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
-  '# [IHUI-AI-PROVENANCE]:' + String.fromCodePoint(0x200b, 0x200d, 0x2060),
-  'Write-Output "hi"',
-  '',
-].join('\n')
+// 2026-11-03:预检面从"仅新建路径"收紧到"本次落地的全部路径"后,既有路径夹具也必须带
+// **可解码载荷**(事故 0335facba1 正是横幅完好、载荷坏)。旧夹具手写了 3 个零宽码元当载荷 ——
+// 那是横幅形状,不是真水印;此处改用官方 injectText 生成,横幅三行语义不变。
+const PS1_BANNER = WM.injectText(
+  [
+    '# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+    '# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
+    'Write-Output "hi"',
+    '',
+  ].join('\n'),
+  { rel: 'scripts/x.ps1' },
+).text
 
 /** 带规范横幅的 `.ps1` 已入库(无 BOM)—— 器物盲区G 的事故现场:基线有横幅、本次只补 BOM。 */
 function makePs1Repo(t) {

@@ -221,7 +221,7 @@ describe('subagent 派单面 user-scoped 归属存续锁(跨租户行为层)', (
   it('(c) 非本人请求 4 个按 id 端点一律 404,且 service 零调用(闸在 service 之前)', async () => {
     const asTenantA = { 'x-probe-user': 'tenant-a' }
 
-    const cases: Array<{ method: 'GET' | 'POST'; url: string; payload?: unknown }> = [
+    const cases: Array<{ method: 'GET' | 'POST'; url: string; payload?: object }> = [
       { method: 'POST', url: '/api/subagents/b-1/cancel' },
       { method: 'POST', url: '/api/subagents/b-1/resume' },
       { method: 'POST', url: '/api/subagents/b-1/attention', payload: { attention: 'awaiting_answer' } },

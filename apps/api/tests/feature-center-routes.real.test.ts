@@ -28,6 +28,7 @@ async function createAiModel(data: {
       description: data.description,
     })
     .returning()
+  if (!row) throw new Error('feature-center-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -46,6 +47,7 @@ async function createAgent(data: {
       agentModel: data.agentModel,
     })
     .returning()
+  if (!row) throw new Error('feature-center-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -66,6 +68,7 @@ async function createDoc(data: {
       status: data.status ?? 'published',
     })
     .returning()
+  if (!row) throw new Error('feature-center-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -90,6 +93,7 @@ async function createSdk(data: {
       documentationUrl: data.documentationUrl,
     })
     .returning()
+  if (!row) throw new Error('feature-center-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

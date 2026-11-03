@@ -23,6 +23,7 @@ import { startAiCallbackWorker } from '../src/workers/ai-callback-worker'
 import type { AICallbackJobData } from '../src/plugins/queue.js'
 import { createWorker } from '../src/plugins/queue.js'
 import { createMessage, findMessageById, updateMessage } from '../src/db/chat-queries.js'
+import type { ChatMessage } from '@ihui/database'
 
 const mockedCreateWorker = vi.mocked(createWorker)
 const mockedFind = vi.mocked(findMessageById)
@@ -45,7 +46,7 @@ function startWorker(): void {
 
 function getProcessor(): (job: { id?: string; data: AICallbackJobData }) => Promise<unknown> {
   expect(mockedCreateWorker.mock.calls.length).toBeGreaterThan(0)
-  return mockedCreateWorker.mock.calls[0][2] as (job: {
+  return mockedCreateWorker.mock.calls[0]![2] as (job: {
     id?: string
     data: AICallbackJobData
   }) => Promise<unknown>
@@ -74,14 +75,37 @@ function makeJob(overrides: Partial<AICallbackJobData> = {}): {
 
 function getUpdateMetadata(): Record<string, unknown> {
   const call = mockedUpdate.mock.calls[0]
-  return (call[2] as { metadata: Record<string, unknown> }).metadata
+  return (call![2] as { metadata: Record<string, unknown> }).metadata
+}
+
+/**
+ * createMessage / updateMessage 返回行 = ChatMessage。本文件只用到 metadata 与 id,
+ * 其余必填列在此给中性默认值(不造只有 id 的半行)。
+ */
+function messageRow(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: 'msg-1',
+    conversationId: 'conv-1',
+    role: 'assistant',
+    content: 'AI 回复',
+    createdAt: new Date(0),
+    metadata: {},
+    tokens: null,
+    reasoning: null,
+    turnOrdinal: null,
+    parentMessageId: null,
+    siblingIndex: null,
+    pinnedAt: null,
+    bookmarkedAt: null,
+    ...overrides,
+  }
 }
 
 describe('AI callback worker metadata merge (D24)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockedUpdate.mockResolvedValue({ id: 'msg-1' })
-    mockedCreate.mockResolvedValue({ id: 'msg-new' })
+    mockedUpdate.mockResolvedValue(messageRow())
+    mockedCreate.mockResolvedValue(messageRow({ id: 'msg-new' }))
     mockedFind.mockResolvedValue(undefined)
   })
 

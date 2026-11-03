@@ -32,6 +32,7 @@ import {
 
 async function createTestUser(phone: string) {
   const [row] = await db.insert(users).values({ phone }).returning()
+  if (!row) throw new Error('workspace-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -57,20 +58,20 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
         .select()
         .from(projectMembers)
         .where(eq(projectMembers.projectId, p.id))
-      expect(member.role).toBe('owner')
-      expect(member.userId).toBe(u.id)
+      expect(member!.role).toBe('owner')
+      expect(member!.userId).toBe(u.id)
     })
 
     it('findProjectById + listProjectsByUser(按 updatedAt 倒序)', async () => {
       const u = await createTestUser('13800000002')
       const p1 = await createProject({ name: 'P1', userId: u.id })
       await new Promise((r) => setTimeout(r, 50))
-      const _p2 = await createProject({ name: 'P2', userId: u.id })
+      await createProject({ name: 'P2', userId: u.id })
       expect((await findProjectById(p1.id))?.name).toBe('P1')
       expect(await findProjectById('00000000-0000-4000-8000-000000000000')).toBeUndefined()
       const list = await listProjectsByUser(u.id)
       expect(list).toHaveLength(2)
-      expect(list[0].name).toBe('P2') // 最近更新在前
+      expect(list[0]!.name).toBe('P2') // 最近更新在前
     })
 
     it('listProjectsByUserWithFileCount — 附带未删除文件数', async () => {
@@ -104,7 +105,7 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
       await softDeleteFile(f3.id, u.id)
       const list = await listProjectsByUserWithFileCount(u.id)
       expect(list).toHaveLength(1)
-      expect(Number(list[0].fileCount)).toBe(2) // 排除软删除
+      expect(Number(list[0]!.fileCount)).toBe(2) // 排除软删除
     })
 
     it('updateProject — 部分字段更新 + updatedAt 刷新', async () => {
@@ -152,7 +153,7 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
         uploadedBy: u.id,
       })
       await new Promise((r) => setTimeout(r, 50))
-      const _f2 = await createFile({
+      await createFile({
         projectId: p.id,
         name: 'f2',
         path: '/f2',
@@ -164,7 +165,7 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
       expect((await findFileById(f1.id))?.name).toBe('f1')
       const list = await listFilesByProject(p.id)
       expect(list).toHaveLength(2)
-      expect(list[0].name).toBe('f2') // 最新在前
+      expect(list[0]!.name).toBe('f2') // 最新在前
     })
 
     it('findFileById vs findFileByIdIncludeTrashed — 软删除后前者查不到', async () => {
@@ -205,7 +206,7 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
       await softDeleteFile(f2.id, u.id)
       const list = await listFilesByProject(p.id)
       expect(list).toHaveLength(1)
-      expect(list[0].id).toBe(f1.id)
+      expect(list[0]!.id).toBe(f1.id)
     })
 
     it('countFilesByProject — 仅统计未删除文件', async () => {
@@ -275,7 +276,7 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
       await restoreFile(f1.id)
       const trashed2 = await findTrashedFiles(u.id)
       expect(trashed2).toHaveLength(1)
-      expect(trashed2[0].id).toBe(f2.id)
+      expect(trashed2[0]!.id).toBe(f2.id)
       // 恢复后可正常查到
       expect((await findFileById(f1.id))?.id).toBe(f1.id)
     })
@@ -362,8 +363,8 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
       expect(await getLatestVersion(f.id)).toBe(2)
       const versions = await findFileVersions(f.id)
       expect(versions).toHaveLength(2)
-      expect(versions[0].version).toBe(2) // 倒序
-      expect(versions[1].version).toBe(1)
+      expect(versions[0]!.version).toBe(2) // 倒序
+      expect(versions[1]!.version).toBe(1)
     })
 
     it('getLatestVersion — 无版本返回 0', async () => {

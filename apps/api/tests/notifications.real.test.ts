@@ -22,6 +22,7 @@ import {
 
 async function createTestUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('notifications.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -51,7 +52,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
 
       const result = await findNotificationsByUser(user.id, { page: 1, pageSize: 10 })
       expect(result.total).toBe(1)
-      expect(result.list[0].title).toBe('欢迎使用')
+      expect(result.list[0]!.title).toBe('欢迎使用')
     })
 
     it('findNotificationsByUser 按 type 过滤', async () => {
@@ -65,7 +66,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
         type: 'system',
       })
       expect(systemOnly.total).toBe(1)
-      expect(systemOnly.list[0].type).toBe('system')
+      expect(systemOnly.list[0]!.type).toBe('system')
 
       const all = await findNotificationsByUser(user.id, { page: 1, pageSize: 10 })
       expect(all.total).toBe(2)
@@ -84,7 +85,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
         unreadOnly: true,
       })
       expect(unreadOnly.total).toBe(1)
-      expect(unreadOnly.list[0].title).toBe('n2')
+      expect(unreadOnly.list[0]!.title).toBe('n2')
     })
 
     it('不同用户的通知互不影响', async () => {
@@ -97,7 +98,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
       const r2 = await findNotificationsByUser(user2.id, { page: 1, pageSize: 10 })
       expect(r1.total).toBe(1)
       expect(r2.total).toBe(1)
-      expect(r1.list[0].title).toBe('user1 通知')
+      expect(r1.list[0]!.title).toBe('user1 通知')
     })
   })
 
@@ -185,8 +186,8 @@ describe('notification-queries — 真实 DB 集成测试', () => {
 
       // 含 system admin 共 4 人(3 测试用户 + admin)
       expect(notifications.length).toBeGreaterThanOrEqual(3)
-      expect(notifications[0].title).toBe('系统公告')
-      expect(notifications[0].isRead).toBe(false)
+      expect(notifications[0]!.title).toBe('系统公告')
+      expect(notifications[0]!.isRead).toBe(false)
     })
 
     it('无测试用户时只通知 system admin(1 条)', async () => {
@@ -218,9 +219,9 @@ describe('notification-queries — 真实 DB 集成测试', () => {
       // 从 user1 视角查询与 user2 的消息历史
       const result = await findMessagesBetween(user1.id, user2.id, 1, 10)
       expect(result.total).toBe(3)
-      expect(result.list[0].content).toBe('你好')
-      expect(result.list[1].content).toBe('你好啊')
-      expect(result.list[2].content).toBe('今天天气如何?')
+      expect(result.list[0]!.content).toBe('你好')
+      expect(result.list[1]!.content).toBe('你好啊')
+      expect(result.list[2]!.content).toBe('今天天气如何?')
     })
 
     it('findMessagesBetween — 只返回双方之间的消息,不含第三方的', async () => {
@@ -234,7 +235,7 @@ describe('notification-queries — 真实 DB 集成测试', () => {
 
       const result = await findMessagesBetween(user1.id, user2.id, 1, 10)
       expect(result.total).toBe(1)
-      expect(result.list[0].content).toBe('1→2')
+      expect(result.list[0]!.content).toBe('1→2')
     })
 
     it('findConversations — 会话列表取每个对话最近一条', async () => {

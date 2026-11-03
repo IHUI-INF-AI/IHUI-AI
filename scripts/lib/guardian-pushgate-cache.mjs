@@ -25,11 +25,24 @@ function readPushGateCache() {
   }
 }
 
-/** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
-export function computeGateFingerprint() {
+/** 门注册表规格串:门 id/脚本/参数任一变化 ⇒ 指纹变 ⇒ 旧缓存失效(新挂门的必经保护)。 */
+function gateSpecsOf(checks) {
+  return (checks ?? [])
+    .map((c) => `${c.id}\u0000${c.script}\u0000${JSON.stringify(c.args ?? [])}`)
+    .join('\n')
+}
+
+/**
+ * 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容)
+ * + **HEAD 全树**(2026-11-03 补:门 47 push 档判的是 push scope ∩ HEAD 全树,
+ *   `HEAD:apps/packages` 两棵子树覆盖不到 scripts/ 等路径;不并入全树会让"只改 scripts/ 的提交"
+ *   复用到旧指纹而跳过水印门 —— 结构上等于没挂门)
+ * + **push 门注册表规格**(门集合/参数变化必须使旧缓存失效;否则新挂的门会被老缓存放过去)。
+ */
+export function computeGateFingerprint({ gateSpecs } = {}) {
   try {
     // 派生统一走层(scripts/lib/face-reader.mjs):绝对 git + 显式 stdio/windowsHide + timeout。
-    const trees = gitRaw(['rev-parse', 'HEAD:apps', 'HEAD:packages'], process.cwd(), {
+    const trees = gitRaw(['rev-parse', 'HEAD:apps', 'HEAD:packages', 'HEAD^{tree}'], process.cwd(), {
       timeout: 300_000,
     }).trim()
     // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
@@ -39,6 +52,8 @@ export function computeGateFingerprint() {
     const h = createHash('sha1')
     h.update(trees)
     h.update(statusRaw)
+    h.update('\0push-gate-specs\0')
+    h.update(gateSpecs ?? '')
     const tokens = statusRaw.split('\0').filter(Boolean)
     for (let i = 0; i < tokens.length && i < 400; i++) {
       const tok = tokens[i]
@@ -61,10 +76,10 @@ export function computeGateFingerprint() {
  * push-gate 模式的缓存命中早退(--no-cache 与 HUSKY_SKIP_PUSHGATE_CACHE=1 逃生舱保留)。
  * 命中 ⇒ 本函数内 process.exit(0)(拆分前同位语义);未命中 ⇒ 返回,继续跑批。
  */
-export function pushGateCacheEarlyExit({ pushGate, cliArgs, C }) {
+export function pushGateCacheEarlyExit({ pushGate, cliArgs, C, checks }) {
   if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGATE_CACHE !== '1') {
     const cache = readPushGateCache()
-    const fp = computeGateFingerprint()
+    const fp = computeGateFingerprint({ gateSpecs: gateSpecsOf(checks) })
     if (
       cache &&
       cache.passed === true &&
@@ -74,7 +89,7 @@ export function pushGateCacheEarlyExit({ pushGate, cliArgs, C }) {
     ) {
       const ageMin = ((Date.now() - cache.ts) / 60000).toFixed(1)
       console.info(
-        `${C.green}⚡ [push-gate] 命中缓存:类型相关内容指纹 ${String(fp).slice(0, 11)} 于 ${ageMin} 分钟前已通过全量门,跳过重复 typecheck${C.reset}`,
+        `${C.green}⚡ [push-gate] 命中缓存:内容+门集指纹 ${String(fp).slice(0, 11)} 于 ${ageMin} 分钟前已通过 push 门,跳过重复检查${C.reset}`,
       )
       console.info(`${C.dim}   (内容一致复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)${C.reset}`)
       process.exit(0)
@@ -83,16 +98,20 @@ export function pushGateCacheEarlyExit({ pushGate, cliArgs, C }) {
 }
 
 /** push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用)。写失败不影响放行。 */
-export function writePushGateCache({ C, failed, pushGate }) {
+export function writePushGateCache({ C, failed, pushGate, checks }) {
   if (pushGate && failed === 0) {
     try {
       mkdirSync(resolve(process.cwd(), '.ihui-agent', 'state'), { recursive: true })
       writeFileSync(
         pushGateCacheFile,
-        JSON.stringify({ fp: computeGateFingerprint(), passed: true, ts: Date.now() }),
+        JSON.stringify({
+          fp: computeGateFingerprint({ gateSpecs: gateSpecsOf(checks) }),
+          passed: true,
+          ts: Date.now(),
+        }),
       )
       console.info(
-        `${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`,
+        `${C.dim}⚡ [push-gate] 结果已缓存(内容与门集一致时重复推送免重跑)${C.reset}`,
       )
     } catch {
       /* 缓存写失败不影响放行 */

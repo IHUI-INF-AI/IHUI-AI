@@ -79,10 +79,10 @@ custom_providers:
 `
     const res = parseHermes(makeText(yaml))
     expect(res.providers).toHaveLength(1)
-    expect(res.providers[0].name).toBe('OpenAI')
-    expect(res.providers[0].baseUrl).toBe('https://api.openai.com/v1')
-    expect(res.providers[0].apiKey).toBe('sk-xxx')
-    expect(res.providers[0].modelIdForTest).toBe('gpt-5')
+    expect(res.providers[0]!.name).toBe('OpenAI')
+    expect(res.providers[0]!.baseUrl).toBe('https://api.openai.com/v1')
+    expect(res.providers[0]!.apiKey).toBe('sk-xxx')
+    expect(res.providers[0]!.modelIdForTest).toBe('gpt-5')
   })
 
   it('多个 provider 同时解析', () => {
@@ -114,7 +114,7 @@ custom_providers:
     is_active: true
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('is_active=false → isCurrent=false', () => {
@@ -125,7 +125,7 @@ custom_providers:
     is_active: false
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 
   it('is_active 缺失 + default_provider 匹配 name → isCurrent=true', () => {
@@ -151,7 +151,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('is_active=true 优先于 default_provider 不匹配', () => {
@@ -163,7 +163,7 @@ custom_providers:
     is_active: true
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('is_active 缺失 + default_provider 缺失 → isCurrent=false', () => {
@@ -173,7 +173,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 
   it('is_active 缺失 + default_provider 不匹配任何 → 全 false', () => {
@@ -184,7 +184,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(false)
+    expect(res.providers[0]!.isCurrent).toBe(false)
   })
 })
 
@@ -199,10 +199,10 @@ custom_providers:
     isActive: true
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].baseUrl).toBe('https://api.openai.com')
-    expect(res.providers[0].apiKey).toBe('sk-xxx')
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.baseUrl).toBe('https://api.openai.com')
+    expect(res.providers[0]!.apiKey).toBe('sk-xxx')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('defaultProvider camelCase 也能识别', () => {
@@ -213,7 +213,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].isCurrent).toBe(true)
+    expect(res.providers[0]!.isCurrent).toBe(true)
   })
 
   it('customProviders camelCase 也能识别', () => {
@@ -235,8 +235,8 @@ custom_providers:
     iconColor: '#FF0000'
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].meta.websiteUrl).toBe('https://openai.com')
-    expect(res.providers[0].meta.iconColor).toBe('#FF0000')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://openai.com')
+    expect(res.providers[0]!.meta!.iconColor).toBe('#FF0000')
   })
 })
 
@@ -249,7 +249,7 @@ custom_providers:
     api_format: openai_chat
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('api_format=anthropic → anthropic_messages', () => {
@@ -260,7 +260,7 @@ custom_providers:
     api_format: anthropic
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('anthropic_messages')
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
   it('api_format=anthropic_messages → anthropic_messages', () => {
@@ -271,7 +271,7 @@ custom_providers:
     api_format: anthropic_messages
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('anthropic_messages')
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
   it('api_format=responses → openai_responses', () => {
@@ -282,7 +282,7 @@ custom_providers:
     api_format: responses
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 
   it('api_format=openai_responses → openai_responses', () => {
@@ -293,7 +293,7 @@ custom_providers:
     api_format: openai_responses
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('openai_responses')
+    expect(res.providers[0]!.apiFormat).toBe('openai_responses')
   })
 
   it('api_format=gemini → gemini_native', () => {
@@ -304,7 +304,7 @@ custom_providers:
     api_format: gemini
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('gemini_native')
+    expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
 
   it('api_format=gemini_native → gemini_native', () => {
@@ -315,7 +315,7 @@ custom_providers:
     api_format: gemini_native
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('gemini_native')
+    expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
 
   it('api_format 大小写不敏感(Anthropic) → anthropic_messages', () => {
@@ -326,7 +326,7 @@ custom_providers:
     api_format: Anthropic
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('anthropic_messages')
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
   it('api_format 缺失 → 默认 openai_chat', () => {
@@ -336,7 +336,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
   it('api_format 未知值 → 默认 openai_chat', () => {
@@ -347,7 +347,7 @@ custom_providers:
     api_format: unknown_format
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiFormat).toBe('openai_chat')
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 })
 
@@ -359,8 +359,8 @@ custom_providers:
     api_key: sk-xxx
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].baseUrl).toBe('')
-    expect(res.providers[0].warnings.some((w) => w.includes('baseUrl'))).toBe(true)
+    expect(res.providers[0]!.baseUrl).toBe('')
+    expect(res.providers[0]!.warnings.some((w) => w.includes('baseUrl'))).toBe(true)
   })
 
   it('api_key 缺失 → apiKey undefined + normalizeProvider 加警告', () => {
@@ -370,8 +370,8 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].apiKey).toBeUndefined()
-    expect(res.providers[0].warnings.some((w) => w.includes('apiKey'))).toBe(true)
+    expect(res.providers[0]!.apiKey).toBeUndefined()
+    expect(res.providers[0]!.warnings.some((w) => w.includes('apiKey'))).toBe(true)
   })
 
   it('model 缺失 → modelIdForTest undefined + meta.models undefined', () => {
@@ -381,8 +381,8 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].modelIdForTest).toBeUndefined()
-    expect(res.providers[0].meta.models).toBeUndefined()
+    expect(res.providers[0]!.modelIdForTest).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
   })
 
   it('model 存在 → modelIdForTest + meta.models 同步', () => {
@@ -393,8 +393,8 @@ custom_providers:
     model: gpt-5
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].modelIdForTest).toBe('gpt-5')
-    expect(res.providers[0].meta.models).toEqual(['gpt-5'])
+    expect(res.providers[0]!.modelIdForTest).toBe('gpt-5')
+    expect(res.providers[0]!.meta!.models).toEqual(['gpt-5'])
   })
 })
 
@@ -407,7 +407,7 @@ custom_providers:
     category: Official
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].meta.category).toBe('Official')
+    expect(res.providers[0]!.meta!.category).toBe('Official')
   })
 
   it('meta.websiteUrl 透传', () => {
@@ -418,7 +418,7 @@ custom_providers:
     website_url: https://openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].meta.websiteUrl).toBe('https://openai.com')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://openai.com')
   })
 
   it('meta.icon 透传', () => {
@@ -429,7 +429,7 @@ custom_providers:
     icon: openai
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].meta.icon).toBe('openai')
+    expect(res.providers[0]!.meta!.icon).toBe('openai')
   })
 
   it('meta.iconColor 透传', () => {
@@ -440,7 +440,7 @@ custom_providers:
     icon_color: '#10A37F'
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].meta.iconColor).toBe('#10A37F')
+    expect(res.providers[0]!.meta!.iconColor).toBe('#10A37F')
   })
 })
 
@@ -453,7 +453,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].sourceId).toBe('my-id')
+    expect(res.providers[0]!.sourceId).toBe('my-id')
   })
 
   it('无 id → sourceId = hermes::${idx}', () => {
@@ -465,8 +465,8 @@ custom_providers:
     api_base_url: https://api.second.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].sourceId).toBe('hermes::0')
-    expect(res.providers[1].sourceId).toBe('hermes::1')
+    expect(res.providers[0]!.sourceId).toBe('hermes::0')
+    expect(res.providers[1]!.sourceId).toBe('hermes::1')
   })
 })
 
@@ -478,7 +478,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].name).toBe('explicit-id')
+    expect(res.providers[0]!.name).toBe('explicit-id')
   })
 
   it('name 缺失 + id 缺失 → fallback 到 hermes::idx', () => {
@@ -487,7 +487,7 @@ custom_providers:
   - api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].name).toBe('hermes::0')
+    expect(res.providers[0]!.name).toBe('hermes::0')
   })
 
   it('name 含 HTML → 被清洗', () => {
@@ -497,8 +497,8 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].name).not.toContain('<script>')
-    expect(res.providers[0].name).toContain('&lt;script&gt;')
+    expect(res.providers[0]!.name).not.toContain('<script>')
+    expect(res.providers[0]!.name).toContain('&lt;script&gt;')
   })
 })
 
@@ -510,7 +510,7 @@ custom_providers:
     api_base_url: https://api.openai.com/v1
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('openai')
+    expect(res.providers[0]!.providerCode).toBe('openai')
   })
 
   it('api_base_url=anthropic.com → anthropic', () => {
@@ -520,7 +520,7 @@ custom_providers:
     api_base_url: https://api.anthropic.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('anthropic')
+    expect(res.providers[0]!.providerCode).toBe('anthropic')
   })
 
   it('api_base_url=deepseek.com → deepseek', () => {
@@ -530,7 +530,7 @@ custom_providers:
     api_base_url: https://api.deepseek.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('deepseek')
+    expect(res.providers[0]!.providerCode).toBe('deepseek')
   })
 
   it('api_base_url=googleapis.com → google', () => {
@@ -540,7 +540,7 @@ custom_providers:
     api_base_url: https://generativelanguage.googleapis.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('google')
+    expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('api_format=gemini_native → google(apiFormat 兜底)', () => {
@@ -551,7 +551,7 @@ custom_providers:
     api_format: gemini
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('google')
+    expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('model=gemini-xxx 优先于 baseUrl → google', () => {
@@ -562,7 +562,7 @@ custom_providers:
     model: gemini-2.0-flash
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('google')
+    expect(res.providers[0]!.providerCode).toBe('google')
   })
 
   it('未知 baseUrl + 未知 model → custom', () => {
@@ -572,7 +572,7 @@ custom_providers:
     api_base_url: https://api.unknown.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].providerCode).toBe('custom')
+    expect(res.providers[0]!.providerCode).toBe('custom')
   })
 })
 
@@ -584,7 +584,7 @@ custom_providers:
     api_base_url: https://api.openai.com
 `
     const res = parseHermes(makeText(yaml))
-    expect(res.providers[0].sourceAppType).toBe('hermes')
+    expect(res.providers[0]!.sourceAppType).toBe('hermes')
   })
 })
 
@@ -651,13 +651,13 @@ custom_providers:
     expect(openai.providerCode).toBe('openai')
     expect(anthropic.providerCode).toBe('anthropic')
 
-    expect(openai.meta.category).toBe('Official')
-    expect(openai.meta.websiteUrl).toBe('https://openai.com')
-    expect(openai.meta.icon).toBe('openai')
-    expect(openai.meta.iconColor).toBe('#10A37F')
-    expect(openai.meta.models).toEqual(['gpt-5'])
+    expect(openai.meta!.category).toBe('Official')
+    expect(openai.meta!.websiteUrl).toBe('https://openai.com')
+    expect(openai.meta!.icon).toBe('openai')
+    expect(openai.meta!.iconColor).toBe('#10A37F')
+    expect(openai.meta!.models).toEqual(['gpt-5'])
 
-    expect(anthropic.meta.models).toEqual(['claude-sonnet-4-5'])
+    expect(anthropic.meta!.models).toEqual(['claude-sonnet-4-5'])
   })
 
   it('camelCase 字段 + defaultProvider + isActive', () => {

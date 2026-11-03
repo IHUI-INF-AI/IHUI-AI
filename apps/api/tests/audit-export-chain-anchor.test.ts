@@ -380,7 +380,7 @@ describe('86F ① 收件方兼容底线:旧信封(无 chainAnchor)验签行为�
   it('过滤子集(链上不连续)json 导出 ⇒ 不挂锚、不判红(既有路径)', async () => {
     mockRows(NON_CONTIGUOUS_ROWS)
     const envelope = await buildSignedAuditExport(
-      { userId: NON_CONTIGUOUS_ROWS[0]?.userId },
+      { userId: NON_CONTIGUOUS_ROWS[0]!.userId ?? undefined },
       'json',
       100,
     )
