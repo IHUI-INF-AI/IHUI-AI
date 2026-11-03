@@ -7088,5 +7088,14 @@
   },
   "studyIndex": {
     "receiveFreeBody": "链接已复制到剪贴板,可在浏览器粘贴打开"
+  },
+  "career": {
+    "fillField": "请填写：{name}",
+    "submitFail": "提交失败，请稍后重试",
+    "doneTitle": "提交成功",
+    "doneBody": "问卷已提交，AI 学业建议生成后可在本页查看。",
+    "exportingReport": "导出中...",
+    "exportEmptyHint": "生成报告后可导出",
+    "exportLoginRequired": "请先登录后再导出"
   }
 }

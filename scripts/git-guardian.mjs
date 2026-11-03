@@ -11388,6 +11388,17 @@ export function sweepRnCompatLeg(opts = {}) {
   })
 }
 
+/** 小程序词包整块缺口搬运(基准侧已有译文 ⇒ 逐字搬,取不到 ⇒ 点名不代拟;只写工作树,落库交收编腿)。 */
+export function sweepMiniappMessageKeysLeg(opts = {}) {
+  return runCrossEndApplyLeg({
+    scriptName: 'sync-miniapp-message-keys.mjs',
+    args: ['--apply'],
+    defaultTickFile: join(dirname(LOG), 'miniapp-message-keys-last.json'),
+    label: '小程序词包整块缺口搬运',
+    opts,
+  })
+}
+
 /**
  * 派生产物自走重生成的共用派发体(两族各一条腿,底下只有一件器物、一条落 HEAD 的接缝)。
  * 器物 = scripts/heal-derived-in-checkout.mjs:按当前 HEAD 建 detached 检出 → 在检出里重跑各端生成器
@@ -12262,6 +12273,10 @@ async function main() {
     if (!CHECK_ONLY) sweepRnColorLiteralLeg()
     // 门 251 的修法出口此前全仓零调度点 ⇒ 挂在这里:图标全集/路由映射一漂,提交链那道 blocking 就等人手敲。
     if (!CHECK_ONLY) sweepRnCompatLeg()
+    // 跨端驾驶舱连日复发的那道红(mirror-pack-namespace-missing)此前只有尺、没有器物 ⇒ 每次等人手抄五语言 JSON。
+    // 本腿把它变成机械动作:基准侧已有的译文逐字搬,取不到则点名不代拟;排在建包腿(healI18nBundleLeg)之前,
+    // 搬完的词下一轮就进小程序离线包。
+    if (!CHECK_ONLY) sweepMiniappMessageKeysLeg()
     if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
     if (!CHECK_ONLY) sweepParityCockpit()
