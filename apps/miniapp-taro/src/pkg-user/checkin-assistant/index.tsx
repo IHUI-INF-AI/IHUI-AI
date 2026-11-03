@@ -140,7 +140,7 @@ export default function CheckinAssistant() {
           <Text className="block text-heading font-bold text-foreground">
             {t('checkinAssistant.title')}
           </Text>
-          <Text className="mt-[8rpx] block text-[length:26rpx] leading-[38rpx] text-muted-foreground">
+          <Text className="mt-[8rpx] block text-body-sm leading-[38rpx] text-muted-foreground">
             {t('checkinAssistant.subtitle')}
           </Text>
 

@@ -117,7 +117,7 @@ export default function AboutIndexPage() {
             <Text className="block text-center text-[length:56rpx] font-bold text-foreground">
               {t('about.heroTitle')}
             </Text>
-            <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-center text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.heroSubtitle')}
             </Text>
             {info.version ? (
@@ -133,10 +133,10 @@ export default function AboutIndexPage() {
             <Text className="block text-subtitle font-bold text-foreground">
               {t('about.storyTitle')}
             </Text>
-            <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.storyP1')}
             </Text>
-            <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.storyP2')}
             </Text>
           </View>
@@ -179,7 +179,7 @@ export default function AboutIndexPage() {
                   <Text className="text-display font-bold text-brand-accent-deep">
                     {t(s.valueKey)}
                   </Text>
-                  <Text className="text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+                  <Text className="text-center text-body-sm leading-[40rpx] text-muted-foreground">
                     {t(s.descKey)}
                   </Text>
                 </View>
@@ -193,7 +193,7 @@ export default function AboutIndexPage() {
             <Text className="block text-center text-subtitle font-bold text-foreground">
               {t('about.ctaTitle')}
             </Text>
-            <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+            <Text className="block text-center text-body-sm leading-[40rpx] text-muted-foreground">
               {t('about.ctaDesc')}
             </Text>
             <View
