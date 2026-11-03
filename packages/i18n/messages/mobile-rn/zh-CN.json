@@ -941,7 +941,9 @@
     "version": "版本",
     "language": "语言",
     "theme": "主题",
-    "logoutConfirmBody": "确认退出当前账号？"
+    "logoutConfirmBody": "确认退出当前账号？",
+    "accountDeletionConfirmLabel": "确认注销",
+    "accountDeletionConfirmTitle": "确认注销"
   },
   "menu": {
     "artifacts": "产物中心",
@@ -3537,7 +3539,11 @@
     "opType4": "退款",
     "opType5": "佣金",
     "loginRequiredHint": "登录后查看资金流水",
-    "goLogin": "去登录"
+    "goLogin": "去登录",
+    "rechargeFail": "充值失败",
+    "rechargeSuccess": "充值成功",
+    "contactSupport": "联系客服",
+    "retryRecharge": "重新充值"
   },
   "activity": {
     "empty": "暂无活动",
@@ -7208,5 +7214,14 @@
     "empty": "开始新的任务",
     "searchNoResult": "无匹配结果",
     "retry": "重试"
+  },
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暂无学习路径"
+  },
+  "user": {
+    "security": {
+      "sendCode": "发送验证码"
+    }
   }
 }
