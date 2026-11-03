@@ -140,7 +140,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 ## 11. 多 Subagent 并行开发强制规则(强制)
 任务分配格式(强制字段):任务目标 / 受影响文件(绝对路径,只允许清单内)/ 禁止修改 / 验证命令(子任务完成后必须自行运行)/ 约束边界 / 交付物。**我方现状格(强制,G-830)**:派单前写明当前分支/HEAD、相关文件在飞状态、已有等价实现;前提自检声明"本格内容按当次实测填写"。门不得读自己(判"前提是否腐烂"的门扫被审面,不扫自己)。
 ## 12. 多会话并行操作同一仓库强制规则(强制)
-- **强制 `scripts/safe-commit.mjs` 五步法**(真实事故根治):①暂存文件清单回显 → ②只 add 本任务文件(禁 `git add .`/`-A`)→ ③commit 带 pathspec(只提交声明集)→ ④推送 → ⑤回读验证 local == remote。禁止裸 `git commit`。
+- **强制 `scripts/safe-commit.mjs` 五步法**(真实事故根治):①暂存文件清单回显 → ②只 add 本任务文件(禁 `git add .`/`-A`)→ ③commit 带 pathspec(只提交声明集)→ ④推送 → ⑤回读验证 local == remote。禁止裸 `git commit`。**默认永不跳钩(2026-11-03 机主明令)**:钩子判红后的归因只回答"这道红是不是本任务引入的",**不是跳钩授权**;默认非零退出、不落地,出路只有修红后重跑 / 等并发会话释放索引 / 改走 `node scripts/object-space-land.mjs`(它不跑钩子,落地后自动复跑受影响门并把结果打进 stdout);仅限人工确认后显式 `--allow-skip-hooks="<原因>"`(正文自动写入「人工授权跳钩」一行,默认关闭)。
 - **git 写锁**:`scripts/git-lock.mjs`;部署/构建全局锁 `deploy-lock.mjs`(meta 记 host+pidStart,`pidStart` 量的必须是"判活所问的那个 pid";判活再加一环 = 身份凭据;只有 `mismatch` 给抢占授权,先归档现场再抢;`check`/`release` 不现测)。dev 入口统一 `scripts/dev-with-warmup.mjs` 启动器(拿锁在 spawn 之前;破坏性步骤必须在 acquire 后、next dev 前)。
 - **stash 全面禁止**(多会话共享工作区 stash 会吞他人现场);跨会话现场隔离用 git worktree(§12d)。
 - **全工作树口径(强制)**:未提交结论须覆盖全部 worktree;唯一口径 `scripts/check-worktree-status.mjs`(门 281,提交口 `--gate`)。
@@ -243,7 +243,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **桌面事件接线三层对账**:`check-desktop-event-wiring.mjs`(Tauri emit → listen → 前端注册;"就绪点亮"按可达性判,被抽进被调函数也算,允许一跳)。
 - **迁移正文不可变**(185):已进 journal 的 .sql 禁就地改正文(IM1 首次入库 blob 对照/IM2 索引 vs HEAD);守门 49 记账结构(B1-B5 离线,B6-B9 连库)。**受管 `.env` 键值被清空对账** `check-env-drift.mjs`(守护巡检档,判机器状态不进提交链)。
 - **元运维巡检轮** `check-ops-patrol.mjs`:看守者本身还活着吗(P1-P6:副本漂移/规则不热加载/时钟失步/无上限/心跳无人判/引用不存在指标)。**服务存续双探测**:`check-service-binary-paths.mjs`(warn,STATE/nssm Application 存在/端口应答,nssm stdout 是 UTF-16)、`check-public-path-probe.mjs`(outage 与常态分序列,取证经 `run-evidence.mjs` 封缄,truncated 不成合格证)。
-- **跳门留痕**:钩子失败归因是量出来的(`scripts/lib/commit-gate-attribution.mjs`:逐道复跑、点名本次文件 ⇒ 必修;批没跑完 ⇒ safe-commit 自跑一遍再归因;汇总块必须先过"轮次绑定"锁——之前那次 staged 清单回显必须完整包含本次声明集)。跳门次数唯一真值 = `.ihui-agent/state/safe-commit-attestation.jsonl`。**agent 不得假设"钩子红了就能跳"**。
+- **跳门留痕**:钩子失败归因是量出来的(`scripts/lib/commit-gate-attribution.mjs`:逐道复跑、点名本次文件 ⇒ 必修;批没跑完 ⇒ safe-commit 自跑一遍再归因;汇总块必须先过"轮次绑定"锁——之前那次 staged 清单回显必须完整包含本次声明集)。跳门次数唯一真值 = `.ihui-agent/state/safe-commit-attestation.jsonl`。**默认永不跳钩(2026-11-03 立)**:safe-commit 不再在归因非 mine 时自动 `--no-verify`(自跑门集合 ≠ 钩子门集合,自跑全绿不能证明钩子会全绿);并发锁争用 3 次指数退避、总预算 60s,耗尽 exit≠0 且不落地;唯一人工旗标 `--allow-skip-hooks="<原因>"`,正文留痕。**agent 不得假设"钩子红了就能跳"**。
 ## 关键参考文档
 | 文档                      | 说明                                                                                         |
 | ------------------------- | -------------------------------------------------------------------------------------------- |

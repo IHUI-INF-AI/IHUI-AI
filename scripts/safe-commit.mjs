@@ -31,11 +31,35 @@
  *   node scripts/safe-commit.mjs -m "..." --files-from .ihui-agent/tmp/paths.txt
  *     (清单为 UTF-8、一行一个路径;`-` 表示从 stdin 读。超过 Windows argv 上限的大批量
  *      路径必须走它 —— 清单内路径逐条校验后仍进同一条五步法,没有任何旁路。)
+ *   node scripts/safe-commit.mjs --allow-skip-hooks="<原因>" -m "..." -- <files>
+ *     (人工授权跳钩;**默认关闭**;正文会写入「人工授权跳钩」一行)
  *   AGENT_SCOPE="apps/web/" node scripts/safe-commit.mjs -m "..." -- apps/web/foo.tsx
+ *
+ * 跳钩纪律(2026-11-03 机主明令,违纪 P0):
+ *   **默认永不跳钩。** 钩子判红后的归因只回答"这道红是不是本任务引入的",它**不是**跳钩授权。
+ *   旧流程在归因判 not-ours / env-blocked / unattributed 后自动以 `--no-verify` 落地
+ *   (近 3 轮至少 3–5 笔),造成两件事:
+ *     ① 钩子里的门与 safe-commit 自跑的门不是同一集合(见下),存在漏检;
+ *     ② 正文只留 attestation ⇒ 审计上分不清"真过钩"与"跳钩"。
+ *   现在默认非零退出、不落地;唯一出路:
+ *     ① 修红后重跑;② 等待并发会话释放索引;③ 改走 `node scripts/object-space-land.mjs`
+ *        (它不跑钩子,但落地后自动复跑受影响门并把结果打进 stdout,门红则报红并 exit 非 0);
+ *     ④ 仅限人工确认后显式加 `--allow-skip-hooks="<原因>"`(正文写入一行醒目说明)。
+ *   门集合差异(自跑取证 ≠ 钩子):
+ *     · 钩子(pre-commit):lint-staged + `guardian-runner --staged --timing` + `.husky/pre-commit`
+ *       薄壳里的批外专项门(check-staged-typecheck / check-rn-global-css-sync /
+ *       check-miniapp-taro-style-parity / check-cross-store-parity / check-site-footer /
+ *       check-portal-fixed / check-button-height / check-capability-matrix / …);
+ *       另有 commit-msg 阶段的 check-commit-scope-consistency / check-style-verification。
+ *     · safe-commit 自跑(仅归因取证):`guardian-runner --staged`(无 --timing)、被红名单点名的
+ *       单门 `--staged` 复跑、`.husky/commit-msg` 里点名的检查。**不含 lint-staged**,也不含
+ *       上述批外专项门与 token 生成器 ⇒ 它全绿不能证明钩子会全绿。
+ *   并发锁争用:3 次重试、指数退避、总预算 60s;耗尽即 exit 非 0(不落地、不跳钩)。
  *
  * 退出码:
  *   0  成功(commit 已落地,post-commit hook 会自动 push)
- *   1  校验失败(意外文件/缺文件/agent scope 越界)
+ *   1  校验失败(意外文件/缺文件/agent scope 越界);默认拒绝自动跳钩;
+ *      并发锁重试耗尽(索引锁争用,不是钩子判红)
  *   2  环境错误(非 git 仓库/无 origin 等);2026-10-29 起也用于归因**未判定**
  *      (commit-msg 阶段复跑取不到输入 ⇒ 拒绝按 not-ours 跳门,§0.3)
  */
@@ -180,6 +204,9 @@ let dryRun = false
 // --files-from 清单入口(2026-11-02 立):argv 上限下 1747 条路径装不进命令行,
 // 这里只换**入口的运输方式**,不换五步法。`-` = stdin。
 let filesFrom = null
+// 人工授权跳钩(2026-11-03 立,机主明令「不许 --no-verify」):默认关闭。
+// 值 = 原因(必须非空)——正文会写入一行醒目说明,审计上必须分得出"真过钩"与"人工授权跳钩"。
+let allowSkipHooks = null
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i]
@@ -187,6 +214,19 @@ for (let i = 0; i < args.length; i++) {
     messageParts.push(args[++i])
   } else if (a.startsWith('--message=')) {
     messageParts.push(a.split('=').slice(1).join('='))
+  } else if (a.startsWith('--allow-skip-hooks=')) {
+    const reason = a.slice('--allow-skip-hooks='.length).trim()
+    if (!reason) {
+      console.error(`${C.red}❌ --allow-skip-hooks 必须带原因:--allow-skip-hooks="<原因>"${C.reset}`)
+      process.exit(2)
+    }
+    allowSkipHooks = reason
+  } else if (a === '--allow-skip-hooks') {
+    console.error(
+      `${C.red}❌ --allow-skip-hooks 必须带原因(裸旗标不生效,避免"以为写了理由实际没写"):` +
+        `--allow-skip-hooks="<原因>"${C.reset}`,
+    )
+    process.exit(2)
   } else if (a === '--files-from') {
     const v = args[++i]
     if (typeof v !== 'string' || v.length === 0) {
@@ -217,6 +257,7 @@ for (let i = 0; i < args.length; i++) {
       console.log('      node scripts/safe-commit.mjs -m "<msg>" --files-from <path|->')
       console.log('  --dry-run       只校验不 commit')
       console.log('  --files-from    从 UTF-8 清单读路径(一行一个;`-` = stdin);与 `--` 后路径取并集')
+      console.log('  --allow-skip-hooks=<原因>  人工授权跳钩(**默认关闭**;正文写入醒目说明)')
       console.log('  --scope <dir>   限定本 agent 范围(可用环境变量 AGENT_SCOPE)')
       console.log('  环境变量: AGENT_SCOPE="apps/web/ apps/api/" 限定范围')
       process.exit(0)
@@ -550,7 +591,34 @@ const isGitLockFailure = (status, out) => status === 128 && GIT_LOCK_MISS.test(o
 const GIT_DETERMINISTIC_FATAL =
   /Author identity unknown|unable to auto-detect email address|not a git repository|unable to access|Failed to connect|Permission denied|Repository not found/i
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
-const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
+/** 读非负整数 env:空值/非法值 ⇒ 默认值(不得把 "" 读成 0 而静默关掉重试)。 */
+const envInt = (name, dflt) => {
+  const raw = String(process.env[name] ?? '').trim()
+  if (raw === '') return dflt
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : dflt
+}
+/**
+ * 并发锁争用重试策略(2026-11-03 收窄,机主明令):
+ *   · 默认 **3 次重试**(共 4 次尝试)、指数退避(2s/4s/8s)、**总预算 60s**;
+ *   · 旧形态是 10 次 × 固定 3s —— 在钩子窗口里白等,且耗尽后仍是"等一等就好了"的错觉。
+ *   · 预算耗尽 ⇒ 调用方 exit 非 0,**绝不**以 --no-verify 兜底。
+ * 环境变量只给测试/极端现场收窄用,默认值就是纪律本身。
+ */
+const LOCK_RETRIES = envInt('IHUI_SAFE_COMMIT_LOCK_RETRIES', 3)
+const LOCK_BACKOFF_BASE_MS = envInt('IHUI_SAFE_COMMIT_LOCK_BACKOFF_MS', 2000)
+const LOCK_RETRY_BUDGET_MS = envInt('IHUI_SAFE_COMMIT_LOCK_BUDGET_MS', 60_000)
+/** @returns {number|null} 下一次重试前该睡多久;null = 预算耗尽,不得再重试。 */
+function nextLockRetryDelay(attempt, startedAt) {
+  const remaining = LOCK_RETRY_BUDGET_MS - (Date.now() - startedAt)
+  if (remaining <= 0) return null
+  return Math.min(LOCK_BACKOFF_BASE_MS * 2 ** (attempt - 1), remaining)
+}
+/** 锁争用耗尽后的统一出路文案(Step 1-3 与 Step 4 两处发令点共用一份,禁止各写各的)。 */
+const LOCK_EXHAUSTED_ADVICE =
+  `索引锁争用重试耗尽(${LOCK_RETRIES} 次 / 总预算 ${LOCK_RETRY_BUDGET_MS}ms)—— 这**不是**钩子判红;` +
+  '请等待并发会话释放索引(node scripts/git-lock.mjs check 看持有者),或改走 `node scripts/object-space-land.mjs`' +
+  '(它不跑钩子,落地后自动复跑受影响门);本枚不落地、**不跳钩**。'
 /** 该路径是否已在索引里(= 已跟踪)。用于区分"已跟踪却被忽略"与"未跟踪的产物"。 */
 function isTrackedInIndex(p) {
   return (
@@ -628,6 +696,7 @@ function stageDeclared(files, label) {
 
 function gitStep(args, label) {
   let last = null
+  const startedAt = Date.now()
   for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     last = spawnSync('git', args, {
       encoding: 'utf8',
@@ -646,11 +715,13 @@ function gitStep(args, label) {
     if (last.status === 0) return last
     const out = `${last.stdout || ''}${last.stderr || ''}`
     if (isGitLockFailure(last.status, out) && attempt <= LOCK_RETRIES) {
+      const delay = nextLockRetryDelay(attempt, startedAt)
+      if (delay === null) return last // 预算耗尽:把最后一枚原样交给调用方去报红退出
       log(
         'warn',
-        `…${label} 撞 git 索引锁(exit ${last.status},钩子还没轮到),第 ${attempt}/${LOCK_RETRIES} 次重试`,
+        `…${label} 撞 git 索引锁(exit ${last.status},钩子还没轮到),第 ${attempt}/${LOCK_RETRIES} 次重试(${delay}ms 后)`,
       )
-      sleep(3000)
+      sleep(delay)
       continue
     }
     return last
@@ -688,6 +759,8 @@ log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)'
 const resetResult = gitStep(['reset', 'HEAD'], 'git reset HEAD')
 if (resetResult.status !== 0) {
   log('err', `git reset HEAD 失败: ${resetResult.stderr}`)
+  if (isGitLockFailure(resetResult.status, `${resetResult.stdout ?? ''}${resetResult.stderr ?? ''}`))
+    log('err', LOCK_EXHAUSTED_ADVICE)
   process.exit(2)
 }
 
@@ -1129,10 +1202,10 @@ if (dryRun) {
 // reset → 声明式 add → 暂存区精确匹配,且全流程在 git 写锁伞下串行(LOCK_UNIT)。
 // 活文档对账(3e/3f 与守门 check-live-doc-pathspec 的 --staged 档)判的是**索引**内容,
 // 与提交形态无关,普通提交下依旧成立(索引 == 声明文件的工作树字节,Step 2 保证)。
-// 设计: 首次**不跳过** pre-commit hook, 让 22 项质量守门(API key/i18n/schema
-// drift/lint-staged/check-staged-files 等)正常运行; 失败后再用 --no-verify 重试,
-// 保证多 agent 并行时其他 agent 的 typecheck/lint 错误不阻塞本任务 commit。
-// 修复前: 一律 --no-verify 跳过, 等于把质量守门全关(与"多层防线"设计矛盾)。
+// 设计(2026-11-03 改定,机主明令):每次发令都**必须过钩子**。钩子判红后的归因只回答
+// "这道红是不是本任务引入的",**不是**跳钩授权;旧流程"失败后再用 --no-verify 重试"已废止
+// (它会把钩子里的门与自跑的门混为一谈,并在正文留下难以审计的 attestation 噪声)。
+// 唯一例外 = 显式 `--allow-skip-hooks="<原因>"`,且正文写入「人工授权跳钩」一行。
 log('info', 'Step 4/5: git commit(普通提交,不带 pathspec)— 首次尝试(含 pre-commit hook)')
 // 并发基线(2026-09-16 修):记录 commit 前的 HEAD,供 Step 5 精确定位"本次创建的提交"。
 // 原 Step 5 直接校验 `git show HEAD`,多 agent 并行时若其他 agent 在本脚本 commit 落地后、
@@ -1311,6 +1384,7 @@ process.on('exit', () => {
 let commitResult = null
 let hookFailed = false
 let hookOutput = ''
+const commitStartedAt = Date.now()
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   // G-920 前置护栏:每次真的要发 `git commit` 之前都复量一次索引(判据住 lib,不在此重写)。
   rejectIfForeignEnteredIndex(attempt === 1 ? '首次尝试' : `锁争用重试 ${attempt}`)
@@ -1356,20 +1430,16 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   commitResult = r
   if (r.status === 0) break
   if (isGitLockFailure(r.status, out)) {
-    if (attempt > LOCK_RETRIES) {
-      log(
-        'err',
-        `git 索引锁连续 ${LOCK_RETRIES} 次争用未释放 —— 这**不是**钩子判红,拒绝用 --no-verify 兜底` +
-          '(那等于把全部守门一起跳掉,且事后无人能察觉)。等并发 git 写操作结束后重跑本命令;' +
-          '先看是谁持锁:node scripts/git-lock.mjs check',
-      )
+    const delay = attempt <= LOCK_RETRIES ? nextLockRetryDelay(attempt, commitStartedAt) : null
+    if (delay === null) {
+      log('err', LOCK_EXHAUSTED_ADVICE)
       process.exit(1)
     }
     log(
       'warn',
-      `…exit ${r.status} 像是 git 锁争用(钩子未跑完),第 ${attempt}/${LOCK_RETRIES} 次重试`,
+      `…exit ${r.status} 像是 git 锁争用(钩子未跑完),第 ${attempt}/${LOCK_RETRIES} 次重试(${delay}ms 后)`,
     )
-    sleep(3000)
+    sleep(delay)
     continue
   }
   // 2026-10-26:确定性致命因(署名取不到 / 远端连不上)⇒ 当场点名退出。
@@ -2035,7 +2105,7 @@ if (hookFailed && commitResult.status !== 0) {
       'err',
       '   下一步:① tasklist | findstr /i "git node" 看并发 git/node 进程后重跑本命令;' +
         '② 原样手工复跑那一步(EBUSY 是间歇病);③ 仍红则加 --debug 看那一步自己的 git 调用。' +
-        '本枚按应急路径落地并留痕(kind=env-blocked),不得读成"通过了守门"。',
+        '注意:归因=env-blocked **不再自动跳钩落地**(默认永不跳钩),本枚到此为止。',
     )
     if (verdict.downgradedFromMine)
       log(
@@ -2075,6 +2145,9 @@ if (hookFailed && commitResult.status !== 0) {
       commitMsgChecks: (verdict.commitMsgStage?.checks ?? []).map(
         (c) => `${c.script}=${c.status ?? 'null'}${c.blocking ? '' : '(warn)'}`,
       ),
+      // 跳钩授权留痕(2026-11-03):默认 null = 未授权(本枚不会以 --no-verify 落地);
+      // 非 null 才代表人工显式旗标,值即原因 —— 读账的人不必再猜"这枚到底跳没跳"。
+      skipAuthorization: allowSkipHooks ?? null,
     })}\n`,
   )
 
@@ -2100,6 +2173,31 @@ if (hookFailed && commitResult.status !== 0) {
     )
     process.exit(1)
   }
+  // ── 默认永不跳钩(2026-11-03 立,机主明令)────────────────────────────────────
+  // 归因层判 not-ours / env-blocked / unattributed,含义只有一句:"这道红量不到本任务头上"。
+  // 它**不构成**跳钩授权 —— 旧流程正是在这里自动 `git commit --no-verify` 落地:
+  //   · 钩子里的门与自跑的门不是同一集合(脚本头注列了差异),自跑全绿不能证明钩子会全绿;
+  //   · 正文只留 attestation,审计上分不清"真过钩"与"跳钩"。
+  // 唯一合法跳钩 = 显式 `--allow-skip-hooks="<原因>"`(默认关闭),且正文写入醒目一行。
+  if (!allowSkipHooks) {
+    log(
+      'err',
+      `拒绝自动跳钩:钩子判红(exit ${commitResult.status}),归因=${verdict.kind};` +
+        '但本脚本**默认永不跳钩**,不再以 --no-verify 落地。',
+    )
+    log(
+      'err',
+      '  下一步(择一):① 修红后重跑;② **请等待并发会话释放索引**后重跑(node scripts/git-lock.mjs check 看持有者);' +
+        '③ **或改走 `node scripts/object-space-land.mjs`**(它不跑钩子,落地后自动复跑受影响门并把结果打进 stdout,门红则报红并提示人工);' +
+        '④ 仅限人工确认后显式加 --allow-skip-hooks="<原因>"(正文会写入「人工授权跳钩」一行)。',
+    )
+    log('err', '  本枚**未落地**;索引仍是本票声明集,重跑本命令即可(Step 1-3 会重新暂存并校验)。')
+    process.exit(1)
+  }
+  log(
+    'warn',
+    `⚠️  显式授权跳钩(--allow-skip-hooks):${allowSkipHooks} —— 仅本枚生效;正文将写入醒目说明`,
+  )
   // **重试前必须重新暂存**(2026-09-25 实测缺陷根治):首次 `git commit` 失败时 lint-staged 会
   // 回滚它自己动过的暂存区 —— 本票**新加的文件**因此从索引里掉回未跟踪,而 `git commit -- <pathspec>`
   // 对"git 不认识的路径"直接 `error: pathspec ... did not match any file(s) known to git` 退出。
@@ -2107,7 +2205,7 @@ if (hookFailed && commitResult.status !== 0) {
   // 都会在这里死掉(本次实测:10 个文件里 4 个新文件全被判 unknown,exit 1,零提交)。
   // 所以:重跑 Step 2 的 add,并**再跑一次 Step 3 的精确性校验** —— 不校验就重试等于放弃
   // "只提交自己声明的文件"这条根约束(窗口期里别人可能刚 staged 了东西)。
-  log('info', '跳门重试前重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)')
+  log('info', '人工授权跳钩重试前重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)')
   const reAdd = stageDeclared(expectedFiles, 'git add (retry)')
   if (reAdd.status !== 0) {
     // **删除型提交的 pathspec 语义与 add 不同**(2026-09-25 临时仓三态实测,不是推测):
@@ -2166,6 +2264,11 @@ if (hookFailed && commitResult.status !== 0) {
   }
   // 同上:跳门重试**也是**一次整索引提交,外来件一样会跟着走 ⇒ 同样先复量,不因为"要跳门了"就放行。
   rejectIfForeignEnteredIndex('--no-verify 重试')
+  // 正文必须自带一行醒目说明(机主明令):不写进正文 = 审计上分不清"真过钩"与"人工授权跳钩"。
+  // 追加在**发令前**,与下面那次 `git commit` 读到的 finalMessage 是同一次绑定。
+  finalMessage =
+    `${finalMessage}\n\n人工授权跳钩:--allow-skip-hooks=${JSON.stringify(allowSkipHooks)}` +
+    `(归因=${verdict.kind};守门未在本次提交链上重跑;默认永不跳钩,本枚为人工显式授权)`
   const r = spawnSync('git', commitArgv(true), {
     encoding: 'utf8',
     cwd: repoRoot,
@@ -2180,8 +2283,8 @@ if (hookFailed && commitResult.status !== 0) {
     hookSkipped = true
     log(
       'warn',
-      `⚠️  已用 --no-verify 落地(归因=${verdict.kind};守门未在本次提交链上重跑,` +
-        `逐道复跑记录见上,留痕于 .ihui-agent/state/safe-commit-attestation.jsonl)`,
+      `⚠️  已按**人工显式授权**用 --no-verify 落地(归因=${verdict.kind};--allow-skip-hooks=${allowSkipHooks};` +
+        `守门未在本次提交链上重跑,逐道复跑记录见上,留痕于 .ihui-agent/state/safe-commit-attestation.jsonl)`,
     )
   }
 }
