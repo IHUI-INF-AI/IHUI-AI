@@ -15,7 +15,8 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
 import { rateChatMessage, sendToolApprovalResponse } from '@/api'
 import { APPROVAL_ACTIONS } from './permission-tier-text'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
 import { onToast } from '@/host/on-toast'
 const sikaoIcon = aizhsUrl('remote-images/sikao_icon.png')
 const downloadIcon = aizhsUrl('remote-images/download.png')
@@ -477,7 +478,7 @@ export default function ChatMessageItem({
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      padding: '12rpx 16rpx',
+                      padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing.sm)}`,
                       background: 'var(--color-muted)',
                       borderTopLeftRadius: rnRadius.sm,
                       borderTopRightRadius: rnRadius.sm,
@@ -548,7 +549,7 @@ export default function ChatMessageItem({
                     display: 'flex',
                     alignItems: 'center',
                     marginTop: 'var(--spacing-xs-loose)',
-                    padding: '12rpx 20rpx',
+                    padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing['sm-loose'])}`,
                     background: 'var(--color-muted)',
                     borderRadius: rnRadius['2xl'],
                     color: 'var(--color-foreground)',

@@ -28,9 +28,9 @@ export interface AddFormProps {
 // 圆角走档(见 §4 守门 77)；其余尺寸用 var 派生态
 const INPUT_STYLE = `height:88rpx;background:var(--color-muted);padding:0 24rpx;font-size:28rpx;color:var(--color-foreground);width:100%;box-sizing:border-box;`
 
-const labelCls = 'mt-[20rpx] block text-[length:24rpx] text-muted-foreground'
-const firstLabelCls = 'block text-[length:24rpx] text-muted-foreground'
-const pillCls = 'rounded-md px-[20rpx] py-[10rpx] text-[length:24rpx]'
+const labelCls = 'mt-[20rpx] block text-label leading-[normal] text-muted-foreground'
+const firstLabelCls = 'block text-label leading-[normal] text-muted-foreground'
+const pillCls = 'rounded-md px-[20rpx] py-[10rpx] text-label leading-[normal]'
 
 /** 号池录入表单:平台 chip + 名称 + Token + 可选 Refresh Token(web 端同一组字段) */
 export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormProps) {
@@ -81,7 +81,7 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
       />
       <View className="mt-[24rpx] flex gap-[16rpx]">
         <Text
-          className="rounded-md px-[24rpx] py-[14rpx] text-[length:26rpx] text-muted-foreground"
+          className="rounded-md px-[24rpx] py-[14rpx] text-body-sm leading-[normal] text-muted-foreground"
           onClick={onCancel}
         >
           {t('accountPool.cancel')}
@@ -94,7 +94,7 @@ export function AddForm({ t, draft, busy, onChange, onSave, onCancel }: AddFormP
             if (canSave) onSave()
           }}
         >
-          <Text className="text-[length:26rpx] font-semibold text-[var(--color-cta-foreground)]">
+          <Text className="text-body-sm leading-[normal] font-semibold text-[var(--color-cta-foreground)]">
             {busy ? t('accountPool.adding') : t('accountPool.save')}
           </Text>
         </View>

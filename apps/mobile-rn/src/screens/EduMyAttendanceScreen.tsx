@@ -20,7 +20,6 @@ import { fetchApi } from '@ihui/api-client'
 import {
   ConsoleTableScreen,
   getTokens,
-  type ConsoleBadgeTone,
   type ConsoleColumn,
   type ConsoleRowView,
 } from '@ihui/rn-app'
@@ -31,6 +30,11 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import {
+  attendanceBizDay,
+  attendanceStatusLabel,
+  attendanceStatusTone,
+} from './EduAttendanceScreen'
 
 interface MyAttendanceRecord {
   id: string
@@ -39,15 +43,10 @@ interface MyAttendanceRecord {
   date: string
   checkInTime: string | null
   checkOutTime: string | null
+  /** 服务端现算的只读投影;本屏不自报,签成什么就显示什么 */
   status: string
   remark: string | null
 }
-
-// 与教师端同口径:业务日按 Asia/Shanghai 切(UTC+8 直接加偏移取 UTC 日,中国无夏令时)。
-const todayIso = (): string => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
-
-const statusTone = (s: string): ConsoleBadgeTone =>
-  s === 'present' ? 'ok' : s === 'late' ? 'warn' : s === 'absent' ? 'danger' : 'muted'
 
 function EduMyAttendanceScreen() {
   const { t } = useI18n()
@@ -63,11 +62,8 @@ function EduMyAttendanceScreen() {
   const [busy, setBusy] = useState(false)
 
   const statusLabel = useCallback(
-    (s: string) => {
-      // 状态词表与教师端同源(eduAttendance.status.*),不另立一份
-      const v = t(`eduAttendance.status.${s}`)
-      return v === `eduAttendance.status.${s}` ? s : v
-    },
+    // 状态词表与教师端同源(eduAttendance.status.*),取词实现也共用教师屏那一份,不另立
+    (s: string) => attendanceStatusLabel(t, s),
     [t],
   )
 
@@ -82,7 +78,7 @@ function EduMyAttendanceScreen() {
     setError(null)
     try {
       const res = await fetchApi<{ list: MyAttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance/me?date=${todayIso()}`,
+        `/api/edu-ai-management/attendance/me?date=${attendanceBizDay()}`,
       )
       if (!res.success) throw new Error(res.error || 'load failed')
       setRecords(res.data?.list ?? [])
@@ -112,7 +108,7 @@ function EduMyAttendanceScreen() {
           checkOut: r.checkOutTime?.slice(11, 16) ?? '—',
           remark: r.remark ?? '',
         },
-        badgeTone: statusTone(r.status),
+        badgeTone: attendanceStatusTone(r.status),
       })),
     [records, statusLabel],
   )
@@ -129,7 +125,8 @@ function EduMyAttendanceScreen() {
     try {
       const res = await fetchApi<{ classId?: string; status?: string }>(
         '/api/edu-ai-management/attendance/self-check-in',
-        { method: 'POST', body: JSON.stringify({ date: todayIso() }) },
+        // 只送当日业务日:身份与班级由服务端按登录态/在册学籍现取,状态由规则现算(无 status 键)
+        { method: 'POST', body: JSON.stringify({ date: attendanceBizDay() }) },
       )
       if (res.success) {
         // 成功:以后端回显的生效信息展示(状态词表与教师端同源),再重新 GET 刷新,不做本地乐观改状态

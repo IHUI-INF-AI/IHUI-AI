@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingTop: rnSpacing.md,
       paddingBottom: rnSpacing.sm,
     },
-    headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabRow: {
       flexDirection: 'row',

@@ -129,6 +129,12 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 const XLSX_MIME_ALT = 'application/vnd.ms-excel.sheet.macroEnabled.12' // .xlsm
 const XLS_MIME = 'application/vnd.ms-excel'
 const CSV_MIME = 'text/csv'
+// 2026-11-03(票 D53 第十批,补 S1 留下的那条腿):上传白名单已收 tsv/json/ods/odp,
+// 本解析器若不认就会在解析阶段抛 UnsupportedFormatError ⇒ 「收了却解析不了」的空头承诺。
+const TSV_MIME = 'text/tab-separated-values'
+const JSON_MIME = 'application/json'
+const ODS_MIME = 'application/vnd.oasis.opendocument.spreadsheet'
+const ODP_MIME = 'application/vnd.oasis.opendocument.presentation'
 
 /** 走 anydoc 主路径的 MIME 集合(PDF/DOCX 失败可降级,新格式独占)。 */
 const ANYDOC_MIMES = new Set([
@@ -138,6 +144,8 @@ const ANYDOC_MIMES = new Set([
   PPT_MIME,
   DOC_MIME,
   ODT_MIME,
+  ODS_MIME,
+  ODP_MIME,
   RTF_MIME,
   RTF_MIME_ALT,
   EPUB_MIME,
@@ -156,6 +164,8 @@ function detectByExt(filename: string): string {
   if (ext === 'ppt') return PPT_MIME
   if (ext === 'doc') return DOC_MIME
   if (ext === 'odt') return ODT_MIME
+  if (ext === 'ods') return ODS_MIME
+  if (ext === 'odp') return ODP_MIME
   if (ext === 'rtf') return RTF_MIME
   if (ext === 'epub') return EPUB_MIME
   if (ext === 'md' || ext === 'markdown') return MD_MIME
@@ -164,6 +174,8 @@ function detectByExt(filename: string): string {
   if (ext === 'xlsx' || ext === 'xlsm') return XLSX_MIME
   if (ext === 'xls') return XLS_MIME
   if (ext === 'csv') return CSV_MIME
+  if (ext === 'tsv') return TSV_MIME
+  if (ext === 'json') return JSON_MIME
   return ''
 }
 
@@ -263,7 +275,7 @@ export async function parseDocument(opts: {
     return result.value
   }
 
-  if (mime === MD_MIME || mime === TEXT_MIME) {
+  if (mime === MD_MIME || mime === TEXT_MIME || mime === TSV_MIME || mime === JSON_MIME) {
     return buffer.toString('utf8')
   }
 
