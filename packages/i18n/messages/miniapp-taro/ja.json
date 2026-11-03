@@ -6974,7 +6974,8 @@
     "labelFreeDur": "無料時間",
     "labelSaleType": "販売タイプ",
     "submit": "保存",
-    "submitting": "送信中..."
+    "submitting": "送信中...",
+    "readOnlyHint": "この項目はまだ変更できません"
   },
   "modelIncome": {
     "accumulated": "累計収入",
