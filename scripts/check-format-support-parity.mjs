@@ -48,11 +48,10 @@
  *   node scripts/check-format-support-parity.mjs --self-test   # 内联夹具(含反向牙)
  * 取证:node --test scripts/tests/check-format-support-parity.test.mjs(镜像判据 import __test__)
  */
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, gitRaw } from './lib/face-reader.mjs'
+import { catBatch, readWorktreeFile, Undetermined } from './lib/face-reader.mjs'
 
 // ROOT 由脚本自身位置推导(§15:共享工作树的 cwd 不可靠)
 export const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -264,20 +263,22 @@ export function resolveFace(argv) {
   return { face: 'head', error: null }
 }
 
-/** 取材:head 档 git show blob;worktree 档读盘;取不到 ⇒ Undetermined(不猜、不回落)。 */
+/** 取材:head 档走统一取材层取 HEAD blob;worktree 档读盘;取不到 ⇒ Undetermined(不猜、不回落)。 */
 export function readFaceText(face, file, root = ROOT) {
   if (face === 'worktree') {
     try {
-      return readFileSync(path.join(root, ...file.split('/')), 'utf8')
+      return readWorktreeFile(root, file)
     } catch {
       throw new Undetermined(`${face} 面读不到 ${file}`)
     }
   }
   try {
-    return String(gitRaw(['show', `HEAD:${file}`], root, { timeout: 60_000, maxBuffer: 1 << 24 }))
+    const text = catBatch(root, [`HEAD:${file}`], { timeout: 60_000 }).get(`HEAD:${file}`)
+    if (typeof text !== 'string') throw new Undetermined(`${face} 面取不到 ${file}`)
+    return text
   } catch (e) {
     if (e instanceof Undetermined) throw e
-    throw new Undetermined(`${face} 面 git show 取不到 ${file}:${e?.message ?? e}`)
+    throw new Undetermined(`${face} 面取不到 ${file}:${e?.message ?? e}`)
   }
 }
 

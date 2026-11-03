@@ -73,6 +73,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { verifyAccessTokenEdge } from '@/lib/auth-utils'
+import { docsDetailGateStatusOf } from '@/lib/docs-detail-gate'
 import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
 // 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
 // `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
@@ -241,7 +242,25 @@ export async function proxy(request: NextRequest) {
 
   // matcher 已扩为全站:非鉴权射程的请求在此原样放行(行为与旧窄 matcher 等价)
   if (!isProtectedPath(pathname)) {
-    return pass()
+    // /docs/[slug] 硬状态码闸(2026-11-03):不存在 ⇒ 404,后端故障 ⇒ 500。
+    // 必须在 Proxy 落状态码——页面侧 notFound()/抛错会被根段与 (main) 段的 loading.tsx
+    // 流式外壳吞成 200(探针矩阵 v-b/c/d/g 实测),判据与理由见 src/lib/docs-detail-gate.ts。
+    // 非文档详情请求(含静态文档页、/docs 索引、/docs/manual/xxx)直接返回 null,零开销。
+    const docsStatus = await docsDetailGateStatusOf(request)
+    if (docsStatus === null) return pass()
+    const applyNonce = (headers: Headers): void => {
+      if (!csp || !nonce) return
+      headers.set('x-nonce', nonce)
+      headers.set('content-security-policy', csp)
+    }
+    const reqHeaders = new Headers(request.headers)
+    applyNonce(reqHeaders)
+    const res = NextResponse.rewrite(request.nextUrl.clone(), {
+      status: docsStatus,
+      request: { headers: reqHeaders },
+    })
+    if (csp) res.headers.set('content-security-policy', csp)
+    return res
   }
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)
