@@ -24,6 +24,7 @@ const { searchRoutes } = await import('../src/routes/search.js')
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('search-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -42,6 +43,7 @@ async function createProject(data: {
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('search-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -62,6 +64,7 @@ async function createFile(data: {
       size: data.size ?? 100,
     })
     .returning()
+  if (!row) throw new Error('search-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -74,6 +77,7 @@ async function createSearchHistory(data: { userId: string; query: string; result
       resultsCount: data.resultsCount ?? 0,
     })
     .returning()
+  if (!row) throw new Error('search-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

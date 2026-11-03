@@ -46,9 +46,9 @@ describe('scanUndeliveredDir — 标记扫描三态', () => {
     )
     const r = scanUndeliveredDir(dir)
     expect(r).toHaveLength(1)
-    expect(r[0].severity).toBe('critical')
-    expect(r[0].detail).toContain('ihui-pg-backup')
-    expect(r[0].detail).toContain('2026-10-13 03:00:00')
+    expect(r[0]!.severity).toBe('critical')
+    expect(r[0]!.detail).toContain('ihui-pg-backup')
+    expect(r[0]!.detail).toContain('2026-10-13 03:00:00')
   })
 
   it('守护族形态(name/fp/why/ts)同样读出 —— 写死任一族键名会漏另一族', () => {
@@ -63,16 +63,16 @@ describe('scanUndeliveredDir — 标记扫描三态', () => {
     )
     const r = scanUndeliveredDir(dir)
     expect(r).toHaveLength(1)
-    expect(r[0].detail).toContain('guardian-red')
-    expect(r[0].detail).toContain('mail dispatch throw')
+    expect(r[0]!.detail).toContain('guardian-red')
+    expect(r[0]!.detail).toContain('mail dispatch throw')
   })
 
   it('JSON 坏 ⇒ undetermined 口径 finding 且不静默不洗成通过', () => {
     writeFileSync(join(dir, 'broken-alert-UNDELIVERED.json'), '{broken')
     const r = scanUndeliveredDir(dir)
     expect(r).toHaveLength(1)
-    expect(r[0].title).toContain('JSON 坏')
-    expect(r[0].detail).toContain('未判定')
+    expect(r[0]!.title).toContain('JSON 坏')
+    expect(r[0]!.detail).toContain('未判定')
   })
 
   it('非 UNDELIVERED 文件不命中(正则与 check-ops-patrol P8 同一条)', () => {

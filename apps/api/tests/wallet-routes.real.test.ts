@@ -19,10 +19,11 @@ vi.mock('../src/plugins/auth.js', () => ({
   requireActiveUser: vi.fn(),
 }))
 
-const walletRoutes = (await import('../src/routes/wallet.ts')).default
+const walletRoutes = (await import('../src/routes/wallet.js')).default
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('wallet-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -39,6 +40,7 @@ async function createMargin(data: {
       frozenQuantity: data.frozenQuantity ?? 0,
     })
     .returning()
+  if (!row) throw new Error('wallet-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -59,6 +61,7 @@ async function createFlow(data: {
       remark: data.remark,
     })
     .returning()
+  if (!row) throw new Error('wallet-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -189,7 +192,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin.tokenQuantity).toBe(200)
+    expect(margin!.tokenQuantity).toBe(200)
   })
 
   it('POST /api/wallet/recharge — amount 缺失返回 400', async () => {
@@ -255,8 +258,8 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin.tokenQuantity).toBe(706)
-    expect(margin.frozenQuantity).toBe(294)
+    expect(margin!.tokenQuantity).toBe(706)
+    expect(margin!.frozenQuantity).toBe(294)
   })
 
   it('POST /api/wallet/withdraw — 余额不足返回 400', async () => {
@@ -290,8 +293,8 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin.tokenQuantity).toBe(304)
-    expect(margin.frozenQuantity).toBe(596)
+    expect(margin!.tokenQuantity).toBe(304)
+    expect(margin!.frozenQuantity).toBe(596)
   })
 
   it('POST /api/wallet/withdraw — 缺 amount 返回 400', async () => {

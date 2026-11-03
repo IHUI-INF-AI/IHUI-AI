@@ -30,6 +30,7 @@ async function createVersion(data: {
       releaseNotes: data.releaseNotes,
     })
     .returning()
+  if (!row) throw new Error('app-version-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

@@ -177,7 +177,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
       }
       return self
     },
-    update: (table) => {
+    update: (table: unknown) => {
       const kind = tableKind(table)
       const self: Chain = {
         from: () => self,
@@ -199,7 +199,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
       }
       return self
     },
-    delete: (table) => {
+    delete: (table: unknown) => {
       const kind = tableKind(table)
       const self: Chain = {
         from: () => self,

@@ -136,9 +136,21 @@ export function sha256File(file) {
 /**
  * 写站点腿:①先落版本名并回读大小 ②再翻指针。顺序不可颠倒——先翻指针等于把用户
  * 指向一个还没落地的文件(302 打到 404),而 404 在边缘会被当成"这个包不存在"缓存住。
+ *
+ * `latestKey`/`ext` 是为 iOS 的 `.ipa` 复用同一序列而开的口(默认值就是 Android 老形态,
+ * 老调用点逐字不变)。`apk` 这个属性名保留 = 源文件路径,不改名是为了不动既有镜像测试的调用面。
  */
-export function publishSiteLeg({ apk, dir, version, versionCode, sha256, size }) {
-  const vKey = versionKey(version, versionCode)
+export function publishSiteLeg({
+  apk,
+  dir,
+  version,
+  versionCode,
+  sha256,
+  size,
+  latestKey = LATEST_KEY,
+  ext = 'apk',
+}) {
+  const vKey = versionKey(version, versionCode, { ext })
   const target = join(dir, vKey)
   copyFileSync(apk, target)
   const back = statSync(target).size
@@ -151,7 +163,7 @@ export function publishSiteLeg({ apk, dir, version, versionCode, sha256, size })
     sha256,
     publishedAt: new Date().toISOString(),
   }
-  const pointerPath = join(dir, `${LATEST_KEY}.redirect.json`)
+  const pointerPath = join(dir, `${latestKey}.redirect.json`)
   writeFileSync(pointerPath, JSON.stringify(pointer, null, 2) + '\n')
   return { vKey, target, pointerPath, pointer }
 }
@@ -161,19 +173,29 @@ export function publishSiteLeg({ apk, dir, version, versionCode, sha256, size })
  * 只读响应头不看正文(取完立刻 cancel,避免把 81MB 拖回来自己测自己)。
  * 判不出 ⇒ 抛错(整条发布按失败处理),不返回"大概没问题"。
  */
-export async function verifySiteLegLive({ latestUrl = siteLegUrl(LATEST_KEY), expectSize, expectVersionCode, fetchImpl = fetch, timeoutMs = 30000 } = {}) {
+export async function verifySiteLegLive({
+  latestKey = LATEST_KEY,
+  latestUrl = siteLegUrl(latestKey),
+  expectSize,
+  expectVersionCode,
+  ext = '.apk',
+  contentTypeNeedle = 'vnd.android.package-archive',
+  expectLabel = 'apk',
+  fetchImpl = fetch,
+  timeoutMs = 30000,
+} = {}) {
   const signal = () => AbortSignal.timeout(timeoutMs)
   const r = await fetchImpl(latestUrl, { redirect: 'manual', signal: signal() })
   await r.body?.cancel().catch(() => {})
   if (r.status !== 302) throw new Error(`固定地址未按 302 应答: HTTP ${r.status} (${latestUrl})`)
   const loc = r.headers.get('location') || ''
   if (!loc.startsWith('https://')) throw new Error(`302 目标不是 https: ${loc || '(缺 Location)'}`)
-  if (expectVersionCode && !loc.includes(`-${expectVersionCode}.apk`)) throw new Error(`固定地址仍指向旧包: ${loc}`)
+  if (expectVersionCode && !loc.includes(`-${expectVersionCode}${ext}`)) throw new Error(`固定地址仍指向旧包: ${loc}`)
   const f = await fetchImpl(loc, { headers: { range: 'bytes=0-0' }, signal: signal() })
   await f.body?.cancel().catch(() => {})
   const ct = f.headers.get('content-type') || ''
   if (f.status !== 200 && f.status !== 206) throw new Error(`版本副本公网取不到: HTTP ${f.status} (${loc})`)
-  if (!ct.includes('vnd.android.package-archive')) throw new Error(`公网 Content-Type=${ct || '(空)'},不是 apk —— 多半落到占位图/缺文件`)
+  if (!ct.includes(contentTypeNeedle)) throw new Error(`公网 Content-Type=${ct || '(空)'},不是 ${expectLabel} —— 多半落到占位图/缺文件`)
   const cr = f.headers.get('content-range') || ''
   const remote = Number(cr.includes('/') ? cr.split('/')[1] : f.headers.get('content-length') || 0)
   if (expectSize && remote !== Number(expectSize)) throw new Error(`公网回读大小不符: 本地 ${expectSize} / 公网 ${remote}`)
@@ -181,12 +203,12 @@ export async function verifySiteLegLive({ latestUrl = siteLegUrl(LATEST_KEY), ex
 }
 
 
-/** 版本副本的 key:ihui-ai-<version>-<code>.apk(与历史手工命名保持一致) */
-export function versionKey(version, versionCode) {
+/** 版本副本的 key:ihui-ai-<version>-<code>.apk(与历史手工命名保持一致;ext 供 .ipa 复用) */
+export function versionKey(version, versionCode, { ext = 'apk' } = {}) {
   const v = String(version ?? '').trim()
   const c = String(versionCode ?? '').trim()
   if (!v || !c) throw new Error('versionKey: version 与 versionCode 都必须非空')
-  return `ihui-ai-${v}-${c}.apk`
+  return `ihui-ai-${v}-${c}.${ext}`
 }
 
 // =============================================================================
@@ -206,10 +228,11 @@ export function registerLegFromEnv(env = process.env) {
 }
 
 /** 唯一可复制整改命令:只含参数与 env 名,绝不含凭据值。 */
-export function registerRemediationCommand({ version, versionCode }) {
+export function registerRemediationCommand({ version, versionCode, latestKey = LATEST_KEY, platform }) {
+  const platArg = platform ? ` --platform ${platform}` : ''
   return (
     'node scripts/register-app-version-latest.mjs --apply --via db --db-url "$DATABASE_URL"' +
-    ` --version ${version} --build-number ${versionCode} --download-url ${siteLegUrl(LATEST_KEY)}`
+    ` --version ${version} --build-number ${versionCode} --download-url ${siteLegUrl(latestKey)}${platArg}`
   )
 }
 
@@ -263,15 +286,29 @@ export async function registerAppVersionAfterPublish({
 export async function publishRegisterStep({
   version,
   versionCode,
+  platform = 'android',
+  latestKey = LATEST_KEY,
   env = process.env,
   out = (m) => console.log(m),
   err = (m) => console.error(m),
   deps = {},
 } = {}) {
-  const cmd = registerRemediationCommand({ version, versionCode })
+  const cmd = registerRemediationCommand({
+    version,
+    versionCode,
+    latestKey,
+    ...(platform === 'android' ? {} : { platform }),
+  })
   let r
   try {
-    r = await registerAppVersionAfterPublish({ version, versionCode, env, deps })
+    r = await registerAppVersionAfterPublish({
+      version,
+      versionCode,
+      platform,
+      downloadUrl: siteLegUrl(latestKey),
+      env,
+      deps,
+    })
   } catch (e) {
     err(
       `[publish] ✗ app_versions 登记执行失败(站点腿已落地,禁止重发整包补登记): ${String(e?.message ?? e).slice(0, 300)}\n` +

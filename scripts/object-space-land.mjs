@@ -2843,11 +2843,16 @@ async function main() {
       console.log(
         `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
       )
-    } else if (newPaths.length > 0) {
-      const preflight = watermarkPreflight({ root, paths: newPaths, blobs: mine })
+    } else if (paths.length > 0) {
+      // 2026-11-03 收紧:上一版 blob 模式只预检 `newPaths`,既有路径仅靠下面的 blobBannerPreserved
+      // (只认可见横幅在不在,不解载荷)。事故 0335facba1 正是**既有文件** agent-chat-stream.ts 的
+      // 零宽载荷被写坏(461 vs 485 码元)而横幅完好 —— 横幅闸绿灯,坏 blob 直接进 HEAD。
+      // 现在把本次落地的**全部路径**(新建 + 既有)都过同一支 verify(判据本体仍只在 watermark.mjs):
+      // 新建路径已由 injectNewPathBlobs 按同一构造注入,既有路径缺/坏载荷 ⇒ 拒落并点名。
+      const preflight = watermarkPreflight({ root, paths, blobs: mine })
       if (!preflight.ok) refusePreflight(preflight)
       console.log(
-        `✅ 水印预检通过(新建路径 ${newPaths.length}/${newPaths.length};判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
+        `✅ 水印预检通过(新建 ${newPaths.length} + 既有 ${paths.length - newPaths.length} = ${paths.length} 路径;判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
       )
     }
   } else if (skipWatermark) {

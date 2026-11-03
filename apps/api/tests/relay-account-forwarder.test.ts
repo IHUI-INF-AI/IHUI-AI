@@ -71,13 +71,16 @@ vi.mock('../src/config/index.js', () => ({
 
 // 台账/代理池/模型目录三服务打桩:转发主链路整合点(埋点/取代理/别名)的断言面,
 // 默认全 no-op(不触 db mock 链,防 updateCalls 被代理池 lastPickedAt 写污染)
-const mockRecordAccountUsage = vi.fn(async () => {})
+const mockRecordAccountUsage = vi.fn(async (_input: unknown) => {})
 const mockPickProxy = vi.fn(async (_account: unknown) => null as string | null)
-const mockReportProxyFailure = vi.fn(async () => {})
-const mockReportProxySuccess = vi.fn(async () => {})
-const mockResolveAlias = vi.fn(async (_p: string, _m: string) => null)
+const mockReportProxyFailure = vi.fn(async (_url: string) => {})
+const mockReportProxySuccess = vi.fn(async (_url: string) => {})
+const mockResolveAlias = vi.fn(
+  async (_p: string, _m: string): Promise<{ upstreamModel: string; displayName: string } | null> =>
+    null,
+)
 vi.mock('../src/services/relay-account-usage.js', () => ({
-  recordAccountUsage: (...a: unknown[]) => mockRecordAccountUsage(...(a as [never])),
+  recordAccountUsage: (input: unknown) => mockRecordAccountUsage(input),
 }))
 vi.mock('../src/services/relay-proxy-pool.js', () => ({
   pickProxyForAccount: (account: { id: string; proxyUrl: string | null }) => mockPickProxy(account),
@@ -126,8 +129,15 @@ vi.mock('node:dns/promises', () => ({
   lookup: vi.fn(async () => [{ address: '203.0.113.10', family: 4 }]),
 }))
 
-import { forwardToAccountPool, __test__ as F } from '../src/services/relay-account-forwarder.js'
-import { classifyUpstreamFailure as classifyTraeFailure } from '../src/services/upstream-adapters/trae-adapter.js'
+import {
+  forwardToAccountPool,
+  __test__ as F,
+  type ToolCallSlot,
+} from '../src/services/relay-account-forwarder.js'
+import {
+  classifyUpstreamFailure as classifyTraeFailure,
+  type FailureKind,
+} from '../src/services/upstream-adapters/trae-adapter.js'
 import {
   __test__ as sharedState,
   clearAccountCooldown,
@@ -192,6 +202,16 @@ function baseReq(model: string) {
     userId: 'user-1',
     affinityKey: 'key-1',
   }
+}
+
+/** 转发层只认不含 network 的 FailureKind;trae 分类若产出 network 则显式失败。 */
+function classifyForForwarder(
+  statusCode: number,
+  bodyText: string,
+): { kind: Exclude<FailureKind, 'network'> } {
+  const kind = classifyTraeFailure(statusCode, bodyText)
+  if (kind === 'network') throw new Error('trae 分类不应产出 network')
+  return { kind }
 }
 
 /** 最小假适配器(必选成员齐全;各测试按需覆盖) */
@@ -571,9 +591,7 @@ describe('forwardToAccountPool', () => {
     registerRelayAdapter(
       fakeAdapter({
         providerCode: 'trae',
-        classifyUpstreamFailure: (status, bodyText) => ({
-          kind: classifyTraeFailure(status, bodyText),
-        }),
+        classifyUpstreamFailure: classifyForForwarder,
       }),
     )
     const fetchMock = vi.fn(
@@ -600,9 +618,7 @@ describe('forwardToAccountPool', () => {
     registerRelayAdapter(
       fakeAdapter({
         providerCode: 'trae',
-        classifyUpstreamFailure: (status, bodyText) => ({
-          kind: classifyTraeFailure(status, bodyText),
-        }),
+        classifyUpstreamFailure: classifyForForwarder,
         buildChatRequest: () => {
           throw new Error('不应走通用路径')
         },
@@ -742,7 +758,7 @@ describe('forwardToAccountPool', () => {
     const res = await forwardToAccountPool(req, 'usage-json-model-1')
     expect(res && res.ok).toBe(true)
     if (!res || !res.ok) return
-    const body = await res.response.json()
+    const body = (await res.response.json()) as { id: string }
     expect(body.id).toBe('cm-u1') // clone 读取不影响主路径透传
     await vi.waitFor(() =>
       expect(mockRecordAccountUsage).toHaveBeenCalledWith(
@@ -817,7 +833,7 @@ describe('forwardToAccountPool', () => {
       proxyUrl: null,
     })
     expect(mockUndiciFetch).toHaveBeenCalled()
-    const init = mockUndiciFetch.mock.calls[0][1] as Record<string, unknown>
+    const init = mockUndiciFetch.mock.calls[0]![1] as Record<string, unknown>
     expect(init.dispatcher).toBeDefined() // 走代理 dispatcher 而非直连
     await vi.waitFor(() =>
       expect(mockReportProxySuccess).toHaveBeenCalledWith('http://proxy.test:8080'),
@@ -986,7 +1002,7 @@ describe('forwardToAccountPool', () => {
 
 describe('mergeToolCallDelta', () => {
   it('后续分片的空 id/name 不得覆盖首次非空值;arguments 逐片拼接', () => {
-    const slot = { args: '' }
+    const slot: ToolCallSlot = { args: '' }
     F.mergeToolCallDelta(slot, {
       index: 0,
       id: 'call_1',

@@ -16,7 +16,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('../src/config/index.js', () => ({
   config: {
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
-    REDIS_URL: 'redis://localhost:8811',
+    REDIS_URL: 'redis://127.0.0.1:6399',
   },
 }))
 

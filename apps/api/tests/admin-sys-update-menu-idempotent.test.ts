@@ -106,7 +106,7 @@ describe('updateMenu 幂等写:同值二次提交不得推进 updatedAt', () => 
     const out = await updateMenu(ID, { menuName: '新名', path: '/demo' })
 
     expect(mockUpdateSet).toHaveBeenCalledTimes(1)
-    const arg = mockUpdateSet.mock.calls[0][0] as Record<string, unknown>
+    const arg = mockUpdateSet.mock.calls[0]![0] as Record<string, unknown>
     expect(Object.keys(arg).sort()).toEqual(['menuName', 'updatedAt']) // path 同值不进 set
     expect(arg.menuName).toBe('新名')
     expect(arg.updatedAt).toBeInstanceOf(Date)
@@ -161,7 +161,7 @@ describe('updateMenu 幂等写:同值二次提交不得推进 updatedAt', () => 
     const out = await updateMenu(ID, { menuName: '旧名', updateBy: 'admin2' })
 
     expect(mockUpdateSet).toHaveBeenCalledTimes(1)
-    const arg = mockUpdateSet.mock.calls[0][0] as Record<string, unknown>
+    const arg = mockUpdateSet.mock.calls[0]![0] as Record<string, unknown>
     expect(Object.keys(arg).sort()).toEqual(['updateBy', 'updatedAt'])
     expect(out?.updateBy).toBe('admin2')
   })

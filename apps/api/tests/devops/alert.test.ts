@@ -68,11 +68,11 @@ class AlertManager {
   // 已发送告警列表(便于断言)
   public sent: Alert[] = []
   // 通知发送 mock(便于断言调用次数)
-  public notify = vi.fn((receiver: Receiver, alert: Alert) => {
+  public notify = vi.fn((_receiver: Receiver, alert: Alert) => {
     this.sent.push(alert)
   })
 
-  constructor(private now: () => number = Date.now) {}
+  constructor(_now: () => number = Date.now) {}
 
   /** 5 分钟内同一 dedupeKey 不重复发送 */
   private readonly DEDUPE_WINDOW_MS = 5 * 60 * 1000
@@ -128,7 +128,7 @@ class AlertManager {
     if (a.severity === 'warning') return SEVERITY_RECEIVER.warning
     // info 走 team 路由
     const team = a.labels.team || 'default'
-    return ROUTING_TABLE[team] || ROUTING_TABLE.default
+    return ROUTING_TABLE[team] || ROUTING_TABLE.default!
   }
 
   /** 重置内部状态(测试间隔离) */

@@ -17,7 +17,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 
 vi.hoisted(() => {
   // §5 测试隔离铁律:任何用例都不得触真库/真 Redis
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5399/test'
   process.env.JWT_SECRET ??= 'unit-test-only-internal-ticket-secret-0123456789abcdef'
 })
 
@@ -125,7 +125,7 @@ describe('老门使用留痕', () => {
   it('票认证成功 ⇒ 老门计数**不增**(不留假归因)', async () => {
     const { mintInternalServiceTicket, INTERNAL_TICKET_HEADER } =
       await import('../src/plugins/internal-service-ticket')
-    const ticket = await mintInternalServiceTicket({ subject: SUBJECT, scope: 'memory' })
+    const ticket = await mintInternalServiceTicket({ userId: SUBJECT, scope: 'memory' })
     expect(typeof ticket).toBe('string')
     const before = internalAuthLegacyDoorUses()
     const code = await probeWith({ [INTERNAL_TICKET_HEADER]: ticket }, 'dual', '/probe-ticket')

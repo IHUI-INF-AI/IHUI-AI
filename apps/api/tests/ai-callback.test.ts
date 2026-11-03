@@ -22,6 +22,13 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import aiCallbackRoutes from '../src/routes/ai-callback'
+import type { Queue } from 'bullmq'
+import type { AICallbackJobData } from '../src/plugins/queue'
+
+/** 只实现 add 的队列替身:装饰器要求 Queue<AICallbackJobData> 的完整形状。 */
+function stubCallbackQueue(add: unknown): Queue<AICallbackJobData> {
+  return { add } as unknown as Queue<AICallbackJobData>
+}
 
 describe('AI callback route', () => {
   const server = Fastify({ logger: false })
@@ -67,7 +74,7 @@ describe('AI callback route', () => {
   it('POST /api/ai/callback 队列可用时入队返回 202 + queued:true', async () => {
     const serverWithQueue = Fastify({ logger: false })
     const mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
-    serverWithQueue.decorate('aiCallbackQueue', { add: mockAdd })
+    serverWithQueue.decorate('aiCallbackQueue', stubCallbackQueue(mockAdd))
     await serverWithQueue.register(aiCallbackRoutes)
     await serverWithQueue.ready()
 
@@ -138,9 +145,12 @@ describe('AI callback route', () => {
 
   it('POST /api/ai/callback 入队异常返回 502', async () => {
     const serverQueueErr = Fastify({ logger: false })
-    serverQueueErr.decorate('aiCallbackQueue', {
-      add: vi.fn().mockRejectedValue(new Error('Redis connection refused')),
-    })
+    serverQueueErr.decorate(
+      'aiCallbackQueue',
+      stubCallbackQueue(
+        vi.fn().mockRejectedValue(new Error('Redis connection refused')),
+      ),
+    )
     await serverQueueErr.register(aiCallbackRoutes)
     await serverQueueErr.ready()
 
@@ -166,7 +176,7 @@ describe('AI callback route', () => {
   it('POST /api/ai/callback messageId 缺失时传空字符串', async () => {
     const serverWithQueue2 = Fastify({ logger: false })
     const mockAdd2 = vi.fn().mockResolvedValue({ id: 'job-2' })
-    serverWithQueue2.decorate('aiCallbackQueue', { add: mockAdd2 })
+    serverWithQueue2.decorate('aiCallbackQueue', stubCallbackQueue(mockAdd2))
     await serverWithQueue2.register(aiCallbackRoutes)
     await serverWithQueue2.ready()
 
@@ -202,7 +212,7 @@ describe('AI callback route', () => {
   it('POST /api/ai/callback 带 toolCalls/terminalTasks 时并入入队 metadata', async () => {
     const serverD24 = Fastify({ logger: false })
     const mockAddD24 = vi.fn().mockResolvedValue({ id: 'job-d24' })
-    serverD24.decorate('aiCallbackQueue', { add: mockAddD24 })
+    serverD24.decorate('aiCallbackQueue', stubCallbackQueue(mockAddD24))
     await serverD24.register(aiCallbackRoutes)
     await serverD24.ready()
 
@@ -254,7 +264,7 @@ describe('AI callback route', () => {
   it('POST /api/ai/callback toolCalls/terminalTasks 为空数组时不写入 metadata', async () => {
     const serverD24Empty = Fastify({ logger: false })
     const mockAddEmpty = vi.fn().mockResolvedValue({ id: 'job-d24-empty' })
-    serverD24Empty.decorate('aiCallbackQueue', { add: mockAddEmpty })
+    serverD24Empty.decorate('aiCallbackQueue', stubCallbackQueue(mockAddEmpty))
     await serverD24Empty.register(aiCallbackRoutes)
     await serverD24Empty.ready()
 
@@ -270,7 +280,7 @@ describe('AI callback route', () => {
       },
     })
     expect(res.statusCode).toBe(202)
-    const jobData = mockAddEmpty.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const jobData = mockAddEmpty.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(jobData.metadata).not.toHaveProperty('toolCalls')
     expect(jobData.metadata).not.toHaveProperty('terminalTasks')
 
@@ -303,7 +313,7 @@ describe('AI callback route', () => {
   it('POST /api/ai/callback 带 D33 四通道时并入入队 metadata', async () => {
     const serverD33 = Fastify({ logger: false })
     const mockAddD33 = vi.fn().mockResolvedValue({ id: 'job-d33' })
-    serverD33.decorate('aiCallbackQueue', { add: mockAddD33 })
+    serverD33.decorate('aiCallbackQueue', stubCallbackQueue(mockAddD33))
     await serverD33.register(aiCallbackRoutes)
     await serverD33.ready()
 
@@ -337,7 +347,7 @@ describe('AI callback route', () => {
       },
     })
     expect(res.statusCode).toBe(202)
-    const jobData = mockAddD33.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const jobData = mockAddD33.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(jobData.metadata).toMatchObject({
       usageDetail,
       fallback,
@@ -351,7 +361,7 @@ describe('AI callback route', () => {
   it('POST /api/ai/callback D33 四通道缺省/空数组时不写入 metadata', async () => {
     const serverD33Empty = Fastify({ logger: false })
     const mockAddD33Empty = vi.fn().mockResolvedValue({ id: 'job-d33-empty' })
-    serverD33Empty.decorate('aiCallbackQueue', { add: mockAddD33Empty })
+    serverD33Empty.decorate('aiCallbackQueue', stubCallbackQueue(mockAddD33Empty))
     await serverD33Empty.register(aiCallbackRoutes)
     await serverD33Empty.ready()
 
@@ -367,7 +377,7 @@ describe('AI callback route', () => {
       },
     })
     expect(res.statusCode).toBe(202)
-    const jobData = mockAddD33Empty.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const jobData = mockAddD33Empty.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(jobData.metadata).not.toHaveProperty('usageDetail')
     expect(jobData.metadata).not.toHaveProperty('fallback')
     expect(jobData.metadata).not.toHaveProperty('memoryUpdates')

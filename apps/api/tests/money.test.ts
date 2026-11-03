@@ -203,7 +203,7 @@ describe('splitMoney 分账', () => {
   it('单个比例全额返回', () => {
     const parts = splitMoney(Money.fromYuan('99.99'), [1])
     expect(parts).toHaveLength(1)
-    expect(parts[0].toFen()).toBe(9999n)
+    expect(parts[0]!.toFen()).toBe(9999n)
   })
 
   it('空比例抛错', () => {
@@ -217,8 +217,8 @@ describe('splitMoney 分账', () => {
   it('非归一化比例正确分账', () => {
     // 100 元 按 30:70 分 (未归一化)
     const parts = splitMoney(Money.fromYuan('100'), [30, 70])
-    expect(parts[0].toYuan()).toBe('30.00')
-    expect(parts[1].toYuan()).toBe('70.00')
+    expect(parts[0]!.toYuan()).toBe('30.00')
+    expect(parts[1]!.toYuan()).toBe('70.00')
   })
 })
 

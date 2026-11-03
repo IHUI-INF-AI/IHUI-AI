@@ -433,9 +433,9 @@ describe('D30 agent 执行器', () => {
     expect(result.ok).toBe(true)
     expect(result.summary).toContain('agt-1')
     expect(calls).toHaveLength(1)
-    expect(calls[0].url).toBe('/api/agents/execute')
-    expect(calls[0].method).toBe('POST')
-    const body = JSON.parse(calls[0].body!) as Record<string, unknown>
+    expect(calls[0]!.url).toBe('/api/agents/execute')
+    expect(calls[0]!.method).toBe('POST')
+    const body = JSON.parse(calls[0]!.body!) as Record<string, unknown>
     expect(body['goal']).toBe('【D30】修复 login bug')
     expect(body['input']).toBe('【D30】修复 login bug')
     expect(body['agent_id']).toBe('fixer-bot')
