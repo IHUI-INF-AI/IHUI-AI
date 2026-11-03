@@ -384,6 +384,25 @@ describe('judgeIpaPointerProbe —— iOS 以"服务自己怎么答"为真值', 
   })
 })
 
+describe('judgeMiniappQr —— 小程序那一端由实物码说话,不写死"未接入"', () => {
+  it('真码(字节够)⇒ 接入,但版本号仍留空(不编)', () => {
+    const out = liveMeta.judgeMiniappQr({ exists: true, sizeBytes: 30117 }, NOW)
+    expect(out.source).toBe('live')
+    expect(out.version).toBeUndefined()
+    expect(out.assets?.[0]?.href).toBe('/images/common/miniapp-qr.png')
+    expect(out.assets?.[0]?.sizeBytes).toBe(30117)
+  })
+  it('11 字节占位图必须算未接入(按"文件存在"判会把坏图点亮)', () => {
+    expect(liveMeta.judgeMiniappQr({ exists: true, sizeBytes: 11 }, NOW)).toMatchObject({
+      source: 'unavailable',
+      reason: 'miniapp-qr-stub:11B(<2048B)',
+    })
+  })
+  it('文件不在 ⇒ 未接入并点名', () => {
+    expect(liveMeta.judgeMiniappQr({ exists: false, sizeBytes: 0 }, NOW).reason).toBe('miniapp-qr-file-missing')
+  })
+})
+
 describe('形状锁(两面各一条,缺一档即翻红)', () => {
   const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf-8')
   it('纯判据文件不得含 node:fs —— 侧栏是 client component,fs 进包即构建错误', () => {
