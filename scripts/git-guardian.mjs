@@ -1708,6 +1708,12 @@ function healWorktreeTracked() {
         encoding: 'utf8',
         windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
         maxBuffer: 1 << 24,
+        // 2026-11-03 补:本调用**缺 timeout**,于是守护整轮可以被它无限期挂住 —— 当日实测:
+        // `--align-drift` 从 13:11:44 跑到 16:22:55(3 小时 11 分)才被人杀掉,期间
+        // 心跳、根护栏清单巡检、生产签出哨兵……整轮守护全部静默(日志零行)。
+        // "关键自愈层不得挂死"与本仓"停摆必须被量到"(守门 80 热路径派生一律带上限)是同一条纪律:
+        // 超时是**这条**判据的合法出路,不是跳门 —— 超了记一行失败、下一轮照常重试。
+        timeout: Number(process.env.IHUI_WORKTREE_HEAL_TIMEOUT_MS || 20 * 60 * 1000),
         // 2026-10-04 补:本调用**缺 stdio**。本机派生 git/node 命中 EBUSY 面时,症状是
         // 这里 catch 到 err、只落一行"工作区存续自愈失败" —— 而真正原因是派生通道,
         // 与工作区毫无关系,读日志的人会往错的方向查(本仓反复登记的同型)。
@@ -9046,7 +9052,7 @@ function healFromBackup() {
 
 /** 兜底 2:从远端整仓重建(慢,42 秒实测,保证最新) */
 function healFromRemote() {
-  log('修复: 从远端重建 gitdir <- ' + GITEE_URL)
+  log('修复: 从远端重建 gitdir <- origin (GitHub;Gitee 发布目标已于 2026-11-03 下线,不再作为兜底远端)')
   if (!gitdirTargetSafe()) return false
   if (existsSync(GITDIR)) {
     if (!archiveGitdir('remote-' + Date.now())) return false
