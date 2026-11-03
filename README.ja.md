@@ -2219,6 +2219,63 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🐞 修正:收窄家长端鉴权用例 unknown 类型并清零 e2e --no-ignore eslint 报错 (75a9836204)
+- 🐞 修正:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (73f7fb1242)
+- 🐞 修正:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (d08f93800e)
+- 🔧 その他:main 档不再排队/取消(false 仍会杀掉 pending 的 required run),恢复并行出结论 (3b2e5983cb)
+- 🔧 その他:去掉表达式取模(startup failure),PR 侧改单队列;并发上限 3 (57f2a0fbd9)
+- 🔧 その他:bump gitleaks/gitleaks-action 2.3.9 -> 3.0.0 (PR #112) —— v3 仅 Node24 运行时(v2 钉 Node20,2026-09-16 起已从 GitHub runner 移除),inputs/outputs/behavior 无变化 (311e770178)
+- 🔧 その他:bump actions/deploy-pages 4.0.5 -> 5.0.1 (PR #113) —— v5 仅 Node24 运行时 + 部署轮询改 backoff/jitter,pin 与上游 tag v5.0.1 一致 (fc70686974)
+- 🔧 その他:并发闸按 ref 分档(main 取消 + PR 2 槽轮转),e2e 同时占用硬上限 4 (fa5c88025b)
+- 🐞 修正:撞号的文档中心门让号 282→285,重封根护栏,再摘 AGENTS.md 回潮的合并残留标记 (37147a7496)
+- 🔧 その他:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
+- ♻️ リファクタ:容器 hover 浮起按 2026-11-03 机主二次定档减淡 —— 数值源 --lift-* 单点收敛(位移-4px→-2px,缩放1.015→1.008,两层阴影 6px/12%+30px/25%→3px/6%+18px/12%,暗档同比例),端内不散改 (03d1c4d32e)
+- 🐞 修正:收口被整块重复的登记(F6 块级判据的修复出口) (1086dc23ba)
+- 🔧 その他:回退 monorepo 测试分片(实测 3.5%)并修分诊矩阵替换 (986657675d)
+- 🔧 その他:停掉 WorkBuddy 回灌腿并把降噪窗口临时拉长到 7 天 (6556ac1b6f)
+- 🐞 修正:WorkBuddy refresh 60 天绝对寿命落库并加 7 天提前预警 (5cc9ccb083)
+- ♻️ リファクタ:撤除 WorkBuddy 会话同步幽灵定时腿 (684db31ef5)
+- 🔧 その他:补齐 ci-test-shards.mjs 溯源水印(HEAD 面欠账) (e748bb7157)
+- 🔧 その他:压缩单次 push 墙钟(并发收敛/Docker 层缓存/测试分片,required check 名不变) (5dfdc1fcb8)
+- 🐞 修正:notifyGuardRed 增加可选 policyFile 注入缝,单测与生产策略表解耦 (dbf2531b79)
+- 🔧 その他:对齐补救功能整票回退后的现形,关掉豁免面 (051d975389)
+- 🐞 修正:verify-guardian-mutex 只认四类硬证据 (51d95e1f1b)
+- 🐞 修正:daemon 入口取锁补传 roundStaleMs (3a7d4b8010)
+- 📚 ドキュメント:AiCostLedgerWriteFailures 正文补「首事件也会报」 (a6e2893aef)
+- 🐞 修正:恢复事件不再摘去重档,改为 24h 同身份发送上限 (5d9d529393)
+- 🚀 機能/改善:三信封口接入 alert-family-gate,首封必达 + 同族 24h 只留首封 (ab2e6fc1ab)
+- 🐞 修正:六条新族窗口收到 8h,并带上另三条族窗口 (7a27cabd22)
+- 🐞 修正:心跳续约锁与另一席巡检块合并落地 (04f580d447)
+- 🐞 修正:五族窗口收口,族级 24h 只留首封 (0529aa2aaa)
+- 🐞 修正:钩子失败按可重试/非本笔分流,并点名锁持有者 (ac5017c39e)
+- 🐞 修正:ai-career 判为非同源,摘除旧镜像对 (d03f4aba12)
+- 🐞 修正:QUIC 腿数改读 metrics gauge,netstat 只在 http2 交叉校验 (36bb5bde05)
+- 🐞 修正:邮件双失败后单次后台重试,UNDEL 留最终凭据 (df43cb3e07)
+- 🐞 修正:commit-msg 遵守 --only 的临时索引 (1428656ec0)
+- 🐞 修正:尊重 --only 的临时索引,堵住 lint-staged 撞 index.lock 与 MM 静默回滚 (b082a600a6)
+- 🐞 修正:同一 alertId 跨进程原子占位,堵住双跑重复投递 (84cc8a94db)
+
+**2026-11-02**
+- 🚀 機能/改善:按服务名复用轮级锁，锁跳过时回滚预记状态 (74ec597cd7)
+- 🚀 機能/改善:接入轮级原子锁终结 daemon 与计划任务双跑 (7297e37425)
+- 🐞 修正:按件选根修 8 格未判定——不全局切根,P4a 仍读仓内 .DevEnv (5c8aec3653)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (18aab35379)
+- 🐞 修正:侧栏落点不被运行期资产覆写,并把 iOS 构建期兜底换成真 tag 直链 (227700178b)
+- 🐞 修正:补齐 5 个派发点稳定身份 + 派发点审计去重计数 + 形状锁单行清理 (e875255f52)
+- 🚀 機能/改善:下载栏 8 端改取运行期真值,并修掉桌面分页与 iOS 死链 (6a6d193eca)
+- 🔧 その他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8086f74944)
+- 🐞 修正:--audit-new 并行区间不收敛致 10-30 存量每 4h 重投 (1de878d421)
+- 🐞 修正:跨端缺块理由按承载形态分措辞——hand 页不再误报整屏文案取不到 (6a71dc4332)
+- 🐞 修正:状态文件损坏不再静默清零——原子落盘、损坏件备份、未来时间戳不构成压制 (bed9d10121)
+- 🐞 修正:补 shared 五语 career 命名空间——从 mobile-rn 逐字搬 7 键,消跨端词包缺块 (7ee9fc0fa4)
+- 📚 ドキュメント:auto-triage 自动登记(mail-failure;第 1 期感知层产线动作,O65) (78576fcda4)
+- 🐞 修正:去重窗口留 10 分钟余量(230min<AM repeat 4h),杜绝重推被误压成 8h (6f1da728de)
+- 🐞 修正:出口被身份窗口压住不得记成已寄出——stdout 处置标记 + 抑制分支只计数不续窗口 (f439a8c84d)
+- 🐞 修正:去重窗口不再被重复推送续期——被抑制的推送只读不写,持续 firing 按窗口重报 (19f67b3b45)
+- 📚 ドキュメント:修正 AiLlm 告警注释里 printf 措辞（与 humanizePercentage 模板对齐） (99f9e0ed34)
+- 🐞 修正:修 AiLlm 告警正文把比率当百分比格式化（printf "%.0f%%" → humanizePercentage） (e7bab5a086)
+
+**2026-11-03**
 - 🔧 その他:补全 10 个文件的 L2 零宽载荷与水印尾标(scripts/watermark.mjs inject 生成物) (0223f5e987)
 - ♻️ リファクタ:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
 - ⚡ パフォーマンス:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
@@ -2308,12 +2365,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-03**
 - 🔧 その他:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
-
-**2026-11-03**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (be8220b87d)
-
-**2026-11-03**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (3f04652720)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
