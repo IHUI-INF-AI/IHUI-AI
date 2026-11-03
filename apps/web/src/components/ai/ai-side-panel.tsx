@@ -295,13 +295,33 @@ function EnvInfoRounded({
   )
 }
 
+/**
+ * 公开文档路由判定(2026-11-03 立,S5 票:游客在手机上看文档正文被面板整屏抢占)。
+ * `/docs` 的精确条目住在 `src/lib/login-dialog-trigger.ts` 的 PUBLIC_PATHS(游客可达白名单,
+ * 与 proxy 对齐的那一份);文档子页(`/docs/api`、`/docs/manual` …)由 `app/(main)/docs/**` 提供,
+ * 白名单按精确路径匹配不含子页 ⇒ 此处只按 `/docs` 前缀补齐"文档站"这一族。
+ * 返回值仅作面板形态的输入,不落任何 store ⇒ 不构成第二份显示状态真相源。
+ */
+const PUBLIC_DOCS_PREFIX = '/docs'
+/**
+ * 游客公开文档页的面板形态:保留 `fixed inset-0` 类名(DevTools/E2E/globals.css 的
+ * `.ai-panel-root.fixed.inset-0 > aside` 安全区规则都靠它),只用 inline `top` 把盒子
+ * 下移到视口下沿 ⇒ 文档占首屏主体、面板成为底部抽屉。类名一个字未动,可整体回退。
+ */
+const GUEST_DOCS_FLOAT_STYLE: React.CSSProperties = { top: '52%' }
+function isPublicDocsRoute(pathname: string | null | undefined): boolean {
+  if (!pathname) return false
+  const pathOnly = pathname.split('?')[0]?.split('#')[0] ?? ''
+  return pathOnly === PUBLIC_DOCS_PREFIX || pathOnly.startsWith(`${PUBLIC_DOCS_PREFIX}/`)
+}
+
 export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
   const tcommon = useTranslations('common')
   // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
   const tGate = useTranslations('chatHistory')
-  const { allow } = useAuthGate()
+  const { ready, allow } = useAuthGate()
 
   // 性能修复(2026-07-25):全解构 → 单字段 selector。
   // zustand action 函数引用稳定,不会触发重渲染;state 字段(open/width/isResizing)
@@ -1232,7 +1252,20 @@ export function AISidePanel() {
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
   // 把项目名通过 onNameChange callback 回传给父组件(setWorkspaceName)。
   // pathname 变化只触发子组件重渲染,不触发 AISidePanel 根重渲染。
-  const workspaceNameSync = <WorkspaceNameSync onNameChange={setWorkspaceName} />
+  // S5(2026-11-03 立):同型口径再走一次 —— "当前是不是公开文档路由"也由子组件订阅 pathname
+  // 后回传**一个布尔**(面板根自己 usePathname 会把 2026-07-25 的根治抵消掉)。
+  // 值只在跨 /docs 边界时翻转 ⇒ 非文档路由的面板零额外重渲染。
+  const [publicDocsRoute, setPublicDocsRoute] = React.useState(false)
+  const handlePublicDocsRoute = React.useCallback(
+    (isPublicDocs: boolean) => setPublicDocsRoute(isPublicDocs),
+    [],
+  )
+  // 游客(auth 已就绪且未登录)+ 手机视口 + 公开文档页 ⇒ 面板不得整屏抢占文档正文。
+  // 已登录用户与非文档路由的条件项各自为假 ⇒ 行为逐字节不变。
+  const guestQuietDocs = ready && !allow && isMobileSmall && publicDocsRoute
+  const workspaceNameSync = (
+    <WorkspaceNameSync onNameChange={setWorkspaceName} onPublicDocsRoute={handlePublicDocsRoute} />
+  )
 
   // ─── D73 多任务窗格宿主侧:Hook 取值(2026-09-27 提到无条件位置)───
   // 这四行原本写在 1090 行的"打开态"分支里,而组件在 901/945/1041 有三处提前 return,
@@ -1312,7 +1345,9 @@ export function AISidePanel() {
             )}
             style={
               isMobileSmall
-                ? undefined
+                ? guestQuietDocs
+                  ? GUEST_DOCS_FLOAT_STYLE // 游客公开文档页:盒子下移,不抢文档正文
+                  : undefined
                 : floatPosition.x < 0
                   ? {
                       width: floatWidth,
@@ -1669,7 +1704,9 @@ export function AISidePanel() {
           style={
             floatMode
               ? isMobileSmall
-                ? undefined // 手机:无定位 style,全屏由 inset-0 控制
+                ? guestQuietDocs
+                  ? GUEST_DOCS_FLOAT_STYLE // 游客公开文档页:盒子下移,不抢文档正文
+                  : undefined // 手机:无定位 style,全屏由 inset-0 控制
                 : floatPosition.x < 0
                   ? {
                       width: floatWidth,
@@ -2004,10 +2041,18 @@ export function AISidePanel() {
  * - 渲染 null,无视觉开销
  * - 若 activeWorkspace 已绑定则跳过拉取(原逻辑保留)
  */
-function WorkspaceNameSync({ onNameChange }: { onNameChange: (name: string | null) => void }) {
+function WorkspaceNameSync({
+  onNameChange,
+  onPublicDocsRoute,
+}: {
+  onNameChange: (name: string | null) => void
+  onPublicDocsRoute: (isPublicDocs: boolean) => void
+}) {
   const pathname = usePathname()
 
   React.useEffect(() => {
+    // 路由身份回传(2026-11-03 S5 票):公开文档路由判定留在本子组件,面板根只接一个布尔
+    onPublicDocsRoute(isPublicDocsRoute(pathname))
     if (!pathname) {
       onNameChange(null)
       return
@@ -2041,7 +2086,7 @@ function WorkspaceNameSync({ onNameChange }: { onNameChange: (name: string | nul
     return () => {
       cancelled = true
     }
-  }, [pathname, onNameChange])
+  }, [pathname, onNameChange, onPublicDocsRoute])
 
   return null
 }
