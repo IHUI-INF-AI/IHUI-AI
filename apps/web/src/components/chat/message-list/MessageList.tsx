@@ -804,9 +804,7 @@ export function MessageList({
           建议条是「下一步做什么」的即时动作,本就不该藏进历史记录末尾;移出滚动容器后
           它恒在视口内、恒在成本条之上,命中区域由结构分离而非 z-index。
           派生仍用原始 messages(建议独立于档位过滤的呈现粒度)。 */}
-      <div className="shrink-0" data-testid="ambient-suggestions-band">
-        <AmbientSuggestions messages={messages} />
-      </div>
+      <AmbientSuggestions messages={messages} />
       {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
           右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
