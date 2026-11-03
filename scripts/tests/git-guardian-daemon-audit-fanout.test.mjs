@@ -3,12 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 结构锁:daemon 常驻 tick 链必须覆盖 4 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立)。
+ * 结构锁:daemon 常驻 tick 链必须覆盖 6 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立,同日补 2 面)。
  *
  * 失效形态(已实测 18 小时零派发):`startDaemon()` 是内存常驻的 setTimeout 链,**不重读本文件**;
  * 隧道腿 / 短信通道 / 自开发发起腿 / 隧道指标这 4 面原先只写在 `main()` 的单轮链上,而
  * `\IHUI-AI git-guardian` 计划任务档于 0:28:47 被禁用后,daemon 成了唯一执行体 ⇒ 缺这 4 行
  * 就等于 4 面永久不跑。重启守护无效,因为码本身就缺行。
+ * 2026-11-03 补的两面同一型且更静:判据面审计游标(`auditImmutableGuardNewCommits`,现读冻结在
+ * 11-02T16:08Z / 积压 596 枚)与"清扫器还活着吗"(`auditSweeperLiveness`)也只在 main() 链上 ——
+ * 后者本该是发现前者停摆的那只眼,眼自己闭着 ⇒ 这类事故只会一直靠人事后翻台账才发现。
  *
  * 本文件只锁"调用出现在 tick 体内"这一件事,不复制任何判据(判据在 git-guardian.mjs)。
  * 按**区段切片**断言:绝不用 `assert.match(整个文件)` —— 全文件匹配会被 main() 那几行命中,
@@ -25,12 +28,17 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..', '..')
 const GUARDIAN_SRC = path.join(ROOT, 'scripts', 'git-guardian.mjs')
 
-/** 这 4 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
-const FOUR = [
+/** 这 6 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
+const TICK_REQUIRED = [
   'auditTunnelLegHealth',
   'auditSmsChannelHealth',
   'sweepAutonomyLegHealth',
   'auditTunnelMetrics',
+  // 游标类(2026-11-03 加):计划任务档 00:28 被禁用后,这两枚随整条 main() 链停摆 ——
+  // 判据面审计游标冻结在 11-02T16:08Z(积压 596 枚),而本该第一个喊出来的"清扫器存活"
+  // 尺子自己就住在停摆链里(看守者无人看守)。失效方向必须是"多要一次说明",不能是"多停一轮"。
+  'auditImmutableGuardNewCommits',
+  'auditSweeperLiveness',
 ]
 
 const src = readFileSync(GUARDIAN_SRC, 'utf8')
@@ -83,10 +91,10 @@ function liveCallOffset(body, name) {
   return -1
 }
 
-test('T1 装车锁:daemon tick 链必须有 4 个非注释派发,缺哪个就点哪个名', () => {
+test('T1 装车锁:daemon tick 链必须有 6 个非注释派发,缺哪个就点哪个名', () => {
   const body = tickBodyOf(src)
   assert.notEqual(body, '', '判不出 tick 体(startDaemon/const tick 形态变了)⇒ 不得默认已接线')
-  const missing = FOUR.filter((name) => !hasLiveCall(body, name))
+  const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(body, name))
   assert.deepEqual(
     missing,
     [],
@@ -94,19 +102,19 @@ test('T1 装车锁:daemon tick 链必须有 4 个非注释派发,缺哪个就点
   )
 })
 
-test('T2 回填锁:main() 单轮链里原有 4 个派发仍在(不得因人工归并回灌被删)', () => {
+test('T2 回填锁:main() 单轮链里原有 6 个派发仍在(不得因人工归并回灌被删)', () => {
   const main = mainBodyOf(src)
   assert.notEqual(main, '', '判不出 main 体 ⇒ 本锁失效,按判红处理')
-  const missing = FOUR.filter((name) => !hasLiveCall(main, name))
+  const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(main, name))
   assert.deepEqual(missing, [], `main() 单轮链丢失了原有派发: ${missing.join(', ')}`)
 })
 
 test('T3 顺序锁:daemon 链内 publicProbe → tunnelLeg → sms → autonomyLeg 与 main() 同序', () => {
   const body = tickBodyOf(src)
-  const order = ['auditPublicPathProbe', ...FOUR.slice(0, 3)].map((name) => liveCallOffset(body, name))
+  const order = ['auditPublicPathProbe', ...TICK_REQUIRED.slice(0, 3)].map((name) => liveCallOffset(body, name))
   assert.ok(
     order.every((o) => o >= 0),
-    `顺序判据的前置调用缺失: ${['auditPublicPathProbe', ...FOUR.slice(0, 3)].filter((n) => liveCallOffset(body, n) < 0).join(', ')}`,
+    `顺序判据的前置调用缺失: ${['auditPublicPathProbe', ...TICK_REQUIRED.slice(0, 3)].filter((n) => liveCallOffset(body, n) < 0).join(', ')}`,
   )
   for (let k = 1; k < order.length; k++) {
     assert.ok(order[k] > order[k - 1], '三面插入位置必须紧跟 publicPathProbe 之后,与 main() 的相对顺序一致')
@@ -128,7 +136,7 @@ test('T4 靠后锁:auditTunnelMetrics 必须落在链尾段,不得插到最前',
 test('T5 反证:只挂 main() 的形态必须判未接线(本次事故的原始形态)', () => {
   const onlyMain = [
     'async function main() {',
-    ...FOUR.map((n) => `  if (!CHECK_ONLY) ${n}()`),
+    ...TICK_REQUIRED.map((n) => `  if (!CHECK_ONLY) ${n}()`),
     '}',
     'function startDaemon() {',
     '  const tick = () => {',
@@ -138,8 +146,8 @@ test('T5 反证:只挂 main() 的形态必须判未接线(本次事故的原始�
   ].join('\n')
   assert.notEqual(tickBodyOf(onlyMain), '', '反证夹具本身判不出 tick 体')
   assert.deepEqual(
-    FOUR.filter((n) => !hasLiveCall(tickBodyOf(onlyMain), n)),
-    FOUR,
+    TICK_REQUIRED.filter((n) => !hasLiveCall(tickBodyOf(onlyMain), n)),
+    TICK_REQUIRED,
     '只挂 main() 的形态被读成已接线 ⇒ 这道锁恒真,等于没锁',
   )
 })
@@ -148,11 +156,11 @@ test('T6 反证:注释行出现调用名不算接线', () => {
   const commented = [
     'function startDaemon() {',
     '  const tick = () => {',
-    ...FOUR.map((n) => `    // ${n}()`),
+    ...TICK_REQUIRED.map((n) => `    // ${n}()`),
     '  }',
     '}',
   ].join('\n')
-  for (const name of FOUR) assert.equal(hasLiveCall(tickBodyOf(commented), name), false)
+  for (const name of TICK_REQUIRED) assert.equal(hasLiveCall(tickBodyOf(commented), name), false)
 })
 
 test('T7 区段自证:两段切片非空且互不串味,防止"切错段⇒恒真"', () => {
