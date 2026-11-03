@@ -1500,19 +1500,65 @@ export function MessageInput({
                   }
                   /* 2026-11-04 第二轮收敛:权限 / 模式 / Agent 提到 + 菜单第一层
                      (composer-quick-settings),点 + 后再点一次即打开各自面板(2 击)。
-                     这里只留低频项:任务进度 / 上下文环 / 语音转文字 / 语音笔记,
-                     外加流式期间的 Steer / 打断并发送。 */
+                     第三轮追加:流式期间把「中途引导 / 打断并发送」也放在这一层(时间敏感,
+                     2 击必达);低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)仍在
+                     「更多工具」抽屉(3 击)。 */
                   primaryMenuItems={
-                    <div
-                      className="flex flex-wrap items-center gap-1"
-                      data-testid="composer-quick-controls"
-                    >
-                      <PermissionModePopover
-                        disabled={isStreaming}
-                        onExplainMode={(mode) => setInfoMode(mode)}
-                      />
-                      <ModeSwitcher disabled={isStreaming} />
-                      <AgentPicker />
+                    <div className="flex w-full min-w-0 flex-col gap-1">
+                      {/* 2026-11-04 第三轮:流式期间的两枚**时间敏感**动作提到 + 菜单第一层。
+                          「中途引导 / 打断并发送」要在模型还在吐字时决定,原落点
+                          (+ → 更多工具 → 动作)是 3 击,来不及;一级落位后 = 点 + 1 击
+                          + 点动作 1 击 = 2 击。空闲态这两枚本就不渲染(isStreaming 条件),
+                          + 菜单结构零变化(权限/模式/Agent 仍是一层 3 枚)。
+                          280 下用 2 列等宽 + truncate,不允许换行错位或半格悬空。 */}
+                      {isStreaming && (
+                        <div
+                          className="grid grid-cols-2 gap-1"
+                          data-testid="composer-streaming-actions"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-testid="steer-button"
+                            disabled={!value.trim()}
+                            onClick={() => {
+                              void steer()
+                              setAddMenuOpen(false)
+                              setAddMenuMode('menu')
+                            }}
+                            className="flex min-w-0 items-center gap-1.5 rounded-sm border border-border/60 bg-muted/20 px-1.5 py-1 text-label text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Zap className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                            <span className="min-w-0 flex-1 truncate">{t('steer')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-testid="interrupt-and-send-button"
+                            disabled={!value.trim()}
+                            onClick={() => {
+                              void interruptAndSend()
+                              setAddMenuOpen(false)
+                              setAddMenuMode('menu')
+                            }}
+                            className="flex min-w-0 items-center gap-1.5 rounded-sm border border-border/60 bg-muted/20 px-1.5 py-1 text-label text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <ArrowUp className="h-3.5 w-3.5 shrink-0 text-sky-500" />
+                            <span className="min-w-0 flex-1 truncate">{tq('interruptAndRun')}</span>
+                          </button>
+                        </div>
+                      )}
+                      <div
+                        className="flex flex-wrap items-center gap-1"
+                        data-testid="composer-quick-controls"
+                      >
+                        <PermissionModePopover
+                          disabled={isStreaming}
+                          onExplainMode={(mode) => setInfoMode(mode)}
+                        />
+                        <ModeSwitcher disabled={isStreaming} />
+                        <AgentPicker />
+                      </div>
                     </div>
                   }
                   toolsMenuItems={
@@ -1539,32 +1585,9 @@ export function MessageInput({
                           </div>
                         </div>
                       </div>
-                      {isStreaming && (
-                        <div className="flex flex-col gap-0.5 border-t border-border/60 pt-1">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            data-testid="steer-button"
-                            disabled={!value.trim()}
-                            onClick={() => void steer()}
-                            className="flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-popover-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 flex-1 truncate">{t('steer')}</span>
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            data-testid="interrupt-and-send-button"
-                            disabled={!value.trim()}
-                            onClick={() => void interruptAndSend()}
-                            className="flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-popover-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <ArrowUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 flex-1 truncate">{tq('interruptAndRun')}</span>
-                          </button>
-                        </div>
-                      )}
+                      {/* 2026-11-04 第三轮:Steer / 打断并发送 已从本抽屉移到 + 菜单
+                          第一层(composer-streaming-actions,仅流式期间出现)。抽屉只留
+                          低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)。 */}
                     </div>
                   }
                 />
