@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 326 | `guardianGates` |
 | — blocking | 296 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19022 | `trackedFiles` |
+| 跟踪文件 | 19023 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5451,6 +5451,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 工程/其他:a1029c579c 并入后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (c95120eb2a)
+
+**2026-11-03**
 - 🔧 工程/其他:合并后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (f3a4ce5649)
 - 🐞 修复:计划任务档禁用把 main 单轮链 74 条巡检腿整体停摆 27h —— 恢复任务档 + 游标类两枚同挂 tick (a1029c579c)
 - 🐞 修复:for-each-ref 顶穿默认 1MiB 缓冲 ⇒ 22,298 条"假缺失"的失明根因 (5625a4b4ee)
@@ -5463,7 +5466,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:bump nativewind from 4.2.6 to 4.2.7 (774e4e53b0)
 - 🐞 修复:添加按钮桌面点击区补足 32px (3855f738d5)
 - 🐞 修复:O21b create 版本正向用例声明 text/markdown —— md 纳入上传白名单后,octet-stream 会被 MIME 一致性闸判 400 (5d30f42942)
-
 **2026-11-03**
 - 🐞 修复:文档上传再收四档 tsv/json/ods/odp,并把收了却解析不了的那条腿一起补齐(票 D53 第十批,③桶 6 到 1) (405e2a5b46)
 - 🐞 修复:小程序端考勤改口服务端判定,状态档与点名时刻走单一契约文件 (ebc76ae16c)

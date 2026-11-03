@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 工程守门 | 326 | `guardianGates` |
 | — blocking | 296 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19022 | `trackedFiles` |
+| 跟踪文件 | 19023 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,9 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:a1029c579c 并入后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (c95120eb2a)
+
 **2026-11-03**
 - 🔧 Chore/Other:合并后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (f3a4ce5649)
 - 🐞 Fix:计划任务档禁用把 main 单轮链 74 条巡检腿整体停摆 27h —— 恢复任务档 + 游标类两枚同挂 tick (a1029c579c)
@@ -584,9 +587,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 - ♻️ Refactor:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
 - ⚡ Perf:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
 - 🔧 Chore/Other:烘焙 0.1.77 更新源与下载页快照 — Gitee 镜像仓为空仓无 main/tag/release,字节对账未判定故保留 GitHub 直链 (694810b9dc)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
