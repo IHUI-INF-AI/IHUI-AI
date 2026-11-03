@@ -69,7 +69,11 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | ---- | ---- | ------ |
 | 数据库表 | 619 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
+
+| API 路由 | 4682 | `apiRoutes` |
+
 | API 路由 | 4683 | `apiRoutes` |
+
 | 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -82,13 +86,21 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
+
+| 测试文件 | 4007 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
+| Compose 服务 | 14 | `composeServices` |
+| 工程守门 | 316 | `guardianGates` |
+| — blocking | 287 | `guardianBlocking` |
+| — warn | 31 | `guardianWarn` |
+| 跟踪文件 | 18862 | `trackedFiles` |
+
 | 测试文件 | 4021 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
-| Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 320 | `guardianGates` |
 | — blocking | 291 | `guardianBlocking` |
-| — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 18950 | `trackedFiles` |
+
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +113,60 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (434987ae32)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a69c95034d)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (682d2b65d3)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b19d4901bb)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (016ef5e5dc)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dffec0afec)
+- 🐞 Fix:考勤阈值时刻解析补收带秒形态,迟到/早退与每日补缺勤不再静默判不出(票 B67/B71 残余格) (3b29aa1bef)
+- 🚀 Feature/Improvement:文档中心余下 4 页接 docs.* i18n 并把 tip 块表情换矢量 Lightbulb(票 D53 第三批·余格) (5d27ad4027)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (28e56a22ac)
+- 🔧 Chore/Other:diag-manifest (c3f5d12ac5)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (70912fe3ea)
+- 🐞 Fix:文档中心三页伪表格改语义表格+后台文档编辑接 Markdown 预览(票 D53 第二批) (ff07dd5811)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8bd4b42a48)
+- 📚 Docs:本侧 Y-70 让号到 Y-20079(归并新增撞号组 F9 的当场清偿) (eaa4d5ff51)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (17c174997e)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bf9b34d0db)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0fff93a09c)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (696ab99e91)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8248d8dcc7)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c5c0586a4a)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3969eafae0)
+- 🚀 Feature/Improvement:小程序考勤页接上代签/签退与整班点名(票 B72 小程序腿) (19a08e0fa0)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bf71375c7f)
+- 🐞 Fix:修掉门 282 自带的 2 条类型错误(该腿本地不红、CI 会红) (9d98965011)
+
 - 🐞 Fix:收窄家长端鉴权用例 unknown 类型并清零 e2e --no-ignore eslint 报错 (75a9836204)
 - 🐞 Fix:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (73f7fb1242)
 - 🐞 Fix:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (d08f93800e)
@@ -157,49 +223,37 @@ Headline claims (same source as the table below, all live-computed): **619 table
 - 📚 Docs:修正 AiLlm 告警注释里 printf 措辞（与 humanizePercentage 模板对齐） (99f9e0ed34)
 - 🐞 Fix:修 AiLlm 告警正文把比率当百分比格式化（printf "%.0f%%" → humanizePercentage） (e7bab5a086)
 
-**2026-11-03**
 - 🔧 Chore/Other:补全 10 个文件的 L2 零宽载荷与水印尾标(scripts/watermark.mjs inject 生成物) (0223f5e987)
 - ♻️ Refactor:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
 - ⚡ Perf:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
 - 🔧 Chore/Other:烘焙 0.1.77 更新源与下载页快照 — Gitee 镜像仓为空仓无 main/tag/release,字节对账未判定故保留 GitHub 直链 (694810b9dc)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30d2f7ca16)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3c9a00be72)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f6d68d470b)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (415b1414a3)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d365afb360)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (34ba63607b)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9b60105652)
 - 🔧 Chore/Other:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
 - 🚀 Feature/Improvement:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ae46cd2635)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (45954293cd)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ce45e49f3f)
 
-**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
+
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
@@ -282,6 +336,10 @@ Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI
 - **Alert outlet**: the site-wide `notifications` table, **one aggregated notification per owner per round** (19 accounts expiring at once must not send 19 messages — users then mute it and never see the real one); non-uuid owners such as `probe-user` are dropped and counted, because one bad owner aborts the whole batch insert; a missing table is reported as a warning rather than pretended delivered. `KEEPALIVE_ALERT_WEBHOOK` adds an extra leg. The whole path is fail-open — a failed notification never interrupts keepalive.
 - **Switches**: `KEEPALIVE_ENABLED`, inherited from `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` when unset; `resolve_config()` re-reads every round, so an `.env` change takes effect on the next round without a restart. Related defaults: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
 - **Bounds**: it judges credential liveness only — publishing still belongs to the publish scheduler and daily check-in to `checkin_scheduler`, otherwise one account gets hit by two writers at once. Front end: `apps/web/src/components/publish/KeepaliveCenterPanel.tsx` on `/publish/accounts`; client wrappers in `packages/api-client/src/endpoints/keepalive.ts`.
+
+### Academic admin and attendance in the education vertical (added 2026-11-03 — thresholds, absence back-fill, approval coupling)
+
+Per-class cut-offs for lateness, early leave and absence live in `edu_attendance_rule` (three `HH:MM` thresholds plus the QR signing secret, editable in the web academic console). A scheduled job (`edu-attendance-absent-daily`) back-fills an `absent` row for every enrolled student who has not checked in once the absence threshold passes, so attendance rate is no longer divided by checked-in students only. Approving a leave request writes the matching `leave` rows idempotently in the same transaction. Whole-class batch check-in confirms the affected set against the database (`created · skipped · missedIds`), and attendance exports to CSV. Check-in comes in three modes — `manual`(teacher proxy), `self`(student self-service) and `qrcode`(HMAC-signed QR with a 60-second TTL, rendered on web and RN, scanned on RN and the mini-program). Students get their own attendance page on all three ends through `GET /attendance/me`, which trusts only the authenticated session and resolves ownership server-side; the parent portal reads attendance behind per-endpoint authentication. Face check-in was ruled out instead of stubbed: it would require a third-party face library, liveness detection and consent handling.
 
 ## 🚀 Quick start
 

@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 291 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 18950 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5484,7 +5482,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:commit-msg 遵守 --only 的临时索引 (1428656ec0)
 - 🐞 修复:尊重 --only 的临时索引,堵住 lint-staged 撞 index.lock 与 MM 静默回滚 (b082a600a6)
 - 🐞 修复:同一 alertId 跨进程原子占位,堵住双跑重复投递 (84cc8a94db)
-
 **2026-11-02**
 - 🚀 新功能/改进:按服务名复用轮级锁，锁跳过时回滚预记状态 (74ec597cd7)
 - 🚀 新功能/改进:接入轮级原子锁终结 daemon 与计划任务双跑 (7297e37425)
@@ -5504,7 +5501,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:去重窗口不再被重复推送续期——被抑制的推送只读不写,持续 firing 按窗口重报 (19f67b3b45)
 - 📚 文档:修正 AiLlm 告警注释里 printf 措辞（与 humanizePercentage 模板对齐） (99f9e0ed34)
 - 🐞 修复:修 AiLlm 告警正文把比率当百分比格式化（printf "%.0f%%" → humanizePercentage） (e7bab5a086)
-
 **2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7f9c0f84ca)
 - 🔧 工程/其他:收敛后按 HEAD 面重生成 3 件 i18n 派生产物 (cf4929783c)
@@ -41403,3 +41399,64 @@ A: Yes. ~14839+ tests / 4006 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - 🔧 工程/其他:按 origin/main 源面重生成三端 ui-routes 产物,消 G5 自述钉陈旧 (0b3c68bda9)
 - 🐞 修复:F4 组数口径最小豁免——已归并副本行退出 dupOpenGroups 分母(1→0) (8e8788ef50)
 - 🚀 新功能/改进:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (1d81b430e7)
+对外关键数字声明(与本页生成块同源,均现算):**618 张表 · 4672 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 3985 测试文件 · 315 道工程守门 · 50 CI workflows ·
+| API 路由 | 4682 | `apiRoutes` |
+| 测试文件 | 4007 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
+| 工程守门 | 316 | `guardianGates` |
+| — blocking | 287 | `guardianBlocking` |
+| 跟踪文件 | 18862 | `trackedFiles` |
+  <strong>618 张表 · 4672 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3985 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **618 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4672 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 50 CI workflows          |
+| **测试覆盖** | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4672 API 路由 / 3985 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3985 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3985 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 88 守门脚本 · 蓝绿部署
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4672 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 618 数据库表 / drizzle-kit push / 4672 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4672 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **50 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                   | 测试覆盖            | **3985 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:618 张表 · 4672 API 路由 · 3985 测试文件 · ~14839 测试用例
+- **质量**:315 道工程守门（244 blocking）· 50 CI workflows · 删水印即 CI 失败
+├── .github/workflows/       # 50 个 CI workflows
+├── .github/workflows/       # 50 个 CI workflows
+### 通病 ② 边界条件处理不足 → 实际:3985 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3985 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 618 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4672 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **50 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
+- **3985 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 618 张数据库表 · 4451 个 API 路由。**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (434987ae32)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a69c95034d)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (682d2b65d3)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (b19d4901bb)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (016ef5e5dc)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dffec0afec)
+- 🐞 修复:考勤阈值时刻解析补收带秒形态,迟到/早退与每日补缺勤不再静默判不出(票 B67/B71 残余格) (3b29aa1bef)
+- 🚀 新功能/改进:文档中心余下 4 页接 docs.* i18n 并把 tip 块表情换矢量 Lightbulb(票 D53 第三批·余格) (5d27ad4027)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (28e56a22ac)
+- 🔧 工程/其他:diag-manifest (c3f5d12ac5)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (70912fe3ea)
+- 🐞 修复:文档中心三页伪表格改语义表格+后台文档编辑接 Markdown 预览(票 D53 第二批) (ff07dd5811)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (8bd4b42a48)
+- 📚 文档:本侧 Y-70 让号到 Y-20079(归并新增撞号组 F9 的当场清偿) (eaa4d5ff51)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (17c174997e)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (bf9b34d0db)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0fff93a09c)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (696ab99e91)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (8248d8dcc7)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (c5c0586a4a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (3969eafae0)
+- 🚀 新功能/改进:小程序考勤页接上代签/签退与整班点名(票 B72 小程序腿) (19a08e0fa0)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (bf71375c7f)
+- 🐞 修复:修掉门 282 自带的 2 条类型错误(该腿本地不红、CI 会红) (9d98965011)
+- 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六
+- 指标存在性对账(2026-11-03 立,接线面=根 `package.json` 脚本位 `check:metric-existence`,非提交链): `check-metric-existence.mjs` — 判 alerts 规则引用的指标名在 Prometheus 是否真实存在且近期有样本;T1 拼错(编辑距离 ≤2 并打印最近名字)/T2 不存在/T3 无样本 三态不并桶,任一命中 exit 1。立因:把指标名改错后 promtool 仍 SUCCESS、reload 200、health=ok,规则从此刻起静默永不触发,而既有各门(Metric 存在性只查大屏 expr、P6 只查 alerts.yml 且把无样本算 live)一条都不响。

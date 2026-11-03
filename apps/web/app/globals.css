@@ -889,7 +889,7 @@ iframe::-webkit-scrollbar {
      (肉眼无感但严格不绝对 0);改 6px 后 box 25 (整数),text 严格 6/6 对称,delta = 0。
      padding 仍对称保留视觉呼吸空间,无功能差异。 */
   padding: 8px 6px;
-  font-size: 11px;
+  font-size: var(--text-caption);
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   pointer-events: none;
@@ -1008,7 +1008,7 @@ html[data-workbench-immersive='true'] aside[data-main-sidebar] {
   /* 对称 padding(8/6/8/6)与关闭态 tooltip 一致,box 物理宽 25 整数,text 居中 delta = 0。
      关闭态注释:padding 4 时 box 渲染 25.39 sub-pixel 致 0.195px 偏心,改 6 整数化。 */
   padding: 8px 6px;
-  font-size: 11px;
+  font-size: var(--text-caption);
   line-height: 1.4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   pointer-events: none;

@@ -53,10 +53,19 @@ on:
       - '.github/workflows/mobile-apk-build.yml'
     tags: ['v*']
 
-# 防止并发重复构建:同一时间只保留一个构建(新 push 排队等待,不取消进行中的旧构建)
+# 2026-11-03(排队治理):原 group 是**全仓单一槽**且 cancel-in-progress:false —— 实测
+#   本 job 单次执行 3000~3200s(54min 量级,run 41581262015 同族),而 main 每 15~25min
+#   就有新提交;一枚 54min 构建会持续占住 1 个 runner 槽,并把后续 push 的 run 压成
+#   pending(jobs=0,实测 41583759575 / 41581261698)。最近 12 次运行 10 次 cancelled、
+#   0 次产出可用 dev APK —— 现状本来就是"跑不完"。
+# 改为**按 ref 独立槽** + cancel-in-progress:true:main 上永远只建最新提交,旧构建被新提交
+#   挤掉(它们本来也赶不上下一枚提交);tag / workflow_dispatch 在自己的 ref 组里互不干扰,
+#   发版构建不会被 main 的普通提交取消。代价:main 上的 dev APK 只在两次 push 间隔
+#   > 54min 时才会完成。这与改前观测一致,没有净损失;需要可复现产物时走 tag 或手动
+#   workflow_dispatch(那两个 ref 组不与 main 争槽)。
 concurrency:
-  group: android-apk-build
-  cancel-in-progress: false
+  group: android-apk-build-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
