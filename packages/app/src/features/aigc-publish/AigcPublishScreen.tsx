@@ -322,7 +322,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     urlAddText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
     pickerBtn: {
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: primary,
