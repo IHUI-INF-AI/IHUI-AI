@@ -163,6 +163,17 @@ export interface InputAreaProps {
   onSubmit: (text: string) => void
   /** 禁用输入(同时禁用发送按钮,变 muted 色) */
   disabled?: boolean
+  /** 自动聚焦输入框(对齐小程序端同名字段;RN 直通 TextField → TextInput autoFocus) */
+  autoFocus?: boolean
+  /** 聚焦回调(对齐小程序端同名字段;RN 直通 TextField → TextInput onFocus) */
+  onFocus?: () => void
+  /** 失焦回调(对齐小程序端同名字段;RN 直通 TextField → TextInput onBlur) */
+  onBlur?: () => void
+  /**
+   * 键盘高度变化(px,0=收起)。对齐小程序端 Textarea.onKeyboardHeightChange:
+   * RN 的 TextInput 不发该事件,由 Keyboard.keyboardDidShow/Hide 换算成同一契约;未传则不订阅。
+   */
+  onKeyboardHeightChange?: (height: number) => void
   /** 发送中:按钮显示 ActivityIndicator 替代 ➤ 图标 */
   loading?: boolean
   /** 停止回调:提供后,loading 时发送按钮切换为停止按钮(danger 色)。用于流式对话中断 */
@@ -346,6 +357,10 @@ export function InputArea({
   maxLength = DEFAULT_MAX_LENGTH,
   onSubmit,
   disabled = false,
+  autoFocus = false,
+  onFocus,
+  onBlur,
+  onKeyboardHeightChange,
   loading = false,
   onStop,
   stopLabel,
@@ -392,6 +407,19 @@ export function InputArea({
     multiline: true,
     maxLength,
   })
+  // 键盘高度透出(对齐小程序端 Textarea.onKeyboardHeightChange):RN TextInput 无此事件,
+  // 由 Keyboard 的 didShow/didHide 换算成同一「px,0=收起」契约;未传回调时不订阅(零开销)。
+  useEffect(() => {
+    if (!onKeyboardHeightChange) return
+    const showSub = RNKeyboard.addListener('keyboardDidShow', (e) =>
+      onKeyboardHeightChange(e.endCoordinates.height),
+    )
+    const hideSub = RNKeyboard.addListener('keyboardDidHide', () => onKeyboardHeightChange(0))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [onKeyboardHeightChange])
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
@@ -675,6 +703,9 @@ export function InputArea({
                     style={[inputBareStyle, { height: inputHeight }]}
                     value={value}
                     onChangeText={onChangeText}
+                    autoFocus={autoFocus}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
                     onContentSizeChange={(e) =>
                       handleContentSizeChange(
                         e.nativeEvent.contentSize.width,
@@ -829,6 +860,9 @@ export function InputArea({
                   style={[styles.input, { height: inputHeight }]}
                   value={value}
                   onChangeText={onChangeText}
+                  autoFocus={autoFocus}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
                   onContentSizeChange={(e) =>
                     handleContentSizeChange(
                       e.nativeEvent.contentSize.width,
