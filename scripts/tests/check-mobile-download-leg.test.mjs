@@ -13,21 +13,35 @@ import assert from 'node:assert/strict'
 
 import {
   DEFAULT_MOBILE_DOWNLOAD_URL,
+  LATEST_KEY,
   MIN_APK_BYTES,
   MOBILE_DOWNLOAD_LEG_CONFIG_PATH,
   RELEASE_CERT_SHA256,
   RELEASE_CERT_SHA256_DISPLAY,
+  SITE_LEG_PUBLIC_BASE,
+  SITE_LEG_URL_PREFIX,
   judgeCertDigest,
   judgeDownloadProbe,
   resolveMobileDownloadUrl,
   summarizeExit,
 } from '../lib/mobile-download-leg.mjs'
 import { EXIT, classifyDownloadUrl, parseArgs } from '../check-mobile-download-leg.mjs'
+import { __test__ as pub } from '../publish-mobile-apk.mjs'
+import { PINNED_DOWNLOAD_URL, PLATFORM_PROFILES } from '../check-app-version-latest.mjs'
 
 test('单源:默认 URL 来自 scripts/data/mobile-download-leg.json', () => {
   assert.equal(MOBILE_DOWNLOAD_LEG_CONFIG_PATH.endsWith('mobile-download-leg.json'), true)
   assert.equal(DEFAULT_MOBILE_DOWNLOAD_URL, 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk')
   assert.equal(resolveMobileDownloadUrl({}).source, MOBILE_DOWNLOAD_LEG_CONFIG_PATH)
+})
+
+test('发布/巡检两脚本读到的固定地址与单源逐字一致', () => {
+  assert.equal(pub.LATEST_KEY, LATEST_KEY)
+  assert.equal(pub.SITE_LEG.PublicBase, SITE_LEG_PUBLIC_BASE)
+  assert.equal(pub.SITE_LEG.UrlPrefix, SITE_LEG_URL_PREFIX)
+  assert.equal(pub.siteLegUrl(pub.LATEST_KEY), DEFAULT_MOBILE_DOWNLOAD_URL)
+  assert.equal(PINNED_DOWNLOAD_URL, DEFAULT_MOBILE_DOWNLOAD_URL)
+  assert.equal(PLATFORM_PROFILES.android.pinned, DEFAULT_MOBILE_DOWNLOAD_URL)
 })
 
 test('覆盖优先级:IHUI_MOBILE_DOWNLOAD_URL > NEXT_PUBLIC_DOWNLOAD_APK_URL > JSON', () => {

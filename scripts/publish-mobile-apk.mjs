@@ -57,6 +57,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { prodCheckoutRoot } from './lib/prod-checkout-root.mjs'
 import {
+  LATEST_KEY as SINGLE_SOURCE_LATEST_KEY,
+  SITE_LEG_PUBLIC_BASE,
+  SITE_LEG_URL_PREFIX,
+} from './lib/mobile-download-leg.mjs'
+import {
   applyViaApi,
   applyViaDb,
   openDbConnection,
@@ -66,7 +71,8 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..')
 
-export const LATEST_KEY = 'ihui-ai-latest.apk'
+/** 固定文件名与站点腿地址均取自 `scripts/data/mobile-download-leg.json` 单源,不再保留字面量。 */
+export const LATEST_KEY = SINGLE_SOURCE_LATEST_KEY
 
 /**
  * 站点 CDN 腿(2026-10-29 立,2026-10-30 起为唯一出口)。
@@ -77,8 +83,8 @@ export const LATEST_KEY = 'ihui-ai-latest.apk'
  * 每次回源的成本与包大小无关。
  */
 export const SITE_LEG = {
-  PublicBase: 'https://www.aizhs.top',
-  UrlPrefix: '/remote-images/download',
+  PublicBase: SITE_LEG_PUBLIC_BASE,
+  UrlPrefix: SITE_LEG_URL_PREFIX,
   RelDir: join('deploy', 'server-root', 'remote-images', 'download'),
 }
 
