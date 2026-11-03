@@ -294,6 +294,8 @@ async function attemptRefresh(
       ? data['refreshToken'].trim()
       : null
   const expiresIn = typeof data['expiresIn'] === 'number' ? data['expiresIn'] : NaN
+  const refreshExpiresIn =
+    typeof data['refreshExpiresIn'] === 'number' ? data['refreshExpiresIn'] : NaN
   let expiresAt: Date | null
   if (Number.isFinite(expiresIn) && expiresIn > 0) {
     expiresAt = new Date(Date.now() + expiresIn * 1000)
@@ -302,7 +304,14 @@ async function attemptRefresh(
     // 沿用它会让"换票成功"当场又变成"已过期",也会把编造的未来时刻写回库里。
     expiresAt = null
   }
-  return { token: accessToken, refreshToken: newRefresh, expiresAt }
+  return {
+    token: accessToken,
+    refreshToken: newRefresh,
+    expiresAt,
+    // 相对秒数原样上交,缺失 = 不带该键(不编造);调度器据此落 refresh_expires_at。
+    ...(Number.isFinite(expiresIn) && expiresIn > 0 ? { expiresIn } : {}),
+    ...(Number.isFinite(refreshExpiresIn) && refreshExpiresIn > 0 ? { refreshExpiresIn } : {}),
+  }
 }
 
 export const workbuddyAdapter: RelayUpstreamAdapter = {
