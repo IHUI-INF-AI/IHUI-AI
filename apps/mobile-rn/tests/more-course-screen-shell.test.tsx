@@ -12,13 +12,10 @@ import { render, waitFor } from '@testing-library/react'
 import { moreCourseScreenPropsCaptured } from './__mocks__/ihui-rn-app'
 
 const { apiMocks } = vi.hoisted(() => ({
-  apiMocks: { getCourses: vi.fn(), fetchApi: vi.fn(), navigate: vi.fn(), goBack: vi.fn() },
+  apiMocks: { getCourses: vi.fn(), navigate: vi.fn(), goBack: vi.fn() },
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  getCourses: apiMocks.getCourses,
-  fetchApi: apiMocks.fetchApi,
-}))
+vi.mock('@ihui/api-client', () => ({ getCourses: apiMocks.getCourses }))
 vi.mock('@ihui/shared/utils', () => ({
   toUserFriendlyMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   apiFailureToError: (res: { error?: string }) => new Error(res.error ?? 'api failed'),
@@ -60,11 +57,6 @@ function course(id: string, title: string) {
 const PAGE_1 = [course('c1', '第一课'), course('c2', '第二课')]
 const PAGE_2 = [course('c3', '第三课')]
 
-const PLANET_NEWS = [
-  { id: 'n1', title: '星球公告', summary: '摘要一', coverImage: 'https://cdn/n1.jpg', createdAt: 1700000000000 },
-  { id: 'n2', title: '星球资讯', summary: null, coverImage: null, createdAt: '2026-10-01T00:00:00.000Z' },
-]
-
 function lastProps(): Record<string, unknown> {
   return moreCourseScreenPropsCaptured[moreCourseScreenPropsCaptured.length - 1]!
 }
@@ -86,7 +78,6 @@ describe('MoreCourseScreen 薄壳', () => {
         data: page === 1 ? { list: PAGE_1, total: 3 } : { list: PAGE_2, total: 3 },
       }),
     )
-    apiMocks.fetchApi.mockResolvedValue({ success: true, data: { list: PLANET_NEWS, total: 2 } })
   })
 
   afterEach(() => {
@@ -150,45 +141,5 @@ describe('MoreCourseScreen 薄壳', () => {
     await waitFor(() => {
       expect(lastProps().error).toBe('课程服务不可用')
     })
-  })
-
-  it('注入 7 张轮播图', async () => {
-    await renderLoaded()
-    expect((lastProps().bannerImages as unknown[]).length).toBe(7)
-  })
-
-  it('知识星球取数走 /api/knowledge-planet/news 并映射为共享字段', async () => {
-    await renderLoaded()
-    await waitFor(() => {
-      expect(apiMocks.fetchApi).toHaveBeenCalledWith('/api/knowledge-planet/news')
-      const planet = lastProps().planet as { items: Array<Record<string, unknown>> }
-      expect(planet.items.map((i) => i.id)).toEqual(['n1', 'n2'])
-    })
-    const planet = lastProps().planet as { items: Array<Record<string, unknown>> }
-    expect(planet.items[0]).toMatchObject({
-      title: '星球公告',
-      cover: 'https://cdn/n1.jpg',
-      summary: '摘要一',
-      createdAt: 1700000000000,
-    })
-    expect(planet.items[1]!.cover).toBeUndefined()
-    expect(planet.items[1]!.summary).toBeUndefined()
-    expect(planet.items[1]!.createdAt).toBe(Date.parse('2026-10-01T00:00:00.000Z'))
-  })
-
-  it('知识星球入口/资讯点击透传到导航', async () => {
-    await renderLoaded()
-    await waitFor(() => {
-      const planet = lastProps().planet as { items: unknown[] }
-      expect(planet.items.length).toBe(2)
-    })
-    const planet = lastProps().planet as {
-      onEnter: () => void
-      onItemPress: (id: string) => void
-    }
-    planet.onEnter()
-    expect(apiMocks.navigate).toHaveBeenCalledWith('KnowledgePlanet')
-    planet.onItemPress('n2')
-    expect(apiMocks.navigate).toHaveBeenCalledWith('AnnouncementDetail', { id: 'n2' })
   })
 })

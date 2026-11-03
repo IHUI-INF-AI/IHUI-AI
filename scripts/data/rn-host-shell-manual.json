@@ -51,6 +51,14 @@
       "evidence": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:98 streamChat、:133 ModelConfigDialog、:137 Drawer、:991 ImagePicker;文件内无 @ihui/rn-app 值导入;共享屏硬 props 见覆盖读数 emptyText/messages/onModelConfigPress/onModelPress/onPreviewImage/quickSuggestions/searchInput/selectedModelLabel/sending。"
     },
     {
+      "shared": "AgentReviewDetailScreen",
+      "verdict": "not-applicable",
+      "owner": "agent-review",
+      "expires": "2027-03-31",
+      "reason": "RN 无 AgentReviewDetail 详情路由/入口;评价内容由共享 AgentReviewList 列表屏承载,详情语义不进 RN,不建壳。",
+      "evidence": "apps/mobile-rn/src/navigation/RootNavigator.tsx:593/1152 仅注册 AgentReviewList,无 AgentReviewDetail 路由;drawer-nav.ts:127/431-432 同样只有列表入口;apps/mobile-rn/src/screens/AgentReviewListScreen.tsx:11 值导入、:59 起渲染共享 AgentReviewListScreen,无详情跳转;apps/mobile-rn/src 全量 grep AgentReviewDetail 0 命中。承接位置=共享 AgentReviewListScreen(packages/app/src/features/agent-review-list/AgentReviewListScreen.tsx)。"
+    },
+    {
       "shared": "FollowingScreen",
       "verdict": "not-applicable",
       "owner": "social-follow",

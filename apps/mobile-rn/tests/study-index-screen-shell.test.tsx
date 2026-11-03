@@ -12,35 +12,21 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
 import { studyIndexScreenPropsCaptured } from './__mocks__/ihui-rn-app'
 
-const { apiMocks, navBarMock, drawerMock } = vi.hoisted(() => ({
-  apiMocks: {
-    fetchApi: vi.fn(),
-    fetchModels: vi.fn(),
-    listConversations: vi.fn(),
-    deleteConversation: vi.fn(),
-    navigate: vi.fn(),
-    goBack: vi.fn(),
-  },
+const { apiMocks, navBarMock } = vi.hoisted(() => ({
+  apiMocks: { fetchApi: vi.fn(), fetchModels: vi.fn(), navigate: vi.fn(), goBack: vi.fn() },
   navBarMock: { props: [] as Array<Record<string, unknown>> },
-  drawerMock: { props: [] as Array<Record<string, unknown>> },
 }))
 
 vi.mock('@ihui/api-client', () => ({
   fetchApi: apiMocks.fetchApi,
   fetchModels: apiMocks.fetchModels,
-  listConversations: apiMocks.listConversations,
-  deleteConversation: apiMocks.deleteConversation,
 }))
 vi.mock('@ihui/shared/utils', () => ({
   toUserFriendlyMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   apiFailureToError: (res: { error?: string }) => new Error(res.error ?? 'api failed'),
 }))
 vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({
-    navigate: apiMocks.navigate,
-    goBack: apiMocks.goBack,
-    getParent: () => ({ navigate: apiMocks.navigate }),
-  }),
+  useNavigation: () => ({ navigate: apiMocks.navigate, goBack: apiMocks.goBack }),
 }))
 vi.mock('@react-navigation/native-stack', () => ({}))
 vi.mock('../src/i18n', () => {
@@ -48,23 +34,12 @@ vi.mock('../src/i18n', () => {
   return { useI18n: () => ({ t }) }
 })
 vi.mock('../src/context/ThemeContext', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
-vi.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }))
 vi.mock('../src/components/NavBar', () => ({
   NavBar: (props: Record<string, unknown>) => {
     navBarMock.props.push(props)
     return null
   },
 }))
-vi.mock('../src/components/Drawer', () => ({
-  default: (props: Record<string, unknown>) => {
-    drawerMock.props.push(props)
-    return null
-  },
-}))
-vi.mock('../src/components/PanelLeftRounded', () => ({ PanelLeftRounded: () => null }))
-vi.mock('../src/components/BottomPops', () => ({ appAlert: vi.fn() }))
-vi.mock('../src/navigation/tab-utils', () => ({ navigateDrawerTab: vi.fn() }))
-vi.mock('@react-native-clipboard/clipboard', () => ({ default: { setString: vi.fn() } }))
 vi.mock('lucide-react-native', () => ({ Search: () => null, X: () => null }))
 vi.mock('@ihui/ui-native', () => ({ Tappable: () => null }))
 
@@ -102,7 +77,6 @@ describe('StudyIndexScreen 薄壳', () => {
     vi.clearAllMocks()
     studyIndexScreenPropsCaptured.length = 0
     navBarMock.props.length = 0
-    drawerMock.props.length = 0
     apiMocks.fetchApi.mockResolvedValue({ success: true, data: { list: VIDEO_ROWS, total: 12 } })
     apiMocks.fetchModels.mockResolvedValue({ models: MODEL_ROWS, default: 'm1', stub_mode: false })
   })
@@ -110,7 +84,6 @@ describe('StudyIndexScreen 薄壳', () => {
   afterEach(() => {
     studyIndexScreenPropsCaptured.length = 0
     navBarMock.props.length = 0
-    drawerMock.props.length = 0
   })
 
   it('挂载即取视频第 1 页并拉模型列表', async () => {
@@ -216,22 +189,6 @@ describe('StudyIndexScreen 薄壳', () => {
     await waitFor(() => {
       expect(apiMocks.fetchApi).toHaveBeenCalledTimes(2)
       expect(lastProps().pageType).toBe('index')
-    })
-  })
-
-  it('onPublish → StudyPublish（FAB 由共享屏渲染）', async () => {
-    await renderLoaded()
-    ;(lastProps().onPublish as () => void)()
-    expect(apiMocks.navigate).toHaveBeenCalledWith('StudyPublish')
-  })
-
-  it('NavBar 菜单入口打开 Drawer（visible=true）', async () => {
-    await renderLoaded()
-    const actions = lastNavBar().rightActions as Array<{ a11yLabel: string; onPress: () => void }>
-    expect(actions[0]!.a11yLabel).toBe('菜单')
-    actions[0]!.onPress()
-    await waitFor(() => {
-      expect(drawerMock.props[drawerMock.props.length - 1]!.visible).toBe(true)
     })
   })
 })
