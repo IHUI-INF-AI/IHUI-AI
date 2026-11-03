@@ -56,7 +56,7 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # 2026-10-31:本 job 原为"零第三方依赖"直跑 node --test。但扫描器现经
       # scripts/lib/i18n-scan-targets.mjs → rn-carried-keys.mjs 静态 import `typescript`
@@ -116,7 +116,7 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # 同 unit-tests job:扫描器静态依赖 typescript,不装依赖会 ERR_MODULE_NOT_FOUND。
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
