@@ -4,7 +4,19 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Users, Lock, MessageCircle, Building2 } from 'lucide-react'
+import {
+  Bot,
+  Building2,
+  ClipboardList,
+  KeyRound,
+  Lightbulb,
+  Lock,
+  MessageCircle,
+  Server,
+  User,
+  Users,
+  Wrench,
+} from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
 
 const SITE_URL = 'https://aizhs.top'
@@ -86,7 +98,10 @@ export default function TeamDocsPage() {
         <h2 className="text-display font-bold tracking-tight">为什么需要团队版?</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-3">
-            <p className="text-body font-semibold">👤 个人版</p>
+            <p className="flex items-center text-body font-semibold">
+              <User className="mr-1.5 inline h-4 w-4" />
+              个人版
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-sm text-muted-foreground">
               <li>独立 Agent / 知识库</li>
               <li>独立积分账户</li>
@@ -162,7 +177,8 @@ export default function TeamDocsPage() {
             </table>
           </div>
           <p className="text-xs text-muted-foreground">
-            💡 <strong>资源级权限</strong>:每个 Agent / 知识库 / 工作流可单独设权限(Public / Team /
+            <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
+            <strong>资源级权限</strong>:每个 Agent / 知识库 / 工作流可单独设权限(Public / Team /
             Private), 精确到"谁能看 / 谁能改 / 谁能删"。
           </p>
         </div>
@@ -187,13 +203,19 @@ export default function TeamDocsPage() {
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">🔑 OIDC</p>
+              <p className="flex items-center text-body font-semibold">
+                <KeyRound className="mr-1.5 inline h-4 w-4" />
+                OIDC
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 OpenID Connect,支持 Google / GitHub / Keycloak / Auth0 / Authing
               </p>
             </div>
             <div className="rounded-lg border bg-background p-3">
-              <p className="text-body font-semibold">📋 LDAP</p>
+              <p className="flex items-center text-body font-semibold">
+                <ClipboardList className="mr-1.5 inline h-4 w-4" />
+                LDAP
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 直接对接 Active Directory / OpenLDAP,自动同步组织架构
               </p>
@@ -387,18 +409,24 @@ export default function TeamDocsPage() {
             href="/docs/agent"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🤖 Agent 开发 →<br />
+            <Bot className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>Agent 开发 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">团队共建 Agent</span>
           </Link>
           <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
-            🛠️ API 参考 →<br />
+            <Wrench className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>API 参考 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">团队 API Key 调用</span>
           </Link>
           <Link
             href="/docs/self-host"
             className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
           >
-            🐳 自托管部署 →<br />
+            <Server className="mr-1 inline h-4 w-4" aria-hidden />
+            <span>自托管部署 →</span>
+            <br />
             <span className="text-xs text-muted-foreground">企业版私有化部署</span>
           </Link>
         </div>
