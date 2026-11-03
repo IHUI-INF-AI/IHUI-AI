@@ -16,12 +16,13 @@ permissions:
 
 # 陈旧 run 收敛(2026-11-03)。判据(现读 GitHub 文档 + 分支保护):
 #   required status check 必须在成功 / skipped / neutral 才能让分支合并 ⇒ **cancelled 不满足**。
-#   因此 main 上恒为 false(砍掉在跑的 required 门禁 = 让 main 拿不到终态结论);
-#   只有 PR / 特性分支允许 cancel-in-progress —— 那些 run 本来就不会成为 main 的门禁结论。
-#   group 用 ref 而不是 sha:同一分支连续推送时,前一枚 SHA 的 run 让位给最新一枚,
-#   排队损耗(实测 run 41559672693 排队 5min)不再叠加到墙钟上。
+# 2026-11-03 实测推翻"main 用 false 就安全":GitHub 原生语义是"新的 pending 会取消同组里
+#   更早的 pending",与 cancel-in-progress 无关。run 41576145991(37147a74)与 41579145214
+#   (e869f63f)两枚 main 提交都是这么被判 cancelled 的 —— 那正是 required check "未满足"的形态。
+#   故 main 档把 group 换成 run 级唯一值(= 不分组:互不排队、互不取消,恢复并行出结论),
+#   非 main 档保留按 ref 分组 + 取消,专门收敛陈旧 PR run。
 concurrency:
-  group: ci-${{ github.ref }}
+  group: "ci-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
