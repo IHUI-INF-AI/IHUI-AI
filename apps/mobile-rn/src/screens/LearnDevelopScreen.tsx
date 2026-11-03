@@ -6,7 +6,9 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   LearnDevelopScreen as SharedLearnDevelopScreen,
+  LEARN_DEVELOP_ENTRY_SPECS,
   type LearnDevelopEntry,
+  type LearnDevelopEntryId,
   type LearnDevelopScreenProps,
 } from '@ihui/rn-app'
 import { Rocket, BookOpen, Brain, Compass, GraduationCap } from 'lucide-react-native'
@@ -17,42 +19,25 @@ import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-// 学习功能导航入口由端侧注入真实跳转(替代原有的「开发中」占位)
+// M4 api-B:入口文案/顺序/跳转 target 已收进共享数据层(@ihui/rn-app);端侧只注入图标。
+const ENTRY_ICONS: Record<LearnDevelopEntryId, LearnDevelopEntry['icon']> = {
+  coursePlanet: Rocket,
+  studyPlan: BookOpen,
+  knowledgePlanet: Brain,
+  studyIndex: Compass,
+  learnCenter: GraduationCap,
+}
+
 const ENTRIES = (
   onNavigate: LearnDevelopScreenProps['onNavigate'],
   t: (k: string) => string,
-): LearnDevelopEntry[] => [
-  {
-    icon: Rocket,
-    title: t('learnDevelop.courseTitle'),
-    desc: t('learnDevelop.courseDesc'),
-    onPress: () => onNavigate('CoursePlanet'),
-  },
-  {
-    icon: BookOpen,
-    title: t('studyPlan.title'),
-    desc: t('learnDevelop.planDesc'),
-    onPress: () => onNavigate('StudyPlan'),
-  },
-  {
-    icon: Brain,
-    title: t('learnDevelop.kTitle'),
-    desc: t('learnDevelop.kDesc'),
-    onPress: () => onNavigate('KnowledgePlanet'),
-  },
-  {
-    icon: Compass,
-    title: t('learnDevelop.videoTitle'),
-    desc: t('learnDevelop.videoDesc'),
-    onPress: () => onNavigate('StudyIndex'),
-  },
-  {
-    icon: GraduationCap,
-    title: t('learnDevelop.centerTitle'),
-    desc: t('learnDevelop.centerDesc'),
-    onPress: () => onNavigate('Learn'),
-  },
-]
+): LearnDevelopEntry[] =>
+  LEARN_DEVELOP_ENTRY_SPECS.map((spec) => ({
+    icon: ENTRY_ICONS[spec.id],
+    title: t(spec.titleKey),
+    desc: t(spec.descKey),
+    onPress: () => onNavigate(spec.target),
+  }))
 
 export function LearnDevelopScreen() {
   const { t } = useI18n()

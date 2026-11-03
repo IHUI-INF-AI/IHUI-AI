@@ -171,6 +171,15 @@ export { FavoriteScreen } from './features/favorite/FavoriteScreen'
 export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
 export { N8nModelScreen } from './features/n8n-model/N8nModelScreen'
 export { ModelEditScreen } from './features/model-edit/ModelEditScreen'
+export {
+  buildModelEditBillingPayload,
+  submitModelEdit,
+} from './features/model-edit/model-edit-save'
+export type {
+  ModelEditBillingPayload,
+  ModelEditSaveOutcome,
+  ModelEditUpdateResult,
+} from './features/model-edit/model-edit-save'
 export { AigcListScreen } from './features/aigc-list/AigcListScreen'
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
 export { AssistantScreen } from './features/assistant/AssistantScreen'
@@ -377,11 +386,16 @@ export { AccountCancelScreen } from './features/account-cancel/AccountCancelScre
 export { AppTopupScreen } from './features/app-topup/AppTopupScreen'
 export { CategoryDetailScreen } from './features/category-detail/CategoryDetailScreen'
 export { CoursePlanetScreen } from './features/course-planet/CoursePlanetScreen'
+export type { CoursePlanetMenuEntry } from './features/course-planet/CoursePlanetScreen'
 export { DevEnterCoverScreen } from './features/dev-enter-cover/DevEnterCoverScreen'
 export { DistributionOrderListScreen } from './features/distribution-order-list/DistributionOrderListScreen'
 export { KnowledgePlanetScreen } from './features/knowledge-planet/KnowledgePlanetScreen'
 export { LearnScreen } from './features/learn/LearnScreen'
 export { MoreCourseScreen } from './features/more-course/MoreCourseScreen'
+export type {
+  MoreCoursePlanetItem,
+  MoreCoursePlanetSection,
+} from './features/more-course/MoreCourseScreen'
 export { PlazaScreen } from './features/plaza/PlazaScreen'
 export type { PlazaScreenProps } from './features/plaza/PlazaScreen'
 export { SquareScreen } from './features/square/SquareScreen'
@@ -941,6 +955,15 @@ export { IcpRecordScreen } from './features/icp-record/IcpRecordScreen'
 export { AppPermissionScreen } from './features/app-permission/AppPermissionScreen'
 export { UsageRulesScreen } from './features/usage-rules/UsageRulesScreen'
 export { LearnDevelopScreen } from './features/learn-develop/LearnDevelopScreen'
+export {
+  LEARN_DEVELOP_DATA_SOURCE,
+  LEARN_DEVELOP_ENDPOINT,
+  LEARN_DEVELOP_ENTRY_SPECS,
+} from './features/learn-develop/learn-develop-data'
+export type {
+  LearnDevelopEntryId,
+  LearnDevelopEntrySpec,
+} from './features/learn-develop/learn-develop-data'
 export type {
   IcpRecordScreenProps,
   AppPermissionScreenProps,
