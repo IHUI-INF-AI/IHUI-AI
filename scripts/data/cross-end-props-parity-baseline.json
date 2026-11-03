@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-03T04:34:07.992Z",
-  "face": "head",
+  "generatedAt": "2026-11-03T10:49:41.698Z",
+  "face": "staged",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。",
   "pairs": {
     "AgentRuntimePanel": {
@@ -8,14 +8,22 @@
       "onlyRn": [],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 0
     },
     "BackChevron": {
       "state": "ok",
       "onlyRn": ["label"],
-      "onlyMini": ["color", "onTap"],
+      "onlyMini": ["color"],
       "reqDrift": [],
-      "driftTotal": 3
+      "mapped": [
+        {
+          "ours": "onPress",
+          "theirs": "onTap",
+          "kind": "event"
+        }
+      ],
+      "driftTotal": 2
     },
     "BottomActionBar": {
       "state": "ok",
@@ -83,6 +91,7 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 59
     },
     "Carousel": {
@@ -90,20 +99,23 @@
       "onlyRn": ["autoplayInterval", "banner", "itemWidth", "onItemPress"],
       "onlyMini": ["autoplay", "courseMeta", "interval", "items", "onItemClick", "variant"],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 10
     },
     "ColorfulLoader": {
       "state": "ok",
-      "onlyRn": ["duration"],
-      "onlyMini": ["visible"],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "driftTotal": 2
+      "mapped": [],
+      "driftTotal": 0
     },
     "FloatBox": {
       "state": "ok",
       "onlyRn": ["duration", "message", "onHide", "type", "visible"],
       "onlyMini": ["onFeedback", "onService"],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 7
     },
     "InputArea": {
@@ -164,6 +176,7 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 51
     },
     "IntelligentAssistant": {
@@ -171,6 +184,7 @@
       "onlyRn": ["robotImage", "tokenQuantity"],
       "onlyMini": ["isLoggedIn", "tokenBalance"],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 4
     },
     "LoginPopUp": {
@@ -203,6 +217,7 @@
         "userInfo"
       ],
       "reqDrift": ["visible(req/op)"],
+      "mapped": [],
       "driftTotal": 24
     },
     "ModelConfigDialog": {
@@ -233,6 +248,7 @@
       ],
       "onlyMini": ["isVip"],
       "reqDrift": ["config(req/op)", "modelType(req/op)", "onChange(req/op)", "visible(req/op)"],
+      "mapped": [],
       "driftTotal": 27
     },
     "ModelList": {
@@ -260,6 +276,7 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 18
     },
     "NavBar": {
@@ -288,6 +305,7 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 25
     },
     "ScreenStates": {
@@ -296,16 +314,29 @@
     },
     "ScrollJumpButton": {
       "state": "ok",
-      "onlyRn": ["label"],
-      "onlyMini": ["labelKey", "onTap"],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "driftTotal": 3
+      "mapped": [
+        {
+          "ours": "onPress",
+          "theirs": "onTap",
+          "kind": "event"
+        },
+        {
+          "ours": "label",
+          "theirs": "labelKey",
+          "kind": "content"
+        }
+      ],
+      "driftTotal": 0
     },
     "SectionHeader": {
       "state": "ok",
       "onlyRn": ["accessibilityLabel", "leading", "style", "subtitleStyle", "titleStyle"],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 5
     },
     "UserInfoCard": {
@@ -319,33 +350,29 @@
         "userInfo"
       ],
       "onlyMini": [
-        "avatar",
-        "desc",
         "growthMax",
         "growthValue",
         "identityType",
-        "isVip",
         "level",
         "levelTitle",
-        "nickname",
-        "onClick",
         "onOpenLevel",
         "onOpenVip",
         "onWallet",
-        "tokenValue",
-        "vipTitle"
+        "tokenValue"
       ],
       "reqDrift": [],
-      "driftTotal": 21
+      "mapped": [],
+      "driftTotal": 15
     },
     "VideoPlayer": {
       "state": "ok",
-      "onlyRn": ["VideoComponent", "onComplete", "onProgress", "startPosition", "title", "url"],
+      "onlyRn": ["VideoComponent", "startPosition", "title", "url"],
       "onlyMini": [
         "autoplay",
         "controls",
         "loading",
         "onEnded",
+        "onError",
         "onPause",
         "onPlay",
         "onTimeUpdate",
@@ -353,22 +380,26 @@
         "src"
       ],
       "reqDrift": [],
-      "driftTotal": 15
+      "mapped": [],
+      "driftTotal": 14
     },
     "VoiceInput": {
       "state": "ok",
       "onlyRn": ["aiServiceUrl", "language", "onImageSelected", "showClear", "showImagePicker"],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 5
     }
   },
   "counts": {
     "pairs": 18,
-    "drifted": 16,
-    "aligned": 1,
+    "drifted": 14,
+    "aligned": 3,
     "undetermined": 1,
     "maxKeyDrift": 59,
-    "driftKeysTotal": 279
+    "driftKeysTotal": 266,
+    "equivalenceEntries": 3,
+    "mappedKeysTotal": 4
   }
 }
