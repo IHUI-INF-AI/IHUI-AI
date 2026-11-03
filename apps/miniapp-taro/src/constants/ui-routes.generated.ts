@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: e9226d01f4acf60ecd4cfd7ff0e68352e58fd96c
-// inputsSha256: bcc1d55dcd1e4c4e317bcbb6d6a21c07c95e63dae224dcdd5235dabb1f85c0a2
+// sourceCommit: b2de2840362be2a5ef33d593226d9ab01a306f0b
+// inputsSha256: ed27a17847fafc3ce7629c508e9940b8e7a2ad82e6332b511a2db51f398a43d0
 // input: apps/miniapp-taro/src/api/index.ts e62d7695551265df9b141f83d284c7741aafdd33bd26ae92d69e37681d1fb915
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -615,7 +615,9 @@
 // input: apps/miniapp-taro/src/pkg-user/edu-child/study-plans/index.tsx 30d0c73f42b34166b3bd8567f945d6d0504e37036ed76e44dbd99e253e378cb0
 // input: apps/miniapp-taro/src/pkg-user/edu-dashboard/index.tsx 683b7d85e551cb832dcd5326b0a3505d2a3c3802792dbd12e0b7946c4248e7c0
 // input: apps/miniapp-taro/src/pkg-user/edu-grade-trend/index.tsx b836df835889988a167c25c2d385c9495a301dfefb8c30eae23156021bbea563
-// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/index.tsx 45c3f65d1123102c81d52c452b55e15066b95cb658aac5399b5a671fe03b6a2d
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/contract.ts bffa55fbcccfc0f317e6a1ae09438c7a8c3e5e03b0b747675af4b020f85f8ab2
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/day-bar.tsx 26ee314248dd7ad46b4f5557d69ea80f659dce60deb1988719ce5518664a380d
+// input: apps/miniapp-taro/src/pkg-user/edu-mgmt-attendance/index.tsx b346eb7aa89e3e0649d2c55bf615812a7e83e0e6916bee029c0481a2e51663ea
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-finance/index.tsx da71fae05b635dea4267674307659c37469b4ffc6a41461c9781ac73b4f4ab68
 // input: apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx 9dd6a7f3c5428b0724c732699f39f1cbc4f0ba9852b339acc0e8d35569c79677
 // input: apps/miniapp-taro/src/pkg-user/edu-my-attendance/index.tsx 2ff3cb6e9a169de0af87a889f5e211154716d2e9042b8b5f925808c580db2e70
@@ -746,9 +748,9 @@
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/webview-trust.ts 6cfd058e107011b5e3c1037c3fc0b92d4600e178d96d4882e8d4dca690ab1fdc
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 612 source files(navigateTo url 参数探测,requiresParams 的依据)
+// scanned: 614 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-03T09:37:20.735Z
+// generatedAt: 2026-11-03T12:49:43.180Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
