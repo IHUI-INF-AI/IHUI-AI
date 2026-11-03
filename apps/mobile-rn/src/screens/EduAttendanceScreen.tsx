@@ -8,6 +8,17 @@
  * 端点(与 web edu/edu-management/attendance/PageClient 同源):
  *  - GET /api/edu-ai-management/attendance?date=YYYY-MM-DD[&status=] ⇒ { list: AttendanceRecord[] }
  * 首版承载「按日考勤列表」(学生/状态徽章/签到/签退);stats 与请假管理排后续轮。
+ *
+ * 写接口契约(2026-11 收口,本端按此对齐):
+ *  - POST check-in / batch-check-in **不再接受 status**,状态由服务端按该班 edu_attendance_rule
+ *    + judgeStatus 现算;zod 会把端上硬塞的 status 静默 strip ⇒ 端上再传只是噪声,已删。
+ *  - date 与 checkInTime 必须落**同一个上海业务日**:不带 checkInTime 时只允许当日(服务端取 now),
+ *    跨日回填必须显式给该日内时刻 ⇒ 本屏没有时刻输入控件(交互形态只有 action sheet),
+ *    故代签**限定当日**,非当日行当场拒发(不发出一条注定 400 的请求,§0.10)。
+ *  - PUT check-out 的 date 是「记录定位键」(服务端写 checkOutTime=now 后重判状态,
+ *    leave/absent 保留)⇒ 端上原样回发行自己的 date,不猜、不改写。
+ * 三屏(教师/本人/孩子)共用本文件导出的 attendanceBizDay / attendanceStatusTone /
+ * attendanceStatusLabel(§0.6 单一真相源:第二份映射必然与新契约漂移)。
  */
 import { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
@@ -36,6 +47,7 @@ interface AttendanceRecord {
   date: string
   checkInTime: string | null
   checkOutTime: string | null
+  /** 服务端按该班规则现算的只读投影(present/late/early/absent/leave);端上一律不自报 */
   status: string
   remark: string | null
 }
@@ -47,13 +59,41 @@ interface BatchCheckInResult {
   missedIds: string[]
 }
 
-// 业务日按 Asia/Shanghai 切:原实现用 toISOString()(UTC)⇒ 北京时间 00:00–07:59 打开本页
-// 查到的是"昨天"那一天的考勤。后端库会话时区实测 Asia/Shanghai(now() 带 +08),
-// 各聚合 SQL 也按它截日 ⇒ 前端必须同口径。中国无夏令时,UTC+8 可直接加偏移后取 UTC 日。
-const todayIso = (): string => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
+/**
+ * 上海业务日(考勤写接口与取数 query 共用的那一把尺)。
+ * 原实现用 toISOString()(UTC)⇒ 北京时间 00:00–07:59 打开本页查到的是"昨天"那一天的考勤。
+ * 后端库会话时区实测 Asia/Shanghai(now() 带 +08),各聚合 SQL 也按它截日 ⇒ 前端必须同口径
+ * (与 server 侧 bizDayKey 同一形态;中国无夏令时,UTC+8 可直接加偏移后取 UTC 日)。
+ */
+export const attendanceBizDay = (): string =>
+  new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
 
-const statusTone = (s: string): ConsoleBadgeTone =>
-  s === 'present' ? 'ok' : s === 'late' ? 'warn' : s === 'absent' ? 'danger' : 'muted'
+/**
+ * 考勤状态 → 徽章档位(三屏唯一实现)。
+ * judgeStatus 产出 present/late/early/absent 四档,leave 由请假审批流写入 ⇒ 五档都得有归宿。
+ * early(早退)自 2026-11「签退后重判」落地起**真会进库**,此前它落到默认档、与未知状态同色。
+ * ConsoleBadgeTone 只有 ok/warn/danger/muted 四档(源在 packages/app,端内不可扩档),
+ * 故 early 与 late 同用 warn,靠取词文案区分;要落 web 的五档色(early 橙/late 黄/leave 蓝)
+ * 必须先扩 tone —— 已在交付报告登记为跨端同步点,不在本端自立色档。
+ */
+export const attendanceStatusTone = (s: string): ConsoleBadgeTone =>
+  s === 'present'
+    ? 'ok'
+    : s === 'late' || s === 'early'
+      ? 'warn'
+      : s === 'absent'
+        ? 'danger'
+        : 'muted'
+
+/** 状态取词:词表未命中(后端新增协议码)原样回显,不吞数据。 */
+export const attendanceStatusLabel = (
+  t: (key: string, params?: Record<string, string | number>) => string,
+  s: string,
+): string => {
+  const key = `eduAttendance.status.${s}`
+  const v = t(key)
+  return v === key ? s : v
+}
 
 function EduAttendanceScreen() {
   const { t } = useI18n()
@@ -69,20 +109,14 @@ function EduAttendanceScreen() {
   const tk = getTokens(resolvedTheme)
   const styles = createScreenStyles(tk)
 
-  const statusLabel = useCallback(
-    (s: string) => {
-      const v = t(`eduAttendance.status.${s}`)
-      return v === `eduAttendance.status.${s}` ? s : v
-    },
-    [t],
-  )
+  const statusLabel = useCallback((s: string) => attendanceStatusLabel(t, s), [t])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetchApi<{ list: AttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance?date=${todayIso()}`,
+        `/api/edu-ai-management/attendance?date=${attendanceBizDay()}`,
       )
       if (!res.success) throw new Error(res.error || 'load failed')
       setRecords(res.data?.list ?? [])
@@ -96,7 +130,7 @@ function EduAttendanceScreen() {
             checkOut: r.checkOutTime?.slice(11, 16) ?? '—',
             remark: r.remark ?? '',
           },
-          badgeTone: statusTone(r.status),
+          badgeTone: attendanceStatusTone(r.status),
         })),
       )
     } catch (e) {
@@ -118,13 +152,22 @@ function EduAttendanceScreen() {
 
   /**
    * 教师代签/签退:成功后重新 GET 列表,以服务端回读为准(不做本地乐观更新)。
-   * 契约:POST .../check-in {studentId,classId,date};PUT .../check-out {studentId,classId,date}。
+   * 契约(2026-11 收口):POST check-in {studentId,classId,date}、PUT check-out 同三键;
+   * **没有 status**(状态服务端现算),check-in 的 date 只能是当前上海业务日(不带 checkInTime
+   * 时服务端取 now;跨日回填须显式给该日内时刻,本屏无时刻输入控件 ⇒ 当场拒发并点名)。
    */
   const runRowAction = useCallback(
     async (record: AttendanceRecord, kind: 'check-in' | 'check-out') => {
       if (busy) return
       if (!record.classId) {
         appAlert(t('eduAttendance.title'), t('eduAttendance.needClassId'))
+        return
+      }
+      const rowDay = record.date?.slice(0, 10) ?? ''
+      const bizDay = attendanceBizDay()
+      if (kind === 'check-in' && rowDay !== bizDay) {
+        // 非当日行(取数与点击之间跨了业务日,或列表被换成历史日)⇒ 不发注定 400 的请求
+        appAlert(t('eduAttendance.title'), t('eduAttendance.onlyTodayCheckIn'))
         return
       }
       setBusy(true)
@@ -137,7 +180,7 @@ function EduAttendanceScreen() {
                 body: JSON.stringify({
                   studentId: record.studentId,
                   classId: record.classId,
-                  date: record.date,
+                  date: bizDay,
                 }),
               }
             : {
@@ -145,7 +188,9 @@ function EduAttendanceScreen() {
                 body: JSON.stringify({
                   studentId: record.studentId,
                   classId: record.classId,
-                  date: record.date,
+                  // 签退的 date 是记录定位键(服务端写 checkOutTime=now 后按规则重判状态)
+                  // ⇒ 原样回发行自己的业务日,不改写成"今天"
+                  date: rowDay,
                 }),
               },
         )
@@ -185,7 +230,7 @@ function EduAttendanceScreen() {
     [recordById, runRowAction, t],
   )
 
-  /** 整班点名:POST .../batch-check-in {classId,date} ⇒ {created,skipped,missedIds} */
+  /** 整班点名:POST .../batch-check-in {classId,date} ⇒ {created,skipped,missedIds}(无 status,状态服务端现算) */
   const runBatch = useCallback(
     async (classId: string) => {
       if (busy) return
@@ -193,7 +238,7 @@ function EduAttendanceScreen() {
       try {
         const res = await fetchApi<BatchCheckInResult>(
           '/api/edu-ai-management/attendance/batch-check-in',
-          { method: 'POST', body: JSON.stringify({ classId, date: todayIso() }) },
+          { method: 'POST', body: JSON.stringify({ classId, date: attendanceBizDay() }) },
         )
         if (res.success && res.data) {
           appAlert(
