@@ -722,13 +722,16 @@ oem11.inf，gamevieweridddriver.inf_amd64_9586929572de2d1b"）——即"彻底�
   消费端 `apps/api/src/workers/scheduler-worker.ts`。
   ⚠️ 这份清单是本仓代码声明；**这些任务是否在你的实例上真的在跑**取决于 Redis/BullMQ
   与 worker 是否启动，本文档**未验证**（§8）。
-- **代码仓库不再对外镜像（2026-10-23 起）**：原 `.github/workflows/mirror-to-cn.yml` 每 20 分钟把
+- **代码历史不再对外镜像（2026-10-23 起；2026-11-03 起 Gitee 仅保留 main 快照）**：原 `.github/workflows/mirror-to-cn.yml` 每 20 分钟把
   整仓（含全历史 + LFS）推到 Gitee 与 GitCode 两个国内仓，该作业已随渠道弃用**整体删除**，
   仓库配置里的 `gitee` / `gitcode` 远端也已移除，`git remote -v` 现只有 `origin`（GitHub）一个。
-  ⇒ **进 git 的东西不再被同步到第三方托管平台。**
-  桌面端安装包上传到第三方平台的出站也已于 2026-11-03 下线：Gitee 发布目标（空仓、零推送历史）
-  停用，`release-desktop.yml` 的 `sync-gitee` 作业不再执行；CI 只把安装包上传到 GitHub Release，
-  Gitee 不再是下载/更新面的任何一环。它历史上只承载**构建产物**，不承载仓库历史。
+  ⇒ **进 git 的内容不会再按提交历史同步到第三方托管平台。** 2026-11-03 起 Gitee 仓
+  `JLSLSSZWHYXGS_0/IHUI-AI` 只保留一份与 `origin/main` 树逐字相等的**快照提交**（供国内浏览），
+  不逐提交同步历史与 LFS；快照更新属机主侧手动/脚本操作。
+  桌面端安装包上传到第三方平台的出站已于 2026-11-03 **复活为国内主通道**：Gitee 发布目标
+  默认启用（`sync-gitee` / `backfill-gitee-assets.yml`），把**构建产物**（安装包 + `.sig` +
+  `latest.json`）上传到 Gitee Release；GitHub Release 作为境外/兜底。它只承载**构建产物**，
+  不承载仓库历史。
   历史事实仍须记住：2026-10-23 之前推过的全部提交与 LFS 对象**已经**留在那两个平台上，
   删除作业不会回收它们；需要彻底清除须到对应平台删除仓库或强制 GC（属机主侧操作）。
   同时该任务会**删除国内仓的内部备份 tag**（`:99-148`，`git push --delete`）。
