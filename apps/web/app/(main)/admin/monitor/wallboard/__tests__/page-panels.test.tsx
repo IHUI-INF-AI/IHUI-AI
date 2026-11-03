@@ -499,13 +499,19 @@ describe('WallboardView 使用数据面板', () => {
   it('业务纵深补用户构成:VIP/操盘手/邀请/近7日活跃/等级四档/14日增长都在屏上', async () => {
     const { container } = renderWallboard()
     // 标签是静态铺出来的 ⇒ 等**数据**上屏(否则会读到占位「—」)
-    await waitFor(() =>
-      expect(within(container).getAllByText('VIP 用户')[0]?.parentElement?.textContent).toBe(
-        'VIP 用户2',
-      ),
+    // 2026-11-04(CI run 41716831627):同一份代码在 41708853162 已绿,本回合在并行负载下
+    // 1s 断言预算内数据腿仍未上屏(读到占位「—」)。这是断言预算、不是产品回归,也不是
+    // 给 job 加超时或重跑;仅把这一条「等数据绑屏」的等待上限放到 3s。
+    await waitFor(
+      () =>
+        expect(within(container).getAllByText('VIP 用户')[0]?.parentElement?.textContent).toBe(
+          'VIP 用户2',
+        ),
+      { timeout: 3000 },
     )
     // 每行按父节点整段读:label 与 value 同父,中间不夹包装层
-    const row = (label: string) => within(container).getAllByText(label)[0]?.parentElement?.textContent
+    const row = (label: string) =>
+      within(container).getAllByText(label)[0]?.parentElement?.textContent
     expect(row('VIP 用户')).toBe('VIP 用户2')
     expect(row('操盘手')).toBe('操盘手0')
     expect(row('邀请注册')).toBe('邀请注册1')
