@@ -58,6 +58,26 @@ def mock_http(monkeypatch):
     return _set
 
 
+@pytest.fixture
+def allow_ssrf(monkeypatch):
+    """放行出站 SSRF 尺:本组用例只钉 payload/URL 解析,不重复测 SSRF 判据。
+
+    2026-10-31 R12 起 IMChannel 发送前强制 `_validate_url_ssrf` + 钉 IP,
+    `*.example` 假域名解析不出公网 IP ⇒ 在"发送成功"分支前就被拒。
+    这里把两把尺替换成"该 URL 可钉定"的桩;payload 断言仍走真实 MockTransport。
+    """
+    from urllib.parse import urlparse
+
+    from app.services import screenshot_service
+
+    monkeypatch.setattr(screenshot_service, "_validate_url_ssrf", lambda url: (True, ""))
+
+    def _pin(url: str):
+        return url, (urlparse(url).hostname or "")
+
+    monkeypatch.setattr(screenshot_service, "resolve_pinned_target", _pin)
+
+
 # =============================================================================
 # 1. WebhookChannel
 # =============================================================================
@@ -304,7 +324,7 @@ async def test_im_channel_empty_content_fails() -> None:
 
 
 @pytest.mark.asyncio
-async def test_im_channel_dingtalk_payload(mock_http) -> None:
+async def test_im_channel_dingtalk_payload(mock_http, allow_ssrf) -> None:
     """钉钉兼容格式 payload:{"msgtype":"text","text":{"content": ...}}。"""
     requests: list[httpx.Request] = []
 
@@ -330,7 +350,7 @@ async def test_im_channel_dingtalk_payload(mock_http) -> None:
 
 
 @pytest.mark.asyncio
-async def test_im_channel_env_url_used(mock_http, monkeypatch) -> None:
+async def test_im_channel_env_url_used(mock_http, allow_ssrf, monkeypatch) -> None:
     """无 metadata webhook_url → 用 env IM_WEBHOOK_URL。"""
     monkeypatch.setenv("IM_WEBHOOK_URL", "https://env.im.example/hook")
     requests: list[httpx.Request] = []
@@ -349,7 +369,7 @@ async def test_im_channel_env_url_used(mock_http, monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_im_channel_metadata_priority_over_env(mock_http, monkeypatch) -> None:
+async def test_im_channel_metadata_priority_over_env(mock_http, allow_ssrf, monkeypatch) -> None:
     """metadata['webhook_url'] 优先于 env IM_WEBHOOK_URL。"""
     monkeypatch.setenv("IM_WEBHOOK_URL", "https://env.im.example/hook")
     requests: list[httpx.Request] = []
