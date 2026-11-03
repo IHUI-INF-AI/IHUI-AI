@@ -37,6 +37,7 @@ import {
   judgeExtensionArtifact,
   judgeIosReleaseDoc,
   judgeIpaPointerProbe,
+  judgeMiniappQr,
   judgeNpmRegistryDoc,
   pickNewestArtifact,
   toDesktopLiveInfo,
@@ -59,6 +60,7 @@ const NPM_TIMEOUT_MS = 8000
 const REVALIDATE_S = 600
 const EXTENSION_DIR_RELATIVE = join('public', 'downloads', 'extension')
 const EXTENSION_MANIFEST_RELATIVE = join('public', 'downloads', 'manifest.json')
+const MINIAPP_QR_RELATIVE = join('public', 'images', 'common', 'miniapp-qr.png')
 
 /**
  * 服务端到本机 API 的基址。生产 env 里 `API_URL=` 是空值 ⇒ 必须显式回落。
@@ -132,6 +134,19 @@ export function resolveExtensionFromDisk(inputs: ExtensionDiskInputs = {}): Live
     }
   }
   return judgeExtensionArtifact(pickNewestArtifact(entries), readExtensionManifest(dirRoot), nowIso)
+}
+
+/** 小程序那一端:码是实物文件,读它就比写死"未接入"诚实(字节不够 = 占位图,仍算未接入) */
+export function resolveMiniappQrFromDisk(inputs: { dirRoot?: string; nowIso?: string } = {}): LivePlatformInfo {
+  const dirRoot = inputs.dirRoot ?? process.cwd()
+  const nowIso = inputs.nowIso ?? new Date().toISOString()
+  const file = join(dirRoot, MINIAPP_QR_RELATIVE)
+  try {
+    if (!existsSync(file)) return judgeMiniappQr({ exists: false, sizeBytes: 0 }, nowIso)
+    return judgeMiniappQr({ exists: true, sizeBytes: statSync(file).size }, nowIso)
+  } catch {
+    return { platform: 'wechat-miniapp', source: 'snapshot', reason: 'miniapp-qr-unreadable', resolvedAt: nowIso }
+  }
 }
 
 async function resolveAndroid(nowIso: string): Promise<LivePlatformInfo> {
@@ -275,11 +290,7 @@ export async function resolveLiveDownloads(): Promise<LiveDownloads> {
     cli,
     extension: resolveExtensionFromDisk({ nowIso }),
     web: unavailableEnd('web', 'web-is-pwa-no-installable-artifact', nowIso),
-    'wechat-miniapp': unavailableEnd(
-      'wechat-miniapp',
-      'miniapp-has-no-machine-readable-release-source',
-      nowIso,
-    ),
+    'wechat-miniapp': resolveMiniappQrFromDisk({ nowIso }),
   }
 }
 
@@ -302,11 +313,7 @@ export async function resolveLiveDownload(platform: DownloadPlatform): Promise<L
     case 'web':
       return unavailableEnd('web', 'web-is-pwa-no-installable-artifact', nowIso)
     case 'wechat-miniapp':
-      return unavailableEnd(
-        'wechat-miniapp',
-        'miniapp-has-no-machine-readable-release-source',
-        nowIso,
-      )
+      return resolveMiniappQrFromDisk({ nowIso })
     default:
       return unavailableEnd(platform, `unknown-platform:${platform}`, nowIso)
   }
