@@ -42,6 +42,13 @@ import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from './relay-pool-stats-service.js
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
 /** 连续刷新失败摘除阈值 */
 const REFRESH_FAILURE_LIMIT = 3
+/**
+ * refresh token 绝对寿命提前预警:池内最早 refresh_expires_at 距今 < 7 天即告急。
+ * WorkBuddy 的 refresh 绝对寿命 60 天(refreshExpiresIn≈5183999),refresh 窗口虽滑动,
+ * 但绝对寿命到期后整批号再也换不出新票 —— 这是「再过几天全挂」的唯一提前信号。
+ */
+export const REFRESH_EXPIRY_WARN_MS = 7 * 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * 平台续期归属(2026-10-24 立):'server' = 池负责续期;'client-first' = 客户端负责续期,
@@ -345,10 +352,79 @@ export interface AccountPoolSweepResult {
   // 调用接线保留(价值在真跑),明细走调度日志。
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
+  /**
+   * 池内已登记 refresh_expires_at 的最早到期时刻(ISO 8601);null = 没有任何可判定行。
+   * 该列只在适配器真实回传 refreshExpiresIn 时写入,**null 不代表「永不失效」**,
+   * 只代表「未知/尚未回填」,不得据此判绿。
+   */
+  refreshExpiresAt: string | null
+  /**
+   * refresh 绝对寿命提前预警:最早到期 < 7 天(REFRESH_EXPIRY_WARN_MS)时的明确 warn 级结论;
+   * null = 未命中。这是号池「再过几天整批无法续票」的提前可见信号。
+   */
+  refreshExpiryWarn: string | null
 }
 
 function ctxOf(row: AiRelayAccountPool, credentials: AccountCredentials): AdapterAccountContext {
   return { row, credentials }
+}
+
+/**
+ * 由上游回传的 refreshExpiresIn(相对秒)算出 refresh_token 绝对到期时刻。
+ * 缺失/非数/非正 ⇒ null(**调用方必须跳过写入**,不得落 Invalid Date 或 null 冒充「未知」)。
+ */
+export function refreshExpiresAtOf(refreshExpiresIn: number | undefined, now: Date): Date | null {
+  if (
+    typeof refreshExpiresIn !== 'number' ||
+    !Number.isFinite(refreshExpiresIn) ||
+    refreshExpiresIn <= 0
+  ) {
+    return null
+  }
+  const at = new Date(now.getTime() + refreshExpiresIn * 1000)
+  return Number.isNaN(at.getTime()) ? null : at
+}
+
+/**
+ * refresh 绝对寿命提前预警文案:最早到期距今 < 7 天(或已过期)返回明确 warn 结论,否则 null。
+ * 阈值为 0 时同样告警(已耗尽),文案区分「已过期」与「剩 N 天」。
+ */
+export function refreshExpiryWarningOf(earliest: Date | null, now: Date): string | null {
+  if (earliest === null || Number.isNaN(earliest.getTime())) return null
+  const remaining = earliest.getTime() - now.getTime()
+  if (remaining >= REFRESH_EXPIRY_WARN_MS) return null
+  if (remaining <= 0) {
+    return `refreshToken 绝对寿命已耗尽(最早到期 ${earliest.toISOString()}):这批号已换不出新票,整池将逐步全挂`
+  }
+  const days = Math.floor(remaining / DAY_MS)
+  return `refreshToken 绝对寿命告急:最早到期 ${earliest.toISOString()}(剩余 ${days} 天 < 7 天阈值):到期后无法再续票,整池将逐步全挂,请提前重新登录/导入`
+}
+
+/**
+ * 读池内最早的 refresh_expires_at(只统计启用且已登记该列的行)。
+ * 读失败不影响巡检:记 warn 并返回 null(宁可漏报一轮,不让巡检崩)。
+ */
+async function readEarliestRefreshExpiry(): Promise<Date | null> {
+  try {
+    const rows = await dbRead
+      .select({ earliest: sql<unknown>`min(${aiRelayAccountPool.refreshExpiresAt})` })
+      .from(aiRelayAccountPool)
+      .where(
+        and(eq(aiRelayAccountPool.isEnabled, true), isNotNull(aiRelayAccountPool.refreshExpiresAt)),
+      )
+    const raw = rows[0]?.earliest
+    if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : raw
+    if (typeof raw === 'string') {
+      const parsed = new Date(raw)
+      return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+    return null
+  } catch (e) {
+    logger.warn('[relay-account-pool] refresh 绝对寿命巡检读取失败(不影响本轮)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+    return null
+  }
 }
 
 /** 简单 worker pool:最多 limit 个 worker 并行消费 items(保持结果不确定但计数一致)。 */
@@ -528,6 +604,26 @@ export async function refreshOne(
     const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl })
     if (!result) return false
     const now = new Date()
+    const refreshExpiresAt = refreshExpiresAtOf(result.refreshExpiresIn, now)
+    if (refreshExpiresAt === null) {
+      // 缺字段是多数平台的常态(只有 WorkBuddy 回传 refreshExpiresIn),跳过写入;
+      // 给了值却不可用才是异常,必须留痕,绝不落 Invalid Date/null 静默通过。
+      if (typeof result.refreshExpiresIn === 'number') {
+        logger.warn(
+          '[relay-account-pool] 上游 refreshExpiresIn 非法,跳过 refresh_expires_at 写入',
+          {
+            providerCode: row.providerCode,
+            accountId: row.id,
+            refreshExpiresIn: result.refreshExpiresIn,
+          },
+        )
+      } else {
+        logger.info('[relay-account-pool] 上游未给 refreshExpiresIn,跳过 refresh_expires_at 写入', {
+          providerCode: row.providerCode,
+          accountId: row.id,
+        })
+      }
+    }
     await db
       .update(aiRelayAccountPool)
       .set({
@@ -541,6 +637,8 @@ export async function refreshOne(
           ? { secretsEnc: encryptField(JSON.stringify(result.secrets)) }
           : {}),
         tokenExpiresAt: result.expiresAt,
+        // refresh 绝对寿命只在拿到真实秒数时前进;缺失/非法保持旧值(不猜、不清零)
+        ...(refreshExpiresAt !== null ? { refreshExpiresAt } : {}),
         // 换票成功 = 凭据版本原子前进(号池↔签到同步只按版本差补推)
         credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         lastRefreshAt: now,
@@ -642,6 +740,8 @@ export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
       healthChecked: 0,
       healthRecovered: 0,
       skipped: true,
+      refreshExpiresAt: null,
+      refreshExpiryWarn: null,
     }
   }
   try {
@@ -660,6 +760,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     healthChecked: 0,
     healthRecovered: 0,
     skipped: false,
+    refreshExpiresAt: null,
+    refreshExpiryWarn: null,
   }
   const now = new Date()
   const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
@@ -847,6 +949,20 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     logger.info('[relay-account-pool] 本轮出口选取', {
       proxied: egress.proxied,
       direct: egress.direct,
+    })
+  }
+
+  // ── 5. refresh 绝对寿命预警(60 天):池内最早 refresh_expires_at < 7 天即告急 ──
+  // 该列只在适配器真实回传 refreshExpiresIn 时写入;null 行不参与统计(未知 ≠ 永不失效)。
+  // 判据落点说明:没有只服务该域的既有 check-*.mjs(容量哨兵管的是「可用数=0」,不是寿命),
+  // 故按票面要求落在巡检结果里,给明确的 warn 级结论 + refreshExpiresAt,消费面写入调度日志。
+  const earliestRefreshExpiry = await readEarliestRefreshExpiry()
+  out.refreshExpiresAt = earliestRefreshExpiry ? earliestRefreshExpiry.toISOString() : null
+  out.refreshExpiryWarn = refreshExpiryWarningOf(earliestRefreshExpiry, new Date())
+  if (out.refreshExpiryWarn) {
+    logger.warn('[relay-account-pool] refresh 窗口提前预警', {
+      refreshExpiresAt: out.refreshExpiresAt,
+      warn: out.refreshExpiryWarn,
     })
   }
 
