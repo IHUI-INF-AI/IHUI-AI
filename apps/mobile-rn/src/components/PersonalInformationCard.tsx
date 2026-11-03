@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   incomeValue: {
     marginLeft: rnSpacing.sm,
-    fontSize: 22,
+    fontSize: rnType.heading.size,
     fontWeight: '700',
     color: MEDIA_TEXT,
   } as TextStyle,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   withdrawValue: {
     marginLeft: rnSpacing.sm,
-    fontSize: 22,
+    fontSize: rnType.heading.size,
     fontWeight: '700',
     color: MEDIA_TEXT,
   } as TextStyle,
