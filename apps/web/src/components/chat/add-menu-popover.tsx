@@ -91,6 +91,10 @@ export function AddMenuPopover(props: {
    *  在 + 菜单内成组展示。仍由宿主 import 与持有状态,本组件只负责"分组 + 返回"，
    *  不复制任何动作逻辑。 */
   toolsMenuItems?: React.ReactNode
+  /** 「快捷设置」第一层(2026-11-04 第二轮收敛):权限 / 模式 / Agent 三项高频切换
+   *  直接渲染在 + 菜单第一层,宿主点击 + 后再点一次即可展开各自面板(≤2 击)。
+   *  低频项仍留在 toolsMenuItems 的「更多工具」子层。 */
+  primaryMenuItems?: React.ReactNode
 }): React.JSX.Element {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -117,6 +121,7 @@ export function AddMenuPopover(props: {
     compactDisabled = false,
     extraMenuItems,
     toolsMenuItems,
+    primaryMenuItems,
   } = props
 
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
@@ -194,6 +199,12 @@ export function AddMenuPopover(props: {
       const target = event.target as Node
       if (triggerEl && triggerEl.contains(target)) return
       if (contentEl && contentEl.contains(target)) return
+      // 2026-11-04 第二轮收敛:第一层快捷设置里嵌的是 Radix DropdownMenu / PortalPanel,
+      // 它们的面板 portal 到 body,位于本面板 DOM 之外。若这里照旧关闭,+ 菜单会在
+      // mousedown 时卸载 → 嵌套 Root 随之卸载 → 后续 click 永远到不了菜单项。
+      if (target instanceof Element && target.closest('[data-radix-popper-content-wrapper]')) return
+      // PortalPanel 无 Radix 包装层,用其 dialog 语义识别(权限面板)。
+      if (target instanceof Element && target.closest('[data-composer-nested-panel]')) return
       onOpenChange(false)
     }
     document.addEventListener('mousedown', handler)
@@ -335,6 +346,23 @@ export function AddMenuPopover(props: {
               </div>
             ) : (
               <div className="flex w-60 flex-col gap-0.5 p-1">
+                {/* 快捷设置第一层(2026-11-04 第二轮收敛):权限 / 模式 / Agent 三项
+                    高频切换不再藏在「更多工具」子层,点 + 后再点一次即可打开各自面板。 */}
+                {primaryMenuItems && (
+                  <div
+                    role="group"
+                    aria-label={t('quickSettings')}
+                    data-testid="composer-quick-settings"
+                    className="mb-1 border-b border-border/60 pb-1"
+                  >
+                    <span className="block px-1.5 pb-0.5 pt-0.5 text-[11px] font-medium text-muted-foreground">
+                      {t('quickSettings')}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1 px-0.5">
+                      {primaryMenuItems}
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   role="menuitem"

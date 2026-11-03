@@ -1498,10 +1498,23 @@ export function MessageInput({
                       />
                     </>
                   }
-                  /* 2026-11-04 信息架构重构:「更多工具」抽屉。
-                     原底栏 6 枚次要控件(任务进度 / 权限 / 模式 / Agent / 上下文环 / 语音转文字 /
-                     语音笔记)在 + 菜单里成组收纳,点击后仍是各自原有的弹层与状态机,零功能删减。
-                     流式期间的 Steer / 打断并发送 也只在这个抽屉里出现。 */
+                  /* 2026-11-04 第二轮收敛:权限 / 模式 / Agent 提到 + 菜单第一层
+                     (composer-quick-settings),点 + 后再点一次即打开各自面板(2 击)。
+                     这里只留低频项:任务进度 / 上下文环 / 语音转文字 / 语音笔记,
+                     外加流式期间的 Steer / 打断并发送。 */
+                  primaryMenuItems={
+                    <div
+                      className="flex flex-wrap items-center gap-1"
+                      data-testid="composer-quick-controls"
+                    >
+                      <PermissionModePopover
+                        disabled={isStreaming}
+                        onExplainMode={(mode) => setInfoMode(mode)}
+                      />
+                      <ModeSwitcher disabled={isStreaming} />
+                      <AgentPicker />
+                    </div>
+                  }
                   toolsMenuItems={
                     <div
                       className="flex flex-col gap-1 px-1 pb-1"
@@ -1510,17 +1523,21 @@ export function MessageInput({
                       <span className="px-1.5 pb-0.5 text-[11px] font-medium text-muted-foreground">
                         {t('moreTools')}
                       </span>
-                      <div className="flex flex-wrap items-center gap-1 rounded-sm border border-border/60 bg-muted/20 p-1.5">
+                      {/* 稳定网格(2026-11-04 第二轮收敛):前两项 2×2 上半行;
+                         语音两项合成一条通栏(麦克风 32px 固定 + 语音笔记 flex-1 填满),
+                         不再出现「32px 图标蹲在 103px 格子里」的半格悬空。 */}
+                      <div className="grid grid-cols-2 items-center gap-1 rounded-sm border border-border/60 bg-muted/20 p-1.5 [&>*]:min-w-0">
                         <AgentProgressTrigger leftIcon={ListTodo} />
-                        <PermissionModePopover
-                          disabled={isStreaming}
-                          onExplainMode={(mode) => setInfoMode(mode)}
-                        />
-                        <ModeSwitcher disabled={isStreaming} />
-                        <AgentPicker />
                         <ContextUsageRing model={model} isStreaming={isStreaming} />
-                        <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-                        <VoiceNote conversationId={conversationId} />
+                        <div className="col-span-2 flex min-w-0 items-center gap-1">
+                          <VoiceToolbar
+                            onTranscript={handleVoiceTranscript}
+                            disabled={isStreaming}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <VoiceNote conversationId={conversationId} />
+                          </div>
+                        </div>
                       </div>
                       {isStreaming && (
                         <div className="flex flex-col gap-0.5 border-t border-border/60 pt-1">
