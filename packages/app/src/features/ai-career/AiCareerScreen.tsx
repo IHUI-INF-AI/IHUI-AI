@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     content: { padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'] },
     backBtn: { paddingBottom: rnSpacing.xs },
     header: { paddingTop: rnSpacing.xs, paddingBottom: rnSpacing.lg },
-    headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     headerSub: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

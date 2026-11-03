@@ -36,7 +36,7 @@ export function PostDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
   onToast,
 }: PostDetailScreenProps & { onRetry?: () => void }) {
@@ -145,7 +145,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -20,7 +20,7 @@ export function createToolsStyles(tk: AppThemeTokens) {
     headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.lg },
     hero: { gap: rnSpacing.xs },
-    heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     section: { gap: rnSpacing['sm-loose'] },
     sectionHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },

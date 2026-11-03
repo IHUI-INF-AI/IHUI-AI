@@ -294,7 +294,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.DEFAULT,
     },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     headerSubtitle: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
