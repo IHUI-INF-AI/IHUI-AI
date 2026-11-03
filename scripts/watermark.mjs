@@ -28,8 +28,9 @@
  *   清单面与内容面**同面同轮**;那个面取不到 ⇒ 报「无法判定」exit 2,**绝不回落另一个面、绝不记绿**。
  *   给显式 file 参数 ⇒ 判的是你点名的**盘上那份**(工作树面)—— 与 --staged 冲突(那要判索引 blob,
  *   而你指的是磁盘),直接拒绝。inject / clean / decode 是**写盘/读盘子命令**,恒作用于磁盘,不涉面。
+ *   `--files-from <清单>`(2026-11-03):批量 HEAD 面收窄到清单内路径(push scope;空清单 ⇒ 未判定 exit 2)。
  *
- * verify / list-uncovered 批量档的判定口径 = 面清单 ∩ 可注入类型(见 scanCoverage)
+ * verify / list-uncovered 批量档的判定口径 = (面清单 ∩ --files-from 清单) ∩ 可注入类型(见 scanCoverage)
  *   面清单唯一实现:`scripts/lib/watermark-scope.mjs` 的 `coverageFileSetForFace`。
  *   **减去**来源台账已登记的第三方内容(`config/third-party-provenance/*.json` 的 roots,
  *   经 scripts/lib/third-party-roots.mjs 单点解析)。横幅是归属主张,不得打到第三方作品上;
@@ -675,6 +676,34 @@ function pickFace(argv) {
   return { face: files.length > 0 ? 'worktree' : pick.face, files, error: null }
 }
 
+/**
+ * `--files-from <清单>`(2026-11-03,push scope 专用):把**批量面**收窄到清单内的路径。
+ * 清单由 `.husky/pre-push` 的 PUSH_SCOPE_FILES 派生,门 47 只判本次推送涉及的文件。
+ * 空清单/读不到 ⇒ 报错:空清单不是"全部通过",是"判不了本次推送"(§0.3)。
+ * 只允许与默认 HEAD 面搭配 —— 显式点名文件判的是盘上那份,两个面混用必漂移。
+ */
+function parseFilesFrom(argv) {
+  const idx = argv.indexOf('--files-from')
+  if (idx < 0) return { args: argv, files: null, error: null }
+  const file = argv[idx + 1]
+  if (!file || file.startsWith('--')) return { args: [], files: null, error: '--files-from 后缺少清单路径' }
+  const args = argv.filter((_, i) => i !== idx && i !== idx + 1)
+  let raw
+  try {
+    raw = readFileSync(resolve(file), 'utf8')
+  } catch (e) {
+    return { args, files: null, error: `--files-from 清单读不到:${file}(${e.code || e.message})` }
+  }
+  if (raw.includes('\u0000')) {
+    return { args, files: null, error: `--files-from 清单含 NUL 字节:${file}(不是文本清单)` }
+  }
+  const files = [...new Set(raw.split(/\r?\n/).map((s) => s.trim().replaceAll('\\', '/')).filter(Boolean))]
+  if (files.length === 0) {
+    return { args, files: null, error: `--files-from 清单为空:${file}(空清单 ≠ 全部通过,§0.3)` }
+  }
+  return { args, files, error: null }
+}
+
 // walk() 是按目录名剪枝的, 跟踪清单必须同样排除: 已跟踪的第三方目录
 // (apps/desktop/src-tauri/vendor/**) 一旦不再排除就凭空多出假缺口。
 function underSkipDir(rel) {
@@ -748,7 +777,12 @@ function scanCoverage(scope, opts = {}) {
   } else {
     const listed = coverageFileSetForFace({ root: ROOT, face })
     if (listed.error) throw new Undetermined(listed.error)
-    candidates = listed.files.filter((rel) => !underSkipDir(rel))
+    // push-scope 等收窄档(2026-11-03):面内候选先与调用方点名清单求交,再进下面的既有判据。
+    // 只收窄分母,不改任何单文件判定 —— 交集外的路径既不算通过也不算缺口,判据本体零改动。
+    const restrict = opts.restrictTo
+      ? new Set(opts.restrictTo.map((r) => String(r).replaceAll('\\', '/')))
+      : null
+    candidates = listed.files.filter((rel) => !underSkipDir(rel) && (!restrict || restrict.has(rel)))
   }
   let contents = null
   if (face !== 'worktree') {
@@ -882,6 +916,11 @@ function verifyAll(scope, opts = {}) {
   if (residue) {
     console.log(`残迹文件 ${residue} 个(需 clean 后重新注入), 示例(前 15):`)
     residues.slice(0, 15).forEach((f) => console.log('  - ' + f))
+    // 2026-11-03 补:usage 早就写着「残迹…均 exit 1」,但这里只打印没置红 ——
+    // 而 object-space-land 的 blob 预检正是用本命令的退出码判"载荷损坏修复"是否成立。
+    // 事故 0335facba1(既有文件横幅完好、零宽载荷丢失 24 码元)恰好落在这一格:
+    // verify rc=0 ⇒ 预检假绿 ⇒ 坏 blob 进 HEAD。退出码必须与 list-uncovered 的缺口集合一致。
+    process.exitCode = 1
   }
   if (corrupted.length) {
     console.log(`载荷损坏 ${corrupted.length} 个(存在但解码不符, 需重新 inject), 示例(前 15):`)
@@ -959,26 +998,40 @@ async function main() {
       )
     }
   } else if (cmd === 'verify') {
-    const pick = pickFace(rest)
-    if (pick.error) {
-      console.error(`[watermark] ❌ 无法判定:${pick.error}`)
+    const ff = parseFilesFrom(rest)
+    const pick = ff.error ? null : pickFace(ff.args)
+    if (ff.error || pick.error) {
+      const why = ff.error || pick.error
+      console.error(`[watermark] ❌ 无法判定:${why}`)
+      process.exitCode = 2
+    } else if (ff.files && (pick.files.length || pick.face !== 'head')) {
+      console.error('[watermark] ❌ 无法判定:--files-from 只能与批量 HEAD 面搭配,不得再点名文件或换面')
       process.exitCode = 2
     } else {
       if (!pick.files.length) assertRepoRoot(ROOT, 'watermark 批量档')
-      verifyAll(pick.files.length ? scopeFromArgs(pick.files) : null, { face: pick.face })
+      verifyAll(pick.files.length ? scopeFromArgs(pick.files) : null, {
+        face: pick.face,
+        restrictTo: ff.files,
+      })
     }
   } else if (cmd === 'list-uncovered') {
     // 供批量修复管道消费: 先损坏后仅隐写再残迹最后未覆盖, 每行一个相对路径。
     // 「仅隐写」必须进这个清单:否则自愈式门禁看不见它,而 `inject` 现在会把它清洗重注 ——
     // 两边不在同一份集合上,门就只会喊红而给不出出路(§5e"失败必须响"的同一条要求:喊了还得能修)。
-    const pick = pickFace(rest)
-    if (pick.error) {
-      console.error(`[watermark] ❌ 无法判定:${pick.error}`)
+    const ff = parseFilesFrom(rest)
+    const pick = ff.error ? null : pickFace(ff.args)
+    if (ff.error || pick.error) {
+      const why = ff.error || pick.error
+      console.error(`[watermark] ❌ 无法判定:${why}`)
+      process.exitCode = 2
+    } else if (ff.files && (pick.files.length || pick.face !== 'head')) {
+      console.error('[watermark] ❌ 无法判定:--files-from 只能与批量 HEAD 面搭配,不得再点名文件或换面')
       process.exitCode = 2
     } else {
       if (!pick.files.length) assertRepoRoot(ROOT, 'watermark 批量档')
       const cov = scanCoverage(pick.files.length ? scopeFromArgs(pick.files) : null, {
         face: pick.face,
+        restrictTo: ff.files,
       })
       ;[...cov.corrupted, ...cov.bannerlessList, ...cov.residues, ...cov.missing].forEach((f) =>
         console.log(f),

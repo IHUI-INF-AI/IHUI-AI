@@ -23,7 +23,7 @@ const RIGHT = 'Correct-Horse-Battery-Staple-9'
 
 describe('登录等代价校验', () => {
   it('账号不存在时也必须发生一次口令校验(这是本枚的全部意义)', async () => {
-    const spy = vi.fn(async () => false)
+    const spy = vi.fn(async (_password: string, _hash: string) => false)
     const ok = await verifyLoginPassword(undefined, 'whatever', spy)
     expect(ok).toBe(false)
     expect(spy).toHaveBeenCalledTimes(1)
@@ -35,7 +35,7 @@ describe('登录等代价校验', () => {
 
   it('主体为 null / 有主体但没口令哈希:两种"不可登录"都付同样一次校验', async () => {
     for (const subject of [null, undefined, { passwordHash: '' }, { passwordHash: null }]) {
-      const spy = vi.fn(async () => false)
+      const spy = vi.fn(async (_password: string, _hash: string) => false)
       expect(await verifyLoginPassword(subject, 'x', spy)).toBe(false)
       expect(spy, JSON.stringify(subject)).toHaveBeenCalledTimes(1)
     }

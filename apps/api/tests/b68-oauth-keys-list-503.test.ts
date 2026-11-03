@@ -24,7 +24,7 @@
  *       500 出栈。不是 try/catch 吞错:两跳都失败仍报错并带原始 err 进日志。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
+import Fastify, { type FastifyError, type FastifyInstance, type FastifyRequest } from 'fastify'
 import underPressure from '@fastify/under-pressure'
 import { oauthKeysRoutes } from '../src/routes/oauth-keys.js'
 
@@ -41,7 +41,10 @@ const state = vi.hoisted(() => ({
 }))
 
 function selectChain(kind: 'reader' | 'primary'): Record<string, unknown> {
-  const proxy: Record<string, unknown> = new Proxy(function () {}, {
+  // 目标须同时是"可调用"与"可挂索引签名"的链节点:空 Record 并入函数即两者兼备,避免裸函数被拒。
+  const empty: Record<string, unknown> = {}
+  const target = Object.assign(function () {}, empty)
+  const proxy: Record<string, unknown> = new Proxy(target, {
     get(_target, prop: string) {
       if (prop === 'then') {
         return (resolve: (v: unknown) => void, reject?: (e: unknown) => void) => {
@@ -121,7 +124,7 @@ async function buildApp(options: { pressure: boolean }): Promise<{
 }> {
   const errors: CapturedError[] = []
   const app = Fastify({ logger: false })
-  app.setErrorHandler((err, _request, reply) => {
+  app.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode =
       err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
     reply

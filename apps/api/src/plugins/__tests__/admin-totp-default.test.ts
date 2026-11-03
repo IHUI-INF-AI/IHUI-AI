@@ -15,7 +15,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5399/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
   // 强制走 schema 默认值:本机 .env 若写了任何档位,都不该影响这条断言
   delete process.env.ADMIN_TOTP_MODE

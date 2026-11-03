@@ -22,7 +22,7 @@ import type { SpecScope } from '@ihui/shared'
 let scratchRoot: string
 let savedRootsEnv: string | undefined
 
-const scope: SpecScope = { kind: 'project', id: 'containment-test' }
+const scope: SpecScope = { type: 'workspace' }
 
 beforeEach(() => {
   scratchRoot = mkdtempSync(join(tmpdir(), 'ihui-spec-'))

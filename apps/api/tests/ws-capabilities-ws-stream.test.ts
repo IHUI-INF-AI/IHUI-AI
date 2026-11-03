@@ -314,11 +314,11 @@ describe('ws-ai — /v1/ai/capabilities/ws/stream 端到端', () => {
 
   it('发送 capability.cancel → 收到 cancelled 事件', async () => {
     // 模拟一个 pending 状态的 fetch,等待 abort 触发
-    let cancelObserver: AbortSignal | null = null
+    const cancelObserver: { signal: AbortSignal | null } = { signal: null }
     mockFetch.mockImplementationOnce(
       (_url: string, opts: { signal: AbortSignal }) =>
         new Promise<Response>((resolve) => {
-          cancelObserver = opts.signal
+          cancelObserver.signal = opts.signal
           // 故意保持 pending,直到 abort 后再 resolve 一个错误 Response
           opts.signal.addEventListener('abort', () => {
             resolve(new Response('aborted', { status: 499 }))
@@ -351,7 +351,7 @@ describe('ws-ai — /v1/ai/capabilities/ws/stream 端到端', () => {
 
     const cancelEv = events.find((e) => e.event === 'cancelled')
     expect(cancelEv).toBeDefined()
-    expect(cancelObserver?.aborted).toBe(true)
+    expect(cancelObserver.signal?.aborted).toBe(true)
     ws.close()
   })
 

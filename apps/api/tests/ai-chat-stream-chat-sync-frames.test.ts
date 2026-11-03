@@ -59,8 +59,8 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://mock-ai-service:8803',
@@ -148,6 +148,12 @@ import {
   CHAT_SYNC_STREAM_FRAME_MIN_CHARS,
 } from '../src/routes/ai-chat-stream.js'
 import { CHAT_SYNC_EVENT_NAMES } from '@ihui/types'
+import type {
+  ChatMessageCreatedBroadcastInput,
+  ChatMessagePatchedBroadcastInput,
+  ChatMessageTerminalBroadcastInput,
+  ChatSyncBroadcastResult,
+} from '../src/plugins/ws-broadcast.js'
 
 const USER_TOKEN = 'Bearer user-token'
 
@@ -232,22 +238,22 @@ describe('B02 缺口①:SSE 生成腿的 created / patched 帧', () => {
   beforeAll(async () => {
     server.decorate(
       'broadcastChatMessageCreated',
-      (input: Record<string, unknown>): Record<string, unknown> => {
-        timeline.push({ kind: 'created', input })
+      (input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult => {
+        timeline.push({ kind: 'created', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
     server.decorate(
       'broadcastChatMessagePatched',
-      async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        timeline.push({ kind: 'patched', input })
+      async (input: ChatMessagePatchedBroadcastInput): Promise<ChatSyncBroadcastResult> => {
+        timeline.push({ kind: 'patched', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )
     server.decorate(
       'broadcastChatMessageTerminal',
-      async (input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-        timeline.push({ kind: 'terminal', input })
+      async (input: ChatMessageTerminalBroadcastInput): Promise<ChatSyncBroadcastResult> => {
+        timeline.push({ kind: 'terminal', input: { ...input } })
         return { room: 'conv:x', recipients: 1, matched: 0, delivered: 0, gated: 0 }
       },
     )

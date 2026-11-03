@@ -30,8 +30,8 @@ function scriptedFeishuFetch(responses: Array<{ status: number; body: unknown }>
     const r = responses[Math.min(i, responses.length - 1)]
     i += 1
     return Promise.resolve(
-      new Response(JSON.stringify(r.body), {
-        status: r.status,
+      new Response(JSON.stringify(r!.body), {
+        status: r!.status,
         headers: { 'Content-Type': 'application/json' },
       }),
     )
@@ -82,7 +82,7 @@ describe('G-815928 feishu 投递判定走 interpretPlatformResponse', () => {
     expect(ok).toBe(false)
     expect(calls[1]).toContain('/im/v1/messages')
     expect(onFailed).toHaveBeenCalledTimes(1)
-    const err = onFailed.mock.calls[0][0].err as Error
+    const err = onFailed.mock.calls[0]![0].err as Error
     expect(err.message).toContain('business-rejected')
     expect(err.message).toContain('code=99991663')
   })

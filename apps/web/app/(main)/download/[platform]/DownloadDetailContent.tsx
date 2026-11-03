@@ -17,8 +17,6 @@ import {
   type DownloadPlatform,
   type PlatformMeta,
 } from '@/config/downloads.config'
-import type { DesktopFeed } from '@/config/desktop-feed.generated'
-import type { LiveAndroidSource } from '@/config/desktop-feed-live'
 import { DOWNLOAD_ENTRY_BY_PLATFORM } from './platformEntries'
 import { PlatformNotLaunched } from './PlatformNotLaunched'
 import { DownloadDetailHeader } from './DownloadDetailHeader'
@@ -28,10 +26,11 @@ import { InstallGuideContent } from './InstallGuideContent'
 /**
  * 详情页主内容(client component,使用 useTranslations + useParams)
  *
- * 2026-10-17:`liveDesktopFeed` 由 server page 运行期解析后注入(源 = 最新 desktop release
- * 自带的 latest.json)。只对 desktop 端生效 —— 这是当前唯一存在"版本已发到 → 线上仍显示旧号"
- * 的那一端(快照入库链被 main 分支保护挡死,见 @/config/desktop-feed-live 头注)。
- * 注入失败/缺 foreground 时静默回落到构建期快照,详情页形态不变。
+ * 2026-11-02 收口:`meta` 由 server page 传入,且已按「构建期底稿 ⊕ 运行期真值」合并完
+ * (合并判据单源 = @/config/downloads-live 的 `mergeLiveMeta`)。
+ * 此前这里按端各写一个 if 分支 —— 只有 desktop / android-apk 有分支,其余 6 端**结构上**
+ * 拿不到运行期值,于是"包已发出去、页面还写旧号"对它们长期成立。合并挪到服务端还顺带
+ * 保证客户端包里不出现 `node:fs`(扩展端要枚举实物文件)。
  *
  * 2026-11-03:拆出 DownloadDetailHeader / DownloadAssetCard / InstallGuideContent 三个同目录
  * 组件(本文件此前 442 行,超出本仓"每页面 < 250 行"的约束);同一批把认不出的平台段
@@ -39,12 +38,11 @@ import { InstallGuideContent } from './InstallGuideContent'
  */
 export function DownloadDetailContent({
   platform: platformParam,
-  liveDesktopFeed,
-  liveAndroid,
+  meta: mergedMeta,
 }: {
   platform: string
-  liveDesktopFeed?: DesktopFeed | null
-  liveAndroid?: LiveAndroidSource | null
+  /** server page 已合并好的元数据;未传(测试/直调)时回落到构建期快照 */
+  meta?: PlatformMeta | null
 }) {
   const t = useTranslations('nav')
   const router = useRouter()
@@ -58,36 +56,10 @@ export function DownloadDetailContent({
   }
   const platform: DownloadPlatform = platformParam
 
-  // 构建期快照为底,运行期解析到新版本才覆盖 —— 覆盖只动「版本/日期/安装包」三个展示面,
-  // installGuideKey 等静态文案仍走快照,避免把两种来源混成一个类型。
-  const staticMeta: PlatformMeta = getPlatformMeta(platform)
-  let meta: PlatformMeta = staticMeta
-  if (platform === 'desktop' && liveDesktopFeed) {
-    meta = {
-      ...staticMeta,
-      version: liveDesktopFeed.version,
-      releaseDate: liveDesktopFeed.releaseDate || staticMeta.releaseDate,
-      assets: liveDesktopFeed.assets.length > 0 ? liveDesktopFeed.assets : staticMeta.assets,
-    }
-  } else if (platform === 'android-apk' && liveAndroid) {
-    // 版本号取不到时(如 nightly-<run_id> 这种 tag)保持快照值,**不编造**:
-    // 页面上写一个猜出来的版本号,比不写更糟。链接与体积仍用运行期真值。
-    meta = {
-      ...staticMeta,
-      version: liveAndroid.version ?? staticMeta.version,
-      releaseDate: liveAndroid.releaseDate || staticMeta.releaseDate,
-      assets:
-        liveAndroid.apkUrl.length > 0
-          ? [
-              {
-                href: liveAndroid.apkUrl,
-                sizeBytes: liveAndroid.sizeBytes,
-                format: 'Android APK',
-              },
-            ]
-          : staticMeta.assets,
-    }
-  }
+  // 2026-11-02 收口:运行期真值已在 server page 合并完(判据单源 = @/config/downloads-live 的 mergeLiveMeta),
+  // 客户端只收已合并好的元数据 —— 此前这里按端各写 if 分支,其余 6 端结构上拿不到运行期值。
+  // 未传 meta(测试/直调)时回落到构建期快照,详情页形态不变。
+  const meta: PlatformMeta = mergedMeta ?? getPlatformMeta(platform)
   // 图标与名称取自 DOWNLOADS 同一张表(此前此处另有 PLATFORM_ICON / PLATFORM_LABEL_KEY
   // 两张同义副本,新增一端要改三处才能不静默错配)
   const entry = DOWNLOAD_ENTRY_BY_PLATFORM[platform]

@@ -99,7 +99,7 @@ export function parsePythonRoutes(src: string, fileLabel: string): RouteKey[] {
   let m: RegExpExecArray | null
   while ((m = re.exec(src)) !== null) {
     routes.push({
-      method: m[1].toUpperCase(),
+      method: m[1]!.toUpperCase(),
       path: normalizeRoutePath(`${AI_SERVICE_MOUNT}${prefix}${m[2]}`),
     })
   }
@@ -113,7 +113,7 @@ export function parseApiProxiedRoutes(src: string): RouteKey[] {
   let m: RegExpExecArray | null
   while ((m = re.exec(src)) !== null) {
     routes.push({
-      method: m[1].toUpperCase(),
+      method: m[1]!.toUpperCase(),
       path: normalizeRoutePath(`${API_MOUNT}${m[2]}`),
     })
   }

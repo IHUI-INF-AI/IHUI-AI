@@ -236,6 +236,6 @@ describe('G-815926 ③ 五语言同枚', () => {
       expect(keySets[0]).toEqual(keySets[LOCALES.indexOf(locale)])
     }
     // 防空扫:键族必须有实质内容(枚举到 0 键 = 判据失明)
-    expect(keySets[0].length).toBeGreaterThan(50)
+    expect(keySets[0]!.length).toBeGreaterThan(50)
   })
 })
