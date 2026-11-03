@@ -112,6 +112,16 @@ export interface TokenRefreshResult {
    */
   expiresAt: Date | null
   /**
+   * 上游响应里的 access token 相对寿命(秒),**只许原样上交**;上游未给 ⇒ undefined。
+   * 目前仅用于留痕/未来校准,落库时刻仍以 expiresAt 为准。
+   */
+  expiresIn?: number
+  /**
+   * 上游响应里的 refresh token 相对寿命(秒),**只许原样上交**;上游未给 ⇒ undefined。
+   * WorkBuddy 的 refresh 绝对寿命为 60 天,调度器据此写 refresh_expires_at(不可编造)。
+   */
+  refreshExpiresIn?: number
+  /**
    * 平台扩展敏感凭证整包(可选)。CodeArts 刷新会轮转**整套** STS 凭据(AK/SK/security_token),
    * 调度器据此 encryptField(JSON.stringify(...)) 回写 secretsEnc。
    */
