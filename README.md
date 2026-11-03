@@ -41055,3 +41055,21 @@ A: Yes. ~14839+ tests / 4006 test files / 67 e2e spec / 4683 API 路由 / 619 �
 > **8 端代码 · 619 张数据库表 · 4451 个 API 路由。**
 > **8 端代码 · 619 张数据库表 · 4451 个 API 路由。**
 - **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步
+| 测试文件 | 4010 | `testFiles` |
+| 工程守门 | 320 | `guardianGates` |
+| — blocking | 291 | `guardianBlocking` |
+| 跟踪文件 | 18907 | `trackedFiles` |
+> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
+- **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 优先取自有站点腿的恒定指针(答不上才回落 `ios-nightly` 固定 tag)、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节、微信小程序取 `public/images/common/miniapp-qr.png` 的实物字节(生码链 `scripts/gen-miniapp-code.mjs` 向微信要真图,低于 2048 字节一律不认)),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
+- 🔧 工程/其他:补三枚 RN 屏溯源水印(合并后 push 门 47p 修复) (9d91dd8bf4)
+- 🐞 修复:对账尺子加传输层重试与总预算闸,别再天天量不出结论 (e2e718a6db)
+- 🔧 工程/其他:对账尺子按端档案跑 iOS,派发腿拆成两层 (c8ca880f5f)
+- 🔧 工程/其他:补 knip alias 自检脚本的溯源水印 (d92f6a957f)
+- 🔧 工程/其他:knip 棘轮面收紧 —— rn-compat 构建别名与 Taro 约定入口纳入生成器，清理 209 条死导出并合并重复符号，exports/duplicates/devDeps 三项回绿 (795d606084)
+- 🐞 修复:补 Ruff I001 + 分诊重跑尊重 working-directory + 守卫用例移出仓库根 (784ec4d642)
+- 🔧 工程/其他:F4 反向例补齐「两组真实重复并行计组」 (70c3d516e8)
+- 🐞 修复:两处单行文本断言改多行结构解析 + 重生成 openapi 产物 (a730538dc6)
+- 🚀 新功能/改进:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (7a468f1ad8)
+- 🔧 工程/其他:按 origin/main 源面重生成三端 ui-routes 产物,消 G5 自述钉陈旧 (0b3c68bda9)
+- 🐞 修复:F4 组数口径最小豁免——已归并副本行退出 dupOpenGroups 分母(1→0) (8e8788ef50)
+- 🚀 新功能/改进:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (1d81b430e7)
