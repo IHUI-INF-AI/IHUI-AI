@@ -18,7 +18,7 @@ import { safeDecodeURIComponent } from '@ihui/shared'
 import { applyAnswerMedia, extractAnswerMedia, hasAnyMedia } from './answer-media-extract'
 
 /** 快照链参数名(历史拼写,见头注) */
-export const SHARE_SNAPSHOT_PARAM = 'souce'
+const SHARE_SNAPSHOT_PARAM = 'souce'
 /** 快照还原的承载页 = AI 聊天页(被摘页路由已让位给智能体列表共享屏) */
 const CHAT_PAGE_PATH = '/pkg-ai/ai/chat'
 
