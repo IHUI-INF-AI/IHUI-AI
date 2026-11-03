@@ -4796,7 +4796,8 @@
       "active": "활성",
       "rejected": "거부됨",
       "cancelled": "해제됨"
-    }
+    },
+    "myAttendanceHint": "보기·직접 등교"
   },
   "eduChildAttendance": {
     "title": "자녀 출석",
@@ -4822,7 +4823,15 @@
       "absent": "결석",
       "leave": "조퇴"
     },
-    "student": "학생"
+    "student": "학생",
+    "batchCheckIn": "반 일괄 출석",
+    "checkInFor": "대신 등교",
+    "checkedInToast": "등교 완료",
+    "checkedOutToast": "하교 완료",
+    "batchDoneToast": "일괄 등교 완료",
+    "batchResult": "출석 처리 완료：신규 {created}명，건너뜀 {skipped}명，미저장 {missed}명",
+    "noClassReason": "반 정보를 가져오지 못해 반 일괄 출석을 할 수 없습니다",
+    "multiClass": "목록에 여러 반이 있습니다，이번에는 {classId}만 처리합니다"
   },
   "eduMgmt": {
     "attendanceTitle": "출석 관리",
@@ -7091,5 +7100,15 @@
   },
   "studyIndex": {
     "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
+  },
+  "eduMyAttendance": {
+    "title": "내 출석",
+    "selfCheckIn": "직접 등교",
+    "selfDoneToast": "등교 완료",
+    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
+    "remarkPlaceholder": "비고(선택)",
+    "scanCheckIn": "스캔으로 체크인",
+    "scanDoneToast": "스캔 체크인이 완료되었습니다",
+    "scanInvalidToast": "이 시스템의 체크인 QR 코드가 아닙니다"
   }
 }
