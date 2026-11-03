@@ -19,6 +19,10 @@
  *     全新同名对带着漂移进仓而台账没记 ⇒ 红(出路=显式 --update-baseline 落账,不许静默入账);
  *   · 键集缩小 = 向统一收敛 ⇒ 绿并提示可收紧台账;
  *   · undetermined 一律 warn 点名(判红=把类型面一时解析不出冒成违规;判绿=把没量冒成量过,§0.3);
+ *   · 唯一例外 = 台账里已裁决的 `not-applicable`:必须 owner + expires + evidence(仓库内 文件:行)
+ *     + why 四件齐全、未到期、证据行真落在文件内,该对的 undetermined 才计"已裁决"(读数仍逐条打印)。
+ *     缺字段/过期/证据指空 ⇒ 裁决无效,该对照旧按 undetermined 点名 —— 禁止用它把"没读到"洗成"判过了";
+ *     裁决也不会被 --update-baseline 冲回 undetermined,只能显式撤销(删条目或改成可测的 ok)。
  *   · 升绝对零的唯一前置 = 存量归零(数字现读,不写死在本文件)。
  *
  * 取材面(§0.4 横向口径):默认 HEAD blob;--staged 判索引;两面旗同给 exit 2;
@@ -35,10 +39,54 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { computeParity } from './lib/component-props-parity.mjs'
+import { computeParity, EQUIVALENCE_REL } from './lib/component-props-parity.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/data/cross-end-props-parity-baseline.json'
+const EQUIV_KINDS = new Set(['event', 'content', 'style'])
+
+/**
+ * 语义等价映射表体检(只认「同一槽位两端命名不同」;行为缺口由人审不入表):
+ * 必填字段齐 + kind 合法 + 重复条目 + evidence 双端 `文件:行` 真实存在且该行确实是声明。
+ * 任何一条不合格 ⇒ 门判红(映射表是判据输入,坏表 = 静默洗白通道)。
+ */
+export function validateEquivalence(table, rootDir = ROOT) {
+  const bad = []
+  if (!table || !Array.isArray(table.entries)) return ['映射表结构坏:缺少 entries 数组']
+  const seen = new Set()
+  table.entries.forEach((e, i) => {
+    const at = `entries[${i}](${e?.pair ?? '?'})`
+    for (const f of ['pair', 'ours', 'theirs', 'owner', 'rationale'])
+      if (typeof e?.[f] !== 'string' || !e[f].trim()) bad.push(`${at}: 缺 ${f}(必填)`)
+    if (!EQUIV_KINDS.has(e?.kind)) bad.push(`${at}: kind=${String(e?.kind)} 不在 event|content|style`)
+    const key = `${e?.pair}|${e?.ours}|${e?.theirs}`
+    if (seen.has(key)) bad.push(`${at}: 重复条目 ${key}`)
+    seen.add(key)
+    for (const side of ['rn', 'mini']) {
+      const ev = e?.evidence?.[side]
+      const m = typeof ev === 'string' ? ev.match(/^(.+):(\d+)$/) : null
+      if (!m) {
+        bad.push(`${at}: evidence.${side} 必须形如 文件:行`)
+        continue
+      }
+      const abs = join(rootDir, m[1])
+      if (!existsSync(abs)) {
+        bad.push(`${at}: evidence.${side} 文件不存在 ${m[1]}`)
+        continue
+      }
+      const lines = readFileSync(abs, 'utf8').split(/\r?\n/)
+      const ln = Number(m[2])
+      if (ln < 1 || ln > lines.length) {
+        bad.push(`${at}: evidence.${side} 行号越界 ${m[1]}:${ln}(共 ${lines.length} 行)`)
+        continue
+      }
+      const token = side === 'rn' ? e.ours : e.theirs
+      if (typeof token !== 'string' || !new RegExp(`\\b${token}\\b`).test(lines[ln - 1]))
+        bad.push(`${at}: evidence.${side} ${m[1]}:${ln} 未见 ${token} 声明(证据行漂移,先修证据)`)
+    }
+  })
+  return bad
+}
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
 const quietMode = argv.includes('--quiet')
@@ -59,7 +107,7 @@ const die = (msg, code = 1) => {
 }
 
 /** 与引擎 pairDelta 输出对齐的纯判定(台账 vs 本轮):返回 {bad:[], warn:[], shrunk:[]} */
-export function verifyAgainstBaseline(deltas, baseline) {
+export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
   const bad = []
   const warn = []
   const shrunk = []
@@ -104,6 +152,28 @@ export function verifyAgainstBaseline(deltas, baseline) {
   }
   const live = new Set(deltas.map((d) => d.name))
   for (const k of Object.keys(book)) if (!live.has(k)) warn.push({ pair: k, kind: 'book-stale', why: '在册对本轮不在配对集(改名/拆族/可达性变化) ⇒ 复核台账,不冒红' })
+  // 映射表棘轮:条目增长必须与漂移下降同轮出现(防拿映射洗白真缺口)
+  const nowEntries = opts.equivalenceEntryCount ?? 0
+  const prevEntries = baseline?.counts?.equivalenceEntries ?? 0
+  const grow = nowEntries - prevEntries
+  if (grow > 0) {
+    const nowDrift = deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0)
+    const prevDrift = baseline?.counts?.driftKeysTotal
+    const drop = typeof prevDrift === 'number' ? prevDrift - nowDrift : 0
+    if (drop < grow)
+      bad.push({
+        pair: '(equivalence)',
+        kind: 'equivalence-growth-without-convergence',
+        detail: `映射表 +${grow} 条仅换来存量 -${drop} 键 —— 条目增长必须与漂移减少同轮(行为缺口不得入表)`,
+      })
+  }
+  for (const d of deltas)
+    for (const s of d.mappedStale ?? [])
+      warn.push({
+        pair: d.name,
+        kind: 'equivalence-stale',
+        why: `映射 ${s.ours}↔${s.theirs} 未生效(${s.why}) ⇒ 复核条目并删除或修证据`,
+      })
   return { bad, warn, shrunk }
 }
 
@@ -114,6 +184,7 @@ export function buildBaselineEntry(d) {
     onlyRn: d.onlyRn ?? [],
     onlyMini: d.onlyMini ?? [],
     reqDrift: d.reqDrift ?? [],
+    mapped: (d.mapped ?? []).map((m) => ({ ours: m.ours, theirs: m.theirs, kind: m.kind })),
     driftTotal: d.driftTotal ?? 0,
   }
 }
@@ -127,6 +198,16 @@ async function main() {
 
   const par = await computeParity(ROOT, face)
   if (par.state !== 'ok') die(`未判定:${par.reason} —— 不记绿也不冒红`, 2)
+
+  let equivTable
+  try {
+    equivTable = JSON.parse(readFileSync(join(ROOT, EQUIVALENCE_REL), 'utf8'))
+  } catch (e) {
+    die(`映射表 ${EQUIVALENCE_REL} 读不到或 JSON 坏:${String(e?.message).slice(0, 120)} —— 判据输入缺失不记绿`, 2)
+  }
+  const equivBad = validateEquivalence(equivTable)
+  if (equivBad.length) die(`映射表体检失败 ${equivBad.length} 处:${equivBad.join(' · ')}`, 1)
+  const equivalenceEntryCount = par.equivalence?.entryCount ?? equivTable.entries.length
 
   const baselineExists = existsSync(join(ROOT, BASELINE_REL))
   if (updateMode) {
@@ -145,6 +226,8 @@ async function main() {
         undetermined: undet,
         maxKeyDrift: Math.max(0, ...par.deltas.map((d) => d.driftTotal ?? 0)),
         driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+        equivalenceEntries: equivalenceEntryCount,
+        mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
       },
     }
     for (const d of par.deltas) out.pairs[d.name] = buildBaselineEntry(d)
@@ -161,12 +244,14 @@ async function main() {
     die(`台账 ${BASELINE_REL} 坏:${String(e?.message).slice(0, 120)} —— 判不出不记绿(§0.3)`, 2)
   }
 
-  const { bad, warn, shrunk } = verifyAgainstBaseline(par.deltas, baseline)
+  const { bad, warn, shrunk } = verifyAgainstBaseline(par.deltas, baseline, { equivalenceEntryCount })
   const counts = {
     pairs: par.deltas.length,
     drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
     undetermined: par.deltas.filter((d) => d.state === 'undetermined').length,
     driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
+    mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
+    equivalenceEntries: equivalenceEntryCount,
     newBad: bad.length,
     warnCount: warn.length,
     shrunkPairs: shrunk.length,
@@ -174,7 +259,11 @@ async function main() {
   if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk }, null, 1))
   else {
     log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
-    log(`  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 未判定 ${counts.undetermined} · 本轮新增退化 ${bad.length}`)
+    log(
+      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined} · 本轮新增退化 ${bad.length}`,
+    )
+    for (const d of par.deltas)
+      for (const m of d.mapped ?? []) log(`  ≡ 语义等价 ${d.name}:rn[${m.ours}]↔mini[${m.theirs}](${m.kind})`)
     for (const b of bad) log(`  🔴 ${b.pair}(${b.kind}):${b.detail ?? b.why ?? ''}`)
     for (const w of warn) log(`  ⚠️ ${w.pair}(${w.kind}):${w.why ?? ''}`)
     for (const s of shrunk) log(`  ✅ 收敛 ${s.pair}: 已消键 rn[${s.goneRn}] mini[${s.goneMini}] —— 复核后可 --update-baseline 收紧`)
@@ -209,6 +298,20 @@ function selfTest() {
   t('未判定=warn 不红', (() => { const v = verifyAgainstBaseline([{ name: 'U', state: 'undetermined', reason: '本轮取不到' }, { name: 'N', state: 'undetermined', reason: '新族取不到' }], base); return v.bad.length === 0 && v.warn.some((w) => w.pair === 'U' && w.kind === 'undetermined') && v.warn.some((w) => w.pair === 'N')})())
   // 在册对消失 ⇒ book-stale warn 不红
   t('台账腐烂=warn 不红', (() => { const v = verifyAgainstBaseline([d('Foo')], { pairs: { Foo: base.pairs.Foo, Gone: { state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [] } } }); return v.bad.length === 0 && v.warn.some((w) => w.kind === 'book-stale' && w.pair === 'Gone') })())
+  // 映射表棘轮:条目增长无同轮收敛 ⇒ 红;同轮收敛 ⇒ 绿
+  t('映射表扩容无收敛=红', (() => {
+    const v = verifyAgainstBaseline([d('Foo', { onlyRn: ['onBar'], driftTotal: 1 })], { pairs: base.pairs, counts: { equivalenceEntries: 0, driftKeysTotal: 1 } }, { equivalenceEntryCount: 2 })
+    return v.bad.length === 1 && v.bad[0].kind === 'equivalence-growth-without-convergence'
+  })())
+  t('映射表扩容同轮收敛=绿', (() => {
+    const v = verifyAgainstBaseline([d('Foo', { driftTotal: 0 })], { pairs: base.pairs, counts: { equivalenceEntries: 0, driftKeysTotal: 2 } }, { equivalenceEntryCount: 2 })
+    return v.bad.length === 0
+  })())
+  // 映射条目失效 ⇒ warn 点名
+  t('映射条目失效=warn 不红', (() => {
+    const v = verifyAgainstBaseline([d('Foo', { mappedStale: [{ ours: 'a', theirs: 'b', why: 'declaration-missing' }] })], { pairs: base.pairs })
+    return v.bad.length === 0 && v.warn.some((w) => w.kind === 'equivalence-stale')
+  })())
   let fails = 0
   for (const [label, cond] of checks) {
     if (!cond) {
@@ -221,7 +324,7 @@ function selfTest() {
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-export const __test__ = { verifyAgainstBaseline, buildBaselineEntry }
+export const __test__ = { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence }
 if (isDirectRun) {
   main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)

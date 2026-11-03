@@ -21,7 +21,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const { __test__: lib } = await import(pathToFileURL(join(ROOT, 'scripts/lib/component-props-parity.mjs')).href)
 const { __test__: gate } = await import(pathToFileURL(join(ROOT, 'scripts/check-cross-end-component-props-parity.mjs')).href)
 const { pairDelta } = lib
-const { verifyAgainstBaseline, buildBaselineEntry } = gate
+const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence } = gate
 
 const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
 const mk = (name, optional = false) => ({ name, optional })
@@ -93,6 +93,70 @@ describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
     assert.equal(buildBaselineEntry({ name: 'U', state: 'undetermined', reason: '没读到' }).state, 'undetermined')
     assert.deepEqual(buildBaselineEntry(d('Foo', { onlyRn: ['a'], driftTotal: 1 })).onlyRn, ['a'])
   })
+  it('映射表扩容无同轮收敛=红;同轮收敛=绿(防拿映射洗白真缺口)', () => {
+    const booked = { pairs: base.pairs, counts: { equivalenceEntries: 0, driftKeysTotal: 2 } }
+    const red = verifyAgainstBaseline([d('Foo', { onlyRn: ['onBar'], driftTotal: 2 })], booked, { equivalenceEntryCount: 1 })
+    assert.equal(red.bad.length, 1)
+    assert.equal(red.bad[0].kind, 'equivalence-growth-without-convergence')
+    const green = verifyAgainstBaseline([d('Foo', { driftTotal: 0 })], booked, { equivalenceEntryCount: 2 })
+    assert.equal(green.bad.length, 0)
+  })
+  it('映射条目失效 ⇒ warn 点名(不静默留白)', () => {
+    const v = verifyAgainstBaseline([d('Foo', { mappedStale: [{ ours: 'a', theirs: 'b', why: 'declaration-missing' }] })], base)
+    assert.equal(v.bad.length, 0)
+    assert.ok(v.warn.some((w) => w.kind === 'equivalence-stale'))
+  })
+})
+
+describe('285 语义等价映射(生产判据直用)', () => {
+  const rn = { state: 'ok', props: [mk('title'), mk('label'), mk('onPress')] }
+  const mini = { state: 'ok', props: [mk('title'), mk('labelKey'), mk('onTap')] }
+  const eq = [
+    { pair: 'X', ours: 'label', theirs: 'labelKey', kind: 'content', owner: 'o', rationale: 'r', evidence: { rn: 'a:1', mini: 'b:1' } },
+    { pair: 'X', ours: 'onPress', theirs: 'onTap', kind: 'event', owner: 'o', rationale: 'r', evidence: { rn: 'a:2', mini: 'b:2' } },
+  ]
+  it('命中映射 ⇒ 归 mapped,不计漂移存量', () => {
+    const r = pairDelta('X', rn, mini, eq)
+    assert.equal(r.driftTotal, 0)
+    assert.equal(r.mapped.length, 2)
+    assert.equal(r.mappedKeyCount, 3)
+    assert.deepEqual(r.onlyRn, [])
+    assert.deepEqual(r.onlyMini, [])
+  })
+  it('未在表内的命名差异仍按漂移判定(不得静默)', () => {
+    const r = pairDelta('X', rn, { state: 'ok', props: [mk('title'), mk('weird')] }, eq)
+    assert.ok(r.onlyMini.includes('weird'))
+    assert.ok(r.driftTotal > 0)
+  })
+  it('条目与声明对不上 ⇒ mappedStale 点名,原键仍计差', () => {
+    const r = pairDelta('X', rn, mini, [{ ...eq[0], ours: 'nope' }])
+    assert.equal(r.mapped.length, 0)
+    assert.ok(r.mappedStale.some((s) => s.why === 'declaration-missing'))
+    assert.deepEqual(r.onlyRn, ['label']) // onPress 属 INJECTABLE,本身不入差集
+    assert.deepEqual(r.onlyMini, ['labelKey', 'onTap'])
+  })
+  it('体检:必填/kind/重复/证据行必须真实命中声明', () => {
+    const good = {
+      entries: [
+        {
+          pair: 'ScrollJumpButton',
+          ours: 'label',
+          theirs: 'labelKey',
+          kind: 'content',
+          owner: 'o',
+          rationale: 'r',
+          evidence: {
+            rn: 'packages/app/src/components/ScrollJumpButton.tsx:51',
+            mini: 'apps/miniapp-taro/src/components/ScrollJumpButton.tsx:64',
+          },
+        },
+      ],
+    }
+    assert.equal(validateEquivalence(good).length, 0)
+    assert.ok(validateEquivalence({ entries: [{ ...good.entries[0], kind: 'behavior' }] }).some((x) => x.includes('kind')))
+    assert.ok(validateEquivalence({ entries: [{ ...good.entries[0], evidence: { rn: 'packages/app/src/components/ScrollJumpButton.tsx:5', mini: good.entries[0].evidence.mini } }] }).some((x) => x.includes('未见 label')))
+    assert.ok(validateEquivalence({ entries: [good.entries[0], good.entries[0]] }).some((x) => x.includes('重复条目')))
+  })
 })
 
 describe('285 形状锁(注册条目与文件在场)', () => {
@@ -104,6 +168,7 @@ describe('285 形状锁(注册条目与文件在场)', () => {
     'packages/app/src/components/',
     'apps/mobile-rn/src/components/',
     'scripts/data/cross-end-props-parity-baseline.json',
+    'scripts/data/component-props-equivalence.json',
   ]
   const loadRunnerWindow = () => {
     let best = null
