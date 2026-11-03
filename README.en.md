@@ -101,6 +101,10 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (434987ae32)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a69c95034d)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (682d2b65d3)
 
 **2026-11-03**
@@ -149,9 +153,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bf71375c7f)
 - 🐞 Fix:修掉门 282 自带的 2 条类型错误(该腿本地不红、CI 会红) (9d98965011)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b58037ca86)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
