@@ -209,7 +209,7 @@ function runShard(plan, index) {
     const args = [turboBin, 'run', 'test', `--filter=${entry.name}`, `--concurrency=${entry.fraction ? 1 : 2}`]
     if (entry.fraction) args.push('--', `--shard=${entry.fraction}`)
     console.log(`\n▶ shard ${index}/${SHARD_COUNT}: ${entry.name}${entry.fraction ? ` (--shard=${entry.fraction})` : ''}`)
-    const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' })
+    const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit', windowsHide: true })
     if (r.status !== 0) {
       console.error(`❌ ${entry.name} 在 shard ${index} 失败(exit ${r.status ?? 'null'})`)
       return r.status ?? 1
