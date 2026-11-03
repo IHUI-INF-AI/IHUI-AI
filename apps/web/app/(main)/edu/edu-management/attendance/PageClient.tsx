@@ -19,6 +19,7 @@ import {
   Calendar,
   CalendarDays,
   Users,
+  TrendingUp,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   Button,
@@ -51,7 +53,13 @@ import {
 import { Alert } from '@/components/feedback'
 import { BatchCheckInDialog } from './BatchCheckInDialog'
 import { ExportButton } from './ExportButton'
-import { ClassSelect } from './ClassSelect'
+import { ClassSelect, useClasses } from './ClassSelect'
+import {
+  AttendanceTrendChart,
+  buildAttendanceTrendSeries,
+  type AttendancePeriodRow,
+  type AttendanceTrendSegmentKey,
+} from './AttendanceTrendChart'
 import { AttendanceRulePanel } from './AttendanceRulePanel'
 import { CheckInQrPanel } from './CheckInQrPanel'
 
@@ -97,7 +105,8 @@ interface AttendanceStats {
   total: number
   attendanceRate: number
   statusBreakdown: Array<{ status: string; count: number }>
-  periodBreakdown: Array<{ period: string; status: string; count: number }>
+  /** 服务端只在带了 period 时才下发该键 ⇒ 类型上必须允许缺省,读取侧统一 ?? [] */
+  periodBreakdown?: Array<{ period: string; status: string; count: number }>
 }
 
 /* ─── API helper ─── */
@@ -594,12 +603,28 @@ export default function AttendancePage() {
       ),
   })
 
+  // 统计口径三要素:班级 + 起止日期 + 时段粒度。
+  // 趋势图的数据源就是这一次请求的 periodBreakdown(服务端已按 (时段, 状态) 聚合),
+  // 出勤率与堆叠构成在客户端二次聚合得出 —— 记录清单接口 GET /attendance 只收单日
+  // date(无区间参数、且分页 pageSize≤100),按天逐次请求即 N+1,故取数走 stats 接口。
   const statsQuery = useQuery({
-    queryKey: ['edu-ai-management', 'attendance-stats', statsPeriod, statsStartDate, statsEndDate],
-    queryFn: () =>
-      apiOrThrow<AttendanceStats>(
-        `/api/edu-ai-management/attendance/stats?period=${statsPeriod}&startDate=${statsStartDate}&endDate=${statsEndDate}`,
-      ),
+    queryKey: [
+      'edu-ai-management',
+      'attendance-stats',
+      statsPeriod,
+      statsStartDate,
+      statsEndDate,
+      selectedClassId,
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        period: statsPeriod,
+        startDate: statsStartDate,
+        endDate: statsEndDate,
+      })
+      if (selectedClassId) params.set('classId', selectedClassId)
+      return apiOrThrow<AttendanceStats>(`/api/edu-ai-management/attendance/stats?${params}`)
+    },
   })
 
   const leaveQuery = useQuery({
@@ -722,6 +747,27 @@ export default function AttendancePage() {
   /* ── Stats helpers ── */
   const stats = statsQuery.data
   const presentCount = stats?.statusBreakdown.find((s) => s.status === 'present')?.count ?? 0
+
+  /** 趋势图与周期表共用同一份 (时段, 状态, 计数) 桶集:两处读数同源,不得各聚一遍 */
+  const periodRows = React.useMemo<AttendancePeriodRow[]>(
+    () => stats?.periodBreakdown ?? [],
+    [stats],
+  )
+
+  /** 堆叠柱段名:5 枚协议码走 eduAttendance 取词,other 兜后端后续新增的状态码 */
+  const trendSegmentLabels: Record<AttendanceTrendSegmentKey, string> = {
+    present: t('statusPresent'),
+    late: t('statusLate'),
+    early: t('statusEarly'),
+    absent: t('statusAbsent'),
+    leave: t('statusLeave'),
+    other: t('statusOther'),
+  }
+
+  /** 统计范围点名:班级下拉自动选中首个,清单没到货或未选时如实标"全部班级" */
+  const { classes } = useClasses()
+  const statsScopeLabel =
+    classes.find((c) => c.id === selectedClassId)?.name ?? t('scopeAllClasses')
 
   /* ── 取词解析:未知码(后端新增值)原样回显,不吞协议数据 ── */
   const attendanceStatusLabel = (status: string): string => {
@@ -986,6 +1032,10 @@ export default function AttendancePage() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+                <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
+              </div>
+              <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <Input
                   type="date"
@@ -1063,6 +1113,28 @@ export default function AttendancePage() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-body font-medium">
+                    <TrendingUp className="h-4 w-4" />
+                    <span>{t('trendChartTitle')}</span>
+                  </CardTitle>
+                  <CardDescription className="text-label">
+                    {t('trendChartScope', { scope: statsScopeLabel })} · {t('trendChartHint')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AttendanceTrendChart
+                    breakdown={periodRows}
+                    labels={trendSegmentLabels}
+                    rateLabel={t('statsAttendanceRate')}
+                    countAxisLabel={t('trendCountAxisLabel')}
+                    ariaLabel={t('trendChartAria', { scope: statsScopeLabel })}
+                    emptyLabel={t('emptyTrend')}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle className="text-body font-medium">{t('statusDistribution')}</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1095,7 +1167,7 @@ export default function AttendancePage() {
                 </CardContent>
               </Card>
 
-              {stats.periodBreakdown.length > 0 && (
+              {periodRows.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-body font-medium">{t('trend')}</CardTitle>
@@ -1116,43 +1188,29 @@ export default function AttendancePage() {
                                 {t(s.labelKey)}
                               </th>
                             ))}
+                            <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                              {t('statsAttendanceRate')}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {stats.periodBreakdown
-                            .reduce<Array<{ period: string; breakdown: Record<string, number> }>>(
-                              (acc, item) => {
-                                let group = acc.find((g) => g.period === item.period)
-                                if (!group) {
-                                  group = { period: item.period, breakdown: {} }
-                                  acc.push(group)
-                                }
-                                group.breakdown[item.status] =
-                                  (group.breakdown[item.status] ?? 0) + item.count
-                                return acc
-                              },
-                              [],
-                            )
-                            .map((group) => (
-                              <tr key={group.period} className="hover:bg-muted/30">
-                                <td className="px-3 py-2 text-label font-medium">{group.period}</td>
-                                {ATTENDANCE_STATUS.map((s) => (
-                                  <td key={s.value} className="px-3 py-2 text-right text-label">
-                                    {group.breakdown[s.value] ?? 0}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          {stats.periodBreakdown.length === 0 && (
-                            <tr>
-                              <td
-                                colSpan={6}
-                                className="py-4 text-center text-label text-muted-foreground"
-                              >
-                                {t('emptyTrend')}
+                          {/* 与上方趋势图同一个聚合出口:表与图不可能各说一套 */}
+                          {buildAttendanceTrendSeries(periodRows).map((point) => (
+                            <tr key={point.period} className="hover:bg-muted/30">
+                              <td className="px-3 py-2 text-label font-medium">{point.period}</td>
+                              {ATTENDANCE_STATUS.map((s) => (
+                                <td
+                                  key={s.value}
+                                  className="px-3 py-2 text-right text-label tabular-nums whitespace-nowrap"
+                                >
+                                  {point[s.value]}
+                                </td>
+                              ))}
+                              <td className="px-3 py-2 text-right text-label tabular-nums whitespace-nowrap">
+                                {point.attendanceRate}%
                               </td>
                             </tr>
-                          )}
+                          ))}
                         </tbody>
                       </table>
                     </div>
