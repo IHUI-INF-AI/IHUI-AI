@@ -50,7 +50,7 @@ describe('FALLBACK_VENDORS', () => {
     ]
     for (const code of expected) {
       expect(FALLBACK_VENDORS[code]).toBeDefined()
-      expect(FALLBACK_VENDORS[code].vendorCode).toBe(code)
+      expect(FALLBACK_VENDORS[code]!.vendorCode).toBe(code)
     }
   })
 
@@ -61,21 +61,21 @@ describe('FALLBACK_VENDORS', () => {
   })
 
   it('鉴权类型与厂商对应正确', () => {
-    expect(FALLBACK_VENDORS.dashscope.authType).toBe('bearer')
-    expect(FALLBACK_VENDORS.tencent.authType).toBe('tencent_tc3')
-    expect(FALLBACK_VENDORS.volcengine.authType).toBe('volcengine_v4')
-    expect(FALLBACK_VENDORS.jimeng4.authType).toBe('volcengine_v4')
+    expect(FALLBACK_VENDORS.dashscope!.authType).toBe('bearer')
+    expect(FALLBACK_VENDORS.tencent!.authType).toBe('tencent_tc3')
+    expect(FALLBACK_VENDORS.volcengine!.authType).toBe('volcengine_v4')
+    expect(FALLBACK_VENDORS.jimeng4!.authType).toBe('volcengine_v4')
   })
 
   it('双凭据厂商包含 secretKeyEnvName', () => {
-    expect(FALLBACK_VENDORS.tencent.secretKeyEnvName).toBe('TENCENT_SECRET_KEY')
-    expect(FALLBACK_VENDORS.volcengine.secretKeyEnvName).toBe('VOLCENGINE_SECRET_KEY')
-    expect(FALLBACK_VENDORS.jimeng4.secretKeyEnvName).toBe('JIMENG4_SECRET_KEY')
+    expect(FALLBACK_VENDORS.tencent!.secretKeyEnvName).toBe('TENCENT_SECRET_KEY')
+    expect(FALLBACK_VENDORS.volcengine!.secretKeyEnvName).toBe('VOLCENGINE_SECRET_KEY')
+    expect(FALLBACK_VENDORS.jimeng4!.secretKeyEnvName).toBe('JIMENG4_SECRET_KEY')
   })
 
   it('单凭据厂商无 secretKeyEnvName', () => {
-    expect(FALLBACK_VENDORS.dashscope.secretKeyEnvName).toBeUndefined()
-    expect(FALLBACK_VENDORS.gemini.secretKeyEnvName).toBeUndefined()
+    expect(FALLBACK_VENDORS.dashscope!.secretKeyEnvName).toBeUndefined()
+    expect(FALLBACK_VENDORS.gemini!.secretKeyEnvName).toBeUndefined()
   })
 })
 
@@ -95,12 +95,12 @@ describe('getVendorCredentials', () => {
 
   it('key 存在时返回 { key }', () => {
     process.env.TEST_KEY = 'sk-test-123'
-    const result = getVendorCredentials({ keyEnvName: 'TEST_KEY' })
+    const result = getVendorCredentials({ keyEnvName: 'TEST_KEY', secretKeyEnvName: null })
     expect(result).toEqual({ key: 'sk-test-123' })
   })
 
   it('key 缺失时 key 字段为 undefined（不抛错）', () => {
-    const result = getVendorCredentials({ keyEnvName: 'TEST_KEY' })
+    const result = getVendorCredentials({ keyEnvName: 'TEST_KEY', secretKeyEnvName: null })
     expect(result).toEqual({})
     expect(result.key).toBeUndefined()
   })
@@ -116,13 +116,13 @@ describe('getVendorCredentials', () => {
   })
 
   it('vendor 未声明 keyEnvName 时返回空对象', () => {
-    const result = getVendorCredentials({})
+    const result = getVendorCredentials({ keyEnvName: null, secretKeyEnvName: null })
     expect(result).toEqual({})
   })
 
   it('只声明 secretKeyEnvName 时不读取 key，但会读取 secret（业务规则：secret 可独立）', () => {
     process.env.TEST_SECRET = 'sk'
-    const result = getVendorCredentials({ secretKeyEnvName: 'TEST_SECRET' })
+    const result = getVendorCredentials({ keyEnvName: null, secretKeyEnvName: 'TEST_SECRET' })
     // key 字段不存在（keyEnvName 未声明，不读取）
     expect(result.key).toBeUndefined()
     // secret 字段存在（secretKeyEnvName 已声明，正常读取）

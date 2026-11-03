@@ -19,6 +19,7 @@ import CustomerServiceFloat from '@/components/CustomerServiceFloat'
 import CommissionOverview from './commission-overview'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 interface OperatorStats {
   dayEarnings?: number
@@ -113,19 +114,13 @@ export default function DistributionIndex() {
       setQrCode(res?.url || res?.qrCode || '')
       setShowQrCode(true)
     } catch {
-      Taro.showToast({
-        title: tt('distribution.index.qrLoadFail', '二维码加载失败'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.qrLoadFail', '二维码加载失败'), { kind: 'error' })
     }
   }, [tt])
 
   const onSaveQr = useCallback(async () => {
     if (!qrCode) {
-      Taro.showToast({
-        title: tt('distribution.index.qrLoading', '二维码生成中'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.qrLoading', '二维码生成中'), { kind: 'info' })
       return
     }
     try {
@@ -137,10 +132,7 @@ export default function DistributionIndex() {
 
   const onSaveUserInfo = useCallback(async () => {
     if (!idNum.trim() || !idName.trim()) {
-      Taro.showToast({
-        title: tt('distribution.index.fillInfo', '请填写完整信息'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.fillInfo', '请填写完整信息'), { kind: 'info' })
       return
     }
     if (submitting) return
@@ -149,18 +141,12 @@ export default function DistributionIndex() {
     try {
       await api.realNameAuth({ realName: idName.trim(), idCard: idNum.trim() })
       Taro.hideLoading()
-      Taro.showToast({
-        title: tt('distribution.index.verifyOk', '验证成功'),
-        icon: 'success',
-      })
+      onToast(tt('distribution.index.verifyOk', '验证成功'), { kind: 'success' })
       setShowVerify(false)
       setData((prev) => ({ ...prev, verified: true }))
     } catch {
       Taro.hideLoading()
-      Taro.showToast({
-        title: tt('distribution.index.verifyFail', '验证失败'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.index.verifyFail', '验证失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

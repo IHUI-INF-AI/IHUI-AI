@@ -105,7 +105,14 @@ function exec(q: unknown): Record<string, unknown>[] {
     return out(ROWS.get(id) && ROWS.get(id)!.updated_by === owner ? ROWS.get(id) : undefined)
   }
   if (text.startsWith('INSERT INTO "system_configs"')) {
-    const [id, , value, type, category, owner] = values as string[]
+    const [id, , value, type, category, owner] = values as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ]
     const row = {
       id,
       key: id,

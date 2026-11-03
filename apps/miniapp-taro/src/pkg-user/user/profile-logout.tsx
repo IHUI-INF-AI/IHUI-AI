@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n'
 import { post } from '@/api'
 import { clearAuth, getRefreshToken, goToLogin } from '@/utils/auth'
 import { logger } from '@/utils/logger'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 退出登录按钮 — 对齐共享屏 ProfileScreen 的 logoutBtn(共享屏由宿主注入 onLogout,
@@ -38,7 +39,7 @@ export default function ProfileLogoutButton() {
         }
         // 清凭据 + 落登出标记是 clearAuth() 一件成对动作(与 user/settings 同源,顺序在它内部定死)
         clearAuth()
-        Taro.showToast({ title: t('user.loggedOut'), icon: 'success' })
+        onToast(t('user.loggedOut'), { kind: 'success' })
         setTimeout(goToLogin, 800)
       },
     })

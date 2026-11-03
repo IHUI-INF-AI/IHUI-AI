@@ -82,9 +82,7 @@ export default function AiCircle() {
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
       <View className="p-[24rpx]">
-        <Text className="text-subtitle font-semibold text-foreground">
-          {t('aiCircle.title')}
-        </Text>
+        <Text className="text-subtitle font-semibold text-foreground">{t('aiCircle.title')}</Text>
       </View>
       <View className="p-[24rpx]">
         {loading ? (
@@ -145,7 +143,7 @@ export default function AiCircle() {
                       </Text>
                     ) : null}
                     {content ? (
-                      <Text className="block text-[length:26rpx] leading-[38rpx] text-muted-foreground line-clamp-3">
+                      <Text className="block text-body-sm leading-[38rpx] text-muted-foreground line-clamp-3">
                         {content}
                       </Text>
                     ) : null}
@@ -219,7 +217,7 @@ export default function AiCircle() {
         onClick={onPublish}
         hoverClass="opacity-60"
       >
-        <Text className="text-[length:26rpx] text-[var(--color-card)] leading-[26rpx]">
+        <Text className="text-body-sm text-[var(--color-card)] leading-[26rpx]">
           {t('aiCircle.post')}
         </Text>
       </View>

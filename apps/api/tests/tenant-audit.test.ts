@@ -157,7 +157,7 @@ describe('TenantAuditor 告警回调', () => {
       a.check('SELECT * FROM zhs_order WHERE id = 1', [], 1, 'u1')
     }
     expect(fn).toHaveBeenCalled()
-    expect(fn.mock.calls[0][0]).toBe('tenant_audit_violation:zhs_order')
+    expect(fn.mock.calls[0]![0]).toBe('tenant_audit_violation:zhs_order')
   })
 
   it('未达 minAuditsForAlert 时不告警', () => {

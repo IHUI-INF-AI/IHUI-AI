@@ -293,3 +293,4 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 >>>>>>> c970ac616ca6e92d55930349645153bccb53a25d
 =======
 <<<<<<< cf1fdef9cefd7f616354364c0ea2ccfb869a8dce
+- **改判据面/守门脚本一律带豁免 trailer(2026-11-02 机主定档)**:凡本次提交触及受保护面(清单现读 `scripts/data/immutable-guard.json`:`scripts/check-*.mjs`、`scripts/lib/**`、`scripts/data/*-exemptions.json`、`scripts/guardian-runner.mjs`、`AGENTS.md`、清单自身),提交信息正文必须带一行 `immutable-exempt: <≥10 字理由>`;无 trailer 即 `undeclared`,`--audit-new` 事后判红,**且工具没有追溯声明入口**(`--record` 只对已声明项留痕)⇒ 不存在"先提交、后补声明"的合法路径。多席并行改 `check-ops-patrol.mjs` / `check-typecheck.mjs` 同此。

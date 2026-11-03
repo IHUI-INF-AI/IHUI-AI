@@ -5,7 +5,7 @@
 // 对齐目标(RN 共享屏): packages/app/src/features/study-plan/StudyPlanScreen.tsx
 import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getStudyPlan, post } from '@/api'
@@ -14,6 +14,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { FocusInput } from '@/components/FocusField'
 import { PlanFoot, statusClass, statusLabel, statusOf, type PlanItem } from './plan-card'
+import { onToast } from '@/host/on-toast'
 
 export default function StudyPlan() {
   const { t } = useI18n()
@@ -54,7 +55,7 @@ export default function StudyPlan() {
       const res = (await getStudyPlan()) as { list?: PlanItem[] }
       setList(res.list || [])
     } catch {
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -69,7 +70,7 @@ export default function StudyPlan() {
   const submitAdd = useCallback(async () => {
     const title = newTitle.trim()
     if (!title) {
-      Taro.showToast({ title: t('study.publish.enterTitle'), icon: 'none' })
+      onToast(t('study.publish.enterTitle'), { kind: 'info' })
       return
     }
     const target = Number(newTarget) || 30
@@ -77,11 +78,11 @@ export default function StudyPlan() {
     try {
       await post('/study/plan', { title, target })
       setShowAdd(false)
-      Taro.showToast({ title: t('common.success'), icon: 'success' })
+      onToast(t('common.success'), { kind: 'success' })
       setLoading(true)
       await load()
     } catch {
-      Taro.showToast({ title: t('study.planPage.addFailed'), icon: 'none' })
+      onToast(t('study.planPage.addFailed'), { kind: 'error' })
     } finally {
       setSaving(false)
     }

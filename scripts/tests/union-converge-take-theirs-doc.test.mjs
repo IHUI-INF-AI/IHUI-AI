@@ -56,8 +56,12 @@ function slotOf(list, name, where) {
   return i
 }
 
-/** 夹具:PROJECT_PLAN.md 与 README.md 两侧同改(走行级 union 的那一族),对侧另带滞后基线形态。 */
-function docTakeoverFixture({ theirsDropsDoc = false } = {}) {
+/**
+ * 夹具:PROJECT_PLAN.md 与 README.md 两侧同改(走行级 union 的那一族),对侧另带滞后基线形态。
+ * A6 两个开关:numberedOurs ⇒ 本侧台账带一枚带号登记行(Y-12)且多一个空行;
+ * theirsThin ⇒ 对侧台账保持 base 薄版本(整份取对侧会同时少带号键/空行/非空行)。
+ */
+function docTakeoverFixture({ theirsDropsDoc = false, numberedOurs = false, theirsThin = false } = {}) {
   const dir = mkScratch('union-take-doc-')
   const run = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...a], {
@@ -79,8 +83,12 @@ function docTakeoverFixture({ theirsDropsDoc = false } = {}) {
   run('add', '-A')
   run('commit', '-qm', 'base')
   const base = run('rev-parse', 'HEAD')
-  // 本侧:台账加一行自己的、README 加一行自己的
-  writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
+  // 本侧:台账加一行自己的、README 加一行自己的(A6 档:带号行 + 多一个空行)
+  writeFileSync(
+    join(dir, 'PROJECT_PLAN.md'),
+    numberedOurs ? 'a\n\nb\n- [ ] Y-12 本侧登记\n' : 'a\nb\nours-line\n',
+    'utf8',
+  )
   writeFileSync(join(dir, 'README.md'), 'r-base\nours-r\n', 'utf8')
   run('add', '-A')
   run('commit', '-qm', 'ours')
@@ -88,7 +96,7 @@ function docTakeoverFixture({ theirsDropsDoc = false } = {}) {
   // 对侧:台账带回两行滞后基线形态(正是行级 union 会回灌的那一族),README 同改另一行
   run('checkout', '-q', '-b', 'theirs', base)
   if (theirsDropsDoc) run('rm', '-q', 'PROJECT_PLAN.md')
-  else
+  else if (!theirsThin)
     writeFileSync(
       join(dir, 'PROJECT_PLAN.md'),
       'a\nb\ntheirs-line\n滞后基线甲\n滞后基线乙\n',
@@ -113,8 +121,8 @@ function docTakeoverFixture({ theirsDropsDoc = false } = {}) {
  * `get` ⇒ 静默 no-op,五条断言全读成空数组。T-Doc-f 的位序对齐锁给这类"插形参"装了牙:
  * 形状漂了当场红,不允许再以"空数组"的形态安静通过。
  */
-const planWithDoc = (ours, theirs, dir, docs) =>
-  U.plan(ours, theirs, dir, new Set(), new Map(), new Set(), null, null, null, null, null, docs)
+const planWithDoc = (ours, theirs, dir, docs, lenient = false) =>
+  U.plan(ours, theirs, dir, new Set(), new Map(), new Set(), null, null, null, null, null, docs, lenient)
 
 test('T-Doc-a 声明 --take-theirs-doc ⇒ 该活文档整 blob 取对侧、行级 union 不跑(滞后基线不再回灌),且逐条点名', () => {
   const { dir, ours, theirs } = docTakeoverFixture()
@@ -252,12 +260,76 @@ test('T-Doc-e 声明了存在但非活文档的路径 ⇒ 声明未命中判红(
   }
 })
 
+test('T-Doc-g 整份取对侧的零丢失判据:带号键/空行/非空行任一减少都必须阻断,有理由声明才放行', () => {
+  const { dir, ours, theirs } = docTakeoverFixture({ numberedOurs: true, theirsThin: true })
+  try {
+    const p = planWithDoc(ours, theirs, dir, new Set(['PROJECT_PLAN.md']))
+    assert.ok(
+      p.bad.some(
+        (b) =>
+          b.includes('PROJECT_PLAN.md') &&
+          b.includes('带号键少 1 枚') &&
+          b.includes('空行少 1 行') &&
+          b.includes('未用 --take-theirs-doc'),
+      ),
+      `三笔差必须逐项点名并说明缺理由:${JSON.stringify(p.bad)}`,
+    )
+    // 正控:同一份声明写成 <path>=<理由> ⇒ 放行且 credits 点名(不得静默折进"0 丢失")
+    const pm = planWithDoc(
+      ours,
+      theirs,
+      dir,
+      new Map([['PROJECT_PLAN.md', '对侧基线是权威版本,本侧试验登记 Y-12 经票主确认随整份取代作废']]),
+    )
+    assert.equal(pm.bad.length, 0, `有理由声明应零红:${JSON.stringify(pm.bad)}`)
+    assert.equal(pm.takeTheirsDocCredits.length, 1, '声明放行的少内容必须逐条交回报告面')
+    assert.equal(pm.takeTheirsDocCredits[0].doc, 'PROJECT_PLAN.md')
+    assert.match(pm.takeTheirsDocCredits[0].losses.join(' '), /带号键少 1 枚/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T-Doc-h takeTheirsDocLoss 单元:带号键/空行/非空行三项各自独立可判', () => {
+  const keys = U.takeTheirsDocLoss('a\n- [ ] Y-12 本侧\n', 'a\n')
+  assert.equal(keys.ok, false)
+  assert.match(keys.losses.join(' '), /带号键少 1 枚\(Y-12 1→0\)/)
+  const blank = U.takeTheirsDocLoss('a\n\nb\n', 'a\nb\n')
+  assert.equal(blank.ok, false)
+  assert.match(blank.losses.join(' '), /空行少 1 行\(2→1\)/)
+  const nonBlank = U.takeTheirsDocLoss('a\nb\nc\n', 'a\nb\n')
+  assert.equal(nonBlank.ok, false)
+  assert.match(nonBlank.losses.join(' '), /非空行少 1 行\(3→2\)/)
+  assert.equal(U.takeTheirsDocLoss('a\nb\n', 'a\nb\n').ok, true, '三项都不减少才是零丢失')
+})
+
+/**
+ * A6b 逃生阀:`--legacy-lenient` 的 API 面等价物是 plan(..., true)。它必须回到旧行为
+ * (整份取对侧不再量三项差),但也不得伪报 credits —— 逃生阀是"账面看得见的少带",不是"零丢失"。
+ */
+test('T-Doc-i 逃生阀:lenient=true 退回旧行为,三项差不再阻断且不记 credits', () => {
+  const { dir, ours, theirs } = docTakeoverFixture({ numberedOurs: true, theirsThin: true })
+  try {
+    const p = planWithDoc(ours, theirs, dir, new Set(['PROJECT_PLAN.md']), true)
+    assert.equal(p.bad.length, 0, `逃生阀下不得阻断:${JSON.stringify(p.bad)}`)
+    assert.equal(p.takeTheirsDocCredits.length, 0, '旧口径不产生 credits,不得伪报放行')
+    assert.ok(p.keptTheirsDocs.includes('PROJECT_PLAN.md'), '逃生阀只关检测,不关"整份取对侧"本身')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('T-Doc-f 装车锁(源码级):CLI 旗标必须真被解析并传到 plan(),判据存在而永不接线 = 没有', () => {
   const src = maskComments(srcOfTool())
   assert.match(
     src,
-    /if \(argv\[i\] === '--take-theirs-doc' && argv\[i \+ 1\]\) takeTheirsDocs\.add\(argv\[\+\+i\]\)/,
+    /if \(argv\[i\] !== '--take-theirs-doc' \|\| !argv\[i \+ 1\]\) continue/,
     'CLI 解析循环里必须有 --take-theirs-doc 的取值分支',
+  )
+  assert.match(
+    src,
+    /takeTheirsDocs\.set\(/,
+    'A6:声明值必须写进 Map(允许 <path>=<理由>),不得退化成只存路径的 Set',
   )
   // 三面(产出/自证/安装)逐面按**位序**对齐:签名第 N 位 ↔ 调用第 N 位。
   // 只判"标识符出现过"会被"解析了但没传"或"传错形参位"这两种静默失效绕过 —— 后者正是本文件
@@ -300,6 +372,13 @@ test('T-Doc-f 装车锁(源码级):CLI 旗标必须真被解析并传到 plan(),
     verifyCall[slotOf(verifySig, 'takeTheirsDocs', 'verifyUnion 签名')],
     'takeTheirsDocs',
     'verifyUnion 必须收到声明集(自证语义=整 blob 等于对侧,不喂就是行级期望表在判)',
+  )
+  // A6 退出码契约:整份取对侧的三笔差判红后必须折进 p.bad,再由 main 统一 exit(1);
+  // 判据存在但退出码 0 等于"点名了却放行",测试必须把这条装车锁也钉住。
+  assert.match(
+    src,
+    /if \(p\.bad\.length\) \{[\s\S]{0,1200}?process\.exit\(1\)/,
+    'A6:p.bad 非空必须退出 1(三笔差判红不得静默按 0 通过)',
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

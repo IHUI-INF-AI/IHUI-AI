@@ -181,6 +181,7 @@ export default function VipTraderScreen() {
       onRefresh={onRefresh}
       onOpen={onOpen}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
       onToast={onToast}
     />

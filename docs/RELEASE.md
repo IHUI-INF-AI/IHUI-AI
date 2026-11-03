@@ -425,10 +425,34 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 | App Store / TestFlight | EAS 云端 build + submit | 需 iOS 产物 | — | ❌ ASC API 凭据未取到 | `eas build:list -p ios` 空 | 阻塞:凭据 |
 | EAS Update(两渠道) | `eas update --channel X --environment X` | ✅ JS bundle | — | ✅ token | **已端到端实证**:一次性分支发出 `✔ Published!`、runtime 读回 `0.0.5`,发后即删 | 通 |
 | 华为 AppGallery | AGC Publishing API | ✅ 同上 APK | ✅ | ⚠ 有一枚但**类型不对** | 端点**已证可达**:`ret.code=205524993 client token auth failed`;旁证 HMS OAuth 能签 token(len=104) | 差一枚 Connect API 客户端凭据 |
-| 小米 / OPPO / vivo / 应用宝 / 荣耀 | 各家开放 API | ✅ 同上 APK | ✅ | ❌ 目录内无 | 端点形态**未经核实** ⇒ 探测器零调用、判未判定 | 未判定 |
+| 小米应用商店 | `POST api.developer.xiaomi.com/devupload/dev/query`(只读探针)/ `dev/push`(传包) | ✅ 同上 APK | ✅ | ❌ 缺"接口私钥" | **端点已证可达**:`code=-20002 数字签名异常` ⇒ 对方在校验我们的签名 | 差一枚小米开发者站接口私钥(RSA SIG,非登录密码) |
+| 腾讯应用宝 | `POST p.open.qq.com/open_file/developer_api/query_app_detail` / `update_app` | ✅ | ✅ | ❌ 缺 access_secret | **端点已证可达**:`msg="请求参数user_id为空"` | 差 access_secret;**官方明写不支持新应用发布**(首包须后台手工上线) |
+| 荣耀应用市场 | OAuth2 `POST iam.developer.honor.com/auth/token` → `appmarket-openapi-drcn.cloud.honor.com/openapi/v1/publish/*` | ✅ | ✅ | ❌ 缺 Client ID/API 密钥 | **端点已证可达**:`http=401 Invalid client` | 差荣耀管理中心「开放能力→凭证」的 API 密钥;官方限流查询类 <3min/次 |
+| vivo 应用商店 | `POST developer-api.vivo.com.cn/router/rest`(method=`app.query.details`/`app.upload.file`) | ✅ | ✅ | ❌ 缺 access_key/secret | 对方应答但**未认本次 method**:`code=10010 此功能不存在` ⇒ 通道活着,调用形态未获背书 | 未判定(method 形态待用官方正文核) |
+| OPPO 开放平台 | token `GET oop-openapi-cn.heytapmobi.com/developer/v1/token`(出处在册) | ✅ | ✅ | ❌ 缺 client_id/secret | 传包端点**正文需登录**(文档返回 300005)⇒ 不猜端点,探测器零调用 | 未判定 |
+| ApkPure | **无官方开发者平台/API 可核实** | 不适用 | 不适用 | ❌ | 流传的"开发者入口/审核 1~5 工作日/VirusTotal"全部出自博客,按本仓纪律不当官方出处 | **不接入自动链路**(登记为 unverified);要接需先拿到官方正文 |
+| 魅族 / 中兴·努比亚 / 应用汇 | 仅网页后台(`open.flyme.cn`、`developer.nubia.com`、`dev.appchina.com`) | ✅ 同上 APK | ✅ | ❌ 各家开发者账号未在册 | 无公开 API;魅族《更换签名如何更新版本》要求**邮件申请**换签名 | 人工渠道:材料由 `prepare-store-bundle.mjs` 产出后后台提交 |
+| 百度手机助手 / 91 助手 | — | — | — | — | 91 助手 2025-09-27 停服、安卓市场早已下线 | **不列**(S4 锁住不得回流) |
 | 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
 
-华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。另五家本器**不发猜的 URL**——端点形态未经核实就判未判定,防"猜的端点进水"。
+**上架的法律级前置(2026-11-03 查得,优先级高于一切通道工作)**:工信部信管〔2023〕105 号第九条 ——
+**分发平台不得为未备案 App 提供分发**,省级通管局约 20 个工作日发备案号,且第八条要求 App 内标注备案号。
+本仓现读**取不到任何 App 备案号**(仓内无该字符串、站点 HTML 未带,而 `apps/api/src/routes/algorithm-record.ts`
+自述"不再展示本平台的虚假备案号")⇒ `prepare-store-bundle.mjs` 判 **unjudged**,并让所有 `needsIcpFiling`
+的国内店**不得报 ready**。备案号一旦拿到,登记到 `scripts/data/app-icp-filing.json`
+(需 `appFilingNumber`/`icpNumber` + `authority` + `verifiedAt` 三项齐,缺项仍判未判定)。
+
+**隐私政策与包内容双向不一致也已量出**:政策大篇幅写"个推公共库SDK(Gtc) 收集 IMEI/IMSI/MAC/应用列表"
+与"DCloud开发通用工具库",而 manifest / app 级 build.gradle / package.json 三面查无 ⇒ **过度声明**
+(疑似 uniapp 时代残留,该改政策);反向的"漏声明"更严重,判据两向都出。
+另 `SYSTEM_ALERT_WINDOW` 在包内 manifest 而全仓零引用 ⇒ 已由 `plugins/withPermissionPruning.cjs` 摘除
+(**上架前需跑一次 clean prebuild 复验**,本枚只验到纯函数行为与已挂载)。
+
+华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。探测纪律(锁在 `scripts/tests/release-mobile-rn.test.mjs` M14–M16):没凭据时也**只用占位签名打只读查询端点**
+(动作段含 upload/submit/audit/update 一律判违规),据此把"通道可达"与"有没有凭据"分成两格——
+否则就会把"我路径写错"读成"这家没开 API"(本票真踩过一次:404 HTML 是我把端点拼错,不是华为的答复)。
+各家端点与鉴权形态的**官方出处**逐条登记在 `scripts/probe-store-channel.mjs` 的 `CHANNELS[*].doc` 字段;
+核不到出处的(vivo 的 method、OPPO 的传包正文)一律判未判定,不发猜的 URL。
 
 > **两个结构性缺口(不在发布器射程,已在台账登记)**
 > ① `app_versions.platform` 枚举 = `ios/android/web/harmony/cli`,**没有 store 维度** ⇒ "华为一条 latest、小米一条 latest"在数据面上表达不出来;下载中心与端内更新卡因此只能给一个安卓地址。出路:一次加列迁移(`store`/`channel`),按迁移纪律走 `db:migrate` + 门 49 的 B1–B9 验证。
@@ -438,6 +462,27 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 > **签名一致性是 Play 腿未收口的一格**:官网包用 `ihui-release.keystore`(证书 SHA256 `62:B0:FF:0E…`),EAS 云端 10-19 那枚 production AAB 用 EAS 自动生成的 keystore(`62:0C:C9:58…`)—— 二者不同源,而 alpha 轨上那枚 `26101921` 正是 EAS 的号。Play 现网签名身份没能量到(`appSigningInfo` 对本应用回 HTML 404)⇒ **以本机 keystore 提交会不会被 Play 拒绝,属未判定,提交前必须先量一次**,不得凭"应该可以"下结论。
 >
 > **`eas.json` 的 `submit.production.android` 不得写 `packageName`**:eas-cli schema 回 `"submit.production.android.packageName" is not allowed`,而它一拒就顶掉**所有** eas 命令(连 `channel:list` 都退 1)。包名只从 `app.json` 的 `android.package` 读。回归锁 M4。
+
+#### Android 对外下载腿(站点 CDN;唯一真源 2026-11-03 立)
+
+| 项 | 口径 |
+| --- | --- |
+| 唯一真源 | `scripts/data/mobile-download-leg.json` 的 `downloadUrl`(站点 CDN 腿;本表不复制字面量,避免第二份地址) |
+| 页面取值 | `NEXT_PUBLIC_DOWNLOAD_APK_URL`,由 `deploy/scripts/prod-bundle/deploy.sh` 从单源写入;禁止各页面各写一份 URL |
+| 覆盖 | 部署机/联调可设 `IHUI_MOBILE_DOWNLOAD_URL`;不得写回仓库 |
+| 正式签名 | 只有持 `~/.android/ihui-release.keystore` 的机器能出;证书 SHA-256 基准 `62:B0:FF:0E…`(hex `62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514`) |
+| CI | 私钥不进 GitHub Secrets ⇒ CI 永久只产 `ihui-ai-dev-<run>.apk/.aab`,不发布 Release 正式包 |
+| EAS | EAS 自动 keystore `62:0C:C9:58…` 与基准不同源;对齐前**禁止**其 AAB 对外分发 |
+| 发布 | `pwsh -File scripts/build-mobile-rn-release.ps1 ...`;第 5 步调 `publish-mobile-apk.mjs`,随后 `check-mobile-download-leg.mjs --apk` 复核 |
+| 门 | `node scripts/check-mobile-download-leg.mjs [--apk <APK>] [--download] [--json]`;退出码 0=ok / 1=fail / 2=skipped 或未判定(**skip 不是绿**) |
+| CI 门 | `.github/workflows/mobile-download-leg.yml`(`workflow_dispatch` + 每日定时;不跑 PR) |
+
+**手工上传(仅这一步需要人;不需 GitHub/keystore 凭据,只需生产签出副本的写权限)**:
+
+1. 把正式签名 APK 放到生产签出副本 `deploy/server-root/remote-images/download/ihui-ai-<version>-<versionCode>.apk`。
+2. 更新同目录 `ihui-ai-latest.apk.redirect.json` 的 `url`/`version`/`versionCode`/`size`/`sha256`/`publishedAt`(字段以 `publish-mobile-apk.mjs` 写出的为准)。
+3. 从公网回读 `…/ihui-ai-latest.apk` 必须是 302 → 新副本,且目标 `Content-Length` 等于 APK 实际字节数。
+4. 在持钥机器上跑 `node scripts/check-mobile-download-leg.mjs --apk <本地APK>`,必须 exit 0。
 
 > **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。
 >

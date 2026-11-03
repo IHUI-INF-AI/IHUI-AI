@@ -34,7 +34,7 @@
 import * as fs from 'node:fs';
 
 /** 顺序扫描的分块大小:一次 1MB 读,够大(减少系统调用)又不至于在病态文件上占内存 */
-export const LINE_SCAN_CHUNK_BYTES = 1024 * 1024;
+const LINE_SCAN_CHUNK_BYTES = 1024 * 1024;
 
 /**
  * 数行的**硬上限**(64MB)。超过它的文件不再继续扫:

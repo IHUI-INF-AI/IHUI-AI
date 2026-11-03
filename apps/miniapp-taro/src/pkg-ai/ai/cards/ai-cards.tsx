@@ -43,6 +43,7 @@ import {
 } from '@/pkg-ai/ai/cards/tool-line'
 import type { ToolSubjectKind } from '@ihui/shared/chat'
 import './ai-cards.css'
+import { onToast } from '@/host/on-toast'
 
 /** 对象等宽档:与 web stream-ui 的 STREAM_SUBJECT_MONO 同判据(路径 / URL / 命令用等宽体) */
 const MONO_SUBJECT_KINDS: ReadonlySet<ToolSubjectKind> = new Set(['path', 'url', 'command'])
@@ -63,7 +64,7 @@ function sourceLabelKey(source?: ToolCallView['serverSource']): string | null {
 }
 
 /* ===================== 计划步骤卡片 ===================== */
-export function PlanStepsCard({ steps }: { steps: PlanStepView[] }) {
+function PlanStepsCard({ steps }: { steps: PlanStepView[] }) {
   const { t } = useI18n()
   if (!steps.length) return null
   return (
@@ -111,7 +112,7 @@ export function PlanStepsCard({ steps }: { steps: PlanStepView[] }) {
 }
 
 /* ===================== 工具调用卡片 ===================== */
-export function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
+function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
   const { t } = useI18n()
   if (!calls.length) return null
   return (
@@ -218,7 +219,7 @@ function TerminalTaskItem({
       data: task.output,
       success: () => {
         setCopied(true)
-        Taro.showToast({ title: t('ai.cards.terminal.copied'), icon: 'none' })
+        onToast(t('ai.cards.terminal.copied'), { kind: 'info' })
         setTimeout(() => setCopied(false), 1500)
       },
     })
@@ -288,7 +289,7 @@ function TerminalTaskItem({
   )
 }
 
-export function TerminalCard({ tasks }: { tasks: TerminalTaskView[] }) {
+function TerminalCard({ tasks }: { tasks: TerminalTaskView[] }) {
   const { t } = useI18n()
   if (!tasks.length) return null
   return (
@@ -354,7 +355,7 @@ function InjectionRow({
   )
 }
 
-export function InjectionCard({ items }: { items: readonly InjectionRowData[] }) {
+function InjectionCard({ items }: { items: readonly InjectionRowData[] }) {
   const { t } = useI18n()
   if (!items.length) return null
   return (
@@ -372,7 +373,7 @@ export function InjectionCard({ items }: { items: readonly InjectionRowData[] })
 }
 
 /* ===================== #11:引用溯源(答案带了哪些知识来源) ===================== */
-export function CitationCard({
+function CitationCard({
   items,
 }: {
   items: readonly { source: string; label: string; url?: string }[]
@@ -490,7 +491,7 @@ function titleFallback(titleKey: string): string {
  *  区标题/阶段词走端词包 ai.cards.subagent.*(暂缺,tt 回落 fb);八态 state/hint 走
  *  shared 词包 ai.pane.elementPack.backgroundTask.*(五语言在位)。
  */
-export function SubagentCard({ tasks }: { tasks: readonly SubagentTaskView[] }) {
+function SubagentCard({ tasks }: { tasks: readonly SubagentTaskView[] }) {
   const tt = useTt()
   if (!tasks.length) return null
   return (
@@ -527,11 +528,7 @@ export function SubagentCard({ tasks }: { tasks: readonly SubagentTaskView[] }) 
               ) : (
                 <LineIcon
                   name={
-                    tone === 'success'
-                      ? 'check-success'
-                      : tone === 'danger'
-                        ? 'x-error'
-                        : 'circle'
+                    tone === 'success' ? 'check-success' : tone === 'danger' ? 'x-error' : 'circle'
                   }
                   size={28}
                   color={

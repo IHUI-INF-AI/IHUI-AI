@@ -10,6 +10,7 @@ import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { voiceChat, type ChatMessage } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 type RecorderManager = ReturnType<typeof Taro.getRecorderManager>
 type Speed = 'normal' | 'fast' | 'slow'
@@ -113,28 +114,19 @@ export default function VoicePage() {
             })
             .catch((e) => {
               logger.error('ai/voice', t('aiVoice.q6'), e)
-              Taro.showToast({
-                title: tt('ai.voice.chatFailed', '对话失败,请重试'),
-                icon: 'none',
-              })
+              onToast(tt('ai.voice.chatFailed', '对话失败,请重试'), { kind: 'error' })
             })
             .finally(() => setLoading(false))
         },
         fail: () => {
-          Taro.showToast({
-            title: tt('ai.voice.recordFailed', '录音失败,请重试'),
-            icon: 'none',
-          })
+          onToast(tt('ai.voice.recordFailed', '录音失败,请重试'), { kind: 'error' })
           setLoading(false)
         },
       })
     }
 
     const onError = () => {
-      Taro.showToast({
-        title: tt('ai.voice.recordFailed', '录音失败,请重试'),
-        icon: 'none',
-      })
+      onToast(tt('ai.voice.recordFailed', '录音失败,请重试'), { kind: 'error' })
       setRecording(false)
       setLoading(false)
       stopTimer()
@@ -198,7 +190,7 @@ export default function VoicePage() {
       success: (res) => {
         if (!res.confirm) return
         setMessages([{ role: 'assistant', content: t('ai.voice.welcome') }])
-        Taro.showToast({ title: tt('ai.voice.cleared', '对话已清空'), icon: 'none' })
+        onToast(tt('ai.voice.cleared', '对话已清空'), { kind: 'info' })
       },
     })
   }, [t, tt])
@@ -241,9 +233,7 @@ export default function VoicePage() {
                     size={32}
                     color="var(--color-muted-foreground)"
                   />
-                  <Text className="text-label text-foreground">
-                    {fmtDuration(m.duration || 0)}
-                  </Text>
+                  <Text className="text-label text-foreground">{fmtDuration(m.duration || 0)}</Text>
                   <View className="flex items-center gap-[4rpx] h-[40rpx]">
                     {WAVE_DELAYS.map((delay, n) => (
                       <View

@@ -25,6 +25,7 @@ const { eduPublicRoutes } = await import('../src/routes/edu-public.js')
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -124,6 +125,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduOfflineRecords)
       .values({ userId: user.id, type: '培训', title: '旧标题', hours: 4 })
       .returning()
+    if (!record) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(record)')
     setMockUser(user.id)
     const res = await server.inject({
       method: 'PUT',
@@ -154,6 +156,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduOfflineRecords)
       .values({ userId: userB.id, type: '培训', title: 'B 的记录', hours: 4 })
       .returning()
+    if (!record) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(record)')
     setMockUser(userA.id)
     const res = await server.inject({
       method: 'PUT',
@@ -169,6 +172,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduOfflineRecords)
       .values({ userId: user.id, type: '培训', title: '待删除', hours: 4 })
       .returning()
+    if (!record) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(record)')
     setMockUser(user.id)
     const res = await server.inject({
       method: 'DELETE',
@@ -186,6 +190,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduOfflineRecords)
       .values({ userId: userB.id, type: '培训', title: 'B 的记录', hours: 4 })
       .returning()
+    if (!record) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(record)')
     setMockUser(userA.id)
     const res = await server.inject({
       method: 'DELETE',
@@ -241,6 +246,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduUploadedCerts)
       .values({ userId: user.id, certName: '测试证书' })
       .returning()
+    if (!cert) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(cert)')
     setMockUser(user.id)
     const res = await server.inject({ method: 'DELETE', url: `/api/edu/uploaded-certs/${cert.id}` })
     expect(res.statusCode).toBe(200)
@@ -255,6 +261,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduUploadedCerts)
       .values({ userId: userB.id, certName: 'B 的证书' })
       .returning()
+    if (!cert) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(cert)')
     setMockUser(userA.id)
     const res = await server.inject({ method: 'DELETE', url: `/api/edu/uploaded-certs/${cert.id}` })
     expect(res.statusCode).toBe(403)
@@ -306,6 +313,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduUploadedPapers)
       .values({ userId: user.id, paperTitle: '测试论文' })
       .returning()
+    if (!paper) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(paper)')
     setMockUser(user.id)
     const res = await server.inject({ method: 'DELETE', url: `/api/edu/papers/${paper.id}` })
     expect(res.statusCode).toBe(200)
@@ -320,6 +328,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
       .insert(eduUploadedPapers)
       .values({ userId: userB.id, paperTitle: 'B 的论文' })
       .returning()
+    if (!paper) throw new Error('edu-extended-routes.real.test.ts: 插入未返回行(paper)')
     setMockUser(userA.id)
     const res = await server.inject({ method: 'DELETE', url: `/api/edu/papers/${paper.id}` })
     expect(res.statusCode).toBe(403)

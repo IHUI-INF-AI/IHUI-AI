@@ -169,7 +169,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
   describe('GET /overview', () => {
     it('正常:返回 8 字段,今日收入 = (BYOK 抽成 + 中转站成本)/ 100,趋势对比昨天', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       // Q1: income 聚合(分)
       // today_byok=1000 分(10 元),today_relay=500 分(5 元)→ todayIncome=15.00
@@ -246,7 +246,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('yesterday=0 时:today > 0 → 趋势 100%(新增),today = 0 → 趋势 0%', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       // 全部昨日 0,今日 byok=200 分(2 元)
       mockDbReadExecute.mockResolvedValueOnce([
@@ -280,7 +280,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('admin 权限校验:roleId=0 → 403 "需要管理员权限"(集中 requireAdmin preHandler 拦截)', async () => {
       const entry = buildMockServer()
-      await earningsRoutes(entry.server)
+      await earningsRoutes(entry.server, {})
       const preHandler = getPreHandler(entry)
 
       const reply = makeReply()
@@ -296,7 +296,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('未通过 authenticate → 401 短路(集中 requireAdmin 发送 401)', async () => {
       const entry = buildMockServer()
-      await earningsRoutes(entry.server)
+      await earningsRoutes(entry.server, {})
       const authErr = new Error('Invalid or expired token') as Error & { statusCode: number }
       authErr.statusCode = 401
       mockAuthenticate.mockRejectedValueOnce(authErr)
@@ -316,7 +316,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
   describe('GET /byok-trend', () => {
     it('正常:返回 N 个数据点(缺失日期补 0),amount 单位元', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       // 假设 SQL 返回 2 天的数据(分)— 日期需与路由 formatShanghaiDate 生成的日期对齐
       const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -357,11 +357,11 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('days 缺省 → 默认 30(SQL 用 MAKE_INTERVAL(days => 30))', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       mockDbReadExecute.mockResolvedValueOnce([])
 
-      const handler = handlers.get('byok-trend' ? 'GET /byok-trend' : 'GET /byok-trend')!
+      const handler = handlers.get('GET /byok-trend')!
       const reply = makeReply()
       // 不传 days,默认 30
       await handler(makeRequest({ roleId: 1, query: {} }), reply)
@@ -376,7 +376,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('days=400 超上限 → 400 错误(Zod 校验)', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       const handler = handlers.get('GET /byok-trend')!
       const reply = makeReply()
@@ -391,7 +391,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('days=365 上限 → 正常返回(边界值)', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       mockDbReadExecute.mockResolvedValueOnce([])
 
@@ -407,7 +407,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('admin 权限校验:roleId < 1 → 403(集中 preHandler 拦截)', async () => {
       const entry = buildMockServer()
-      await earningsRoutes(entry.server)
+      await earningsRoutes(entry.server, {})
       const preHandler = getPreHandler(entry)
 
       const reply = makeReply()
@@ -424,7 +424,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
   describe('GET /referral', () => {
     it('正常:三渠道计数,用户去重(free + publish 取并集后从总数扣除得 direct)', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       // Q1: free-model 用户(SQL DISTINCT user_id FROM llm_call_logs WHERE LIKE free provider)
       mockDbReadExecute.mockResolvedValueOnce([{ user_id: 'u1' }, { user_id: 'u2' }])
@@ -461,7 +461,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('无任何引流记录时:free=0,publish=0,direct=总用户数', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       mockDbReadExecute.mockResolvedValueOnce([]) // free-model 空
       mockDbReadExecute.mockResolvedValueOnce([]) // publish 空
@@ -479,7 +479,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('admin 权限校验:roleId < 1 → 403,dbRead 不调用(集中 preHandler 拦截)', async () => {
       const entry = buildMockServer()
-      await earningsRoutes(entry.server)
+      await earningsRoutes(entry.server, {})
       const preHandler = getPreHandler(entry)
 
       const reply = makeReply()
@@ -496,7 +496,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
   describe('GET /funnel', () => {
     it('正常:4 阶段计数(register > active > byok > vip 单调递减)', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       mockDbReadExecute.mockResolvedValueOnce([
         {
@@ -528,7 +528,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('全 0 数据:register=0 时其余阶段也 0,响应结构仍完整', async () => {
       const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+      await earningsRoutes(server, {})
 
       mockDbReadExecute.mockResolvedValueOnce([
         {
@@ -550,7 +550,7 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
 
     it('admin 权限校验:roleId < 1 → 403,dbRead 不调用(集中 preHandler 拦截)', async () => {
       const entry = buildMockServer()
-      await earningsRoutes(entry.server)
+      await earningsRoutes(entry.server, {})
       const preHandler = getPreHandler(entry)
 
       const reply = makeReply()

@@ -36,17 +36,17 @@ import {
   setMockUnauthorized,
   resetMockAuth,
 } from './helpers/mock-auth.js'
-import { userAuthPreHandler } from '../src/routes/user/_shared.ts'
+import { userAuthPreHandler } from '../src/routes/user/_shared.js'
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
   requireActiveUser: vi.fn(),
 }))
 
-const studyRoutes = (await import('../src/routes/user/study-routes.ts')).default
+const studyRoutes = (await import('../src/routes/user/study-routes.js')).default
 
 // 注册 SQL 事件监听,打印每条 SQL 查询,便于定位 schema drift 等问题
-const { sqlEventBus } = await import('../src/db/sql-event-bus.ts')
+const { sqlEventBus } = await import('../src/db/sql-event-bus.js')
 import { appendFileSync } from 'node:fs'
 const debugLogPath = process.env.TEST_DEBUG_LOG
 sqlEventBus.on((e) => {
@@ -88,6 +88,7 @@ async function createUser(phone: string, nickname?: string) {
 
 async function createCategory(name: string) {
   const [row] = await db.insert(learnCategories).values({ name, status: 1, sort: 0 }).returning()
+  if (!row) throw new Error('study-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -105,6 +106,7 @@ async function createLesson(data: {
       status: 1,
     })
     .returning()
+  if (!row) throw new Error('study-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -113,6 +115,7 @@ async function createChapter(lessonId: string, title: string) {
     .insert(lessonChapters)
     .values({ lessonId, title, sortOrder: 0 })
     .returning()
+  if (!row) throw new Error('study-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -121,6 +124,7 @@ async function createSection(chapterId: string, title: string, duration: number)
     .insert(lessonChapterSections)
     .values({ chapterId, title, duration, sortOrder: 0 })
     .returning()
+  if (!row) throw new Error('study-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -136,6 +140,7 @@ async function createSignUpAt(
     .insert(lessonSignUps)
     .values({ userId, lessonId, status, progress, createdAt })
     .returning()
+  if (!row) throw new Error('study-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -310,6 +315,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
       .insert(lessonSignUps)
       .values({ userId: user.id, lessonId: lesson.id, progress: 50, status: 1 })
       .returning()
+    if (!signup) throw new Error('study-routes.real.test.ts: 插入未返回行(signup)')
 
     setMockUser(user.id)
     const res = await server.inject({ method: 'GET', url: `/api/study/records/${signup.id}` })
@@ -342,6 +348,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
       .insert(lessonSignUps)
       .values({ userId: userA.id, lessonId: lesson.id, status: 1 })
       .returning()
+    if (!signupA) throw new Error('study-routes.real.test.ts: 插入未返回行(signupA)')
 
     setMockUser(userB.id)
     const res = await server.inject({ method: 'GET', url: `/api/study/records/${signupA.id}` })
@@ -436,6 +443,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
       .insert(lessonSignUps)
       .values({ userId: user.id, lessonId: lesson.id, progress: 0, status: 1 })
       .returning()
+    if (!signup) throw new Error('study-routes.real.test.ts: 插入未返回行(signup)')
 
     setMockUser(user.id)
     const res = await server.inject({
@@ -449,7 +457,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     expect(body.data.record.status).toBe('in_progress')
 
     const [updated] = await db.select().from(lessonSignUps).where(eq(lessonSignUps.id, signup.id))
-    expect(updated.progress).toBe(75)
+    expect(updated!.progress).toBe(75)
   })
 
   it('PUT /api/study/records/:id — progress=100 自动标记 completed', async () => {
@@ -459,6 +467,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
       .insert(lessonSignUps)
       .values({ userId: user.id, lessonId: lesson.id, progress: 50, status: 1 })
       .returning()
+    if (!signup) throw new Error('study-routes.real.test.ts: 插入未返回行(signup)')
 
     setMockUser(user.id)
     const res = await server.inject({
@@ -488,6 +497,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
       .insert(lessonSignUps)
       .values({ userId: user.id, lessonId: lesson.id, progress: 0, status: 1 })
       .returning()
+    if (!signup) throw new Error('study-routes.real.test.ts: 插入未返回行(signup)')
 
     setMockUser(user.id)
     for (const status of ['in_progress', 'completed', 'paused'] as const) {
@@ -769,8 +779,8 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     expect(all).toHaveLength(1) // 唯一约束:同 user+lesson 只有 1 条
     // 最后一次 progress 100 应为 completed
     const [final] = all
-    expect(final.progress).toBe(100)
-    expect(final.status).toBe(2)
+    expect(final!.progress).toBe(100)
+    expect(final!.status).toBe(2)
   })
 
   it('P0 #3 — 同日多次签到/报名,DB 唯一约束触发 onConflictDoNothing', async () => {

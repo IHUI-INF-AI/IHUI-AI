@@ -13,13 +13,13 @@
 import { z } from 'zod'
 
 /** 页码下界(1 起,0 与负数一律抬到 1) */
-export const PAGE_MIN = 1
+const PAGE_MIN = 1
 /** 单页条数上界(防 `pageSize=1e6` 把整表拉进内存) */
-export const PAGE_SIZE_MAX = 100
+const PAGE_SIZE_MAX = 100
 /** 缺省页码 */
-export const DEFAULT_PAGE = 1
+const DEFAULT_PAGE = 1
 /** 缺省单页条数 */
-export const DEFAULT_PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = 20
 
 export interface PagingQuery {
   page?: string
@@ -49,6 +49,4 @@ export const pageSizeQuerySchema = z.coerce
   .min(PAGE_MIN)
   .max(PAGE_SIZE_MAX)
   .default(DEFAULT_PAGE_SIZE)
-
-export const __test__ = { parsePaging, PAGE_SIZE_MAX, DEFAULT_PAGE_SIZE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

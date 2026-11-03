@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import { claimAvailableCoupon, getAvailableCoupons } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 interface Coupon {
   id: string
@@ -61,13 +62,10 @@ export default function CouponListPage() {
       // 码只出现在用户自己已领取的券上。归属主体由后端取自鉴权结果,这里不传 userId。
       try {
         await claimAvailableCoupon(id)
-        Taro.showToast({ title: tt('member.couponList.received', '领取成功'), icon: 'success' })
+        onToast(tt('member.couponList.received', '领取成功'), { kind: 'success' })
       } catch (e) {
         logger.error('member/coupon-list', '领取优惠券', e)
-        Taro.showToast({
-          title: tt('member.couponList.receiveFailed', '领取失败'),
-          icon: 'none',
-        })
+        onToast(tt('member.couponList.receiveFailed', '领取失败'), { kind: 'error' })
       }
       await load()
     },
@@ -84,10 +82,7 @@ export default function CouponListPage() {
         ) : error ? (
           <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-body">
             <Text>{tt('member.couponList.loadFailed', '加载失败')}</Text>
-            <Text
-              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-body text-primary"
-              onClick={load}
-            >
+            <Text className="mt-[16rpx] py-[8rpx] px-[32rpx] text-body text-primary" onClick={load}>
               {t('common.retry')}
             </Text>
           </View>
@@ -112,9 +107,7 @@ export default function CouponListPage() {
                   </Text>
                 </View>
                 <View className="flex-1 p-[24rpx] flex flex-col justify-between">
-                  <Text className="block text-title text-foreground font-semibold">
-                    {c.title}
-                  </Text>
+                  <Text className="block text-title text-foreground font-semibold">{c.title}</Text>
                   <Text className="block mt-[16rpx] text-caption text-muted-foreground">
                     {tt('member.couponList.thresholdText', '满{threshold}元可用', {
                       threshold: c.threshold,

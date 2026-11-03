@@ -28,8 +28,9 @@ export function ArticleDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: ArticleDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: ArticleDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)
@@ -41,7 +42,7 @@ export function ArticleDetailScreen({
     return (
       <ErrorState
         message={error || t('articleDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

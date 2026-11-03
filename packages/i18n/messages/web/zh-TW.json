@@ -9114,6 +9114,30 @@
           "title": "媒體檔案數量超出限制",
           "action": "精簡附件後重試"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶夢境整理失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶遺忘清理失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法記憶儲存失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶檢索失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶儲存失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶主題產生失敗",
+          "action": "請稍後重試"
+        },
         "MISSING_DATA": {
           "title": "缺少必填參數",
           "action": "補充參數後重試"
@@ -20833,6 +20857,7 @@
     "downloadAndroidSysReq": "Android 8.0 (API 26) 或更高版本",
     "downloadAssets": "下載資源",
     "downloadAvailable": "已發布",
+    "downloadAvailablePlatforms": "已上線平台",
     "downloadBack": "返回",
     "downloadCli": "命令行工具",
     "downloadCliDesc": "終端一鍵調用,腳本化集成",
@@ -20871,6 +20896,8 @@
     "downloadMobileDesc": "H5 移動端,掃碼即用",
     "downloadMobileInstallGuide": "Mobile RN 客戶端走源碼構建,請參考 GitHub 倉庫 apps/mobile-rn 目錄的 README 自行編譯。",
     "downloadMobileSysReq": "iOS 14+ / Android 8+,React Native 0.76+ 運行時",
+    "downloadNotLaunchedHint": "IHUI AI 暫未提供 {platform} 版本的下載。請選擇下方已上線的平台,或直接使用 Web 版體驗完整功能。",
+    "downloadNotLaunchedTitle": "{platform} 尚未上線",
     "downloadNow": "立即下載",
     "downloadSystemRequirements": "系統要求",
     "downloadTitle": "下載客戶端",

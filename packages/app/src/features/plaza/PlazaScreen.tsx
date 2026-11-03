@@ -120,9 +120,10 @@ export function PlazaScreen({
   onPressItem,
   onChatPress,
   onPublish,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   contentBottomPadding = 80,
-}: PlazaScreenProps) {
+}: PlazaScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -336,7 +337,7 @@ export function PlazaScreen({
             error ? (
               <ErrorState
                 message={error}
-                onRetry={onRefresh}
+                onRetry={onRetry}
                 retryLabel={t('common.ok') || '重试'}
                 colorScheme={colorScheme}
               />

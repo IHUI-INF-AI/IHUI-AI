@@ -56,10 +56,13 @@ function makeChain(record: CapturedCall): unknown {
   chain.orderBy = () => chain
   chain.limit = () => chain
   chain.offset = () => chain
-  chain.then = (
-    onFulfilled: ((value: unknown[]) => unknown) | undefined,
-    onRejected?: ((reason: unknown) => unknown) | undefined,
-  ) => Promise.resolve([]).then(onFulfilled, onRejected)
+  chain.then = (...args: unknown[]) => {
+    const [onFulfilled, onRejected] = args as [
+      ((value: unknown[]) => unknown) | undefined,
+      ((reason: unknown) => unknown) | undefined,
+    ]
+    return Promise.resolve([]).then(onFulfilled, onRejected)
+  }
   return chain
 }
 

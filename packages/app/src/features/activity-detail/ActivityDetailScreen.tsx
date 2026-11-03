@@ -19,8 +19,9 @@ export function ActivityDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: ActivityDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: ActivityDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -40,7 +41,7 @@ export function ActivityDetailScreen({
     return (
       <ErrorState
         message={error || t('activityDetail.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />

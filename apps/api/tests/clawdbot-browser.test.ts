@@ -29,7 +29,7 @@ const mockResponse = (text: string, status = 200) => ({
   status,
   text: async () => text,
   json: async () => JSON.parse(text),
-  headers: new Map() as Headers,
+  headers: new Map() as unknown as Headers,
 })
 
 describe('clawdbot BrowserAutomation 浏览器自动化', () => {

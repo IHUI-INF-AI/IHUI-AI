@@ -30,7 +30,7 @@ import {
  */
 const RADIUS_CLASS: Record<typeof BADGE_RADIUS_TIER, string> = { md: 'rounded-md' }
 const PADDING_X_CLASS: Record<number, string> = { 10: 'px-2.5' }
-const PADDING_Y_CLASS: Record<number, string> = { 2: 'py-[4rpx]' }
+const PADDING_Y_CLASS: Record<number, string> = { 2: 'py-0.5' }
 const TEXT_CLASS: Record<typeof BADGE_TEXT_TIER, string> = { xs: 'text-xs' }
 
 const BADGE_BASE = [

@@ -31,41 +31,73 @@ function src(): string {
   return readFileSync(join(ROOT, FILE), 'utf8')
 }
 
-/** 从路由注册标记处截到**下一条** server.xxx( 之前,得到该路由的完整块 */
-function routeBlock(text: string, marker: string): string | null {
-  const start = text.indexOf(marker)
-  if (start < 0) return null
-  const rest = text.slice(start + marker.length)
-  const next = rest.search(/\n\s*server\.(get|post|put|delete|patch)\(/)
-  return next < 0 ? rest : rest.slice(0, next)
+type RouteRef = { method: string; path: string }
+type RouteDecl = RouteRef & { start: number; end: number }
+
+/**
+ * 按 `server.<method>(` 解析路由声明:方法名与路径之间允许换行/缩进 —— 2026-11-02 起
+ * 本文件多条变更路由改成多行注册(`server.post(\n  '/path',`),按单行字面量 indexOf
+ * 会让 routeBlock 返回 null,整格判据静默失效。路径必须紧随左括号(仅允许空白),
+ * 且同一 (method, path) 必须唯一 —— 0 条(缺失)与 ≥2 条(重复注册)都判否,
+ * 判定只比旧写法更严,不放宽。
+ */
+const ROUTE_DECL_RE = /\n\s*server\.(get|post|put|delete|patch)\(\s*(['"])([^'"]*)\2/g
+
+function routeDecls(text: string): RouteDecl[] {
+  const heads = [...text.matchAll(ROUTE_DECL_RE)].map((m) => ({
+    method: m[1]!,
+    path: m[3]!,
+    start: m.index ?? -1,
+  }))
+  return heads.map((h, i) => ({
+    ...h,
+    end: i + 1 < heads.length ? heads[i + 1]!.start : text.length,
+  }))
 }
 
-const MUTATION_ROUTES = [
-  "server.post('/subagents/roles/custom'",
-  "server.put('/subagents/roles/custom/:id'",
-  "server.delete('/subagents/roles/custom/:id'",
-  "server.post('/subagents/roles/auto-generate'",
-  "server.post('/subagents/agents/:role/evolve'",
-  "server.post('/subagents/agents/:role/apply-evolution'",
+/** 精确按 (method, path) 取唯一注册块(到下一条 server.xxx( 之前)。 */
+function routeBlock(text: string, route: RouteRef): string | null {
+  const hits = routeDecls(text).filter((d) => d.method === route.method && d.path === route.path)
+  return hits.length === 1 ? text.slice(hits[0]!.start, hits[0]!.end) : null
+}
+
+const MUTATION_ROUTES: RouteRef[] = [
+  { method: 'post', path: '/subagents/roles/custom' },
+  { method: 'put', path: '/subagents/roles/custom/:id' },
+  { method: 'delete', path: '/subagents/roles/custom/:id' },
+  { method: 'post', path: '/subagents/roles/auto-generate' },
+  { method: 'post', path: '/subagents/agents/:role/evolve' },
+  { method: 'post', path: '/subagents/agents/:role/apply-evolution' },
 ]
 
 /** 判据:6 个变更路由必须挂强档闸,且体内不得再现裸 authenticate */
 function mutationRoutesGuarded(text: string): boolean {
-  return MUTATION_ROUTES.every((marker) => {
-    const block = routeBlock(text, marker)
+  return MUTATION_ROUTES.every((route) => {
+    const block = routeBlock(text, route)
     if (block === null) return false
     return block.includes(GUARD) && !block.includes('await authenticate(request)')
   })
 }
 
+const GUARD_OPTION = '{ preHandler: requireAdminRouteGuard },'
+
+/** 对唯一路由块做变异(找不到/重复注册 ⇒ 原样返回,由调用方 not.toBe 断言兜住)。 */
+function mutateRoute(text: string, route: RouteRef, mutate: (block: string) => string): string {
+  const hits = routeDecls(text).filter((d) => d.method === route.method && d.path === route.path)
+  if (hits.length !== 1) return text
+  const decl = hits[0]!
+  const block = text.slice(decl.start, decl.end)
+  return text.slice(0, decl.start) + mutate(block) + text.slice(decl.end)
+}
+
 describe('子智能体全局配置变更面:管理员闸 + 去裸鉴权', () => {
   it('6 个变更路由全部挂 requireAdminRouteGuard,且体内无裸 authenticate', () => {
     const s = src()
-    for (const marker of MUTATION_ROUTES) {
-      const block = routeBlock(s, marker)
-      expect(block, `找不到路由 ${marker}`).not.toBeNull()
-      expect(block!, `${marker} 缺少 preHandler 管理员闸`).toContain(GUARD)
-      expect(block!, `${marker} 体内仍有裸 await authenticate(request)`).not.toContain(
+    for (const route of MUTATION_ROUTES) {
+      const block = routeBlock(s, route)
+      expect(block, `找不到路由 ${route.method.toUpperCase()} ${route.path}`).not.toBeNull()
+      expect(block!, `${route.path} 缺少 preHandler 管理员闸`).toContain(GUARD)
+      expect(block!, `${route.path} 体内仍有裸 await authenticate(request)`).not.toContain(
         'await authenticate(request)',
       )
     }
@@ -74,12 +106,10 @@ describe('子智能体全局配置变更面:管理员闸 + 去裸鉴权', () => 
 
   it('闸从 require-permission 导入,且 6 条都用带 requireActiveUser 的强档', () => {
     const s = src()
-    expect(s).toContain(
-      "import { requireAdminRouteGuard } from '../plugins/require-permission.js'",
-    )
+    expect(s).toContain("import { requireAdminRouteGuard } from '../plugins/require-permission.js'")
     // 弱档 requireAdmin(无 requireActiveUser)不得出现在这 6 条路由上
-    for (const marker of MUTATION_ROUTES) {
-      expect(routeBlock(s, marker)!, `${marker} 用了较弱档 requireAdmin`).not.toContain(
+    for (const route of MUTATION_ROUTES) {
+      expect(routeBlock(s, route)!, `${route.path} 用了较弱档 requireAdmin`).not.toContain(
         'preHandler: requireAdmin,',
       )
     }
@@ -89,22 +119,31 @@ describe('子智能体全局配置变更面:管理员闸 + 去裸鉴权', () => 
     const s = src()
     expect(mutationRoutesGuarded(s)).toBe(true)
 
-    // 变异 1:摘掉 POST /roles/custom 上的闸
-    const stripped = s.replace(
-      "server.post('/subagents/roles/custom', { preHandler: requireAdminRouteGuard },",
-      "server.post('/subagents/roles/custom',",
-    )
+    // 变异 1:以结构定位摘掉 POST /roles/custom 上的闸(不再依赖源码单行写法)
+    const stripped = mutateRoute(s, MUTATION_ROUTES[0]!, (block) => block.replace(GUARD_OPTION, ''))
     expect(stripped, '摘样本没摘到东西 ⇒ 这一格不成对照').not.toBe(s)
+    expect(
+      routeBlock(stripped, MUTATION_ROUTES[0]!)!,
+      '摘闸后该路由不应再含管理员闸',
+    ).not.toContain(GUARD)
     expect(mutationRoutesGuarded(stripped)).toBe(false)
 
-    // 变异 2:把裸 authenticate 塞回 DELETE /roles/custom/:id
+    // 变异 2:把裸 authenticate 塞回 DELETE /roles/custom/:id(按块定位插入,不锚定整行)
     // 2026-11-02 P0-3:DELETE 在 `customRoles.delete(id)` 之前插入归属闸,样本锚点随之前移
     // (闸语义不变:仍是「才是这一条路由、且体内出现裸 authenticate ⇒ 判否」)。
-    const bare = s.replace(
-      "server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {\n    const { id } = request.params as { id: string }\n    const existing = customRoles.get(id)",
-      "server.delete('/subagents/roles/custom/:id', { preHandler: requireAdminRouteGuard }, async (request, reply) => {\n    await authenticate(request)\n    if (!request.userId) return\n    const { id } = request.params as { id: string }\n    const existing = customRoles.get(id)",
+    const bare = mutateRoute(
+      s,
+      { method: 'delete', path: '/subagents/roles/custom/:id' },
+      (block) =>
+        block.replace(
+          'async (request, reply) => {\n',
+          'async (request, reply) => {\n    await authenticate(request)\n',
+        ),
     )
     expect(bare, '塞裸鉴权没塞进去 ⇒ 这一格不成对照').not.toBe(s)
+    expect(routeBlock(bare, { method: 'delete', path: '/subagents/roles/custom/:id' })!).toContain(
+      'await authenticate(request)',
+    )
     expect(mutationRoutesGuarded(bare)).toBe(false)
   })
 })

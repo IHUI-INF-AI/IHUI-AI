@@ -11,6 +11,7 @@ const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
 const xianLabelIcon = aizhsUrl('remote-images/xian_label.png')
 const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 export interface UserCardProps {
   onGoPage: (path: string) => void
@@ -70,10 +71,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               onClick={() => {
                 const userInfodata = Taro.getStorageSync('data')
                 if (!userInfodata) {
-                  Taro.showToast({
-                    title: tt('ai.aiAssistant.pleaseLogin', '请先登录'),
-                    icon: 'none',
-                  })
+                  onToast(tt('ai.aiAssistant.pleaseLogin', '请先登录'), { kind: 'error' })
                   return
                 }
                 onGoPage(item.path)
@@ -85,9 +83,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               </View>
               <View>
                 <Text className="block text-title text-foreground">{item.title}</Text>
-                <Text className="block text-body text-muted-foreground mt-[4rpx]">
-                  {item.desc}
-                </Text>
+                <Text className="block text-body text-muted-foreground mt-[4rpx]">{item.desc}</Text>
               </View>
             </View>
           </ThemeRoot>

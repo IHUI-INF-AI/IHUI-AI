@@ -1389,6 +1389,7 @@
     "labelPrice": "Price",
     "labelSaleType": "Sale type",
     "pricePlaceholder": "Enter price",
+    "readOnlyHint": "This field can't be changed yet",
     "submit": "Save",
     "submitting": "Submitting..."
   },

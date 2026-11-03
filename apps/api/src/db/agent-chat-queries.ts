@@ -37,7 +37,7 @@ function hasAllSeq(messages: readonly AgentRuntimeSessionMessage[]): boolean {
  * 否则新旧混合时会同时出现 0 起与 1 起的两种序号,游标不再单调。
  * 本函数只用于本次计算,读路径不因此写库;真正回填发生在 appendMessages 的写回。
  */
-export function withSeqFallback(
+function withSeqFallback(
   messages: readonly AgentRuntimeSessionMessage[],
 ): AgentRuntimeSessionMessage[] {
   const allPresent = hasAllSeq(messages)

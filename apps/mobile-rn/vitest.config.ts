@@ -460,7 +460,22 @@ export default defineConfig({
       EXPO_PUBLIC_WEB_URL: 'http://localhost:8801',
     },
     setupFiles: ['./tests/setup.ts'],
-    testTimeout: 10_000,
+    // 并发定死 4(等价 CLI `--maxWorkers=4`,只作用于本包;根级/其他包不受影响)。
+    // 2026-11-03 全量实测(本机 20 核):默认并发会开满 19 个 worker,整棵进程树峰值工作集
+    // 4076 MB —— 贴着 4 GB 天花板,同时满载把 g-469 这类整屏渲染套件压垮(1 文件 7 例失败);
+    // 压到 4 worker 后同一份全量峰值只剩 1186 MB(加 20s testTimeout 时 1208 MB)且全绿。
+    // 即"内存天花板"与"负载误杀"两个症状同源,都是并发度默认值问题,故在配置层收口,不再靠命令行 flag。
+    maxWorkers: 4,
+    // 单测超时提到 20s:g-469 单跑 9 passed / 19.4s(整屏渲染 + 多段 waitFor 异步收束)属正常耗时,
+    // 10s 的默认上限在默认并发的满载下会把这类正常耗时误判成超时(该套件自身仍按文件内
+    // vi.setConfig 声明的 60s 运行;这里抬的是全局上限,不降任何断言强度,也不放慢失败路径)。
+    testTimeout: 20_000,
+    // 钩子超时同步抬到 20s:hookTimeout 是独立默认值(默认 10s,testTimeout 管不到它)。
+    // 2026-11-03 全量第 2 轮实测(机器被他人在跑的构建压满、transform 累计 865s 的那轮),
+    // g-469 的 beforeEach(仅重置 mock/清请求记录)报 "Hook timed out in 10000ms" 并连带 4 例翻红
+    // —— 是负载把 10s 默认值打穿,不是钩子本身有慢逻辑;抬到 20s 与 testTimeout 对齐,
+    // 仍远低于该套件文件内声明的 60s,断言与清理步骤一条不减。
+    hookTimeout: 20_000,
     server: {
       deps: {
         inline: [

@@ -9,7 +9,10 @@
 //   A2 判序不变量:derive < land < declare/converge/create/convert < rebuild < verify(倒序=下游拿中间态);
 //   A3 写盘闸门:缺省档任何 write 段都不得被放行(一键级联的"默认只读"是机主安全底线);
 //   A4 三态分离:red(验尺 rc≠0)与 failed(器物败)与 unjudged(起不动)互不并桶(§0.3);
-//   A5 摘要如实:多行 JSON 的收尾 "}" 不得被当结论读数(2026-11-01 实测失真型,回归锁)。
+//   A5 摘要如实:多行 JSON 的收尾 "}" 不得被当结论读数(2026-11-01 实测失真型,回归锁);
+//   A10 --only=<stageId> 对全部 20 段严格只跑指定段(选择器失效型回归锁);
+//   A11 未知 stageId / 空 --only 当场 exit 2 并列出可用 id(不静默空跑);
+//   A12 第 16 段段注门号 = 237(与实际守门一致,防"文档写 131"再腐化)。
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -104,5 +107,54 @@ test('A8 一键入口在位自证:根 package.json 必须真挂着 sync:cross-en
     pkg.scripts?.['sync:cross-end:apply'],
     'node scripts/sync-cross-end-cascade.mjs --apply',
   )
+})
+
+test('A9 css-tokens 写腿:--apply 档实派 argv 恰为 ["--write"],且排在所有派生腿之前(2026-11-01 断链格)', () => {
+  const stage = C.STAGES.find((s) => s.name === 'verify-css-tokens')
+  assert.ok(stage, 'verify-css-tokens 登记条不存在')
+  assert.equal(stage.script, 'sync-css-tokens.mjs')
+  assert.equal(stage.write, true, '未标 write:true ⇒ --apply 档不会追加写旗,升级未落地')
+  // 断言参数数组本身(stageArgv = runStage 消费的唯一装配出口),不是登记册散文
+  const argv = C.stageArgv(stage, C.parseArgs(['--apply']))
+  assert.deepEqual(argv, ['--write'])
+  assert.ok(!argv.includes('--check'), '--check 与 --write 同给会被器物互斥闸 exit 2,装配层不得拼出')
+  // 顺序:tokens.css 受管块生成必须在拿它当源的下游腿之前(倒序 = 下游派生旧面)
+  const idx = C.STAGES.indexOf(stage)
+  for (const dep of ['derive-tokens', 'land-web', 'land-rn', 'land-miniapp']) {
+    const j = C.STAGES.findIndex((s) => s.name === dep)
+    assert.ok(j > idx, `${dep} 排在 css-tokens 生成腿之前 = 拿到旧 tokens.css 派生(中间态)`)
+  }
+})
+
+test('A10 --only=<stageId> 对全部 20 段严格只跑指定段;段类选择不扩成全量', () => {
+  assert.equal(C.STAGES.length, 20, '段数变了 ⇒ A10 的全覆盖断言必须同步改')
+  for (const s of C.STAGES) {
+    const sel = C.selectStages(C.STAGES, C.parseArgs([`--only=${s.name}`]))
+    assert.deepEqual(
+      sel.map((x) => x.name),
+      [s.name],
+      `--only=${s.name} 未恰好命中该段(选择器失效型)`,
+    )
+  }
+  const land = C.selectStages(C.STAGES, C.parseArgs(['--only=land']))
+  assert.equal(land.length, 3)
+  assert.ok(land.every((s) => s.kind === 'land'))
+})
+
+test('A11 未知 stageId / 空 --only 一律 usageError 并列出可用 id,不静默空跑', () => {
+  const bad = C.parseArgs(['--only=reconcile']).usageError
+  assert.match(bad, /未知令牌/)
+  assert.match(bad, /可用 stageId=/)
+  assert.match(bad, /portal-converge/, '报错必须给出真实段 id 清单,不能只报段类')
+  assert.match(C.parseArgs(['--only=']).usageError, /没有段 id/)
+  assert.match(C.parseArgs(['--only=']).usageError, /可用 stageId=/)
+  assert.equal(C.parseArgs(['--only=verify-ui-parity']).usageError, null)
+})
+
+test('A12 覆盖段段注门号与实际守门一致(237,不是 131)', () => {
+  const s = C.STAGES.find((x) => x.name === 'verify-screen-coverage')
+  assert.ok(s, 'verify-screen-coverage 登记条不存在')
+  assert.match(s.desc, /门 237/)
+  assert.doesNotMatch(s.desc, /门 131/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

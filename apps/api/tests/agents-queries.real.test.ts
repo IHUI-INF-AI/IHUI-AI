@@ -61,12 +61,12 @@ describe('agents-queries — 真实 DB 集成测试', () => {
         status: 'published',
         categoryId: c?.categoryId,
       })
-      const _a2 = await createAgent({ name: 'Other', status: 'pending' })
+      await createAgent({ name: 'Other', status: 'pending' })
       expect((await findAgentById(a1!.agentId))?.name).toBe('SearchMe')
       // status 过滤
       const r1 = await findAgentsList({ status: 'published' })
       expect(r1.total).toBe(1)
-      expect(r1.list[0].name).toBe('SearchMe')
+      expect(r1.list[0]!.name).toBe('SearchMe')
       // keyword 模糊搜索
       const r2 = await findAgentsList({ keyword: 'Search' })
       expect(r2.total).toBe(1)
@@ -121,10 +121,10 @@ describe('agents-queries — 真实 DB 集成测试', () => {
       expect(r2.total).toBe(2)
       const r3 = await findCategoryList({ isPaid: true })
       expect(r3.total).toBe(1)
-      expect(r3.list[0].name).toBe('Paid1')
+      expect(r3.list[0]!.name).toBe('Paid1')
       const r4 = await findCategoryList({ keyword: 'Free' })
       expect(r4.total).toBe(1)
-      expect((await findCategoryById(r1.list[0].categoryId))?.name).toBeTruthy()
+      expect((await findCategoryById(r1.list[0]!.categoryId))?.name).toBeTruthy()
     })
 
     it('findCategoriesByIds — 空数组返回空', async () => {
@@ -176,7 +176,7 @@ describe('agents-queries — 真实 DB 集成测试', () => {
       expect(r1.total).toBe(2)
       const r2 = await findSettlementList({ status: 'settled' })
       expect(r2.total).toBe(1)
-      expect(r2.list[0].orderNo).toBe('ORD002')
+      expect(r2.list[0]!.orderNo).toBe('ORD002')
       const r3 = await findSettlementList({ agentId: agent1 })
       expect(r3.total).toBe(1)
       const r4 = await findSettlementList({ orderNo: 'ORD001' })

@@ -18,6 +18,7 @@ async function createCategory(data: { name: string; sort?: number; status?: numb
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('news-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -52,6 +53,7 @@ async function createArticle(data: {
       publishedAt: data.publishedAt,
     })
     .returning()
+  if (!row) throw new Error('news-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -60,6 +62,7 @@ async function createNewsTop(data: { newsId: string; sort?: number }) {
     .insert(newsTops)
     .values({ newsId: data.newsId, sort: data.sort ?? 0 })
     .returning()
+  if (!row) throw new Error('news-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -68,6 +71,7 @@ async function createNewsRecommend(data: { newsId: string; sort?: number }) {
     .insert(newsRecommends)
     .values({ newsId: data.newsId, sort: data.sort ?? 0 })
     .returning()
+  if (!row) throw new Error('news-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -87,6 +91,13 @@ describe('news-routes — 路由层真实 DB 集成测试', () => {
         writeFn(),
       breakerState: () => 'closed' as const,
       avalancheStats: () => ({ tracked: 0, prewarmedTotal: 0 }),
+      cacheQualityStats: () => ({ emptySkipped: 0, nullEntryWrites: 0, nullEntryHits: 0 }),
+      singleflightRecheckStats: () => ({
+        satisfied: 0,
+        violated: 0,
+        undecided: 0,
+        lastUndecided: null,
+      }),
     })
     await server.register(newsRoutes, { prefix: '/api' })
     await server.ready()
@@ -384,7 +395,7 @@ describe('news-routes — 路由层真实 DB 集成测试', () => {
       .from(newsArticles)
       .where(eq(newsArticles.id, article.id))
       .limit(1)
-    expect(updated.viewCount).toBe(before + 1)
+    expect(updated!.viewCount).toBe(before + 1)
   })
 
   it('GET /api/news/articles/:id — 非法 UUID 返回 400', async () => {

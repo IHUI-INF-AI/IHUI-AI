@@ -54,18 +54,34 @@
  *   node scripts/land-web-style-tiers.mjs --self-test
  *
  * 退出码:0 正常(含"改 0 处");1 有文件落盘后 verify 失败并已回滚;2 用法错 / 取不到输入。
+ *
+ * 写盘凭据(2026-11-03 接线):--apply 每轮把本批产出逐路径**实测 oid** 后追写申报账本
+ *   .ihui-agent/state/cross-end-landing.jsonl(库 = scripts/lib/cross-end-landing-ledger.mjs,
+ *   收编侧按 blob 逐字节核验后才收);下一轮开始先把"在册 ∧ blob 相符"的路径整轮跳过(可续跑)。
+ *   dry-run / 预演档零登记。结论行机读键:landing=<登记枚数> landingPath=<账本相对路径>
+ *   skipLanded=<跳过数>[ledger=unjudged][landingError=<原因>]。
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { maskComments, scanSpans } from './lib/code-mask.mjs'
+import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 归属避让判据的唯一实现(2026-11-03 提库,§0.6 / 门 191):帧解析 + "取不到 ⇒ null" 都住在库里,
+// 三枚 lander 与两枚落档器(gen-ui-mirror / fix-rn-color-literals)一起 import 这一份。
+import { ownershipDirtyPaths } from './lib/git-paths.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
 const SRC_DIR = 'apps/web'
+
+/**
+ * 腿短名 = 本脚本文件名。guardian 的 sweepWebStyleTiers 派发的正是 `land-web-style-tiers.mjs`
+ * (git-guardian.mjs 现读:join(...,'land-web-style-tiers.mjs')),账本复合主键用,三端逐字同构,不得改。
+ */
+export const LEG_NAME = 'land-web-style-tiers'
 
 /** 改写表:默认档 → 具名档。**唯一一份**,测试从 `__test__` 取,不复制。 */
 export const MAP = Object.freeze({ xs: 'label', sm: 'body', xl: 'heading', '2xl': 'display' })
@@ -147,8 +163,7 @@ export function findClassRegions(src) {
   const strings = spans.filter((s) => s.kind === 'string').sort((a, b) => a.start - b.start)
   const regions = []
   const attrRe = /(?<![\w$.-])className\s*=\s*/g
-  let m
-  while ((m = attrRe.exec(face)) !== null) {
+  while (attrRe.exec(face) !== null) {
     let j = attrRe.lastIndex
     while (j < face.length && /\s/.test(face[j])) j++
     const q = face[j]
@@ -262,31 +277,62 @@ function listSourceFiles() {
     .filter((p) => p && inScope(p))
 }
 
-/** 归属未知集合:一次读全 apps/web 的 porcelain,按路径判定(3700 路径塞不进命令行)。 */
-function dirtySet() {
-  const out = new Set()
-  try {
-    const text = String(gitRaw(['status', '--porcelain', '--', SRC_DIR], ROOT))
-    for (const line of text.split('\n')) {
-      if (!line.trim()) continue
-      let p = line.slice(3).trim()
-      const arrow = p.lastIndexOf(' -> ')
-      if (arrow >= 0) p = p.slice(arrow + 4)
-      p = p.replace(/^"|"$/g, '')
-      if (p) out.add(p)
-    }
-  } catch {
-    return null
-  }
-  return out
-}
-
 function watermark(mode, file) {
   execFileSync(process.execPath, [WATERMARK, mode, file], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
+}
+
+// ─── 写盘凭据账本(cross-end-landing-ledger 接线,2026-11-03 立)──────────────────
+// 治两条根因:R1 无凭据(写盘没留"谁写的、写成什么 blob",收编器无从正当收编)、
+// R2 不可续跑(超时轮从头再来,永远跑不完永远 unjudged)。
+// 本层零复算判据:取 oid 与账本库 worktree 面同一把尺(gitRaw hash-object,face-reader 出口),
+// "已落集合"直接复用 collectiblePaths(quietMs=0),登记/读账本一律走库出口(§0.6)。
+
+/** 账本相对路径(正斜杠),结论行 landingPath= 键用;真相源 = 库的 ledgerPathFor。 */
+export const LEDGER_REL = relative(ROOT, ledgerPathFor(ROOT)).replace(/\\/g, '/')
+
+/** 路径在工作树面的当前 blob oid —— 与账本库 currentOidsForFace(worktree) 逐字同一把尺。 */
+export function blobOidOf(rel, { root = ROOT } = {}) {
+  return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+}
+
+/**
+ * 本 leg 已登记 ∧ 工作树 blob 仍相符的路径集合(⇒ 本轮跳过,即幂等续跑)。
+ * 账本读不到 ⇒ {ok:false}:调用方必须回落现行为(照旧全量尝试)并在结论行标
+ * ledger=unjudged —— 失效方向是"多做一遍",绝不是"少做一遍"或判死。
+ */
+export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date() } = {}) {
+  const r = collectiblePaths(now, { quietMs: 0, face: 'worktree', root })
+  if (!r.ok) return { ok: false, reason: r.reason, paths: new Set() }
+  return { ok: true, paths: new Set(r.collectible.filter((c) => c.leg === leg).map((c) => c.path)) }
+}
+
+/**
+ * 落盘成功后一次批量登记:逐路径**写完盘后实测** oid(绝不取 HEAD 旧值)→ appendLanding。
+ * 本体永不抛(账本不可写只如实报 landingError,§0.3);同轮共用一个 ISO 时刻。
+ */
+export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString() } = {}) {
+  if (!paths.length) return { ok: true, landing: 0, deduped: 0, rejected: [] }
+  try {
+    const list = paths.map((p) => ({ at, leg, path: p, blobOid: blobOidOf(p, { root }) }))
+    const r = appendLanding(list, { root })
+    return { ok: true, landing: r.appended, deduped: r.deduped, rejected: r.rejected }
+  } catch (e) {
+    return { ok: false, landing: 0, deduped: 0, rejected: [], error: String(e?.message ?? e).split('\n')[0] }
+  }
+}
+
+/** 结论行机读尾段(三枚 lander 逐字同形,同形锁见 scripts/tests/land-*.test.mjs)。 */
+export function landingKeys({ landing = 0, deduped = 0, rejected = 0, skipLanded = 0, ledgerUnjudged = false, landingErr = '' } = {}) {
+  const parts = [`landing=${landing}`, `landingPath=${LEDGER_REL}`, `skipLanded=${skipLanded}`]
+  if (deduped) parts.push(`landingDedup=${deduped}`)
+  if (rejected) parts.push(`landingRejected=${rejected}`)
+  if (ledgerUnjudged) parts.push('ledger=unjudged')
+  if (landingErr) parts.push(`landingError=${landingErr.replace(/\s+/g, '_').slice(0, 100)}`)
+  return ` ${parts.join(' ')}`
 }
 
 const SELF_TEST_CASES = [
@@ -327,10 +373,22 @@ function main() {
     console.error('❌ 未判定:候选源码枚举到 0 个')
     process.exit(2)
   }
-  const dirty = dirtySet()
+  const dirty = ownershipDirtyPaths({ root: ROOT, pathspec: [SRC_DIR] })
   if (dirty === null) {
     console.error('❌ 未判定:git status 取不到,归属未知不猜')
     process.exit(2)
+  }
+
+  // 续跑(R2):账本在册且工作树 blob 仍相符的路径 = 本 leg 早前已落,整轮跳过(不再读、不再改)。
+  // 只在 --apply 档生效:dry-run 是观察面,必须照旧全量预演;账本读不到 ⇒ 回落现行为 + ledger=unjudged。
+  let landedSet = new Set()
+  let ledgerUnjudged = false
+  let skipLanded = 0
+  const landedBatch = []
+  if (apply) {
+    const lp = landedPathsOf()
+    if (lp.ok) landedSet = lp.paths
+    else ledgerUnjudged = true
   }
 
   const results = []
@@ -346,6 +404,10 @@ function main() {
     if (limit && results.length >= limit) {
       truncated = true
       break
+    }
+    if (landedSet.has(f)) {
+      skipLanded++
+      continue
     }
     scanned++
     let src
@@ -395,6 +457,7 @@ function main() {
       watermark('inject', f)
       watermark('verify', f)
       results.push({ file: f, changes: rr.changes, byGroup: rr.byGroup })
+      landedBatch.push(f)
       totalChanges += rr.changes
       mergeGroups(byGroup, rr.byGroup)
       for (const s of rr.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
@@ -409,6 +472,20 @@ function main() {
     }
   }
 
+  // 本批产出一次登记(R1):写完盘后实测 oid;登记失败绝不冒充成功(landingError 如实带上)。
+  let landing = 0
+  let landingDedup = 0
+  let landingRejected = 0
+  let landingErr = ''
+  if (apply && landedBatch.length) {
+    const reg = registerLanding(landedBatch)
+    landing = reg.landing
+    landingDedup = reg.deduped
+    landingRejected = reg.rejected.length
+    if (!reg.ok) landingErr = reg.error
+    else if (landingRejected) landingErr = `rejected=${landingRejected}:${reg.rejected[0].reason}`
+  }
+
   const summary = {
     scanned,
     changedFiles: results.length,
@@ -419,6 +496,13 @@ function main() {
     applied: apply,
     weightLocked: onlyWeightLocked,
     truncated,
+    landing,
+    landingDedup,
+    landingRejected,
+    landingPath: LEDGER_REL,
+    skipLanded,
+    ledger: ledgerUnjudged ? 'unjudged' : 'ok',
+    ...(landingErr ? { landingError: landingErr } : {}),
     map: MAP,
   }
   if (jsonMode) {
@@ -436,7 +520,8 @@ function main() {
   if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
   if (failed.length) console.log(`  ❌ failed ${failed.length} 个(已回滚):${failed.slice(0, 5).join(', ')}`)
   console.log(
-    `结论:LAND-WEB-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} held=${held.length} failed=${failed.length}${truncated ? ' truncated=1' : ''} groups[${groups}]`,
+    `结论:LAND-WEB-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} held=${held.length} failed=${failed.length}${truncated ? ' truncated=1' : ''} groups[${groups}]` +
+      landingKeys({ landing, deduped: landingDedup, rejected: landingRejected, skipLanded, ledgerUnjudged, landingErr }),
   )
   if (failed.length) process.exit(1)
 }
@@ -451,5 +536,19 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { MAP, rewriteSource, rewriteClassText, findClassRegions, codeFace, inScope, SELF_TEST_CASES }
+export const __test__ = {
+  MAP,
+  rewriteSource,
+  rewriteClassText,
+  findClassRegions,
+  codeFace,
+  inScope,
+  SELF_TEST_CASES,
+  LEG_NAME,
+  LEDGER_REL,
+  blobOidOf,
+  landedPathsOf,
+  registerLanding,
+  landingKeys,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

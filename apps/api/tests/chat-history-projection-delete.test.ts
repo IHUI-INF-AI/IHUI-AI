@@ -199,11 +199,12 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
           pending = Array.isArray(v) ? (v as Row[]) : [v as Row]
           return self
         },
+        for: () => self, // insert 链同理:fake 层 no-op,只为满足 Chain 契约
         then: (onf, onr) => Promise.resolve(pending.length > 0 ? apply() : []).then(onf, onr),
       }
       return self
     },
-    update: (table) => {
+    update: (table: unknown) => {
       const kind = tableKind(table)
       let patch: Row | null = null
       let withReturning = false
@@ -225,6 +226,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
           if (kind === 'conversation') Object.assign(state.conversation, obj)
           return self
         },
+        for: () => self, // update 链同理:fake 层 no-op,只为满足 Chain 契约
         then: (onf, onr) => {
           // 消息表带 returning 的更新:补丁落在 messages[0](即本文件的"目标消息")
           if (kind === 'messages' && withReturning && patch) {
@@ -237,7 +239,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
       }
       return self
     },
-    delete: (table) => {
+    delete: (table: unknown) => {
       const kind = tableKind(table)
       // 第二十八批:与真 drizzle 同形 —— delete().where() 的产物既可 await(非 returning,
       // 解析值保持旧口径 []),也可再 .returning():那条 await 必须交出**被库删掉的行**
@@ -256,6 +258,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
           withReturning = true
           return self
         },
+        for: () => self, // delete 链同理:fake 层 no-op,只为满足 Chain 契约
         then: (onf, onr) => {
           let deleted: Row[] = []
           if (kind === 'messages') {

@@ -28,11 +28,12 @@ vi.mock('../src/plugins/auth.js', () => ({
   requireActiveUser: vi.fn(),
 }))
 
-const pointRoutes = (await import('../src/routes/point.ts')).pointRoutes
-const adminPointRoutes = (await import('../src/routes/point.ts')).adminPointRoutes
+const pointRoutes = (await import('../src/routes/point.js')).pointRoutes
+const adminPointRoutes = (await import('../src/routes/point.js')).adminPointRoutes
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('point-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -51,6 +52,7 @@ async function createChannel(data: {
       sort: data.sort ?? 0,
     })
     .returning()
+  if (!row) throw new Error('point-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -69,6 +71,7 @@ async function createPoint(data: {
       status: data.status ?? 1,
     })
     .returning()
+  if (!row) throw new Error('point-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -87,6 +90,7 @@ async function createRecord(data: {
       type: data.type,
     })
     .returning()
+  if (!row) throw new Error('point-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -517,7 +521,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
       .from(eduPointChannelRelations)
       .where(sql`point_id = ${pt.id}`)
     expect(rels).toHaveLength(1)
-    expect(rels[0].channelId).toBe(ch2.id)
+    expect(rels[0]!.channelId).toBe(ch2.id)
   })
 
   it('PUT /api/admin/edu-points/relations — 规则不存在返回 404', async () => {

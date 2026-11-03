@@ -100,7 +100,7 @@ const { v1CustomerServiceRoutes } =
   await import('../src/routes/other/v1-customer-service-routes.js')
 
 /** 13 个遗留桩端点(收口前后都必须是"无凭据即拒")。 */
-const LEGACY_STUB_ROUTES: ReadonlyArray<readonly [string, string]> = [
+const LEGACY_STUB_ROUTES: ReadonlyArray<readonly ['GET', string]> = [
   ['GET', '/api/v1/tools/list'],
   ['GET', '/api/v1/tools/categories'],
   ['GET', '/api/v1/tools/upload'],

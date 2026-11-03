@@ -9118,6 +9118,30 @@
           "title": "미디어 파일 개수가 제한을 초과했습니다",
           "action": "첨부를 줄이고 재시도"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "기억 통합에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "기억 정리에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "도구 사용 기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "기억 검색에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "기억 주제 생성에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
         "MISSING_DATA": {
           "title": "필수 파라미터가 없습니다",
           "action": "파라미터를 채우고 재시도"
@@ -20861,6 +20885,7 @@
     "downloadAndroidSysReq": "Android 8.0 (API 26) 이상",
     "downloadAssets": "다운로드",
     "downloadAvailable": "출시됨",
+    "downloadAvailablePlatforms": "출시된 플랫폼",
     "downloadBack": "뒤로",
     "downloadCli": "CLI 도구",
     "downloadCliDesc": "터미널 원클릭, 스크립트 통합",
@@ -20899,6 +20924,8 @@
     "downloadMobileDesc": "H5 모바일, QR 코드 스캔",
     "downloadMobileInstallGuide": "Mobile RN 클라이언트는 소스에서 빌드합니다. GitHub 저장소의 apps/mobile-rn 디렉토리 README를 참조하여 직접 컴파일하세요.",
     "downloadMobileSysReq": "iOS 14+ / Android 8+, React Native 0.76+ 런타임",
+    "downloadNotLaunchedHint": "IHUI AI는 현재 {platform}용 다운로드를 제공하지 않습니다. 아래에 출시된 플랫폼을 선택하거나 Web 버전으로 모든 기능을 이용해 보세요.",
+    "downloadNotLaunchedTitle": "{platform} 플랫폼은 아직 출시되지 않았습니다",
     "downloadNow": "지금 다운로드",
     "downloadSystemRequirements": "시스템 요구사항",
     "downloadTitle": "앱 다운로드",
