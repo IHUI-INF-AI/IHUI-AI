@@ -11,12 +11,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RouteProp } from '@react-navigation/native'
 import {
   ModelEditScreen as SharedModelEditScreen,
-  submitModelEdit,
   type ModelEditBaseInfo,
   type ModelEditFieldValues,
   type ModelEditOption,
 } from '@ihui/rn-app'
 import { updateAgentBilling } from '@ihui/api-client'
+import { submitModelEdit } from '@ihui/shared/utils'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
