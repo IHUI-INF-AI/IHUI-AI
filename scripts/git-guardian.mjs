@@ -12807,6 +12807,25 @@ function startDaemon(bootGuard = null) {
         //      的清单并带变异自证,而不是把人家的架构收口一次推平。
         auditImmutableGuardNewCommits()
         auditSweeperLiveness()
+        // A 档 12 面同挂 tick(2026-11-03 晚,机主令"毫无遗漏"):计划任务档被禁用后 daemon 是
+        // 唯一执行体,而实测**重开任务档也救不了它们** —— daemon 常驻持有 `git-guardian:daemon`
+        // 整把轮级锁,任务那一轮现读 `上一轮巡检仍在跑(pid=…)⇒ 本轮静默退出`。于是这 12 面
+        // 自 11-02T16:05Z 起零派发(节流戳冻结现读:deploy-stall-tick / index-unmerged-tick /
+        // host-timezone / disk-root-hygiene / git-filter-residue 等全部停在 15:56Z 前后)。
+        // 逐面核过才搬:全部自带节流戳、健康时只读一份 json、派生子进程 ≤120s,双执行体并存时
+        // 只先到那一个真跑(与上面各枚同一挂点语义),发信一律走 notify 的身份去重(§5e-3)。
+        watchPatrolHeartbeat()
+        watchWatchdog()
+        auditIndexUnmerged()
+        auditDeployStall()
+        auditPushDivergenceLeg()
+        auditGitFilterResidue()
+        auditHostTimezone()
+        auditDiskRootHygiene()
+        auditTempLanding()
+        auditOrphanDeletionRefs()
+        auditMigrationGaps()
+        auditRegistrySyncHealth()
         sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
