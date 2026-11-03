@@ -283,7 +283,7 @@ function createStyles(tk: AppThemeTokens) {
     entryText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
     sectionHead: {
       marginHorizontal: rnSpacing.lg,
-      marginTop: 18,
+      marginTop: rnSpacing['lg'],
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -339,7 +339,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     footHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     buyBtn: {
-      paddingHorizontal: 22,
+      paddingHorizontal: rnSpacing['xl'],
       height: 44,
       borderRadius: rnRadius.sm, // 角色档 control→sm(4px);原值 15 非档位
       backgroundColor: tk.brand.cta,

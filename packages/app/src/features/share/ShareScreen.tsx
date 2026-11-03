@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     createBtn: {
       marginTop: rnSpacing.lg,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     cardValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
     shareBtnWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
     shareBtn: {
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
