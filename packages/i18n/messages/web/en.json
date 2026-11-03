@@ -9118,6 +9118,30 @@
           "title": "Too many media files",
           "action": "Reduce attachments and retry"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "Memory consolidation failed",
+          "action": "Try again later"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "Memory cleanup failed",
+          "action": "Try again later"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "Failed to save tool-usage memory",
+          "action": "Try again later"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "Memory recall failed",
+          "action": "Try again later"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "Failed to save memory",
+          "action": "Try again later"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "Failed to generate memory topics",
+          "action": "Try again later"
+        },
         "MISSING_DATA": {
           "title": "Required parameters are missing",
           "action": "Fill them in and retry"

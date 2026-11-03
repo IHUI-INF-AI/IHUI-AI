@@ -454,6 +454,43 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'MEDIA_COUNT_EXCEEDED.action',
     category: 'resourceLimitExceeded',
   },
+  // —— 守门 94(R1)补录:四层记忆端点族(6 码),产出点 apps/ai-service/app/api/memory.py ——
+  // 六枚都是各端点 `except Exception` 兜底回包(数据库 / 服务层异常),对外只给固定文案 +
+  // 可枚举码,堆栈与原文只进日志;入参不合契约的 ValueError 已在 save 端点单独映射成 HTTP 400,
+  // 不落在本族。故六枚统一归 runtimeException(与 WRITE_FAILED / GENERATION_FAILED 同档),
+  // 建议动作一致为"稍后重试"。
+  // 不按前缀做机制化收纳:本表的键就是产出方原始码,守门 94 按对象体逐键对账 —— `MEMORY_`
+  // 只是命名巧合而非可省略条目的族规则,故逐条登记、共用这一段语义说明。
+  MEMORY_DREAM_FAILED: {
+    titleKey: 'MEMORY_DREAM_FAILED.title',
+    actionKey: 'MEMORY_DREAM_FAILED.action',
+    category: 'runtimeException',
+  },
+  MEMORY_FORGET_FAILED: {
+    titleKey: 'MEMORY_FORGET_FAILED.title',
+    actionKey: 'MEMORY_FORGET_FAILED.action',
+    category: 'runtimeException',
+  },
+  MEMORY_PROCEDURAL_SAVE_FAILED: {
+    titleKey: 'MEMORY_PROCEDURAL_SAVE_FAILED.title',
+    actionKey: 'MEMORY_PROCEDURAL_SAVE_FAILED.action',
+    category: 'runtimeException',
+  },
+  MEMORY_RECALL_FAILED: {
+    titleKey: 'MEMORY_RECALL_FAILED.title',
+    actionKey: 'MEMORY_RECALL_FAILED.action',
+    category: 'runtimeException',
+  },
+  MEMORY_SAVE_FAILED: {
+    titleKey: 'MEMORY_SAVE_FAILED.title',
+    actionKey: 'MEMORY_SAVE_FAILED.action',
+    category: 'runtimeException',
+  },
+  MEMORY_TOPICS_FAILED: {
+    titleKey: 'MEMORY_TOPICS_FAILED.title',
+    actionKey: 'MEMORY_TOPICS_FAILED.action',
+    category: 'runtimeException',
+  },
   MISSING_DATA: {
     titleKey: 'MISSING_DATA.title',
     actionKey: 'MISSING_DATA.action',
