@@ -84,7 +84,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 619 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4683 | `apiRoutes` |
+| API 路由 | 4685 | `apiRoutes` |
 | 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4037 | `testFiles` |
+| 测试文件 | 4038 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 326 | `guardianGates` |
 | — blocking | 296 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19023 | `trackedFiles` |
+| 跟踪文件 | 19026 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -41768,4 +41768,6 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 取 `ios-nightly` 固定 tag 资产、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
 - UI / 容器 hover 浮起数值源(2026-11-03 立,blocking,runner id '287'): `check-hover-lift-single-source.mjs`(`apps/web/**` 与 `packages/ui-react/**` 里任何 `hover:`/`group-hover:`/`sm:hover:` 变体后跟 `translate-y-*` 或 `shadow*` 的 Tailwind 字面量 ⇒ 判红;全站唯一数值源是 `apps/web/app/globals.css` 的 `--lift-*`,那块头注本就写着"端内不得再各写",但**铁律只是注释**时它不存在(§0.9),实测当天全仓 24 个文件 30 处散写。豁免只走具名台账 `scripts/data/hover-lift-single-source-allowlist.json`(reason ≥10 字 + until 到期;到期或登记数大于命中数 ⇒ 红,§0.7)。编号以 runner 现值为准(该条原登记 285,与文档中心公开面门撞号后顺延)。
 - 跨端 / 同名组件 props 对称性(2026-11-03 立,blocking,runner id '288'): `check-cross-end-component-props-parity.mjs`(两端同名组件的 props **键集与必选性**对称性,判据引擎单源 = `scripts/lib/component-props-parity.mjs`,本门零复算;档位按 §12e 走**台账制差值棘轮** —— 存量 18 对里 17 对有差是当下事实,全量绝对判红只会变成逼人 `--no-verify`,故基线台账 `scripts/data/cross-end-props-parity-baseline.json` 登记在册差,只拦**新增退化**(在册对出现台账之外的新 onlyRn/onlyMini/reqDrift 键 ⇒ 逐键点名)。立因:调用端把一个只有对端消费的 prop 传出去,本端没有那条腿、不报错、看不出来 —— 失效型是静默的,从"掉色"降到"掉腿"。)
+- 小程序交互卫生(2026-11-03 立,blocking,runner id '290'): `check-miniapp-interaction-hygiene.mjs`(A1 假可点(View/Text 绑空实现 handler,或 className 带 pointer-events-none 却挂 onClick)与 A2 空端口(onNavigate/onToast/onPickFile 等端口被赋空实现)绝对零容忍;A3 无交互反馈(首读 174 处)与 A4 showModal 纯提示误用只出 advisory、不进退出码(§12e)。豁免只走具名台账 `scripts/data/miniapp-interaction-allowlist.json`。自检 `node scripts/check-miniapp-interaction-hygiene.mjs --self-test`(12 例)+ 镜像 `node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs`;应急放行 `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1`(留痕)。)
+- 跨端 / web↔RN 措辞一致性(2026-11-03 立,blocking,runner id '291'): `check-web-rn-copy-parity.mjs`(只比对 `scripts/data/web-rn-screen-map.jsonl` 里 aligned 的同屏映射;B1 = web 该屏已走 i18n 键而 RN 仍硬编码逐字相同的中文(JSX 文本节点与 placeholder/title/accessibilityLabel 等用户可见属性)⇒ 判红;B2 同值异键只出 advisory(合并键空间归人裁决,§12e)。存量认领走 `scripts/data/web-rn-copy-diffs.json`(owner/expires/evidence/count,到期即红、认领数少于现读即红)。自检 `node scripts/check-web-rn-copy-parity.mjs --self-test`(12 例)+ 镜像 `node --test scripts/tests/check-web-rn-copy-parity.test.mjs`;应急放行 `HUSKY_SKIP_WEB_RN_COPY_PARITY=1`(留痕)。)
 - 下载栏 / 八端运行期真值(2026-11-03 立,**不进提交链**): `check-downloads-live-health.mjs`(读**用户看到的那份** `/downloads.json`,先本机源站臂后公网臂,判五档:D1 整站新鲜度超 25 分钟没刷新 / D2 少一端(形状漂移)/ D3 必备端 `unavailable`(立即类)/ D4 该端 `sizeBytes<=0`(体积拿不到=腿断)/ D5 `web` 那一格不再是「PWA 无安装包」只报名不判红)。立因:八端的降级契约是「取不到就不覆盖底稿」,而**全仓没有任何一道哨兵读这个出口** —— cli / extension / 微信小程序码 / mobile 四条腿永远不会有告警,`generatedAt` 全仓零消费者。防噪声:snapshot(一次网络抖动)需**连续两轮**同判据才喊人,节流戳与台账各一份;红档身份 = `downloads-health;red=<计数档>`(不含时刻/sha,§5e-3)。调度器 = `git-guardian.mjs` 的 `sweepDownloadsLiveHealth()`(daemon tick + main 单轮两处,30 分钟节流)。自检 `node scripts/check-downloads-live-health.mjs --self-test`(13 例,含"摘掉新鲜度判据即翻红"与"无任何时刻字段 ⇒ no-timestamp"两条反向锁)+ 镜像 `node --test scripts/tests/downloads-live-health.test.mjs`(9 例:成对红绿 / 两轮确认 / 未判定不并桶 / 臂序 / 装车锁 / 节流锁 / 反向锁)。刻意不注册进提交链(§12e:站点没刷新不是本次提交者的错,挂上去即恒红)。
