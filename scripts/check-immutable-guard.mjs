@@ -50,8 +50,12 @@
  *                  没带 trailer 的是存量，按 §0.2 不许拿存量把这枚巡检点红，也不许写成"零违规"。
  *   游标不是 HEAD 祖先（改写史 / 强推）⇒ 只判最近 `--limit` 枚并点名 `cursor-detached`，
  *                  绝不静默当成"没有新提交"。
- *   区间超过 `--limit`（默认 50）⇒ 本轮只判最老那一段、游标推进到已判末位，余数进
- *                  `pending` 报数 ⇒ 节律上收敛，不是丢。
+ *   区间超过 `--limit`（默认 50）⇒ 本轮判 limit 枚后**游标不推进**，已判 sha 记入 state
+ *                  的 `judged` 集合，余数进 `pending`；后续轮次只判集合差集，直到区间全判完
+ *                  才把游标推进到本轮 HEAD。旧实现把游标推到"日期序最老段末位"，而
+ *                  `cursor..HEAD` 里的并行分支提交（不是游标后代）不会被新游标排除 ⇒
+ *                  实测 2026-11-02 在 4 枚游标间循环 6 轮、pending 恒在 1833~1906 打转，
+ *                  10-30 的存量永远判不完、告警每 4 小时重投一次。集合差集保证恰好一次且收敛。
  *   合并提交**跳过并计数**（`skippedMerges`）：它按第一父比 diff，命中就是父辈内容的并集，
  *                  而父辈那些枚自己已被判过 ⇒ 再判一遍是把同一件事记两回。残余缺口 =
  *                  恶意 merge 自己改判据面（两父都没有的形态）：那一格归 `root-guard --check`
@@ -323,6 +327,17 @@ export function readCursorText(root) {
   }
 }
 
+/** 未判完区间内已判过的提交集合（游标不推进时的"差集"底账；判完即随游标推进清空）。 */
+export function readJudgedShas(root) {
+  try {
+    const doc = JSON.parse(readFileSync(path.join(root, CURSOR_REL), 'utf8'))
+    const rows = Array.isArray(doc?.judged) ? doc.judged : []
+    return rows.filter((s) => typeof s === 'string' && /^[a-f0-9]{40}$/.test(s))
+  } catch {
+    return []
+  }
+}
+
 /** 游标写失败不影响本轮判定结论（下轮重判同一批 = 重复判，不 = 漏判），但必须回传原因。 */
 export function writeCursor(root, sha, extra = {}) {
   try {
@@ -400,6 +415,8 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
   const detached = !isAncestor(root, cursor, head)
   let batch
   let pending = 0
+  let cursorNext = null
+  let judgedNext = null
   if (detached) {
     batch = String(gitRaw(['rev-list', head], root))
       .split(/\r?\n/)
@@ -410,8 +427,20 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     const all = String(gitRaw(['rev-list', '--reverse', `${cursor}..${head}`], root))
       .split(/\r?\n/)
       .filter(Boolean)
-    batch = all.slice(0, limit)
-    pending = Math.max(0, all.length - batch.length)
+    const allSet = new Set(all)
+    // 差集底账只保留仍在本区间内的 sha：区间外的历史 judged 不再需要（游标推进时已清空）。
+    const judged = new Set(readJudgedShas(root).filter((s) => allSet.has(s)))
+    const pendingAll = all.filter((sha) => !judged.has(sha))
+    batch = pendingAll.slice(0, limit)
+    pending = Math.max(0, pendingAll.length - batch.length)
+    if (pending > 0) {
+      // 区间未判完 ⇒ 游标原地不动，把本批已判 sha 并进 judged；下一轮只判差集（保证收敛）。
+      cursorNext = cursor
+      judgedNext = [...judged, ...batch]
+    } else {
+      // 区间已全判完 ⇒ 游标推进到本轮 HEAD；judged 底账随游标推进清空。
+      cursorNext = head
+    }
   }
   if (batch.length === 0) {
     // 游标是 HEAD 的后代（别人刚把 HEAD 往回挪）或区间真空 ⇒ 判不了就点名，不推进游标。
@@ -453,11 +482,20 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
   }
 
   const lastAudited = batch[batch.length - 1]
-  const cursorWriteWhy = writeCursor(root, lastAudited, { audited: batch.length, pending, detached })
+  // 判完 ⇒ 推进到本轮 HEAD；没判完 ⇒ 游标**原地不动**、本批已判 sha 进 `judged` 底账。
+  // 旧实现推进到"本批末位"在含并行分支的区间里不收敛（末位不是游标后代 ⇒ 下一轮又被枚举回来）。
+  const writeTo = detached ? lastAudited : cursorNext
+  const writeExtra = detached
+    ? { audited: batch.length, pending, detached }
+    : { audited: batch.length, pending, detached, judged: pending > 0 ? judgedNext : [] }
+  const cursorWriteWhy = writeCursor(root, writeTo, writeExtra)
   const state = breaches.length > 0 ? 'breach' : undetermined.length > 0 ? 'undetermined' : 'clean'
   const notes = []
-  if (detached) notes.push('游标不在 HEAD 祖先链（改写史/强推）⇒ 本轮按最近提交判')
-  if (pending > 0) notes.push(`区间长于本轮额度（limit=${limit}）⇒ 剩余 ${pending} 枚留下轮，游标只推进到已判末位`)
+  if (detached) notes.push('游标不在 HEAD 祖先链（改写史/强推）⇒ 本轮按最近提交判，游标推进到本批末位')
+  if (pending > 0)
+    notes.push(
+      `区间长于本轮额度（limit=${limit}）⇒ 剩余 ${pending} 枚留下轮；游标保持 ${cursor.slice(0, 12)} 不推进，本批 ${batch.length} 枚 sha 记入 judged 集合（下轮只判差集，保证收敛）`,
+    )
   if (cursorWriteWhy) notes.push(cursorWriteWhy)
   return {
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
@@ -471,7 +509,7 @@ export function auditNewCommits(root, { limit = AUDIT_BATCH_DEFAULT, today = tod
     breaches,
     undetermined,
     cursorBefore: cursor,
-    cursorAfter: lastAudited,
+    cursorAfter: writeTo,
     detached,
     detail: notes.join('；'),
   }

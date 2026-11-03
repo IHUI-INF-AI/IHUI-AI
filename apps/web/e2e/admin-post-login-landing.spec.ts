@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect, ADMIN_USER } from './fixtures'
+import type { Page } from '@playwright/test'
 
 /**
  * admin 登录落点 —— 真实浏览器端到端守门(AGENTS §17)
@@ -34,7 +35,7 @@ const WALLBOARD = /\/admin\/monitor\/(wallboard|panels\?view=wallboard)/
 const AUTHORIZE_BUTTON = /授权并跳转|授权|Authorize|进入网站/i
 
 /** 打开 SSO 登录页 → 账号密码 tab → 填 admin 凭据 → 勾协议(勾不上走 notice-dialog 兜底)。 */
-async function preparePasswordLogin(page: import('@playwright/test').Page, query = '') {
+async function preparePasswordLogin(page: Page, query = '') {
   await page.goto(`/sso/login${query}`, { waitUntil: 'domcontentloaded', timeout: 45_000 })
   await page.getByTestId('login-tab-password').click({ timeout: 20_000 })
   const account = page.locator('#login-form-account')
@@ -51,7 +52,7 @@ async function preparePasswordLogin(page: import('@playwright/test').Page, query
 }
 
 /** 提交登录;弹出协议提示框时点「同意」后再提交一次。 */
-async function submitLogin(page: import('@playwright/test').Page) {
+async function submitLogin(page: Page) {
   await page.getByTestId('login-submit').click({ timeout: 15_000 })
   const noticeAgree = page.getByTestId('agreement-notice-agree')
   if (await noticeAgree.isVisible({ timeout: 2_000 }).catch(() => false)) {
