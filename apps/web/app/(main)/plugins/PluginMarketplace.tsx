@@ -70,7 +70,7 @@ interface PluginUIPrefs {
  *
  * 卡片设计:
  *  - 圆角 rounded-lg,无 rounded-full
- *  - hover:bg-accent/40 + hover:shadow-md,无蓝色发光边框
+ *  - hover:bg-accent/40 + ui-lift 浮起数值源,无蓝色发光边框
  *  - icon + 中文 span 同行 [&>span]:translate-y-[var(--text-vcenter-offset)] 视觉对齐(button/a 由全局 CSS 自动处理)
  */
 export function PluginMarketplace() {
@@ -619,7 +619,7 @@ function ProjectPluginCard({
       href={plugin.href}
       className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
     >
-      <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40 hover:shadow-md">
+      <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
             <Icon className="h-5 w-5" />
@@ -750,7 +750,7 @@ function MarketPluginCard({
   })()
 
   const card = (
-    <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40 hover:shadow-md">
+    <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
           {plugin.vendor ? (

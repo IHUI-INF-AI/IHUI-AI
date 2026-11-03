@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     color: tokens.success.DEFAULT,
   } as TextStyle,
   purchasePrice: {
-    fontSize: 22,
+    fontSize: rnType.heading.size,
     lineHeight: 28,
     fontWeight: '700',
     color: tokens.success.DEFAULT,

@@ -138,7 +138,7 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
             </Text>
           </View>
           {row.title && row.content ? (
-            <Text className="block mt-[4rpx] text-[length:26rpx] text-muted-foreground truncate">
+            <Text className="block mt-[4rpx] text-body-sm leading-[normal] text-muted-foreground truncate">
               {row.content}
             </Text>
           ) : null}

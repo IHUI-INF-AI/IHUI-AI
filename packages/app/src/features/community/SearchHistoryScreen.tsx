@@ -131,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     titleBox: { flex: 1 },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: {
       marginTop: rnSpacing['2xs'],
       fontSize: rnType.label.size,

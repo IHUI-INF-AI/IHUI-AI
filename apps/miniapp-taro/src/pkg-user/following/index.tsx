@@ -246,7 +246,7 @@ export default function FollowingPage() {
             hoverClass="opacity-60"
             onClick={goDiscover}
           >
-            <Text className="text-primary-foreground text-[length:26rpx]">
+            <Text className="text-primary-foreground text-body-sm leading-[normal]">
               {tt('following.goDiscover', '去发现更多')}
             </Text>
           </View>

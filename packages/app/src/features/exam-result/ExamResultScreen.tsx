@@ -23,7 +23,7 @@ export function ExamResultScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
 }: ExamResultScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
     title: {
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.md,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scoreCardPassed: { borderColor: tk.brandAccent.deep, backgroundColor: tk.success.light },
     scoreCardFailed: { borderColor: tk.border.light },
-    scoreText: { fontSize: 36, fontWeight: '700', color: tk.text.primary },
+    scoreText: { fontSize: rnType.displayLg.size, fontWeight: '700', color: tk.text.primary },
     passedText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,

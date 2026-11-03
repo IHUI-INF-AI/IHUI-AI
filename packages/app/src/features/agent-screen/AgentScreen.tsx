@@ -97,7 +97,7 @@ export function AgentScreen({
   onPressItem,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   nestedInScrollView = false,
   onNavigate,
 }: AgentScreenProps & { onRetry?: () => void }) {
@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.sm,
       paddingBottom: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
     },

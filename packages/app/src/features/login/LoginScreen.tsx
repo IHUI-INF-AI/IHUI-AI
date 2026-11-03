@@ -18,11 +18,11 @@ import { TextField } from '../../components/TextField'
 import {
   OAUTH_BRAND_COLORS,
   OAUTH_BUTTON_FOREGROUND,
-  withAlpha,
-  rnRadius,
   rnGeometry,
+  rnRadius,
   rnSpacing,
   rnType,
+  withAlpha,
 } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
@@ -1557,7 +1557,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     page: {
       flex: 1,
       backgroundColor: surface,
-      paddingHorizontal: 15,
+      paddingHorizontal: rnSpacing['md-loose'],
       // 垂直居中:内容不足一屏时上下留白均衡,避免底部大片空白(2026-09-04)
       justifyContent: 'center',
     },
@@ -1599,7 +1599,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       letterSpacing: 0.5,
     },
     welcomeText: {
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
       letterSpacing: 0.5,
@@ -1995,7 +1995,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // marginTop 22 与上方图标网格拉开间距) =====
     ssoBtn: {
       height: 38,
-      marginTop: 22,
+      marginTop: rnSpacing['xl'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: inputBorder,

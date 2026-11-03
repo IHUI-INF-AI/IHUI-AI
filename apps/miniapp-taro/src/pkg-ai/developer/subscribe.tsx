@@ -195,7 +195,7 @@ export default function DeveloperSubscribePage() {
             </Text>
           </View>
           <Button
-            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-[length:26rpx] font-semibold rounded-sm border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
+            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-body-sm font-semibold rounded-sm border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
             disabled={subscribing}
             onClick={toggleSubscribe}
           >
@@ -258,7 +258,7 @@ export default function DeveloperSubscribePage() {
                         {tt('developer.subscribe.uses', '使用')} {m.uses}
                       </Text>
                     </View>
-                    <Text className="text-[length:26rpx] text-muted-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
+                    <Text className="text-body-sm leading-[normal] text-muted-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                       {m.description || tt('developer.subscribe.noDesc', '暂无描述')}
                     </Text>
                   </View>

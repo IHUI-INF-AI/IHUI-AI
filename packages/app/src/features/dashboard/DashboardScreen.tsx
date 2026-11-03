@@ -191,7 +191,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     cardLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
-    cardValue: { marginTop: rnSpacing.xs, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    cardValue: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     cardHint: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }

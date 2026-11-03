@@ -38,7 +38,8 @@
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
  *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
  *                                                 # F10 翻勾回写候选(只报数,**必须显式窗口**;见 scanReopenedFlipEvidence 头注)
- *   node scripts/plan-tasks.mjs --next-id G      # 取号出口:下一个空闲的 G- 编号(登记新条目前问一次,别手抄)
+ *   node scripts/plan-tasks.mjs --next-id G      # 取号出口:下一个空闲的 G- 编号(池式 1..99,不升位数;
+ *                                                # 越过池上限一律拒发并点名改走 next-plan-id,登记新条目前问一次,别手抄)
  *   node scripts/plan-tasks.mjs --json | --self-test | --staged | --worktree
  *
  * 取材面纪律(同守门 70/77/83/98/101/118):全量判 **HEAD blob**、`--staged` 判**索引 blob**、
@@ -90,6 +91,7 @@ import {
 // 不新增台账导出 —— 台账层归 b25-poolG 席,本席不碰)。
 import { HISTORY_REASON, splitLiveCollisions } from './lib/plan-collision.mjs'
 import { FIELDS_REL, loadFields } from './lib/plan-fields.mjs'
+import { LEASE_POOL_MAX } from './lib/plan-id-lease.mjs'
 import { headAges } from './lib/plan-line-age.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -3485,6 +3487,18 @@ function main() {
           '故不给 "<族>-1" 这种号:空扫与"该族确实还没用过"在账面上同形,而取错号比不取号更贵',
       )
       return 2
+    }
+    // 池式契约(2026-10-24 拍板):每族 1..LEASE_POOL_MAX,绝不靠升位数出池。
+    // 本出口按 max+1 推号,一旦越过池上限就必须拒发 —— 否则它会把 7 位"新号"喂回台账,
+    // 正是 G-44/G-54 那类"新票登记不进 + 池外号入账"的源头之一。
+    const poolNum = Number(/\d+$/.exec(label)?.[0] ?? NaN)
+    if (Number.isFinite(poolNum) && poolNum > LEASE_POOL_MAX) {
+      console.log(
+        `❌ 池外号 —— ${LABEL[o.face]} 面 ${o.nextId} 族最大已到 ${detail.max},` +
+          `越过号池 1..${LEASE_POOL_MAX};池式契约不升位数,故拒发 ${label}。` +
+          `真取号改走 node scripts/next-plan-id.mjs --family ${o.nextId}(按全文件扫描面判满并给出原因)`,
+      )
+      return 1
     }
     console.log(
       `下一个空闲编号 = ${label} ` +

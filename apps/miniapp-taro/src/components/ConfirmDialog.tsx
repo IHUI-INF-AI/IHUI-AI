@@ -34,13 +34,11 @@ export default function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
-        <Text className="block text-base font-medium text-foreground mb-2 text-center">
+        <Text className="block text-title font-medium text-foreground mb-2 text-center">
           {title}
         </Text>
         {content && (
-          <Text className="block text-sm text-muted-foreground mb-4 text-center leading-relaxed">
-            {content}
-          </Text>
+          <Text className="block text-body text-muted-foreground mb-4 text-center">{content}</Text>
         )}
         <View className="flex space-x-3">
           <View
@@ -48,7 +46,7 @@ export default function ConfirmDialog({
             onClick={onCancel}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-foreground">{cancelText}</Text>
+            <Text className="text-body text-foreground">{cancelText}</Text>
           </View>
           {/* 确认=品牌灰蓝渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
           <View
@@ -61,7 +59,7 @@ export default function ConfirmDialog({
             hoverClass="opacity-60"
           >
             {/* 浅灰蓝渐变底上白字对比不足,改用 accent-foreground */}
-            <Text className="text-sm text-[var(--color-brand-accent-foreground)]">
+            <Text className="text-body text-[var(--color-brand-accent-foreground)]">
               {confirmText}
             </Text>
           </View>

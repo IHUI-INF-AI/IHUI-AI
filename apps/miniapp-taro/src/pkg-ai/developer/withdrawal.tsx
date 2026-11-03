@@ -99,7 +99,7 @@ export default function DeveloperWithdrawal() {
   const statusClass = useCallback((item: WithdrawalItem) => {
     const norm = normalizeStatus(item.status)
     // 对齐 RN IncomeScreen cardStatus:纯彩色文字徽章(无底色)
-    const base = 'text-[length:22rpx] font-semibold'
+    const base = 'text-caption leading-[normal] font-semibold'
     const styles: Record<string, string> = {
       pending: 'text-warning',
       processing: 'text-info',

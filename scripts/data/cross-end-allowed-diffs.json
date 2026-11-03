@@ -584,6 +584,16 @@
       "evidence": "check-web-rn-style-tiers --json: packages/app/src/components/ScreenStates.tsx 的 stateGlyph 为 fontSize=26(1 处);台账 scripts/data/cross-end-fork-decisions.json"
     },
     {
+      "component": "ScreenStates",
+      "key": "geometry",
+      "platform": "rn",
+      "owner": "rn-tiers",
+      "expires": "2027-03-31",
+      "count": 1,
+      "reason": "stateBtn paddingHorizontal 为有意平台分叉:web 侧在 Platform.OS==='web' 分支锁原值 18,保证 web 产物逐像素零变化;RN 侧落 lg 16 档。属设计档收敛后的单侧档差,不是未收敛裸值。",
+      "evidence": "check-cross-end-ui-parity --staged: ScreenStates geometry 未登记差异 1;packages/app/src/components/ScreenStates.tsx:300 `Platform.OS === 'web' ? 18 : rnSpacing.lg`"
+    },
+    {
       "component": "MessageInput.fileRemove",
       "key": "styleTier:radius:borderRadius:7.5",
       "platform": "rn",

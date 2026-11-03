@@ -4,7 +4,6 @@
 
 import { useTheme } from '../context/ThemeContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import type { AudioPort } from '@ihui/types'
@@ -18,19 +17,8 @@ import {
   type AigcListItem,
   type AigcListScreenProps,
 } from '@ihui/rn-app'
-import { tokens } from '../theme/active-tokens'
-import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
-import MaterialList, {
-  type MaterialCategory,
-  type MaterialItem,
-  type MaterialType,
-} from '../components/MaterialList'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
-import { type LucideIcon, FileText, Film, Image, Music, Sparkles } from 'lucide-react-native'
-
-import { rnRadius } from '@ihui/design-tokens'
 import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -38,30 +26,18 @@ type Nav = NativeStackNavigationProp<RootStackParamList>
 /** 分页大小(首次与上拉一致,避免后端按 page/pageSize 计算偏移时出现重叠/空洞) */
 const PAGE_SIZE = 20
 
-/** 本地扩展 AigcCategoryOption,补 icon 字段对齐 Uniapp fenlei_icon(不改 @ihui/rn-app 类型) */
-type AigcCategoryOptionWithIcon = AigcCategoryOption & { icon?: LucideIcon }
-
-const CATEGORIES: AigcCategoryOptionWithIcon[] = [
-  { key: 'all', label: 'home.matAll', icon: Sparkles },
-  { key: 'image', label: 'chat.assetCatImage', fileType: 0, icon: Image },
-  { key: 'video', label: 'chat.assetCatVideo', fileType: 1, icon: Film },
-  { key: 'audio', label: 'chat.assetCatAudio', fileType: 3, icon: Music },
-  { key: 'text', label: 'menu.catCopyShort', fileType: 4, icon: FileText },
+const CATEGORIES: AigcCategoryOption[] = [
+  { key: 'all', label: 'home.matAll' },
+  { key: 'image', label: 'chat.assetCatImage', fileType: 0 },
+  { key: 'video', label: 'chat.assetCatVideo', fileType: 1 },
+  { key: 'audio', label: 'chat.assetCatAudio', fileType: 3 },
+  { key: 'text', label: 'menu.catCopyShort', fileType: 4 },
 ]
 
 /** 按分类 key 解析对应的 fileType(供 API 查询用,'all' 不传 fileType) */
 function fileTypeForCategory(key: AigcCategoryOption['key']): AigcFileType | undefined {
   return CATEGORIES.find((c) => c.key === key)?.fileType
 }
-
-const MATERIAL_CATEGORIES: MaterialCategory[] = [
-  { key: 'all', label: 'home.matAll' },
-  { key: 'image', label: 'chat.assetCatImage' },
-  { key: 'video', label: 'chat.assetCatVideo' },
-  { key: 'doc', label: 'aigcList.catDoc' },
-]
-
-type ViewMode = 'shared' | 'local'
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
@@ -74,17 +50,6 @@ function asString(v: unknown): string | undefined {
 function asFileType(v: unknown): AigcFileType {
   if (v === 0 || v === 1 || v === 3 || v === 4) return v
   return 0
-}
-
-function toMaterialType(ft: AigcFileType): MaterialType {
-  if (ft === 1) return 'video'
-  if (ft === 3 || ft === 4) return 'doc'
-  return 'image'
-}
-
-/** AigcFileType → 是否可作为 MaterialList 素材(只保留 image/video/audio/text 4 类) */
-function isMaterialType(ft: AigcFileType): boolean {
-  return ft === 0 || ft === 1 || ft === 3 || ft === 4
 }
 
 /** 将 AIGC 任务(result 为 unknown)安全映射为 UI 层 AigcListItem,避免 any
@@ -104,34 +69,6 @@ function toAigcWork(task: AigcTask, tr: (key: string) => string): AigcListItem {
     fileType: asFileType(r.fileType),
     createdAt: task.createdAt ?? '',
   }
-}
-
-function toMaterialItem(work: AigcListItem): MaterialItem {
-  return {
-    id: work.id,
-    title: work.title,
-    type: toMaterialType(work.fileType),
-    createdAt: work.createdAt ? work.createdAt.slice(0, 10) : undefined,
-  }
-}
-
-/** AIGC 作品类型 → 顶部轮播 lucide 图标组件(0 图片 / 1 视频 / 3 音频 / 4 文案) */
-const FILE_TYPE_ICON: Readonly<Record<AigcFileType, LucideIcon>> = {
-  0: Image,
-  1: Film,
-  3: Music,
-  4: FileText,
-}
-
-/** AIGC 作品 → 顶部轮播卡片项(全部免费,price=0 + isFree=true) */
-function toCarouselItems(items: AigcListItem[]): CourseCarouselItem[] {
-  return items.slice(0, 5).map((it) => ({
-    id: it.id,
-    title: it.title,
-    price: 0,
-    isFree: true,
-    icon: FILE_TYPE_ICON[it.fileType] ?? Sparkles,
-  }))
 }
 
 /** 音频端口 — expo-audio 真注入(共享屏只认端口形状,不感知宿主 SDK) */
@@ -156,13 +93,18 @@ function useAudioPort(): AudioPort {
   )
 }
 
+/**
+ * RN 薄壳 — 只保留取数/分页/状态与端口注入,渲染全部交给共享 AigcListScreen。
+ * 原端内 MaterialList 视图与 CourseCarousel 已删:
+ * - 列表渲染由共享屏 packages/app/src/features/aigc-list/AigcListScreen.tsx:88-167(renderItem)+ :239-256(FlatList)承接;
+ *   头部 :208-212、分类栏 :214-231、空态 :248-254、发布 FAB :258-260 均同屏承接;
+ * - 轮播能力共享屏此前缺失,现以可选 carousel props 注入,由共享屏 :171-206 渲染,缺省不渲染。
+ */
 export default function AigcListScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<Nav>()
-  const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [category, setCategory] = useState<AigcCategoryOption['key']>('all')
-  const [materialCategory, setMaterialCategory] = useState<string>('all')
   const [items, setItems] = useState<AigcListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -251,45 +193,10 @@ export default function AigcListScreen() {
 
   const goPublish = () => navigation.navigate('AigcPublish')
 
-  // 派生 MaterialList 数据(从已加载的 AigcListItem 中筛选素材类)
-  const materialItems = useMemo<MaterialItem[]>(
-    () => items.filter((it) => isMaterialType(it.fileType)).map(toMaterialItem),
-    [items],
-  )
-
-  const filteredMaterialItems = useMemo<MaterialItem[]>(
-    () =>
-      materialCategory === 'all'
-        ? materialItems
-        : materialItems.filter((m) => m.type === materialCategory),
-    [materialItems, materialCategory],
-  )
-
-  const handleMaterialPress = useCallback(
-    (id: string) => {
-      const found = items.find((it) => it.id === id)
-      if (found) openWork(found)
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items],
-  )
-
-  // 顶部 AIGC 作品轮播(取前 5 条,与 shared 屏共用 items 数据源)
-  const carouselItems = useMemo<CourseCarouselItem[]>(() => toCarouselItems(items), [items])
-
-  const handleCarouselPress = useCallback(
-    (id: string) => {
-      const found = items.find((it) => it.id === id)
-      if (found) openWork(found)
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items],
-  )
-
   const { onToast } = useHostPorts()
   const audio = useAudioPort()
 
-  /** SharedAigcListScreen 注入 props;onLoadMore 已由共享屏 FlatList 的 onEndReached 消费触发上拉分页 */
+  /** 共享屏 props:轮播能力以可选端口注入(共享屏缺省不渲染),端内不再自绘一份 */
   const sharedListProps: AigcListScreenProps = {
     t,
     items,
@@ -307,92 +214,9 @@ export default function AigcListScreen() {
     colorScheme: resolvedTheme,
     onToast,
     audio,
+    carousel: { items: items.slice(0, 5), onPress: openWork },
   }
 
-  return (
-    <View style={styles.shell}>
-      {/* 顶部视图切换 tab(平台/路由 adapter:仅做 props 注入 + 视图切换) */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
-          onPress={() => setViewMode('shared')}
-          activeOpacity={0.8}
-        >
-          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
-            {t('aigcCover.labelDefault')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, viewMode === 'local' && styles.tabActive]}
-          onPress={() => setViewMode('local')}
-          activeOpacity={0.8}
-        >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
-            {t('chat.menuMaterial')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.viewport}>
-        {viewMode === 'shared' ? (
-          <View style={styles.sharedPane}>
-            <CourseCarousel courses={carouselItems} onPress={handleCarouselPress} />
-            <View style={styles.sharedFill}>
-              <SharedAigcListScreen {...sharedListProps} />
-            </View>
-          </View>
-        ) : (
-          <MaterialList
-            categories={MATERIAL_CATEGORIES.map((c) => ({ ...c, label: t(c.label) }))}
-            activeCategory={materialCategory}
-            onCategoryChange={setMaterialCategory}
-            items={filteredMaterialItems}
-            onPress={handleMaterialPress}
-          />
-        )}
-      </View>
-    </View>
-  )
+  return <SharedAigcListScreen {...sharedListProps} />
 }
-
-const styles = StyleSheet.create({
-  shell: {
-    flex: 1,
-    backgroundColor: tokens.surface.bg,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: rpx(24),
-    paddingTop: rpx(24),
-    paddingBottom: rpx(16),
-    gap: rpx(6),
-    backgroundColor: tokens.surface.bg,
-  },
-  tab: {
-    paddingHorizontal: rpx(8),
-    paddingVertical: rpx(12),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.muted,
-  },
-  tabActive: {
-    backgroundColor: tokens.brand.cta,
-  },
-  tabText: {
-    fontSize: 13,
-    color: tokens.text.secondary,
-  },
-  tabTextActive: {
-    fontSize: 13,
-    color: tokens.brand.ctaForeground,
-    fontWeight: '700',
-  },
-  viewport: {
-    flex: 1,
-  },
-  sharedPane: {
-    flex: 1,
-  },
-  sharedFill: {
-    flex: 1,
-  },
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

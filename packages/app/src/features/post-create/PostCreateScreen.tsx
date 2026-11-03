@@ -102,7 +102,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: rnType.body.size, color: tk.text.secondary },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
