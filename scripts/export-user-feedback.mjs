@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console -- 生产者是 CLI 器物,诊断必须打到 stdout */
 /**
- * export-user-feedback — 三源里第三源(user-feedback)的**唯一数据面生产者**。
+ * export-user-feedback — user-feedback 数据面生产者(2026-11-04 已退役自动派发,保留作手动 CLI)。
  *
  * 病理(本票要消的那一格):auto-triage 的 `readUserFeedback` 在 `userFeedback.jsonl` 非空时
  * 走**文件通道**(路径取 `scripts/data/auto-triage-config.json` 的 `userFeedback.jsonl`),
@@ -41,19 +41,20 @@
  *    而不是继续吃上一轮的旧读数当成"无发现"。`--keep-stale` 可关掉这一手;
  *  - `shape`(rc 1):配置/参数形状坏(路径空、limit 非法)—— 不猜,直接判死。
  *
- * 接线现状(2026-11-04 现读核对;派发点在 `scripts/git-guardian.mjs:12757`):
- *  - 消费端已就位:auto-triage 按同一份配置的同一路径取数,本器落到那儿即闭环,**无需二次改配置**;
- *  - 触发端**已接线**:守护每轮健康检查调 `dispatchExportUserFeedback()`(同文件 13668 起),20 分钟
- *    节流(`IHUI_USER_FEEDBACK_EXPORT_INTERVAL_MS` 可调,`IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT=1`
- *    可关)execFileSync 本文件;派发成败只记日志,不进提交链(§12e);
- *  - 已知结构性卡点(2026-11-04 实测,非本器缺陷):`apps/api/.env` 的 DATABASE_URL 指向 localhost:8810,
- *    而 8810 在 `guardDbDsn` 的黑名单里(生产隧道口) ⇒ 运行期恒 rc 2「未判定」、导出件永不落盘。
- *    出路是把本地库挪到非 8810 回环口或正式退役本源,不得为跑通放宽守卫(AGENTS §5)。
+ * 接线现状(2026-11-04 退役):
+ *  - **自动派发已退役**:原守护每轮健康检查调 `dispatchExportUserFeedback()`(`scripts/git-guardian.mjs:12757`),
+ *    该调用与函数已移除;本源同时从 `scripts/data/auto-triage-config.json` 的 `sources` 摘除。
+ *    退役原因(实测,非本器缺陷):`apps/api/.env` 的 DATABASE_URL 指向 localhost:8810,而 8810 在
+ *    `guardDbDsn` 黑名单里(生产隧道口)⇒ 运行期恒 rc 2「未判定」、导出件永不落盘;且本机 8810 库
+ *    `feedbacks` 实测 0 行,空表无判据价值。
+ *  - **保留作手动 CLI**:取数/守卫/解析/落盘逻辑一字未改;配置里那条 `userFeedback.jsonl` 已随退役移除,
+ *    因此手动运行**必须显式 `--jsonl PATH`**(改端口/换库后才可能重新接线)。
+ *  - 消费端 `readUserFeedback` 仍在(供手动导出件/其它手动工具使用),但 auto-triage 不再读本源。
  *
  * 用法:
- *   node scripts/export-user-feedback.mjs                  # 导一次(默认上限 500 行)
- *   node scripts/export-user-feedback.mjs --limit 50 --json
- *   node scripts/export-user-feedback.mjs --dry-run        # 只打印将要落盘的行,不写盘
+ *   node scripts/export-user-feedback.mjs --jsonl PATH      # 手动导一次(默认上限 500 行;--jsonl 必填)
+ *   node scripts/export-user-feedback.mjs --jsonl PATH --limit 50 --json
+ *   node scripts/export-user-feedback.mjs --jsonl PATH --dry-run   # 只打印将要落盘的行,不写盘
  *   node scripts/export-user-feedback.mjs --self-test      # 自检(零真库、零网络)
  * 退出码:0 判定完成(含 0 行)/ 1 形状坏 / 2 未判定。
  */
@@ -140,11 +141,14 @@ export function renderExport(rows) {
   return `${list.map((r) => JSON.stringify(r)).join('\n')}\n`
 }
 
-/** 落盘路径:显式 `--jsonl` 优先,否则取分诊配置的 `userFeedback.jsonl`;皆空 ⇒ 形状坏。 */
+/** 落盘路径:显式 `--jsonl` 优先;分诊配置的 `userFeedback.jsonl` 已于 2026-11-04 随源退役移除,
+ * 两者皆空 ⇒ 形状坏(手动档必须点明落点,不猜默认路径)。 */
 export function resolveExportPath(cfg, override) {
   const raw = String(override ?? '').trim() || String(cfg?.userFeedback?.jsonl ?? '').trim()
   if (!raw) {
-    throw new ExportShapeError('导出件路径为空(--jsonl 与 auto-triage-config.json 的 userFeedback.jsonl 皆空)')
+    throw new ExportShapeError(
+      '导出件路径为空(--jsonl 必填;auto-triage-config.json 的 userFeedback.jsonl 已随 2026-11-04 退役移除)',
+    )
   }
   return isAbsolute(raw) ? raw : resolve(ROOT, raw)
 }
@@ -360,13 +364,18 @@ export function selfTest() {
       return r8810.rc === 2 && /8810/.test(r8810.why) && rRemote.rc === 2 && /回环/.test(rRemote.why)
     })
 
-    // ⑨ 路径与 dry-run:配置缺省路径可解析;dry-run 不落盘
-    t('⑨ 路径来自同一份分诊配置 / dry-run 不落盘', () => {
+    // ⑨ 路径:配置那格已随源退役移除 ⇒ 默认路径判形状坏;显式 --jsonl 仍可手动跑,dry-run 不落盘
+    t('⑨ 配置路径已随退役移除 ⇒ 默认判形状坏;显式 --jsonl 可跑且 dry-run 不落盘', () => {
       const cfg = loadConfig()
-      const configured = resolveExportPath(cfg, '')
+      let defaultThrew = false
+      try {
+        resolveExportPath(cfg, '')
+      } catch (e) {
+        defaultThrew = e instanceof ExportShapeError
+      }
       const p = join(scratch, 'dry.jsonl')
       const r = runExport({ argv: ['--jsonl', p, '--dry-run'], readFile: readEnv, locate: fakeLocate, spawn: fakeSpawn('id1|bug|pending|t|c|2026-10-28T01:00:00.000Z\n'), processEnv: {} })
-      return configured.endsWith(join('.ihui-agent', 'state', 'user-feedback-export.jsonl')) && r.rc === 0 && r.rows.length === 1 && !existsSync(p)
+      return defaultThrew && r.rc === 0 && r.rows.length === 1 && !existsSync(p)
     })
     // thunk 只在 report() 的消费循环里求值,故结账必须发生在 rmScratch **之前**
     // (先 cleanup 再 report 拿到的是空目录上的读数、账面记绿 —— selftest-registrant 头注那条坑)。
@@ -383,7 +392,7 @@ export function selfTest() {
 
 async function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) {
-    console.log('用法:node scripts/export-user-feedback.mjs [--limit N] [--jsonl PATH] [--dsn DSN] [--dry-run] [--json] [--keep-stale] [--self-test]')
+    console.log('用法:node scripts/export-user-feedback.mjs --jsonl PATH [--limit N] [--dsn DSN] [--dry-run] [--json] [--keep-stale] [--self-test]')
     return 0
   }
   if (argv.includes('--self-test')) return selfTest()
