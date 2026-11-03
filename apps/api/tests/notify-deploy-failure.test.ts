@@ -10,6 +10,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { __test__ as t } from '../scripts/notify-deploy-failure.js'
 
 interface SmtpCall {
@@ -35,6 +38,8 @@ interface FakeDeps {
   now: () => string
   nowMs: () => number
   writeStateFile: (p: string, text: string) => void
+  /** 出口占位落点:测试一律用临时目录,不得碰仓库 .ihui-agent/state(生产状态面)。 */
+  alertClaimDir: string
 }
 
 function makeDeps(
@@ -77,6 +82,7 @@ function makeDeps(
       if (opts.writeError) throw opts.writeError
       writes.push({ p, text })
     },
+    alertClaimDir: mkdtempSync(join(tmpdir(), 'ihui-notify-claim-')),
   }
   return { deps, smtpCalls, fetchCalls, writes }
 }
@@ -824,6 +830,58 @@ describe('投递台账:每一次发信结论落一行,没有投递动作就不�
     // 反向:没有投递动作时,即使路径是坏的也不许报名(它压根不该去碰盘)
     const dry = { help: false, dryRun: true, warnings: [] } as never
     expect(t.recordMailAttempt(dry, [], NOW, bad)).toBeNull()
+  })
+})
+
+// ── 台账落点可覆盖(2026-11-03)────────────────────────────────────────────────
+// 立因:沙箱只隔离了 STATE_FILE/log/UNDEL,派发器台账仍写死主仓默认路径 ⇒ 测试探针邮件
+// 的 failed 行被记进生产台账。生产默认必须不变;演练/沙箱用 IHUI_MAIL_SEND_LEDGER 改道。
+describe('台账落点:生产默认不变,IHUI_MAIL_SEND_LEDGER 可把演练账指到临时文件', () => {
+  const sandboxOutcome = {
+    help: false,
+    dryRun: false,
+    warnings: [],
+    sent: true,
+    channel: 'smtp',
+    subject: '沙箱探针(不是生产告警)',
+    toMasked: ['ex***@example.invalid'],
+  } as never
+
+  it('T4 设置覆盖变量 ⇒ 默认解析与写入都落该文件,而不是主仓默认台账', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-ledger-override-'))
+    const target = join(dir, 'mail-send-ledger.jsonl')
+    const original = process.env.IHUI_MAIL_SEND_LEDGER
+    try {
+      process.env.IHUI_MAIL_SEND_LEDGER = target
+      expect(t.defaultMailSendLedgerPath()).toBe(resolve(target))
+      expect(
+        t.recordMailAttempt(sandboxOutcome, ['--source', 'sandbox-probe'], Date.now()),
+      ).toBeNull()
+      const rows = readFileSync(target, 'utf8').trim().split(/\r?\n/)
+      expect(rows).toHaveLength(1)
+      expect(JSON.parse(rows[0] as string).disposition).toBe('delivered')
+      expect(JSON.parse(rows[0] as string).source).toBe('sandbox-probe')
+    } finally {
+      if (original === undefined) delete process.env.IHUI_MAIL_SEND_LEDGER
+      else process.env.IHUI_MAIL_SEND_LEDGER = original
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('未设置或空白值 ⇒ 仍是主仓 .ihui-agent/state/mail-send-ledger.jsonl(生产默认不变)', () => {
+    const original = process.env.IHUI_MAIL_SEND_LEDGER
+    try {
+      delete process.env.IHUI_MAIL_SEND_LEDGER
+      const p = t.defaultMailSendLedgerPath()
+      expect(p).toMatch(/[\\/]\.ihui-agent[\\/]state[\\/]mail-send-ledger\.jsonl$/)
+      // 层级必须是 仓库根/.ihui-agent/state,不得错落在 apps/api 下
+      expect(p).not.toMatch(/[\\/]apps[\\/]api[\\/].*\.ihui-agent/)
+      process.env.IHUI_MAIL_SEND_LEDGER = '   '
+      expect(t.defaultMailSendLedgerPath()).toBe(p)
+    } finally {
+      if (original === undefined) delete process.env.IHUI_MAIL_SEND_LEDGER
+      else process.env.IHUI_MAIL_SEND_LEDGER = original
+    }
   })
 })
 

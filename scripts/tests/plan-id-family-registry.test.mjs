@@ -42,7 +42,12 @@ function runCli(args, { cwd = ROOT, input } = {}) {
 }
 
 function fixedSource() {
-  const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  const r = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, 'git rev-parse HEAD 失败,无法做固定 source 对照')
   return String(r.stdout).trim()
 }
@@ -104,6 +109,7 @@ test('单字母族行为逐字不变:HEAD 版与当前版 CLI stdout 字节相�
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(headSrc.status, 0, '取 HEAD 版 next-plan-id.mjs 失败')
   for (const family of ['O', 'Z']) {

@@ -33,11 +33,11 @@ import {
 } from '@ihui/shared/utils/image-preview-offset'
 import { cn } from '@/lib/utils'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
-import { downloadFilenameFor } from '@/lib/file-preview-attachment'
+import { downloadFilenameFor, previewExtFromHref } from '@/lib/file-preview-attachment'
 // 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
 // 外部 http(s) 音视频经 /api/media/stream(CSP media-src 为 'self' blob:,无 https: 通配)
 import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
-import { OfficeViewer } from './OfficeViewer'
+import { OfficePreview } from './office-preview'
 import { PDFViewer } from './PDFViewer'
 import {
   PreviewExpiredState,
@@ -132,7 +132,13 @@ export function FilePreview({
   }
 
   if (detectedType === 'office') {
-    return <OfficeViewer url={url} fileName={name} className={className} />
+    // 2026-11-01 隐私整改(老格式 Office 预览票):office 族一律交本地渲染器
+    // OfficePreview(docx/xlsx/pptx 本地真渲染;老 .doc/.xls/.ppt 本地无解,
+    // 由组件自身判「不支持 + 下载出口」)。默认路径**不再**把文件地址经
+    // view.officeapps.live.com 的 src 参数外发给微软 —— 原 OfficeViewer 分支
+    // 会在渲染时自动发起第三方请求,而老格式确有其上传入口(聊天附件 accept
+    // 与后端 EXT_MIME_MAP 均收),外发面必须收口。
+    return <OfficePreview src={url} ext={previewExtFromHref(url)} className={className} />
   }
 
   if (detectedType === '3d') {

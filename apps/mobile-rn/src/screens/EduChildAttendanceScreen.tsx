@@ -16,26 +16,20 @@ import {
   type RouteProp,
 } from '@react-navigation/native'
 import { fetchApi } from '@ihui/api-client'
-import {
-  ConsoleTableScreen,
-  type ConsoleBadgeTone,
-  type ConsoleColumn,
-  type ConsoleRowView,
-} from '@ihui/rn-app'
+import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { attendanceStatusLabel, attendanceStatusTone } from './EduAttendanceScreen'
 
 interface ChildAttendanceRecord {
   id: string
   date: string
+  /** 服务端按该班规则现算的只读投影(present/late/early/absent/leave);家长端只显示不送写 */
   status: string
   checkInTime: string | null
   checkOutTime: string | null
 }
-
-const statusTone = (s: string): ConsoleBadgeTone =>
-  s === 'present' ? 'ok' : s === 'late' ? 'warn' : s === 'absent' ? 'danger' : 'muted'
 
 function EduChildAttendanceScreen() {
   const { t } = useI18n()
@@ -47,13 +41,7 @@ function EduChildAttendanceScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const statusLabel = useCallback(
-    (s: string) => {
-      const v = t(`eduAttendance.status.${s}`)
-      return v === `eduAttendance.status.${s}` ? s : v
-    },
-    [t],
-  )
+  const statusLabel = useCallback((s: string) => attendanceStatusLabel(t, s), [t])
 
   const load = useCallback(async () => {
     if (!childId) return
@@ -73,7 +61,7 @@ function EduChildAttendanceScreen() {
             checkIn: r.checkInTime?.slice(11, 16) ?? '—',
             checkOut: r.checkOutTime?.slice(11, 16) ?? '—',
           },
-          badgeTone: statusTone(r.status),
+          badgeTone: attendanceStatusTone(r.status),
         })),
       )
     } catch (e) {

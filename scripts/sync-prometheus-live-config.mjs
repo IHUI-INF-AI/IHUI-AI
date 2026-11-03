@@ -35,8 +35,8 @@ import { execFileSync } from 'node:child_process'
 // DevEnv 根的唯一出口(§15b;`re-home-junctions.mjs` / `check-c-drive-pollution.mjs` /
 // `pg-restore-drill.mjs` 复用同一份)。**不再**由本文件自取工作树盘符首字符拼 `X:\DevEnv`:
 // 那是同一件事的第三份独立实现 —— 它碰巧与工作树深度无关,但"碰巧对"不等于"按同一个出口推"。
-// 未设 `IHUI_DEVENV_ROOT` 时两者逐字同值(本机同为 `G:\DevEnv\monitor\prometheus`)。
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+// 2026-11-02:搬迁过渡期是"根在、子树没搬",所以候选必须**按件**问两根,不能只问 devEnvRoot 的根。
+import { devEnvArtifactCandidates } from './seal-c-root-stray.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_DIR = join(ROOT, 'monitoring', 'prometheus')
@@ -44,8 +44,9 @@ const RULES_IN_REPO = join(REPO_DIR, 'alerts.yml')
 const CONFIG_SRC = join(REPO_DIR, 'prometheus.yml')
 
 // 部署机运行副本的候选落点:盘符按当次实测取(§5b/§15b 不得把另一台机的现状当本机事实),
-// 而推导只许有一份 —— 走上面的共用出口。
-const CANDIDATE_LIVE_DIRS = [join(devEnvRoot(), 'monitor', 'prometheus')]
+// 而推导只许有一份 —— 走上面的共用出口。新根→旧根按件探测:本机运行副本仍在旧根,
+// 只问仓内 `.DevEnv` 会让 P1 永远"未判定";显式 `IHUI_DEVENV_ROOT` 仍只认它自己(强声明)。
+const CANDIDATE_LIVE_DIRS = devEnvArtifactCandidates('monitor/prometheus')
 const DEFAULT_RELOAD_URL = 'http://127.0.0.1:8815/-/reload'
 
 function parseArgs(argv) {
@@ -127,15 +128,19 @@ export function deriveLiveConfig(srcYaml, repoRulesPath) {
   return out.join('\n') + (srcYaml.endsWith('\n') ? '\n' : '')
 }
 
-function findLiveDir(override) {
-  const cands = override ? [override] : CANDIDATE_LIVE_DIRS
-  for (const c of cands) if (existsSync(join(c, 'prometheus.yml'))) return c
+function findLiveDirIn(candidates) {
+  for (const c of candidates) if (existsSync(join(c, 'prometheus.yml'))) return c
   return null
+}
+
+function findLiveDir(override) {
+  return findLiveDirIn(override ? [override] : CANDIDATE_LIVE_DIRS)
 }
 
 export const __test__ = {
   parseArgs,
   findLiveDir,
+  findLiveDirIn,
   deriveLiveConfig,
   ROOT,
   REPO_DIR,
@@ -165,11 +170,11 @@ function main() {
         ')',
     )
     // 出路行不得钉他机盘符(票 G-584 格③同型@2026-10-31 g38-s1 修):旧写法在这里写死
-    // `D:\DevEnv\monitor\prometheus`,而上一行"试过:"点名的是 devEnvRoot() 按当次实测推导的
-    // 落点(本机现读 G:\IHUI-AI\.DevEnv\...)—— 两句自相矛盾,照第二句去找目录的人永远找不着。
+    // `D:\DevEnv\monitor\prometheus`,而上一行"试过:"点名的是 `devEnvArtifactCandidates()` 按当次实测推导的
+    // 落点(本机现读 `D:\IHUI-AI\.DevEnv\...` 与 `D:\DevEnv\...`)—— 两句自相矛盾,照第二句去找目录的人永远找不着。
     // 正解 = 只指回上一行点名的真实候选 + --live-dir 逃生舱,不出现任何写死盘符。
     console.error(
-      '   本机若不是部署机,这一格按设计不适用;若确实是部署机,先确认上面点名的候选目录在位(落点由 devEnvRoot() 共用出口推导,换机即变,勿按他机盘符找);运行副本在别处时用 --live-dir <目录> 显式指定',
+      '   本机若不是部署机,这一格按设计不适用;若确实是部署机,先确认上面点名的候选目录在位(落点按件在新根/旧根两根探测,换机即变,勿按他机盘符找);运行副本在别处时用 --live-dir <目录> 显式指定',
     )
     return 2
   }

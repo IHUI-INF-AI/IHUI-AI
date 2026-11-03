@@ -5,7 +5,7 @@
 // 对齐目标(RN 共享屏): apps/mobile-rn/src/screens/EduChild*Screen.tsx(ConsoleTable 杠杆薄壳族)
 // children 六子页(课表/考勤/成绩/餐食/账单/学习计划)的共享镜像渲染件:
 // 列驱动的记录卡片列表(语义档类名与 RN token 同源),各页薄壳只配标题键、列定义与取数。
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
@@ -24,11 +24,22 @@ export interface ChildRecordRow {
   cells: Record<string, string>
 }
 
-/** 六子页共享镜像页(非路由页,由各薄壳包 ThemeRoot 后渲染) */
+/**
+ * 六子页共享镜像页(非路由页,由各薄壳包 ThemeRoot 后渲染)
+ *
+ * 三个可选槽均为「无值即不产生任何节点」,不传时渲染树与旧形态逐节点一致:
+ * - headerAction:标题行右侧动作区(如整班点名 CTA)
+ * - rowActions:每行尾部动作区(如行内代签/签退)
+ * - reloadToken:变化时重新取数(动作成功后回读服务端,拒绝本地乐观更新)
+ *   未传时该 effect 直接 early-return,挂载不多取一次数。
+ */
 export function ChildRecordsView(options: {
   titleKey: string
   columns: ChildRecordColumn[]
   load: () => Promise<ChildRecordRow[]>
+  headerAction?: ReactNode
+  rowActions?: (row: ChildRecordRow) => ReactNode
+  reloadToken?: string | number
 }): ReactNode {
   const { t } = useI18n()
   const [rows, setRows] = useState<ChildRecordRow[]>([])
@@ -53,6 +64,12 @@ export function ChildRecordsView(options: {
     void load()
   })
 
+  useEffect(() => {
+    if (options.reloadToken === undefined) return
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.reloadToken])
+
   const toneClass = (tone?: 'ok' | 'warn' | 'danger') =>
     tone === 'ok'
       ? 'text-emerald-600'
@@ -66,6 +83,11 @@ export function ChildRecordsView(options: {
     <View className="min-h-screen bg-background p-4">
       <View className="flex items-center gap-3 py-3">
         <Text className="text-xl font-bold text-foreground">{t(options.titleKey)}</Text>
+        {options.headerAction ? (
+          <View className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            {options.headerAction}
+          </View>
+        ) : null}
       </View>
       {loading ? (
         <ScreenSkeleton variant="list" />
@@ -77,23 +99,32 @@ export function ChildRecordsView(options: {
         <EmptyState title={t('common.empty')} />
       ) : (
         <View className="space-y-3">
-          {rows.map((r) => (
-            <View key={r.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
-              {options.columns.map((c) => {
-                const v = r.cells[c.key]
-                if (!v) return null
-                return (
-                  <View
-                    key={c.key}
-                    className={`flex items-center justify-between gap-2 ${c.flex ? '' : ''}`}
-                  >
-                    <Text className="text-xs text-muted-foreground shrink-0">{c.title}</Text>
-                    <Text className={`text-sm text-right ${toneClass(c.tone)}`}>{v}</Text>
+          {rows.map((r) => {
+            // 先求动作节点:函数给了但该行返回空 ⇒ 连动作容器都不产生(默认零节点承诺)
+            const actions = options.rowActions ? options.rowActions(r) : null
+            return (
+              <View key={r.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
+                {options.columns.map((c) => {
+                  const v = r.cells[c.key]
+                  if (!v) return null
+                  return (
+                    <View
+                      key={c.key}
+                      className={`flex items-center justify-between gap-2 ${c.flex ? '' : ''}`}
+                    >
+                      <Text className="text-xs text-muted-foreground shrink-0">{c.title}</Text>
+                      <Text className={`text-sm text-right ${toneClass(c.tone)}`}>{v}</Text>
+                    </View>
+                  )
+                })}
+                {actions ? (
+                  <View className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                    {actions}
                   </View>
-                )
-              })}
-            </View>
-          ))}
+                ) : null}
+              </View>
+            )
+          })}
         </View>
       )}
     </View>

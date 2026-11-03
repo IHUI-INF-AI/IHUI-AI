@@ -843,6 +843,18 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // 2026-11-03 PDF worker 长缓存(实测基线:8801 对该 URL 返回 `public, max-age=0`,
+        // 文件 1,078,613 B,每开一次 PDF 全量重下)。唯一生产引用点:
+        // src/components/media/PDFViewer.tsx L41 `workerSrc = '/pdfjs/pdf.worker.min.mjs'`。
+        // 为什么不用 immutable:文件名不带内容哈希,升级 pdfjs-dist 会**原地替换**该文件,
+        // 而 worker 内部硬编码版本(实测 pdfjsVersion=5.4.624,与主 bundle apiVersion=6.2.108
+        // 配对,错配直接抛错)。1 年 immutable 会把升级后的错配窗口钉死在客户端缓存里;
+        // 7 天上限把"每次重下"压成"每周至多一次",同时保留升级后的收敛速度。
+        // 与下方 2026-10-17 图片规则零冲突:那条正则扩展名不含 mjs,本前缀规则也只覆盖 /pdfjs/*。
+        source: '/pdfjs/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800' }],
+      },
+      {
         // 2026-10-17 公网入口提速(仓内 ~5% 那部分):public/ 无指纹静态资产加浏览器/
         // CDN 缓存头。背景:tunnel-metrics 台账 22691 请求,HTML 动态页是回源大头
         // (CF Cache Rules 已把 _next/static 指纹资产打到 100% HIT),但 public/ 下
