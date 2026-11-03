@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import {
   BookOpen,
   Rocket,
@@ -88,80 +89,88 @@ const manualJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '使用说明手册 — 智汇 AI 文档',
-  description:
-    '智汇 AI 使用说明手册(面向终端用户):注册登录、界面导览、AI 对话、Agent 使用、知识库、积分订阅、账户设置、常见问题图文教程。',
-  alternates: {
-    canonical: '/docs/manual',
-    languages: {
-      'x-default': '/docs/manual',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.manual.title'),
+    description: t('meta.manual.description'),
+    alternates: {
+      canonical: '/docs/manual',
+      languages: {
+        'x-default': '/docs/manual',
+      },
     },
-  },
-  openGraph: {
-    title: '使用说明手册 — 智汇 AI',
-    description: '面向终端用户的图文教程,7 章覆盖全部常用功能。',
-    url: `${SITE_URL}/docs/manual`,
-    type: 'article',
-    images: [
-      { url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 使用说明手册' },
-    ],
-  },
+    openGraph: {
+      title: t('meta.manual.title'),
+      description: t('meta.manual.description'),
+      url: `${SITE_URL}/docs/manual`,
+      type: 'article',
+      images: [
+        {
+          url: '/images/logo.png?v=20261021',
+          width: 1200,
+          height: 630,
+          alt: '智汇 AI 使用说明手册',
+        },
+      ],
+    },
+  }
 }
 
 const chapters = [
   {
     num: '01',
     href: '/docs/manual/getting-started',
-    title: '开始使用',
+    key: 'getting-started',
     desc: '注册账号、登录、界面导览、首次对话,3 分钟上手。',
     icon: Rocket,
   },
   {
     num: '02',
     href: '/docs/manual/ai-chat',
-    title: 'AI 对话',
+    key: 'ai-chat',
     desc: '如何与 AI 对话、上传文件、切换模型、查看历史、分享对话。',
     icon: MessageCircle,
   },
   {
     num: '03',
     href: '/docs/manual/agent',
-    title: '使用 Agent',
+    key: 'agent',
     desc: '从市场选用 Agent、收藏、定制提示词、发布到自己的工作台。',
     icon: Bot,
   },
   {
     num: '04',
     href: '/docs/manual/knowledge-base',
-    title: '知识库',
+    key: 'knowledge-base',
     desc: '上传文档、检索测试、把知识库挂载到 Agent,让 AI 懂你的业务。',
     icon: BookOpen,
   },
   {
     num: '05',
     href: '/docs/manual/billing',
-    title: '积分与订阅',
+    key: 'billing',
     desc: '积分消耗规则、套餐对比、充值、发票、共享积分池。',
     icon: Coins,
   },
   {
     num: '06',
     href: '/docs/manual/account',
-    title: '账户设置',
+    key: 'account',
     desc: '个人资料、安全设置、API Key、通知偏好、注销账号。',
     icon: Settings,
   },
   {
     num: '07',
     href: '/docs/manual/faq',
-    title: '常见问题',
+    key: 'faq',
     desc: '登录失败、积分异常、模型不可用、数据导出等高频问答。',
     icon: HelpCircle,
   },
 ]
 
-export default function ManualIndexPage() {
+export default async function ManualIndexPage() {
+  const t = await getTranslations('docs')
   return (
     <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
@@ -173,14 +182,13 @@ export default function ManualIndexPage() {
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-label font-medium text-muted-foreground">
           <BookOpen className="h-3.5 w-3.5" />
-          使用说明手册
+          {t('manual.overview.title')}
         </div>
         <h1 className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           智汇 AI 使用说明手册
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          面向终端用户的图文教程,7 章覆盖注册、对话、Agent、知识库、积分、账户、FAQ。
-          无需技术背景,跟着步骤操作即可。
+          {t('meta.manual.description')} {t('manual.overview.description')}
         </p>
       </header>
 
@@ -197,9 +205,13 @@ export default function ManualIndexPage() {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-muted-foreground">第 {ch.num} 章</span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {t('common.chapterBadge', { num: ch.num })}
+                  </span>
                 </div>
-                <h2 className="text-base font-semibold min-[768px]:text-lg">{ch.title}</h2>
+                <h2 className="text-base font-semibold min-[768px]:text-lg">
+                  {t(`manual.${ch.key}.title`)}
+                </h2>
                 <p className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{ch.desc}</p>
               </div>
               <ChevronRight
@@ -218,13 +230,13 @@ export default function ManualIndexPage() {
           className="inline-flex items-center gap-1 rounded-lg border bg-card px-4 py-2 text-sm hover:bg-accent"
         >
           <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-          <span>返回文档中心</span>
+          <span>{t('common.backToDocs')}</span>
         </a>
         <a
           href="/docs/manual/getting-started"
           className="inline-flex items-center gap-1 rounded-lg bg-cta px-4 py-2 text-body font-medium text-cta-foreground hover:bg-cta/90"
         >
-          <span>开始阅读</span>
+          <span>{t('common.startReading')}</span>
           <ChevronRight className="h-3.5 w-3.5" aria-hidden />
         </a>
       </div>

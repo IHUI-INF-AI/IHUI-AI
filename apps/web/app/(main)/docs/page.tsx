@@ -3,8 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { BackButton } from '@/components/common'
+import { PublishedDocsSection } from '@/components/docs/published-docs-section'
 import { BookOpen, Rocket, Container, Wrench, Brain } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
@@ -111,34 +113,36 @@ const docsJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: '文档中心 — 智汇 AI 全栈 AI 操作系统',
-  description:
-    '智汇 AI(IHUI AI)官方文档中心:快速开始、自托管部署、API 参考、MCP 工具集成、Agent 开发、知识库 RAG、多模型调度等完整指南。',
-  alternates: {
-    canonical: '/docs',
-    // hreflang 只声明真实存在的路由(2026-11-03 现读 curl):简体中文以外,
-    // 繁中/韩/日三种语言前缀的 docs 路由全部 404(app 根无语言前缀目录),已摘掉死声明。
-    // en 只声明到 /en/docs 这一层 —— en 下无 docs 子页,给子页声明 en 等于指 404。
-    languages: {
-      en: '/en/docs',
-      'x-default': '/docs',
-    },
-  },
-  openGraph: {
-    title: '智汇 AI 文档中心',
-    description: '从快速开始到深度开发,完整覆盖智汇 AI 全部能力',
-    url: `${SITE_URL}/docs`,
-    type: 'website',
-    images: [
-      {
-        url: '/images/logo.png?v=20261021',
-        width: 1200,
-        height: 630,
-        alt: '智汇 AI 文档中心',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.overview.title'),
+    description: t('meta.overview.description'),
+    alternates: {
+      canonical: '/docs',
+      // hreflang 只声明真实存在的路由(2026-11-03 现读 curl):简体中文以外,
+      // 繁中/韩/日三种语言前缀的 docs 路由全部 404(app 根无语言前缀目录),已摘掉死声明。
+      // en 只声明到 /en/docs 这一层 —— en 下无 docs 子页,给子页声明 en 等于指 404。
+      languages: {
+        en: '/en/docs',
+        'x-default': '/docs',
       },
-    ],
-  },
+    },
+    openGraph: {
+      title: t('meta.overview.title'),
+      description: t('meta.overview.description'),
+      url: `${SITE_URL}/docs`,
+      type: 'website',
+      images: [
+        {
+          url: '/images/logo.png?v=20261021',
+          width: 1200,
+          height: 630,
+          alt: '智汇 AI 文档中心',
+        },
+      ],
+    },
+  }
 }
 
 const docSections = [
@@ -227,6 +231,7 @@ export default function DocsIndexPage() {
             </ul>
           </section>
         ))}
+        <PublishedDocsSection />
       </div>
 
       <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">

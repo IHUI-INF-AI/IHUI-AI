@@ -6775,6 +6775,33 @@ const checks = [
   //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
   //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
   // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  // 编号 285(2026-11-03 让号):本条原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5 判红(同 id 两道门会串 skipEnv 与失败归属);
+  // 在册口径是「后来者必须改号」,后到的是本条(119c860fc8,11-03 08:32),故本条让号、那一支不动。
+  // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
+  {
+    id: '285',
+    label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
+    script: 'check-docs-public-health.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/app/'],
+    skipEnv: 'HUSKY_SKIP_DOCS_PUBLIC_HEALTH',
+    onFailHint: [
+      '  💡 [D1 hreflang 死链] 某 docs 页 metadata.alternates.languages 声明了不存在的路由(如 /zh-tw/docs)。',
+      '     ① 现读逐条点名:node scripts/check-docs-public-health.mjs --worktree',
+      '     ② 两条合法出路:把该语言页真建出来(路由文件须落在 apps/web/app/ 下),或删掉这条声明;',
+      '        只留 canonical + x-default + 真实存在的语言版。禁止用注释把声明藏起来(判据读源码结构)。',
+      '  💡 [D2 sitemap 死链] app/sitemap.ts 收录了没有路由文件的 /docs* 路径。收录死链比不收录更糟,',
+      '     正解 = 从 sitemap 摘掉该条,或补出页面。',
+      '  💡 [D3 emoji 图标] docs 页的 icon: 字段用了 emoji ⇒ 换 lucide-react 矢量组件(web 侧唯一图标源,AGENTS.md §4)。',
+      '     注意本判据不吃"正文装饰"豁免:emoji 门(108 族)对 docs 正文装饰放行,但 icon: 字段两档都判。',
+      '     文档正文里展示给读者看的示例代码(<pre><code>{`…`}</code></pre> 模板字符串内)不算配置,已按字面量跨度排除。',
+      '  💡 取证:node scripts/check-docs-public-health.mjs --self-test(10 例,含 D3 成对夹具与反向牙)',
+      '     镜像:node --test scripts/tests/check-docs-public-health.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1 git commit ...(不推荐;跳过会留痕)',
+    ],
+  },
   {
     id: '282',
     label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',

@@ -54,10 +54,11 @@ async function probeHeading(page: import('@playwright/test').Page): Promise<Poin
   await page.waitForSelector('.ai-panel-root', { timeout: 5_000 }).catch(() => {})
   const box = await h1.boundingBox()
   expect(box, 'H1 必须量得到盒(量不到 = 未判定,不得记绿)').not.toBeNull()
+  if (!box) throw new Error('H1 盒量不到 ⇒ 未判定,不得记绿')
   // boundingBox 的完整盒型是 { x, y, width, height }(原断言只断言了 x,访问 width 时 TS 判空)
-  const boxRect = box as { x: number; y: number; width: number; height: number }
-  const x = boxRect.x + boxRect.width / 2
-  const y = boxRect.y + boxRect.height / 2
+  // 归并判定:用 `if (!box)` 真空值守卫完成类型收窄,故无需对侧的 `as {…}` 盒型断言 cast。
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
 
   return page.evaluate(
     ({ x, y, h1Box }) => {

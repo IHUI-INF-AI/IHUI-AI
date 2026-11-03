@@ -14,7 +14,7 @@
 // 由"紧随其后的段落"逼晋升;若出图晚于 B 块在场,⑨ 的"出图后再闪位"窗口不存在,先以
 // firstSvg<=promoFrame 显式声明本片的判别力边界(宁可窗口收紧,不静默假绿)。
 // 浏览器/登录/信封夹具与 smoothness spec 同源(./harness-boot),不复制第二份。
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { bootHarnessPage } from './harness-boot'
 
 interface FrameSample {
@@ -28,7 +28,7 @@ interface FrameSample {
   s: string[]
 }
 
-async function readTimeline(page: import('@playwright/test').Page): Promise<{
+async function readTimeline(page: Page): Promise<{
   frames: FrameSample[]
   doneTs: number
 }> {

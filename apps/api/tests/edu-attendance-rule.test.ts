@@ -113,6 +113,25 @@ describe('未补零时刻归一化对照(与 edu-schedule-conflict.normalizeHm �
     expect(hm).toBe('09:00')
   })
 
+  it('PG time 列回读形态 08:30:00 阈值下,09:00 签到判 late(不再落 unjudged)', () => {
+    // 迟到链与补录链共用 normalizeHm 单源:`late_after` 从库里回来就是 '08:30:00'
+    expect(judgeStatus({ lateAfter: '08:30:00', checkInTime: local(9, 0) })).toBe('late')
+    const r = judgeStatusDetailed({ lateAfter: '08:30:00', checkInTime: local(9, 0) })
+    expect(r.reason.startsWith('late:09:00>08:30')).toBe(true)
+    // 早退链同形:early_before = '16:00:00',15:30 签退 ⇒ early(旧尺子在这里判成 unjudged)
+    expect(
+      judgeStatus({
+        lateAfter: '08:30:00',
+        checkInTime: local(8, 0),
+        earlyBefore: '16:00:00',
+        checkOutTime: local(15, 30),
+      }),
+    ).toBe('early')
+    // 带秒不影响边界:08:30:45 阈值下 08:30 签到仍 present(截断到分钟 ⇒ 同档、不严格大于)
+    expect(judgeStatus({ lateAfter: '08:30:45', checkInTime: local(8, 30) })).toBe('present')
+    expect(judgeStatus({ lateAfter: '08:30:45', checkInTime: local(8, 31) })).toBe('late')
+  })
+
   it('hmOfLocalDate 对非法 Date 返回 null(不猜)', () => {
     expect(hmOfLocalDate(new Date('not-a-date'))).toBeNull()
     expect(hmOfLocalDate(null)).toBeNull()

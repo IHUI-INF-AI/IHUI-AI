@@ -126,6 +126,31 @@ export function isDownloadPlatform(value: string | undefined | null): value is D
   return typeof value === 'string' && (DOWNLOAD_PLATFORMS as readonly string[]).includes(value)
 }
 
+/**
+ * 8 端枚举的唯一清单。
+ * 此前详情页内联了一份 `validPlatforms`,归一化规则住在两处 —— 运行期解析器与渲染组件
+ * 一旦对"哪些算合法端"不一致,就会出现"按 bogus 解析、按 desktop 渲染"这种错位。
+ */
+export const DOWNLOAD_PLATFORMS: readonly DownloadPlatform[] = [
+  'web',
+  'desktop',
+  'ios',
+  'android-apk',
+  'mobile',
+  'wechat-miniapp',
+  'extension',
+  'cli',
+]
+
+export function isDownloadPlatform(raw: string): raw is DownloadPlatform {
+  return (DOWNLOAD_PLATFORMS as readonly string[]).includes(raw)
+}
+
+/** 无效/缺失的 platform 参数一律归到 desktop(与详情页既有回落行为一致,且只在这里判一次) */
+export function normalizeDownloadPlatform(raw: string | undefined | null): DownloadPlatform {
+  return typeof raw === 'string' && isDownloadPlatform(raw) ? raw : 'desktop'
+}
+
 /** 单个下载资源文件元数据(一个端可能有多种格式/架构,如 desktop 同时提供 .exe 和 .msi) */
 export interface DownloadAsset {
   /** 文件下载 URL;http(s):// 开头视为外链,否则视为 /public 下相对路径 */
@@ -483,11 +508,14 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       systemRequirementsKey: 'downloadExtensionSysReq',
       installGuideKey: 'downloadExtensionInstallGuide',
       githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)
+      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)。
+      // 体积这里**一律填 0** = "未量":此前写死的 6498757 与实物差 3 倍多,而实物在
+      // 工作树与生产签出里也是两个不同字节数(2026-11-02 实测 1852871 / 1897977)。
+      // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
       assets: [
         {
           href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-          sizeBytes: 6498757,
+          sizeBytes: 0,
           format: 'Chrome MV3 ZIP',
         },
       ],
