@@ -13,11 +13,14 @@
  *  - desktop   → 该端 release 自带的 latest.json(复用 desktop-feed-live,不另起一条腿)
  *  - android   → `app_versions` 注册表 `status='latest'` 行(发布链 `publish-mobile-apk.mjs`
  *                末尾腿已自动登记 ⇒ 这条才是真正"发版即更新")
- *  - ios       → GitHub Release 固定 tag `ios-nightly` 的 `ihui-ai-latest.ipa` 资产
+ *  - ios       → 自有站点腿的恒定指针 `ihui-ai-latest.ipa`(302 + `X-Release-Version`,与安卓同一腿);
+ *                站点腿答不上才回落 GitHub Release 固定 tag `ios-nightly` 的那枚资产
  *  - extension → `public/downloads/extension/` 里按 mtime 最新的那枚实物文件
  *  - cli       → npm registry 的 `dist-tags.latest` + `time[version]`
  *  - mobile    → 与 android 同一个包(只借版本标注,安装包仍归 android-apk 那一格)
- *  - web / 微信小程序 → 没有机器可读的发布源 ⇒ 如实 unavailable,不编版本号
+ *  - 微信小程序 → 该端没有"版本号可枚举"的发布源,但**码本身**是实物:问 `public/images/common/`
+ *                下那枚 `miniapp-qr.png` 的字节(生码链 gen-miniapp-code.mjs 向微信要真图)⇒ 有真图即 live
+ *  - web       → PWA,没有可下载安装包 ⇒ 如实 unavailable,不编版本号
  *
  * 判据与类型住 `downloads-live-meta.ts`(客户端组件也 import 那份),本文件只做取数。
  *
