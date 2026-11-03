@@ -18,11 +18,11 @@ import { TextField } from '../../components/TextField'
 import {
   OAUTH_BRAND_COLORS,
   OAUTH_BUTTON_FOREGROUND,
-  withAlpha,
-  rnRadius,
   rnGeometry,
+  rnRadius,
   rnSpacing,
   rnType,
+  withAlpha,
 } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
@@ -1599,7 +1599,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       letterSpacing: 0.5,
     },
     welcomeText: {
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
       letterSpacing: 0.5,

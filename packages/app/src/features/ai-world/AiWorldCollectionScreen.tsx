@@ -216,7 +216,7 @@ function createAiWorldCollectionStyles(tk: AppThemeTokens) {
     listContent: { padding: rnSpacing.lg, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.sm },
     hero: { gap: rnSpacing.xs, paddingBottom: rnSpacing.md },
     heroTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     rowCard: {
       flexDirection: 'row',

@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: rnSpacing['2xl'] },
     title: {
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
       textAlign: 'center',

@@ -23,7 +23,7 @@ export function ExamResultScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
 }: ExamResultScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
     title: {
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.md,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },

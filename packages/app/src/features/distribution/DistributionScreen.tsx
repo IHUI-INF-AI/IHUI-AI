@@ -33,7 +33,7 @@ export function DistributionScreen({
   onBack,
   rates = [],
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: DistributionScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -208,7 +208,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     earningsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     earningsItem: { alignItems: 'center', flex: 1, minWidth: 88 },
-    earningsValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    earningsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     pendingValue: { color: tk.success.DEFAULT },
     earningsLabel: {
       marginTop: rnSpacing.sm,
