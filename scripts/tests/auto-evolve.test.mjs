@@ -14,7 +14,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { __test__ as ae } from '../auto-evolve.mjs'
+import { __test__ as ae, gateTicketByHumanValve, VALVE_LIST_JSON } from '../auto-evolve.mjs'
 
 const GOOD_GATES = {
   enabled: false,
@@ -209,5 +209,62 @@ test('⑨b 有评估 ⇒ 按模型序放行可排期票,压后票逐条点名', 
   assert.equal(r.rows[0].text, '高分票', '模型序优先于台账序')
   assert.equal(r.skipped.length, 1)
   assert.match(r.skipped[0].reason, /硬阻断|风险/, '压后原因必须逐条点名,不能只报数')
+})
+
+// ===== 人工阀派发路由(2026-11-03 改档):observe-stop 由"照派"改为"单票停机不派" =====
+// 立因:台账里 20 条 valve-observe-stop 是阀判"停机等人",旧代码只记账仍照派,白烧会话额度。
+const VALVE_TEXT = readFileSync(VALVE_LIST_JSON, 'utf8')
+const valveRoute = (ticketText, mode, valveListText = VALVE_TEXT) =>
+  ae.decideValveDispatch(gateTicketByHumanValve({ ticketText, mode, valveListText }), mode, {
+    ticketKey: 'k1',
+    ticketLine: `L7 ${ticketText}`,
+  })
+
+test('⑩a observe + stop-for-human ⇒ 该票不派,台账 valve-observe-stop 带未派标记', () => {
+  const r = valveRoute('把 DEEPSEEK_API_KEY 换成新的密钥', 'observe')
+  assert.equal(r.route, 'skip-observe-stop', 'observe 档命中停机类必须单票跳过,不再照派')
+  assert.equal(r.ledger.action, 'valve-observe-stop', '动作名必须保留,否则既有统计失效')
+  assert.equal(r.ledger.dispatched, false, '台账要能区分"阀判停机但其实派出去了"的旧行')
+  assert.equal(r.ledger.ruleId, 'api-key-change', '规则 id 原样保留')
+  assert.match(r.ledger.why, /停机/, '原判据文案原样保留(不覆盖既有字段含义)')
+  assert.equal(r.ledger.ticketKey, 'k1')
+})
+
+test('⑩b observe + allow ⇒ 照派(不许误伤正常派发)', () => {
+  const r = valveRoute('给 scripts/lib/human-valve.mjs 补一个纯函数', 'observe')
+  assert.equal(r.route, 'dispatch', '自决类必须照派')
+  assert.equal(r.ledger.action, 'valve-allow')
+  assert.ok(!('dispatched' in r.ledger), 'allow 行字段形状不变(不加未派标记)')
+})
+
+test('⑩c enforce + block ⇒ 跳单票(原语义不变)', () => {
+  const r = valveRoute('把 DEEPSEEK_API_KEY 换成新的密钥', 'enforce')
+  assert.equal(r.route, 'block', 'enforce 档命中停机类仍是单票不派')
+  assert.equal(r.ledger.action, 'valve-block')
+  assert.ok(!('dispatched' in r.ledger), 'block 行字段形状不变')
+})
+
+test('⑩d enforce + unjudged ⇒ 整轮停(原语义不变)', () => {
+  const r = valveRoute('任意票面', 'enforce', '')
+  assert.equal(r.route, 'stop-round', 'enforce 档未判定必须 fail-closed 停整轮')
+  assert.equal(r.ledger.action, 'valve-unjudged')
+})
+
+test('⑩e unjudged + observe ⇒ 照派(这一档保持现状,不扩大改动面)', () => {
+  const r = valveRoute('任意票面', 'observe', '')
+  assert.equal(r.route, 'dispatch')
+  assert.equal(r.ledger.action, 'valve-unjudged')
+})
+
+test('⑩f 接线锁:skip-observe-stop 的 continue 必须早于 dispatchSession 调用点', () => {
+  const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
+  const loop = src.slice(src.indexOf('for (const ticket of rows)'))
+  const skipIdx = loop.indexOf("valveRoute.route === 'skip-observe-stop'")
+  const continueIdx = loop.indexOf('continue', skipIdx)
+  const dispatchIdx = loop.indexOf('dispatchSession(gates, ticket, dryRun)')
+  assert.ok(skipIdx > 0, '派发循环里必须有 skip-observe-stop 分支')
+  assert.ok(continueIdx > skipIdx && dispatchIdx > continueIdx, '跳过必须真 continue,且不落到 dispatchSession')
+  assert.ok(src.includes('valve-observe-stop(skip)'), '日志要能一眼分清"停机未派"')
+  assert.ok(src.includes('gateTicketByHumanValve({'), 'A6 依赖的阀调用点不许搬走')
 })
 
