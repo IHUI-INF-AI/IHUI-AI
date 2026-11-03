@@ -5451,6 +5451,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (274d22ec99)
+- 🚀 新功能/改进:考勤后端面补全 票B67 B70 B71 B72 承载层格 (5d1e160ebc)
+- 🚀 新功能/改进:文档中心公开面健康门装车(编号 282,blocking)+ 补记上一枚占位信息 (54e17854b2)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (aa859c014b)
+
+**2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (e92e623473)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (ef806aa543)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (d6b41fae4f)
