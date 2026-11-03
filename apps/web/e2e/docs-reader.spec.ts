@@ -28,6 +28,7 @@
  *   pnpm exec playwright test e2e/docs-reader.spec.ts
  */
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 }
 
@@ -46,7 +47,7 @@ interface PointProbe {
 }
 
 /** 取 H1 中心点,用 elementFromPoint 判"这一屏到底谁在接手" */
-async function probeHeading(page: import('@playwright/test').Page): Promise<PointProbe> {
+async function probeHeading(page: Page): Promise<PointProbe> {
   const h1 = page.locator('h1').first()
   await expect(h1, 'docs 页必须有 H1(没有就没什么可读性可判)').toBeVisible({ timeout: 15_000 })
   // 侧栏面板是客户端挂载的:先给它一次"落位"的机会,否则可能趁它还没出现时假绿。
@@ -115,7 +116,7 @@ interface PathCell {
  * 链找真正在裁的那一层(overflow-x: hidden|clip),用它自己的 scrollWidth vs clientWidth 判。
  * 兜住的出口 = 该格显式 min-width(AGENTS.md §4 读数不得断行的合法出路之一)。
  */
-async function scanPathCells(page: import('@playwright/test').Page): Promise<PathCell[]> {
+async function scanPathCells(page: Page): Promise<PathCell[]> {
   await page.waitForFunction(
     () =>
       Array.from(document.querySelectorAll('code, span, div, td, th')).some((n) =>
