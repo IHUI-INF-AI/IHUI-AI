@@ -236,7 +236,7 @@ export default function Bill() {
             hoverClass="opacity-60"
             onClick={() => void onSubscribe()}
           >
-            <Text className="text-[length:26rpx] font-medium text-primary">
+            <Text className="text-body-sm leading-[normal] font-medium text-primary">
               {tt('bill.subscribe', '订阅')}
             </Text>
           </View>
@@ -331,7 +331,7 @@ export default function Bill() {
             })}
           </View>
         ) : (
-          <View className="py-[48rpx] text-center text-[length:26rpx] text-muted-foreground">
+          <View className="py-[48rpx] text-center text-body-sm leading-[normal] text-muted-foreground">
             <Text>
               {loading ? tt('bill.loading', '加载中…') : tt('bill.empty', '暂无报名账单')}
             </Text>
@@ -348,7 +348,7 @@ export default function Bill() {
               {data.payments.map((p) => (
                 <View key={p.id} className="flex items-center justify-between py-[20rpx]">
                   <View className="flex-1">
-                    <Text className="block text-[length:26rpx] text-foreground">
+                    <Text className="block text-body-sm leading-[normal] text-foreground">
                       {codeText(PAY_METHOD_KEY, p.paymentMethod)}
                       {p.status === 'refunded' ? tt('bill.refunded', '(已退费)') : ''}
                     </Text>

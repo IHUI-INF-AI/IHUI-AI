@@ -72,7 +72,7 @@ function OrderItemImpl({
       }}
       className={cn(
         'rounded-xl border bg-card p-3 text-card-foreground shadow',
-        onClick && 'cursor-pointer hover:shadow-md',
+        onClick && 'cursor-pointer',
         className,
       )}
     >

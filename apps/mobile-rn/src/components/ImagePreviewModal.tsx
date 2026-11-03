@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: rnSpacing.lg,
   },
   hudText: {
     color: HUD_COLOR,

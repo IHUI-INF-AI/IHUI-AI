@@ -43,20 +43,22 @@ export const MENU: ReadonlyArray<MenuEntry> = [
 
 /** 共享屏档位 → 端内类名(rpx = 共享屏 px × 2;圆角只走标准档) */
 export const CENTER = 'flex flex-col items-center justify-center py-[64rpx]'
-export const TITLE = 'block text-[length:48rpx] font-bold text-foreground'
-export const SUBTITLE = 'block text-[length:28rpx] text-muted-foreground mt-[16rpx]'
-export const SOFT_TEXT = 'text-[length:28rpx] text-[var(--color-text-tertiary)]'
-export const DANGER_TEXT = 'text-[length:28rpx] text-[var(--color-destructive)]'
-export const STAT_VAL = 'text-[length:40rpx] font-bold text-[var(--color-success)]'
+export const TITLE = 'block text-display leading-[normal] font-bold text-foreground'
+export const SUBTITLE = 'block text-body leading-[normal] text-muted-foreground mt-[16rpx]'
+export const SOFT_TEXT = 'text-body leading-[normal] text-[var(--color-text-tertiary)]'
+export const DANGER_TEXT = 'text-body leading-[normal] text-[var(--color-destructive)]'
+export const STAT_VAL = 'text-heading leading-[normal] font-bold text-[var(--color-success)]'
 export const STAT_LABEL =
-  'text-[length:20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center'
-export const CONTRIB_LABEL = 'text-[length:22rpx] text-muted-foreground'
-export const MEMBER_NAME = 'flex-1 text-[length:32rpx] font-semibold text-foreground truncate'
+  'text-badge leading-[normal] text-[var(--color-success-deep-text)] mt-[16rpx] text-center'
+export const CONTRIB_LABEL = 'text-caption leading-[normal] text-muted-foreground'
+export const MEMBER_NAME =
+  'flex-1 text-title leading-[normal] font-semibold text-foreground truncate'
 export const MEMBER_META =
-  'block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx] truncate'
+  'block text-caption leading-[normal] text-[var(--color-text-tertiary)] mt-[16rpx] truncate'
 export const AVATAR_IMG = 'w-[88rpx] h-[88rpx] rounded-2xl flex-shrink-0'
 export const AVATAR_BOX = `${AVATAR_IMG} bg-[var(--color-muted)] items-center justify-center`
-export const BADGE = 'px-[12rpx] py-[2rpx] rounded-md text-[length:20rpx] text-muted-foreground'
+export const BADGE =
+  'px-[12rpx] py-[2rpx] rounded-md text-badge leading-[normal] text-muted-foreground'
 export const badgeCls = (on: boolean): string =>
   `${BADGE} ${on ? 'bg-[var(--color-success-light)]' : 'bg-card'}`
 

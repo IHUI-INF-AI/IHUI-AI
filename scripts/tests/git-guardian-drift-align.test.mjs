@@ -221,4 +221,29 @@ test('CLI 契约:无漂移时同样 exit 0 + 最后一行可解析(守护不得�
     rmScratch(tmp)
   }
 })
+
+test('装车证明(2026-11-03 补):两层派生都必须带 timeout,超时只记失败不拖死整轮守护', () => {
+  const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
+  // 当日实测:`--align-drift` 从 13:11:44 挂到 16:22:55(3h11m)才被人杀掉,期间整轮守护静默。
+  assert.match(
+    body,
+    /timeout:\s*Number\(process\.env\.IHUI_WORKTREE_HEAL_TIMEOUT_MS\s*\|\|[^)]*\)/,
+    'run() 的 execFileSync 必须带 timeout(env 可覆盖)——缺它=守护整轮可被一次派生无限期挂住',
+  )
+  // 反向锁:摘掉 timeout 这一行,上面即翻红;而"只判有没有 windowsHide"那种旧断言拦不住这一型。
+  const withoutTimeout = body.replace(/timeout:[^\n]*\n/, '')
+  assert.ok(withoutTimeout !== body, 'timeout 行形态与断言不符(替换没命中 ⇒ 断言是空的)')
+  assert.doesNotMatch(
+    withoutTimeout,
+    /timeout:\s*Number\(process\.env\.IHUI_WORKTREE_HEAL_TIMEOUT_MS/,
+    '去掉 timeout 后本断言必须判不出通过(证明这条锁真的有牙)',
+  )
+  // 失效方向:两条调用各自 catch,失败只落一行日志,不得把整轮 tick 带走
+  assert.equal(
+    (body.match(/不阻断其余守护/g) ?? []).length,
+    2,
+    '恢复层与对齐层各要有一条"失败不阻断其余守护"—— 超时被读成守护死了才是更坏的结果',
+  )
+  assert.match(body, /stdio:\s*\['ignore',\s*'pipe',\s*'pipe'\]/, '§12g 派生必须显式接管 stdio(2026-10-04 补的那一手)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

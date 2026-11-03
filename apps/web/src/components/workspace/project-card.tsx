@@ -33,7 +33,7 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
   const fileCount = Number(project.fileCount ?? 0)
 
   return (
-    <Card className="flex h-full flex-col transition-colors hover:bg-accent hover:shadow-md">
+    <Card className="flex h-full flex-col transition-colors hover:bg-accent">
       <CardHeader>
         <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <FolderOpen className="h-5 w-5" />

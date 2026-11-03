@@ -32,7 +32,7 @@ export function CircleDetailScreen({
   onPressMembers,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CircleDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -105,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,

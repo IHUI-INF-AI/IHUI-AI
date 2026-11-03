@@ -87,14 +87,19 @@ vi.mock('@ihui/api-client', () => ({ fetchApi: api.fetchApi }))
 
 // ---- 宿主替身 -----------------------------------------------------------------
 vi.mock('react-native', () => {
-  const mk =
-    (tag: string) =>
-    (props: { children?: ReactNode; onPress?: () => void; [k: string]: unknown }) => {
+  const mk = (tag: string) => {
+    function HostElement(props: {
+      children?: ReactNode
+      onPress?: () => void
+      [k: string]: unknown
+    }) {
       const { style, onPress, children, ...rest } = props
       const flat = (v: unknown): unknown =>
         Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
       return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
     }
+    return HostElement
+  }
   return {
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     useColorScheme: () => 'light',
@@ -148,7 +153,10 @@ vi.mock('@react-navigation/native', () => ({
 vi.mock('@ihui/ui-native', () => ({
   Tappable: (props: { children?: ReactNode; onPress?: () => void; [k: string]: unknown }) => {
     const { children, onPress, style, ...rest } = props
-    return createElement('button', { ...rest, onClick: onPress }, children)
+    // style 可能是 RN 的数组形态;react-dom 只认扁平对象,直接下发会抛「set on proxy」
+    const flat = (v: unknown): unknown =>
+      Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
+    return createElement('button', { ...rest, onClick: onPress, style: flat(style) }, children)
   },
 }))
 

@@ -567,7 +567,7 @@ function makeStyles() {
       gap: rnSpacing.xs,
       marginTop: rnSpacing.xs,
     },
-    scoreValue: { fontSize: 32, fontWeight: '700' },
+    scoreValue: { fontSize: rnType.displayLg.size, fontWeight: '700' },
     scoreMax: { fontSize: rnType.body.size, color: tokens.text.tertiary },
     scoreLevel: { marginLeft: rnSpacing.sm, fontSize: rnType.body.size, fontWeight: '600' },
     track: {

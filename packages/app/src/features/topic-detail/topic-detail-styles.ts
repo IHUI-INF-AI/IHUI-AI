@@ -31,7 +31,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     headerInfo: { flex: 1, gap: rnSpacing.xs },
-    topicName: { fontSize: 17, fontWeight: '600', color: tk.text.primary },
+    topicName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     topicDesc: {
       fontSize: rnType.bodySm.size,
       lineHeight: rnType.bodySm.lineHeight,
