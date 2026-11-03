@@ -210,7 +210,7 @@ function makeStyles() {
     rowCell: { flex: 1 },
     submit: {
       height: 46,
-      marginTop: 22,
+      marginTop: rnSpacing.xl,
       borderRadius: rnRadius.sm,
       backgroundColor: tokens.brand.cta,
       alignItems: 'center',
