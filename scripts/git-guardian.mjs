@@ -12790,6 +12790,13 @@ function startDaemon(bootGuard = null) {
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
+        // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
+        // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
+        // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
+        // `auditSweeperLiveness` 也住在同一条停摆链里(它本该是第一个喊出来的)。
+        // 两枚都自带节流戳 ⇒ 与计划任务档并存时只有先到那一个真跑,不翻倍发信。
+        auditImmutableGuardNewCommits()
+        auditSweeperLiveness()
         sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
