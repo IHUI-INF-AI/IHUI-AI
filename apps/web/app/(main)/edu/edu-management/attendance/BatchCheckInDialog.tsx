@@ -19,15 +19,15 @@ import {
   DialogTitle,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { ClassSelect } from './ClassSelect'
+import {
+  backfillBlocked,
+  buildBatchCheckInPayload,
+  type BatchCheckInPayload,
+} from './check-in-contract'
 
 /** 批量点名协议响应(后端 batch-check-in 契约) */
 interface BatchCheckInResult {
@@ -55,41 +55,43 @@ export function BatchCheckInDialog({
   onOpenChange,
   defaultDate,
   defaultClassId = '',
-  statusOptions,
+  today,
   onDone,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   defaultDate: string
   defaultClassId?: string
-  statusOptions: ReadonlyArray<{ value: string; labelKey: string }>
+  /** 上海业务日(与后端同日校验同口径):非当日即回填,必须给该日内时刻 */
+  today: string
   onDone: () => void
 }) {
   const t = useTranslations('eduAttendance')
   const [classId, setClassId] = React.useState(defaultClassId)
   const [date, setDate] = React.useState(defaultDate)
-  const [status, setStatus] = React.useState('present')
+  const [hm, setHm] = React.useState('')
   const [remark, setRemark] = React.useState('')
   const [result, setResult] = React.useState<BatchCheckInResult | null>(null)
 
   React.useEffect(() => {
     if (open) {
       setDate(defaultDate)
+      // 每次开弹窗回到「未填时刻 = 当日由服务器落 now」,不沿用上一次回填用的时刻
+      setHm('')
       if (defaultClassId) setClassId(defaultClassId)
       setResult(null)
     }
   }, [open, defaultDate, defaultClassId])
 
-  const mutation = useMutation<BatchCheckInResult, Error>({
-    mutationFn: () =>
+  /** 载荷在渲染期算:回填缺时刻 ⇒ null ⇒ 按钮禁用、请求根本不发出去;状态一律服务端现算(无 status) */
+  const momentMissing = backfillBlocked(date, today, hm)
+  const payload = buildBatchCheckInPayload({ classId, date, hm, today, remark })
+
+  const mutation = useMutation<BatchCheckInResult, Error, BatchCheckInPayload>({
+    mutationFn: (body) =>
       apiOrThrow<BatchCheckInResult>('/api/edu-ai-management/attendance/batch-check-in', {
         method: 'POST',
-        body: JSON.stringify({
-          classId,
-          date,
-          status,
-          remark: remark.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       }),
     onSuccess: (data) => {
       setResult(data)
@@ -97,7 +99,7 @@ export function BatchCheckInDialog({
     },
   })
 
-  const canSubmit = classId.length > 0 && !mutation.isPending
+  const canSubmit = classId.length > 0 && payload !== null && !mutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,19 +118,8 @@ export function BatchCheckInDialog({
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('status')}</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {t(s.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>{t('checkInAt')}</Label>
+              <Input type="time" value={hm} onChange={(e) => setHm(e.target.value)} />
             </div>
           </div>
           <div className="grid gap-1.5">
@@ -139,6 +130,7 @@ export function BatchCheckInDialog({
               placeholder={t('remarkPlaceholder')}
             />
           </div>
+          {momentMissing ? <Alert variant="warning" description={t('backfillNeedsTime')} /> : null}
           {mutation.error ? (
             <Alert
               variant="danger"
@@ -172,7 +164,12 @@ export function BatchCheckInDialog({
           ) : null}
         </div>
         <DialogFooter>
-          <Button onClick={() => mutation.mutate()} disabled={!canSubmit}>
+          <Button
+            onClick={() => {
+              if (payload) mutation.mutate(payload)
+            }}
+            disabled={!canSubmit}
+          >
             {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             <Users className="mr-1 h-4 w-4" />
             {result ? t('batchCheckIn') : t('batchConfirm')}
