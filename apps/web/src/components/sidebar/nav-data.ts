@@ -17,6 +17,7 @@ import {
   Cable,
   CircleIcon,
   ClipboardCheck,
+  UserCheck,
   ClipboardList,
   Cloud,
   Code,
@@ -253,6 +254,8 @@ const EDU_ITEMS: NavItem[] = [
     icon: ClipboardCheck,
     permission: 'edu:manage',
   },
+  // 学生本人会见页(我的考勤):所有人可见,不加 permission/adminOnly(数据源按登录者自身过滤)
+  { href: '/edu/attendance', labelKey: 'eduMyAttendance', icon: UserCheck },
   {
     href: '/edu/edu-management/grades',
     labelKey: 'eduGradeMgr',
