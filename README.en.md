@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **619 table
 | 工程守门 | 322 | `guardianGates` |
 | — blocking | 293 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18985 | `trackedFiles` |
+| 跟踪文件 | 18986 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -102,6 +102,13 @@ Headline claims (same source as the table below, all live-computed): **619 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:三轮合并后按生成器重建三端 ui-routes 与小程序 i18n,重算四语 README 数字与最近更新 (aab5de8927)
+- 🐞 Fix:知识库上传框收了 md 而后端白名单不收,用户选中必吃 400 —— 白名单补 md、UI 摘掉后端故意拒收的 html/htm(票 D53 第九批) (c52250f555)
+- 📚 Docs:摘掉收敛写进 HEAD 的三行冲突标记与一条 R4 重复登记副本,体积回到预算内(余量 389 字节) (4fa7c3fd34)
+- 📚 Docs:归档件先行——2026-11-03 体积清偿的原文逐字落档(收敛残留标记 3 行 + R4 重复登记副本 1 行 + 尺子行的前像) (f460a82b4e)
+- 🐞 Fix:静态导出移出 docs/[slug]，空 generateStaticParams 不再阻断构建 (7fd9a596ac)
+
 **2026-11-03**
 - 📚 Docs:F9 撞号让号(正牌取号器发 Y-3,原 D53 行留痕归档)并摘除滞留已勾行 RP-35 (72ec4879aa)
 - 🐞 Fix:摘除合并回灌造成的 DOWNLOAD_PLATFORMS/isDownloadPlatform 重复定义,修 T1 双声明 typecheck 红 (baab5bfadb)
@@ -419,9 +426,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (17c174997e)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bf9b34d0db)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
