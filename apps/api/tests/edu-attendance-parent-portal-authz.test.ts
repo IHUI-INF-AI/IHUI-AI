@@ -317,14 +317,24 @@ function accessToken(userId: string, extraClaims: Record<string, unknown> = {}):
   return `${head}.${body}.${H.sigOf(`${head}.${body}`)}`
 }
 
+/**
+ * Fastify 5 的 setErrorHandler 默认把错误参数标成 unknown，
+ * 这里用 instanceof + in 收窄成处理器真正会读的两项(状态码/消息)。
+ */
+function toHttpError(err: unknown): { statusCode: number; message: string } {
+  if (err instanceof Error) {
+    const statusCode =
+      'statusCode' in err && typeof err.statusCode === 'number' ? err.statusCode : 500
+    return { statusCode, message: err.message }
+  }
+  return { statusCode: 500, message: String(err) }
+}
+
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
-  app.setErrorHandler((err, _request, reply) => {
-    const statusCode =
-      typeof (err as { statusCode?: number }).statusCode === 'number'
-        ? (err as { statusCode: number }).statusCode
-        : 500
-    reply.status(statusCode).send({ code: statusCode, message: err.message })
+  app.setErrorHandler((err: unknown, _request, reply) => {
+    const { statusCode, message } = toHttpError(err)
+    reply.status(statusCode).send({ code: statusCode, message })
   })
   await app.register(eduAiManagementRoutes, { prefix: PREFIX })
   await app.ready()
@@ -338,7 +348,8 @@ interface Call {
   /** 登录主体:发真凭据,由真鉴权链注入 request.userId;不传 = 匿名 */
   as?: string
   query?: Record<string, string>
-  body?: unknown
+  /** 请求体只接受 JSON 对象(与 inject 的 payload 类型对齐,不透传任意 unknown) */
+  body?: Record<string, unknown>
 }
 
 async function call(o: Call): Promise<{ statusCode: number; body: Record<string, unknown> }> {
