@@ -70,14 +70,16 @@ export interface ModelConfig {
 
 // 共享类型 ModelConfigType 已下沉到 packages/types,两端复用(替代原内联字面量)
 export interface ModelConfigDialogProps {
-  visible?: boolean
+  /** 可见性(必填,对齐 RN 端契约) */
+  visible: boolean
   /** 'default' = 简化版;'aigc' = 对齐原项目 ModelConfigDialog/indexa.vue */
   variant?: 'default' | 'aigc'
   /** default variant 用 */
   modelType?: ModelConfigType
-  /** default variant 用 */
-  config?: ModelConfig
-  onChange?: (config: ModelConfig | Record<string, unknown>) => void
+  /** default variant 用(必填,对齐 RN 端契约) */
+  config: ModelConfig
+  /** 配置变化(必填,对齐 RN 端契约) */
+  onChange: (config: ModelConfig | Record<string, unknown>) => void
   onClose?: () => void
   // ===== aigc variant 专用 =====
   /** aigc variant:动态配置项(来自后端 modelInfo.variables) */
