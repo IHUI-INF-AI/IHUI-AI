@@ -47,8 +47,8 @@ export default function CountdownTimer({
       : `${count}s`
 
   return (
-    <View className="inline-flex items-center px-3 py-1 rounded-md bg-muted">
-      <Text className="text-xs text-muted-foreground">{display}</Text>
+    <View className="inline-flex items-center px-md py-xs rounded-md bg-muted">
+      <Text className="text-label text-muted-foreground">{display}</Text>
     </View>
   )
 }

@@ -328,7 +328,7 @@ export default function ConversationImportPage() {
                   hoverClass="opacity-60"
                 >
                   <Text
-                    className={`text-[length:26rpx] ${
+                    className={`text-body-sm leading-[normal] ${
                       active ? 'text-foreground font-semibold' : 'text-foreground'
                     }`}
                   >

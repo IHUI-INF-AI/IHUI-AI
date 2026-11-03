@@ -533,7 +533,9 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <View className={`flex items-center gap-[8rpx] text-[length:26rpx] ${mediaTextColor}`}>
+          <View
+            className={`flex items-center gap-[8rpx] text-body-sm leading-[normal] ${mediaTextColor}`}
+          >
             <LineIcon
               name="headphones"
               size={26}
@@ -555,7 +557,9 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <View className={`flex items-center gap-[8rpx] text-[length:26rpx] ${mediaTextColor}`}>
+          <View
+            className={`flex items-center gap-[8rpx] text-body-sm leading-[normal] ${mediaTextColor}`}
+          >
             <LineIcon
               name="paperclip"
               size={26}
