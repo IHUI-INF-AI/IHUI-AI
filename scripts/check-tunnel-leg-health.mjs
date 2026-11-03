@@ -74,6 +74,7 @@
  * 一律落到对应维的 unjudged,不回落、不猜。
  */
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 const REMOTE_TUNNEL_PORTS = [7843, 7844]
@@ -98,6 +99,17 @@ const TASKLIST = 'C:/Windows/System32/tasklist.exe'
 // `/f:XML` 输出与区域无关(Level 是数字、TimeCreated 是 ISO、cloudflared 的正文恒英文)——
 // `/f:CSV` 与 `/f:RD` 在本机实测直接报「选项 f 的值无效」,别改回去。
 const WEVTUTIL = 'C:/Windows/System32/wevtutil.exe'
+// netstat / netsh 必须是绝对路径(§5b 同型):守护由 nssm 托管,而 nssm 的 AppEnvironmentExtra 是
+// **同名变量整值覆盖**(不是追加),本机该键写的正是 `PATH=C:/Program Files\Git\cmd` ⇒ 服务身份的 PATH
+// 里没有 System32,裸名派生只会得到 `spawn netstat ENOENT` / `spawn netsh ENOENT`(2026-11-03 实测)。
+// 推导优先 + 硬编码兜底 + 按当次存在性选在位者,与 check-service-binary-paths.mjs 的 NETSTAT_CANDIDATES
+// 同一范式;该服务键下 `SystemRoot` 实测为空值,`windir` 才是有效值,所以两者都容错,再去掉尾部斜杠。
+const SYSTEM_ROOT = (process.env.SystemRoot || process.env.windir || 'C:\\Windows').replace(/[\\/]+$/, '')
+const NETSTAT_CANDIDATES = [SYSTEM_ROOT + '\\System32\\netstat.exe', 'C:\\Windows\\System32\\netstat.exe']
+const NETSH_CANDIDATES = [SYSTEM_ROOT + '\\System32\\netsh.exe', 'C:\\Windows\\System32\\netsh.exe']
+const pickBin = (candidates) => candidates.find((p) => existsSync(p)) ?? candidates[candidates.length - 1]
+export const NETSTAT_BIN = pickBin(NETSTAT_CANDIDATES)
+export const NETSH_BIN = pickBin(NETSH_CANDIDATES)
 const SPAWN_TIMEOUT_MS = 15000
 const TASKLIST_TIMEOUT_MS = 10_000
 // 重启账的量纲依据(全部现读,非拍的):14 天内 provider=Cloudflared 共 21 条、**全为 Level 4(信息)**,
@@ -879,9 +891,9 @@ export function decideExit(dims, controlPassed) {
 async function collect() {
   const [ps, netsh, netshV4, netstat, ev, sc] = await Promise.all([
     runCapture(TASKLIST, ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq cloudflared.exe'], TASKLIST_TIMEOUT_MS),
-    runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
-    runCapture('netsh', ['interface', 'ipv4', 'show', 'addresses']),
-    runCapture('netstat', ['-ano']),
+    runCapture(NETSH_BIN, ['interface', 'ipv6', 'show', 'addresses']),
+    runCapture(NETSH_BIN, ['interface', 'ipv4', 'show', 'addresses']),
+    runCapture(NETSTAT_BIN, ['-ano']),
     runCapture(WEVTUTIL, ['qe', 'Application', `/q:*[System[Provider[@Name=\'Cloudflared\'] and TimeCreated[timediff(@SystemTime) <= ${RESTART_EVENT_WINDOW_MS}]]]`, '/f:XML', '/c:200'], SPAWN_TIMEOUT_MS),
     runCapture(SC_EXE, ['qc', CLOUDFLARED_SERVICE_NAME], SPAWN_TIMEOUT_MS),
   ])
