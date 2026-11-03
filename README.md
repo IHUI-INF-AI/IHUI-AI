@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 293 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
 | 跟踪文件 | 18997 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5460,7 +5458,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:补 scripts/tests/data-json-shape.test.mjs 的溯源水印(门 47 HEAD 面点名) (5d007afdb9)
 - 🐞 修复:工作区自愈两层派生补 timeout —— 一次 --align-drift 挂死能让整轮守护静默 3 小时 (386a71182a)
 - 🐞 修复:考勤屏测试替身过 lint（HostElement 具名、去未用 style），清 gate-analyse 的 [lint] 红 (6e9aaf553b)
-
 **2026-11-03**
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
 - 📚 文档:清理 Gitee 下线后残留的过时注释,避免宣称已不存在的直链 (228e23dce4)
@@ -5509,7 +5506,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:指标存在性门让号 282→286 装车,根护栏巡检补上「远端 tip」那张脸 (8b56f8a460)
 - ♻️ 重构:22px 金额/标题落 heading 20 档 (2be9294d5f)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14cdb641cc)
-
 **2026-11-03**
 - 🐞 修复:收窄家长端鉴权用例 unknown 类型并清零 e2e --no-ignore eslint 报错 (75a9836204)
 - 🐞 修复:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (73f7fb1242)
@@ -41527,3 +41523,21 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - 🐞 修复:修掉门 282 自带的 2 条类型错误(该腿本地不红、CI 会红) (9d98965011)
 - 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六
 - 指标存在性对账(2026-11-03 立,接线面=根 `package.json` 脚本位 `check:metric-existence`,非提交链): `check-metric-existence.mjs` — 判 alerts 规则引用的指标名在 Prometheus 是否真实存在且近期有样本;T1 拼错(编辑距离 ≤2 并打印最近名字)/T2 不存在/T3 无样本 三态不并桶,任一命中 exit 1。立因:把指标名改错后 promtool 仍 SUCCESS、reload 200、health=ok,规则从此刻起静默永不触发,而既有各门(Metric 存在性只查大屏 expr、P6 只查 alerts.yml 且把无样本算 live)一条都不响。
+| — warn | 31 | `guardianWarn` |
+100 入库模型 · 38 平台自动发布 · 4021 测试文件 · 320 道工程守门 · 52 CI workflows ·
+| 测试文件 | 4021 | `testFiles` |
+| 工程守门 | 320 | `guardianGates` |
+| — blocking | 291 | `guardianBlocking` |
+| 跟踪文件 | 18950 | `trackedFiles` |
+  <strong>619 张表 · 4683 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4021 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 52 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **4021 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4683 API 路由 / 4021 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 52 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4021 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4021 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **4021 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:619 张表 · 4683 API 路由 · 4021 测试文件 · ~14839 测试用例
+- **质量**:320 道工程守门（244 blocking）· 52 CI workflows · 删水印即 CI 失败
+### 通病 ② 边界条件处理不足 → 实际:4021 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4021 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **4021 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4021 test files / 67 e2e spec / 4683 API 路由 / 619 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
