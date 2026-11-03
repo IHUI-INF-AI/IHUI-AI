@@ -9114,6 +9114,30 @@
           "title": "媒體檔案數量超出限制",
           "action": "精簡附件後重試"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "記憶夢境整理失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "記憶遺忘清理失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法記憶儲存失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "記憶檢索失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "記憶儲存失敗",
+          "action": "請稍後重試"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "記憶主題產生失敗",
+          "action": "請稍後重試"
+        },
         "MISSING_DATA": {
           "title": "缺少必填參數",
           "action": "補充參數後重試"
