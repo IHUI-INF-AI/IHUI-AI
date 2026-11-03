@@ -20,6 +20,8 @@ export * from './fallback-models'
 export * from './share'
 export * from './model-catalog'
 export * from './model-names'
+// 2026-11-03 跨端对齐:模型编辑只读字段清单上收共享(web 置灰 / RN 编辑 / 驱动层 payload 同源)
+export * from './model-edit'
 export * from './web-portal'
 export * from './about-sections'
 export * from './carte-sections'
