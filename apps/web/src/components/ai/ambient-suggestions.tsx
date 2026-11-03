@@ -89,7 +89,10 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
 
   if (!enabled) {
     return (
-      <div className="flex justify-center py-1" data-testid="ambient-suggestions-restore-wrap">
+      <div
+        className="flex shrink-0 justify-center py-1"
+        data-testid="ambient-suggestions-restore-wrap"
+      >
         <button
           type="button"
           data-testid="ambient-suggestions-restore"
@@ -121,7 +124,7 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
   return (
     <div
       data-testid="ambient-suggestions"
-      className="mx-auto flex flex-wrap items-center gap-1.5 py-2"
+      className="mx-auto flex shrink-0 flex-wrap items-center gap-1.5 py-2"
     >
       <span className="inline-flex items-center gap-1 text-label text-muted-foreground">
         <Sparkles className="h-3 w-3" aria-hidden="true" />
