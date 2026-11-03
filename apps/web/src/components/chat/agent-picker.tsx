@@ -72,7 +72,7 @@ export function AgentPicker() {
         >
           <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           {isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <Loader2 className="agent-picker-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
             <span className="agent-picker-label min-w-0 max-w-[6rem] truncate">
               {selectedLabel}
