@@ -18,8 +18,8 @@
  * 判据(逐行;一行多条命中只计最先的一条,M1→M4 序):
  *   M1 `gitcode.com/IHUI-AI` —— 死仓 URL(GitCode 仓 2026-10-23 已删,指向它的链接都是死的);
  *   M2 `gitee.com/JLSLSSZWHYXGS_0/IHUI-AI`(仓库根链接 = 徽章/clone 入口;`/releases/`
- *      资产路径历史豁免 —— Gitee 发布目标已于 2026-11-03 下线(空仓/零推送/直链切 GitHub),
- *      保留豁免仅为兼容历史文档,新文档不得再写 Gitee 资产链接);
+ *      资产路径历史豁免 —— Gitee 发布目标于 2026-11-03 复活为国内主通道(仓库快照 + 发布包下载),
+ *      保留豁免仅为兼容历史文档与新的国内主通道直链;仓库根链接仍判红);
  *   M3 同行含「国内镜像」且含 `gitee|gitcode` —— 徽章标签 + 镜像链接的组合
  *      (npm registry 的「国内镜像」散文不在射程:行内无 gitee/gitcode);
  *   M4 行含 `mirror-to-cn` 且不含弃用标记(弃用|已删除|不再写回|退役|2026-10-23)——
@@ -89,7 +89,7 @@ export const LINE_CRITERIA = [
   {
     code: 'M2',
     re: /gitee\.com\/JLSLSSZWHYXGS_0\/IHUI-AI(?!\/releases)/i,
-    note: 'Gitee 仓库根链接(徽章/clone 入口;/releases/ 资产路径历史豁免:Gitee 发布目标已于 2026-11-03 下线)',
+    note: 'Gitee 仓库根链接(徽章/clone 入口;/releases/ 资产路径历史豁免:Gitee 发布目标 2026-11-03 复活为国内主通道)',
   },
 ]
 
