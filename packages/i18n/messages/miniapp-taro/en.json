@@ -4817,6 +4817,7 @@
     "status": {
       "present": "Present",
       "late": "Late",
+      "early": "Left early",
       "absent": "Absent",
       "leave": "Leave"
     },
@@ -4828,7 +4829,10 @@
     "batchDoneToast": "Class marked",
     "batchResult": "Class marked: {created} created, {skipped} skipped, {missed} not saved",
     "noClassReason": "No class found, so class marking is unavailable",
-    "multiClass": "Multiple classes in the list; only {classId} will be marked"
+    "multiClass": "Multiple classes in the list; only {classId} will be marked",
+    "checkInAt": "Check-in time",
+    "momentNow": "Now",
+    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",
