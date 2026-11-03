@@ -41,11 +41,14 @@
  *    而不是继续吃上一轮的旧读数当成"无发现"。`--keep-stale` 可关掉这一手;
  *  - `shape`(rc 1):配置/参数形状坏(路径空、limit 非法)—— 不猜,直接判死。
  *
- * 接线现状(如实交代,不声称已接线):
+ * 接线现状(2026-11-04 现读核对;派发点在 `scripts/git-guardian.mjs:12757`):
  *  - 消费端已就位:auto-triage 按同一份配置的同一路径取数,本器落到那儿即闭环,**无需二次改配置**;
- *  - 触发端**尚未接线**:`scripts/git-guardian.mjs` 的 `dispatchAutoTriage` 与
- *    `scripts/auto-evolve.mjs` 的感知轮都在别的席位手里在飞,本器不写它们;
- *    故本文件**不声称**自己是 pre-commit / guardian / CI 门,只作独立 CLI 交付。
+ *  - 触发端**已接线**:守护每轮健康检查调 `dispatchExportUserFeedback()`(同文件 13668 起),20 分钟
+ *    节流(`IHUI_USER_FEEDBACK_EXPORT_INTERVAL_MS` 可调,`IHUI_GUARDIAN_DISABLE_USER_FEEDBACK_EXPORT=1`
+ *    可关)execFileSync 本文件;派发成败只记日志,不进提交链(§12e);
+ *  - 已知结构性卡点(2026-11-04 实测,非本器缺陷):`apps/api/.env` 的 DATABASE_URL 指向 localhost:8810,
+ *    而 8810 在 `guardDbDsn` 的黑名单里(生产隧道口) ⇒ 运行期恒 rc 2「未判定」、导出件永不落盘。
+ *    出路是把本地库挪到非 8810 回环口或正式退役本源,不得为跑通放宽守卫(AGENTS §5)。
  *
  * 用法:
  *   node scripts/export-user-feedback.mjs                  # 导一次(默认上限 500 行)
