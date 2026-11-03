@@ -9741,6 +9741,143 @@ export function auditImmutableGuardNewCommits(opts = {}) {
   return { ran: true, state: 'clean', detail: parsed }
 }
 
+/** 下载栏运行期真值健康对账的节流窗口(30 分钟:站点侧 ISR 600s + CDN 600s,再密就是自己造重复告警) */
+export const DOWNLOADS_HEALTH_INTERVAL_MS = 30 * 60 * 1000
+
+/**
+ * 下载栏八端 + 整站新鲜度巡检(2026-11-03 立)—— `check-downloads-live-health.mjs` 唯一的调度器。
+ *
+ * 立因(同日只读审计现读):下载栏的降级契约是「取不到就不覆盖底稿」,八端里 cli / extension /
+ * 微信小程序码 / mobile 四条腿**没有任何一道哨兵在读**;`/downloads.json` 的形状与新鲜度也无人核对,
+ * `generatedAt` 全仓零消费者 —— 站点整体停止刷新时没有一个人会知道。判据本体住在那把尺子里
+ * (含两轮确认,防一次网络抖动喊人),本层只做派发 + 三态归桶 + 台账。
+ *
+ * 三态不并桶:red ⇒ 一封(身份只取「类别 + 计数档」,不含时刻/sha,§5e-3);unjudged ⇒ 只写日志
+ * **不记绿**;ok ⇒ 静默。上一轮读数写进 `downloads-live-health-last.json` 供尺子做两轮确认 ——
+ * 只有判出结论的一轮才写(拿不到结论就把台账留在原地,免得把"没判成"洗成"这轮没问题")。
+ */
+export function sweepDownloadsLiveHealth(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = DOWNLOADS_HEALTH_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'downloads-live-health-tick.ts'),
+    stateFile = join(dirname(LOG), 'downloads-live-health-last.json'),
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+    writeFile = (p, s) => writeFileSync(p, s, 'utf8'),
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-downloads-live-health.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 下载栏健康巡检:尺子不在位(scripts/check-downloads-live-health.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  if (existsSync(tickFile)) {
+    try {
+      if (now - statSync(tickFile).mtimeMs < intervalMs) return { ran: false, why: '未到节流窗口' }
+    } catch {
+      /* 量不到 mtime ⇒ 当作没跑过,宁可多跑一轮 */
+    }
+  }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFile(tickFile, new Date(now).toISOString())
+  } catch (e) {
+    logger(`⚠️ 下载栏健康巡检:节流戳写不掉(${String(e?.message ?? e).slice(0, 80)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 90 * 1000, // 两臂超时 5s + 15s + 一次重试 6s,留足余量(守门 80:热路径一律带上限)
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生必须显式接管 stdio
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // exit 1 = 判出红、exit 2 = 未判定;两种都不是"尺子坏了",结论整份在 stdout
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const stdout = String(r.out ?? r.stdout ?? '')
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  if (!parsed || typeof parsed.state !== 'string') {
+    logger(
+      `⚠️ 下载栏健康巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};` +
+        `stderr 前 120:${String(r.err ?? r.stderr ?? '').slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"下载栏没问题"(§0.3)`,
+    )
+    return { ran: true, state: 'undetermined', why: '结论不可用' }
+  }
+  if (parsed.state === 'unjudged') {
+    logger(
+      `⚠️ 下载栏健康巡检:未判定 —— ${String(parsed.reason ?? '(未给原因)').slice(0, 120)} | 臂:${(parsed.tried ?? []).join(' → ')}(不记绿,§0.3)`,
+    )
+    return { ran: true, state: 'undetermined', detail: parsed }
+  }
+  // 台账:供下一轮做两轮确认。只有判出结论的一轮才写。
+  try {
+    const states = {}
+    for (const x of parsed.readings ?? []) states[x.platform] = x.source
+    writeFile(
+      stateFile,
+      JSON.stringify({ at: new Date(now).toISOString(), findings: (parsed.findings ?? []).map((f) => ({ id: f.id })), states }),
+      'utf8',
+    )
+  } catch (e) {
+    logger(`⚠️ 下载栏健康巡检:台账写不掉(${String(e?.message ?? e).slice(0, 80)})——两轮确认会退化成单轮即报`)
+  }
+  const hit = (parsed.findings ?? []).filter((f) => f.immediate)
+  if (hit.length === 0) {
+    const pend = (parsed.pending ?? []).length
+    logger(
+      `✅ 下载栏健康巡检:八端读数正常 —— ${parsed.readings?.length ?? 0} 端${
+        pend ? `;另有 ${pend} 条待第二轮确认` : ''
+      }`,
+    )
+    return { ran: true, state: 'ok', ends: parsed.readings?.length ?? 0, pending: pend }
+  }
+  const tier = hit.length <= 2 ? '2' : hit.length <= 5 ? '5' : 'many'
+  logger(`❌ 下载栏健康巡检:${hit.length} 条判红(档 ${tier}) —— ${hit.map((f) => f.id).join(', ')}`)
+  notify(
+    '下载栏运行期真值判红(有端拿不到数或整站停止刷新)',
+    [
+      '站点下载栏的读数本轮判红 —— 用户看到的直接后果是**某一端没有版本号/没有安装包体积**,或**整栏停在旧值上不再刷新**。',
+      ...hit.map((f) => `  ✗ [${f.id}] ${f.detail}`),
+      '',
+      '下一步(按读数逐条,都可当场执行):',
+      '  ① 先看是哪条腿:`node scripts/check-downloads-live-health.mjs --json` 的 readings 会给每端 source/reason;',
+      '  ② 某端 unavailable ⇒ 查该端发布链有没有登记新值:安卓/鸿蒙查 `app_versions` 注册表与站点腿指针',
+      '     (`curl -sI -H "Host: www.aizhs.top" http://127.0.0.1:80/remote-images/download/ihui-ai-latest.apk`),',
+      '     iOS 查 `publish-mobile-ipa.mjs` 有没有翻指针,桌面查 GitHub Release `desktop-v*`,CLI 查 npm `ihui-cli` dist-tags;',
+      '  ③ 整站 stale ⇒ 部署环是否在构建/切流:`D:/DevEnv/ihui-prod/deploy/win/deploy-loop.log` 尾部;',
+      '  ④ sizeBytes=0 ⇒ 站点腿 `IHUI-IMAGE-CDN` 是否在听 127.0.0.1:80(体积由本机臂 HEAD 实物量出来)。',
+      `臂:${(parsed.tried ?? []).join(' → ')} | 新鲜度:${JSON.stringify(parsed.agesMs ?? null)}`,
+      '',
+      `读数现读:${(parsed.readings ?? []).map((x) => `${x.platform}=${x.source}${x.version ? `@${x.version}` : ''}`).join(' ')}`,
+    ].join('\n'),
+    { severity: 'critical', dedupKey: `downloads-health;red=${tier}` },
+  )
+  return { ran: true, state: 'red', detail: parsed }
+}
+
 /** 根护栏清单同批对账的节流窗口(15 分钟:部署环每 60 秒判一次根护栏,停摆半小时内必须有人知道) */
 export const ROOT_GUARD_MANIFEST_AUDIT_INTERVAL_MS = 15 * 60 * 1000
 
@@ -12478,6 +12615,7 @@ async function main() {
     // 根护栏清单自洽性(2026-10-31 立;与 daemon tick 同一挂点语义,共用
     // .ihui-agent/state/root-guard-manifest-audit-last.json 节流戳 ⇒ 双执行体并存只先到那个真跑)
     if (!CHECK_ONLY) auditRootGuardManifestSync()
+    if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     if (!CHECK_ONLY) auditCrossEndParityDrift()
     if (!CHECK_ONLY) auditWebRnParity()
     if (!CHECK_ONLY) auditPushChannel()
@@ -12645,9 +12783,21 @@ function startDaemon(bootGuard = null) {
         // 与 main() 同一挂点语义,共用 .ihui-agent/state/public-path-probe-tick.ts 节流戳(30min)
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍探测、也不会翻倍发信。
         auditPublicPathProbe()
+        // 隧道腿/短信通道/发起腿原先只挂 main() 单轮链:计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂此处;节流戳与 main() 共用,双执行体并存也只有先到那个真跑。
+        auditTunnelLegHealth()
+        auditSmsChannelHealth()
+        sweepAutonomyLegHealth()
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
+        // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
+        // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
+        // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
+        // `auditSweeperLiveness` 也住在同一条停摆链里(它本该是第一个喊出来的)。
+        // 两枚都自带节流戳 ⇒ 与计划任务档并存时只有先到那一个真跑,不翻倍发信。
+        auditImmutableGuardNewCommits()
+        auditSweeperLiveness()
+        sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/feedback-loop-closure-tick.ts 节流戳 ⇒ 双执行体并存只有先到那一个真跑,
@@ -12674,6 +12824,8 @@ function startDaemon(bootGuard = null) {
         // G-50 DevEnv 搬迁探测:与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/devenv-migrate-arm-tick.iso 节流戳 ⇒ 双执行体只有一边真探。
         devenvMigratePatrol({ logger: log })
+        // 隧道指标原先只挂 main() 单轮链(且挂在链尾):计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂此处,节流戳与 main() 共用,双执行体并存也只有先到那个真跑。
+        auditTunnelMetrics()
         // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
         // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
         // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
@@ -13750,6 +13902,7 @@ export const __test__ = {
   // 判据面不可变护栏的派发腿(2026-10-30 接线;镜像测试按名 import,不复制判据 §22c)。
   auditImmutableGuardNewCommits,
   auditRootGuardManifestSync,
+  sweepDownloadsLiveHealth,
   // 跨端驾驶舱派发腿(镜像测试 git-guardian-parity-cockpit 按名 import,不复制判据 §22c)。
   sweepParityCockpit,
   // 跨端文案漂移巡检腿(只读尺子的唯一调度器;镜像测试按名 import)。
