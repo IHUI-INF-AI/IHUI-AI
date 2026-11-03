@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { BackButton } from '@/components/common'
+import { PublishedDocsSection } from '@/components/docs/published-docs-section'
 import { BookOpen, Rocket, Container, Wrench, Brain } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
@@ -230,6 +231,7 @@ export default function DocsIndexPage() {
             </ul>
           </section>
         ))}
+        <PublishedDocsSection />
       </div>
 
       <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
