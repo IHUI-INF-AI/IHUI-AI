@@ -32,7 +32,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           {t('ai.agentDetail.runtimeTitle')}
         </Text>
         {sessionId && (
-          <Text className="ml-sm text-label text-muted-foreground">#{sessionId.slice(0, 8)}</Text>
+          <Text className="ml-2 text-label text-muted-foreground">#{sessionId.slice(0, 8)}</Text>
         )}
         {status === 'running' && (
           <Text className="ml-sm text-label text-primary">{t('ai.common.loading')}</Text>
@@ -99,7 +99,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
           {error && (
             <View className="mb-md p-md rounded-md bg-destructive/10 border border-[var(--color-danger-light)]">
-              <Text className="block mb-xs text-label font-medium text-[var(--color-danger)]">
+              <Text className="block mb-1 text-label font-medium text-[var(--color-danger)]">
                 {t('ai.agentDetail.runtimeError')}
               </Text>
               <Text className="block text-label text-destructive">{error}</Text>
