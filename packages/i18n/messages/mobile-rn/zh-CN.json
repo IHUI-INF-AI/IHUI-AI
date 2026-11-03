@@ -6039,7 +6039,16 @@
       "late": "迟到",
       "absent": "缺勤",
       "leave": "请假"
-    }
+    },
+    "chooseAction": "选择操作",
+    "actionDone": "操作成功",
+    "actionFailed": "操作失败",
+    "needClassId": "缺少班级信息，无法代签到/签退",
+    "batchTitle": "整班点名",
+    "chooseClass": "选择要点名的班级",
+    "noClass": "当前列表没有可选班级",
+    "batchResult": "点名完成：新增 {created}、跳过 {skipped}、遗漏 {missed}",
+    "qrEntry": "出示签到码"
   },
   "eduGrades": {
     "title": "成绩管理",
@@ -7206,5 +7215,31 @@
     "empty": "开始新的任务",
     "searchNoResult": "无匹配结果",
     "retry": "重试"
+  },
+  "eduMyAttendance": {
+    "title": "我的考勤",
+    "selfCheckIn": "我要签到",
+    "date": "日期",
+    "notLoggedIn": "未登录，无法操作",
+    "classByBackendHint": "班级由后端按在册学籍自动确定",
+    "scanCheckIn": "扫码签到"
+  },
+  "eduAttendanceQr": {
+    "title": "签到二维码",
+    "chooseClass": "选择班级",
+    "noClass": "暂无可选班级",
+    "classLoadFailed": "班级清单加载失败",
+    "pickClassFirst": "请先选择班级",
+    "qrTip": "让学生用「扫码签到」扫描此码",
+    "expiresIn": "{s} 秒后过期",
+    "refresh": "重新出码",
+    "nextStepHint": "请先到考勤规则为该班启用规则并设置扫码密钥(qrSecret),再重新出码",
+    "scanTitle": "扫码签到",
+    "scanHint": "将老师的签到二维码放入框内",
+    "scanSubmitting": "正在签到…",
+    "scanInvalidCode": "这不是本系统的签到二维码",
+    "scanDone": "签到成功",
+    "scanFailed": "签到失败",
+    "needLogin": "请先登录后再扫码"
   }
 }
