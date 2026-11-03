@@ -24,6 +24,8 @@ import {
   probeAdminList,
   selfTest,
   PINNED_DOWNLOAD_URL,
+  PLATFORM_PROFILES,
+  profileOf,
 } from '../check-app-version-latest.mjs'
 
 /** 线上现读的原始响应(逐字) */
@@ -356,5 +358,120 @@ test('--self-test 构造面全绿且例数不退化(摘掉判据这一档才翻�
   const { failed, cases } = selfTest({ quiet: true })
   assert.equal(failed, 0, `self-test 有 ${failed} 例失败`)
   assert.ok(cases.length >= 20, `self-test 例数 ${cases.length} < 20 ⇒ 判据被削`)
+})
+
+// ---------------------------------------------------------------------------
+// ⑦ iOS 站点腿(2026-11-03 上架):同一把尺子必须按端档案跑通整条编排
+// ---------------------------------------------------------------------------
+
+/** 线上现读的 ios latest 行(2026-11-03 由 publish-mobile-ipa.mjs --via db 登记) */
+const IOS_ROW = {
+  id: '1c4e9a20-2222-4333-8444-a55566667777',
+  version: '0.0.5',
+  platform: 'ios',
+  buildNumber: 26110222,
+  downloadUrl: PLATFORM_PROFILES.ios.pinned,
+  forceUpdate: false,
+  releaseNotes: null,
+  status: 'latest',
+}
+
+function iosFetch({ finalContentType = 'application/octet-stream', version = '0.0.5', code = '26110222' } = {}) {
+  const asked = []
+  const fetchImpl = routedFetch([
+    [
+      '/api/app-version/latest?platform=ios',
+      () => fakeResponse({ json: { code: 0, message: 'success', data: { latest: IOS_ROW } } }),
+    ],
+    [
+      '/api/app-version/latest',
+      () => fakeResponse({ json: { code: 0, message: 'success', data: { latest: IOS_ROW } } }),
+    ],
+    [
+      'ihui-ai-latest.ipa',
+      () =>
+        fakeResponse({
+          status: 302,
+          headers: {
+            location: 'https://www.aizhs.top/remote-images/download/ihui-ai-0.0.5-26110222.ipa',
+            'x-release-version': version,
+            'x-release-version-code': code,
+          },
+        }),
+    ],
+    [
+      'ihui-ai-0.0.5-26110222.ipa',
+      (url) => {
+        asked.push(url)
+        return fakeResponse({
+          status: 206,
+          headers: { 'content-type': finalContentType, 'content-range': 'bytes 0-0/42841777' },
+        })
+      },
+    ],
+    [
+      'ihui-ai-latest.apk',
+      () => {
+        throw new Error('iOS 那一轮不得对 apk 地址发探针')
+      },
+    ],
+  ])
+  return { fetchImpl, asked }
+}
+
+test('ios 整条编排:自有腿 + 302→206 octet-stream + 标记一致 ⇒ 全绿,项前缀是 ipa-', async () => {
+  const { fetchImpl } = iosFetch()
+  const r = await runCheck({ platform: 'ios', fetchImpl })
+  assert.equal(r.state, 'pass', JSON.stringify(r.items, null, 1))
+  assert.equal(r.exitCode, 0)
+  const ids = r.items.map((i) => i.id)
+  assert.ok(ids.includes('ipa-downloadable'), `探针项必须按端命名:${ids.join(',')}`)
+  assert.ok(ids.includes('ipa-matches-row'))
+  assert.equal(ids.includes('apk-downloadable'), false, '不得把 android 的前缀带进 ios 的结论')
+})
+
+test('腿上退回归 apk 的 Content-Type ⇒ ios 判红(档案不许互换,这正是回潮形态)', async () => {
+  const { fetchImpl } = iosFetch({ finalContentType: 'application/vnd.android.package-archive' })
+  const r = await runCheck({ platform: 'ios', fetchImpl })
+  assert.equal(r.state, 'fail')
+  const hit = r.red.find((i) => i.id === 'ipa-downloadable')
+  assert.ok(hit, 'Content-Type 对不上档案必须落在 ipa-downloadable')
+  assert.match(hit.detail, /Content-Type 不是 ipa/)
+})
+
+test('腿上的包比行里旧一格 ⇒ ipa-matches-row 判红(账绿实红那一型)', async () => {
+  const { fetchImpl } = iosFetch({ version: '0.0.4' })
+  const r = await runCheck({ platform: 'ios', fetchImpl })
+  assert.equal(r.state, 'fail')
+  assert.match(r.red.find((i) => i.id === 'ipa-matches-row').detail, /x-release-version=0\.0\.4/)
+})
+
+test('档案表外的端 ⇒ 一个字节都不探针,只报未判定并点名缺档案', async () => {
+  const asked = []
+  const fetchImpl = async (url) => {
+    asked.push(String(url))
+    if (String(url).includes('/api/app-version')) {
+      return fakeResponse({
+        json: {
+          code: 0,
+          data: {
+            latest: { ...IOS_ROW, platform: 'cli', version: '2.3.1', buildNumber: 26110301 },
+          },
+        },
+      })
+    }
+    throw new Error(`不该发生的下载探针: ${url}`)
+  }
+  const r = await runCheck({ platform: 'cli', fetchImpl })
+  assert.equal(
+    asked.filter((u) => !u.includes('/api/')).length,
+    0,
+    '没有档案就没有"该当回什么类型"的判据 ⇒ 结构上不许发探针',
+  )
+  assert.equal(r.state, 'undetermined')
+  assert.equal(r.exitCode, 2)
+  assert.equal(profileOf('cli'), null)
+  const probe = r.items.find((i) => i.id === 'cli-downloadable')
+  assert.match(probe.detail, /没有站点腿档案/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
