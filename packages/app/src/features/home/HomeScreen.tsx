@@ -354,7 +354,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionTitle: {
       marginBottom: rnSpacing['sm-loose'],
-      fontSize: 17,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },

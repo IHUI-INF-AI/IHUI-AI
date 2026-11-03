@@ -289,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitBtnText: { fontSize: 17, fontWeight: '700', color: tk.surface.light },
+    submitBtnText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.surface.light },
     reportCard: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,

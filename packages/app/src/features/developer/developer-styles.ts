@@ -28,7 +28,7 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     },
     avatar: { width: 64, height: 64, borderRadius: rnRadiusFor.hero },
     userName: {
-      fontSize: 17,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginTop: rnSpacing.sm,
