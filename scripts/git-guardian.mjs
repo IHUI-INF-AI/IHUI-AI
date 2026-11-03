@@ -12783,6 +12783,10 @@ function startDaemon(bootGuard = null) {
         // 与 main() 同一挂点语义,共用 .ihui-agent/state/public-path-probe-tick.ts 节流戳(30min)
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍探测、也不会翻倍发信。
         auditPublicPathProbe()
+        // 隧道腿/短信通道/发起腿原先只挂 main() 单轮链:计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂此处;节流戳与 main() 共用,双执行体并存也只有先到那个真跑。
+        auditTunnelLegHealth()
+        auditSmsChannelHealth()
+        sweepAutonomyLegHealth()
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
@@ -12813,6 +12817,8 @@ function startDaemon(bootGuard = null) {
         // G-50 DevEnv 搬迁探测:与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/devenv-migrate-arm-tick.iso 节流戳 ⇒ 双执行体只有一边真探。
         devenvMigratePatrol({ logger: log })
+        // 隧道指标原先只挂 main() 单轮链(且挂在链尾):计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂此处,节流戳与 main() 共用,双执行体并存也只有先到那个真跑。
+        auditTunnelMetrics()
         // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线;2026-10-26 补装 daemon 腿):
         // 这四个派发现在只挂在 main() 那条**单轮**路径上,而本机实际载体是 nssm 服务跑 `--daemon`
         // ⇒ main() 从不执行,四层器物等于装了个没有车跑的车站(§0.9「造好没装车 = 没有」再犯一次)。
