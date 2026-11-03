@@ -13315,7 +13315,7 @@ const isDirectRun =
 if (isDirectRun) {
   if (DAEMON) {
     // 启动前先拿锁:服务一启动就与计划任务轮次错开;失败由 startDaemon 的重试循环兜住。
-    startDaemon(acquireGuardianLock({ role: 'git-guardian:daemon' }))
+    startDaemon(acquireGuardianLock({ role: 'git-guardian:daemon', staleMs: roundStaleMs() }))
   } else {
     main()
       .then((code) => {
