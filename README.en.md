@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (016ef5e5dc)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dffec0afec)
 - 🐞 Fix:考勤阈值时刻解析补收带秒形态,迟到/早退与每日补缺勤不再静默判不出(票 B67/B71 残余格) (3b29aa1bef)
 - 🚀 Feature/Improvement:文档中心余下 4 页接 docs.* i18n 并把 tip 块表情换矢量 Lightbulb(票 D53 第三批·余格) (5d27ad4027)
@@ -153,12 +156,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🔧 Chore/Other:把 WD Button 实测存量钉进 web 腿锚点(几何 12 / 圆角 2) (686ecc1db4)
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (853d6aa959)
 - 🚀 Feature/Improvement:代码块接上语法高亮,复用对话流既有形态(票 D53) (3ca376e9c8)
-
-**2026-11-03**
-- 📚 Docs:登记 WD Button 几何与圆角两维为带到期的允许差异(到期 2026-11-17) (81051824fc)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (a5d5975971)
-- 🚀 Feature/Improvement:文档中心文案抽进 docs.* 命名空间,五语言同批齐备(票 D53) (ef8a1a3f9c)
-- 🐞 Fix:面板 tooltip 字号脱离 11px 字面量,归到 caption 角色档 (259c615623)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
