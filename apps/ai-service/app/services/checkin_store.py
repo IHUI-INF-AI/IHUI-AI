@@ -1322,11 +1322,53 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _classified_error_type(raw: Any) -> str | None:
+    """从 checkin_records.classified_error(text/jsonb 双形态)取 type。
+
+    只回类型名(Unknown / SessionDead / BusinessError ...),不回原文 —— 分类器
+    据此区分「网络可重试」与「凭证被拒必须人工」。取不到一律 None,不冒判。
+    """
+    data = raw
+    if isinstance(data, str):
+        try:
+            data = json.loads(data or "null")
+        except (json.JSONDecodeError, ValueError):
+            return None
+    if isinstance(data, dict):
+        value = data.get("type")
+        return value if isinstance(value, str) and value else None
+    return None
+
+
+def _last_record_from_row(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """最近一条签到记录的脱敏投影(无记录回 None)。
+
+    message 截 200 字;classifiedErrorType 只给类型名;code/httpStatus 供分类器
+    区分 9095(幂等已签)与 1001(认证拒绝)。凭据/header 一律不进这里。
+    """
+    created = row["last_created_at"]
+    if created is None:
+        return None
+    message = row["last_message"]
+    return {
+        "ok": row["last_ok"],
+        "action": row["last_action"],
+        "credits": row["last_credits"],
+        "creditsDelta": row["last_credits_delta"],
+        "message": message[:200] if isinstance(message, str) else None,
+        "code": row["last_code"],
+        "httpStatus": row["last_http_status"],
+        "classifiedErrorType": _classified_error_type(row["last_classified_error"]),
+        "createdAt": created.isoformat() if hasattr(created, "isoformat") else None,
+    }
+
+
 async def list_pool_accounts() -> list[dict[str, Any]]:
     """号池同步账号全量(跨 owner;对账收敛器用)。
 
     只回对账判据需要的字段:poolAccountId / poolCredVersion / platform /
-    identityKey / enabled / ownerUserId / name / poolPendingCred;jwt 明文不出库。
+    identityKey / enabled / ownerUserId / name / poolPendingCred / lastRecord;
+    jwt 明文不出库。
     范围 = 所有 device_map 带 pool_account_id 的账号:运营池账号(system:relay-pool)
     与用户个人池账号(owner_user_id = 平台用户 id)一并对账 —— 匹配一律走
     poolAccountId,不同 owner 持有同一上游 uid 也不会串号。
@@ -1335,10 +1377,24 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, name, platform, identity_key, enabled, owner_user_id, device_map
-            FROM checkin_accounts
-            WHERE device_map ? 'pool_account_id'
-            ORDER BY id
+            SELECT a.id, a.name, a.platform, a.identity_key, a.enabled,
+                   a.owner_user_id, a.device_map,
+                   r.ok AS last_ok, r.action AS last_action, r.credits AS last_credits,
+                   r.credits_delta AS last_credits_delta, r.message AS last_message,
+                   r.code AS last_code, r.http_status AS last_http_status,
+                   r.classified_error AS last_classified_error,
+                   r.created_at AS last_created_at
+            FROM checkin_accounts a
+            LEFT JOIN LATERAL (
+                SELECT ok, action, credits, credits_delta, message, code,
+                       http_status, classified_error, created_at
+                FROM checkin_records
+                WHERE account_id = a.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) r ON true
+            WHERE a.device_map ? 'pool_account_id'
+            ORDER BY a.id
             """,
         )
     out: list[dict[str, Any]] = []
@@ -1372,6 +1428,9 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
                     if isinstance(pending, dict)
                     else None
                 ),
+                # 最近一次签到结论(含失败 message/分类),供 API 判 claim_failed;
+                # 无记录为 None,不拿空对象冒充「签到过」。
+                "lastRecord": _last_record_from_row(r),
             }
         )
     return out
@@ -1555,10 +1614,14 @@ async def pool_status(
             """
             SELECT a.id, a.name, a.enabled, a.device_map,
                    r.ok AS last_ok, r.action AS last_action, r.credits AS last_credits,
-                   r.credits_delta AS last_credits_delta, r.created_at AS last_created_at
+                   r.credits_delta AS last_credits_delta, r.message AS last_message,
+                   r.code AS last_code, r.http_status AS last_http_status,
+                   r.classified_error AS last_classified_error,
+                   r.created_at AS last_created_at
             FROM checkin_accounts a
             LEFT JOIN LATERAL (
-                SELECT ok, action, credits, credits_delta, created_at
+                SELECT ok, action, credits, credits_delta, message, code,
+                       http_status, classified_error, created_at
                 FROM checkin_records
                 WHERE account_id = a.id
                 ORDER BY created_at DESC
@@ -1598,19 +1661,7 @@ async def pool_status(
         "poolDeletedAt": dm.get("pool_deleted_at"),
         "pendingCred": "pool_pending_cred" in dm,
         "cooldownUntil": cooldown.isoformat() if cooldown is not None else None,
-        "lastRecord": (
-            {
-                "ok": row["last_ok"],
-                "action": row["last_action"],
-                "credits": row["last_credits"],
-                "creditsDelta": row["last_credits_delta"],
-                "createdAt": row["last_created_at"].isoformat()
-                if row["last_created_at"]
-                else None,
-            }
-            if row["last_created_at"] is not None
-            else None
-        ),
+        "lastRecord": _last_record_from_row(row),
     }
 
 

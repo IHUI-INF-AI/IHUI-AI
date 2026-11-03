@@ -26,6 +26,7 @@ from app.services.keepalive.models import (
     KIND_UNSUPPORTED,
     PolicyConfig,
     ProbeOutcome,
+    SOURCE_PUBLISH_COOKIE,
     StateSnapshot,
     StateUpdate,
 )
@@ -33,6 +34,49 @@ from app.services.keepalive.models import (
 # 明确的"需要人动手"信号。这类失败重试不会自愈(凭证过期 / 环境缺依赖),
 # 所以不等连续 3 轮,当轮就喊一次,靠 alert_repeat_hours 去重防止刷屏。
 _IMMEDIATE_KINDS = frozenset({KIND_EXPIRED, KIND_ERROR})
+
+# ---------------------------------------------------------------------------
+# needs_reauth 机读分类(2026-11-03 立)
+# ---------------------------------------------------------------------------
+# 判据单源在 packages/shared/src/relay-account-verdict.ts 的
+# resolveRelayAccountReauth;ai-service 是 Python,不能 import TS,这里只镜像
+# 保活面用到的两条(invalid_cookie_decrypt / credential_expired)。新增原因必须
+# 两边同时改,否则状态面会出现「池侧 5 类、保活侧 4 类」的口径漂移。
+REAUTH_INVALID_COOKIE_DECRYPT = "invalid_cookie_decrypt"
+REAUTH_CREDENTIAL_EXPIRED = "credential_expired"
+
+_REAUTH_DECRYPT_MARKERS = ("invalidtag", "凭证无法解密", "解密失败", "decrypt")
+_REAUTH_ACTIONS = {
+    REAUTH_INVALID_COOKIE_DECRYPT: "凭据密文无法解密(密钥轮换或密文损坏),需重新扫码录入该账号",
+    REAUTH_CREDENTIAL_EXPIRED: "凭据已过期且无法自动续期,需重新登录或扫码录入",
+}
+
+
+def resolve_reauth(
+    source: str,
+    last_error_kind: str | None,
+    last_error: str | None,
+) -> tuple[bool, str | None]:
+    """把一条保活状态判成「是否必须人工处理」。
+
+    只有 ``expired`` 才算:``skipped``(退避/禁用)、``unsupported``(无需保活)、
+    ``network`` / ``error``(可重试)都不喊人 —— 正常 skip 被标 needs_reauth
+    会让真红淹没在噪音里。publish_cookie 的解密失败单独成因;其余 expired
+    (含 checkin JWT 解密失败/真实到期)归 credential_expired。
+    """
+    if last_error_kind != KIND_EXPIRED:
+        return False, None
+    text = (last_error or "").lower()
+    if source == SOURCE_PUBLISH_COOKIE and any(m in text for m in _REAUTH_DECRYPT_MARKERS):
+        return True, REAUTH_INVALID_COOKIE_DECRYPT
+    return True, REAUTH_CREDENTIAL_EXPIRED
+
+
+def reauth_action(reason: str | None) -> str | None:
+    """原因 → 人工动作;未知原因回 None,不拿空串冒充已给出处置。"""
+    if not reason:
+        return None
+    return _REAUTH_ACTIONS.get(reason)
 
 
 def backoff_seconds(failures: int, cfg: PolicyConfig) -> float:
