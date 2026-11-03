@@ -141,6 +141,16 @@ const FAMILIES: Family[] = [
     name: 'eduParent',
     nsLiteral: 'eduParent',
     nsPath: ['eduParent'],
+    /**
+     * 2026-11-01 复核:本族消费方共 6 枚,此处登记 5 枚。
+     * 未登记的 `app/(main)/edu/parent/bind/page.tsx` 确实取词 eduParent,但它带 1 处
+     * 存量硬编码中文(第 192 行 `<AuthGatePrompt message="请先登录后查看绑定列表" />`,
+     * 守门 70 实测 count=1,且该文件不在 `scripts/hardcoded-zh-baseline.json` 台账里)。
+     * 收它就得在测试里替他人写额度 —— AGENTS §"capFromLedger 抄数 = 替人平账"禁止,
+     * 且 maxHits 只给"与后端/协议做字面匹配的值"用,这句是纯 UI 文案。
+     * 出路(任一做完即可收进 sources):该句改取词,或该文件进守门 70 台账后开 capFromLedger。
+     * minReferenced 由 45 上调到 85 = 这 5 枚 sources 的现读引用数(2026-11-01 复核读数)。
+     */
     sources: [
       'app/(main)/edu/parent/page.tsx',
       'app/(main)/edu/parent/children/[childId]/attendance/PageClient.tsx',
@@ -148,7 +158,7 @@ const FAMILIES: Family[] = [
       'app/(main)/edu/parent/children/[childId]/meals/PageClient.tsx',
       'app/(main)/edu/parent/children/[childId]/study-plans/PageClient.tsx',
     ],
-    minReferenced: 45,
+    minReferenced: 85,
   },
   {
     name: 'eduSchedule',
@@ -184,12 +194,29 @@ const FAMILIES: Family[] = [
      */
     maxHits: 7,
   },
+  /**
+   * 2026-11-01 扩面(治"尺子的射程"型假孤儿):本族原先只登记 PageClient.tsx 一枚,
+   * 而同页拆出的兄弟组件(二维码面板 / 批量点名对话框 / 规则面板 / 导出按钮 / 班级选择器)
+   * 与「我的考勤」两页的取词全落在扫描面之外 ⇒ 在用键被报成孤儿键。
+   * 逐枚取证 = `git grep -l -E "useTranslations\('eduAttendance'\)" HEAD -- 'apps/web/**'`,
+   * 判据只有一条:**该文件里真的出现本命名空间的取词调用**(sidebar/nav-data.ts 的
+   * `labelKey: 'eduAttendanceMgr'` 属 nav 命名空间,不是本族消费方 ⇒ 不收,收了等于扩射程消红)。
+   */
   {
     name: 'eduAttendance',
     nsLiteral: 'eduAttendance',
     nsPath: ['eduAttendance'],
-    sources: ['app/(main)/edu/edu-management/attendance/PageClient.tsx'],
-    minReferenced: 60,
+    sources: [
+      'app/(main)/edu/edu-management/attendance/PageClient.tsx',
+      'app/(main)/edu/edu-management/attendance/AttendanceRulePanel.tsx',
+      'app/(main)/edu/edu-management/attendance/BatchCheckInDialog.tsx',
+      'app/(main)/edu/edu-management/attendance/CheckInQrPanel.tsx',
+      'app/(main)/edu/edu-management/attendance/ClassSelect.tsx',
+      'app/(main)/edu/edu-management/attendance/ExportButton.tsx',
+      'app/(main)/edu/attendance/PageClient.tsx',
+      'app/(main)/edu/attendance/SelfAttendanceTable.tsx',
+    ],
+    minReferenced: 123,
   },
   {
     name: 'eduStudyPlan',
@@ -559,6 +586,33 @@ function referencedKeys(src: string, famNs: string): Set<string> {
       dynRoots.add(m[1] as string)
   }
   /**
+   * **本地转发助手**这一型(2026-11-01 补,治第三种"尺子看不见"):
+   * `const serverMessage = (error: unknown, fallbackKey: string): string => … t(fallbackKey)`
+   * —— 键名以**实参**形式出现在调用点,真正的取词发生在函数体里的 `t(形参)`。
+   * 实测咬过 `eduAttendance.selfCheckInFailed`(attendance/PageClient.tsx:152),在用键被报成孤儿键。
+   * 两个条件同时成立才收:① 本族的 t 变量把某个**形参**原样转发(`t(<形参>)`);
+   * ② 该助手是带这枚形参的箭头函数声明。收的只是该助手调用点的字符串实参,且这些键仍要过
+   * "存在于本族 zh 子树"那道构造(`referenced`),非键字面量天然被滤掉 ⇒ 不是给孤儿判据放水。
+   */
+  const forwardedParams = new Set<string>()
+  for (const [v, ns] of varToNs) {
+    if (ns !== famNs) continue
+    for (const m of src.matchAll(new RegExp(`\\b${v}\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\)`, 'g')))
+      forwardedParams.add(m[1] as string)
+  }
+  for (const decl of src.matchAll(
+    /const\s+(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*(?::[^=]{0,200}?)?=>/g,
+  )) {
+    const hitsForwardedParam = (decl[2] ?? '')
+      .split(',')
+      .some((p) => forwardedParams.has(p.trim().split(':')[0]?.trim().split('=')[0]?.trim() ?? ''))
+    if (!hitsForwardedParam) continue
+    for (const m of src.matchAll(
+      new RegExp(`\\b${decl[1]}\\(([^()]*(?:\\([^()]*\\)[^()]*)*)\\)`, 'g'),
+    ))
+      for (const q of (m[1] ?? '').matchAll(/'([A-Za-z0-9_.]+)'/g)) keys.add(q[1] as string)
+  }
+  /**
    * **root `useTranslations()` + 表内全路径字面量**(`'apiKeyPerms.agentsRead'`)这一路接线。
    * 上面按变量名回溯 ns 的规则对它失效(绑定时不带 ns 实参),故直接按族 ns 前缀收字面量。
    */
@@ -765,8 +819,7 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
       [],
     )
-  }, // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
-  // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。
+  }, // (PR#65 run 36350697722 'rules' 族超时红;本地热盘 0ms)。判据不变,仅预算 30s。 // 本用例逐族 spawn 权威守门脚本(跨进程 node 冷启动),CI 冷 runner 上单族可超默认 5s
   30_000)
 })
 
