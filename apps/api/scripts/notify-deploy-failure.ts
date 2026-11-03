@@ -740,6 +740,10 @@ function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): 
  * 两条都登记在 scripts/data/alert-mail-faces.json 与 AGENTS §5e-3 的补登行里。
  */
 function defaultMailSendLedgerPath(): string {
+  // 沙箱/演练可把台账指到临时目录(IHUI_MAIL_SEND_LEDGER);默认(生产)落点不变。
+  // 不设置 = 与既有行为逐字相同,各调用方(CI / 部署环 / bridge / guardian)无需改动。
+  const override = String(process.env.IHUI_MAIL_SEND_LEDGER || '').trim()
+  if (override) return resolve(override)
   return resolve(
     dirname(fileURLToPath(import.meta.url)),
     '..',
@@ -831,7 +835,11 @@ function defaultDedupeStatePath(): string {
 
 /** 占位落点:与去重状态同目录;alertId 可能含任意字符 ⇒ 安全化 + 8 位哈希防碰撞。 */
 function alertClaimPath(alertId: string, baseDir?: string): string {
-  const safe = alertId.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '_').slice(0, 48) || 'id'
+  const safe =
+    alertId
+      .replace(/[^A-Za-z0-9._-]+/g, '_')
+      .replace(/^\.+/, '_')
+      .slice(0, 48) || 'id'
   const tag = createHash('sha256').update(alertId).digest('hex').slice(0, 8)
   return resolve(baseDir ?? dirname(defaultDedupeStatePath()), `notify-claim-${safe}-${tag}.lock`)
 }
