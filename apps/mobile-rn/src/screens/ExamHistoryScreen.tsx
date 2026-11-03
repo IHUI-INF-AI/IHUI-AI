@@ -10,6 +10,7 @@ import { fetchApi } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamHistoryScreen as SharedExamHistoryScreen, type ExamHistoryItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -18,6 +19,7 @@ export function ExamHistoryScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const { onNavigate } = useHostPorts()
   const [history, setHistory] = useState<ExamHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -90,7 +92,7 @@ export function ExamHistoryScreen() {
       error={error}
       onRefresh={() => load(true)}
       onRetry={() => { void load(); }}
-      onPressItem={(id) => navigation.navigate('ExamResult', { id })}
+      onPressItem={(id) => onNavigate('ExamDetail', { id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />

@@ -655,6 +655,23 @@ describe('useChatStore', () => {
       })
     })
 
+    it('B02 余项②:切换会话 ⇒ chatSync 判据面与 resyncPending 一起换人;同 id 重设不动', () => {
+      useChatStore.getState().applyChatSync(created('m-1'))
+      useChatStore.setState({ chatSyncResyncPending: true })
+      const seeded = useChatStore.getState().chatSync
+      expect(seeded.messages.size).toBe(1)
+      // 同 id 重设(loadHistory 回填等):判据面与旗一枚都不许丢。
+      useChatStore.getState().setConversationId('conv-sync')
+      expect(useChatStore.getState().chatSync).toBe(seeded)
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
+      // 真换会话:旧水位/旧已收 evt/缺口坐标/补拉旗全部清零。
+      useChatStore.getState().setConversationId('conv-next')
+      expect(useChatStore.getState().chatSync.messages.size).toBe(0)
+      expect(useChatStore.getState().chatSync.appliedRevs.size).toBe(0)
+      expect(useChatStore.getState().chatSyncGapMessageIds).toEqual([])
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(false)
+    })
+
     it('房间不匹配 ⇒ room-mismatch,渲染面与判据面都不动', () => {
       useChatStore.setState({ conversationId: 'other-conv' })
       const before = useChatStore.getState().messages

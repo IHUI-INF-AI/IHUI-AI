@@ -246,80 +246,80 @@ export default function ModelConfigDialog({
           onClick={(e) => e.stopPropagation()}
           hoverClass="opacity-60"
         >
-          <View className="flex items-center justify-between px-4 py-3 mb-2">
-            <Text className="text-sm font-medium text-foreground">
+          <View className="flex items-center justify-between px-lg py-md mb-sm">
+            <Text className="text-body font-medium text-foreground">
               {tt('model.configTitle', '模型配置')}
             </Text>
-            <Text className="text-sm text-muted-foreground" onClick={onClose}>
+            <Text className="text-body text-muted-foreground" onClick={onClose}>
               {tt('common.close', '关闭')}
             </Text>
           </View>
-          <View className="px-4 py-3">
-            <View className="mb-3">
+          <View className="px-lg py-md">
+            <View className="mb-md">
               <Text
-                className="block text-xs text-muted-foreground"
+                className="block text-label text-muted-foreground"
                 style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
               >
                 {tt('model.temperature', '温度 (0-2)')}
               </Text>
               <Input
                 type="digit"
-                className="w-full py-2 text-sm bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.7"
                 value={config.temperature?.toString() || ''}
                 onInput={(e) => update({ temperature: parseFloat(e.detail.value) || 0 })}
               />
             </View>
-            <View className="mb-3">
+            <View className="mb-md">
               <Text
-                className="block text-xs text-muted-foreground"
+                className="block text-label text-muted-foreground"
                 style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
               >
                 {tt('model.maxToken', '最大 Token')}
               </Text>
               <Input
                 type="number"
-                className="w-full py-2 text-sm bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="2048"
                 value={config.maxTokens?.toString() || ''}
                 onInput={(e) => update({ maxTokens: parseInt(e.detail.value) || 0 })}
               />
             </View>
-            <View className="mb-3">
+            <View className="mb-md">
               <Text
-                className="block text-xs text-muted-foreground"
+                className="block text-label text-muted-foreground"
                 style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
               >
                 Top P (0-1)
               </Text>
               <Input
                 type="digit"
-                className="w-full py-2 text-sm bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="0.9"
                 value={config.topP?.toString() || ''}
                 onInput={(e) => update({ topP: parseFloat(e.detail.value) || 0 })}
               />
             </View>
-            <View className="mb-3">
+            <View className="mb-md">
               <Text
-                className="block text-xs text-muted-foreground"
+                className="block text-label text-muted-foreground"
                 style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
               >
                 {tt('model.systemPrompt', '系统提示词')}
               </Text>
               <Input
-                className="w-full py-2 text-sm bg-muted rounded-sm"
+                className="w-full py-sm text-body bg-muted rounded-sm"
                 style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                 placeholder="You are a helpful assistant"
                 value={config.systemPrompt || ''}
                 onInput={(e) => update({ systemPrompt: e.detail.value })}
               />
             </View>
-            <View className="flex items-center justify-between py-2 mb-2">
-              <Text className="text-sm text-foreground">{tt('model.streaming', '流式输出')}</Text>
+            <View className="flex items-center justify-between py-sm mb-sm">
+              <Text className="text-body text-foreground">{tt('model.streaming', '流式输出')}</Text>
               <Switch
                 checked={config.streamEnabled ?? true}
                 color={switchInk}
@@ -327,13 +327,13 @@ export default function ModelConfigDialog({
               />
             </View>
             {showImage && (
-              <View className="mt-4 pt-2">
-                <Text className="block text-xs text-muted-foreground mb-2">
+              <View className="mt-lg pt-sm">
+                <Text className="block text-label text-muted-foreground mb-sm">
                   {tt('ModelConfigDialog.settings1', '图片设置')}
                 </Text>
-                <View className="mb-3">
+                <View className="mb-md">
                   <Text
-                    className="block text-xs text-muted-foreground"
+                    className="block text-label text-muted-foreground"
                     style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                   >
                     {tt('ModelConfigDialog.text2', '比例')}
@@ -350,7 +350,7 @@ export default function ModelConfigDialog({
                           MODEL_CONFIG_CHIP_PAD_Y_PX,
                           toUnit,
                         )}
-                        className={`text-xs rounded-md border ${
+                        className={`text-label rounded-md border ${
                           config.aspectRatio === r
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -363,9 +363,9 @@ export default function ModelConfigDialog({
                     ))}
                   </View>
                 </View>
-                <View className="mb-3">
+                <View className="mb-md">
                   <Text
-                    className="block text-xs text-muted-foreground"
+                    className="block text-label text-muted-foreground"
                     style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                   >
                     {tt('ModelConfigDialog.text3', '分辨率')}
@@ -382,7 +382,7 @@ export default function ModelConfigDialog({
                           MODEL_CONFIG_CHIP_PAD_Y_PX,
                           toUnit,
                         )}
-                        className={`text-xs rounded-md border ${
+                        className={`text-label rounded-md border ${
                           config.resolution === r
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -398,13 +398,13 @@ export default function ModelConfigDialog({
               </View>
             )}
             {showVideo && (
-              <View className="mt-2 pt-2">
-                <Text className="block text-xs text-muted-foreground mb-2">
+              <View className="mt-sm pt-sm">
+                <Text className="block text-label text-muted-foreground mb-sm">
                   {tt('ModelConfigDialog.settings4', '视频设置')}
                 </Text>
-                <View className="mb-3">
+                <View className="mb-md">
                   <Text
-                    className="block text-xs text-muted-foreground"
+                    className="block text-label text-muted-foreground"
                     style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                   >
                     {tt('ModelConfigDialog.text5', '帧数')}
@@ -421,7 +421,7 @@ export default function ModelConfigDialog({
                           MODEL_CONFIG_CHIP_PAD_Y_PX,
                           toUnit,
                         )}
-                        className={`text-xs rounded-md border ${
+                        className={`text-label rounded-md border ${
                           config.frameCount === f
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -437,13 +437,13 @@ export default function ModelConfigDialog({
               </View>
             )}
             {showAudio && (
-              <View className="mt-4 pt-2">
-                <Text className="block text-xs text-muted-foreground mb-2">
+              <View className="mt-lg pt-sm">
+                <Text className="block text-label text-muted-foreground mb-sm">
                   {tt('ModelConfigDialog.settings6', '音频设置')}
                 </Text>
-                <View className="mb-3">
+                <View className="mb-md">
                   <Text
-                    className="block text-xs text-muted-foreground"
+                    className="block text-label text-muted-foreground"
                     style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                   >
                     {tt('ai.voice.timbre', '音色')}
@@ -460,7 +460,7 @@ export default function ModelConfigDialog({
                           MODEL_CONFIG_CHIP_PAD_Y_PX,
                           toUnit,
                         )}
-                        className={`text-xs rounded-md border ${
+                        className={`text-label rounded-md border ${
                           config.timbre === tb.id
                             ? 'border-brand-accent-deep bg-primary/10 text-primary'
                             : 'border-border text-muted-foreground'
@@ -583,21 +583,21 @@ export default function ModelConfigDialog({
     <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
-        className="relative bg-card ui-panel rounded-xl mx-4 w-full max-w-md max-h-[85vh] overflow-y-auto"
+        className="relative bg-card ui-panel rounded-xl mx-lg w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
-        <View className="flex items-center justify-between px-4 py-3 mb-2">
-          <Text className="text-sm font-medium text-foreground">
+        <View className="flex items-center justify-between px-lg py-md mb-sm">
+          <Text className="text-body font-medium text-foreground">
             {tt('model.configTitle', '模型配置')}
           </Text>
-          <Text className="text-sm text-muted-foreground" onClick={onClose}>
+          <Text className="text-body text-muted-foreground" onClick={onClose}>
             {tt('common.close', '关闭')}
           </Text>
         </View>
-        <View className="px-4 py-3">
+        <View className="px-lg py-md">
           {/* 4 个上传按钮 */}
-          <View className="flex items-center justify-between py-2">
+          <View className="flex items-center justify-between py-sm">
             {uploadItems.map((it) => (
               <View
                 key={it.key}
@@ -652,9 +652,7 @@ export default function ModelConfigDialog({
                     </View>
                   )}
                 </View>
-                <Text className="text-label text-muted-foreground mt-1">
-                  {it.name || it.label}
-                </Text>
+                <Text className="text-label text-muted-foreground mt-1">{it.name || it.label}</Text>
               </View>
             ))}
           </View>
@@ -671,8 +669,8 @@ export default function ModelConfigDialog({
                 onClick={(e) => e.stopPropagation()}
                 hoverClass="opacity-60"
               >
-                <View className="flex items-center justify-between mb-3">
-                  <Text className="text-sm font-medium">
+                <View className="flex items-center justify-between mb-md">
+                  <Text className="text-body font-medium">
                     {tt('ModelConfigDialog.text11', '选择音色')}
                   </Text>
                   {/* 载体换为矢量:lucide X(登记表键 x),与 RN 音色菜单头部同槽
@@ -686,8 +684,8 @@ export default function ModelConfigDialog({
                   />
                 </View>
                 {/* 系统音色选择 - Selecter type='voice' */}
-                <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-2">
+                <View className="mb-md">
+                  <Text className="block text-label text-muted-foreground mb-sm">
                     {selectedVoiceIndex >= 0
                       ? t('ModelConfigDialog.y1', {
                           p1: voiceLabel(systemVoices[selectedVoiceIndex]),
@@ -717,7 +715,7 @@ export default function ModelConfigDialog({
                   {/* RN 克隆音色行前图标 = 40 盒(AudioMenuIcon)+ 18 字形(Mic),本端同构:
                       盒子沿用 modelConfigAudioMenuIconStyle(原位图占据的同一档),字形档取 BLOCK_GLYPH */}
                   <View
-                    className="flex items-center justify-center mr-2"
+                    className="flex items-center justify-center mr-sm"
                     style={modelConfigAudioMenuIconStyle(toUnit)}
                   >
                     <LineIcon
@@ -727,12 +725,12 @@ export default function ModelConfigDialog({
                     />
                   </View>
                   <View className="flex-1">
-                    <Text className="block text-sm">
+                    <Text className="block text-body">
                       {uploads.audio.name
                         ? tt('ModelConfigDialog.p2', '当前：') + uploads.audio.name
                         : tt('ModelConfigDialog.p3', '克隆音色')}
                     </Text>
-                    <Text className="block text-xs text-muted-foreground">
+                    <Text className="block text-label text-muted-foreground">
                       {tt('ModelConfigDialog.upload12', '上传音频文件克隆音色')}
                     </Text>
                   </View>
@@ -753,8 +751,8 @@ export default function ModelConfigDialog({
             if (isBool(item.value)) {
               const checked = !!configParamsObj[item.name]
               return (
-                <View key={item.name} className="flex items-center justify-between py-2 mb-2">
-                  <Text className="text-sm text-foreground">{item.desc}</Text>
+                <View key={item.name} className="flex items-center justify-between py-sm mb-sm">
+                  <Text className="text-body text-foreground">{item.desc}</Text>
                   <View
                     className="rounded-lg flex items-center"
                     style={{
@@ -782,9 +780,9 @@ export default function ModelConfigDialog({
             if (isArray(item.value) && item.value.length > 0 && !isBool(item.value[0])) {
               const selecterType = isSizeType(item.value) ? 'ratio' : ''
               return (
-                <View key={item.name} className="mb-3">
+                <View key={item.name} className="mb-md">
                   <Text
-                    className="block text-xs text-muted-foreground"
+                    className="block text-label text-muted-foreground"
                     style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                   >
                     {item.desc}
@@ -803,15 +801,15 @@ export default function ModelConfigDialog({
             }
             // 3. 文本输入
             return (
-              <View key={item.name} className="mb-3">
+              <View key={item.name} className="mb-md">
                 <Text
-                  className="block text-xs text-muted-foreground"
+                  className="block text-label text-muted-foreground"
                   style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                 >
                   {item.desc}
                 </Text>
                 <Input
-                  className="w-full py-2 text-sm bg-muted rounded-sm"
+                  className="w-full py-sm text-body bg-muted rounded-sm"
                   style={modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit)}
                   placeholder={t('ModelConfigDialog.y2', { p1: item.desc })}
                   value={(configParamsObj[item.name] as string) || ''}
@@ -823,13 +821,13 @@ export default function ModelConfigDialog({
 
           {/* 视频模型额外配置(对齐原项目固定项) */}
           {isVideoModel && (
-            <View className="mt-3 pt-2">
-              <Text className="block text-xs text-muted-foreground mb-2">
+            <View className="mt-md pt-sm">
+              <Text className="block text-label text-muted-foreground mb-sm">
                 {tt('ModelConfigDialog.settings4', '视频设置')}
               </Text>
-              <View className="mb-3">
+              <View className="mb-md">
                 <Text
-                  className="block text-xs text-muted-foreground"
+                  className="block text-label text-muted-foreground"
                   style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                 >
                   {tt('ModelConfigDialog.text14', '视频比例')}
@@ -840,9 +838,9 @@ export default function ModelConfigDialog({
                   onChange={(val) => setConfigValue('aspect_ratio', val)}
                 />
               </View>
-              <View className="mb-3">
+              <View className="mb-md">
                 <Text
-                  className="block text-xs text-muted-foreground"
+                  className="block text-label text-muted-foreground"
                   style={modelConfigLabelGapStyle(MODEL_CONFIG_LABEL_GAP_PX, toUnit)}
                 >
                   {tt('ModelConfigDialog.text15', '视频分辨率')}
