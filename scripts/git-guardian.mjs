@@ -2677,6 +2677,9 @@ export function notifyGuardRed(name, detail, opts = {}) {
     failCooldownMs = notifyFailCooldownMs(),
     dedupKey = '',
     force = false,
+    // 策略表落点可注入:单元测试必须能测「无策略时的默认窗口」,否则生产策略表一改
+    // (例如给某告警族加 8h/24h 冷却)测试就跟着变,红的不是产品而是夹具。默认值不变。
+    policyFile = ALERT_DELIVERY_POLICY_FILE,
     logger = log,
   } = opts
   try {
@@ -2690,7 +2693,7 @@ export function notifyGuardRed(name, detail, opts = {}) {
     // 策略表到期 ⇒ 自动回到默认窗口(多喊一次),绝不因配置陈旧而静默。
     const policyHit = force
       ? null
-      : matchAlertDeliveryPolicy(name, loadAlertDeliveryPolicy(ALERT_DELIVERY_POLICY_FILE).entries, {
+      : matchAlertDeliveryPolicy(name, loadAlertDeliveryPolicy(policyFile).entries, {
           today: new Date(now).toISOString().slice(0, 10),
         })
     const policyEntry = policyHit && !policyHit.expired ? policyHit.entry : null
