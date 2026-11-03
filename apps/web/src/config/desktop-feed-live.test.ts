@@ -22,6 +22,7 @@ import {
   pickLatestApkRelease,
   extractSemver,
   preferGiteeWindows,
+  preferGiteePlatforms,
   fetchReleasesPaged,
   resolveLiveDesktopFeed,
   type UpstreamRelease,
@@ -258,6 +259,93 @@ describe('preferGiteeWindows —— 国内可达偏好,但只认字节对账(202
     await withFetch(head({ len: 10118299 }), async () => {
       const out = await preferGiteeWindows(payload, 'desktop-v0.1.75', GH_SIZE)
       expect(out?.platforms['windows-x86_64']?.url).not.toContain('gitee.com')
+    })
+  })
+})
+
+describe('preferGiteePlatforms —— 国内主通道:全平台逐资产字节对账(2026-11-03)', () => {
+  const payload = {
+    version: '0.1.77',
+    notes: 'n',
+    pub_date: '2026-11-03T00:00:00.000Z',
+    platforms: {
+      'windows-x86_64': {
+        url: 'https://github.com/o/r/releases/download/desktop-v0.1.77/AI_0.1.77_x64-setup.exe',
+        signature: 'SIG-WIN',
+      },
+      'linux-x86_64': {
+        url: 'https://github.com/o/r/releases/download/desktop-v0.1.77/AI_0.1.77_amd64.AppImage',
+        signature: 'SIG-LINUX',
+      },
+      'darwin-aarch64': {
+        url: 'https://github.com/o/r/releases/download/desktop-v0.1.77/AI_universal.app.tar.gz',
+        signature: 'SIG-MAC',
+      },
+    },
+  }
+  const SIZES = new Map<string, number>([
+    ['AI_0.1.77_x64-setup.exe', 9690695],
+    ['AI_0.1.77_amd64.AppImage', 86968824],
+    ['AI_universal.app.tar.gz', 13646808],
+  ])
+  const withFetch = (stub: typeof fetch, run: () => Promise<void>) => {
+    const real = globalThis.fetch
+    globalThis.fetch = stub
+    return run().finally(() => {
+      globalThis.fetch = real
+    })
+  }
+  /** 按 URL 文件名返回各自的 Content-Length(缺省 null ⇒ HEAD 非 200) */
+  const headByAsset = (map: Record<string, number | null>) =>
+    (async (input: RequestInfo | URL) => {
+      const name = String(input).split('/').pop() || ''
+      const len = map[name]
+      return {
+        ok: typeof len === 'number',
+        headers: new Headers(typeof len === 'number' ? { 'content-length': String(len) } : {}),
+      }
+    }) as unknown as typeof fetch
+
+  it('字节相等的平台改写 Gitee;字节不等的平台保持 GitHub;签名逐字不动', async () => {
+    await withFetch(
+      headByAsset({
+        'AI_0.1.77_x64-setup.exe': 9690695,
+        'AI_0.1.77_amd64.AppImage': 86968824,
+        'AI_universal.app.tar.gz': 13646808 + 1,
+      }),
+      async () => {
+        const out = await preferGiteePlatforms(payload, 'desktop-v0.1.77', SIZES)
+        expect(out?.platforms['windows-x86_64']?.url).toContain('gitee.com')
+        expect(out?.platforms['linux-x86_64']?.url).toContain('gitee.com')
+        expect(out?.platforms['darwin-aarch64']?.url).toContain('github.com')
+        expect(out?.platforms['windows-x86_64']?.signature).toBe('SIG-WIN')
+        expect(out?.platforms['linux-x86_64']?.signature).toBe('SIG-LINUX')
+        expect(out?.platforms['darwin-aarch64']?.signature).toBe('SIG-MAC')
+      },
+    )
+  })
+
+  it('Gitee 缺该平台资产 ⇒ 该平台保持 GitHub(绝不因"同名"就改写)', async () => {
+    await withFetch(
+      headByAsset({
+        'AI_0.1.77_x64-setup.exe': 9690695,
+        'AI_0.1.77_amd64.AppImage': null,
+      }),
+      async () => {
+        const out = await preferGiteePlatforms(payload, 'desktop-v0.1.77', SIZES)
+        expect(out?.platforms['windows-x86_64']?.url).toContain('gitee.com')
+        expect(out?.platforms['linux-x86_64']?.url).toContain('github.com')
+        expect(out?.platforms['darwin-aarch64']?.url).toContain('github.com')
+      },
+    )
+  })
+
+  it('GitHub 侧量不到 size ⇒ 未判定 ⇒ 全部保持 GitHub', async () => {
+    await withFetch(headByAsset({}), async () => {
+      const out = await preferGiteePlatforms(payload, 'desktop-v0.1.77', new Map())
+      for (const k of Object.keys(payload.platforms)) {
+        expect(out?.platforms[k as keyof typeof payload.platforms]?.url).toContain('github.com')
+      }
     })
   })
 })
