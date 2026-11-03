@@ -190,7 +190,7 @@ export default function DeveloperSubscribePage() {
           </View>
           <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
             <Text className="text-subtitle font-semibold text-foreground">{dev.name}</Text>
-            <Text className="text-[length:26rpx] text-muted-foreground leading-[1.5]">
+            <Text className="text-body-sm text-muted-foreground leading-[1.5]">
               {dev.bio || tt('developer.subscribe.bioDefault', '暂无简介')}
             </Text>
           </View>
@@ -313,7 +313,7 @@ export default function DeveloperSubscribePage() {
               {posts.map((p) => (
                 <View key={p.id} className="p-[20rpx] bg-card rounded-lg">
                   <Text className="block text-body font-semibold text-foreground">{p.title}</Text>
-                  <Text className="block mt-[12rpx] text-[length:26rpx] text-muted-foreground leading-[1.5]">
+                  <Text className="block mt-[12rpx] text-body-sm text-muted-foreground leading-[1.5]">
                     {p.content}
                   </Text>
                   <Text className="block mt-[12rpx] text-caption text-[var(--color-text-tertiary)]">

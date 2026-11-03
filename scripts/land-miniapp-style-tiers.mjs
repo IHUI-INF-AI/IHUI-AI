@@ -135,14 +135,18 @@ export function buildReverse(spacingPx, typeSizes) {
   const spacing = new Map()
   for (const [k, v] of Object.entries(spacingPx)) if (!spacing.has(Number(v))) spacing.set(Number(v), k)
   const type = new Map()
+  // 档位自带字重(2026-11-03):具名档 utility 会同时写 font-size + line-height + font-weight,
+  // 替换前必须知道目标档的 weight,否则元素上的 `font-bold` 会被 `text-title` 的 600 顶掉/反顶。
+  const weight = new Map()
   const kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
   for (const [k, v] of Object.entries(typeSizes)) {
     const px = typeof v === 'number' ? v : Number(v?.size)
     // **档名要转 kebab**:`TYPE_STEPS` 的键是 `displayLg`,而 CSS 变量/工具类是 `--text-display-lg`。
     // 首版直接用了原键,产出 `var(--text-displayLg)` —— 一个**不存在的变量**,2 处成员页字号会失效。
     if (Number.isFinite(px) && !type.has(px)) type.set(px, kebab(k))
+    weight.set(kebab(k), Number(v?.weight ?? 400))
   }
-  return { spacing, type }
+  return { spacing, type, weight }
 }
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -211,19 +215,76 @@ function listSourceFiles() {
  * 只认 `className="…"` 与 `className={`…`}` 两种形态;`className={cn(…)}` 一类表达式不碰
  * (要解析 JS 表达式才安全,收益不值这个风险)。
  */
+const FONT_WEIGHT_CLASS = {
+  thin: 100,
+  extralight: 200,
+  light: 300,
+  normal: 400,
+  medium: 500,
+  semibold: 600,
+  bold: 700,
+  extrabold: 800,
+  black: 900,
+}
+
+/**
+ * className 里的**显式字重**。返回 400/500/…,`null`=没写,`'conflict'`=同一串里写了两个不同的值。
+ * 只认 `font-weight` 形态:`font-bold` / `sm:font-bold` / `font-[500]` / `font-[weight:500]`;
+ * `font-sans` / `font-[family:…]` 不是字重,不能混进来。
+ */
+export function explicitFontWeight(body) {
+  const found = new Set()
+  for (const tok of body.split(/\s+/)) {
+    if (!tok) continue
+    const base = tok.includes(':') ? tok.slice(tok.lastIndexOf(':') + 1) : tok
+    const kw = /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/.exec(base)
+    if (kw) {
+      found.add(FONT_WEIGHT_CLASS[kw[1]])
+      continue
+    }
+    const num = /^font-\[(?:weight:)?(\d{3})\]/.exec(base)
+    if (num) found.add(Number(num[1]))
+  }
+  if (found.size === 0) return null
+  if (found.size > 1) return 'conflict'
+  return [...found][0]
+}
+
 export function rewriteClassNameTokens(text, rev, opts = {}) {
   const requireLeading = opts.requireLeading !== false
   const masked = maskCommentsEqualLen(text)
   let changes = 0
   const samples = []
+  const skipped = []
+  const skip = (raw, reason) => {
+    if (skipped.length < 300) skipped.push({ raw, reason })
+  }
   const clsRe = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g
   const out = text.replace(clsRe, (all, dq, tpl, offset) => {
     if (masked.slice(offset, offset + all.length) !== all) return all // 注释里的同形文本不动
     const body = dq ?? tpl ?? ''
-    if (requireLeading && !/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) return all // 默认档:无行高覆盖 ⇒ 不换(会改行高)
+    const weight = explicitFontWeight(body)
     const replaced = body.replace(/\btext-\[(?:length:)?(\d+(?:\.\d+)?)rpx\]/g, (m, n) => {
       const step = rev.type.get(Number(n) / 2)
-      if (!step) return m // 档外值不猜
+      if (!step) {
+        skip(m, 'off-table')
+        return m // 档外值不猜
+      }
+      if (requireLeading && !/(?:^|\s)leading-(?:\[|[a-z0-9])/.test(body)) {
+        skip(m, 'no-leading')
+        return m
+      }
+      const tierWeight = rev.weight?.get(step) ?? 400
+      // 字重守卫:具名档 utility 自带 font-weight。显式字重与档位不同 ⇒ 替换会改观感;
+      // 没写显式字重而档位不是 400 ⇒ 继承字重可能不是 400(等于凭空加一档 weight)。两种都不动。
+      if (weight === 'conflict' || (weight !== null && weight !== tierWeight)) {
+        skip(m, 'weight-conflict')
+        return m
+      }
+      if (weight === null && tierWeight !== 400) {
+        skip(m, 'weight-inherited')
+        return m
+      }
       changes++
       if (samples.length < 6) samples.push(`${m} → text-${step}`)
       return `text-${step}`
@@ -231,7 +292,7 @@ export function rewriteClassNameTokens(text, rev, opts = {}) {
     if (replaced === body) return all
     return dq !== undefined ? `className="${replaced}"` : `className={\`${replaced}\`}`
   })
-  return { out, changes, samples }
+  return { out, changes, samples, skipped }
 }
 
 function watermark(mode, file) {
@@ -355,6 +416,49 @@ function runSelfTest() {
       console.error(`✗ ${c.name}\n  得到:${r.out}\n  期望:${c.want} (changes=${r.changes}, want=${c.n})`)
     }
   }
+  /**
+   * 字号 className 面(2026-11-03):具名档 utility 自带 font-size + line-height + font-weight。
+   * 行高由显式 leading-* 经 `var(--tw-leading)` 压住;字重必须由守卫判 —— 与档位不一致就跳过。
+   */
+  const fontRev = buildReverse(spacingPx, {
+    bodySm: { size: 13, weight: 400 },
+    heading: { size: 20, weight: 700 },
+  })
+  const FONT_CASES = [
+    {
+      name: '无显式字重 + 档 400 ⇒ 落档(行高有 leading 锁)',
+      src: '<Text className="text-[length:26rpx] leading-[40rpx]" />',
+      want: '<Text className="text-body-sm leading-[40rpx]" />',
+      n: 1,
+    },
+    {
+      name: 'font-medium 与档 400 冲突 ⇒ 不动',
+      src: '<Text className="text-[length:26rpx] font-medium leading-[40rpx]" />',
+      want: '<Text className="text-[length:26rpx] font-medium leading-[40rpx]" />',
+      n: 0,
+    },
+    {
+      name: '无显式字重 + 档 700 ⇒ 不动(继承字重不确定)',
+      src: '<Text className="text-[length:40rpx] leading-[48rpx]" />',
+      want: '<Text className="text-[length:40rpx] leading-[48rpx]" />',
+      n: 0,
+    },
+    {
+      name: 'font-bold 与档 700 一致 ⇒ 落档',
+      src: '<Text className="text-[length:40rpx] font-bold leading-[48rpx]" />',
+      want: '<Text className="text-heading font-bold leading-[48rpx]" />',
+      n: 1,
+    },
+  ]
+  for (const c of FONT_CASES) {
+    const r = rewriteClassNameTokens(c.src, fontRev)
+    const ok = r.out === c.want && r.changes === c.n
+    if (ok) pass++
+    else {
+      fail++
+      console.error(`✗ ${c.name}\n  得到:${r.out}\n  期望:${c.want} (changes=${r.changes}, want=${c.n})`)
+    }
+  }
   console.log(`--self-test: ${pass} passed / ${fail} failed`)
   process.exit(fail === 0 ? 0 : 1)
 }
@@ -407,6 +511,8 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
   const held = []
   const results = []
   const samples = []
+  const skipStats = {}
+  const skipDetail = []
   const landRound = openLandingRound()
   let total = 0
   for (const f of files) {
@@ -422,6 +528,10 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
       continue
     }
     const r = fn(src, rev)
+    for (const s of r.skipped || []) {
+      skipStats[s.reason] = (skipStats[s.reason] || 0) + 1
+      if (skipDetail.length < 12) skipDetail.push(`${f}: ${s.raw}(${s.reason})`)
+    }
     if (r.changes === 0) continue
     if (dirty.has(f)) {
       held.push(f)
@@ -457,6 +567,8 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
           applied: apply,
           detail: results,
           samples,
+          skipped: skipStats,
+          skipDetail,
           landing: landReg.landing,
           landingPath: LEDGER_REL,
           skipLanded: landRound.skipLanded,
@@ -472,6 +584,12 @@ function runFontSafe(_flag, rev, fn = rewriteClassNameTokens, label = 'LAND-MINI
   for (const r of results.slice(0, 12)) console.log(`  ${r.file}  ${r.changes} 处`)
   if (results.length > 12) console.log(`  …另 ${results.length - 12} 个文件`)
   for (const s of samples) console.log(`  样例 ${s}`)
+  const skipTotal = Object.values(skipStats).reduce((a, b) => a + b, 0)
+  if (skipTotal)
+    console.log(
+      `  跳过 ${skipTotal} 处(${Object.entries(skipStats).map(([k, v]) => `${k}=${v}`).join(' ')})`,
+    )
+  for (const s of skipDetail.slice(0, 6)) console.log(`  跳过样例 ${s}`)
   if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
   console.log(`结论:${label} state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${total} held=${held.length}` + landingTailOf(landRound, landReg))
 }
