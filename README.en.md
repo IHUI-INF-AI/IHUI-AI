@@ -59,17 +59,17 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **618 tables · 4673 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4000 test files ·
+Headline claims (same source as the table below, all live-computed): **619 tables · 4683 API routes ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4006 test files ·
 303 engineering gates · 51 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 618 | `dbTables` |
+| 数据库表 | 619 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4674 | `apiRoutes` |
+| API 路由 | 4683 | `apiRoutes` |
 | 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -82,16 +82,18 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4005 | `testFiles` |
+| 测试文件 | 4010 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 319 | `guardianGates` |
-| — blocking | 290 | `guardianBlocking` |
+| 工程守门 | 320 | `guardianGates` |
+| — blocking | 291 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18891 | `trackedFiles` |
+| 跟踪文件 | 18907 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
+> ⚠️ 未判定 1 项:`guardianGates`(runner 里有 1 个重复 id ⇒ 撞号,条目数不可信)
 
 <!-- END GENERATED NUMBERS -->
 <!-- END GENERATED NUMBERS -->
@@ -101,152 +103,18 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ef2123786e)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30d2f7ca16)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3c9a00be72)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f6d68d470b)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (415b1414a3)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d365afb360)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (34ba63607b)
-- 🚀 Feature/Improvement:账号级 needsReauth 五类归因与 provider×reason 计数 (6f00e6f1d5)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9b60105652)
-- 🔧 Chore/Other:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
-- 🚀 Feature/Improvement:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ae46cd2635)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (45954293cd)
-- 🐞 Fix:补齐镜像构建上下文缺失的 postinstall 脚本 (5282f9a93c)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ce45e49f3f)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (be8220b87d)
-- 🐞 Fix:新分支 merge tip 补 push scope 二级推导(47p 31224ms→~1s) (6954f92679)
-- 🐞 Fix:签到同步失败当场落日志 + 域外账号按 provider 归因,补调度关闸与归因反向例 (cace48db40)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3f04652720)
-- 🔧 Chore/Other:并发定死 4 worker + testTimeout/hookTimeout 抬到 20s（固化靠 CLI flag 才绿的设置） (f07719c5b3)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bd75e36dab)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4eb11de592)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (603ecbfc37)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ac1469fc5c)
-- 🐞 Fix:收敛 app-version store 维度测试两处 TS2532(测试侧非空守卫) (77c120366d)
-- 🚀 Feature/Improvement:到人哨兵再加「小程序档位偏离同源」两维(defaulted / literal 净增) (b604096a0b)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (685cd7f884)
-- 🐞 Fix:补 windowsHide,销掉门 52 抓出的派生弹窗缺陷(本会话上一枚引入) (a1cc3c3d0d)
-- 🚀 Feature/Improvement:给到人哨兵补上「样式档位净增」四维,兑现档位尺那句"净增经 §5e 到人" (13d41f451a)
-- 🐞 Fix:push 档门改用 47p,避免与 pre-commit 的 47 撞号(R5) (421b3e3daf)
-- 🔧 Chore/Other:夹具钉 git 身份、并发窗口改走离线旗标、取名改判磁盘主面,并同步词表收窄与新增编号族 (0ee72a091c)
-- 🐞 Fix:门47 挂进 push 门(只判 push scope)+ 私有索引落盘接入水印预检(事故 0335facba1) (e2d8b52784)
-- 🔧 Chore/Other:号池夹具按两位数池宽(99)重建,并同步池式期望值 (0351606d05)
-- 🐞 Fix:签到/保活总闸在部署入口默认开,并让启动与 status 可见 (bcdec109c9)
-- 🚀 Feature/Improvement:新增门 284「声明承载 vs 真承载」差集棘轮(小程序功能对齐不再按声明计) (abf77f0662)
-- 🐞 Fix:测试 DATABASE_URL 兜底改不可用哨兵并硬拒生产 8810 (9fa87280b3)
-- 🐞 Fix:about 断言同步宿主端口三参转发 + 摘掉合并带入的 no-console 告警 (b9bceb51b0)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (2a56005f6c)
-- 🚀 Feature/Improvement:把守门 251 的修法出口首次上守护周期腿(前置=归属闸与未知旗拒绝) (72650fe783)
-- 🔧 Chore/Other:覆盖写路径默认严格与 --legacy-lenient 逃生阀 (9a821daebd)
-- 🐞 Fix:严格编号判据改为写路径默认生效，并留 --legacy-lenient 逃生阀 (90fcbe7029)
-- 🐞 Fix:测试 Redis 兜底改不可用哨兵并硬拒生产 8811 (bd61b9faa7)
-- 🐞 Fix:about 屏跳转夹具补齐 getState + 清掉 useCallback 缺依赖 (5dd12ffd3a)
-- 🔧 Chore/Other:覆盖同号重复/带号行解删/空行被吞/无 attestation 四场景 (b30700c44f)
-- 🐞 Fix:合并器补严同号重复与我方带号行解删 (e4f24acbb2)
-- 🐞 Fix:号池签到同步失败可定位/可升级 + 同名冲突改用确定性别名 + 保活摘除留痕 (216987682c)
-- 🔧 Chore/Other:Revert "fix(i18n): 小程序词包补 career 命名空间七键" —— 撤回,根因是承载关系不在 (92bd78493b)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (63f9ac4a14)
-- 🐞 Fix:小程序词包补 career 命名空间七键,消掉"整屏文案取不到"的产物级回归 (909ce225b5)
-- 🔧 Chore/Other:分叉决策账本 24 条 owner/到期/证据认领(pending 146→0) (820f29156e)
-- 🐞 Fix:补齐 web 间距采集边向前缀与 -px/负向,遮罩注释噪声 (27e755d9b5)
-- 🔧 Chore/Other:销 plan-write-invariants 两枚的 HEAD 面水印欠账(假横幅 → 可解码载荷) (47263ad17c)
-- 📚 Docs:补 282 与 283 两道已接线门的 R4 点名行,消掉接线层一枚真红 (f56d51306f)
-- 🐞 Fix:重新生成契约产物,补齐 9 条已入库但未导出的路径 (f58725d9e1)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7367e5a195)
-- 🚀 Feature/Improvement:把 RN 薄壳覆盖判据装上提交链(守门 283,blocking) (e8c610eadb)
-- 🔧 Chore/Other:收编守护落档产出(4 件,凭落点账本) (5355177bb8)
-- 🐞 Fix:落库器每条早退路径都必须出机读结论行(治"器物在跑但说不出话") (6178c8bdf7)
-- 🐞 Fix:覆盖门把 evidence 纳入 needsManual 硬判据并补缺 evidence 镜像测试 (60df42dbf4)
-- 🐞 Fix:修 lint-typecheck-test 三处报错 —— import() 类型注解改顶层 import type + 去多余非空断言 (9cdb7f9255)
-- 🔧 Chore/Other:12 枚 needsManual 全量登记(3 语义不同/5 退役内联/4 手写壳挂账) (296be37c48)
-- 🐞 Fix:补齐导航替身 getState 契约并保持 navigate 实参形状 (a7282ff7c4)
-- 🔧 Chore/Other:给 web↔RN 缺口棘轮建真实基线件,脱离"首跑常量"锚 (03be228081)
-- 🐞 Fix:修存量红:段宽期望与实际不一致 (1b172544c3)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5f728aca25)
-- 🚀 Feature/Improvement:新增门 282 web↔RN 覆盖缺口棘轮 (43fe135510)
-- 🚀 Feature/Improvement:派生链补 rn-host-shell 段,gen-rn-host-shell 真正上链 (c7339348b7)
-- 🐞 Fix:build-static 改按 proxy 反向依赖闭包移出引用者(修 Pages TS2307) (82f59f4550)
-- 🐞 Fix:映射块比对改判像素等值,止住 ui-mirror 腿回退他人已入库修复 (6dcfd1d601)
-- 🐞 Fix:真 onRetry 取代别名（第 3 批） (8dca03cb7b)
-- 🐞 Fix:重注入 agent-chat-stream.ts 的溯源水印载荷 (dde93677f6)
-- 🐞 Fix:CI test-python Ruff 清零(3->0) —— 2 条 I001 自动修 + B905 改 itertools.pairwise (777eb272a4)
-- 🔧 Chore/Other:并入 main 末枚后再重算：trackedFiles 18873 (20a0683841)
-- 🔧 Chore/Other:并入 main 最新 5 枚后再重算严格档数字：testFiles 4000 / trackedFiles 18870 (0b65b91e57)
-- 🚀 Feature/Improvement:新增小程序端口等价表与只读门禁(表/实现/类型键集合三向对账) (a0280a8b94)
-- 🔧 Chore/Other:补门 47 水源印：plan-write-invariants 与其镜像测试（main 新入两文件缺 [IHUI-AI-PROVENANCE]，闸已自行注入） (5d649056d1)
-- 🐞 Fix:A3 测试的 git 派生显式接管 stdio(门 193) (7f700f94c9)
-- 🐞 Fix:真 onRetry 取代别名（第 2 批） (3fa6b98e7a)
-- 🐞 Fix:replace 缺失走 CAPABILITY_OFF、tab 语义透传、空实现黑名单与小程序 toast 落地 (14038ab3e4)
-- 🔧 Chore/Other:合并后再重算严格档数字：testFiles 3998 / trackedFiles 18867（并入 main 11+6 枚新增测试与脚本） (fb482bd67e)
-- 📚 Docs:更正 P0-2/P0-3 头注里的门号引用 (0cf2b9ddc6)
-- 🚀 Feature/Improvement:新增写盘不变量库(六条断言) (00d9edda4b)
-- 🐞 Fix:严格档把 dup 与租约同键重复判红 (c1300d59c7)
-- 🐞 Fix:租约追加同键幂等,重复段拒绝再写 (ec34d3ab47)
-- 🐞 Fix:真 onRetry 取代别名（第 1 批） (f8e651a83b)
-- 🐞 Fix:回捞拒绝同号多候选,--pick 显式选一枚 (6ffe4b85b9)
-- 🐞 Fix:补齐 getState 端口面并把 tabBar 名单收敛为唯一真相源 (27dfe8e87e)
-- 🚀 Feature/Improvement:放行两件"器物早已存在、写档从未被放行"的存量落档器,并把归属判据收成单源 (8096a3aff8)
-- 🐞 Fix:P0-1/P0-2 新增脚本 lint 未用变量与 prettier 收口 (fb04a6e9ed)
-- 🚀 Feature/Improvement:新增非色档分叉 decision 账本对账 decide-style-tier-forks(P0-3) (1fd4311254)
-- 🔧 Chore/Other:合并后再重算严格档数字：trackedFiles 18840（新增 iOS 站点腿与测试文件） (03d9b62dff)
-- 🚀 Feature/Improvement:新增 web↔RN 覆盖缺口棘轮 check-web-rn-gap-ratchet(P0-2) (7c799be026)
-- 🐞 Fix:下载中心未上线平台改走显式「尚未上线」态,并收平平台清单多份真相 (097f73e73b)
-- 🐞 Fix:纠正上一枚把 7 个文件发成空 blob 的自伤,并给重放器装上字节自证闸 (d6a5a73b51)
-- 🔧 Chore/Other:补齐摘权限插件的水印覆盖(HEAD 面唯一缺口,落地后复跑点名的那条 blocking 就是它) (dd715319dc)
-- 🔧 Chore/Other:把 iOS 站点腿中继调度器贴到远端那份 guardian 上(锚点唯一性自证) (c3a1c72b8d)
-- 🚀 Feature/Improvement:新增 RN 薄壳直接 import 覆盖判据 check-rn-host-shell-coverage(P0-1) (01a900c030)
-- 🔧 Chore/Other:合并后重算严格档数字：testFiles 3996、trackedFiles 18837（合并树新增测试与跟踪文件） (3795f79f88)
-- 🐞 Fix:下载中心「尚未上线」态三键补齐五语言 (791b2bcf0e)
-- 📚 Docs:补齐 ApkPure 与其余品牌的核实结论,并把 App 备案挂成法律级前置 (d333f3f82a)
-- 📚 Docs:Y-70 就地改写为四格动手清单(备案号登记/四家接口凭据/迁移先于上线/三端 store 消费) (133f99596f)
-- 🚀 Feature/Improvement:.ipa 改走自有站点腿(指针 302 + 版本副本长缓存),构建产物自己报版本号 (0eda23a561)
-- 🚀 Feature/Improvement:各商店提交前的合规对账器 + 摘除一个全仓零引用的危险权限 (1c6aecb1a4)
-- 🚀 Feature/Improvement:app_versions 加 store 维度,多渠道各自一条 latest 才表达得出来 (33f26c2d18)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (8581b5c75f)
-- 🔧 Chore/Other:补门 47 水源印：agent-chat-stream.ts（远端 SSE 消费出口带入 HEAD 时缺溯源水印） (5cb5e2fe35)
-- 🔧 Chore/Other:合并前置：与 d16d78d008 兜底清扫冲突，按真实缺陷保留 Y-14（安卓 latest 行缺失导致更新卡无下载地址） (46197828d3)
-
-**2026-11-02**
-- 🔧 Chore/Other:解合并卡点：README 自动块刷新 + 严格档数字重算 (1e71ef9b40)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9065d9cba8)
-- 🚀 Feature/Improvement:补齐跨端自愈链的最后一节「落库」,写盘件从此有凭据可入库 (4bbb261050)
-- 🚀 Feature/Improvement:桌面发现射程早警 + 各端解析带分页预算自证 (3caef3e395)
-- 🔧 Chore/Other:合并前置：还原被并发写坏的计划档并重登记确认行 (f958623743)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (36f13ea78a)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d48ee4d4d3)
-- 🔧 Chore/Other:并入 origin/main 后新入库测试的类型收敛(13 条诊断→0) (f2fb1414a8)
-- 📚 Docs:Z-1 副本行加【归并】指针注记 —— 正本按占用面证据定 G-54 版;两版正文逐字保留、不删行、注记不写行号 (31fca517fa)
-- 🚀 Feature/Improvement:下载栏 8 端取运行期真值(desktop/android/ios/cli/extension 全量现读) (6180f8cb25)
-- 🔧 Chore/Other:清理 mock/夹具形状与杂项类型残留(909→0) (1447fc2d48)
-- 🔧 Chore/Other:DB 夹具 returning 行守卫(TS18048/TS2532 最大簇) (c233a70517)
-- 🔧 Chore/Other:对齐 preHandler 与路由工厂调用签名(TS2554 62 + TS2684 2) (430f89344b)
-- 🔧 Chore/Other:收敛 inject 包装入参与 method 字面量类型(57 条) (327fad29ca)
-- 🔧 Chore/Other:cli-import 响应索引访问补非空断言(TS18048/TS2532) (8209066282)
-- 🔧 Chore/Other:setErrorHandler 回调标注 FastifyError(TS18046 340 条) (a544bbd373)
-- 📚 Docs:B87/B88/B91 按已结清标注 —— 三行原文与同题注记保留,行内记修复枚 3c846ee8d5 / 合并枚 9a71162313 (f132ac5dac)
-- 🚀 Feature/Improvement:四家商店通道由未判定推进到已证可达,两格仍诚实留未判定 (a83a952cfb)
-- 📚 Docs:就地改写 Y-70(四家商店通道已证可达,vivo/OPPO 仍未判定) (233eec47d3)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e2e2250558)
-- 📚 Docs:RP-35 按已结清标注 —— 原文保留,行内记修复枚 65102e7774(前端归一化读取 /api/health 裸对象,后端未动) (965859a0dc)
-- 🔧 Chore/Other:字号档收口第 6/6 批 —— src/components 402 文件 (45525b8354)
-- 📚 Docs:RP-79 同号分叉让号 —— 「给 git-sync-converge 补守卫」改号 RP-91(原文保留,行尾注明原号;剩余面票 RP-79 不动) (b0ad9f1c80)
-- 🔧 Chore/Other:字号档收口第 5/6 批 —— (main) 业务页 356 文件(乙)+ app/en 与 app/ 其它 (7f01a52f3d)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0491faf17f)
-- 🔧 Chore/Other:字号档收口第 4/6 批 —— (main) 业务页 341 文件(甲) (7e35051ed2)
-- 🚀 Feature/Improvement:safe-commit 新增 --files-from 清单入口(大批量路径绕开 Windows argv 上限) (9710581b38)
-- 📚 Docs:B72 就地改写并入实测根因(路由 22 枚端点无承载层鉴权致家长门户恒 401,出路逐端点接 checkAuthOrInternalService 加 GET /attendance/me) (3d7820a692)
-- 🔧 Chore/Other:字号档收口第 3/6 批 —— (main)/admin 其余 260 文件(乙) (f685e7e41d)
-- 🔧 Chore/Other:字号档收口第 2/6 批 —— (main)/admin 其余 262 文件(甲) (381df55136)
-- 🔧 Chore/Other:字号档收口第 1/6 批 —— (main)/admin/edu 126 文件 (72df7ca87d)
-- 🚀 Feature/Improvement:移动端 agentChat 补 stop 停止按钮文案(zh-CN/zh-TW/en/ja/ko 五语,对应 B4 流式停止入口) (2ba6fecdb8)
-- 🐞 Fix:RP-35 后端健康页按归一化读取 /api/health 裸对象 (65102e7774)
-- 🚀 Feature/Improvement:B4 Agent 会话 SSE 消费侧——共享 streamAgentChat 增量回调+abort,断线带 Last-Event-ID 重连一次,仍败回落 v2 分页读+一次性 POST;RN 宿主增量渲染/done 落库替换/失败显式报错;共享屏仅四枚可选 props(缺省显式关闭);新增 4+3 例测试,双端 typecheck 0,门273 --staged 零新增 (0335facba1)
-- 🐞 Fix:build-fail 同题不再按 TS 号分身,证据补可定位失败原因(B87/B88/B91) (3c846ee8d5)
+- 🔧 Chore/Other:补三枚 RN 屏溯源水印(合并后 push 门 47p 修复) (9d91dd8bf4)
+- 🐞 Fix:对账尺子加传输层重试与总预算闸,别再天天量不出结论 (e2e718a6db)
+- 🔧 Chore/Other:对账尺子按端档案跑 iOS,派发腿拆成两层 (c8ca880f5f)
+- 🔧 Chore/Other:补 knip alias 自检脚本的溯源水印 (d92f6a957f)
+- 🔧 Chore/Other:knip 棘轮面收紧 —— rn-compat 构建别名与 Taro 约定入口纳入生成器，清理 209 条死导出并合并重复符号，exports/duplicates/devDeps 三项回绿 (795d606084)
+- 🐞 Fix:补 Ruff I001 + 分诊重跑尊重 working-directory + 守卫用例移出仓库根 (784ec4d642)
+- 🔧 Chore/Other:F4 反向例补齐「两组真实重复并行计组」 (70c3d516e8)
+- 🐞 Fix:两处单行文本断言改多行结构解析 + 重生成 openapi 产物 (a730538dc6)
+- 🚀 Feature/Improvement:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (7a468f1ad8)
+- 🔧 Chore/Other:按 origin/main 源面重生成三端 ui-routes 产物,消 G5 自述钉陈旧 (0b3c68bda9)
+- 🐞 Fix:F4 组数口径最小豁免——已归并副本行退出 dupOpenGroups 分母(1→0) (8e8788ef50)
+- 🚀 Feature/Improvement:下载栏最后一格改由实物码说话,并给生码链加"文件名与字节同形"闸 (1d81b430e7)
 
 **2026-11-02**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9065d9cba8)
@@ -341,6 +209,9 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🔧 Chore/Other:补 .gitignore 兜住本地优选 IP 凭据，避免令牌误入库 (213b7c038c)
 - 🔧 Chore/Other:重生成 ui-routes 生成物（911 条），对齐设置页新卡片 (d388266f28)
 - 🔧 Chore/Other:按新 HEAD 源重生成离线语言包（键 544→592，钉 2fb7af837e） (2f98eb1e6b)
+
+**2026-11-02**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c5a90766cf)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
