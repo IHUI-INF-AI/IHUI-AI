@@ -79,7 +79,7 @@ export interface RelayPoolPolicy {
 }
 
 /** 一小时毫秒数(闲置小时与临期窗口的换算基数,单源于此) */
-export const HOUR_MS = 3_600_000
+const HOUR_MS = 3_600_000
 
 export const DEFAULT_RELAY_POOL_POLICY: RelayPoolPolicy = {
   strategy: 'deterministic',
@@ -94,7 +94,7 @@ export const DEFAULT_RELAY_POOL_POLICY: RelayPoolPolicy = {
 }
 
 /** env 钮名登记表(测试与文档以此为准;实现只认这些键) */
-export const RELAY_POOL_ENV_KEYS = {
+const RELAY_POOL_ENV_KEYS = {
   strategy: 'IHUI_RELAY_POOL_STRATEGY',
   idleWeightPerHour: 'IHUI_RELAY_POOL_IDLE_WEIGHT_PER_HOUR',
   idleWeightMax: 'IHUI_RELAY_POOL_IDLE_WEIGHT_MAX',
@@ -222,7 +222,7 @@ interface RelayPoolKnobSpec {
  * DEFAULT_RELAY_POOL_POLICY 键集 == RELAY_POOL_ENV_KEYS 值集"三方对账)——
  * 这一格是"钮只活在代码里、面板看不见"这个失效方向的封口。
  */
-export const RELAY_POOL_KNOB_SPECS: readonly RelayPoolKnobSpec[] = [
+const RELAY_POOL_KNOB_SPECS: readonly RelayPoolKnobSpec[] = [
   {
     name: 'strategy',
     envKey: RELAY_POOL_ENV_KEYS.strategy,
@@ -258,7 +258,8 @@ export const RELAY_POOL_KNOB_SPECS: readonly RelayPoolKnobSpec[] = [
     name: 'preferLowCredit',
     envKey: RELAY_POOL_ENV_KEYS.preferLowCredit,
     kind: 'boolean',
-    description: '同优先级内让积分更低的号排前(低分号先消耗,避免积分过期浪费;读不到积分的号恒排最后)',
+    description:
+      '同优先级内让积分更低的号排前(低分号先消耗,避免积分过期浪费;读不到积分的号恒排最后)',
   },
   {
     name: 'creditFloor',
@@ -456,13 +457,13 @@ export function domainKeyOfRow(row: PoolCandidateRow): 'cn' | 'global' | null {
 // =============================================================================
 
 /** 闲置小时数(null = 从未用过 ⇒ Infinity,由封顶收敛) */
-export function idleHoursOf(row: PoolCandidateRow, nowMs: number): number {
+function idleHoursOf(row: PoolCandidateRow, nowMs: number): number {
   if (!row.lastUsedAt) return Number.POSITIVE_INFINITY
   return Math.max(0, (nowMs - row.lastUsedAt.getTime()) / HOUR_MS)
 }
 
 /** 闲置加分:min(闲置小时 × perHour, max);perHour<=0 ⇒ 0(关闭) */
-export function idleBonusOf(row: PoolCandidateRow, nowMs: number, policy: RelayPoolPolicy): number {
+function idleBonusOf(row: PoolCandidateRow, nowMs: number, policy: RelayPoolPolicy): number {
   if (policy.idleWeightPerHour <= 0) return 0
   const hours = idleHoursOf(row, nowMs)
   const raw = hours * policy.idleWeightPerHour
@@ -470,21 +471,13 @@ export function idleBonusOf(row: PoolCandidateRow, nowMs: number, policy: RelayP
 }
 
 /** 是否「窗口内将到期」(含已过期;无到期时刻 ⇒ 判不了 ⇒ 不算临期) */
-export function isExpiringSoon(
-  row: PoolCandidateRow,
-  nowMs: number,
-  policy: RelayPoolPolicy,
-): boolean {
+function isExpiringSoon(row: PoolCandidateRow, nowMs: number, policy: RelayPoolPolicy): boolean {
   if (!row.tokenExpiresAt) return false
   return row.tokenExpiresAt.getTime() - nowMs <= policy.expiringSoonMs
 }
 
 /** 有效权重 = max(基础权重, 0) + 闲置加分(加权随机与确定性排序共用这一把尺) */
-export function effectiveWeightOf(
-  row: PoolCandidateRow,
-  nowMs: number,
-  policy: RelayPoolPolicy,
-): number {
+function effectiveWeightOf(row: PoolCandidateRow, nowMs: number, policy: RelayPoolPolicy): number {
   return Math.max(0, row.weight) + idleBonusOf(row, nowMs, policy)
 }
 
@@ -530,7 +523,7 @@ export function orderDeterministic<T extends PoolCandidateRow>(
  * 累计覆盖点,失效方向是"仍产出一个全序",绝不空手而归)。
  * 总权重 <= 0(全零权 + 加权关)⇒ 回落确定性排序(候选一枚都不能丢)。
  */
-export function orderWeighted<T extends PoolCandidateRow>(
+function orderWeighted<T extends PoolCandidateRow>(
   rows: T[],
   nowMs: number,
   policy: RelayPoolPolicy,
@@ -577,10 +570,7 @@ export interface FilterOutcome<T> {
 }
 
 /** 积分地板过滤:地板<=0 关闭;行无积分信息(判不了)保留;清空 ⇒ 回落全集 */
-export function filterCreditFloor<T extends PoolCandidateRow>(
-  rows: T[],
-  floor: number,
-): FilterOutcome<T> {
+function filterCreditFloor<T extends PoolCandidateRow>(rows: T[], floor: number): FilterOutcome<T> {
   if (!(floor > 0)) return { rows, fallbackApplied: false }
   const kept = rows.filter((r) => {
     const credit = creditOfRow(r)
@@ -591,7 +581,7 @@ export function filterCreditFloor<T extends PoolCandidateRow>(
 }
 
 /** 域过滤:requestedDomain 为 null ⇒ 不过滤;无域概念的行恒保留;清空 ⇒ 回落全集 */
-export function filterByDomain<T extends PoolCandidateRow>(
+function filterByDomain<T extends PoolCandidateRow>(
   rows: T[],
   requestedDomain: 'cn' | 'global' | null,
 ): FilterOutcome<T> {
