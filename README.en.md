@@ -101,6 +101,27 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (1fb2f45d04)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (30d2f7ca16)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3c9a00be72)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (f6d68d470b)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (415b1414a3)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d365afb360)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (34ba63607b)
+
+**2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9b60105652)
 - 🔧 Chore/Other:AgentReviewDetail 改判 not-applicable（无 RN 详情路由/入口） (4381683c20)
 - 🚀 Feature/Improvement:CoursePlanet/MoreCourse/StudyIndex 接共享屏薄壳 (30a2725d76)
@@ -125,75 +146,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bd75e36dab)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (4eb11de592)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (603ecbfc37)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (ac1469fc5c)
-- 🚀 Feature/Improvement:到人哨兵再加「小程序档位偏离同源」两维(defaulted / literal 净增) (b604096a0b)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (685cd7f884)
-- 🐞 Fix:补 windowsHide,销掉门 52 抓出的派生弹窗缺陷(本会话上一枚引入) (a1cc3c3d0d)
-- 🚀 Feature/Improvement:给到人哨兵补上「样式档位净增」四维,兑现档位尺那句"净增经 §5e 到人" (13d41f451a)
-- 🔧 Chore/Other:夹具钉 git 身份、并发窗口改走离线旗标、取名改判磁盘主面,并同步词表收窄与新增编号族 (0ee72a091c)
-- 🔧 Chore/Other:号池夹具按两位数池宽(99)重建,并同步池式期望值 (0351606d05)
-- 🚀 Feature/Improvement:新增门 284「声明承载 vs 真承载」差集棘轮(小程序功能对齐不再按声明计) (abf77f0662)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (2a56005f6c)
-- 🚀 Feature/Improvement:把守门 251 的修法出口首次上守护周期腿(前置=归属闸与未知旗拒绝) (72650fe783)
-- 🔧 Chore/Other:覆盖写路径默认严格与 --legacy-lenient 逃生阀 (9a821daebd)
-- 🐞 Fix:严格编号判据改为写路径默认生效，并留 --legacy-lenient 逃生阀 (90fcbe7029)
-- 🔧 Chore/Other:覆盖同号重复/带号行解删/空行被吞/无 attestation 四场景 (b30700c44f)
-- 🐞 Fix:合并器补严同号重复与我方带号行解删 (e4f24acbb2)
-- 🔧 Chore/Other:Revert "fix(i18n): 小程序词包补 career 命名空间七键" —— 撤回,根因是承载关系不在 (92bd78493b)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (63f9ac4a14)
-- 🐞 Fix:小程序词包补 career 命名空间七键,消掉"整屏文案取不到"的产物级回归 (909ce225b5)
-- 🔧 Chore/Other:分叉决策账本 24 条 owner/到期/证据认领(pending 146→0) (820f29156e)
-- 🐞 Fix:补齐 web 间距采集边向前缀与 -px/负向,遮罩注释噪声 (27e755d9b5)
-- 🔧 Chore/Other:销 plan-write-invariants 两枚的 HEAD 面水印欠账(假横幅 → 可解码载荷) (47263ad17c)
-- 📚 Docs:补 282 与 283 两道已接线门的 R4 点名行,消掉接线层一枚真红 (f56d51306f)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7367e5a195)
-
-**2026-11-03**
-- 🚀 Feature/Improvement:把 RN 薄壳覆盖判据装上提交链(守门 283,blocking) (e8c610eadb)
-- 🔧 Chore/Other:收编守护落档产出(4 件,凭落点账本) (5355177bb8)
-- 🐞 Fix:落库器每条早退路径都必须出机读结论行(治"器物在跑但说不出话") (6178c8bdf7)
-- 🐞 Fix:覆盖门把 evidence 纳入 needsManual 硬判据并补缺 evidence 镜像测试 (60df42dbf4)
-- 🔧 Chore/Other:12 枚 needsManual 全量登记(3 语义不同/5 退役内联/4 手写壳挂账) (296be37c48)
-- 🐞 Fix:补齐导航替身 getState 契约并保持 navigate 实参形状 (a7282ff7c4)
-- 🔧 Chore/Other:给 web↔RN 缺口棘轮建真实基线件,脱离"首跑常量"锚 (03be228081)
-- 🐞 Fix:修存量红:段宽期望与实际不一致 (1b172544c3)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5f728aca25)
-- 🚀 Feature/Improvement:新增门 282 web↔RN 覆盖缺口棘轮 (43fe135510)
-- 🚀 Feature/Improvement:派生链补 rn-host-shell 段,gen-rn-host-shell 真正上链 (c7339348b7)
-- 🐞 Fix:映射块比对改判像素等值,止住 ui-mirror 腿回退他人已入库修复 (6dcfd1d601)
-- 🐞 Fix:真 onRetry 取代别名（第 3 批） (8dca03cb7b)
-- 🚀 Feature/Improvement:新增小程序端口等价表与只读门禁(表/实现/类型键集合三向对账) (a0280a8b94)
-- 🐞 Fix:A3 测试的 git 派生显式接管 stdio(门 193) (7f700f94c9)
-- 🐞 Fix:真 onRetry 取代别名（第 2 批） (3fa6b98e7a)
-- 🐞 Fix:replace 缺失走 CAPABILITY_OFF、tab 语义透传、空实现黑名单与小程序 toast 落地 (14038ab3e4)
-- 📚 Docs:更正 P0-2/P0-3 头注里的门号引用 (0cf2b9ddc6)
-- 🚀 Feature/Improvement:新增写盘不变量库(六条断言) (00d9edda4b)
-- 🐞 Fix:严格档把 dup 与租约同键重复判红 (c1300d59c7)
-- 🐞 Fix:租约追加同键幂等,重复段拒绝再写 (ec34d3ab47)
-- 🐞 Fix:真 onRetry 取代别名（第 1 批） (f8e651a83b)
-- 🐞 Fix:回捞拒绝同号多候选,--pick 显式选一枚 (6ffe4b85b9)
-- 🐞 Fix:补齐 getState 端口面并把 tabBar 名单收敛为唯一真相源 (27dfe8e87e)
-- 🚀 Feature/Improvement:放行两件"器物早已存在、写档从未被放行"的存量落档器,并把归属判据收成单源 (8096a3aff8)
-- 🐞 Fix:P0-1/P0-2 新增脚本 lint 未用变量与 prettier 收口 (fb04a6e9ed)
-- 🚀 Feature/Improvement:新增非色档分叉 decision 账本对账 decide-style-tier-forks(P0-3) (1fd4311254)
-- 🚀 Feature/Improvement:新增 web↔RN 覆盖缺口棘轮 check-web-rn-gap-ratchet(P0-2) (7c799be026)
-- 🐞 Fix:下载中心未上线平台改走显式「尚未上线」态,并收平平台清单多份真相 (097f73e73b)
-- 🔧 Chore/Other:补齐摘权限插件的水印覆盖(HEAD 面唯一缺口,落地后复跑点名的那条 blocking 就是它) (dd715319dc)
-- 🚀 Feature/Improvement:新增 RN 薄壳直接 import 覆盖判据 check-rn-host-shell-coverage(P0-1) (01a900c030)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
