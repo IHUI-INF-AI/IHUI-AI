@@ -45,6 +45,8 @@ export { ticketKeyOf }
 // 本层零复算判据(§0.6),只做接线。
 import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
 export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
+import { gateTicketByHumanValve, VALVE_MODES } from './lib/autonomy-runner.mjs'
+export { gateTicketByHumanValve }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
 import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
@@ -54,6 +56,9 @@ import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
 export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json')
+/** 人工阀分类语料(判据实现住在 lib/human-valve.mjs,这里只取它的语料文件)。
+ *  必须排在 ROOT 之后:const 声明有 TDZ,放在上面会让本器一被 import 就 ReferenceError。 */
+export const VALVE_LIST_JSON = join(ROOT, 'scripts', 'data', 'human-valve-list.json')
 /** O6504 人工阀清单 / O6502 成本熔断(调度层读同一份真源,不另写第二份判据) */
 const HUMAN_GATES_JSON = join(ROOT, 'scripts', 'data', 'human-gates.json')
 const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
@@ -124,6 +129,12 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   if (typeof g.sessionCommandTemplate !== 'string') {
     throw new GateShapeError('闸门形状坏:sessionCommandTemplate 必须是字符串(空串 = dry-run 档)')
   }
+  // 人工阀档:缺字段 = observe(记账不拦)。缺省绝不等于放开 —— 但也绝不因为"没登记"就
+  // 一刀切停派,那是把刚修活的发起腿再锁死。enforce 的前置条件由尺子 A6 维量(见 check-autonomy-leg-health)。
+  if (g.humanValveMode !== undefined && !VALVE_MODES.includes(g.humanValveMode)) {
+    throw new GateShapeError(`闸门形状坏:humanValveMode 只能是 ${VALVE_MODES.join('|')} 之一(现值 ${JSON.stringify(g.humanValveMode)})`)
+  }
+  if (g.humanValveMode === undefined) g.humanValveMode = 'observe'
   return g
 }
 
@@ -662,6 +673,39 @@ export function excerptBothEnds(stderr, stdout, max = 150) {
   return parts.length ? parts.join(' | ') : '(两流皆空)'
 }
 
+/**
+ * 阀结论 → 派发路由(2026-11-03 改档,用户授权)。
+ *
+ * 改什么:observe 档命中停机类(`observe-stop`)原先只记台账就**照派**,台账里 20 条
+ * 阀判"停机等人"的票仍然被派出去白烧会话额度。现在 observe-stop = 单票停机不派,
+ * 台账动作名仍保留 `valve-observe-stop`(既有统计不失效)+ 新字段 `dispatched:false`。
+ *
+ * 不改什么:阀判据本体(lib/human-valve.mjs / lib/autonomy-runner.mjs)、档位取值、
+ * enforce 的 block 单票跳 / unjudged 整轮停、allow 照派、unjudged+observe 照派。
+ *
+ * 返回 { route, ledger },route 四档:
+ *   `block`            单票不派(enforce 命中停机类)
+ *   `stop-round`       整轮停(enforce 档 unjudged,fail-closed)
+ *   `skip-observe-stop` 单票不派(observe 命中停机类;本条即本次语义变更)
+ *   `dispatch`         照派(allow,以及 unjudged 在非 enforce 档的既有行为)
+ */
+export function decideValveDispatch(valve, mode, { ticketKey = '', ticketLine = '' } = {}) {
+  const ledger = {
+    action: `valve-${valve?.action}`,
+    ticketKey,
+    ticketLine,
+    ruleId: valve?.ruleId,
+    why: valve?.reason,
+  }
+  if (valve?.action === 'observe-stop') {
+    // 只在这一档加"未派"标记:修订不动 block / unjudged / allow 行既有的字段形状。
+    return { route: 'skip-observe-stop', ledger: { ...ledger, dispatched: false } }
+  }
+  if (valve?.action === 'block') return { route: 'block', ledger }
+  if (valve?.action === 'unjudged' && mode === 'enforce') return { route: 'stop-round', ledger }
+  return { route: 'dispatch', ledger }
+}
+
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
@@ -1047,6 +1091,38 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
       if (!matchWhitelist(ticket.text, gates.ticketWhitelist)) {
         console.log(`⏭ L${ticket.line} 未命中票类白名单 ⇒ 跳过(第一期保守起步)`)
+        continue
+      }
+      // 人工阀前置闸(2026-11-01 接线)。白名单回答的是"这类票允许自动派吗",
+      // 阀清单回答的是"这张票要做的动作需不需要人"。此前第二问结构上不存在 ——
+      // classifyAction 在派发路径上零调用,7 条"停机等人"全靠被派起的会话自觉。
+      let valveText = ''
+      try {
+        valveText = readFileSync(VALVE_LIST_JSON, 'utf8')
+      } catch {
+        valveText = ''
+      }
+      const valve = gateTicketByHumanValve({ ticketText: ticket.text, mode: gates.humanValveMode, valveListText: valveText })
+      const valveRoute = decideValveDispatch(valve, gates.humanValveMode, { ticketKey: key, ticketLine: ticket.text.slice(0, 160) })
+      record({ mode: dryRun ? 'dryrun' : 'dispatch', ...valveRoute.ledger })
+      if (valveRoute.route === 'block') {
+        console.log(`⛔ L${ticket.line} 命中人工阀「${valve.ruleId}」⇒ enforce 档不派(不重试、不绕行)`)
+        if (!escapeThrottled()) {
+          markEscape()
+          sendEscapeMail(gates, `auto-evolve:valve:${valve.ruleId}`, '[auto-evolve] 有票命中人工阀,已停派等人', `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n命中规则:${valve.ruleId}\n判据:${valve.reason}\n出路:这一条按清单归机主面(scripts/data/human-valve-list.json),由人执行;或由人把它摘出自动派单面。`)
+        }
+        continue
+      }
+      if (valveRoute.route === 'stop-round') {
+        record({ mode: 'dispatch', action: 'valve-unjudged-block', ticketKey: key, why: valve.reason })
+        console.error(`❌ 未判定:${valve.reason} ⇒ enforce 档 fail-closed,本轮停派`)
+        process.exitCode = 2
+        return
+      }
+      if (valveRoute.route === 'skip-observe-stop') {
+        // 2026-11-03 改档(用户授权):这条原先是"只记账、仍照派",现在停机不派。
+        // 台账动作名保持 valve-observe-stop,并带 dispatched:false 区分"阀判停机但其实派出去了"的旧行。
+        console.log(`👁 L${ticket.line} valve-observe-stop(skip) 命中停机类「${valve.ruleId}」⇒ observe 档停机不派(不再照派白烧会话额度)`)
         continue
       }
       if (dispatched >= gates.dailyDispatchBudget) {
@@ -1720,6 +1796,7 @@ export const __test__ = {
   quarantinedUntilOf,
   isPidAlive,
   signSessionJwt,
+  decideValveDispatch,
   DISPATCH_ARGS,
   PLAN_TASKS,
   GATES_JSON,
