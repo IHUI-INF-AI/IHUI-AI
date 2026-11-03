@@ -10,6 +10,7 @@ import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { onToast } from '@/host/on-toast'
 const copyIcon = aizhsUrl('remote-images/copy.png')
 
 /**
@@ -56,9 +57,8 @@ export default function InformationItem({
     e.stopPropagation()
     Taro.setClipboardData({
       data: `${item.title}\n${item.content || ''}`,
-      success: () => Taro.showToast({ title: tt('success.copied', '已复制'), icon: 'success' }),
-      fail: () =>
-        Taro.showToast({ title: tt('ai.aiAssistant.copyFailed', '复制失败'), icon: 'none' }),
+      success: () => onToast(tt('success.copied', '已复制'), { kind: 'success' }),
+      fail: () => onToast(tt('ai.aiAssistant.copyFailed', '复制失败'), { kind: 'error' }),
     })
     onCopy?.(item)
   }

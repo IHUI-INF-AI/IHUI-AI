@@ -18,6 +18,7 @@ import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import { useChannelLabel } from './notification-channel-label'
 import NotificationSaveBar from './notification-save-bar'
+import { onToast } from '@/host/on-toast'
 
 interface NotificationSettingItem {
   key: string
@@ -52,7 +53,7 @@ export default function NotificationPage() {
       setList(res.list || [])
     } catch (e) {
       logger.error('setting/notification', '获取通知设置', e)
-      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -74,7 +75,7 @@ export default function NotificationPage() {
       setList((prev) => prev.map((item) => (item.key === key ? { ...item, enabled: value } : item)))
       updateNotificationSettings({ [key]: value }).catch((e) => {
         logger.error('setting/notification', '更新通知设置', e)
-        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
       })
     },
     [tt],
@@ -95,10 +96,10 @@ export default function NotificationPage() {
         payload[item.key] = item.enabled
       })
       await updateNotificationSettings(payload)
-      Taro.showToast({ title: t('notificationSettings.saved'), icon: 'success' })
+      onToast(t('notificationSettings.saved'), { kind: 'success' })
     } catch (e) {
       logger.error('setting/notification', '保存通知设置', e)
-      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     } finally {
       setSaving(false)
     }
@@ -108,15 +109,11 @@ export default function NotificationPage() {
   const onSubscribeWx = useCallback(async () => {
     const accepted = await requestPushSubscription()
     if (accepted) {
-      Taro.showToast({
-        title: tt('setting.notification.subscribed', '已开启提醒订阅'),
-        icon: 'success',
-      })
+      onToast(tt('setting.notification.subscribed', '已开启提醒订阅'), { kind: 'success' })
     } else {
       logger.info('setting/notification', 'subscribe-rejected', '用户未同意订阅或未配置模板')
-      Taro.showToast({
-        title: tt('setting.notification.subscribeFailed', '未开启订阅,可稍后重试'),
-        icon: 'none',
+      onToast(tt('setting.notification.subscribeFailed', '未开启订阅,可稍后重试'), {
+        kind: 'error',
       })
     }
   }, [tt])

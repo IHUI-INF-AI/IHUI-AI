@@ -18,6 +18,7 @@ import type { ReactNode } from 'react'
 
 import { MINI_TAB_PAGE_LIST } from '../constants/tab-bar-pages'
 import { RN_ROUTE_MAP } from './route-map.generated'
+import { onToast } from '@/host/on-toast'
 
 export type RouteParams = Record<string, unknown>
 
@@ -549,7 +550,7 @@ export function useNavigation(): CompatNavigation {
     emitNavigationFailure({ name, reason, detail })
     if (!warnedRef.current.has(name)) {
       warnedRef.current.add(name)
-      void Taro.showToast({ title: '该页面暂未支持', icon: 'none' })
+      void onToast('该页面暂未支持', { kind: 'error' })
     }
   }, [])
 

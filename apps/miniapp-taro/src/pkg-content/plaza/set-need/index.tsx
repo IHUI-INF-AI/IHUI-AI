@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 const CATEGORY_KEYS = [
   'writing',
@@ -53,13 +54,13 @@ export default function SetNeed() {
 
   const save = useCallback(async () => {
     if (!selected.length) {
-      Taro.showToast({ title: t('plaza.setNeed.selectAtLeast'), icon: 'none' })
+      onToast(t('plaza.setNeed.selectAtLeast'), { kind: 'info' })
       return
     }
     setSaving(true)
     try {
       await post('/plaza/need', { categories: selected, level, budget })
-      Taro.showToast({ title: t('plaza.setNeed.saved'), icon: 'success' })
+      onToast(t('plaza.setNeed.saved'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('plaza/set-need', 'save', e)

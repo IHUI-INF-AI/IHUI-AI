@@ -55,6 +55,7 @@ import { useAppTheme } from '@/lib/theme'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 const defaultAvatar = TABBAR_HOME_ICON_URL
 
@@ -444,7 +445,7 @@ export default function UserIndex() {
    */
   async function handleScanLogin() {
     if (!isLoggedIn()) {
-      Taro.showToast({ title: t('scanLogin.needLogin'), icon: 'none' })
+      onToast(t('scanLogin.needLogin'), { kind: 'info' })
       return
     }
     let raw = ''
@@ -456,14 +457,14 @@ export default function UserIndex() {
     }
     const ticket = parseQrLoginTicket(raw)
     if (!ticket) {
-      Taro.showToast({ title: t('scanLogin.invalidCode'), icon: 'none' })
+      onToast(t('scanLogin.invalidCode'), { kind: 'error' })
       return
     }
     try {
       await api.confirmQrLogin(ticket)
-      Taro.showToast({ title: t('scanLogin.success'), icon: 'success' })
+      onToast(t('scanLogin.success'), { kind: 'success' })
     } catch {
-      Taro.showToast({ title: t('scanLogin.failed'), icon: 'none' })
+      onToast(t('scanLogin.failed'), { kind: 'error' })
     }
   }
 
@@ -476,7 +477,7 @@ export default function UserIndex() {
     // 连"这一跳没执行"都看不到(同源的一批死链就是这么长期活下来的)。
     Taro.navigateTo({
       url: path,
-      fail: () => Taro.showToast({ title: t('common.failed'), icon: 'none' }),
+      fail: () => onToast(t('common.failed'), { kind: 'error' }),
     })
   }
 
@@ -493,7 +494,7 @@ export default function UserIndex() {
           }
           clearAuth()
           setUserInfo(null)
-          Taro.showToast({ title: t('user.loggedOut'), icon: 'success' })
+          onToast(t('user.loggedOut'), { kind: 'success' })
         }
       },
     })
@@ -575,10 +576,7 @@ export default function UserIndex() {
   // 下载音频（对齐原项目 downloadAudio）
   function downloadAudio(audioUrl: string) {
     if (!audioUrl) {
-      Taro.showToast({
-        title: tf('user.audio.invalidUrl', '音频地址无效'),
-        icon: 'none',
-      })
+      onToast(tf('user.audio.invalidUrl', '音频地址无效'), { kind: 'error' })
       return
     }
 
@@ -598,33 +596,21 @@ export default function UserIndex() {
             tempFilePath: res.tempFilePath,
             success: () => {
               Taro.hideLoading()
-              Taro.showToast({
-                title: tf('user.audio.downloadSuccess', '下载成功'),
-                icon: 'success',
-              })
+              onToast(tf('user.audio.downloadSuccess', '下载成功'), { kind: 'success' })
             },
             fail: () => {
               Taro.hideLoading()
-              Taro.showToast({
-                title: tf('user.audio.downloadFail', '保存失败'),
-                icon: 'none',
-              })
+              onToast(tf('user.audio.downloadFail', '保存失败'), { kind: 'error' })
             },
           })
         } else {
           Taro.hideLoading()
-          Taro.showToast({
-            title: tf('user.audio.downloadFail', '下载失败'),
-            icon: 'none',
-          })
+          onToast(tf('user.audio.downloadFail', '下载失败'), { kind: 'error' })
         }
       },
       fail: () => {
         Taro.hideLoading()
-        Taro.showToast({
-          title: tf('user.audio.downloadFail', '下载失败'),
-          icon: 'none',
-        })
+        onToast(tf('user.audio.downloadFail', '下载失败'), { kind: 'error' })
       },
     })
 
@@ -638,10 +624,7 @@ export default function UserIndex() {
   // 打开视频播放器（对齐原项目 openVideoPlayer）
   function openVideoPlayer(videoUrl: string) {
     if (!videoUrl) {
-      Taro.showToast({
-        title: tf('user.video.invalidUrl', '视频地址无效'),
-        icon: 'none',
-      })
+      onToast(tf('user.video.invalidUrl', '视频地址无效'), { kind: 'error' })
       return
     }
     setCurrentVideoUrl(videoUrl)
@@ -660,7 +643,7 @@ export default function UserIndex() {
     // 且 fail 回退到同一条坏路径 ⇒ 三处悬浮按钮 + 本页反馈项点了全无反应。
     Taro.navigateTo({
       url: '/pkg-user/user/feedback?pageType=list',
-      fail: () => Taro.showToast({ title: '反馈页打开失败,请稍后重试', icon: 'none' }),
+      fail: () => onToast('反馈页打开失败,请稍后重试', { kind: 'error' }),
     })
   }
 
@@ -675,18 +658,13 @@ export default function UserIndex() {
     Taro.setClipboardData({
       data: websiteUrl,
       success: () => {
-        Taro.showToast({
-          title: tf('user.websiteLinkCopied', '已复制官网地址，请在浏览器打开'),
-          icon: 'none',
+        onToast(tf('user.websiteLinkCopied', '已复制官网地址，请在浏览器打开'), {
+          kind: 'info',
           duration: 2000,
         })
       },
       fail: () => {
-        Taro.showToast({
-          title: tf('user.websiteLinkFail', '复制失败，请重试'),
-          icon: 'none',
-          duration: 2000,
-        })
+        onToast(tf('user.websiteLinkFail', '复制失败，请重试'), { kind: 'error', duration: 2000 })
       },
     })
   }
@@ -712,7 +690,7 @@ export default function UserIndex() {
       // 对齐原项目 handleShowFullList:携带 chatId + title 参数
       Taro.navigateTo({
         url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-        fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
+        fail: () => onToast(tt('community.text11', '对话页未配置'), { kind: 'error' }),
       })
     },
     [toggleDrawer, tt],
@@ -855,13 +833,10 @@ export default function UserIndex() {
                 if (res.confirm) {
                   try {
                     await api.removeModelChat(String(chat.id))
-                    Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
+                    onToast(tt('message.deleted', '已删除'), { kind: 'success' })
                     void loadHistoryChat()
                   } catch {
-                    Taro.showToast({
-                      title: tt('developer.index.deleteFail', '删除失败'),
-                      icon: 'none',
-                    })
+                    onToast(tt('developer.index.deleteFail', '删除失败'), { kind: 'error' })
                   }
                 }
               },
@@ -933,15 +908,9 @@ export default function UserIndex() {
                             await api.updateProfile({ isVip: false })
                           }
                           setUserInfo({ ...userInfo, isVip: false })
-                          Taro.showToast({
-                            title: tt('user.success4', '退订成功'),
-                            icon: 'success',
-                          })
+                          onToast(tt('user.success4', '退订成功'), { kind: 'success' })
                         } catch {
-                          Taro.showToast({
-                            title: tt('user.failed5', '退订失败，请联系客服'),
-                            icon: 'none',
-                          })
+                          onToast(tt('user.failed5', '退订失败，请联系客服'), { kind: 'error' })
                         }
                       },
                     })
@@ -950,11 +919,7 @@ export default function UserIndex() {
                   onOpenLevel={() =>
                     Taro.navigateTo({
                       url: '/pkg-shop/vip/index?type=levelPopup',
-                      fail: () =>
-                        Taro.showToast({
-                          title: tt('user.text6', '等级介绍页未配置'),
-                          icon: 'none',
-                        }),
+                      fail: () => onToast(tt('user.text6', '等级介绍页未配置'), { kind: 'error' }),
                     })
                   }
                   onLogin={goLogin}
@@ -1026,7 +991,7 @@ export default function UserIndex() {
                 )
               })
               .catch(() => {
-                Taro.showToast({ title: tf('login.loginFailed', '登录失败'), icon: 'none' })
+                onToast(tf('login.loginFailed', '登录失败'), { kind: 'error' })
               })
           }}
           onOneClickLogin={async ({ loginCode, phoneCode }) => {
@@ -1042,10 +1007,7 @@ export default function UserIndex() {
               // 三重断裂叠在一起,这个按钮从上线起就没成功登录过任何人。
               const res = await api.oneTapLogin({ loginCode, phoneCode })
               if (!res?.accessToken) {
-                Taro.showToast({
-                  title: tf('login.noToken', '登录失败,未获取到 token'),
-                  icon: 'none',
-                })
+                onToast(tf('login.noToken', '登录失败,未获取到 token'), { kind: 'error' })
                 return
               }
               setToken(res.accessToken)
@@ -1054,9 +1016,9 @@ export default function UserIndex() {
               if (res.user) persistUserInfo(res.user)
               setShowLoginPopup(false)
               refresh()
-              Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+              onToast(tf('login.loginSuccess', '登录成功'), { kind: 'success' })
             } catch {
-              Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
+              onToast(tf('login.loginFailed', '登录失败,请重试'), { kind: 'error' })
             }
           }}
           onPasswordLogin={async (account, password) => {
@@ -1071,7 +1033,7 @@ export default function UserIndex() {
             if (res.user) persistUserInfo(res.user)
             setShowLoginPopup(false)
             refresh()
-            Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+            onToast(tf('login.loginSuccess', '登录成功'), { kind: 'success' })
           }}
           onNicknameChange={async (nickname) => {
             if (!userInfo) return
@@ -1087,12 +1049,9 @@ export default function UserIndex() {
               }
               await api.bindUser(params)
               setUserInfo({ ...userInfo, nickname })
-              Taro.showToast({
-                title: tt('about.apiSettings.savedTip', '保存成功'),
-                icon: 'success',
-              })
+              onToast(tt('about.apiSettings.savedTip', '保存成功'), { kind: 'success' })
             } catch {
-              Taro.showToast({ title: tt('businessCard.saveFailed', '保存失败'), icon: 'none' })
+              onToast(tt('businessCard.saveFailed', '保存失败'), { kind: 'error' })
             }
           }}
         />
@@ -1187,9 +1146,7 @@ export default function UserIndex() {
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-label text-muted-foreground">
-                          {item.time}
-                        </Text>
+                        <Text className="text-label text-muted-foreground">{item.time}</Text>
                       </View>
                       {renderMarkdown(item.content)}
                     </View>
@@ -1222,9 +1179,7 @@ export default function UserIndex() {
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-label text-muted-foreground">
-                          {item.time}
-                        </Text>
+                        <Text className="text-label text-muted-foreground">{item.time}</Text>
                       </View>
                       {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
                       <View className="flex flex-col" style={{ gap: rpx(16) }}>
@@ -1268,9 +1223,7 @@ export default function UserIndex() {
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-label text-muted-foreground">
-                          {item.time}
-                        </Text>
+                        <Text className="text-label text-muted-foreground">{item.time}</Text>
                       </View>
                       <View
                         className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
@@ -1327,9 +1280,7 @@ export default function UserIndex() {
                         <Text className="text-title font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-label text-muted-foreground">
-                          {item.time}
-                        </Text>
+                        <Text className="text-label text-muted-foreground">{item.time}</Text>
                       </View>
                       <View className="flex-row items-center gap-[12rpx]">
                         {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
@@ -1394,9 +1345,7 @@ export default function UserIndex() {
                 onClick={() => goPage(entry.path)}
               >
                 {renderIcon(entry.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
-                <Text className="mt-[6rpx] text-label text-foreground">
-                  {t(entry.key)}
-                </Text>
+                <Text className="mt-[6rpx] text-label text-foreground">{t(entry.key)}</Text>
               </View>
             ))}
           </View>
@@ -1526,10 +1475,7 @@ export default function UserIndex() {
                       void api.firstShare({ source: 'user' }).catch(() => {
                         // 静默:接口失败不阻塞分享成功提示
                       })
-                      Taro.showToast({
-                        title: tf('share.success', '分享成功'),
-                        icon: 'success',
-                      })
+                      onToast(tf('share.success', '分享成功'), { kind: 'success' })
                       closeSharePopup()
                     },
                     fail: () => {
@@ -1537,10 +1483,7 @@ export default function UserIndex() {
                       Taro.setClipboardData({
                         data: 'https://ihui.ai',
                         success: () =>
-                          Taro.showToast({
-                            title: tf('user.share.linkCopied', '链接已复制'),
-                            icon: 'success',
-                          }),
+                          onToast(tf('user.share.linkCopied', '链接已复制'), { kind: 'success' }),
                       })
                       closeSharePopup()
                     },

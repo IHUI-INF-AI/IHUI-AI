@@ -10,6 +10,7 @@ import { listRecurringContracts, cancelRecurringContract, type WechatPayContract
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 // 状态样式走 token:生效中浅绿标签 --color-success-tag-bg(与 RN ModelPlaza 一致);
 // pending 用 --color-warning-tint(warning/10 对 var() 色不生效,改用既有 tint token)
@@ -72,10 +73,10 @@ export default function SubscriptionContractsPage() {
           Taro.showLoading({ title: tt('subscription.processing', '处理中'), mask: true })
           try {
             await cancelRecurringContract(contract.id)
-            Taro.showToast({ title: tt('subscription.cancelSuccess', '已解约'), icon: 'success' })
+            onToast(tt('subscription.cancelSuccess', '已解约'), { kind: 'success' })
             await load()
           } catch {
-            Taro.showToast({ title: tt('subscription.cancelFailed', '解约失败'), icon: 'none' })
+            onToast(tt('subscription.cancelFailed', '解约失败'), { kind: 'error' })
           } finally {
             Taro.hideLoading()
           }

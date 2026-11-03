@@ -7,7 +7,7 @@
 // packages/app/src/features/settings/SettingsScreen.tsx 的同一套 settings.*,不新造键。
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import Taro from '@tarojs/taro'
+
 import { View, Text, Switch } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
 import { changePassword, getNotificationSettings, updateNotificationSettings } from '@/api'
@@ -16,6 +16,7 @@ import { FocusInput } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 
 /** 一行可点条目:与 RN plainRow 同形(左标签 + 右侧箭头)。 */
 export interface SettingRow {
@@ -181,25 +182,25 @@ export function PasswordModal({ visible, onClose }: { visible: boolean; onClose:
   const submit = useCallback(async () => {
     if (submitting) return
     if (!oldPwd || !newPwd || !confirmPwd) {
-      Taro.showToast({ title: t('settings.pwdFieldsRequired'), icon: 'none' })
+      onToast(t('settings.pwdFieldsRequired'), { kind: 'info' })
       return
     }
     if (newPwd.length < 6) {
-      Taro.showToast({ title: t('settings.pwdTooShort'), icon: 'none' })
+      onToast(t('settings.pwdTooShort'), { kind: 'error' })
       return
     }
     if (newPwd !== confirmPwd) {
-      Taro.showToast({ title: t('settings.pwdNotMatch'), icon: 'none' })
+      onToast(t('settings.pwdNotMatch'), { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
       await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
       close()
-      Taro.showToast({ title: t('settings.pwdChanged'), icon: 'success' })
+      onToast(t('settings.pwdChanged'), { kind: 'success' })
     } catch (e) {
       logger.error('setting/index', '修改密码', e)
-      Taro.showToast({ title: t('settings.pwdChangeFailed'), icon: 'none' })
+      onToast(t('settings.pwdChangeFailed'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

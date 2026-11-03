@@ -13,6 +13,7 @@ import { getPlatform, type MiniProgramPlatform } from './auth'
 import { isAlipaySuccess, isAlipayCancel, isAlipayPending } from '@ihui/shared/constants'
 import { type PayErrorLike, isCancelError } from '@ihui/shared/pay'
 import { t } from '@/i18n'
+import { onToast } from '@/host/on-toast'
 
 export interface WechatPayParams {
   timeStamp: string
@@ -40,7 +41,7 @@ export function requestPayment(params: WechatPayParams | AlipayPayParams): Promi
   const platform = getPlatform()
   if (platform === 'weapp') return requestWeappPayment(params as WechatPayParams)
   if (platform === 'alipay') return requestAlipayPayment(params as AlipayPayParams)
-  Taro.showToast({ title: t('pay.unsupportedEnv'), icon: 'none' })
+  onToast(t('pay.unsupportedEnv'), { kind: 'error' })
   return Promise.reject(new Error('当前环境不支持支付'))
 }
 
@@ -62,10 +63,10 @@ export async function requestWeappPayment(params: WechatPayParams): Promise<PayR
     const e = err as PayErrorLike
     const msg = e.errMsg || ''
     if (isCancelError(e)) {
-      Taro.showToast({ title: t('pay.cancel'), icon: 'none' })
+      onToast(t('pay.cancel'), { kind: 'info' })
       throw 'cancel'
     }
-    Taro.showToast({ title: t('pay.failed'), icon: 'none' })
+    onToast(t('pay.failed'), { kind: 'error' })
     throw new Error(msg || '微信支付失败')
   }
 }
@@ -75,7 +76,7 @@ export async function requestAlipayPayment(params: AlipayPayParams): Promise<Pay
   const tradeNO = params.tradeNO
   const orderStr = params.orderStr
   if (!tradeNO && !orderStr) {
-    Taro.showToast({ title: t('pay.aliOrderMissing'), icon: 'none' })
+    onToast(t('pay.aliOrderMissing'), { kind: 'error' })
     throw new Error('支付宝订单信息缺失')
   }
   // 优先用 tradeNO,否则用 orderStr
@@ -87,20 +88,20 @@ export async function requestAlipayPayment(params: AlipayPayParams): Promise<Pay
     const resultCode = String(res.response.resultCode)
     if (isAlipaySuccess(resultCode)) return { platform: 'alipay', resultCode }
     if (isAlipayCancel(resultCode)) {
-      Taro.showToast({ title: t('pay.cancel'), icon: 'none' })
+      onToast(t('pay.cancel'), { kind: 'info' })
       throw 'cancel'
     }
     if (isAlipayPending(resultCode)) {
-      Taro.showToast({ title: t('pay.resultPending'), icon: 'none', duration: 2000 })
+      onToast(t('pay.resultPending'), { kind: 'info', duration: 2000 })
       throw new Error(`支付宝支付待确认(${resultCode})`)
     }
-    Taro.showToast({ title: t('pay.failed'), icon: 'none' })
+    onToast(t('pay.failed'), { kind: 'error' })
     throw new Error(`支付宝支付失败(${resultCode})`)
   } catch (err) {
     // 业务层已处理(throw 'cancel' / Error),透传;系统错误补充提示
     if (err === 'cancel' || err instanceof Error) throw err
     Taro.hideLoading()
-    Taro.showToast({ title: t('pay.failed'), icon: 'none' })
+    onToast(t('pay.failed'), { kind: 'error' })
     throw new Error('支付宝支付失败')
   }
 }

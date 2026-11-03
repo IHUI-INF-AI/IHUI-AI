@@ -15,6 +15,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import N8nListView from './list-view'
 import type { WorkflowCardItem } from './workflow-card'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
 
@@ -138,7 +139,7 @@ export default function N8nModel() {
       await loadList()
     } catch (e) {
       logger.error('n8n-model', '切换n8n工作流状态', e)
-      Taro.showToast({ title: tt('common.operationFailed', '操作失败'), icon: 'none' })
+      onToast(tt('common.operationFailed', '操作失败'), { kind: 'error' })
     }
   }
 
@@ -185,10 +186,7 @@ export default function N8nModel() {
       const file = res.tempFiles[0]
       if (!file) return
       if (file.size > 10 * 1024 * 1024) {
-        Taro.showToast({
-          title: tt('devEnter.n8nModel.fileSizeExceeded', '文件不能超过10MB'),
-          icon: 'none',
-        })
+        onToast(tt('devEnter.n8nModel.fileSizeExceeded', '文件不能超过10MB'), { kind: 'error' })
         return
       }
       setN8nFileName(file.name)
@@ -203,25 +201,16 @@ export default function N8nModel() {
             : json
         if (wf.name && !name) setName(wf.name)
         if (wf.settings?.description && !description) setDescription(wf.settings.description)
-        Taro.showToast({
-          title: tt('devEnter.n8nModel.n8nFileParseSuccess', '文件解析成功'),
-          icon: 'success',
-        })
+        onToast(tt('devEnter.n8nModel.n8nFileParseSuccess', '文件解析成功'), { kind: 'success' })
       } catch {
-        Taro.showToast({
-          title: tt('devEnter.n8nModel.n8nFileParseFailed', 'JSON 文件格式错误'),
-          icon: 'none',
-        })
+        onToast(tt('devEnter.n8nModel.n8nFileParseFailed', 'JSON 文件格式错误'), { kind: 'error' })
         setN8nFileName('')
         setN8nFileData(null)
       }
     } catch (err) {
       const msg = String((err as { errMsg?: string })?.errMsg || '')
       if (!msg.includes('cancel')) {
-        Taro.showToast({
-          title: tt('devEnter.n8nModel.n8nFileReadFailed', '读取文件失败'),
-          icon: 'none',
-        })
+        onToast(tt('devEnter.n8nModel.n8nFileReadFailed', '读取文件失败'), { kind: 'error' })
       }
     }
   }
@@ -229,10 +218,7 @@ export default function N8nModel() {
   const removeN8nFile = () => {
     setN8nFileName('')
     setN8nFileData(null)
-    Taro.showToast({
-      title: tt('devEnter.n8nModel.n8nFileRemoved', '已删除文件'),
-      icon: 'success',
-    })
+    onToast(tt('devEnter.n8nModel.n8nFileRemoved', '已删除文件'), { kind: 'success' })
   }
 
   const updateParam = (which: 'in' | 'out', index: number, patch: Partial<Param>) => {
@@ -250,17 +236,11 @@ export default function N8nModel() {
 
   const validate = (): boolean => {
     if (!name.trim()) {
-      Taro.showToast({
-        title: tt('devEnter.n8nModel.nameRequired', '请输入智能体名称'),
-        icon: 'none',
-      })
+      onToast(tt('devEnter.n8nModel.nameRequired', '请输入智能体名称'), { kind: 'info' })
       return false
     }
     if (!description.trim()) {
-      Taro.showToast({
-        title: tt('devEnter.n8nModel.descRequired', '请输入智能体描述'),
-        icon: 'none',
-      })
+      onToast(tt('devEnter.n8nModel.descRequired', '请输入智能体描述'), { kind: 'info' })
       return false
     }
     return true
@@ -297,16 +277,10 @@ export default function N8nModel() {
       // 真身 = miniapp-compat 的 POST /workflows/n8n/create(api/index.ts 里的 createN8nAgent 同一腿);
       // 旧写法 /developer/n8n-agents 全仓零注册,而 catch 还把失败念成"已模拟创建"
       await post('/workflows/n8n/create', formData)
-      Taro.showToast({
-        title: tt('devEnter.n8nModel.createSuccess', '智能体创建成功'),
-        icon: 'success',
-      })
+      onToast(tt('devEnter.n8nModel.createSuccess', '智能体创建成功'), { kind: 'success' })
     } catch (e) {
       logger.error('n8n-model', '创建N8N智能体', e)
-      Taro.showToast({
-        title: tt('common.failed', '操作失败'),
-        icon: 'none',
-      })
+      onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
       setTimeout(() => {

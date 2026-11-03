@@ -11,7 +11,7 @@
  * 使用场景:小程序需要登录时,跳转到 Web 端 SSO 登录中心,
  * 登录成功后通过一次性 code 回跳小程序,小程序用 code 换取 token。
  */
-import { getStorageSync, removeStorageSync, setStorageSync, showToast } from '@tarojs/taro'
+import { getStorageSync, removeStorageSync, setStorageSync } from '@tarojs/taro'
 import { BASE_URL } from './api-config'
 import { setToken, setRefreshToken, setUserInfo } from './auth'
 import {
@@ -23,6 +23,7 @@ import {
 } from '@ihui/shared/auth/sso-core'
 import type { SsoTokenData } from '@ihui/shared/auth/sso-core'
 import { SSO_CODE_STORAGE_KEY, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared/constants'
+import { onToast } from '@/host/on-toast'
 
 // legacy underscore key (read-only for migration); new key uses hyphen via SSO_CODE_STORAGE_KEY
 const SSO_CODE_KEY_LEGACY = 'ihui_sso_code'
@@ -92,7 +93,7 @@ export async function consumeSsoCode(code: string, successMsg: () => string): Pr
       roleId: data.user.roleId,
       status: data.user.status,
     })
-    showToast({ title: successMsg(), icon: 'success' })
+    onToast(successMsg(), { kind: 'success' })
     return true
   } catch {
     // SSO code 失效或网络异常,静默忽略(调用方按返回值决定提示/重试)
@@ -119,10 +120,7 @@ export const SSO_WEBVIEW_MESSAGE_TYPE = 'ihui-sso-code'
  *   JSON 串先解析再按对象规则处理。
  * - 数组嵌套一层以上照旧展开(微信部分端会把 data 套成二维)。
  */
-export function extractSsoCodeFromWebviewMessages(
-  data: unknown,
-  expectedState?: string,
-): string {
+export function extractSsoCodeFromWebviewMessages(data: unknown, expectedState?: string): string {
   const queue: unknown[] = Array.isArray(data) ? [...data] : [data]
   while (queue.length > 0) {
     const item = queue.shift()

@@ -13,6 +13,7 @@ import type { UserInfo } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 // 开发者账号信息(对标原 developerLink.developer)
 interface DeveloperInfo {
@@ -135,12 +136,8 @@ export default function DevEnterCover() {
       if (!data) return
       Taro.setClipboardData({
         data,
-        success: () =>
-          Taro.showToast({
-            title: tt('devEnter.cover.copySuccess', '已复制'),
-            icon: 'none',
-          }),
-        fail: () => Taro.showToast({ title: tt('common.failed', '复制失败'), icon: 'none' }),
+        success: () => onToast(tt('devEnter.cover.copySuccess', '已复制'), { kind: 'info' }),
+        fail: () => onToast(tt('common.failed', '复制失败'), { kind: 'error' }),
       })
     },
     [], // eslint-disable-line react-hooks/exhaustive-deps -- 挂载时加载一次

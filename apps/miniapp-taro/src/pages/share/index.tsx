@@ -35,6 +35,7 @@ import { EmptyState } from '@/components/ScreenStates.taro'
 import CategoryBar from '@/components/CategoryBar'
 import { getTopBarMetrics } from '@/utils/system-info'
 import { rpx } from '@/utils/rpx'
+import { onToast } from '@/host/on-toast'
 
 type Tab = 'latest' | 'hot' | 'following'
 
@@ -657,7 +658,7 @@ export default function ShareIndexPage() {
           } else {
             Taro.navigateTo({
               url,
-              fail: () => Taro.showToast({ title: tt('share.text1', '页面未配置'), icon: 'none' }),
+              fail: () => onToast(tt('share.text1', '页面未配置'), { kind: 'error' }),
             })
           }
         }}
@@ -671,8 +672,7 @@ export default function ShareIndexPage() {
             // 对齐原项目 gotocompany:跳分销页
             Taro.navigateTo({
               url: '/pages/distribution/index',
-              fail: () =>
-                Taro.showToast({ title: tt('share.text2', '分销页未配置'), icon: 'none' }),
+              fail: () => onToast(tt('share.text2', '分销页未配置'), { kind: 'error' }),
             })
           } else if (item.key === 'freebie') {
             // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
@@ -681,13 +681,11 @@ export default function ShareIndexPage() {
             Taro.setClipboardData({
               data: feishuUrl,
               success: () =>
-                Taro.showToast({
-                  title: tt('share.copy3', '链接已复制,请在浏览器打开'),
-                  icon: 'none',
+                onToast(tt('share.copy3', '链接已复制,请在浏览器打开'), {
+                  kind: 'info',
                   duration: 2000,
                 }),
-              fail: () =>
-                Taro.showToast({ title: tt('share.failed4', '复制失败,请重试'), icon: 'none' }),
+              fail: () => onToast(tt('share.failed4', '复制失败,请重试'), { kind: 'error' }),
             })
           }
         }}
@@ -700,7 +698,7 @@ export default function ShareIndexPage() {
           // 对齐原项目 handleShowFullList:携带 chatId + title 参数
           Taro.navigateTo({
             url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-            fail: () => Taro.showToast({ title: tt('share.text5', '对话页未配置'), icon: 'none' }),
+            fail: () => onToast(tt('share.text5', '对话页未配置'), { kind: 'error' }),
           })
         }}
         onRemoveChat={(chat) => {
@@ -711,13 +709,10 @@ export default function ShareIndexPage() {
               if (res.confirm) {
                 try {
                   await api.removeModelChat(String(chat.id))
-                  Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
+                  onToast(tt('message.deleted', '已删除'), { kind: 'success' })
                   void loadChatHistory()
                 } catch {
-                  Taro.showToast({
-                    title: tt('developer.index.deleteFail', '删除失败'),
-                    icon: 'none',
-                  })
+                  onToast(tt('developer.index.deleteFail', '删除失败'), { kind: 'error' })
                 }
               }
             },
@@ -900,7 +895,7 @@ export default function ShareIndexPage() {
             // 静默
           }
           setShowTrackModal(false)
-          Taro.showToast({ title: `已选择 ${selectedTracks.length} 个赛道`, icon: 'success' })
+          onToast(`已选择 ${selectedTracks.length} 个赛道`, { kind: 'success' })
         }}
         onClose={() => {
           setShowTrackModal(false)
