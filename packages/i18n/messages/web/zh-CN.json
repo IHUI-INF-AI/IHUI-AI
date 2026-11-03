@@ -9114,6 +9114,30 @@
           "title": "媒体文件数量超出限制",
           "action": "精简附件后重试"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "记忆梦境整理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "记忆遗忘清理失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "工具用法记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "记忆检索失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "记忆保存失败",
+          "action": "请稍后重试"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "记忆主题生成失败",
+          "action": "请稍后重试"
+        },
         "MISSING_DATA": {
           "title": "缺少必填参数",
           "action": "补充参数后重试"

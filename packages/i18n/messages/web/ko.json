@@ -9118,6 +9118,30 @@
           "title": "미디어 파일 개수가 제한을 초과했습니다",
           "action": "첨부를 줄이고 재시도"
         },
+        "MEMORY_DREAM_FAILED": {
+          "title": "기억 통합에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_FORGET_FAILED": {
+          "title": "기억 정리에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_PROCEDURAL_SAVE_FAILED": {
+          "title": "도구 사용 기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_RECALL_FAILED": {
+          "title": "기억 검색에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_SAVE_FAILED": {
+          "title": "기억 저장에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
+        "MEMORY_TOPICS_FAILED": {
+          "title": "기억 주제 생성에 실패했습니다",
+          "action": "잠시 후 다시 시도하세요"
+        },
         "MISSING_DATA": {
           "title": "필수 파라미터가 없습니다",
           "action": "파라미터를 채우고 재시도"
