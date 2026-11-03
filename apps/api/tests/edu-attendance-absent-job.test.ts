@@ -11,6 +11,12 @@
 // `isPastHm`(经 runAbsentAttendance 可观测),要么直接用 `__test__.isPastHm`。
 // 本文件里的"假库"只回答"真库在这条 SQL 下会吐出哪些行 / 唯一索引会拦下哪几行",
 // 不替生产做"该不该补缺勤"的判断。
+//
+// 回溯窗(2026-11-05,ATT-BACKFILL 票)后的分组口径:①~⑤ 组用
+// `SAME_DAY_ONLY = { backfillDays: 0 }` 把窗口关掉,逐字保住"只判当日"的旧断言与
+// 判据基准(上海墙钟 + isPastHm);⑥~⑧ 组跑**默认窗口**,钉的是"absent_after 晚于
+// 跑批时刻的那一日不再永远漏判"这一新格(正反成对:次日补得出 / 同轮再跑不重复 /
+// leave 不被改写 / 规则与报名日之前的历史不造)。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -49,7 +55,7 @@ const H = vi.hoisted(() => {
         ...r,
       }
       H.records.push(stored)
-      out.push({ id: stored.id, studentId: stored.studentId })
+      out.push({ id: stored.id, studentId: stored.studentId, date: stored.date })
     }
     return out
   }
@@ -170,8 +176,11 @@ vi.mock('../src/utils/logger.js', () => ({
 
 import {
   __test__ as jobTest,
+  DEFAULT_BACKFILL_DAYS,
+  MAX_BACKFILL_DAYS,
   runAbsentAttendance,
 } from '../src/services/edu-attendance-absent-job.js'
+import { logger } from '../src/utils/logger.js'
 
 const CLASS_A = 'aaaaaaaa-4111-8111-8111-111111111111'
 const CLASS_B = 'bbbbbbbb-4222-8222-8222-222222222222'
@@ -183,31 +192,75 @@ const STUDENT_3 = 'eeeeeeee-4555-8555-8555-555555555555'
 const AT_10_00 = new Date('2026-11-03T02:00:00.000Z')
 /** 上海墙钟 06:30(= 前一日 UTC 22:30):未到 08:30 阈值,业务日键仍是 2026-11-03 */
 const AT_06_30 = new Date('2026-11-02T22:30:00.000Z')
+/** 真跑批时刻:cron `30 10 * * *`(UTC 10:30 = 北京 18:30),业务日键 2026-11-04 */
+const AT_CRON_04 = new Date('2026-11-04T10:30:00.000Z')
+/** 同一 cron 时刻但落在周一:北京 2026-11-09 18:30,窗口要吃掉周六/周日 */
+const AT_CRON_MON = new Date('2026-11-09T10:30:00.000Z')
+/** 规则/报名的下界列默认给一个远早于窗口的时刻 ⇒ 不构成回溯阻力(真实库里就是历史行) */
+const EARLY = new Date('2026-01-01T00:00:00.000Z')
 
-/** 规则行(与 eduAttendanceRule 的 select 投影同键)。 */
-const ruleRow = (classId: string, absentAfter: string): Record<string, unknown> => ({
+/** 关掉回溯窗的一档:既有用例逐字保持"只判当日"的旧断言;窗口本体在 ⑥~⑧ 组里验。 */
+const SAME_DAY_ONLY = { backfillDays: 0 }
+
+/** 规则行(与 eduAttendanceRule 的 select 投影同键;createdAt 是回溯下界的一侧)。 */
+const ruleRow = (
+  classId: string,
+  absentAfter: string,
+  createdAt: Date | null = EARLY,
+): Record<string, unknown> => ({
   id: `rule-${classId.slice(0, 8)}`,
   classId,
   absentAfter,
+  createdAt,
 })
 
 /** 已存在的考勤行(测试自造,直接落进假库世界状态)。 */
-const seedPresent = (studentId: string, classId: string, date: string): void => {
+const seedRow = (
+  studentId: string,
+  classId: string,
+  date: string,
+  status: string,
+  checkInTime: string | null = null,
+): void => {
   H.records.push({
-    id: `seed-${studentId.slice(0, 8)}`,
+    id: `seed-${studentId.slice(0, 8)}-${date}`,
     studentId,
     classId,
     date,
-    status: 'present',
+    status,
     checkInMethod: 'self',
     checkOutMethod: null,
     operatedBy: null,
-    checkInTime: '2026-11-03T00:20:00.000Z',
+    checkInTime,
     checkOutTime: null,
     remark: null,
     deletedAt: null,
   })
 }
+
+const seedPresent = (studentId: string, classId: string, date: string): void =>
+  seedRow(studentId, classId, date, 'present', '2026-11-03T00:20:00.000Z')
+
+/**
+ * 假库对"窗口内已有未软删记录"这条 SQL 的答复。
+ * 生产的幂等预筛按 (学生, 日期) **对**匹配 ⇒ 这里必须带 date(真库 date 列 notNull)。
+ */
+const existingRow = (studentId: string, date: string): Rows => ({ studentId, date })
+
+/** 按学生×日期展开的"全窗已有"答复(幂等第二轮用的就是这个形状)。 */
+const existingRowsFor = (studentIds: string[], dates: string[]): Rows[] =>
+  studentIds.flatMap((studentId) => dates.map((date) => existingRow(studentId, date)))
+
+/** 报名行:enrollDate 是回溯下界的另一侧;不给 = 量不到 ⇒ 不设界。 */
+const enrollRow = (studentId: string, enrollDate?: string): Rows =>
+  enrollDate ? { studentId, enrollDate } : { studentId }
+
+/** 断言用:库里 absent 行的日期集合(升序)。 */
+const absentDates = (studentId?: string): string[] =>
+  H.records
+    .filter((r) => r.status === 'absent' && (studentId === undefined || r.studentId === studentId))
+    .map((r) => String(r.date))
+    .sort()
 
 type Rows = Record<string, unknown>
 type TableKey = 'rule' | 'record' | 'enrollment'
@@ -241,7 +294,7 @@ describe('runAbsentAttendance ①:未签到 ∧ 已过 absentAfter ⇒ 落 absen
       record: [[]],
     })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result).toEqual({
       rules: 1,
@@ -274,7 +327,7 @@ describe('runAbsentAttendance ①:未签到 ∧ 已过 absentAfter ⇒ 落 absen
       record: [[], []],
     })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result).toMatchObject({ rules: 2, students: 3, created: 3, skipped: 0 })
     expect(H.records).toHaveLength(3)
@@ -290,10 +343,10 @@ describe('runAbsentAttendance ②:已签到者不被补 absent', () => {
     script({
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }, { studentId: STUDENT_3 }]],
-      record: [[{ studentId: STUDENT_1 }]],
+      record: [[existingRow(STUDENT_1, '2026-11-03')]],
     })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result).toMatchObject({ rules: 1, students: 3, created: 2, skipped: 0 })
     expect(H.records).toHaveLength(3)
@@ -315,7 +368,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
       record: [[]],
     })
-    const first = await runAbsentAttendance(AT_10_00)
+    const first = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
     expect(first.created).toBe(2)
     const snapshot = JSON.stringify(H.records)
 
@@ -323,9 +376,9 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
     script({
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
-      record: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
+      record: [[existingRow(STUDENT_1, '2026-11-03'), existingRow(STUDENT_2, '2026-11-03')]],
     })
-    const second = await runAbsentAttendance(AT_10_00)
+    const second = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(second).toEqual({
       rules: 1,
@@ -348,7 +401,7 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
       record: [[]], // 预筛"看不见"已有行 ⇒ 候选仍是两人
     })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     // created 来自 .returning() 回库确认,不是请求侧 length(门 134)
     expect(result).toEqual({
@@ -373,10 +426,10 @@ describe('runAbsentAttendance ③:同一天重复执行必须幂等', () => {
 })
 
 describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
-  it('上海 06:30 < absentAfter 08:30 ⇒ 整轮零动作(连在册学生都不查)', async () => {
+  it('上海 06:30 < absentAfter 08:30 ⇒ 当日整轮零动作(连在册学生都不查)', async () => {
     script({ rule: [[ruleRow(CLASS_A, '08:30')]] })
 
-    const result = await runAbsentAttendance(AT_06_30)
+    const result = await runAbsentAttendance(AT_06_30, SAME_DAY_ONLY)
 
     expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] })
     expect(H.records).toHaveLength(0)
@@ -399,7 +452,7 @@ describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
       record: [[]],
     })
 
-    const result = await runAbsentAttendance(AT_19_00)
+    const result = await runAbsentAttendance(AT_19_00, SAME_DAY_ONLY)
 
     expect(result).toEqual({
       rules: 1,
@@ -419,20 +472,21 @@ describe('runAbsentAttendance ④:未到阈值时刻 ⇒ 不补', () => {
     expect(jobTest.normalizeHm('18:30:00')).toBe('18:30')
   })
 
-  it("'HH:MM:SS' 形态但当日未到阈值 ⇒ 仍是整轮零动作(放宽解析没把'未到'洗成'已过')", async () => {
+  it("'HH:MM:SS' 形态但当日未到阈值 ⇒ 当日整轮零动作(放宽解析没把'未到'洗成'已过')", async () => {
     script({ rule: [[ruleRow(CLASS_A, '18:30:00')]] })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result).toEqual({ rules: 0, students: 0, created: 0, skipped: 0, missedIds: [] })
     expect(H.insertCalls).toBe(0)
     expect(H.readOrder).toEqual(['rule'])
   })
 
-  it('跨日界(上海 00:30)仍按当日墙钟判:不到 08:30 ⇒ 不补,也不回溯昨日', async () => {
+  it('跨日界(上海 00:30)仍按当日墙钟判:不到 08:30 ⇒ 当日不补(窗口关掉时也不回溯昨日)', async () => {
+    // 这一条钉的是**判据基准**(上海日 + 当日墙钟),不是窗口;窗口那一维在 ⑦ 组里验。
     script({ rule: [[ruleRow(CLASS_A, '08:30')]] })
 
-    const result = await runAbsentAttendance(new Date('2026-11-03T16:30:00.000Z'))
+    const result = await runAbsentAttendance(new Date('2026-11-03T16:30:00.000Z'), SAME_DAY_ONLY)
 
     expect(result.rules).toBe(0)
     expect(H.records).toHaveLength(0)
@@ -479,10 +533,10 @@ describe('runAbsentAttendance ⑤:代码里没有"默认阈值"兜底分支(按�
     script({
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
-      record: [[{ studentId: STUDENT_1 }, { studentId: STUDENT_2 }]],
+      record: [[existingRow(STUDENT_1, '2026-11-03'), existingRow(STUDENT_2, '2026-11-03')]],
     })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result).toEqual({
       rules: 1,
@@ -492,6 +546,270 @@ describe('runAbsentAttendance ⑤:代码里没有"默认阈值"兜底分支(按�
       missedIds: [],
     })
     expect(H.insertCalls).toBe(0)
+  })
+})
+
+describe('回溯窗 ⑥:窗口口径由生产实现单源定义(§22c 判据零复制)', () => {
+  it('默认回溯 3 天 ⇒ 一轮判定含当日在内 4 个上海业务日,由旧到新', () => {
+    expect(DEFAULT_BACKFILL_DAYS).toBe(3)
+    expect(jobTest.buildBizDayWindow('2026-11-03', DEFAULT_BACKFILL_DAYS)).toEqual([
+      '2026-10-31',
+      '2026-11-01',
+      '2026-11-02',
+      '2026-11-03',
+    ])
+  })
+
+  it('跨月/跨年边界一律走 utils/biz-day 唯一出口;backfillDays=0 退化为"只判当日"', () => {
+    expect(jobTest.buildBizDayWindow('2026-01-01', 3)).toEqual([
+      '2025-12-29',
+      '2025-12-30',
+      '2025-12-31',
+      '2026-01-01',
+    ])
+    expect(jobTest.buildBizDayWindow('2026-11-03', 0)).toEqual(['2026-11-03'])
+  })
+
+  it('backfillDays 取值:未给=默认 / 0 合法 / 非法回落默认 / 越界封顶,且回落必须留日志(不静默)', () => {
+    const warn = vi.mocked(logger.warn)
+    warn.mockClear()
+    expect(jobTest.resolveBackfillDays(undefined)).toBe(DEFAULT_BACKFILL_DAYS)
+    expect(jobTest.resolveBackfillDays(0)).toBe(0)
+    expect(jobTest.resolveBackfillDays(2)).toBe(2)
+    expect(jobTest.resolveBackfillDays(-1)).toBe(DEFAULT_BACKFILL_DAYS)
+    expect(jobTest.resolveBackfillDays(1.5)).toBe(DEFAULT_BACKFILL_DAYS)
+    expect(jobTest.resolveBackfillDays('abc')).toBe(DEFAULT_BACKFILL_DAYS)
+    expect(jobTest.resolveBackfillDays(9999)).toBe(MAX_BACKFILL_DAYS)
+    // 4 次非法/越界 ⇒ 4 条 warn:回落与封顶都不是"没人知道的降级"
+    expect(warn).toHaveBeenCalledTimes(4)
+  })
+
+  it('dayFloorOf:Date / YYYY-MM-DD / 带时刻的串都吃;量不到 ⇒ null(不猜下界)', () => {
+    expect(jobTest.dayFloorOf(new Date('2026-11-02T20:00:00.000Z'))).toBe('2026-11-03') // 上海 04:00
+    expect(jobTest.dayFloorOf('2026-11-02')).toBe('2026-11-02')
+    expect(jobTest.dayFloorOf('2026-11-02T00:00:00Z')).toBe('2026-11-02')
+    expect(jobTest.dayFloorOf('昨天')).toBeNull()
+    expect(jobTest.dayFloorOf(null)).toBeNull()
+    expect(jobTest.dayFloorOf(undefined)).toBeNull()
+    expect(jobTest.dayFloorOf(new Date('not-a-date'))).toBeNull()
+  })
+
+  it('候选对:同 (学生,日期) 已有行 ⇒ 不进候选;换一天的对照样补;量不到日期的已有行不据此排除', () => {
+    const hit = jobTest.absentCandidatePairsForRule({
+      classId: CLASS_A,
+      dueDates: ['2026-11-02', '2026-11-03'],
+      students: [
+        { studentId: STUDENT_1, floor: null },
+        { studentId: STUDENT_2, floor: null },
+      ],
+      ruleFloor: null,
+      existing: [{ studentId: STUDENT_1, date: '2026-11-03' }],
+    })
+    expect(hit.existingHits).toBe(1)
+    expect(hit.unplacedExisting).toBe(0)
+    expect(hit.candidates.map((c) => `${c.studentId}@${c.date}`)).toEqual([
+      `${STUDENT_1}@2026-11-02`,
+      `${STUDENT_2}@2026-11-02`,
+      `${STUDENT_2}@2026-11-03`,
+    ])
+
+    // 已有行 date 量不到 ⇒ 不能当成"这天已记过"(§0.3:取不到不猜),但要留数进日志
+    const unreadable = jobTest.absentCandidatePairsForRule({
+      classId: CLASS_A,
+      dueDates: ['2026-11-03'],
+      students: [{ studentId: STUDENT_1, floor: null }],
+      ruleFloor: null,
+      existing: [{ studentId: STUDENT_1, date: null }],
+    })
+    expect(unreadable.unplacedExisting).toBe(1)
+    expect(unreadable.candidates).toEqual([
+      { studentId: STUDENT_1, classId: CLASS_A, date: '2026-11-03' },
+    ])
+  })
+})
+
+describe('runAbsentAttendance ⑦:本票主案 —— absent_after 晚于跑批时刻的班级不再永远漏判', () => {
+  it('正向:北京 18:30 跑批 + absent_after 19:00 ⇒ 昨日及更早的缺勤照样补出来', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1), enrollRow(STUDENT_2)]],
+      record: [[]],
+    })
+
+    const result = await runAbsentAttendance(AT_CRON_04)
+
+    // 当日(11-04)墙钟 18:30 < 19:00 ⇒ 当日仍不判;窗口里已过完的 3 天照补
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-01', '2026-11-02', '2026-11-03'])
+    expect(absentDates(STUDENT_2)).toEqual(['2026-11-01', '2026-11-02', '2026-11-03'])
+    expect(H.records.some((r) => r.date === '2026-11-04')).toBe(false)
+    expect(result).toEqual({
+      rules: 1,
+      students: 2,
+      created: 6,
+      skipped: 0,
+      missedIds: [],
+    })
+    // 读放大与旧实现同量级:一班一条 enroll + 一条"整窗已有记录"查询(不按日轮询)
+    expect(H.readOrder).toEqual(['rule', 'enrollment', 'record'])
+    expect(H.insertCalls).toBe(1)
+    expect(H.unscripted).toBe(0)
+    for (const row of H.records) {
+      expect(row.status).toBe('absent')
+      expect(row.checkInMethod).toBe('manual')
+      expect(row.operatedBy).toBeNull()
+    }
+  })
+
+  it('反向(成对):同一轮之后立刻再跑 ⇒ 一条 insert 都不发,库中行数与内容逐字不变', async () => {
+    const window = jobTest.buildBizDayWindow('2026-11-04', DEFAULT_BACKFILL_DAYS)
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+    })
+    const first = await runAbsentAttendance(AT_CRON_04)
+    expect(first.created).toBe(window.length - 1) // 当日未到阈值 ⇒ 只有前 3 天
+    const snapshot = JSON.stringify(H.records)
+
+    // 第二轮:真库把整窗(含刚写进去的 3 条)答出来 ⇒ 幂等预筛按 (学生,日期) 对逐个命中
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [existingRowsFor([STUDENT_1], window)],
+    })
+    const second = await runAbsentAttendance(AT_CRON_04)
+
+    expect(second).toEqual({
+      rules: 1,
+      students: 1,
+      created: 0,
+      skipped: 1,
+      missedIds: [],
+    })
+    expect(H.insertCalls).toBe(1) // 仍是第一轮那一次,第二轮连 insert 都没发
+    expect(H.records).toHaveLength(window.length - 1)
+    expect(JSON.stringify(H.records)).toBe(snapshot)
+    expect(H.unscripted).toBe(0)
+  })
+
+  it('反向(成对):已请假(leave)的日子不被写成 absent,既有行一字不改', async () => {
+    const leaveDate = '2026-11-02'
+    seedRow(STUDENT_1, CLASS_A, leaveDate, 'leave')
+    const before = H.records.find((r) => r.date === leaveDate)
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[existingRow(STUDENT_1, leaveDate)]],
+    })
+
+    const result = await runAbsentAttendance(AT_CRON_04)
+
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-01', '2026-11-03'])
+    expect(result.created).toBe(2)
+    const after = H.records.find((r) => r.date === leaveDate)
+    expect(after?.status).toBe('leave')
+    expect(after?.id).toBe(before?.id)
+    // 写入批次里根本没有 (S1, 11-02) 这一对 —— 不靠"事后覆盖"
+    expect(H.insertBatches.flat().map((v) => `${v.studentId}@${v.date}`)).not.toContain(
+      `${STUDENT_1}@${leaveDate}`,
+    )
+    expect(H.records).toHaveLength(3)
+  })
+
+  it('窗口吃掉周末:周一 18:30 那轮把周五~周日都判掉(cron 停跑两天也接得上)', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+    })
+
+    await runAbsentAttendance(AT_CRON_MON)
+
+    // 2026-11-07=周六、11-08=周日:旧实现"只判当日"时这两天结构上补不到
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-06', '2026-11-07', '2026-11-08'])
+  })
+
+  it('上海 00:30 那轮(当日未到 08:30)按默认窗仍补到新一日之前 ⇒ 判据基准仍是上海日', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+    })
+
+    const result = await runAbsentAttendance(new Date('2026-11-03T16:30:00.000Z'))
+
+    // 该时刻的上海日键 = 2026-11-04;窗口 11-01~11-04,当日 00:30 < 08:30 ⇒ 当日不判
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-01', '2026-11-02', '2026-11-03'])
+    expect(result.rules).toBe(1)
+  })
+
+  it('软删记录照现状**不**挡住补录(部分唯一索引只约束未软删行)', async () => {
+    H.records.push({
+      id: 'seed-soft-deleted',
+      studentId: STUDENT_1,
+      classId: CLASS_A,
+      date: '2026-11-03',
+      status: 'present',
+      checkInMethod: 'self',
+      operatedBy: null,
+      checkInTime: '2026-11-03T00:20:00.000Z',
+      checkOutTime: null,
+      remark: null,
+      deletedAt: '2026-11-03T12:00:00.000Z',
+    })
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]], // 真库不会把软删行答出来(SQL 里 isNull(deletedAt))
+    })
+
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
+
+    expect(result.created).toBe(1)
+    expect(H.records.filter((r) => r.studentId === STUDENT_1)).toHaveLength(2)
+    expect(H.records.find((r) => r.id === 'seed-soft-deleted')?.status).toBe('present')
+  })
+})
+
+describe('runAbsentAttendance ⑧:回溯下界 —— 规则没建/学生没进班的日子不造历史', () => {
+  it('规则当日才建 ⇒ 窗口里早于它的日子一条不补', async () => {
+    script({
+      // 北京 2026-11-03 18:30 落库 ⇒ 下界 = 2026-11-03
+      rule: [[ruleRow(CLASS_A, '19:00', new Date('2026-11-03T10:30:00.000Z'))]],
+      enrollment: [[enrollRow(STUDENT_1)]],
+      record: [[]],
+    })
+
+    await runAbsentAttendance(AT_CRON_04)
+
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-03'])
+  })
+
+  it('学生 11-03 才报名 ⇒ 11-01/11-02 不补(与 ⑦ 首条同窗无下界时形成对照)', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00')]],
+      enrollment: [[enrollRow(STUDENT_1, '2026-11-03')]],
+      record: [[]],
+    })
+
+    const result = await runAbsentAttendance(AT_CRON_04)
+
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-03'])
+    expect(result.created).toBe(1)
+    expect(result.students).toBe(1)
+  })
+
+  it('量不到下界(列缺失/非法形)⇒ 不设界照常补判,不静默也不误判成"不可判"', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '19:00', null)]], // 取不到 createdAt
+      enrollment: [[{ studentId: STUDENT_1, enrollDate: '不是日期' }]],
+      record: [[]],
+    })
+
+    const result = await runAbsentAttendance(AT_CRON_04)
+
+    expect(result.created).toBe(DEFAULT_BACKFILL_DAYS) // 前 3 天全补(当日未到 19:00 不判)
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-01', '2026-11-02', '2026-11-03'])
   })
 })
 
@@ -535,31 +853,69 @@ describe('runAbsentAttendance 计数诚实性(门 134 同型)', () => {
       record: [[]],
     })
 
-    const result = await runAbsentAttendance(AT_10_00)
+    const result = await runAbsentAttendance(AT_10_00, SAME_DAY_ONLY)
 
     expect(result.students).toBe(2)
     expect(result.created).toBe(2)
     expect(H.records).toHaveLength(2)
   })
 
+  it('同人多期报名 ⇒ 回溯下界取较晚那一期(绝不把没进班的日子算成缺勤)', async () => {
+    script({
+      rule: [[ruleRow(CLASS_A, '08:30')]],
+      enrollment: [[enrollRow(STUDENT_1, '2026-10-01'), enrollRow(STUDENT_1, '2026-11-02')]],
+      record: [[]],
+    })
+
+    const result = await runAbsentAttendance(AT_10_00)
+
+    // 窗口 4 天(2026-10-31~11-03),但下界被抬到 11-02 ⇒ 只补 11-02 与 11-03
+    expect(result.students).toBe(1)
+    expect(result.created).toBe(2)
+    expect(absentDates(STUDENT_1)).toEqual(['2026-11-02', '2026-11-03'])
+  })
+
   it('连跑两轮不重复 ⇒ 每轮读队列都被消费干净(unscripted 恒 0)', async () => {
+    const window = jobTest.buildBizDayWindow('2026-11-03', DEFAULT_BACKFILL_DAYS)
     script({
       rule: [[ruleRow(CLASS_A, '08:30')]],
       enrollment: [[{ studentId: STUDENT_1 }]],
       record: [[]],
     })
-    await runAbsentAttendance(AT_10_00)
+    const first = await runAbsentAttendance(AT_10_00)
     expect(H.unscripted).toBe(0)
-    expect(H.records).toHaveLength(1)
+    // 默认窗:含当日 4 个业务日,当日已过 08:30 ⇒ 4 条
+    expect(first.created).toBe(window.length)
+    expect(H.records).toHaveLength(window.length)
 
     H.reads.rule.push([ruleRow(CLASS_A, '08:30')])
     H.reads.enrollment.push([{ studentId: STUDENT_1 }])
-    H.reads.record.push([{ studentId: STUDENT_1 }])
+    H.reads.record.push([existingRow(STUDENT_1, window[0]!)])
     const second = await runAbsentAttendance(AT_10_00)
 
+    // 并发/读漏:预筛只答出 1 天而库里其实 4 天都有 ⇒ insert 仍会发,但 uq 索引 +
+    // onConflictDoNothing 保证一条也不重复入库,没落库的学生进 missedIds(门 134 的"响")
     expect(second.created).toBe(0)
+    expect(second.missedIds).toEqual([STUDENT_1])
     expect(H.unscripted).toBe(0)
-    expect(H.records).toHaveLength(1)
+    expect(H.records).toHaveLength(window.length)
+    expect(H.insertCalls).toBe(2)
+
+    // 第三轮:库里真少了 11-02 那一天(其余三天照旧答出)⇒ 只补那一日,不是整窗重来
+    const missing = '2026-11-02'
+    const stillThere = window.filter((d) => d !== missing)
+    H.records = H.records.filter((r) => r.date !== missing)
+    H.reads.rule.push([ruleRow(CLASS_A, '08:30')])
+    H.reads.enrollment.push([{ studentId: STUDENT_1 }])
+    H.reads.record.push(existingRowsFor([STUDENT_1], stillThere))
+    const third = await runAbsentAttendance(AT_10_00)
+
+    // 幂等是按 (学生,日期) **对**判的:已存在的 3 天不进 values,缺的那 1 天照补
+    expect(third.created).toBe(1)
+    expect(third.skipped).toBe(0)
+    expect(third.missedIds).toEqual([])
+    expect(H.records.map((r) => r.date).sort()).toEqual([...window].sort())
+    expect(H.unscripted).toBe(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
