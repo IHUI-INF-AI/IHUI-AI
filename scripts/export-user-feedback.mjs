@@ -184,7 +184,7 @@ export function collectFeedback({
   }
   const dsnRes = resolveDsn({ argvDsn, envText, processEnv })
   if (!dsnRes.ok) return { status: 'undetermined', why: dsnRes.why }
-  const guarded = guardDbDsn(dsnRes.dsn)
+  const guarded = guardDbDsn(dsnRes.dsn, processEnv)
   if (!guarded.ok) return { status: 'undetermined', why: guarded.why }
 
   const sql = buildFeedbackExportSql(limit)
