@@ -13,6 +13,7 @@ import { safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { PublishForm } from './publish-form'
 import type { PublishWorkType, UpFile } from './publish-sections'
+import { onToast } from '@/host/on-toast'
 
 const MAX_FILES = 5
 
@@ -96,7 +97,7 @@ export default function AigcPublish() {
     if (uploading) return
     const slots = MAX_FILES - fileList.length
     if (slots <= 0) {
-      Taro.showToast({ title: t('aigc.publish.maxFiles'), icon: 'none' })
+      onToast(t('aigc.publish.maxFiles'), { kind: 'info' })
       return
     }
     try {
@@ -116,12 +117,12 @@ export default function AigcPublish() {
       }
       if (added.length) {
         setFileList((prev) => [...prev, ...added])
-        Taro.showToast({ title: t('aigc.publish.uploadOk'), icon: 'success' })
+        onToast(t('aigc.publish.uploadOk'), { kind: 'success' })
       } else {
-        Taro.showToast({ title: t('aigc.publish.uploadFail'), icon: 'none' })
+        onToast(t('aigc.publish.uploadFail'), { kind: 'error' })
       }
     } catch {
-      Taro.showToast({ title: t('aigc.publish.uploadFail'), icon: 'none' })
+      onToast(t('aigc.publish.uploadFail'), { kind: 'error' })
     } finally {
       setUploading(false)
       setUploadProgress(0)
@@ -132,11 +133,11 @@ export default function AigcPublish() {
   const addByUrl = useCallback(() => {
     const url = urlInput.trim()
     if (!url) {
-      Taro.showToast({ title: t('aigcPublish.placeholderUrl'), icon: 'none' })
+      onToast(t('aigcPublish.placeholderUrl'), { kind: 'info' })
       return
     }
     if (fileList.length >= MAX_FILES) {
-      Taro.showToast({ title: t('aigc.publish.maxFiles'), icon: 'none' })
+      onToast(t('aigc.publish.maxFiles'), { kind: 'info' })
       return
     }
     setFileList((prev) => [...prev, { url, type: 'image' }])
@@ -150,23 +151,23 @@ export default function AigcPublish() {
   const validate = useCallback((): boolean => {
     if (workType === 'text') {
       if (!textContent.trim()) {
-        Taro.showToast({ title: t('aigcPublish.placeholderTextContent'), icon: 'none' })
+        onToast(t('aigcPublish.placeholderTextContent'), { kind: 'info' })
         return false
       }
     } else if (fileList.length === 0) {
-      Taro.showToast({ title: t('aigc.publish.needFile'), icon: 'none' })
+      onToast(t('aigc.publish.needFile'), { kind: 'info' })
       return false
     }
     if (!title.trim()) {
-      Taro.showToast({ title: t('aigc.publish.titleRequired'), icon: 'none' })
+      onToast(t('aigc.publish.titleRequired'), { kind: 'info' })
       return false
     }
     if (!desc.trim()) {
-      Taro.showToast({ title: t('aigc.publish.descRequired'), icon: 'none' })
+      onToast(t('aigc.publish.descRequired'), { kind: 'info' })
       return false
     }
     if (workType !== 'text' && !prompt.trim()) {
-      Taro.showToast({ title: t('aigc.publish.promptRequired'), icon: 'none' })
+      onToast(t('aigc.publish.promptRequired'), { kind: 'info' })
       return false
     }
     return true
@@ -188,10 +189,10 @@ export default function AigcPublish() {
         // 输入口会让用户写下的正文无处落库 —— 宁可少一格输入,不可静默丢内容。
         problem: (workType === 'text' ? textContent : prompt).trim(),
       })
-      Taro.showToast({ title: t('aigc.publish.published'), icon: 'success' })
+      onToast(t('aigc.publish.published'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
-      Taro.showToast({ title: t('aigc.publish.publishFail'), icon: 'none' })
+      onToast(t('aigc.publish.publishFail'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

@@ -12,6 +12,7 @@ import { formatDate } from '@/utils/time'
 import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
 type Category = 'all' | 'text' | 'image' | 'video' | 'audio'
@@ -174,7 +175,7 @@ export default function AigcList() {
   const previewImage = useCallback(
     (url: string, allUrls: string[]) => {
       if (!url) {
-        Taro.showToast({ title: tt('aigc.list.invalidImage', '图片地址无效'), icon: 'none' })
+        onToast(tt('aigc.list.invalidImage', '图片地址无效'), { kind: 'error' })
         return
       }
       // 原生 previewImage 自带全屏(对标原项目 showFullScreen)
@@ -186,7 +187,7 @@ export default function AigcList() {
   const playVideoFullscreen = useCallback(
     (item: AigcItem) => {
       if (!item.fileUrl) {
-        Taro.showToast({ title: tt('aigc.list.invalidVideo', '视频地址无效'), icon: 'none' })
+        onToast(tt('aigc.list.invalidVideo', '视频地址无效'), { kind: 'error' })
         return
       }
       // 触发 Video 组件全屏(对标原项目 showFullScreen)
@@ -219,7 +220,7 @@ export default function AigcList() {
         audioCtxRef.current = null
       }
       if (!item.fileUrl) {
-        Taro.showToast({ title: tt('aigc.list.invalidAudio', '音频地址无效'), icon: 'none' })
+        onToast(tt('aigc.list.invalidAudio', '音频地址无效'), { kind: 'error' })
         return
       }
       const ctx = Taro.createInnerAudioContext()
@@ -231,7 +232,7 @@ export default function AigcList() {
       ctx.onError(() => {
         setAudioPlayingId(null)
         audioCtxRef.current = null
-        Taro.showToast({ title: tt('aigc.list.audioFail', '音频播放失败'), icon: 'none' })
+        onToast(tt('aigc.list.audioFail', '音频播放失败'), { kind: 'error' })
       })
       ctx.play()
       audioCtxRef.current = ctx

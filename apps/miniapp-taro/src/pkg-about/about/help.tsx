@@ -8,12 +8,13 @@ import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import { FocusInput, FocusTextarea } from '@/components/FocusField'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getHelp, submitFeedback } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
+import { onToast } from '@/host/on-toast'
 
 interface HelpItem {
   id: string
@@ -94,15 +95,15 @@ export default function HelpPage() {
 
   const validate = useCallback((): boolean => {
     if (!form.username.trim()) {
-      Taro.showToast({ title: tt('about.help.nameRequired', '请输入姓名'), icon: 'none' })
+      onToast(tt('about.help.nameRequired', '请输入姓名'), { kind: 'info' })
       return false
     }
     if (!form.phone.trim()) {
-      Taro.showToast({ title: tt('about.help.phoneRequired', '请输入联系方式'), icon: 'none' })
+      onToast(tt('about.help.phoneRequired', '请输入联系方式'), { kind: 'info' })
       return false
     }
     if (!form.context.trim()) {
-      Taro.showToast({ title: tt('about.help.contextRequired', '请输入反馈详情'), icon: 'none' })
+      onToast(tt('about.help.contextRequired', '请输入反馈详情'), { kind: 'info' })
       return false
     }
     return true
@@ -151,9 +152,7 @@ export default function HelpPage() {
                 hoverClass="opacity-60"
               >
                 <View className="flex justify-between items-center">
-                  <Text className="text-title font-bold text-foreground flex-1">
-                    {h.title}
-                  </Text>
+                  <Text className="text-title font-bold text-foreground flex-1">{h.title}</Text>
                   <Text className="text-success text-heading ml-[16rpx]">
                     {opened === h.id ? '−' : '+'}
                   </Text>

@@ -11,10 +11,11 @@
 // 不足一页或取不到 total 时不渲染入口 —— 拿不准就不给假按钮。
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+
 import { useEffect, useState } from 'react'
 import { get } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { onToast } from '@/host/on-toast'
 
 /** 与 src/api getMessages 同形状;本模块只用到这些字段 */
 interface InSiteMessageRow {
@@ -97,7 +98,7 @@ export function InSiteMessagePane({ msgType }: InSiteMessagePaneProps) {
         setPage(next)
       })
       .catch(() => {
-        Taro.showToast({ title: t('messageCenter.loadFailed'), icon: 'none' })
+        onToast(t('messageCenter.loadFailed'), { kind: 'error' })
       })
       .finally(() => setLoadingMore(false))
   }

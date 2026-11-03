@@ -10,11 +10,11 @@
  * - 其他错误: toast 提示 + throw
  */
 import { t } from '@/i18n'
-import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
 import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
 import { isTokenExpired } from '@ihui/shared/constants'
 import { expireAuth, getToken, goToLogin } from './auth'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致)。
@@ -39,11 +39,11 @@ export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
         throw new Error(r.error || '未登录')
       }
       expireAuth()
-      Taro.showToast({ title: t('auth.expired'), icon: 'none' })
+      onToast(t('auth.expired'), { kind: 'error' })
       // 去向只有 `goToLogin()` 一个出口(登录页已删 ⇒ 这里不能再各自硬编码路由串)
       setTimeout(goToLogin, 800)
     } else {
-      Taro.showToast({ title: r.error, icon: 'none' })
+      onToast(r.error, { kind: 'error' })
     }
     throw new Error(r.error)
   }

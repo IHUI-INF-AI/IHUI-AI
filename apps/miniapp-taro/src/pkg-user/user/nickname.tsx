@@ -13,6 +13,7 @@ import { updateUserNickname, getProfile } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import './nickname.css'
+import { onToast } from '@/host/on-toast'
 
 const MIN_LENGTH = 2
 const MAX_LENGTH = 20
@@ -56,7 +57,7 @@ export default function Nickname() {
       setOriginal(name)
     } catch (e) {
       logger.error('user/nickname', t('userNickname.q1'), e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     }
   }, [t])
 
@@ -91,17 +92,17 @@ export default function Nickname() {
   async function onSubmit() {
     const err = validate(nickname)
     if (err) {
-      Taro.showToast({ title: err, icon: 'none' })
+      onToast(err, { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
       await updateUserNickname(nickname.trim())
-      Taro.showToast({ title: t('user.nickname.saveSuccess'), icon: 'success' })
+      onToast(t('user.nickname.saveSuccess'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('user/nickname', t('userNickname.q2'), e)
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+      onToast(t('common.failed'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

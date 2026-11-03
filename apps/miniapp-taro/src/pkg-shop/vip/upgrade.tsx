@@ -11,6 +11,7 @@ import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPay
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
 import './upgrade.css'
+import { onToast } from '@/host/on-toast'
 
 type PayMethod = 'wechat' | 'alipay'
 
@@ -46,7 +47,7 @@ export default function UpgradePage() {
       if (list.length && selected >= list.length) setSelected(0)
     } catch (e) {
       logger.error('vip/upgrade', t('vipUpgrade.q1'), e)
-      Taro.showToast({ title: t('vip.upgrade.loadFailed'), icon: 'none' })
+      onToast(t('vip.upgrade.loadFailed'), { kind: 'error' })
     } finally {
       Taro.hideLoading()
     }
@@ -76,7 +77,7 @@ export default function UpgradePage() {
         return
       }
       if (payInfo.mock && payInfo.error) {
-        Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
+        onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
       }
       Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}` })
     },
@@ -116,11 +117,11 @@ export default function UpgradePage() {
           buyerId,
         })
         if (res.mock) {
-          Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
+          onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
           return
         }
         if (!res.tradeNo) {
-          Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
+          onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
           return
         }
         requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
@@ -136,7 +137,7 @@ export default function UpgradePage() {
           )
       } catch (e) {
         logger.error('vip/upgrade', t('vipUpgrade.q2'), e)
-        Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
+        onToast(t('vip.upgrade.operationFailed'), { kind: 'error' })
       }
       return
     }
@@ -145,7 +146,7 @@ export default function UpgradePage() {
       dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/upgrade', t('vipUpgrade.q3'), e)
-      Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
+      onToast(t('vip.upgrade.operationFailed'), { kind: 'error' })
     }
   }, [plans, selected, payMethod, dispatchVipPay, t, tt])
 

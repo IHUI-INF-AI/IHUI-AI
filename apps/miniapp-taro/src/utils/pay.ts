@@ -18,6 +18,7 @@ import {
   buildAppWxOrderInfo,
   type PayErrorLike,
 } from '@ihui/shared/pay'
+import { onToast } from '@/host/on-toast'
 
 // 对外统一 API(从 platform/pay.ts re-export,消除双套实现)
 export {
@@ -39,7 +40,7 @@ export type { PayPlatform, WxPayParams, AliPayParams, AnyPayParams } from '@ihui
 
 function showWxPayError(err: PayErrorLike): void {
   if (isCancelError(err)) {
-    Taro.showToast({ title: t('pay.cancel'), icon: 'none' })
+    onToast(t('pay.cancel'), { kind: 'info' })
     return
   }
   if (isWxNotInstalled(err)) {
@@ -52,15 +53,15 @@ function showWxPayError(err: PayErrorLike): void {
     return
   }
   if (isParamError(err)) {
-    Taro.showToast({ title: t('pay.paramError'), icon: 'none', duration: 2000 })
+    onToast(t('pay.paramError'), { kind: 'error', duration: 2000 })
     return
   }
-  Taro.showToast({ title: t('pay.failed'), icon: 'none', duration: 2000 })
+  onToast(t('pay.failed'), { kind: 'error', duration: 2000 })
 }
 
 function showAliPayError(err: PayErrorLike): void {
   if (isCancelError(err)) {
-    Taro.showToast({ title: t('pay.cancel'), icon: 'none' })
+    onToast(t('pay.cancel'), { kind: 'info' })
     return
   }
   if (isAliNotInstalled(err)) {
@@ -73,9 +74,8 @@ function showAliPayError(err: PayErrorLike): void {
     return
   }
   const msg = err.errMsg || err.message || ''
-  Taro.showToast({
-    title: msg.length > 20 ? t('pay.failed') : msg || t('pay.failedShort'),
-    icon: 'none',
+  onToast(msg.length > 20 ? t('pay.failed') : msg || t('pay.failedShort'), {
+    kind: 'error',
     duration: 2000,
   })
 }
@@ -120,7 +120,7 @@ export function requestWxPayment(payParams: AnyPayParams): Promise<unknown> {
   }
 
   Taro.hideLoading()
-  Taro.showToast({ title: t('pay.wxUnsupportedEnv'), icon: 'none' })
+  onToast(t('pay.wxUnsupportedEnv'), { kind: 'error' })
   return Promise.reject(new Error(`unsupported platform: ${platform}`))
 }
 
@@ -132,7 +132,7 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
   const platform = getPlatform()
 
   if (platform === 'weapp') {
-    Taro.showToast({ title: t('pay.aliUnsupportedWeapp'), icon: 'none' })
+    onToast(t('pay.aliUnsupportedWeapp'), { kind: 'error' })
     return Promise.reject(new Error('weapp unsupported alipay'))
   }
 
@@ -150,7 +150,7 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
     typeof payParams.orderInfo === 'string' ? payParams.orderInfo : (payParams.orderStr ?? '')
   if (!orderStr) {
     Taro.hideLoading()
-    Taro.showToast({ title: t('pay.aliOrderMissing'), icon: 'none' })
+    onToast(t('pay.aliOrderMissing'), { kind: 'error' })
     return Promise.reject(new Error('missing alipay orderInfo'))
   }
 

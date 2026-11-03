@@ -16,6 +16,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import './create.css'
+import { onToast } from '@/host/on-toast'
 
 interface FormState {
   title: string
@@ -78,7 +79,7 @@ export default function AskCreatePage() {
             images: Array.isArray(saved.images) ? saved.images : [],
             anonymous: !!saved.anonymous,
           })
-          Taro.showToast({ title: tt('ask.create.draftRestored', '草稿已恢复'), icon: 'none' })
+          onToast(tt('ask.create.draftRestored', '草稿已恢复'), { kind: 'info' })
         }
       }
     } catch {
@@ -111,7 +112,7 @@ export default function AskCreatePage() {
 
   const addImage = useCallback(() => {
     if (form.images.length >= IMAGE_MAX) {
-      Taro.showToast({ title: tt('ask.create.maxImages', '最多 3 张'), icon: 'none' })
+      onToast(tt('ask.create.maxImages', '最多 3 张'), { kind: 'info' })
       return
     }
     Taro.chooseImage({
@@ -148,15 +149,15 @@ export default function AskCreatePage() {
 
   const onSubmit = useCallback(async () => {
     if (!form.title.trim()) {
-      Taro.showToast({ title: tt('ask.create.titleRequired', '请输入标题'), icon: 'none' })
+      onToast(tt('ask.create.titleRequired', '请输入标题'), { kind: 'info' })
       return
     }
     if (!form.content.trim()) {
-      Taro.showToast({ title: tt('ask.create.contentRequired', '请输入问题描述'), icon: 'none' })
+      onToast(tt('ask.create.contentRequired', '请输入问题描述'), { kind: 'info' })
       return
     }
     if (form.content.trim().length < 5) {
-      Taro.showToast({ title: tt('ask.create.contentTooShort', '描述至少 5 个字'), icon: 'none' })
+      onToast(tt('ask.create.contentTooShort', '描述至少 5 个字'), { kind: 'error' })
       return
     }
     setSubmitting(true)
@@ -172,11 +173,11 @@ export default function AskCreatePage() {
         tags,
       } as { title: string; content: string })
       Taro.removeStorageSync(DRAFT_KEY)
-      Taro.showToast({ title: tt('ask.create.published', '问题已发布'), icon: 'success' })
+      onToast(tt('ask.create.published', '问题已发布'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
       logger.error('ask/create', t('ask.create.submit'), e)
-      Taro.showToast({ title: tt('ask.create.failed', '发布失败,请重试'), icon: 'none' })
+      onToast(tt('ask.create.failed', '发布失败,请重试'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

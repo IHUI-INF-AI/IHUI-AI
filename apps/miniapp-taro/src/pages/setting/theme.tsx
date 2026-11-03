@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
 import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 const THEME_KEY = THEME_STORAGE_KEY
 
@@ -89,10 +90,10 @@ export default function ThemePage() {
       setSubmitting(true)
       try {
         await setTheme(v)
-        Taro.showToast({ title: tt('setting.setSuccess', '设置成功'), icon: 'success' })
+        onToast(tt('setting.setSuccess', '设置成功'), { kind: 'success' })
       } catch (e) {
         logger.error('setting/theme', '设置主题', e)
-        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
       } finally {
         setSubmitting(false)
       }

@@ -11,6 +11,7 @@ import { getLiveList, del, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 
@@ -46,10 +47,7 @@ export default function LiveSubscribe() {
       setList(res.list || [])
     } catch (e) {
       logger.error('live/subscribe', '获取订阅列表', e)
-      Taro.showToast({
-        title: tt('live.subscribe.loadFailed', '订阅操作失败'),
-        icon: 'none',
-      })
+      onToast(tt('live.subscribe.loadFailed', '订阅操作失败'), { kind: 'error' })
     } finally {
       setLoading(false)
     }
@@ -68,10 +66,7 @@ export default function LiveSubscribe() {
       try {
         await del(`/live/${id}/subscribe`)
         setList((prev) => prev.filter((l) => l.id !== id))
-        Taro.showToast({
-          title: tt('live.subscribe.unsubscribed', '已取消订阅'),
-          icon: 'success',
-        })
+        onToast(tt('live.subscribe.unsubscribed', '已取消订阅'), { kind: 'success' })
       } catch (e) {
         logger.error('live/subscribe', '取消订阅', e)
       }
@@ -82,10 +77,7 @@ export default function LiveSubscribe() {
   const toggleReminder = (val: boolean) => {
     setReminder(val)
     Taro.setStorageSync(REMINDER_KEY, String(val))
-    Taro.showToast({
-      title: tt('live.subscribe.reminderSaved', '设置已保存'),
-      icon: 'success',
-    })
+    onToast(tt('live.subscribe.reminderSaved', '设置已保存'), { kind: 'success' })
   }
 
   const goDetail = (id: string | number) =>
@@ -101,9 +93,7 @@ export default function LiveSubscribe() {
       <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[20rpx] pb-[64rpx] box-border">
         <View className="flex items-baseline text-body text-foreground">
           <Text>{tt('live.subscribe.count', '已订阅')}</Text>
-          <Text className="font-bold text-heading text-primary mx-[8rpx]">
-            {list.length}
-          </Text>
+          <Text className="font-bold text-heading text-primary mx-[8rpx]">{list.length}</Text>
           <Text>{tt('live.subscribe.unit', '场')}</Text>
         </View>
 
@@ -151,9 +141,7 @@ export default function LiveSubscribe() {
                   </Text>
                   {/* 对齐 RN createdAt(14dp → 28rpx,text.secondary) */}
                   {l.anchor && (
-                    <Text className="text-body text-muted-foreground mt-[16rpx]">
-                      {l.anchor}
-                    </Text>
+                    <Text className="text-body text-muted-foreground mt-[16rpx]">{l.anchor}</Text>
                   )}
                   {l.startTime && (
                     <Text className="text-body text-muted-foreground mt-[16rpx]">
