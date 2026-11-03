@@ -171,15 +171,6 @@ export { FavoriteScreen } from './features/favorite/FavoriteScreen'
 export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
 export { N8nModelScreen } from './features/n8n-model/N8nModelScreen'
 export { ModelEditScreen } from './features/model-edit/ModelEditScreen'
-export {
-  buildModelEditBillingPayload,
-  submitModelEdit,
-} from './features/model-edit/model-edit-save'
-export type {
-  ModelEditBillingPayload,
-  ModelEditSaveOutcome,
-  ModelEditUpdateResult,
-} from './features/model-edit/model-edit-save'
 export { AigcListScreen } from './features/aigc-list/AigcListScreen'
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
 export { AssistantScreen } from './features/assistant/AssistantScreen'

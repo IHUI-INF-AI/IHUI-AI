@@ -56,7 +56,7 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # 2026-10-31:本 job 原为"零第三方依赖"直跑 node --test。但扫描器现经
       # scripts/lib/i18n-scan-targets.mjs → rn-carried-keys.mjs 静态 import `typescript`
@@ -65,7 +65,7 @@ jobs:
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - name: Setup Node
         id: setup-node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -116,13 +116,13 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # 同 unit-tests job:扫描器静态依赖 typescript,不装依赖会 ERR_MODULE_NOT_FOUND。
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - name: Setup Node
         id: setup-node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -140,7 +140,7 @@ jobs:
       - name: 上传死 key 审计报告
         id: upload-report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: i18n-dead-key-report
           path: .ihui-agent/tmp/i18n-dead-keys-*.md

@@ -60,7 +60,7 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
         id: setup-pnpm
@@ -79,7 +79,7 @@ jobs:
       #   唯 `pnpm store path --store-dir=…` 生效。
       - name: Setup Node
         id: setup-node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           # 刻意不吃 `cache: 'pnpm'`:该输入让 setup-node 用**不带参数**的 `pnpm store path`

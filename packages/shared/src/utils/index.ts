@@ -55,6 +55,8 @@ export * from './llm-templates'
 export * from './logger'
 export * from './markdown-mermaid-code'
 export * from './mcp-curated'
+// 模型编辑计费提交逻辑(2026-11-03 上收自 packages/app:buildModelEditBillingPayload / submitModelEdit)
+export * from './model-edit-billing'
 export * from './message-search'
 export * from './object'
 // 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service

@@ -66,7 +66,7 @@ describe('V3 #63 form_request 契约登记 / 漂移锁', () => {
     expect(FORM_FRAME_EVENTS.REQUEST).toBe(SSE_EVENTS.FORM_REQUEST)
   })
 
-  it('跨语言契约集合含 form_request,成员数按现读抬到 33', () => {
+  it('跨语言契约集合含 form_request,成员数按现读抬到 36', () => {
     // 注:这个绝对数是粗锁(任何一次合法新增事件都得跟着抬,D113 的 tool-delta 抬过一次,
     // D151 的 terminal_interaction 抬第二次);精确的那把锁是上面两条对成员在/不在的判定,
     // 它不随事件增减漂移。
@@ -76,7 +76,12 @@ describe('V3 #63 form_request 契约登记 / 漂移锁', () => {
     //   packages/shared/src/sse/contract.ts:106 `PARTIAL_DONE: 'partial_done'`
     //   apps/ai-service/app/core/sse_contract.py:107/:325 同名单侧登记 + 字段契约
     // 即"双向 32→33"是那次提交自述的事实,不是有人只改了 TS 一侧。
-    expect(SSE_EVENT_NAMES).toHaveLength(33)
+    // 33→36 由三笔合法新增带来(每笔都双端登记,不是只改 TS 一侧):
+    //   D115 `review-finding`、G-87 `hook-failed`、差距① `admission`
+    // (packages/shared/src/sse/__tests__/contract.test.ts:40 与 Python
+    //  apps/ai-service/app/core/sse_contract.py 的 SSE_EVENTS 集合同笔抬到 36,
+    //  由 scripts/check-agent-event-parity.mjs 双端等值对账)。
+    expect(SSE_EVENT_NAMES).toHaveLength(36)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
