@@ -191,7 +191,10 @@ export function SidebarHeader({
         )}
         onMouseDown={handleLogoMouseDown}
       >
-        {/* 方形品牌logo:与 EmptyState 同源 /images/logo.png,36×36 原样显示。
+        {/* 方形品牌logo:36×36 原样显示。2026-11-03 换用 36px 变体 /images/logo-36.png
+            (1,758B,原 512px 源图 53,954B;本槽位固定 36×36,变体在此尺寸下与原图等效)。
+            原 /images/logo.png 保留不删(EmptyState 56px、distribution 64px、OG/manifest
+            512px 等更大槽位仍在用,全局覆盖会降质)。
             2026-09-21 用户要求去掉遮罩容器圆角:该 PNG 自身已是 22% 圆角 + 四角透明的成品图
             (2534px 上约 558px 半径,缩到 36px ≈ 8px),再套 rounded-xl(12px)比图自身更圆,
             会把黑底四角切出缺口露出底色。
@@ -216,7 +219,7 @@ export function SidebarHeader({
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img
-            src="/images/logo.png?v=20261021"
+            src="/images/logo-36.png"
             alt=""
             width={36}
             height={36}
