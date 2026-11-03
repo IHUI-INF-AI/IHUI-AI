@@ -413,7 +413,12 @@ function createStyles(tk: AppThemeTokens) {
       bottom: 32,
       width: 56,
       height: 56,
-      borderRadius: 28,
+      /**
+       * 56×56 正方 FAB 的正圆:取盒边长一半的百分比写法,不再写死 28 ——
+       * 28 不在 RADIUS_STEPS(最大档 2xl=16),裸数字属绕档;百分比形态由守门 11 的 C7
+       * 按盒形判(正方盒 ⇒ 几何真圆),视觉零变化,也不为它新开档位。
+       */
+      borderRadius: '50%',
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
