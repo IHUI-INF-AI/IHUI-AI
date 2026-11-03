@@ -731,11 +731,21 @@ export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent',
 
   const sources = [...new Set(legs.map((l) => l.source))]
   const legsKnown = processProbe === 'ok' && pids.length > 0 && netstatProbe === 'ok' && legs.length > 0
+  // quic 结构盲区归因(2026-11-03 方案 A,只修文案):协议判得出 quic 且 TCP 枚举为 0 时,
+  // deprecated-source / single-source-point 的失明根因是「Windows UDP 行无远端地址、本地地址
+  // 为通配 ⇒ 逐腿源地址物理上不可枚举」(见 parseNetstatUdpSockets 头注),不是"腿已全断/腿数
+  // 不足"——同一时刻 metrics gauge 可能正读着 4 条活腿。verdict 仍 unjudged、exit 仍 3、不发信,
+  // 判定强度一字未动。
+  const quicBlind = legs.length === 0 && resolveProtocol({ protocolHint, metricsProtocol, haConnections, tcpLegs: legs.length }) === 'quic'
 
   if (!legsKnown) {
     dims['deprecated-source'] = {
       verdict: 'unjudged',
-      reason: dims['leg-count'].verdict === 'breach' ? '无腿可查在用源地址(腿已全断)' : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
+      reason: quicBlind
+        ? 'quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判(不记绿也不判红)'
+        : dims['leg-count'].verdict === 'breach'
+          ? '无腿可查在用源地址(腿已全断)'
+          : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
     }
   } else {
     const amplifying = sources.length === 1 && legs.length >= 2
@@ -750,7 +760,12 @@ export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent',
   }
 
   if (!legsKnown) {
-    dims['single-source-point'] = { verdict: 'unjudged', reason: '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)' }
+    dims['single-source-point'] = {
+      verdict: 'unjudged',
+      reason: quicBlind
+        ? 'quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判(单点评估依赖逐腿源地址)'
+        : '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)',
+    }
   } else if (legs.length >= 2 && sources.length === 1) {
     dims['single-source-point'] = { verdict: 'warn', reason: `全部 ${legs.length} 条腿共用同一源地址 ${sources[0]}(单点;健康态亦为此形态 ⇒ 只报数不判红,§12e)`, reading: { sources: 1 } }
   } else {

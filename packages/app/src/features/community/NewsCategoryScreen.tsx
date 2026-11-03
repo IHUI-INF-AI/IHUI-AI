@@ -221,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
       marginTop: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.xs, fontSize: rnType.caption.size, color: tk.text.secondary },
     scroll: { paddingTop: rnSpacing.md, paddingBottom: rnSpacing['2xl'] },
     centerBlock: {

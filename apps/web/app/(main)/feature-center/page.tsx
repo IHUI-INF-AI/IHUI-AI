@@ -111,7 +111,7 @@ export default function FeatureCenterPage() {
           {ENTRIES.map((entry) => {
             const Icon = entry.icon
             return (
-              <Card key={entry.key} className="transition-shadow hover:shadow-md">
+              <Card key={entry.key}>
                 <CardHeader>
                   <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Icon className="h-5 w-5" />

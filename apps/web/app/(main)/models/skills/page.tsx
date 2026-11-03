@@ -183,10 +183,7 @@ export default async function SkillsPage() {
           {skills
             .filter((s) => s.featured)
             .map((s) => (
-              <Card
-                key={s.name}
-                className="group transition-all hover:border-primary/40 hover:shadow-md"
-              >
+              <Card key={s.name} className="group transition-all hover:border-primary/40">
                 <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-heading font-normal">
                     <s.icon className="h-5 w-5" />
@@ -225,10 +222,7 @@ export default async function SkillsPage() {
         <h2 className="mb-3 text-base font-semibold">{t('skills.allTitle')}</h2>
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {skills.map((s) => (
-            <Card
-              key={s.name}
-              className="group transition-all hover:border-primary/40 hover:shadow-md"
-            >
+            <Card key={s.name} className="group transition-all hover:border-primary/40">
               <CardContent className="min-[640px]:p-3 flex flex-col items-start gap-2 p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-lg">
                   <s.icon className="h-4 w-4" />

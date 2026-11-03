@@ -1489,14 +1489,19 @@ const buildChatState: ChatStateCreator = (set, get) => ({
 
   setError: (e) => set({ error: e }),
 
-  // B02 第三切片:gap 坐标随会话切换清空 —— 旧会话的缺口坐标对当前会话没有意义,
-  // 带过去只会让 hook 对新会话拉旧消息(归属校验 404,纯浪费)。旗(resyncPending)
-  // 与 chatSync 判据面的会话切换语义属既有切片,不在本片射程,保持原样。
+  // B02:会话切换 = 判据面换人 —— 旧会话的缺口坐标 / chatSync 水位(含 liveBuffer、已收 evt id)
+  // 与 resyncPending 旗对新会话都没有意义,带过去会让 hook 拿旧水位去捞新会话(归属校验 404,
+  // 或把旧会话的"已补齐"误读成新会话已补齐)。同 id 重设(loadHistory 回填等)不动任何判据面。
   setConversationId: (id) =>
     set(
       id === get().conversationId
         ? { conversationId: id }
-        : { conversationId: id, chatSyncGapMessageIds: [] },
+        : {
+            conversationId: id,
+            chatSyncGapMessageIds: [],
+            chatSync: EMPTY_CHAT_SYNC_STATE,
+            chatSyncResyncPending: false,
+          },
     ),
 
   setUserScrolledUp: (v) => set({ userScrolledUp: v }),
