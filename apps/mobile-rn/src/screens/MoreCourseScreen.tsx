@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​​‌‌‌​‌‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * MoreCourseScreen 更多课程页 —— mobile-rn 薄壳。
@@ -16,19 +16,54 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getCourses, type Course } from '@ihui/api-client'
+import { getCourses, fetchApi, type Course } from '@ihui/api-client'
 import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
-import { MoreCourseScreen as SharedMoreCourseScreen } from '@ihui/rn-app'
+import {
+  MoreCourseScreen as SharedMoreCourseScreen,
+  type MoreCoursePlanetItem,
+} from '@ihui/rn-app'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MoreCourseScreenProps } from '@ihui/types'
+import type { ImageSourcePropType } from 'react-native'
+import IMG_LUNBO6 from '../../assets/images/carousel/lunbo6.jpg'
+import IMG_CAROUSEL1 from '../../assets/images/carousel/carousel1.jpg'
+import IMG_CAROUSEL2 from '../../assets/images/carousel/carousel2.jpg'
+import IMG_CAROUSEL3 from '../../assets/images/carousel/carousel3.jpg'
+import IMG_CAROUSEL_TWO from '../../assets/images/carousel/carousel4-footer1-two.png'
+import IMG_LUNBO1 from '../../assets/images/carousel/lunbo1.png'
+import IMG_LUNBO2 from '../../assets/images/carousel/lunbo2.png'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type LoadMode = 'initial' | 'refresh' | 'append'
 type MoreCourseItem = MoreCourseScreenProps['items'][number]
 
 const PAGE_SIZE = 10
+
+/** 顶部轮播 7 张图(旧壳 BANNER_ITEMS 原样恢复;打包器返回资源句柄,类型按 RN 口径收窄) */
+const BANNER_IMAGES = [
+  IMG_LUNBO6,
+  IMG_CAROUSEL1,
+  IMG_CAROUSEL2,
+  IMG_CAROUSEL3,
+  IMG_CAROUSEL_TWO,
+  IMG_LUNBO1,
+  IMG_LUNBO2,
+] as unknown as readonly ImageSourcePropType[]
+
+/** 知识星球资讯接口(api 层 miniapp-compat 路由,返回 { list, total }) */
+const PLANET_API_PATH = '/api/knowledge-planet/news'
+
+/** 时间字段归一化为毫秒时间戳(旧壳 toTimestamp 原样恢复) */
+function toTimestamp(time: string | number | undefined): number {
+  if (time === undefined || time === null) return Date.now()
+  if (typeof time === 'number') {
+    return time < 1e12 ? time * 1000 : time
+  }
+  const parsed = Date.parse(time)
+  return Number.isNaN(parsed) ? Date.now() : parsed
+}
 
 /** Course → 共享屏卡片契约(cover 可空,统一收窄为 undefined) */
 function toSharedItem(c: Course): MoreCourseItem {
@@ -55,6 +90,7 @@ export function MoreCourseScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
+  const [planetItems, setPlanetItems] = useState<MoreCoursePlanetItem[]>([])
 
   const loadPage = useCallback(
     async (targetPage: number, mode: LoadMode) => {
@@ -89,13 +125,43 @@ export function MoreCourseScreen() {
     void loadPage(1, 'initial')
   }, [loadPage])
 
+  /** 知识星球资讯加载(api 层 newsArticles 数据源;失败静默,区块走空态) */
+  const loadPlanet = useCallback(async () => {
+    try {
+      const res = await fetchApi<{
+        list: {
+          id: string | number
+          title: string
+          summary?: string | null
+          coverImage?: string | null
+          createdAt?: string | number
+        }[]
+        total: number
+      }>(PLANET_API_PATH)
+      if (!res.success) return
+      setPlanetItems(
+        (res.data?.list ?? []).map((raw) => ({
+          id: String(raw.id),
+          title: raw.title,
+          cover: raw.coverImage ?? undefined,
+          summary: raw.summary ?? undefined,
+          createdAt: toTimestamp(raw.createdAt),
+        })),
+      )
+    } catch {
+      // 资讯为辅区块,失败不打断主课程列表
+    }
+  }, [])
+
   useEffect(() => {
     void loadPage(1, 'initial')
-  }, [loadPage])
+    void loadPlanet()
+  }, [loadPage, loadPlanet])
 
   const onRefresh = useCallback(() => {
     void loadPage(1, 'refresh')
-  }, [loadPage])
+    void loadPlanet()
+  }, [loadPage, loadPlanet])
 
   const onEndReached = useCallback(() => {
     if (loadingMore || loading || refreshing) return
@@ -117,7 +183,14 @@ export function MoreCourseScreen() {
       onPressItem={(item) => navigation.navigate('CourseDetail', { id: String(item.id) })}
       onBack={() => navigation.goBack()}
       onRetry={reload}
+      bannerImages={BANNER_IMAGES}
+      planet={{
+        items: planetItems,
+        onEnter: () => navigation.navigate('KnowledgePlanet'),
+        onItemPress: (id) => navigation.navigate('AnnouncementDetail', { id }),
+      }}
       colorScheme={resolvedTheme}
     />
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
