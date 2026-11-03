@@ -4146,13 +4146,17 @@ export function healUnresponsiveServices(opts = {}) {
     const c = parsed.counts
     const acted = (parsed.results || []).filter((x) => String(x.kind).startsWith('restarted'))
     const failed = (parsed.results || []).filter((x) => x.kind === 'restart-failed')
+    // `restarted-unverified` = 重启动作发出去了,但复验仍不应答(2026-10-21 事故型:boot 期抛错,
+    // 重启一百次也没用)。它**不是**"全部拉起成功",不能被下面的静音档吞掉;只有
+    // `restarted-recovered` 才属于"自愈的预期结果,只记日志不占人通道"。
+    const unverified = (parsed.results || []).filter((x) => x.kind === 'restarted-unverified')
     if (acted.length > 0 || failed.length > 0) {
       const body = [...acted, ...failed].map((x) => `· ${x.name} ${x.kind} — ${x.why}`).join('\n')
       const desp =
-        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
+        `本轮拉起 ${acted.length} 台 / 失败 ${failed.length} 台 / 重启后仍不应答 ${unverified.length} 台(实时计数只进正文,不进身份):\n${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 设计内停止 ${c.expectedStopped ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`
       // §噪声治理:全部拉起成功是自愈的"预期结果",只记日志不占人通道;
-      // 只有出现 restart-failed(收信人能处置的真异常)才发信到人。
-      if (failed.length > 0) {
+      // 只有真异常(restart-failed / 重启后仍不应答)才发信到人。
+      if (failed.length > 0 || unverified.length > 0) {
         notify(
           // 名字里不许带计数(型③,同元运维巡检那一格):原先每轮拉起/失败台数一变就是新身份,
           // 4 小时窗口形同虚设。计数进正文,身份里只留档位与服务名集合。
@@ -9052,7 +9056,7 @@ function healFromBackup() {
 
 /** 兜底 2:从远端整仓重建(慢,42 秒实测,保证最新) */
 function healFromRemote() {
-  log('修复: 从远端重建 gitdir <- origin (GitHub;Gitee 已于 2026-11-03 复活为国内主通道,但代码兜底远端仍只用 origin)')
+  log('修复: 从远端重建 gitdir <- origin (GitHub;Gitee 发布目标已于 2026-11-03 下线,不再作为兜底远端)')
   if (!gitdirTargetSafe()) return false
   if (existsSync(GITDIR)) {
     if (!archiveGitdir('remote-' + Date.now())) return false
