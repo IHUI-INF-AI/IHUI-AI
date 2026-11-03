@@ -121,6 +121,11 @@ class TestRestrictedTokenFailClosed:
                 return 0, 0, 0  # 若回退原始令牌也会"成功"——正好证明是否回退
 
         monkeypatch.setattr(oss, "create_restricted_token", lambda: 424242)
+        # 2026-11-04:本用例在非 win32 CI 上也要验证"受限令牌失败不得回退"的控制流,
+        # 但 WinJobBackend.run 入口有 _require_windows 平台硬闸。这里的后端是纯替身
+        # (Job/fd/kernel32 全部无害化,不碰真实 Win32),平台闸不属于本用例靶面,
+        # 因此单独摘掉;真实平台的 CapabilityMissingError 语义由 test_os_sandbox 覆盖。
+        monkeypatch.setattr(oss, "_require_windows", lambda: None)
         monkeypatch.setattr(
             oss, "_kernel32", lambda: SimpleNamespace(CloseHandle=lambda h: 1)
         )
