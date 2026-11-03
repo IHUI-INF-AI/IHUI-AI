@@ -67,12 +67,12 @@ export default function CourseCatalog({
           </View>
         ) : null}
         <View className="p-4">
-          <Text className="block text-base font-medium text-foreground mb-1">{name}</Text>
+          <Text className="block text-title font-medium text-foreground mb-1">{name}</Text>
           {intro ? (
-            <Text className="block text-sm text-muted-foreground mb-3 line-clamp-2">{intro}</Text>
+            <Text className="block text-body text-muted-foreground mb-3 line-clamp-2">{intro}</Text>
           ) : null}
           <View className="flex items-center justify-between">
-            <Text className="text-xs text-muted-foreground">
+            <Text className="text-label text-muted-foreground">
               {memberCount !== undefined ? `${memberCount} ${tt('planet.members', '成员')}` : ''}
             </Text>
             <View
@@ -85,7 +85,7 @@ export default function CourseCatalog({
                 joined ? 'bg-muted text-muted-foreground' : 'bg-cta text-cta-foreground',
               )}
             >
-              <Text className="text-sm">
+              <Text className="text-body">
                 {joined ? tt('planet.joined', '已加入') : tt('planet.join', '加入星球')}
               </Text>
             </View>
@@ -106,12 +106,12 @@ export default function CourseCatalog({
             className="w-[62rpx] h-[62rpx] mr-[20rpx]"
             lazyLoad
           />
-          <Text className="text-sm font-medium text-foreground">
+          <Text className="text-body font-medium text-foreground">
             {tt('catalog.courseCatalog', '课程目录')}
           </Text>
         </View>
         <View className="flex items-center">
-          <Text className="text-xs text-muted-foreground">{lessons.length} 节</Text>
+          <Text className="text-label text-muted-foreground">{lessons.length} 节</Text>
           <Image
             src={bspappUrl('tabbar/home/zhongxia/right-arrow.png')}
             mode="aspectFill"
@@ -129,7 +129,7 @@ export default function CourseCatalog({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {tt('common.loadingShort', '加载中...')}
             </Text>
           </View>
