@@ -22,6 +22,8 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import aiCallbackRoutes from '../src/routes/ai-callback'
+import type { Queue } from 'bullmq'
+import type { AICallbackJobData } from '../src/plugins/queue.js'
 
 /**
  * AI 回调共享密钥校验测试。
@@ -40,7 +42,8 @@ describe('AI callback 共享密钥校验', () => {
   })
 
   it('缺少 X-Internal-Secret 头返回 401', async () => {
-    server.decorate('aiCallbackQueue', { add: mockAdd })
+    // 装饰器声明面要求 Queue<AICallbackJobData>;本测试只用 add,故以最小桩顶替真队列
+    server.decorate('aiCallbackQueue', { add: mockAdd } as unknown as Queue<AICallbackJobData>)
     await server.register(aiCallbackRoutes)
     await server.ready()
 

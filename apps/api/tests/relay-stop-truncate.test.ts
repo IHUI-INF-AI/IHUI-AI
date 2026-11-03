@@ -24,7 +24,7 @@ describe('createStopTruncator(流式)', () => {
     const out: string[] = []
     let matched = false
     for (const piece of ['he', 'llo', 'E', 'ND', 'TAIL']) {
-      const r = t.push(piece)
+      const r = t!.push(piece)
       out.push(r.text)
       if (r.matched) {
         matched = true
@@ -37,27 +37,27 @@ describe('createStopTruncator(流式)', () => {
 
   it('未命中时不丢尾巴:最后 maxStopLen-1 个字符由 flush 补出', () => {
     const t = S.createStopTruncator(['END'])
-    const first = t.push('hello world')
+    const first = t!.push('hello world')
     expect(first.matched).toBe(false)
     expect(first.text).toBe('hello wor') // 扣留 'ld' 以跨 chunk 检测
-    const tail = t.flush()
+    const tail = t!.flush()
     expect(tail.text).toBe('ld')
   })
 
   it('多个 stop 取最早命中;命中后 flush 不再吐内容', () => {
     const t = S.createStopTruncator(['ZZZ', 'b'])
-    const r1 = t.push('aaabccc')
+    const r1 = t!.push('aaabccc')
     expect(r1.matched).toBe(true)
     expect(r1.text).toBe('aaa')
-    expect(t.flush()).toEqual({ text: '', matched: true })
+    expect(t!.flush()).toEqual({ text: '', matched: true })
   })
 
   it('emoji stop 相邻时不会劈出半个代理对', () => {
     const t = S.createStopTruncator(['😀'])
-    const r = t.push('x😀y')
+    const r = t!.push('x😀y')
     expect(r.matched).toBe(true)
     expect(r.text).toBe('x')
-    expect(t.flush().text).toBe('')
+    expect(t!.flush().text).toBe('')
   })
 })
 

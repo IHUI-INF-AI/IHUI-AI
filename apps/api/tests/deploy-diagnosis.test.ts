@@ -10,9 +10,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
+/** 下游 ai-service 替身按队列逐条吐出的响应(Error 表示网络层抛错)。 */
+type CapturedFetchOutcome = Error | { __status?: number; [key: string]: unknown }
+
 const { mockRequireAdmin, capturedFetch } = vi.hoisted(() => ({
   mockRequireAdmin: vi.fn(),
-  capturedFetch: { calls: [] as { path: string; body: string }[] },
+  capturedFetch: {
+    calls: [] as { path: string; body: string }[],
+    queue: [] as CapturedFetchOutcome[],
+  },
 }))
 
 vi.mock('../src/config/index.js', () => ({
@@ -49,7 +55,7 @@ vi.mock('../src/utils/ai-service-fetch.js', () => ({
 }))
 
 // 让 queue 挂到 mock 上（vi.hoisted 里不能引用后面的变量）
-const queue: unknown[] = []
+const queue: CapturedFetchOutcome[] = []
 capturedFetch.queue = queue
 
 import { deployDiagnosisRoutes } from '../src/routes/deploy-diagnosis'

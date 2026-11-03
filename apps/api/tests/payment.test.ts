@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -181,7 +181,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
   beforeAll(async () => {
     app = Fastify({ logger: false })
     // 模拟生产环境 server.ts 的 errorHandler
-    app.setErrorHandler((err, _req, reply) => {
+    app.setErrorHandler((err: FastifyError, _req, reply) => {
       const isZodErr =
         err.name === 'ZodError' && Array.isArray((err as { issues?: unknown[] }).issues)
       const statusCode = isZodErr
@@ -200,7 +200,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       acquire: vi.fn().mockResolvedValue({ status: 'new' }),
       complete: vi.fn().mockResolvedValue(undefined),
       fail: vi.fn().mockResolvedValue(undefined),
-    })
+    } as unknown as FastifyInstance['paymentIdempotency'])
     // 风控引擎(2026-09-06 P0:下单/退款/提现入口接入 server.riskEngine.evaluateRisk):
     // 测试 app 未注册 resilience-toolkit 插件,须显式 decorate,默认放行
     app.decorate('riskEngine', {

@@ -254,15 +254,16 @@ describe('github-app jwt:createGithubTransport(注入 fetch,零网络)', () => {
   })
 
   it('GET 不带 body 也不设 Content-Type', async () => {
-    let captured: RequestInit | null = null
+    const capturedInits: RequestInit[] = []
     const transport = createGithubTransport({
       fetchImpl: (async (_url: string | URL, init?: RequestInit) => {
-        captured = init ?? null
+        if (init) capturedInits.push(init)
         return new Response('[]', { status: 200 })
       }) as unknown as typeof globalThis.fetch,
     })
     const response = await transport({ method: 'GET', path: '/x', headers: {} })
     expect(response.body).toEqual([])
+    const captured = capturedInits[0]
     expect(captured?.body).toBeUndefined()
     expect((captured?.headers as Record<string, string>)?.['Content-Type']).toBeUndefined()
   })

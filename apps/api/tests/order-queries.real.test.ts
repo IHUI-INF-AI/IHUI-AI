@@ -34,6 +34,7 @@ import {
 
 async function createTestUser(phone: string) {
   const [row] = await db.insert(users).values({ phone }).returning()
+  if (!row) throw new Error('order-queries.real.test.ts: 插入未返回行(row)')
   return row
 }
 

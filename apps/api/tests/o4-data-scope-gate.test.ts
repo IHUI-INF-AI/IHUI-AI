@@ -19,7 +19,7 @@
  *  7. 超级用户 → scoped 能力 503 DATA_ISOLATION_UNAVAILABLE(fail-closed,不再只是注释)
  */
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyError } from 'fastify'
 import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { PgDialect, alias } from 'drizzle-orm/pg-core'
 import { drizzle } from 'drizzle-orm/postgres-js'
@@ -690,7 +690,7 @@ describe('O4-7 请求链集成(Fastify)', () => {
   async function buildApp(): Promise<FastifyInstance> {
     const app = Fastify({ logger: false })
     // 与 server.ts 同一判据:AppError → statusCode + errorCode
-    app.setErrorHandler((error, _request, reply) => {
+    app.setErrorHandler((error: FastifyError, _request, reply) => {
       const statusCode = error.statusCode ?? 500
       void reply.status(statusCode).send({
         code: statusCode,

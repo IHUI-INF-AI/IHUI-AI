@@ -114,7 +114,7 @@ class TestCallbackTargetAllowlist:
 
         assert _is_allowed_callback_target("https://evil.tld/collect") is False
         assert _is_allowed_callback_target("http://169.254.169.254/latest/meta-data") is False
-        assert _is_allowed_callback_target("http://127.0.0.1:8810/x") is False
+        assert _is_allowed_callback_target("http://127.0.0.1:5399/x") is False
 
     def test_non_http_scheme_rejected(self):
         from app.routers.llm import _is_allowed_callback_target

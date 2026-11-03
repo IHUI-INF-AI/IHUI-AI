@@ -41,7 +41,7 @@ from app.services.keepalive.models import (
     KIND_UNSUPPORTED,
     StateSnapshot,
 )
-from app.services.keepalive.policy import health_of, is_expiring
+from app.services.keepalive.policy import health_of, is_expiring, reauth_action, resolve_reauth
 
 logger = get_logger(__name__)
 
@@ -69,6 +69,9 @@ def _snapshot_from_row(row: Any) -> StateSnapshot:
         warned_at=row["warned_at"],
         alerted_at=row["alerted_at"],
         next_retry_at=row["next_retry_at"],
+        # 2026-11-03 补:此前漏传 last_error_kind,health_of 的「expired 当轮
+        # critical」分支永远拿不到证据,仪表盘要等连续 3 轮才变红。
+        last_error_kind=row["last_error_kind"],
     )
 
 
@@ -76,6 +79,9 @@ def _serialize_state(row: Any, now: datetime) -> dict[str, Any]:
     cfg = resolve_config()
     snapshot = _snapshot_from_row(row)
     health = health_of(snapshot, now, cfg.policy)
+    needs_reauth, reauth_reason = resolve_reauth(
+        row["source"], row["last_error_kind"], row["last_error"]
+    )
     return {
         "ref": row["account_ref"],
         "source": row["source"],
@@ -91,6 +97,10 @@ def _serialize_state(row: Any, now: datetime) -> dict[str, Any]:
         "expiring_soon": is_expiring(snapshot.expires_at, now, cfg.policy.expire_warn_days),
         "last_error": row["last_error"],
         "last_error_kind": row["last_error_kind"],
+        "needs_reauth": needs_reauth,
+        "reauth_reason": reauth_reason,
+        "reauth_next_action": reauth_action(reauth_reason),
+        "reauth_detail": (row["last_error"] or None) if needs_reauth else None,
         "alerted_at": _iso(snapshot.alerted_at),
         "updated_at": _iso(row["updated_at"]),
     }
@@ -125,6 +135,14 @@ async def get_overview(
     by_source: dict[str, dict[str, int]] = {}
     needs_attention: list[dict[str, Any]] = []
     expiring: list[dict[str, Any]] = []
+    # needs_reauth 三面计数:provider / reason / provider×reason。provider 优先取
+    # platform(如 wechat/xiaohongshu),缺失时回落 source(publish_cookie/checkin),
+    # 不允许出现「有需要人工的号但计数表里没有 provider」的空档。
+    reauth_total = 0
+    reauth_by_source: dict[str, int] = {}
+    reauth_by_reason: dict[str, int] = {}
+    reauth_by_provider: dict[str, int] = {}
+    reauth_by_provider_reason: dict[str, dict[str, int]] = {}
 
     for row in rows:
         item = _serialize_state(row, now)
@@ -138,6 +156,16 @@ async def get_overview(
             needs_attention.append(item)
         if item["expiring_soon"]:
             expiring.append(item)
+        if item["needs_reauth"]:
+            reauth_total += 1
+            source = item["source"]
+            reason = item["reauth_reason"] or ""
+            provider = item["platform"] or source
+            reauth_by_source[source] = reauth_by_source.get(source, 0) + 1
+            reauth_by_reason[reason] = reauth_by_reason.get(reason, 0) + 1
+            reauth_by_provider[provider] = reauth_by_provider.get(provider, 0) + 1
+            cross = reauth_by_provider_reason.setdefault(provider, {})
+            cross[reason] = cross.get(reason, 0) + 1
 
     stats = await store.stats_since(owner=uid, days=7)
     return _ok(
@@ -147,6 +175,13 @@ async def get_overview(
             "counts": counts,
             "by_source": by_source,
             "needs_attention": needs_attention,
+            "needs_reauth": {
+                "total": reauth_total,
+                "by_source": reauth_by_source,
+                "by_reason": reauth_by_reason,
+                "by_provider": reauth_by_provider,
+                "by_provider_reason": reauth_by_provider_reason,
+            },
             "expiring_soon": sorted(
                 expiring, key=lambda x: x["expires_at"] or ""
             ),

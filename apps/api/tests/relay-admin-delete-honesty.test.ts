@@ -99,7 +99,12 @@ vi.mock('../src/plugins/auth.js', () => ({
     }
     const userId = principal.mode === 'admin' ? ADMIN_USER_ID : USER_ID
     request.userId = userId
-    request.jwtPayload = { sub: userId, userId, roleId: principal.mode === 'admin' ? 1 : 0 }
+    request.jwtPayload = {
+      userId,
+      phone: '',
+      familyId: '00000000-0000-4000-8000-0000000000fa',
+      roleId: principal.mode === 'admin' ? 1 : 0,
+    }
   }),
   requireActiveUser: vi.fn(async () => {}),
 }))
@@ -110,8 +115,17 @@ vi.mock('../src/plugins/auth.js', () => ({
 //  ② **不带 .returning() 的 await 解析为空结果集**(postgres-js 对无 RETURNING 的写本来
 //     不回行数组),只有 .returning() 之后的 await 才回报 writeRows —— 于是"服务里把
 //     .returning() 摘掉"会让 200 用例当场变 404,而不是像 `{db:{}}` 空夹具那样无声滑过。
+/**
+ * 链式夹具的类型:既是可调用对象(未知方法名经 get 陷阱返回自身后仍可被调用),
+ * 又带任意属性(供 .where / .returning 继续挂链)。
+ */
+type ChainProxy = ((...args: unknown[]) => unknown) & Record<string, unknown>
+
+/** 代理 target 只需"可调用",链上行为全部由陷阱提供 */
+const callableTarget = function () {}
+
 function makeWriteChain(): Record<string, unknown> {
-  const returningProxy: Record<string, unknown> = new Proxy(function () {}, {
+  const returningProxy = new Proxy(callableTarget, {
     get(_t, prop: string) {
       if (prop === 'then') {
         return (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
@@ -122,8 +136,8 @@ function makeWriteChain(): Record<string, unknown> {
     apply() {
       return returningProxy
     },
-  })
-  const chainProxy: Record<string, unknown> = new Proxy(function () {}, {
+  }) as unknown as ChainProxy
+  const chainProxy = new Proxy(callableTarget, {
     get(_t, prop: string) {
       if (prop === 'where') {
         return (...args: unknown[]) => {
@@ -144,12 +158,12 @@ function makeWriteChain(): Record<string, unknown> {
     apply() {
       return chainProxy
     },
-  })
+  }) as unknown as ChainProxy
   return chainProxy
 }
 
 function makeSelectChain(): Record<string, unknown> {
-  const proxy: Record<string, unknown> = new Proxy(function () {}, {
+  const proxy = new Proxy(callableTarget, {
     get(_t, prop: string) {
       if (prop === 'then') {
         return (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
@@ -160,7 +174,7 @@ function makeSelectChain(): Record<string, unknown> {
     apply() {
       return proxy
     },
-  })
+  }) as unknown as ChainProxy
   return proxy
 }
 

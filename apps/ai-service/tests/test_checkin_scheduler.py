@@ -1175,5 +1175,32 @@ async def test_qoder_retry_jobs_registered_and_status_exposed(monkeypatch):
     assert cs.CheckinScheduler().status()["next_run_qoder_retry"] is None
 
 
+async def test_start_disabled_registers_no_jobs(monkeypatch):
+    """总闸关 ⇒ start() 直接返回:不建表、不建调度器、零 job,status 如实报 cron_enabled=False。
+
+    反向例(2026-11-03 补):此前只有「开关 true 时注册了哪些 job」的正向用例,
+    没有「开关 false 时一个 job 都不许注册」的硬断言,关闸回归会静默放行。
+    """
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    ensure_calls: list[int] = []
+
+    async def _ensure() -> None:
+        ensure_calls.append(1)
+
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _ensure)
+    sched = cs.CheckinScheduler()
+    await sched.start()
+
+    assert sched._started is False
+    assert sched._scheduler is None  # 连调度器实例都不许建
+    assert ensure_calls == []  # 关闸时不做任何建表/网络动作
+    st = sched.status()
+    assert st["cron_enabled"] is False
+    assert st["enabled"] is False
+    assert st["next_run"] is None
+    assert st["next_run_qoder"] is None
+
+
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

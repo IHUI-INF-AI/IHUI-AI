@@ -8,7 +8,7 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: 7e35051ed2d224d513e153ff8ccef002ba599001
+// sourceCommit: ef2123786e39083e36c2c36ef5436aab8510be47
 // inputsSha256: 558345125275eb9096bf44ac6430d4a5a8fd153fb2c11c737a304a943c17ee80
 // input: packages/i18n/messages/miniapp-taro/en.json 316869f3404f647d89e8b445f38095082285d594766fb6223438b9f4a7633620
 // input: packages/i18n/messages/miniapp-taro/ja.json 5ca49a93196eaf4b643bb8a0ab78c3314bb6e79dbf391f965682becc42b7fb58
@@ -23,14 +23,14 @@
 // input: packages/i18n/messages/shared/ko.json 544040b87de341e0f5f9017fc6cdff372fc85f98811226dfb61a6cbe59ab64f3
 // input: packages/i18n/messages/shared/zh-TW.json 66608fffce34bbe378c5ec1a5dee41a0a0b54b5876203a0630ffb077be037d3a
 // carried: present
-// carriedKeys: en=593 ja=593 ko=593 zh-TW=593
-// generatedAt: 2026-11-02T14:59:53.918Z
+// carriedKeys: en=588 ja=588 ko=588 zh-TW=588
+// generatedAt: 2026-11-03T00:52:12.754Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: 'ff465134f543c65aab61fb4e010c5c45c5e14316e3366ed40d3d49613a546f6e', bytes: 144512 },
-  ja: { version: '7bd0531d854b814c3c681f222d7192f8871b5a6261a33ca15adbd3cf5d184679', bytes: 166100 },
-  ko: { version: 'b7cfc5269b75751f8fdeedc3db0e746c2db4d4118e731ec8fab88986ad1e5ea8', bytes: 157780 },
-  'zh-TW': { version: '705c0ee7c9bd229d24ee2715cf174e80f887be9301d75b8fbeb53b0cd367eac5', bytes: 149784 },
+  en: { version: '8372afe78c38b68bfcdabd065ac5b173e2d66d820feccbcb4da0ef4a71eebab5', bytes: 144440 },
+  ja: { version: 'd7500e7085697be70b36e60cb4e152c04f13176782f3c360dc65bfa8091ce07d', bytes: 166028 },
+  ko: { version: 'e51c0a73edf12e4e2a0e53cc1be27fb872625f9a59574226dd0d55f5f6367767', bytes: 157696 },
+  'zh-TW': { version: '64681ec0b28edd9afa785b8aa29015f41fac4e8435c64aa5589057ed0c79338d', bytes: 149692 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyInstance } from 'fastify'
 
 // 测试隔离:mock chat-queries + config,绝不连生产 PostgreSQL / Redis
 vi.mock('../src/db/chat-queries.js', () => ({
@@ -51,7 +51,10 @@ describe('AI callback planSteps 持久化通道(零 schema 迁移)', () => {
 
   beforeAll(async () => {
     mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
-    server.decorate('aiCallbackQueue', { add: mockAdd })
+    server.decorate(
+      'aiCallbackQueue',
+      { add: mockAdd } as unknown as FastifyInstance['aiCallbackQueue'],
+    )
     await server.register(aiCallbackRoutes)
     await server.ready()
   })
@@ -81,7 +84,7 @@ describe('AI callback planSteps 持久化通道(零 schema 迁移)', () => {
     expect(res.statusCode).toBe(202)
     expect(res.json().data.queued).toBe(true)
 
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect(job.metadata.planSteps).toEqual(PLAN_SNAPSHOT)
     // 关键:同一 metadata 内既有字段不被挤掉(合并写入)
     expect(job.metadata.toolCalls).toEqual(TOOL_CALLS)
@@ -92,7 +95,7 @@ describe('AI callback planSteps 持久化通道(零 schema 迁移)', () => {
     mockAdd.mockClear()
     const res = await post({ toolCalls: TOOL_CALLS })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect('planSteps' in job.metadata).toBe(false)
   })
 
@@ -100,7 +103,7 @@ describe('AI callback planSteps 持久化通道(零 schema 迁移)', () => {
     mockAdd.mockClear()
     const res = await post({ planSteps: [] })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    const job = mockAdd.mock.calls[0]![1] as { metadata: Record<string, unknown> }
     expect('planSteps' in job.metadata).toBe(false)
   })
 
@@ -108,7 +111,7 @@ describe('AI callback planSteps 持久化通道(零 schema 迁移)', () => {
     mockAdd.mockClear()
     const res = await post({ planSteps: [PLAN_SNAPSHOT[2]] })
     expect(res.statusCode).toBe(202)
-    const job = mockAdd.mock.calls[0][1] as {
+    const job = mockAdd.mock.calls[0]![1] as {
       metadata: { planSteps: Array<Record<string, unknown>> }
     }
     expect(job.metadata.planSteps[0]).toEqual(PLAN_SNAPSHOT[2])

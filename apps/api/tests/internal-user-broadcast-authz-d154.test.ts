@@ -28,8 +28,8 @@ vi.mock('../src/config/index.js', () => ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     CORS_ORIGIN: 'http://localhost:8801',
-    DATABASE_URL: 'postgres://localhost:8810/test',
-    REDIS_URL: 'redis://localhost:8811',
+    DATABASE_URL: 'postgres://127.0.0.1:5399/test',
+    REDIS_URL: 'redis://127.0.0.1:6399',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     JWT_EXPIRES_IN: '7d',
     AI_SERVICE_URL: 'http://localhost:8803',
@@ -61,7 +61,9 @@ function principalInjectedAs(userId: string | undefined) {
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
   // 路由按装饰器调用;D153 已把这条装饰器装进真实启动链,这里给同形桩。
-  type WithBroadcast = FastifyInstance & { broadcastToUser: (userId: string, event: string, data: unknown) => void }
+  type WithBroadcast = FastifyInstance & {
+    broadcastToUser: (userId: string, event: string, data: unknown) => void
+  }
   ;(app as WithBroadcast).broadcastToUser = mockBroadcast
   const routes = (await import('../src/routes/internal-user-broadcast.js')).default
   await app.register(routes)
@@ -113,7 +115,11 @@ describe('D154 内部 user-broadcast 入口', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(mockBroadcast).toHaveBeenCalledTimes(1)
-    const [userId, event, data] = mockBroadcast.mock.calls[0] as [string, string, Record<string, unknown>]
+    const [userId, event, data] = mockBroadcast.mock.calls[0] as [
+      string,
+      string,
+      Record<string, unknown>,
+    ]
     expect(userId).toBe('user-owner')
     expect(event).toBe('mcp:status')
     expect(data.server).toBe('mcp-a')
@@ -141,8 +147,9 @@ describe('D154 内部 user-broadcast 入口', () => {
       throw new Error('no live connection for this user')
     })
     const app = Fastify({ logger: false })
-    ;(app as FastifyInstance & { broadcastToUser: (u: string, e: string, d: unknown) => void }).broadcastToUser =
-      mockBroadcast
+    ;(
+      app as FastifyInstance & { broadcastToUser: (u: string, e: string, d: unknown) => void }
+    ).broadcastToUser = mockBroadcast
     const spy = vi.fn()
     app.log.warn = spy
     await app.register((await import('../src/routes/internal-user-broadcast.js')).default)

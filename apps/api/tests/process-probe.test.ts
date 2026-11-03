@@ -404,7 +404,7 @@ describe.skipIf(process.platform !== 'win32')(
           expect(root.createdAtMs).toBeTypeOf('number')
           expect(root.createdAtMs!).toBeLessThanOrEqual(Date.now())
           // child:ppid === root pid,创建时间晚于 root
-          const childSample = byPid.get(child.pid)!
+          const childSample = byPid.get(child.pid!)!
           expect(childSample.parentPid).toBe(rootPid)
           expect(childSample.createdAtMs!).toBeGreaterThan(root.createdAtMs!)
           // grandchild:存在 ppid === child.pid 的孙,创建时间不早于 child

@@ -78,6 +78,10 @@ import {
 } from '../src/services/relay-account-shared-state.js'
 import { ACCOUNT_SCHEDULABLE_HEALTH_STATES } from '../src/services/relay-pool-stats-service.js'
 import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
+import type {
+  AdapterAccountContext,
+  HealthCheckResult,
+} from '../src/services/relay-upstream-adapters.js'
 
 function sweepRow(overrides: Record<string, unknown> = {}): unknown {
   return {
@@ -156,9 +160,10 @@ describe('sweepAccountPool 分布式锁', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
@@ -182,9 +187,10 @@ describe('sweepAccountPool 分布式锁', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
@@ -202,10 +208,11 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth: vi.fn(async () => ({ ok: true })),
       refreshToken,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     }
   }
 
@@ -286,10 +293,11 @@ describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
       providerCode: 'workbuddy',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth: vi.fn(async () => ({ ok: true })),
       refreshToken,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [
       sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
@@ -307,7 +315,8 @@ describe('健康三态定级(取不到 ≠ 失效)', () => {
     expect(healthStatusOf({ ok: true })).toBe('healthy')
     expect(healthStatusOf({ ok: false, indeterminate: true })).toBe('unknown')
     expect(healthStatusOf({ ok: false })).toBe('down')
-    expect(healthStatusOf({ ok: false, indeterminate: false, error: '401' })).toBe('down')
+    const rejected: HealthCheckResult = { ok: false, indeterminate: false, error: '401' }
+    expect(healthStatusOf(rejected)).toBe('down')
   })
 
   it('巡检遇到未判定结果保留 unknown,不得写 down', async () => {
@@ -320,9 +329,10 @@ describe('健康三态定级(取不到 ≠ 失效)', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = [sweepRow()]
     const out = await sweepAccountPool()
@@ -361,9 +371,10 @@ describe('sweepAccountPool 台账清理与并发上限', () => {
       providerCode: 'trae',
       buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
       translateStreamChunk: () => null,
-      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      translateNonStream: (_c: AdapterAccountContext, body: unknown) =>
+        (body ?? {}) as Record<string, unknown>,
       checkHealth,
-      isAuthFailure: (status) => status === 401,
+      isAuthFailure: (status: number) => status === 401,
     } as never)
     accountRows = Array.from({ length: 8 }, () => sweepRow())
     const out = await sweepAccountPool()

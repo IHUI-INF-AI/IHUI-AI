@@ -207,7 +207,7 @@ describe('study_plans.lesson_id 加列票', () => {
       const entries = journal.entries as { idx: number; when: number; tag: string }[]
       const mine = entries.filter((e) => e.tag === '20261004103000_study_plans_lesson_id')
       expect(mine).toHaveLength(1)
-      expect(mine[0].idx).toBe(309)
+      expect(mine[0]!.idx).toBe(309)
       // when 必须严格大于**它自己之前**那些条目的最大值(B3)。
       // 注意不能拿"除自己以外全部"的最大值来比:journal 是单调追加的,后续票还会
       // 继续加 idx(例如 20261004150000 的 study_plan_id),那种比法会让本用例在
@@ -217,9 +217,9 @@ describe('study_plans.lesson_id 加列票', () => {
       const before = whens.slice(0, pos)
       const after = whens.slice(pos + 1)
       expect(before.length).toBeGreaterThan(0)
-      expect(mine[0].when).toBeGreaterThan(Math.max(...before))
+      expect(mine[0]!.when).toBeGreaterThan(Math.max(...before))
       // 后续追加的条目必须更大(B3 的另一半:整表严格递增)
-      expect(Math.min(...after)).toBeGreaterThan(mine[0].when)
+      expect(Math.min(...after)).toBeGreaterThan(mine[0]!.when)
       // journal tag ↔ .sql basename 必须双向一一对应(B1)
       const tags = new Set(entries.map((e) => e.tag))
       expect(tags.has('20261004103000_study_plans_lesson_id')).toBe(true)
@@ -307,11 +307,11 @@ describe('study_plans.lesson_id 加列票', () => {
       const { studyPlans, lessons } = await realSchema()
       const cfg = getTableConfig(studyPlans)
       // FK 挂在**表**级(cfg.foreignKeys),不在列上 —— 列对象只有 name/sqlType/notNull。
-      const fk = cfg.foreignKeys.find((f) => f.reference().columns[0].name === 'lesson_id')
+      const fk = cfg.foreignKeys.find((f) => f.reference().columns[0]!.name === 'lesson_id')
       expect(fk, 'lesson_id 上没有外键').toBeDefined()
       const ref = fk!.reference()
       expect(ref.foreignColumns[0]).toBe(lessons.id)
-      expect(ref.foreignColumns[0].name).toBe('id')
+      expect(ref.foreignColumns[0]!.name).toBe('id')
       expect(fk!.onDelete).toBe('set null')
       expect(fk!.onUpdate).toBe('no action')
       // 反证:改成 cascade 即翻红
@@ -324,7 +324,9 @@ describe('study_plans.lesson_id 加列票', () => {
       const idx = cfg.indexes.find((i) => i.config.name === 'study_plans_lesson_idx')
       expect(idx, 'schema 里没有 study_plans_lesson_idx').toBeDefined()
       expect(idx!.config.columns).toHaveLength(1)
-      expect(idx!.config.columns[0].name).toBe('lesson_id')
+      const idxCol = idx!.config.columns[0]
+      if (!idxCol || !('name' in idxCol)) throw new Error('索引列没有 name')
+      expect(idxCol.name).toBe('lesson_id')
     })
 
     it('既有 study_plans_user_idx 与 title/target 列一个都没动', async () => {
@@ -343,7 +345,9 @@ describe('study_plans.lesson_id 加列票', () => {
       ])
       const userIdx = cfg.indexes.find((i) => i.config.name === 'study_plans_user_idx')
       expect(userIdx).toBeDefined()
-      expect(userIdx!.config.columns[0].name).toBe('user_id')
+      const userIdxCol = userIdx!.config.columns[0]
+      if (!userIdxCol || !('name' in userIdxCol)) throw new Error('索引列没有 name')
+      expect(userIdxCol.name).toBe('user_id')
       const title = cfg.columns.find((c) => c.name === 'title')!
       expect(title.notNull).toBe(true)
       expect(title.getSQLType()).toBe('varchar(100)')

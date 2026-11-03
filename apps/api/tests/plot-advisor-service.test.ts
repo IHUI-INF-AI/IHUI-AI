@@ -102,9 +102,9 @@ describe('plot-advisor-service 剧情顾问', () => {
       addPlotPoint(SID, { id: 'f1', chapter: 1, type: 'foreshadow', description: '伏笔1' })
       const issues = await checkConsistency(SID)
       expect(issues.length).toBe(1)
-      expect(issues[0].type).toBe('unresolved_foreshadow')
-      expect(issues[0].severity).toBe('warning')
-      expect(issues[0].message).toContain('伏笔1')
+      expect(issues[0]!.type).toBe('unresolved_foreshadow')
+      expect(issues[0]!.severity).toBe('warning')
+      expect(issues[0]!.message).toContain('伏笔1')
     })
 
     it('关系目标不存在产生 critical', async () => {
@@ -116,8 +116,8 @@ describe('plot-advisor-service 剧情顾问', () => {
       })
       const issues = await checkConsistency(SID)
       expect(issues.length).toBe(1)
-      expect(issues[0].type).toBe('relation_conflict')
-      expect(issues[0].severity).toBe('critical')
+      expect(issues[0]!.type).toBe('relation_conflict')
+      expect(issues[0]!.severity).toBe('critical')
     })
 
     it('关系对称检查（father vs son 合法）', async () => {
