@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -477,7 +477,11 @@ export default function ModelList({
           ? split.archived.map((group) => (
               <View key={`archived-${group.category}`}>
                 {/* 分组标题:用途分类 + 数量(用间距分隔,不用 border 分割线)*/}
-                <View style={{ padding: '16rpx 24rpx 4rpx' }}>
+                <View
+                  style={{
+                    padding: `${rpx(taroSpacing.sm)} ${rpx(taroSpacing.md)} ${rpx(taroSpacing['2xs'])}`,
+                  }}
+                >
                   <Text
                     style={{
                       fontSize: toUnit(MODEL_LIST_SECTION_HEADER_FONT_PX),

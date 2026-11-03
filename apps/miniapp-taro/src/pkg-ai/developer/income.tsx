@@ -8,7 +8,8 @@ import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import { useState, useCallback } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
+import { rpx } from '@/utils/rpx'
 import { useDidShow, useReachBottom } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
@@ -483,7 +484,10 @@ export default function DeveloperIncome() {
                   {tt('modelIncome.withdrawModal.title', '选择提现方式')}
                 </Text>
               </View>
-              <Text className="income-popup-sub" style={{ marginBottom: '28rpx' }}>
+              <Text
+                className="income-popup-sub"
+                style={{ marginBottom: rpx(taroSpacing['md-loose']) }}
+              >
                 {tt('modelIncome.withdrawModal.moreMethods', '更多提现方式')}
               </Text>
               <View
@@ -496,7 +500,7 @@ export default function DeveloperIncome() {
                   background:
                     incomeType === 'wechat' ? 'var(--color-muted)' : 'var(--color-background)',
                   borderRadius: rnRadius.md,
-                  marginBottom: '28rpx',
+                  marginBottom: rpx(taroSpacing['md-loose']),
                   boxSizing: 'border-box',
                 }}
                 onClick={() => setIncomeType((prev) => (prev === 'wechat' ? '' : 'wechat'))}
@@ -539,7 +543,7 @@ export default function DeveloperIncome() {
                   style={{
                     flex: 1,
                     textAlign: 'center',
-                    padding: '20rpx 0',
+                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
                     borderRadius: rnRadius.xl,
                     background: 'var(--color-secondary)',
                   }}
@@ -554,7 +558,7 @@ export default function DeveloperIncome() {
                   style={{
                     flex: 1,
                     textAlign: 'center',
-                    padding: '20rpx 0',
+                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
                     borderRadius: rnRadius.xl,
                     background: 'var(--color-primary)',
                   }}
@@ -611,7 +615,7 @@ export default function DeveloperIncome() {
                   width: '100%',
                   background: 'var(--color-muted)',
                   borderRadius: rnRadius.xl,
-                  padding: '16rpx 20rpx',
+                  padding: `${rpx(taroSpacing.sm)} ${rpx(taroSpacing['sm-loose'])}`,
                   boxSizing: 'border-box',
                   marginBottom: 'var(--spacing-sm)',
                 }}
@@ -648,7 +652,7 @@ export default function DeveloperIncome() {
                   style={{
                     flex: 1,
                     textAlign: 'center',
-                    padding: '20rpx 0',
+                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
                     borderRadius: rnRadius.xl,
                     background: 'var(--color-secondary)',
                   }}
@@ -663,7 +667,7 @@ export default function DeveloperIncome() {
                   style={{
                     flex: 1,
                     textAlign: 'center',
-                    padding: '20rpx 0',
+                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
                     borderRadius: rnRadius.xl,
                     background: 'var(--color-primary)',
                   }}
