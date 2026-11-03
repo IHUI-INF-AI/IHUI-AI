@@ -1394,7 +1394,6 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - **批次 1**:补齐 8 个死链页面(self-host/api/mcp/agent/rag/models/workflow/team)+ 5 语言 i18n + commit
 - **批次 2**:新增 /docs/manual 目录页 + 7 个子章节页面 + 5 语言 i18n + commit
 - **批次 3**:`/docs` 首页新增"使用说明手册"分区 + README.md 同步 + browser 验证 + 最终 commit + push
-- [ ] （进行中@2026-11-02/qoder-docs）**D53 文档中心格式层与排版收口(7 簇:移动端整屏遮罩 / 6 处读数裁切 / hreflang 与 sitemap 死链 / 字号与圆角档位 / emoji 当图标 / markdown 渲染层与后台文档前台出口 / 防回潮门)**:现状=`/docs` 18 页硬编码 JSX 无格式渲染层、手机未登录正文被 `ai-panel-root` fixed 整屏盖住、4 语言 hreflang 实测 404;出路=7 席产物由主席 pathspec 落地后按 §20 五条结清
 ## P0 SSO 全端补全 + 后端测试完善(2026-08-01 立,跨端:apps/api + apps/extension + apps/cli + apps/desktop + apps/web,AGENTS.md §24 用户已确认)
 > AGENTS.md §9 多端同步:本任务触及 api(后端测试 + redirectUri 扩展)+ extension(cli 共用 SSO Client)+ cli(本地回调服务器)+ desktop(deep-link scheme)+ web(前端 deep-link 处理)。共享层 `packages/shared/auth/sso-core.ts` 不变,沿用现有 SSO 核心逻辑。
 > AGENTS.md §24 用户已确认:"那就彻底接入开发好 完美完善" + "全端补全 + 测试 (推荐)"。
