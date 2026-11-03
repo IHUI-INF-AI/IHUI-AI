@@ -92,56 +92,88 @@ export default function ModelsDocsPage() {
         <div className="space-y-4">
           <div className="rounded-lg border bg-card p-3">
             <p className="text-body font-semibold">🌍 国际厂商</p>
-            <div className="mt-3 space-y-2">
-              {[
-                [
-                  'OpenAI',
-                  'GPT-5、GPT-4.1、GPT-4o、o3-mini、o1、GPT-4 Turbo',
-                  '通用 / 推理 / 视觉',
-                ],
-                ['Anthropic', 'Claude Opus 4.5、Sonnet 4.5、Haiku 3.5', '长上下文 / 代码 / 推理'],
-                ['Google', 'Gemini 2.5 Pro、Gemini 2.5 Flash', '多模态 / 长上下文'],
-                ['xAI', 'Grok 4、Grok 3、Grok Code Fast', '实时 / 代码'],
-                ['Mistral', 'Mistral Large 2、Codestral、Pixtral', '欧洲 / 开源'],
-              ].map(([vendor, models, scene], i) => (
-                <div
-                  key={vendor}
-                  className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-                >
-                  <div className="font-medium">{vendor}</div>
-                  <div className="text-muted-foreground">{models}</div>
-                  <div className="text-xs text-muted-foreground">{scene}</div>
-                </div>
-              ))}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 text-left text-label font-semibold">
+                    <th scope="col" className="p-3">
+                      厂商
+                    </th>
+                    <th scope="col" className="p-3">
+                      模型
+                    </th>
+                    <th scope="col" className="p-3">
+                      适用场景
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      'OpenAI',
+                      'GPT-5、GPT-4.1、GPT-4o、o3-mini、o1、GPT-4 Turbo',
+                      '通用 / 推理 / 视觉',
+                    ],
+                    [
+                      'Anthropic',
+                      'Claude Opus 4.5、Sonnet 4.5、Haiku 3.5',
+                      '长上下文 / 代码 / 推理',
+                    ],
+                    ['Google', 'Gemini 2.5 Pro、Gemini 2.5 Flash', '多模态 / 长上下文'],
+                    ['xAI', 'Grok 4、Grok 3、Grok Code Fast', '实时 / 代码'],
+                    ['Mistral', 'Mistral Large 2、Codestral、Pixtral', '欧洲 / 开源'],
+                  ].map(([vendor, models, scene], i) => (
+                    <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                      <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
+                      <td className="p-3 text-muted-foreground">{models}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
           <div className="rounded-lg border bg-card p-3">
             <p className="text-body font-semibold">🇨🇳 国产模型</p>
-            <div className="mt-3 space-y-2">
-              {[
-                [
-                  '阿里通义千问',
-                  'Qwen3-Max、Qwen3-235B、Qwen-Plus、Qwen-Turbo',
-                  '中文 / 代码 / 推理',
-                ],
-                ['DeepSeek', 'DeepSeek V3.2、R1、Coder', '推理 / 代码 / 低成本'],
-                ['智谱 AI', 'GLM-4.6、GLM-4-Plus、GLM-4-Flash、GLM-4V', '中文 / 多模态'],
-                ['百度文心', 'ERNIE 4.5、ERNIE Speed', '中文 / 企业'],
-                ['字节豆包', 'Doubao-Pro、Doubao-Lite、Doubao-Vision', '中文 / 多模态'],
-                ['月之暗面', 'Kimi K2、Kimi Thinking', '长上下文 / 推理'],
-                ['MiniMax', 'abab6.5、abab6.5s', '中文 / 语音'],
-                ['阶跃星辰', 'Step-2、Step-1V', '多模态'],
-              ].map(([vendor, models, scene], i) => (
-                <div
-                  key={vendor}
-                  className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-                >
-                  <div className="font-medium">{vendor}</div>
-                  <div className="text-muted-foreground">{models}</div>
-                  <div className="text-xs text-muted-foreground">{scene}</div>
-                </div>
-              ))}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 text-left text-label font-semibold">
+                    <th scope="col" className="p-3">
+                      厂商
+                    </th>
+                    <th scope="col" className="p-3">
+                      模型
+                    </th>
+                    <th scope="col" className="p-3">
+                      适用场景
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      '阿里通义千问',
+                      'Qwen3-Max、Qwen3-235B、Qwen-Plus、Qwen-Turbo',
+                      '中文 / 代码 / 推理',
+                    ],
+                    ['DeepSeek', 'DeepSeek V3.2、R1、Coder', '推理 / 代码 / 低成本'],
+                    ['智谱 AI', 'GLM-4.6、GLM-4-Plus、GLM-4-Flash、GLM-4V', '中文 / 多模态'],
+                    ['百度文心', 'ERNIE 4.5、ERNIE Speed', '中文 / 企业'],
+                    ['字节豆包', 'Doubao-Pro、Doubao-Lite、Doubao-Vision', '中文 / 多模态'],
+                    ['月之暗面', 'Kimi K2、Kimi Thinking', '长上下文 / 推理'],
+                    ['MiniMax', 'abab6.5、abab6.5s', '中文 / 语音'],
+                    ['阶跃星辰', 'Step-2、Step-1V', '多模态'],
+                  ].map(([vendor, models, scene], i) => (
+                    <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                      <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
+                      <td className="p-3 text-muted-foreground">{models}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -150,22 +182,36 @@ export default function ModelsDocsPage() {
               <Monitor className="mr-1.5 inline h-4 w-4" />
               本地 / 开源
             </p>
-            <div className="mt-3 space-y-2">
-              {[
-                ['Ollama', 'llama3.3、qwen2.5、deepseek-r1、gemma2', '本地部署'],
-                ['vLLM', '任意 HuggingFace 模型', '高吞吐推理'],
-                ['LM Studio', 'GGUF 量化模型', '桌面应用'],
-                ['OpenAI 兼容', '任何 OpenAI API 兼容端点', '自定义接入'],
-              ].map(([vendor, models, scene], i) => (
-                <div
-                  key={vendor}
-                  className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-                >
-                  <div className="font-medium">{vendor}</div>
-                  <div className="text-muted-foreground">{models}</div>
-                  <div className="text-xs text-muted-foreground">{scene}</div>
-                </div>
-              ))}
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/60 text-left text-label font-semibold">
+                    <th scope="col" className="p-3">
+                      运行时
+                    </th>
+                    <th scope="col" className="p-3">
+                      模型
+                    </th>
+                    <th scope="col" className="p-3">
+                      适用场景
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Ollama', 'llama3.3、qwen2.5、deepseek-r1、gemma2', '本地部署'],
+                    ['vLLM', '任意 HuggingFace 模型', '高吞吐推理'],
+                    ['LM Studio', 'GGUF 量化模型', '桌面应用'],
+                    ['OpenAI 兼容', '任何 OpenAI API 兼容端点', '自定义接入'],
+                  ].map(([vendor, models, scene], i) => (
+                    <tr key={vendor} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                      <td className="p-3 font-medium whitespace-nowrap">{vendor}</td>
+                      <td className="p-3 text-muted-foreground">{models}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{scene}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -179,24 +225,38 @@ export default function ModelsDocsPage() {
             智汇 AI 每 5 分钟探测所有 Provider,自动剔除"账户没钱 / Key 失效 / 接不通"的 Provider,
             终端用户只会看到真正可用的模型。Admin 端可查看每个 Provider 的状态、余额、错误详情。
           </p>
-          <div className="space-y-2">
-            {[
-              ['healthy', '✅ 健康', '正常服务,延迟 < 2s'],
-              ['degraded', '🟡 降级', '可用但慢(延迟 > 5s)或部分模型异常'],
-              ['down', '🔴 不可用', '402 余额不足 / 403 无权限 / 超时 / 网络错误'],
-              ['not_configured', '⚪ 未配置', 'Admin 未填 API Key'],
-              ['local', '🖥️ 本地', 'Ollama / vLLM 等本地部署,不走云端'],
-              ['zero_cost', '🆓 免费额度', '厂商提供免费 quota,不消耗积分'],
-            ].map(([status, label, desc], i) => (
-              <div
-                key={status}
-                className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-              >
-                <div className="font-mono text-xs">{status}</div>
-                <div className="font-medium">{label}</div>
-                <div className="text-xs text-muted-foreground">{desc}</div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    状态值
+                  </th>
+                  <th scope="col" className="p-3">
+                    显示
+                  </th>
+                  <th scope="col" className="p-3">
+                    含义
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['healthy', '✅ 健康', '正常服务,延迟 < 2s'],
+                  ['degraded', '🟡 降级', '可用但慢(延迟 > 5s)或部分模型异常'],
+                  ['down', '🔴 不可用', '402 余额不足 / 403 无权限 / 超时 / 网络错误'],
+                  ['not_configured', '⚪ 未配置', 'Admin 未填 API Key'],
+                  ['local', '🖥️ 本地', 'Ollama / vLLM 等本地部署,不走云端'],
+                  ['zero_cost', '🆓 免费额度', '厂商提供免费 quota,不消耗积分'],
+                ].map(([status, label, desc], i) => (
+                  <tr key={status} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{status}</td>
+                    <td className="p-3 font-medium whitespace-nowrap">{label}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -288,21 +348,35 @@ judge: "gpt-4o"   # 用 GPT-4o 评分选最佳答案`}
           <p className="text-sm text-muted-foreground">
             长对话自动压缩历史消息,降低 Token 消耗 60%+,质量损失 &lt; 5%:
           </p>
-          <div className="space-y-2">
-            {[
-              ['RTK', 'Retrieval Token Keep', '保留关键 Token,删除冗余词(介词/语气词)'],
-              ['Caveman', '压缩成"穴居人语"', '去掉所有非关键词,仅保留主谓宾'],
-              ['RTK + Caveman', '混合策略', '先 RTK 再 Caveman,压缩率最高'],
-            ].map(([name, full, desc], i) => (
-              <div
-                key={name}
-                className={`grid grid-cols-1 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}`}
-              >
-                <div className="font-mono text-xs">{name}</div>
-                <div className="font-medium">{full}</div>
-                <div className="text-xs text-muted-foreground">{desc}</div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 text-left text-label font-semibold">
+                  <th scope="col" className="p-3">
+                    策略
+                  </th>
+                  <th scope="col" className="p-3">
+                    全称
+                  </th>
+                  <th scope="col" className="p-3">
+                    做法
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['RTK', 'Retrieval Token Keep', '保留关键 Token,删除冗余词(介词/语气词)'],
+                  ['Caveman', '压缩成"穴居人语"', '去掉所有非关键词,仅保留主谓宾'],
+                  ['RTK + Caveman', '混合策略', '先 RTK 再 Caveman,压缩率最高'],
+                ].map(([name, full, desc], i) => (
+                  <tr key={name} className={i % 2 === 0 ? 'bg-background' : 'bg-muted/40'}>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{name}</td>
+                    <td className="p-3 font-medium">{full}</td>
+                    <td className="p-3 text-xs text-muted-foreground">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <CodeBlock
             language="json"
