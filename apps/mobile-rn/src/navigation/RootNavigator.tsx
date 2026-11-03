@@ -76,6 +76,8 @@ import DeveloperSettingsScreen from '../screens/DeveloperSettingsScreen'
 import DeveloperConversationsScreen from '../screens/DeveloperConversationsScreen'
 import ModelsPromptsScreen from '../screens/ModelsPromptsScreen'
 import EduAttendanceScreen from '../screens/EduAttendanceScreen'
+import EduMyAttendanceScreen from '../screens/EduMyAttendanceScreen'
+import EduAttendanceQrScreen, { EduAttendanceScanScreen } from '../screens/EduAttendanceQrScreen'
 import EduGradesScreen from '../screens/EduGradesScreen'
 import EduParentScreen from '../screens/EduParentScreen'
 import EduParentBindScreen from '../screens/EduParentBindScreen'
@@ -504,6 +506,9 @@ export type RootStackParamList = {
   DeveloperConversations: undefined
   ModelsPrompts: undefined
   EduAttendance: undefined
+  EduMyAttendance: undefined
+  EduAttendanceQr: undefined
+  EduAttendanceScan: undefined
   EduGrades: undefined
   EduParent: undefined
   EduParentBind: undefined
@@ -1046,6 +1051,9 @@ function RootNavigatorInner() {
             />
             <RootStack.Screen name="ModelsPrompts" component={ModelsPromptsScreen} />
             <RootStack.Screen name="EduAttendance" component={EduAttendanceScreen} />
+            <RootStack.Screen name="EduMyAttendance" component={EduMyAttendanceScreen} />
+            <RootStack.Screen name="EduAttendanceQr" component={EduAttendanceQrScreen} />
+            <RootStack.Screen name="EduAttendanceScan" component={EduAttendanceScanScreen} />
             <RootStack.Screen name="EduGrades" component={EduGradesScreen} />
             <RootStack.Screen name="EduParent" component={EduParentScreen} />
             <RootStack.Screen name="EduParentBind" component={EduParentBindScreen} />
