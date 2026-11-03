@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 结构锁:daemon 常驻 tick 链必须覆盖 6 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立,同日补 2 面)。
+ * 结构锁:daemon 常驻 tick 链必须覆盖 29 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立,同日先补 2 面、晚间再补 12 面)。
  *
  * 失效形态(已实测 18 小时零派发):`startDaemon()` 是内存常驻的 setTimeout 链,**不重读本文件**;
  * 隧道腿 / 短信通道 / 自开发发起腿 / 隧道指标这 4 面原先只写在 `main()` 的单轮链上,而
@@ -28,7 +28,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..', '..')
 const GUARDIAN_SRC = path.join(ROOT, 'scripts', 'git-guardian.mjs')
 
-/** 这 6 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
+/** 这 29 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
 const TICK_REQUIRED = [
   'auditTunnelLegHealth',
   'auditSmsChannelHealth',
@@ -39,6 +39,33 @@ const TICK_REQUIRED = [
   // 尺子自己就住在停摆链里(看守者无人看守)。失效方向必须是"多要一次说明",不能是"多停一轮"。
   'auditImmutableGuardNewCommits',
   'auditSweeperLiveness',
+  // A 档 12 面(2026-11-03 晚加):同一场事故的其余射程,现读节流戳全部冻结在 11-02T15:56–16:05Z。
+  // 逐面核过才进清单:自带节流戳 + 健康时只读一份 json + 派生子进程 ≤120s(拆刀顺序见源脚本注释)。
+  // 反证同一把尺:重开计划任务档**不算**出路 —— daemon 常驻持轮级锁,任务那轮实测静默退出。
+  'watchPatrolHeartbeat',
+  'watchWatchdog',
+  'auditIndexUnmerged',
+  'auditDeployStall',
+  'auditPushDivergenceLeg',
+  'auditGitFilterResidue',
+  'auditHostTimezone',
+  'auditDiskRootHygiene',
+  'auditTempLanding',
+  'auditOrphanDeletionRefs',
+  'auditMigrationGaps',
+  'auditRegistrySyncHealth',
+  // 第二批 11 面(同日深夜续):6h/30min/5min 自带节流、健康档只读、不写工作树;
+  'auditAasaPublicHealth',
+  'auditAppVersionLatest',
+  'auditAssetPathHealth',
+  'auditOriginGuardLiveness',
+  'auditProdDepAdvisories',
+  'sweepDesktopDiscoveryBudget',
+  'auditQoderSessionSyncTask',
+  'auditWorkbuddySessionSyncTask',
+  'sweepLessonDraft',
+  'healMirrorPurgeLeg',
+  'sweepHandMirrorUpgrades',
 ]
 
 const src = readFileSync(GUARDIAN_SRC, 'utf8')
@@ -91,7 +118,7 @@ function liveCallOffset(body, name) {
   return -1
 }
 
-test('T1 装车锁:daemon tick 链必须有 6 个非注释派发,缺哪个就点哪个名', () => {
+test('T1 装车锁:daemon tick 链必须有 29 个非注释派发,缺哪个就点哪个名', () => {
   const body = tickBodyOf(src)
   assert.notEqual(body, '', '判不出 tick 体(startDaemon/const tick 形态变了)⇒ 不得默认已接线')
   const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(body, name))
@@ -102,7 +129,7 @@ test('T1 装车锁:daemon tick 链必须有 6 个非注释派发,缺哪个就点
   )
 })
 
-test('T2 回填锁:main() 单轮链里原有 6 个派发仍在(不得因人工归并回灌被删)', () => {
+test('T2 回填锁:main() 单轮链里原有 29 个派发仍在(不得因人工归并回灌被删)', () => {
   const main = mainBodyOf(src)
   assert.notEqual(main, '', '判不出 main 体 ⇒ 本锁失效,按判红处理')
   const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(main, name))

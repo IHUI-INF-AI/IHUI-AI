@@ -51,13 +51,19 @@ const NEW_TREND_KEYS = [
 ]
 
 describe('edu attendance web contract', () => {
-  it('批量点名走 POST /attendance/batch-check-in,班级取自下拉(无手输 UUID)', () => {
+  it('批量点名走 POST /attendance/batch-check-in,班级取自下拉(无手输 UUID),载荷不含 status', () => {
     const src = read(batchFile)
     expect(src).toContain("'/api/edu-ai-management/attendance/batch-check-in'")
     expect(src).toContain("method: 'POST'")
-    expect(src).toContain('classId,')
-    expect(src).toContain('date,')
-    expect(src).toContain('status,')
+    // 2026-11 后端收口:状态一律服务端现算 ⇒ 端上不再自报 status,也不再传 statusOptions
+    expect(src).not.toMatch(/\bstatus\b\s*:/)
+    expect(src).not.toMatch(/setStatus\(/)
+    expect(src).not.toContain('statusOptions')
+    // 请求体由端侧契约构造(单一实现),弹窗自己不再手拼第二份
+    expect(src).toContain("from './check-in-contract'")
+    expect(src).toContain('buildBatchCheckInPayload')
+    expect(src).toContain('classId')
+    expect(src).toContain('date')
     // 班级来源 = 共享下拉组件,不是输入框
     expect(src).toContain("from './ClassSelect'")
     expect(src).toContain('<ClassSelect')
@@ -197,7 +203,6 @@ describe('edu attendance web contract', () => {
 
   it('五语言 eduAttendance 趋势键齐备、非空、{scope} 插值位不丢、语族不串', () => {
     const cjk = /[぀-ゟ가-힯一-鿿]/u // 假名 | 谚文 | 汉字
-    const kanaOrHangul = /[぀-ゟ가-힯]/u
     for (const loc of WEB_MSGS) {
       const msgs = JSON.parse(read(`packages/i18n/messages/web/${loc}.json`)) as Record<
         string,

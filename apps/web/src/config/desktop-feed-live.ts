@@ -354,6 +354,17 @@ export async function fetchReleasesPaged(
   return { releases, pages, maxPages, partial, scanned: releases.length }
 }
 
+/** 资产名 → GitHub 权威字节数(供 Gitee 字节对账;取不到 size 的资产不入表) */
+function assetSizeMap(assets: readonly UpstreamReleaseAsset[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const a of assets) {
+    const name = String(a.name || '')
+    const size = Number(a.size || 0)
+    if (name && size > 0) map.set(name, size)
+  }
+  return map
+}
+
 /**
  * 运行期解析最新桌面版本。
  *
@@ -406,17 +417,17 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
     : null
   const usable =
     payload && typeof payload.version === 'string' && payload.platforms ? payload : null
-  // Windows 主包优先走 Gitee(国内可达),但**按字节对账**才准改用:同名不同字节
-  // (0.1.75 实锤)会叫客户端下到一份签名验不过的包。权威字节数取 GitHub API 的资产元数据。
-  const winName = usable?.platforms?.['windows-x86_64']?.url?.split('/').pop() ?? null
-  const winSize = Number(pick.downloadAssets.find((a) => a.name === winName)?.size || 0) || null
-  const preferred = usable ? await preferGiteeWindows(usable, pick.tag, winSize) : null
+  // 2026-11-03:Gitee 为国内主通道 —— 所有平台(Windows/macOS/Linux)都按**字节对账**
+  // 决定是否改写;Gitee 资产不存在或字节不等 ⇒ 保持 GitHub 并告警,绝不"未对账就改写"。
+  // 权威字节数取 GitHub API 的资产元数据(资产名 → size),不探国内直连不通的资产域名。
+  const sizes = assetSizeMap(pick.downloadAssets)
+  const preferred = usable ? await preferGiteePlatforms(usable, pick.tag, sizes) : null
   const base = buildLiveSource(pick, preferred, repo)
   return {
     source: 'live',
     data: {
       ...base,
-      assets: await preferGiteeInAssets(base.assets, pick.tag),
+      assets: await preferGiteeInAssets(base.assets, pick.tag, sizes),
       scan: summarizeScan(scan),
     },
   }
@@ -510,34 +521,53 @@ export async function giteeByteParity(
   return { verdict: giteeLen === expectedSize ? 'same' : 'different', giteeLen }
 }
 
-/** 把 windows-x86_64 的 URL 换成 Gitee 直链(仅当 Gitee 那份字节与 GitHub 原件等长) */
+/**
+ * 任一平台 URL → Gitee 直链,**仅当** Gitee 那份附件的 Content-Length 与 GitHub 原件相等。
+ *
+ * 2026-11-03 起 Gitee 是**国内主通道**(Windows / macOS x86_64 / macOS aarch64 / Linux
+ * 全部平台都适用);判据仍是"同一份字节"而不是"同名" —— 0.1.75 已实锤同名不同物会让
+ * 客户端下载后签名验不过。sizes 以资产名为键,来自 GitHub Releases API 的 size 元数据
+ * (权威,且不必探国内直连不通的 GitHub 资产域名)。
+ */
+export async function preferGiteePlatforms(
+  payload: DesktopFeedPayload | null,
+  tag: string,
+  sizes: ReadonlyMap<string, number>,
+): Promise<DesktopFeedPayload | null> {
+  if (!payload?.platforms) return payload
+  const platforms = { ...payload.platforms }
+  const hits = await Promise.all(
+    Object.keys(platforms).map(async (key) => {
+      const entry = platforms[key]
+      if (!entry || typeof entry.url !== 'string' || !entry.url) return null
+      const fileName = entry.url.split('/').pop()
+      if (!fileName) return null
+      const expected = sizes.get(fileName) ?? null
+      const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expected)
+      if (verdict !== 'same') {
+        console.warn(
+          `[desktop-feed] ${key} 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+            `(GH=${expected ?? '量不到'} / Gitee=${giteeLen ?? '量不到'})`,
+        )
+        return null
+      }
+      return [key, { ...entry, url: giteeDownloadUrl(tag, fileName) }] as const
+    }),
+  )
+  for (const hit of hits) if (hit) platforms[hit[0]] = hit[1]
+  return { ...payload, platforms }
+}
+
+/** 单平台兼容入口(既有测试与旧调用方使用;实现已归并到 preferGiteePlatforms) */
 export async function preferGiteeWindows(
   payload: DesktopFeedPayload | null,
   tag: string,
   expectedSize: number | null,
 ): Promise<DesktopFeedPayload | null> {
-  const win = payload?.platforms?.['windows-x86_64']
-  if (!payload || !win) return payload
-  const fileName = win.url.split('/').pop()
-  if (!fileName) return payload
-  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expectedSize)
-  if (verdict !== 'same') {
-    console.warn(
-      `[desktop-feed] windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
-        `(GH=${expectedSize} / Gitee=${giteeLen})`,
-    )
-    return payload
-  }
-  return {
-    ...payload,
-    platforms: {
-      ...payload.platforms,
-      'windows-x86_64': {
-        ...win,
-        url: giteeDownloadUrl(tag, fileName),
-      },
-    },
-  }
+  const fileName = payload?.platforms?.['windows-x86_64']?.url?.split('/').pop()
+  const sizes = new Map<string, number>()
+  if (fileName && expectedSize && expectedSize > 0) sizes.set(fileName, expectedSize)
+  return preferGiteePlatforms(payload, tag, sizes)
 }
 
 /** 从 nightly 之外的地方找语义版本:`v1.2.3` / `mobile-v1.2.3` / 资产名里的 `_1.2.3_` */
@@ -621,26 +651,30 @@ export async function resolveLiveAndroid(
   }
 }
 
-/** 把下载页资产里的 Windows exe 换成 Gitee 直链(同样只在 Gitee 确有该资产时) */
+/** 把下载页资产换成 Gitee 直链(每个资产都按字节对账;不等的保持 GitHub 并告警) */
 async function preferGiteeInAssets(
   assets: DesktopFeedAsset[],
   tag: string,
+  sizes: ReadonlyMap<string, number>,
 ): Promise<DesktopFeedAsset[]> {
-  const exe = assets.find((a) => a.format === 'Windows NSIS exe')
-  if (!exe) return assets
-  const fileName = exe.href.split('/').pop()
-  if (!fileName) return assets
-  // 与更新器 feed 同一把尺子:名字命中不等于字节相同(见 giteeByteParity 头注的 0.1.75 实锤)。
-  // sizeBytes 来自 GitHub API 的资产元数据,就是 CI 签名覆盖那份的字节数。
-  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, exe.sizeBytes || null)
-  if (verdict !== 'same') {
-    console.warn(
-      `[desktop-feed] 下载页 Windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
-        `(GH=${exe.sizeBytes} / Gitee=${giteeLen})`,
-    )
-    return assets
-  }
-  return assets.map((a) => (a === exe ? { ...a, href: giteeDownloadUrl(tag, fileName) } : a))
+  return Promise.all(
+    assets.map(async (a) => {
+      const fileName = a.href.split('/').pop()
+      if (!fileName) return a
+      // 与更新器 feed 同一把尺子:名字命中不等于字节相同(见 giteeByteParity 头注的 0.1.75 实锤)。
+      // sizeBytes 来自 GitHub API 的资产元数据,就是 CI 签名覆盖那份的字节数。
+      const expected = sizes.get(fileName) ?? (a.sizeBytes || null)
+      const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expected)
+      if (verdict !== 'same') {
+        console.warn(
+          `[desktop-feed] 下载页 ${a.format} 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+            `(GH=${expected ?? '量不到'} / Gitee=${giteeLen ?? '量不到'})`,
+        )
+        return a
+      }
+      return { ...a, href: giteeDownloadUrl(tag, fileName) }
+    }),
+  )
 }
 
 /**

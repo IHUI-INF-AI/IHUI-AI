@@ -1885,7 +1885,13 @@ export function AISidePanel() {
                   <IconButton
                     onClick={toggleEnvInfo}
                     aria-label={tc('envInfoButton')}
-                    className={cn(envInfoOpen && 'bg-accent text-accent-foreground')}
+                    className={cn(
+                      /* ≤319px(如 280 折叠屏/极窄窗):再收起「环境信息」「终端」两枚
+                         桌面工具,否则 6 枚 32px 按钮仍把「关闭」挤出视口(280 实测
+                         right=298, 出界 18px、hitPct=40)。320 及以上保持可见。 */
+                      'max-[319px]:hidden',
+                      envInfoOpen && 'bg-accent text-accent-foreground',
+                    )}
                   >
                     <EnvInfoRounded checked={envInfoOpen} />
                   </IconButton>
@@ -1894,7 +1900,10 @@ export function AISidePanel() {
                   <IconButton
                     onClick={toggleTerminalDock}
                     aria-label={tc('openTerminal')}
-                    className={cn(terminalDockOpen && 'bg-accent text-accent-foreground')}
+                    className={cn(
+                      'max-[319px]:hidden',
+                      terminalDockOpen && 'bg-accent text-accent-foreground',
+                    )}
                   >
                     <SquareTerminal />
                   </IconButton>

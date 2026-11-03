@@ -33,9 +33,10 @@
  *   API 资产端点 302 仍跳该 CDN)。于是取源恒失败、恒降级到冻结在 0.1.54 的快照,
  *   新版本永远推不到用户。补强方案:**发版时把 CI 生成的 `latest.json` 1:1 烘焙进仓库**
  *   (apps/web/src/config/desktop-latest.generated.ts),本路由**本地直读即返回**,彻底绕开
- *   运行时外部依赖;运行期解析仅作兜底(在可达 GitHub 的环境仍可用)。烘焙文件内 Windows 主包
- *   已直写 Gitee 镜像直链(字节与 GitHub 原件对账一致、国内可达),其余平台维持 GitHub 原生产物,
- *   与 desktop-feed-live.ts 的 preferGiteeWindows 判据一致。烘焙步骤见发布清单。
+ *   运行时外部依赖;运行期解析仅作兜底(在可达 GitHub 的环境仍可用)。2026-11-03 起 Gitee 为
+ *   **国内主通道**:烘焙文件里每个平台直链都只在 Gitee 资产字节与 GitHub 原件对账一致时才指向
+ *   gitee.com,否则保持 GitHub 原生产物;运行期由 desktop-feed-live.ts 的 preferGiteePlatforms
+ *   用同一把尺子复核。烘焙步骤见发布清单第 5 步(`--all-platforms`)。
  */
 import { DESKTOP_LATEST } from '@/config/desktop-latest.generated'
 import { buildDesktopFeedPayload } from '@/config/desktop-feed-payload'
