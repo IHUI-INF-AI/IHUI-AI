@@ -408,35 +408,15 @@ export async function runChecks() {
       out.push({ name: 'GitHub token 可写仓库', level: rp.sc === 200 ? (push ? 'ok' : 'fail') : classifyHttpStatus(rp.sc), detail: `http=${rp.sc} push 权限=${push}` })
     }
   }
-  // ④ Gitee token(代码镜像仓已弃用,但**桌面端安装包资产仍由 Gitee release 直链分发** ——
-  //    线上 /desktop-feed.json 的 Windows 包 href 就指向它,实测 HTTP 200 ⇒ 这把 key 仍须有效,
-  //    失效会让每次发版的资产补传静默失败。判据只查"这把 token 还能用吗",不再关联任何镜像仓。)
-  const giteePath = join(GIT_KEY_DIR, 'gitee apikey.txt')
-  const giteeRaw = readFileSyncOr(giteePath)
-  const giteeToken = pickKey(giteeRaw, /^[0-9a-f]{32}$/)
-  if (giteeRaw && !giteeToken) {
-    // 取到了东西但形状不合 ⇒ 点名,不静默当成"没有这条凭据"(§0.3「没判」绝不写成「判过」),
-    // 更不把它拼进 GET 的 query(访问日志会原样记下)。
-    out.push({
-      name: 'Gitee 令牌形态不合(疑同步盘冲突副本)',
-      level: 'fail',
-      detail: `文件 ${giteePath} len=${giteeRaw.length} 非 32 位十六进制(疑同步盘 _冲突文件_ 副本/含杂散字符)⇒ 不发探测`,
-    })
-  }
-  if (giteeToken) {
-    const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(giteeToken))
-    let login = ''
-    try {
-      login = JSON.parse(p.body).login || ''
-    } catch {
-      login = ''
-    }
-    out.push({
-      name: 'Gitee token 有效性',
-      level: p.sc === 200 && login ? 'ok' : classifyHttpStatus(p.sc),
-      detail: `http=${p.sc} login=${login || '-'}`,
-    })
-  }
+  // ④ Gitee token —— 2026-11-03 下线:Gitee 发布目标为空仓、零推送历史,桌面直链已切 GitHub,
+  //    线上 /desktop-feed.json 0.1.77 走 GitHub 直链 ⇒ 该 token 不再被任何生产路径消费,
+  //    本判据只做「已停用」标记,不探活(探活也没有消费方)。恢复后须在 scripts/tests/
+  //    check-credential-health.test.mjs 恢复源码级接线锁断言再启用。
+  out.push({
+    name: 'Gitee token(已下线 2026-11-03)',
+    level: 'warn',
+    detail: `Gitee 发布目标下线(空仓/零推送/直链已切 GitHub),${GIT_KEY_DIR}/gitee apikey.txt 不再被消费;secret 可由 owner 删除`,
+  })
   // ⑤ 部署停摆(测结果,不猜原因):线上构建 sha 落后 origin/main 且超过阈值即红。
   //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),
   //    任何一种都可能再变出第三种;只有"线上产物是否等于当前 tip"是不会骗人的判据。
