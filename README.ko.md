@@ -2219,6 +2219,25 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 기타:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
+- 🐞 수정:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
+- ♻️ 리팩터:常量/条件字面量与手工收尾字号落档 (89831e5034)
+- 🚀 기능/개선:Vip 支付链成功落 PayResult(replace),失败/取消留守;等级横幅入口走 VipUpgrade (2c37223cfd)
+- ♻️ 리팩터:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (5a9fcadb2e)
+- 🚀 기능/개선:ConversationImport 选文件取消/失败经 onToast 明确反馈 (f778f2a752)
+- ♻️ 리팩터:字号任意值等值落具名档（className 字面量批，零视觉变化） (0fdda86798)
+- 🚀 기능/개선:AigcList 切薄壳并给 AigcPublish 接真实上传进度 (ea9e0f60f7)
+- 🚀 기능/개선:补 ExamDetail/VipUpgrade 路由并收口 Exam 两屏推送 (a514deeecc)
+- 🔧 기타:refactor(web)!: 容器 hover 浮起回归 --lift-* 单源并立守门 285 防回潮 (13a919a708)
+- ♻️ 리팩터:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
+- 🐞 수정:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
+- 🐞 수정:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
+- 🔧 기타:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
+
+**2026-11-03**
+- ♻️ 리팩터:容器 hover 浮起按 2026-11-03 机主二次定档减淡 —— 数值源 --lift-* 单点收敛(位移-4px→-2px,缩放1.015→1.008,两层阴影 6px/12%+30px/25%→3px/6%+18px/12%,暗档同比例),端内不散改 (03d1c4d32e)
+
+**2026-11-03**
 - 🔧 기타:补全 10 个文件的 L2 零宽载荷与水印尾标(scripts/watermark.mjs inject 生成物) (0223f5e987)
 - ♻️ 리팩터:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
 - ⚡ 성능:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
@@ -2308,12 +2327,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-03**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (4c8f9d6aca)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (be8220b87d)
-
-**2026-11-03**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (3f04652720)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
