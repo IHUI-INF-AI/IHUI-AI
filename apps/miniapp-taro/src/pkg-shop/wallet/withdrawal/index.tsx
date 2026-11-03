@@ -87,10 +87,10 @@ export default function WithdrawalPage() {
       <View className="min-h-screen bg-background p-4">
         {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
         <View className="px-4 py-3 rounded-lg bg-card mb-4">
-          <Text className="block text-sm text-muted-foreground">
+          <Text className="block text-body text-muted-foreground">
             {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
           </Text>
-          <Text className="block text-2xl font-bold text-foreground mt-2">
+          <Text className="block text-display font-bold text-foreground mt-2">
             {priceFmt.format(available)}
           </Text>
         </View>
@@ -104,9 +104,9 @@ export default function WithdrawalPage() {
             className="flex items-center mt-2 h-[50px] px-3 rounded-xl border border-border bg-[var(--color-muted)]"
             style={ffAmount.focusStyle}
           >
-            <Text className="text-base font-semibold text-foreground">¥</Text>
+            <Text className="text-title font-semibold text-foreground">¥</Text>
             <Input
-              className="flex-1 text-base text-foreground ml-[12rpx]"
+              className="flex-1 text-title font-normal text-foreground ml-[12rpx]"
               {...ffAmount.spread}
               type="digit"
               value={amount}
@@ -118,7 +118,7 @@ export default function WithdrawalPage() {
             </Text>
           </View>
 
-          <Text className="block text-sm text-muted-foreground mt-4 mb-2">
+          <Text className="block text-body text-muted-foreground mt-4 mb-2">
             {tt('distribution.withdraw.method', '提现方式')}
           </Text>
           <View className="flex gap-3">
@@ -134,7 +134,7 @@ export default function WithdrawalPage() {
                 >
                   {m.icon}
                 </View>
-                <Text className="flex-1 text-base text-foreground">{m.label}</Text>
+                <Text className="flex-1 text-title font-normal text-foreground">{m.label}</Text>
                 <View
                   className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-brand-accent-deep' : 'border-border bg-card'}`}
                 >
@@ -148,7 +148,7 @@ export default function WithdrawalPage() {
         </View>
 
         <Button
-          className="mt-5 bg-cta text-cta-foreground rounded-sm text-base font-semibold"
+          className="mt-5 bg-cta text-cta-foreground rounded-sm text-title font-semibold"
           loading={submitting}
           disabled={submitting}
           onClick={onSubmit}
