@@ -9751,7 +9751,13 @@ export const ROOT_GUARD_MANIFEST_AUDIT_INTERVAL_MS = 15 * 60 * 1000
  * 补 AGENTS 点名撞门 207 的体积预算)⇒ 唯一能落地的档是守护 tick + 到人邮件。
  *
  * 三态不并桶:drift ⇒ 到人(可整改动作写进正文);unjudged ⇒ 只记日志不记绿(§0.3);
- * ok ⇒ 静默,零写盘零派生。去重身份只取「类别 + 枚举态」,不含时刻/sha/计数(§5e-3)。
+ * ok ⇒ 静默,零写盘零派生。去重身份 = 「面 + 类别 + 枚举态」,不含时刻/sha/计数(§5e-3)。
+ *
+ * 为什么必须判两面(2026-11-03 实测的盲区):尺子的默认面是本机 HEAD,而部署环构建的是**远端 tip**。
+ * 本机 main 落后 origin 317 枚那段时间,巡检连判 12 轮「✅ 自洽」(03:54Z / 04:09Z 逐条在日志里),
+ * 部署环同时在 12:01 / 12:03 / 12:06 三轮 verdict=fail —— 墙立了 4.7 小时,守护这一侧一次没喊。
+ * 现在两面各判一次、分别进桶:head 面红 = 本机在飞的改动没同批重封;remote 面红 = 远端已入库的那枚
+ * 会把部署环冻住。收信人要做的仍是同一件事(复核 + --seal + 同枚推送),只是墙的位置不同。
  */
 export function auditRootGuardManifestSync(opts = {}) {
   const {
@@ -9783,9 +9789,9 @@ export function auditRootGuardManifestSync(opts = {}) {
   const run =
     typeof runner === 'function'
       ? runner
-      : () => {
+      : (extraArgs) => {
           try {
-            const out = execFileSync(process.execPath, [script, '--json'], {
+            const out = execFileSync(process.execPath, [script, '--json', ...(extraArgs ?? [])], {
               cwd: WORKTREE,
               encoding: 'utf8',
               windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
@@ -9804,44 +9810,89 @@ export function auditRootGuardManifestSync(opts = {}) {
             }
           }
         }
-  const r = run()
-  beatRoundLock()
-  const stdout = String(r.out ?? r.stdout ?? '')
-  const stderr = String(r.err ?? r.stderr ?? '')
-  let parsed = null
-  try {
-    const a = stdout.indexOf('{')
-    const b = stdout.lastIndexOf('}')
-    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
-  } catch {
-    /* 落到下面"结论不可用"那一支 */
-  }
-  if (!parsed || typeof parsed.state !== 'string') {
+  // 两面各判一次,分桶不并桶(§0.3):head = 本机在飞;remote = 部署环下一轮真正会构建的那面
+  const faceArgs = [
+    { label: 'head', argv: [] },
+    { label: 'remote', argv: ['--against-remote', 'origin'] },
+  ]
+  const probe = faceArgs.map((f) => {
+    const r = run(f.argv)
+    const stdout = String(r?.out ?? r?.stdout ?? '')
+    let doc = null
+    try {
+      const a = stdout.indexOf('{')
+      const b = stdout.lastIndexOf('}')
+      if (a >= 0 && b > a) doc = JSON.parse(stdout.slice(a, b + 1))
+    } catch {
+      /* 落到下面「结论不可用」那一支 */
+    }
+    return { label: f.label, doc, raw: r, stderr: String(r?.err ?? r?.stderr ?? '') }
+  })
+  for (const x of probe) {
+    if (x.doc && typeof x.doc.state === 'string') continue
     logger(
-      `⚠️ 根护栏清单巡检:尺子结论不可用 —— 派生 rc=${r.status ?? '?'};` +
-        `stderr 前 120:${stderr.slice(0, 120) || '(空)'} ⇒ 本轮**没判**,不等于"清单自洽"(§0.3)`,
+      `⚠️ 根护栏清单巡检:${x.label} 面尺子结论不可用 —— 派生 rc=${x.raw?.status ?? '?'};` +
+        `stderr 前 120:${x.stderr.slice(0, 120) || '(空)'} ⇒ 这一面**没判**,不等于"清单自洽"(§0.3)`,
     )
-    return { ran: true, state: 'undetermined', why: '结论不可用' }
   }
-  const names = (parsed.drift ?? []).map((d) => d.id).join(', ')
-  const tail = `面=${parsed.face ?? 'head'} / 不自洽 ${(parsed.drift ?? []).length} 目标 / advisory ${(parsed.advisory ?? []).length}`
-  if (parsed.state === 'drift') {
-    logger(`❌ 根护栏清单巡检:清单与规则文件脱钩 —— ${names || '(未点名)'} | ${tail}`)
-    notify(
-      '根护栏清单与规则文件脱钩(部署环正在 fail-closed)',
-      `root-guard 清单绑定的规则文件内容与清单本身不一致 ⇒ 部署环每轮在拉取更新**前**跑 \`root-guard --check\` 拿非 0 ⇒ **prod 不再上线任何提交**(2026-10-31 实测:02:00 与 12:56 两次停摆,合计约 6 小时的用户可见改动没发出去)。\n命中目标:${names || '(见 --json)'}\n\n下一步(可当场执行):① 复核 HEAD 面那份改动是否确属必要 —— node scripts/root-guard.mjs --check;② 确属必要就重封并**单独成枚**提交推送 —— node scripts/root-guard.mjs --seal --reason "<复核结论>" 然后 node scripts/safe-commit.mjs -m "chore(root-guard): 重新封存清单 …" -- scripts/data/root-guard-manifest.json;③ 若 prod 签出停在不自洽的那枚,把它对齐到自洽的 origin/main 后重启 IHUI-DEPLOYLOOP —— cd D:/DevEnv/ihui-prod && git fetch origin main && git merge --ff-only FETCH_HEAD。\n复跑:node scripts/check-root-guard-manifest-sync.mjs --json\n\n${tail}`,
-      { severity: 'critical', dedupKey: 'manifest-drift' },
-    )
-    return { ran: true, state: 'drift', detail: parsed }
+  const rows = probe
+    .filter((x) => x.doc && typeof x.doc.state === 'string')
+    .map((x) => {
+      const drift = (x.doc.drift ?? []).map((y) => y.id).join(', ')
+      const rev = typeof x.doc.rev === 'string' && x.doc.rev !== '' ? x.doc.rev : null
+      return {
+        label: x.label,
+        state: x.doc.state,
+        rev,
+        names: drift,
+        reason: x.doc.reason ?? '(未给原因)',
+        tail:
+          `面=${x.label} / 不自洽 ${(x.doc.drift ?? []).length} 目标 / advisory ${(x.doc.advisory ?? []).length}` +
+          (rev ? ` / tip=${rev.slice(0, 12)}` : ''),
+      }
+    })
+  for (const x of rows) {
+    if (x.state === 'ok') logger(`✅ 根护栏清单巡检:清单与规则文件自洽 —— ${x.tail}`)
+    if (x.state === 'unjudged')
+      logger(`⚠️ 根护栏清单巡检:未判定 —— ${String(x.reason).slice(0, 120)} | ${x.tail}(不记绿,§0.3)`)
   }
-  if (parsed.state === 'unjudged') {
-    logger(
-      `⚠️ 根护栏清单巡检:未判定 —— ${String(parsed.reason ?? '').slice(0, 120) || '(未给原因)'} | ${tail}(不记绿,§0.3)`,
-    )
-    return { ran: true, state: 'undetermined', detail: parsed }
+  const driftRows = rows.filter((x) => x.state === 'drift')
+  if (driftRows.length > 0) {
+    for (const x of driftRows) {
+      logger(`❌ 根护栏清单巡检:清单与规则文件脱钩 —— ${x.names || '(未点名)'} | ${x.tail}`)
+      const revArg = x.rev ?? 'HEAD'
+      const reRun =
+        x.label === 'remote'
+          ? 'node scripts/check-root-guard-manifest-sync.mjs --json --against-remote origin'
+          : 'node scripts/check-root-guard-manifest-sync.mjs --json'
+      notify(
+        '根护栏清单与规则文件脱钩(部署环正在 fail-closed)',
+        [
+          `root-guard 清单绑定的规则文件内容与清单本身不一致(本轮判的是 **${x.label}** 面,tip=${revArg})`,
+          '⇒ 部署环每轮在拉取更新**前**跑 `root-guard --check` 拿非 0 ⇒ **prod 不再上线任何提交**。',
+          '(2026-10-31 与 11-03 各撞两回;11-03 那次墙立了 4.7 小时,守护侧一直报"自洽"——因为本机 HEAD 落后远端 317 枚。)',
+          `命中目标:${x.names || '(见 --json)'}`,
+          '',
+          '下一步(可当场执行):',
+          `① 复核那一面的改动是否确属必要 —— node scripts/root-guard.mjs --check --against-rev ${revArg}`,
+          '② 确属必要就重封并**单独成枚**提交推送 —— node scripts/root-guard.mjs --seal --reason "<复核结论>" 然后',
+          '   node scripts/safe-commit.mjs -m "chore(root-guard): 重新封存清单 …" -- scripts/data/root-guard-manifest.json',
+          '③ 若 prod 签出停在不自洽的那枚,把它对齐到自洽的 origin/main 后重启 IHUI-DEPLOYLOOP ——',
+          '   cd D:/DevEnv/ihui-prod && git fetch origin main && git merge --ff-only FETCH_HEAD',
+          `复跑:${reRun}`,
+          '',
+          x.tail,
+        ].join('\n'),
+        { severity: 'critical', dedupKey: `face=${x.label};manifest-drift` },
+      )
+    }
+    return { ran: true, state: 'drift', detail: rows }
   }
-  logger(`✅ 根护栏清单巡检:清单与规则文件自洽 —— ${tail}`)
-  return { ran: true, state: 'ok', detail: parsed }
+  const unjudged = probe.filter((x) => !x.doc || x.doc.state === 'unjudged').map((x) => x.label)
+  if (rows.length === 0 || unjudged.length > 0) {
+    return { ran: true, state: 'undetermined', why: '至少一面未判定', detail: rows }
+  }
+  return { ran: true, state: 'ok', detail: rows }
 }
 
 /**
