@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4004 | `testFiles` |
+| 测试文件 | 4005 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 316 | `guardianGates` |
 | — blocking | 287 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18859 | `trackedFiles` |
+| 跟踪文件 | 18860 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,10 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bf71375c7f)
+- 🐞 Fix:修掉门 282 自带的 2 条类型错误(该腿本地不红、CI 会红) (9d98965011)
+
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (b58037ca86)
 
@@ -150,9 +154,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (22205c4117)
 - 🐞 Fix:游客态手机打开文档站不再被面板整屏遮住(票 D53 第二枚) (704ae4ed73)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (06507c867d)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
