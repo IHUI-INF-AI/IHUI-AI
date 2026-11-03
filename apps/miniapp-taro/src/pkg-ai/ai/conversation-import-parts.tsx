@@ -123,7 +123,7 @@ export function ImportPreviewList({
               ) : null}
             </View>
             <View className="flex-1 min-w-0" onClick={() => onToggle(r.id)}>
-              <Text className="block text-[length:26rpx] text-foreground truncate">
+              <Text className="block text-body-sm leading-[normal] text-foreground truncate">
                 {r.title || tt('conversationImport.conversationUntitled', '未命名会话')}
               </Text>
               <Text className="block text-caption text-muted-foreground mt-[4rpx]">
@@ -175,7 +175,7 @@ export function ImportResultList({
       </Text>
       {items.map((c) => (
         <ThemeRoot key={c.conversationId} className="p-[20rpx] mb-[12rpx] bg-card rounded-lg">
-          <Text className="block text-[length:26rpx] text-foreground font-semibold truncate">
+          <Text className="block text-body-sm leading-[normal] text-foreground font-semibold truncate">
             {c.title || tt('conversationImport.conversationUntitled', '未命名会话')}
           </Text>
           <Text className="block text-caption text-muted-foreground mt-[6rpx] mb-[16rpx]">
@@ -189,7 +189,7 @@ export function ImportResultList({
               hoverClass="opacity-80"
               className="flex-1 h-[76rpx] flex items-center justify-center rounded-md border border-border"
             >
-              <Text className="text-[length:26rpx] text-foreground">
+              <Text className="text-body-sm leading-[normal] text-foreground">
                 {tt('conversationImport.resultOpen', '打开会话')}
               </Text>
             </View>
@@ -199,7 +199,7 @@ export function ImportResultList({
               className="flex-1 h-[76rpx] flex items-center justify-center gap-[8rpx] rounded-md bg-primary"
             >
               <LineIcon name="sparkles" size={26} color="var(--color-foreground)" />
-              <Text className="text-[length:26rpx] text-foreground font-semibold">
+              <Text className="text-body-sm leading-[normal] text-foreground font-semibold">
                 {tt('conversationImport.analysisOpen', '用场景分析')}
               </Text>
             </View>
@@ -244,7 +244,7 @@ export function ImportHistoryList({
         items.map((h) => (
           <ThemeRoot key={h.id} className="p-[20rpx] mb-[12rpx] bg-card rounded-lg">
             <View className="flex items-center justify-between gap-[16rpx]">
-              <Text className="flex-1 text-[length:26rpx] text-foreground truncate">
+              <Text className="flex-1 text-body-sm leading-[normal] text-foreground truncate">
                 {h.fileName || '—'}
               </Text>
               <Text className="flex-shrink-0 text-caption text-muted-foreground">

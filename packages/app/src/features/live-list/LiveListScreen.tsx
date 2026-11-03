@@ -58,7 +58,7 @@ export function LiveListScreen({
   onEndReached,
   loadingMore = false,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
 }: LiveListScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
@@ -178,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
-    title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',

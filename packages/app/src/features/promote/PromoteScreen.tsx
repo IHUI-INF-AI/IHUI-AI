@@ -42,7 +42,7 @@ export function PromoteScreen({
   onShare,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: PromoteScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
     statItem: { alignItems: 'center', flex: 1, minWidth: 80 },
-    statValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,

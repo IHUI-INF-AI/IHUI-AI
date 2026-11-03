@@ -484,6 +484,20 @@ jobs:
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
           echo "下载页/更新器版本号:站点运行期直读发布源,发版即生效(无需快照入库)" >> $GITHUB_STEP_SUMMARY
 
+  # ── 2026-11-03 下线:Gitee 国内发行目标(空仓、零推送历史、直链已切 GitHub)──
+  # 判定依据(逐条可复核):
+  #   ① Gitee 仓 JLSLSSZWHYXGS_0/IHUI-AI 为**空仓**:API 查无 main/master 分支、无 tag、无 release;
+  #   ② 线上 https://aizhs.top/desktop-feed.json 的 0.1.77 已走 GitHub 直链(入库烘焙快照
+  #      apps/web/src/config/desktop-latest.generated.ts),Gitee 不再是下载/更新面的任何一环;
+  #   ③ 2026-11-03 run 41568378733 的 Sync Gitee 必然 400:"创建标签失败:desktop-v0.1.77"
+  #      (Gitee 侧没有 main 分支 ⇒ target_commitish=main 建不出 tag),每次发版多一条红噪音。
+  # ⇒ 下线这个发布目标,但**保留完整 job 代码**供恢复;恢复前置条件(缺一不可):
+  #   a) 在 Gitee 初始化仓库并推送至少 main 分支(或改 sync-gitee.py 的 target_commitish);
+  #   b) 补齐 GITEE_TOKEN / GITEE_OWNER secrets(见 .github/SECRETS.md);
+  #   c) 删掉下面 job 的 `if: ${{ false }}`;
+  #   d) 先手动 dispatch backfill-gitee-assets.yml 验证可写,再随发版启用。
+  # 以下 2026-09-17 / 2026-10-17 的历史说明原样保留,便于恢复时理解原设计。
+  #
   # 2026-09-17 立 / 2026-10-17 校正:国内发行(Gitee)自动化——安装包+更新签名
   # 尽力镜像到 Gitee release。**Gitee 侧不是更新器端点**:客户端只认
   # aizhs.top 单端点(见 sync-gitee.py 末尾第 5 节),此处作国内手动下载的附件存档。
@@ -501,8 +515,11 @@ jobs:
   #     真要恢复完全离线,必须先另解决分发通道。守门 scripts/check-version-drift.mjs 的
   #     H 判据会在 offlineInstaller 回归时判红(需显式豁免并写明分发方案)。
   sync-gitee:
-    name: Sync release to Gitee (国内发行)
+    name: Sync release to Gitee (国内发行,已下线 2026-11-03)
     needs: [build, publish-updater-json]
+    # 2026-11-03 下线:空仓 + 直链已切 GitHub ⇒ 不再执行、不再阻断 Release。
+    # 恢复步骤见本 job 上方注释;不要直接删 job,先满足 a)~d) 四个前置。
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

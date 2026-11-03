@@ -258,7 +258,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
   if (wbAccounts.length === 0) return null
 
   const disabled = busy !== null
-  const actionBase = `rounded-lg px-[20rpx] py-[10rpx] text-[length:24rpx]`
+  const actionBase = `rounded-lg px-[20rpx] py-[10rpx] text-label leading-[normal]`
 
   return (
     <View
@@ -270,7 +270,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
         onClick={() => setOpen((v) => !v)}
         hoverClass="opacity-80"
       >
-        <Text className="text-[length:30rpx] font-semibold text-foreground">
+        <Text className="text-strong leading-[normal] font-semibold text-foreground">
           {t('checkinAssistant.taskTitle')}
         </Text>
         <LineIcon name={open ? 'chevron-down' : 'chevron-right'} size={28} />
@@ -278,7 +278,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
 
       {open && (
         <View className="border-t border-border p-[24rpx]">
-          <Text className="block text-[length:24rpx] leading-[36rpx] text-muted-foreground">
+          <Text className="block text-label leading-[36rpx] text-muted-foreground">
             {t('checkinAssistant.taskDesc')}
           </Text>
 
@@ -289,25 +289,25 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
             data-testid="wb-task-sweep"
             data-tone={sweepView.tone}
           >
-            <Text className="text-[length:22rpx] font-semibold">
+            <Text className="text-caption leading-[normal] font-semibold">
               {t('checkinAssistant.taskAutoTitle')}：
             </Text>
-            <Text className="text-[length:22rpx]">{sweepView.text}</Text>
+            <Text className="text-caption leading-[normal]">{sweepView.text}</Text>
             {sweepView.next ? (
-              <Text className="text-[length:22rpx]">
+              <Text className="text-caption leading-[normal]">
                 {' '}
                 {t('checkinAssistant.taskAutoNext', { time: sweepView.next })}
               </Text>
             ) : null}
             {sweepView.pathsMissing ? (
-              <Text className="mt-[6rpx] block text-[length:22rpx]">
+              <Text className="mt-[6rpx] block text-caption leading-[normal]">
                 {t('checkinAssistant.taskAutoPaths')}
               </Text>
             ) : null}
             {/* 上一轮回执:自动跑完却没有回执,用户等于在盲飞。note 非空 = 本轮没跑完,
                 原样追加不粉饰(出站暂停/无账号/中途中止)。 */}
             {sweep?.wb_tasks ? (
-              <Text className="mt-[6rpx] block text-[length:22rpx]">
+              <Text className="mt-[6rpx] block text-caption leading-[normal]">
                 {(() => {
                   const last = sweep.wb_tasks?.last_sweep
                   if (!last) return t('checkinAssistant.taskAutoLastNever')
@@ -327,7 +327,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
           </View>
 
           {/* 账号选择:小程序无 <select>,用横向 chip(与页面平台选择同一形态)。 */}
-          <Text className="mt-[20rpx] block text-[length:24rpx] text-muted-foreground">
+          <Text className="mt-[20rpx] block text-label leading-[normal] text-muted-foreground">
             {t('checkinAssistant.taskPick')}
           </Text>
           <View className="mt-[10rpx] flex flex-wrap gap-[12rpx]">
@@ -388,7 +388,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
           </View>
 
           {error ? (
-            <Text className="mt-[16rpx] block rounded-md bg-muted px-[16rpx] py-[12rpx] text-[length:24rpx] text-[var(--color-destructive)]">
+            <Text className="mt-[16rpx] block rounded-md bg-muted px-[16rpx] py-[12rpx] text-label leading-[normal] text-[var(--color-destructive)]">
               {error}
             </Text>
           ) : null}
@@ -396,7 +396,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
           {tasks !== null ? (
             <View className="mt-[16rpx]">
               {tasks.length === 0 ? (
-                <Text className="block text-[length:24rpx] text-muted-foreground">
+                <Text className="block text-label leading-[normal] text-muted-foreground">
                   {t('checkinAssistant.taskEmpty')}
                 </Text>
               ) : (
@@ -406,25 +406,25 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
                     className="flex flex-wrap items-center justify-between gap-[10rpx] border-b border-border py-[10rpx]"
                   >
                     <View className="flex flex-wrap items-center gap-[10rpx]">
-                      <Text className="text-[length:26rpx] font-medium text-foreground">
+                      <Text className="text-body-sm leading-[normal] font-medium text-foreground">
                         {task.title ?? task.task_code}
                       </Text>
-                      <Text className="text-[length:22rpx] text-muted-foreground">
+                      <Text className="text-caption leading-[normal] text-muted-foreground">
                         {task.task_code}
                       </Text>
                     </View>
-                    <View className="flex flex-wrap items-center gap-[12rpx] text-[length:22rpx] text-muted-foreground">
+                    <View className="flex flex-wrap items-center gap-[12rpx] text-caption leading-[normal] text-muted-foreground">
                       {task.progress !== null && task.target !== null ? (
-                        <Text className="text-[length:22rpx] text-muted-foreground">
+                        <Text className="text-caption leading-[normal] text-muted-foreground">
                           {task.progress}/{task.target}
                         </Text>
                       ) : null}
                       {task.reward_credit !== null ? (
-                        <Text className="text-[length:22rpx] text-muted-foreground">
+                        <Text className="text-caption leading-[normal] text-muted-foreground">
                           +{task.reward_credit}
                         </Text>
                       ) : null}
-                      <Text className="rounded-sm bg-muted px-[10rpx] py-[4rpx] text-[length:22rpx] text-muted-foreground">
+                      <Text className="rounded-sm bg-muted px-[10rpx] py-[4rpx] text-caption leading-[normal] text-muted-foreground">
                         {task.status ?? '—'}
                       </Text>
                     </View>
@@ -432,7 +432,7 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
                 ))
               )}
               {listReason || listUnjudged ? (
-                <Text className="mt-[10rpx] block text-[length:22rpx] text-[var(--color-warning-amber-text)]">
+                <Text className="mt-[10rpx] block text-caption leading-[normal] text-[var(--color-warning-amber-text)]">
                   {listReason ?? t('checkinAssistant.taskUnjudged')}
                 </Text>
               ) : null}
@@ -445,10 +445,10 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
               style={{ borderRadius: `${rnRadius.md}px` }}
               data-testid="wb-task-result"
             >
-              <Text className="block text-[length:26rpx] font-semibold text-foreground">
+              <Text className="block text-body-sm leading-[normal] font-semibold text-foreground">
                 {t('checkinAssistant.taskResult')}
               </Text>
-              <Text className="mt-[8rpx] block text-[length:22rpx] text-muted-foreground">
+              <Text className="mt-[8rpx] block text-caption leading-[normal] text-muted-foreground">
                 {`accepted=${result.accepted.length} · claimed=${result.claimed.length} · credit_delta=${
                   result.credit_delta === null ? '—' : result.credit_delta
                 }${
@@ -458,29 +458,29 @@ export function WorkbuddyTaskSection({ accounts, t }: WorkbuddyTaskSectionProps)
                 } · unjudged=${String(result.unjudged)}`}
               </Text>
               {result.accepted.length > 0 ? (
-                <Text className="mt-[8rpx] block text-[length:22rpx] text-muted-foreground">
+                <Text className="mt-[8rpx] block text-caption leading-[normal] text-muted-foreground">
                   +{result.accepted.join(', ')}
                 </Text>
               ) : null}
               {result.claimed.length > 0 ? (
-                <Text className="mt-[6rpx] block text-[length:22rpx] text-[var(--color-success-text)]">
+                <Text className="mt-[6rpx] block text-caption leading-[normal] text-[var(--color-success-text)]">
                   ✓{result.claimed.join(', ')}
                 </Text>
               ) : null}
               {/* unjudged=true ⇒ 上游响应读不懂:把 reason 原样摆出来,**不显示成成功**。 */}
               {result.unjudged ? (
-                <Text className="mt-[8rpx] block text-[length:22rpx] text-[var(--color-warning-amber-text)]">
+                <Text className="mt-[8rpx] block text-caption leading-[normal] text-[var(--color-warning-amber-text)]">
                   {`${t('checkinAssistant.taskUnjudged')}${result.reason ? ` · ${result.reason}` : ''}`}
                 </Text>
               ) : result.reason ? (
-                <Text className="mt-[8rpx] block text-[length:22rpx] text-muted-foreground">
+                <Text className="mt-[8rpx] block text-caption leading-[normal] text-muted-foreground">
                   {result.reason}
                 </Text>
               ) : null}
             </View>
           ) : null}
 
-          <Text className="mt-[12rpx] block text-[length:22rpx] text-muted-foreground">
+          <Text className="mt-[12rpx] block text-caption leading-[normal] text-muted-foreground">
             {FAMILY_CODES.join(' · ')}
           </Text>
         </View>

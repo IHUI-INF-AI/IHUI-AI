@@ -288,7 +288,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       paddingTop: rnSpacing.sm,
     },
-    title: { flex: 1, fontSize: 17, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
     column: { gap: rnSpacing['sm-loose'] },
     listHeader: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },

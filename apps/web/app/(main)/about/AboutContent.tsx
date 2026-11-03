@@ -105,10 +105,7 @@ export function AboutContent(): React.JSX.Element {
         {values.map(({ icon, titleKey, descKey }) => {
           const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Sparkles
           return (
-            <div
-              key={titleKey}
-              className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
-            >
+            <div key={titleKey} className="rounded-lg border bg-card p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Icon className="h-5 w-5 text-primary" />
@@ -130,10 +127,7 @@ export function AboutContent(): React.JSX.Element {
           {platforms.map(({ icon, titleKey, descKey }) => {
             const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Blocks
             return (
-              <div
-                key={titleKey}
-                className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
-              >
+              <div key={titleKey} className="rounded-lg border bg-card p-3 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Icon className="h-5 w-5 text-primary" />
                 </div>

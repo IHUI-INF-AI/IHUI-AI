@@ -43,7 +43,7 @@ export function useWindowDimensions() {
 
 /** 小程序没有 iOS/Android 之分,但共享层用 Platform.select 选档位 —— 按移动端处理 */
 export const Platform = {
-  OS: 'ios' as 'ios' | 'android',
+  OS: 'ios' as 'ios' | 'android' | 'web',
   Version: 0,
   isIOS: true,
   isAndroid: false,

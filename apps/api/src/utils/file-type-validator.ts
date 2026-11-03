@@ -18,6 +18,15 @@ export const MAX_MULTIPART_UPLOAD_SIZE = 100 * 1024 * 1024
 /**
  * 扩展名 -> 允许的 MIME 集合。集合首项为该扩展名的 canonical MIME。
  * svg / html / htm 等危险类型故意不在白名单中(XSS / RCE 风险)。
+ *
+ * 2026-11-03(票 S1 ③桶复核,html/rar 维持不收):
+ *   · html/htm:apps/api/services/document-parser.ts:127/163/270 的 htmlToText 分支
+ *     是内部/连接器喂入路径的解析(不属于用户上传可达),前端 accept 也已在 c52250f555
+ *     摘掉 html/htm 承诺;后端按 XSS 故意拒收 ⇒ 白名单不收。
+ *   · rar:仅 apps/miniapp-taro/src/rn-compat/native-document.ts:47 MIME_BY_EXT 声明,
+ *     全仓 grep 无 `unrar / rarfile / RarFile` 解码路径;apps/cli/src/tools/builtins.ts:688
+ *     只把 .rar 当"用 /bash unrar l 列出内容"的**外部命令提示**,不是服务端解包 ⇒
+ *     收了等于让用户上传一份无法解析、且压缩炸弹面未验证的容器,不收。
  */
 const EXT_MIME_MAP: Record<string, string[]> = {
   jpg: ['image/jpeg'],
@@ -38,7 +47,23 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
   txt: ['text/plain'],
   csv: ['text/csv', 'text/plain'],
+  // 2026-11-03(票 S1 ③桶):web 富预览的 `richPreviewKindOf` 已把 tsv 当第二型分隔符表格
+  // (apps/web/src/lib/file-preview-attachment.ts:94,与 csv 同一状态机 parseDelimitedGeneric),
+  // 唯独本白名单不收 ⇒ 用户上传 .tsv 必吃 400,那条预览分支永远走不到(死代码)。
+  // text/tab-separated-values 是 IANA 规范值(Find-Media-Type csv 同族),text/plain 是常见退回值。
+  tsv: ['text/tab-separated-values', 'text/plain'],
+  // 2026-11-03(票 S1 ③桶):两处实现都真在跑 ——
+  //   · apps/ai-service/app/tools/document_tools.py:84 SUPPORTED_EXTENSIONS[".json"]="JSON",
+  //     :341-347 有 `elif ext == ".json"` 的 json.loads 校验分支(白名单不收 ⇒ 该分支永不被喂);
+  //   · apps/miniapp-taro/src/rn-compat/native-document.ts:45 MIME_BY_EXT json: 'application/json'
+  //     ⇒ 用户在微信"从聊天记录选文件"能选中 .json,上传即被本表 400。
+  // application/json 是 RFC 8259 规范值;text/json 与 text/plain 是常见退回(纯文本档本就不验魔数)。
+  json: ['application/json', 'text/json', 'text/plain'],
   zip: ['application/zip', 'application/x-zip-compressed'],
+  // 2026-11-03(票 D53):RAG 解析面、ai-service 工具、小程序直开、前端 accept 四处都实现了
+  // Markdown,唯独这张白名单不收 ⇒ 用户在知识库上传框选中 .md 必吃 400。text/markdown 是
+  // Chromium 的声明值,text/plain 是其余客户端常见值(未声明时本函数跳过一致性、只验魔数)。
+  md: ['text/markdown', 'text/plain'],
   // 2026-10-16:语音消息上线(mobile-rn 长按录音 → 上传 → 聊天语音气泡回听)。
   // expo-audio HIGH_QUALITY 预设产出 m4a(AAC in MP4 容器);其余三档覆盖导入/转发音频。
   // audio/m4a 是非标准但客户端常见的声明值(RN FormData type),收进白名单省一次 400。
@@ -54,6 +79,17 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   mov: ['video/quicktime', 'video/mov'],
   // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
   odt: ['application/vnd.oasis.opendocument.text'],
+  // 2026-11-03(票 S1 ③桶):OpenDocument 家族另两型。判据同 odt:
+  //   · 同为 ZIP 容器(mimetype 首条 + 前四字节 PK\x03\x04),魔数归 odt 那一组,
+  //     不新增解压路径 ⇒ 无压缩炸弹新面;
+  //   · apps/ai-service/app/tools/document_tools.py:60-64 _ANYDOC_EXTS 与
+  //     :80-97 SUPPORTED_EXTENSIONS 两处都登记 ods/odp,并交给 anydoc 主路径,
+  //     上传白名单不收 ⇒ 那条分支永远走不到(死代码)。
+  //   · odt 已在白名单(同 anydoc 路径、同 ZIP 头),odp/ods 与 odt 属同族,
+  //     按证据同批补齐;apps/api/services/document-parser.ts 侧的 ANYDOC_MIMES
+  //     暂未含 odp/ods MIME,由后续票补(不在本票文件射程)。
+  odp: ['application/vnd.oasis.opendocument.presentation'],
+  ods: ['application/vnd.oasis.opendocument.spreadsheet'],
   rtf: ['application/rtf', 'text/rtf'],
   epub: ['application/epub+zip'],
 }
@@ -149,8 +185,10 @@ export function checkMagicNumber(ext: string, buf: Buffer): boolean {
     case 'xlsx':
     case 'pptx':
     case 'odt':
+    case 'odp':
+    case 'ods':
     case 'epub':
-      // docx/xlsx/pptx(OOXML)与 odt/epub(开放文档)物理结构均为 ZIP;
+      // docx/xlsx/pptx(OOXML)与 odt/odp/ods/epub(开放文档)物理结构均为 ZIP;
       // 空归档与跨卷归档亦放行
       return matchesAny(buf, [
         [0x50, 0x4b, 0x03, 0x04],
@@ -169,6 +207,9 @@ export function checkMagicNumber(ext: string, buf: Buffer): boolean {
       ])
     case 'txt':
     case 'csv':
+    case 'md':
+    case 'tsv':
+    case 'json':
       // 纯文本无固定 magic number,跳过文件头校验
       return true
     // ── 音频(2026-10-16 语音消息上线)──
