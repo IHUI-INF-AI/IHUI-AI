@@ -31,13 +31,12 @@ import {
   NEW_ROOT,
   PATROL_INTERVAL_MS,
   SEAL_SCRIPT,
-  SESSION_IDLE_MINUTES,
   SESSION_TMP,
   TMP_PROBE,
   QUIET_MINUTES,
 } from '../devenv-migrate.mjs'
 
-const { latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration } = __test__
+const { activityNotes, latestWrite, guardianTickAlive, probeQuietWindow, assessSteps, planSteps, applyMigration } = __test__
 // 巡检派发臂三函数:判据住本体,本文件只 import(§22c 零复制)。
 const { devenvArmDue, loadDevenvMigrateArm, devenvMigratePatrol } = __test__
 
@@ -109,9 +108,9 @@ function fakeIO(tree) {
 }
 
 /** 真实常量路径的探测树(键与探测器所问逐字同形)。 */
-function probeTree({ legacyMin = 200, tmpMin = 90, probeMin = 200, guardianAgeMin = 2, legacyLink = false } = {}) {
+function probeTree({ legacyMin = 200, tmpMin = 90, probeMin = 200, guardianAgeMin = 2, legacyLink = false, locks = null } = {}) {
   const iso = new Date(NOW - guardianAgeMin * MIN).toISOString()
-  return {
+  const tree = {
     [LEGACY_ROOT]: legacyLink ? { link: join(NEW_ROOT) } : { dir: ['a'] },
     [`${LEGACY_ROOT}\\a`]: legacyLink ? undefined : ago(legacyMin),
     [SESSION_TMP]: { dir: ['t'] },
@@ -120,6 +119,11 @@ function probeTree({ legacyMin = 200, tmpMin = 90, probeMin = 200, guardianAgeMi
     [`${TMP_PROBE}\\p`]: ago(probeMin),
     [GUARDIAN_LOG]: { text: `[${iso}] tick\n` },
   }
+  for (const [name, text] of Object.entries(locks || {})) {
+    tree[LEGACY_ROOT].dir.push(name)
+    tree[`${LEGACY_ROOT}\\${name}`] = { text }
+  }
+  return tree
 }
 
 const fakeWith = (over) =>
@@ -171,26 +175,63 @@ test('guardianTickAlive:新鲜 ⇒ alive;超 GUARDIAN_FRESH_MINUTES ⇒ undeterm
   assert.equal(guardianTickAlive(fakeIO({ [GUARDIAN_LOG]: { text: '散文行没有戳' } }), NOW).state, 'undetermined')
 })
 
+/** 判② 注入面:进程表为空、无锁存活(默认面会真派生 pwsh,构造面一律注入)。 */
+const IDLE = { listProcesses: () => [], pidAlive: () => false }
+
 test('probeQuietWindow:window 三态正向(旧根已是链接也认静默)', () => {
-  const r = probeQuietWindow(fakeIO(probeTree()), NOW)
+  const r = probeQuietWindow(fakeIO(probeTree()), NOW, IDLE)
   assert.equal(r.state, 'window')
   assert.ok(r.reasons.some((s) => s.includes('守护存活')))
-  const asLink = probeQuietWindow(fakeIO(probeTree({ legacyLink: true })), NOW)
+  const asLink = probeQuietWindow(fakeIO(probeTree({ legacyLink: true })), NOW, IDLE)
   assert.equal(asLink.state, 'window')
 })
 
 test('probeQuietWindow:pending 反例(判①/判②各自点名)', () => {
-  const r1 = probeQuietWindow(fakeIO(probeTree({ legacyMin: QUIET_MINUTES - 5 })), NOW)
+  const r1 = probeQuietWindow(fakeIO(probeTree({ legacyMin: QUIET_MINUTES - 5 })), NOW, IDLE)
   assert.equal(r1.state, 'pending')
   assert.ok(r1.reasons.some((s) => s.includes('判①')), r1.reasons.join(';'))
-  const r2 = probeQuietWindow(fakeIO(probeTree({ tmpMin: SESSION_IDLE_MINUTES - 5 })), NOW)
+  const r2 = probeQuietWindow(fakeIO(probeTree()), NOW, {
+    listProcesses: () => [{ pid: 4242, cmdline: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, exePath: '' }],
+    pidAlive: () => false,
+  })
   assert.equal(r2.state, 'pending')
-  assert.ok(r2.reasons.some((s) => s.includes('判②')), r2.reasons.join(';'))
+  assert.ok(r2.reasons.some((s) => s.includes('判②') && s.includes('4242')), r2.reasons.join(';'))
 })
 
 test('probeQuietWindow:守护留痕过期 ⇒ undetermined(优先于 window/pending,§0.3)', () => {
-  const r = probeQuietWindow(fakeIO(probeTree({ guardianAgeMin: GUARDIAN_FRESH_MINUTES + 25 })), NOW)
+  const r = probeQuietWindow(fakeIO(probeTree({ guardianAgeMin: GUARDIAN_FRESH_MINUTES + 25 })), NOW, IDLE)
   assert.equal(r.state, 'undetermined')
+})
+
+/** 截断型输入:readdir 恒超预算、lstat 恒成功(与真面「条目多但可读」同形)。 */
+function truncatedIO(tree) {
+  const io = fakeIO(tree)
+  io.readdirSync = () => Array.from({ length: ENUM_BUDGET + 1 }, (_, i) => `x${i}`)
+  io.lstatSync = () => ({ isSymbolicLink: () => false, isDirectory: () => false, mtimeMs: NOW - 200 * MIN })
+  return io
+}
+
+test('probeQuietWindow:截断子项遇可判定否定 ⇒ pending(未判定子项单列);无否定则仍 undetermined', () => {
+  const busy = probeQuietWindow(truncatedIO(probeTree()), NOW, {
+    listProcesses: () => [{ pid: 4242, cmdline: `node "${join(LEGACY_ROOT, 'Temp', 'job.mjs')}"`, exePath: '' }],
+    pidAlive: () => false,
+  })
+  assert.equal(busy.state, 'pending')
+  assert.ok(busy.unjudged.some((s) => /枚举超过预算/.test(s)), '判① 截断必须作为未判定子项点名')
+  const alone = probeQuietWindow(truncatedIO(probeTree()), NOW, IDLE)
+  assert.equal(alone.state, 'undetermined', '无可判定否定时截断仍必须 fail-closed')
+  assert.ok(alone.unjudged.length > 0)
+})
+
+test('probeQuietWindow:依赖清单 *.lock 不计占用;空锁/未知无 pid 文本仍按占用', () => {
+  const manifest = probeQuietWindow(fakeIO(probeTree({ locks: { 'Cargo.lock': '# generated\n[[package]]\n' } })), NOW, IDLE)
+  assert.equal(manifest.state, 'window')
+  const note = activityNotes(manifest.facts).find((s) => s.startsWith('判② 旧根锁面'))
+  assert.ok(note.includes('非运行时锁 1 个') && note.includes('Cargo.lock'), note)
+  const empty = probeQuietWindow(fakeIO(probeTree({ locks: { 'index.lock': '' } })), NOW, IDLE)
+  assert.equal(empty.state, 'pending')
+  const unknown = probeQuietWindow(fakeIO(probeTree({ locks: { 'weird.lock': '不是 pid 也不是清单\n' } })), NOW, IDLE)
+  assert.equal(unknown.state, 'pending')
 })
 
 test('assessSteps:S3 活代码命中 ⇒ todo,纯注释命中 ⇒ done(证据保留口径)', () => {
@@ -226,7 +267,7 @@ test('HARD_CODED_FILES = 8(5 脚本 + 3 复核位)且逐个真实存在;APPLY_RE
 
 test('默认档(probe+assess+plan)零写盘:行为锁 —— 记录型 io 上 write 族调用为零', () => {
   const io = fakeIO(probeTree())
-  const probe = probeQuietWindow(io, NOW)
+  const probe = probeQuietWindow(io, NOW, IDLE)
   const assessed = assessSteps(io)
   const lines = planSteps(assessed, probe)
   assert.equal(io.writes.length, 0, `出现写调用:${io.writes.join(',')}`)
