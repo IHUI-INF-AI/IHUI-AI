@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T04:34:07.992Z",
+  "generatedAt": "2026-11-03T09:03:14.942Z",
   "face": "head",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。",
   "pairs": {
@@ -94,10 +94,10 @@
     },
     "ColorfulLoader": {
       "state": "ok",
-      "onlyRn": ["duration"],
-      "onlyMini": ["visible"],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "driftTotal": 2
+      "driftTotal": 0
     },
     "FloatBox": {
       "state": "ok",
