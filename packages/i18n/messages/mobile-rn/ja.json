@@ -6038,6 +6038,7 @@
     "status": {
       "present": "出席",
       "late": "遅刻",
+      "early": "早退",
       "absent": "欠席",
       "leave": "休み"
     },
@@ -6045,6 +6046,7 @@
     "actionDone": "操作に成功しました",
     "actionFailed": "操作に失敗しました",
     "needClassId": "クラス情報がないため代理の登校・下校ができません",
+    "onlyTodayCheckIn": "代理チェックインは当日のみ：遡って記入するにはその日内の時刻が必要で、この画面では扱えません",
     "batchTitle": "クラス一括点呼",
     "chooseClass": "点呼するクラスを選択",
     "noClass": "現在のリストに選択できるクラスがありません",

@@ -361,7 +361,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     createBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
-    heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     card: {
       backgroundColor: tk.surface.light,

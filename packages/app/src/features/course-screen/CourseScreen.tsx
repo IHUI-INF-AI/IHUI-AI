@@ -134,7 +134,7 @@ function createStyles(tk: AppThemeTokens) {
     title: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },

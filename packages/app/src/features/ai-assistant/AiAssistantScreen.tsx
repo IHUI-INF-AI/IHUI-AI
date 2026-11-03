@@ -163,7 +163,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingTop: rnSpacing.xs,
       paddingBottom: rnSpacing.sm,
     },
-    headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     searchRow: { paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.sm },
     searchInput: {

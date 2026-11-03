@@ -523,7 +523,14 @@ const WRITE_CASES: WriteEndpointCase[] = [
     name: 'POST /attendance/check-in',
     method: 'POST',
     path: '/attendance/check-in',
-    body: { studentId: CHILD_B, classId: CLASS_1, date: '2026-02-02' },
+    // 2026-11 ATT-STATUS 票:教师代签改为"时刻必须与 date 同日",回填历史日必须显式带
+    // checkInTime(取该日上海正午,任何时区下 bizDayKey 都落在 2026-02-02),否则会被 400 拒收
+    body: {
+      studentId: CHILD_B,
+      classId: CLASS_1,
+      date: '2026-02-02',
+      checkInTime: '2026-02-02T04:00:00.000Z',
+    },
     okStatus: 201,
   },
   {
@@ -657,7 +664,12 @@ describe('越权面', () => {
       method: 'POST',
       as: STUDENT_A,
       path: '/attendance/check-in',
-      body: { studentId: CHILD_B, classId: CLASS_1, date: '2026-03-03' },
+      body: {
+        studentId: CHILD_B,
+        classId: CLASS_1,
+        date: '2026-03-03',
+        checkInTime: '2026-03-03T04:00:00.000Z', // 同日纪律(ATT-STATUS 票):403 用例不受影响,正对照必须能过 400 前置
+      },
     })
     expect(res.statusCode).toBe(403)
     // 副作用未发生:零写链调用、零 insert 值落入假库、世界状态里 B 的考勤行数不变
@@ -673,7 +685,12 @@ describe('越权面', () => {
       method: 'POST',
       as: TEACHER,
       path: '/attendance/check-in',
-      body: { studentId: CHILD_B, classId: CLASS_1, date: '2026-03-03' },
+      body: {
+        studentId: CHILD_B,
+        classId: CLASS_1,
+        date: '2026-03-03',
+        checkInTime: '2026-03-03T04:00:00.000Z', // 同日纪律(ATT-STATUS 票):403 用例不受影响,正对照必须能过 400 前置
+      },
     })
     expect(res.statusCode).toBe(201)
     expect(H.insertValues.some((v) => v.studentId === CHILD_B)).toBe(true)
@@ -754,7 +771,7 @@ describe('POST /attendance/batch-check-in 批量写诚实性', () => {
         method: 'POST',
         as: TEACHER,
         path: '/attendance/batch-check-in',
-        body: { classId: CLASS_1, date: FIXED_DATE },
+        body: { classId: CLASS_1, date: FIXED_DATE, checkInTime: '2026-01-05T04:00:00.000Z' },
       })
       expect(res.statusCode).toBe(200)
       const data = res.body.data as {
@@ -781,7 +798,7 @@ describe('POST /attendance/batch-check-in 批量写诚实性', () => {
       method: 'POST',
       as: TEACHER,
       path: '/attendance/batch-check-in',
-      body: { classId: CLASS_1, date: FIXED_DATE },
+      body: { classId: CLASS_1, date: FIXED_DATE, checkInTime: '2026-01-05T04:00:00.000Z' },
     })
     expect(res.statusCode).toBe(400)
     expect(H.insertValues).toEqual([])

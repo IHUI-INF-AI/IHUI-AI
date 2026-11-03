@@ -1001,7 +1001,8 @@ iframe#webpack-dev-server-client-overlay {
   width: 100%;
   flex-wrap: wrap;
   border-radius: var(--radius-xl);
-  padding: 8rpx 16rpx;
+  /* 8rpx/16rpx 与 --spacing-xs/--spacing-sm 同值(4px/8px),等值落档,渲染不变 */
+  padding: var(--spacing-xs) var(--spacing-sm);
   position: relative;
 }
 
@@ -1108,7 +1109,8 @@ iframe#webpack-dev-server-client-overlay {
   flex-direction: row;
   overflow-x: auto;
   white-space: nowrap;
-  padding: 8rpx 0;
+  /* 8rpx 与 --spacing-xs 同值(4px);0 走 --spacing-none,等值落档,渲染不变 */
+  padding: var(--spacing-xs) var(--spacing-none);
   width: 100%;
   flex-basis: 100%;
 }
@@ -1289,7 +1291,8 @@ iframe#webpack-dev-server-client-overlay {
 .card {
   background-color: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 24rpx;
+  /* 24rpx 与 --spacing-md 同值(12px),等值落档,渲染不变 */
+  padding: var(--spacing-md);
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease;

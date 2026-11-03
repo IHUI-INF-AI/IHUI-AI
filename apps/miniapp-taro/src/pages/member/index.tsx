@@ -284,9 +284,9 @@ export default function MemberIndexPage() {
         {/* 加载失败:共享屏走 ErrorState + vip.retry,这里用同一语义的行内错误条(可重试) */}
         {error ? (
           <View className="mx-[20rpx] mb-[24rpx] p-[24rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
-            <Text className="flex-1 text-[length:26rpx] text-destructive">{error}</Text>
+            <Text className="flex-1 text-body-sm leading-[normal] text-destructive">{error}</Text>
             <Text
-              className="flex-shrink-0 ml-[16rpx] text-[length:26rpx] font-semibold text-[var(--color-primary)]"
+              className="flex-shrink-0 ml-[16rpx] text-body-sm leading-[normal] font-semibold text-[var(--color-primary)]"
               onClick={() => gate.waitUntilReady(load)}
             >
               {tt('vip.retry', '重试')}

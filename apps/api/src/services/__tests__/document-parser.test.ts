@@ -137,4 +137,56 @@ describe('parseDocument — 扩展名兜底', () => {
     expect(result).toBe(md)
   })
 })
+
+// 白名单收了却解析不了 = 空头承诺。本 describe 钉住「登记面收的每一档,解析面都真有去处」。
+describe('parseDocument — 白名单新增四档不得落 UnsupportedFormatError', () => {
+  it('tsv 声明 text/tab-separated-values → 按原文 utf8 入库(与 csv 同为分隔符表格,切片按行)', async () => {
+    const tsv = '名称\t数量\n苹果\t3\n梨\t5'
+    const result = await parseDocument({
+      buffer: Buffer.from(tsv, 'utf8'),
+      mimeType: 'text/tab-separated-values',
+      filename: 'stock.tsv',
+    })
+    expect(result).toBe(tsv)
+    expect(result).toContain('\t')
+  })
+
+  it('json 声明 application/json → 按原文 utf8 入库(RAG 可检索到键名与值)', async () => {
+    const json = '{"名称":"苹果","数量":3}'
+    const result = await parseDocument({
+      buffer: Buffer.from(json, 'utf8'),
+      mimeType: 'application/json',
+      filename: 'data.json',
+    })
+    expect(result).toBe(json)
+  })
+
+  it('tsv/json 走扩展名兜底(MIME 缺失)→ 不再因判不出类型而抛 UnsupportedFormatError', async () => {
+    for (const [filename, body] of [
+      ['fallback.tsv', 'a\tb\n1\t2'],
+      ['fallback.json', '{"a":1}'],
+    ] as const) {
+      const result = await parseDocument({
+        buffer: Buffer.from(body, 'utf8'),
+        mimeType: '',
+        filename,
+      })
+      expect(result).toBe(body)
+    }
+  })
+
+  it('ods/odp 归入 anydoc 主路径(与 odt 同族 ZIP 容器)→ 越过了「不支持的类型」这道闸', async () => {
+    for (const filename of ['sheet.ods', 'deck.odp']) {
+      const err = await parseDocument({
+        buffer: Buffer.from('not-a-real-zip-container', 'utf8'),
+        mimeType: '',
+        filename,
+      }).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(Error)
+      expect(err, `${filename} 仍被当作不支持类型 ⇒ 白名单与解析面又分叉了`).not.toBeInstanceOf(
+        UnsupportedFormatError,
+      )
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

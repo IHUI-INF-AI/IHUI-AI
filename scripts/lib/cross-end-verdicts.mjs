@@ -11,8 +11,9 @@
 //
 // 形态:JSONL,一行一屏,键 = 共享屏 spec(与 scripts/data/cross-end-screen-registry.json 的
 // shared 同一键空间)。只有"验过但没落地代码"的两档才进台账:
-//   {"shared":"packages/app/src/features/x/XScreen.tsx","verdict":"missing",
-//    "evidence":"<带文件:行号的证据>","at":"2026-10-25","source":"miniapp-batch-1.json"}
+//   {"shared":"packages/app/src/features/x/XScreen.tsx","route":"pkg-x/x/index",
+//    "verdict":"missing","evidence":"<带文件:行号的证据>","at":"2026-10-25","source":"miniapp-batch-1.json"}
+//   route = 小程序承载路由(registry 的 miniapp);无路由写 '-'。
 //   verdict=missing        小程序端确实没有对应页(该造页)
 //   verdict=not-applicable 该屏本就不该由小程序承载(不造页)
 // `declare` 档不进台账 —— 它直接落成标记行 + registry 条目,落点本身就是凭据。
@@ -126,15 +127,19 @@ export function mergeVerdictRows(existing, batch) {
 }
 
 /**
- * 台账序列化:一行一 JSON,键序固定(shared, verdict, evidence, at, source)。
+ * 台账序列化:一行一 JSON,键序固定(shared, route, verdict, evidence, at, source)。
  * 固定键序是为了让 diff 只随内容变、不随写入方变(否则同一份台账两次落盘长得不一样,
  * 门 71 的"逐字节相同"判据与 git diff 都会被噪声淹没)。
+ *
+ * route = 该共享屏在小程序端的承载路由(取自 cross-end-screen-registry 的 miniapp 字段);
+ * 无路由时写 '-'。字段必须随行落盘:否则下一次 writeVerdictRows 归并会把新字段静默删掉。
  */
 export function serializeVerdicts(rows) {
   return rows
     .map((r) =>
       JSON.stringify({
         shared: r.shared,
+        route: r.route || '-',
         verdict: r.verdict,
         evidence: r.evidence || '',
         at: r.at || '',

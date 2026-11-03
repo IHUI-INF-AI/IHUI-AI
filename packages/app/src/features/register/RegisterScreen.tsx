@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
-import { rnRadius, rnGeometry, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       marginBottom: rnSpacing.md,
     },
-    title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     card: {
       padding: rnSpacing['md-loose'],
       backgroundColor: tk.surface.light,

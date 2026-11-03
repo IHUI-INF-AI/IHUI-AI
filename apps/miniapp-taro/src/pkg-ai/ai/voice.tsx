@@ -208,7 +208,7 @@ export default function VoicePage() {
         <Text className="text-[length:34rpx] font-semibold text-foreground">
           {tt('ai.voice.title', 'AI 语音对话')}
         </Text>
-        <Text className="text-[length:26rpx] text-muted-foreground" onClick={onClear}>
+        <Text className="text-body-sm leading-[normal] text-muted-foreground" onClick={onClear}>
           {tt('ai.voice.clearChat', '清空对话')}
         </Text>
       </View>

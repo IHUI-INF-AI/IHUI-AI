@@ -953,6 +953,9 @@ test('M16 --next-id 必须被 parseArgs 认、被 main 分支真调用(否则取
     )
   if (!/usedIdsOfPrefix\(content/.test(cli) || !/nextTaskIdLabel\(content/.test(cli))
     throw new Error('分支没有从被审面现读 ⇒ 号可能来自别处(面取错的号比不取号更贵)')
+  // 池式守卫(2026-10-24 池上限 99,不升位数):没有它时 G 族会吐出 G-1222561 这类池外号。
+  if (!/LEASE_POOL_MAX/.test(cli) || !/next-plan-id\.mjs --family/.test(cli))
+    throw new Error('取号出口没有池上限守卫 ⇒ 会把池外号喂回台账(G-44/G-54)')
 })
 
 /**
