@@ -14,6 +14,16 @@ on:
 permissions:
   contents: read
 
+# 陈旧 run 收敛(2026-11-03)。判据(现读 GitHub 文档 + 分支保护):
+#   required status check 必须在成功 / skipped / neutral 才能让分支合并 ⇒ **cancelled 不满足**。
+#   因此 main 上恒为 false(砍掉在跑的 required 门禁 = 让 main 拿不到终态结论);
+#   只有 PR / 特性分支允许 cancel-in-progress —— 那些 run 本来就不会成为 main 的门禁结论。
+#   group 用 ref 而不是 sha:同一分支连续推送时,前一枚 SHA 的 run 让位给最新一枚,
+#   排队损耗(实测 run 41559672693 排队 5min)不再叠加到墙钟上。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   # 前置检查拆成独立 job(2026-11-02 立)。立因:watermark / conflict-markers 原是本 job 步骤链的
   # 头两步,而 GitHub 的步骤链 fail-fast —— 这两条一红,后面的 install / typecheck / lint / test
@@ -45,7 +55,16 @@ jobs:
       - name: Conflict marker check (committed tree)
         run: node scripts/check-no-conflict-markers.mjs --rev HEAD
 
-  lint-typecheck-test:
+  # 2026-11-03(CI 提速):原单 job 串行链(install → 建依赖 → wxt → Build → typecheck →
+  # schema/migration/routes/ports/version → lint → test)实测 2543s,其中 Test 925s、
+  # Build 442s、Typecheck 188s、Lint 121s —— 它们是**互相独立**的结论,串行只是历史顺序。
+  # 现在拆成三个并行 job(gate-build / gate-analyse / gate-test×4),再由本文件末尾那个
+  # 名为 `lint-typecheck-test` 的聚合器统一收口。
+  # required context `CI / lint-typecheck-test (push)` 的 job key 逐字保留在聚合器上;
+  # 聚合器 `if: always()` + 逐项断言 `needs.*.result == 'success'`,**非 success 一律红**
+  # (含 failure / cancelled / skipped —— 若只写 needs 不带断言,GitHub 会把 skipped 当成
+  # 满足保护,那才是真洞:见 scripts/check-ci-failure-triage-wiring.mjs 同族的"绿而无结论"型)。
+  gate-analyse:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -144,40 +163,10 @@ jobs:
         id: wxt-prepare
         run: pnpm --filter @ihui/extension exec wxt prepare
 
-      # ↓↓↓ Build 原是本 job 的**最后**一步(排在 typecheck/schema/migration/routes/ports/
-      # lint/test 之后)。那些步骤里任何一步红、或 runner 中途 shutdown,本次 CI 就完全不产出
-      # "能不能构建"这个结论 —— 而"只有真跑一次构建才会暴露"正是本类缺陷的定义。故把 Build
-      # 上移到分析门之前,并在两侧各加一条断言。命令本身未改(仍排除 desktop,原因见其注释)。
-      #
-      # 前置断言:turbo 的 --filter 对"该包没有这个 script"是**静默跳过**(实测 2026-09-24
-      # `turbo run build --filter=@ihui/tsconfig` → "Tasks: 0 successful, 0 total" 且 exit 0)。
-      # 也就是有人把 apps/web 的 build 脚本改名或删掉,turbo 照样全绿而 web 端从未被构建。
-      - name: Assert web declares a build script
-        id: assert-web-build-script
-        run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
-
-      - name: Build
-        id: build
-        # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
-        # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
-        # 禁止加 continue-on-error / `|| true`:这一步是"生产构建能不能过"的唯一真值来源。
-        run: pnpm turbo run build --filter=!@ihui/desktop
-
-      # 后置断言:"这一步报绿"与"web 端真的产出了产物"是两件事。.next/BUILD_ID 由 next build
-      # 独占生成(turbo 会把 .next/** 作为 outputs 一并回缓存),它不在位就说明本次根本没有
-      # 构建过 web —— 宁可在这里红,也不让"形同虚设的构建步骤"继续给人假绿。
-      - name: Assert web build artifact exists
-        id: assert-web-artifact
-        run: node -e "const fs=require('fs');const f='apps/web/.next/BUILD_ID';if(!fs.existsSync(f)){console.error('Build 步报绿但没有 '+f+' -> web 端本次未被真正构建,该步骤形同虚设');process.exit(1)}console.log('web BUILD_ID =',fs.readFileSync(f,'utf8').trim())"
-
-      # 后置断言(2026-10-16 立,事故 3299ba4978b 的防回潮闸):构建产物 sw.js 必须已被
-      # stamp-sw-version.mjs 注入部署版本号。若这里还是占位符,说明 prebuild 链条没跑或被绕过
-      # ⇒ sw.js 在两次部署间字节相同 ⇒ 浏览器判定 SW 无更新 ⇒ 老客户端(桌面端 WebView2
-      # 持久化 profile 尤甚)永远拿不到新版本 —— 10-13~10-16 的全站级事故就是这一型。
-      # 查的是 apps/web/public/sw.js(next start 直接从 public/ 服务,这就是被部署的那份)。
-      - name: Assert sw.js build id stamped (SW update reachability gate)
-        id: assert-sw-stamped
-        run: node -e "const fs=require('fs');const f='apps/web/public/sw.js';const s=fs.readFileSync(f,'utf8');const m=/const SW_BUILD_ID = '([^']*)'/.exec(s);if(!m){console.error('sw.js 缺 SW_BUILD_ID 声明 -> 版本注入机制被破坏');process.exit(1)}if(m[1]==='SW_BUILD_ID_PLACEHOLDER'){console.error('构建后 sw.js 仍是占位符 -> prebuild 未跑 stamp-sw-version.mjs,SW 永不更新');process.exit(1)}console.log('sw.js SW_BUILD_ID =',m[1])"
+      # Build + 产物断言已迁到独立 job `gate-build`(2026-11-03,CI 提速)。原注释保留下来,
+      # 因为它记录的立因("只有真跑一次构建才会暴露")对 gate-build 同样成立:
+      # ↓↓↓ Build 原是本 job 的**最后**一步……(略,见 gate-build 处的完整说明)
+      # 迁移的是执行位置(并行 job),不是判据:三条断言一条未删,失败时仍各自阻塞聚合器。
 
       - name: Typecheck
         id: typecheck
@@ -217,43 +206,17 @@ jobs:
         id: lint
         run: pnpm turbo run lint
 
-      # Test 步刻意限制并发(2026-10-05,根治"必需检查一天四枚红")
-      # 为什么:ubuntu-latest 是 4 核,而 turbo 缺省并发是 10 —— 10 个包同时起 vitest,
-      # 每个包内部还会再开 worker,于是 ~40 个 node 进程抢 4 个核。超时不是用例慢,是抢不到 CPU:
-      # 同一天里 required 检查 `lint-typecheck-test` 因**四种不同形状**红过,而每一次的
-      # failure-triage 都写着同一句话"单独重跑 exit 0 / not reproducible standalone"
-      # (这正是争用的指纹,不是顺序依赖):
-      #   run 37281979505 → apps/api agent-control-ui `:234` "called 1 times, but got 3 times"
-      #   run 37294883676 → packages/types `:221` "Test timed out in 5000ms"(4362 文件/51.1MB 全仓扫描)
-      #   run 37308809241 → apps/api `:173` "Hook timed out in 15000ms"
-      #   run 37316398602 → apps/mobile-rn "Test timed out in 60000ms"(冷 transform 的重 import)
-      # 逐条把预算从 5s→15s→60s 抬上去是在跟同一件事打地鼠:每一枚红都换一个包出现。
-      # 并发降到 2 之后,包内 vitest 仍可自己并行跑满核,总 CPU 工作量不变,只是不再互相饿死。
-      # 边界:只降 Test 这一步的并发(它是唯一被观测到饿死的一步),lint/typecheck/build 未动 ——
-      # 那几步至今没有争用型红点,没有证据就不改。
-      - name: Test
-        id: test
-        run: pnpm turbo run test --concurrency=2
-
-      # Build 步已上移至 2026-09-24(见 Prepare WXT types 之后),不再作为本 job 最后一步 ——
-      # 留在末尾意味着任何前置步骤变红时"能否构建"这一结论直接缺失。
-
-      # ═════════════════ 失败分诊(公开 annotations,2026-09-28 立;2026-09-28 抽成共享实现)═════════════════
-      # 立因:本作业的 job 日志接口 `GET /actions/runs/<id>/jobs/<id>/logs` 对未授权访问返回 404,
-      # 而本机既无 gh CLI 也无凭据文件(HTTPS 凭据在 Windows 凭据管理器里)——"CI 为什么红"
-      # 在结构上零出口。`::error::` workflow command 会变成 check-run annotation,公开接口
-      # `GET /repos/<owner>/<repo>/commits/<sha>/check-runs` 即可读。所以让失败分支把
-      # "第一个红的步骤 + 该步骤单独重跑的最后 60 行输出"以 annotation 形式打出来,
-      # 这件事就从"需要日志权限"变成"任何会话零凭据可读"。
-      # 边界(硬):只在 failure() 分支跑;不碰上面任何步骤的判据严格程度(无 continue-on-error、
-      # 不删步骤、不扩 permissions、不新增 secret);成功路径本步被 skip,行为与耗时不变。
-      # 2026-09-28:内联实现体已抽成 scripts/ci-failure-triage.sh —— 本步骤只注入参数,不再
-      # 内联判据(两处实现必漂移,漂移的代价是"诊断报告在说另一条命令")。行为契约见脚本头注。
+      # ═════════════════ 失败分诊(公开 annotations) ═════════════════
+      # 唯一实现 = scripts/ci-failure-triage.sh(脚本头注即行为契约);本步骤只注入参数。
+      # 硬边界不变:只在 failure() 分支跑,不改上面任何步骤的严格程度。
+      # 分诊的"第一个红步骤 + 该步骤单独重跑输出"按本 job 的步骤集合注入 —— 拆 job 后
+      # 每个 job 各自有一条,否则 triage 会去重跑不在本 job 里的命令(那是在说另一条命令)。
       - name: Failure triage (public annotations)
+        id: failure-triage
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare assert-web-build-script build assert-web-artifact typecheck schema-drift migration-bookkeeping api-routes port-registry lint test assert-sw-stamped version-drift
+          TRIAGE_IDS: checkout install-pnpm setup-node install build-shared-deps shared-typecheck build-database build-auth build-api-client build-ext-deps wxt-prepare typecheck schema-drift migration-bookkeeping api-routes port-registry version-drift lint
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
@@ -265,19 +228,189 @@ jobs:
           O_BUILD_API_CLIENT: ${{ steps.build-api-client.outcome }}
           O_BUILD_EXT_DEPS: ${{ steps.build-ext-deps.outcome }}
           O_WXT_PREPARE: ${{ steps.wxt-prepare.outcome }}
-          O_ASSERT_WEB_BUILD_SCRIPT: ${{ steps.assert-web-build-script.outcome }}
-          O_BUILD: ${{ steps.build.outcome }}
-          O_ASSERT_WEB_ARTIFACT: ${{ steps.assert-web-artifact.outcome }}
           O_TYPECHECK: ${{ steps.typecheck.outcome }}
           O_SCHEMA_DRIFT: ${{ steps.schema-drift.outcome }}
           O_MIGRATION_BOOKKEEPING: ${{ steps.migration-bookkeeping.outcome }}
           O_API_ROUTES: ${{ steps.api-routes.outcome }}
           O_PORT_REGISTRY: ${{ steps.port-registry.outcome }}
-          O_LINT: ${{ steps.lint.outcome }}
-          O_TEST: ${{ steps.test.outcome }}
-          O_ASSERT_SW_STAMPED: ${{ steps.assert-sw-stamped.outcome }}
           O_VERSION_DRIFT: ${{ steps.version-drift.outcome }}
-        # 唯一实现:scripts/ci-failure-triage.sh(脚本头注即行为契约;禁止在此重新内联判据)。
+          O_LINT: ${{ steps.lint.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # ═════════════════ 构建真值门(2026-09-24 立;2026-11-03 拆成独立并行 job)═════════════════
+  # 立因:origin/main 一天内两次携带"本地全绿、生产构建必炸"的缺陷,而 typecheck / lint /
+  # 单测 / 约 110 道本地守门全部判绿,部署环停摆 1.5h+。这两枚缺陷只有下面这些步骤能抓:
+  #   缺陷 1 = @ihui/shared 的 barrel 写了 `export * from './不存在的模块'`
+  #   缺陷 2 = apps/web/package.json 与 pnpm-lock.yaml 的 importer specifier 不一致
+  # 2026-11-03:本门从 gate-analyse 里拆出来**并行**跑(原串行 442s 与 typecheck/lint/test 相加
+  # 才是 job 墙钟;并行后各自贡献 max 而不是 sum)。三条断言一条未删、命令逐字未变:
+  #   本门一律不使用 continue-on-error / `|| true`(一条吞掉退出码的步骤等于没有该步骤)。
+  gate-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+
+      - name: Install pnpm
+        id: install-pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      # 缺陷 2 的门:`xlsx: ^0.18.5` vs 锁里 `npm:@e965/xlsx@^0.20.3` 这类 specifier 漂移时,
+      # pnpm **静默跳过**该包的链接步骤(不报错、不改锁),本地 node_modules 早就装好了所以全绿,
+      # 直到 bundler 报 Module not found。--frozen-lockfile 是唯一会在此处非零退出的写法。
+      # **禁止**改成裸 `pnpm install` 或加 --no-frozen-lockfile —— 那等于把这道门删掉。
+      - name: Install dependencies (frozen lockfile = dependency truth)
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      # 前置断言:turbo 的 --filter 对"该包没有这个 script"是**静默跳过**(实测 2026-09-24
+      # `turbo run build --filter=@ihui/tsconfig` → "Tasks: 0 successful, 0 total" 且 exit 0)。
+      # 也就是有人把 apps/web 的 build 脚本改名或删掉,turbo 照样全绿而 web 端从未被构建。
+      - name: Assert web declares a build script
+        id: assert-web-build-script
+        run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
+
+      - name: Build
+        id: build
+        # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
+        # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
+        # 禁止加 continue-on-error / `|| true`:这一步是"生产构建能不能过"的唯一真值来源。
+        run: pnpm turbo run build --filter=!@ihui/desktop
+
+      # 后置断言:"这一步报绿"与"web 端真的产出了产物"是两件事。.next/BUILD_ID 由 next build
+      # 独占生成(turbo 会把 .next/** 作为 outputs 一并回缓存),它不在位就说明本次根本没有
+      # 构建过 web —— 宁可在这里红,也不让"形同虚设的构建步骤"继续给人假绿。
+      - name: Assert web build artifact exists
+        id: assert-web-artifact
+        run: node -e "const fs=require('fs');const f='apps/web/.next/BUILD_ID';if(!fs.existsSync(f)){console.error('Build 步报绿但没有 '+f+' -> web 端本次未被真正构建,该步骤形同虚设');process.exit(1)}console.log('web BUILD_ID =',fs.readFileSync(f,'utf8').trim())"
+
+      # 后置断言(2026-10-16 立,事故 3299ba4978b 的防回潮闸):构建产物 sw.js 必须已被
+      # stamp-sw-version.mjs 注入部署版本号。若这里还是占位符,说明 prebuild 链条没跑或被绕过
+      # ⇒ sw.js 在两次部署间字节相同 ⇒ 浏览器判定 SW 无更新 ⇒ 老客户端(桌面端 WebView2
+      # 持久化 profile 尤甚)永远拿不到新版本 —— 10-13~10-16 的全站级事故就是这一型。
+      - name: Assert sw.js build id stamped (SW update reachability gate)
+        id: assert-sw-stamped
+        run: node -e "const fs=require('fs');const f='apps/web/public/sw.js';const s=fs.readFileSync(f,'utf8');const m=/const SW_BUILD_ID = '([^']*)'/.exec(s);if(!m){console.error('sw.js 缺 SW_BUILD_ID 声明 -> 版本注入机制被破坏');process.exit(1)}if(m[1]==='SW_BUILD_ID_PLACEHOLDER'){console.error('构建后 sw.js 仍是占位符 -> prebuild 未跑 stamp-sw-version.mjs,SW 永不更新');process.exit(1)}console.log('sw.js SW_BUILD_ID =',m[1])"
+
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
+          TRIAGE_IDS: checkout install-pnpm setup-node install assert-web-build-script build assert-web-artifact assert-sw-stamped
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_ASSERT_WEB_BUILD_SCRIPT: ${{ steps.assert-web-build-script.outcome }}
+          O_BUILD: ${{ steps.build.outcome }}
+          O_ASSERT_WEB_ARTIFACT: ${{ steps.assert-web-artifact.outcome }}
+          O_ASSERT_SW_STAMPED: ${{ steps.assert-sw-stamped.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # ═════════════════ 测试分片(2026-11-03 立)═════════════════
+  # 立因:Test 步单 job 实测 925s(run 41539163237),是全 job 最长的一段。分片口径**不手抄**
+  # 包清单:scripts/ci-test-shards.mjs 从 workspace 的 package.json 现读"声明了 scripts.test 的包",
+  # 用测试文件数做权重装箱;`@ihui/api` / `@ihui/web` 各摊 2 片(vitest --shard 按文件切,用例集合
+  # 不变)。每片先跑 `--assert`:任何包没被覆盖、或被覆盖两次,这一步直接红 ——
+  # 否则新增包会**静默不被测试**而 CI 仍绿,那是删门而不是并行。
+  # 并发仍按 2026-10-05 的结论压在 2(4 核上 10 包并发会互相饿死,见原 Test 步注释);
+  # 分片把"包之间"的并行度交给 runner,而不是靠单机超配。
+  gate-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+
+      - name: Install pnpm
+        id: install-pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies (frozen lockfile = dependency truth)
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: Assert test shard plan coverage (每个测试包恰好一次)
+        id: test-shard-coverage
+        run: node scripts/ci-test-shards.mjs --assert
+
+      - name: Test (shard ${{ matrix.shard }}/4)
+        id: test
+        run: node scripts/ci-test-shards.mjs --shard ${{ matrix.shard }}/4
+
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
+          TRIAGE_IDS: checkout install-pnpm setup-node install test-shard-coverage test
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_INSTALL_PNPM: ${{ steps.install-pnpm.outcome }}
+          O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_INSTALL: ${{ steps.install.outcome }}
+          O_TEST_SHARD_COVERAGE: ${{ steps.test-shard-coverage.outcome }}
+          O_TEST: ${{ steps.test.outcome }}
+        run: bash scripts/ci-failure-triage.sh
+
+  # ═════════════════ required check 聚合器(2026-11-03 立;job key 必须逐字保持)═════════════════
+  # 分支保护现读只认 `CI / lint-typecheck-test (push)`,所以这个 job key **一个字都不能改**。
+  # 它自身不跑任何门禁,只做一件事:把三个并行 gate 的结论收成一个 required 结论。
+  # 为什么不用"只有 needs"的写法:GitHub 对 needs 失败/跳过的 job,check 结论是 failure/skipped,
+  # 而 **skipped 算满足分支保护** —— 那会让"上游被跳过"伪装成绿。故用 `if: always()` +
+  # 逐项断言 `result == 'success'`;failure / cancelled / skipped 三种都显式变红。
+  lint-typecheck-test:
+    needs: [gate-build, gate-analyse, gate-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
+
+      - name: Assert every upstream gate succeeded
+        id: assert-all-gates
+        env:
+          R_BUILD: ${{ needs.gate-build.result }}
+          R_ANALYSE: ${{ needs.gate-analyse.result }}
+          R_TEST: ${{ needs.gate-test.result }}
+        run: |
+          node -e "
+          const results = { 'gate-build': process.env.R_BUILD, 'gate-analyse': process.env.R_ANALYSE, 'gate-test': process.env.R_TEST };
+          const bad = Object.entries(results).filter(([, v]) => v !== 'success');
+          console.log('upstream results = ' + JSON.stringify(results));
+          if (bad.length > 0) {
+            console.error('::error::门禁未成功: ' + bad.map(([k, v]) => k + '=' + v).join(', ') + ' —— required check 不得以非 success 结案(failure/cancelled/skipped 一律红)');
+            process.exit(1);
+          }
+          console.log('all upstream gates succeeded');
+          "
+
+      - name: Failure triage (public annotations)
+        id: failure-triage
+        if: failure()
+        env:
+          TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
+          TRIAGE_IDS: checkout assert-all-gates
+          O_CHECKOUT: ${{ steps.checkout.outcome }}
+          O_ASSERT_ALL_GATES: ${{ steps.assert-all-gates.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
   python-ai-service:

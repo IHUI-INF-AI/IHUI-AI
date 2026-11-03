@@ -34,6 +34,13 @@ on:
 permissions:
   contents: read
 
+# 陈旧 run 收敛(2026-11-03):e2e 不承载 required check(分支保护现读只有
+# `CI / lint-typecheck-test (push)`),同一 ref 上只保留最新一枚 —— 实测 e2e 单跑 54m,
+# 旧 SHA 的排队/重复跑会把总墙钟叠成 100m+。
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '22'
   PNPM_VERSION: '9.15'
