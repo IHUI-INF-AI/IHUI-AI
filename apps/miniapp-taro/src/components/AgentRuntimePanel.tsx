@@ -108,7 +108,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
           {!plan && !output && !error && !permission && (
             <View className="py-8 text-center">
-              <Text className="text-body text-muted-foreground">
+              <Text className="text-sm text-muted-foreground">
                 {t('ai.agentDetail.runtimeEmpty')}
               </Text>
             </View>

@@ -60,7 +60,7 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full overflow-hidden rounded-lg bg-[var(--color-black)]"
         style={STAGE_STYLE}
       >
-        <Text className="text-body text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
+        <Text className="text-sm text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
       </View>
     )
   }
