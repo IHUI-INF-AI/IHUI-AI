@@ -39,8 +39,10 @@ export default function DocsDetailPageClient({ initialDetail }: PageClientProps)
   })
   const doc = detail?.doc
   // 标题位绝不回落到 slug 字符串(把 slug 当标题显示 = 软 404 的那张脸):
-  // 取到了用真标题,取不到用既有文案占位。「有没有这篇」由服务端探针判(见 page.tsx),
-  // 明确没有时走 notFound() 渲染 not-found UI;这里只是后端不可达(unknown)那格的兜底。
+  // 取到了用真标题,取不到用既有文案占位。「有没有这篇」由服务端探针判(见 page.tsx):
+  // missing ⇒ notFound() 渲染 not-found UI;unknown ⇒ 请求入口 Proxy 落 500(故障可见),
+  // 不再回落客户端把状态码遮成 200。
+  // 这里的占位只剩「缓存页仍在有效期内、正文已变」的过渡态。
   const headingText = doc?.title ?? (isLoading ? tc('loading') : td('shellTitle'))
 
   return (
