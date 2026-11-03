@@ -70,11 +70,17 @@ export function needsFromFidelity(fidelityJson) {
   return [...set].sort()
 }
 
-/** 逐语取值:整块搬 —— 基准侧该命名空间每一枚键都进计划;本端已有的跳过;全查无 ⇒ 点名。 */
-export function planMoves(namespaces, readPack) {
+/**
+ * 搬运面 = 整块缺失的命名空间(字符串项)∪ 显式点名的单键({ns, keys})。
+ * 后者补的是本尺的一处盲区:packAbsent 只判**顶层命名空间存在性**,已有块里少了某一枚键
+ * 它照报绿 ⇒ 端内页面接了共享键却取不到词(2026-11-03 实测 modelEdit.readOnlyHint 即此型)。
+ */
+export function planMoves(items, readPack) {
   const moves = []
   const unresolvable = []
-  for (const ns of namespaces) {
+  for (const item of items) {
+    const ns = typeof item === 'string' ? item : item.ns
+    const only = typeof item === 'string' ? null : item.keys
     for (const lang of LANGS) {
       const have = readPack(TARGET_PACK, lang)
       let baseline = null
@@ -88,17 +94,48 @@ export function planMoves(namespaces, readPack) {
         }
       }
       if (baseline === null) {
-        unresolvable.push(`${ns}@${lang}`)
+        unresolvable.push(only ? `${ns}.${only.join('/')}` : `${ns}@${lang}`)
         continue
       }
+      const satisfied = new Set()
       for (const [key, value] of Object.entries(baseline)) {
         if (typeof value !== 'string') continue
-        if (have?.[ns]?.[key] !== undefined) continue // 只补空:已有 ⇒ 一个字母不动
+        if (only) satisfied.add(key)
+        if (only && !only.includes(key)) continue
+        if (have?.[ns]?.[key] !== undefined) {
+          satisfied.add(key)
+          continue // 只补空:已有 ⇒ 一个字母不动
+        }
         moves.push({ ns, key, lang, value, from })
       }
+      // 显式点名的键若在基准侧与本端都取不到 ⇒ 逐语点名,不能静默数成 0 枚就当搬过(§0.3)
+      if (only)
+        for (const k of only)
+          if (!satisfied.has(k) && have?.[ns]?.[k] === undefined) unresolvable.push(`${ns}.${k}@${lang}`)
     }
   }
   return { moves, unresolvable }
+}
+
+/** 把 --key ns.key(可重复)折成显式搬运项;形状不对当场拒绝,不静默忽略。 */
+export function parseKeyArgs(argv) {
+  const byNs = new Map()
+  const bad = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--key') continue
+    const raw = argv[i + 1]
+    const at = typeof raw === 'string' ? raw.indexOf('.') : -1
+    if (typeof raw !== 'string' || at <= 0 || at === raw.length - 1) {
+      bad.push(String(raw))
+      continue
+    }
+    const ns = raw.slice(0, at)
+    const key = raw.slice(at + 1)
+    const list = byNs.get(ns) || []
+    list.push(key)
+    byNs.set(ns, list)
+  }
+  return { items: [...byNs.entries()].map(([ns, keys]) => ({ ns, keys })), bad }
 }
 
 /**
@@ -135,12 +172,13 @@ export function insertIntoJson(text, ns, entries) {
 /** 找顶层 "ns": { 的开括号位置(字符串感知扫描;词包是纯 JSON,无注释)。 */
 function findNsOpen(body, ns) {
   const name = JSON.stringify(ns)
+  let depth = 0 // 顶层键 = 深度 1;同名嵌套块(devEnter.modelEdit)不得被当成目标(2026-11-03 实测)
   let i = 0
   while (i < body.length) {
     const c = body[i]
     if (c === '"') {
       const end = skipString(body, i)
-      if (body.slice(i, end) === name) {
+      if (depth === 1 && body.slice(i, end) === name) {
         const colon = body.slice(end).search(/\S/)
         const at = end + (colon === -1 ? 0 : colon)
         if (body[at] === ':') {
@@ -151,6 +189,8 @@ function findNsOpen(body, ns) {
       i = end
       continue
     }
+    if (c === '{') depth++
+    else if (c === '}') depth--
     i++
   }
   return -1
@@ -221,9 +261,22 @@ async function main() {
   const asJson = argv.includes('--json')
   // 未知旗一律拒绝:静默忽略会让周期腿把打错的 --apply 当成"预演不写盘",每轮空转报绿(空转守卫)
   const KNOWN = new Set(['--apply', '--json', '--self-test'])
-  const unknown = argv.filter((a) => !KNOWN.has(a))
+  const unknown = []
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--key') {
+      i++ // 它的值由 parseKeyArgs 校形状,不在这里当未知旗
+      continue
+    }
+    if (!KNOWN.has(a)) unknown.push(a)
+  }
   if (unknown.length) {
     console.error(`❌ 未知参数 ${unknown.join(' ')} ⇒ 不接受静默忽略(周期腿会把它读成"预演")`)
+    process.exit(2)
+  }
+  const { items: keyItems, bad: badKeys } = parseKeyArgs(argv)
+  if (badKeys.length) {
+    console.error(`❌ --key 形状必须是一个点分的 ns.key,收到:${badKeys.join(' ')}`)
     process.exit(2)
   }
 
@@ -233,13 +286,15 @@ async function main() {
     process.exit(2)
   }
   const needs = needsFromFidelity(fidelity)
-  const { moves, unresolvable } = planMoves(needs, defaultReadPack)
+  const units = [...needs, ...keyItems]
+  const { moves, unresolvable } = planMoves(units, defaultReadPack)
   if (asJson) {
     console.log(
       JSON.stringify({
         leg: CROSS_END_LEG,
-        state: needs.length ? (moves.length ? 'pending' : 'unresolvable') : 'clean',
+        state: units.length ? (moves.length ? 'pending' : 'unresolvable') : 'clean',
         namespaces: needs,
+        explicitKeys: keyItems.map((k) => `${k.ns}.${k.keys.join(',')}`),
         planned: moves.length,
         unresolvable,
         applied: apply,
@@ -248,7 +303,7 @@ async function main() {
     if (!moves.length) process.exit(unresolvable.length ? 2 : 0)
     if (!apply) return
   }
-  if (!needs.length) {
+  if (!units.length) {
     console.log(
       `结论 landing=0 无变化=0 held=0 写出=0 leg=${CROSS_END_LEG} ledger=ok needs=0 未判定=0(本端词包无整块缺口)`,
     )
@@ -374,6 +429,7 @@ async function main() {
 export const __test__ = {
   needsFromFidelity,
   planMoves,
+  parseKeyArgs,
   insertIntoJson,
   findNsOpen,
   matchCloseBrace,
