@@ -48,7 +48,7 @@ export default function Comment({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">
+            <Text className="text-body text-muted-foreground">
               {tt('comment.loading', '加载中...')}
             </Text>
           </View>
@@ -65,16 +65,16 @@ export default function Comment({
                 />
                 <View className="flex-1 min-w-0">
                   <View className="flex items-center">
-                    <Text className="text-sm font-medium text-foreground">
+                    <Text className="text-body font-medium text-foreground">
                       {item.nickname || tt('comment.anonymous', '匿名')}
                     </Text>
-                    <Text className="text-xs text-muted-foreground ml-2">{item.createdAt}</Text>
+                    <Text className="text-label text-muted-foreground ml-2">{item.createdAt}</Text>
                   </View>
-                  <Text className="block text-sm text-foreground mt-1 leading-relaxed">
+                  <Text className="block text-body text-foreground mt-1 leading-relaxed">
                     {item.content}
                   </Text>
                   <View className="flex justify-end mt-1">
-                    <Text className="text-xs text-primary" onClick={() => onReply?.(item.id)}>
+                    <Text className="text-label text-primary" onClick={() => onReply?.(item.id)}>
                       {tt('comment.reply', '回复')}
                     </Text>
                   </View>
@@ -82,10 +82,10 @@ export default function Comment({
                     <View className="mt-2 ml-2 pl-3 py-[12rpx] pr-2 bg-muted rounded-md">
                       {item.replies.map((reply) => (
                         <View key={reply.id} className="py-[12rpx]">
-                          <Text className="text-xs text-primary">
+                          <Text className="text-label text-primary">
                             {reply.nickname || tt('comment.anonymous', '匿名')}
                           </Text>
-                          <Text className="text-xs text-muted-foreground">:{reply.content}</Text>
+                          <Text className="text-label text-muted-foreground">:{reply.content}</Text>
                         </View>
                       ))}
                     </View>
@@ -99,7 +99,7 @@ export default function Comment({
       {inputVisible && (
         <View className="flex items-center px-3 py-2 bg-card mt-2">
           <FocusInput
-            className="flex-1 px-3 py-2 text-sm bg-muted rounded-sm"
+            className="flex-1 px-3 py-2 text-body bg-muted rounded-sm"
             placeholder={tt('comment.placeholder', '写评论...')}
             value={inputValue}
             onInput={(e) => onInput?.(e.detail.value)}
@@ -110,7 +110,7 @@ export default function Comment({
             onClick={() => inputValue && onSubmit?.()}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-primary-foreground">{tt('comment.send', '发送')}</Text>
+            <Text className="text-body text-primary-foreground">{tt('comment.send', '发送')}</Text>
           </View>
         </View>
       )}

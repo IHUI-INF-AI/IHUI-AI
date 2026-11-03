@@ -31,7 +31,7 @@ import {
 const RADIUS_CLASS: Record<typeof TOOLTIP_RADIUS_TIER, string> = { md: 'rounded-md' }
 const PADDING_X_CLASS: Record<number, string> = { 12: 'px-3' }
 const PADDING_Y_CLASS: Record<number, string> = { 6: 'py-1.5' }
-const TEXT_CLASS: Record<typeof TOOLTIP_TEXT_TIER, string> = { xs: 'text-xs' }
+const TEXT_CLASS: Record<typeof TOOLTIP_TEXT_TIER, string> = { xs: 'text-label' }
 const SHADOW_CLASS: Record<typeof TOOLTIP_SHADOW_TIER, string> = { md: 'shadow-md' }
 
 /** 本端承载:RN 的 `TOOLTIP_GAP_PX` 数值在本端落成外边距类(4px 档 = mb-1/mt-1)。 */
