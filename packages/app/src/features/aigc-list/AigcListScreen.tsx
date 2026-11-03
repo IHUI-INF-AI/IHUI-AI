@@ -15,11 +15,27 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import {
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Music,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCategory, AigcFileType, AigcListItem, AigcListScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { assertRequiredPort, isCapabilityOff, resolveOptionalPort } from '../../host/ports'
+
+/** AIGC 作品类型 → 轮播图占位图标(0 图片 / 1 视频 / 3 音频 / 4 文案) */
+const FILE_TYPE_ICON = {
+  0: ImageIcon,
+  1: Film,
+  3: Music,
+  4: FileText,
+} satisfies Record<AigcFileType, LucideIcon>
 
 /** AIGC 作品列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCategory, AigcListItem, AigcListScreenProps }
@@ -41,6 +57,7 @@ export function AigcListScreen({
   colorScheme = 'light',
   onToast,
   audio,
+  carousel,
 }: AigcListScreenProps) {
   assertRequiredPort('onToast', onToast)
 
@@ -151,6 +168,43 @@ export function AigcListScreen({
 
   return (
     <View style={styles.container}>
+      {carousel && carousel.items.length > 0 ? (
+        <ScrollView
+          horizontal
+          testID="aigc-list-carousel"
+          showsHorizontalScrollIndicator={false}
+          style={styles.carousel}
+          contentContainerStyle={styles.carouselContent}
+        >
+          {carousel.items.map((item) => {
+            const Icon = FILE_TYPE_ICON[item.fileType] ?? Sparkles
+            return (
+              <TouchableOpacity
+                key={item.id}
+                testID={`aigc-carousel-${item.id}`}
+                style={styles.carouselCard}
+                activeOpacity={0.8}
+                onPress={() => carousel.onPress(item)}
+              >
+                {item.coverUrl ? (
+                  <Image source={{ uri: item.coverUrl }} style={styles.carouselCover} />
+                ) : (
+                  <View style={styles.carouselCover}>
+                    <Icon size={32} color={tk.brand.DEFAULT} />
+                  </View>
+                )}
+                <View style={styles.carouselInfo}>
+                  <Text style={styles.carouselTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.carouselFree}>免费</Text>
+                </View>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+      ) : null}
+
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('aigcList.title')}</Text>
@@ -211,6 +265,34 @@ export function AigcListScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
+    carousel: { flexGrow: 0, marginTop: rnSpacing.sm },
+    carouselContent: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      gap: rnSpacing.sm,
+    },
+    carouselCard: {
+      width: 240,
+      height: 144,
+      borderRadius: rnRadius.lg,
+      overflow: 'hidden',
+      backgroundColor: tk.surface.card,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    carouselCover: {
+      width: '100%',
+      height: 96,
+      backgroundColor: tk.border.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    carouselInfo: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing.sm },
+    carouselTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    carouselFree: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.caption.size,
+      color: tk.brand.DEFAULT,
+    },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     headerSubtitle: {

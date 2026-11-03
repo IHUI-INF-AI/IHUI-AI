@@ -29,6 +29,12 @@ interface WorkTypeOption {
   descKey: string
 }
 
+/** 进度端口取值域收敛到 0-100,防止宿主回调越界导致进度条画出容器 */
+function clampProgress(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, value))
+}
+
 const TYPE_OPTIONS: WorkTypeOption[] = [
   { key: 'image', labelKey: 'aigcPublish.typeImage', descKey: 'aigcPublish.typeImageDesc' },
   { key: 'video', labelKey: 'aigcPublish.typeVideo', descKey: 'aigcPublish.typeVideoDesc' },
@@ -47,6 +53,7 @@ export function AigcPublishScreen({
   urlInput,
   saving,
   uploading,
+  uploadProgress,
   error,
   onWorkTypeChange,
   onTextContentChange,
@@ -136,12 +143,26 @@ export function AigcPublishScreen({
             {uploading ? (
               <View style={styles.pickerBtnInner}>
                 <ActivityIndicator color={tk.surface.light} size="small" />
-                <Text style={styles.pickerBtnTextUploading}>{t('aigcPublish.uploading')}</Text>
+                <Text style={styles.pickerBtnTextUploading}>
+                  {typeof uploadProgress === 'number'
+                    ? t('aigcPublish.uploading', {
+                        progress: Math.round(clampProgress(uploadProgress)),
+                      })
+                    : t('aigcPublish.uploading')}
+                </Text>
               </View>
             ) : (
               <Text style={styles.pickerBtnText}>{t('aigcPublish.pickFromAlbum')}</Text>
             )}
           </TouchableOpacity>
+          {uploading && typeof uploadProgress === 'number' ? (
+            <View style={styles.progressTrack} testID="aigc-upload-progress">
+              <View
+                style={[styles.progressFill, { width: `${clampProgress(uploadProgress)}%` }]}
+                testID="aigc-upload-progress-fill"
+              />
+            </View>
+          ) : null}
           <View style={styles.fileGrid}>
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
@@ -316,6 +337,18 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.surface.light,
       fontSize: rnType.body.size,
       fontWeight: '600',
+    },
+    progressTrack: {
+      height: 4,
+      marginTop: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.border.light,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.DEFAULT,
     },
     fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     fileItem: {
