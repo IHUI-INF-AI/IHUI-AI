@@ -18,6 +18,8 @@ const STAGE_STYLE: CSSProperties = { height: rpx(vpStageHeightRpx()) }
 export interface VideoPlayerProps {
   src?: string
   poster?: string
+  /** 起始播放位置(秒)(与 RN 端同名同义):喂给原生 Video 的 initialTime */
+  startPosition?: number
   autoplay?: boolean
   controls?: boolean
   loading?: boolean
@@ -31,6 +33,7 @@ export interface VideoPlayerProps {
 export default function VideoPlayer({
   src,
   poster,
+  startPosition,
   autoplay = false,
   controls = true,
   loading = false,
@@ -72,6 +75,7 @@ export default function VideoPlayer({
         style={STAGE_STYLE}
         src={src}
         poster={poster}
+        initialTime={startPosition}
         controls={controls}
         autoplay={autoplay}
         objectFit="contain"
