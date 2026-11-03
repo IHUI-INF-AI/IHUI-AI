@@ -299,47 +299,57 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
       .toEqual(idsStreaming.map((x) => x.id))
 
-    // —— 放行流:流结束 effect 自动补答消费队首(侧问甲)⇒ 剩两条且可重排
+    // —— 放行流:流结束 effect 自动补答队首 pending(侧问甲)。
+    //    2026-11-03 对齐 D75(2026-11-01 装车的侧任务生命周期):消费侧问不再从桶里摘除,
+    //    只把该条 state 置 completed;QueueInteractionBar 的 items 是**整桶**(见
+    //    message-input.tsx 的 items={sideQueue.map(...)}),故交互条仍列 3 条、甲 以 completed
+    //    态留在队首。旧断言(消费即摘除、剩乙/丙两条)是 D38 立卡(2026-09-24)时的语义,已过期。
     held.release()
     await expect(page.getByText(STREAM_ANSWER).first()).toBeVisible({ timeout: 30_000 })
     await expect.poll(() => bestOfN.calls, { timeout: 30_000 }).toBe(1) // 队首"侧问甲"确实被消费
-    await expect(queuedItems(page)).toHaveCount(2)
+    await expect(queuedItems(page)).toHaveCount(3)
     const before = await queueSnapshot(page)
-    expect(before.map((i) => i.text)).toEqual(['侧问乙', '侧问丙'])
+    expect(before.map((i) => i.text)).toEqual(['侧问甲', '侧问乙', '侧问丙'])
 
-    // 第二条 ↑ 一位 ⇒ 逐位 id 序列翻转
+    // 交互条按整桶下标重排(completed 项也在桶内,下标与桶一一对应):
+    // 乙 ↑ 一位 ⇒ [乙,甲,丙];再 ↓ 回原位 ⇒ [甲,乙,丙]
     await page
       .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1]!.id}"]`)
       .press('ArrowUp')
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
-      .toEqual([before[1]!.id, before[0]!.id])
-    // 再 ↓ 回原位
+      .toEqual([before[1]!.id, before[0]!.id, before[2]!.id])
     await page
       .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1]!.id}"]`)
       .press('ArrowDown')
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
-      .toEqual([before[0]!.id, before[1]!.id])
+      .toEqual([before[0]!.id, before[1]!.id, before[2]!.id])
 
-    // —— 重排后发送顺序断言(验收口径):把 丙 提到队首,触发第二轮主流;流结束
-    //    自动补答消费新队首 丙(best-of-n 请求正文 = 被消费侧问原文),而非入队最早的 乙。
-    await page
-      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1]!.id}"]`)
-      .press('ArrowUp')
+    // —— 重排后发送顺序断言(验收口径):把 丙 连续上移两位(跨过 completed 的甲)到队首,
+    //    触发第二轮主流;流结束自动补答 peekPendingSideQuestion 命中的首个 pending 丙
+    //    (best-of-n 请求正文 = 被消费侧问原文),而非入队最早的乙。
+    const bing = before[2]!
+    const handle = page.locator(`[data-queue-op="reorderHandle"][data-item-id="${bing.id}"]`)
+    await handle.press('ArrowUp') // [甲,丙,乙]
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
-      .toEqual([before[1]!.id, before[0]!.id])
+      .toEqual([before[0]!.id, bing.id, before[1]!.id])
+    await handle.press('ArrowUp') // [丙,甲,乙]
+    await expect
+      .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
+      .toEqual([bing.id, before[0]!.id, before[1]!.id])
     const ta2 = asideTextarea(page).first()
     await ta2.fill('E2E D38:第二轮主消息(验证重排后消费顺序)')
     await ta2.press('Enter')
     // 第二轮流结束 ⇒ 恰好补答一条(每轮流结束最多补答一条,W27 同节奏)
     await expect.poll(() => bestOfN.calls, { timeout: 30_000 }).toBe(2)
     expect(bestOfN.asked[1]).toBe('侧问丙')
-    await expect(queuedItems(page)).toHaveCount(1)
+    // D75 保留语义:丙 消费后同样留在桶里(completed),整桶仍 3 条
+    await expect(queuedItems(page)).toHaveCount(3)
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.text)))
-      .toEqual(['侧问乙'])
+      .toEqual(['侧问丙', '侧问甲', '侧问乙'])
     held.release()
   })
 
@@ -463,6 +473,19 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     await expect(bar(page).locator('[data-mode-degraded]')).toHaveCount(0)
 
     // 切 steer:偏好钮点亮,但生效模式仍 queue 且诚实渲染降级句(译文)
+    // 2026-11-04:点击命中自证 —— elementFromPoint(按钮中心)必须落在按钮自身子树内。
+    // 原实现(pip 设置节挂在面板固定头部)在会话面变矮时会溢出盖住队列条,点击被
+    // pip-empty-state 拦截;此断言把「命中区域由结构分离」固化为可回归的结构性判据,
+    // 比「click 不超时」更强:它证明命中的是目标元素而不是恰好可点的邻居。
+    await expect(steerBtn).toBeVisible()
+    expect(
+      await steerBtn.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return hit !== null && el.contains(hit)
+      }),
+      '模式钮中心点必须命中按钮自身子树(pip 卡片不得覆盖队列条)',
+    ).toBe(true)
     await steerBtn.click()
     await expect(steerBtn).toHaveAttribute('aria-pressed', 'true')
     await expect(queueBtn).toHaveAttribute('aria-pressed', 'false')

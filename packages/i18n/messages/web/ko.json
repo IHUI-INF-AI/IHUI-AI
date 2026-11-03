@@ -29576,7 +29576,9 @@
     "trendCountAxisLabel": "건수",
     "trendChartAria": "{scope}의 선택 기간 일별 출석률 선 그래프와 상태 구성 누적 막대",
     "statusOther": "기타",
-    "scopeAllClasses": "모든 반"
+    "scopeAllClasses": "모든 반",
+    "checkInAt": "출석 시각",
+    "backfillNeedsTime": "과거 날짜를 등록하려면 해당 날짜의 출석 시각이 필요합니다"
   },
   "eduCertificates": {
     "certificateNo": "번호: {no}",
