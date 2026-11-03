@@ -5451,6 +5451,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (2a94268b4e)
+- 🚀 新功能/改进:考勤端上面收口 票B67 B70 B72 三端可见可操作可配置 (286ce1da49)
+
+**2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (153bf2b63d)
 
 **2026-11-03**
@@ -5501,27 +5505,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4070d7a682)
 - 📚 文档:认领文档中心格式层与排版收口票(7 簇并行,主席统一落地) (89b014b18a)
-
-**2026-11-02**
-- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (36f13ea78a)
-- 📚 文档:Z-1 副本行加【归并】指针注记 —— 正本按占用面证据定 G-54 版;两版正文逐字保留、不删行、注记不写行号 (31fca517fa)
-- 🚀 新功能/改进:下载栏 8 端取运行期真值(desktop/android/ios/cli/extension 全量现读) (6180f8cb25)
-- 📚 文档:B87/B88/B91 按已结清标注 —— 三行原文与同题注记保留,行内记修复枚 3c846ee8d5 / 合并枚 9a71162313 (f132ac5dac)
-- 📚 文档:RP-35 按已结清标注 —— 原文保留,行内记修复枚 65102e7774(前端归一化读取 /api/health 裸对象,后端未动) (965859a0dc)
-- 🔧 工程/其他:字号档收口第 6/6 批 —— src/components 402 文件 (45525b8354)
-- 📚 文档:RP-79 同号分叉让号 —— 「给 git-sync-converge 补守卫」改号 RP-91(原文保留,行尾注明原号;剩余面票 RP-79 不动) (b0ad9f1c80)
-- 🔧 工程/其他:字号档收口第 5/6 批 —— (main) 业务页 356 文件(乙)+ app/en 与 app/ 其它 (7f01a52f3d)
-- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0491faf17f)
-- 🔧 工程/其他:字号档收口第 4/6 批 —— (main) 业务页 341 文件(甲) (7e35051ed2)
-- 🚀 新功能/改进:safe-commit 新增 --files-from 清单入口(大批量路径绕开 Windows argv 上限) (9710581b38)
-- 📚 文档:B72 就地改写并入实测根因(路由 22 枚端点无承载层鉴权致家长门户恒 401,出路逐端点接 checkAuthOrInternalService 加 GET /attendance/me) (3d7820a692)
-- 🔧 工程/其他:字号档收口第 3/6 批 —— (main)/admin 其余 260 文件(乙) (f685e7e41d)
-- 🔧 工程/其他:字号档收口第 2/6 批 —— (main)/admin 其余 262 文件(甲) (381df55136)
-- 🔧 工程/其他:字号档收口第 1/6 批 —— (main)/admin/edu 126 文件 (72df7ca87d)
-- 🚀 新功能/改进:移动端 agentChat 补 stop 停止按钮文案(zh-CN/zh-TW/en/ja/ko 五语,对应 B4 流式停止入口) (2ba6fecdb8)
-- 🐞 修复:RP-35 后端健康页按归一化读取 /api/health 裸对象 (65102e7774)
-- 🚀 新功能/改进:B4 Agent 会话 SSE 消费侧——共享 streamAgentChat 增量回调+abort,断线带 Last-Event-ID 重连一次,仍败回落 v2 分页读+一次性 POST;RN 宿主增量渲染/done 落库替换/失败显式报错;共享屏仅四枚可选 props(缺省显式关闭);新增 4+3 例测试,双端 typecheck 0,门273 --staged 零新增 (0335facba1)
-- 🐞 修复:build-fail 同题不再按 TS 号分身,证据补可定位失败原因(B87/B88/B91) (3c846ee8d5)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
