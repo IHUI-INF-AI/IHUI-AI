@@ -8,6 +8,7 @@ import Taro from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
 import type { ChatMessage } from '@/api'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 本地视图模型(非 api-client Agent 直投):
@@ -135,7 +136,7 @@ export function HistoryDrawer({
       success: (res) => {
         if (res.confirm) {
           onClear()
-          Taro.showToast({ title: t('ai.history.cleared'), icon: 'none' })
+          onToast(t('ai.history.cleared'), { kind: 'info' })
         }
       },
     })

@@ -30,6 +30,11 @@
  * 边界(不得越读):missingTier 与 fork 的区分是**端级取值集对照**,不是"同一元素同值"。
  * 它能回答"这个数在对面到底用没用过",不能回答"对面这个按钮是不是也用这个数"。后者仍归门 128。
  *
+ * 覆盖面修正(2026-11-03,P0-3 分叉决策红门):web 采集器补齐 `mt/mb/ml/mr/pl/pr/gap-x/gap-y`
+ * 前缀、`-px`(=1px)与负向间距。此前 `ml-[7px]` / `pl-[9px]` / `gap-px` 这些**真实取用**读不到,
+ * RN 同值便在对端显示"零同值"而被误判成 fork。修的是"对端用没用过"的覆盖面,不是分叉额度。
+ * 同一轮另修 collectRn 把**注释里的样式字样**当取用(`* / initials(\`fontSize: 32\`)`)。
+ *
  * 取材面(§0.4):默认 HEAD blob;`--staged` 判索引 blob;`--worktree` 仅人工逃生舱。
  * 档表本身也从**被审面**读(不读工作树的源文件),否则会出现"台账按未入库判据下调 ⇒ 干净检出恒红"。
  *
@@ -66,6 +71,9 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildEntries, parseTokenTables } from './sync-css-tokens.mjs'
+// 注释遮罩:样式字面量只认代码面。注释里写 `fontSize: 32` / `ml-[7px]` 是**散文**,不是取用
+// (2026-11-03 P0-3 实测:UserInfoCard 注释把 32px 的处数多记了 1)。
+import { maskComments } from './lib/code-mask.mjs'
 // 取材面一律经统一层(§0.4 / 守门 118):自己派生 git 取 blob 正文 = 第二份取材实现,必然漂移。
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
@@ -203,7 +211,31 @@ const RN_KEYS = {
   radius: ['borderRadius'],
 }
 
-const SPACING_CLASS_PREFIX = ['gap', 'p', 'px', 'py', 'pt', 'pb', 'm', 'mx', 'my']
+/**
+ * web 间距工具类前缀。**必须收齐四向与轴向**:早先只列 `gap/p/px/py/pt/pb/m/mx/my`,
+ * 漏了 `mt/mb/ml/mr/pl/pr/gap-x/gap-y` ⇒ `ml-[7px]` / `pl-[9px]` 这类真实取用读不到,
+ * 该值在对端就"零同值",RN 侧被误判成 fork(2026-11-03 P0-3 实测:7px 2 处、9px 2 处)。
+ * 覆盖面修正不是放宽额度:对端确实在用,只是尺子没数到。
+ */
+const SPACING_CLASS_PREFIX = [
+  'gap',
+  'gap-x',
+  'gap-y',
+  'p',
+  'px',
+  'py',
+  'pt',
+  'pb',
+  'pl',
+  'pr',
+  'm',
+  'mx',
+  'my',
+  'mt',
+  'mb',
+  'ml',
+  'mr',
+]
 
 /**
  * 累加一处取用。
@@ -222,11 +254,12 @@ function collectRn(files, readOne) {
   const acc = { spacing: new Map(), fontSize: new Map(), radius: new Map() }
   let unreadable = 0
   for (const f of files) {
-    const t = readOne(f)
-    if (t === null) {
+    const raw = readOne(f)
+    if (raw === null) {
       unreadable++
       continue
     }
+    const t = maskComments(raw)
     for (const key of RN_KEYS.spacing) {
       const re = new RegExp(`\\b${key}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)(?![\\d.])`, 'g')
       let m
@@ -238,21 +271,30 @@ function collectRn(files, readOne) {
   return { acc, unreadable }
 }
 
-/** web 侧:className 工具类 + 任意值 + CSS 里的 var/字面量(仅记非色档)。 */
+/**
+ * web 侧:className 工具类 + 任意值 + CSS 里的 var/字面量(仅记非色档)。
+ *
+ * 2026-11-03 覆盖面修正(P0-3):Tailwind 的 `-px` 是**1px 档**(`gap-px` / `pt-px`),
+ * 早先只认 `-<数字>`,对端真实在用 1px 却读成"零同值";负向间距(`-mt-2`)同理,
+ * 数值按绝对值入桶(RN 侧也是这么折的)。两处都是漏识别,不是把额度放宽。
+ */
 function collectWeb(files, readOne) {
   const acc = { spacing: new Map(), fontSize: new Map(), radius: new Map() }
   let unreadable = 0
   for (const f of files) {
-    const t = readOne(f)
-    if (t === null) {
+    const raw = readOne(f)
+    if (raw === null) {
       unreadable++
       continue
     }
+    const t = maskComments(raw)
     for (const pre of SPACING_CLASS_PREFIX) {
-      for (const m of t.matchAll(new RegExp(`(?:^|[\\s"'\`])${pre}-(\\d+(?:\\.\\d+)?)(?![\\w.\\[-])`, 'g')))
-        bump(acc.spacing, pre, Number(m[1]) * TW_STEP_PX)
-      for (const m of t.matchAll(new RegExp(`(?:^|[\\s"'\`])${pre}-\\[(\\d+(?:\\.\\d+)?)px\\]`, 'g')))
-        bump(acc.spacing, pre, Number(m[1]))
+      for (const m of t.matchAll(new RegExp(`(?:^|[\\s"'\`])-?${pre}-(\\d+(?:\\.\\d+)?)(?![\\w.\\[-])`, 'g')))
+        bump(acc.spacing, pre, Math.abs(Number(m[1])) * TW_STEP_PX)
+      for (const m of t.matchAll(new RegExp(`(?:^|[\\s"'\`])-?${pre}-\\[(\\d+(?:\\.\\d+)?)px\\]`, 'g')))
+        bump(acc.spacing, pre, Math.abs(Number(m[1])))
+      for (const _m of t.matchAll(new RegExp(`(?:^|[\\s"'\`])-?${pre}-px(?![\\w-])`, 'g')))
+        bump(acc.spacing, pre, 1)
     }
     for (const m of t.matchAll(/(?:^|[\s"'`])text-(xs|sm|base|lg|xl|2xl|3xl)(?![\w-])/g)) bump(acc.fontSize, 'text', TW_TEXT[m[1]])
     for (const m of t.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)px\]/g)) bump(acc.fontSize, 'text', Number(m[1]))

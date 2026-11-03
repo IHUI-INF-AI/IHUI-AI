@@ -6,23 +6,23 @@
 
 # APK 自托管目录(2026-08-06 立;2026-10-29 起仅作遗留兜底,不再是出包出口)
 
-**现状**:APK 的分发出口已改到站点 CDN 腿,由出包链自动发布 —— 固定地址
-`https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk`(cdn-server 读旁边
-`ihui-ai-latest.apk.redirect.json` 转出 no-cache 302,长缓存只给带版本号那份),
-备用地址 `https://dl.aizhs.top/ihui-ai-latest.apk`(COS/CF 橙云,2026-10-29 实测国内
-只剩 3–6KB/s,故降为备用)。唯一入口 = `node scripts/publish-mobile-apk.mjs`,
-由 `scripts/build-mobile-rn-release.ps1` 第 5 步自动调用。
+**现状**:APK 的分发出口 = 站点 CDN 腿,由出包链自动发布。固定地址的**唯一真源**是
+`scripts/data/mobile-download-leg.json` 的 `downloadUrl`(本文件不再复制字面量,避免第二份地址);
+cdn-server 读旁边 `ihui-ai-latest.apk.redirect.json` 转出 no-cache 302,长缓存只给带版本号那份。
+`dl.aizhs.top` COS 备用腿已于 2026-10-30 整桶下线,不再作为对外地址;GitHub Release 也不作为下载腿
+(私钥不进 Secrets,CI 只产 `ihui-ai-dev-<run>` dev 包)。唯一入口 = `node scripts/publish-mobile-apk.mjs`,
+由 `scripts/build-mobile-rn-release.ps1` 第 5 步自动调用,末尾跑 `scripts/check-mobile-download-leg.mjs` 复核。
 
 **本目录为什么留着**:`/apk/ihui-ai-latest.apk` 这条相对路径在 2026-08-06 到 2026-10-28
 期间是对用户承诺过的地址,历史外链与用户收藏里仍有指向它的。这里放的是一份**旧构建**
 (与当前版本无关),而 Next 静态资源在边缘按长缓存分发 —— 换文件不等于换用户拿到的包,
 所以**不要**再往本目录放新包来"更新版本",那只会造出"文件名没变、内容是旧的、账面是新的"
-那一型。要出新包请走出包链,地址恒为上面两条。
+那一型。要出新包请走出包链,地址恒为单源那一条(站点 CDN 腿)。
 
 ## 遗留路径的处置口径
 
-1. 站点下载按钮不再依赖本目录:`NEXT_PUBLIC_DOWNLOAD_APK_URL` 填站点腿固定地址
-   (`apps/web/.env.production`,该机自己维护;`deploy/*/deploy.sh` 里的模板同值)。
+1. 站点下载按钮不再依赖本目录:`NEXT_PUBLIC_DOWNLOAD_APK_URL` 由 `deploy/*/deploy.sh`
+   从单源 `scripts/data/mobile-download-leg.json` 写入(`apps/web/.env.production` 在部署机生成)。
 2. 核查配置齐不齐:`node scripts/check-downloads-config.mjs`(缺键/占位符会点名)。
 3. 想让旧地址也指向最新包 ⇒ 唯一正解是让它经过能转 302 的那条腿(cdn-server 的
    `deploy/server-root/`),不是往 `public/apk/` 里塞文件。

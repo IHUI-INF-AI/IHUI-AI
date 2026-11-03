@@ -5,6 +5,7 @@
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { onToast } from '@/host/on-toast'
 
 export interface QrCodeShareProps {
   title?: string
@@ -34,9 +35,8 @@ export default function QrCodeShare({
     }
     Taro.saveImageToPhotosAlbum({
       filePath: qrUrl,
-      success: () =>
-        Taro.showToast({ title: tt('qrcode.savedAlbum', '已保存到相册'), icon: 'success' }),
-      fail: () => Taro.showToast({ title: tt('qrcode.saveFailed', '保存失败'), icon: 'none' }),
+      success: () => onToast(tt('qrcode.savedAlbum', '已保存到相册'), { kind: 'success' }),
+      fail: () => onToast(tt('qrcode.saveFailed', '保存失败'), { kind: 'error' }),
     })
     onSave?.()
   }

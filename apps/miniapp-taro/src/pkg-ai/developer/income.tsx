@@ -9,13 +9,14 @@ import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import { useState, useCallback } from 'react'
 import { rnRadius } from '@ihui/design-tokens'
-import { useDidShow, useReachBottom, showToast } from '@tarojs/taro'
+import { useDidShow, useReachBottom } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { getUserInfo } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import './income.css'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 interface BuyInfo {
   AccumulatedIncome?: number
@@ -200,10 +201,7 @@ export default function DeveloperIncome() {
 
   const openIncomePopup = () => {
     if (available <= 0) {
-      showToast({
-        title: tt('developer.income.noAvailable', '暂无可提现金额'),
-        icon: 'none',
-      })
+      onToast(tt('developer.income.noAvailable', '暂无可提现金额'), { kind: 'info' })
       return
     }
     setIncomeType('wechat')
@@ -216,10 +214,7 @@ export default function DeveloperIncome() {
 
   const onIncomeMethodConfirm = () => {
     if (!incomeType) {
-      showToast({
-        title: tt('developer.income.selectMethod', '请选择提现方式'),
-        icon: 'none',
-      })
+      onToast(tt('developer.income.selectMethod', '请选择提现方式'), { kind: 'info' })
       return
     }
     setShowIncomePopup(false)
@@ -234,33 +229,21 @@ export default function DeveloperIncome() {
   const confirmWithdraw = async () => {
     const num = Number(amount)
     if (!num || num <= 0) {
-      showToast({
-        title: tt('developer.income.invalidAmount', '请输入有效金额'),
-        icon: 'none',
-      })
+      onToast(tt('developer.income.invalidAmount', '请输入有效金额'), { kind: 'error' })
       return
     }
     if (num > available) {
-      showToast({
-        title: tt('developer.income.exceedAvailable', '提现金额超出可提现额度'),
-        icon: 'none',
-      })
+      onToast(tt('developer.income.exceedAvailable', '提现金额超出可提现额度'), { kind: 'error' })
       return
     }
     setSubmitting(true)
     try {
       await post('/developer/withdrawals', { amount: num })
-      showToast({
-        title: tt('developer.income.withdrawSubmitted', '提现申请已提交'),
-        icon: 'success',
-      })
+      onToast(tt('developer.income.withdrawSubmitted', '提现申请已提交'), { kind: 'success' })
       setShowPopup(false)
       await Promise.all([loadBuyInfo(), fetchIncomeList(1, settlement, false)])
     } catch {
-      showToast({
-        title: tt('developer.income.withdrawFailed', '提现失败,请稍后重试'),
-        icon: 'none',
-      })
+      onToast(tt('developer.income.withdrawFailed', '提现失败,请稍后重试'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -315,10 +298,7 @@ export default function DeveloperIncome() {
             <Text className="text-label text-[var(--color-danger)]">
               {tt('common.failed', '加载失败')}
             </Text>
-            <Text
-              className="text-label font-semibold text-[var(--color-danger)]"
-              onClick={reload}
-            >
+            <Text className="text-label font-semibold text-[var(--color-danger)]" onClick={reload}>
               {tt('modelIncome.retry', '重试')}
             </Text>
           </View>
@@ -443,7 +423,11 @@ export default function DeveloperIncome() {
         ) : (
           <View className="cash-list">
             {/* back-label-exempt: 面板内视图回退(提现明细→收入概览),非页面级返回键 until 2026-12-31 */}
-            <View onClick={backToIncome} hoverClass="opacity-60" style={{ marginBottom: 'var(--spacing-sm)' }}>
+            <View
+              onClick={backToIncome}
+              hoverClass="opacity-60"
+              style={{ marginBottom: 'var(--spacing-sm)' }}
+            >
               <Text className="income-item-time">{tt('common.back', '返回')}</Text>
             </View>
             {!cashLoaded ? (
@@ -473,7 +457,13 @@ export default function DeveloperIncome() {
               onClick={(e) => e.stopPropagation()}
               hoverClass="opacity-60"
             >
-              <View style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--spacing-xs-loose)' }}>
+              <View
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: 'var(--spacing-xs-loose)',
+                }}
+              >
                 <Text
                   style={{
                     width: '72rpx',

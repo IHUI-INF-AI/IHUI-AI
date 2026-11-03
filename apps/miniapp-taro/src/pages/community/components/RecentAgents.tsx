@@ -9,6 +9,7 @@
 import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { onToast } from '@/host/on-toast'
 
 export interface RecentAgent {
   id: string
@@ -32,7 +33,7 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
   function navigateTo(agent: RecentAgent, idx: number) {
     const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
     if (!userData) {
-      Taro.showToast({ title: tt('ai.aiAssistant.pleaseLogin', '请先登录'), icon: 'none' })
+      onToast(tt('ai.aiAssistant.pleaseLogin', '请先登录'), { kind: 'error' })
       return
     }
     if (agent.type === 3 || agent.type === 5) {

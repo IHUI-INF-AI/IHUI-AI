@@ -1389,6 +1389,7 @@
     "labelPrice": "価格",
     "labelSaleType": "販売タイプ",
     "pricePlaceholder": "価格を入力",
+    "readOnlyHint": "この項目はまだ変更できません",
     "submit": "保存",
     "submitting": "送信中..."
   },
