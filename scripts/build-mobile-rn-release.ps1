@@ -81,10 +81,11 @@
 .PARAMETER NoPublish
   只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
   默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 发到站点 CDN 腿
-  `https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk`(EdgeOne,国内实测 1–4MB/s;
+  (固定地址的唯一真源 = `scripts/data/mobile-download-leg.json`,本文不再复制字面量;
   这条不是实物文件,而是 cdn-server 读旁边指针转出的 no-cache 302,真正长缓存的是带版本号那份)。
   固定地址 ⇒ 用户不用换链接;发布末尾还要从公网回读一次(302 目标 + 大小 + Content-Type),
-  取不到即整条链失败 —— 不许"包好了但没发出去"读成成功。
+  再由 `scripts/check-mobile-download-leg.mjs --apk` 复核证书基准,任一不绿即整条链失败 ——
+  不许"包好了但没发出去"或"发出去但不是正式签名"读成成功。
   腾讯云 COS 备用腿(dl.aizhs.top)已于 2026-10-30 整桶下线:按外网下行流量计费,建桶当天被
   下载 3.48GB 就扣了 1.54 元并把账户打成欠费,而它只是冗余(实测比站点腿慢两个数量级)。
 #>
@@ -562,7 +563,9 @@ Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cy
 $VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
 # 站点 CDN 腿(EdgeOne,2026-10-29 实测国内 1–4MB/s);这是唯一出口,
 # COS/CF 备用腿已于 2026-10-30 下线(按流量计费且比站点腿慢两个数量级)。
-$PublishUrl = 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk'
+# 地址不在本脚本复制:唯一真源 = scripts/data/mobile-download-leg.json(部署机可用 env 覆盖)。
+$MobileLeg = Get-Content (Join-Path $RepoRoot 'scripts/data/mobile-download-leg.json') -Raw | ConvertFrom-Json
+$PublishUrl = if ($env:IHUI_MOBILE_DOWNLOAD_URL) { $env:IHUI_MOBILE_DOWNLOAD_URL } else { $MobileLeg.downloadUrl }
 if ($NoPublish) {
   Write-Warning 'NoPublish: 本次只出包,未发布到公网(固定地址仍是上一版)'
 } else {
@@ -570,6 +573,10 @@ if ($NoPublish) {
   try {
     node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
     if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    node scripts/check-mobile-download-leg.mjs --apk $Apk
+    if ($LASTEXITCODE -ne 0) {
+      throw "下载腿门失败 (exit=$LASTEXITCODE) —— 公网地址/体积/证书基准未全绿(2=skipped/未判定也不是绿),不许当成发布成功"
+    }
   } finally { Pop-Location }
 }
 
