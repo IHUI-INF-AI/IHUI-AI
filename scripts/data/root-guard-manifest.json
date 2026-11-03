@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-03T09:25:37.829Z",
+  "sealedAt": "2026-11-03T13:45:04.354Z",
   "sealedBy": "root-guard --seal",
-  "reason": "guardian-runner 号位顺延(285→288/286→289)后按现盘复核重封",
+  "reason": "复核 6713541c20(收编 origin/main 224 笔的 union)对 scripts/guardian-runner.mjs 的净改动 +42/-7:内容是把号位撞车逐条让号(282/285/286/289 四组)并随行新增 P2 两道门的注册条目,零删除判据、零降档(现读该文件 6968 行,门 103 C1 的 EX-C1-2 豁免在册至 2026-11-10);落地后复跑门 89 接线 R1/R2/R4/R5 与门 103 均绿。清单按现面重封,部署环 fail-closed 由此解除",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "fa3255e8adbc8bd11ebffdab2940199009255a8f811c7e430ff60465f7065f9f"
+      "sha256": "bf5502484c51df07e967098788cef98ebc8b4889fa76ddd16ccbf4f1e8ef7608"
     },
     {
       "id": "judgement-libs",
