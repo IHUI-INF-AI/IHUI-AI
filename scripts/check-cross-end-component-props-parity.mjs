@@ -87,6 +87,53 @@ export function validateEquivalence(table, rootDir = ROOT) {
   })
   return bad
 }
+
+const RULING_WHY_MIN = 24
+
+/**
+ * 台账 not-applicable 裁决校验:三字段(owner/expires/evidence)+ why + 证据落点。
+ * 只有 ok 才允许把对应配对的 undetermined 记成"已裁决";否则裁决无效、仍按 undetermined 点名
+ * (§0.3:不得把"没读到"洗成"判过了")。evidence 形如 `仓库相对路径:行`(可带 `-行` 区间)。
+ */
+export function validateNotApplicable(entry, { now = new Date(), rootDir = ROOT } = {}) {
+  const problems = []
+  if (!entry || entry.state !== 'not-applicable') problems.push('state 必须是 not-applicable')
+  const owner = typeof entry?.owner === 'string' ? entry.owner.trim() : ''
+  if (!owner) problems.push('缺 owner')
+  const expiresRaw = typeof entry?.expires === 'string' ? entry.expires.trim() : ''
+  const expiresAt = /^\d{4}-\d{2}-\d{2}$/.test(expiresRaw) ? new Date(`${expiresRaw}T23:59:59`) : null
+  if (!expiresAt || Number.isNaN(expiresAt.getTime())) problems.push('缺 expires(YYYY-MM-DD)')
+  else if (expiresAt.getTime() < now.getTime()) problems.push(`expires 已到期(${expiresRaw})`)
+  const why = typeof entry?.why === 'string' ? entry.why.trim() : ''
+  if (!why) problems.push('缺 why(为什么不构成对账对象)')
+  else if (why.length < RULING_WHY_MIN) problems.push(`why 过短(< ${RULING_WHY_MIN} 字):不得只写一句理由`)
+  const evidence = Array.isArray(entry?.evidence) ? entry.evidence : []
+  if (evidence.length === 0) problems.push('缺 evidence(仓库内 文件:行)')
+  for (const raw of evidence) {
+    const m = typeof raw === 'string' ? raw.match(/^([^\s:]+):(\d+)(?:-(\d+))?$/) : null
+    if (!m) {
+      problems.push(`evidence 不是 文件:行 形态:${String(raw)}`)
+      continue
+    }
+    const abs = join(rootDir, m[1])
+    if (!existsSync(abs)) {
+      problems.push(`evidence 文件不存在:${m[1]}`)
+      continue
+    }
+    let lines
+    try {
+      lines = readFileSync(abs, 'utf8').split(/\r?\n/).length
+    } catch {
+      problems.push(`evidence 读不到:${m[1]}`)
+      continue
+    }
+    const start = Number(m[2])
+    const end = m[3] ? Number(m[3]) : start
+    if (start < 1 || start > end || end > lines) problems.push(`evidence 行号越界:${raw}(文件共 ${lines} 行)`)
+  }
+  return { ok: problems.length === 0, problems }
+}
+
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
 const quietMode = argv.includes('--quiet')
@@ -106,18 +153,31 @@ const die = (msg, code = 1) => {
   process.exit(code)
 }
 
-/** 与引擎 pairDelta 输出对齐的纯判定(台账 vs 本轮):返回 {bad:[], warn:[], shrunk:[]} */
+/** 与引擎 pairDelta 输出对齐的纯判定(台账 vs 本轮):返回 {bad:[], warn:[], shrunk:[], adjudicated:[]} */
 export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
   const bad = []
   const warn = []
   const shrunk = []
+  const adjudicated = []
   const book = baseline?.pairs ?? {}
   for (const d of deltas) {
+    const e = book[d.name]
     if (d.state === 'undetermined') {
+      // 台账已判 not-applicable 且裁决有效 ⇒ 记"已裁决",不再计入未判定;无效裁决仍要点名(不许洗绿)
+      if (e?.state === 'not-applicable') {
+        const v = validateNotApplicable(e, { now: opts.now, rootDir: opts.rootDir })
+        if (v.ok) adjudicated.push({ pair: d.name, owner: e.owner, expires: e.expires, why: e.why })
+        else
+          warn.push({
+            pair: d.name,
+            kind: 'undetermined',
+            why: `${d.reason} · 台账 not-applicable 裁决无效:${v.problems.join(';')}`,
+          })
+        continue
+      }
       warn.push({ pair: d.name, kind: 'undetermined', why: d.reason })
       continue
     }
-    const e = book[d.name]
     if (!e) {
       const driftish = (d.onlyRn?.length ?? 0) + (d.onlyMini?.length ?? 0) + (d.reqDrift?.length ?? 0)
       if (driftish > 0)
@@ -131,6 +191,23 @@ export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
     }
     if (e.state === 'undetermined') {
       warn.push({ pair: d.name, kind: 'booked-undetermined-now-parseable', why: '台账记的是未判定,本轮已能量出 —— 可收紧台账' })
+      continue
+    }
+    if (e.state === 'not-applicable') {
+      // 判过"不构成对账对象",本轮却能量出 props ⇒ 裁决前提变了,交人复核,不静默沿用
+      const driftish = (d.onlyRn?.length ?? 0) + (d.onlyMini?.length ?? 0) + (d.reqDrift?.length ?? 0)
+      if (driftish > 0)
+        bad.push({
+          pair: d.name,
+          kind: 'booked-not-applicable-now-drifted',
+          detail: `台账判过"不构成对账对象",本轮却已能量出 ${driftish} 处差 —— 裁决失效,按新对复核并重落台账`,
+        })
+      else
+        warn.push({
+          pair: d.name,
+          kind: 'booked-not-applicable-now-measurable',
+          why: '台账判过不适用,本轮已能量出且无差 —— 复核后可改为 ok',
+        })
       continue
     }
     const baseRn = new Set(e.onlyRn ?? [])
@@ -174,11 +251,15 @@ export function verifyAgainstBaseline(deltas, baseline, opts = {}) {
         kind: 'equivalence-stale',
         why: `映射 ${s.ours}↔${s.theirs} 未生效(${s.why}) ⇒ 复核条目并删除或修证据`,
       })
-  return { bad, warn, shrunk }
+  return { bad, warn, shrunk, adjudicated }
 }
 
-export function buildBaselineEntry(d) {
-  if (d.state === 'undetermined') return { state: 'undetermined', reason: d.reason }
+export function buildBaselineEntry(d, previous) {
+  if (d.state === 'undetermined') {
+    // 人工裁决不随 --update-baseline 被冲回"未判定":只能显式撤销(删条目或改成可测的 ok)
+    if (previous?.state === 'not-applicable') return previous
+    return { state: 'undetermined', reason: d.reason }
+  }
   return {
     state: 'ok',
     onlyRn: d.onlyRn ?? [],
@@ -210,29 +291,45 @@ async function main() {
   const equivalenceEntryCount = par.equivalence?.entryCount ?? equivTable.entries.length
 
   const baselineExists = existsSync(join(ROOT, BASELINE_REL))
+  let prior = { pairs: {} }
+  if (baselineExists) {
+    try {
+      prior = JSON.parse(readFileSync(join(ROOT, BASELINE_REL), 'utf8'))
+    } catch {
+      // 坏账不阻断重落;旧裁决无从保留,下面逐对按本轮形态记账
+    }
+  }
   if (updateMode) {
-    const undet = par.deltas.filter((d) => d.state === 'undetermined').length
-    if (par.deltas.length > 0 && undet / par.deltas.length > 0.5)
-      die(`拒写基线:${undet}/${par.deltas.length} 对未判定 —— 多半是编译面瞬时取不到,不得把"没读到"誊进台账冒充"判过"`, 2)
+    // 裁决有效的 not-applicable 不算"未判定",且必须原样保留;无效/过期裁决照旧按 undetermined 拦写保护
+    const keptRulings = new Set(
+      par.deltas
+        .filter((d) => d.state === 'undetermined' && prior?.pairs?.[d.name]?.state === 'not-applicable')
+        .filter((d) => validateNotApplicable(prior.pairs[d.name]).ok)
+        .map((d) => d.name),
+    )
+    const unresolvedUndet = par.deltas.filter((d) => d.state === 'undetermined').length - keptRulings.size
+    if (par.deltas.length > 0 && unresolvedUndet / par.deltas.length > 0.5)
+      die(`拒写基线:${unresolvedUndet}/${par.deltas.length} 对未判定 —— 多半是编译面瞬时取不到,不得把"没读到"誊进台账冒充"判过"`, 2)
     const out = {
       generatedAt: new Date().toISOString(),
       face,
-      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。',
+      rule: '差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。升绝对零前置=存量归零。',
       pairs: {},
       counts: {
         pairs: par.deltas.length,
         drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
         aligned: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal === 0).length,
-        undetermined: undet,
+        undetermined: unresolvedUndet,
+        notApplicable: keptRulings.size,
         maxKeyDrift: Math.max(0, ...par.deltas.map((d) => d.driftTotal ?? 0)),
         driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
         equivalenceEntries: equivalenceEntryCount,
         mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
       },
     }
-    for (const d of par.deltas) out.pairs[d.name] = buildBaselineEntry(d)
+    for (const d of par.deltas) out.pairs[d.name] = buildBaselineEntry(d, prior?.pairs?.[d.name])
     writeFileSync(join(ROOT, BASELINE_REL), JSON.stringify(out, null, 2) + '\n', 'utf8')
-    log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 漂移键总数=${out.counts.driftKeysTotal})`)
+    log(`✅ 基线已落账 → ${BASELINE_REL}(pairs=${out.counts.pairs} 含差=${out.counts.drifted} 未判定=${out.counts.undetermined} 裁决不适用=${out.counts.notApplicable} 漂移键总数=${out.counts.driftKeysTotal})`)
     process.exit(0)
   }
   if (!baselineExists)
@@ -244,11 +341,13 @@ async function main() {
     die(`台账 ${BASELINE_REL} 坏:${String(e?.message).slice(0, 120)} —— 判不出不记绿(§0.3)`, 2)
   }
 
-  const { bad, warn, shrunk } = verifyAgainstBaseline(par.deltas, baseline, { equivalenceEntryCount })
+  const { bad, warn, shrunk, adjudicated } = verifyAgainstBaseline(par.deltas, baseline, { equivalenceEntryCount })
+  const undetTotal = par.deltas.filter((d) => d.state === 'undetermined').length
   const counts = {
     pairs: par.deltas.length,
     drifted: par.deltas.filter((d) => d.state === 'ok' && d.driftTotal > 0).length,
-    undetermined: par.deltas.filter((d) => d.state === 'undetermined').length,
+    undetermined: undetTotal - adjudicated.length,
+    notApplicable: adjudicated.length,
     driftKeysTotal: par.deltas.reduce((s, d) => s + (d.driftTotal ?? 0), 0),
     mappedKeysTotal: par.deltas.reduce((s, d) => s + (d.mappedKeyCount ?? 0), 0),
     equivalenceEntries: equivalenceEntryCount,
@@ -256,14 +355,15 @@ async function main() {
     warnCount: warn.length,
     shrunkPairs: shrunk.length,
   }
-  if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk }, null, 1))
+  if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk, adjudicated }, null, 1))
   else {
     log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
     log(
-      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined} · 本轮新增退化 ${bad.length}`,
+      `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}` : ''} · 本轮新增退化 ${bad.length}`,
     )
     for (const d of par.deltas)
       for (const m of d.mapped ?? []) log(`  ≡ 语义等价 ${d.name}:rn[${m.ours}]↔mini[${m.theirs}](${m.kind})`)
+    for (const a of adjudicated) log(`  ⚪ ${a.pair}(not-applicable): owner=${a.owner} expires=${a.expires} —— ${a.why}`)
     for (const b of bad) log(`  🔴 ${b.pair}(${b.kind}):${b.detail ?? b.why ?? ''}`)
     for (const w of warn) log(`  ⚠️ ${w.pair}(${w.kind}):${w.why ?? ''}`)
     for (const s of shrunk) log(`  ✅ 收敛 ${s.pair}: 已消键 rn[${s.goneRn}] mini[${s.goneMini}] —— 复核后可 --update-baseline 收紧`)
@@ -312,6 +412,27 @@ function selfTest() {
     const v = verifyAgainstBaseline([d('Foo', { mappedStale: [{ ours: 'a', theirs: 'b', why: 'declaration-missing' }] })], { pairs: base.pairs })
     return v.bad.length === 0 && v.warn.some((w) => w.kind === 'equivalence-stale')
   })())
+  // not-applicable 裁决:四件齐全 + 证据落点 ⇒ undetermined 转已裁决;缺字段 ⇒ 裁决无效仍点名
+  const ruling = {
+    state: 'not-applicable',
+    owner: 'cross-end-props-parity',
+    expires: '2027-06-30',
+    evidence: ['packages/app/src/components/ScreenStates.tsx:70'],
+    why: 'ScreenStates 是两端文件基名配上的四组件族容器,文件内无同名组件出口,不能并成单组件 props 键集',
+  }
+  const fixedNow = { now: new Date('2026-11-03T00:00:00') }
+  t('not-applicable 四件齐全+证据落点 ⇒ undetermined 转已裁决', (() => {
+    const v = verifyAgainstBaseline([{ name: 'NA', state: 'undetermined', reason: '多组件族' }], { pairs: { NA: ruling } }, fixedNow)
+    return v.bad.length === 0 && v.warn.length === 0 && v.adjudicated.length === 1
+  })())
+  t('not-applicable 缺 owner/expires/evidence ⇒ 裁决无效,仍按 undetermined 点名', (() => {
+    const v = verifyAgainstBaseline(
+      [{ name: 'NA', state: 'undetermined', reason: '多组件族' }],
+      { pairs: { NA: { state: 'not-applicable', why: '不是同名组件' } } },
+      fixedNow,
+    )
+    return v.adjudicated.length === 0 && v.warn.some((w) => w.pair === 'NA' && w.kind === 'undetermined' && /owner|expires|evidence/.test(w.why))
+  })())
   let fails = 0
   for (const [label, cond] of checks) {
     if (!cond) {
@@ -324,7 +445,7 @@ function selfTest() {
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-export const __test__ = { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence }
+export const __test__ = { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validateNotApplicable }
 if (isDirectRun) {
   main().catch((e) => {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
