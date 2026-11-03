@@ -20,7 +20,7 @@
  */
 
 export const WORKBUDDY_MODEL_PREFIX = 'workbuddy/'
-export const WORKBUDDY_PROVIDER_CODE = 'workbuddy'
+const WORKBUDDY_PROVIDER_CODE = 'workbuddy'
 
 export interface WorkbuddyUpstreamModel {
   id: string
@@ -139,7 +139,7 @@ interface SqlStatement {
  * 从登记表 jsonl 文本取 workbuddy 档位。取不到 / 不可信 ⇒ `{ok:false, why}` 且 why 写明出路
  * (失效方向恒为"多要一次定向说明",绝不回落硬编码档位、绝不静默跳写)。
  */
-export function parseWorkbuddyRegistration(
+function parseWorkbuddyRegistration(
   registryText: string,
 ): { ok: true; contract: WorkbuddyRegistrationContract } | { ok: false; why: string } {
   const hits: Array<Record<string, unknown>> = []
@@ -197,7 +197,7 @@ export function parseWorkbuddyRegistration(
 }
 
 /** 配置行匹配键与登记器 readSnapshot 同源:(provider_code, base_url, owner_uuid IS NULL)。 */
-export function buildConfigMatchStatement(contract: WorkbuddyRegistrationContract): SqlStatement {
+function buildConfigMatchStatement(contract: WorkbuddyRegistrationContract): SqlStatement {
   return {
     sql: `select id from ai_model_config
      where provider_code=$1 and base_url=$2 and owner_uuid is null order by id limit 1`,
@@ -209,7 +209,7 @@ export function buildConfigMatchStatement(contract: WorkbuddyRegistrationContrac
  * 配置行落库语句。既有行只回写双方共源的 name/api_format/enabled 与动态侧自有的
  * provider_group/group_label;base_url(匹配键)与 description(登记器 insert-only)不覆盖。
  */
-export function buildConfigSyncStatements(
+function buildConfigSyncStatements(
   contract: WorkbuddyRegistrationContract,
   display: { description: string; providerGroup: string; groupLabel: string },
   existingId: number | null,
@@ -246,7 +246,7 @@ export function buildConfigSyncStatements(
 }
 
 /** 模型行落库语句:enabled / is_relay_public 取登记表档位;能力/定价列归动态同步器。 */
-export function buildModelSyncStatements(
+function buildModelSyncStatements(
   contract: WorkbuddyRegistrationContract,
   configId: number,
   row: WorkbuddyPoolModelRow,

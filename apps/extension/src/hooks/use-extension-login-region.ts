@@ -19,7 +19,6 @@
  * 各是独立进程,互不影响)。取不到不写缓存语义?——写:失败也是「这一轮判不出」的结论,
  * 反复重试只会把登录页的每一次渲染都变成一次网络往返;真正的重判发生在下一次打开扩展面板。
  */
-import * as React from 'react'
 import { getOAuthStatus } from '@ihui/api-client'
 import type { LoginRegion } from '@ihui/ui-react'
 
@@ -42,30 +41,6 @@ function loadLoginRegion(): Promise<LoginRegion | null> {
       .catch(() => null)
   }
   return loginRegionCache
-}
-
-/**
- * 服务器按访客来源 IP 判出的登录呈现地区;`null` = 未判定(必须回落 locale)。
- *
- * `enabled` 缺省为 true(sidepanel 的登录页本就只在未登录时挂载)。popup 的登录界面
- * 与已登录界面共用同一个 App 组件、hook 不能条件调用,故由调用方传 `!user` 把 GET
- * 关在「真的要看登录表单」的那一刻——已登录用户不该为一条排版判据多跑一次网络往返。
- */
-export function useExtensionLoginRegion(enabled = true): LoginRegion | null {
-  const [region, setRegion] = React.useState<LoginRegion | null>(null)
-
-  React.useEffect(() => {
-    if (!enabled) return
-    let alive = true
-    void loadLoginRegion().then((next) => {
-      if (alive && next) setRegion(next)
-    })
-    return () => {
-      alive = false
-    }
-  }, [enabled])
-
-  return region
 }
 
 /** 测试面:模块级「只取一次」缓存不清掉就无法在同一进程逐档验(报 domestic / 报 overseas / 取不到)。 */
