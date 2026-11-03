@@ -530,6 +530,15 @@ export function readUserFeedback({
   try {
     rows = readJsonlRows(jsonlPath, readFile)
   } catch (e) {
+    // 缺件是**导出器的合法态**(`export-user-feedback.mjs` 未判定档明确不落盘),不是坏读:
+    // 这里显式判「不存在 ⇒ 无数据/未判定」,不把底层 ENOENT 当成错误文案刷进守护日志;
+    // 但状态仍是 undetermined —— 缺件不得读成"0 条 = 无发现"(§0.3)。
+    if (e?.code === 'ENOENT') {
+      return {
+        status: 'undetermined',
+        why: `用户反馈导出件不存在(${jsonlPath})—— 生产者本轮未判定/未落盘,无数据可读,判未判定`,
+      }
+    }
     return { status: 'undetermined', why: `用户反馈导出件读不到(${jsonlPath}):${e?.message ?? e}` }
   }
   const actionable = new Set(['bug', 'feature', 'improvement', 'other'])
@@ -1535,6 +1544,15 @@ async function selfTest() {
       const und = readUserFeedback({
         query: () => ({ status: 'undetermined', why: 'psql 不可用(自检夹具)' }),
       })
+      // 配了导出路径但文件不存在:导出器的合法未判定态 ⇒ 显式「不存在/无数据」,不甩底层 ENOENT 文案
+      const missing = readUserFeedback({
+        jsonlPath: '/__never__/user-feedback-export.jsonl',
+        readFile: () => {
+          const e = new Error('ENOENT: no such file or directory')
+          e.code = 'ENOENT'
+          throw e
+        },
+      })
       const got = readUserFeedback({
         query: () => ({
           status: 'ok',
@@ -1551,6 +1569,9 @@ async function selfTest() {
       return (
         und.status === 'undetermined' &&
         /psql 不可用/.test(und.why) &&
+        missing.status === 'undetermined' &&
+        /不存在/.test(missing.why) &&
+        !/ENOENT/.test(missing.why) &&
         got.status === 'ok' &&
         got.records.length === 1
       )
