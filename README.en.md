@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4001 | `testFiles` |
+| 测试文件 | 4002 | `testFiles` |
 | CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 316 | `guardianGates` |
 | — blocking | 287 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18844 | `trackedFiles` |
+| 跟踪文件 | 18846 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,19 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (318d219ba2)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (fd21ed3065)
+- 🐞 Fix:就绪探针放宽 + 队列锁期补登记 + 侧栏分组标题脱离 10px 档 (8bfa76bddb)
+
+**2026-11-03**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (274d22ec99)
+- 🚀 Feature/Improvement:考勤后端面补全 票B67 B70 B71 B72 承载层格 (5d1e160ebc)
+- 🚀 Feature/Improvement:文档中心公开面健康门装车(编号 282,blocking)+ 补记上一枚占位信息 (54e17854b2)
+- 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (aa859c014b)
+
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (e92e623473)
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (ef806aa543)
@@ -199,116 +212,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 
 **2026-11-02**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (fb8410f958)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dd0248cbd2)
-- 🔧 Chore/Other:清算主工作树滞后副本并补齐派生产物 (04d0c2c7cb)
-- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (05e0909aff)
-- 🔧 Chore/Other:重封 AGENTS.md 铁律段哈希，消除合流后 advisory 告警 (86bde84fa7)
-- 🔧 Chore/Other:补 .gitignore 兜住本地优选 IP 凭据，避免令牌误入库 (213b7c038c)
-- 🔧 Chore/Other:重生成 ui-routes 生成物（911 条），对齐设置页新卡片 (d388266f28)
-- 🔧 Chore/Other:按新 HEAD 源重生成离线语言包（键 544→592，钉 2fb7af837e） (2f98eb1e6b)
-
-**2026-11-02**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (c5a90766cf)
-
-**2026-11-01**
-- 🐞 Fix:probe 改派 headless 可执行的只读自检,解危险拒签死循环 (1e42fc5e81)
-- 🐞 Fix:自治环改用 tsx 加载 CLI 源码,解除 dist 未 bundle 导致的会话派发死锁 (4aa78225b0)
-- 🔧 Chore/Other:派单面管理员闸 + LIKE转义 + publish同源SSRF闸 (c85a866895)
-- 🐞 Fix:盘根白名单补 MiniMaxCode(D: 盘已安装应用,消除误报外流) (65b643bb9c)
-- 🚀 Feature/Improvement:会话全文落盘腿与CLI空转/无头审批人根因修复 (09a3f02274)
-- 🔧 Chore/Other:subagent 全局配置变更面强制管理员闸 (c8c4213622)
-- 🔧 Chore/Other:收口越权/SSRF/注入/凭据泄露 5 类高危面 (ff4d42705a)
-- 🐞 Fix:qoder 保活腿——单轮瞬时失败静音,连续失败才报警 (a72ca967d3)
-- 📚 Docs:标注暴露凭据轮换未判定保留 warning 的安全域意图 (74bb1a4c02)
-- 🐞 Fix:噪声治理——info 档只登记不寄信 + 自愈全成功静音 (28b2cee5df)
-- 🐞 Fix:CLI 登录态写入不再因 ENOENT 打断整轮派发 —— 服务身份下 USERPROFILE 没有机主的登录态 (2c346fb800)
-- 🐞 Fix:票面被截断时风险因子不许读 0 —— 那是"把高风险票排到前面"的失效方向 (65cc7e48a0)
-- 🚀 Feature/Improvement:打通自开发最后三格 —— 会话干完能落账、排期真按模型走、经验真能沉淀 (bf1a42f113)
-- 🐞 Fix:上下文/记忆面 8 个端点的身份从"自报"改成"注入" (9103baba9b)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (1b6443c3ab)
-- 🐞 Fix:收窄 mobile-rn 两处依赖数组消除 exhaustive-deps 红、favorites 镜像件与生成器补 resourceType/resourceId 契约注解、CI pytest 覆盖 basetemp 根因 (c97d501323)
-- 🐞 Fix:补上五处"闸装错了层/装错了方向"的凭据与主体防线 (f4d5103361)
-- 🐞 Fix:派发契约尺子学会说取不到输入,隧道不在位不再被念成接线消失 (03a4fdd580)
-- 🐞 Fix:5类报警根因修复 + 报警前自愈路由层 (1827fde982)
-- 🐞 Fix:两维尺子不再因历史存量恒红 —— 结算腿改结清全部悬案,A3 只在封禁过半时叫人 (c08df4d714)
-- 🐞 Fix:裸字面量 TTL 归口常量、两枚策略常量搬到可扫描取用点、probe-dev-extra 进 CI 自述点名表 (9fb6fee7a8)
-- 🐞 Fix:冲突标记门体接旁路落地自证臂并扣减空冲突区补回量 (c3fc430bc5)
-- 🚀 Feature/Improvement:两类写了没装车的展示契约与错误码契约装上真取用点 (98f7f3be13)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (837e41f4fb)
-- 🚀 Feature/Improvement:给自开发装上"派发结算"这一问 —— 会话 exit 0 从此不等于票推进了 (31ec3e231f)
-- 🔧 Chore/Other:本席认领「灰度观察窗排在换流之后」并挂租约(防双开;SPLIT 席已停笔,该格由 OBSWIN 席接手) (6341165f67)
-- 🐞 Fix:供应商健康摘要的 30s SWR 策略从装饰常量收成单一旋钮 (71b2265af0)
-- 🐞 Fix:摘掉被 union 归并留成两份的 workbook 路由注册,并把零 JSX 的 React 模块从 .tsx 改回 .ts (8eebef0d1f)
-- 🚀 Feature/Improvement:灰度期实切车道计数持久化 + 熔断记账按轮次结果分桶(收编 SPLIT 席产出) (2829bd6e34)
-- 🚀 Feature/Improvement:端侧存储 transport 取用归口到各端工厂,并收掉 shared 里未接线的 JSON 装饰层 (199c84c412)
-- 🚀 Feature/Improvement:五枚"写了保留策略却从未执行"的清理函数装上真实触发点 (69a64068bd)
-- 📚 Docs:执行体积清偿第六批——4 行逐字移入归档件,原位置只留一句指针注记 (d3baf99018)
-- 📚 Docs:落 AGENTS.md 体积清偿第六批的逐字迁出件(先落归档,再摘正文,防 merge-live-doc 把搬走的行判成 lost 补回) (5a6c653770)
-- 📚 Docs:再摘一次合流捞回的冲突标记行,并把回捞这一型登记成在册票 (24ff0bc188)
-- 📚 Docs:登记「冲突标记经旁路落地+行级 union 反复回捞」这一格(本席已认领,含两轮实测 sha 与出路) (9795d38e68)
-- 📚 Docs:补上编辑意图预测(Predictive Edit)能力清单——服务端三态/前端三把钥匙/scene 分账/真模型取证首跑(§21 交付门槛:新增端能力须同枚更新 README) (639c0bb9d2)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (177ac30e3c)
-- 🐞 Fix:合流选边遗留的接线红就地收正——W10 补回采样面折算维,部署环 decide 同时带两把钥匙 (ef4c07a465)
-- 🐞 Fix:产物 token 的签名密钥去掉公开常量兜底,并把"生产必填"那句话真接成启动闸;SaaS 模板弱默认口令封口 (da6f241813)
-- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (7a809936fe)
-- 🐞 Fix:收正合流选边遗留两格——灰度产物来源换回对侧定案形态 + web 族源收成共享层壳 (77cb1dc7f1)
-- 🐞 Fix:/api/context 进"永不公开"地板 —— 那张 router 七格全无端点级身份,靠陈旧 .env 就能匿名重开 (e119289438)
-- 🐞 Fix:clawdbot 整面闸升到带 requireActiveUser 的档位;并更正我自己写进提交史的一句 folklore (8c7054044b)
-- 🐞 Fix:摘除合并落进 AGENTS.md 的三行未解决冲突标记 (08b12deaa4)
-- 🐞 Fix:MCP 项目/集成面收归令牌主体,并堵掉"裸 id 可删任意 system_configs 行"的跨面删除 (3d31adbdac)
-- 🐞 Fix:票59 消息级版本切换补上小程序消费腿 + 灰度补 P95 延迟劣化真策略用例 (a92c063cac)
-- 🐞 Fix:摘掉打死守护的三处悬空引用,补齐 pure 层缺失的同类节流判据 (f73fb2793d)
-- 🐞 Fix:工作簿读写面补装车 —— 五条端点此前线上全 404,而仓里那把"必须注册"的尺一直红着 (75de94caae)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (f4e8324d22)
-- 🚀 Feature/Improvement:barrel 销账下到符号级,标题臂不再写死形态名——清掉两条假账 (bc64e57842)
-- 🔧 Chore/Other:壳声明件跟随自动升级的 4 枚页(按 HEAD 面派生) (b2b9dfd385)
-- 🔧 Chore/Other:自动把 4 枚手写镜像页升级为壳承载 (a69349f15b)
-- 🚀 Feature/Improvement:列表分页与输入框聚焦两族按「闭环在不在屏上」销账——再解放 2 页 (c395144e6c)
-- 🚀 Feature/Improvement:判据认「barrel 里只装了导航条」这一型重复接线——两页当场变 convertible (830fb1b708)
-- 🐞 Fix:合并后重生成 miniapp 两族派生产物(门 105 的 G5 钉随输入集更新) (0373e9aa2b)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (afc5595c90)
-- 🐞 Fix:正文作用域补上承载壳——判据认「提示住在壳里」这一格 (5b3db1a65e)
-- 🔧 Chore/Other:收编停留≥3分钟的 i18n 未提交改动 (bd98a24260)
-- 🔧 Chore/Other:修三处 api 存量红 —— 豁免清单腐烂 / 出站口换 undici / 返回面加了 localEmbedded (39b1ee5ca2)
-- 🐞 Fix:parentMessageId 口径加宽到 string | null + 小程序腿三处类型错 + knip 兼容层出口盲区登记豁免 (1f1e6e99fb)
-- 🐞 Fix:回补 cli 包 14 枚动态派生词条 + 登记契约键 (bac640521e)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fbad083b81)
-- 🐞 Fix:清掉 api 包的四类存量 lint 红 + captcha 清理按自身头注分批 (3ebae14ded)
-- 🚀 Feature/Improvement:ws-chat 把断线补发/幂等去重/跨实例限流三枚工具模块装进生产生命周期 (fadde1bce7)
-- ♻️ Refactor:useFontMultiplier 改名 readFontMultiplier —— 它是纯读函数,不是 React Hook (e75621c841)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7362129f72)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (eb60e13737)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9930484394)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (da729e3f6f)
-- 🐞 Fix:chat-sync 帧收件人只取承载层认证身份,堵死客户端自报 userId 的跨用户投递 (58fb182dec)
-- 🔧 Chore/Other:给 hub 早退分支的工具入参校验补行为锁 (bbbf3f7443)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (fbb4ec7ea9)
-- 🐞 Fix:套件红项分诊末簇收口——①百分比裁剪 5 处内联手搓收敛到具名唯一出口 clampPercent(@ihui/shared/utils/clamp-percent,api/miniapp/mobile-rn/packages-app×2,语义逐字等价:toNumber 保证有限值/round 先后序等价/NaN 归 0 为出口既定语义),edu-grade-trend 本地同名实现摘除;②三枚镜像测试对齐现形(ui-react T5 仓外样本改真仓兄弟路径构造——toRel 纯路径数学无需夹具/mkScratch 已入仓内批准根;tool-arg-wired 守恒式补 forwarded 转发豁免桶——头注恒等式 covered+forwarded+uncovered===total;transcript TA-12 数据条件化——audit.jsonl schema 演化后 path-ish 族为 0 条,判存在性用门体单源 extractTarget) (f25456c0fd)
-- 🐞 Fix:合并后重新施加本侧独有的两格运行时缺口 —— Modal 遮罩点关 + Image onLoad 转发 (5f38f5d8dd)
-- 🐞 Fix:卫生门真债+旧尺各一——①dev-stack-launch-fallback.test.mjs:77 中文绝对路径字面量改 \u 转义构造(运行时语义不变,销 GBK 乱码违规;HEAD 面欠账只有带进 HEAD 的提交能销);②check-workspace-hygiene 落点判据对齐 G-158 现形(改用唯一判据 isAllowedScratchRoot,批准根已入仓内 .DevEnv——判据没跟上设计红在尺子,check-service-binary-paths F3 同型) (007f24437c)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (225523491f)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (312ff9ad19)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0d8853a870)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (9ab4908d49)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (97a63e10e8)
-- 🐞 Fix:套件红项分诊第一簇续收 4 格——测试形状正则对齐现形(commit-payload 发令帮手改名 commitArgv/d159 合并命名出口/deploy-diverged 补救功能已整票回退故豁免面关闭零破坏性动词/arg-guard getOpt 三参) (3e76692c31)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (3722d122d7)
-- 🔧 Chore/Other:收编停留≥3分钟的 i18n 未提交改动 (eb97698dbc)
-- 📚 Docs:T12 §5b 状态更新——#8/#6 身份半格已落地,#5 大半落地,#3 缓议有因 (4b188b3468)
-- 🚀 Feature/Improvement:钩子派发宿主身份核验(deny-by-default)—— T12 缺口表 #6 半格收口 (713eaf1513)
-- 🚀 Feature/Improvement:索引快照压缩落盘(gzip 魔数自识别)—— T12 缺口表 #8 落地 (3b3e9542a4)
-- 🔧 Chore/Other:parity-auto-stage-crash.test.mjs 溯源水印欠账带进 HEAD(门47 HEAD面欠账清偿) (aaabb813bf)
-- 🔧 Chore/Other:回正 check-pkg-installable 镜像夹具的包名(包更名后夹具腐烂) (7fba73b50f)
-- 🐞 Fix:灰度产物来源定案,放量判定拆成在位三态并不再把未判定折成通过 (5d2380fe2f)
-- ♻️ Refactor:危险操作确认旁路的消费侧收拢到唯一出口并锁零就地判定 (88763ecb62)
-- 🐞 Fix:号池入库契约把 phone 提为显式键并锁四档命名优先级(O66) (369f74ab01)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5cc57906d3)
-- 🐞 Fix:小程序宿主 typecheck 61→0 —— 去掉索引签名,RN 事件/props 类型面归口 primitives (ff2abfcdbf)
-- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (dc9a528104)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (cffca2c7c7)
-- 🐞 Fix:F6 判据改行级预算口径,根治「union 重组涌现块」半格死锁 (1addf6f4ab)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
@@ -391,6 +294,10 @@ Publish-line cookie probing (`services/publish/cookie_refresh_daemon.py`) and AI
 - **Alert outlet**: the site-wide `notifications` table, **one aggregated notification per owner per round** (19 accounts expiring at once must not send 19 messages — users then mute it and never see the real one); non-uuid owners such as `probe-user` are dropped and counted, because one bad owner aborts the whole batch insert; a missing table is reported as a warning rather than pretended delivered. `KEEPALIVE_ALERT_WEBHOOK` adds an extra leg. The whole path is fail-open — a failed notification never interrupts keepalive.
 - **Switches**: `KEEPALIVE_ENABLED`, inherited from `COOKIE_REFRESH_ENABLED` / `CHECKIN_CRON_ENABLED` when unset; `resolve_config()` re-reads every round, so an `.env` change takes effect on the next round without a restart. Related defaults: `INTERVAL_HOURS`=6, `RETRY_MAX`=3, `RETRY_BASE_SECONDS`=300, `RETRY_CAP_SECONDS`=21600, `ALERT_AFTER_FAILURES`=3, `ALERT_REPEAT_HOURS`=24, `EXPIRE_WARN_DAYS`=3, `ALERT_INAPP`=true, `PROBE_CONCURRENCY`=4, `EVENT_RETENTION_DAYS`=90.
 - **Bounds**: it judges credential liveness only — publishing still belongs to the publish scheduler and daily check-in to `checkin_scheduler`, otherwise one account gets hit by two writers at once. Front end: `apps/web/src/components/publish/KeepaliveCenterPanel.tsx` on `/publish/accounts`; client wrappers in `packages/api-client/src/endpoints/keepalive.ts`.
+
+### Academic admin and attendance in the education vertical (added 2026-11-03 — thresholds, absence back-fill, approval coupling)
+
+Per-class cut-offs for lateness, early leave and absence live in `edu_attendance_rule` (three `HH:MM` thresholds plus the QR signing secret, editable in the web academic console). A scheduled job (`edu-attendance-absent-daily`) back-fills an `absent` row for every enrolled student who has not checked in once the absence threshold passes, so attendance rate is no longer divided by checked-in students only. Approving a leave request writes the matching `leave` rows idempotently in the same transaction. Whole-class batch check-in confirms the affected set against the database (`created · skipped · missedIds`), and attendance exports to CSV. Check-in comes in three modes — `manual`(teacher proxy), `self`(student self-service) and `qrcode`(HMAC-signed QR with a 60-second TTL, rendered on web and RN, scanned on RN and the mini-program). Students get their own attendance page on all three ends through `GET /attendance/me`, which trusts only the authenticated session and resolves ownership server-side; the parent portal reads attendance behind per-endpoint authentication. Face check-in was ruled out instead of stubbed: it would require a third-party face library, liveness detection and consent handling.
 
 ## 🚀 Quick start
 
