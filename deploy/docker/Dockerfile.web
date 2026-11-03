@@ -41,18 +41,31 @@ COPY packages/ui-react/package.json ./packages/ui-react/
 # 只装 package.json 缺该脚本必挂 Cannot find module(2026-09-10)
 COPY apps/web/scripts ./apps/web/scripts/
 # --no-frozen-lockfile: 允许安装 package.json 中新增的 @lobehub/icons 依赖
-RUN pnpm install --no-frozen-lockfile
+# 2026-11-03(CI 提速):pnpm store 挂 BuildKit cache mount —— 实测 install 要下载 1331 个包,
+# store 命中后这一层在同一个 builder 上变成纯链接。注意:cache mount **不会**被 type=gha
+# 导出(跨 run 零收益),跨 run 的收益来自下面按清单分层的 `COPY package.json...` 层复用。
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --no-frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
 # 复制 deps 阶段整个 /app(含所有 workspace 包的 node_modules + package.json)
 # .dockerignore 已排除本地 node_modules,后续 COPY . . 不会覆盖
 COPY --from=deps /app/ ./
+# 2026-11-03(CI 提速):把"构建 web 的 7 个 workspace 依赖"单独成层。
+# 原写法是 `COPY . .` 之后一条命令连跑 `@ihui/web^... build` + `web build:static`,于是
+# 任意一个文件改动都会让依赖构建层失效,连 9.7min 的 next build 前面的依赖构建也要重来。
+# 现在依赖构建只依赖 packages/**、根清单、tsconfig.base.json 与 scripts/ —— 改 apps/ 其它
+# 应用(api / cli / extension 源码)不会击穿这一层。命令逐字未变。
+COPY packages ./packages
+COPY apps/web/package.json ./apps/web/package.json
+COPY tsconfig.base.json ./
+COPY scripts ./scripts
+RUN pnpm --filter @ihui/web^... run build
 COPY . .
 # web prebuild 链会构建 @ihui/extension(wxt)并同步下载产物。extension 依赖不在 deps
 # 闭包内(postinstall wxt prepare 需完整源码,deps 阶段只有 package.json 会挂),
 # 待 builder 阶段源码就位后再补装其依赖(2026-09-10)
-RUN pnpm install --no-frozen-lockfile --filter @ihui/extension...
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --no-frozen-lockfile --filter @ihui/extension...
 ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8802
@@ -75,7 +88,9 @@ RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
 # @ihui/api-client 在 next build 里 Module not found(2026-09-23 实测 CI build-web 恒红即此;
 # 同仓 Dockerfile.api 用 `run build` 故 build-api 一直绿 —— 两者只差在脚本名,本地不跑 docker 时零信号)。
 # 故先用 `^...`(仅依赖、不含 web 自身)跑各依赖的 build,再跑 web 的 build:static。
-RUN pnpm --filter @ihui/web^... run build && pnpm --filter @ihui/web run build:static
+# 2026-11-03:两条命令拆开是让 `@ihui/web^... build` 能落在上面那个"只随 packages/** 失效"
+# 的层里(命令本身逐字未变);next build 仍每次真跑,没有缓存命中时也不跳过。
+RUN pnpm --filter @ihui/web run build:static
 
 # A 套壳架构(2026-07-24):output:'export' 静态导出,nginx 提供静态文件 + API 反向代理
 # 替代原 standalone + node server.js 方案,因为 output:'export' 不生成 server.js

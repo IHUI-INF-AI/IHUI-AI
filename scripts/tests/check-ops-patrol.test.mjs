@@ -1027,7 +1027,7 @@ import { parse as parsePath } from 'node:path'
 
 // 判据一律取源文件那一份（§22c）：这里只 import，不在测试里重写候选序或存在性判定。
 // 坐标也经同一个出口算（同 lib/deploy-decisions-face.test.mjs 的做法），不另抄一遍优先序。
-import { devEnvRoot as devEnvRootUnderTest } from '../seal-c-root-stray.mjs'
+import { devEnvArtifactCandidates, devEnvArtifactRoot, devEnvRoot as devEnvRootUnderTest } from '../seal-c-root-stray.mjs'
 
 const { prodCheckoutRoot, prodDeployLoopLog } = mod.__test__
 
@@ -1163,6 +1163,100 @@ test('prodCheckoutRoot 真机形态锁：本机只要任一形态真有生产根
       existsReal(derived),
       `本机存在生产根却解析到不存在的 "${derived}" ⇒ 形态并集失效，"线上此刻"两条 oracle 会重新变瞎`,
     )
+  }
+})
+
+// ────────────────────────────────────────────────────────────────────────────────
+// 按件选根（2026-11-02 形状锁）：`.DevEnv` 根在、monitor/logs/backups 子树仍在旧根的那种机器，
+// 不能拿"根目录存在"替所有件作答。这里摆虚拟坐标，锁"桩新根 + 完整旧根 ⇒ 8 格全走旧根"与
+// "新根也有件 ⇒ 新根优先"；不碰真盘、不依赖本机此刻是哪一种形态。
+// 8 格 → 5 个按件相对路径：P1/P11 共用 monitor/prometheus，P5/P7 覆盖/P7 同哈希共用 backups/pg。
+const ARTIFACT_CELLS = [
+  ['P1', 'monitor/prometheus'],
+  ['P11', 'monitor/prometheus'],
+  ['P2', 'monitor/alertmanager'],
+  ['P4b', 'logs'],
+  ['P4c', 'backups/archives'],
+  ['P5·数据库备份产出', 'backups/pg'],
+  ['P7·覆盖对账', 'backups/pg'],
+  ['P7·同哈希', 'backups/pg'],
+]
+const ARTIFACT_RELS = [...new Set(ARTIFACT_CELLS.map(([, rel]) => rel))]
+const vnew = 'X:/vnew/.DevEnv'
+const vold = 'X:/vold/DevEnv'
+const vnorm = (p) => resolve(p)
+
+test('按件选根:桩新根 + 完整旧根 ⇒ 8 格全部走旧根', () => {
+  const onlyOld = new Set(ARTIFACT_RELS.map((rel) => vnorm(join(vold, rel))))
+  const exists = (p) => onlyOld.has(vnorm(p))
+  for (const [cell, rel] of ARTIFACT_CELLS) {
+    assert.equal(
+      vnorm(devEnvArtifactRoot(rel, { roots: [vnew, vold], exists })),
+      vnorm(vold),
+      `${cell}(${rel}) 只在旧根,选根却指向了新根桩 ⇒ 这一格在真机上会读成未判定`,
+    )
+  }
+  assert.deepEqual(
+    devEnvArtifactCandidates('monitor/prometheus', { roots: [vnew, vold], env: {} }),
+    [vnorm(join(vnew, 'monitor/prometheus')), vnorm(join(vold, 'monitor/prometheus'))],
+    '候选序必须是新根→旧根(仅当本机确有旧根);顺序反了会把新根上的件让给旧根',
+  )
+})
+
+test('按件选根:新根也有该件 ⇒ 新根优先(回落不得改写优先级)', () => {
+  const both = new Set(ARTIFACT_RELS.flatMap((rel) => [vnorm(join(vnew, rel)), vnorm(join(vold, rel))]))
+  const exists = (p) => both.has(vnorm(p))
+  assert.equal(
+    vnorm(devEnvArtifactRoot('monitor/prometheus', { roots: [vnew, vold], exists })),
+    vnorm(vnew),
+    '新根也有 prometheus ⇒ 必须取新根(搬迁完成后不能还读旧根)',
+  )
+  const noArtifact = new Set([vnorm(join(vold, 'logs'))])
+  assert.equal(
+    vnorm(devEnvArtifactRoot('monitor/prometheus', { roots: [vnew, vold], exists: (p) => noArtifact.has(vnorm(p)) })),
+    vnorm(vnew),
+    '两候选都没有该件 ⇒ 交回主候选点名,不得悄悄折成旧根',
+  )
+})
+
+test('checkGrowth 按件取材:P4b/P4c 用传入的旧根目录,P4a 仍用 devEnv 的 Temp', () => {
+  const base = mkScratch('p4-artifact-root-')
+  try {
+    const newRoot = join(base, 'new')
+    const oldRoot = join(base, 'old')
+    mkdirSync(join(newRoot, 'Temp'), { recursive: true })
+    writeFileSync(join(newRoot, 'Temp', 'scratch.tmp'), 'x', 'utf8')
+    mkdirSync(join(oldRoot, 'logs'), { recursive: true })
+    mkdirSync(join(oldRoot, 'backups', 'archives'), { recursive: true })
+    writeFileSync(join(oldRoot, 'logs', 'app.log'), 'x', 'utf8')
+    writeFileSync(join(oldRoot, 'backups', 'archives', 'a.zip'), 'x', 'utf8')
+    const rows = mod.checkGrowth({
+      devEnv: newRoot,
+      logsDir: join(oldRoot, 'logs'),
+      archivesDir: join(oldRoot, 'backups/archives'),
+    })
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]))
+    assert.equal(byId.P4a.state, 'ok', 'P4a 仍须量 devEnv 的 Temp,不得被旧根 5.87GB 拖红')
+    // 绿档 detail 只报字节/条目/阈值、不含路径(这是既有报告形状),所以"用哪一份"用状态证:
+    // 新根下没有 logs/backups/archives,能 ok 只可能是用了传进来的旧根目录。
+    assert.equal(byId.P4b.state, 'ok', 'P4b 必须量旧根 logs(新根没有它 ⇒ 拿到未判定就是没按件选根)')
+    assert.equal(byId.P4c.state, 'ok', 'P4c 必须量旧根 archives(新根没有它 ⇒ 拿到未判定就是没按件选根)')
+    // 路径证据另用一条:把 logsDir 指到不存在的目录,未判定 detail 会点名它 —— 证明传入的
+    // 路径真的被用作取材面,而不是被默认拼接悄悄替掉。
+    const missingLogs = join(base, 'no-such-logs')
+    const rows2 = mod.checkGrowth({
+      devEnv: newRoot,
+      logsDir: missingLogs,
+      archivesDir: join(oldRoot, 'backups/archives'),
+    })
+    const p4b2 = rows2.find((r) => r.id === 'P4b')
+    assert.equal(p4b2.state, 'undetermined', '传不存在的目录必须落未判定,不得回落默认目录记绿')
+    assert.ok(
+      p4b2.detail.includes(missingLogs),
+      `未判定原因必须点名传入的取材路径,实得 ${p4b2.detail}`,
+    )
+  } finally {
+    rmScratch(base)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

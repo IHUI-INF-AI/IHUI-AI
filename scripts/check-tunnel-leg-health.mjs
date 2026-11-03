@@ -36,13 +36,28 @@
  *   一轮都判不出来(等于没装车)。故按**地址族分流**:v6 源走 ipv6 寿命表(判据一字不改),v4 源走
  *   `netsh interface ipv4 show addresses`(该表实测**没有**寿命/退化字段 ⇒ 在册即健康;
  *   **两表皆无**且两路采集都成功 ⇒ breach:在用源地址已不在任何接口上,腿随时整组断)。
+ * - 〔2026-11-03 修假红:QUIC 下 TCP 腿数恒 0〕服务 ImagePath 实测已是
+ *   `… --loglevel info tunnel --no-autoupdate run --protocol quic --token-file …`。**QUIC 跑在 UDP 上,
+ *   netstat 的 TCP 7843/7844 结构上永远 0 条 ESTABLISHED** ⇒ 旧判据(只数 TCP)在进程健在时判
+ *   「腿数 = 0 ⇒ 隧道断了」,每 4 小时(§5e 去重窗)寄一封假红(2026-11-02 22:41 已寄出一封,
+ *   不修则 02:41–03:02 再寄)。同一时刻的真值:metrics `cloudflared_tunnel_ha_connections = 4`、
+ *   4 个 `quic_client_*` conn_index、4 个 UDP 套接字、日志 0 次 Unregistered/Retrying、连续 2 小时稳定。
+ *   ⇒ 腿数主源改为 metrics gauge(**复用第五维已有的 metrics 抓取路径**,不另造 HTTP 客户端);
+ *   netstat TCP 计数**只在 http2 下当交叉校验**(http2 走 TCP,旧判据在那儿仍然成立);协议判定取
+ *   `quic_client_*` 指标族 / 服务 ImagePath 的 `--protocol` / 拓扑(TCP 有腿 = http2,TCP 无腿而
+ *   gauge 有读数 = quic)任一可靠来源,全都判不出 ⇒ **unjudged**(§0.10:不判红也不判绿,且该档不发信)。
+ *   腿数档位(2026-11-03 定):0 = 断流 breach;1 = 仅剩一条腿、HA 无冗余 ⇒ breach(实测 gauge 1 就是
+ *   «真掉腿»,不许被新的 metrics 主源洗成绿);2–3 = 掉腿 warn(只报数不寄人);≥4 = ok。基线 4 =
+ *   cloudflared 默认 `ha-connections` 且本部署实测常态(日志 connIndex 0..3)。**既有维度阈值**
+ *   (重启 4/24h、双启 90s、停抖 15min、PoP 表)一字未动。
  *
  * ## 三态纪律(§0.3)
  *
  * 每维独立给 ok / breach / unjudged,各自计未判定,互不顶账。取不到输入(netsh 失败 /
  * tasklist 失败 / netstat 无行 / 解析不出地址 / 腿的源地址查不到)⇒ unjudged 并点名原因,
  * 不记绿也不冒红。腿数枚举为 0 分两种:进程在而无腿 = breach(隧道断了);进程不在 =
- * unjudged 并点名(本尺子不判定"服务本该在跑")。
+ * unjudged 并点名(本尺子不判定"服务本该在跑")。quic 下 netstat 的 TCP 枚举恒 0,不再等于「无腿」:
+ * 腿数由 metrics gauge 给,读不出 gauge 时落 unjudged(不判红也不判绿)。
  * 阳性对照:每轮真跑前先用构造夹具("已知坏":首选寿命 0s 的在用源地址)证明判据有牙,
  * 对照不命中 ⇒ 整轮降 exit 3(判据失效的表现为安静,§12f)。
  *
@@ -53,7 +68,8 @@
  *
  * ## 取材面(守门 118 口径声明)
  *
- * 本器判的是**机器运行时状态**(netsh 地址表(ipv6 寿命表 + ipv4 地址表)/netstat/tasklist 多路现读,全是原生命令行工具 —— PowerShell 在守护身份下冷启动超时会把三格洗成永久未判定),不读任何仓库内容 ⇒
+ * 本器判的是**机器运行时状态**(netsh 地址表(ipv6 寿命表 + ipv4 地址表)/netstat/tasklist/
+ * cloudflared 自带 metrics 端点(回环 HTTP,端口按 pid 现读)/`sc qc` 服务配置 多路现读,原生工具 —— PowerShell 在守护身份下冷启动超时会把三格洗成永久未判定),不读任何仓库内容 ⇒
  * 没有 HEAD/索引/--staged 档,也不出现 readFileSync + resolve(ROOT…) 组合;输入取不到时
  * 一律落到对应维的 unjudged,不回落、不猜。
  */
@@ -61,6 +77,15 @@ import { execFile } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
 const REMOTE_TUNNEL_PORTS = [7843, 7844]
+// 腿数主源(2026-11-03 立):cloudflared 自带 metrics 的 HA 连接 gauge。它与协议无关 ——
+// http2 走 TCP、quic 走 UDP,而 gauge 数的是"活着的隧道连接",正是"腿"。实测 2026-11-03 quic 下 = 4。
+const HA_CONNECTIONS_METRIC = 'cloudflared_tunnel_ha_connections'
+// 健康基线(不是新判据的阈值,而是**部署事实**):cloudflared 默认 `--ha-connections 4`,本服务
+// ImagePath 没覆盖该项;日志 connIndex 0..3 + 4 个 UDP 套接字 + gauge 4 三路同刻实测。掉到 2–3 只报数,
+// 掉到 1 = 只剩一条腿、任何一次重连都直接全站 530 ⇒ breach(与"0 条 = 断流"同一档,见头注)。
+const EXPECTED_HA_LEGS = 4
+const SC_EXE = 'C:/Windows/System32/sc.exe'
+const CLOUDFLARED_SERVICE_NAME = 'Cloudflared'
 // 为什么用 tasklist 而不是 PowerShell 取 pid(2026-10-16 实测,不是偏好问题):守护以 LocalSystem
 // 身份跑,Windows PowerShell 5.1 在该身份下冷启动 >15s 会被本器采集超时杀掉 ⇒ 三格全部 unjudged、
 // 这把哨永远不会喊人(现场:.ihui-agent/state/tunnel-leg-health-last.json 的 failedCollectSources =
@@ -233,6 +258,28 @@ export function parseNetstatLegs(text, pids, ports = REMOTE_TUNNEL_PORTS) {
 }
 
 /**
+ * quic 下唯一还能从 netstat 面读到的形态:本 pid 的 UDP 套接字(2026-11-03 立)。
+ * 为什么**不拿它当腿数**:Windows 的 UDP 行没有远端地址/端口(恒 `*:*`),物理上无法把套接字
+ * 映射到某一条隧道腿;它只是"传输层还开着几个口"的旁证 ⇒ 只进 corroboration 证据字段,
+ * 判定仍以 metrics gauge 为准。按**本地端口去重**:实测同一端口会同时出现在 `0.0.0.0:port`
+ * 与 `[::]:port` 两行(双栈),按行数会数成 8。
+ */
+export function parseNetstatUdpSockets(text, pids) {
+  const pidSet = new Set((pids || []).map(String))
+  const ports = new Set()
+  if (pidSet.size === 0) return 0
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/)
+    if (cols.length < 4 || cols[0].toUpperCase() !== 'UDP') continue
+    if (!pidSet.has(cols[cols.length - 1])) continue
+    const m = /^\[?([^\]]*)\]?:(\d+)$/.exec(cols[1])
+    if (!m) continue
+    ports.add(m[2])
+  }
+  return ports.size
+}
+
+/**
  * 第五维的取材点:cloudflared 自带 metrics 端点在本机回环上 LISTENING(实测 127.0.0.1:20241,
  * 端口**每次启动可能变** ⇒ 一律从 netstat 里按 pid 现读,绝不硬编码)。
  * 只认本 pid 的 LISTENING + 回环地址,避免把别的服务的端口当成隧道的。
@@ -266,6 +313,58 @@ export function parseServerLocations(text) {
     ;(m[2] === '1' ? current : previous).push(m[1])
   }
   return { current: [...new Set(current)], previous: [...new Set(previous)] }
+}
+
+/**
+ * metrics 文本 → 腿数(2026-11-03 立,腿数主源)。只认同名 gauge 行,解析不出 ⇒ null。
+ * 「读不出」绝不折成 0 —— 0 在本尺子里是"隧道断了"的实义读数,拿读不出冒充 0 就是假红(§0.3)。
+ */
+export function parseTunnelHaConnections(text) {
+  let value = null
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const m = /^cloudflared_tunnel_ha_connections(?:\{[^}]*\})?\s+(\S+)\s*$/.exec(raw.trim())
+    if (!m) continue
+    const v = Number(m[1])
+    if (!Number.isFinite(v)) continue
+    value = v
+  }
+  return value
+}
+
+/**
+ * metrics 文本 → 协议(2026-11-03 立)。`quic_client_*` 指标族只在 QUIC 传输真的建立后才注册
+ * (实测 2026-11-03 4 条 quic 腿时存在 20+ 条;http2 档一条都不出现)⇒ 存在即判 quic。
+ * 没有该族**不反证 http2**(http2 没有对应的专属指标族)⇒ 返回 null,交给下一个来源。
+ */
+export function detectProtocolFromMetrics(text) {
+  return /^\s*quic_client_[a-z0-9_]+\s*(?:\{[^}]*\})?\s+/m.test(String(text || '')) ? 'quic' : null
+}
+
+/**
+ * 服务 ImagePath → 协议(2026-11-03 立)。`sc qc Cloudflared` 的值是 ASCII 参数串(标签随身份
+ * 中英切换,但 `--protocol` 这个开关本身不会译)⇒ 只认这个 ASCII 开关,不认标签文案。
+ * `auto`/其它取值 ⇒ null(= 该来源不作证;auto 的实际协议由 metrics 或拓扑定)。
+ */
+export function detectProtocolFromServiceCmdline(text) {
+  const m = /--protocol(?:=|\s+)(?:"([^"]+)"|'([^']+)'|([^\s"']+))/i.exec(String(text || ''))
+  if (!m) return null
+  const v = String(m[1] || m[2] || m[3] || '')
+    .trim()
+    .toLowerCase()
+  return v === 'quic' || v === 'http2' ? v : null
+}
+
+/**
+ * 协议合流(优先级 = 证据强度):metrics 的 quic 指标族(运行中进程的实证)> 服务 ImagePath 的
+ * `--protocol`(启动声明)> 拓扑(有 TCP 腿只能是 http2;TCP 无腿而 gauge 有读数只能是 UDP 的 quic)。
+ * 全都判不出 ⇒ 'unknown',判定层落 unjudged(§0.10:不判红也不判绿)。
+ */
+export function resolveProtocol({ protocolHint = null, metricsProtocol = null, haConnections = null, tcpLegs = 0 } = {}) {
+  if (metricsProtocol === 'quic') return 'quic'
+  if (protocolHint === 'quic' || protocolHint === 'http2') return protocolHint
+  if (Number(tcpLegs) > 0) return 'http2'
+  if (Number.isFinite(Number(haConnections)) && Number(haConnections) > 0) return 'quic'
+  return 'unknown'
 }
 
 /**
@@ -441,27 +540,150 @@ function combineDeprecatedFamilyParts(parts, amplifying) {
 }
 
 /**
+ * 腿数对账证据(2026-11-03 立):metrics gauge 与 netstat 计数一致 ⇒ 记证据字段;不一致 ⇒ 明写两读数
+ * 与"按谁判、为什么",不静默取一个。quic 下 TCP 枚举恒 0 属**结构事实**不构成矛盾,此时用 UDP
+ * 套接字数当旁证;旁证也取不到 ⇒ single-source(只声明来源,不冒充交叉验证)。
+ */
+export function buildLegCorroboration({ protocol, haConnections, tcpLegs, udpSockets }) {
+  const gauge = haConnections
+  const udp = udpSockets
+  if (protocol === 'quic') {
+    if (udp === null) {
+      return {
+        status: 'single-source',
+        note: 'quic 下 netstat 的 TCP 枚举结构上恒 0 ⇒ 不能交叉校验;UDP 套接字数也取不到 ⇒ 腿数只有 metrics 一个来源(single-source,照实标注)',
+      }
+    }
+    return gauge === udp
+      ? { status: 'agree', note: `metrics gauge=${gauge} 与 netstat UDP 套接字去重端口数=${udp} 一致` }
+      : {
+          status: 'disagree',
+          note: `metrics gauge=${gauge} 与 netstat UDP 套接字去重端口数=${udp} 不一致;腿数按 metrics gauge 判(套接字可能比连接更晚回收),两读数都照实留档,不静默取一个`,
+        }
+  }
+  if (gauge === null) {
+    return {
+      status: 'single-source',
+      note: `metrics gauge 取不到 ⇒ 腿数只有 netstat TCP 一个来源(single-source,照实标注):${tcpLegs} 条`,
+    }
+  }
+  return gauge === tcpLegs
+    ? { status: 'agree', note: `metrics gauge=${gauge} 与 netstat TCP(7843/7844 ESTABLISHED)=${tcpLegs} 一致` }
+    : {
+        status: 'disagree',
+        note: `metrics gauge=${gauge} 与 netstat TCP 腿数=${tcpLegs} 不一致;腿数按 netstat TCP 判(http2 下 OS 的 ESTABLISHED 是直接事实,metrics 可能滞后),两读数都照实留档,不静默取一个`,
+      }
+}
+
+/**
+ * 腿数档位(2026-11-03 定档,取"当前还有几条腿"):0 = 断流;1 = 仅剩一条腿、HA 无冗余(任一次重连
+ * 即全站 530)⇒ 两档都 breach;2–3 = 掉腿但仍在跑 ⇒ warn 只报数;≥4 = ok(基线见 EXPECTED_HA_LEGS)。
+ */
+function legCountVerdict(n, reading, pidText) {
+  if (n === 0) {
+    return { verdict: 'breach', reason: `进程在(pid=${pidText})而活着的隧道腿数 = 0(${reading.source})—— 隧道断了`, reading }
+  }
+  if (n === 1) {
+    return {
+      verdict: 'breach',
+      reason: `进程在(pid=${pidText})但只剩 1 条腿(${reading.source};基线 ${EXPECTED_HA_LEGS} 条)—— HA 无冗余:这一次重连失败就是全站 530`,
+      reading,
+    }
+  }
+  if (n < EXPECTED_HA_LEGS) {
+    return {
+      verdict: 'warn',
+      reason: `掉腿:活着的腿 ${n} / 基线 ${EXPECTED_HA_LEGS}(${reading.source})—— 仍在跑,只报数不寄人`,
+      reading,
+    }
+  }
+  return { verdict: 'ok', reading }
+}
+
+function judgeLegCount({ processProbe, pids, processPresent, netstatProbe, legs, metricsProbe, haConnections, udpSockets, protocolHint, metricsProtocol }) {
+  const tcpLegs = legs.length
+  const gauge = haConnections === null || haConnections === undefined ? null : Number.isFinite(Number(haConnections)) ? Number(haConnections) : null
+  const udp = udpSockets === null || udpSockets === undefined ? null : Number.isFinite(Number(udpSockets)) ? Number(udpSockets) : 0
+  if (processProbe !== 'ok') {
+    return { verdict: 'unjudged', reason: 'tasklist 取 pid 失败,进程存在性未知' }
+  }
+  if (processPresent === false) {
+    return { verdict: 'unjudged', reason: 'cloudflared 进程不存在 —— 本尺子不判定"服务本该在跑",0 条腿不能记成断流' }
+  }
+  // 旧夹具 / 第三方调用没采 metrics('absent')⇒ 判据保持分流前原样(TCP 腿数),不凭空多一格 unjudged。
+  if (metricsProbe === 'absent') {
+    if (netstatProbe !== 'ok') return { verdict: 'unjudged', reason: 'netstat 采集失败,腿数不可测' }
+    if (tcpLegs === 0) {
+      return {
+        verdict: 'breach',
+        reason: `进程在(pid=${pids.join(',')})而 7843/7844 上 ESTABLISHED 腿数 = 0 —— 隧道断了`,
+        reading: { legs: 0, source: 'netstat:tcp', pids },
+      }
+    }
+    return { verdict: 'ok', reading: { legs: tcpLegs, pids } }
+  }
+  const protocol = resolveProtocol({ protocolHint, metricsProtocol, haConnections: gauge, tcpLegs })
+  const pidText = pids.join(',')
+  if (protocol === 'http2') {
+    if (netstatProbe !== 'ok') return { verdict: 'unjudged', reason: 'netstat 采集失败,腿数不可测' }
+    const reading = {
+      legs: tcpLegs,
+      expected: EXPECTED_HA_LEGS,
+      protocol,
+      source: 'netstat:tcp',
+      haConnections: gauge,
+      netstatTcpLegs: tcpLegs,
+      udpSockets: udp,
+      corroboration: buildLegCorroboration({ protocol, haConnections: gauge, tcpLegs, udpSockets: udp }),
+      pids,
+    }
+    return legCountVerdict(tcpLegs, reading, pidText)
+  }
+  if (protocol === 'quic') {
+    if (gauge === null) {
+      return {
+        verdict: 'unjudged',
+        reason: `协议 = quic 而 metrics 未给出 ${HA_CONNECTIONS_METRIC}(quic 走 UDP,TCP 枚举结构上恒 0)⇒ 腿数不可测,不判红也不判绿`,
+        reading: { protocol, haConnections: null, netstatTcpLegs: tcpLegs, udpSockets: udp },
+      }
+    }
+    const reading = {
+      legs: gauge,
+      expected: EXPECTED_HA_LEGS,
+      protocol,
+      source: `metrics:${HA_CONNECTIONS_METRIC}`,
+      haConnections: gauge,
+      netstatTcpLegs: tcpLegs,
+      udpSockets: udp,
+      corroboration: buildLegCorroboration({ protocol, haConnections: gauge, tcpLegs, udpSockets: udp }),
+      pids,
+    }
+    return legCountVerdict(gauge, reading, pidText)
+  }
+  // 协议判不出(TCP 无腿、metrics 无 quic 指标族、服务配置也没写 --protocol)⇒ §0.10 的失效方向:
+  // 不判红(那正是这次要修的假红型),也不判绿(那会把真断流洗白)⇒ 未判定并点名缺哪几路证据。
+  return {
+    verdict: 'unjudged',
+    reason: `协议无法判定(metrics 无 quic 指标族 / 服务 ImagePath 无 --protocol / TCP 也无腿可作拓扑证据;${HA_CONNECTIONS_METRIC}=${gauge === null ? '取不到' : gauge})⇒ 腿数不判红也不判绿`,
+    reading: { protocol: 'unknown', haConnections: gauge, netstatTcpLegs: tcpLegs, udpSockets: udp },
+  }
+}
+
+/**
  * 核心判定:输入是采集层给出的原始事实(或测试夹具),输出每维独立结论。
  * processProbe: 'ok'(拿到 pid 列表) | 'failed'(探测本身失败 ⇒ 进程存在性未知)
  * netshProbe / netstatProbe: 'ok' | 'failed'(netshProbe = netsh interface **ipv6** 寿命表那一路)
  * netshV4Probe: 'ok' | 'failed' | 'blind'(命令成功却解析不出任何 v4 地址 ⇒ 采集失明) | 'absent'(调用方没采)
  * v4Addresses: netsh interface ipv4 show addresses 解析出的地址表
+ * haConnections: metrics `cloudflared_tunnel_ha_connections` 读数(null = 读不出)
+ * udpSockets: netstat 里本 pid 的 UDP 去重端口数(quic 旁证,null = 取不到)
+ * protocolHint / metricsProtocol: 服务 ImagePath 的 `--protocol` / metrics 的 quic 指标族证据
  */
-export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent', netstatProbe, legs, addresses, v4Addresses = new Map(), eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null, nowMs = Date.now() }) {
+export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent', netstatProbe, legs, addresses, v4Addresses = new Map(), eventsProbe = 'absent', restarts = null, metricsProbe = 'absent', locations = null, haConnections = null, udpSockets = null, protocolHint = null, metricsProtocol = null, nowMs = Date.now() }) {
   const dims = {}
   const processPresent = processProbe === 'ok' ? pids.length > 0 : null
 
-  if (processProbe !== 'ok') {
-    dims['leg-count'] = { verdict: 'unjudged', reason: 'tasklist 取 pid 失败,进程存在性未知' }
-  } else if (processPresent === false) {
-    dims['leg-count'] = { verdict: 'unjudged', reason: 'cloudflared 进程不存在 —— 本尺子不判定"服务本该在跑",0 条腿不能记成断流' }
-  } else if (netstatProbe !== 'ok') {
-    dims['leg-count'] = { verdict: 'unjudged', reason: 'netstat 采集失败,腿数不可测' }
-  } else if (legs.length === 0) {
-    dims['leg-count'] = { verdict: 'breach', reason: `进程在(pid=${pids.join(',')})而 7843/7844 上 ESTABLISHED 腿数 = 0 —— 隧道断了` }
-  } else {
-    dims['leg-count'] = { verdict: 'ok', reading: { legs: legs.length, pids } }
-  }
+  dims['leg-count'] = judgeLegCount({ processProbe, pids, processPresent, netstatProbe, legs, metricsProbe, haConnections, udpSockets, protocolHint, metricsProtocol })
 
   // 第四维:重启账(事件日志 provider=Cloudflared 的生命周期)。为什么值得单立:
   // 15:40 那次重启实测留下约 3 分钟入口中断(监控 15:41 现读到 530),而 10-15 的"21 秒内两次 starting"
@@ -509,11 +731,21 @@ export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent',
 
   const sources = [...new Set(legs.map((l) => l.source))]
   const legsKnown = processProbe === 'ok' && pids.length > 0 && netstatProbe === 'ok' && legs.length > 0
+  // quic 结构盲区归因(2026-11-03 方案 A,只修文案):协议判得出 quic 且 TCP 枚举为 0 时,
+  // deprecated-source / single-source-point 的失明根因是「Windows UDP 行无远端地址、本地地址
+  // 为通配 ⇒ 逐腿源地址物理上不可枚举」(见 parseNetstatUdpSockets 头注),不是"腿已全断/腿数
+  // 不足"——同一时刻 metrics gauge 可能正读着 4 条活腿。verdict 仍 unjudged、exit 仍 3、不发信,
+  // 判定强度一字未动。
+  const quicBlind = legs.length === 0 && resolveProtocol({ protocolHint, metricsProtocol, haConnections, tcpLegs: legs.length }) === 'quic'
 
   if (!legsKnown) {
     dims['deprecated-source'] = {
       verdict: 'unjudged',
-      reason: dims['leg-count'].verdict === 'breach' ? '无腿可查在用源地址(腿已全断)' : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
+      reason: quicBlind
+        ? 'quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判(不记绿也不判红)'
+        : dims['leg-count'].verdict === 'breach'
+          ? '无腿可查在用源地址(腿已全断)'
+          : '没有可判的在用腿,源地址枚举为 0 ⇒ 不记绿',
     }
   } else {
     const amplifying = sources.length === 1 && legs.length >= 2
@@ -528,7 +760,12 @@ export function judge({ processProbe, pids, netshProbe, netshV4Probe = 'absent',
   }
 
   if (!legsKnown) {
-    dims['single-source-point'] = { verdict: 'unjudged', reason: '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)' }
+    dims['single-source-point'] = {
+      verdict: 'unjudged',
+      reason: quicBlind
+        ? 'quic 结构盲区:UDP netstat 行无远端地址,逐腿源地址物理上不可枚举 ⇒ 该维 quic 下不可判(单点评估依赖逐腿源地址)'
+        : '腿数不足以评估单点(枚举 <1 条腿 ⇒ 该维不判定)',
+    }
   } else if (legs.length >= 2 && sources.length === 1) {
     dims['single-source-point'] = { verdict: 'warn', reason: `全部 ${legs.length} 条腿共用同一源地址 ${sources[0]}(单点;健康态亦为此形态 ⇒ 只报数不判红,§12e)`, reading: { sources: 1 } }
   } else {
@@ -589,10 +826,45 @@ export function positiveControl() {
     addresses: new Map([['2408::ok', { kind: '公用', state: '首选项', validLifetime: '2d', preferredLifetime: '1d' }]]),
     v4Addresses: new Map([['10.0.0.1', { address: '10.0.0.1', state: '', line: 'IP address: 10.0.0.1' }]]),
   })
+  // 第三路对照(2026-11-03 立,quic 腿数支的"有牙证明"):真实形态(TCP 0 / UDP 4 / gauge 4)必须 ok;
+  // gauge 掉到 1 必须 breach。这条专门防"假红修成假绿":新主源被摘成恒绿时,真掉腿这枚立刻不命中 ⇒ 整轮降未判定。
+  const quicDims = judge({
+    processProbe: 'ok',
+    pids: ['999'],
+    netshProbe: 'ok',
+    netstatProbe: 'ok',
+    legs: [],
+    addresses: new Map(),
+    metricsProbe: 'ok',
+    metricsProtocol: 'quic',
+    protocolHint: 'quic',
+    haConnections: 4,
+    udpSockets: 4,
+  })
+  const quicDropDims = judge({
+    processProbe: 'ok',
+    pids: ['999'],
+    netshProbe: 'ok',
+    netstatProbe: 'ok',
+    legs: [],
+    addresses: new Map(),
+    metricsProbe: 'ok',
+    metricsProtocol: 'quic',
+    protocolHint: 'quic',
+    haConnections: 1,
+    udpSockets: 1,
+  })
   return {
-    passed: dims['deprecated-source'].verdict === 'breach' && dims['leg-count'].verdict === 'ok' && v4Dims['deprecated-source'].verdict === 'breach',
+    passed:
+      dims['deprecated-source'].verdict === 'breach' &&
+      dims['leg-count'].verdict === 'ok' &&
+      v4Dims['deprecated-source'].verdict === 'breach' &&
+      quicDims['leg-count'].verdict === 'ok' &&
+      quicDropDims['leg-count'].verdict === 'breach',
     dims,
     v4Dims,
+    quicDims,
+    quicDropDims,
   }
 }
 
@@ -605,12 +877,13 @@ export function decideExit(dims, controlPassed) {
 }
 
 async function collect() {
-  const [ps, netsh, netshV4, netstat, ev] = await Promise.all([
+  const [ps, netsh, netshV4, netstat, ev, sc] = await Promise.all([
     runCapture(TASKLIST, ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq cloudflared.exe'], TASKLIST_TIMEOUT_MS),
     runCapture('netsh', ['interface', 'ipv6', 'show', 'addresses']),
     runCapture('netsh', ['interface', 'ipv4', 'show', 'addresses']),
     runCapture('netstat', ['-ano']),
     runCapture(WEVTUTIL, ['qe', 'Application', `/q:*[System[Provider[@Name=\'Cloudflared\'] and TimeCreated[timediff(@SystemTime) <= ${RESTART_EVENT_WINDOW_MS}]]]`, '/f:XML', '/c:200'], SPAWN_TIMEOUT_MS),
+    runCapture(SC_EXE, ['qc', CLOUDFLARED_SERVICE_NAME], SPAWN_TIMEOUT_MS),
   ])
   const processProbe = ps.ok && !ps.killed ? 'ok' : 'failed'
   const pids = processProbe === 'ok' ? parseTasklistPids(ps.stdout) : []
@@ -626,14 +899,24 @@ async function collect() {
   const netshV4Probe = !netshV4.ok || netshV4.killed ? 'failed' : v4Parsed.size === 0 ? 'blind' : 'ok'
   const v4Addresses = v4Parsed
   const { legs, unparseableTcp } = netstatProbe === 'ok' ? parseNetstatLegs(netstat.stdout, pids) : { legs: [], unparseableTcp: [] }
+  // 腿数旁证:本 pid 的 UDP 去重端口数(quic 走 UDP 时这是 netstat 面唯一的形态;仅进证据字段)。
+  const udpSockets = netstatProbe === 'ok' ? parseNetstatUdpSockets(netstat.stdout, pids) : null
+  // 协议来源之二:服务 ImagePath 的 `--protocol`(启动声明;`auto`/没写 ⇒ 不作证)。
+  const protocolHint = sc.ok && !sc.killed ? detectProtocolFromServiceCmdline(sc.stdout) : null
   // 第五维取材:端口现读(不硬编码),HTTP 只给 5 秒,取不到就如实记 failed(不折成"落点近")。
+  // 腿数主源(2026-11-03)复用同一条抓取:一次 GET 同时喂第五维与腿数,不另造 HTTP 客户端。
   const metricsPort = netstatProbe === 'ok' ? parseMetricsListenPort(netstat.stdout, pids) : null
   let metricsProbe = 'failed'
   let locations = null
+  let haConnections = null
+  let metricsProtocol = null
   if (metricsPort !== null) {
     try {
       const res = await fetch(`http://127.0.0.1:${metricsPort}/metrics`, { signal: AbortSignal.timeout(5000) })
-      locations = classifyEdgeLocations(parseServerLocations(await res.text()).current)
+      const text = await res.text()
+      locations = classifyEdgeLocations(parseServerLocations(text).current)
+      haConnections = parseTunnelHaConnections(text)
+      metricsProtocol = detectProtocolFromMetrics(text)
       metricsProbe = 'ok'
     } catch {
       metricsProbe = 'failed'
@@ -648,7 +931,7 @@ async function collect() {
     eventsProbe === 'failed' ? `wevtutil(${ev.err || '输出异常或解析不出事件'})` : null,
     metricsProbe === 'failed' ? `cloudflared-metrics(${metricsPort === null ? '未枚举到本 pid 的回环监听端口' : 'HTTP 失败或超时'})` : null,
   ].filter(Boolean)
-  return { processProbe, pids, netshProbe, netshV4Probe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, v4Addresses, unparseableTcp, metricsProbe, locations, metricsPort, failedNames, evidenceAt: new Date().toISOString() }
+  return { processProbe, pids, netshProbe, netshV4Probe, netstatProbe, eventsProbe, restarts, eventTotal: events.length, legs, addresses, v4Addresses, unparseableTcp, metricsProbe, locations, metricsPort, haConnections, metricsProtocol, protocolHint, udpSockets, failedNames, evidenceAt: new Date().toISOString() }
 }
 
 function formatHuman(dims, exitCode, evidenceAt, extra) {
@@ -688,13 +971,22 @@ async function main() {
   const exitCode = decideExit(dims, control.passed)
   if (!control.passed) dims['positive-control'] = { verdict: 'unjudged', reason: '阳性对照不命中 ⇒ 判据无牙,整轮降未判定' }
   if (argv.includes('--json')) {
+    // legs 从 2026-11-03 起 = **判定层实际采信的腿数**(quic 下是 metrics gauge,不再是恒 0 的 TCP 枚举);
+    // netstatTcpLegs 另列,保留原始 TCP 计数供核对。
+    const legReading = dims['leg-count']?.reading ?? null
     console.log(
       JSON.stringify({
         tool: 'check-tunnel-leg-health',
         exitCode,
         evidenceAt: collected.evidenceAt,
         pids: collected.pids,
-        legs: collected.legs.length,
+        legs: legReading?.legs ?? null,
+        legCountSource: legReading?.source ?? null,
+        protocol: legReading?.protocol ?? null,
+        haConnections: collected.haConnections,
+        netstatTcpLegs: collected.legs.length,
+        udpSockets: collected.udpSockets,
+        legCountCorroboration: legReading?.corroboration ?? null,
         netshV4Probe: collected.netshV4Probe,
         v4AddressCount: collected.v4Addresses.size,
         metricsPort: collected.metricsPort ?? null,
@@ -760,6 +1052,52 @@ function selfTest() {
     const { legs } = parseNetstatLegs(nsText, ['1484'])
     eq(legs.length, 2, '腿数')
     eq(legs[0].source, '2408:8234::60a3', '方括号剥净')
+  })
+  // ───────── quic 腿数支(2026-11-03 立)─────────
+  const quicMetricsText = [
+    '# HELP cloudflared_tunnel_ha_connections Number of active ha connections',
+    '# TYPE cloudflared_tunnel_ha_connections gauge',
+    'cloudflared_tunnel_ha_connections 4',
+    'quic_client_smoothed_rtt{conn_index="0"} 62.5',
+    'cloudflared_tunnel_server_locations{connection_id="0",edge_location="lax08"} 1',
+  ].join('\n')
+  t('metrics 腿数解析:只认同名 gauge;读不出 ⇒ null(绝不折成 0)', () => {
+    eq(parseTunnelHaConnections(quicMetricsText), 4, 'gauge 4')
+    eq(parseTunnelHaConnections(''), null, '空文本')
+    eq(parseTunnelHaConnections('# TYPE cloudflared_tunnel_ha_connections gauge'), null, '只有 HELP/TYPE 行不算读数')
+    eq(parseTunnelHaConnections('cloudflared_tunnel_ha_connections NaN'), null, 'NaN 不算读数')
+  })
+  t('协议判定:quic 指标族 / --protocol / 拓扑三路;auto 不作证', () => {
+    eq(detectProtocolFromMetrics(quicMetricsText), 'quic', 'quic_client_* 存在 ⇒ quic')
+    eq(detectProtocolFromMetrics('# TYPE cloudflared_tunnel_ha_connections gauge'), null, '无 quic 族不反证 http2')
+    eq(detectProtocolFromServiceCmdline('BINARY_PATH_NAME : "D:\\cloudflared.exe" --loglevel info tunnel --no-autoupdate run --protocol quic --token-file x'), 'quic', 'ImagePath 空格式')
+    eq(detectProtocolFromServiceCmdline('cloudflared.exe tunnel run --protocol=http2'), 'http2', 'ImagePath 等号式')
+    eq(detectProtocolFromServiceCmdline('cloudflared.exe tunnel run --protocol auto'), null, 'auto 不作证')
+    eq(resolveProtocol({ tcpLegs: 2 }), 'http2', '有 TCP 腿 ⇒ http2')
+    eq(resolveProtocol({ haConnections: 4 }), 'quic', 'TCP 无腿而 gauge 有读数 ⇒ quic')
+    eq(resolveProtocol({ protocolHint: 'http2', haConnections: 4 }), 'http2', '配置声明优先于拓扑')
+    eq(resolveProtocol({}), 'unknown', '三路全无 ⇒ unknown')
+  })
+  t('netstat UDP 套接字:本 pid 去重端口(双栈两行不重复计)', () => {
+    const udpText = [
+      '  UDP    0.0.0.0:54703          *:*                                    1484',
+      '  UDP    [::]:54703             *:*                                    1484',
+      '  UDP    0.0.0.0:54704          *:*                                    1484',
+      '  UDP    0.0.0.0:53             *:*                                    9999',
+    ].join('\n')
+    eq(parseNetstatUdpSockets(udpText, ['1484']), 2, '去重端口数')
+    eq(parseNetstatUdpSockets(udpText, []), 0, '没 pid 不算')
+  })
+  t('leg-count quic 支:gauge 4 ⇒ ok;gauge 1 ⇒ breach;gauge 读不出 ⇒ unjudged', () => {
+    const ok = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [], addresses: new Map(), metricsProbe: 'ok', metricsProtocol: 'quic', protocolHint: 'quic', haConnections: 4, udpSockets: 4 })
+    eq(ok['leg-count'].verdict, 'ok', 'quic 4 条腿')
+    eq(ok['leg-count'].reading.legs, 4, '腿数读数')
+    eq(ok['leg-count'].reading.corroboration.status, 'agree', 'UDP 旁证一致')
+    const drop = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [], addresses: new Map(), metricsProbe: 'ok', metricsProtocol: 'quic', protocolHint: 'quic', haConnections: 1, udpSockets: 1 })
+    eq(drop['leg-count'].verdict, 'breach', 'gauge 1 = 真掉腿')
+    const blind = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [], addresses: new Map(), metricsProbe: 'failed', metricsProtocol: 'quic', protocolHint: 'quic', haConnections: null, udpSockets: null })
+    eq(blind['leg-count'].verdict, 'unjudged', 'gauge 读不出 ⇒ 未判定')
+    eq(/不判红也不判绿/.test(String(blind['leg-count'].reason)), true, '必须明说方向')
   })
   t('leg-count:进程在而无腿 = breach;进程不在 = unjudged(不并桶)', () => {
     const d1 = judge({ processProbe: 'ok', pids: ['1'], netshProbe: 'ok', netstatProbe: 'ok', legs: [], addresses: new Map() })
@@ -975,6 +1313,12 @@ export const __test__ = {
   judgeV4Family,
   judgeV6Family,
   parseNetstatLegs,
+  parseNetstatUdpSockets,
+  parseTunnelHaConnections,
+  detectProtocolFromMetrics,
+  detectProtocolFromServiceCmdline,
+  resolveProtocol,
+  buildLegCorroboration,
   isDeprecatedRecord,
   parseTasklistPids,
   parseMetricsListenPort,
@@ -987,5 +1331,6 @@ export const __test__ = {
   positiveControl,
   decideExit,
   REMOTE_TUNNEL_PORTS,
+  EXPECTED_HA_LEGS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

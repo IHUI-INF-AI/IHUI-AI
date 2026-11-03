@@ -6038,9 +6038,20 @@
     "status": {
       "present": "정상",
       "late": "지각",
+      "early": "조퇴",
       "absent": "결석",
-      "leave": "조퇴"
-    }
+      "leave": "공결"
+    },
+    "chooseAction": "작업 선택",
+    "actionDone": "작업 성공",
+    "actionFailed": "작업 실패",
+    "needClassId": "반 정보가 없어 대리 등교/하교를 할 수 없습니다",
+    "onlyTodayCheckIn": "대리 체크인은 당일만 가능합니다: 과거 날짜는 해당 날짜 내 시각이 필요하며 이 화면에서는 지원하지 않습니다",
+    "batchTitle": "반 전체 출석 체크",
+    "chooseClass": "출석 체크할 반을 선택하세요",
+    "noClass": "현재 목록에 선택할 반이 없습니다",
+    "batchResult": "출석 완료: 신규 {created}, 건너뜀 {skipped}, 누락 {missed}",
+    "qrEntry": "체크인 QR 표시"
   },
   "eduGrades": {
     "title": "성적 관리",
@@ -7207,5 +7218,31 @@
     "empty": "콘텐츠가 없습니다",
     "searchNoResult": "결과 없음",
     "retry": "재시도"
+  },
+  "eduMyAttendance": {
+    "title": "내 출석",
+    "selfCheckIn": "등교 체크하기",
+    "date": "날짜",
+    "notLoggedIn": "로그인하지 않아 사용할 수 없습니다",
+    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
+    "scanCheckIn": "스캔으로 체크인"
+  },
+  "eduAttendanceQr": {
+    "title": "체크인 QR 코드",
+    "chooseClass": "클래스 선택",
+    "noClass": "선택할 수 있는 클래스가 없습니다",
+    "classLoadFailed": "클래스 목록을 불러오지 못했습니다",
+    "pickClassFirst": "먼저 클래스를 선택하세요",
+    "qrTip": "학생이 스캔 체크인으로 이 코드를 인식합니다",
+    "expiresIn": "{s}초 후 만료",
+    "refresh": "다시 발급",
+    "nextStepHint": "출결 규칙을 활성화하고 스캔 키(qrSecret)를 설정한 뒤 다시 발급하세요",
+    "scanTitle": "스캔으로 체크인",
+    "scanHint": "선생님의 체크인 QR 코드를 테두리에 맞춰 주세요",
+    "scanSubmitting": "체크인 중...",
+    "scanInvalidCode": "이 시스템의 체크인 QR 코드가 아닙니다",
+    "scanDone": "체크인했습니다",
+    "scanFailed": "체크인 실패",
+    "needLogin": "로그인 후 스캔해 주세요"
   }
 }
