@@ -103,6 +103,18 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-03**
+- 📚 Docs:F9 撞号让号(正牌取号器发 Y-3,原 D53 行留痕归档)并摘除滞留已勾行 RP-35 (72ec4879aa)
+- 🐞 Fix:摘除合并回灌造成的 DOWNLOAD_PLATFORMS/isDownloadPlatform 重复定义,修 T1 双声明 typecheck 红 (baab5bfadb)
+- 🐞 Fix:清掉 downloads.config 重复的 DOWNLOAD_PLATFORMS/isDownloadPlatform 声明（TS2451/TS2456，gate-analyse 与 gate-build 同根因） (dceb324bf1)
+- 🐞 Fix:两条长期红的修因 —— 假远端页改同源独立文档(生产 CSP 无 unsafe-eval 时 srcdoc 继承策略拦 eval);登录首屏协议弹窗按真实用户路径处理,并消除共享 LoginForm 与 web 扫码面板的双重协议窗 (ffdd903b73)
+- 🔧 Chore/Other:二次合并后按生成器重算四语 README 数字块与最近更新(619 表/4683 路由/4034 测试/322 守门/52 CI) (e857b3fa9e)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6ca3a30179)
+- 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (05be848608)
+- 🔧 Chore/Other:考勤词包契约的扫描面从 1 枚扩到 8 枚,并教会它认出"本地转发助手"型取词(票 B71 收口) (69b79aee34)
+- 📚 Docs:D53 结清后另登记两格真工作(HTTP 真 404 / 手册 5 章补图),各带现状与出路,不混入已结清行 (c6a39010f2)
+- 📚 Docs:结清 D53 文档中心格式层与排版收口(七簇逐簇有凭据,摘本席牌后整行删除) (9a5f4296d1)
+
+**2026-11-03**
 - 🔧 Chore/Other:合并 origin/main 后重算四语 README 数字与最近更新、重建三端生成件并重封根护栏 (c497ced6bf)
 - 🐞 Fix:恢复被归并丢弃的 unknown 收窄与 e2e 类型导入 (3d7d912572)
 - 🐞 Fix:收掉收敛合并的两处后遗症——docs 公开面门重复登记摘除(正号 285),指标存在性门补 R4 文档点名 (657534b221)
@@ -410,9 +422,6 @@ Headline claims (same source as the table below, all live-computed): **619 table
 
 **2026-11-03**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (bf9b34d0db)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0fff93a09c)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
