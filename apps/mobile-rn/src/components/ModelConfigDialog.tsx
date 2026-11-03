@@ -116,7 +116,8 @@ export interface ModelConfigVariable {
 
 export interface ModelConfigDialogProps {
   visible: boolean
-  modelType: ModelType
+  /** 模型能力类型,默认 'text'(对齐小程序端同名字段的可选性与默认值) */
+  modelType?: ModelType
   config: ModelConfig
   onChange: (config: ModelConfig) => void
   onClose: () => void
@@ -711,7 +712,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
 
 function BasicModelConfigDialog({
   visible,
-  modelType,
+  modelType = 'text',
   config,
   onChange,
   onClose,
@@ -803,7 +804,7 @@ function BasicModelConfigDialog({
 function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
   const {
     visible,
-    modelType,
+    modelType = 'text',
     config,
     onChange,
     onClose,
