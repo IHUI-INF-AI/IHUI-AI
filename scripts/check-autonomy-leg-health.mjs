@@ -387,18 +387,22 @@ async function selfTest() {
     return r.state === 'drift' && r.next.includes('Nope-Repo-ZZZ')
   })())
   ok('H3 空模板 ⇒ unjudged(不冒充"健康")', judgePreflight('  ', root).state === 'unjudged')
+  // 封票夹具必须用相对时间:绝对时刻一过期,判据就必然落到"已解封"分支,用例永久红(H4)
+  // 或空转假绿(H5)。语义是"此刻仍在封禁中",故取 now+1h。
   ok('H4 冤封识别:ERR_MODULE_NOT_FOUND 的失败 + 同键 quarantined ⇒ drift', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
     const ev = [
       { action: 'session-failed', ticketKey: 'k1', exitCode: 1, why: "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'G:/x'" },
-      { action: 'quarantined', ticketKey: 'k1', until: '2026-11-03T00:00:00.000Z', ticketLine: 'X-1 某票' },
+      { action: 'quarantined', ticketKey: 'k1', until: future, ticketLine: 'X-1 某票' },
     ]
     const r = judgeMisattribution(ev)
     return r.state === 'drift' && r.readout.includes('1')
   })())
   ok('H5 变异:真·会话失败的封票不算冤(分型不得把票的失败也免掉)', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
     const ev = [
       { action: 'session-failed', ticketKey: 'k2', exitCode: 1, why: 'typecheck failed' },
-      { action: 'quarantined', ticketKey: 'k2', until: '2026-11-03T00:00:00.000Z', ticketLine: 'X-2' },
+      { action: 'quarantined', ticketKey: 'k2', until: future, ticketLine: 'X-2' },
     ]
     return judgeMisattribution(ev).state === 'ok'
   })())
