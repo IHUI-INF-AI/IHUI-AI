@@ -279,6 +279,49 @@ test('纯函数: parseTreeSubjectIndex 解析 %T%x09%s 行(题内 tab 并入 sub
   assert.equal(__test__.parseTreeSubjectIndex(null).size, 0, 'null → 空集')
 })
 
+test('纯函数: reachableTreeSet 从「树\\t题」键集派生可达树集(畸形行跳过)', () => {
+  const trees = __test__.reachableTreeSet(
+    __test__.parseTreeSubjectIndex(['t1\tinit', 't1\tother', 't2\tx'].join('\n')),
+  )
+  assert.deepEqual([...trees].sort(), ['t1', 't2'], '同一树不同题只收一次,树段按 \\t 切出')
+  assert.equal(__test__.reachableTreeSet(null).size, 0, 'null → 空集(该档不生效)')
+  assert.equal(__test__.reachableTreeSet([]).size, 0, '空索引 → 空集')
+})
+
+test('纯函数: splitReachableSameContent 三档(树+题 / 仅树 / 待处置)', () => {
+  const keys = __test__.parseTreeSubjectIndex(['T1\tS1', 'T2\tother'].join('\n'))
+  const trees = __test__.reachableTreeSet(keys)
+  const split = __test__.splitReachableSameContent({
+    candidates: ['c-same', 'c-tree-only', 'c-lost'],
+    treeByCommit: new Map([
+      ['c-same', 'T1'],
+      ['c-tree-only', 'T2'],
+      ['c-lost', 'T9'],
+    ]),
+    subjectByHash: new Map([
+      ['c-same', 'S1'],
+      ['c-tree-only', 'MY-OWN-SUBJECT'],
+      ['c-lost', 'lost'],
+    ]),
+    reachableKeys: keys,
+    reachableTrees: trees,
+  })
+  assert.deepEqual(split.sameContent, ['c-same'], '树+题都逐字同 → 第一档')
+  assert.deepEqual(split.treeEquivalent, ['c-tree-only'], '仅树逐字同 → 等价残留档')
+  assert.deepEqual(split.remaining, ['c-lost'], '树不在可达历史里 → 待处置')
+
+  // fail-safe:索引为空(取不到)⇒ 三枚全落待处置,绝不按等价放行
+  const noIdx = __test__.splitReachableSameContent({
+    candidates: ['c-same', 'c-tree-only', 'c-lost'],
+    treeByCommit: new Map([['c-same', 'T1'], ['c-tree-only', 'T2'], ['c-lost', 'T9']]),
+    subjectByHash: new Map(),
+    reachableKeys: new Set(),
+    reachableTrees: new Set(),
+  })
+  assert.deepEqual(noIdx.remaining, ['c-same', 'c-tree-only', 'c-lost'], '索引缺位 → 全部待处置')
+  assert.deepEqual(noIdx.treeEquivalent, [], '索引缺位不得产出等价残留')
+})
+
 test('同内容副本: amend 重写留下的旧对象(树+题与可达历史逐字同) → 放行不阻塞且点名', () => {
   const dir = createTempRepo()
   try {
@@ -303,7 +346,11 @@ test('同内容副本: amend 重写留下的旧对象(树+题与可达历史逐�
   }
 })
 
-test('同内容副本: 树同而题不同 → 仍判 blocking(白名单不放宽到仅树相等)', () => {
+// 2026-11-03 判据补细(门 30a):树与可达提交逐字同、题不同 ⇒ **等价残留**,内容整体已入库,
+// 只有提交身份/题没入库 ⇒ 不 blocking,但必须点名报数。原用例断的是"仅树相等不得放行",
+// 那格把"内容一字节没丢"的旧对象判成丢失风险(本仓实测 31bfb9a335c2 即此形态,只因当时
+// 题也恰好同才躲过);放宽的**只有**题这一维,树必须真的在可达历史里(索引取不到仍朝红)。
+test('等价残留: 树同而题不同 → 不阻塞,但逐条点名「等价残留」', () => {
   const dir = createTempRepo()
   try {
     // 分支删除造悬空(不走 reset,避免混入 reset 判据):空树与 init 相同,题唯一
@@ -312,8 +359,39 @@ test('同内容副本: 树同而题不同 → 仍判 blocking(白名单不放宽
     execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
     execSync('git branch -D temp', { cwd: dir, stdio: 'ignore' })
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
-    assert.equal(r.status, 1, `题不同不得放行,应 exit 1,实际 ${r.status}`)
-    assert.doesNotMatch(r.stdout, /同内容副本放行/, '不得出现白名单放行点名')
+    assert.equal(
+      r.status,
+      0,
+      `树等价残留不得判红,应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /等价残留 1 个/, '等价残留必须报数,不得静默放行')
+    assert.match(r.stdout, /unique-subject-XYZ/, '等价残留明细应带 subject')
+    assert.doesNotMatch(r.stdout, /同内容副本放行/, '题不同不得进"树+题"那一档')
+    // 分档行必须恒打印:门判绿时也要能读出"存量里有几枚对象、各是什么出处"
+    assert.match(
+      r.stdout,
+      /悬空分档:已备份 0 \/ 同内容副本 0 \/ 等价残留 1 \/ 待处置 0/,
+      '判绿时也必须逐档报数,不得让存量从账面上蒸发',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('真丢失对照: 树不在可达历史里 → 仍 blocking(判据没被摘空)', () => {
+  const dir = createTempRepo()
+  try {
+    // 唯一内容 ⇒ 树不在任何可达提交中;分支删除造悬空
+    execSync('git checkout -b temp', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'lost-only.txt'), 'only-on-temp-branch\n')
+    execSync('git add lost-only.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -m "lost-work"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D temp', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 1, `真丢失必须判红,应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(r.stdout, /等价残留 1 个/, '树不在可达历史里不得按等价残留放行')
+    assert.match(r.stdout, /未备份/, '真丢失须落"未备份"档')
   } finally {
     rmScratch(dir)
   }
@@ -700,9 +778,15 @@ function makeDangling(dir, subject, committerDate) {
     windowsHide: true,
   })
   const env = committerDate ? { ...process.env, GIT_COMMITTER_DATE: committerDate } : process.env
+  // 2026-11-03:以前用 `--allow-empty` ⇒ 树恒等于 init 的树 ⇒ 新判据(等价残留)会把
+  // 这些夹具正确判成"内容已入库",端到端用例要的"真·无出处悬空"就造不出来了。
+  // 故每枚提交落一个题名唯一的文件:内容唯一 ⇒ 树不在任何可达提交里 ⇒ 真待处置。
+  const onlyFile = `dangling-${subject.replace(/[^\w-]/g, '_')}.txt`
+  writeFileSync(join(dir, onlyFile), `${subject}\n`)
+  execFileSync('git', ['add', onlyFile], { cwd: dir, stdio: 'ignore', windowsHide: true })
   // `--date` 只改**作者**时刻,committer 时刻照旧取当前时钟 ⇒ 必须用 GIT_COMMITTER_DATE,
   // 否则造出来的"老提交"在窗维眼里是新的,那格端到端用例就是空的。
-  execFileSync('git', ['commit', '--allow-empty', '-m', subject], {
+  execFileSync('git', ['commit', '-m', subject], {
     cwd: dir,
     env,
     stdio: 'ignore',
