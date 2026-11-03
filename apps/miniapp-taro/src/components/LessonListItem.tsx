@@ -102,13 +102,9 @@ export default function LessonListItem({
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
           style={{ marginLeft: 'var(--spacing-sm-loose)' }}
         >
-          <Text className="text-body font-bold text-foreground truncate">
-            {data.title}
-          </Text>
+          <Text className="text-body font-bold text-foreground truncate">{data.title}</Text>
           {data.subtitle && (
-            <Text className="text-label text-muted-foreground truncate">
-              {data.subtitle}
-            </Text>
+            <Text className="text-label text-muted-foreground truncate">{data.subtitle}</Text>
           )}
           {vipVisible && (
             <View className="lli-vip-pill">
@@ -122,9 +118,7 @@ export default function LessonListItem({
           )}
           <View className="flex items-center">
             {data.duration && (
-              <Text className="text-label text-muted-foreground mr-[20rpx]">
-                {data.duration}
-              </Text>
+              <Text className="text-label text-muted-foreground mr-[20rpx]">{data.duration}</Text>
             )}
             {data.likes !== undefined && (
               <Text className="text-label text-muted-foreground font-bold">
@@ -166,13 +160,9 @@ export default function LessonListItem({
           className="lli-content flex-1 min-w-0 flex flex-col justify-around"
           style={{ marginLeft: 'var(--spacing-sm-loose)' }}
         >
-          <Text className="text-body font-bold text-foreground truncate">
-            {data.title}
-          </Text>
+          <Text className="text-body font-bold text-foreground truncate">{data.title}</Text>
           {data.subtitle && (
-            <Text className="text-label text-muted-foreground truncate">
-              {data.subtitle}
-            </Text>
+            <Text className="text-label text-muted-foreground truncate">{data.subtitle}</Text>
           )}
           {(vipVisible || priceVisible) && (
             <View className={`lli-pill ${data.vipOnly ? 'lli-pill-vip' : 'lli-pill-paid'}`}>
@@ -201,9 +191,7 @@ export default function LessonListItem({
           )}
           <View className="flex items-center">
             {data.duration && (
-              <Text className="text-label text-muted-foreground mr-[20rpx]">
-                {data.duration}
-              </Text>
+              <Text className="text-label text-muted-foreground mr-[20rpx]">{data.duration}</Text>
             )}
             {data.likes !== undefined && (
               <Text className="text-label text-muted-foreground font-bold">
@@ -241,9 +229,7 @@ export default function LessonListItem({
             )}
           </View>
         )}
-        <Text className="text-body text-foreground mt-[10rpx] truncate">
-          {data.title}
-        </Text>
+        <Text className="text-body text-foreground mt-[10rpx] truncate">{data.title}</Text>
         {data.subtitle && (
           <Text className="text-label text-muted-foreground mt-[10rpx] truncate">
             {data.subtitle}
