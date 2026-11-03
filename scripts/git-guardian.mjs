@@ -12790,6 +12790,23 @@ function startDaemon(bootGuard = null) {
         // 根护栏清单自洽性:**必须挂 tick** —— startDaemon 是 setTimeout 链且不重读本文件,
         // 只挂 main() 一次性路径的话常驻守护永不判(与上面 feedback-loop 同一条教训)。
         auditRootGuardManifestSync()
+        // 游标类巡检**必须同挂 tick**(2026-11-03 实测):`\IHUI-AI git-guardian` 计划任务档于
+        // 11-03 00:28 被禁用后 main() 单轮链整条停摆 —— 现读 `immutable-guard-audit.json` 游标
+        // 停在 2026-11-02T16:08Z、积压 596 枚未判,而"看守者本身还活着吗"那把尺子
+        // `auditSweeperLiveness` 也住在同一条停摆链里(它本该是第一个喊出来的)。
+        // 两枚都自带节流戳 ⇒ 与计划任务档并存时只有先到那一个真跑,不翻倍发信。
+        // 【剩余射程,交后手·2026-11-03 现读】同一把尺子量到 main-only 的周期腿还有 61 面
+        // (audit*/sweep*/heal*/report*,其中 57 面自带节流戳),`.ihui-agent/state/` 有 111 份
+        // 节流戳冻结在 11-02T16:10Z 之前。刻意**不做**大爆炸迁移,两条理由都得记下:
+        //   ① 轮级锁语义决定了"重开计划任务档"救不了它们——daemon 常驻持有 `git-guardian:daemon`
+        //      整把锁,任务档那轮实测 `本轮未取得轮级锁 kind=held ⇒ 静默退出`(rc=0)。任务档留着
+        //      的价值只有一个:daemon 死了它还能顶上(今天它被禁用的那 27h 就是这么静默的)。
+        //   ② 61 面里多数派生子进程且带分钟级超时,全塞进 10s tick 会把一轮撑爆、还会把告警
+        //      一次性放出来(§5e-1 可整改性)。正确的下一步是按"该面的读数谁在消费"分批搬,
+        //      每搬一批都要像这两枚一样同批改 `scripts/tests/git-guardian-daemon-audit-fanout.test.mjs`
+        //      的清单并带变异自证,而不是把人家的架构收口一次推平。
+        auditImmutableGuardNewCommits()
+        auditSweeperLiveness()
         sweepDownloadsLiveHealth()
         auditLintStagedPins()
         // 反馈闭环六段巡检(2026-10-28 立;与 main() 单轮路径同一挂点语义,共用
