@@ -29570,7 +29570,9 @@
     "trendCountAxisLabel": "件数",
     "trendChartAria": "{scope}の選択期間における日次出席率の折れ線と状態構成の積み上げ棒グラフ",
     "statusOther": "その他",
-    "scopeAllClasses": "すべてのクラス"
+    "scopeAllClasses": "すべてのクラス",
+    "checkInAt": "出席時刻",
+    "backfillNeedsTime": "過去の日を登録するには、その日内の出席時刻が必要です"
   },
   "eduCertificates": {
     "certificateNo": "番号：{no}",
