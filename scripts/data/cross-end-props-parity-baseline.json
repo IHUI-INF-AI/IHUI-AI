@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T10:34:13.673Z",
+  "generatedAt": "2026-11-03T10:38:48.600Z",
   "face": "staged",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。升绝对零前置=存量归零。",
   "pairs": {
@@ -396,17 +396,11 @@
     },
     "SectionHeader": {
       "state": "ok",
-      "onlyRn": [
-        "accessibilityLabel",
-        "leading",
-        "style",
-        "subtitleStyle",
-        "titleStyle"
-      ],
+      "onlyRn": [],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 5
+      "driftTotal": 0
     },
     "UserInfoCard": {
       "state": "ok",
@@ -481,12 +475,12 @@
   },
   "counts": {
     "pairs": 18,
-    "drifted": 14,
-    "aligned": 3,
+    "drifted": 13,
+    "aligned": 4,
     "undetermined": 0,
     "notApplicable": 1,
     "maxKeyDrift": 59,
-    "driftKeysTotal": 270,
+    "driftKeysTotal": 265,
     "equivalenceEntries": 4,
     "mappedKeysTotal": 6
   }
