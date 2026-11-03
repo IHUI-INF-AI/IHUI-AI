@@ -82,9 +82,9 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 618 | `dbTables` |
+| 数据库表 | 619 | `dbTables` |
 | schema 文件 | 240 | `dbSchemaFiles` |
-| API 路由 | 4672 | `apiRoutes` |
+| API 路由 | 4682 | `apiRoutes` |
 | 路由文件 | 658 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -97,15 +97,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3985 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3997 | `testFiles` |
+| CI 工作流 | 51 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 315 | `guardianGates` |
-| — blocking | 286 | `guardianBlocking` |
+| 工程守门 | 316 | `guardianGates` |
+| — blocking | 287 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18802 | `trackedFiles` |
+| 跟踪文件 | 18835 | `trackedFiles` |
+
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-02。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -762,6 +764,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 业务名片            | 名片创建 / 编辑 / 收藏 / 分享 / business-cards                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **AI 教育全栈**   | 课程学习            | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / zhs-course                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |                   | 题库与考试          | 多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传 / exam-marking                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|                   | **教务与考勤**      | 班级考勤规则(`edu_attendance_rule`:迟到 `lateAfter` / 早退 `earlyBefore` / 缺勤 `absentAfter` 三档 `HH:MM` 阈值 + 扫码密钥,Web 教务页可视化配置)/ 每日缺勤自动补录(调度任务 `edu-attendance-absent-daily`,按 `absentAfter` 为未签到在册学生补 `absent` 行,出勤率分母不再只算已签到的人)/ 请假审批联动(审批通过同事务按区间幂等落 `leave`)/ 整班批量点名(回库确认 `created·skipped·missedIds`)/ 考勤 CSV 导出 / 签到方式三档 `manual`(教师代签)·`self`(学生自签)·`qrcode`(HMAC 签名 60s TTL 二维码,教师端 Web+RN 渲染、RN+小程序扫码)/ 学生本人考勤页(Web+RN+小程序,`GET /attendance/me` 只认登录态且归属由服务端现取)/ 家长端考勤查看;人脸签到档按裁决不做空壳实现(需第三方人脸库与活体检测及合规授权) |
 |                   | **AI 教育引擎**     | **P3 深度层(2026-07-23 立)**:SM-2 间隔复习系统(easeFactor 2.5 / interval / repetition / dueDate / lastReviewAt 5 字段 + 5 档评分 0/2/3/4/5 + EF 自适应)+ AI 助教(7 学科 persona:数学/物理/化学/生物/英语/历史/地理 + 未知学科兜底 + 3 模式 explain/hint/quiz + JSON 容错三级解析)+ AI 批改主观题(ai_grading_record 表 + 教师审核状态机)+ AI 出题(ai_generated_question 表 + 人工审核 + 知识点关联)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 |                   | 直播流媒体(SRS)     | RTMP/HLS/WebRTC 直播推流                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 |                   | 直播教学            | 签到 / 互动 / 回放 / AI 辅助 / live-chat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -839,6 +842,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 ### 🎓 AI 教育全栈
 - **课程学习**:课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 证书
 - **题库考试**:多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步
 - **AI 教育引擎**:SM-2 间隔复习 · AI 助教(7 学科 persona)· AI 批改主观题 · AI 出题(人工审核)
 - **直播流媒体**:RTMP / HLS / WebRTC 推流 · 签到互动 · 回放 · 讲师管理 · 学习报告
 ### 🌐 8 端全覆盖(一套契约,多端复用)
@@ -1443,7 +1447,6 @@ cd IHUI-AI && docker compose up -d
 - **`download_events` 数据库表**:`packages/database` 新增表(uuid + userId + platform + assetHref + source + ip + userAgent + createdAt + 3 索引),Drizzle migration 幂等落地
 - **共享层跨端复用**:`packages/types/src/download.ts`(类型)+ `packages/api-client/src/endpoints/downloads.ts`(SDK)+ `packages/shared/src/hooks/use-download-track.ts`(hook),8 端统计调用统一契约
 - **自动化构建同步**:`scripts/sync-downloads.mjs` 一键构建 8 端产物 + 复制下载包到 `apps/web/public/downloads/` + 生成 `manifest.json`(版本 + 大小 + sha256)
-- **运行期真值出口**:`GET /downloads.json`(根级 `.json`,不走 `/api/` —— nginx 把整段 `/api/` 转给后端,Next 路由经公网到不了)与 `apps/web/src/config/downloads-live.ts`:各端版本号与安装包在**运行期**解析(desktop 取 release 分页枚举、android 取 `app_versions` 注册表 latest 行、ios 取 `ios-nightly` 固定 tag 资产、cli 取 npm `dist-tags.latest`、扩展取 `public/downloads/extension/` 实物文件字节),构建期常量只作兜底;取不到的端如实标未接入并给机器可读原因码,侧栏下载栏经 `use-live-downloads` 消费同一出口
 **npm scripts**(根 `package.json`):
 | 命令                          | 用途                                                    |
 | ----------------------------- | ------------------------------------------------------- |
@@ -5447,6 +5450,79 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (e92e623473)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (ef806aa543)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (d6b41fae4f)
+- 🔧 工程/其他:x (8701732dfd)
+
+**2026-11-03**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (4070d7a682)
+- 📚 文档:认领文档中心格式层与排版收口票(7 簇并行,主席统一落地) (89b014b18a)
+
+**2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (36f13ea78a)
+- 📚 文档:Z-1 副本行加【归并】指针注记 —— 正本按占用面证据定 G-54 版;两版正文逐字保留、不删行、注记不写行号 (31fca517fa)
+- 🚀 新功能/改进:下载栏 8 端取运行期真值(desktop/android/ios/cli/extension 全量现读) (6180f8cb25)
+- 📚 文档:B87/B88/B91 按已结清标注 —— 三行原文与同题注记保留,行内记修复枚 3c846ee8d5 / 合并枚 9a71162313 (f132ac5dac)
+- 📚 文档:RP-35 按已结清标注 —— 原文保留,行内记修复枚 65102e7774(前端归一化读取 /api/health 裸对象,后端未动) (965859a0dc)
+- 🔧 工程/其他:字号档收口第 6/6 批 —— src/components 402 文件 (45525b8354)
+- 📚 文档:RP-79 同号分叉让号 —— 「给 git-sync-converge 补守卫」改号 RP-91(原文保留,行尾注明原号;剩余面票 RP-79 不动) (b0ad9f1c80)
+- 🔧 工程/其他:字号档收口第 5/6 批 —— (main) 业务页 356 文件(乙)+ app/en 与 app/ 其它 (7f01a52f3d)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0491faf17f)
+- 🔧 工程/其他:字号档收口第 4/6 批 —— (main) 业务页 341 文件(甲) (7e35051ed2)
+- 🚀 新功能/改进:safe-commit 新增 --files-from 清单入口(大批量路径绕开 Windows argv 上限) (9710581b38)
+- 📚 文档:B72 就地改写并入实测根因(路由 22 枚端点无承载层鉴权致家长门户恒 401,出路逐端点接 checkAuthOrInternalService 加 GET /attendance/me) (3d7820a692)
+- 🔧 工程/其他:字号档收口第 3/6 批 —— (main)/admin 其余 260 文件(乙) (f685e7e41d)
+- 🔧 工程/其他:字号档收口第 2/6 批 —— (main)/admin 其余 262 文件(甲) (381df55136)
+- 🔧 工程/其他:字号档收口第 1/6 批 —— (main)/admin/edu 126 文件 (72df7ca87d)
+- 🚀 新功能/改进:移动端 agentChat 补 stop 停止按钮文案(zh-CN/zh-TW/en/ja/ko 五语,对应 B4 流式停止入口) (2ba6fecdb8)
+- 🐞 修复:RP-35 后端健康页按归一化读取 /api/health 裸对象 (65102e7774)
+- 🚀 新功能/改进:B4 Agent 会话 SSE 消费侧——共享 streamAgentChat 增量回调+abort,断线带 Last-Event-ID 重连一次,仍败回落 v2 分页读+一次性 POST;RN 宿主增量渲染/done 落库替换/失败显式报错;共享屏仅四枚可选 props(缺省显式关闭);新增 4+3 例测试,双端 typecheck 0,门273 --staged 零新增 (0335facba1)
+- 🐞 修复:build-fail 同题不再按 TS 号分身,证据补可定位失败原因(B87/B88/B91) (3c846ee8d5)
+
+**2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (f565869c64)
+- 🐞 修复:回补被并发归并折掉的 B69/B87/B88 三行;B69/B68 按已结清标注(B87/B88/B91 同题三登记只计一次) (eff8c8e869)
+
+**2026-11-02**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (049b1fcdc7)
+- 🐞 修复:B68 oauth-keys /list 不再被压力闸 503,副本失败降级主库 (2c3a0d1b33)
+- 🚀 新功能/改进:发布面从四条腿扩成全平台矩阵(华为通道已证可达,缺的是凭据类型) (dceb9c5695)
+- 🚀 新功能/改进:登记全平台发布矩阵三格未收(华为凭据类型/store 维度/鸿蒙产物) (94e1a44d78)
+
+**2026-11-02**
+- 🔧 工程/其他:考勤/请假端点权限面·越权·批量诚实性契约测试(不连库,vi.mock 假库;钉 edu:manage/edu:view 成对三路与零副作用断言;自签/扫码/家长考勤三处承载层鉴权未接线缺口显式点名) (6ad65cdbb5)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (8ce7aa98b5)
+- 🚀 新功能/改进:登记考勤收口批 4 票(判定依据与缺勤补录/三条写路径/权限与越权用例/学生本人三端可见可操作) (eac4cac0c7)
+- 🐞 修复:演练记录不再生产告警,旧信号不按墙钟窗口复活成票(B69) (6506c8efe1)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (2655d64bb9)
+- 🚀 新功能/改进:B3 Agent 会话 SSE 流式回复端点(Last-Event-ID 重放/15s 心跳/单写者接管) (247f9f5652)
+- 🐞 修复:发布链两处跑不通的出路按实测改掉,站点腿根因与本机承载面分开报 (cb447bab63)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9f6675b8a2)
+- 🚀 新功能/改进:打通 RN 发布链路(五腿唯一出口 + OTA 桶解耦 + Play 读数器物化) (377af4364d)
+- 📚 文档:结清 Y-14(安卓 latest 行实测在位,登记腿已常态化) (a2da71c391)
+- 🚀 新功能/改进:发布链路登记余两格(站点落点/Play 签名一致性) (1fa03b6655)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (922f84068c)
+- 🐞 修复:补齐 ImagePicker 资产字段/底部安全区,Share 返回常量并锁 Animated 静态样式合并(B3+B4) (13bf8f6c82)
+- 🐞 修复:回捞被 78e1cb99 误扫的 7 条活登记(RP-37/B69/RP-35/B68/B87/B88/B91) (00806a8dff)
+- ♻️ 重构:500 字摘要截断收敛为单一数值口径 (e972681f74)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (1eaf77b8b4)
+- 🚀 新功能/改进:音频端口化 —— 可选 AudioPort,缺省走 capability-off(RN 壳 expo-audio 注入) (3b2c98c6f5)
+- 📚 文档:补 13 条回捞行侧车归属/在等/证据,stock 19→12 (ce6201bcc3)
+- 🐞 修复:M4 nav-A — RN 壳 push 收口到 onNavigate 端口(9 壳 38 处;CourseDetail 讲师入口改指 TeacherDetail) (e8f8967f07)
+- 🚀 新功能/改进:Agent 会话分页读 version=2,seq 游标与 v1 兼容(B2) (0da2a6a9a7)
+- 🐞 修复:$rp 参数通道补页面 unload 释放,并钉住容量/释放单测 (bb92d216f2)
+- 🐞 修复:Agent 会话写路径改原子追加,修复 20 条窗口截断(B1) (7f39323460)
+- 🐞 修复:announcements 补 platforms 列声明 —— 迁移 20261024160000 为真源 (3ca684ddc8)
+- 🐞 修复:wallet 测试 i18n 替身稳定化 —— 根治 4GB 堆 OOM(真泄漏) (880b86817f)
+- 📚 文档:标注 B53/B91 与同形态告警的签名差异,消除副本读数(+2→0) (03584c62b6)
+- 🐞 修复:三组既有红灯按新契约回正 —— 遥测 store 形状/usePathname/引导时序 (8ae8bf4537)
+- 📚 文档:补 15 条待办归属/在等字段(证据不足标 unassigned 并注明原因),对齐 5 条行内标头与侧车 (e252177924)
+- 🐞 修复:收编器改路径白名单——业务代码/测试与规则文件不再自动入库 (f6e0ba44a9)
+- 🔧 工程/其他:清偿旧版快照区数字 —— scrub --scope=all 用生成器同源现算值清 README 全量存量 54315 处(README.md/README.en.md 共 29820 行改写、5 行挂历史叙述豁免、manual 0)；同笔给 scrub 增显式维护档 archive|all(缺省行级棘轮不动,自检 21/21) (15f9293a7d)
+- 🔧 工程/其他:补登 6 枚远端带入文件的溯源水印(门47 HEAD面欠账清偿) (c3c03c7da3)
+
 **2026-11-02**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (7f9c0f84ca)
 - 🔧 工程/其他:收敛后按 HEAD 面重生成 3 件 i18n 派生产物 (cf4929783c)
@@ -7754,6 +7830,7 @@ G 不得再出现 bot 裸 `git push` 到 main(该路径在 protected main 上恒
 ### 🎓 AI 教育全栈
 - **课程学习**:课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 证书
 - **题库考试**:多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传
+- **教务考勤**:班级阈值规则(迟到/早退/缺勤)/ 每日缺勤自动补录 / 请假审批联动 / 整班批量点名 / CSV 导出 / 代签·自签·扫码三档签到 / 学生本人页三端同步
 - **AI 教育引擎**:SM-2 间隔复习 · AI 助教(7 学科 persona)· AI 批改主观题 · AI 出题(人工审核)
 - **直播流媒体**:RTMP / HLS / WebRTC 推流 · 签到互动 · 回放 · 讲师管理 · 学习报告
 ### 🌐 8 端全覆盖(一套契约,多端复用)
@@ -15433,7 +15510,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 ## 守门脚本点名索引(内部参考)
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
 - 号池只读尺子(2026-10-26 装车,**不进提交链**;判机器/库状态,§12e): `check-relay-capacity-zero.mjs`(逐 provider 两池容量三态 ok/breach/unjudged;差值档只把相对基线新增的 breach 判红、存量只报数;接线 = git-guardian 巡检轮 dispatchRelayCapacity,5 分钟节流)
-- 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
+- 号池只读尺子(2026-11-01 立,同上进不了提交链): `check-pool-isolation.mjs`(号池隔离性六
+- 文档中心公开面(2026-11-03 立,blocking,runner id '282',stagedTriggers=`apps/web/app/`): `check-docs-public-health.mjs` — D1 docs 页 `metadata.alternates.languages` 声明 ↔ 路由文件真实存在 / D2 `app/sitemap.ts` 的 `/docs*` 收录 ↔ 路由文件 / D3 docs 页 `icon:` 字段禁 emoji(按 `lib/code-mask.mjs` 字面量跨度排除「展示给读者的示例代码」,与 emoji 门 108 的「正文装饰」豁免两档不同源、互不背书);自检 10 例含 D3 成对夹具与反向牙,镜像 `scripts/tests/check-docs-public-health.test.mjs`;应急放行 `HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1`维体检 D1 设备簇/D2 共用 rt/D3 同 uid 双行/D4 rt 终点证据/D5 出口亲和/D6 死副本;薄壳入口——判据单源在 `apps/api/scripts/relay-pool-isolation-audit.ts`,本器只以 tsx 转发跑它,§0.6 零复算;只读不写库不回显凭据;接线 = git-guardian 巡检轮 `sweepPoolIsolation`——门 89 第五处权威点「守护调度器」已认它,此行补的是 R4 文档面)
 - 安全/回跳(2026-11-01 立,blocking,runner id '278'): `check-redirect-target-origin-pinned.mjs`(判 `apps/web` 每枚 `resolveSafeRedirectTarget(...)`/`isSafeNavigationTarget(...)` 的 options 实参必须是**字面量对象且含 `allowedOrigins`**——`isSafeNavigationTarget` 缺该键时走"只判协议"支,任意 http(s) 外站点照过,同日实测四处真命中含两枚授权码签发路径;options 为变量/展开 ⇒ 未判定按 §0.3 exit 2,豁免 = 具名台账且带到期)
 - **门名点名索引**(按主题归堆;编号与档位以 runner 现值为准):
 - git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
