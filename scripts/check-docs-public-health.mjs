@@ -5,7 +5,8 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
- * check-docs-public-health.mjs — /docs 公开面健康对账尺(**只读**,判站点/路由状态,不判提交内容)
+ * check-docs-public-health.mjs — /docs 公开面健康对账尺(**只读不改盘**,判声明↔路由现实;
+ * 已进提交链,见下文「接线现实」)
  *
  * 立因(主席 2026-11-01 实测,全仓无人看守):
  *   ① docs 各页 metadata.alternates.languages 声明了 /zh-cn、/zh-tw、/ko、/ja 语言版,
@@ -33,9 +34,15 @@
  * 棘轮(§0.5):锚点 = 该文件 HEAD 面自身的违规数,存量只报数;只有 `--staged` 档存在"本次改动"
  *   可言,head/worktree 档打印说明行而非静默跳过(§0.3)。
  *
- * **刻意不进提交链**(§12e:判站点/机器状态的门挂提交链即恒红门 —— docs 语言版当前就是缺的,
- *   拦在别人提交上只会逼人 --no-verify)。本脚本不改任何注册面;接线由主席统一做,建议挂点
- *   = scripts/git-guardian.mjs 巡检轮(30 分钟节流,clean 即零写零推),经到人通道按稳定身份去重。
+ * 接线现实(2026-11-03 现读对账,头注与 guardian-runner.mjs 注册条目对齐):本门**已进提交链**
+ *   —— runner id '282',mode=blocking,args=['--staged'],stagedTriggers=['apps/web/app/'],
+ *   应急放行 HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1。逐维定性(§12e 升 blocking 前置 = 存量归零):
+ *   D1/D2/D3 的输入全是仓内静态文本(languages 声明、sitemap 条目、icon 字面量)↔ 被审面路由
+ *   清单,**不需要任何外部态**(不碰真浏览器/公网/DB),本次提交内容结构上就能满足 ⇒ 三维全部
+ *   合法进提交链;2026-11-03 实测三维存量均为 0(D1 另带差值棘轮兜底)。头注旧稿写于 2026-11-01
+ *   存量未清时,当时判断成立,存量清零并完成接线后该段失真,已按现实改写(§0.9)。
+ * 能力边界(防夸大):本门只判 hreflang 可达性 / sitemap 收录 / docs 页 icon 禁 emoji 三维,
+ *   与「格式支持/依赖/渲染链路」**零相关**,不得当作文档渲染健康的证据引用。
  *
  * 用法:
  *   node scripts/check-docs-public-health.mjs              # 全量档:判 HEAD blob

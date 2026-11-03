@@ -8,29 +8,29 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: 6a71dc4332739050c3280465d236019974efcd8c
-// inputsSha256: 97d64c94e9e81c70f9d4f168472556a6006aa9b0826195c31099ff3daf15edcf
-// input: packages/i18n/messages/miniapp-taro/en.json 316869f3404f647d89e8b445f38095082285d594766fb6223438b9f4a7633620
-// input: packages/i18n/messages/miniapp-taro/ja.json 5ca49a93196eaf4b643bb8a0ab78c3314bb6e79dbf391f965682becc42b7fb58
-// input: packages/i18n/messages/miniapp-taro/ko.json e9ae7af72ea6ee265df29f07d99238eaca797277e10eb06848b172a09d2ac3b4
-// input: packages/i18n/messages/miniapp-taro/zh-TW.json ca51df69a5b2b794d7cce9908761f37cb92465079682552486fd5fc95f481919
-// input: packages/i18n/messages/mobile-rn/en.json 65a9371f310f9ae1e88247ce0e4abbd4003ba19108e5e903121b40ae5c8738ce
-// input: packages/i18n/messages/mobile-rn/ja.json 8e6cf11b578b35b68b8c6fed168af3a99677c10ce97a92c66b65e3857c153edf
-// input: packages/i18n/messages/mobile-rn/ko.json b1704707e1a2e9a0748a6f87c44f2a40c2e63bd122608f84b5e80e947ea45fe4
-// input: packages/i18n/messages/mobile-rn/zh-TW.json 69a1a72f01c5641fdb0d6f1f3fbba4e0e339c7d61c57be6b51b688a04b5342e6
-// input: packages/i18n/messages/shared/en.json c404e231149ecbf494868469d0deee81c03a2e64e3ba75d9ea00848cc07d7db7
-// input: packages/i18n/messages/shared/ja.json 9af44c7a49a2e906c303b0d049afa6c7bf45210228b9e9424ce2578d7ad204c0
-// input: packages/i18n/messages/shared/ko.json 4d87d423f0303d972d885a076d8dc489f3890a1bd0ad34e53ebaa0ee1feff3ef
-// input: packages/i18n/messages/shared/zh-TW.json c1f9b10a8ada46e07be7ddf59181fc072ed64ad9f78852b9e93ae08a62cf2497
+// sourceCommit: 696ab99e91d86737626f1d974e1c586b3eafb9de
+// inputsSha256: 42922aff4a31f0dd7ad79e7e744cda1626c7edf4b6db1904abc4ae2ecb547f13
+// input: packages/i18n/messages/miniapp-taro/en.json 1185176efb234db475a6095af1b6fdd1bb6f5f0450f18cd27d083da47e9ffb79
+// input: packages/i18n/messages/miniapp-taro/ja.json b22d74db438031a07a03e5153596d62dd70356d3846e91e12d94d64318bbbd72
+// input: packages/i18n/messages/miniapp-taro/ko.json 5d450173216325a6a020bec2e30f6fb874b987b3e5f8e468b106b2d310eaee53
+// input: packages/i18n/messages/miniapp-taro/zh-TW.json c6bf7bbff7781ea60648634448383bbffc82201560a780c57b403987484fe767
+// input: packages/i18n/messages/mobile-rn/en.json 0c2fe5292d88e6713d134b39a653e9a8605e5c82e6cd626505a98810d47a3d5c
+// input: packages/i18n/messages/mobile-rn/ja.json 60d549686609ce6ab13319fad0d95ff488a787bbf08bfbdeeef1476b1bae259d
+// input: packages/i18n/messages/mobile-rn/ko.json bfcca14afb6aff79d02ad98deb1c708341a6d8786a0dbe9d15f1c5249983ee67
+// input: packages/i18n/messages/mobile-rn/zh-TW.json e433eab7046a083186b9a528550d5dcab5fdebb9540e0f1f2a9f07b5bc91363f
+// input: packages/i18n/messages/shared/en.json 8542dd4d51a3894393cea6b8e8a64127c5d29c7b90e92701664552802d5ca64d
+// input: packages/i18n/messages/shared/ja.json 21b38c337faaf28091bae58829295141bec801588f0c4306326d5dee819b9142
+// input: packages/i18n/messages/shared/ko.json 544040b87de341e0f5f9017fc6cdff372fc85f98811226dfb61a6cbe59ab64f3
+// input: packages/i18n/messages/shared/zh-TW.json 66608fffce34bbe378c5ec1a5dee41a0a0b54b5876203a0630ffb077be037d3a
 // carried: present
-// carriedKeys: en=590 ja=590 ko=590 zh-TW=590
-// generatedAt: 2026-11-02T14:15:45.574Z
+// carriedKeys: en=593 ja=593 ko=593 zh-TW=593
+// generatedAt: 2026-11-03T03:19:29.541Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: '94987522e0e1294691fb0f5fc4b11bfcd2b4da40fb06abdc4eea252c946d8bd4', bytes: 144608 },
-  ja: { version: 'b284b5218542c7800ca3e09d629d44262183cfd13de4b87abd81b3bc57412a9d', bytes: 166240 },
-  ko: { version: '4c654af1aa1cba22de029b803dafb3f7bdde08b37110265b5b932755b07012fc', bytes: 157908 },
-  'zh-TW': { version: '1cc8fd49919785b1449ab03c317fa1964a192e588f731828f39c6da6a1448fda', bytes: 149884 },
+  en: { version: '13b76278d796ec942a8b1d50ca521b3566d38194bef24dddcce8598bf53ceea5', bytes: 144884 },
+  ja: { version: 'ba66a0f2f60015170e4b255c7871c5867f327bc07b5ea87a80e4d238dfd03d26', bytes: 166628 },
+  ko: { version: '8f00036152d49c81431a4783b3202c5f7fb5d3811a9dd8471fbfd4b2a13f487e', bytes: 158264 },
+  'zh-TW': { version: '0774380efd41d5511a1624105f53a3fb2e35718e662c7496187106b48b5214d3', bytes: 150224 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
