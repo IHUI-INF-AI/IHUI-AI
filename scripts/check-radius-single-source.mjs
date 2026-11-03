@@ -7,7 +7,8 @@
  * 圆角单一源头守门(全 8 端)。
  *
  * 堵的是两类静默漂移:
- *  A. 表漂移 —— radius.js(唯一真相源)/ tokens.css --radius-* / miniapp-taro app.css --radius-* /
+ *  A. 表漂移 —— radius.js(唯一真相源)/ tokens.css --radius-* / miniapp-taro app.css 的 @theme
+ *     注册区(2026-11-03 起**必须由 sync-miniapp-tokens 派生**,区外不得留手写副本)/
  *     tailwind-preset.js 四处档位值不一致(历史上 v3 preset 的 rounded-sm=2px 与 web v4 的 sm=4px
  *     同名不同值,正是"手机上圆角和全局设定不统一"的根因之一)。
  *  B. 取用漂移 —— 端内写死数字/偏档值,绕开档位表(RN StyleSheet 数字、CSS px/rpx 字面量、
@@ -86,6 +87,14 @@ import {
   classifyRadiusGeometry,
 } from './lib/box-geometry.mjs'
 import { RADIUS_EXEMPT_MARKER_RE } from './lib/radius-exempt-marker.mjs'
+import { maskComments } from './lib/design-token-blocks.mjs'
+// 2026-11-03:注册区标记 / 块头形态 / 顶层块配平 一律取自生成器那一份(§22c),
+// 本门不得再写一遍字面量 —— 生成器改标记的那一刻,门若另抄一份就会指向别的块。
+import {
+  THEME_REGION_MARK,
+  THEME_SELECTORS,
+  topLevelRanges,
+} from './sync-miniapp-tokens.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
@@ -877,6 +886,41 @@ export function checkRoleUnion(roles, declText) {
  */
 export const PRESET_RADIUS_REF_RE = /borderRadius:\s*RADIUS_REM\s*,?/
 
+/**
+ * 小程序 `@theme` 注册区的正文与「区外全文」。
+ *
+ * 2026-11-03 立:radius 从「:root 手写副本 + 门 77 只对账可选子集」改成「只由
+ * `sync-miniapp-tokens.mjs` 派生进 @theme」。判据必须能分开这两块 ——
+ * 整个文件跑 `readCssRadius` 会把区外的手写副本也读进来,从而掩盖"注册区缺档"。
+ * 返回的 `outside` 已把注册区正文替换成等长空白(保留换行),再拿去点名区外副本。
+ * 找不到标记 / 找不到 @theme / 出现多个 @theme ⇒ 抛 Undetermined(调用方折成红线,不猜位置)。
+ */
+export function extractMiniappThemeRegion(css) {
+  const markAt = css.indexOf(THEME_REGION_MARK)
+  if (markAt < 0) throw new Undetermined(`找不到 v4 注册区标记(${THEME_REGION_MARK})`)
+  const rest = css.slice(markAt)
+  const ranges = THEME_SELECTORS.flatMap((sel) => topLevelRanges(rest, sel))
+  if (ranges.length === 0) throw new Undetermined('注册区标记之后找不到 @theme 区块')
+  if (ranges.length > 1)
+    throw new Undetermined(`注册区标记之后出现 ${ranges.length} 个 @theme 区块,无法确定注册区`)
+  const r = ranges[0]
+  const absStart = markAt + r.bodyStart
+  const absEnd = markAt + r.bodyEnd
+  const outside =
+    css.slice(0, absStart) + css.slice(absStart, absEnd).replace(/[^\n]/g, ' ') + css.slice(absEnd)
+  return { body: rest.slice(r.bodyStart, r.bodyEnd), outside }
+}
+
+/** 区外出现的 radius 声明名(注释先遮掉;`var(--radius-*)` 引用没有冒号,不算声明) */
+export function radiusDeclNames(css) {
+  const out = new Set()
+  for (const m of maskComments(css).matchAll(
+    /(--radius(?:-(?:xs|sm|md|lg|xl|2xl))?)\s*:/g,
+  ))
+    out.add(m[1])
+  return [...out]
+}
+
 /** A 判据:四处档位表值一致性。返回红线列表 */
 export async function checkTableConsistency() {
   const mod = await loadTable()
@@ -902,14 +946,36 @@ export async function checkTableConsistency() {
     if (Math.abs(cssMap[k] - v) > 0.001)
       errors.push(`tokens.css ${k}=${cssMap[k]}px 与 radius.js ${v}px 漂移`)
   }
-  // 2) miniapp-taro app.css(端内同步块)
+  // 2) miniapp-taro app.css —— 2026-11-03 起从「只对账可选子集」改判「必须全部派生在 @theme」
+  //    手写副本的存在本身就是漂移源:源改档时它不会跟。所以三条同时判:
+  //    ① 注册区必须定位得到;② 7 档必须在注册区内且值等于源;③ 区外不得有任何 radius 声明。
   const appCssPath = join(ROOT, 'apps/miniapp-taro/src/app.css')
   if (existsSync(appCssPath)) {
-    const appMap = readCssRadius(readFileSync(appCssPath, 'utf8'))
-    for (const [k, v] of Object.entries(expectCss)) {
-      if (appMap[k] === undefined) continue // 端内可只同步子集
-      if (Math.abs(appMap[k] - v) > 0.001)
-        errors.push(`miniapp-taro app.css ${k}=${appMap[k]}px 与 radius.js ${v}px 漂移`)
+    const appCss = readFileSync(appCssPath, 'utf8')
+    let region = null
+    try {
+      region = extractMiniappThemeRegion(appCss)
+    } catch (e) {
+      errors.push(`miniapp-taro app.css ${e?.message || e}(radius 必须由 sync-miniapp-tokens 派生)`)
+    }
+    if (region) {
+      const inTheme = readCssRadius(region.body)
+      for (const [k, v] of Object.entries(expectCss)) {
+        if (inTheme[k] === undefined) {
+          errors.push(
+            `miniapp-taro app.css @theme 区缺 ${k}(必须由 sync-miniapp-tokens 派生,应为 ${v}px)`,
+          )
+          continue
+        }
+        if (Math.abs(inTheme[k] - v) > 0.001)
+          errors.push(
+            `miniapp-taro app.css @theme 区 ${k}=${inTheme[k]}px 与 radius.js ${v}px 漂移`,
+          )
+      }
+      for (const k of radiusDeclNames(region.outside))
+        errors.push(
+          `miniapp-taro app.css 注册区外仍有手写 ${k} 声明(唯一落点是 @theme 派生区,区外不得有副本)`,
+        )
     }
   }
   // 3) tailwind preset 必须引用 RADIUS_REM,不得重新内联字面量表
@@ -1543,6 +1609,65 @@ async function selfTest() {
   )
   if (!driftOk) fail++
   /**
+   * A5(2026-11-03):注册区与区外副本必须分得开 —— 否则"必须派生"又退化成"只要你写了就算对"。
+   * 四条成对:好样本绿 / 区内漂移读得出 / 区外副本点得名 / 标记或区块缺失不猜位置。
+   */
+  const GOOD_THEME_CSS = [
+    ':root { --color-x: #fff; }',
+    '/* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */',
+    '@theme static {',
+    '  --radius: 0.5rem;',
+    '  --radius-xs: 0.125rem;',
+    '  --radius-sm: 0.25rem;',
+    '  --radius-md: 0.375rem;',
+    '  --radius-lg: 0.5rem;',
+    '  --radius-xl: 0.75rem;',
+    '  --radius-2xl: 1rem;',
+    '}',
+  ].join('\n')
+  const goodRegion = extractMiniappThemeRegion(GOOD_THEME_CSS)
+  const goodMap = readCssRadius(goodRegion.body)
+  const goodOutside = radiusDeclNames(goodRegion.outside)
+  const driftRegion = extractMiniappThemeRegion(
+    GOOD_THEME_CSS.replace('--radius-sm: 0.25rem', '--radius-sm: 0.3rem'),
+  )
+  const driftMap = readCssRadius(driftRegion.body)
+  const copyOutside = radiusDeclNames(
+    extractMiniappThemeRegion(`${GOOD_THEME_CSS}\n:root { --radius-sm: 0.25rem; }`).outside,
+  )
+  for (const [nm, cond, det] of [
+    [
+      'A5 注册区内 7 档全在、区外零 radius 声明 ⇒ 绿',
+      Object.keys(goodMap).length === 7 && goodOutside.length === 0,
+      { map: goodMap, outside: goodOutside },
+    ],
+    [
+      'A5 区内值漂移(0.3rem=4.8px)必须被读到',
+      Math.abs(driftMap['--radius-sm'] - 4.8) < 0.01,
+      driftMap['--radius-sm'],
+    ],
+    [
+      'A5 区外手写副本必须点得名(不然删掉手写段这件事无人守)',
+      copyOutside.includes('--radius-sm'),
+      copyOutside,
+    ],
+    [
+      'A5 找不到注册区标记 ⇒ 抛错而非猜位置',
+      !(() => {
+        try {
+          extractMiniappThemeRegion(':root { --radius-sm: 0.25rem; }')
+          return true
+        } catch {
+          return false
+        }
+      })(),
+      'marker-missing',
+    ],
+  ]) {
+    console.log(cond ? '✅' : '❌', nm, cond ? '' : JSON.stringify(det))
+    if (!cond) fail++
+  }
+  /**
    * A4 角色名对账:三条成对 —— 只加"缺档必红"而不加"一致必须绿",判据失效也会表现为红消失;
    * 而"多档(清单腐烂)"必须与"缺档"同时判,否则有人删 radius.js 的一档而 d.ts 不删,门一路绿,
    * 消费方拿到 `rnRadiusFor.<已删角色>` = undefined(颜色/圆角 undefined 是本仓记过的运行时形态)。
@@ -1615,7 +1740,7 @@ async function selfTest() {
     covOk ? '' : JSON.stringify(covRes),
   )
   if (!covOk) fail++
-  const total = cases.length + 3 + ratchet.length + faceProofs.length
+  const total = cases.length + 7 + ratchet.length + faceProofs.length
   console.log(fail ? `\n${fail}/${total} 例失败` : `\n全部 ${total} 例通过`)
   process.exit(fail ? 1 : 0)
 }
