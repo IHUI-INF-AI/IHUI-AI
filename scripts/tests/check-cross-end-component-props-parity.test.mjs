@@ -12,7 +12,8 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -212,6 +213,13 @@ describe('285 语义等价映射(生产判据直用)', () => {
 
 describe('285 逐键 judged 桶(生产判据直用)', () => {
   const now = new Date('2026-11-03T00:00:00')
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'gate285-judged-'))
+  const miniFixture = 'apps/miniapp-taro/src/components/NavBar.tsx'
+  const rnFixture = 'apps/mobile-rn/src/components/NavBar.tsx'
+  mkdirSync(join(fixtureRoot, 'apps/miniapp-taro/src/components'), { recursive: true })
+  mkdirSync(join(fixtureRoot, 'apps/mobile-rn/src/components'), { recursive: true })
+  writeFileSync(join(fixtureRoot, miniFixture), '// 声明侧样板\n  showSearch?: boolean\n')
+  writeFileSync(join(fixtureRoot, rnFixture), '// 对端契约样板\nexport interface NavBarProps {\n  rightActions?: ReadonlyArray<string>\n}\n')
   const ruling = {
     pair: 'NavBar',
     key: 'showSearch',
@@ -219,9 +227,9 @@ describe('285 逐键 judged 桶(生产判据直用)', () => {
     owner: 'cross-end-props-parity',
     expires: '2028-06-30',
     rationale: '小程序端用预设布尔槽承载搜索入口,RN 端由 rightActions 数组表达,同能力不同承载机制',
-    evidence: ['apps/miniapp-taro/src/components/NavBar.tsx:111', 'apps/mobile-rn/src/components/NavBar.tsx:64'],
+    evidence: [`${miniFixture}:2`, `${rnFixture}:3`],
   }
-  const opts = { now, rootDir: ROOT }
+  const opts = { now, rootDir: fixtureRoot }
   it('judged 计数:命中键移出存差,逐键留审(owner/expires/evidence/rationale)', () => {
     const r = applyJudged([d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], [ruling])
     assert.equal(r.bad.length, 0)
@@ -233,8 +241,8 @@ describe('285 逐键 judged 桶(生产判据直用)', () => {
   it('坏裁决判红:证据不足/单端/落点不含键名/缺 owner/过期', () => {
     const cases = [
       [{ ...ruling, evidence: [ruling.evidence[0]] }, 'evidence 不足 2 条'],
-      [{ ...ruling, evidence: [ruling.evidence[0], 'apps/miniapp-taro/src/components/NavBar.tsx:111'] }, '未覆盖双端'],
-      [{ ...ruling, evidence: ['apps/miniapp-taro/src/components/NavBar.tsx:99', 'apps/mobile-rn/src/components/NavBar.tsx:64'] }, '真含键名'],
+      [{ ...ruling, evidence: [ruling.evidence[0], `${miniFixture}:2`] }, '未覆盖双端'],
+      [{ ...ruling, evidence: [`${miniFixture}:1`, `${rnFixture}:3`] }, '真含键名'],
       [{ ...ruling, owner: '' }, '缺 owner'],
       [{ ...ruling, expires: '2026-01-01' }, '已到期'],
     ]
@@ -254,9 +262,9 @@ describe('285 逐键 judged 桶(生产判据直用)', () => {
     assert.ok(dup.bad.some((b) => b.includes('重复裁决')))
   })
   it('--update-baseline 前置闸:坏裁决拒写,不得借重落账冲成 ok', () => {
-    const bad = updateGuard({ judgedLedger: { entries: [{ ...ruling, expires: '2026-01-01' }] }, deltas: [d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], equivalenceEntries: [] })
+    const bad = updateGuard({ judgedLedger: { entries: [{ ...ruling, expires: '2026-01-01' }] }, deltas: [d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], equivalenceEntries: [], rootDir: fixtureRoot })
     assert.equal(bad.ok, false)
-    const good = updateGuard({ judgedLedger: { entries: [ruling] }, deltas: [d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], equivalenceEntries: [] })
+    const good = updateGuard({ judgedLedger: { entries: [ruling] }, deltas: [d('NavBar', { onlyMini: ['showSearch'], driftTotal: 1 })], equivalenceEntries: [], rootDir: fixtureRoot })
     assert.equal(good.ok, true)
   })
 })
