@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 320 | `guardianGates` |
 | — blocking | 291 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18933 | `trackedFiles` |
+| 跟踪文件 | 18934 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -15246,6 +15246,8 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 > A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 ## 守门脚本点名索引(内部参考)
 > 2026-10-25 由 `AGENTS.md` 整体迁入(守门 207 体积预算;R4 的文档面 = `AGENTS.md` ∪ `README.md`,故迁到这里仍满足「每道已接线门必须被点名」)。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。原文逐字留档 `.ihui-agent/archive/AGENTS_trim-2026-10-25b.md`。
+- 文档中心 / 公开面健康(2026-11-03 装车,blocking,runner id '285';**原登记为 282,与 `check-web-rn-gap-ratchet.mjs` 撞号后被后来者让号**): `check-docs-public-health.mjs`(D1 docs 页 `metadata.alternates.languages` 声明的 hreflang 必须有真实路由文件 / D2 `app/sitemap.ts` 收录的 `/docs*` 路径必须有路由 / D3 docs 页 `icon:` 字段禁 emoji 当图标,须 lucide 矢量组件;三档各自成对夹具 + `--self-test` 10 例,镜像 `scripts/tests/check-docs-public-health.test.mjs`;应急 `HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1`)
+- 发布线 / 安卓对外下载腿(2026-11-03 立,CI 档,runner id 以现值为准): `check-mobile-download-leg.mjs`(三问各允许「未判定」而不猜绿:① 配置里的下载 URL 跟随 302 后必须 200/206;② `Content-Length` 须 ≥ `--min-bytes`(默认 50MiB);③ 手里的 APK 证书 SHA-256 须等于正式基准。**退出码 2 = skipped/未判定,不是绿** —— 判据读的是公网与签名,提交者结构上改不了那一格,故按 §12e 不挂提交门;取证 `--self-test`,口径见门体头注)
 - 跨端 / web↔RN 覆盖缺口棘轮(2026-11-03 装车,blocking,runner id '282'): `check-web-rn-gap-ratchet.mjs`(把只读对账尺 `check-web-rn-screen-parity.mjs` 的读数包成提交链判据,**不重算第二份口径**——判据 import 其 `__test__` 出口,§0.6;四维 unmapped=0 ∧ judgedGap=0 ∧ prefixHits≤基线容量 ∧ prefixExpired=0,外加每条 aligned 必须带完整 `data.kind`(direct/indirect/static/missing);基线件 `scripts/data/web-rn-gap-baseline.json` 由本器 `--baseline` 现读生成,容量取 min(常量,基线) ⇒ **只收紧不抬闸**;现读 HEAD 面 total 423 · 容量 423 · 全维在闸内 ⇒ 判绿;单次耗时约 4.2s;应急放行 `HUSKY_SKIP_WEB_RN_GAP_RATCHET=1`;镜像 `check-web-rn-gap-ratchet.test.mjs`)
 - 跨端 / 声明承载 vs 真承载(2026-11-03 立,blocking,runner id '284'): `check-declared-carriage.mjs`(registry 声明"某小程序页承载某共享屏"时,必须能在该页 HEAD blob 里读到 **`@rn-shells/<屏名>` 的值 import**——注释与 `import type` 都不算(这两型过报本仓都踩过);三桶 carried/假声明/页面查无之和必须等于声明数,漏桶即判死。档位是**差值棘轮**:锚点 = HEAD 面同一判据读数,只拦"本次新增的假声明",现读存量 69 枚(declared 256 / carried 187)逐条报数不拦(§12e:存量未归零前升绝对零 = 恒红门)。整面只起 3 次 git(ls-tree + git grep + show),实测 0.85s——第一版逐页 `git show` 要 21.5s,慢门本身就是逼人跳门的成因。取不到 registry / 坏 JSON / 枚举 0 条 / 阳性对照读到 0 ⇒ 一律未判定或判死,绝不把"尺子读不到"写成"没有缺陷"。镜像 `check-declared-carriage.test.mjs`(7 例,含真仓存活证明);应急放行 `HUSKY_SKIP_DECLARED_CARRIAGE=1`)
 - 跨端 / RN 薄壳覆盖(2026-11-03 装车,blocking,runner id '283'): `check-rn-host-shell-coverage.mjs`(判每枚共享屏是否被**至少一枚 RN 壳直接 import**——值 import 才算,`import type` 型边不计;三桶 covered / needsManual / seedableMissing;挂账出口 `scripts/data/rn-host-shell-manual.json`,三要素 owner + expires + reason 齐备才生效,到期即判红,在册面不再命中按 §0.7 判清单腐烂;现读 272 枚 · covered 260 · 12 枚在册在期 ⇒ 判绿;修法出口 `gen-rn-host-shell.mjs`(已由守护腿 `sweepRnHostShells` 30 分钟派发);镜像 `check-rn-host-shell-coverage.test.mjs`;应急放行 `HUSKY_SKIP_RN_HOST_SHELL_COVERAGE=1`)
