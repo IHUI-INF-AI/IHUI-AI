@@ -39,8 +39,6 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-
 /** 站点路由窗口:ISR 600s + CDN s-maxage 600s ⇒ 正常最坏 ~20 分钟;超 25 分钟没更新就是真停了 */
 export const STALE_MS = 25 * 60 * 1000
 /** 两臂超时:本机臂快(同机源站),公网臂留足跨境余量 —— 与下载端取数那两层同一口径 */
@@ -173,7 +171,7 @@ export function judge({ doc, now, prev, retried = false }) {
 }
 
 /** 读一次 payload:逐臂问到能答为止;两臂都无响应 ⇒ null(调用方落未判定) */
-export async function readPayload({ fetchImpl = fetch, wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+export async function readPayload({ fetchImpl = fetch, wait: _wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
   const tried = []
   for (const arm of arms()) {
     try {
@@ -310,8 +308,8 @@ async function selfTest() {
   return bad.length === 0 ? 0 : 1
 }
 
-/** 台账落点(供调度器读上一轮);本器只写自己那一份,不与他人共用 */
-export const STATE_FILE = path.join(ROOT, '.ihui-agent', 'state', 'downloads-live-health-last.json').split(path.sep).join('/')
+/** 台账落点(供调度器读上一轮);本器只写自己那一份,不与他人共用。按脚本自身位置推导,不以仓库根为锚点(本器读的是运行台账,不是仓库内容) */
+export const STATE_FILE = fileURLToPath(new URL('../.ihui-agent/state/downloads-live-health-last.json', import.meta.url)).split(path.sep).join('/')
 function readPrev() {
   try {
     const o = JSON.parse(readFileSync(STATE_FILE, 'utf8'))
@@ -337,6 +335,17 @@ export const __test__ = { judge, runCheck, arms, END_EXPECTATIONS, WEB_REASON, S
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  main().then((code) => process.exit(code))
+  // 不用 `process.exit(code)`:本机 Node 26 在 stdout 仍持有管道句柄时硬退出会撞
+  // `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`(实测 rc=127 + stderr 一行断言),
+  // 更坏的是它可能把 `--json` 载荷截断 ⇒ 派发侧只能判"结论不可用"。改 exitCode 让事件循环自然收干。
+  main().then(
+    (code) => {
+      process.exitCode = code
+    },
+    (e) => {
+      console.error(`❌ 尺子自身异常:${String(e?.message ?? e).slice(0, 200)}`)
+      process.exitCode = 2
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

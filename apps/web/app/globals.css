@@ -101,6 +101,13 @@
 .max-w-7xl {
   max-width: 80rem;
 }
+/* 2026-11-03:补上同块漏掉的 max-w-none —— v4 的 max-w-none 同样挂 --spacing-none(=0px),
+   于是带 max-w-none 的元素宽度被压到 0(实测移动端 login-dialog / AgreementDialog:
+   rect width=0px、computed max-width:0px ⇒ 元素在 a11y 树里却 Playwright 判 hidden,
+   见 e2e/dialog-position-regression)。Tailwind 默认语义是 none,按 .max-h-none 同法钉回。 */
+.max-w-none {
+  max-width: none;
+}
 .max-h-none {
   max-height: none;
 }

@@ -39,7 +39,7 @@ import { execFile } from 'node:child_process'
 import { mkdirSync, appendFileSync, readFileSync, existsSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { parseTasklistPids, parseMetricsListenPort, parseServerLocations } from './check-tunnel-leg-health.mjs'
+import { parseTasklistPids, parseMetricsListenPort, parseServerLocations, NETSTAT_BIN } from './check-tunnel-leg-health.mjs'
 
 const TASKLIST = 'C:/Windows/System32/tasklist.exe'
 const SPAWN_TIMEOUT_MS = 15_000
@@ -158,7 +158,7 @@ async function collect() {
   if (!ps.ok) return { ok: false, reason: 'tasklist 取 cloudflared pid 失败' }
   const pids = parseTasklistPids(ps.stdout)
   if (pids.length === 0) return { ok: false, reason: 'cloudflared 进程不在(不是"指标为 0")' }
-  const ns = await runCapture('netstat', ['-ano'])
+  const ns = await runCapture(NETSTAT_BIN, ['-ano'])
   if (!ns.ok) return { ok: false, reason: 'netstat 采集失败,metrics 端口不可测' }
   const port = parseMetricsListenPort(ns.stdout, pids)
   if (port === null) return { ok: false, reason: `netstat 里没枚举到本 pid(${pids.join(',')})的回环 LISTENING 端口 ⇒ metrics 端点不可达` }

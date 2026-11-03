@@ -10,6 +10,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as rg } from '../root-guard.mjs'
 
 const MD = '# t\n\n## 0. 全局铁律(先读,跨节通用)\nA\nB\n\n## 1. 其它\nC\n'
@@ -307,5 +310,169 @@ test('⑥g 放行裁决的真值表(四档,缺一档就是判据没判完)', () 
     false,
     '当前面未判定绝不借他面翻绿',
   )
+})
+
+/**
+ * ⑤ 面一致性(2026-11-03 实测的格子,凌驾于上面四环之上)。
+ *
+ * `--seal` / `--unlock` 原先绑**工作树**字节哈希,而闸 `--check` 默认量 HEAD blob。共享工作树常年
+ * 滞后 HEAD ⇒ "重封"这件事结构上永远追不上闸:实测部署环连冻 47 轮,封出 bf5502484c51(工作树
+ * 302,612 B)而闸判 actual=a09208df9396(HEAD 315,034 B),红因文字自己写着"清单 ↔ 工作树 ↔ HEAD
+ * 三面里某一面对不上(在另一枚签出/另一时刻 --seal 过)"。现在封与锁都只认被审面,工作树那份不同
+ * 就逐条点名(faceNotes),不静默、也不为它封。
+ */
+const FACE_SHA = 'f'.repeat(64)
+const writeManifest = (dir, sha = '0'.repeat(64)) => {
+  const p = join(dir, 'root-guard-manifest.json')
+  writeFileSync(
+    p,
+    JSON.stringify({ version: 1, targets: [{ id: 'x', path: 'x.mjs', mode: 'file', sha256: sha }] }),
+    'utf8',
+  )
+  return p
+}
+
+test('⑤ 封存绑被审面:写进清单的是 HEAD 面哈希,不是工作树那份', () => {
+  const dir = mkScratch('rg-face-')
+  try {
+    const mp = writeManifest(dir)
+    const doc = rg.seal({
+      reason: '复核后重封(测试)',
+      manifestPath: mp,
+      faceHash: () => FACE_SHA,
+      readFile: () => '工作树里那份滞后内容',
+      root: dir,
+    })
+    assert.equal(doc.targets[0].sha256, FACE_SHA, '封的必须是注入的"被审面"哈希')
+    assert.equal(
+      JSON.parse(readFileSync(mp, 'utf8')).targets[0].sha256,
+      FACE_SHA,
+      '落盘清单与返回值同形',
+    )
+    assert.equal(
+      JSON.parse(readFileSync(mp, 'utf8')).faceNotes,
+      undefined,
+      '诊断文本不得进清单(清单是闸的输入)',
+    )
+    assert.ok(
+      (doc.faceNotes ?? []).some((n) => n.includes('工作树副本')),
+      `工作树与面不同必须点名,实得 ${JSON.stringify(doc.faceNotes)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑤ 反向:被审面取不到 ⇒ 抛错且清单一个字节都不写(未判定不封存)', () => {
+  const dir = mkScratch('rg-face-nil-')
+  try {
+    const mp = writeManifest(dir, '1'.repeat(64))
+    assert.throws(
+      () =>
+        rg.seal({
+          reason: '测试',
+          manifestPath: mp,
+          faceHash: () => null,
+          readFile: () => '盘上还有内容',
+          root: dir,
+        }),
+      /未判定不封存/,
+    )
+    assert.equal(JSON.parse(readFileSync(mp, 'utf8')).targets[0].sha256, '1'.repeat(64), '不得被改写')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑤ 解锁同面:记录绑被审面哈希,面取不到一律不写锁文件', () => {
+  const dir = mkScratch('rg-face-unlock-')
+  try {
+    const up = join(dir, 'unlocks.json')
+    const rec = rg.unlock({
+      targetId: 'x',
+      reason: '复核后临时放行(测试)',
+      ttlMin: 120,
+      rev: 'HEAD',
+      faceHash: () => FACE_SHA,
+      manifest: { targets: [{ id: 'x', path: 'x.mjs', mode: 'file', sha256: 'whatever' }] },
+      unlockPath: up,
+      now: Date.parse('2026-11-03T00:00:00Z'),
+    })
+    assert.equal(rec.sha256, FACE_SHA, '解锁记录必须绑被审面哈希')
+    assert.ok(existsSync(up))
+    assert.throws(
+      () =>
+        rg.unlock({
+          targetId: 'x',
+          reason: '测试',
+          ttlMin: 120,
+          faceHash: () => null,
+          manifest: { targets: [{ id: 'x', path: 'x.mjs', mode: 'file', sha256: 'whatever' }] },
+          unlockPath: join(dir, 'unlocks2.json'),
+        }),
+      /未判定不解锁/,
+    )
+    assert.equal(existsSync(join(dir, 'unlocks2.json')), false, '面取不到不得留下锁文件')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('⑤ 形状锁:封与解都不再拿工作树哈希当绑定值(反向断言,防回潮)', () => {
+  const src = readFileSync(new URL('../root-guard.mjs', import.meta.url), 'utf8')
+  const sealBody = src.slice(src.indexOf('export function seal'), src.indexOf('export function unlock'))
+  assert.ok(/faceHash = faceHashOf/.test(sealBody), 'seal 丢了 faceHash 注入出口')
+  assert.ok(
+    !/const h = hashTarget\(t, readFile, root\)\s*\n\s*if \(!h\.ok\) throw new Error\(`封存失败/.test(sealBody),
+    'seal 又回到"按现盘哈希封存"(47 轮冻结的成因形态)',
+  )
+  const unlockBody = src.slice(src.indexOf('export function unlock'))
+  assert.ok(/faceHash = faceHashOf/.test(unlockBody), 'unlock 丢了 faceHash 注入出口')
+  assert.ok(
+    !/const h = hashTarget\(t, readFile, root\)/.test(unlockBody),
+    'unlock 又回到绑工作树哈希(会造出"放了锁仍然红")',
+  )
+})
+
+/**
+ * ⑥ 未知旗标必须当场失败(2026-11-03 本会话实踩)。写成 `--check --rev <sha>`(真名 `--against-rev`)
+ * 时旧实现把它当不存在,静默判**自己那枚 HEAD** 并报绿 —— 同一时刻生产签出对同一 sha 判红。
+ * 假绿比红贵得多:它会让人顺着错方向去改别的格子。失效方向固定为"多要一次定向说明"(§0.10)。
+ */
+test('⑥ CLI 白名单:未知旗标/缺值/游离参数一律判用法错,已知组合照常通过', () => {
+  const bad = rg.parseCliArgs(['--check', '--rev', 'f'.repeat(40)])
+  assert.equal(bad.ok, false, '--rev 不存在,必须被点名而不是被忽略')
+  assert.ok(
+    bad.unknown.includes('--rev') || bad.unknown.some((u) => u.startsWith('--rev')),
+    `未知清单要含 --rev,实得 ${JSON.stringify(bad.unknown)}`,
+  )
+  assert.equal(rg.parseCliArgs(['--reason']).ok, false, '值旗标后面没有值 ⇒ 必须判缺值')
+  assert.equal(
+    rg.parseCliArgs(['--seal']).ok,
+    true,
+    '--seal 单独出现是合法形态(空理由由 seal() 自己拒,不靠 CLI 白名单冒充)',
+  )
+  assert.equal(rg.parseCliArgs(['--check', '--json']).ok, true, '合法组合不得被误拦')
+  assert.equal(
+    rg.parseCliArgs(['--check', '--against-rev', 'f'.repeat(40)]).ok,
+    true,
+    '真名旗标照常通过',
+  )
+  assert.equal(
+    rg.parseCliArgs(['--check', '--against-rev', '--json']).ok,
+    false,
+    '值位上出现另一个旗标 ⇒ 判缺值,不能把 --json 当成 rev 吃掉',
+  )
+  assert.equal(rg.parseCliArgs(['--self-test']).ok, true, '自检档照常通过')
+})
+
+test('⑥ 形状锁:main() 必须在任何动作之前拒绝未知旗标(拒绝早于分派才可能拦住假绿)', () => {
+  const src = readFileSync(new URL('../root-guard.mjs', import.meta.url), 'utf8')
+  const m = src.slice(src.indexOf('function main(argv)'))
+  const guardAt = m.indexOf('parseCliArgs(argv)')
+  const dispatchAt = m.indexOf("has('--self-test')")
+  assert.ok(guardAt > 0 && dispatchAt > 0, '找不到拒绝器或分派点')
+  assert.ok(guardAt < dispatchAt, '拒绝必须排在任何 --flag 分派之前')
+  assert.ok(/process\.exitCode = EXIT_UNKNOWN/.test(m.slice(0, guardAt + 900)), '用法错必须顶未判定/失败退出码')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
