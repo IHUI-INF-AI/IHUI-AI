@@ -89,9 +89,36 @@ describe('285 台账棘轮 verifyAgainstBaseline(生产判据直用)', () => {
     const v = verifyAgainstBaseline([d('Foo', { onlyRn: ['onBar'], driftTotal: 1 })], base)
     assert.ok(v.warn.some((w) => w.kind === 'book-stale' && w.pair === 'ZZ'))
   })
-  it('buildBaselineEntry:undetermined 与 ok 各按形态落账,reason 随行', () => {
+  it('buildBaselineEntry:undetermined 与 ok 各按形态落账,reason 随行;人工裁决不被 --update-baseline 冲掉', () => {
     assert.equal(buildBaselineEntry({ name: 'U', state: 'undetermined', reason: '没读到' }).state, 'undetermined')
     assert.deepEqual(buildBaselineEntry(d('Foo', { onlyRn: ['a'], driftTotal: 1 })).onlyRn, ['a'])
+    assert.equal(buildBaselineEntry({ name: 'U', state: 'undetermined', reason: '没读到' }, { state: 'not-applicable', owner: 'o' }).state, 'not-applicable')
+  })
+  it('undetermined + 台账 not-applicable(owner/expires/evidence/why 齐) ⇒ 转已裁决,未判定归零', () => {
+    const ruling = {
+      state: 'not-applicable',
+      owner: 'cross-end-props-parity',
+      expires: '2027-06-30',
+      evidence: ['packages/app/src/components/ScreenStates.tsx:70'],
+      why: 'ScreenStates 是两端文件基名配上的四组件族容器,文件内无同名组件出口,不能并成单组件 props 键集',
+    }
+    const v = verifyAgainstBaseline(
+      [{ name: 'ScreenStates', state: 'undetermined', reason: '出口无默认/同名组件' }],
+      { pairs: { ScreenStates: ruling } },
+      { now: new Date('2026-11-03T00:00:00'), rootDir: ROOT },
+    )
+    assert.equal(v.bad.length, 0)
+    assert.equal(v.warn.length, 0)
+    assert.deepEqual(v.adjudicated.map((a) => a.pair), ['ScreenStates'])
+  })
+  it('not-applicable 缺 owner/expires/evidence ⇒ 裁决无效,该对仍按 undetermined 点名', () => {
+    const v = verifyAgainstBaseline(
+      [{ name: 'ScreenStates', state: 'undetermined', reason: '出口无默认/同名组件' }],
+      { pairs: { ScreenStates: { state: 'not-applicable', why: '不是同名组件对' } } },
+      { now: new Date('2026-11-03T00:00:00'), rootDir: ROOT },
+    )
+    assert.equal(v.adjudicated.length, 0)
+    assert.ok(v.warn.some((w) => w.pair === 'ScreenStates' && w.kind === 'undetermined' && /owner|expires|evidence/.test(w.why)))
   })
   it('映射表扩容无同轮收敛=红;同轮收敛=绿(防拿映射洗白真缺口)', () => {
     const booked = { pairs: base.pairs, counts: { equivalenceEntries: 0, driftKeysTotal: 2 } }
