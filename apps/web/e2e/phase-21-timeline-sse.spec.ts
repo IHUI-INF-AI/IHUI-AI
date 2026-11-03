@@ -40,13 +40,47 @@ import type { Page } from '@playwright/test'
  *   导致 pane 永远停在 empty state)。
  * - 每个 mock SSE body 末尾追加 chunk + done:否则 streamChat 收不到 content token,
  *   30s 首 token 超时 abort,单测耗时过长且置错误态。
+ *
+ * 2026-11-04 信息架构重构校准(仅改"怎么到达元素",不动断言与预算):
+ * - `agent-progress-trigger` 已从输入卡片可见底栏移入「+ → 更多工具」抽屉
+ *   (`composer-tools-panel` / `composer-tools-drawer`),仅 + 菜单 mode==='tools' 时挂载。
+ * - 因此 openPane 的"pane 就绪锚点"改为底栏可见的 `add-menu-trigger`,再经
+ *   openComposerTools 进抽屉后点击 trigger 打开 pane。
+ * - 本文件不引入 Escape 关菜单的 helper:该菜单之下的 pane 若处于 unpin 态,
+ *   Esc / 外部 mousedown 会连 pane 一起关掉,改会破坏 waitForPaneReady 的语义;
+ *   抽屉保持打开对后续 fill/Enter、trigger 二次点击均无影响。
  */
 
 const CHAT_URL = '/chat'
+const ADD_MENU_TRIGGER = '[data-testid="add-menu-trigger"]'
+/** 菜单已打开判据(一层 = 快捷设置组,抽屉层 = tools 面板,二者互斥) */
+const ADD_MENU_OPEN_MARK =
+  '[data-testid="composer-quick-settings"], [data-testid="composer-tools-panel"]'
+const TOOLS_ENTRY = '[data-testid="composer-tools-entry"]'
+const TOOLS_PANEL = '[data-testid="composer-tools-panel"]'
 const TRIGGER = '[data-testid="agent-progress-trigger"]'
 const PANE = '[data-testid="agent-progress-pane"]'
 const PANE_WAITING = '[data-testid="pane-waiting-for-plan"]'
 const PANE_EMPTY_TITLE = '[data-testid="pane-empty-title"]'
+
+/** 打开 `+` 菜单(幂等:已开则不动 —— 菜单是自写 popover,再点一次 `+` 会把它点关) */
+async function openComposerMenu(page: Page): Promise<void> {
+  const trigger = page.locator(ADD_MENU_TRIGGER)
+  await expect(trigger).toBeVisible()
+  if ((await trigger.getAttribute('aria-expanded').catch(() => null)) !== 'true') {
+    await trigger.click()
+  }
+  await expect(page.locator(ADD_MENU_OPEN_MARK).first()).toBeVisible()
+}
+
+/** 进入「+ → 更多工具」抽屉(trigger 唯一挂载处;已打开则幂等返回) */
+async function openComposerTools(page: Page): Promise<void> {
+  const panel = page.locator(TOOLS_PANEL)
+  if (await panel.isVisible().catch(() => false)) return
+  await openComposerMenu(page)
+  await page.locator(TOOLS_ENTRY).click()
+  await expect(panel).toBeVisible()
+}
 
 /** 构造 SSE 流 body(每条事件 data: JSON\n\n) */
 function makeSSE(events: ReadonlyArray<Record<string, unknown>>): string {
@@ -206,12 +240,20 @@ async function mockSSE(
   return { count: () => callCount }
 }
 
-/** 导航到 /chat,等待 trigger 可见并打开 pane(原 openTimeline 的"切 timeline tab"步骤已移除) */
+/** 导航到 /chat,等待底栏 `+` 可见 → 进「更多工具」抽屉 → 点 trigger 打开 pane
+ *  (原 openTimeline 的"切 timeline tab"步骤已移除)
+ *  2026-11-04:就绪锚点由 `agent-progress-trigger` 改为 `add-menu-trigger` —— 后者是
+ *  输入区可见底栏唯一的稳定锚点;trigger 只在 + 菜单 mode==='tools' 的抽屉里挂载。 */
 async function openPane(page: Page): Promise<void> {
   await page.goto(CHAT_URL)
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   // 确保仍在 /chat(已登录态下不会被重定向)
   await expect(page).toHaveURL(/\/chat/, { timeout: 30000 })
+
+  // 30s 预算沿用原"等 trigger 可见"的页面就绪判据,只是换成了可见锚点 `+`
+  await expect(page.locator(ADD_MENU_TRIGGER)).toBeVisible({ timeout: 30000 })
+  // 展开 + → 更多工具抽屉(trigger 唯一挂载处),抽屉保持打开(pane 在外层,不受影响)
+  await openComposerTools(page)
 
   const trigger = page.locator(TRIGGER)
   await expect(trigger).toBeVisible({ timeout: 30000 })
