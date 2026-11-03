@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4032 | `testFiles` |
+| 测试文件 | 4034 | `testFiles` |
 | CI 工作流 | 52 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 323 | `guardianGates` |
-| — blocking | 294 | `guardianBlocking` |
+| 工程守门 | 322 | `guardianGates` |
+| — blocking | 293 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 18982 | `trackedFiles` |
+| 跟踪文件 | 18985 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-03。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5452,6 +5452,13 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-03**
+- 🔧 工程/其他:合并 origin/main 后重算四语 README 数字与最近更新、重建三端生成件并重封根护栏 (c497ced6bf)
+- 🐞 修复:恢复被归并丢弃的 unknown 收窄与 e2e 类型导入 (3d7d912572)
+- 🐞 修复:收掉收敛合并的两处后遗症——docs 公开面门重复登记摘除(正号 285),指标存在性门补 R4 文档点名 (657534b221)
+- 🐞 修复:文档中心每页只剩一个 H1 且它必须是本页主题;不存在的 slug 不再把 slug 当标题(票 D53 第八批) (b2267de78c)
+- 🔧 工程/其他:收敛非 required 高频 workflow —— visual-regression/lighthouse/i18n-dead 转 schedule+dispatch,real-db/mirror/style-spec 按 ref 只跑最新,android APK 改 per-ref 取消 (6d42d30f15)
+
 **2026-11-03**
 - 🐞 修复:老格式 Office 预览默认不再外发文件地址,文档中心口径同批改准(票 D53 第七批) (4fe47b7af3)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ac7a1c3ac3)
