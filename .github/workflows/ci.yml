@@ -325,6 +325,13 @@ jobs:
   # 分片把"包之间"的并行度交给 runner,而不是靠单机超配。
   gate-test:
     runs-on: ubuntu-latest
+    # 分片号走 job 级 env 而不是在 `run:` 里直接写 `${{ matrix.shard }}`:
+    # 失败分诊(scripts/ci-failure-triage.sh)会把失败步骤的 `run:` 原样重跑一遍,
+    # 而它拿不到 GitHub 的表达式展开 —— 实测 run 41567631871 的 shard 3 分诊因此报
+    # `bash: line 1: ${{ matrix.shard }}/4: bad substitution`(真失败点被挡在后面)。
+    # 用 env 后,重跑的面与原步骤逐字相同且能被 bash 展开。
+    env:
+      SHARD_INDEX: ${{ matrix.shard }}
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -355,7 +362,7 @@ jobs:
 
       - name: Test (shard ${{ matrix.shard }}/4)
         id: test
-        run: node scripts/ci-test-shards.mjs --shard ${{ matrix.shard }}/4
+        run: node scripts/ci-test-shards.mjs --shard "$SHARD_INDEX/4"
 
       - name: Failure triage (public annotations)
         id: failure-triage
