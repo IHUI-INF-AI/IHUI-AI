@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T09:03:14.942Z",
+  "generatedAt": "2026-11-03T10:28:52.874Z",
   "face": "head",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。",
   "pairs": {
@@ -8,14 +8,26 @@
       "onlyRn": [],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 0
     },
     "BackChevron": {
       "state": "ok",
-      "onlyRn": ["label"],
-      "onlyMini": ["color", "onTap"],
+      "onlyRn": [
+        "label"
+      ],
+      "onlyMini": [
+        "color"
+      ],
       "reqDrift": [],
-      "driftTotal": 3
+      "mapped": [
+        {
+          "ours": "onPress",
+          "theirs": "onTap",
+          "kind": "event"
+        }
+      ],
+      "driftTotal": 2
     },
     "BottomActionBar": {
       "state": "ok",
@@ -83,13 +95,27 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 59
     },
     "Carousel": {
       "state": "ok",
-      "onlyRn": ["autoplayInterval", "banner", "itemWidth", "onItemPress"],
-      "onlyMini": ["autoplay", "courseMeta", "interval", "items", "onItemClick", "variant"],
+      "onlyRn": [
+        "autoplayInterval",
+        "banner",
+        "itemWidth",
+        "onItemPress"
+      ],
+      "onlyMini": [
+        "autoplay",
+        "courseMeta",
+        "interval",
+        "items",
+        "onItemClick",
+        "variant"
+      ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 10
     },
     "ColorfulLoader": {
@@ -97,13 +123,24 @@
       "onlyRn": [],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 0
     },
     "FloatBox": {
       "state": "ok",
-      "onlyRn": ["duration", "message", "onHide", "type", "visible"],
-      "onlyMini": ["onFeedback", "onService"],
+      "onlyRn": [
+        "duration",
+        "message",
+        "onHide",
+        "type",
+        "visible"
+      ],
+      "onlyMini": [
+        "onFeedback",
+        "onService"
+      ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 7
     },
     "InputArea": {
@@ -164,13 +201,21 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 51
     },
     "IntelligentAssistant": {
       "state": "ok",
-      "onlyRn": ["robotImage", "tokenQuantity"],
-      "onlyMini": ["isLoggedIn", "tokenBalance"],
+      "onlyRn": [
+        "robotImage",
+        "tokenQuantity"
+      ],
+      "onlyMini": [
+        "isLoggedIn",
+        "tokenBalance"
+      ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 4
     },
     "LoginPopUp": {
@@ -202,7 +247,10 @@
         "onWebAuthLogin",
         "userInfo"
       ],
-      "reqDrift": ["visible(req/op)"],
+      "reqDrift": [
+        "visible(req/op)"
+      ],
+      "mapped": [],
       "driftTotal": 24
     },
     "ModelConfigDialog": {
@@ -231,8 +279,16 @@
         "selectedModelId",
         "videoUrl"
       ],
-      "onlyMini": ["isVip"],
-      "reqDrift": ["config(req/op)", "modelType(req/op)", "onChange(req/op)", "visible(req/op)"],
+      "onlyMini": [
+        "isVip"
+      ],
+      "reqDrift": [
+        "config(req/op)",
+        "modelType(req/op)",
+        "onChange(req/op)",
+        "visible(req/op)"
+      ],
+      "mapped": [],
       "driftTotal": 27
     },
     "ModelList": {
@@ -260,11 +316,18 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 18
     },
     "NavBar": {
       "state": "ok",
-      "onlyRn": ["leftActions", "rightAction", "rightActions", "sticky", "subtitle"],
+      "onlyRn": [
+        "leftActions",
+        "rightAction",
+        "rightActions",
+        "sticky",
+        "subtitle"
+      ],
       "onlyMini": [
         "activeTitleIndex",
         "bgColor",
@@ -288,6 +351,7 @@
         "variant"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 25
     },
     "ScreenStates": {
@@ -296,16 +360,35 @@
     },
     "ScrollJumpButton": {
       "state": "ok",
-      "onlyRn": ["label"],
-      "onlyMini": ["labelKey", "onTap"],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "driftTotal": 3
+      "mapped": [
+        {
+          "ours": "onPress",
+          "theirs": "onTap",
+          "kind": "event"
+        },
+        {
+          "ours": "label",
+          "theirs": "labelKey",
+          "kind": "content"
+        }
+      ],
+      "driftTotal": 0
     },
     "SectionHeader": {
       "state": "ok",
-      "onlyRn": ["accessibilityLabel", "leading", "style", "subtitleStyle", "titleStyle"],
+      "onlyRn": [
+        "accessibilityLabel",
+        "leading",
+        "style",
+        "subtitleStyle",
+        "titleStyle"
+      ],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 5
     },
     "UserInfoCard": {
@@ -336,11 +419,19 @@
         "vipTitle"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 21
     },
     "VideoPlayer": {
       "state": "ok",
-      "onlyRn": ["VideoComponent", "onComplete", "onProgress", "startPosition", "title", "url"],
+      "onlyRn": [
+        "VideoComponent",
+        "onComplete",
+        "onProgress",
+        "startPosition",
+        "title",
+        "url"
+      ],
       "onlyMini": [
         "autoplay",
         "controls",
@@ -353,22 +444,32 @@
         "src"
       ],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 15
     },
     "VoiceInput": {
       "state": "ok",
-      "onlyRn": ["aiServiceUrl", "language", "onImageSelected", "showClear", "showImagePicker"],
+      "onlyRn": [
+        "aiServiceUrl",
+        "language",
+        "onImageSelected",
+        "showClear",
+        "showImagePicker"
+      ],
       "onlyMini": [],
       "reqDrift": [],
+      "mapped": [],
       "driftTotal": 5
     }
   },
   "counts": {
     "pairs": 18,
-    "drifted": 16,
-    "aligned": 1,
+    "drifted": 14,
+    "aligned": 3,
     "undetermined": 1,
     "maxKeyDrift": 59,
-    "driftKeysTotal": 279
+    "driftKeysTotal": 273,
+    "equivalenceEntries": 3,
+    "mappedKeysTotal": 4
   }
 }
