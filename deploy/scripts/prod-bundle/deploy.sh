@@ -134,13 +134,20 @@ if [[ ! -f "$WEB_ENV_FILE" ]] || [[ "$FORCE_REGEN" == "true" ]]; then
 # ===== 下载页配置(2026-08-17 部署机自动生成,自托管分发不上架)=====
 # Android APK:站点 CDN 腿的固定地址(cdn-server 读旁边 ihui-ai-latest.apk.redirect.json 转出 no-cache 302,
 # 真正长缓存的是带版本号那份;由 scripts/publish-mobile-apk.mjs 每次出包自动翻指针)
-NEXT_PUBLIC_DOWNLOAD_APK_URL=https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk
+# 地址不在此抄写:唯一真源 = scripts/data/mobile-download-leg.json,下面按单源替换。
+NEXT_PUBLIC_DOWNLOAD_APK_URL=__MOBILE_DOWNLOAD_URL__
 # (COS/CF 备用腿 dl.aizhs.top 已于 2026-10-30 整桶下线:按外网下行流量计费且比站点腿慢两个数量级)
 # 下面两行是下载页展示值,不产生任何分发效果 —— 真实版本以指针文件为准
 NEXT_PUBLIC_DOWNLOAD_APK_VERSION=0.0.0
 NEXT_PUBLIC_DOWNLOAD_APK_RELEASE_DATE=1970-01-01
 WEBENV
-    ok "apps/web/.env.production 已生成(APK 下载配置)"
+    MOBILE_DOWNLOAD_URL="${IHUI_MOBILE_DOWNLOAD_URL:-$(sed -nE 's/^[[:space:]]*"downloadUrl"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$PROJECT_ROOT/scripts/data/mobile-download-leg.json" | head -n 1)}"
+    if [[ -z "$MOBILE_DOWNLOAD_URL" ]]; then
+        err "读不出 Android 下载腿单源($PROJECT_ROOT/scripts/data/mobile-download-leg.json);拒绝写入空地址"
+        exit 1
+    fi
+    sed -i "s|__MOBILE_DOWNLOAD_URL__|${MOBILE_DOWNLOAD_URL}|" "$WEB_ENV_FILE"
+    ok "apps/web/.env.production 已生成(APK 下载配置 ← 单源 $MOBILE_DOWNLOAD_URL)"
 else
     ok "apps/web/.env.production 已存在,跳过"
 fi

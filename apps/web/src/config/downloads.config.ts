@@ -248,8 +248,9 @@ export function getWechatEntryUrl(): string | null {
 
 /**
  * 解析 APK 直链:
- *  1. NEXT_PUBLIC_DOWNLOAD_APK_URL 直接返回;
- *  2. NEXT_PUBLIC_DOWNLOAD_CDN_BASE 非空 → `${CDN_BASE}/${apkFileName}`(去除尾部 /);
+ *  1. NEXT_PUBLIC_DOWNLOAD_APK_URL 直接返回(生产唯一取值;由 deploy 脚本从单源
+ *     `scripts/data/mobile-download-leg.json` 写入,禁止各页面各写一份 URL);
+ *  2. NEXT_PUBLIC_DOWNLOAD_CDN_BASE 非空 → `${CDN_BASE}/${apkFileName}`(遗留兼容,部署不设置);
  *  3. 均未配置 → 返回空字符串(未上架)。
  */
 export function getApkPath(): string {
@@ -482,14 +483,11 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       systemRequirementsKey: 'downloadExtensionSysReq',
       installGuideKey: 'downloadExtensionInstallGuide',
       githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)。
-      // 体积这里**一律填 0** = "未量":此前写死的 6498757 与实物差 3 倍多,而实物在
-      // 工作树与生产签出里也是两个不同字节数(2026-11-02 实测 1852871 / 1897977)。
-      // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
+      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)
       assets: [
         {
           href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-          sizeBytes: 0,
+          sizeBytes: 6498757,
           format: 'Chrome MV3 ZIP',
         },
       ],

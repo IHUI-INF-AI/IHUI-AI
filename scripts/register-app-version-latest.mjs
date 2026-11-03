@@ -40,6 +40,8 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { DEFAULT_MOBILE_DOWNLOAD_URL, SITE_LEG_PUBLIC_BASE } from './lib/mobile-download-leg.mjs'
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..')
 
@@ -52,8 +54,9 @@ export const DEFAULTS = {
   store: null,
   version: '0.0.9',
   buildNumber: 26102816,
-  downloadUrl: 'https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
-  baseUrl: 'https://www.aizhs.top',
+  // 单一真源:scripts/data/mobile-download-leg.json(经 lib 读取,禁止在此再写字面量)
+  downloadUrl: DEFAULT_MOBILE_DOWNLOAD_URL,
+  baseUrl: SITE_LEG_PUBLIC_BASE,
 }
 
 // =============================================================================
