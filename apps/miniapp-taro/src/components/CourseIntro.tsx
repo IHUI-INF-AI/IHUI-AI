@@ -20,10 +20,10 @@ export interface CourseIntroProps {
 export default function CourseIntro({ data = {} }: CourseIntroProps) {
   const tt = useTt()
   return (
-    <View className="bg-card px-4 py-3">
+    <View className="bg-card px-lg py-md">
       {data.description && (
-        <View className="mb-4">
-          <Text className="block text-body font-medium text-foreground mb-2">
+        <View className="mb-lg">
+          <Text className="block text-body font-medium text-foreground mb-sm">
             {tt('course.intro', '课程介绍')}
           </Text>
           <Text className="block text-label text-muted-foreground leading-relaxed">
@@ -33,8 +33,8 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
       )}
 
       {data.objectives && data.objectives.length > 0 && (
-        <View className="mb-4">
-          <Text className="block text-body font-medium text-foreground mb-2">
+        <View className="mb-lg">
+          <Text className="block text-body font-medium text-foreground mb-sm">
             {tt('course.objectives', '学习目标')}
           </Text>
           {data.objectives.map((obj, i) => (
@@ -43,7 +43,7 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
                 name="check"
                 size="14px"
                 color="var(--color-muted-foreground)"
-                className="mr-2"
+                className="mr-sm"
               />
               <Text className="flex-1 text-label text-muted-foreground">{obj}</Text>
             </View>
@@ -52,15 +52,15 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
       )}
 
       {data.highlights && data.highlights.length > 0 && (
-        <View className="mb-4">
-          <Text className="block text-body font-medium text-foreground mb-2">
+        <View className="mb-lg">
+          <Text className="block text-body font-medium text-foreground mb-sm">
             {tt('course.highlights', '课程亮点')}
           </Text>
           <View className="flex flex-wrap">
             {data.highlights.map((h, i) => (
               <Text
                 key={i}
-                className="text-caption px-2 py-1 mr-[12rpx] mb-1 rounded bg-primary/10 text-primary"
+                className="text-caption px-sm py-xs mr-[12rpx] mb-xs rounded bg-primary/10 text-primary"
               >
                 {h}
               </Text>
@@ -71,12 +71,12 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
 
       {data.suitableFor && data.suitableFor.length > 0 && (
         <View>
-          <Text className="block text-body font-medium text-foreground mb-2">
+          <Text className="block text-body font-medium text-foreground mb-sm">
             {tt('course.audience', '适合人群')}
           </Text>
           {data.suitableFor.map((s, i) => (
             <View key={i} className="flex items-start mb-[12rpx]">
-              <Text className="text-label text-primary mr-2">·</Text>
+              <Text className="text-label text-primary mr-sm">·</Text>
               <Text className="flex-1 text-label text-muted-foreground">{s}</Text>
             </View>
           ))}

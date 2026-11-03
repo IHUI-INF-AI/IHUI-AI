@@ -262,12 +262,12 @@ export default function LessonListItem({
   const typeIcon = (data.type && TYPE_ICONS[data.type]) || ''
   return (
     <View
-      className={`flex items-center px-4 py-3 mb-2 ${active ? 'bg-primary/10' : ''}`}
+      className={`flex items-center px-lg py-md mb-sm ${active ? 'bg-primary/10' : ''}`}
       onClick={onClick}
       hoverClass="opacity-60"
     >
       <View
-        className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-label ${
+        className={`flex items-center justify-center w-7 h-7 mr-md rounded-md text-label ${
           active ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
         }`}
       >
@@ -278,9 +278,9 @@ export default function LessonListItem({
         <View className="flex items-center">
           {typeIcon &&
             (data.type === 'article' ? (
-              <Text className="text-label text-muted-foreground mr-2">{typeIcon}</Text>
+              <Text className="text-label text-muted-foreground mr-sm">{typeIcon}</Text>
             ) : (
-              <Image className="w-3 h-3 mr-2" src={typeIcon} mode="aspectFit" />
+              <Image className="w-3 h-3 mr-sm" src={typeIcon} mode="aspectFit" />
             ))}
           <Text
             className={`text-body truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
@@ -289,13 +289,13 @@ export default function LessonListItem({
           </Text>
           {/* VIP 角标 */}
           {vipVisible && (
-            <Text className="ml-2 text-badge px-[12rpx] py-[4rpx] rounded bg-warning/20 text-warning font-medium">
+            <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded bg-warning/20 text-warning font-medium">
               VIP
             </Text>
           )}
           {/* 分类徽章 */}
           {categoryVisible && data.category && (
-            <Text className="ml-2 text-badge px-[12rpx] py-[4rpx] rounded bg-muted text-muted-foreground">
+            <Text className="ml-sm text-badge px-[12rpx] py-[4rpx] rounded bg-muted text-muted-foreground">
               {data.category}
             </Text>
           )}
@@ -312,7 +312,7 @@ export default function LessonListItem({
         {!compact && (data.likes !== undefined || lessonCountVisible) && (
           <View className="flex items-center mt-[4rpx]">
             {data.likes !== undefined && (
-              <Text className="text-badge text-muted-foreground mr-3">
+              <Text className="text-badge text-muted-foreground mr-md">
                 {tt('LessonListItem.y1', '人已学习')}
                 {data.likes}
               </Text>
@@ -329,20 +329,20 @@ export default function LessonListItem({
 
       {/* 价格标签 */}
       {priceVisible && data.price !== undefined && (
-        <Text className="text-label text-warning font-medium mr-2">¥{data.price}</Text>
+        <Text className="text-label text-warning font-medium mr-sm">¥{data.price}</Text>
       )}
       {data.isFree && (
-        <Text className="text-badge px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary mr-2">
+        <Text className="text-badge px-[12rpx] py-[4rpx] rounded bg-primary/10 text-primary mr-sm">
           {tt('lesson.preview', '试看')}
         </Text>
       )}
       {/* 已学完:原载体是 U+2713 勾字符摆在 text 里当状态图标 —— 改为矢量。
           size 24rpx = text-xs(12px) 同档,color 沿用原类名的 text-primary 档,mr-2 间距保留。 */}
       {data.watched && (
-        <LineIcon name="check" size={24} color="var(--color-primary)" className="mr-2" />
+        <LineIcon name="check" size={24} color="var(--color-primary)" className="mr-sm" />
       )}
       {data.locked && (
-        <LineIcon name="lock" size="12px" color="var(--color-muted-foreground)" className="mr-2" />
+        <LineIcon name="lock" size="12px" color="var(--color-muted-foreground)" className="mr-sm" />
       )}
     </View>
   )
