@@ -474,7 +474,7 @@ function makeStyles() {
     outlineText: { fontSize: rnType.body.size, color: tokens.text.primary },
     pairBox: { alignItems: 'center', gap: rnSpacing.xs, paddingVertical: rnSpacing.sm },
     pairCode: {
-      fontSize: 40,
+      fontSize: rnType.displayLg.size,
       fontWeight: '700',
       letterSpacing: 8,
       color: tokens.brand.cta,
