@@ -133,10 +133,7 @@ export function deriveSweepView(
  * 上一轮回执文案。`last_sweep` 缺席 = 本进程还没跑过(写「尚未巡检」,不是「失败」);
  * `note` 非空 = 本轮没跑完,原样追加,不粉饰。分段连接符与 web/小程序同源。
  */
-export function deriveLastSweepText(
-  last: CheckinWbSweepSummary | null | undefined,
-  t: Translate,
-): string {
+function deriveLastSweepText(last: CheckinWbSweepSummary | null | undefined, t: Translate): string {
   if (!last) return t('checkinAssistant.taskAutoLastNever')
   return joinWbSweepParts([
     t('checkinAssistant.taskAutoLast', { time: formatWbIsoMinute(last.at) ?? '—' }),

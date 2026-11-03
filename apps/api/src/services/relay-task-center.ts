@@ -286,7 +286,7 @@ function hintFromReason(reason: string | null): string | null {
  * 读不到体(非 200 / 连不上 / 体不是那个形状) ⇒ 显式未判定,并把真实原因原样带出,
  * 绝不回落成"总开关大概没开"这种猜测性归因(§0.3 + §5e-1)。
  */
-export function judgeCheckinSchedulerStatus(raw: CheckinProbeRaw): CheckinStatusResult {
+function judgeCheckinSchedulerStatus(raw: CheckinProbeRaw): CheckinStatusResult {
   if (raw.kind === 'transport-error') {
     return {
       state: 'unjudged',
@@ -391,7 +391,7 @@ export function judgeCheckinSchedulerStatus(raw: CheckinProbeRaw): CheckinStatus
  * (推不出器物自身节律)⇒ 不判这一档,不造判据没有的档位。容差取 3 拍是设计值并在
  * 头注明写:心跳戳写在派发前,单拍偏旧区分不出"未到点"与"被跳过",连缺 2 拍仍只报在位。
  */
-export const STALE_BEAT_TOLERANCE = 3
+const STALE_BEAT_TOLERANCE = 3
 
 export interface TickRunJudgement {
   /** 登记处/心跳文件在不在(原 sourceOk 语义,不放宽) */
@@ -405,7 +405,7 @@ export interface TickRunJudgement {
   stale: boolean
 }
 
-export function judgeTickCarrierRun(
+function judgeTickCarrierRun(
   raw: Record<string, unknown> | null,
   opts: {
     atField: string
@@ -440,9 +440,9 @@ export function judgeTickCarrierRun(
       lastRunOk: fail === 0,
       stale,
       lastRunDetail:
-        (fail === 0
+        fail === 0
           ? `${opts.carrierLabel}心跳在位,器物自述本轮 fail=0(巡检项全部通过)`
-          : `${opts.carrierLabel}心跳在位,器物自述本轮失败项 ${fail} 个 ⇒ 本轮结果判负(明细见 tick 的 results)`),
+          : `${opts.carrierLabel}心跳在位,器物自述本轮失败项 ${fail} 个 ⇒ 本轮结果判负(明细见 tick 的 results)`,
     }
   }
   return {

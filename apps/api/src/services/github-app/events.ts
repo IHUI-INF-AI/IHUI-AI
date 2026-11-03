@@ -133,7 +133,7 @@ const ciCheckObjectSchema = z.object({
   name: z.string().optional(),
 })
 
-export const checkSuiteEventSchema = z.object({
+const checkSuiteEventSchema = z.object({
   action: z.string(),
   repository: repositorySchema,
   installation: installationSchema.optional(),
@@ -143,7 +143,7 @@ export const checkSuiteEventSchema = z.object({
 })
 export type CheckSuiteEventPayload = z.infer<typeof checkSuiteEventSchema>
 
-export const workflowRunEventSchema = z.object({
+const workflowRunEventSchema = z.object({
   action: z.string(),
   repository: repositorySchema,
   installation: installationSchema.optional(),
@@ -151,7 +151,7 @@ export const workflowRunEventSchema = z.object({
 })
 export type WorkflowRunEventPayload = z.infer<typeof workflowRunEventSchema>
 
-export const checkRunEventSchema = z.object({
+const checkRunEventSchema = z.object({
   action: z.string(),
   repository: repositorySchema,
   installation: installationSchema.optional(),
@@ -190,7 +190,7 @@ export type PersistedGithubEvent = (typeof PERSISTED_GITHUB_EVENTS)[number]
  * 这三类进来只会让运维以为 CI 事件已经接了业务。它们的落点是显式 200 + 忽略原因
  * (`ci_event_not_subscribed`),而不是静默丢弃 —— 静默与失聪在 GitHub 侧读数上同形。
  */
-export const OBSERVED_CI_EVENTS = ['check_suite', 'workflow_run', 'check_run'] as const
+const OBSERVED_CI_EVENTS = ['check_suite', 'workflow_run', 'check_run'] as const
 export type ObservedCiEvent = (typeof OBSERVED_CI_EVENTS)[number]
 
 export type KnownGithubEvent = HandledGithubEvent | PersistedGithubEvent | ObservedCiEvent

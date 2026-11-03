@@ -20,7 +20,7 @@ declare module 'fastify' {
  * 连接参数单源:主客户端、队列客户端、限流专用客户端共用同一套。
  * 三处各写一份必然漂移(AGENTS.md §0.6),新增连接请走 createRedisClient。
  */
-export const REDIS_CONNECTION_OPTIONS = {
+const REDIS_CONNECTION_OPTIONS = {
   // 重连策略：最多每秒重试一次，避免狂打日志
   retryStrategy: (times: number) => Math.min(times * 200, 1000),
   maxRetriesPerRequest: null, // BullMQ 要求

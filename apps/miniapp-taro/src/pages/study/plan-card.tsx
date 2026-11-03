@@ -49,7 +49,7 @@ export type TranslateFn = (key: string, params?: Record<string, string | number>
  * 同窗口公式的另一处实现 = GET /study/plans 的 due(other/study-plan-routes.ts:46),
  * 那里直接产出 dueDate/deadline 字段;本端点没带上,故在端内按同一算法补,不另立窗口。
  */
-export function deadlineOf(p: PlanItem): string {
+function deadlineOf(p: PlanItem): string {
   if (p.deadline) return p.deadline
   if (!p.createdAt) return ''
   const created = new Date(p.createdAt)

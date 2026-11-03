@@ -350,7 +350,7 @@ export async function deliverSmsCode(
  *
  * 抽成纯函数是为了让每一档各有成对夹具可钉(§feedback-fix-must-carry-mutation-proof):
  * 摘掉 `devEchoOptIn` 这一维,显式声明那一档必须翻红,而不是两档同色。 */
-export function judgeUnconfiguredDelivery(opts: {
+function judgeUnconfiguredDelivery(opts: {
   productionGuard: boolean
   devEchoOptIn: boolean
 }): SmsDeliveryResult {
@@ -668,7 +668,7 @@ async function sendViaProxy(phone: string, code: string): Promise<SmsDeliveryRes
 /** 阿里云通知模板 → env 键。与 TENCENT_NOTICE_TEMPLATE_ENV_KEYS 同构:云侧模板同为
  *  固定正文(无变量),按用途 key 各自寻址,发信不传 templateParam。
  *  未回填的 key 自动落到通用 {content} 结构化模板(ALI_SMS_NOTIFY_TEMPLATE_CODE)或代理。 */
-export const ALIYUN_NOTICE_TEMPLATE_ENV_KEYS: Record<SmsNoticeTemplateKey, string> = {
+const ALIYUN_NOTICE_TEMPLATE_ENV_KEYS: Record<SmsNoticeTemplateKey, string> = {
   'binding-success': 'ALI_SMS_TEMPLATE_NOTICE_BINDING_SUCCESS',
   'new-device': 'ALI_SMS_TEMPLATE_NOTICE_NEW_DEVICE',
   'password-changed': 'ALI_SMS_TEMPLATE_NOTICE_PASSWORD_CHANGED',
@@ -682,7 +682,7 @@ export const ALIYUN_NOTICE_TEMPLATE_ENV_KEYS: Record<SmsNoticeTemplateKey, strin
 }
 
 /** 阿里云营销模板 → env 键(与 TENCENT_MARKETING_TEMPLATE_ENV_KEYS 同构)。 */
-export const ALIYUN_MARKETING_TEMPLATE_ENV_KEYS: Record<SmsMarketingTemplateKey, string> = {
+const ALIYUN_MARKETING_TEMPLATE_ENV_KEYS: Record<SmsMarketingTemplateKey, string> = {
   'new-feature': 'ALI_SMS_TEMPLATE_MARKETING_NEW_FEATURE',
   promo: 'ALI_SMS_TEMPLATE_MARKETING_PROMO',
 }

@@ -93,17 +93,4 @@ export interface RevertImpact {
   /** 会连带撤销的轮次数;null = 算不出来(消息未加载齐 / 无 checkpoint) */
   turnCount: number | null
 }
-
-/** 一次算清「恢复到本轮之前」到底会动什么(目标 checkpoint + 连带轮次) */
-export function resolveRevertImpact<
-  C extends { checkpoint_id: string; created_at: number },
-  M extends { role: string; createdAt?: number },
->(checkpoints: readonly C[], messageCreatedAt: number, messages: readonly M[]): RevertImpact {
-  const checkpoint = pickRevertCheckpoint(checkpoints, messageCreatedAt)
-  if (!checkpoint) return { checkpoint: null, turnCount: null }
-  return {
-    checkpoint: { checkpoint_id: checkpoint.checkpoint_id, created_at: checkpoint.created_at },
-    turnCount: countAffectedTurns(messages, checkpoint.created_at),
-  }
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
