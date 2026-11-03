@@ -6038,6 +6038,7 @@
     "status": {
       "present": "正常",
       "late": "遲到",
+      "early": "早退",
       "absent": "缺勤",
       "leave": "請假"
     },
@@ -6045,6 +6046,7 @@
     "actionDone": "操作成功",
     "actionFailed": "操作失敗",
     "needClassId": "缺少班級資訊，無法代簽到／簽退",
+    "onlyTodayCheckIn": "僅可為當日考勤代簽到：跨日回填需給出該日內時刻，本屏未提供",
     "batchTitle": "整班點名",
     "chooseClass": "選擇要點名的班級",
     "noClass": "目前清單沒有可選班級",

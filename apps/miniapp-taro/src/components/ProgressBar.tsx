@@ -40,16 +40,14 @@ export default function ProgressBar({
 
   return (
     <View className="w-full">
-      <View
-        className={`w-full bg-muted rounded-md overflow-hidden ${sizeMap[size]}`}
-      >
+      <View className={`w-full bg-muted rounded-md overflow-hidden ${sizeMap[size]}`}>
         <View
           className="rounded-md transition-all"
           style={{ width: `${clamped}%`, height: '100%', backgroundColor: color }}
         />
       </View>
       {showText && (
-        <Text className="block text-xs text-muted-foreground mt-1 text-right">
+        <Text className="block text-label text-muted-foreground mt-xs text-right">
           {Math.floor(clamped)}%
         </Text>
       )}

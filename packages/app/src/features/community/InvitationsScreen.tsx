@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginTop: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
     loginHint: { marginTop: rnSpacing.xl, fontSize: rnType.body.size, color: tk.text.secondary },
     scroll: { paddingTop: rnSpacing.md, paddingBottom: rnSpacing['2xl'] },

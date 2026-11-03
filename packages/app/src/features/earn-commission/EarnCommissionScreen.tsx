@@ -165,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     statsItem: { alignItems: 'center', gap: rnSpacing['xs-loose'] },
-    statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
+    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
     sectionCard: {
       backgroundColor: tk.surface.light,

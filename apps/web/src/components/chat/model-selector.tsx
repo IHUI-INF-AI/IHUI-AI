@@ -870,7 +870,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
             className="shrink-0 text-muted-foreground"
           />
           {loading ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <Loader2 className="model-selector-loading h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
             <span className="model-selector-text min-w-0 max-w-[6rem] truncate">
               {current ? (current.value === 'auto' ? t('modelAuto') : current.label) : value}

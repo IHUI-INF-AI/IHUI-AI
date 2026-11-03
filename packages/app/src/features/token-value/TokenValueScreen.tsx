@@ -226,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
     balanceLabel: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     balanceValue: {
       marginTop: rnSpacing.sm,
-      fontSize: 32,
+      fontSize: rnType.displayLg.size,
       fontWeight: '700',
       color: tk.brand.ctaForeground,
     },
