@@ -82,7 +82,10 @@
 //                        必须 < Alertmanager repeat_interval,否则重推会被误压成 8h)
 //   LOG_FILE             日志文件(默认 D:\DevEnv\logs\alert-webhook-bridge.log)
 //   STATE_FILE           去重状态文件(默认 D:\DevEnv\state\alert-bridge-state.json)
-//                        —— 未送达标记 UNDEL_FILE 落在其同目录,随其一起可重定向(沙箱用)
+//                        —— 未送达标记 UNDEL_FILE 落在其同目录,随其一起可重定向(沙箱用);
+//                        被重定向后台账也自动跟随该目录(见 IHUI_MAIL_SEND_LEDGER)
+//   IHUI_MAIL_SEND_LEDGER 派发器投递台账落点(覆盖项);不设时:STATE_FILE 为生产默认 ⇒
+//                        派发器写主仓默认台账;STATE_FILE 被指走 ⇒ 本桥自动注入同目录台账
 //   BRIDGE_MAIL_ENABLED  邮件通道开关(缺省=开;0/false/off/no 显式关闭)
 //   BRIDGE_MAIL_TO       收件人覆盖;**缺省不传 --to**,由派发器回读 apps/api/.env 的 ALERT_EMAIL_TO
 //   BRIDGE_MAIL_TIMEOUT_MS 派发器单次调用墙上时钟上限(默认 90000)
@@ -113,6 +116,8 @@ const { spawn } = require('child_process')
 // 日志来源锚点(唯一实现住在这个模块里:标签名与分区取值一律现读 promtail 的产出,
 // 本文件不得再写一份名单 —— 两处算同一件事必漂移)。
 const logAnchor = require('./log-source-anchor.js')
+// 台账落点判据(沙箱隔离):与 STATE_FILE 同目录跟随、显式 IHUI_MAIL_SEND_LEDGER 优先
+const { DEFAULT_STATE_FILE, resolveMailSendLedgerEnv, maskMailRecipient } = require('./mail-ledger-env.js')
 
 // ── 配置 ──────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.BRIDGE_PORT || '9096', 10)
@@ -137,13 +142,23 @@ const DEDUP_WINDOW_MIN = parseInt(process.env.BRIDGE_DEDUP_MIN || '230', 10)
  * 只压"恢复过的身份"⇒ 持续真故障的首次投递、以及窗口外的重报照旧即时,不会被一起静音。
  */
 const IDENTITY_HOLD_MS = (() => {
-  const rawMs = parseInt(String(process.env.BRIDGE_IDENTITY_HOLD_MS == null ? '' : process.env.BRIDGE_IDENTITY_HOLD_MS), 10)
+  const rawMs = parseInt(String(process.env.BRIDGE_IDENTITY_HOLD_MS ?? ''), 10)
   if (Number.isFinite(rawMs) && rawMs >= 0) return rawMs
-  const rawMin = parseInt(String(process.env.BRIDGE_IDENTITY_HOLD_MIN == null ? '' : process.env.BRIDGE_IDENTITY_HOLD_MIN), 10)
+  const rawMin = parseInt(String(process.env.BRIDGE_IDENTITY_HOLD_MIN ?? ''), 10)
   return Number.isFinite(rawMin) && rawMin >= 0 ? rawMin * 60 * 1000 : 24 * 60 * 60 * 1000
 })()
 const LOG_FILE = process.env.LOG_FILE || 'D:\\DevEnv\\logs\\alert-webhook-bridge.log'
-const STATE_FILE = process.env.STATE_FILE || 'D:\\DevEnv\\state\\alert-bridge-state.json'
+const STATE_FILE = process.env.STATE_FILE || DEFAULT_STATE_FILE
+/**
+ * 派发器台账的路由(2026-11-03)。品牌派发器把台账默认写死在主仓 `.ihui-agent/state/`,
+ * 与 STATE_FILE 无关 ⇒ 沙箱测试探针的 failed 行会写进生产台账。这里在 **spawn 之前**把
+ * IHUI_MAIL_SEND_LEDGER 注入本进程环境,子进程继承:
+ *   - 用户显式设置的值优先,绝不覆盖;
+ *   - STATE_FILE 为生产默认 ⇒ 不注入(生产路径一字不变);
+ *   - STATE_FILE 被沙箱指走 ⇒ 台账跟随其同目录。
+ */
+const LEDGER_ENV_OVERRIDE = resolveMailSendLedgerEnv(process.env, STATE_FILE)
+if (LEDGER_ENV_OVERRIDE) process.env.IHUI_MAIL_SEND_LEDGER = LEDGER_ENV_OVERRIDE
 /** 未送达标记:与 STATE_FILE 同目录(⇒ 沙箱把两者一起指进 .ihui-agent/tmp 即零线上污染) */
 const UNDEL_FILE = path.join(path.dirname(STATE_FILE), 'alert-bridge-mail-UNDELIVERED.json')
 
@@ -169,7 +184,7 @@ const MAIL_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.BRIDGE_MAIL_
 const MAIL_TIMEOUT_MS = parseInt(process.env.BRIDGE_MAIL_TIMEOUT_MS || '90000', 10)
 /** 非负整数环境量:非法/负数回落到默认值(配置写坏不得把重试退化成"立即轰炸"或"永不重试") */
 function envNonNegInt(name, fallback) {
-  const v = parseInt(String(process.env[name] == null ? '' : process.env[name]), 10)
+  const v = parseInt(String(process.env[name] ?? ''), 10)
   return Number.isFinite(v) && v >= 0 ? v : fallback
 }
 /**
@@ -187,6 +202,20 @@ const MAIL_RETRY_MAX_AGE_MS = 10 * 60 * 1000
 const RETRY_FILE = path.join(path.dirname(STATE_FILE), 'alert-bridge-mail-retry-pending.json')
 /** 空串 ⇒ 不传 --to,由派发器按 process.env → apps/api/.env 的 ALERT_EMAIL_TO 解析(不复制第二份收件人真相) */
 const MAIL_TO = String(process.env.BRIDGE_MAIL_TO || '').trim()
+/**
+ * 启动横幅的收件人身份(脱敏):显式 BRIDGE_MAIL_TO 优先;未设则看进程 env 的
+ * ALERT_EMAIL_TO(派发器还可能从 apps/api/.env 回读,桥上不复制第二份收件人真相)。
+ * 只打印掩码;绝不打印完整地址,更不打印任何 token。
+ */
+function bannerMailTo() {
+  const raw = MAIL_TO || String(process.env.ALERT_EMAIL_TO || '').trim()
+  if (!raw) return '(派发器回读 ALERT_EMAIL_TO)'
+  return raw
+    .split(',')
+    .map((s) => maskMailRecipient(s))
+    .filter(Boolean)
+    .join(',')
+}
 const MAIL_SOURCE = 'ihui-alertbridge'
 
 // ── 日志来源分流(G-472 告警侧)─────────────────────────────────────────────────
@@ -262,7 +291,7 @@ const CLOCK_SKEW_MS = 60 * 1000
 /** 解析 Alertmanager 配置里的 Go duration(4h/30m/45s)→ 毫秒;解析不了返回 null,
  *  自检据此判红而不是悄悄兜一个默认值(两边同值这件事必须由配置本身来证)。 */
 function parseGoDurationMs(text) {
-  const m = /^\s*(\d+)(h|m|s)\s*$/.exec(String(text == null ? '' : text))
+  const m = /^\s*(\d+)(h|m|s)\s*$/.exec(String(text ?? ''))
   if (!m) return null
   return Number(m[1]) * { h: 3600000, m: 60000, s: 1000 }[m[2]]
 }
@@ -409,7 +438,7 @@ function loadDedupState(file, store, nowMs = Date.now(), windowMs = MAX_DEDUP_AG
       holds.set(k, until)
       heldN += 1
     }
-  } else if (holds && s.holds != null && (typeof s.holds !== 'object' || Array.isArray(s.holds))) {
+  } else if (holds && s.holds !== null && s.holds !== undefined && (typeof s.holds !== 'object' || Array.isArray(s.holds))) {
     if (log) log('[state][WARN] holds 字段类型不对,已忽略(去重表照常载入)')
   }
   if (skipped && log) log(`[state][WARN] 状态文件有 ${skipped} 条时间戳非法(非数/非正/未来),已跳过;其余 ${n} 条正常载入`)
@@ -1044,7 +1073,7 @@ function statusDimension(alerts, queued, cleared) {
  * 24h 内"的 re-fire 一样被压住。`cleared` 恒为空表(保留字段只为调用点/日志口径稳定)。
  * 档本就不存在(从未投递)⇒ 不登记上限:那不是"恢复",是第一次故障,首封必须即时送达。
  */
-function applyResolvedClears(store, resolved, nowMs = Date.now(), holds = null, holdMs = IDENTITY_HOLD_MS) {
+function applyResolvedClears(store, resolved, _nowMs = Date.now(), holds = null, holdMs = IDENTITY_HOLD_MS) {
   const held = []
   const hold = Number.isFinite(Number(holdMs)) && Number(holdMs) >= 0 ? Number(holdMs) : IDENTITY_HOLD_MS
   for (const a of resolved || []) {
@@ -1215,7 +1244,7 @@ function usageText() {
     '                 失败必留未送达标记(零网络、零子进程、零投递),失败 exit 1',
     '  --mail-dry-run 只问品牌邮件派发器「通道是否齐备」(派发器 --dry-run 零网络请求),不启服务',
     '',
-    '环境变量: BRIDGE_PORT / BRIDGE_DEDUP_MIN / LOG_FILE / STATE_FILE',
+    '环境变量: BRIDGE_PORT / BRIDGE_DEDUP_MIN / LOG_FILE / STATE_FILE / IHUI_MAIL_SEND_LEDGER',
     '          / BRIDGE_MAIL_ENABLED(缺省=开) / BRIDGE_MAIL_TO / BRIDGE_MAIL_TIMEOUT_MS',
     '两个只读端点: GET /health(JSON,值守巡检读) / GET /metrics(Prometheus 抓取专用,只观测)',
     '邮件出口唯一实现: apps/api/scripts/notify-deploy-failure.ts(版式= renderSystemAlertEmail);',
@@ -1739,6 +1768,9 @@ function startServer() {
       writeLog(`[mail][WARN] 存在未送达标记 ${UNDEL_FILE} —— 此前有告警未能到人,处置后由下一次成功投递自动清除`)
     }
     writeLog(`alert-webhook-bridge 启动, 监听 127.0.0.1:${PORT}, 邮件通道 ${MAIL_ENABLED ? '开' : '关(BRIDGE_MAIL_ENABLED)'}, 去重窗口 ${DEDUP_WINDOW_MIN} 分钟(只按身份去重,无总量封顶), 载入去重条目 ${n === null ? 0 : n}${n === null ? '(状态文件缺失/损坏,按空态起算)' : ''}, 日志来源分流 ${anchor.ok ? `在跑(${anchor.label}=${anchor.self.join('|')} 只报不炸)` : '未判定(一条都不压,全部照旧到人 —— 见 LogSourceSplitBlind)'}`)
+    // 运行身份(脱敏):任何探针/演练都能从这一行归属到"哪份状态、哪份日志、寄给谁"。
+    // 只打掩码邮箱;token/授权码一字不出(§5d)。
+    writeLog(`运行身份: state=${STATE_FILE} log=${LOG_FILE} mailTo=${bannerMailTo()} mailEnabled=${MAIL_ENABLED}`)
   })
 }
 
