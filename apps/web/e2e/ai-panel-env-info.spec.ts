@@ -36,11 +36,45 @@ async function openHome(page: Page) {
 }
 
 /**
+ * 头部溢出菜单触发器(2026-11-04 信息架构重构)。
+ * 环境信息 / 打开终端 / 工作展示区折叠·展开 / 工作区全屏 / 浮窗最小化 / 向右拆分
+ * 全部从可见 header 收进这一枚 ⋯ 菜单,头部只留「标题 + ⋯」。
+ */
+function overflowTrigger(page: Page) {
+  return page.locator('[data-testid="ai-panel-overflow-trigger"]')
+}
+
+/** 头部溢出菜单容器(Radix DropdownMenu.Content,portal 到 body) */
+function overflowMenu(page: Page) {
+  return page.locator('[data-testid="ai-panel-overflow-menu"]')
+}
+
+/**
+ * 打开头部溢出菜单。
+ * 结构变化说明:菜单项是 Radix DropdownMenu.Item ⇒ role="menuitem"(不是带 aria-label 的
+ * button),原 `button[aria-label="环境信息"]` 等定位已不再命中,必须先展开菜单再定位菜单项。
+ */
+async function openOverflowMenu(page: Page) {
+  await overflowTrigger(page).click()
+  await expect(overflowMenu(page)).toBeVisible({ timeout: 10000 })
+}
+
+/**
+ * 按可见文案定位菜单项。
+ * 文案随状态变化(工作展示区:「打开工作展示区」/「关闭工作展示区」),用正则子串匹配覆盖两态。
+ */
+function headerMenuItem(page: Page, name: RegExp) {
+  return page.getByRole('menuitem', { name })
+}
+
+/**
  * 打开环境信息弹窗并等待数据分支确定。
  * @returns hasData=true 表示"有工作区且 git 状态已加载(changes/not-repo/error)"
  */
 async function openEnvPopover(page: Page): Promise<{ popover: Locator; hasData: boolean }> {
-  await page.locator('button[aria-label="环境信息"]').click()
+  // 2026-11-04 结构变化:环境信息入口由 header 可见按钮移进溢出菜单(role=menuitem)
+  await openOverflowMenu(page)
+  await headerMenuItem(page, /环境信息/).click()
 
   const popover = page.locator('[data-testid="env-info-popover"]')
   await expect(popover).toBeVisible({ timeout: 10000 })
@@ -89,20 +123,18 @@ test.describe('AI panel env-info (重构后)', () => {
   test('AI 面板 header 三按钮存在且可见', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
 
-    // 环境信息(SlidersHorizontal)→ 弹窗
-    await expect(authenticatedPage.locator('button[aria-label="环境信息"]')).toBeVisible({
-      timeout: 10000,
-    })
-    // 打开终端(SquareTerminal)→ 终端 dock
-    await expect(authenticatedPage.locator('button[aria-label="打开终端"]')).toBeVisible({
-      timeout: 10000,
-    })
+    // 2026-11-04 结构变化:三枚 header 按钮收进 ⋯ 溢出菜单,语义仍是「三个入口可达」,
+    // 故改为「打开菜单 → 三个 menuitem 各自可见」(仍是三条断言)。
+    await openOverflowMenu(authenticatedPage)
+
+    // 环境信息(SlidersHorizontal)→ 弹窗(菜单项文案「环境信息」)
+    await expect(headerMenuItem(authenticatedPage, /环境信息/)).toBeVisible({ timeout: 10000 })
+    // 打开终端(SquareTerminal)→ 终端 dock(菜单项文案「打开终端」)
+    await expect(headerMenuItem(authenticatedPage, /打开终端/)).toBeVisible({ timeout: 10000 })
     // 切换工作展示区(PanelRightRounded)→ WebWorkPanel toggle
     // 2026-09-14 校准:aria-label 已状态化为 打开/关闭工作展示区(不再是"切换"),
-    // 用子串匹配同时覆盖两态
-    await expect(authenticatedPage.locator('button[aria-label*="工作展示区"]')).toBeVisible({
-      timeout: 10000,
-    })
+    // 2026-11-04 起该按钮成为菜单项,文案同样状态化,用子串匹配同时覆盖两态
+    await expect(headerMenuItem(authenticatedPage, /工作展示区/)).toBeVisible({ timeout: 10000 })
   })
 
   test('环境信息按钮打开弹窗', async ({ authenticatedPage }) => {
@@ -117,12 +149,13 @@ test.describe('AI panel env-info (重构后)', () => {
     const titleText = await title.textContent()
     expect(titleText?.trim().length ?? 0).toBeGreaterThan(0)
 
-    // 关闭:优先 header 关闭按钮;若重构后无 close,用 header 三按钮再次点击 toggle
+    // 关闭:优先 header 关闭按钮;若重构后无 close,重新打开溢出菜单点同一项 toggle
     const closeBtn = popover.locator('[data-testid="env-info-close"]')
     if ((await closeBtn.count()) > 0) {
       await closeBtn.click()
     } else {
-      await authenticatedPage.locator('button[aria-label="环境信息"]').click()
+      await openOverflowMenu(authenticatedPage)
+      await headerMenuItem(authenticatedPage, /环境信息/).click()
     }
     await expect(popover).not.toBeVisible({ timeout: 10000 })
   })
@@ -202,9 +235,11 @@ test.describe('AI panel env-info (重构后)', () => {
     await openHome(authenticatedPage)
     const { popover, hasData } = await openEnvPopover(authenticatedPage)
 
+    // 2026-11-04 核对:这个 "+"(env-info-view-full)一直在环境信息弹窗自身的 header 里,
+    // 不属于 AI 面板 header;面板 header 的改动只影响 openEnvPopover 的到达路径,本段定位不变。
     const viewFullBtn = popover.locator('[data-testid="env-info-view-full"]')
     if ((await viewFullBtn.count()) === 0) {
-      test.skip(true, 'header 未提供完整详情按钮,跳过')
+      test.skip(true, '环境信息弹窗 header 未提供完整详情按钮,跳过')
       return
     }
     await viewFullBtn.click()
@@ -249,15 +284,18 @@ test.describe('AI panel env-info (重构后)', () => {
     })
 
     const workArea = authenticatedPage.locator('#work-area-portal-root')
-    // 2026-09-14 校准:按钮 aria-label 状态化为 打开/关闭工作展示区,用子串匹配
-    const wpBtn = authenticatedPage.locator('button[aria-label*="工作展示区"]')
-    await expect(wpBtn).toBeVisible({ timeout: 10000 })
+    // 2026-11-04 结构变化:工作展示区开关从 header 按钮移进 ⋯ 溢出菜单(role=menuitem),
+    // 文案状态化为 打开/关闭工作展示区;初始态必为展开 ⇒ 进入菜单后该项文案为「关闭工作展示区」。
+    await openOverflowMenu(authenticatedPage)
+    await expect(headerMenuItem(authenticatedPage, /关闭工作展示区/)).toBeVisible({
+      timeout: 10000,
+    })
 
     // 初始:work-area 可见
     await expect(workArea).toBeVisible({ timeout: 5000 })
 
     // 点击 → work-area 隐藏,AI 面板占满右侧(宽度增大到接近视口)
-    await wpBtn.click()
+    await headerMenuItem(authenticatedPage, /关闭工作展示区/).click()
     await expect(workArea).not.toBeVisible({ timeout: 5000 })
     await expect
       .poll(
@@ -271,7 +309,9 @@ test.describe('AI panel env-info (重构后)', () => {
       .toBeGreaterThan(800) // 面板从默认 380 扩到占满(视口 1280+)
 
     // 再点 → 恢复:work-area 可见,AI 面板回默认宽度
-    await wpBtn.click()
+    // 菜单项在选中后已随菜单关闭,重开菜单;此时文案变为「打开工作展示区」
+    await openOverflowMenu(authenticatedPage)
+    await headerMenuItem(authenticatedPage, /打开工作展示区/).click()
     await expect(workArea).toBeVisible({ timeout: 5000 })
     await expect
       .poll(
@@ -288,16 +328,20 @@ test.describe('AI panel env-info (重构后)', () => {
   test('终端按钮展开/收起底部终端停靠面板', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
 
-    const termBtn = authenticatedPage.locator('button[aria-label="打开终端"]')
-    await expect(termBtn).toBeVisible({ timeout: 10000 })
+    // 2026-11-04 结构变化:终端入口从 header 按钮移进 ⋯ 溢出菜单(role=menuitem);
+    // 文案「打开终端」不随开关状态变化,两态复用同一菜单项。
+    await openOverflowMenu(authenticatedPage)
+    const termItem = headerMenuItem(authenticatedPage, /打开终端/)
+    await expect(termItem).toBeVisible({ timeout: 10000 })
 
     // 点击展开 dock:只断言容器出现,不断言内部内容(登录态依赖)
-    await termBtn.click()
+    await termItem.click()
     const dock = authenticatedPage.locator('[data-testid="ai-terminal-dock"]')
     await expect(dock).toBeVisible({ timeout: 10000 })
 
-    // 再次点击终端按钮 → 收起
-    await termBtn.click()
+    // 再次点击终端菜单项 → 收起(选中后菜单已关闭,需重开菜单)
+    await openOverflowMenu(authenticatedPage)
+    await termItem.click()
     await expect(dock).not.toBeVisible({ timeout: 10000 })
   })
 
