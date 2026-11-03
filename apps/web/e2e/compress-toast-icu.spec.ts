@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { expect, setupTest } from './fixtures'
+import type { Page } from '@playwright/test'
 import { attachErrorGuards, filterRealErrors } from '../tests/e2e/fixtures/helpers'
 
 /**
@@ -47,7 +48,7 @@ const COMPRESS_BTN_200K_PATTERN = /压缩到\s*20\s*万字符|Compress to 200K c
 const COMPRESS_DESC_DIGIT_PATTERN = /\d+/
 
 /** 等待 chat 页面就绪 + ContextUsageRing trigger 可见(ICU 变量插值未报错) */
-async function waitForChatWithTrigger(page: import('@playwright/test').Page): Promise<boolean> {
+async function waitForChatWithTrigger(page: Page): Promise<boolean> {
   await page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' }).catch(() => null)
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   // middleware 拦截 / 后端不可用时可能跳走,允许降级

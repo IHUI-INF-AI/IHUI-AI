@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 /**
  * 侧边栏 / 顶栏 icon + 文字垂直对齐守门测试 (2026-07-19 立)
@@ -59,7 +59,7 @@ const DELTA_THRESHOLD_PX = 0.15 // 14px 字号下肉眼可识别阈值(7%=1px)�
  * @returns delta = textInkMidY - iconMidY (px) + expectedOffset(设计校正量,px)
  */
 async function measureAlignment(
-  page: import('@playwright/test').Page,
+  page: Page,
   rootSelector: string,
 ): Promise<{
   iconMidY: number
@@ -133,7 +133,7 @@ async function measureAlignment(
  * nav 可视区上缘,紧贴上一个分组头,偶发 pointer events 被拦截(actionability 超时)。
  * 修复:主动把 nav.scrollTop 调整到元素顶部位于 nav 顶 + 48px(分组头高度之下)。
  */
-async function scrollIntoNavSafeSpot(page: import('@playwright/test').Page, selector: string) {
+async function scrollIntoNavSafeSpot(page: Page, selector: string) {
   await page.evaluate((sel) => {
     const el = document.querySelector(sel)
     const nav = el?.closest('nav')
