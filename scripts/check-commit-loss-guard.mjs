@@ -715,6 +715,64 @@ function parseTreeSubjectIndex(stdout) {
 }
 
 /**
+ * 「树 \t 题」键集 → **可达树集**(纯函数,派生自同一份 `git log --all` 读数,不二次派生 git)。
+ *
+ * 用途:门 30a 的同内容残留分档(2026-11-03 补细)。键集里每行形如 `<40位树>\t<题>`,
+ * 树 hash 长度固定,取 `\t` 前那段即树。取不到索引时由调用方传空集 ⇒ 该档不生效(fail-safe 朝红)。
+ */
+function reachableTreeSet(keys) {
+  const trees = new Set()
+  for (const k of keys ?? []) {
+    const t = k.indexOf('\t')
+    if (t > 0) trees.add(k.slice(0, t))
+  }
+  return trees
+}
+
+/**
+ * 同内容残留三档(纯函数,2026-11-03 立;门 30a 判据补细的唯一实现)。
+ *
+ * 立因:2026-11-03 实测门 30a 报「悬空 commit 未备份」时,存量 8 枚里 0 枚是真丢失 ——
+ * 7 枚已被 `lost-commit/auto-*` 打签(见 `backup-unreachable-commits.mjs`),剩 1 枚
+ * (`31bfb9a335c2`,rn-tiers 落档被 amend 换下来的旧对象)的 **tree 与 HEAD 逐字同**
+ * (`a8b7049e4005`),只是当时**题也恰好同**,才被 ③(树+题)放行。题被 rebase/amend 改过一字,
+ * 同一枚"内容一字节没丢"的对象就会判红 —— 这是判据侧的一格假阳,不是真风险。
+ * 故把「放行」拆成两档并**各自点名**:
+ *   ① `sameContent`  树+题同时与可达历史逐字同(原 ③,判据不变);
+ *   ② `treeEquivalent` 树与可达提交逐字同、题不同 ⇒ 内容整体已入库,仅提交身份/题未入库;
+ *      gc 吃掉它不丢任何**文件内容**(丢的是一句 commit message,属元数据,不属工作)。
+ *
+ * 两档都不 blocking,但都**不静默**(调用方必须逐档报数点名);`remaining` 才是待处置。
+ * 索引取不到(reachableKeys 为空 / treeByCommit 无该项)⇒ 一律落 `remaining`(朝红 fail-safe)。
+ */
+function splitReachableSameContent({
+  candidates = [],
+  treeByCommit = new Map(),
+  subjectByHash = new Map(),
+  reachableKeys = new Set(),
+  reachableTrees = new Set(),
+} = {}) {
+  const sameContent = []
+  const treeEquivalent = []
+  const remaining = []
+  for (const c of candidates) {
+    const tree = treeByCommit.get(c)
+    const subject = subjectByHash.get(c)
+    if (tree && subject && reachableKeys.has(`${tree}\t${subject}`)) {
+      sameContent.push(c)
+      continue
+    }
+    // 树等价只认"树确实在可达提交里":tree 映射取不到 ⇒ 不得按等价放行
+    if (tree && reachableTrees.has(tree)) {
+      treeEquivalent.push(c)
+      continue
+    }
+    remaining.push(c)
+  }
+  return { sameContent, treeEquivalent, remaining }
+}
+
+/**
  * 一批 commit oid → `[{hash, unixSeconds}]`(**纯函数**,不派生 git)。
  *
  * 输入是 `git log --no-walk --format=%H%x09%ct` 的 stdout。两件事必须记住:
@@ -1658,7 +1716,7 @@ async function main() {
     // `git log --all` 的 (树,题) 键集两元同时相等;索引取不到(log 派生失败/空读数)
     // ⇒ 白名单整体失效,维持 blocking(fail-safe 朝红,绝不朝绿)。
     // 白名单放行**不静默**:逐条点名打在 stdout(见下方 whitelistedSameContent 打印)。
-    const { unbacked, whitelistedSameContent, subjectByHash } = (() => {
+    const { unbacked, whitelistedSameContent, treeEquivalentResidual, subjectByHash } = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
       // ① subject 内嵌原 hash 匹配(stash-like 指向已备份 base)
       // 2026-10-30:原为 BATCH=50 的 argv 分批 ⇒ 本仓 15,947 枚候选 = 220 次派生 ≈ **109 秒**,
@@ -1673,8 +1731,9 @@ async function main() {
         survivors.push(c)
       }
       const whitelistedSameContent = []
+      const treeEquivalentResidual = []
       if (survivors.length === 0)
-        return { unbacked: survivors, whitelistedSameContent, subjectByHash }
+        return { unbacked: survivors, whitelistedSameContent, treeEquivalentResidual, subjectByHash }
       // ② tree 等价放行(stash WIP/index commit 树与 base 恒等)
       const treeByCommit = new Map()
       try {
@@ -1703,18 +1762,21 @@ async function main() {
           reachableKeys = null
         }
         if (reachableKeys && reachableKeys.size > 0) {
-          rest = rest.filter((c) => {
-            const tree = treeByCommit.get(c)
-            const subject = subjectByHash.get(c)
-            if (tree && subject && reachableKeys.has(`${tree}\t${subject}`)) {
-              whitelistedSameContent.push(c)
-              return false
-            }
-            return true
+          // ③ 的两种同内容残留(树+题逐字同 / 仅树逐字同)由纯函数分档,见
+          // splitReachableSameContent 头注:后者同样"内容整体已入库",不得判红。
+          const split = splitReachableSameContent({
+            candidates: rest,
+            treeByCommit,
+            subjectByHash,
+            reachableKeys,
+            reachableTrees: reachableTreeSet(reachableKeys),
           })
+          rest = split.remaining
+          whitelistedSameContent.push(...split.sameContent)
+          treeEquivalentResidual.push(...split.treeEquivalent)
         }
       }
-      return { unbacked: rest, whitelistedSameContent, subjectByHash }
+      return { unbacked: rest, whitelistedSameContent, treeEquivalentResidual, subjectByHash }
     })()
     if (whitelistedSameContent.length > 0) {
       console.log(
@@ -1726,6 +1788,29 @@ async function main() {
           `  ${C.dim}   ↳ 放行:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
         )
       }
+    }
+    // 等价残留(树与可达提交逐字同、题不同):内容整体已入库,只有提交身份/题未入库。
+    // 与上面 ③ 一视同仁**不判红**,但必须点名报数 —— 静默放行会让"确实有对象滞留"这件事
+    // 从账面上消失(与 30c 静默放行同一型教训)。
+    if (treeEquivalentResidual.length > 0) {
+      console.log(
+        `  ${C.dim}↳ 等价残留 ${treeEquivalentResidual.length} 个(树与可达提交逐字同、题不同:内容未丢,仅提交身份未入库,非丢失风险):${C.reset}`,
+      )
+      for (const c of treeEquivalentResidual.slice(0, 10)) {
+        const subj = subjectByHash.get(c) || ''
+        console.log(
+          `  ${C.dim}   ↳ 等价:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+        )
+      }
+    }
+    if (unreachable.length > 0) {
+      // 三档出处一览(2026-11-03 判据补细):已备份 / 同内容副本 / 等价残留 / 待处置。
+      // 逐档报数是为了让"门绿了"仍能读出存量里有几枚对象滞留、各是什么出处。
+      const backedOut = unreachable.length - whitelistedSameContent.length - treeEquivalentResidual.length - unbacked.length
+      console.log(
+        `  ${C.dim}↳ 悬空分档:已备份 ${backedOut} / 同内容副本 ${whitelistedSameContent.length}` +
+          ` / 等价残留 ${treeEquivalentResidual.length} / 待处置 ${unbacked.length}${C.reset}`,
+      )
     }
     if (unbacked.length > 0) {
       // ── 时间窗量纲(2026-10-11 立,缘由与三条不许漂的写法见 WINDOW_DAYS_* 头注)──
@@ -1813,7 +1898,15 @@ async function main() {
             `(§29 人工 GC 存量,默认档只报数;问责 --strict / 全量 --window-days 0)`,
         )
       } else if (unreachable.length > 0) {
-        issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
+        // 全部有出处时的措辞按档分流:纯 tag 备份那档保留原句(dangling-commit-autotag
+        // 认档吃这句);含等价残留时点名,避免把"内容已入库、只是提交身份没入库"
+        // 读成"tag 备份了"。分档明细另有一行恒打印(见上方「悬空分档」)。
+        issues.push(
+          treeEquivalentResidual.length === 0
+            ? `${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`
+            : `${unreachable.length} 个悬空 commit 已全部有出处(已备份 / 同内容副本 / 等价残留 ${treeEquivalentResidual.length});` +
+              `等价残留的树与可达提交逐字同,内容未丢,仅提交身份未入库`,
+        )
       }
       // `--list-out-of-window`:超窗那一批的机器可读名单(每行一枚完整 oid,与 --list-unbacked 同形,
       // 所以调用方一份解析器就够)。加它的理由不是补功能,而是补一个**结构空档**:超窗存量按设计
@@ -2004,6 +2097,9 @@ export const __test__ = {
   UNREACHABLE_COMMIT_LINE_RE,
   parseUnreachableCommitLines,
   parseTreeSubjectIndex,
+  // 同内容残留分档(2026-11-03):树+题逐字同 / 仅树逐字同 / 待处置
+  reachableTreeSet,
+  splitReachableSameContent,
   // 时间窗量纲(2026-10-11):判据、取值、派生出口三者都必须可被测试直接消费,
   // 免得镜像那边再抄一份"cutoff = now - days*86400"的算术 —— 抄的那份不与源同步。
   WINDOW_DAYS_DEFAULT,
