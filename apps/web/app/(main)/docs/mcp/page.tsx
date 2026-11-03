@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
@@ -41,23 +42,25 @@ const mcpJsonLd = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: 'MCP 工具集成 — 智汇 AI 全栈 AI 操作系统',
-  description:
-    'Model Context Protocol 原生支持。100+ 预置 MCP Server(GitHub/Slack/Notion/数据库/文件系统),自定义 Server 开发 SDK(TypeScript/Python),企业内部系统集成最佳实践。',
-  alternates: {
-    canonical: '/docs/mcp',
-    // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
-    languages: {
-      'x-default': '/docs/mcp',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('docs')
+  return {
+    title: t('meta.mcp.title'),
+    description: t('meta.mcp.description'),
+    alternates: {
+      canonical: '/docs/mcp',
+      // hreflang 死链已删(2026-11-02 实测):/zh-cn /zh-tw /ko /ja 目录与 /en 子页均 404,只留 canonical + x-default
+      languages: {
+        'x-default': '/docs/mcp',
+      },
     },
-  },
-  openGraph: {
-    title: 'MCP 工具集成 — 智汇 AI',
-    description: 'Anthropic MCP 协议原生支持,100+ 预置 Server + 自定义开发。',
-    url: `${SITE_URL}/docs/mcp`,
-    type: 'article',
-  },
+    openGraph: {
+      title: t('meta.mcp.title'),
+      description: t('meta.mcp.description'),
+      url: `${SITE_URL}/docs/mcp`,
+      type: 'article',
+    },
+  }
 }
 
 export default function McpDocsPage() {
